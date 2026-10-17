@@ -1,5 +1,5 @@
 /* [INPUT]: A Codex projection, transient reading state, guarded actions and a surface header slot.
- * [OUTPUT]: Shared outline/next content inside an isolated mount, preserving DOM and preview reading.
+ * [OUTPUT]: Shared outline/next content inside an isolated mount, preserving DOM, quick-prompt drafts and preview reading.
  * [POS]: Mount adapter; feature modules own content and gestures, containers own arrangement.
  * [PROTOCOL]: Keep AGENTS.md in this module in sync. */
 import { useLayoutEffect, useRef } from 'react';
@@ -17,8 +17,13 @@ export function ProjectedContent({
   disabled,
   command,
   headerActions,
+  saveQuickPrompts,
 }: {
   headerActions?: HTMLElement;
+  saveQuickPrompts?: (
+    items: { label: string; prompt: string }[],
+    revision: number,
+  ) => Promise<PanelSnapshot['settings']>;
   id: 'outline' | 'next';
   snapshot: PanelSnapshot;
   reading: Reading;
@@ -28,13 +33,17 @@ export function ProjectedContent({
   const root = useRef<HTMLDivElement>(null);
   const releaseScroll = useRef<() => void>(() => {});
   const rendered = useRef<string | null>(null);
-  const latest = useRef({ snapshot, disabled, command });
-  latest.current = { snapshot, disabled, command };
+  const latest = useRef({ snapshot, disabled, command, saveQuickPrompts });
+  latest.current = { snapshot, disabled, command, saveQuickPrompts };
   const next = useRef<ReturnType<typeof createNextView> | null>(null);
   if (!next.current)
     next.current = createNextView({
       read: () => latest.current.snapshot,
       reading,
+      saveQuickPrompts: saveQuickPrompts
+        ? (items: { label: string; prompt: string }[], revision: number) =>
+            latest.current.saveQuickPrompts!(items, revision)
+        : undefined,
       changed: () => {
         const scroll = root.current?.querySelector('.csw-prompt-preview-scroll');
         if (scroll) writeWorkbenchScroll(scroll, reading.previewTop || 0);
@@ -88,6 +97,7 @@ export function ProjectedContent({
     node
       .querySelectorAll<HTMLButtonElement>('button')
       .forEach((button) => (button.disabled = disabled));
+    if (id === 'next') next.current?.setDisabled(disabled);
     if (id === 'outline') alignOutlineNestedText(node);
   }, [contentKey, html, disabled, id, reading]);
   useLayoutEffect(

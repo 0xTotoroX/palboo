@@ -459,8 +459,8 @@
   color: var(--buddy-text);
   background: color-mix(in srgb, var(--buddy-surface) 92%, var(--buddy-text));
   box-shadow:
-    inset 2px 2px 5px color-mix(in srgb, var(--buddy-surface) 60%, black),
-    inset -1px -1px 2px color-mix(in srgb, var(--buddy-surface) 80%, white);
+    inset 1px 1px 3px color-mix(in srgb, var(--buddy-surface) 82%, black),
+    inset -1px -1px 1px color-mix(in srgb, var(--buddy-surface) 92%, white);
   text-align: left;
   cursor: pointer;
   transition:

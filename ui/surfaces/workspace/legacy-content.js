@@ -1,5 +1,5 @@
 /* [INPUT]: Legacy runtime state and shared feature content.
- * [OUTPUT]: Legacy view signatures backed by the same feature renderers.
+ * [OUTPUT]: Legacy views share feature renderers and revision-checked quick-prompt settings saves.
  * [POS]: Compatibility only; remove after legacy panel leases/configuration are retired.
  * [PROTOCOL]: Keep workspace/AGENTS.md in sync. */
 import {
@@ -11,6 +11,7 @@ import { API_KEY } from '../../shared/constants.js';
 import { createNextView } from '../../features/next/view.js';
 import {
   shellState,
+  bridgeCall,
   runtimeState,
   outlineState,
   stepwiseState,
@@ -18,6 +19,7 @@ import {
 } from '../../codex/runtime/state.js';
 import { outlineJumpTo, outlineJumpToAnchor } from '../../codex/outline.js';
 import { fillComposer } from '../../codex/next.js';
+import { syncSettings } from '../../codex/runtime/settings-sync.js';
 import { emitSignal } from '../../codex/runtime/signals.js';
 import { syncContentFade } from '../embedded/shell/geometry.js';
 const reading = {
@@ -37,6 +39,14 @@ const next = createNextView({
     promptToken: JSON.stringify(stepwiseState.prompts),
   }),
   reading,
+  saveQuickPrompts: async (quickPrompts, expectedRevision) => {
+    const result = await bridgeCall('/settings/set', { quickPrompts, expectedRevision });
+    if (result?.error) throw Error(result.error);
+    const settings = result?.settings || result;
+    if (!Number.isFinite(settings?.configurationRevision)) throw Error('未收到保存确认，请重试');
+    await syncSettings(settings);
+    return settings;
+  },
   dragSnapshot: () => shellState.remoteSource || window[API_KEY]?.exportPanelState(),
   command: (kind, data) => {
     const item =

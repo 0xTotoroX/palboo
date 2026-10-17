@@ -1,5 +1,5 @@
 // [INPUT]: CDP binding 事件、App 设置与模型服务。
-// [OUTPUT]: 桌面请求分发、角色分明的最近一问一答快照及完整性标记、建议 items 转换及结果回送；生成请求不套用普通设置的字节上限。
+// [OUTPUT]: 桌面请求分发、受限快捷指令编辑、角色分明的最近一问一答快照及完整性标记、建议 items 转换及结果回送；生成请求不套用普通设置的字节上限。
 // [POS]: renderer 与独立后台的受限操作边界，生成前后校验上下文。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
@@ -102,6 +102,11 @@ pub(crate) async fn dispatch(
         }
         "/stepwise/settings" => Ok(json!({"settings":app.settings().await})),
         "/settings/set" => {
+            if request.payload.get("quickPrompts").is_some() {
+                return Ok(
+                    json!({"status":"ok","settings":app.save_quick_prompts(request.payload.clone()).await?}),
+                );
+            }
             let value = request.payload["generationMode"]
                 .as_str()
                 .context("缺少生成模式")?;

@@ -1,5 +1,5 @@
 // [INPUT]: Fixed feature identities, authenticated UI requests and existing business services.
-// [OUTPUT]: One main placement, checked layouts/view handoff and owner-guarded model display preferences.
+// [OUTPUT]: One main placement, checked layouts/view handoff and owner-guarded model preferences and quick-prompt settings edits.
 // [POS]: Presentation lifecycle only; business validation remains in tasks/codex/model_control.
 // [PROTOCOL]: Keep src/AGENTS.md in sync.
 use crate::{
@@ -674,6 +674,9 @@ impl App {
                     }
                 };
                 ensure!(enabled, "功能已停用，请先在设置中开启");
+                if id == "next" && input["action"] == "quick-prompts" {
+                    return Box::pin(self.save_quick_prompts(data)).await;
+                }
                 let kind = data["kind"].as_str().unwrap_or("");
                 ensure!(
                     if id == "outline" {
@@ -1215,6 +1218,32 @@ mod tests {
         app.tasks.close_window().await;
         open(&app, "board").await;
     }
+    #[tokio::test]
+    async fn quick_prompt_editor_checks_owner_revision_and_scope() {
+        let (_dir, app) = app().await;
+        let owner = open(&app, "next").await;
+        let before = app.settings().await;
+        let data = json!({"quickPrompts":[{"label":"解释","prompt":"解释刚才的概念"}],"expectedRevision":before["configurationRevision"]});
+        assert!(app.feature_request(json!({"op":"action","id":"next","owner":"stale-owner","action":"quick-prompts","data":data})).await.is_err());
+        for bad in [
+            json!({"quickPrompts":[]}),
+            json!({"quickPrompts":[],"expectedRevision":before["configurationRevision"],"model":"other"}),
+        ] {
+            assert!(app.save_quick_prompts(bad).await.is_err());
+        }
+        let saved = app.feature_request(json!({"op":"action","id":"next","owner":owner,"action":"quick-prompts","data":data})).await.unwrap();
+        assert_eq!(saved["quickPrompts"][0]["prompt"], "解释刚才的概念");
+        assert_eq!(saved["generationRevision"], before["generationRevision"]);
+        assert_eq!(saved["model"], before["model"]);
+        assert!(app.feature_request(json!({"op":"action","id":"next","owner":owner,"action":"quick-prompts","data":data})).await.is_err());
+        assert_eq!(
+            app.paths.load().unwrap().stepwise.quick_prompts[0].label,
+            "解释"
+        );
+        app.model.write().await.options.enabled = false;
+        assert!(app.feature_request(json!({"op":"action","id":"next","owner":owner,"action":"quick-prompts","data":{"quickPrompts":[],"expectedRevision":saved["configurationRevision"]}})).await.is_err());
+    }
+
     #[tokio::test]
     async fn disabled_features_reject_actions_and_keep_view_state() {
         let (_dir, app) = app().await;

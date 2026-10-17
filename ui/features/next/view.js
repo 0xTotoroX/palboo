@@ -1,7 +1,8 @@
 /* [INPUT]: Suggestion projection, display preferences and guarded action callback.
- * [OUTPUT]: List/preview with native guarded copy-drag, leading turn arrows and hover/focus; quick prompts share suggestion single/double-click rules.
+ * [OUTPUT]: List/preview with native guarded copy-drag, leading turn arrows and hover/focus; quick prompts share suggestion single/double-click rules and guarded inline management.
  * [POS]: Content interaction only; generation and input validation stay in Codex/backend services.
  * [PROTOCOL]: Keep features/next/AGENTS.md in sync. */
+import { createQuickPrompts } from './quick-prompts.js';
 import { bindNextDrag } from './drag.js';
 import { escapeAttr, escapeHtml, normalizeText, clamp } from '../../shared/text.js';
 import {
@@ -15,6 +16,7 @@ export function createNextView({
   reading,
   command,
   dragSnapshot = read,
+  saveQuickPrompts,
   changed = () => {},
 }) {
   let dragCleanups = [];
@@ -52,14 +54,18 @@ export function createNextView({
     return null;
   }
 
+  const quickPrompts = createQuickPrompts({
+    read,
+    reading,
+    save: saveQuickPrompts,
+    beforeEdit: clearClickTimers,
+    rendered: (root) => {
+      attachPromptEvents(root);
+      changed();
+    },
+  });
   function nextHtml() {
-    const buttons = (read().settings?.quickPrompts || [])
-      .map(
-        (item, index) =>
-          `<button type="button" class="csw-quick-prompt" data-quick-prompt="${index}">${escapeHtml(item.label)}</button>`,
-      )
-      .join('');
-    return `<div class="csw-next-content">${buttons ? `<div class="csw-quick-prompts" aria-label="常用提示词">${buttons}</div>` : ''}${nextSuggestionsHtml()}</div>`;
+    return `<div class="csw-next-content">${quickPrompts.html()}${nextSuggestionsHtml()}</div>`;
   }
 
   function nextSuggestionsHtml() {
@@ -134,13 +140,22 @@ export function createNextView({
 
   function attachNextEvents(root) {
     container = root;
+    quickPrompts.bind(root);
+    attachPromptEvents(root);
+  }
+
+  function attachPromptEvents(root) {
     root.querySelectorAll('[data-quick-prompt], .csw-row').forEach((button) => {
       const quick = button.hasAttribute('data-quick-prompt');
       const select = (detail) => {
         const submit = promptClickSubmits(detail);
         if (quick) {
           const index = Number(button.dataset.quickPrompt);
-          if (read().settings?.quickPrompts?.[index]?.prompt)
+          const item = quickPrompts.state().items[index];
+          if (
+            item?.prompt &&
+            JSON.stringify(item) === JSON.stringify(read().settings?.quickPrompts?.[index])
+          )
             command('quick-fill', { index, submit });
         } else {
           showPromptPreview(button, true);
@@ -175,6 +190,7 @@ export function createNextView({
   }
 
   function clearPromptInteractionTimers() {
+    quickPrompts.clear();
     for (const cleanup of dragCleanups) cleanup();
     dragCleanups = [];
     clearClickTimers();
@@ -284,5 +300,6 @@ export function createNextView({
     key: contentKey,
     bind: attachNextEvents,
     clear: clearPromptInteractionTimers,
+    setDisabled: quickPrompts.setDisabled,
   };
 }

@@ -17,3 +17,5 @@
 - `terminology.tsx`：第五功能的术语积木、当前聊天/收藏/已掌握过滤，点击积木锚定共用贴字浮层，复用当前聊天只读字体/缩放快照；动作复用 owner 校验，默认点击只选择术语；jumpOnClick 开启时额外发送带术语编号和当前 context 的 locate 操作，错误沿用容器反馈，不写主聊天。
 
 terminology 内容字号继承共享 feature-session；独立窗口中的点击浮卡直接消费后台 appearance 字体快照，不能用独立窗口默认字体代替宿主。
+
+下一步的快捷指令由next/quick-prompts管理展示和临时草稿；content通过owner保护的quick-prompts action保存列表及expectedRevision，projected只适配回调与禁用状态。更新回读只合并当前投影的设置，不恢复旧聊天快照。

@@ -1,5 +1,5 @@
 /* [INPUT]: Feature identity, business envelope, guarded transport, reading state and optional header slot.
- * [OUTPUT]: The five feature views and their business command adapters, without window policy.
+ * [OUTPUT]: The five feature views and guarded business adapters, including revision-checked quick-prompt saves.
  * [POS]: Fixed feature composition; persistence and validation remain in existing services.
  * [PROTOCOL]: Keep AGENTS.md in this module in sync. */
 import { useCallback, useRef } from 'react';
@@ -39,6 +39,8 @@ export function FeatureContent({
   operation: FeatureOperation;
   update: (value: FeatureData) => void;
 }) {
+  const latestValue = useRef(value);
+  latestValue.current = value;
   const execute = useRef(operation);
   execute.current = operation;
   const taskRequest: TaskRequest = useCallback(
@@ -142,6 +144,29 @@ export function FeatureContent({
           snapshot.association?.available === false
         }
         command={command}
+        saveQuickPrompts={
+          id === 'next'
+            ? async (quickPrompts, expectedRevision) => {
+                const result = await operation(
+                  () =>
+                    call<PanelSnapshot['settings']>('action', {
+                      action: 'quick-prompts',
+                      data: { quickPrompts, expectedRevision },
+                    }),
+                  true,
+                );
+                if (!result) throw Error('功能正在交接，请稍后重试');
+                const current = latestValue.current;
+                const projected = current?.snapshot as PanelSnapshot | undefined;
+                if (
+                  projected &&
+                  projected.settings.configurationRevision <= result.configurationRevision
+                )
+                  update({ ...current, snapshot: { ...projected, settings: result } });
+                return result;
+              }
+            : undefined
+        }
       />
     </>
   );

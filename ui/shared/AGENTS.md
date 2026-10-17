@@ -37,3 +37,5 @@ features.ts 增加 terms、默认14px字号与术语筛选/选择阅读状态，
 AppearanceSettings 增加可选 settingsTheme（codex/light/dark/null），只控制设置页，旧后台缺省兼容浏览器偏好；功能显示名调整不改变 FeatureId。
 
 - `next-drag.js`：推荐复制拖放的 MIME 与纯身份载荷（实例、视图、聊天、建议版本、条目索引）；不包含正文、不持久化。
+
+Reading.quickPromptDraft/quickPromptEditing/quickPromptSaved保存快捷指令编辑与确认结果，供窗口交接和内容重绘保留草稿；不写业务配置，提交仍带原configurationRevision。

@@ -1,10 +1,10 @@
 // [INPUT]: App、有效模型配置与私有配置/密钥文件。
-// [OUTPUT]: 三种方向来源/库/位置/Jev 设置与独立密钥保存、并发保存版本与有效生成版本。
+// [OUTPUT]: 三种方向来源/库/位置/Jev 设置与独立密钥保存、并发保存版本与有效生成版本；快捷指令编辑只接受列表和必填修订号。
 // [POS]: 设置事务边界；共享连接和各功能请求分域取消；无关大纲开关与常用提示词修改不取消生成；maxInputChars=0 表示完整最近一问一答，旧正数上限保留。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
 use crate::{model::Model, state::App};
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
@@ -386,6 +386,22 @@ impl App {
             "environmentOverrides": model.environment_overrides(),
         }).as_object().unwrap().clone());
         value
+    }
+
+    pub async fn save_quick_prompts(&self, data: Value) -> Result<Value> {
+        let fields = data.as_object().context("快捷指令参数无效")?;
+        anyhow::ensure!(
+            fields
+                .keys()
+                .all(|key| ["quickPrompts", "expectedRevision"].contains(&key.as_str())),
+            "此视图只能修改快捷指令"
+        );
+        anyhow::ensure!(
+            data["expectedRevision"].as_u64().is_some(),
+            "缺少设置修订号"
+        );
+        anyhow::ensure!(data["quickPrompts"].is_array(), "快捷指令列表无效");
+        self.save_settings(serde_json::from_value(data)?).await
     }
 
     pub async fn save_settings(&self, patch: Update) -> Result<Value> {

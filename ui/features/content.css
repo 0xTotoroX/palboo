@@ -475,8 +475,8 @@
   color: var(--csw-text);
   background: color-mix(in srgb, var(--quick-paper) 92%, var(--csw-text));
   box-shadow:
-    inset 2px 2px 5px color-mix(in srgb, var(--quick-paper) 60%, black),
-    inset -1px -1px 2px color-mix(in srgb, var(--quick-paper) 80%, white);
+    inset 1px 1px 3px color-mix(in srgb, var(--quick-paper) 82%, black),
+    inset -1px -1px 1px color-mix(in srgb, var(--quick-paper) 92%, white);
   border: 0;
   border-radius: 18px;
   min-height: max(28px, calc(1.4em + 10px));
@@ -712,4 +712,114 @@
 .csw-row[data-dragging='true'] {
   opacity: 0.45;
   cursor: grabbing;
+}
+
+/* 快捷指令管理沿用模型预设的独立图标按钮，只在编辑时展开表单。 */
+.csw-quick-tag {
+  position: relative;
+  max-width: 100%;
+  min-width: 0;
+}
+.csw-quick-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.csw-quick-action {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  padding: 5px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--csw-muted);
+  cursor: pointer;
+}
+.csw-quick-action svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+}
+.csw-quick-action:hover,
+.csw-quick-action[aria-pressed='true'] {
+  color: var(--csw-text);
+  background: var(--csw-hover);
+}
+.csw-quick-action:focus-visible {
+  outline: 1px solid var(--csw-muted);
+  outline-offset: 2px;
+}
+.csw-quick-prompts[data-editing='true'] .csw-quick-tag {
+  padding-top: 10px;
+}
+.csw-quick-prompts[data-editing='true'] .csw-quick-prompt {
+  padding-left: 26px;
+}
+.csw-quick-tag > .csw-quick-action {
+  position: absolute;
+  top: 0;
+  left: -6px;
+  border-radius: 50%;
+  background: var(--csw-surface-opaque);
+}
+.csw-quick-editor {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 12px;
+  border-radius: 10px;
+  color: var(--csw-text);
+  background: var(--csw-hover);
+}
+.csw-quick-editor label {
+  display: grid;
+  gap: 6px;
+  font-size: 0.9em;
+}
+.csw-quick-editor input,
+.csw-quick-editor textarea {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  font: inherit;
+  color: inherit;
+  padding: 8px 10px;
+  border: 1px solid var(--csw-divider);
+  border-radius: 6px;
+  background: var(--csw-surface-opaque);
+}
+.csw-quick-editor textarea {
+  resize: vertical;
+}
+.csw-quick-editor p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.csw-quick-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.csw-quick-editor-actions button {
+  font: inherit;
+  min-height: 28px;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 6px;
+  color: inherit;
+  background: var(--csw-surface-opaque);
+  cursor: pointer;
+}
+.csw-quick-area :disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.csw-quick-feedback:not([hidden]) {
+  margin-bottom: 12px;
+  color: var(--csw-text);
+  font-size: 0.9em;
+  overflow-wrap: anywhere;
 }

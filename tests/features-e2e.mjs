@@ -304,6 +304,57 @@ try {
       'all four features share edge, disabling model preserves board, edge round trip retains draft and rejects stale owner',
     );
   }
+  // Both legacy bridge and shared feature editor save only quick prompts.
+  let quickSettings = await api('settings');
+  const legacySaved = await page.evaluate(
+    (settings) =>
+      window.__companionDesktopRequest('/settings/set', {
+        quickPrompts: [
+          { label: '继续', prompt: '继续' },
+          { label: '执行', prompt: '执行' },
+        ],
+        expectedRevision: settings.configurationRevision,
+      }),
+    quickSettings,
+  );
+  assert.equal(legacySaved.settings.quickPrompts.length, 2);
+  assert.equal(legacySaved.settings.generationRevision, quickSettings.generationRevision);
+  const staleQuick = await page.evaluate(
+    (settings) =>
+      window.__companionDesktopRequest('/settings/set', {
+        quickPrompts: [],
+        expectedRevision: settings.configurationRevision,
+      }),
+    quickSettings,
+  );
+  assert.ok(staleQuick.error);
+  quickSettings = await api('settings', { enabled: true, generationMode: 'manual' });
+  await wait(async () => {
+    const e = await entry('next');
+    return e.open && !e.pending;
+  }, 'next enabled before moving');
+  await api('features', { op: 'move', id: 'next', placement: 'sidebar' });
+  await wait(async () => {
+    const e = await entry('next');
+    return e.open && !e.pending && e.placement === 'sidebar';
+  }, 'next editor ready');
+  await page.locator('.csw-feature-panes [data-pane-tab="next"]').click();
+  const nextView = page.locator('[data-feature="next"]');
+  await nextView.getByRole('button', { name: '添加快捷指令', exact: true }).click();
+  await nextView.getByLabel('快捷指令名称', { exact: true }).fill('检查');
+  await nextView.getByLabel('快捷指令内容', { exact: true }).fill('检查当前方案');
+  await nextView.getByRole('button', { name: '保存', exact: true }).click();
+  await nextView.getByRole('button', { name: '检查', exact: true }).waitFor();
+  const quickSaved = await api('settings');
+  assert.equal(quickSaved.quickPrompts[2].prompt, '检查当前方案');
+  assert.equal(quickSaved.generationRevision, quickSettings.generationRevision);
+  assert.equal(
+    JSON.parse(readFileSync(join(directory, 'config.json'), 'utf8')).stepwise.quickPrompts[2].label,
+    '检查',
+  );
+  record(
+    'quick prompt editor and legacy bridge persist guarded changes without invalidating suggestions',
+  );
   await page.screenshot({ path: join(output, 'independent-surfaces.png') });
   await api('disconnect', {});
   const current = await entry('board');
