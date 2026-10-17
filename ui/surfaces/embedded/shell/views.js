@@ -114,7 +114,7 @@ import { renderWorkbench } from '../../workspace/legacy.js';
 function viewTabHtml(view) {
   const isNext = view === 'next';
   const active = shellState.activeTab === view;
-  return `<button class="csw-icon" type="button" data-view="${view}" data-reorderable="true" data-active="${active}" role="tab" aria-selected="${active}" aria-label="${isNext ? '下一步建议' : '回答大纲'}">${iconSvg(isNext ? 'next' : 'outline')}</button>`;
+  return `<button class="csw-icon" type="button" data-view="${view}" data-reorderable="true" data-active="${active}" role="tab" aria-selected="${active}" aria-label="${isNext ? '下一步' : '回答大纲'}">${iconSvg(isNext ? 'next' : 'outline')}</button>`;
 }
 
 function sourceTrackHtml(
@@ -480,7 +480,7 @@ function installFloat() {
   shellState.panel.id = POPOVER_ID;
   shellState.panel.className = 'csw-panel';
   shellState.panel.setAttribute('role', 'dialog');
-  shellState.panel.setAttribute('aria-label', '下一步建议与回答大纲');
+  shellState.panel.setAttribute('aria-label', '下一步与回答大纲');
   shellState.panel.setAttribute('aria-hidden', 'true');
   shellState.panel.inert = true;
 

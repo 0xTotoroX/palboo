@@ -163,6 +163,7 @@ function requestBridgeStepwise(
 ) {
   if (
     !stepwiseEnabled() ||
+    chatBusy() ||
     !key ||
     stepwiseState.bridgePendingHash === key ||
     stepwiseState.bridgeCache.has(key)

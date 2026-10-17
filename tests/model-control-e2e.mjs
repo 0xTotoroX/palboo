@@ -592,7 +592,7 @@ try {
     async () => (await request('features', { op: 'state' })).body.mainPlacement === 'overlay',
     'one main placement saved',
   );
-  for (const name of ['大纲', '看板', '下一步建议', '模型切换']) {
+  for (const name of ['大纲', '看板', '下一步', '模型切换']) {
     const placement = settingsPage.getByLabel(`${name}默认位置`, { exact: true });
     await placement.locator('option[value="overlay"]').waitFor({ state: 'attached' });
     assert.deepEqual(

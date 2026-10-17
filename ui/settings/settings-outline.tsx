@@ -7,7 +7,7 @@ import { closeSettingsDrawers, revealSettingsDrawer } from './settings-drawer';
 export const pageTitles = {
   performance: '性能与开关',
   features: '常用开关',
-  next: '下一步建议',
+  next: '下一步',
   prompts: '常用提示词',
   terminology: '术语释义',
   board: '任务看板',

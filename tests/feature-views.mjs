@@ -902,7 +902,7 @@ try {
   );
   for (const [id, name, label, kind] of [
     ['outline', '大纲', '刷新大纲', 'outline-refresh'],
-    ['next', '下一步建议', '重新生成建议', 'generate'],
+    ['next', '下一步', '重新生成建议', 'generate'],
   ]) {
     const button = page.getByRole('button', { name: label, exact: true });
     await button.waitFor();
@@ -1121,7 +1121,7 @@ try {
   };
   await dragTab('看板', '.csw-feature-panes > section', 'bottom');
   const topBefore = await page.locator('.csw-feature-panes > section').first().boundingBox();
-  await dragTab('下一步建议', '[data-pane="board"]', 'right');
+  await dragTab('下一步', '[data-pane="board"]', 'right');
   assert.equal(await page.locator('.csw-feature-panes .csw-workbench-pane:visible').count(), 3);
   assert.equal(await page.locator('.csw-feature-split').count(), 1);
   const upper = await page.locator('[data-pane="outline"]').boundingBox();
@@ -1146,7 +1146,7 @@ try {
   await outer.focus();
   await outer.press('ArrowDown');
   assert.ok(Number(await outer.getAttribute('aria-valuenow')) > 50);
-  await page.getByRole('tab', { name: '下一步建议', exact: true }).dblclick();
+  await page.getByRole('tab', { name: '下一步', exact: true }).dblclick();
   assert.equal(await page.locator('.csw-feature-panes .csw-workbench-pane:visible').count(), 1);
   assert.equal(await page.getByRole('separator', { name: '调整分栏比例' }).count(), 0);
   await page.keyboard.press('Escape');
@@ -1175,7 +1175,7 @@ try {
   await page.waitForFunction(
     () => document.querySelector('.csw-feature-split')?.dataset.axis === 'horizontal',
   );
-  await dragTab('下一步建议', '[data-pane="board"]', 'merge');
+  await dragTab('下一步', '[data-pane="board"]', 'merge');
   assert.equal(
     await page.locator('.csw-feature-split').count(),
     0,
@@ -1191,7 +1191,7 @@ try {
   await page.goto('http://127.0.0.1:47991/feature.html?surface=edge#token=fixture');
   for (const [id, name, label] of [
     ['outline', '大纲', '刷新大纲'],
-    ['next', '下一步建议', '重新生成建议'],
+    ['next', '下一步', '重新生成建议'],
   ]) {
     await page
       .locator('#edge-panel > header nav')

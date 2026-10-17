@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 宿主 DOM、上下文状态和基础可见性工具。
- * [OUTPUT]: 宿主交互目标记录、工作台跟随/锁定策略、稳定聊天身份重绑与来源可用性、唯一可见主聊天身份；限定容器内的输入目标、完整相邻问答及上下文变更通知。
+ * [OUTPUT]: 宿主交互目标记录、工作台跟随/锁定策略、稳定聊天身份重绑与来源可用性、唯一可见主聊天身份；限定容器内的输入目标、包含关联输入区的忙碌状态、完整相邻问答及上下文变更通知。
  * [POS]: 宿主读取边界，不修改 Stepwise 或大纲的内部状态。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -736,7 +736,7 @@ function sendButtonLabel(label) {
 }
 
 function stopButtonLabel(label) {
-  return /^(stop|停止)$/i.test(label);
+  return /^(stop(?: generating| generation| response)?|停止(?:生成|回答|响应)?)$/i.test(label);
 }
 
 function iconPathData(node) {
@@ -822,11 +822,10 @@ function chatBusy() {
   const root = chatRoot();
   if (!root) return false;
 
-  return Array.from(root.querySelectorAll("button,[role='button']")).some((node) => {
-    if (!visibleElement(node)) return false;
-    const label = normalizeText(node.getAttribute('aria-label') || node.textContent || '');
-    return /^(停止|stop)$/i.test(label);
-  });
+  // The composer can be a sibling of the transcript. Keep the scope tied to this chat.
+  return Array.from(composerScope(root).querySelectorAll("button,[role='button']")).some(
+    (node) => !ignoredComposerContainer(node, root) && visibleElement(node) && stopButton(node),
+  );
 }
 
 function setScanStatus(status, details = {}) {

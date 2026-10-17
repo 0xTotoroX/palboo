@@ -528,7 +528,7 @@ export function independentFeatureCases({ mode, syncSettings }) {
           .getByRole('button', { name: '重新生成建议', exact: true })
           .boundingBox();
         const nextTabBox = await page
-          .getByRole('tab', { name: '下一步建议', exact: true })
+          .getByRole('tab', { name: '下一步', exact: true })
           .boundingBox();
         assert.ok(
           Math.abs(

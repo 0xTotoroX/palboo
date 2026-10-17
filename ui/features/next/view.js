@@ -88,7 +88,7 @@ export function createNextView({
     const previewItem = read().prompts[previewIndex];
     reading.selected = previewIndex;
     return `<div class="csw-next-layout">
-      <div class="csw-list" data-label-only="${read().display?.labelOnly ?? true}" aria-label="下一步建议">${read()
+      <div class="csw-list" data-label-only="${read().display?.labelOnly ?? true}" aria-label="下一步">${read()
         .prompts.map(
           (item, index) => `
         <button class="csw-row" type="button" data-index="${index}" data-preview-active="${index === previewIndex}" aria-current="${index === previewIndex ? 'true' : 'false'}">

@@ -77,6 +77,115 @@ export function chatBindingCases({
 }) {
   return [
     [
+      'next hover dims only other rows and clears on exit',
+      async (page) => {
+        await mode(page, true);
+        await defer(page);
+        await page.evaluate(() =>
+          window.__companionDesktop.complete(window.workbenchFixture.deferred[0].id, {
+            items: [0, 1, 2].map((index) => ({
+              label: `方案 ${index}`,
+              prompt: `合成完整内容 ${index}`,
+              summary: `说明 ${index}`,
+            })),
+          }),
+        );
+        const rows = page.locator('.csw-row');
+        await page.waitForFunction(() => document.querySelectorAll('.csw-row').length === 3);
+        const styles = () =>
+          rows.evaluateAll((nodes) =>
+            nodes.map((node) => ({
+              opacity: Number(getComputedStyle(node).opacity),
+              arrow: getComputedStyle(node.querySelector('.csw-row-arrow')).color,
+              label: getComputedStyle(node.querySelector('.csw-row-label')).color,
+            })),
+          );
+        await page.mouse.move(5, 5);
+        assert.ok((await styles()).every((row) => row.opacity === 1 && row.arrow === row.label));
+        await rows.nth(1).hover();
+        await page.waitForFunction(
+          () => document.querySelector('.csw-prompt-preview')?.dataset.previewIndex === '1',
+        );
+        assert.deepEqual(
+          (await styles()).map((row) => row.opacity),
+          [0.45, 1, 0.45],
+        );
+        await page.mouse.move(5, 5);
+        assert.ok((await styles()).every((row) => row.opacity === 1 && row.arrow === row.label));
+        assert.equal(
+          await page.locator('.csw-prompt-preview').getAttribute('data-preview-index'),
+          '1',
+          'reading selection persists without dimming',
+        );
+        assert.equal(await page.locator('.csw-list').getAttribute('aria-label'), '下一步');
+        await page.emulateMedia({ reducedMotion: 'no-preference' });
+        await rows.nth(2).hover();
+        await page.waitForTimeout(200);
+        assert.deepEqual(
+          (await styles()).map((row) => row.opacity),
+          [0.45, 0.45, 1],
+        );
+        await page.mouse.move(5, 5);
+        await page.waitForTimeout(200);
+        assert.ok((await styles()).every((row) => row.opacity === 1));
+      },
+    ],
+    ...['Stop', 'Stop generating', '停止生成', 'icon'].map((stopLabel) => [
+      `next auto waits for sibling composer completion: ${stopLabel}`,
+      async (page) => {
+        await mode(page, true);
+        await page.evaluate(async (stopLabel) => {
+          window.workbenchFixture.deferred = [];
+          const stop = document.createElement('button');
+          stop.id = 'fixture-generation-stop';
+          stop.type = 'button';
+          if (stopLabel === 'icon') {
+            stop.innerHTML =
+              '<svg width="20" height="20"><path d="M5.75 4.5H14.25C14.9404 4.5 15.5 5.05964 15.5 5.75V14.25C15.5 14.9404 14.9404 15.5 14.25 15.5Z"/></svg>';
+          } else {
+            stop.setAttribute('aria-label', stopLabel);
+            stop.textContent = stopLabel;
+          }
+          document.querySelector('#composer-form').append(stop);
+          const patch = { generationMode: 'auto' };
+          Object.assign(window.workbenchFixture.settings, patch);
+          await window.__companionFloatingPanel.syncSettings(patch);
+          window.__companionFloatingPanel.scan();
+        }, stopLabel);
+        await page.waitForFunction(() => window.__companionFloatingPanel.state.scanBusy);
+        await page.waitForTimeout(2800);
+        assert.equal(
+          await page.evaluate(() => window.workbenchFixture.deferred.length),
+          0,
+          'stable interim text must not trigger a model request',
+        );
+        // An unrelated chat's stop control must not keep this chat busy.
+        await page.evaluate(() => {
+          const other = document.createElement('section');
+          other.innerHTML =
+            '<div class="thread-scroll-container" data-thread-id="unrelated"><button aria-label="Stop">Stop</button></div>';
+          other.style.cssText = 'position:fixed;left:0;top:0;width:80px;height:40px';
+          document.body.append(other);
+        });
+        // Finish without changing the transcript: the stop control can disappear on its own.
+        await page.locator('#fixture-generation-stop').evaluate((node) => node.remove());
+        await page.waitForFunction(() => window.workbenchFixture.deferred.length === 1);
+        await complete(page, 0, '完成后生成');
+        await page.waitForFunction(
+          () => window.__companionFloatingPanel.state.prompts.length === 1,
+        );
+        await page.evaluate(() => {
+          for (let index = 0; index < 5; index++) window.__companionFloatingPanel.scan();
+        });
+        await page.waitForTimeout(1600);
+        assert.equal(
+          await page.evaluate(() => window.workbenchFixture.deferred.length),
+          1,
+          'unchanged completed context is cached',
+        );
+      },
+    ]),
+    [
       'next drag copies once, preserves drafts and rejects stale or invalid drops',
       async (page) => {
         await mode(page, true);

@@ -410,7 +410,7 @@ try {
     };
     for (const [id, name] of [
       ['outline', '大纲'],
-      ['next', '下一步建议'],
+      ['next', '下一步'],
       ['board', '看板'],
       ['model', '模型切换'],
     ]) {

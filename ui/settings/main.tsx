@@ -160,7 +160,7 @@ function App() {
                 </div>
                 <div data-settings-page="next" hidden={!common && page !== 'next'}>
                   <FeatureSwitch
-                    name="下一步建议"
+                    name="下一步"
                     checked={editor.form?.enabled ?? false}
                     disabled={!live || !editor.form}
                     onChange={(v) => editor.change('enabled', v)}

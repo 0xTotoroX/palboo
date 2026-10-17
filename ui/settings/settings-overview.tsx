@@ -231,7 +231,7 @@ export function SettingsOverview({
       <section className="overview-surface" aria-label="下一步配置">
         <div className="overview-hero">
           <div className="overview-identity">
-            <h2>下一步建议</h2>
+            <h2>下一步</h2>
             <strong>
               <a href="#settings-model">{settings.model || '未配置模型'}</a>
             </strong>
