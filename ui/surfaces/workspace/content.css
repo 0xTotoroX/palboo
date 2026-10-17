@@ -1,4 +1,4 @@
-/* [INPUT]: Shared feature and board DOM. [OUTPUT]: Quiet responsive surfaces.
+/* [INPUT]: Shared feature and board DOM. [OUTPUT]: Quiet responsive surfaces and opaque edge dialogs inside native visible bounds.
  * [POS]: Shadow-isolated presentation. [PROTOCOL]: Keep AGENTS.md in this module in sync. */
 :host {
   --paper: #fafafa;
@@ -190,4 +190,27 @@ input:focus-visible {
 
 .feature-view [data-refresh='model'] {
   --feature-refresh-opacity: 1;
+}
+
+/* Native edge viewport includes transparent space outside the visible panel. */
+:host([data-placement='edge']) .board-app .task-details {
+  inset: auto;
+  left: var(--edge-view-x, 0px);
+  top: var(--edge-view-y, 0px);
+  width: var(--edge-view-width, 100vw);
+  height: var(--edge-view-height, 100dvh);
+  max-width: none;
+  max-height: none;
+  background: var(--paper);
+  border: 0;
+}
+:host([data-placement='edge']) .task-details::backdrop {
+  background: transparent;
+}
+:host([data-placement='edge']) .task-details footer {
+  position: sticky;
+  bottom: -24px;
+  padding-block: 12px;
+  background: var(--paper);
+  z-index: 1;
 }

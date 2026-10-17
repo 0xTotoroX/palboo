@@ -258,3 +258,5 @@ launcher-face 回归覆盖眼睛入口单击、双击、Enter/Space 与逐一点
 `quick-prompts-editor.test.mjs`：真实下一步编辑器的添加/修改/确认删除、重挂载保留草稿、异步失败和并发冲突、空列表添加及编辑零误发送；features Rust用例验证owner、功能开关、修订、字段范围和持久化。
 
 `model-usage.test.mjs`覆盖真实时长映射、周单窗、codex桶、缺失/过期值、限频/共享读取、超时/账号切换/停用回收；model-groups检查额度位于铅笔左侧且垂直居中、开关只保存对应偏好。workbench-binding检查推荐拖入与末尾换行的实际行距，无额外空段且不发送。`settings-open.test.mjs`与settings-browser/bridge-requests覆盖短超时重试、并发共享、可见错误、旧输入框、节点重建、Enter未处理、身份变化与取消；成功只确认地址提交。
+
+- `edge-tabs.test.mjs`：真实贴边壳与功能挂载的合成浏览器验收，覆盖鼠标拖动/键盘排序、重开选择恢复、串行写入、失败/冲突、暂时隐藏功能及未保存草稿保留；检查看板多列、四材质详情不透明且位于原生可见矩形、矮屏保存可达。Rust surfaces 测试覆盖旧配置缺省、合法列表、并发拒绝、冷启动及其他偏好保留。

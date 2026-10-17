@@ -90,6 +90,8 @@ try {
   const actions = [];
   const settingsRequests = [];
   const layouts = {};
+  let edgeTabs = { order: [], selected: '' },
+    edgeTabsRevision = 1;
   let pinned = false;
   let surfaceTheme = 'matte';
   let rejectHandoff = true;
@@ -145,7 +147,12 @@ try {
     if (url.pathname === '/api/features') {
       const p = route.request().postDataJSON();
       let value;
-      if (p.op === 'main-window') value = { valid: true, alwaysOnTop: pinned };
+      if (p.op === 'edge-tabs') {
+        assert.deepEqual(p.expected, edgeTabs);
+        edgeTabs = p.tabs;
+        edgeTabsRevision++;
+        value = { edgeTabs, edgeTabsRevision };
+      } else if (p.op === 'main-window') value = { valid: true, alwaysOnTop: pinned };
       else if (p.op === 'settings') {
         settingsRequests.push(p);
         value = { ok: true };
@@ -219,6 +226,8 @@ try {
         }
         value = {
           layouts,
+          edgeTabs,
+          edgeTabsRevision,
           features: entries,
           mainPlacement: 'desktop',
           returnPlacement: 'sidebar',

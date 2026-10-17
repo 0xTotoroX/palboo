@@ -1,5 +1,5 @@
 // [INPUT]: Presentation preferences, native window leases and existing host appearance.
-// [OUTPUT]: Independent per-surface themes, current feature fonts, optional host window bounds and one shared edge/notch container.
+// [OUTPUT]: Independent per-surface themes, persisted edge tab order/selection, current feature fonts, optional host window bounds and one shared edge/notch container.
 // [POS]: Presentation only; owns no task, model or outline business state.
 // [PROTOCOL]: Keep src/AGENTS.md in sync.
 use crate::{
@@ -47,11 +47,34 @@ impl Default for Edge {
         }
     }
 }
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
+pub struct EdgeTabs {
+    pub order: Vec<String>,
+    pub selected: String,
+}
+impl EdgeTabs {
+    fn validate(&self) -> Result<()> {
+        let mut seen = std::collections::BTreeSet::new();
+        ensure!(
+            self.order
+                .iter()
+                .all(|id| crate::features::IDS.contains(&id.as_str()) && seen.insert(id)),
+            "贴边标签顺序无效"
+        );
+        ensure!(
+            self.selected.is_empty() || crate::features::IDS.contains(&self.selected.as_str()),
+            "贴边标签无效"
+        );
+        Ok(())
+    }
+}
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 pub struct Preferences {
     pub themes: BTreeMap<String, Theme>,
     pub edge: Edge,
+    pub edge_tabs: EdgeTabs,
 }
 impl Default for Preferences {
     fn default() -> Self {
@@ -69,11 +92,13 @@ impl Default for Preferences {
                 })
                 .collect(),
             edge: Edge::default(),
+            edge_tabs: EdgeTabs::default(),
         }
     }
 }
 impl Preferences {
     fn validate(&self) -> Result<()> {
+        self.edge_tabs.validate()?;
         ensure!(
             self.themes.len() == 4 && PLACEMENTS.iter().all(|p| self.themes.contains_key(*p)),
             "呈现形式无效"
@@ -234,6 +259,26 @@ impl Surfaces {
     }
 }
 impl App {
+    pub async fn save_edge_tabs(&self, input: Value) -> Result<Value> {
+        let next: EdgeTabs = serde_json::from_value(input["tabs"].clone())?;
+        let expected: EdgeTabs = serde_json::from_value(input["expected"].clone())?;
+        next.validate()?;
+        let mut s = self.surfaces.lock().await;
+        ensure!(s.error.is_none(), "{}", s.error.as_deref().unwrap_or(""));
+        ensure!(
+            s.preferences.edge_tabs == expected,
+            "贴边标签已在其他窗口更新，请重试"
+        );
+        let mut preferences = s.preferences.clone();
+        preferences.edge_tabs = next;
+        write_private(
+            &self.paths.root.join("surfaces.json"),
+            &serde_json::to_vec_pretty(&preferences)?,
+        )?;
+        s.preferences = preferences;
+        s.revision += 1;
+        Ok(json!({"edgeTabs":s.preferences.edge_tabs,"edgeTabsRevision":s.revision}))
+    }
     pub async fn surface_appearance(&self, placement: &str) -> Value {
         let theme = self.surfaces.lock().await.theme(placement);
         let view = self.view();
@@ -315,6 +360,69 @@ impl App {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[tokio::test]
+    async fn edge_tabs_preserve_preferences_reject_conflicts_and_restore_on_restart() {
+        let temp = tempfile::tempdir().unwrap();
+        let paths = Paths::new(Some(temp.path().into())).unwrap();
+        let app = App::new(paths.clone(), Default::default(), None, false);
+        let before = app.surface_request(json!({"op":"state"})).await.unwrap();
+        let empty = json!({"order":[],"selected":""});
+        let tabs = json!({"order":["model","board"],"selected":"model"});
+        let result = app
+            .feature_request(json!({"op":"edge-tabs","tabs":tabs,"expected":empty}))
+            .await
+            .unwrap();
+        assert_eq!(result["edgeTabs"], tabs);
+        for bad in [
+            json!({"order":["model","model"],"selected":"model"}),
+            json!({"order":["unknown"],"selected":""}),
+            json!({"order":[],"selected":"unknown"}),
+        ] {
+            assert!(
+                app.save_edge_tabs(json!({"tabs":bad,"expected":tabs}))
+                    .await
+                    .is_err()
+            );
+        }
+        assert!(
+            app.save_edge_tabs(json!({"tabs":empty,"expected":empty}))
+                .await
+                .is_err()
+        );
+        let after = app.surface_request(json!({"op":"state"})).await.unwrap();
+        assert_eq!(
+            before["preferences"]["themes"],
+            after["preferences"]["themes"]
+        );
+        assert_eq!(before["preferences"]["edge"], after["preferences"]["edge"]);
+        app.surface_request(
+            json!({"op":"save","revision":after["revision"],"edge":{"position":0.7}}),
+        )
+        .await
+        .unwrap();
+        assert_eq!(app.feature_state().await["edgeTabs"], tabs);
+        let restored = Surfaces::load(&paths);
+        assert_eq!(
+            serde_json::to_value(restored.preferences.edge_tabs).unwrap(),
+            tabs
+        );
+        assert_eq!(restored.preferences.edge.position, 0.7);
+        // A pre-upgrade surfaces file loads without resetting its other preferences.
+        let mut legacy = before["preferences"].clone();
+        legacy.as_object_mut().unwrap().remove("edgeTabs");
+        write_private(
+            &paths.root.join("surfaces.json"),
+            &serde_json::to_vec(&legacy).unwrap(),
+        )
+        .unwrap();
+        let old = Surfaces::load(&paths);
+        assert_eq!(old.preferences.edge_tabs, EdgeTabs::default());
+        assert_eq!(
+            serde_json::to_value(old.preferences.themes).unwrap(),
+            before["preferences"]["themes"]
+        );
+    }
+
     #[tokio::test]
     async fn legacy_model_migrates_visual_fields_once_and_preserves_business() {
         let temp = tempfile::tempdir().unwrap();

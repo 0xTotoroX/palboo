@@ -39,3 +39,5 @@ AppearanceSettings 增加可选 settingsTheme（codex/light/dark/null），只�
 - `next-drag.js`：推荐复制拖放的 MIME 与纯身份载荷（实例、视图、聊天、建议版本、条目索引）；不包含正文、不持久化。
 
 Reading.quickPromptDraft/quickPromptEditing/quickPromptSaved保存快捷指令编辑与确认结果，供窗口交接和内容重绘保留草稿；不写业务配置，提交仍带原configurationRevision。
+
+FeatureState.edgeTabs/edgeTabsRevision 提供贴边标签顺序和选择的确认快照；EdgeTabs 不属于临时业务 Reading，也不影响功能优先级。

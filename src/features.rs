@@ -1,5 +1,5 @@
 // [INPUT]: Fixed feature identities, authenticated UI requests and existing business services.
-// [OUTPUT]: One main placement, checked layouts/view handoff and owner-guarded model preferences and quick-prompt settings edits.
+// [OUTPUT]: Persisted edge navigation, one main placement, checked layouts/view handoff and owner-guarded model preferences and quick-prompt settings edits.
 // [POS]: Presentation lifecycle only; business validation remains in tasks/codex/model_control.
 // [PROTOCOL]: Keep src/AGENTS.md in sync.
 use crate::{
@@ -194,7 +194,10 @@ impl App {
         let mut state = self.features.lock().await.snapshot();
         let view = self.view();
         state["legacyLayouts"] = json!({"sidebar":view.panel_preferences.ui.dock_layout,"overlay":view.panel_preferences.ui.dock_layout,"desktop":view.panel_preferences.ui.popout_layout});
-        state["appearance"] = json!({"theme":view.panel_theme,"fontSize":view.panel_font_base,"typography":view.panel_typography,"typographyPreferences":view.panel_preferences.typography,"colors":view.panel_colors,"themes":self.surfaces.lock().await.preferences.themes});
+        let surfaces = self.surfaces.lock().await;
+        state["edgeTabs"] = json!(surfaces.preferences.edge_tabs);
+        state["edgeTabsRevision"] = json!(surfaces.revision);
+        state["appearance"] = json!({"theme":view.panel_theme,"fontSize":view.panel_font_base,"typography":view.panel_typography,"typographyPreferences":view.panel_preferences.typography,"colors":view.panel_colors,"themes":surfaces.preferences.themes});
         state
     }
     pub(crate) async fn task_command(&self, command: Value) -> Result<Value> {
@@ -264,6 +267,9 @@ impl App {
         let op = input["op"].as_str().unwrap_or("state");
         if op == "state" {
             return Ok(self.feature_state().await);
+        }
+        if op == "edge-tabs" {
+            return self.save_edge_tabs(input).await;
         }
         if op == "main-placement" {
             ensure!(!self.appearance().await.detached, "请先收回旧工作台");

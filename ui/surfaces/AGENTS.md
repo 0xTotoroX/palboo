@@ -16,3 +16,5 @@ ui/codex/runtime/lifecycle.js 仍是浏览器注入的集成入口。Rust src/fe
 带 legacy 名称的模块仅接续尚可到达的旧配置、窗口租约与 CLI 入口。它们复用当前功能内容；退出条件见 workspace 与 desktop 地图。
 
 [PROTOCOL]: 结构、职责或接口变化时更新本文；父级描述受影响时同步父级地图。
+
+贴边标签的顺序和最后选中项独立保存到 surfaces.json，不使用主界面布局或业务优先级；主界面原布局不变。贴边可见内容边界提供给任务详情定位与尺寸测量。

@@ -1,8 +1,9 @@
-/* [INPUT]: Native edge geometry/events and feature owners. [OUTPUT]: Tabbed edge shell with per-view header slots.
+/* [INPUT]: Native edge geometry/events and feature owners. [OUTPUT]: Persisted reorderable edge tabs, bounded dialogs and per-view header slots.
  * [POS]: Keeps mounted views alive while collapsed or in another tab; no business state.
  * [PROTOCOL]: Keep AGENTS.md in this module in sync. */
+import { createEdgeTabs } from './tabs';
 import { mountFeature } from '../workspace/mount';
-import { titles, type FeatureState, type Request } from '../../shared/features';
+import { type FeatureState, type Request } from '../../shared/features';
 import { typographyStyle, layoutZoom } from '../../shared/typography';
 import { surfaceStyle } from '../theme/appearance';
 import styles from './styles.css?inline';
@@ -28,8 +29,7 @@ export function startEdge(request: Request) {
       reveal: number;
     }
   >();
-  let selected = '',
-    running = false,
+  let running = false,
     stopped = false,
     expanded = false,
     inside = false,
@@ -40,6 +40,18 @@ export function startEdge(request: Request) {
     leave = 0,
     measureFrame = 0,
     measured = '';
+  const navigation = createEdgeTabs(
+    tabs,
+    request,
+    () => {
+      visibility();
+      measure();
+    },
+    (message) => {
+      error.textContent = message;
+      error.hidden = !message;
+    },
+  );
   const ipc = (value: object) => window.ipc?.postMessage(JSON.stringify(value));
   const measure = () => {
     if (stopped || measureFrame || native.animating) return;
@@ -47,7 +59,7 @@ export function startEdge(request: Request) {
       measureFrame = 0;
       if (native.animating) return;
       const item = [...mounts.values()].find(
-        ({ id, node }) => id === selected && node.dataset.active === 'true',
+        ({ id, node }) => id === navigation.selected() && node.dataset.active === 'true',
       );
       const size = item?.mount.measure();
       if (!size) return;
@@ -83,21 +95,40 @@ export function startEdge(request: Request) {
   function scheduleCollapse() {
     clearTimeout(leave);
     leave = window.setTimeout(() => {
-      if (!inside && expanded && !buttons && !native.keepOpen && !native.keyboard && !held())
+      if (
+        !inside &&
+        expanded &&
+        !buttons &&
+        !native.keepOpen &&
+        !native.keyboard &&
+        !tabs.dataset.dragging &&
+        !held()
+      )
         collapse();
     }, 450);
   }
   function visibility() {
     for (const item of mounts.values()) {
-      item.node.hidden = item.id !== selected;
+      item.node.hidden = item.id !== navigation.selected();
       item.headerActions.hidden = item.node.hidden || item.node.dataset.active !== 'true';
       item.node.inert =
         !expanded ||
-        item.id !== selected ||
+        item.id !== navigation.selected() ||
         document.documentElement.dataset.buddyReloading === 'true';
       item.headerActions.inert = item.node.inert;
     }
     panel.inert = !expanded;
+    for (const item of mounts.values()) {
+      if (item.node.hidden) continue;
+      const rect = item.node.getBoundingClientRect();
+      for (const [key, value] of Object.entries({
+        x: rect.left,
+        y: rect.top,
+        width: rect.width,
+        height: rect.height,
+      }))
+        item.node.style.setProperty(`--edge-view-${key}`, `${value}px`);
+    }
   }
   async function refresh() {
     if (running || stopped) return;
@@ -106,6 +137,7 @@ export function startEdge(request: Request) {
       const state = await request<FeatureState>({ op: 'state' }),
         wanted = new Set<string>(),
         ids: string[] = [];
+      let revealed = '';
       if (state.appearance?.typographyPreferences)
         Object.assign(
           panel.style,
@@ -162,7 +194,7 @@ export function startEdge(request: Request) {
           item.node.dataset.active = String(active);
           if (active) {
             ids.push(entry.id);
-            if (item.reveal !== entry.reveal) selected = entry.id;
+            if (item.reveal !== entry.reveal) revealed = entry.id;
           }
           item.reveal = entry.reveal;
         }
@@ -174,22 +206,8 @@ export function startEdge(request: Request) {
           item.headerActions.remove();
           mounts.delete(key);
         }
-      if (!ids.includes(selected)) selected = ids[0] || '';
-      const signature = ids.join(':') + selected;
-      if (tabs.dataset.key !== signature) {
-        tabs.dataset.key = signature;
-        tabs.replaceChildren();
-        for (const id of ids) {
-          const button = document.createElement('button');
-          button.textContent = titles[id as keyof typeof titles];
-          button.setAttribute('aria-pressed', String(id === selected));
-          button.onclick = () => {
-            selected = id;
-            void refresh();
-          };
-          tabs.append(button);
-        }
-      }
+      navigation.update(ids, state);
+      if (revealed) navigation.select(revealed);
       visibility();
       measure();
       for (const item of mounts.values())

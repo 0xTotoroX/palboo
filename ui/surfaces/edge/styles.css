@@ -130,3 +130,22 @@ body {
     --feature-refresh-opacity: 1;
   }
 }
+
+#edge-panel nav button {
+  position: relative;
+  touch-action: pan-y;
+}
+#edge-panel nav button[data-drop]::after {
+  content: '';
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  background: currentColor;
+  border-radius: 1px;
+  left: -3px;
+}
+#edge-panel nav button[data-drop='after']::after {
+  left: auto;
+  right: -3px;
+}

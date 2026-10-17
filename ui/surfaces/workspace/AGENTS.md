@@ -42,3 +42,5 @@ feature-session 使用共享 typography 快照与偏好，并补偿包含 Shadow
 legacy-content 为共享推荐视图提供当前宿主/远端投影作为拖动身份；不自行识别输入框或执行落点写入。
 
 legacy-content通过既有/settings/set桥仅保存quickPrompts和expectedRevision，确认成功后同步运行态；编辑控件复用next/quick-prompts，不改变填入与发送。
+
+mount 标记承载位置；贴边看板以720px正文宽度请求完整多列，原生层按显示器可用空间夹紧。详情打开时把表单自然高度纳入尺寸测量，详情用不透明主题背景并限制在贴边内容矩形，矮屏内部滚动且操作栏可达；其余形式尺寸及布局不变。

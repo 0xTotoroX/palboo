@@ -1,4 +1,4 @@
-/* [INPUT]: Surface element, owner, transport and optional header slot. [OUTPUT]: Isolated view lifecycle.
+/* [INPUT]: Surface element, owner, transport and optional header slot. [OUTPUT]: Isolated view lifecycle, edge board natural size and bounded detail measurement.
  * [POS]: React adapter shared by host and native pages. [PROTOCOL]: Keep AGENTS.md in this module in sync. */
 import { createRoot } from 'react-dom/client';
 import { FeatureView } from './feature-session';
@@ -57,6 +57,7 @@ export function mountFeature(
     ? document.createElement('span')
     : undefined,
 ) {
+  element.dataset.placement = placement;
   const css =
     boardStyles.replaceAll(':root', ':host').replace(/\bbody\s*\{/g, '.board-app {') +
     '\n' +
@@ -125,10 +126,14 @@ export function mountFeature(
       // Features may expose their minimum readable width; text/list views keep the existing width.
       const width = Math.ceil(
         Math.min(
-          intrinsic ? 976 : 696,
+          initial.id === 'board' && placement === 'edge' ? 976 : intrinsic ? 976 : 696,
           Math.max(
             296,
-            intrinsic ? parseFloat(getComputedStyle(intrinsic).minWidth) + padding : 456,
+            initial.id === 'board' && placement === 'edge'
+              ? 720
+              : intrinsic
+                ? parseFloat(getComputedStyle(intrinsic).minWidth) + padding
+                : 456,
           ),
         ),
       );
@@ -139,7 +144,18 @@ export function mountFeature(
       element.dataset.measuring = 'true';
       try {
         const view = body.closest('.feature-view')!;
-        return { width, height: Math.ceil(view.getBoundingClientRect().height) };
+        const dialog =
+          placement === 'edge' ? body.querySelector<HTMLElement>('.task-details[open]') : null;
+        const dialogStyle = dialog && getComputedStyle(dialog);
+        const editorHeight = dialog
+          ? dialog.querySelector('form')!.scrollHeight +
+            parseFloat(dialogStyle!.paddingTop) +
+            parseFloat(dialogStyle!.paddingBottom)
+          : 0;
+        return {
+          width,
+          height: Math.ceil(Math.max(view.getBoundingClientRect().height, editorHeight)),
+        };
       } finally {
         delete element.dataset.measuring;
         for (const { node, top, left } of reading) {
