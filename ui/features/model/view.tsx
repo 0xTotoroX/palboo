@@ -1,5 +1,5 @@
 /* [INPUT]: Existing model control envelope and serialized actions.
- * [OUTPUT]: Title-aligned reasoning headings, content-sized favorites matrix, independent Fast charge/strike and divider controls, recessed preset tags, in-panel catalog and wrapping presets with synchronous draft handoff, measured horizontal reading restoration and capability-driven selection.
+ * [OUTPUT]: Title-aligned reasoning headings, content-sized favorites matrix, independent Fast charge/strike and divider controls, preset tags, optional account usage aligned before edit, in-panel catalog and wrapping presets with synchronous draft handoff, measured horizontal reading restoration and capability-driven selection.
  * [POS]: Reusable business view; surfaces own placement and theme.
  * [PROTOCOL]: Keep AGENTS.md in this module in sync. */
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
@@ -653,6 +653,15 @@ export function ModelView({
               ))}
               {presetDraft?.creating && presetEditor}
               <div className="model-preset-actions">
+                {prefs.showUsage !== false && !!s.usage?.length && (
+                  <span className="model-usage" aria-label="Codex 剩余额度" title="Codex 剩余额度">
+                    {s.usage.map((window) => (
+                      <span key={window.minutes}>
+                        {window.minutes === 300 ? '5小时' : '周'} {window.remainingPercent}%
+                      </span>
+                    ))}
+                  </span>
+                )}
                 <button
                   className="model-icon-button model-preset-edit"
                   aria-label="编辑预设"

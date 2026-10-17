@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 后台安装的 CDP binding 与受限路径白名单。
- * [OUTPUT]: window.__companionDesktopRequest 请求及完成、销毁回调。
+ * [OUTPUT]: window.__companionDesktopRequest 请求及完成、取消、销毁回调；设置打开独立短超时。
  * [POS]: 共享胶囊与 src/requests.rs 的异步请求边界。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -33,19 +33,23 @@
     if (!request) return;
     requests.delete(id);
     clearTimeout(request.timer);
+    request.cleanup?.();
     request.resolve(value);
   }
 
-  function call(path, payload = {}) {
+  function call(path, payload = {}, { signal } = {}) {
+    if (signal?.aborted) return Promise.resolve({ error: '请求已取消', cancelled: true });
     if (!alive || typeof window.__companionHostRequest !== 'function')
       return Promise.resolve({ error: 'CodexBuddy 未连接' });
     if (!paths.has(path) || requests.size >= 8)
       return Promise.resolve({ error: '请求不可用，请稍后重试' });
     const id = `${prefix}:${++sequence}`;
     // 弹出只等待后台启动窗口的确认，不应沿用模型生成的长超时。
-    const timeout = path === '/panel/detach' ? 10000 : 310000;
+    const timeout = ['/panel/detach', '/settings/open'].includes(path) ? 10000 : 310000;
     return new Promise((resolve) => {
+      const cancel = () => complete(id, { error: '请求已取消', cancelled: true });
       requests.set(id, {
+        cleanup: () => signal?.removeEventListener('abort', cancel),
         resolve,
         timer: setTimeout(
           () =>
@@ -53,11 +57,14 @@
               error:
                 path === '/panel/detach'
                   ? '弹出请求未收到响应，请检查 CodexBuddy 后台连接后重试'
-                  : '请求超时，请重试',
+                  : path === '/settings/open'
+                    ? '设置请求未收到响应，请重试'
+                    : '请求超时，请重试',
             }),
           timeout,
         ),
       });
+      signal?.addEventListener('abort', cancel, { once: true });
       try {
         window.__companionHostRequest(JSON.stringify({ id, path, payload }));
       } catch {

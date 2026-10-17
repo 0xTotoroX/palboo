@@ -255,72 +255,162 @@ export function createPluginTabLink({ onOpened, onStatus, follow = true }) {
   };
 }
 
-/** Open only the local settings URL in the host's own browser tab. No external fallback. */
-export async function openSettingsBrowser(url) {
-  const target = new URL(url);
-  if (target.protocol !== 'http:' || !['127.0.0.1', 'localhost'].includes(target.hostname))
+/** 本机设置只经可见宿主控件提交；返回 submitted 不代表网页加载成功。
+ * @param {string} url
+ * @param {{signal?:AbortSignal,expectedSession?:string|null,isCurrent?:()=>boolean}} options
+ */
+export async function openSettingsBrowser(
+  url,
+  { signal, expectedSession, isCurrent = () => true } = {},
+) {
+  let target;
+  try {
+    target = new URL(url);
+  } catch {
+    throw Error('设置地址无效。');
+  }
+  if (
+    target.protocol !== 'http:' ||
+    !['127.0.0.1', 'localhost'].includes(target.hostname) ||
+    target.username ||
+    target.password
+  )
     throw Error('设置地址必须是本机服务。');
-  const key = sessionKey();
-  if (!key) throw Error('请从当前聊天打开设置。');
+  let key = expectedSession || sessionKey();
+  const deadline = Date.now() + 10000;
   const check = () => {
-    if (sessionKey() && sessionKey() !== key) throw new SourceChanged();
-    if (document.visibilityState !== 'visible') throw Error('当前窗口不可见。');
+    signal?.throwIfAborted();
+    if (!isCurrent()) throw Error('设置打开已取消。');
+    const current = sessionKey();
+    if (key && current && current !== key) throw new SourceChanged();
+    if (document.visibilityState !== 'visible') throw Error('当前窗口不可见，请返回后重试。');
   };
-  const wait = async (read) => {
-    for (let i = 0; i < 50; i++) {
-      check();
-      const result = read();
-      if (result) return result;
-      await new Promise((resolve) => setTimeout(resolve, 80));
-    }
-    throw Error('未找到宿主浏览器入口，未打开外部浏览器。');
-  };
-  const activate = (node) => {
+  const pause = () =>
+    new Promise((resolve, reject) => {
+      const abort = () => {
+        clearTimeout(timer);
+        reject(Error('设置打开已取消。'));
+      };
+      const timer = setTimeout(() => {
+        signal?.removeEventListener('abort', abort);
+        resolve();
+      }, 80);
+      signal?.addEventListener('abort', abort, { once: true });
+      if (signal?.aborted) abort();
+    });
+  const activate = (node, recovering = false) => {
     check();
+    if (!recovering && !sessionKey()) throw Error('聊天正在切换，请稍后重试。');
     if (!visible(node) || node.matches(':disabled,[aria-disabled="true"]'))
       throw Error('宿主浏览器入口不可用。');
     node.click();
   };
-  const address = () =>
-    unique('input', ['搜索或输入网址', 'Search or enter a URL']) ||
-    (() => {
-      const inputs = [
-        ...document.querySelectorAll(
-          'input[placeholder="搜索或输入网址"],input[placeholder="Search or enter a URL"]',
-        ),
-      ].filter(visible);
-      if (inputs.length > 1) throw Error('无法唯一识别浏览器地址栏。');
-      return inputs[0] || null;
-    })();
-  const split = unique('button', ['进入分屏视图', 'Enter split view']);
-  if (split && split.getAttribute('aria-pressed') !== 'true') activate(split);
+  const restoreSplit = () => {
+    const split = unique('button', ['进入分屏视图', 'Enter split view']);
+    if (split && split.getAttribute('aria-pressed') !== 'true') activate(split, true);
+  };
+  const wait = async (read, message, requireIdentity = true) => {
+    while (Date.now() < deadline) {
+      check();
+      if (requireIdentity && !sessionKey()) restoreSplit();
+      if (!requireIdentity || sessionKey()) {
+        const result = read();
+        if (result) return result;
+      }
+      await pause();
+    }
+    throw Error(message);
+  };
+  check();
+  restoreSplit();
+  key = await wait(sessionKey, '请从可识别的当前聊天打开设置。', false);
   const showTabs = unique('button', ['显示标签页', 'Show tabs']);
   if (showTabs) activate(showTabs);
-  const next = await wait(() => unique('button', ['新标签页', 'New tab', '新建标签页']));
-  activate(next);
-  const entry = await wait(
-    () =>
-      address() ||
-      (() => {
-        const button = unique('button', ['新标签页', 'New tab']);
-        return button !== next ? button : null;
-      })() ||
-      unique('[role="menuitem"]', ['浏览器', 'Browser']),
+  const selector =
+    'input[data-browser-sidebar-address-input],input[aria-label="搜索或输入网址"],input[aria-label="Search or enter a URL"],input[placeholder="搜索或输入网址"],input[placeholder="Search or enter a URL"]';
+  const panelId = (input) => input.closest('[data-tab-id]')?.getAttribute('data-tab-id') || '';
+  const next = await wait(
+    () => unique('button', ['新标签页', 'New tab', '新建标签页']),
+    '未找到宿主的新标签页入口，请展开标签栏后重试。',
   );
-  if (!(entry instanceof HTMLInputElement)) activate(entry);
-  const input = await wait(address);
+  // 记录已有地址栏和标签，防止创建尚未完成时覆盖旧网页。
+  const oldInputs = new Set(document.querySelectorAll(selector));
+  const oldPanels = new Set(
+    [...document.querySelectorAll('[data-tab-id]')].map((node) => node.getAttribute('data-tab-id')),
+  );
+  activate(next);
+  let browserRequested = false;
+  const input = await wait(() => {
+    const inputs = [...document.querySelectorAll(selector)].filter(
+      (node) =>
+        visible(node) &&
+        !oldInputs.has(node) &&
+        (panelId(node)
+          ? !oldPanels.has(panelId(node))
+          : oldInputs.size === 0 && oldPanels.size === 0),
+    );
+    if (inputs.length > 1) throw Error('无法唯一识别新标签页的地址栏。');
+    if (inputs[0]) return inputs[0];
+    // 只接受明确的浏览器菜单项，不把重建的 New tab 按钮当成第二步。
+    if (!browserRequested) {
+      const browser = unique('[role="menuitem"]', ['浏览器', 'Browser']);
+      if (browser) {
+        browserRequested = true;
+        activate(browser);
+      }
+    }
+    return null;
+  }, '未确认新浏览器标签的地址栏，请重试。');
+  const owner = panelId(input);
+  const address = () => {
+    const inputs = [...document.querySelectorAll(selector)].filter(
+      (node) => visible(node) && (owner ? panelId(node) === owner : node === input),
+    );
+    if (inputs.length > 1) throw Error('无法唯一识别浏览器地址栏。');
+    return /** @type {HTMLInputElement|null} */ (inputs[0] || null);
+  };
   check();
+  if (!sessionKey() || address() !== input) throw Error('浏览器地址栏已变化，请重试。');
   input.focus();
-  // Use the standard input/Enter events of the visible host address bar.
   Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, url);
   input.dispatchEvent(new Event('input', { bubbles: true }));
   input.dispatchEvent(new Event('change', { bubbles: true }));
-  await new Promise((resolve) => requestAnimationFrame(resolve));
+  // 有界等待代替可能被隐藏窗口暂停的 requestAnimationFrame。
+  await pause();
   check();
-  input.dispatchEvent(
-    new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true, cancelable: true }),
-  );
+  if (!sessionKey() || !input.isConnected || address() !== input || input.value !== url)
+    throw Error('浏览器地址栏已变化，未提交设置地址，请重试。');
+  const enter = new KeyboardEvent('keydown', {
+    key: 'Enter',
+    code: 'Enter',
+    bubbles: true,
+    cancelable: true,
+  });
+  input.dispatchEvent(enter);
   input.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', bubbles: true }));
-  const restore = unique('button', ['进入分屏视图', 'Enter split view']);
-  if (restore && restore.getAttribute('aria-pressed') !== 'true') activate(restore);
+  if (!enter.defaultPrevented) throw Error('宿主未确认设置地址提交，请在地址栏检查或重试。');
+  await wait(() => {
+    const committed = address();
+    if (!committed || document.activeElement === committed) return false;
+    try {
+      const value = new URL(
+        committed.value.includes('://') ? committed.value : `http://${committed.value}`,
+      );
+      // 失焦且宿主保留目标地址仅确认地址提交；不声称网页已加载。
+      return (
+        value.origin === target.origin &&
+        value.pathname === target.pathname &&
+        value.search === target.search
+      );
+    } catch {
+      return false;
+    }
+  }, '宿主未确认设置地址提交，请在浏览器地址栏检查或重试。');
+  restoreSplit();
+  await wait(() => {
+    const split = unique('button', ['进入分屏视图', 'Enter split view']);
+    return address() && (!split || split.getAttribute('aria-pressed') === 'true');
+  }, '设置地址已提交，但未确认浏览器侧栏可见，请检查分屏。');
+  check();
+  return { status: 'submitted' };
 }

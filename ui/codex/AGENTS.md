@@ -46,3 +46,7 @@ prompt-enhancement接收isEnabled只读配置；关闭时移除按钮、取消�
 typography.createTypographyTracker 通过 lifecycle 提供的当前聊天/唯一输入框取样；左侧标题选择器集中在本文件。按 body/session/composer 缓存有效快照；连续相同且间隔至少200ms才发布，切换/隐藏不回落到 body 默认样式。无可用历史时16px系统字体。
 
 - `next-drop.js`：接收推荐原生复制拖放，只接受当前关联输入框，复用 panelCommand 身份校验和只填入行为；中性轮廓/240ms释放反馈、减少动态效果静态反馈、取消及销毁清理，不提供纯文本回退。
+
+- `model-usage.js`：通过宿主本机 account/rateLimits/read 只读获取 Codex 账号额度；按实际300/10080分钟窗口显示剩余百分比，优先codex桶，不借用其他模型额度。读取由快切状态驱动、每分钟限频，无独立轮询；账号变化/断连/停用清空，销毁回收，无凭据或额度持久化。
+
+next.js追加草稿只补齐一处换行，复用已有末尾换行；保留用户有意留下的空行，不添加空段。openSettingsBrowser为10秒有界流程，恢复分屏后确认聊天，排除旧地址栏/旧标签，提交前复核身份及输入节点；只确认宿主接受地址提交，不等同页面加载成功。

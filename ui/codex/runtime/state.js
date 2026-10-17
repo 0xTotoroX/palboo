@@ -96,6 +96,8 @@ function createRuntimeState(preferences) {
     settingsFingerprint: '',
     settingsSyncTimer: 0,
     settingsStatus: '',
+    settingsOpenStatus: '',
+    settingsOpening: false,
     scans: 0,
     runtimeGeneration: 0,
     runtimeActive: false,
@@ -426,19 +428,39 @@ function directText(node) {
   return normalizeText(clone.textContent || '');
 }
 
-function bridgeCall(path, payload) {
+/** @param {string} path @param {any} payload @param {{signal?:AbortSignal}} options */
+function bridgeCall(path, payload, { signal } = {}) {
+  if (signal?.aborted) return Promise.resolve({ error: '请求已取消', cancelled: true });
   if (typeof window[PAGE_BRIDGE] !== 'function') {
     return Promise.resolve({ error: 'page bridge is not installed', items: [] });
   }
+  const controller = new AbortController();
   let timer = 0;
-  const timeout = new Promise((resolve) => {
+  let cancel;
+  const interrupted = new Promise((resolve) => {
+    cancel = () => {
+      resolve({ error: '请求已取消', cancelled: true });
+      controller.abort();
+    };
+    signal?.addEventListener('abort', cancel, { once: true });
     timer = window.setTimeout(
-      () => resolve({ error: 'page bridge timed out', items: [] }),
-      BRIDGE_TIMEOUT_MS,
+      () =>
+        resolve({
+          error: path === '/settings/open' ? '设置请求未收到响应，请重试' : 'page bridge timed out',
+          items: [],
+        }),
+      path === '/settings/open' ? 10000 : BRIDGE_TIMEOUT_MS,
     );
   });
-  const request = Promise.resolve(window[PAGE_BRIDGE](path, payload || {}));
-  return Promise.race([request, timeout]).finally(() => window.clearTimeout(timer));
+  // 外层结束也回收内层请求；旧桥忽略第三参数时仍有独立短超时。
+  const request = Promise.resolve().then(() =>
+    window[PAGE_BRIDGE](path, payload || {}, { signal: controller.signal }),
+  );
+  return Promise.race([request, interrupted]).finally(() => {
+    window.clearTimeout(timer);
+    signal?.removeEventListener('abort', cancel);
+    controller.abort();
+  });
 }
 
 function roundPixel(value) {

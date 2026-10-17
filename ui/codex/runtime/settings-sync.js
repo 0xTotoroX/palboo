@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 版本化设置、后台请求与独立功能控制器。
- * [OUTPUT]: 设置保存、同步、低频恢复与功能开关协调。
+ * [OUTPUT]: 设置保存、同步、低频恢复与功能开关协调；设置打开共享请求、取消及可见结果。
  * [POS]: 设置协调层；通过通知请求渲染和运行启停。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -21,6 +21,7 @@ import {
   stepwiseGenerationMode,
 } from './state.js';
 import { openSettingsBrowser } from '../plugin-tab.js';
+import { mainChatSessionId } from '../context.js';
 import { emitSignal } from './signals.js';
 import { resetStepwiseFeature } from '../next.js';
 import { pushDiagnostic } from './diagnostics.js';
@@ -260,32 +261,68 @@ async function testSettings() {
   emitSignal('render', undefined);
 }
 
-let settingsOpening = false;
-async function openSettings() {
-  if (!isCurrentRuntime() || settingsOpening) return;
+let settingsOpening = null;
+function cancelSettingsOpening() {
+  settingsOpening?.controller.abort();
+  settingsOpening = null;
+  runtimeState.settingsOpening = false;
+  runtimeState.settingsOpenStatus = '';
+}
+
+function openSettings() {
+  if (!isCurrentRuntime()) return Promise.resolve({ ok: false, cancelled: true });
+  if (settingsOpening) return settingsOpening.promise;
   const generation = runtimeState.runtimeGeneration;
-  settingsOpening = true;
-  runtimeState.settingsStatus = '正在打开内置浏览器设置…';
-  try {
-    const payload = await bridgeCall('/settings/open', { inHostBrowser: true });
-    if (!isCurrentRuntime(generation)) return;
-    if (payload?.status !== 'ok' || payload.target !== 'web' || !payload.url)
-      throw Error(payload?.message || '当前后台尚未提供内置浏览器设置入口。');
-    await openSettingsBrowser(payload.url);
-    runtimeState.settingsStatus = '已打开内置浏览器设置';
-  } catch (error) {
-    runtimeState.settingsStatus = String(error);
-  } finally {
-    settingsOpening = false;
-    if (isCurrentRuntime(generation)) {
-      const button = shellState.panel?.querySelector('[data-settings-entry]');
-      if (button) button.removeAttribute('title');
-      emitSignal('render', undefined);
+  const operation = { controller: new AbortController(), promise: null };
+  const expectedSession = mainChatSessionId();
+  const current = () => settingsOpening === operation && isCurrentRuntime(generation);
+  settingsOpening = operation;
+  runtimeState.settingsOpening = true;
+  runtimeState.settingsOpenStatus = '正在打开设置…';
+  // 先发布共享 Promise，重入和连续点击都等待同一次操作。
+  operation.promise = Promise.resolve().then(async () => {
+    try {
+      const payload = await bridgeCall(
+        '/settings/open',
+        { inHostBrowser: true },
+        { signal: operation.controller.signal },
+      );
+      if (!current() || operation.controller.signal.aborted || payload?.cancelled)
+        return { ok: false, cancelled: true };
+      if (payload?.error) throw Error(payload.error);
+      if (payload?.status !== 'ok' || payload.target !== 'web' || !payload.url)
+        throw Error(payload?.message || '当前后台尚未提供内置浏览器设置入口。');
+      const result = await openSettingsBrowser(payload.url, {
+        signal: operation.controller.signal,
+        expectedSession,
+        isCurrent: current,
+      });
+      if (!current() || operation.controller.signal.aborted) return { ok: false, cancelled: true };
+      runtimeState.settingsOpenStatus = '';
+      return { ok: true, status: result.status };
+    } catch (error) {
+      if (!current() || operation.controller.signal.aborted) return { ok: false, cancelled: true };
+      const message = String(error?.message || error).replace(
+        /([#?&]token=)[^\s&#]+/gi,
+        '$1[已隐藏]',
+      );
+      runtimeState.settingsStatus = message;
+      runtimeState.settingsOpenStatus = message;
+      return { ok: false, message };
+    } finally {
+      if (settingsOpening === operation) {
+        settingsOpening = null;
+        runtimeState.settingsOpening = false;
+        if (isCurrentRuntime(generation)) emitSignal('render', undefined);
+      }
     }
-  }
+  });
+  emitSignal('render', undefined);
+  return operation.promise;
 }
 
 export {
+  cancelSettingsOpening,
   ensureSettings,
   loadSettings,
   openSettings,

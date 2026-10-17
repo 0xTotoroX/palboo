@@ -1,5 +1,5 @@
 /* [INPUT]: 主界面开合状态及共用表情手势。
- * [OUTPUT]: 默认使用独立眼睛入口；官方按钮适配代码仅供显式试验；单击保留旧手势、普通右键保留官方菜单、Option+右键打开内置浏览器设置；官方插件页签联动仅供显式启用的 Dev 试验；导航重建后恢复，不回退胶囊。
+ * [OUTPUT]: 默认使用独立眼睛入口；官方按钮适配代码仅供显式试验；单击保留旧手势、普通右键保留官方菜单、Option+右键打开内置浏览器设置；官方插件页签联动仅供显式启用的 Dev 试验；导航重建后恢复，不回退胶囊；设置处理中与失败在入口旁可见。
  * [POS]: 嵌入式入口适配，不创建功能窗口、不修改业务数据。
  * [PROTOCOL]: 变更时同步 embedded/AGENTS.md。 */
 import { createLauncherFace, launcherFaceHtml, launcherFaceStyles } from './launcher-face.js';
@@ -137,7 +137,7 @@ export function launcherButton() {
   return entry?.isConnected ? entry.shadowRoot.querySelector('button') : null;
 }
 
-/** @param {{open:boolean,root:HTMLElement|null,click:(event:MouseEvent)=>void,pointerDown:(event:PointerEvent)=>void,keyDown:(event:KeyboardEvent)=>void,settings:()=>void,defaultAction?:string,outsideAvailable?:boolean,theme?:string,colors?:Record<string,string>,expression?:string,expressionLabel?:string,sourceCue?:{direction:string,angle:number|null},action?:(action:string)=>Promise<void>|void,settingsBrowser?:()=>void,reuseOfficial?:boolean,pluginOpened?:()=>void,pluginTabPreview?:boolean,canUseOfficial?:()=>boolean}} options */
+/** @param {{open:boolean,root:HTMLElement|null,click:(event:MouseEvent)=>void,pointerDown:(event:PointerEvent)=>void,keyDown:(event:KeyboardEvent)=>void,settings:()=>void,settingsStatus?:string,settingsBusy?:boolean,dismissSettingsStatus?:()=>void,defaultAction?:string,outsideAvailable?:boolean,theme?:string,colors?:Record<string,string>,expression?:string,expressionLabel?:string,sourceCue?:{direction:string,angle:number|null},action?:(action:string)=>Promise<void>|void,settingsBrowser?:()=>void,reuseOfficial?:boolean,pluginOpened?:()=>void,pluginTabPreview?:boolean,canUseOfficial?:()=>boolean}} options */
 export function syncLauncher(options) {
   current = options;
   if (!previewEnabled()) {
@@ -204,11 +204,19 @@ export function syncLauncher(options) {
       button:hover { background:color-mix(in srgb,currentColor 10%,transparent); }
       button:focus-visible { outline:2px solid currentColor;outline-offset:2px; }
       svg { width:20px;height:20px;fill:currentColor; }
+      .settings-feedback {position:fixed;inset:auto;margin:0;box-sizing:border-box;width:max-content;max-width:min(300px,calc(100vw - 16px));padding:10px 12px;border:1px solid var(--feedback-border,#8884);border-radius:8px;background:var(--feedback-bg,#fff);color:var(--feedback-fg,#222);font:13px/1.5 system-ui;box-shadow:0 4px 16px #0002;overflow-wrap:anywhere;}
+      .settings-feedback:popover-open {display:flex;align-items:center;gap:12px;}
+      .settings-feedback button {flex:none;width:auto;height:28px;padding:0 6px;font:inherit;}
       ${launcherFaceStyles}
     </style><div class="entry">
       <button type="button" class="csw-launcher-face csw-fab" aria-label="CodexBuddy" aria-keyshortcuts="Alt+Enter">
         ${launcherFaceHtml()}
-      </button></div>`;
+      </button></div><div class="settings-feedback" popover="manual"><span role="status"></span><button type="button" aria-label="关闭设置提示">关闭</button></div>`;
+    shadow.querySelector('.settings-feedback button').addEventListener('click', (event) => {
+      event.stopPropagation();
+      current?.dismissSettingsStatus?.();
+      /** @type {HTMLElement} */ (shadow.querySelector('.settings-feedback')).hidePopover();
+    });
     const button = shadow.querySelector('button');
     button.addEventListener('pointerdown', (event) => {
       if (!previewEnabled()) current?.pointerDown(event);
@@ -250,6 +258,29 @@ export function syncLauncher(options) {
     }));
   if (!face) face = createLauncherFace(entry.shadowRoot.querySelector('button'));
   face.update(options);
+  const feedback = entry.shadowRoot.querySelector('.settings-feedback');
+  const message = options.settingsStatus || '';
+  const status = feedback.querySelector('[role="status"]');
+  if (status.textContent !== message) status.textContent = message;
+  entry.shadowRoot
+    .querySelector('button')
+    .setAttribute('aria-busy', String(options.settingsBusy === true));
+  if (message) {
+    feedback.style.setProperty(
+      '--feedback-bg',
+      options.colors?.['surface-opaque'] || (options.theme === 'dark' ? '#252525' : '#fff'),
+    );
+    feedback.style.setProperty(
+      '--feedback-fg',
+      options.colors?.text || (options.theme === 'dark' ? '#eee' : '#222'),
+    );
+    feedback.style.setProperty('--feedback-border', options.colors?.divider || '#8884');
+    if (!feedback.matches(':popover-open')) feedback.showPopover();
+    const anchor = launcherButton().getBoundingClientRect();
+    const box = feedback.getBoundingClientRect();
+    feedback.style.left = `${Math.max(8, Math.min(anchor.right + 8, innerWidth - box.width - 8))}px`;
+    feedback.style.top = `${Math.max(8, Math.min(anchor.top, innerHeight - box.height - 8))}px`;
+  } else if (feedback.matches(':popover-open')) feedback.hidePopover();
   radial?.update();
   entry.shadowRoot.querySelector('button').removeAttribute('title');
   entry.shadowRoot

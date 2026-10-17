@@ -44,3 +44,46 @@ test('unanswered popout expires independently from generation and can be retried
   assert.equal(bridge.pending(), 0);
   assert.equal(timers.size, 0, 'all request timers cleaned up');
 });
+
+test('settings request expires in ten seconds, retries safely and supports cancellation', async () => {
+  const sent = [],
+    timers = new Map();
+  let sequence = 0;
+  const window = { __companionHostRequest: (raw) => sent.push(JSON.parse(raw)) };
+  runInNewContext(
+    readFileSync(new URL('../ui/shared/bridge/requests.js', import.meta.url), 'utf8'),
+    {
+      window,
+      setTimeout: (callback, delay) => {
+        const id = ++sequence;
+        timers.set(id, { callback, delay });
+        return id;
+      },
+      clearTimeout: (id) => timers.delete(id),
+    },
+  );
+  const controller = new AbortController();
+  const first = window.__companionDesktopRequest(
+    '/settings/open',
+    {},
+    { signal: controller.signal },
+  );
+  assert.equal([...timers.values()][0].delay, 10000);
+  [...timers.values()][0].callback();
+  assert.match((await first).error, /设置请求未收到响应/);
+  assert.equal(window.__companionDesktop.pending(), 0);
+  const retry = window.__companionDesktopRequest(
+    '/settings/open',
+    {},
+    { signal: controller.signal },
+  );
+  window.__companionDesktop.complete(sent[0].id, { status: 'ok' });
+  assert.equal(window.__companionDesktop.pending(), 1);
+  controller.abort();
+  assert.equal((await retry).cancelled, true);
+  assert.equal(window.__companionDesktop.pending(), 0);
+  assert.equal(timers.size, 0);
+  const third = window.__companionDesktopRequest('/settings/open');
+  window.__companionDesktop.complete(sent[2].id, { status: 'ok' });
+  assert.equal((await third).status, 'ok');
+});

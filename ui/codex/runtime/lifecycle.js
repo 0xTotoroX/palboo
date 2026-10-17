@@ -95,6 +95,7 @@ import {
   stepwiseState,
 } from './state.js';
 import {
+  cancelSettingsOpening,
   ensureSettings,
   loadSettings,
   reloadSettings,
@@ -334,6 +335,7 @@ function installObserver() {
 }
 
 function stopRuntime() {
+  cancelSettingsOpening();
   stopLauncher();
   stopFeatureHost();
   stopWorkbench();
@@ -516,7 +518,11 @@ async function start() {
 
 async function launcherAction(action, toggle = false) {
   if (!toggle) cancelFaceClick();
-  if (action === 'settings') return openSettings();
+  if (action === 'settings') {
+    const result = await openSettings();
+    if (!result.ok && !result.cancelled) throw Error(result.message);
+    return;
+  }
   if (action === 'outside') {
     if (runtimeState.settings?.popoutSupported !== true) return;
     if (independentFeatures()) {
@@ -630,6 +636,12 @@ function install() {
           expressionLabel: fabExpressionLabel(expression),
           sourceCue: activePaneCue(),
           defaultAction: shellState.launcherAction,
+          settingsStatus: runtimeState.settingsOpenStatus,
+          settingsBusy: runtimeState.settingsOpening,
+          dismissSettingsStatus: () => {
+            runtimeState.settingsOpenStatus = '';
+            emitSignal('render', undefined);
+          },
           colors: panelAppearance().colors,
           theme: shellState.theme,
           outsideAvailable: runtimeState.settings?.popoutSupported === true,
@@ -637,7 +649,8 @@ function install() {
           click: (event) =>
             onLauncherClick(event, () => {
               void launcherAction(shellState.launcherAction, true).catch((error) => {
-                stepwiseState.bridgeError = String(error);
+                if (shellState.launcherAction !== 'settings')
+                  stepwiseState.bridgeError = String(error);
                 emitSignal('render', undefined);
               });
             }),

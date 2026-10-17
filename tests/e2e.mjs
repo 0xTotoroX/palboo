@@ -805,9 +805,7 @@ try {
     desktop.on('dialog', unexpectedDialog);
     await desktop.locator('.csw-row[data-index="1"]').click();
     await waitFor(
-      async () =>
-        (await composer.innerText()).replace(/\n{2,}/g, '\n\n') ===
-        '保留现有草稿\n\n' + suggestions[1].prompt,
+      async () => (await composer.innerText()) === '保留现有草稿\n' + suggestions[1].prompt,
       'Draft was not appended directly',
     );
     await desktop.evaluate(() => {

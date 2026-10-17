@@ -187,6 +187,45 @@ test(
       await page.evaluate((state) => window.render(state), state);
       const settings = page.locator('#settings'),
         view = page.locator('#view');
+      // Account quota precedes edit, follows actual windows, and can be disabled independently.
+      state.snapshot.usage = [
+        { minutes: 300, remainingPercent: 60, resetsAt: null },
+        { minutes: 10080, remainingPercent: 31, resetsAt: null },
+      ];
+      await page.evaluate((state) => window.render(state), state);
+      await view.getByLabel('Codex 剩余额度', { exact: true }).waitFor();
+      assert.equal(await view.locator('.model-usage').innerText(), '5小时 60%\n周 31%');
+      const usageBox = await view.locator('.model-usage').boundingBox();
+      const editBox = await view
+        .getByRole('button', { name: '编辑预设', exact: true })
+        .boundingBox();
+      assert.ok(usageBox.x + usageBox.width <= editBox.x);
+      assert.ok(Math.abs(usageBox.y + usageBox.height / 2 - editBox.y - editBox.height / 2) < 1);
+      const toggle = settings.getByRole('switch', { name: '启用额度显示' });
+      await toggle.click();
+      await page.waitForFunction(
+        () =>
+          document.querySelector('[aria-label="启用额度显示"]').getAttribute('aria-checked') ===
+          'false',
+      );
+      assert.equal(state.preferences.showUsage, false);
+      assert.deepEqual(state.preferences.presets, originalPresets);
+      await page.evaluate((state) => window.render(state), state);
+      await view.locator('.model-usage').waitFor({ state: 'detached' });
+      await toggle.click();
+      await page.waitForFunction(
+        () =>
+          document.querySelector('[aria-label="启用额度显示"]').getAttribute('aria-checked') ===
+          'true',
+      );
+      state.snapshot.usage = [state.snapshot.usage[1]];
+      await page.evaluate((state) => window.render(state), state);
+      await page.waitForFunction(
+        () => document.querySelector('.model-usage')?.textContent === '周 31%',
+      );
+      state.snapshot.usage = null;
+      await page.evaluate((state) => window.render(state), state);
+      await view.locator('.model-usage').waitFor({ state: 'detached' });
       assert.equal(await view.locator('.model-row').count(), 1);
       assert.equal(await view.locator('[data-model-group]').count(), 0);
       await view.getByRole('button', { name: '所有模型', exact: true }).click();

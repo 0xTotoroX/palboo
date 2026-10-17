@@ -1,5 +1,5 @@
 /* [INPUT]: Model matrix, all-model picker, wrapping presets and surface semantic colors.
- * [OUTPUT]: Content-sized matrix, separate Fast and electric divider controls and underlined preset labels and a single-surface model catalog.
+ * [OUTPUT]: Content-sized matrix, separate Fast and electric divider controls and underlined preset labels, centered account usage and a single-surface model catalog.
  * [POS]: Shared model content styling; no outer window or material.
  * [PROTOCOL]: Keep model/AGENTS.md in sync. */
 .feature-model {
@@ -320,10 +320,23 @@
 }
 .model-preset-actions {
   display: flex;
+  align-items: center;
   flex: none;
   align-self: flex-end;
   margin-left: auto;
   gap: 0;
+}
+.model-usage {
+  display: flex;
+  min-height: 28px;
+  line-height: 1;
+  align-items: center;
+  gap: 8px;
+  margin-right: 6px;
+  color: var(--muted);
+  font-size: 0.85em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 .feature-model .model-preset-actions .model-icon-button {
   color: var(--muted);

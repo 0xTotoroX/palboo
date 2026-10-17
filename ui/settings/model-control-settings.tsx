@@ -1,4 +1,4 @@
-/* [INPUT]: Model state, revision-checked API. [OUTPUT]: Feature switch, serialized organization settings and read-only preview snapshot.
+/* [INPUT]: Model state, revision-checked API. [OUTPUT]: Feature/usage switches, serialized organization settings and read-only preview snapshot.
  * [POS]: Business enablement only; all placement and themes belong to shared settings.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 import { useEffect, useRef, useState } from 'react';
@@ -116,6 +116,12 @@ export function ModelControlSettings({
       />
       <Feedback text={message} />
       <div hidden={!detailed}>
+        <FeatureSwitch
+          name="额度显示"
+          checked={state?.preferences.showUsage !== false}
+          disabled={!live || busy || !state}
+          onChange={(value) => void operate({ showUsage: value })}
+        />
         {state?.snapshot?.models && (
           <ModelOrganization
             feedback={message}

@@ -107,16 +107,46 @@ export function chatBindingCases({
         assert.ok(preview.width > 100 && preview.text.includes(prompt));
         await page.waitForFunction(
           (prompt) =>
-            document
-              .querySelector('#composer-form .ProseMirror')
-              .innerText.replace(/\n{2,}/g, '\n\n') ===
-            '原有草稿\n\n' + prompt,
+            document.querySelector('#composer-form .ProseMirror').innerText ===
+            '原有草稿\n' + prompt,
           prompt,
         );
         assert.equal(await page.evaluate(() => window.submitCount || 0), 0);
         assert.equal(await page.locator('.csw-row').count(), source.prompts.length);
         assert.equal(await row.getAttribute('data-dragging'), null);
         assert.equal(dialogs, 0);
+        // Existing line breaks and empty end paragraphs are used, never expanded into extra blank lines.
+        for (const draft of ['原有草稿\n', '原有草稿\n\n']) {
+          await composer.fill(draft);
+          await page.evaluate(
+            (source) =>
+              window.__companionFloatingPanel.panelCommand({ ...source, kind: 'fill', index: 0 }),
+            source,
+          );
+          const distance = await composer.evaluate((node) => {
+            node.style.lineHeight = '20px';
+            const first = document.createRange(),
+              last = document.createRange();
+            first.selectNodeContents(node.firstChild);
+            last.selectNodeContents(node.lastChild);
+            return last.getClientRects()[0].top - first.getClientRects()[0].top;
+          });
+          assert.equal(
+            distance,
+            (draft.endsWith('\n\n') ? 2 : 1) * 20,
+            'no extra rendered blank line',
+          );
+        }
+        await composer.evaluate((node) => {
+          node.innerHTML = '<p style="margin:0">第一行</p><p style="margin:0"><br></p>';
+        });
+        await page.evaluate(
+          (source) =>
+            window.__companionFloatingPanel.panelCommand({ ...source, kind: 'fill', index: 0 }),
+          source,
+        );
+        assert.deepEqual(await composer.locator('p').allTextContents(), ['第一行', prompt]);
+        assert.equal(await page.evaluate(() => window.submitCount || 0), 0);
         // 相同正文已有草稿也不发送。
         await composer.fill(prompt);
         assert.equal(
@@ -149,10 +179,7 @@ export function chatBindingCases({
             );
           }, data);
         await drop({ ...source, kind: 'fill', index: 0, submit: true });
-        assert.equal(
-          (await composer.innerText()).replace(/\n{2,}/g, '\n\n'),
-          '保持原样\n\n' + prompt,
-        );
+        assert.equal(await composer.innerText(), '保持原样\n\n' + prompt);
         assert.equal(await page.evaluate(() => window.submitCount || 0), 0);
         await page.emulateMedia({ reducedMotion: 'no-preference' });
         await composer.fill('动画草稿');
@@ -265,10 +292,7 @@ export function chatBindingCases({
           drafts,
         );
         assert.equal(protectedDraft.ok, true);
-        assert.equal(
-          (await composer.innerText()).replace(/\n{2,}/g, '\n\n'),
-          '已有草稿\n\n解释这个概念',
-        );
+        assert.equal(await composer.innerText(), '已有草稿\n解释这个概念');
         assert.equal(await page.evaluate(() => window.submitCount || 0), 0);
         assert.equal(
           await page.evaluate(

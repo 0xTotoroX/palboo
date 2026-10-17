@@ -1,5 +1,5 @@
 // [INPUT]: 已连接的 CDP Client、宿主模型适配器及独立业务偏好。
-// [OUTPUT]: 模型状态、串行切换、常用、顺序、分类与预设保存与私有末次操作诊断；呈现交给 features。
+// [OUTPUT]: 模型状态、可关闭的账号额度投影、串行切换、常用、顺序、分类与预设保存与私有末次操作诊断；呈现交给 features。
 // [POS]: 宿主模型控制服务；不读写建议生成配置或工作台的来源/布局。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
@@ -49,6 +49,7 @@ pub struct ModelOverride {
 #[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 pub struct Preferences {
     pub enabled: bool,
+    pub show_usage: bool,
     pub model_column_width: f64,
     pub pinned: Vec<String>,
     pub model_order: Option<Vec<String>>,
@@ -63,6 +64,7 @@ impl Default for Preferences {
     fn default() -> Self {
         Self {
             enabled: false,
+            show_usage: true,
             model_column_width: 140.,
             pinned: vec![],
             model_order: None,
@@ -247,11 +249,12 @@ impl App {
             snapshot["message"] = json!("正在核对并切换模型…");
             return Ok(control.envelope(snapshot));
         };
+        let show_usage = self.model_control.lock().await.preferences.show_usage;
         let snapshot = match self.desktop_client().await {
             Some(client) => {
                 let result = client
                     .evaluate_with_timeout(
-                        format!("window.__codexBuddyModelControl?.snapshot({refresh}) ?? null"),
+                        format!("(async () => {{ const snapshot = await window.__codexBuddyModelControl?.snapshot({refresh}); return snapshot ? {{...snapshot, usage: window.__codexBuddyUsage?.read({show_usage}) ?? null}} : null; }})()"),
                         Duration::from_secs(20),
                     )
                     .await;
@@ -355,6 +358,7 @@ impl App {
         let next = control.preferences.patched(&request["patch"])?;
         let enabled_changed = next.enabled != control.preferences.enabled;
         let enabled = next.enabled;
+        let stop_usage = !enabled || !next.show_usage;
         write_private(
             &self.paths.root.join("model-control.json"),
             &serde_json::to_vec_pretty(&next)?,
@@ -363,6 +367,9 @@ impl App {
         control.revision += 1;
         let mut result = control.envelope(control.snapshot.clone());
         drop(control);
+        if stop_usage {
+            self.stop_model_usage().await;
+        }
         drop(_guard);
         if enabled_changed {
             let presentation = if enabled {
@@ -393,6 +400,17 @@ impl App {
         self.feature_request(json!({"op":"reveal","id":"model"}))
             .await
     }
+    async fn stop_model_usage(&self) {
+        if let Some(client) = self.desktop_client().await {
+            let _ = client
+                .evaluate_with_timeout(
+                    "window.__codexBuddyUsage?.read(false); true".into(),
+                    Duration::from_secs(2),
+                )
+                .await;
+        }
+    }
+
     pub async fn close_model_control(&self) -> Result<Value> {
         let operation = self.model_control.lock().await.operation.clone();
         let _guard = operation.lock().await;
@@ -406,6 +424,7 @@ impl App {
             }
             control.revision += 1;
         }
+        self.stop_model_usage().await;
         drop(_guard);
         self.close_feature("model").await?;
         Ok(json!({"ok":true}))
@@ -432,6 +451,15 @@ mod tests {
             }],
             ..Default::default()
         };
+        assert!(Preferences::default().show_usage);
+        assert!(
+            serde_json::from_value::<Preferences>(json!({"enabled":true}))
+                .unwrap()
+                .show_usage
+        );
+        let hidden = prefs.patched(&json!({"showUsage":false})).unwrap();
+        assert!(!hidden.show_usage);
+        assert_eq!(hidden.presets, prefs.presets);
         let next = prefs.patched(&json!({"pinned":["a"]})).unwrap();
         assert_eq!(next.presets, prefs.presets);
         assert_eq!(next.pinned, vec!["a"]);

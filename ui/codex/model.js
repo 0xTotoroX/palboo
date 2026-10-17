@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 官方 DOM 菜单、稳定聊天标记/新聊天输入区和关联的 model/list 消息；不依赖工作台锁定。
- * [OUTPUT]: window.__codexBuddyModelControl 的异步 snapshot/apply 和同步 presence/cancel/dispose/inputTarget；inputTarget只读当前唯一输入目标。
+ * [OUTPUT]: window.__codexBuddyModelControl 的异步 snapshot/apply 和同步 presence/cancel/dispose/inputTarget，dispose同时回收独立额度读取；inputTarget只读当前唯一输入目标。
  * [POS]: include_str / Page.addScriptToEvaluateOnNewDocument 可独立安装的宿主边界。
  * [PROTOCOL]: 父任务维护集成和地图；本文件不写 React、持久存储或发送模型请求。
  * snapshot(false) 不操作 DOM；refresh=true 显式探测菜单，限时等待能力后完整回读。target 无法确认时 id/title 为空。
@@ -1161,6 +1161,7 @@
   function dispose() {
     if (disposed) return;
     disposed = true;
+    window.__codexBuddyUsage?.dispose();
     cancel();
     life.abort();
     observer.disconnect();

@@ -39,6 +39,8 @@ Enable **点击术语时跳转到上下文** in settings → Features → Termin
 | Reading and appearance | Follow Codex typography or set a fixed size; choose materials and summary visibility |
 | Your choice of model | Use an existing Codex login or connect your own model API |
 
+The model quick switch shows remaining Codex account usage to the left of the preset edit button: five-hour and weekly limits when available, or just the weekly limit. Turn it off under **Features → Model quick switch → Usage display**. Missing limits are not shown as full allowances.
+
 Outlines are parsed locally and do not require a model. Next-step suggestions require model configuration. You can disable either feature independently.
 
 Under **System → Performance & switches** (系统 → 性能与开关), turn off **Connect to Codex** to remove Buddy's host interface and listeners. Settings, task data, drafts and independent Reminders sync are retained; turning it back on reconnects without restarting Codex. Optional monitoring runs while this settings page is visible and separates Buddy backend CPU/physical memory, instrumented Buddy work, and whole-host page metrics. Whole-page memory is not Buddy's exclusive usage. A visual monitor shows CPU/memory trends, a CPU gauge and long-task activity, keeping at most five minutes of local, temporary history.

@@ -256,3 +256,5 @@ launcher-face 回归覆盖眼睛入口单击、双击、Enter/Space 与逐一点
 本轮模型服务与推荐拖放回归：workbench-binding 覆盖真实鼠标拖放、原条目保留、抓取预览、释放动画中间帧、错误落点、跨聊天/停用拒绝、同文档与独立窗口序列化接收协议、只追加不发送；popout-checks 覆盖远端直接追加。Rust model_requests/model/settings/terminology 覆盖分域取消、重开不复活、协议回退取消、手动分类关闭零新增请求和无迟到入库；连接测试独立于 Stepwise/Jev。均为合成数据，不代表 macOS 原生跨进程拖拽的实机验收。
 
 `quick-prompts-editor.test.mjs`：真实下一步编辑器的添加/修改/确认删除、重挂载保留草稿、异步失败和并发冲突、空列表添加及编辑零误发送；features Rust用例验证owner、功能开关、修订、字段范围和持久化。
+
+`model-usage.test.mjs`覆盖真实时长映射、周单窗、codex桶、缺失/过期值、限频/共享读取、超时/账号切换/停用回收；model-groups检查额度位于铅笔左侧且垂直居中、开关只保存对应偏好。workbench-binding检查推荐拖入与末尾换行的实际行距，无额外空段且不发送。`settings-open.test.mjs`与settings-browser/bridge-requests覆盖短超时重试、并发共享、可见错误、旧输入框、节点重建、Enter未处理、身份变化与取消；成功只确认地址提交。

@@ -60,3 +60,5 @@ lifecycle 同时安装并销毁 terminology/host，复用活动聊天根、标�
 lifecycle 暴露 syncTypography 与 typography 供原 CDP 状态轮询传入统一偏好并读回不含正文的字体快照。presentation 将解析后的快照传给旧浮窗；shell.sharedTypography 仅内存保存。
 
 lifecycle 随下一步开关安装/回收 next-drop；销毁清除拖放监听与落点反馈。填入不再走草稿确认协议，保留历史字段兼容读取。
+
+设置打开共享同一在途Promise；bridgeCall与底层/settings/open均10秒超时并支持取消，超时回收而不影响模型长请求。后台错误保留并返回，失败和处理中状态投影到眼睛入口旁可关闭反馈；成功清除反馈。停用/销毁立即取消，旧运行期与切换聊天后的结果不能继续导航。

@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 回答上下文、独立生成版本、模型桥接与宿主写入接口。
- * [OUTPUT]: 建议生成、按聊天/回答/完整用户问题保留的有限内存缓存与普通/快捷词直接追加草稿且不发送；来源失联时禁止生成和填入。
+ * [OUTPUT]: 建议生成、按聊天/回答/完整用户问题保留的有限内存缓存与普通/快捷词只补齐必要换行并直接追加草稿且不发送；来源失联时禁止生成和填入。
  * [POS]: 下一步的 Codex 业务协调；不依赖大纲，通过通知请求外壳反馈。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -388,7 +388,8 @@ function fillComposer(prompt, submit = false, options = {}) {
     submit = false;
     if (normalizeText(existing) === normalizeText(prompt)) return true;
     if (!contextMatches(context)) return false;
-    prompt = `\n\n${prompt}`;
+    // 只补齐一处换行；保留用户已有的末尾换行，不人为插入空段。
+    prompt = `${/[\r\n]$/.test(existing) ? '' : '\n'}${prompt}`;
     append = true;
   }
   target.focus();

@@ -111,3 +111,5 @@ panel::Preferences.settings_theme 为可空设置页主题偏好，旧配置默�
 - `model_requests.rs`：内存中的 Shared/Stepwise/Prompt/Terminology/Expansion 请求租约；保存配置按影响范围失效，watch 取消在途任务，发送启动与失效串行化，阻止协议回退及重开后的旧请求。模型列表与单次连接测试也绑定共享租约。
 
 快捷指令面板编辑：features action=quick-prompts先校验功能owner与启停；requests的/settings/set仅在有quickPrompts时进入save_quick_prompts。该入口拒绝列表及expectedRevision之外的字段，复用settings事务、长度校验和冲突保护，不改生成版本或密钥。
+
+model_control::Preferences增加默认true的show_usage，旧配置兼容；状态回读追加只读usage投影，关闭快切/额度显示回收宿主在途读取。cdp安装model-usage.js，model适配器销毁时一并清理；额度不进入生成配置或模型选择revision。

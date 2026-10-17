@@ -421,9 +421,7 @@ export async function checkPopout({
     await composer.fill('已有草稿');
     await pop.locator('.csw-row[data-index="1"]').click();
     await waitFor(
-      async () =>
-        (await composer.innerText()).replace(/\n{2,}/g, '\n\n') ===
-        '已有草稿\n\n' + suggestions[1].prompt,
+      async () => (await composer.innerText()) === '已有草稿\n' + suggestions[1].prompt,
       'Popout append failed',
     );
     assert.equal(await pop.locator('dialog[open]').count(), 0);
@@ -439,7 +437,7 @@ export async function checkPopout({
     await composer.fill('已有草稿');
     await pop.locator('[data-quick-prompt="0"]').click();
     await waitFor(
-      async () => (await composer.innerText()).replace(/\n{2,}/g, '\n\n') === '已有草稿\n\n继续',
+      async () => (await composer.innerText()) === '已有草稿\n继续',
       'Shortcut append failed',
     );
     assert.equal(await desktop.evaluate(() => window.submitCount), submissions);
