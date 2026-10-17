@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 大纲和建议 DOM、状态属性与共享变量。
- * [OUTPUT]: 无框建议列表与预览、内凹快捷标签、大纲和内容状态的布局与外观，定位按钮透明无底块，鼠标离开后仅键盘聚焦保留导航。
+ * [OUTPUT]: 无框建议列表与预览、微凸快捷标签、大纲和内容状态的布局与外观，定位按钮透明无底块，鼠标离开后仅键盘聚焦保留导航。
  * [POS]: 功能内容样式，由 workspace/mount 与 shell/install-styles 共用。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -461,7 +461,7 @@
   flex-direction: column;
   min-height: 100%;
 }
-/* 与模型预设共用内凹标签的尺寸与灰阶层次，沿用当前宿主的语义颜色。 */
+/* 与模型预设共用微凸标签的尺寸与灰阶层次，沿用当前宿主的语义颜色。 */
 .csw-quick-prompts {
   display: flex;
   align-items: center;
@@ -475,8 +475,8 @@
   color: var(--csw-text);
   background: color-mix(in srgb, var(--quick-paper) 92%, var(--csw-text));
   box-shadow:
-    inset 1px 1px 3px color-mix(in srgb, var(--quick-paper) 82%, black),
-    inset -1px -1px 1px color-mix(in srgb, var(--quick-paper) 92%, white);
+    0 2px 4px rgb(0 0 0 / 14%),
+    inset 0 1px 0 rgb(255 255 255 / 18%);
   border: 0;
   border-radius: 18px;
   min-height: max(28px, calc(1.4em + 10px));

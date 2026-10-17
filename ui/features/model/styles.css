@@ -267,8 +267,8 @@
   color: var(--ink);
   background: color-mix(in srgb, var(--paper) 92%, var(--ink));
   box-shadow:
-    inset 1px 1px 3px color-mix(in srgb, var(--paper) 82%, black),
-    inset -1px -1px 1px color-mix(in srgb, var(--paper) 92%, white);
+    0 2px 4px rgb(0 0 0 / 14%),
+    inset 0 1px 0 rgb(255 255 255 / 18%);
 }
 .feature-model .model-preset-choice[aria-pressed='true'] {
   background: color-mix(in srgb, var(--paper) 84%, var(--ink));
