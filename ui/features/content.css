@@ -475,8 +475,8 @@
   color: var(--csw-text);
   background: color-mix(in srgb, var(--quick-paper) 92%, var(--csw-text));
   box-shadow:
-    0 2px 4px rgb(0 0 0 / 14%),
-    inset 0 1px 0 rgb(255 255 255 / 18%);
+    0 1px 2px rgb(0 0 0 / 7%),
+    inset 0 1px 0 rgb(255 255 255 / 9%);
   border: 0;
   border-radius: 18px;
   min-height: max(28px, calc(1.4em + 10px));
