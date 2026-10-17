@@ -12,7 +12,7 @@ export const pageTitles = {
   terminology: '术语释义',
   board: '任务看板',
   'model-control': '模型切换',
-  model: '生成模型',
+  model: '模型服务',
   surfaces: '布局与位置',
   appearance: '外观与字体',
   connection: '启动与连接',
@@ -26,8 +26,7 @@ export const pageGroups: { title: string; pages: SettingsPage[] }[] = [
     pages: ['features', 'next', 'prompts', 'terminology', 'board', 'model-control'],
   },
   { title: '界面', pages: ['surfaces', 'appearance'] },
-  { title: '模型', pages: ['model'] },
-  { title: '系统', pages: ['performance', 'connection', 'codex-host', 'dev'] },
+  { title: '系统', pages: ['model', 'connection', 'performance', 'codex-host', 'dev'] },
 ];
 export const pageGroup = (page: SettingsPage) =>
   pageGroups.find((group) => group.pages.includes(page))!;

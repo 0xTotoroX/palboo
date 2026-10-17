@@ -478,43 +478,12 @@ function FeaturePreview({ form, tasks, model, view, dirty, page }: PreviewProps)
 
 function GenerationPreview({ form, dirty }: PreviewProps) {
   return (
-    <Frame title="建议生成路径" label={dirty ? '当前编辑 · 未全部保存' : '当前配置'}>
-      <ol className="preview-flow">
-        <li>
-          <span>01</span>
-          <div>
-            <strong>最近一问一答</strong>
-            <p>
-              {form?.maxInputChars === 0
-                ? '完整上下文'
-                : `最多 ${form?.maxInputChars ?? '—'} 个字符`}
-            </p>
-          </div>
-        </li>
-        {form?.directionSource === 'smart' && (
-          <li>
-            <span>02</span>
-            <div>
-              <strong>Jev 筛选方向</strong>
-              <p>{form.jev.consent ? '已启用独立判断' : '等待启用并同意'}</p>
-            </div>
-          </li>
-        )}
-        <li>
-          <span>{form?.directionSource === 'smart' ? '03' : '02'}</span>
-          <div>
-            <strong>{form?.model || '尚未配置模型'}</strong>
-            <p>{form?.provider === 'codex' ? 'Codex 登录' : form?.protocol || '—'}</p>
-          </div>
-        </li>
-        <li>
-          <span>{form?.directionSource === 'smart' ? '04' : '03'}</span>
-          <div>
-            <strong>下一步建议</strong>
-            <p>最多 {form ? suggestionLimit(form) : '—'} 条 · 允许返回更少</p>
-          </div>
-        </li>
-      </ol>
+    <Frame title="共享模型连接" label={dirty ? '当前编辑 · 未全部保存' : '当前配置'}>
+      <div className="preview-model-name">
+        <strong>{form?.model || '尚未配置模型'}</strong>
+        <span>{form?.provider === 'codex' ? 'Codex 登录' : form?.protocol || '—'}</span>
+      </div>
+      <p className="preview-note">下一步、提示词优化与术语共用此连接，只在功能开启且需要时调用。</p>
       <Facts
         items={[
           ['输出上限', `${form?.maxOutputTokens ?? '—'} tokens`],

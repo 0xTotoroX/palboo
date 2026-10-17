@@ -63,6 +63,7 @@ struct Desired {
 }
 
 pub struct App {
+    pub(crate) model_requests: crate::model_requests::Requests,
     pub(crate) performance: Mutex<crate::performance::Monitor>,
     pub(crate) surfaces: Mutex<crate::surfaces::Surfaces>,
     pub(crate) features: Mutex<crate::features::Features>,
@@ -136,6 +137,7 @@ impl App {
             feature_operation: Mutex::new(()),
             codex_host_operation: Mutex::new(()),
             terminology_operation: Mutex::new(()),
+            model_requests: Default::default(),
             tasks: crate::tasks::Service::load(&paths),
             views,
             shutdown: Notify::new(),

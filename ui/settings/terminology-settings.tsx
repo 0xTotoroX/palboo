@@ -86,7 +86,8 @@ export function TerminologySettings({ active }: { active: boolean }) {
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [name, setName] = useState(''),
     [english, setEnglish] = useState(''),
-    [definition, setDefinition] = useState('');
+    [definition, setDefinition] = useState(''),
+    [category, setCategory] = useState('');
   const [preview, setPreview] = useState<Term>(sample);
   const load = () =>
     request<Library>('terminology')
@@ -374,10 +375,32 @@ export function TerminologySettings({ active }: { active: boolean }) {
                 value={definition}
                 onChange={(e) => setDefinition(e.target.value)}
               />
+              <NativeSelect
+                aria-label="词条分类"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+              >
+                <option value="">{prefs?.enabled ? '自动分类（使用模型）' : '请选择分类'}</option>
+                {Array.from(
+                  new Set(
+                    (data?.entries || [])
+                      .map((t) => JSON.stringify(t.category))
+                      .filter((value) => value !== '[]'),
+                  ),
+                )
+                  .sort()
+                  .map((value) => (
+                    <option key={value} value={value}>
+                      {JSON.parse(value).join(' / ')}
+                    </option>
+                  ))}
+              </NativeSelect>
               <Button
                 variant="outline"
                 type="button"
-                disabled={busy || !name.trim() || !definition.trim()}
+                disabled={
+                  busy || (!prefs?.enabled && !category) || !name.trim() || !definition.trim()
+                }
                 onClick={async () => {
                   if (
                     await command({
@@ -389,7 +412,7 @@ export function TerminologySettings({ active }: { active: boolean }) {
                           english,
                           definition,
                           aliases: [],
-                          category: [],
+                          category: category ? JSON.parse(category) : [],
                           example: '',
                           source: '',
                         },
@@ -402,10 +425,10 @@ export function TerminologySettings({ active }: { active: boolean }) {
                   }
                 }}
               >
-                自动分类并添加
+                {category ? '添加词条' : '自动分类并添加'}
               </Button>
             </div>
-            <p className="settings-hint">使用已配置模型分类。</p>
+
             <h3 className="mt-5">导入与导出</h3>
             <div className="term-actions">
               <Button variant="outline" type="button" onClick={() => void exportFile()}>

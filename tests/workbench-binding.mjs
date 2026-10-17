@@ -77,6 +77,126 @@ export function chatBindingCases({
 }) {
   return [
     [
+      'next drag copies once, preserves drafts and rejects stale or invalid drops',
+      async (page) => {
+        await mode(page, true);
+        await defer(page);
+        await complete(page, 0, '拖动测试');
+        const row = page.locator('.csw-row[data-index="0"]');
+        const composer = page.locator('#composer-form .ProseMirror');
+        await row.waitFor();
+        let dialogs = 0;
+        page.on('dialog', (dialog) => {
+          dialogs++;
+          void dialog.dismiss();
+        });
+        const source = await snapshot(page);
+        const prompt = source.prompts[0].prompt;
+        await composer.fill('原有草稿');
+        await row.evaluate((button) =>
+          button.addEventListener('dragstart', () => {
+            const preview = document.querySelector('[data-buddy-next-drag="preview"]');
+            window.dragPreview = preview && {
+              width: preview.getBoundingClientRect().width,
+              text: preview.textContent,
+            };
+          }),
+        );
+        await row.dragTo(composer);
+        const preview = await page.evaluate(() => window.dragPreview);
+        assert.ok(preview.width > 100 && preview.text.includes(prompt));
+        await page.waitForFunction(
+          (prompt) =>
+            document
+              .querySelector('#composer-form .ProseMirror')
+              .innerText.replace(/\n{2,}/g, '\n\n') ===
+            '原有草稿\n\n' + prompt,
+          prompt,
+        );
+        assert.equal(await page.evaluate(() => window.submitCount || 0), 0);
+        assert.equal(await page.locator('.csw-row').count(), source.prompts.length);
+        assert.equal(await row.getAttribute('data-dragging'), null);
+        assert.equal(dialogs, 0);
+        // 相同正文已有草稿也不发送。
+        await composer.fill(prompt);
+        assert.equal(
+          (
+            await page.evaluate(
+              (source) =>
+                window.__companionFloatingPanel.panelCommand({
+                  ...source,
+                  kind: 'fill',
+                  index: 0,
+                  submit: true,
+                }),
+              source,
+            )
+          ).ok,
+          true,
+        );
+        assert.equal(await page.evaluate(() => window.submitCount || 0), 0);
+        await composer.fill('保持原样');
+        await row.dragTo(page.locator('h2').first());
+        assert.equal(await composer.innerText(), '保持原样');
+        // 独立窗口接收端使用相同序列化协议，无正文回退；伪造发送意图也只能填入。
+        const drop = async (data) =>
+          page.evaluate((data) => {
+            const target = document.querySelector('#composer-form .ProseMirror');
+            const transfer = new DataTransfer();
+            transfer.setData('application/x-codex-buddy-next', JSON.stringify(data));
+            target.dispatchEvent(
+              new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: transfer }),
+            );
+          }, data);
+        await drop({ ...source, kind: 'fill', index: 0, submit: true });
+        assert.equal(
+          (await composer.innerText()).replace(/\n{2,}/g, '\n\n'),
+          '保持原样\n\n' + prompt,
+        );
+        assert.equal(await page.evaluate(() => window.submitCount || 0), 0);
+        await page.emulateMedia({ reducedMotion: 'no-preference' });
+        await composer.fill('动画草稿');
+        const animationState = await page.evaluate((source) => {
+          const target = document.querySelector('#composer-form .ProseMirror');
+          const transfer = new DataTransfer();
+          transfer.setData(
+            'application/x-codex-buddy-next',
+            JSON.stringify({ ...source, kind: 'fill', index: 0 }),
+          );
+          target.dispatchEvent(
+            new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: transfer }),
+          );
+          const ring = document.querySelector('[data-buddy-next-drop="inserted"]');
+          const animation = ring?.getAnimations()[0];
+          if (!animation) return null;
+          animation.pause();
+          animation.currentTime = 120;
+          return {
+            duration: animation.effect.getTiming().duration,
+            opacity: Number(getComputedStyle(ring).opacity),
+            transform: getComputedStyle(ring).transform,
+          };
+        }, source);
+        assert.equal(animationState.duration, 240);
+        assert.ok(animationState.opacity > 0 && animationState.opacity < 0.65);
+        assert.notEqual(animationState.transform, 'none');
+        await page.keyboard.press('Escape');
+        assert.equal(await page.locator('[data-buddy-next-drop]').count(), 0);
+        await composer.fill('换聊天后保留');
+        await replaceIdentity(page, 'another-drag-chat');
+        await drop({ ...source, kind: 'fill', index: 0 });
+        assert.equal(await composer.innerText(), '换聊天后保留');
+        await page.evaluate(async () => {
+          window.workbenchFixture.settings.enabled = false;
+          await window.__companionFloatingPanel.syncSettings();
+        });
+        await drop({ ...source, kind: 'fill', index: 0 });
+        assert.equal(await composer.innerText(), '换聊天后保留');
+        assert.equal(await page.locator('[data-buddy-next-drop]').count(), 0);
+        assert.equal(dialogs, 0);
+      },
+    ],
+    [
       'binding quick prompts fill independently and reject stale popout shortcuts',
       async (page) => {
         await mode(page, true);
@@ -144,8 +264,11 @@ export function chatBindingCases({
             }),
           drafts,
         );
-        assert.equal(protectedDraft.needsConfirmation, true);
-        assert.equal(await composer.innerText(), '已有草稿');
+        assert.equal(protectedDraft.ok, true);
+        assert.equal(
+          (await composer.innerText()).replace(/\n{2,}/g, '\n\n'),
+          '已有草稿\n\n解释这个概念',
+        );
         assert.equal(await page.evaluate(() => window.submitCount || 0), 0);
         assert.equal(
           await page.evaluate(
@@ -180,7 +303,6 @@ export function chatBindingCases({
         assert.equal(await page.evaluate(() => window.submitCount), clickMode === 'fill' ? 0 : 1);
         const sent = await page.evaluate(() => window.submitCount);
         await composer.fill('已有草稿');
-        page.once('dialog', (dialog) => dialog.accept());
         await button.click();
         await page.waitForFunction(() => {
           const text = document.querySelector('#composer-form .ProseMirror').innerText;

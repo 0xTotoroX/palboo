@@ -122,11 +122,7 @@ export function FeatureContent({
       ...extra,
     };
     await operation(async () => {
-      let result = await call<CommandResult>('action', { data });
-      if (result.needsConfirmation && confirm(result.message || '输入框已有草稿，是否追加？'))
-        result = await call<CommandResult>('action', {
-          data: { ...data, append: true, draftFingerprint: result.draftFingerprint },
-        });
+      const result = await call<CommandResult>('action', { data });
       if (!result.ok) throw Error(result.message || '操作未完成');
     });
   }

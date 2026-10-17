@@ -1,5 +1,6 @@
 import { measureWork, samplePerformance, stopPerformance } from '../../shared/performance.js';
 import { bridgeCall } from './state.js';
+import { installNextDrop } from '../next-drop.js';
 import { installPromptEnhancer } from '../prompt-enhancement.js';
 import { createTypographyTracker } from '../typography.js';
 import { installTerminology } from '../../terminology/host.js';
@@ -473,6 +474,8 @@ function activateRuntime() {
 }
 
 function destroy() {
+  stopNextDrop?.();
+  stopNextDrop = null;
   stopPerformance();
   if (!IS_POPOUT) window.__codexBuddyPromptEnhancer?.destroy();
   if (!IS_POPOUT) window.__codexBuddyTerminology?.destroy();
@@ -533,8 +536,16 @@ async function launcherAction(action, toggle = false) {
   else setOpen(toggle ? !shellState.open : true);
 }
 
+let stopNextDrop = null;
 function syncTools() {
   if (IS_POPOUT || !isCurrentInstance() || !runtimeState.settingsLoaded) return;
+  if (stepwiseEnabled()) {
+    if (!stopNextDrop)
+      stopNextDrop = installNextDrop({ read: exportPanelState, command: panelCommand });
+  } else {
+    stopNextDrop?.();
+    stopNextDrop = null;
+  }
   if (runtimeState.settings?.promptEnhancementEnabled !== false) {
     if (!window.__codexBuddyPromptEnhancer)
       installPromptEnhancer({

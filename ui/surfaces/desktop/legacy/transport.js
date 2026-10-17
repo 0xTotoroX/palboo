@@ -46,41 +46,13 @@ async function remotePanelAction(kind, fields = {}) {
     ...fields,
   };
   try {
-    let result = await POPOUT.request('command', { command });
-    if (result.needsConfirmation && (await confirmPanelAppend())) {
-      result = await POPOUT.request('command', {
-        command: { ...command, append: true, draftFingerprint: result.draftFingerprint },
-      });
-    }
-    if (!result.ok && !result.needsConfirmation)
-      POPOUT.notice(result.message || '操作失败，请重试。');
+    const result = await POPOUT.request('command', { command });
+    if (!result.ok) POPOUT.notice(result.message || '操作失败，请重试。');
     return result.ok === true;
   } catch (error) {
     POPOUT.notice(error.message);
     return false;
   }
-}
-
-function confirmPanelAppend() {
-  return new Promise((resolve) => {
-    const dialog = document.createElement('dialog');
-    dialog.className = 'csw-popout-confirm';
-    dialog.innerHTML =
-      '<p>输入框已有草稿。保留草稿并追加这条建议？</p><div><button type="button" data-cancel>取消</button><button type="button" data-append>保留并追加</button></div>';
-    const finish = (value) => {
-      dialog.close();
-      dialog.remove();
-      resolve(value);
-    };
-    dialog.querySelector('[data-cancel]').addEventListener('click', () => finish(false));
-    dialog.querySelector('[data-append]').addEventListener('click', () => finish(true));
-    dialog.addEventListener('cancel', (event) => {
-      event.preventDefault();
-      finish(false);
-    });
-    document.body.append(dialog);
-    dialog.showModal();
-  });
 }
 
 /** @type {Promise<void> | null} */

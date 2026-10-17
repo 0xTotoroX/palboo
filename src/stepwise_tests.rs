@@ -50,6 +50,14 @@ async fn judge(State(state): State<Shared>, Json(body): Json<Value>) -> (StatusC
 async fn generate(State(state): State<Shared>, Json(body): Json<Value>) -> Json<Value> {
     let mut state = state.lock().await;
     state.calls.push(json!({"stage":"generate","body":body}));
+    if body["text"]["format"]["schema"]["properties"]
+        .get("ok")
+        .is_some()
+    {
+        return Json(
+            json!({"output":[{"content":[{"type":"output_text","text":"{\"ok\":true}"}]}]}),
+        );
+    }
     let input: Value = serde_json::from_str(body["input"].as_str().unwrap()).unwrap();
     let directions = input["suppliedDirections"].as_array().unwrap();
     let suggestions = if directions.is_empty() {
@@ -88,15 +96,7 @@ async fn setup(mode: &'static str) -> (Model, Shared, tokio::task::JoinHandle<()
     let task = tokio::spawn(async move {
         axum::serve(listener, router).await.unwrap();
     });
-    let config = Config {
-        provider: Some("api".into()),
-        model: Some("fixture".into()),
-        base_url: Some(base.clone()),
-        ..Default::default()
-    };
-    let mut model = Model::load(&config)
-        .with_key(Some("fixture-key".into()))
-        .with_jev_key(Some("judge-key".into()));
+    let mut model = Model::synthetic(base.clone());
     model.options.jev.endpoint = format!("{base}/v1/systemone");
     model.options.jev.consent = true;
     (model, state, task)
@@ -289,8 +289,8 @@ async fn rechecks_context_after_judgment_before_starting_generation() {
 }
 
 #[tokio::test]
-async fn connection_test_reports_unverified_generation_when_judgment_is_empty() {
-    let (model, state, task) = setup("empty").await;
+async fn connection_test_uses_shared_model_without_stepwise_or_judgment() {
+    let (mut model, state, task) = setup("empty").await;
     let dir = tempfile::tempdir().unwrap();
     let paths = Paths::new(Some(dir.path().into())).unwrap();
     paths
@@ -302,13 +302,18 @@ async fn connection_test_reports_unverified_generation_when_judgment_is_empty() 
         base_url: Some("http://127.0.0.1:1".into()),
         ..Default::default()
     };
-    config.stepwise.jev = model.options.jev;
+    config.base_url = Some(model.base_url.clone());
+    config.stepwise.enabled = false;
+    config.stepwise.jev = model.options.jev.clone();
     config.stepwise.direction_source = DirectionSource::Smart;
+    model.options = config.stepwise.clone();
     let app = App::new(paths, config, None, false);
+    *app.model.write().await = model;
     let result = app.test_settings().await.unwrap();
-    assert_eq!(result["generationAttempted"], false);
+    assert_eq!(result["generationAttempted"], true);
     assert_eq!(result["items"], json!([]));
     assert_eq!(state.lock().await.calls.len(), 1);
+    assert_eq!(state.lock().await.calls[0]["stage"], "generate");
     task.abort();
 }
 

@@ -1,7 +1,8 @@
 /* [INPUT]: Suggestion projection, display preferences and guarded action callback.
- * [OUTPUT]: List/preview with leading turn arrows and hover/focus; quick prompts share suggestion single/double-click rules.
+ * [OUTPUT]: List/preview with native guarded copy-drag, leading turn arrows and hover/focus; quick prompts share suggestion single/double-click rules.
  * [POS]: Content interaction only; generation and input validation stay in Codex/backend services.
  * [PROTOCOL]: Keep features/next/AGENTS.md in sync. */
+import { bindNextDrag } from './drag.js';
 import { escapeAttr, escapeHtml, normalizeText, clamp } from '../../shared/text.js';
 import {
   FRIENDLY_BRIDGE_ERRORS,
@@ -9,7 +10,14 @@ import {
   PROMPT_PREVIEW_SWITCH_MS,
 } from '../../shared/constants.js';
 import { iconSvg } from '../../shared/icons/index.js';
-export function createNextView({ read, reading, command, changed = () => {} }) {
+export function createNextView({
+  read,
+  reading,
+  command,
+  dragSnapshot = read,
+  changed = () => {},
+}) {
+  let dragCleanups = [];
   let container,
     previewTimer = 0,
     clickTimer = 0;
@@ -140,6 +148,7 @@ export function createNextView({ read, reading, command, changed = () => {} }) {
         }
       };
       if (!quick) {
+        dragCleanups.push(bindNextDrag(button, dragSnapshot, clearClickTimers));
         button.addEventListener('pointerenter', () => schedulePromptPreview(button));
         button.addEventListener('pointerleave', cancelScheduledPromptPreview);
         button.addEventListener('focus', () => showPromptPreview(button, true));
@@ -166,6 +175,12 @@ export function createNextView({ read, reading, command, changed = () => {} }) {
   }
 
   function clearPromptInteractionTimers() {
+    for (const cleanup of dragCleanups) cleanup();
+    dragCleanups = [];
+    clearClickTimers();
+  }
+
+  function clearClickTimers() {
     if (previewTimer) window.clearTimeout(previewTimer);
     if (clickTimer) window.clearTimeout(clickTimer);
     previewTimer = 0;

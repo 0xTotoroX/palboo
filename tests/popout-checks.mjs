@@ -420,26 +420,16 @@ export async function checkPopout({
     const submissions = await desktop.evaluate(() => window.submitCount);
     await composer.fill('已有草稿');
     await pop.locator('.csw-row[data-index="1"]').click();
-    await pop.locator('dialog').waitFor();
-    await pop.getByRole('button', { name: '取消', exact: true }).click();
-    assert.equal(await composer.textContent(), '已有草稿');
-    await pop.locator('.csw-row[data-index="1"]').click();
-    await pop.getByRole('button', { name: '保留并追加', exact: true }).click();
     await waitFor(
-      async () => (await composer.textContent()).includes(suggestions[1].prompt),
+      async () =>
+        (await composer.innerText()).replace(/\n{2,}/g, '\n\n') ===
+        '已有草稿\n\n' + suggestions[1].prompt,
       'Popout append failed',
     );
-    assert.ok((await composer.textContent()).startsWith('已有草稿'));
+    assert.equal(await pop.locator('dialog[open]').count(), 0);
     assert.equal(await desktop.evaluate(() => window.submitCount), submissions);
-    await composer.fill('确认前的草稿');
-    await pop.locator('.csw-row[data-index="2"]').click();
-    await pop.locator('dialog').waitFor();
-    await composer.fill('确认期间修改了草稿');
-    await pop.getByRole('button', { name: '保留并追加', exact: true }).click();
-    await delay(250);
-    assert.equal(await composer.textContent(), '确认期间修改了草稿');
     await composer.fill('');
-    record('独立浮窗填入、取消／确认追加、追加前再次修改草稿均保持保护');
+    record('独立浮窗直接保留并追加草稿，不弹确认、不自动发送');
     await pop.locator('[data-quick-prompt="1"]').click();
     await waitFor(
       async () => (await composer.textContent()) === '执行',
@@ -448,9 +438,11 @@ export async function checkPopout({
     assert.equal(await desktop.evaluate(() => window.submitCount), submissions);
     await composer.fill('已有草稿');
     await pop.locator('[data-quick-prompt="0"]').click();
-    await pop.locator('dialog').waitFor();
-    await pop.getByRole('button', { name: '取消', exact: true }).click();
-    assert.equal(await composer.textContent(), '已有草稿');
+    await waitFor(
+      async () => (await composer.innerText()).replace(/\n{2,}/g, '\n\n') === '已有草稿\n\n继续',
+      'Shortcut append failed',
+    );
+    assert.equal(await desktop.evaluate(() => window.submitCount), submissions);
     await composer.fill('');
     record('常用提示词经浮窗填入关联聊天，保持草稿保护且不自动发送');
 

@@ -276,11 +276,9 @@ test(
         'model-control',
       ].includes(id)
         ? '功能'
-        : id === 'model'
-          ? '模型'
-          : ['surfaces', 'appearance'].includes(id)
-            ? '界面'
-            : '系统';
+        : ['surfaces', 'appearance'].includes(id)
+          ? '界面'
+          : '系统';
       const link = page.locator(`.settings-nav a[href="#settings-${id}"]`);
       await link.waitFor({ state: 'attached' });
       if (!(await link.isVisible()))
@@ -529,7 +527,7 @@ test(
       );
       rejectNext = true;
       await model.fill('失败后保留模型');
-      await page.getByRole('heading', { name: '生成模型', exact: true, level: 1 }).click();
+      await page.getByRole('heading', { name: '模型服务', exact: true, level: 1 }).click();
       await page.locator('.settings-feedback').filter({ hasText: '合成保存失败' }).waitFor();
       await roundTrip();
       assert.equal(await model.inputValue(), '失败后保留模型');
@@ -608,7 +606,7 @@ test(
       }
       assert.equal(writes.length, count, 'legacy mode and hashes never reset configuration');
       await page.goto(origin + '/#settings-limits/timeout');
-      await page.getByRole('heading', { name: '生成模型', exact: true, level: 1 }).waitFor();
+      await page.getByRole('heading', { name: '模型服务', exact: true, level: 1 }).waitFor();
       await page.getByLabel('请求超时（秒）', { exact: true }).waitFor();
       assert.equal(await limits.locator('dialog').getAttribute('open'), '');
       assert.equal(settings.directionSource, fixtureSettings.directionSource);
@@ -658,6 +656,7 @@ test(
       await preview.getByRole('button', { name: '主界面', exact: true }).click();
       assert.equal(writes.length, previewWrites, 'preview navigation never moves real features');
 
+      await page.bringToFront();
       features.layouts.overlay = {
         axis: 'vertical',
         groups: [
@@ -689,7 +688,7 @@ test(
       await preview.getByRole('button', { name: /完善实现方案/ }).click();
       assert.equal(await preview.getByRole('status').textContent(), '完善实现方案');
       assert.equal(writes.length, demoWrites, 'sample interactions do not write or send');
-      await page.getByRole('link', { name: '生成模型', exact: true }).click();
+      await page.getByRole('link', { name: '模型服务', exact: true }).click();
       await model.fill('新的预览模型草稿');
       await preview.getByText('新的预览模型草稿', { exact: true }).waitFor();
       assert.ok((await preview.textContent()).includes('未全部保存'));
@@ -766,7 +765,7 @@ test(
                   name: {
                     surfaces: '布局与位置',
                     features: '常用开关',
-                    model: '生成模型',
+                    model: '模型服务',
                     connection: '启动与连接',
                   }[id],
                   exact: true,
@@ -862,7 +861,7 @@ test(
         'placement changes animate only the illustration',
       );
       const beforeMotion = writes.length;
-      await page.getByRole('link', { name: '生成模型', exact: true }).click();
+      await page.getByRole('link', { name: '模型服务', exact: true }).click();
       const drawer = limits.locator('dialog.settings-drawer');
       const entryHeight = await limits.evaluate((n) => n.getBoundingClientRect().height);
       await page.getByRole('button', { name: '高级设置', exact: true }).click();
@@ -891,7 +890,7 @@ test(
         0,
         'keyboard navigation has no entry animation',
       );
-      await page.getByRole('link', { name: '生成模型', exact: true }).click();
+      await page.getByRole('link', { name: '模型服务', exact: true }).click();
       await page.getByRole('button', { name: '高级设置', exact: true }).click();
       await emulateMedia(page, { reducedMotion: 'reduce' });
       assert.equal(await drawer.evaluate((n) => getComputedStyle(n).transitionDuration), '0s');
@@ -993,7 +992,7 @@ test(
           );
           assert.ok(links.length >= 12, 'all original settings leaves remain available');
           assert.ok(links.filter((n) => n.visible).every((n) => n.width >= n.content));
-          assert.equal(links.filter((n) => n.visible).length, width <= 760 ? 1 : links.length);
+          assert.equal(links.filter((n) => n.visible).length, width <= 760 ? 5 : links.length);
           assert.equal(await page.locator('.settings-nav summary').count(), 0);
           const layout = await page.evaluate(() => {
             const nav = document.querySelector('.settings-nav').getBoundingClientRect();

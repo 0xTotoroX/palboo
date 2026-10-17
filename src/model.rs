@@ -1,5 +1,5 @@
 // [INPUT]: 模型配置、受限 Codex CLI 或 HTTP 结构化接口。
-// [OUTPUT]: Model、ModelInfo、Suggestion、共用无工具结构化补全与生成/测试/模型查询。
+// [OUTPUT]: Model、ModelInfo、Suggestion、带分域请求租约的无工具结构化补全与生成/测试/模型查询。
 // [POS]: 模型适配层，三种方向来源共用生成与总超时；智谱请求/最终回答适配，保留方向和数量校验。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
@@ -17,6 +17,7 @@ const INSTRUCTIONS: &str = "你是 Stepwise，只起草用户可以选择发送�
 
 #[derive(Clone)]
 pub struct Model {
+    pub(crate) request_lease: Option<crate::model_requests::Lease>,
     pub provider: String,
     pub name: String,
     pub binary: Option<PathBuf>,
@@ -93,6 +94,7 @@ impl Model {
                     .map(|value| (name.to_owned(), value))
             });
         Self {
+            request_lease: None,
             provider,
             name: model,
             codex_provider,
@@ -109,6 +111,52 @@ impl Model {
                 .filter(|v| !v.trim().is_empty()),
             options: config.stepwise.clone(),
         }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn synthetic(base_url: String) -> Self {
+        Self {
+            provider: "api".into(),
+            name: "fixture".into(),
+            binary: None,
+            base_url,
+            api_key: Some("fixture".into()),
+            jev_key: Some("fixture".into()),
+            codex_provider: None,
+            options: Default::default(),
+            request_lease: None,
+        }
+    }
+    pub(crate) fn with_lease(mut self, lease: crate::model_requests::Lease) -> Self {
+        self.request_lease = Some(lease);
+        self
+    }
+    pub(crate) fn check_request(&self) -> Result<()> {
+        if let Some(lease) = &self.request_lease {
+            lease.check()?;
+        }
+        Ok(())
+    }
+    pub(crate) async fn run_request<T>(
+        &self,
+        request: impl std::future::Future<Output = Result<T>>,
+    ) -> Result<T> {
+        if let Some(lease) = &self.request_lease {
+            lease.run(request).await
+        } else {
+            request.await
+        }
+    }
+    pub(crate) fn same_service_config(&self, other: &Self) -> bool {
+        self.provider == other.provider
+            && self.name == other.name
+            && self.binary == other.binary
+            && self.base_url == other.base_url
+            && self.api_key == other.api_key
+            && self.codex_provider == other.codex_provider
+            && self.options.protocol == other.options.protocol
+            && self.options.timeout_ms == other.options.timeout_ms
+            && self.options.max_output_tokens == other.options.max_output_tokens
     }
 
     // Compare effective generation inputs; the local outline switch is independent.
@@ -248,7 +296,7 @@ impl Model {
         if !info.available {
             bail!("{}", info.reason);
         }
-        tokio::time::timeout(Duration::from_millis(self.options.timeout_ms), async {
+        self.run_request(async { tokio::time::timeout(Duration::from_millis(self.options.timeout_ms), async {
             check_current().await?;
             let directions = match self.options.direction_source {
                 DirectionSource::Auto => vec![],
@@ -259,7 +307,7 @@ impl Model {
                 },
                 DirectionSource::Smart => {
                     let candidates = self.options.direction_library.iter().filter(|item| item.enabled).cloned().collect::<Vec<_>>();
-                    crate::jev::select(&self.options.jev, self.jev_key.as_deref(), exchange, &candidates, self.options.timeout_ms).await?
+                    crate::jev::select(&self.options.jev, self.jev_key.as_deref(), exchange, &candidates, self.options.timeout_ms, self.request_lease.as_ref()).await?
                 },
             };
             check_current().await?;
@@ -284,7 +332,7 @@ impl Model {
                 }
             }
             Ok(GenerationResult { suggestions, generation_attempted: true })
-        }).await.context("建议请求超时（含方向判断与生成），请稍后重试")?
+        }).await.context("建议请求超时（含方向判断与生成），请稍后重试")? }).await
     }
 
     async fn codex(&self, input: &str, directions: &[String]) -> Result<String> {
@@ -386,7 +434,12 @@ impl Model {
                 ));
             }
         }
-        let mut child = command.spawn().context("无法启动 Codex CLI")?;
+        self.check_request()?;
+        let mut child = if let Some(lease) = &self.request_lease {
+            lease.with_current(|| command.spawn().context("无法启动 Codex CLI"))?
+        } else {
+            command.spawn().context("无法启动 Codex CLI")?
+        };
         child
             .stdin
             .take()
@@ -507,15 +560,18 @@ impl Model {
         if !info.available {
             bail!("{}", info.reason);
         }
-        tokio::time::timeout(Duration::from_millis(self.options.timeout_ms), async {
-            if self.provider == "api" {
-                self.api_completion(input, instructions, schema).await
-            } else {
-                self.codex_completion(input, instructions, schema).await
-            }
+        self.run_request(async {
+            tokio::time::timeout(Duration::from_millis(self.options.timeout_ms), async {
+                if self.provider == "api" {
+                    self.api_completion(input, instructions, schema).await
+                } else {
+                    self.codex_completion(input, instructions, schema).await
+                }
+            })
+            .await
+            .context("模型请求超时，请重试")?
         })
         .await
-        .context("提示词优化超时，请重试")?
     }
 
     async fn api_completion(
@@ -527,6 +583,7 @@ impl Model {
         let client = self.client()?;
         let protocols = self.protocols();
         for (index, protocol) in protocols.iter().enumerate() {
+            self.check_request()?;
             let (suffix, body) = match *protocol {
                 "responses" => (
                     "responses",
@@ -547,17 +604,9 @@ impl Model {
                 _ => bail!("API 协议无效"),
             };
             let request = client.post(endpoint(&self.base_url, suffix)?).json(&body);
-            let response = self
-                .authenticate(request, protocol)?
-                .send()
-                .await
-                .map_err(|error| {
-                    if error.is_timeout() {
-                        anyhow::anyhow!("生成超时，请稍后重试")
-                    } else {
-                        anyhow::anyhow!("模型 API 无法连接")
-                    }
-                })?;
+            let request = self.authenticate(request, protocol)?;
+            let response =
+                crate::model_requests::send(self.request_lease.as_ref(), request).await?;
             if [404, 405].contains(&response.status().as_u16()) && index + 1 < protocols.len() {
                 continue;
             }
@@ -582,17 +631,8 @@ impl Model {
         }
         let client = self.client()?;
         let request = client.get(endpoint(&self.base_url, "models")?);
-        let response = self
-            .authenticate(request, self.protocols()[0])?
-            .send()
-            .await
-            .map_err(|error| {
-                if error.is_timeout() {
-                    anyhow::anyhow!("读取模型列表超时")
-                } else {
-                    anyhow::anyhow!("无法读取模型列表")
-                }
-            })?;
+        let request = self.authenticate(request, self.protocols()[0])?;
+        let response = crate::model_requests::send(self.request_lease.as_ref(), request).await?;
         let value = response_json(response).await?;
         let mut models = value["data"]
             .as_array()
@@ -795,6 +835,55 @@ pub fn parse_suggestions(text: &str) -> Result<Vec<Suggestion>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[tokio::test]
+    async fn invalidated_request_cannot_fallback_to_another_protocol() {
+        use std::sync::{
+            Arc,
+            atomic::{AtomicUsize, Ordering},
+        };
+        let requests = Arc::new(crate::model_requests::Requests::default());
+        let calls = Arc::new(AtomicUsize::new(0));
+        let router = axum::Router::new().route(
+            "/{*path}",
+            axum::routing::post({
+                let requests = requests.clone();
+                let calls = calls.clone();
+                move || {
+                    let requests = requests.clone();
+                    let calls = calls.clone();
+                    async move {
+                        calls.fetch_add(1, Ordering::SeqCst);
+                        requests.invalidate(crate::model_requests::Scope::Prompt);
+                        axum::http::StatusCode::NOT_FOUND
+                    }
+                }
+            }),
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let base = format!("http://{}/v1", listener.local_addr().unwrap());
+        let server = tokio::spawn(async move {
+            axum::serve(listener, router).await.unwrap();
+        });
+        let mut model =
+            Model::synthetic(base).with_lease(requests.lease(crate::model_requests::Scope::Prompt));
+        model.options.protocol = "auto".into();
+        assert!(
+            model
+                .complete_json("fixture", "fixture", &json!({"type":"object"}))
+                .await
+                .is_err()
+        );
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
+        assert!(
+            model
+                .complete_json("fixture", "fixture", &json!({"type":"object"}))
+                .await
+                .is_err()
+        );
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
+        server.abort();
+    }
+
     #[test]
     fn bigmodel_chat_contract_is_scoped_to_official_host() {
         let mut model = Model::load(&crate::config::Config {

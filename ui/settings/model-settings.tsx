@@ -1,6 +1,6 @@
 /* [INPUT]: Shared model editor, serialized save queue, saved-connection model API, credential controls and free-text dropdown.
  * [OUTPUT]: One directly visible model form in both modes, retaining credentials/drafts across navigation; advanced controls use a retained right-side drawer; connection tests report progress and results beside the action.
- * [POS]: Settings presentation only; prompt optimization and next steps share the configured model.
+ * [POS]: Settings presentation only; all enabled API-backed features share the configured model.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { SettingsDrawer, DrawerSaveControls } from './settings-drawer';
 import { useProviderFieldsMotion } from './settings-motion';
@@ -125,8 +125,8 @@ export function ModelSettings({ editor, simple }: { editor: SettingsEditor; simp
           success: result.generationAttempted !== false,
           text:
             result.generationAttempted === false
-              ? '测试未完成：示例没有合适方向，尚未验证模型连接。'
-              : `连接成功 · ${duration} 秒 · 已生成 ${result.items.length} 条测试建议。`,
+              ? '测试未完成，请重新验证模型连接。'
+              : `连接成功 · ${duration} 秒`,
         });
       }
     } catch (error) {
@@ -146,7 +146,7 @@ export function ModelSettings({ editor, simple }: { editor: SettingsEditor; simp
         <div ref={fieldsRef} className="settings-model-editor">
           <div>
             <h2 id="model-title" hidden={simple}>
-              生成模型
+              模型服务
             </h2>
             {saved.environmentOverrides.length > 0 && (
               <div className="mb-4 rounded-[9px] border border-notice-border bg-notice px-[13px] py-[11px] text-[14px] leading-[1.8] text-notice-foreground [overflow-wrap:anywhere]">

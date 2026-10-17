@@ -57,11 +57,9 @@ async function selectSettingsCategory(page, id) {
     id,
   )
     ? '功能'
-    : id === 'model'
-      ? '模型'
-      : ['surfaces', 'appearance'].includes(id)
-        ? '界面'
-        : '系统';
+    : ['surfaces', 'appearance'].includes(id)
+      ? '界面'
+      : '系统';
   const link = page.locator(`.settings-nav a[href="#settings-${id}"]`);
   await link.waitFor({ state: 'attached' });
   if (!(await link.isVisible()))
@@ -93,7 +91,7 @@ async function checkSettingsNavigation(page, context, base, runtime) {
         .getByRole('heading', {
           name: {
             features: '常用开关',
-            model: '生成模型',
+            model: '模型服务',
             surfaces: '布局与位置',
             connection: '启动与连接',
           }[id],
@@ -217,14 +215,20 @@ const fixture = createServer(async (req, res) => {
       res.end();
       return;
     }
-    const max =
+    const schema =
       protocol === 'responses'
-        ? body.text.format.schema.properties.suggestions.maxItems
+        ? body.text.format.schema
         : protocol === 'chat_completions'
-          ? body.response_format.json_schema.schema.properties.suggestions.maxItems
-          : body.output_config.format.schema.properties.suggestions.maxItems;
+          ? body.response_format.json_schema.schema
+          : body.output_config.format.schema;
     const text =
-      mode === 'bad' ? 'not JSON' : JSON.stringify({ suggestions: suggestions.slice(0, max) });
+      mode === 'bad'
+        ? 'not JSON'
+        : JSON.stringify(
+            schema.properties.ok
+              ? { ok: true }
+              : { suggestions: suggestions.slice(0, schema.properties.suggestions.maxItems) },
+          );
     const payload =
       protocol === 'responses'
         ? {
@@ -458,7 +462,7 @@ try {
         `${name} did not return`,
       );
     }
-    await nav.getByRole('link', { name: '生成模型', exact: true }).click();
+    await nav.getByRole('link', { name: '模型服务', exact: true }).click();
     await page.goto(`${base}/#settings-next/max-output`);
     const limit = page.getByLabel('输出 token 上限', { exact: true });
     await limit.fill('1');
@@ -468,7 +472,7 @@ try {
       async () => !(await settings()).answerOutlineEnabled,
       'outline disable blocked by unrelated draft',
     );
-    await nav.getByRole('link', { name: '生成模型', exact: true }).click();
+    await nav.getByRole('link', { name: '模型服务', exact: true }).click();
     assert.equal(
       await limit.inputValue(),
       '1',
@@ -793,23 +797,26 @@ try {
     record('连续读取 30 次投影和状态没有触发正文重扫');
 
     await composer.fill('保留现有草稿');
-    const dismissed = new Promise((resolve, reject) =>
-      desktop.once('dialog', (dialog) => dialog.dismiss().then(resolve, reject)),
-    );
+    let appendDialogs = 0;
+    const unexpectedDialog = (dialog) => {
+      appendDialogs++;
+      void dialog.dismiss();
+    };
+    desktop.on('dialog', unexpectedDialog);
     await desktop.locator('.csw-row[data-index="1"]').click();
-    await dismissed;
-    assert.equal(await composer.textContent(), '保留现有草稿');
+    await waitFor(
+      async () =>
+        (await composer.innerText()).replace(/\n{2,}/g, '\n\n') ===
+        '保留现有草稿\n\n' + suggestions[1].prompt,
+      'Draft was not appended directly',
+    );
     await desktop.evaluate(() => {
       const e = document.querySelector('[data-codex-composer]');
       e.innerHTML = '<p>第一行</p><p>第二行</p>';
       e.dispatchEvent(new InputEvent('input', { bubbles: true }));
     });
     const existingParagraphs = await composer.innerText();
-    const accepted = new Promise((resolve, reject) =>
-      desktop.once('dialog', (dialog) => dialog.accept().then(resolve, reject)),
-    );
     await desktop.locator('.csw-row[data-index="1"]').click();
-    await accepted;
     await waitFor(
       async () => (await composer.innerText()).includes(suggestions[1].prompt),
       'Append did not complete',
@@ -817,7 +824,9 @@ try {
     assert.ok((await composer.innerText()).startsWith(existingParagraphs));
     assert.equal(await composer.locator('p').first().textContent(), '第一行');
     assert.equal(await desktop.evaluate(() => window.submitCount), 0);
-    record('已有草稿取消／确认追加及多段文本保留');
+    assert.equal(appendDialogs, 0);
+    desktop.off('dialog', unexpectedDialog);
+    record('已有草稿直接追加、不发送且保留多段文本');
     await composer.fill('');
 
     await switchView('outline');
@@ -1098,7 +1107,7 @@ try {
       'undefined',
     );
     await checkSettingsNavigation(page, context, base, runtime);
-    await page.getByRole('link', { name: '生成模型', exact: true }).click();
+    await page.getByRole('link', { name: '模型服务', exact: true }).click();
     await page.getByText('密钥已配置', { exact: true }).waitFor();
     await page.getByRole('button', { name: '更换密钥', exact: true }).click();
     assert.equal(await page.getByLabel('API 密钥', { exact: true }).inputValue(), '');
@@ -1119,7 +1128,7 @@ try {
     );
     await page.getByRole('combobox', { name: '模型名称', exact: true }).press('Escape');
     await page.getByRole('button', { name: '测试连接', exact: true }).click();
-    await page.getByText(/^连接成功 · .* · 已生成 3 条测试建议。$/).waitFor();
+    await page.getByText(/^连接成功 · [\d.]+ 秒$/).waitFor();
     record('网页保存、模型列表、连接测试、密钥保留与私有权限');
     const appearanceBefore = (await api('appearance')).body;
     // Themes belong to surfaces; legacy panel appearance remains compatible but is not edited here.
@@ -1232,7 +1241,7 @@ try {
       await patch({ protocol });
       const result = await api('settings/test', {});
       assert.equal(result.status, 200, JSON.stringify(result.body));
-      assert.equal(result.body.items.length, 3);
+      assert.deepEqual(result.body.items, []);
       assert.equal(calls.at(-1).protocol, protocol);
       assert.equal(
         protocol === 'responses'

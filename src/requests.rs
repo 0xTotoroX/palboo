@@ -209,7 +209,10 @@ async fn generate(app: &Arc<App>, client: &Client, request: &Value) -> Result<Va
     }
     let model_guard = app.model.read().await;
     let revision = app.generation_revision.load(Ordering::SeqCst);
-    let model = model_guard.clone();
+    let model = model_guard.clone().with_lease(
+        app.model_requests
+            .lease(crate::model_requests::Scope::Stepwise),
+    );
     drop(model_guard);
     if !model.options.enabled {
         return Ok(json!({"disabled":true,"items":[]}));
@@ -238,7 +241,7 @@ async fn generate(app: &Arc<App>, client: &Client, request: &Value) -> Result<Va
                 bail!("回答或配置已经变化，未启动后续模型请求");
             }
             Ok(())
-        })) => result?.suggestions,
+        })) => { let result = result?; let _generation_attempted = result.generation_attempted; result.suggestions },
         _ = cancelled => bail!("回答、模式或模型配置已经变化，旧请求已取消"),
     };
     if app.generation_revision.load(Ordering::SeqCst) != revision

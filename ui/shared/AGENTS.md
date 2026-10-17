@@ -35,3 +35,5 @@ features.ts 增加 terms、默认14px字号与术语筛选/选择阅读状态，
 `typography.ts` 定义 TypographyPreferences/字体快照、默认值、有效祖先缩放及跨表面的字号计算；不采集 DOM 文本。跟随按宿主字号×相对比例×宿主缩放/当前容器缩放，自定义用固定逻辑像素并保留字体家族。
 
 AppearanceSettings 增加可选 settingsTheme（codex/light/dark/null），只控制设置页，旧后台缺省兼容浏览器偏好；功能显示名调整不改变 FeatureId。
+
+- `next-drag.js`：推荐复制拖放的 MIME 与纯身份载荷（实例、视图、聊天、建议版本、条目索引）；不包含正文、不持久化。

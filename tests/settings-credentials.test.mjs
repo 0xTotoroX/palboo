@@ -104,7 +104,7 @@ createRoot(document.getElementById('root')).render(<App/>);`,
       await replace.click();
       await key.fill('fixture-replacement');
       const replaced = page.waitForResponse((r) => r.url().endsWith('/api/settings'));
-      await page.getByRole('heading', { name: '生成模型', exact: true }).click();
+      await page.getByRole('heading', { name: '模型服务', exact: true }).click();
       await (await replaced).finished();
       await replace.waitFor();
       assert.equal(storedKey, 'fixture-replacement');
@@ -153,7 +153,7 @@ createRoot(document.getElementById('root')).render(<App/>);`,
       await page.getByRole('button', { name: '关闭高级设置', exact: true }).click();
       await model.focus();
       const nextSave = page.waitForResponse((r) => r.url().endsWith('/api/settings'));
-      await page.getByRole('heading', { name: '生成模型', exact: true }).click();
+      await page.getByRole('heading', { name: '模型服务', exact: true }).click();
       await (await nextSave).finished();
       await page.locator('[data-save-state="saved"]').waitFor({ state: 'attached' });
       assert.equal(

@@ -107,3 +107,5 @@ panel.Preferences 顶层 typography 单独持久化并验证 follow/custom、bod
 - `config_cli.rs`：schema/get/set 配置命令、字段/操作白名单、JSON/file/stdin 输入、脱敏预览、修订/任务快照保护及危险操作确认；复用 Runtime 认证服务，不直接读写配置或启动宿主。reminders calendars/authorize 提供原列表读取和显式授权，绑定仍需 iCloudConfirmed。
 
 panel::Preferences.settings_theme 为可空设置页主题偏好，旧配置默认为 None；appearance 校验 codex/light/dark，保持其他外观字段。模型 preferences 修改 enabled 时同步现有功能视图，呈现失败单独回传 presentationError。ReadingState.taskView.editor 继续复用旧 JSON 字段，现承载任务详情草稿与原任务快照，不写入持久化配置。
+
+- `model_requests.rs`：内存中的 Shared/Stepwise/Prompt/Terminology/Expansion 请求租约；保存配置按影响范围失效，watch 取消在途任务，发送启动与失效串行化，阻止协议回退及重开后的旧请求。模型列表与单次连接测试也绑定共享租约。

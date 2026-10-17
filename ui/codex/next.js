@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 回答上下文、独立生成版本、模型桥接与宿主写入接口。
- * [OUTPUT]: 建议生成、按聊天/回答/完整用户问题保留的有限内存缓存与普通/快捷词填入的草稿保护；来源失联时禁止生成和填入。
+ * [OUTPUT]: 建议生成、按聊天/回答/完整用户问题保留的有限内存缓存与普通/快捷词直接追加草稿且不发送；来源失联时禁止生成和填入。
  * [POS]: 下一步的 Codex 业务协调；不依赖大纲，通过通知请求外壳反馈。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -258,7 +258,7 @@ function requestBridgeStepwise(
 }
 
 function forceRefreshStepwise() {
-  if (!bindingSourceReady()) return false;
+  if (!bindingSourceReady() || !stepwiseEnabled()) return false;
   if (IS_POPOUT) {
     void remotePanelAction('generate');
     return;
@@ -338,7 +338,7 @@ function clearPromptsForNewAssistant(hash) {
 }
 
 function fillComposer(prompt, submit = false, options = {}) {
-  if (!bindingSourceReady()) return false;
+  if (!bindingSourceReady() || !stepwiseEnabled()) return false;
   if (IS_POPOUT) {
     void remotePanelAction(options.quick ? 'quick-fill' : 'fill', {
       index: options.quick
@@ -383,17 +383,13 @@ function fillComposer(prompt, submit = false, options = {}) {
   if (!contextMatches(context)) return false;
   const existing = rawComposerText(target);
   let append = false;
-  if (options.remote && options.append && hashText(existing) !== options.draftFingerprint)
-    return { ok: false, message: '草稿已经变化，请重新选择建议。' };
-  if (existing.trim() && normalizeText(existing) !== normalizeText(prompt)) {
-    if (options.remote && !options.append)
-      return { ok: false, needsConfirmation: true, draftFingerprint: hashText(existing) };
-    if (!options.remote && !window.confirm('输入框已有草稿。保留草稿并追加这条建议？'))
-      return false;
+  if (existing.trim()) {
+    // 草稿无论是否与建议相同都不发送；相同内容不重复追加。
+    submit = false;
+    if (normalizeText(existing) === normalizeText(prompt)) return true;
     if (!contextMatches(context)) return false;
     prompt = `\n\n${prompt}`;
     append = true;
-    submit = false;
   }
   target.focus();
   if (target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement) {

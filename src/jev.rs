@@ -50,6 +50,7 @@ pub async fn select(
     exchange: &Exchange,
     candidates: &[Direction],
     timeout_ms: u64,
+    lease: Option<&crate::model_requests::Lease>,
 ) -> Result<Vec<Direction>> {
     options.validate()?;
     if let Some(reason) = options.readiness(key.is_some()) {
@@ -71,20 +72,12 @@ pub async fn select(
     ) {
         builder = builder.no_proxy();
     }
-    let response = builder
+    let request = builder
         .build()?
         .post(url)
         .bearer_auth(key.context("Jev 密钥未配置")?)
-        .json(&json!({"model":options.model,"state":exchange,"questions":questions}))
-        .send()
-        .await
-        .map_err(|e| {
-            if e.is_timeout() {
-                anyhow::anyhow!("Jev 判断超时，未进行建议生成")
-            } else {
-                anyhow::anyhow!("Jev 无法连接，未进行建议生成")
-            }
-        })?;
+        .json(&json!({"model":options.model,"state":exchange,"questions":questions}));
+    let response = crate::model_requests::send(lease, request).await?;
     if !response.status().is_success() {
         bail!(
             "Jev 判断失败（HTTP {}），未进行建议生成",

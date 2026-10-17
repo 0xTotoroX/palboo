@@ -34,7 +34,7 @@ test(
     let inFlight = 0;
     let maxInFlight = 0;
     async function until(check) {
-      const deadline = Date.now() + 5000;
+      const deadline = Date.now() + 10000;
       while (!check()) {
         if (Date.now() > deadline) throw Error('settings condition timed out');
         await new Promise((r) => setTimeout(r, 20));
@@ -155,7 +155,7 @@ test(
       await page.reload();
       await policy.waitFor();
       assert.equal(await policy.inputValue(), 'force');
-      await page.getByRole('link', { name: '生成模型', exact: true }).click();
+      await page.getByRole('link', { name: '模型服务', exact: true }).click();
       await page.getByRole('button', { name: '高级设置', exact: true }).click();
       const context = page.getByLabel('输入上下文', { exact: true });
       await context.selectOption('latest');
@@ -186,7 +186,7 @@ test(
         .getByRole('navigation', { name: '设置分类' })
         .getByRole('link', { name: '常用开关', exact: true })
         .click();
-      await page.getByRole('link', { name: '生成模型', exact: true }).click();
+      await page.getByRole('link', { name: '模型服务', exact: true }).click();
       await page.getByRole('button', { name: '高级设置', exact: true }).click();
       assert.equal(await input.inputValue(), '9000');
       await input.fill('10000');

@@ -308,7 +308,7 @@ test(
       assert.equal(requests, 1, 'waiting does not repeat a paid generation call');
       release();
       hold = undefined;
-      await page.getByText(/连接成功.*已生成 2 条测试建议/).waitFor();
+      await page.getByText(/^连接成功 · [\d.]+ 秒$/).waitFor();
       assert.equal(await feedback.getAttribute('role'), 'status');
       assert.equal(await testButton.isEnabled(), true);
       assert.equal(await testButton.getAttribute('aria-describedby'), 'model-test-feedback');
@@ -321,12 +321,12 @@ test(
       status = 200;
       response = { generationAttempted: false, items: [] };
       await testButton.click();
-      await page.getByText('测试未完成：示例没有合适方向，尚未验证模型连接。').waitFor();
+      await page.getByText('测试未完成，请重新验证模型连接。').waitFor();
       assert.doesNotMatch(await feedback.textContent(), /连接成功/);
 
       response = { generationAttempted: true, items: [] };
       await testButton.click();
-      await page.getByText(/连接成功.*已生成 0 条测试建议/).waitFor();
+      await page.getByText(/^连接成功 · [\d.]+ 秒$/).waitFor();
       await input.fill('unsaved-model');
       await input.press('Escape');
       assert.equal(await feedback.count(), 0, 'editing clears a previous success');
@@ -346,7 +346,7 @@ test(
       assert.equal(requests, beforeSaveFailure);
       releaseSave();
       saveHold = undefined;
-      await page.getByText(/连接成功.*已生成 0 条测试建议/).waitFor();
+      await page.getByText(/^连接成功 · [\d.]+ 秒$/).waitFor();
       assert.equal(savedSettings.model, 'unsaved-model');
       assert.equal(requests, beforeSaveFailure + 1, 'testing waits for successful save');
 

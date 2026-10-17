@@ -704,3 +704,12 @@
   display: flex;
   flex-direction: column;
 }
+
+/* 推荐复制拖放保留原条目，点击与键盘仍可用。 */
+.csw-row[draggable='true'] {
+  cursor: grab;
+}
+.csw-row[data-dragging='true'] {
+  opacity: 0.45;
+  cursor: grabbing;
+}

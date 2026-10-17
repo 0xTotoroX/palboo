@@ -252,3 +252,5 @@ launcher-face 回归覆盖眼睛入口单击、双击、Enter/Space 与逐一点
 端到端合成宿主默认使用锁定Playwright Chromium，CODEX_BUDDY_CHROME_BIN仍允许显式兼容性检查；看板操作先选中对应标签，浮窗快捷键先显现控件并确认真实焦点。缩放场景通过隔离后台保存起始尺寸并等待宿主回读，不用前端伪造修订号与后台轮询竞争。
 
 全部合成浏览器验收默认使用锁文件对应的 Playwright Chromium，不自动选择运行器预装 Chrome；保留 CODEX_BUDDY_CHROME_BIN 与已有 CHROME_PATH 显式覆盖入口，避免系统浏览器更新或启动异常改变发布门禁环境。
+
+本轮模型服务与推荐拖放回归：workbench-binding 覆盖真实鼠标拖放、原条目保留、抓取预览、释放动画中间帧、错误落点、跨聊天/停用拒绝、同文档与独立窗口序列化接收协议、只追加不发送；popout-checks 覆盖远端直接追加。Rust model_requests/model/settings/terminology 覆盖分域取消、重开不复活、协议回退取消、手动分类关闭零新增请求和无迟到入库；连接测试独立于 Stepwise/Jev。均为合成数据，不代表 macOS 原生跨进程拖拽的实机验收。

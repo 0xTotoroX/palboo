@@ -1,6 +1,6 @@
 // [INPUT]: App、有效模型配置与私有配置/密钥文件。
 // [OUTPUT]: 三种方向来源/库/位置/Jev 设置与独立密钥保存、并发保存版本与有效生成版本。
-// [POS]: 设置事务边界；无关大纲开关与常用提示词修改不取消生成；maxInputChars=0 表示完整最近一问一答，旧正数上限保留。
+// [POS]: 设置事务边界；共享连接和各功能请求分域取消；无关大纲开关与常用提示词修改不取消生成；maxInputChars=0 表示完整最近一问一答，旧正数上限保留。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
 use crate::{model::Model, state::App};
@@ -39,6 +39,38 @@ pub struct Options {
 mod tests {
     use super::*;
     use crate::config::{Config, Paths};
+
+    #[tokio::test]
+    async fn feature_toggles_isolate_requests_and_shared_connection_invalidates_all() {
+        use crate::model_requests::Scope;
+        let temp = tempfile::tempdir().unwrap();
+        let app = App::new(
+            Paths::new(Some(temp.path().into())).unwrap(),
+            Config::default(),
+            None,
+            false,
+        );
+        let step = app.model_requests.lease(Scope::Stepwise);
+        let prompt = app.model_requests.lease(Scope::Prompt);
+        let terms = app.model_requests.lease(Scope::Terminology);
+        app.save_settings(serde_json::from_value(json!({"enabled":false})).unwrap())
+            .await
+            .unwrap();
+        assert!(step.check().is_err());
+        assert!(prompt.check().is_ok());
+        assert!(terms.check().is_ok());
+        app.save_settings(
+            serde_json::from_value(json!({"promptEnhancementEnabled":false})).unwrap(),
+        )
+        .await
+        .unwrap();
+        assert!(prompt.check().is_err());
+        assert!(terms.check().is_ok());
+        app.save_settings(serde_json::from_value(json!({"timeoutMs":121000})).unwrap())
+            .await
+            .unwrap();
+        assert!(terms.check().is_err());
+    }
 
     #[tokio::test]
     async fn prompt_enhancement_toggle_persists_without_invalidating_stepwise() {
@@ -535,7 +567,19 @@ impl App {
         let model = Model::load(&next).with_key(key).with_jev_key(jev_key);
         {
             let mut current = self.model.write().await;
+            if !current.same_service_config(&model) {
+                self.model_requests
+                    .invalidate(crate::model_requests::Scope::Shared);
+            }
+            if current.options.prompt_enhancement_enabled
+                != model.options.prompt_enhancement_enabled
+            {
+                self.model_requests
+                    .invalidate(crate::model_requests::Scope::Prompt);
+            }
             if !current.same_generation_config(&model) {
+                self.model_requests
+                    .invalidate(crate::model_requests::Scope::Stepwise);
                 self.generation_revision
                     .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
             }
@@ -566,35 +610,26 @@ impl App {
 
     pub async fn test_settings(&self) -> Result<Value> {
         let guard = self.model.read().await;
-        let revision = self
-            .generation_revision
-            .load(std::sync::atomic::Ordering::SeqCst);
-        let model = guard.clone();
-        drop(guard);
-        let input = crate::directions::Exchange::new(
-            "只讨论可验证的后续提问，不执行或发布",
-            "一个本机 Codex 工具将回答大纲和下一步建议显示在桌面浮窗，用户通过浏览器配置模型。首版待办包括桌面显示、模型连接和草稿保护。",
-            model.options.max_input_chars,
+        let model = guard.clone().with_lease(
+            self.model_requests
+                .lease(crate::model_requests::Scope::Shared),
         );
-        let result = self
-            .until_shutdown(model.generate_exchange_checked(&input, || async {
-                if self
-                    .generation_revision
-                    .load(std::sync::atomic::Ordering::SeqCst)
-                    != revision
-                {
-                    bail!("配置已变化，连接测试已取消");
-                }
-                Ok(())
-            }))
-            .await?;
-        Ok(
-            json!({"ok":true,"status":"ok","generationAttempted":result.generation_attempted,"items":crate::requests::items(result.suggestions)}),
-        )
+        drop(guard);
+        let response = self.until_shutdown(model.complete_json(
+            "Return the JSON object {\"ok\":true}.",
+            "This is a connection test. Return only the requested JSON object.",
+            &json!({"type":"object","properties":{"ok":{"type":"boolean"}},"required":["ok"],"additionalProperties":false}),
+        )).await?;
+        let value: Value = serde_json::from_str(&response)?;
+        anyhow::ensure!(value["ok"] == true, "模型未返回有效的连接测试结果");
+        Ok(json!({"ok":true,"status":"ok","generationAttempted":true,"items":[]}))
     }
 
     pub async fn list_models(&self) -> Result<Value> {
-        let model = self.model.read().await.clone();
-        Ok(json!({"models":self.until_shutdown(model.list_models()).await?}))
+        let model = self.model.read().await.clone().with_lease(
+            self.model_requests
+                .lease(crate::model_requests::Scope::Shared),
+        );
+        Ok(json!({"models":self.until_shutdown(model.run_request(model.list_models())).await?}))
     }
 }

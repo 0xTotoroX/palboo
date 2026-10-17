@@ -7,6 +7,7 @@ import {
   alignOutlineNestedText as align,
   attachOutlineEvents as bind,
 } from '../../features/outline/view.js';
+import { API_KEY } from '../../shared/constants.js';
 import { createNextView } from '../../features/next/view.js';
 import {
   shellState,
@@ -36,6 +37,7 @@ const next = createNextView({
     promptToken: JSON.stringify(stepwiseState.prompts),
   }),
   reading,
+  dragSnapshot: () => shellState.remoteSource || window[API_KEY]?.exportPanelState(),
   command: (kind, data) => {
     const item =
       kind === 'quick-fill'

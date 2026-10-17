@@ -38,3 +38,5 @@ feature-session 的读取串行且相同内容不更新 React 状态；隐藏页
 共享容器支持第五项 terms，通过 features/content 委托术语积木视图，继续使用同一布局/交接机制。
 
 feature-session 使用共享 typography 快照与偏好，并补偿包含 Shadow DOM 在内的祖先 CSS zoom；无新协议时保留旧 per-feature 回退。各功能正文统一字号，标题/辅助文字保留比例，固定18px图标与窗口尺寸不随字号机械放大。
+
+legacy-content 为共享推荐视图提供当前宿主/远端投影作为拖动身份；不自行识别输入框或执行落点写入。

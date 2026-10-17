@@ -17,6 +17,7 @@ mod jev;
 mod lifecycle;
 mod model;
 mod model_control;
+mod model_requests;
 mod native_backdrop;
 mod panel;
 mod panel_window;
