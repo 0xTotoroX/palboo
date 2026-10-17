@@ -200,7 +200,12 @@ test(
         .getByRole('button', { name: '编辑预设', exact: true })
         .boundingBox();
       assert.ok(usageBox.x + usageBox.width <= editBox.x);
-      assert.ok(Math.abs(usageBox.y + usageBox.height / 2 - editBox.y - editBox.height / 2) < 1);
+      const iconBox = await view.locator('.model-preset-edit svg').boundingBox();
+      assert.ok(Math.abs(usageBox.y + usageBox.height - iconBox.y - iconBox.height) < 1);
+      assert.equal(editBox.width, 32);
+      assert.equal(editBox.height, 32);
+      assert.equal(iconBox.width, 24);
+      assert.equal(iconBox.height, 24);
       const toggle = settings.getByRole('switch', { name: '启用额度显示' });
       await toggle.click();
       await page.waitForFunction(
@@ -672,7 +677,10 @@ test(
           nodes.every((n) => {
             const b = n.getBoundingClientRect(),
               s = n.querySelector('svg').getBoundingClientRect();
-            return b.width === 28 && b.height === 28 && s.width === 18 && s.height === 18;
+            const presetAction = Boolean(n.closest('.model-preset-actions'));
+            return presetAction
+              ? b.width === 32 && b.height === 32 && s.width === 24 && s.height === 24
+              : b.width === 28 && b.height === 28 && s.width === 18 && s.height === 18;
           }),
         ),
         true,
