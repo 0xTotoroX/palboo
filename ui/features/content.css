@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 大纲和建议 DOM、状态属性与共享变量。
- * [OUTPUT]: 无框建议列表与预览、大纲和内容状态的布局与外观，定位按钮透明无底块，鼠标离开后仅键盘聚焦保留导航。
+ * [OUTPUT]: 无框建议列表与预览、内凹快捷标签、大纲和内容状态的布局与外观，定位按钮透明无底块，鼠标离开后仅键盘聚焦保留导航。
  * [POS]: 功能内容样式，由 workspace/mount 与 shell/install-styles 共用。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -461,28 +461,48 @@
   flex-direction: column;
   min-height: 100%;
 }
+/* 与模型预设共用内凹标签的尺寸与灰阶层次，沿用当前宿主的语义颜色。 */
 .csw-quick-prompts {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 10px;
   padding-bottom: 10px;
 }
 .csw-quick-prompt {
+  --quick-paper: var(--paper, var(--csw-surface-opaque));
   font: inherit;
-  color: var(--csw-muted);
-  background: transparent;
+  color: var(--csw-text);
+  background: color-mix(in srgb, var(--quick-paper) 92%, var(--csw-text));
+  box-shadow:
+    inset 2px 2px 5px color-mix(in srgb, var(--quick-paper) 60%, black),
+    inset -1px -1px 2px color-mix(in srgb, var(--quick-paper) 80%, white);
   border: 0;
-  border-radius: 4px;
-  min-height: 28px;
-  padding: 4px 8px;
+  border-radius: 18px;
+  min-height: max(28px, calc(1.4em + 10px));
+  max-width: 100%;
+  padding: 6px 14px;
+  overflow-wrap: anywhere;
+  text-align: left;
   cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    box-shadow 140ms ease;
 }
 .csw-quick-prompt:hover {
-  color: var(--csw-text);
+  background: color-mix(in srgb, var(--quick-paper) 88%, var(--csw-text));
+}
+.csw-quick-prompt:active {
+  background: color-mix(in srgb, var(--quick-paper) 84%, var(--csw-text));
 }
 .csw-quick-prompt:focus-visible {
   outline: 1px solid color-mix(in srgb, var(--csw-text) 45%, transparent);
   outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .csw-quick-prompt {
+    transition: none;
+  }
 }
 .csw-next-content > .csw-empty,
 .csw-next-content > .csw-progress {

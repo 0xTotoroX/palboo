@@ -444,17 +444,43 @@
 }
 .preview-quick-prompts {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 10px;
   margin-top: 14px;
 }
 .preview-quick-prompts button {
   max-width: 100%;
   overflow-wrap: anywhere;
-  padding: 5px 10px;
-  border: 1px solid var(--buddy-border);
-  min-height: 32px;
+  padding: 6px 14px;
+  border: 0;
+  border-radius: 18px;
+  min-height: max(28px, calc(1.4em + 10px));
+  color: var(--buddy-text);
+  background: color-mix(in srgb, var(--buddy-surface) 92%, var(--buddy-text));
+  box-shadow:
+    inset 2px 2px 5px color-mix(in srgb, var(--buddy-surface) 60%, black),
+    inset -1px -1px 2px color-mix(in srgb, var(--buddy-surface) 80%, white);
+  text-align: left;
   cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    box-shadow 140ms ease;
+}
+.preview-quick-prompts button:hover {
+  background: color-mix(in srgb, var(--buddy-surface) 88%, var(--buddy-text));
+}
+.preview-quick-prompts button:active {
+  background: color-mix(in srgb, var(--buddy-surface) 84%, var(--buddy-text));
+}
+.preview-quick-prompts button:focus-visible {
+  outline: 1px solid color-mix(in srgb, var(--buddy-text) 45%, transparent);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .preview-quick-prompts button {
+    transition: none;
+  }
 }
 .preview-draft {
   border: 1px dashed var(--buddy-border);
