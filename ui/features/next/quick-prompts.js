@@ -1,5 +1,5 @@
 /* [INPUT]: Projected quick prompts, transient reading state and revision-checked settings save.
- * [OUTPUT]: Raised shortcuts with inline add/edit, confirmed removal and retained failure drafts.
+ * [OUTPUT]: Underlined shortcuts with inline add/edit, confirmed removal and retained failure drafts.
  * [POS]: Next-step content only; adapters own transport and settings own persistence.
  * [PROTOCOL]: Keep next/AGENTS.md in sync. */
 import { escapeAttr, escapeHtml } from '../../shared/text.js';

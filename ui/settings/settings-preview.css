@@ -457,21 +457,21 @@
   border-radius: 18px;
   min-height: max(28px, calc(1.4em + 10px));
   color: var(--buddy-text);
-  background: color-mix(in srgb, var(--buddy-surface) 92%, var(--buddy-text));
-  box-shadow:
-    0 1px 2px rgb(0 0 0 / 7%),
-    inset 0 1px 0 rgb(255 255 255 / 9%);
+  background: transparent;
+  box-shadow: none;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--buddy-text) 40%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
   text-align: left;
   cursor: pointer;
-  transition:
-    background-color 140ms ease,
-    box-shadow 140ms ease;
+  transition: text-decoration-color 140ms ease;
 }
 .preview-quick-prompts button:hover {
-  background: color-mix(in srgb, var(--buddy-surface) 88%, var(--buddy-text));
+  text-decoration-color: var(--buddy-text);
 }
 .preview-quick-prompts button:active {
-  background: color-mix(in srgb, var(--buddy-surface) 84%, var(--buddy-text));
+  text-decoration-color: var(--buddy-text);
 }
 .preview-quick-prompts button:focus-visible {
   outline: 1px solid color-mix(in srgb, var(--buddy-text) 45%, transparent);

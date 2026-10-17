@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 大纲和建议 DOM、状态属性与共享变量。
- * [OUTPUT]: 无框建议列表与预览、微凸快捷标签、大纲和内容状态的布局与外观，定位按钮透明无底块，鼠标离开后仅键盘聚焦保留导航。
+ * [OUTPUT]: 无框建议列表与预览、下划线快捷标签、大纲和内容状态的布局与外观，定位按钮透明无底块，鼠标离开后仅键盘聚焦保留导航。
  * [POS]: 功能内容样式，由 workspace/mount 与 shell/install-styles 共用。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -461,7 +461,7 @@
   flex-direction: column;
   min-height: 100%;
 }
-/* 与模型预设共用微凸标签的尺寸与灰阶层次，沿用当前宿主的语义颜色。 */
+/* 与模型预设共用下划线标签的尺寸与灰阶层次，沿用当前宿主的语义颜色。 */
 .csw-quick-prompts {
   display: flex;
   align-items: center;
@@ -470,13 +470,14 @@
   padding-bottom: 10px;
 }
 .csw-quick-prompt {
-  --quick-paper: var(--paper, var(--csw-surface-opaque));
   font: inherit;
   color: var(--csw-text);
-  background: color-mix(in srgb, var(--quick-paper) 92%, var(--csw-text));
-  box-shadow:
-    0 1px 2px rgb(0 0 0 / 7%),
-    inset 0 1px 0 rgb(255 255 255 / 9%);
+  background: transparent;
+  box-shadow: none;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--csw-text) 40%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
   border: 0;
   border-radius: 18px;
   min-height: max(28px, calc(1.4em + 10px));
@@ -485,15 +486,13 @@
   overflow-wrap: anywhere;
   text-align: left;
   cursor: pointer;
-  transition:
-    background-color 140ms ease,
-    box-shadow 140ms ease;
+  transition: text-decoration-color 140ms ease;
 }
 .csw-quick-prompt:hover {
-  background: color-mix(in srgb, var(--quick-paper) 88%, var(--csw-text));
+  text-decoration-color: var(--csw-text);
 }
 .csw-quick-prompt:active {
-  background: color-mix(in srgb, var(--quick-paper) 84%, var(--csw-text));
+  text-decoration-color: var(--csw-text);
 }
 .csw-quick-prompt:focus-visible {
   outline: 1px solid color-mix(in srgb, var(--csw-text) 45%, transparent);
