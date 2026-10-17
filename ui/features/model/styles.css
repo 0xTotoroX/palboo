@@ -1,5 +1,5 @@
 /* [INPUT]: Model matrix, all-model picker, wrapping presets and surface semantic colors.
- * [OUTPUT]: Content-sized matrix, separate Fast and electric divider controls and underlined preset labels, bottom-aligned account usage and a single-surface model catalog.
+ * [OUTPUT]: Content-sized matrix, separate Fast and electric divider controls and recessed preset tags, bottom-aligned account usage and a single-surface model catalog.
  * [POS]: Shared model content styling; no outer window or material.
  * [PROTOCOL]: Keep model/AGENTS.md in sync. */
 .feature-model {
@@ -265,29 +265,15 @@
   padding: 6px 14px;
   border-radius: 18px;
   color: var(--ink);
-  background: transparent;
-  box-shadow: none;
+  background: color-mix(in srgb, var(--paper) 92%, var(--ink));
+  box-shadow:
+    inset 2px 2px 5px color-mix(in srgb, var(--paper) 60%, black),
+    inset -1px -1px 2px color-mix(in srgb, var(--paper) 80%, white);
 }
-.feature-model .model-preset-choice {
-  text-decoration: underline;
-  text-decoration-color: color-mix(in srgb, var(--ink) 40%, transparent);
-  text-decoration-thickness: 1px;
-  text-underline-offset: 4px;
-  transition: text-decoration-color 140ms ease;
-}
-.feature-model .model-preset-choice:hover:not(:disabled),
-.feature-model .model-preset-choice:active,
 .feature-model .model-preset-choice[aria-pressed='true'] {
-  background: transparent;
-  text-decoration-color: var(--ink);
-}
-@media (prefers-reduced-motion: reduce) {
-  .feature-model .model-preset-choice {
-    transition: none;
-  }
+  background: color-mix(in srgb, var(--paper) 84%, var(--ink));
 }
 .model-preset-choice > span:last-child {
-  text-decoration: inherit;
   min-width: 0;
   overflow-wrap: anywhere;
   text-align: left;

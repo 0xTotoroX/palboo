@@ -454,7 +454,7 @@
   flex-direction: column;
   min-height: 100%;
 }
-/* 与模型预设共用下划线标签的尺寸与灰阶层次，沿用当前宿主的语义颜色。 */
+/* 下一步快捷指令采用下划线，沿用当前宿主的语义颜色；模型预设独立保留原样式。 */
 .csw-quick-prompts {
   display: flex;
   align-items: center;
