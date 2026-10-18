@@ -121,25 +121,20 @@ window.setup();`,
   })
 ).outputFiles[0].text;
 
-test('render follows current composer, stays compact and cleans up without independent polling or requests', async () => {
+test('collector projects only matching chat, never mounts UI or polls, and releases on disable', async () => {
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
   try {
     await page.clock.install();
-    await page.setContent(
-      '<style>body{color:#ddd;background:#222}main{width:280px;font:14px sans-serif}textarea{width:100%;box-sizing:border-box}</style><main data-current data-codex-composer-root><textarea>原草稿</textarea></main>',
-    );
+    await page.setContent('<main data-current><textarea>原草稿</textarea></main>');
     await page.addScriptTag({ content: bundle });
-    await page.clock.runFor(1000);
     const reads = await page.evaluate(() => window.reads);
     await page.clock.runFor(10000);
-    assert.equal(await page.evaluate(() => window.reads), reads, 'idle does not poll DOM');
+    assert.equal(await page.evaluate(() => window.reads), reads);
+    assert.equal(await page.locator('[data-codex-buddy-token-meter]').count(), 0);
     await page.evaluate(() => {
       window.notify('turn/started');
-      window.notify('item/agentMessage/delta', {
-        itemId: 'm1',
-        delta: '当前接口 response_tokens 输出速度测试。'.repeat(5),
-      });
+      window.notify('item/agentMessage/delta', { itemId: 'm', delta: '当前回复速度 hello world' });
       window.notify('thread/tokenUsage/updated', {
         tokenUsage: {
           total: {
@@ -157,98 +152,43 @@ test('render follows current composer, stays compact and cleans up without indep
         },
       });
     });
-    await page.clock.runFor(600);
-    const output = page.locator('[data-codex-buddy-token-meter] output');
-    assert.match(await output.textContent(), /≈ .*tok\/s.*本轮 120 tok/);
-    assert.match(await output.getAttribute('title'), /其中思考 20/);
-    assert.equal(await page.locator('textarea').inputValue(), '原草稿');
-    assert.equal(await output.evaluate((n) => n.scrollWidth <= n.clientWidth), true);
-    assert.equal(await output.evaluate((n) => n.getBoundingClientRect().height <= 24), true);
-    const before = await output.textContent();
-    await page.evaluate(() => {
-      window.notify('item/agentMessage/delta', {
-        threadId: 'another',
-        itemId: 'other',
-        delta: 'ignored',
-      });
-      window.notify(
-        'thread/tokenUsage/updated',
-        {
-          tokenUsage: {
-            total: {
-              inputTokens: 3000,
-              cachedInputTokens: 500,
-              outputTokens: 999,
-              reasoningOutputTokens: 20,
-            },
-            last: {
-              inputTokens: 1000,
-              cachedInputTokens: 500,
-              outputTokens: 999,
-              reasoningOutputTokens: 20,
-            },
-          },
-        },
-        'remote-other',
-      );
-    });
-    assert.equal(await output.textContent(), before);
-    await page.evaluate(() => {
-      window.session = 'b';
-      document.querySelector('main').remove();
-      const next = document.createElement('main');
-      next.dataset.current = '';
-      next.dataset.codexComposerRoot = '';
-      next.innerHTML = '<textarea>另一草稿</textarea>';
-      document.body.append(next);
-      window.__codexBuddyTokenMeter.refresh();
-    });
-    await page.clock.runFor(600);
-    assert.equal(await page.locator('[data-codex-buddy-token-meter]').count(), 1);
-    assert.equal(await output.isVisible(), false);
-    await page.evaluate(() =>
-      window.notify('thread/tokenUsage/updated', {
-        tokenUsage: {
-          total: {
-            inputTokens: 1000,
-            cachedInputTokens: 500,
-            outputTokens: 120,
-            reasoningOutputTokens: 20,
-          },
-          last: {
-            inputTokens: 1000,
-            cachedInputTokens: 500,
-            outputTokens: 120,
-            reasoningOutputTokens: 20,
-          },
-        },
+    const state = await page.evaluate(() => window.__codexBuddyTokenMeter.read('a'));
+    assert.ok(state.speed > 0);
+    assert.equal(state.official.outputTokens, 120);
+    assert.equal(state.scope, 'turn');
+    assert.equal(await page.evaluate(() => window.__codexBuddyTokenMeter.read('other')), null);
+    assert.equal(
+      await page.evaluate(() => {
+        const first = window.__codexBuddyTokenMeter.read('a');
+        return first === window.__codexBuddyTokenMeter.read('a');
       }),
+      true,
     );
-    await page.clock.runFor(600);
-    assert.match(await output.textContent(), /最近调用 120 tok/);
+    assert.equal(await page.locator('textarea').inputValue(), '原草稿');
+    await page.evaluate(() =>
+      window.notify('item/agentMessage/delta', { threadId: 'other', itemId: 'x', delta: 'ignore' }),
+    );
+    assert.deepEqual(await page.evaluate(() => window.__codexBuddyTokenMeter.read('a')), state);
     await page.evaluate(() => {
       Object.defineProperty(document, 'hidden', { configurable: true, value: true });
       document.dispatchEvent(new Event('visibilitychange'));
       window.notify('item/agentMessage/delta', { itemId: 'hidden', delta: '不可缓存' });
     });
-    const hiddenReads = await page.evaluate(() => window.reads);
-    await page.clock.runFor(10000);
-    assert.equal(await page.evaluate(() => window.reads), hiddenReads);
+    assert.equal(await page.evaluate(() => window.__codexBuddyTokenMeter.read('a')), null);
     assert.equal(
       await page.evaluate(() => window.__codexBuddyTokenMeter.snapshot().bufferedCharacters),
       0,
     );
     await page.evaluate(() => {
       Object.defineProperty(document, 'hidden', { configurable: true, value: false });
+      window.session = 'b';
       document.dispatchEvent(new Event('visibilitychange'));
-      document.body.style.color = '#222';
-      document.body.style.background = '#fff';
     });
-    await page.clock.runFor(600);
-    assert.equal(await output.evaluate((n) => getComputedStyle(n).color), 'rgb(34, 34, 34)');
+    assert.equal(await page.evaluate(() => window.__codexBuddyTokenMeter.read('a')), null);
+    assert.equal(await page.evaluate(() => window.__codexBuddyTokenMeter.read('b').official), null);
     await page.evaluate(() => {
       document.querySelector('main').removeAttribute('data-current');
-      window.__codexBuddyTokenMeter.refresh();
+      document.dispatchEvent(new Event('pointerup'));
     });
     const missingReads = await page.evaluate(() => window.reads);
     await page.evaluate(() => {
@@ -256,27 +196,19 @@ test('render follows current composer, stays compact and cleans up without indep
         window.notify('item/agentMessage/delta', { itemId: 'missing', delta: 'ignore' });
     });
     assert.equal(await page.evaluate(() => window.reads), missingReads);
-    await page.evaluate(() => document.querySelector('main').setAttribute('data-current', ''));
-    await page.evaluate(() => window.setup());
-    assert.equal(
-      await page.locator('[data-codex-buddy-token-meter]').count(),
-      1,
-      'reinstall owns one node',
-    );
     await page.evaluate(() => {
       window.enabled = false;
       window.__codexBuddyTokenMeter.refresh();
     });
-    assert.equal(await page.locator('[data-codex-buddy-token-meter]').count(), 0);
-    const stoppedReads = await page.evaluate(() => window.reads);
+    const stopped = await page.evaluate(() => window.reads);
     await page.evaluate(() => {
       window.notify('turn/started');
       document.dispatchEvent(new Event('pointerup'));
     });
     await page.clock.runFor(10000);
-    assert.equal(await page.evaluate(() => window.reads), stoppedReads);
-    assert.equal(await page.evaluate(() => window.requests), 0);
+    assert.equal(await page.evaluate(() => window.reads), stopped);
     assert.equal(await page.evaluate(() => !!window.__codexBuddyTokenMeter), false);
+    assert.equal(await page.evaluate(() => window.requests), 0);
   } finally {
     await browser.close();
   }

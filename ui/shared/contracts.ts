@@ -241,7 +241,12 @@ declare global {
       lastError: string;
     };
     __codexBuddyPromptEnhancer?: { verify(requestId: string): boolean; destroy(): void };
-    __codexBuddyTokenMeter?: { refresh(): void; snapshot(): unknown; destroy(): void };
+    __codexBuddyTokenMeter?: {
+      refresh(): void;
+      read(threadId: string): import('./token-meter').TokenMeterSnapshot | null;
+      snapshot(): unknown;
+      destroy(): void;
+    };
     __buddyWindowControls?: {
       destroy?(): void;
       refresh(): void;

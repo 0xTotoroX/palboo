@@ -246,6 +246,7 @@ impl App {
             let control = self.model_control.lock().await;
             let mut snapshot = control.snapshot.clone();
             snapshot["status"] = json!("busy");
+            snapshot["tokenMeter"] = Value::Null;
             snapshot["message"] = json!("正在核对并切换模型…");
             return Ok(control.envelope(snapshot));
         };
@@ -254,7 +255,7 @@ impl App {
             Some(client) => {
                 let result = client
                     .evaluate_with_timeout(
-                        format!("(async () => {{ const snapshot = await window.__codexBuddyModelControl?.snapshot({refresh}); return snapshot ? {{...snapshot, usage: window.__codexBuddyUsage?.read({show_usage}) ?? null}} : null; }})()"),
+                        format!("(async () => {{ const snapshot = await window.__codexBuddyModelControl?.snapshot({refresh}); return snapshot ? {{...snapshot, usage: window.__codexBuddyUsage?.read({show_usage}) ?? null, tokenMeter: window.__codexBuddyTokenMeter?.read(snapshot.target?.id) ?? null}} : null; }})()"),
                         Duration::from_secs(20),
                     )
                     .await;

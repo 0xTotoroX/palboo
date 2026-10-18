@@ -1,5 +1,5 @@
 /* [INPUT]: Feature identity, business envelope, guarded transport, reading state and optional header slot.
- * [OUTPUT]: The five feature views and guarded business adapters, including revision-checked quick-prompt saves.
+ * [OUTPUT]: The five feature views and guarded business adapters, including revision-checked quick-prompt saves and optional token-meter composition.
  * [POS]: Fixed feature composition; persistence and validation remain in existing services.
  * [PROTOCOL]: Keep AGENTS.md in this module in sync. */
 import { useCallback, useRef } from 'react';
@@ -7,6 +7,7 @@ import { Board } from './board/app';
 import { TerminologyView, type TermData } from './terminology';
 import type { TaskRequest } from './board/api';
 import { ModelView, type ModelState } from './model/view';
+import { TokenMeterView } from './token-meter/view';
 import { ProjectedContent } from './projected';
 import type { PanelSnapshot, PanelCommand, CommandResult } from '../shared/contracts';
 import type { FeatureId, Reading } from '../shared/features';
@@ -84,6 +85,11 @@ export function FeatureContent({
       <ModelView
         headerActions={headerActions}
         state={value as unknown as ModelState}
+        footer={
+          <TokenMeterView
+            snapshot={connected ? (value as unknown as ModelState).snapshot.tokenMeter : null}
+          />
+        }
         reading={reading}
         busy={locked || !connected}
         action={(data, action) =>

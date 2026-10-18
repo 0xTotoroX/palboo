@@ -1,8 +1,15 @@
 /* [INPUT]: Existing model control envelope and serialized actions.
- * [OUTPUT]: Title-aligned reasoning headings, content-sized favorites matrix, independent Fast charge/strike and divider controls, preset tags, optional account usage aligned before edit, in-panel catalog and wrapping presets with synchronous draft handoff, measured horizontal reading restoration and capability-driven selection.
+ * [OUTPUT]: Title-aligned reasoning headings, content-sized favorites matrix, independent Fast charge/strike and divider controls, preset tags, optional account usage aligned before edit and an independent footer slot, in-panel catalog and wrapping presets with synchronous draft handoff, measured horizontal reading restoration and capability-driven selection.
  * [POS]: Reusable business view; surfaces own placement and theme.
  * [PROTOCOL]: Keep AGENTS.md in this module in sync. */
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
 import { ModelHeading } from './heading';
 import { useFastMotion } from './fast-motion';
 import { iconSvg } from '../../shared/icons/index.js';
@@ -26,7 +33,9 @@ export function ModelView({
   busy,
   reading,
   headerActions,
+  footer,
 }: {
+  footer?: ReactNode;
   headerActions?: HTMLElement;
   reading: Reading;
   state: ModelState;
@@ -686,6 +695,7 @@ export function ModelView({
               </div>
             </div>
           </section>
+          {footer}
         </div>
         {others && (
           <div className="model-picker" ref={picker} role="region" aria-label="所有模型">

@@ -1,0 +1,23 @@
+/* [INPUT]: 可选测速读数与所在表面的语义主题。
+ * [OUTPUT]: 简洁可换行、数字等宽的独立底部读数。
+ * [POS]: 不改变模型矩阵、预设、额度或外层材质。
+ * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
+.token-meter-readout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  max-width: 100%;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 20px;
+  font-variant-numeric: tabular-nums;
+}
+.token-meter-readout > span {
+  white-space: nowrap;
+}
+.token-meter-readout:focus-visible {
+  outline: 1px solid currentColor;
+  outline-offset: 2px;
+  border-radius: 4px;
+}

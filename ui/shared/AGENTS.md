@@ -42,4 +42,6 @@ Reading.quickPromptDraft/quickPromptEditing/quickPromptSaved保存快捷指令�
 
 FeatureState.edgeTabs/edgeTabsRevision 提供贴边标签顺序和选择的确认快照；EdgeTabs 不属于临时业务 Reading，也不影响功能优先级。
 
-EditableSettings.tokenMeterEnabled 声明聊天测速独立开关；__codexBuddyTokenMeter 仅提供 refresh/snapshot/destroy，快照不含正文。
+EditableSettings.tokenMeterEnabled 声明聊天测速独立开关；__codexBuddyTokenMeter 提供 refresh/read(expectedThreadId)/snapshot/destroy，快照不含正文。
+
+- `token-meter.ts`：当前聊天测速的只读数值投影，独立于模型选择和承载方式，不含正文或持久化配置。

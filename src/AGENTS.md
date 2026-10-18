@@ -117,3 +117,5 @@ model_control::Preferences增加默认true的show_usage，旧配置兼容；状�
 surfaces.rs 的 Preferences.edgeTabs 保存贴边标签 order/selected，旧文件缺省空偏好；features 的 edge-tabs 操作按 expected 原值比较并仅更新该字段，feature state 返回 edgeTabs/edgeTabsRevision。普通主题和位置写入保留标签偏好，不修改任务、模型或主界面布局。
 
 settings.Options/Update 增加默认开启的 tokenMeterEnabled，沿现有配置及修订保存并即时同步宿主；model.same_generation_config 忽略该本地统计开关，不取消生成或修改 generationRevision。config_cli 暴露同一字段。
+
+model_control_state复用原CDP回读携带可选测速投影，以模型目标ID调用独立read；功能停用/连接变化返回null，模型操作忙碌期间清除缓存测速，不将测速写入模型偏好或选择修订。
