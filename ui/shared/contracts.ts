@@ -15,6 +15,7 @@ export interface EditableSettings {
   enabled: boolean;
   answerOutlineEnabled: boolean;
   promptEnhancementEnabled: boolean;
+  tokenMeterEnabled: boolean;
   generationMode: 'auto' | 'manual';
   provider: 'codex' | 'api';
   protocol: 'responses' | 'chat_completions' | 'anthropic_messages' | 'auto';
@@ -240,6 +241,7 @@ declare global {
       lastError: string;
     };
     __codexBuddyPromptEnhancer?: { verify(requestId: string): boolean; destroy(): void };
+    __codexBuddyTokenMeter?: { refresh(): void; snapshot(): unknown; destroy(): void };
     __buddyWindowControls?: {
       destroy?(): void;
       refresh(): void;

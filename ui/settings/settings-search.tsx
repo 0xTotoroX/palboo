@@ -16,6 +16,7 @@ type Entry = {
 const normalize = (text: string) => text.toLocaleLowerCase().replace(/\s+/g, ' ').trim();
 const aliases: Record<string, string> = {
   'model-organization': '模型 厂家 分类 分组 常用 手动 自动',
+  'settings-token-meter': 'token tok/s 速度 用量 输出 思考 统计 开关',
   'settings-prompt-enhancement': 'prompt 优化 改写 增强 开关',
   'settings-codex-host': 'CodexHost agent 代理 启动 安装 更新 回退 重启',
   'api-key': 'API key 密钥',

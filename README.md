@@ -36,10 +36,13 @@ Enable **点击术语时跳转到上下文** in settings → Features → Termin
 | Apple Reminders integration | Implementation and existing data retained; settings entry temporarily hidden |
 | Terminology | Local glossary, contextual definitions, favorites and mastered terms |
 | Prompt enhancement | Optimize the current draft, cancel or restore it without sending |
+| Chat speed | Estimated live reply speed and host-reported token usage for the current chat, with an independent switch |
 | Reading and appearance | Follow Codex typography or set a fixed size; choose materials and summary visibility |
 | Your choice of model | Use an existing Codex login or connect your own model API |
 
 The model quick switch shows remaining Codex account usage to the left of the preset edit button: five-hour and weekly limits when available, or just the weekly limit. Turn it off under **Features → Model quick switch → Usage display**. Missing limits are not shown as full allowances.
+
+**Chat speed** is enabled by default under **Features → Common switches → 聊天测速**. The composer shows `≈ tok/s` and reported output tokens; hover or focus the readout for input, cached and reasoning counts. Speed is a lightweight estimate of visible text received over three seconds, not server generation speed. When enabled mid-turn, usage is labeled as the latest model call. It makes no additional model requests; disabling removes its listeners and temporary statistics.
 
 Outlines are parsed locally and do not require a model. Next-step suggestions require model configuration. You can disable either feature independently.
 

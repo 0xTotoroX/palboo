@@ -378,6 +378,17 @@ test(
       await until(() => settings.directionSource === 'auto');
       assert.equal(await page.getByLabel('Jev 请求地址', { exact: true }).count(), 0);
       assert.equal(await page.getByLabel('最多建议数量', { exact: true }).count(), 1);
+      await page.getByRole('link', { name: '常用开关', exact: true }).click();
+      const tokenSwitch = page.getByRole('switch', { name: '启用聊天测速', exact: true });
+      assert.equal(await tokenSwitch.isChecked(), true);
+      await tokenSwitch.click();
+      await until(() => settings.tokenMeterEnabled === false && inFlight === 0);
+      assert.deepEqual(Object.keys(saves.at(-1)).sort(), ['expectedRevision', 'tokenMeterEnabled']);
+      await page.reload();
+      await tokenSwitch.waitFor();
+      assert.equal(await tokenSwitch.isChecked(), false);
+      await tokenSwitch.click();
+      await until(() => settings.tokenMeterEnabled === true && inFlight === 0);
       assert.deepEqual(errors, []);
     } finally {
       await browser?.close();

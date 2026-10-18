@@ -115,3 +115,5 @@ panel::Preferences.settings_theme 为可空设置页主题偏好，旧配置默�
 model_control::Preferences增加默认true的show_usage，旧配置兼容；状态回读追加只读usage投影，关闭快切/额度显示回收宿主在途读取。cdp安装model-usage.js，model适配器销毁时一并清理；额度不进入生成配置或模型选择revision。
 
 surfaces.rs 的 Preferences.edgeTabs 保存贴边标签 order/selected，旧文件缺省空偏好；features 的 edge-tabs 操作按 expected 原值比较并仅更新该字段，feature state 返回 edgeTabs/edgeTabsRevision。普通主题和位置写入保留标签偏好，不修改任务、模型或主界面布局。
+
+settings.Options/Update 增加默认开启的 tokenMeterEnabled，沿现有配置及修订保存并即时同步宿主；model.same_generation_config 忽略该本地统计开关，不取消生成或修改 generationRevision。config_cli 暴露同一字段。

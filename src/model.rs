@@ -164,6 +164,7 @@ impl Model {
         let mut options = self.options.clone();
         options.answer_outline_enabled = other.options.answer_outline_enabled;
         options.prompt_enhancement_enabled = other.options.prompt_enhancement_enabled;
+        options.token_meter_enabled = other.options.token_meter_enabled;
         options.quick_prompts = other.options.quick_prompts.clone();
         if options.direction_source == crate::directions::DirectionSource::Auto
             && other.options.direction_source == options.direction_source

@@ -11,6 +11,7 @@ export const fixtureSettings = {
   enabled: true,
   answerOutlineEnabled: true,
   promptEnhancementEnabled: true,
+  tokenMeterEnabled: true,
   generationMode: 'manual',
   provider: 'api',
   protocol: 'responses',

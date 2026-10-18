@@ -305,13 +305,17 @@ test('unchanged host sync does not redraw and disabled tools release timers and 
     await page.evaluate(async () => {
       Object.assign(window.settings, {
         promptEnhancementEnabled: false,
+        tokenMeterEnabled: false,
         terminologyEnabled: false,
       });
       await window.__companionFloatingPanel.syncSettings(window.settings);
     });
     assert.equal(
       await page.evaluate(
-        () => !!window.__codexBuddyPromptEnhancer || !!window.__codexBuddyTerminology,
+        () =>
+          !!window.__codexBuddyPromptEnhancer ||
+          !!window.__codexBuddyTerminology ||
+          !!window.__codexBuddyTokenMeter,
       ),
       false,
     );
@@ -324,11 +328,18 @@ test('unchanged host sync does not redraw and disabled tools release timers and 
       termsBefore,
     );
     await page.evaluate(async () => {
-      Object.assign(window.settings, { promptEnhancementEnabled: true, terminologyEnabled: true });
+      Object.assign(window.settings, {
+        promptEnhancementEnabled: true,
+        terminologyEnabled: true,
+        tokenMeterEnabled: true,
+      });
       await window.__companionFloatingPanel.syncSettings(window.settings);
     });
     await page.waitForFunction(
-      () => window.__codexBuddyPromptEnhancer && window.__codexBuddyTerminology,
+      () =>
+        window.__codexBuddyPromptEnhancer &&
+        window.__codexBuddyTerminology &&
+        window.__codexBuddyTokenMeter,
     );
     await page.evaluate(() => window.__companionDesktop.destroy());
     assert.equal(
@@ -336,7 +347,8 @@ test('unchanged host sync does not redraw and disabled tools release timers and 
         () =>
           !!window.__companionFloatingPanel ||
           !!window.__codexBuddyPromptEnhancer ||
-          !!window.__codexBuddyTerminology,
+          !!window.__codexBuddyTerminology ||
+          !!window.__codexBuddyTokenMeter,
       ),
       false,
     );

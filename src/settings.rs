@@ -21,6 +21,7 @@ pub struct Options {
     pub enabled: bool,
     pub answer_outline_enabled: bool,
     pub prompt_enhancement_enabled: bool,
+    pub token_meter_enabled: bool,
     pub generation_mode: String,
     pub protocol: String,
     pub api_key_env: String,
@@ -86,6 +87,25 @@ mod tests {
         assert_eq!(saved["enabled"], before["enabled"]);
         assert!(!paths.load().unwrap().stepwise.prompt_enhancement_enabled);
         assert!(app.save_settings(serde_json::from_value(json!({"promptEnhancementEnabled":true,"expectedRevision":before["configurationRevision"]})).unwrap()).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn token_meter_toggle_persists_without_invalidating_generation() {
+        use crate::model_requests::Scope;
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths::new(Some(dir.path().into())).unwrap();
+        let legacy: Config = serde_json::from_str(r#"{"stepwise":{"enabled":true}}"#).unwrap();
+        assert!(legacy.stepwise.token_meter_enabled);
+        let app = App::new(paths.clone(), legacy, None, false);
+        let before = app.settings().await;
+        let step = app.model_requests.lease(Scope::Stepwise);
+        let prompt = app.model_requests.lease(Scope::Prompt);
+        let saved = app.save_settings(serde_json::from_value(json!({"tokenMeterEnabled":false,"expectedRevision":before["configurationRevision"]})).unwrap()).await.unwrap();
+        assert_eq!(saved["tokenMeterEnabled"], false);
+        assert_eq!(saved["generationRevision"], before["generationRevision"]);
+        assert!(step.check().is_ok() && prompt.check().is_ok());
+        assert!(!paths.load().unwrap().stepwise.token_meter_enabled);
+        assert!(app.save_settings(serde_json::from_value(json!({"tokenMeterEnabled":true,"expectedRevision":before["configurationRevision"]})).unwrap()).await.is_err());
     }
 
     #[tokio::test]
@@ -309,6 +329,7 @@ impl Default for Options {
             enabled: true,
             answer_outline_enabled: true,
             prompt_enhancement_enabled: true,
+            token_meter_enabled: true,
             generation_mode: "manual".into(),
             protocol: "responses".into(),
             api_key_env: "CODEX_BUDDY_API_KEY".into(),
@@ -339,6 +360,7 @@ pub struct Update {
     pub enabled: Option<bool>,
     pub answer_outline_enabled: Option<bool>,
     pub prompt_enhancement_enabled: Option<bool>,
+    pub token_meter_enabled: Option<bool>,
     pub generation_mode: Option<String>,
     pub provider: Option<String>,
     pub model: Option<String>,
@@ -453,6 +475,9 @@ impl App {
         }
         if let Some(value) = patch.answer_outline_enabled {
             options.answer_outline_enabled = value;
+        }
+        if let Some(value) = patch.token_meter_enabled {
+            options.token_meter_enabled = value;
         }
         if let Some(value) = patch.prompt_enhancement_enabled {
             options.prompt_enhancement_enabled = value;

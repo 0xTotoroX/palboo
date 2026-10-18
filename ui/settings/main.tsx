@@ -41,6 +41,7 @@ function editable(value: Settings): EditableSettings {
     enabled,
     answerOutlineEnabled,
     promptEnhancementEnabled,
+    tokenMeterEnabled,
     generationMode,
     hostRestartPolicy,
     provider,
@@ -62,6 +63,7 @@ function editable(value: Settings): EditableSettings {
     enabled,
     answerOutlineEnabled,
     promptEnhancementEnabled,
+    tokenMeterEnabled,
     generationMode,
     hostRestartPolicy,
     provider,
@@ -183,6 +185,14 @@ function App() {
                     active={common || page === 'model-control'}
                     detailed={page === 'model-control'}
                     onSnapshot={setModel}
+                  />
+                </div>
+                <div id="settings-token-meter" hidden={!common}>
+                  <FeatureSwitch
+                    name="聊天测速"
+                    checked={editor.form?.tokenMeterEnabled ?? false}
+                    disabled={!live || !editor.form}
+                    onChange={(value) => editor.change('tokenMeterEnabled', value)}
                   />
                 </div>
                 <div id="settings-prompt-enhancement" hidden={!common}>

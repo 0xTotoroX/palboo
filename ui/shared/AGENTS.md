@@ -41,3 +41,5 @@ AppearanceSettings 增加可选 settingsTheme（codex/light/dark/null），只�
 Reading.quickPromptDraft/quickPromptEditing/quickPromptSaved保存快捷指令编辑与确认结果，供窗口交接和内容重绘保留草稿；不写业务配置，提交仍带原configurationRevision。
 
 FeatureState.edgeTabs/edgeTabsRevision 提供贴边标签顺序和选择的确认快照；EdgeTabs 不属于临时业务 Reading，也不影响功能优先级。
+
+EditableSettings.tokenMeterEnabled 声明聊天测速独立开关；__codexBuddyTokenMeter 仅提供 refresh/snapshot/destroy，快照不含正文。

@@ -2,6 +2,7 @@ import { measureWork, samplePerformance, stopPerformance } from '../../shared/pe
 import { bridgeCall } from './state.js';
 import { installNextDrop } from '../next-drop.js';
 import { installPromptEnhancer } from '../prompt-enhancement.js';
+import { installTokenMeter } from '../token-meter.js';
 import { createTypographyTracker } from '../typography.js';
 import { installTerminology } from '../../terminology/host.js';
 /*
@@ -159,6 +160,7 @@ function scanCurrent(generation, timerId) {
   if (timerId && runtimeState.timer !== timerId) return;
   if (timerId) runtimeState.timer = 0;
   runtimeState.scans += 1;
+  window.__codexBuddyTokenMeter?.refresh();
   installStyle();
   installFloat();
   const stepwiseActive = stepwiseEnabled();
@@ -323,7 +325,9 @@ function installObserver() {
       if (
         shellState.root?.contains(mutation.target) ||
         (mutation.target instanceof Element &&
-          mutation.target.closest('[data-codex-buddy-features-root]'))
+          mutation.target.closest(
+            '[data-codex-buddy-features-root],[data-codex-buddy-token-meter]',
+          ))
       )
         return false;
       return mutation.addedNodes.length || mutation.type === 'characterData';
@@ -484,6 +488,7 @@ function destroy() {
   stopNextDrop = null;
   stopPerformance();
   if (!IS_POPOUT) window.__codexBuddyPromptEnhancer?.destroy();
+  if (!IS_POPOUT) window.__codexBuddyTokenMeter?.destroy();
   if (!IS_POPOUT) window.__codexBuddyTerminology?.destroy();
   shellState.featureCleanup?.();
   clearTimeout(shellState.detachedRecoveryTimer);
@@ -556,6 +561,12 @@ function syncTools() {
     stopNextDrop?.();
     stopNextDrop = null;
   }
+  if (runtimeState.settings?.tokenMeterEnabled === true) {
+    if (!window.__codexBuddyTokenMeter)
+      installTokenMeter({
+        isEnabled: () => isCurrentInstance() && runtimeState.settings?.tokenMeterEnabled === true,
+      });
+  } else window.__codexBuddyTokenMeter?.destroy();
   if (runtimeState.settings?.promptEnhancementEnabled !== false) {
     if (!window.__codexBuddyPromptEnhancer)
       installPromptEnhancer({
@@ -755,6 +766,7 @@ function install() {
     panelDisconnected,
     nativeGestureEnded,
     desktopStatus: () => {
+      if (!IS_POPOUT) window.__codexBuddyTokenMeter?.refresh();
       if (runtimeState.runtimeActive && !shellState.root?.isConnected) scheduleScan(0);
       return {
         hasAnswer: Boolean(contextState.lastAssistantHash),
