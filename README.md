@@ -42,7 +42,7 @@ Enable **点击术语时跳转到上下文** in settings → Features → Termin
 
 The model quick switch shows remaining Codex account usage to the left of the preset edit button: five-hour and weekly limits when available, or just the weekly limit. Turn it off under **Features → Model quick switch → Usage display**. Missing limits are not shown as full allowances.
 
-**Chat speed** is enabled by default under **Features → Common switches → 聊天测速**. An optional module at the bottom of the model quick switch shows `≈ tok/s` and reported output tokens; hover or focus the readout for input, cached and reasoning counts. Speed is a lightweight estimate of visible text received over three seconds, not server generation speed. When enabled mid-turn, usage is labeled as the latest model call. It makes no additional model requests; disabling removes its listeners and temporary statistics.
+**Chat speed** is enabled by default under **Features → Common switches → 聊天测速**. An optional module at the bottom of the model quick switch shows `≈ tok/s` or the current response status; hover or focus the readout for reported output, input, cached and reasoning counts. Speed is a lightweight estimate of visible text received over three seconds, not server generation speed. When enabled mid-turn, usage is labeled as the latest model call. It makes no additional model requests; disabling removes its listeners and temporary statistics.
 
 Outlines are parsed locally and do not require a model. Next-step suggestions require model configuration. You can disable either feature independently.
 

@@ -16,7 +16,7 @@ test('token module plugs into model footer and unplugs without changing model co
     import React from 'react';import {createRoot} from 'react-dom/client';
     import {FeatureContent} from './ui/features/content';
     const root=createRoot(document.getElementById('root').attachShadow({mode:'open'}));const reading={};window.calls=[];window.connected=true;
-    window.state={revision:1,preferences:{enabled:true,pinned:['gpt-test'],presets:[{id:'p',name:'测试预设',selection:{model:'gpt-test',reasoning:'high',speed:'standard'}}]},snapshot:{target:{id:'a'},revision:'host',status:'ready',message:'',current:{model:'gpt-test',reasoning:'high',speed:'standard'},models:[{id:'gpt-test',label:'Test model',reasoning:['high'],fast:true}]}};
+    window.state={revision:1,preferences:{enabled:true,pinned:['gpt-test'],presets:[{id:'p',name:'测试预设',selection:{model:'gpt-test',reasoning:'high',speed:'standard'}}]},snapshot:{target:{id:'a'},revision:'host',status:'ready',message:'',current:{model:'gpt-test',reasoning:'high',speed:'standard'},usage:[{minutes:10080,remainingPercent:86,resetsAt:null}],models:[{id:'gpt-test',label:'Test model',reasoning:['high'],fast:true}]}};
     window.render=()=>root.render(<FeatureContent id="model" reading={reading} value={window.state} locked={false} connected={window.connected} call={async(op,data)=>{window.calls.push({op,data});return window.state}} operation={async fn=>fn()} update={()=>{}}/>);window.render();
   `,
     },
@@ -29,7 +29,7 @@ test('token module plugs into model footer and unplugs without changing model co
   });
   const browser = await chromium.launch({ headless: true });
   try {
-    const page = await browser.newPage({ viewport: { width: 420, height: 700 } });
+    const page = await browser.newPage({ viewport: { width: 700, height: 700 } });
     await page.setContent(
       '<style>body{margin:16px;--ink:#222;--muted:#666;--paper:#fff;--hover:#eee}#root{width:100%;font:14px sans-serif}</style><div id="root"></div>',
     );
@@ -65,10 +65,16 @@ test('token module plugs into model footer and unplugs without changing model co
     });
     const meter = page.locator('.feature-model .token-meter-readout');
     await meter.waitFor();
-    assert.match(await meter.textContent(), /≈ 42.1 tok\/s.*本轮 120 tok/);
+    assert.equal(await meter.textContent(), '≈ 42.1 tok/s');
     assert.match(await meter.getAttribute('title'), /其中思考 20/);
     const box = await meter.boundingBox(),
-      presets = await page.locator('.model-collections').boundingBox();
+      presets = await page.locator('.model-presets').boundingBox();
+    const actions = await page.locator('.model-preset-actions').boundingBox();
+    const usage = await page.locator('.model-usage').boundingBox();
+    assert.ok(Math.abs(box.y + box.height / 2 - actions.y - actions.height / 2) < 1);
+    assert.ok(Math.abs(usage.y + usage.height / 2 - actions.y - actions.height / 2) < 1);
+    assert.ok(box.x + box.width < actions.x);
+    assert.equal(await meter.getAttribute('title').then((t) => t.includes('输出 120')), true);
     assert.ok(box.y >= presets.y + presets.height - 1);
     assert.ok(Math.abs(box.x - matrix.x) < 1);
     assert.equal(await meter.evaluate((n) => n.scrollWidth <= n.clientWidth), true);
@@ -82,6 +88,7 @@ test('token module plugs into model footer and unplugs without changing model co
       window.render();
     });
     await meter.waitFor({ state: 'detached' });
+    assert.deepEqual(await page.locator('.model-preset-actions').boundingBox(), actions);
     assert.deepEqual(await page.evaluate(() => window.calls), []);
     await page.getByRole('button', { name: '测试预设', exact: true }).click();
     assert.equal(await page.evaluate(() => window.calls.at(-1).data.action), 'apply');
@@ -98,6 +105,14 @@ test('token module plugs into model footer and unplugs without changing model co
     });
     await meter.waitFor();
     assert.equal(await meter.textContent(), '— tok/s');
+    for (const width of [420, 320, 260]) {
+      await page.setViewportSize({ width, height: 700 });
+      const footer = page.locator('.model-footer');
+      assert.equal(await footer.evaluate((n) => n.scrollWidth <= n.clientWidth), true);
+      const m = await meter.boundingBox(),
+        a = await page.locator('.model-preset-actions').boundingBox();
+      assert.ok(m.x + m.width <= a.x || m.y + m.height <= a.y, 'footer groups never overlap');
+    }
     assert.equal(await page.locator('.token-meter-readout').count(), 1);
     await page.evaluate(() => {
       window.connected = false;

@@ -1,5 +1,5 @@
 /* [INPUT]: 可选测速数值快照；不依赖模型选择、承载形式或宿主DOM。
- * [OUTPUT]: 单行估算速度与官方用量，无快照时完全移除。
+ * [OUTPUT]: 单行估算速度或状态，官方用量仅按需查看，无快照时完全移除。
  * [POS]: 可插拔内容组件；由组合层放入模型快切的可选footer。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import type { TokenMeterSnapshot } from '../../shared/token-meter';
@@ -14,8 +14,6 @@ const LABELS: Record<string, string> = {
   interrupted: '已停止',
   streaming: '接收中',
 };
-const compact = (value: number) =>
-  value >= 10000 ? `${(value / 1000).toFixed(1)}k` : value.toLocaleString('en-US');
 export function TokenMeterView({ snapshot }: { snapshot?: TokenMeterSnapshot | null }) {
   if (!snapshot) return null;
   const rate =
@@ -23,9 +21,6 @@ export function TokenMeterView({ snapshot }: { snapshot?: TokenMeterSnapshot | n
       ? LABELS[snapshot.phase] || '— tok/s'
       : `≈ ${snapshot.speed.toFixed(1)} tok/s`;
   const u = snapshot.official;
-  const count = u
-    ? `${snapshot.scope === 'turn' ? '本轮' : '最近调用'} ${compact(u.outputTokens)} tok`
-    : '';
   const lines = ['速度为最近3秒可见回复的文本估算，不含隐藏思考和工具输出。'];
   if (u) {
     lines.push(
@@ -44,10 +39,9 @@ export function TokenMeterView({ snapshot }: { snapshot?: TokenMeterSnapshot | n
         aria-live="off"
         tabIndex={0}
         title={title}
-        aria-label={`${rate} ${count}。${title}`}
+        aria-label={`${rate}。${title}`}
       >
         <span>{rate}</span>
-        {count && <span>{count}</span>}
       </output>
     </>
   );

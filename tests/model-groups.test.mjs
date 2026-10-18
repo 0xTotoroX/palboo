@@ -201,11 +201,11 @@ test(
         .boundingBox();
       assert.ok(usageBox.x + usageBox.width <= editBox.x);
       const iconBox = await view.locator('.model-preset-edit svg').boundingBox();
-      assert.ok(Math.abs(usageBox.y + usageBox.height - iconBox.y - iconBox.height) < 1);
+      assert.ok(Math.abs(usageBox.y + usageBox.height / 2 - iconBox.y - iconBox.height / 2) < 1);
       assert.equal(editBox.width, 32);
       assert.equal(editBox.height, 32);
-      assert.equal(iconBox.width, 24);
-      assert.equal(iconBox.height, 24);
+      assert.equal(iconBox.width, 18);
+      assert.equal(iconBox.height, 18);
       const toggle = settings.getByRole('switch', { name: '启用额度显示' });
       await toggle.click();
       await page.waitForFunction(
@@ -679,7 +679,7 @@ test(
               s = n.querySelector('svg').getBoundingClientRect();
             const presetAction = Boolean(n.closest('.model-preset-actions'));
             return presetAction
-              ? b.width === 32 && b.height === 32 && s.width === 24 && s.height === 24
+              ? b.width === 32 && b.height === 32 && s.width === 18 && s.height === 18
               : b.width === 28 && b.height === 28 && s.width === 18 && s.height === 18;
           }),
         ),

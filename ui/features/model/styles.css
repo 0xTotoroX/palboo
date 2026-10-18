@@ -1,5 +1,5 @@
 /* [INPUT]: Model matrix, all-model picker, wrapping presets and surface semantic colors.
- * [OUTPUT]: Content-sized matrix, separate Fast and electric divider controls and recessed preset tags, bottom-aligned account usage and a single-surface model catalog.
+ * [OUTPUT]: Content-sized matrix, separate Fast and electric divider controls and recessed preset tags, a wrapping bottom row with centered account usage and a single-surface model catalog.
  * [POS]: Shared model content styling; no outer window or material.
  * [PROTOCOL]: Keep model/AGENTS.md in sync. */
 .feature-model {
@@ -241,7 +241,7 @@
 }
 .model-collections {
   margin-top: 16px;
-  padding: 2px 6px 4px;
+  padding: 2px 0 4px;
 }
 .model-presets {
   display: flex;
@@ -304,35 +304,45 @@
   background: var(--paper);
   color: var(--muted);
 }
+.model-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 20px;
+  color: var(--muted);
+}
 .model-preset-actions {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   flex: none;
-  align-self: flex-end;
   margin-left: auto;
   gap: 0;
 }
 .model-usage {
   display: flex;
-  line-height: 1;
-  align-items: flex-end;
+  align-items: center;
   gap: 8px;
-  margin: 0 6px 4px 0;
+  margin-right: 8px;
   color: var(--muted);
-  font-size: 0.85em;
+  font-size: inherit;
+  line-height: inherit;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 .feature-model .model-preset-actions .model-icon-button {
   width: 32px;
   height: 32px;
-  padding: 4px;
+  padding: 7px;
   color: var(--muted);
   opacity: 1;
 }
 .feature-model .model-preset-actions .model-icon-button svg {
-  width: 24px;
-  height: 24px;
+  width: 18px;
+  height: 18px;
 }
 .feature-model .model-preset-edit[aria-pressed='true'] {
   background: var(--hover);
