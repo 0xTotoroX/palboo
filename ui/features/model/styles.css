@@ -241,7 +241,7 @@
 }
 .model-collections {
   margin-top: 16px;
-  padding: 2px 0 8px;
+  padding: 2px 0 0;
 }
 .model-presets {
   display: flex;
@@ -310,7 +310,7 @@
   align-items: flex-end;
   justify-content: space-between;
   gap: 8px 16px;
-  margin-top: 16px;
+  margin-top: 24px;
   font-size: 14px;
   line-height: 1.5;
   color: var(--muted);

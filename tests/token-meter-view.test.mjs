@@ -75,7 +75,7 @@ test('token module plugs into model footer and unplugs without changing model co
     assert.ok(Math.abs(box.y + box.height - iconBox.y - iconBox.height) < 1);
     assert.ok(Math.abs(usage.y + usage.height - iconBox.y - iconBox.height) < 1);
     assert.ok(
-      Math.abs(actions.y - presets.y - presets.height - 16) < 1,
+      Math.abs(actions.y - presets.y - presets.height - 24) < 1,
       JSON.stringify({ actions, presets, box, usage, iconBox }),
     );
     assert.ok(box.x + box.width < actions.x);
