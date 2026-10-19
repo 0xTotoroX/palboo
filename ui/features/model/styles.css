@@ -311,9 +311,16 @@
   justify-content: space-between;
   gap: 8px 16px;
   margin-top: 8px;
-  font-size: inherit;
+  font-size: 14px;
   line-height: 1.5;
   color: var(--muted);
+}
+.model-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  min-width: 0;
+  gap: 8px 12px;
 }
 .model-preset-actions {
   display: flex;
@@ -326,7 +333,6 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-right: 8px;
   color: var(--muted);
   font-size: inherit;
   line-height: inherit;

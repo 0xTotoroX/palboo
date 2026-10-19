@@ -194,7 +194,7 @@ test(
       ];
       await page.evaluate((state) => window.render(state), state);
       await view.getByLabel('Codex 剩余额度', { exact: true }).waitFor();
-      assert.equal(await view.locator('.model-usage').innerText(), '5小时 60%\n周 31%');
+      assert.equal(await view.locator('.model-usage').innerText(), '周 31%\n5小时 60%');
       const usageBox = await view.locator('.model-usage').boundingBox();
       const editBox = await view
         .getByRole('button', { name: '编辑预设', exact: true })

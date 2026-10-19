@@ -664,17 +664,21 @@ export function ModelView({
               {presetDraft?.creating && presetEditor}
             </div>
             <div className="model-footer">
-              {footer}
-              <div className="model-preset-actions">
+              <div className="model-metrics">
                 {prefs.showUsage !== false && !!s.usage?.length && (
                   <span className="model-usage" aria-label="Codex 剩余额度" title="Codex 剩余额度">
-                    {s.usage.map((window) => (
-                      <span key={window.minutes}>
-                        {window.minutes === 300 ? '5小时' : '周'} {window.remainingPercent}%
-                      </span>
-                    ))}
+                    {[...s.usage]
+                      .sort((a, b) => b.minutes - a.minutes)
+                      .map((window) => (
+                        <span key={window.minutes}>
+                          {window.minutes === 300 ? '5小时' : '周'} {window.remainingPercent}%
+                        </span>
+                      ))}
                   </span>
                 )}
+                {footer}
+              </div>
+              <div className="model-preset-actions">
                 <button
                   className="model-icon-button model-preset-edit"
                   aria-label="编辑预设"

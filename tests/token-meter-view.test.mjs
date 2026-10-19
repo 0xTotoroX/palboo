@@ -16,7 +16,7 @@ test('token module plugs into model footer and unplugs without changing model co
     import React from 'react';import {createRoot} from 'react-dom/client';
     import {FeatureContent} from './ui/features/content';
     const root=createRoot(document.getElementById('root').attachShadow({mode:'open'}));const reading={};window.calls=[];window.connected=true;
-    window.state={revision:1,preferences:{enabled:true,pinned:['gpt-test'],presets:[{id:'p',name:'测试预设',selection:{model:'gpt-test',reasoning:'high',speed:'standard'}}]},snapshot:{target:{id:'a'},revision:'host',status:'ready',message:'',current:{model:'gpt-test',reasoning:'high',speed:'standard'},usage:[{minutes:10080,remainingPercent:86,resetsAt:null}],models:[{id:'gpt-test',label:'Test model',reasoning:['high'],fast:true}]}};
+    window.state={revision:1,preferences:{enabled:true,pinned:['gpt-test'],presets:[{id:'p',name:'测试预设',selection:{model:'gpt-test',reasoning:'high',speed:'standard'}}]},snapshot:{target:{id:'a'},revision:'host',status:'ready',message:'',current:{model:'gpt-test',reasoning:'high',speed:'standard'},usage:[{minutes:300,remainingPercent:60,resetsAt:null},{minutes:10080,remainingPercent:86,resetsAt:null}],models:[{id:'gpt-test',label:'Test model',reasoning:['high'],fast:true}]}};
     window.render=()=>root.render(<FeatureContent id="model" reading={reading} value={window.state} locked={false} connected={window.connected} call={async(op,data)=>{window.calls.push({op,data});return window.state}} operation={async fn=>fn()} update={()=>{}}/>);window.render();
   `,
     },
@@ -76,7 +76,13 @@ test('token module plugs into model footer and unplugs without changing model co
     assert.ok(box.x + box.width < actions.x);
     assert.equal(await meter.getAttribute('title').then((t) => t.includes('输出 120')), true);
     assert.ok(box.y >= presets.y + presets.height - 1);
-    assert.ok(Math.abs(box.x - matrix.x) < 1);
+    assert.ok(Math.abs(usage.x - matrix.x) < 1);
+    assert.ok(usage.x + usage.width < box.x);
+    assert.equal(await page.locator('.model-usage').innerText(), '周 86%\n5小时 60%');
+    assert.equal(
+      await page.locator('.model-preset-edit svg').evaluate((n) => n.getBoundingClientRect().width),
+      18,
+    );
     assert.equal(await meter.evaluate((n) => n.scrollWidth <= n.clientWidth), true);
     assert.deepEqual(await page.locator('.model-matrix').boundingBox(), matrix);
     for (const color of ['rgb(102, 102, 102)', 'rgb(180, 180, 180)']) {
@@ -88,10 +94,10 @@ test('token module plugs into model footer and unplugs without changing model co
         (size) => (document.getElementById('root').style.fontSize = `${size}px`),
         size,
       );
-      assert.equal(await meter.evaluate((n) => getComputedStyle(n).fontSize), `${size}px`);
+      assert.equal(await meter.evaluate((n) => getComputedStyle(n).fontSize), '14px');
       assert.equal(
         await page.locator('.model-usage').evaluate((n) => getComputedStyle(n).fontSize),
-        `${size}px`,
+        '14px',
       );
     }
     await page.evaluate(() => (document.getElementById('root').style.fontSize = '14px'));
