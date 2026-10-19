@@ -311,8 +311,8 @@
   justify-content: space-between;
   gap: 8px 16px;
   margin-top: 8px;
-  font-size: 12px;
-  line-height: 20px;
+  font-size: inherit;
+  line-height: 1.5;
   color: var(--muted);
 }
 .model-preset-actions {

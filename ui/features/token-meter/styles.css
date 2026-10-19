@@ -9,8 +9,8 @@
   gap: 4px 12px;
   max-width: 100%;
   color: var(--muted);
-  font-size: 12px;
-  line-height: 20px;
+  font-size: inherit;
+  line-height: 1.5;
   font-variant-numeric: tabular-nums;
 }
 .token-meter-readout > span {
