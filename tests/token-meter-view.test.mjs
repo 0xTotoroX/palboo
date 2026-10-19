@@ -71,8 +71,13 @@ test('token module plugs into model footer and unplugs without changing model co
       presets = await page.locator('.model-presets').boundingBox();
     const actions = await page.locator('.model-preset-actions').boundingBox();
     const usage = await page.locator('.model-usage').boundingBox();
-    assert.ok(Math.abs(box.y + box.height / 2 - actions.y - actions.height / 2) < 1);
-    assert.ok(Math.abs(usage.y + usage.height / 2 - actions.y - actions.height / 2) < 1);
+    const iconBox = await page.locator('.model-preset-edit svg').boundingBox();
+    assert.ok(Math.abs(box.y + box.height - iconBox.y - iconBox.height) < 1);
+    assert.ok(Math.abs(usage.y + usage.height - iconBox.y - iconBox.height) < 1);
+    assert.ok(
+      Math.abs(actions.y - presets.y - presets.height - 16) < 1,
+      JSON.stringify({ actions, presets, box, usage, iconBox }),
+    );
     assert.ok(box.x + box.width < actions.x);
     assert.equal(await meter.getAttribute('title').then((t) => t.includes('输出 120')), true);
     assert.ok(box.y >= presets.y + presets.height - 1);
@@ -125,7 +130,7 @@ test('token module plugs into model footer and unplugs without changing model co
     assert.equal(await meter.textContent(), '— tok/s');
     for (const width of [420, 320, 260]) {
       await page.setViewportSize({ width, height: 700 });
-      const footer = page.locator('.model-footer');
+      const footer = page.locator('.model-status-row');
       assert.equal(await footer.evaluate((n) => n.scrollWidth <= n.clientWidth), true);
       const m = await meter.boundingBox(),
         a = await page.locator('.model-preset-actions').boundingBox();

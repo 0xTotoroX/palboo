@@ -201,7 +201,7 @@ test(
         .boundingBox();
       assert.ok(usageBox.x + usageBox.width <= editBox.x);
       const iconBox = await view.locator('.model-preset-edit svg').boundingBox();
-      assert.ok(Math.abs(usageBox.y + usageBox.height / 2 - iconBox.y - iconBox.height / 2) < 1);
+      assert.ok(Math.abs(usageBox.y + usageBox.height - iconBox.y - iconBox.height) < 1);
       assert.equal(editBox.width, 32);
       assert.equal(editBox.height, 32);
       assert.equal(iconBox.width, 18);

@@ -1,5 +1,5 @@
 /* [INPUT]: Model matrix, all-model picker, wrapping presets and surface semantic colors.
- * [OUTPUT]: Content-sized matrix, separate Fast and electric divider controls and recessed preset tags, a wrapping bottom row with centered account usage and a single-surface model catalog.
+ * [OUTPUT]: Content-sized matrix, separate Fast and electric divider controls and recessed preset tags, a wrapping bottom row with lower-edge-aligned account usage and a single-surface model catalog.
  * [POS]: Shared model content styling; no outer window or material.
  * [PROTOCOL]: Keep model/AGENTS.md in sync. */
 .feature-model {
@@ -241,7 +241,7 @@
 }
 .model-collections {
   margin-top: 16px;
-  padding: 2px 0 4px;
+  padding: 2px 0 8px;
 }
 .model-presets {
   display: flex;
@@ -304,13 +304,13 @@
   background: var(--paper);
   color: var(--muted);
 }
-.model-footer {
+.model-status-row {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 8px 16px;
-  margin-top: 8px;
+  margin-top: 16px;
   font-size: 14px;
   line-height: 1.5;
   color: var(--muted);
@@ -318,20 +318,22 @@
 .model-metrics {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-end;
   min-width: 0;
+  /* Match the icon button inset so text and SVG lower edges align. */
+  padding-bottom: 7px;
   gap: 8px 12px;
 }
 .model-preset-actions {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   flex: none;
   margin-left: auto;
   gap: 0;
 }
 .model-usage {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 8px;
   color: var(--muted);
   font-size: inherit;

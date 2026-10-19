@@ -1,5 +1,5 @@
 /* [INPUT]: Existing model control envelope and serialized actions.
- * [OUTPUT]: Title-aligned reasoning headings, content-sized favorites matrix, independent Fast charge/strike and divider controls, preset tags, a shared bottom row with centered account usage, icons and an independent footer slot, in-panel catalog and wrapping presets with synchronous draft handoff, measured horizontal reading restoration and capability-driven selection.
+ * [OUTPUT]: Title-aligned reasoning headings, content-sized favorites matrix, independent Fast charge/strike and divider controls, preset tags, a shared bottom row with lower-edge-aligned account usage, icons and an independent footer slot, in-panel catalog and wrapping presets with synchronous draft handoff, measured horizontal reading restoration and capability-driven selection.
  * [POS]: Reusable business view; surfaces own placement and theme.
  * [PROTOCOL]: Keep AGENTS.md in this module in sync. */
 import {
@@ -663,7 +663,7 @@ export function ModelView({
               ))}
               {presetDraft?.creating && presetEditor}
             </div>
-            <div className="model-footer">
+            <div className="model-status-row">
               <div className="model-metrics">
                 {prefs.showUsage !== false && !!s.usage?.length && (
                   <span className="model-usage" aria-label="Codex 剩余额度" title="Codex 剩余额度">
