@@ -1,5 +1,5 @@
 /* [INPUT]: Saved sync preference, shared settings queue and read-only local Bot catalog.
- * [OUTPUT]: Sync control, Bot descriptions and copyable Agent setup instructions.
+ * [OUTPUT]: Grouped sync controls, compact profile entries and Agent setup instructions.
  * [POS]: Settings only; no Bot conversations or dependency installation.
  * [PROTOCOL]: Keep ui/settings/AGENTS.md in sync. */
 import { useEffect, useRef, useState } from 'react';
@@ -9,6 +9,7 @@ import { SettingsDrawer } from './settings-drawer';
 import { Button } from './components/ui/button';
 import type { SettingsEditor } from './use-settings-form';
 import { botSetupPrompt } from './bot-setup-prompt';
+import { ActionIcon } from './components/ui/action-feedback';
 
 type Catalog = {
   stale: boolean;
@@ -27,16 +28,20 @@ export function BotSettings({
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const [copied, setCopied] = useState('');
+  const [refreshed, setRefreshed] = useState(false);
   const sequence = useRef(0);
   const auto = editor.form?.grokbotAutoSync ?? true;
   async function load(refresh = false) {
     const id = ++sequence.current;
     setBusy(true);
     setError('');
+    setRefreshed(false);
     try {
       const value = await request<Catalog>('features', { op: 'bots-catalog', refresh });
-      if (id === sequence.current) setCatalog(value);
+      if (id === sequence.current) {
+        setCatalog(value);
+        setRefreshed(refresh && !value.stale && !value.error);
+      }
     } catch (e) {
       if (id === sequence.current) setError((e as Error).message);
     } finally {
@@ -50,7 +55,7 @@ export function BotSettings({
     };
   }, [active, live, editor.saved?.grokbotAutoSync]);
   return (
-    <section data-settings-page="bots" hidden={!active} className="settings-section">
+    <section data-settings-page="bots" hidden={!active} className="settings-section bot-settings">
       <Toggle
         label="自动同步 Bot 资料"
         checked={auto}
@@ -58,29 +63,51 @@ export function BotSettings({
         onChange={(value) => editor.change('grokbotAutoSync', value)}
       />
       <p className="settings-hint">
-        {auto
-          ? '资料变化时自动更新。'
-          : '停止文件监听；点击刷新更新名单与资料。调用前仍会核验 Bot 身份。'}
+        {auto ? '文件变化时同步名单与资料。' : '名单与资料手动刷新，聊天回复和任务状态照常更新。'}
       </p>
-      <div className="flex items-center justify-between gap-4">
-        <h2>Bot 简介</h2>
-        {!auto && (
-          <Button type="button" disabled={!live || busy} onClick={() => void load(true)}>
-            刷新 Bot 资料
-          </Button>
-        )}
-      </div>
-      <Feedback text={error || catalog?.error} failed />
-      {!catalog?.error && catalog?.stale && <Feedback text="资料已过期，请打开 Grok Bot。" />}
-      {catalog?.bots.map((bot) => (
-        <div key={bot.id} className="py-3">
-          <h3>{bot.name}</h3>
-          <p className="mt-2 whitespace-pre-wrap break-words text-muted-foreground">
-            {bot.description || '暂无简介'}
-          </p>
+      <div className="bot-settings-catalog" aria-busy={busy}>
+        <div className="bot-settings-heading">
+          <h2>Bot 资料</h2>
+          {!auto && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="刷新 Bot 资料"
+              title={busy ? '正在刷新…' : '刷新 Bot 资料'}
+              disabled={!live || busy}
+              onClick={() => void load(true)}
+            >
+              <ActionIcon
+                name="refresh"
+                state={busy ? 'pending' : refreshed ? 'success' : 'idle'}
+              />
+            </Button>
+          )}
         </div>
-      ))}
-      <SettingsDrawer title="接入 Grok Bot" hidden={!active}>
+        <Feedback text={error || catalog?.error} failed />
+        {!catalog?.error && catalog?.stale && <Feedback text="资料已过期，请打开 Grok Bot。" />}
+        {!catalog && busy && <Feedback text="正在读取 Bot 资料…" />}
+        {catalog && !catalog.stale && !catalog.error && catalog.bots.length === 0 && (
+          <Feedback text="暂无 Bot" />
+        )}
+        <div className="bot-settings-profiles">
+          {catalog?.bots.map((bot) => (
+            <SettingsDrawer key={bot.id} title={bot.name} hidden={!active}>
+              <p className="bot-settings-description">{bot.description || '暂无简介'}</p>
+            </SettingsDrawer>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export function BotSetupInstructions({ hidden }: { hidden: boolean }) {
+  const [copied, setCopied] = useState('');
+  return (
+    <div className="bot-settings-setup" hidden={hidden}>
+      <SettingsDrawer title="接入 Grok Bot" hidden={hidden}>
         <p>把这段 Prompt 交给你的 Agent 或 Codex，按当前官方文档完成接入和后续更新。</p>
         <textarea
           aria-label="Grok Bot 接入 Prompt"
@@ -101,6 +128,6 @@ export function BotSettings({
         </Button>
         <Feedback text={copied} />
       </SettingsDrawer>
-    </section>
+    </div>
   );
 }

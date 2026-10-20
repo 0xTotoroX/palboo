@@ -609,8 +609,60 @@ try {
     location.hash = 'settings-bots';
   });
   await settingsPage.getByRole('switch', { name: '自动同步 Bot 资料', exact: true }).waitFor();
+  assert.equal(
+    await settingsPage.getByText('仅在设置展示的简介', { exact: true }).isVisible(),
+    false,
+  );
+  assert.equal(await settingsPage.getByRole('complementary', { name: '联动预览' }).count(), 0);
+  await settingsPage.getByRole('button', { name: '手动新增 Bot', exact: true }).click();
   await settingsPage.getByText('仅在设置展示的简介', { exact: true }).waitFor();
+  await settingsPage.keyboard.press('Escape');
+  assert.equal(
+    await settingsPage
+      .getByRole('button', { name: '手动新增 Bot', exact: true })
+      .evaluate((el) => document.activeElement === el),
+    true,
+  );
   assert.equal(await page.getByText('仅在设置展示的简介', { exact: true }).count(), 0);
+  const setupRow = await settingsPage.evaluate(() => {
+    const setup = document.querySelector('.bot-settings-setup button').getBoundingClientRect();
+    const toggle = document
+      .querySelector('#settings-grokbot [role="switch"]')
+      .getBoundingClientRect();
+    return {
+      delta: Math.abs(setup.top + setup.height / 2 - toggle.top - toggle.height / 2),
+      ahead: setup.right < toggle.left,
+    };
+  });
+  assert.ok(setupRow.delta < 1 && setupRow.ahead, 'setup entry sits beside the enable switch');
+  const callsBeforeSettingsRefresh = botListCalls;
+  await settingsPage.getByRole('button', { name: '刷新 Bot 资料', exact: true }).click();
+  await settingsPage.locator('.bot-settings-heading [data-action-state="success"]').waitFor();
+  assert.equal(botListCalls, callsBeforeSettingsRefresh + 1);
+  const geometry = await settingsPage.evaluate(() => {
+    const heading = document.querySelector('.bot-settings-heading h2').getBoundingClientRect();
+    const refresh = document.querySelector('.bot-settings-heading button').getBoundingClientRect();
+    const entries = [
+      ...document.querySelectorAll('.bot-settings-profiles .settings-drawer-trigger'),
+    ].map((el) => el.getBoundingClientRect());
+    return {
+      aligned: entries.every((rect) => Math.abs(rect.left - heading.left) < 1 && rect.height >= 48),
+      centers: Math.abs(heading.top + heading.height / 2 - refresh.top - refresh.height / 2),
+    };
+  });
+  assert.equal(geometry.aligned, true);
+  assert.ok(geometry.centers < 1, 'refresh is centered on its heading');
+  await settingsPage.screenshot({ path: join(output, 'palboo-bot-settings-manual.png') });
+  await settingsPage.setViewportSize({ width: 390, height: 844 });
+  assert.equal(
+    await settingsPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+    true,
+  );
+  await settingsPage.getByRole('button', { name: '手动新增 Bot', exact: true }).click();
+  await settingsPage.getByText('仅在设置展示的简介', { exact: true }).waitFor();
+  await settingsPage.keyboard.press('Escape');
+  await settingsPage.screenshot({ path: join(output, 'palboo-bot-settings-narrow.png') });
+  await settingsPage.setViewportSize({ width: 1440, height: 960 });
   await settingsPage.getByRole('button', { name: '接入 Grok Bot', exact: true }).click();
   const prompt = await settingsPage
     .getByRole('textbox', { name: 'Grok Bot 接入 Prompt' })

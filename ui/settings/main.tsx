@@ -4,7 +4,7 @@
  * [PROTOCOL]: 变更时同步 settings/AGENTS.md。 */
 import { useTypography } from './use-typography';
 import { StrictMode, useEffect, useState } from 'react';
-import { BotSettings } from './bot-settings';
+import { BotSettings, BotSetupInstructions } from './bot-settings';
 import { TerminologySettings } from './terminology-settings';
 import { createRoot } from 'react-dom/client';
 import '../shared/tokens.css';
@@ -195,6 +195,7 @@ function App() {
                 <div id="settings-grokbot" hidden={!common && page !== 'bots'}>
                   <FeatureSwitch
                     name="Grok Bot"
+                    actions={<BotSetupInstructions hidden={page !== 'bots'} />}
                     checked={editor.form?.grokbotEnabled ?? false}
                     disabled={!live || !editor.form}
                     onChange={(value) => editor.change('grokbotEnabled', value)}
