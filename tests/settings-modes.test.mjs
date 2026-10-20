@@ -909,7 +909,7 @@ test(
       await category('connection');
       await page.addScriptTag({ content: await readFile('ui/settings/dev-sources.js', 'utf8') });
       await category('dev');
-      await page.getByText('开发来源 · main · 1234567', { exact: true }).waitFor();
+      await page.getByText('当前 · main · 1234567', { exact: true }).waitFor();
       const source = page.getByLabel('调试 worktree', { exact: true });
       const sourceWrites = writes.filter((w) => w.path.startsWith('/api/dev/')).length;
       for (const mode of ['浅色', '深色']) {
