@@ -267,3 +267,5 @@ launcher-face 回归覆盖眼睛入口单击、双击、Enter/Space 与逐一点
 
 - `bots.test.mjs`：合成 MCP 事件的 host/thread/turn/item 隔离、去重、断连、未知状态、有界缓存、不缓存正文；浏览器验证无第二输入框、保留草稿、重复点击、聊天切换/输入框替换拒绝与停用回收。
 - `features-e2e.mjs` 另覆盖真实隔离 Rust/HTTP/CDP 的 Bot 开关、owner与composer校验、四Bot投影、无正文回传、主聊天填入不发送及关闭清理；测试不连接真实 BDK。
+
+- `grokbot-catalog.test.mjs`：合成缓存验证动态新增、改名、排序/头像变化、同名冲突、过期、账号隔离与未知格式拒绝；不读取真实用户资料。features-e2e 的 BDK 请求只进入合成端点，验证新增免重启与短句只填入。

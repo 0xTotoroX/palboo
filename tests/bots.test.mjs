@@ -6,8 +6,21 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 import { chromium } from 'playwright';
-import { createBotTracker, BOT_NAMES } from '../ui/codex/bots-state.js';
+import { createBotTracker } from '../ui/codex/bots-state.js';
 
+const BOT_NAMES = ['X 资讯', '随口一问', '通用', '环境运维'];
+const catalog = {
+  version: 1,
+  account: 'fixture',
+  revision: 'r1',
+  stale: false,
+  bots: BOT_NAMES.map((name, i) => ({ id: `bot-${i}`, name, available: true })),
+};
+function tracker() {
+  const t = createBotTracker();
+  t.setCatalog(catalog.bots);
+  return t;
+}
 function event(threadId = 'a', itemId = 'call-a', status) {
   return {
     threadId,
@@ -41,7 +54,7 @@ function event(threadId = 'a', itemId = 'call-a', status) {
   };
 }
 test('Bot status is isolated by host/thread/turn/item and never stores message bodies', () => {
-  const t = createBotTracker();
+  const t = tracker();
   t.receive('remote', 'item/started', event());
   assert.equal(t.snapshot('a')[2].current, null);
   t.receive('local', 'item/started', event());
@@ -60,7 +73,7 @@ test('Bot status is isolated by host/thread/turn/item and never stores message b
   );
 });
 test('unknown errors, disconnect and duplicate completions cannot invent success', () => {
-  const t = createBotTracker();
+  const t = tracker();
   t.receive('local', 'item/started', event('a', 'lost'));
   t.receive('local', 'turn/completed', { threadId: 'a', turnId: 'turn-a' });
   assert.equal(t.snapshot('a')[2].current.status, 'unknown');
@@ -96,7 +109,7 @@ test('Bot view uses the sole main composer, preserves drafts, rejects stale targ
       window.session='a';window.enabled=true;window.submits=0;
       document.querySelector('form').addEventListener('submit',e=>{e.preventDefault();window.submits++});
       window.setup=()=>installBots({isEnabled:()=>window.enabled,getTarget:()=>({id:window.session,scope:document.querySelector('main'),composer:document.querySelector('textarea')})});
-      window.api=window.setup();
+      window.api=window.setup();window.api.setCatalog(${JSON.stringify(catalog)});
       window.react=createRoot(document.querySelector('#view'));
       window.render=()=>window.react.render(<BotsView state={{snapshot:window.api.read()}} disabled={false} action={data=>{window.last=window.api.fill(data)}}/>);
       window.render();
@@ -124,7 +137,7 @@ test('Bot view uses the sole main composer, preserves drafts, rejects stale targ
       draft.startsWith('原草稿\n\n保留空行\n'),
       JSON.stringify({ draft, last: await page.evaluate(() => window.last) }),
     );
-    assert.match(draft, /已有的「通用」Bot/);
+    assert.equal(draft, '原草稿\n\n保留空行\n请问「通用」：');
     assert.equal(await page.locator('#view textarea,#view input').count(), 0);
     assert.equal(await page.evaluate(() => window.submits), 0);
     await page.getByRole('button', { name: '通用', exact: true }).click();
@@ -132,6 +145,8 @@ test('Bot view uses the sole main composer, preserves drafts, rejects stale targ
     const stale = await page.evaluate(() => ({
       ...window.api.read().target,
       agent: '通用',
+      botId: 'bot-2',
+      revision: 'r1',
       action: 'ask',
     }));
     await page.evaluate(() => {
@@ -141,6 +156,8 @@ test('Bot view uses the sole main composer, preserves drafts, rejects stale targ
     const b = await page.evaluate(() => ({
       ...window.api.read().target,
       agent: '通用',
+      botId: 'bot-2',
+      revision: 'r1',
       action: 'ask',
     }));
     await page.evaluate(() => {
@@ -164,6 +181,18 @@ test('Bot view uses the sole main composer, preserves drafts, rejects stale targ
     await page.evaluate(() => {
       window.api.destroy();
       window.api = window.setup();
+      window.api.setCatalog({
+        version: 1,
+        account: 'fixture',
+        revision: 'r1',
+        stale: false,
+        bots: [
+          { id: 'bot-0', name: 'X 资讯', available: true },
+          { id: 'bot-1', name: '随口一问', available: true },
+          { id: 'bot-2', name: '通用', available: true },
+          { id: 'bot-3', name: '环境运维', available: true },
+        ],
+      });
     });
     assert.equal(await page.evaluate(() => window.api.read().bots[2].current), null);
     const fresh = await page.evaluate(() => ({
@@ -179,4 +208,17 @@ test('Bot view uses the sole main composer, preserves drafts, rejects stale targ
   } finally {
     await browser.close();
   }
+});
+
+test('catalog rename and deletion reject old identities while unrelated calls remain', () => {
+  const t = tracker();
+  t.receive('local', 'item/completed', event('a', 'finished', 'finished'));
+  t.setCatalog([...catalog.bots, { id: 'new-id', name: '新增 Bot', available: true }]);
+  assert.equal(t.snapshot('a').find((b) => b.name === '通用').current.status, 'finished');
+  t.setCatalog(catalog.bots.map((b) => (b.name === '通用' ? { ...b, name: '改名 Bot' } : b)));
+  assert.equal(t.snapshot('a').find((b) => b.name === '改名 Bot').current, null);
+  t.receive('local', 'item/completed', event('a', 'late-old-name', 'finished'));
+  assert.ok(t.snapshot('a').every((b) => !b.current));
+  t.setCatalog([]);
+  assert.deepEqual(t.snapshot('a'), []);
 });

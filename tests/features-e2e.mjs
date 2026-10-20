@@ -30,7 +30,25 @@ async function wait(fn, label) {
   }
   throw Error(label);
 }
+let botCatalog = {
+  version: 1,
+  account: 'fixture',
+  revision: 'r1',
+  stale: false,
+  bots: ['X 资讯', '随口一问', '通用', '环境运维'].map((name, i) => ({
+    id: `bot-${i}`,
+    name,
+    available: true,
+    avatar: { shape: 'cloud', color: 'violet' },
+    preview: '合成资料摘要',
+  })),
+};
 const fixture = createServer((req, res) => {
+  if (req.url === '/v1/tools/grokbot__list') {
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ isError: false, result: { catalog: botCatalog } }));
+    return;
+  }
   res.setHeader('Content-Type', 'text/html');
   res.end(readFileSync(join(root, 'tests/host-fixture.html')));
 });
@@ -87,6 +105,7 @@ try {
   );
   for (const key of Object.keys(env)) if (/^(CODEX_BUDDY_|COMPANION_)/.test(key)) delete env[key];
   env.CODEX_BUDDY_PANEL_TEST = '1';
+  env.CODEX_BUDDY_TEST_GROKBOT_URL = `http://127.0.0.1:${fixture.address().port}`;
   service = spawn(
     artifact.binary,
     ['--data-dir', directory, 'serve', '--port', '0', '--allow-fixture'],
@@ -381,16 +400,28 @@ try {
     op: 'action',
     id: 'bots',
     owner: botEntry.owner,
-    data: { ...botView.snapshot.target, agent: '通用', action: 'ask' },
+    data: {
+      ...botView.snapshot.target,
+      botId: 'bot-2',
+      revision: 'r1',
+      agent: '通用',
+      action: 'ask',
+    },
   });
-  assert.match(await composer.innerText(), /^保留我的原草稿\n请通过 grokbot MCP/);
+  assert.match(await composer.innerText(), /^保留我的原草稿\n请问「通用」：$/);
   assert.equal(await page.evaluate(() => window.submitCount), sends);
   await assert.rejects(
     api('features', {
       op: 'action',
       id: 'bots',
       owner: 'stale-owner',
-      data: { ...botView.snapshot.target, agent: '通用', action: 'ask' },
+      data: {
+        ...botView.snapshot.target,
+        botId: 'bot-2',
+        revision: 'r1',
+        agent: '通用',
+        action: 'ask',
+      },
     }),
   );
   await assert.rejects(
@@ -466,11 +497,50 @@ try {
   assert.ok(Math.abs(botGeometry[2].label - botGeometry[2].status) < 1);
   assert.ok(Math.abs(botGeometry[2].label - botGeometry[2].action) < 1);
   await page.locator('[data-feature="bots"]').screenshot({ path: join(output, 'palboo-bots.png') });
+  botCatalog = {
+    ...botCatalog,
+    revision: 'r2',
+    bots: [
+      ...botCatalog.bots,
+      {
+        id: 'bot-4',
+        name: '新测试 Bot',
+        available: true,
+        avatar: { shape: 'sparkle', color: 'green' },
+        preview: '更新后的合成摘要',
+      },
+    ],
+  };
+  await page.getByRole('button', { name: '新测试 Bot', exact: true }).waitFor({ timeout: 15000 });
+  await page.getByRole('button', { name: '新测试 Bot', exact: true }).click();
+  await wait(
+    async () => (await composer.innerText()).includes('请问「新测试 Bot」：'),
+    'dynamic Bot selection',
+  );
+  assert.equal(await page.evaluate(() => window.submitCount), sends);
+  assert.equal((await botRead()).snapshot.bots[2].current.status, 'finished');
+  await assert.rejects(
+    api('features', {
+      op: 'action',
+      id: 'bots',
+      owner: botEntry.owner,
+      data: {
+        ...botView.snapshot.target,
+        botId: 'bot-2',
+        revision: 'r1',
+        agent: '通用',
+        action: 'ask',
+      },
+    }),
+  );
+  record(
+    'dynamic Bot addition appears without restart, preserves call status and rejects stale catalog actions',
+  );
   await api('settings', { grokbotEnabled: false });
   await page.waitForFunction(() => !window.__palbooBots);
   await assert.rejects(botRead());
   record(
-    'Palboo Bot owner/composer guards, main-chat-only input, scoped MCP result and disable cleanup',
+    'PALBOO Bot owner/composer guards, main-chat-only input, scoped MCP result and disable cleanup',
   );
   await page.screenshot({ path: join(output, 'independent-surfaces.png') });
   await api('disconnect', {});

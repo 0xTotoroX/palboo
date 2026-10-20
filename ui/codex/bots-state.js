@@ -1,11 +1,11 @@
 /* [INPUT]: Codex MCP notifications carrying host, thread, turn and item identities.
- * [OUTPUT]: Bounded metadata-only records for the four existing Grok Bots.
+ * [OUTPUT]: Bounded metadata-only records for catalog-verified Grok Bots.
  * [POS]: Pure observation; never reads BDK replies or creates remote sessions.
  * [PROTOCOL]: Keep ui/codex/AGENTS.md in sync. */
-export const BOT_NAMES = ['X 资讯', '随口一问', '通用', '环境运维'];
 const ACTIONS = ['grokbot__ask', 'grokbot__check', 'grokbot__interrupt'];
 const pending = (status) => ['calling', 'running'].includes(status);
 export function createBotTracker() {
+  let catalog = [];
   const records = new Map();
   function receive(hostId, method, params) {
     // This bridge is local. Remote hosts must not claim a local Bot's conversation.
@@ -31,7 +31,8 @@ export function createBotTracker() {
     )
       return;
     const args = item.arguments;
-    if (!ACTIONS.includes(args?.toolName) || !BOT_NAMES.includes(args?.input?.agent)) return;
+    if (!ACTIONS.includes(args?.toolName) || !catalog.some((b) => b.name === args?.input?.agent))
+      return;
     const key = JSON.stringify([hostId, params.threadId, params.turnId, item.id]);
     const previous = records.get(key);
     if (previous?.completed) return; // Duplicates and late starts cannot regress a terminal item.
@@ -42,6 +43,7 @@ export function createBotTracker() {
       turnId: params.turnId,
       itemId: item.id,
       agent: args.input.agent,
+      agentId: catalog.find((b) => b.name === args.input.agent)?.id,
       action: args.toolName,
       status: 'calling',
       completed: method === 'item/completed',
@@ -61,6 +63,7 @@ export function createBotTracker() {
       if (item.error || item.result?.isError || envelope?.isError) record.status = 'error';
       else if (result?.created === true) record.status = 'unexpected';
       else if (result?.agent && result.agent !== record.agent) record.status = 'unknown';
+      else if (result?.interrupted === true) record.status = 'interrupted';
       else if (['running', 'finished', 'busy', 'interrupted'].includes(result?.status))
         record.status = result.status;
       else record.status = 'unknown';
@@ -71,7 +74,8 @@ export function createBotTracker() {
   }
   function snapshot(threadId) {
     const all = [...records.values()];
-    return BOT_NAMES.map((name) => {
+    return catalog.map((bot) => {
+      const { name } = bot;
       const current = all.filter((r) => r.agent === name && r.threadId === threadId).at(-1);
       // A check/interrupt in another chat cannot resolve the original caller's status.
       const latestByThread = new Map();
@@ -80,12 +84,19 @@ export function createBotTracker() {
       const occupied = [...latestByThread.values()].some(
         (r) => r.threadId !== threadId && pending(r.status),
       );
-      return { name, current: current ? { ...current } : null, occupied };
+      return { ...bot, current: current ? { ...current } : null, occupied };
     });
   }
   return {
     receive,
     snapshot,
+    setCatalog(bots) {
+      for (const [key, record] of records) {
+        if (!bots.some((b) => b.id === record.agentId && b.name === record.agent))
+          records.delete(key);
+      }
+      catalog = bots;
+    },
     disconnect() {
       for (const r of records.values()) if (pending(r.status)) r.status = 'disconnected';
     },

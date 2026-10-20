@@ -15,6 +15,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+mod bots;
 #[path = "features/main_surface.rs"]
 mod main_surface;
 use main_surface::{FeatureLayout, MainSurface, SavedFeatures};
@@ -717,6 +718,13 @@ impl App {
             ensure!(action.is_none(), "Codex 已断开");
             return Ok(json!({"snapshot":null}));
         };
+        let catalog = bots::catalog(action.is_some()).await;
+        client
+            .evaluate(format!(
+                "window.__palbooBots?.setCatalog({})",
+                serde_json::to_string(&catalog)?
+            ))
+            .await?;
         if let Some(action) = action {
             let result = client
                 .evaluate(format!(

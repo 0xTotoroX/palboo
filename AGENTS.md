@@ -1,4 +1,4 @@
-# Palboo
+# PALBOO
 
 Map: required
 
@@ -31,7 +31,7 @@ Map 系统用项目地图、模块地图和文件契约说明职责与依赖；�
 - 源码构建最低 Rust 1.88、Node.js 22.16；分别由 Cargo `rust-version` 和 npm `engines.node` 声明，CI 覆盖最低组合。release 的构建辅助库不 strip，避免 macOS 加载失败；最终程序仍 strip。
 - 自有源码采用 GPL-3.0-only（固定第三版）；第三方保留各自版权与许可原文。旧 MIT 授权不追溯撤回，历史原文保存在 licenses/LICENSE-MIT-legacy；LICENSING.md 定义适用范围。维护者的来源审计记录保持原样，不随包公开。
 - 应用独立构建与运行，通过本机协议连接宿主，不修改官方应用包。macOS 本地安装生成 CodexBuddy.app 作为双击入口，调用已安装 CLI 连接和弹出；已有普通宿主无可用连接时，启动器通过 --restart-running 按 hostRestartPolicy 处理：默认 ask 询问后正常退出，force 显式保存后直接强制退出；两者都等待旧进程退出后再重开。取消、拒绝退出、超时或身份变化停止，不从正常退出升级为强退；不创建隔离实例。先从现有进程参数发现调试端口，不能因保存端口过期就重启。此策略独立于模型配置，不取消生成；Dev App 冷启动复用此策略；普通 npm run dev 仍仅接入现有调试连接，显式 --restart-running 才启用宿主准备。
-- 产品名称为 Palboo，现有源码目录、Cargo/npm 包、CLI 和分发前缀为 `codex-buddy`。默认数据目录为 `codex-buddy`，环境变量使用 `CODEX_BUDDY_*`；安装器迁移旧默认目录并保留配置，内部页面存储键暂保持兼容。启动器默认安装到 `/Applications/CodexBuddy.app`。
+- 产品名称为 PALBOO，现有源码目录、Cargo/npm 包、CLI 和分发前缀为 `codex-buddy`。默认数据目录为 `codex-buddy`，环境变量使用 `CODEX_BUDDY_*`；安装器迁移旧默认目录并保留配置，内部页面存储键暂保持兼容。启动器默认安装到 `/Applications/CodexBuddy.app`。
 - `src/` 为 Rust 应用源码，包含后台、CLI 与系统窗口；网页相关源码统一在 `ui/`：`panel/` 为内嵌与弹出共用的胶囊，`bridge/` 为受限 CDP binding，`settings/` 为 React 设置页。`scripts/` 保存开发、构建与分发工具，`tests/` 集中保存独立测试、测试辅助和合成数据；Rust 单元测试保留在源码旁。`ui/icon.png` 是用户选定的产品图标源图。开发计划、验收报告、设计过程图片、讨论及审计材料不在公开仓库维护。
 - 结构命名按职责区分：settings/ 是完整设置网页，settings-view 是胶囊内设置视图，settings-sync 是设置同步；panel-appearance 计算胶囊外观，host-appearance 适配宿主，install-styles 安装 CSS。requests 在前端桥与 Rust 分发端分别使用；标准 main/index/state 名称由目录界定。已有协议、存储键和环境变量不随文件重命名。
 - 构建中间产物与测试报告统一在 `target/`（网页为 `target/web/`，报告为 `target/reports/`），分发包和许可汇总在 `dist/`；npm 依赖使用标准 `node_modules/`。临时实验使用系统临时目录，需要保留的历史材料按全局归档规则移出项目，不再创建 `output/`、`outputs/` 或 `work/`。
@@ -197,6 +197,8 @@ CodexHost管理迁回main：独立src/codex_host.rs及codex_host子模块、认�
 
 测速采集器不挂载宿主DOM；features/token-meter自带样式与可选快照契约，由组合层放入ModelView的footer插槽；预设独立排列，底栏左侧依次为周额度、5小时额度、可选测速，右侧保留原有图标；辅助文字14px，小于18px图标，窄屏按组换行。停用返回null并回收采集，模型选择/预设/额度不依赖测速；断连或目标身份不匹配不投影旧计数。
 
-## Palboo 的 Grok Bot 接入
+## PALBOO 的 Grok Bot 接入
 
-首版使用现有 MCP 服务 grokbot.call_tool 与四个已有 Bot：X 资讯、随口一问、通用、环境运维。所有输入、追问、进度查询和停止请求留在 Codex 主聊天；功能视图只选择 Bot、显示当前聊天的已观察调用状态，点击仅追加草稿并聚焦，不自动发送。grokbotEnabled 默认关闭。复用现有功能容器、开关修订与 owner 校验，不增加聊天框、插件框架或 BDK 回复读取者。记录按本机 host/thread/turn/item 关联，有界且不保存正文；Bot 远端会话与记忆仍共享，不承诺各 Codex 聊天隔离。重载前记录不恢复，未观察到的占用不作空闲保证。新增描述使用 Palboo，兼容的 codex-buddy 路径、包名和既有存储标识不随本功能迁移。
+通过现有本机 MCP 服务 grokbot.call_tool 调用已有 Bot。scripts/grokbot-adapter 是 BDK 0.2.27 的目录覆盖：只读 Grok Bot 当前账号的名单缓存，动态提供名称、简介、头像颜色/形状、最新消息摘要；安装绑定账号指纹，账号切换或名单异常拒绝调用。所有输入和追问留在 Codex 主聊天，点击仅追加“请问「名称」：”并聚焦，不自动发送。Skill 负责查名单、调用与必要上下文整理；无固定名字、无另一套聊天框。调用仍使用官方按名称 get-or-create API，本地校验不能替代云端原子的只查现有保证，账号不一致或名单过期必须停止。
+
+功能可见时由既有读取周期拉取名单，后台最多每5秒一次；点击前强制回读并复核 Bot ID、名字和名单修订。关闭无独立轮询。缓存来自 Grok Bot 应用，应用关闭或缓存超过一天则禁用调用并显示过期；不承诺独立云端推送。头像是 PALBOO 按真实颜色/形状独立绘制的简洁图形，支持当前应用按 ID 生成的默认外观；不复制官方动画，远程照片不可用时回退。最新消息摘要限定240字符、简介按需查看，不读取完整历史、不推进 BDK 未读游标、不落盘。调用记录按本机 host/thread/turn/item 有界关联；新增、重排和资料变化不清空其他 Bot 的状态，改名/换身份清理相应记录。Bot 云端会话仍共享，未观察到的占用不作空闲保证。grokbotEnabled 默认关闭，兼容路径与存储标识保持原分支约定。

@@ -1,8 +1,8 @@
 /* [INPUT]: Local MCP notifications and the unique current Codex composer.
- * [OUTPUT]: Palboo Bot projection and identity-checked append-only composer actions.
+ * [OUTPUT]: PALBOO Bot projection and identity-checked append-only composer actions.
  * [POS]: Host adapter; no remote requests, reply consumption, submission or timers.
  * [PROTOCOL]: Keep ui/codex/AGENTS.md and runtime/AGENTS.md in sync. */
-import { BOT_NAMES, createBotTracker } from './bots-state.js';
+import { createBotTracker } from './bots-state.js';
 import { rawComposerText, setEditableText, setNativeValue } from './composer.js';
 
 /** @param {{getTarget?:()=>any, isEnabled?:()=>boolean}} options */
@@ -13,6 +13,7 @@ export function installBots({
   window.__palbooBots?.destroy();
   const tracker = createBotTracker();
   const life = new AbortController();
+  let catalog = { bots: [], revision: '', stale: true, error: '正在同步 Grok Bot…' };
   let target = null,
     token = '',
     disposed = false;
@@ -37,6 +38,12 @@ export function installBots({
     return {
       target: next ? { threadId: next.id, token } : null,
       bots: tracker.snapshot(next?.id),
+      catalog: {
+        revision: catalog.revision,
+        stale: catalog.stale,
+        error: catalog.error,
+        updatedAt: catalog.updatedAt,
+      },
     };
   }
   function fill(input) {
@@ -44,7 +51,9 @@ export function installBots({
     if (!next || input.token !== token || input.threadId !== next.id)
       return { ok: false, message: '聊天或输入框已变化，请重新选择 Bot。' };
     if (
-      !BOT_NAMES.includes(input.agent) ||
+      !catalog.bots.some((b) => b.name === input.agent && b.id === input.botId && b.available) ||
+      catalog.stale ||
+      input.revision !== catalog.revision ||
       !['ask', 'followup', 'check', 'stop'].includes(input.action)
     )
       return { ok: false, message: 'Bot 操作无效。' };
@@ -55,17 +64,14 @@ export function installBots({
       return { ok: false, message: '调用记录已变化，请刷新后重试。' };
     if (input.action === 'stop' && !['calling', 'running'].includes(state.current.status))
       return { ok: false, message: '此调用当前没有可停止的任务。' };
-    const reference = state.current
-      ? `（聊天 ${state.current.threadId}，轮次 ${state.current.turnId}，调用 ${state.current.itemId}）`
-      : '';
     const prompt =
       input.action === 'stop'
-        ? `请通过 grokbot MCP 核对此聊天中「${input.agent}」的在途任务${reference}，确认仍属于本次调用后停止它，不要停止其他聊天的任务。`
+        ? `停止「${input.agent}」在本聊天中的任务。`
         : input.action === 'check'
-          ? `请通过 grokbot MCP 的 grokbot__check 查询已有的「${input.agent}」Bot 在此聊天中的任务进度${reference}，不要重新发送任务，也不要新建 Bot。`
+          ? `查看「${input.agent}」的进度。`
           : input.action === 'followup'
-            ? `请继续通过 grokbot MCP 追问已有的「${input.agent}」Bot，沿用它的会话；不要新建 Bot。我的追问：`
-            : `请通过 grokbot MCP 调用我已有的「${input.agent}」Bot，不要新建 Bot。请结合我在本条消息中提供的内容与当前聊天必要的上下文：`;
+            ? `追问「${input.agent}」：`
+            : `请问「${input.agent}」：`;
     const editor = next.composer;
     if (editor.matches(':disabled,[readonly],[aria-disabled="true"]'))
       return { ok: false, message: 'Codex 输入框暂时不可编辑。' };
@@ -93,6 +99,13 @@ export function installBots({
   const api = {
     read,
     fill,
+    setCatalog(next) {
+      if (disposed || !isEnabled()) return;
+      if (!next || next.version !== 1 || !Array.isArray(next.bots)) return;
+      if (catalog.account !== next.account) tracker.clear();
+      catalog = next;
+      tracker.setCatalog(next.bots);
+    },
     destroy() {
       disposed = true;
       life.abort();
