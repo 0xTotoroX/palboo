@@ -4,6 +4,7 @@
  * [POS]: 持久开发编排与统一设置入口；先绑定稳定地址供后台齿轮打开，各来源隔离 Vite 缓存；持有目标租约并串行交接 worktree，管理开发进程，显式启用时委托共享宿主启动策略，暂停并恢复安装版连接，不改写官方应用包。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
+import { compatibleEnvironment, sourceBinaryName } from './brand.mjs';
 import {
   readFileSync,
   writeFileSync,
@@ -64,7 +65,7 @@ if (args.help) {
   process.exit(0);
 }
 const source = resolve(
-  process.env.CODEX_BUDDY_HOME || join(homedir(), 'Library/Application Support/codex-buddy'),
+  process.env.PALBOO_HOME || join(homedir(), 'Library/Application Support/palboo'),
 );
 const lock = join(controllerDirectory, 'owner.json');
 let releaseController;
@@ -78,21 +79,22 @@ function context(path) {
   const snapshot = join(directory, 'panel.json');
   mkdirSync(join(directory, 'bin'), { recursive: true, mode: 0o700 });
   mkdirSync(data, { recursive: true, mode: 0o700 });
-  const env = {
+  const env = compatibleEnvironment({
     ...process.env,
     CARGO_TARGET_DIR: join(path, 'target'),
-    CODEX_BUDDY_HOME: data,
-    CODEX_BUDDY_DEV_ASSETS: snapshot,
+    PALBOO_HOME: data,
+    PALBOO_DEV_ASSETS: snapshot,
     ...(settingsUrl
-      ? { CODEX_BUDDY_DEV_SETTINGS: `${settingsUrl}/#token=${encodeURIComponent(token)}` }
+      ? { PALBOO_DEV_SETTINGS: `${settingsUrl}/#token=${encodeURIComponent(token)}` }
       : {}),
-  };
+  });
+  delete env.PALBOO_PANEL_TEST;
   delete env.CODEX_BUDDY_PANEL_TEST;
   return {
     root: path,
     directory,
     data,
-    binary: join(directory, 'bin/codex-buddy'),
+    binary: join(directory, 'bin/palboo'),
     snapshot,
     env,
     options: { cwd: path, env },
@@ -225,7 +227,7 @@ async function rebuildNative() {
   }
   const previous = binary + '.previous';
   if (existsSync(binary)) copyFileSync(binary, previous);
-  copyFileSync(join(root, 'target/debug/codex-buddy'), binary + '.next');
+  copyFileSync(join(root, 'target/debug', sourceBinaryName(root)), binary + '.next');
   if (!service) {
     canRestore = true;
     await pauseInstallation(host, journal);
@@ -341,7 +343,7 @@ async function startSettings() {
             window.fetch = (input, init) => {
               const request = new Request(input, init), url = new URL(request.url);
               if (url.origin === location.origin && url.pathname.startsWith('/api/') && url.pathname !== '/api/dev/sources') {
-                const headers = new Headers(request.headers); headers.set('X-Codex-Buddy-Source', epoch);
+                const headers = new Headers(request.headers); headers.set('X-Palboo-Source', epoch);
                 return original(new Request(request, { headers }));
               }
               return original(request);
@@ -463,7 +465,7 @@ function createSourceSwitcher() {
         if (before !== fingerprint(next.root, nativeInputs(next.root)))
           throw new Error('编译期间目标源码已变化，请重新切换。');
         await buildDevPanel(next.root, next.snapshot);
-        copyFileSync(join(next.root, 'target/debug/codex-buddy'), next.binary);
+        copyFileSync(join(next.root, 'target/debug', sourceBinaryName(next.root)), next.binary);
         initializeData(source, next.data, host);
         return {
           next,
@@ -590,7 +592,7 @@ try {
       await execute('cargo', ['build', '--locked']);
       if (closing) throw new Error('开发模式退出中');
       return command(
-        join(root, 'target/debug/codex-buddy'),
+        join(root, 'target/debug', sourceBinaryName(root)),
         [
           '--data-dir',
           hostSettingsDirectory(source, data),
@@ -631,7 +633,7 @@ try {
       }
     },
   });
-  process.env.CODEX_BUDDY_DEV_API = gateway.origin;
+  process.env.PALBOO_DEV_API = gateway.origin;
   httpServer = createHttpServer((request, response) => {
     if (request.url === '/__buddy_dev.js') {
       response.writeHead(200, { 'Content-Type': 'text/javascript', 'Cache-Control': 'no-store' });
@@ -649,7 +651,8 @@ try {
     httpServer.listen(0, '127.0.0.1', resolve);
   });
   const url = (settingsUrl = `http://127.0.0.1:${httpServer.address().port}`);
-  env.CODEX_BUDDY_DEV_SETTINGS = `${settingsUrl}/#token=${encodeURIComponent(token)}`;
+  env.PALBOO_DEV_SETTINGS = `${settingsUrl}/#token=${encodeURIComponent(token)}`;
+  Object.assign(env, compatibleEnvironment(env));
   await buildDevPanel(root, snapshot);
   if (!existsSync(join(root, 'target/web/index.html'))) await execute('npm', ['run', 'build:web']);
   await rebuildNative();
@@ -657,7 +660,7 @@ try {
   saveSession();
   if (args.source) writeFileSync(preference, JSON.stringify({ path: root }), { mode: 0o600 });
   console.log(
-    `CodexBuddy · 开发版\n设置页开发服务：${url}\n真实 Codex · 默认内嵌；保存自动更新，Ctrl+C 退出并恢复安装版。\n开发配置：${data}`,
+    `PALBOO · 开发版\n设置页开发服务：${url}\n真实 Codex · 默认内嵌；保存自动更新，Ctrl+C 退出并恢复安装版。\n开发配置：${data}`,
   );
   if (!args['no-open']) {
     const opener = spawn('open', [`${url}/#token=${encodeURIComponent(token)}`], {

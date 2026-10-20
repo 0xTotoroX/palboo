@@ -200,8 +200,8 @@ function App(){const[active,setActive]=useState(true);window.setActive=setActive
     await page.getByText('10.0 MB', { exact: true }).waitFor();
     await page.clock.runFor(5100);
     await page.getByText('2.0%', { exact: true }).waitFor();
-    await page.getByRole('img', { name: /Buddy 后台 CPU.*1个采样点/ }).waitFor();
-    await page.getByRole('img', { name: /Buddy 后台物理内存.*2个采样点/ }).waitFor();
+    await page.getByRole('img', { name: /PALBOO 后台 CPU.*1个采样点/ }).waitFor();
+    await page.getByRole('img', { name: /PALBOO 后台物理内存.*2个采样点/ }).waitFor();
     await page.getByText('工作明细', { exact: true }).click();
     await page.getByText('聊天检查', { exact: true }).waitFor();
     const beforeResize = requests;
@@ -248,7 +248,7 @@ function App(){const[active,setActive]=useState(true);window.setActive=setActive
       () => document.querySelectorAll('[role=switch]')[1].getAttribute('aria-checked') === 'false',
     );
     const end = samples;
-    await page.getByRole('img', { name: /Buddy 后台 CPU.*0个采样点/ }).waitFor();
+    await page.getByRole('img', { name: /PALBOO 后台 CPU.*0个采样点/ }).waitFor();
     await page.clock.runFor(15000);
     assert.equal(samples, end);
   } finally {
@@ -290,8 +290,8 @@ test('unchanged host sync does not redraw and disabled tools release timers and 
     await page.waitForFunction(
       () =>
         window.__companionFloatingPanel?.state.settingsLoaded &&
-        window.__codexBuddyPromptEnhancer &&
-        window.__codexBuddyTerminology,
+        window.__palbooPromptEnhancer &&
+        window.__palbooTerminology,
     );
     const measured = await page.evaluate(() => {
       const p = window.__companionFloatingPanel,
@@ -313,9 +313,9 @@ test('unchanged host sync does not redraw and disabled tools release timers and 
     assert.equal(
       await page.evaluate(
         () =>
-          !!window.__codexBuddyPromptEnhancer ||
-          !!window.__codexBuddyTerminology ||
-          !!window.__codexBuddyTokenMeter,
+          !!window.__palbooPromptEnhancer ||
+          !!window.__palbooTerminology ||
+          !!window.__palbooTokenMeter,
       ),
       false,
     );
@@ -337,25 +337,23 @@ test('unchanged host sync does not redraw and disabled tools release timers and 
     });
     await page.waitForFunction(
       () =>
-        window.__codexBuddyPromptEnhancer &&
-        window.__codexBuddyTerminology &&
-        window.__codexBuddyTokenMeter,
+        window.__palbooPromptEnhancer && window.__palbooTerminology && window.__palbooTokenMeter,
     );
     await page.evaluate(() => window.__companionDesktop.destroy());
     assert.equal(
       await page.evaluate(
         () =>
           !!window.__companionFloatingPanel ||
-          !!window.__codexBuddyPromptEnhancer ||
-          !!window.__codexBuddyTerminology ||
-          !!window.__codexBuddyTokenMeter,
+          !!window.__palbooPromptEnhancer ||
+          !!window.__palbooTerminology ||
+          !!window.__palbooTokenMeter,
       ),
       false,
     );
     assert.equal(
       await page
         .locator(
-          '[data-companion-stepwise-root],[data-codex-buddy-dock],[data-codex-buddy-prompt],[data-buddy-terms]',
+          '[data-companion-stepwise-root],[data-palboo-dock],[data-palboo-prompt],[data-buddy-terms]',
         )
         .count(),
       0,

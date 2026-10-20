@@ -1,15 +1,16 @@
 /* [INPUT]: Authenticated Codex theme snapshot, shared icons and this origin's display preference.
  * [OUTPUT]: Light/dark settings theme and a compact trigger with three retained preference options.
- * [POS]: Settings-only preference; revision-checked Buddy persistence, never writes Codex appearance.
+ * [POS]: Settings-only preference; revision-checked PALBOO persistence, never writes Codex appearance.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { Icon } from '../shared/icons/react';
 import type { AppearanceSettings } from '../shared/contracts';
 import { request } from './api';
+import { migrateBrowserBrandStorage } from '../shared/brand-storage.js';
 
 type Theme = 'light' | 'dark';
 type Preference = Theme | 'codex';
-const storageKey = 'codex-buddy-settings-theme';
+const storageKey = 'palboo-settings-theme';
 const options = [
   ['codex', '自动'],
   ['light', '浅色'],
@@ -19,6 +20,7 @@ const isTheme = (value: unknown): value is Theme => value === 'light' || value =
 
 function readPreference(): Preference {
   try {
+    migrateBrowserBrandStorage();
     const saved = localStorage.getItem(storageKey);
     return isTheme(saved) ? saved : 'codex';
   } catch {

@@ -73,7 +73,7 @@ fn remote(reminder: &EKReminder, bindings: &Bindings) -> Result<Remote> {
             .URL()
             .and_then(|url| url.absoluteString())
             .map(|s| s.to_string())
-            .filter(|s| s.starts_with("codexbuddy://task/"));
+            .filter(|s| task_marker_id(s).is_some());
         Ok(Remote {
             id: reminder.calendarItemIdentifier().to_string(),
             external_id: reminder
@@ -96,7 +96,7 @@ fn remote(reminder: &EKReminder, bindings: &Bindings) -> Result<Remote> {
 fn snapshot(store: &EKEventStore, bindings: &Bindings) -> Result<Snapshot> {
     ensure!(
         authorized(),
-        "未获得提醒事项完整访问权限，请在系统设置中允许 CodexBuddy Reminders"
+        "未获得提醒事项完整访问权限，请在系统设置中允许 PALBOO Reminders"
     );
     let calendars = calendars(store);
     bindings.validate(&calendars)?;
@@ -163,11 +163,11 @@ fn write(store: &EKEventStore, bindings: &Bindings, intent: Intent) -> Result<Va
         item
     } else {
         ensure!(intent.action == "create", "缺少远端身份");
-        let marker = format!("codexbuddy://task/{}", intent.task_id);
+        let marker = format!("palboo://task/{}", intent.task_id);
         let existing = snapshot(store, bindings)?
             .reminders
             .into_iter()
-            .filter(|r| r.marker.as_deref() == Some(&marker))
+            .filter(|r| task_marker_matches(r.marker.as_deref(), &intent.task_id))
             .collect::<Vec<_>>();
         ensure!(existing.len() <= 1, "创建标记重复，请人工核对");
         if let Some(existing) = existing.first() {
@@ -236,7 +236,7 @@ fn handle(store: &EKEventStore, request: &Value) -> Result<Value> {
             let source = unsafe { store.sourceWithIdentifier(&NSString::from_str(source_id)) }
                 .context("账户不存在")?;
             let mut ids = Vec::new();
-            for title in ["CodexBuddy"] {
+            for title in ["PALBOO"] {
                 let existing: Vec<_> = calendars(store)
                     .into_iter()
                     .filter(|c| c.source == source_id && c.title == title)

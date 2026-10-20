@@ -261,7 +261,7 @@ const reserve = createServer();
 await new Promise((resolve) => reserve.listen(0, '127.0.0.1', resolve));
 const debugPort = reserve.address().port;
 await new Promise((resolve) => reserve.close(resolve));
-const executablePath = process.env.CODEX_BUDDY_CHROME_BIN || undefined;
+const executablePath = process.env.PALBOO_CHROME_BIN || undefined;
 let browser;
 let service;
 let serviceLog = '';
@@ -309,13 +309,8 @@ try {
       }),
     );
   }
-  const env = { ...process.env, CODEX_BUDDY_PANEL_TEST: '1' };
-  for (const key of [
-    'CODEX_BUDDY_PROVIDER',
-    'CODEX_BUDDY_MODEL',
-    'CODEX_BUDDY_BASE_URL',
-    'CODEX_BUDDY_API_KEY',
-  ])
+  const env = { ...process.env, PALBOO_PANEL_TEST: '1' };
+  for (const key of ['PALBOO_PROVIDER', 'PALBOO_MODEL', 'PALBOO_BASE_URL', 'PALBOO_API_KEY'])
     delete env[key];
   service = spawn(
     binary,
@@ -650,7 +645,7 @@ try {
     const clickTiming = await desktop.evaluate(async () => {
       const p = window.__companionFloatingPanel;
       document
-        .querySelector('[data-codex-buddy-launcher]')
+        .querySelector('[data-palboo-launcher]')
         .shadowRoot.querySelector('button')
         .dispatchEvent(new MouseEvent('click', { detail: 1 }));
       const immediate = p.state.open;
@@ -884,7 +879,7 @@ try {
     const embeddedGlass = await waitFor(
       () =>
         desktop.evaluate(() => {
-          const status = window.__codexBuddyGlassLab?.status?.();
+          const status = window.__palbooGlassLab?.status?.();
           if (!status) return null;
           const reduced = matchMedia('(prefers-reduced-transparency: reduce)').matches;
           if (!reduced && !['ready', 'error'].includes(status.phase)) return null;
@@ -1069,17 +1064,17 @@ try {
     );
     record('表情拖动不误收起或弹出');
 
-    await desktop.getByRole('button', { name: 'CodexBuddy', exact: true }).click();
+    await desktop.getByRole('button', { name: 'PALBOO', exact: true }).click();
     await settle();
     assert.equal((await panelState()).open, false);
-    await desktop.getByRole('button', { name: 'CodexBuddy', exact: true }).click();
+    await desktop.getByRole('button', { name: 'PALBOO', exact: true }).click();
     await delay(100);
     await desktop.keyboard.press('Escape');
     await settle();
     assert.equal((await panelState()).open, false);
-    await desktop.getByRole('button', { name: 'CodexBuddy', exact: true }).click();
+    await desktop.getByRole('button', { name: 'PALBOO', exact: true }).click();
     await settle();
-    await desktop.getByRole('button', { name: 'CodexBuddy', exact: true }).focus();
+    await desktop.getByRole('button', { name: 'PALBOO', exact: true }).focus();
     await desktop.keyboard.press('Enter');
     assert.equal(
       (await panelState()).open,
@@ -1087,7 +1082,7 @@ try {
       'Keyboard collapse must not wait for double click',
     );
     await settle();
-    await desktop.getByRole('button', { name: 'CodexBuddy', exact: true }).focus();
+    await desktop.getByRole('button', { name: 'PALBOO', exact: true }).focus();
     await desktop.keyboard.press('Enter');
     assert.equal((await panelState()).open, true, 'Keyboard expand must respond immediately');
     await settle();
@@ -1180,9 +1175,7 @@ try {
     await page.getByLabel('自定义字号（px）', { exact: true }).blur();
     await waitFor(async () => {
       const saved = (await api('appearance')).body;
-      const fontSize = await desktop.evaluate(
-        () => window.__codexBuddyTypography?.resolved().fontSize,
-      );
+      const fontSize = await desktop.evaluate(() => window.__palbooTypography?.resolved().fontSize);
       return (
         saved.typography.mode === 'custom' && saved.typography.customSize === 18 && fontSize === 18
       );
@@ -1582,7 +1575,7 @@ try {
       await desktop.evaluate(() => typeof window.__companionDesktopRequest),
       'undefined',
     );
-    assert.equal(await desktop.title(), 'CodexBuddy 浮窗验收示例');
+    assert.equal(await desktop.title(), 'PALBOO 浮窗验收示例');
     record('断开／重新连接／停止移除浮窗和重载脚本，保留宿主');
     writeFileSync(
       join(output, 'e2e-report.json'),

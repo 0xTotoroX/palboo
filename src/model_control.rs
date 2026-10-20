@@ -255,7 +255,7 @@ impl App {
             Some(client) => {
                 let result = client
                     .evaluate_with_timeout(
-                        format!("(async () => {{ const snapshot = await window.__codexBuddyModelControl?.snapshot({refresh}); return snapshot ? {{...snapshot, usage: window.__codexBuddyUsage?.read({show_usage}) ?? null, tokenMeter: window.__codexBuddyTokenMeter?.read(snapshot.target?.id) ?? null}} : null; }})()"),
+                        format!("(async () => {{ const snapshot = await window.__palbooModelControl?.snapshot({refresh}); return snapshot ? {{...snapshot, usage: window.__palbooUsage?.read({show_usage}) ?? null, tokenMeter: window.__palbooTokenMeter?.read(snapshot.target?.id) ?? null}} : null; }})()"),
                         Duration::from_secs(20),
                     )
                     .await;
@@ -308,7 +308,7 @@ impl App {
         let payload = json!({"target":command["target"],"expectedRevision":command["expectedRevision"],"selection":selection,"preserveSpeed":command["preserveSpeed"] == true});
         let response = client
             .evaluate_with_timeout(
-                format!("window.__codexBuddyModelControl.apply({payload})"),
+                format!("window.__palbooModelControl.apply({payload})"),
                 Duration::from_secs(20),
             )
             .await;
@@ -316,7 +316,7 @@ impl App {
             Ok(value) => value,
             Err(_) => {
                 let _ = client
-                    .evaluate("window.__codexBuddyModelControl?.cancel(); true".into())
+                    .evaluate("window.__palbooModelControl?.cancel(); true".into())
                     .await;
                 json!({"status":"failed","message":"连接中断或操作超时，实际配置尚未确认，请刷新核对","snapshot":unavailable("实际配置尚未确认")})
             }
@@ -405,7 +405,7 @@ impl App {
         if let Some(client) = self.desktop_client().await {
             let _ = client
                 .evaluate_with_timeout(
-                    "window.__codexBuddyUsage?.read(false); true".into(),
+                    "window.__palbooUsage?.read(false); true".into(),
                     Duration::from_secs(2),
                 )
                 .await;

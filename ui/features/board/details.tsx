@@ -160,7 +160,7 @@ export function TaskDetails({
             />
           </label>
         </div>
-        {syncEnabled && <p className="task-details-hint">优先级和截止日期仅保存在 Buddy。</p>}
+        {syncEnabled && <p className="task-details-hint">优先级和截止日期仅保存在 PALBOO。</p>}
         <footer>
           <button type="button" disabled={busy} onClick={close}>
             返回

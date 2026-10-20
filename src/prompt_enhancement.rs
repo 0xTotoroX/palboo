@@ -51,7 +51,7 @@ async fn current(app: &Arc<App>, client: &Arc<Client>, id: &str) -> bool {
     }
     client
         .evaluate(format!(
-            "Boolean(window.__codexBuddyPromptEnhancer?.verify({}))",
+            "Boolean(window.__palbooPromptEnhancer?.verify({}))",
             json!(id)
         ))
         .await
@@ -109,7 +109,7 @@ mod tests {
     #[tokio::test]
     #[ignore = "Explicit opt-in: one synthetic draft through the configured model; no real composer writes"]
     async fn live_prompt_enhancement() {
-        let directory = std::env::var("CODEX_BUDDY_PROMPT_SMOKE_DATA")
+        let directory = crate::brand::env("PALBOO_PROMPT_SMOKE_DATA")
             .expect("explicit data directory required");
         let paths = crate::config::Paths::new(Some(directory.into())).unwrap();
         let model = Model::load(&paths.load().unwrap()).with_key(paths.load_key().unwrap());

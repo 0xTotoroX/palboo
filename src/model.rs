@@ -56,7 +56,7 @@ pub struct ModelInfo {
 
 impl Model {
     pub fn load(config: &crate::config::Config) -> Self {
-        let provider = std::env::var("CODEX_BUDDY_PROVIDER")
+        let provider = crate::brand::env("PALBOO_PROVIDER")
             .ok()
             .or(config.provider.clone())
             .unwrap_or_else(|| "codex".into());
@@ -67,7 +67,7 @@ impl Model {
             .and_then(|p| std::fs::read_to_string(p.join("config.toml")).ok())
             .and_then(|s| s.parse::<toml::Value>().ok())
             .unwrap_or(toml::Value::Table(Default::default()));
-        let model = std::env::var("CODEX_BUDDY_MODEL")
+        let model = crate::brand::env("PALBOO_MODEL")
             .ok()
             .or(config.model.clone())
             .filter(|name| provider != "codex" || !name.trim().is_empty())
@@ -99,11 +99,11 @@ impl Model {
             name: model,
             codex_provider,
             binary: config.codex_bin.clone().or_else(crate::config::find_codex),
-            base_url: std::env::var("CODEX_BUDDY_BASE_URL")
+            base_url: crate::brand::env("PALBOO_BASE_URL")
                 .ok()
                 .or(config.base_url.clone())
                 .unwrap_or_else(|| "https://api.openai.com/v1".into()),
-            api_key: std::env::var(&config.stepwise.api_key_env)
+            api_key: crate::brand::env(&config.stepwise.api_key_env)
                 .ok()
                 .filter(|v| !v.is_empty()),
             jev_key: std::env::var("TYPESAFE_API_KEY")
@@ -211,14 +211,10 @@ impl Model {
     }
 
     pub fn environment_overrides(&self) -> Vec<&'static str> {
-        [
-            "CODEX_BUDDY_PROVIDER",
-            "CODEX_BUDDY_MODEL",
-            "CODEX_BUDDY_BASE_URL",
-        ]
-        .into_iter()
-        .filter(|name| std::env::var(name).is_ok())
-        .collect()
+        ["PALBOO_PROVIDER", "PALBOO_MODEL", "PALBOO_BASE_URL"]
+            .into_iter()
+            .filter(|name| crate::brand::env(name).is_ok())
+            .collect()
     }
 
     fn instructions(&self) -> String {
@@ -232,13 +228,13 @@ impl Model {
         let (available, reason) = match self.provider.as_str() {
             "codex" => (
                 self.binary.as_ref().is_some_and(|p| p.is_file()),
-                "未找到 Codex CLI，可安装 Codex 或设置 CODEX_BUDDY_CODEX_BIN",
+                "未找到 Codex CLI，可安装 Codex 或设置 PALBOO_CODEX_BIN",
             ),
             "api" => (
                 !self.name.is_empty() && self.api_key.is_some(),
                 "请在配置网页填写模型和 API 密钥",
             ),
-            _ => (false, "CODEX_BUDDY_PROVIDER 只支持 codex 或 api"),
+            _ => (false, "PALBOO_PROVIDER 只支持 codex 或 api"),
         };
         ModelInfo {
             provider: self.provider.clone(),

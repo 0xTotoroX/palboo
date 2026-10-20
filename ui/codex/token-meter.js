@@ -18,10 +18,10 @@ const METHODS = new Set([
 
 /** @param {{getTarget?:()=>any, isEnabled?:()=>boolean}} options */
 export function installTokenMeter({
-  getTarget = () => window.__codexBuddyModelControl?.inputTarget(),
+  getTarget = () => window.__palbooModelControl?.inputTarget(),
   isEnabled = () => true,
 } = {}) {
-  window.__codexBuddyTokenMeter?.destroy();
+  window.__palbooTokenMeter?.destroy();
   const life = new AbortController(),
     meter = createTokenMeter();
   let target = null,
@@ -137,10 +137,10 @@ export function installTokenMeter({
       life.abort();
       meter.follow('');
       target = projection = null;
-      if (window.__codexBuddyTokenMeter === api) delete window.__codexBuddyTokenMeter;
+      if (window.__palbooTokenMeter === api) delete window.__palbooTokenMeter;
     },
   };
-  window.__codexBuddyTokenMeter = api;
+  window.__palbooTokenMeter = api;
   window.addEventListener('message', receive, { signal: life.signal });
   window.addEventListener('popstate', retarget, { signal: life.signal });
   document.addEventListener('pointerup', retarget, { signal: life.signal });

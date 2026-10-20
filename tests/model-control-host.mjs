@@ -12,7 +12,7 @@ import { records, installModelControlFixture } from './model-control-fixture.mjs
 const source = readFileSync(new URL('../ui/codex/model.js', import.meta.url), 'utf8');
 
 const browser = await chromium.launch({
-  executablePath: process.env.CODEX_BUDDY_CHROME_BIN || process.env.CHROME_PATH || undefined,
+  executablePath: process.env.PALBOO_CHROME_BIN || process.env.CHROME_PATH || undefined,
   headless: true,
 });
 async function fixture(page, options = {}) {
@@ -26,10 +26,10 @@ async function fixture(page, options = {}) {
   if (!options.noCapabilities && !options.inherited) await page.evaluate(() => capability());
 }
 const snapshot = (page, refresh = false) =>
-  page.evaluate((refresh) => window.__codexBuddyModelControl.snapshot(refresh), refresh);
+  page.evaluate((refresh) => window.__palbooModelControl.snapshot(refresh), refresh);
 async function apply(page, selection, extra = {}) {
   const state = await snapshot(page);
-  return page.evaluate((args) => window.__codexBuddyModelControl.apply(args), {
+  return page.evaluate((args) => window.__palbooModelControl.apply(args), {
     target: state.target,
     expectedRevision: state.revision,
     selection,
@@ -528,7 +528,7 @@ try {
   );
   await check('stale revisions and old document nonce reject without clicks', async (page) => {
     const before = await snapshot(page);
-    await page.evaluate(() => window.__codexBuddyModelControl.dispose());
+    await page.evaluate(() => window.__palbooModelControl.dispose());
     await page.addScriptTag({ content: source });
     await page.evaluate(() => capability());
     assert.notEqual((await snapshot(page)).revision, before.revision);
@@ -713,14 +713,14 @@ try {
       const state = await snapshot(page);
       await page.evaluate(
         (args) => {
-          window.pending = window.__codexBuddyModelControl.apply(args);
+          window.pending = window.__palbooModelControl.apply(args);
         },
         { target: state.target, expectedRevision: state.revision, selection: targetBeta },
       );
       await page.waitForFunction(() => host.clicks.some((entry) => entry.action === 'model'));
       assert.equal((await snapshot(page)).status, 'busy');
       assert.equal((await apply(page, targetBeta)).status, 'failed');
-      await page.evaluate(() => window.__codexBuddyModelControl.cancel());
+      await page.evaluate(() => window.__palbooModelControl.cancel());
       const result = await page.evaluate(() => window.pending);
       assert.equal(result.status, 'failed');
       const clicks = await page.evaluate(() => host.clicks.length);
@@ -737,7 +737,7 @@ try {
       const state = await snapshot(page);
       await page.evaluate(
         (args) => {
-          window.oldAPI = window.__codexBuddyModelControl;
+          window.oldAPI = window.__palbooModelControl;
           window.pending = oldAPI.apply(args);
         },
         { target: state.target, expectedRevision: state.revision, selection: targetBeta },
@@ -772,7 +772,7 @@ try {
       const state = await snapshot(page);
       const result = await page.evaluate(async (state) => {
         const selection = { model: 'beta', reasoning: 'high', speed: 'standard' };
-        const pending = window.__codexBuddyModelControl.apply({
+        const pending = window.__palbooModelControl.apply({
           target: state.target,
           expectedRevision: state.revision,
           selection,
@@ -808,7 +808,7 @@ try {
       await page.evaluate(() => {
         host.clicks.length = 0;
         host.triggerEvents = 0;
-        window.__codexBuddyModelControl.dispose();
+        window.__palbooModelControl.dispose();
       });
       await page.addScriptTag({ content: source });
       const reloaded = await snapshot(page);

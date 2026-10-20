@@ -45,7 +45,7 @@ const server = createServer((req, res) => {
 });
 await new Promise((done) => server.listen(0, '127.0.0.1', done));
 const browser = await chromium.launch({
-  executablePath: process.env.CODEX_BUDDY_CHROME_BIN || process.env.CHROME_PATH || undefined,
+  executablePath: process.env.PALBOO_CHROME_BIN || process.env.CHROME_PATH || undefined,
   headless: true,
 });
 const errors = [];
@@ -61,7 +61,7 @@ try {
   });
   await page.addInitScript(() => {
     const nativeMatchMedia = window.matchMedia.bind(window);
-    window.__codexBuddyNativeReducedTransparency = nativeMatchMedia(
+    window.__palbooNativeReducedTransparency = nativeMatchMedia(
       '(prefers-reduced-transparency: reduce)',
     ).matches;
     window.matchMedia = (query) => {
@@ -79,8 +79,8 @@ try {
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto(`http://127.0.0.1:${server.address().port}`);
   await page.evaluate(() => {
-    localStorage.setItem('codex-buddy-dev:glass-engine', 'webgl');
-    localStorage.setItem('codex-buddy-dev:glass-comparison', 'rim');
+    localStorage.setItem('palboo-dev:glass-engine', 'webgl');
+    localStorage.setItem('palboo-dev:glass-comparison', 'rim');
   });
   await page.evaluate(bundle);
   const settle = () =>
@@ -91,7 +91,7 @@ try {
     page
       .locator('.csw-glass')
       .evaluate((el) => getComputedStyle(el).backdropFilter.match(/blur\(([^)]+)px\)/)?.[1]);
-  const state = () => page.evaluate(() => window.__codexBuddyGlassLab.status());
+  const state = () => page.evaluate(() => window.__palbooGlassLab.status());
   const screenshot = (name) =>
     page.screenshot({
       path: resolve(output, `${name}.png`),
@@ -115,10 +115,7 @@ try {
     );
   await settle();
   assert.equal((await state()).phase, 'ready');
-  assert.equal(
-    await page.evaluate(() => localStorage.getItem('codex-buddy-dev:glass-engine')),
-    null,
-  );
+  assert.equal(await page.evaluate(() => localStorage.getItem('palboo-dev:glass-engine')), null);
   assert.equal(
     await page.locator('select, [data-csw-capture], canvas[data-csw-optics]').count(),
     0,
@@ -209,7 +206,7 @@ try {
     await settle();
   }
   assert.equal(await page.locator('svg[data-csw-optics]').count(), 1);
-  await page.evaluate(() => window.__codexBuddyGlassLab.destroy());
+  await page.evaluate(() => window.__palbooGlassLab.destroy());
   assert.equal(await page.locator('[data-csw-optics]').count(), 0);
   const release = await buildPanel(root, false),
     development = await buildPanel(root, true);
@@ -320,7 +317,7 @@ try {
     document.body.append(backdrop);
   });
   const compositorReducesTransparency = await page.evaluate(
-    () => window.__codexBuddyNativeReducedTransparency,
+    () => window.__palbooNativeReducedTransparency,
   );
   for (const theme of ['light', 'dark']) {
     await page.evaluate((theme) => {
@@ -425,7 +422,7 @@ try {
   assert.equal((await state()).phase, 'ready');
   await page.evaluate(() => window.__companionFloatingPanel.destroy());
   assert.equal(await page.locator('[data-csw-optics]').count(), 0);
-  assert.equal(await page.evaluate(() => window.__codexBuddyGlassLab), undefined);
+  assert.equal(await page.evaluate(() => window.__palbooGlassLab), undefined);
   record('Full panel settings, detach/return and shutdown preserve the SVG lifecycle');
   assert.deepEqual(errors, []);
 } finally {

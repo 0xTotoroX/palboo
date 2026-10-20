@@ -27,7 +27,7 @@ model-control-host 覆盖能力延迟到达、空列表刷新超时及重试、�
 
 - [startup-settings.test.mjs](startup-settings.test.mjs)：实际 React 启动选项默认值、强退提示、完整/限长上下文切换、失焦/选择自动保存、串行在途编辑、失败重试/冲突保护、快捷词及三种方向配置/位置排序/自定义积木/Jev 同意与密钥编辑、无效草稿及在途失败不阻止停用/撤回同意、页面重载恢复；合成本机 API，不退出真实宿主。
 
-- [dev-launcher.test.mjs](dev-launcher.test.mjs)：开发 App 后台启动/日志/进程存续/正常退出及身份保护、启动策略参数传递、重复唤起、原目标重连、失败边界、失效记录交由监督进程恢复、早期具体错误透传、其他会话保护及 shell 转义；执行 AppleScript 夹具覆盖前台拒绝、超时、异常及通知不可用时正常返回，真实启动失败仍弹错误；设置 CODEX_BUDDY_NATIVE_LAUNCHER_TEST=1 显式验收合成原生窗口的 Dock 策略与焦点交接，不在普通回归中抢焦点。
+- [dev-launcher.test.mjs](dev-launcher.test.mjs)：开发 App 后台启动/日志/进程存续/正常退出及身份保护、启动策略参数传递、重复唤起、原目标重连、失败边界、失效记录交由监督进程恢复、早期具体错误透传、其他会话保护及 shell 转义；执行 AppleScript 夹具覆盖前台拒绝、超时、异常及通知不可用时正常返回，真实启动失败仍弹错误；设置 PALBOO_NATIVE_LAUNCHER_TEST=1 显式验收合成原生窗口的 Dock 策略与焦点交接，不在普通回归中抢焦点。
 
 - [bridge-requests.test.mjs](bridge-requests.test.mjs)：弹出请求失联后的超时释放、重试与迟到响应隔离，保留模型请求的长超时。
 
@@ -148,7 +148,7 @@ workbench的closed independent views定向用例检查全部视图关闭后释�
 
 设置导航用例改为总览承载大纲/模型快切开关，保留草稿切换及保存并发检查；旧分类锚点仍需定位到总览相应控件。
 
-`prompt-enhancement.test.mjs`：隔离浏览器检查优化/还原、取消、用户输入/IME、会话或输入节点变化、复杂引用、错误、单实例清理；用实际 DOM 和键盘 Enter/Shift+Enter 验证裸文本与 P/DIV/BR 混排、首尾/连续空行、末尾占位及原始换行/$字符往返。列表只验证读取，不代表浏览器富文本列表写入验收。直接测试宿主inputTarget在无模型能力、新草稿和重复身份下的行为。Rust prompt_enhancement测试三种协议与完整输入、不依赖Stepwise开关/方向；ignored的live_prompt_enhancement需显式CODEX_BUDDY_PROMPT_SMOKE_DATA，只用合成草稿调用配置模型，不接触真实输入框。
+`prompt-enhancement.test.mjs`：隔离浏览器检查优化/还原、取消、用户输入/IME、会话或输入节点变化、复杂引用、错误、单实例清理；用实际 DOM 和键盘 Enter/Shift+Enter 验证裸文本与 P/DIV/BR 混排、首尾/连续空行、末尾占位及原始换行/$字符往返。列表只验证读取，不代表浏览器富文本列表写入验收。直接测试宿主inputTarget在无模型能力、新草稿和重复身份下的行为。Rust prompt_enhancement测试三种协议与完整输入、不依赖Stepwise开关/方向；ignored的live_prompt_enhancement需显式PALBOO_PROMPT_SMOKE_DATA，只用合成草稿调用配置模型，不接触真实输入框。
 
 - `model-preset-draft.test.mjs`：真实 FeatureView/ModelView 与合成 owner 交接/重新挂载，验证新增和改名草稿、捕获模型配置、保存失败、成功/取消/Esc 清空，以及输入后同一任务内卸载的同步 capture；不启动原生窗口或操作真实宿主。
 
@@ -178,7 +178,7 @@ settings-search.test检查跨隐藏分类定位/展开、草稿保持及不索�
 
 model-control-e2e 使用当前简易/详细设置导航，并通过真实 Rust/HTTP 保存厂家和自定义组，重载后确认恢复、删除后回到厂家、恢复自动，以及常用/预设/原顺序保持。
 
-完整验证的 Node 用例并发上限为 4，避免多个浏览器/进程夹具争抢资源；不减少用例。工作台夹具仅响应术语state与启动等待/禁用状态的空observe上报（禁用语义分析），其他术语/模型调用继续视为越界；入口尺寸按 36×28px，窗口往返等待明确回执，动画通过页内观察记录中间状态。e2e 的建议模型夹具显式关闭独立术语功能，术语由专属用例覆盖；看板及指令执行模式导航使用当前详细设置分类。生命周期所有子进程用临时 CODEX_BUDDY_DESKTOP_BIN 隔离真实宿主发现，并继续断言配置原样保留。
+完整验证的 Node 用例并发上限为 4，避免多个浏览器/进程夹具争抢资源；不减少用例。工作台夹具仅响应术语state与启动等待/禁用状态的空observe上报（禁用语义分析），其他术语/模型调用继续视为越界；入口尺寸按 36×28px，窗口往返等待明确回执，动画通过页内观察记录中间状态。e2e 的建议模型夹具显式关闭独立术语功能，术语由专属用例覆盖；看板及指令执行模式导航使用当前详细设置分类。生命周期所有子进程用临时 PALBOO_DESKTOP_BIN 隔离真实宿主发现，并继续断言配置原样保留。
 
 模型列宽回归检查拖动/保存/取消不发送新的content-size、不改变外框，Fast与细分隔线顶部对齐，按钮只切换速度、分隔线单独调宽；目录入口位于预设栏加号右侧。所有目录覆盖全部已常用与未常用模型，点击只保存pinned，不切换当前模型；目录打开时矩阵隐藏，关闭目录后再核对新常用行可见；刷新与关闭并排、无图钉或对勾。收藏默认换行并保留新增/改名/删除/失败草稿。edge-native在合成AppKit窗口内验证窗口坐标、贴边与真实指针拖动，不申请截图权限。
 
@@ -198,7 +198,7 @@ settings-modes 使用实际保存响应与 data-save-state 确认队列完成，
 
 原生探针读取当前收回／放大／置顶控件，缺失节点回传 null；核对旧头部表情不可见及 44px 盒模型，不依赖已移除的设置按钮或眼睛节点。
 
-CI 稳定性：提示词会话／输入框替换使用浏览器可控时钟推进 300ms 轮询，再验 IME；功能视图通过实际方向键 验证 focus-visible。功能视图与 Dev 来源集成默认使用锁定的 Playwright Chromium，显式 CODEX_BUDDY_CHROME_BIN 仍可覆盖。Dev 集成设置 HTTP／导航时限、阶段诊断与超时 after 清理，避免失败后一直保留夹具进程；总用例预算包含冷启动、两次来源回退与重开。
+CI 稳定性：提示词会话／输入框替换使用浏览器可控时钟推进 300ms 轮询，再验 IME；功能视图通过实际方向键 验证 focus-visible。功能视图与 Dev 来源集成默认使用锁定的 Playwright Chromium，显式 PALBOO_CHROME_BIN 仍可覆盖。Dev 集成设置 HTTP／导航时限、阶段诊断与超时 after 清理，避免失败后一直保留夹具进程；总用例预算包含冷启动、两次来源回退与重开。
 
 Dev 租约回归由并发 Worker 读取大记录，验证发布不暴露半写 JSON；后台启动夹具复用真实 claimLease，并在退出处理器就绪后发布记录。模型分组回归等待匹配的厂家保存响应，先核对返回值再核对实际渲染，不依赖失焦或轮询时间。
 
@@ -249,9 +249,9 @@ launcher-face 回归覆盖眼睛入口单击、双击、Enter/Space 与逐一点
 
 模型阅读恢复在同一帧比较实际scrollLeft与测量后的可用范围，并有界等待恢复；术语独立聊天滚动与卡片可见性在同一次浏览器执行中核对，避免两次CDP读取间混入其他事件。
 
-端到端合成宿主默认使用锁定Playwright Chromium，CODEX_BUDDY_CHROME_BIN仍允许显式兼容性检查；看板操作先选中对应标签，浮窗快捷键先显现控件并确认真实焦点。缩放场景通过隔离后台保存起始尺寸并等待宿主回读，不用前端伪造修订号与后台轮询竞争。
+端到端合成宿主默认使用锁定Playwright Chromium，PALBOO_CHROME_BIN仍允许显式兼容性检查；看板操作先选中对应标签，浮窗快捷键先显现控件并确认真实焦点。缩放场景通过隔离后台保存起始尺寸并等待宿主回读，不用前端伪造修订号与后台轮询竞争。
 
-全部合成浏览器验收默认使用锁文件对应的 Playwright Chromium，不自动选择运行器预装 Chrome；保留 CODEX_BUDDY_CHROME_BIN 与已有 CHROME_PATH 显式覆盖入口，避免系统浏览器更新或启动异常改变发布门禁环境。
+全部合成浏览器验收默认使用锁文件对应的 Playwright Chromium，不自动选择运行器预装 Chrome；保留 PALBOO_CHROME_BIN 与已有 CHROME_PATH 显式覆盖入口，避免系统浏览器更新或启动异常改变发布门禁环境。
 
 本轮模型服务与推荐拖放回归：workbench-binding 覆盖真实鼠标拖放、原条目保留、抓取预览、释放动画中间帧、错误落点、跨聊天/停用拒绝、同文档与独立窗口序列化接收协议、只追加不发送；popout-checks 覆盖远端直接追加。Rust model_requests/model/settings/terminology 覆盖分域取消、重开不复活、协议回退取消、手动分类关闭零新增请求和无迟到入库；连接测试独立于 Stepwise/Jev。均为合成数据，不代表 macOS 原生跨进程拖拽的实机验收。
 
@@ -269,3 +269,5 @@ launcher-face 回归覆盖眼睛入口单击、双击、Enter/Space 与逐一点
 - `layout-preview.test.mjs`：真实设置演示与共享布局的合成快照，验证动态增加功能、拖动与草稿、副屏动画中间位置、快速反向、减少动态效果、恢复配置、窄屏零溢出和零API调用；产物只含合成内容。settings-modes 同时验证已保存功能/嵌套布局/材质的真实联动与演示零写入，窗口转场以实际SVG逐帧几何检查。
 
 model-preset-draft 与 typography 的 esbuild 夹具按文本读取已有测速模块的 inline CSS，保留真实功能依赖和原草稿/交接断言。
+
+- `brand.test.mjs`：新环境变量优先、旧 worktree 环境别名/程序名选择、浏览器偏好首次复制与新值保留；Rust brand 单测验证原始字节、重复迁移、旧路径链接、活动服务与双目录拒绝。Dev 宿主夹具复制 brand 脚本依赖。

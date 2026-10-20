@@ -15,7 +15,7 @@ test('workbench preserves top breathing room and aligns desktop controls on the 
     },
     bundle: true,
     write: false,
-    define: { CODEX_BUDDY_DEVELOPMENT: 'true' },
+    define: { PALBOO_DEVELOPMENT: 'true' },
   });
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage({ reducedMotion: 'reduce' });

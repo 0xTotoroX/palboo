@@ -127,7 +127,7 @@ pub(crate) async fn dispatch(
             if request.payload["action"] == "observe" {
                 let same = client
                     .evaluate(format!(
-                        "window.__codexBuddyTerminology?.contextKey() === {}",
+                        "window.__palbooTerminology?.contextKey() === {}",
                         json!(request.payload["context"].as_str().unwrap_or(""))
                     ))
                     .await
@@ -189,7 +189,7 @@ pub(crate) async fn dispatch(
             {
                 return Ok(json!({"status":"ok", "target":"web", "url":runtime.url()}));
             }
-            webbrowser::open(&runtime.url()).context("无法打开浏览器，请运行 codex-buddy start")?;
+            webbrowser::open(&runtime.url()).context("无法打开浏览器，请运行 palboo start")?;
             Ok(json!({"status":"ok"}))
         }
         _ => bail!("不支持的桌面请求"),

@@ -11,7 +11,7 @@ prepareTestBinary();
 const output = join(root, 'target/reports/feature-views');
 mkdirSync(output, { recursive: true });
 const browser = await chromium.launch({
-  executablePath: process.env.CODEX_BUDDY_CHROME_BIN || undefined,
+  executablePath: process.env.PALBOO_CHROME_BIN || undefined,
   headless: true,
 });
 const report = { passed: false, checks: [] };
@@ -983,7 +983,18 @@ try {
       'numbered child alignment uses CSS geometry under zoom',
     );
   }
+  const outlineActionDone = page.waitForResponse((response) => {
+    if (!response.url().endsWith('/api/features') || response.request().method() !== 'POST')
+      return false;
+    const body = response.request().postDataJSON();
+    return body.op === 'action' && body.id === 'outline' && body.data?.kind === 'outline-jump';
+  });
   await outlineView.locator('[data-outline-id="outline-child"]').click();
+  await (await outlineActionDone).finished();
+  // Focus after the asynchronous action's disabled/readback render has settled.
+  await page.evaluate(
+    () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+  );
   assert.equal(actions.at(-1).data.kind, 'outline-jump');
   assert.equal(actions.at(-1).data.id, 'outline-child');
   await outlineView.locator('[data-outline-id="outline-child"]:enabled').waitFor();

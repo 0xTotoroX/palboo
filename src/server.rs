@@ -69,7 +69,7 @@ pub async fn serve(
         .write(true)
         .open(paths.root.join("service.lock"))?;
     lock.try_lock_exclusive()
-        .context("CodexBuddy 已在运行，请使用 start 打开已有面板")?;
+        .context("PALBOO 已在运行，请使用 start 打开已有面板")?;
     let config = paths.load()?;
     paths.load_key()?;
     let listener = tokio::net::TcpListener::bind(("127.0.0.1", port))
@@ -93,7 +93,7 @@ pub async fn serve(
     let router = router(state);
     let watcher = app.clone().supervise();
     let task_watcher = app.tasks.start();
-    tracing::info!(port, "CodexBuddy 本地服务启动");
+    tracing::info!(port, "PALBOO 本地服务启动");
     let shutdown_app = app.clone();
     let result = axum::serve(listener, router)
         .with_graceful_shutdown(async move {
@@ -111,7 +111,7 @@ pub async fn serve(
     {
         let _ = std::fs::remove_file(paths.runtime());
     }
-    result.context("CodexBuddy 服务异常退出")
+    result.context("PALBOO 服务异常退出")
 }
 
 async fn termination() {
@@ -225,10 +225,10 @@ async fn authorize(State(service): State<Service>, request: Request, next: Next)
         .get(header::AUTHORIZATION)
         .and_then(|value| value.to_str().ok());
     if !same_origin(request.headers(), service.port) {
-        return (StatusCode::FORBIDDEN, Json(json!({"ok":false,"code":"foreign_origin","message":"请求来源不受信任，请从 CodexBuddy 的本机页面操作。"}))).into_response();
+        return (StatusCode::FORBIDDEN, Json(json!({"ok":false,"code":"foreign_origin","message":"请求来源不受信任，请从 PALBOO 的本机页面操作。"}))).into_response();
     }
     if auth != Some(format!("Bearer {}", service.token).as_str()) {
-        return (StatusCode::UNAUTHORIZED, Json(json!({"ok":false,"code":"unauthorized","message":"连接凭据已过期，请运行 codex-buddy start 重新打开面板。"}))).into_response();
+        return (StatusCode::UNAUTHORIZED, Json(json!({"ok":false,"code":"unauthorized","message":"连接凭据已过期，请运行 palboo start 重新打开面板。"}))).into_response();
     }
     next.run(request).await
 }

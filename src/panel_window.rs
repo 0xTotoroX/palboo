@@ -414,9 +414,9 @@ pub fn run_surface(
     let size = (prefs.ui.width + 24., prefs.ui.height + 24.);
     let window = WindowBuilder::new()
         .with_title(if crate::assets::development().is_some() {
-            "CodexBuddy · 开发版"
+            "PALBOO · 开发版"
         } else {
-            "CodexBuddy"
+            "PALBOO"
         })
         .with_decorations(false)
         .with_transparent(true)
@@ -494,7 +494,7 @@ pub fn run_surface(
     let mut presentation_reported = false;
     let experimental_genie = cfg!(debug_assertions)
         && (crate::assets::development().is_some()
-            || std::env::var("CODEX_BUDDY_DEV_GENIE").as_deref() == Ok("1"));
+            || crate::brand::env("PALBOO_DEV_GENIE").as_deref() == Ok("1"));
     let mut warp = window_warp::WindowWarp::load(
         macos::native_window(&window).windowNumber() as i32,
         experimental_genie,

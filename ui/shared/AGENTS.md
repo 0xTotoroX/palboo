@@ -5,7 +5,7 @@
 - `features.ts`：固定功能、默认字号与旧偏移回退、owner、递归分栏与标签组布局、传输与临时阅读状态类型，closing/disable-ready 用于关闭前捕获；Reading.modelPresetDraft 保存预设新增/改名的 ID、名称、原始选择及 creating，仅用于内存交接。
 - `contracts.ts`：设置、字体、上下文、投影和受限命令类型；presentationError 区分保存成功后的窗口失败。
 - `constants.js`：注入实例 DOM 标识、尺寸、时间和开发存储键。
-- `performance.js`：默认无计时器的同步工作计时；采样建立12秒租约，断开/停用/过期清理长任务观察器，嵌套工作不重复计入总耗时；宿主页 JS 内存与长任务单列，不视为 Buddy 独占。
+- `performance.js`：默认无计时器的同步工作计时；采样建立12秒租约，断开/停用/过期清理长任务观察器，嵌套工作不重复计入总耗时；宿主页 JS 内存与长任务单列，不视为 PALBOO 独占。
 - `scroll.js`：功能预览与容器共用的滚动读写，保留隐藏标签和尺寸变化时被浏览器夹紧的阅读意图。
 - `text.js`：文本归一化、数值限制与 HTML/属性转义的纯函数。
 - `tokens.css`：功能及设置页共用的基础颜色、间距、圆角和控件尺寸变量。
@@ -42,6 +42,8 @@ Reading.quickPromptDraft/quickPromptEditing/quickPromptSaved保存快捷指令�
 
 FeatureState.edgeTabs/edgeTabsRevision 提供贴边标签顺序和选择的确认快照；EdgeTabs 不属于临时业务 Reading，也不影响功能优先级。
 
-EditableSettings.tokenMeterEnabled 声明聊天测速独立开关；__codexBuddyTokenMeter 提供 refresh/read(expectedThreadId)/snapshot/destroy，快照不含正文。
+EditableSettings.tokenMeterEnabled 声明聊天测速独立开关；__palbooTokenMeter 提供 refresh/read(expectedThreadId)/snapshot/destroy，快照不含正文。
 
 - `token-meter.ts`：当前聊天测速的只读数值投影，独立于模型选择和承载方式，不含正文或持久化配置。
+
+- `brand-storage.js`：仅首次复制旧 codex-buddy 前缀偏好至 palboo 前缀，值原样保留、新键优先、旧键不删除；分别处理 localStorage/sessionStorage，受限存储不阻塞启动。constants 与设置主题在读取偏好前复用。

@@ -1,4 +1,4 @@
-// [INPUT]: CodexHost 独立安装、上游 runtime descriptor、Buddy 配置和只读宿主发现。
+// [INPUT]: CodexHost 独立安装、上游 runtime descriptor、PALBOO 配置和只读宿主发现。
 // [OUTPUT]: 安装与实际运行身份（版本及解析后的路径）、启停意图、冷启动、显式重启停用及更新接入。
 // [POS]: 独立后台功能适配；开关不退出当前会话，显式重启由独立协调进程接续；不复制上游业务或进入面板布局。
 // [PROTOCOL]: 变更时同步 codex_host/AGENTS.md。
@@ -236,7 +236,7 @@ async fn status_with_running(
 }
 
 // This function never asks the upstream launcher to take over a live ordinary Desktop.
-// lifecycle performs any explicitly requested restart using Buddy's existing policy first.
+// lifecycle performs any explicitly requested restart using PALBOO's existing policy first.
 pub async fn prepare(options: &Options, app: Option<&Path>) -> Result<(PathBuf, PathBuf, PathBuf)> {
     let executable = executable(options).context("未安装 CodexHost，请在设置中安装")?;
     ensure!(
@@ -271,7 +271,7 @@ pub async fn launch(paths: &Paths, options: &Options, app: Option<&Path>) -> Res
     let (executable, desktop, node) = prepare(options, app).await?;
     let lock_root = dirs::data_local_dir()
         .context("无法找到应用数据目录")?
-        .join("codex-buddy");
+        .join("palboo");
     std::fs::create_dir_all(&lock_root)?;
     let lock = std::fs::OpenOptions::new()
         .create(true)
@@ -280,11 +280,11 @@ pub async fn launch(paths: &Paths, options: &Options, app: Option<&Path>) -> Res
         .write(true)
         .open(lock_root.join("codex-host-launch.lock"))?;
     fs2::FileExt::try_lock_exclusive(&lock)
-        .context("另一个 Buddy 正在启动 CodexHost，请稍后重试")?;
+        .context("另一个 PALBOO 正在启动 CodexHost，请稍后重试")?;
     if crate::host::desktop_process(&desktop)?.is_some() {
         ensure!(
             running().await?.is_some(),
-            "启用 CodexHost 需要重开 Codex；开关已保存，请结束当前任务后重新打开 Buddy"
+            "启用 CodexHost 需要重开 Codex；开关已保存，请结束当前任务后重新打开 PALBOO"
         );
         return ready_endpoint(&desktop).await;
     }

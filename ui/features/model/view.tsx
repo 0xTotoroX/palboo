@@ -168,7 +168,7 @@ export function ModelView({
   });
   const visible = models.filter((m) => prefs.pinned.includes(m.id));
   const groups = groupedModels(models, prefs);
-  const dragType = 'application/x-codex-buddy-model';
+  const dragType = 'application/x-palboo-model';
   const order = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'];
   const columns = [
     ...new Set(visible.flatMap((m) => (m.reasoning.length ? m.reasoning : ['']))),

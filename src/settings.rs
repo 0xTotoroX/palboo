@@ -332,7 +332,7 @@ impl Default for Options {
             token_meter_enabled: true,
             generation_mode: "manual".into(),
             protocol: "responses".into(),
-            api_key_env: "CODEX_BUDDY_API_KEY".into(),
+            api_key_env: "PALBOO_API_KEY".into(),
             max_items: 3,
             direction_source: Default::default(),
             direction_library: crate::directions::defaults(),

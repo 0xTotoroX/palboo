@@ -9,7 +9,7 @@ export const normalizeQuote = (text) =>
     .replace(/[\s\u200b]+/gu, ' ')
     .trim();
 const blocked =
-  'a,button,input,textarea,select,pre,code,script,style,[hidden],[aria-hidden=true],[contenteditable]:not([contenteditable=false]),[data-companion-stepwise-root],[data-codex-buddy-features-root],[data-codex-buddy-dock],[data-buddy-terms]';
+  'a,button,input,textarea,select,pre,code,script,style,[hidden],[aria-hidden=true],[contenteditable]:not([contenteditable=false]),[data-companion-stepwise-root],[data-palboo-features-root],[data-palboo-dock],[data-buddy-terms]';
 export function textIndex(root) {
   const characters = [],
     positions = [];

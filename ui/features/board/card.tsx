@@ -6,7 +6,7 @@ import { Icon } from '../../shared/icons/react';
 import { dueText, type Task } from './api';
 import { priorityLabel } from './details';
 import { Recovery } from './recovery';
-const taskType = 'application/x-codex-buddy-task';
+const taskType = 'application/x-palboo-task';
 export function taskDragOver(event: DragEvent) {
   if (!event.dataTransfer.types.includes(taskType)) return false;
   event.preventDefault();

@@ -1,11 +1,10 @@
 /* [INPUT]: 宿主公开 DOM 的右侧标签、插件菜单及当前聊天标识。
- * [OUTPUT]: Buddy 插件页签联动；设置入口只手动打开，Dev 试验可选择切换聊天后恢复。
+ * [OUTPUT]: PALBOO 插件页签联动；设置入口只手动打开，Dev 试验可选择切换聊天后恢复。
  * [POS]: 最小宿主适配，不调用私有 IPC、不读取正文、不改变插件线程绑定。
  * [PROTOCOL]: 变更时同步 codex/AGENTS.md；真实宿主由用户手动验收。 */
 import { mainChatSessionId } from './context.js';
-const NAME = 'CodexBuddy';
-const OWN =
-  '[data-codex-buddy-launcher],[data-companion-stepwise-root],[data-codex-buddy-features-root]';
+const NAME = 'PALBOO';
+const OWN = '[data-palboo-launcher],[data-companion-stepwise-root],[data-palboo-features-root]';
 const RIGHT = '[data-app-shell-focus-area="right-panel"]';
 const visible = (node) => {
   if (
@@ -87,7 +86,7 @@ export function createPluginTabLink({ onOpened, onStatus, follow = true }) {
       if (value) return value;
       await new Promise((resolve) => setTimeout(resolve, 80));
     }
-    throw Error('未找到官方 Buddy 页签，请确认插件已启用；可再次点击重试。');
+    throw Error('未找到官方 PALBOO 页签，请确认插件已启用；可再次点击重试。');
   };
   const click = (node, key) => {
     check(key);
@@ -127,7 +126,7 @@ export function createPluginTabLink({ onOpened, onStatus, follow = true }) {
     if (expectedKey && key !== expectedKey) throw new SourceChanged();
     check(key);
     if ([...document.querySelectorAll('[role="dialog"][aria-modal="true"]')].some(visible))
-      throw Error('请先关闭当前对话框，再打开 Buddy。');
+      throw Error('请先关闭当前对话框，再打开 PALBOO。');
     stage = '寻找右侧入口';
     let existing = tab();
     if (!existing) {
@@ -156,7 +155,7 @@ export function createPluginTabLink({ onOpened, onStatus, follow = true }) {
       );
       if (next.getAttribute('role') !== 'tab') {
         if ([...document.querySelectorAll('[role="menu"]')].some(visible))
-          throw Error('请先关闭当前菜单，再打开 Buddy。');
+          throw Error('请先关闭当前菜单，再打开 PALBOO。');
         stage = '打开插件菜单';
         if (['新标签页', 'New tab'].includes(label(next))) {
           // 新版左击会创建浏览器页；右键才打开包含官方插件的标签菜单。
@@ -167,7 +166,7 @@ export function createPluginTabLink({ onOpened, onStatus, follow = true }) {
           );
         } else click(next, key);
         if (label(next) !== NAME) {
-          stage = '选择 CodexBuddy 插件';
+          stage = '选择 PALBOO 插件';
           const item = await wait(
             key,
             () =>
@@ -205,7 +204,9 @@ export function createPluginTabLink({ onOpened, onStatus, follow = true }) {
     enabled = true;
     last = candidate = key;
     attempts.delete(key);
-    onStatus(follow ? '官方 Buddy 页签已选中；切换聊天时自动恢复。' : '设置已在官方侧边页签打开。');
+    onStatus(
+      follow ? '官方 PALBOO 页签已选中；切换聊天时自动恢复。' : '设置已在官方侧边页签打开。',
+    );
   }
   function request(expectedKey = sessionKey(), automatic = false) {
     if (stopped) return Promise.resolve();
@@ -214,7 +215,7 @@ export function createPluginTabLink({ onOpened, onStatus, follow = true }) {
     const attempt = (attempts.get(expectedKey) || 0) + 1;
     attempts.set(expectedKey, attempt);
     if (attempts.size > 32) attempts.delete(attempts.keys().next().value);
-    onStatus('正在打开官方 Buddy 插件页签…');
+    onStatus('正在打开官方 PALBOO 插件页签…');
     running = open(expectedKey)
       .catch((error) => {
         if (stopped) return;

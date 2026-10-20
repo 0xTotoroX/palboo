@@ -628,8 +628,7 @@ function onKeyDown(event) {
       .composedPath()
       .some(
         (node) =>
-          node instanceof Element &&
-          node.matches('.csw-board-mount,[data-codex-buddy-features-root]'),
+          node instanceof Element && node.matches('.csw-board-mount,[data-palboo-features-root]'),
       )
   )
     return;

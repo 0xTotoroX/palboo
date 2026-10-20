@@ -45,13 +45,12 @@ pub struct Paths {
 
 impl Paths {
     pub fn new(root: Option<PathBuf>) -> Result<Self> {
-        let root = root
-            .or_else(|| std::env::var_os("CODEX_BUDDY_HOME").map(PathBuf::from))
-            .unwrap_or(
-                dirs::data_local_dir()
-                    .context("无法找到用户数据目录")?
-                    .join("codex-buddy"),
-            );
+        let root = match root.or_else(|| crate::brand::env_os("PALBOO_HOME").map(PathBuf::from)) {
+            Some(root) => root,
+            None => crate::brand::default_directory(
+                &dirs::data_local_dir().context("无法找到用户数据目录")?,
+            )?,
+        };
         let existed = root.exists();
         std::fs::create_dir_all(&root)?;
         {
@@ -83,6 +82,11 @@ impl Paths {
                 .entry("stepwise")
                 .or_insert_with(|| serde_json::json!({}));
             if let Some(options) = stepwise.as_object_mut() {
+                if options.get("apiKeyEnv").and_then(serde_json::Value::as_str)
+                    == Some("CODEX_BUDDY_API_KEY")
+                {
+                    options.insert("apiKeyEnv".into(), serde_json::json!("PALBOO_API_KEY"));
+                }
                 options.entry("maxItems").or_insert(serde_json::json!(4));
             }
         }
@@ -158,7 +162,7 @@ pub fn local_client() -> reqwest::Client {
 }
 
 pub fn find_codex() -> Option<PathBuf> {
-    if let Some(path) = std::env::var_os("CODEX_BUDDY_CODEX_BIN") {
+    if let Some(path) = crate::brand::env_os("PALBOO_CODEX_BIN") {
         return Some(PathBuf::from(path));
     }
     for path in [

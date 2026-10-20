@@ -34,8 +34,8 @@ export function readTypography(element = document.body, paragraph = true) {
 }
 export function sessionTypography(fallback) {
   return (
-    window.__codexBuddyTypography?.resolved() ||
-    window.__codexBuddyTerminology?.typography?.() ||
+    window.__palbooTypography?.resolved() ||
+    window.__palbooTerminology?.typography?.() ||
     readTypography(fallback)
   );
 }

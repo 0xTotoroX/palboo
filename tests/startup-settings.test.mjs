@@ -126,7 +126,7 @@ test(
     let browser;
     try {
       browser = await chromium.launch({
-        executablePath: process.env.CODEX_BUDDY_CHROME_BIN || undefined,
+        executablePath: process.env.PALBOO_CHROME_BIN || undefined,
       });
       const page = await browser.newPage();
       const errors = [];
@@ -418,7 +418,7 @@ test('Dev source widget survives settings unmount and remount', { timeout: 15000
   });
 
   const browser = await chromium.launch({
-    executablePath: process.env.CODEX_BUDDY_CHROME_BIN || undefined,
+    executablePath: process.env.PALBOO_CHROME_BIN || undefined,
   });
   try {
     const page = await browser.newPage();

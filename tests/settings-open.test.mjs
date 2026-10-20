@@ -27,7 +27,7 @@ onSignal('render',window.renderLauncher);window.renderLauncher();
   },
   bundle: true,
   write: false,
-  define: { CODEX_BUDDY_DEVELOPMENT: 'true' },
+  define: { PALBOO_DEVELOPMENT: 'true' },
 });
 let browser;
 before(async () => {
@@ -50,7 +50,7 @@ async function fixture(t) {
 }
 test('backend failure is returned and visible for right-click, default click and menu; retry succeeds as a new request', async (t) => {
   const page = await fixture(t);
-  const eye = page.getByRole('button', { name: 'CodexBuddy', exact: true });
+  const eye = page.getByRole('button', { name: 'PALBOO', exact: true });
   await eye.click({ button: 'right' });
   const feedback = page.locator('.settings-feedback');
   await feedback.waitFor({ state: 'visible' });
@@ -69,11 +69,8 @@ test('backend failure is returned and visible for right-click, default click and
   await feedback.waitFor({ state: 'visible' });
   assert.match(await feedback.textContent(), /fixture backend unavailable/);
   assert.equal(await page.evaluate(() => window.requests.length), 3);
-  assert.equal(
-    await page.locator('[data-codex-buddy-launcher-menu]').getAttribute('data-open'),
-    '',
-  );
-  assert.equal(await page.locator('[data-codex-buddy-launcher] [title]').count(), 0);
+  assert.equal(await page.locator('[data-palboo-launcher-menu]').getAttribute('data-open'), '');
+  assert.equal(await page.locator('[data-palboo-launcher] [title]').count(), 0);
 });
 test('concurrent callers share the same pending promise and receive the same failure', async (t) => {
   const page = await fixture(t);

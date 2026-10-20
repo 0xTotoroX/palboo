@@ -1,5 +1,5 @@
 /*
- * [INPUT]: Vite、React 插件与 CODEX_BUDDY_DEV_API 本机地址。
+ * [INPUT]: Vite、React 插件与 PALBOO_DEV_API 本机地址。
  * [OUTPUT]: 支持冷启动后正常退出的开发服务器配置及设置/看板多入口 target/web 输出。
  * [POS]: 设置页构建配置，产物由 Rust 内嵌；依赖缓存隔离到本工作树 target，React 去重。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
@@ -10,7 +10,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { fileURLToPath } from 'node:url';
 
-const target = process.env.CODEX_BUDDY_DEV_API || 'http://127.0.0.1:47831';
+const target = process.env.PALBOO_DEV_API || 'http://127.0.0.1:47831';
 const backend = new URL(target);
 if (
   backend.protocol !== 'http:' ||
@@ -21,7 +21,7 @@ if (
   backend.search ||
   backend.hash
 ) {
-  throw new Error('CODEX_BUDDY_DEV_API 必须是本机 HTTP 服务地址');
+  throw new Error('PALBOO_DEV_API 必须是本机 HTTP 服务地址');
 }
 
 export default defineConfig({

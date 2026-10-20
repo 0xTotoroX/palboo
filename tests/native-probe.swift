@@ -73,7 +73,7 @@ if CommandLine.arguments[1] == "drag" {
     let screen=NSScreen.screens[0].frame
     let height=min(screen.height,850)
     let window=NSWindow(contentRect:NSRect(x:100,y:screen.height-height,width:800,height:height), styleMask:[.borderless], backing:.buffered,defer:false)
-    window.title="CodexBuddy background test"; window.level=NSWindow.Level(rawValue:1)
+    window.title="PALBOO background test"; window.level=NSWindow.Level(rawValue:1)
     window.backgroundColor = .red; window.orderFrontRegardless()
     var previous=""
     let timer=Timer.scheduledTimer(withTimeInterval:0.02,repeats:true){_ in

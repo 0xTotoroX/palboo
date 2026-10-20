@@ -329,7 +329,7 @@ async function animateHandoff(next) {
     root.style.visibility = '';
     root.setAttribute('data-detached', 'false');
   }
-  window.dispatchEvent(new Event('codex-buddy:appearance'));
+  window.dispatchEvent(new Event('palboo:appearance'));
   if (document.hidden || matchMedia('(prefers-reduced-motion: reduce)').matches) {
     root.style.opacity = '';
   } else {
@@ -396,7 +396,7 @@ async function setDetached(value, ui = null, presentation = null) {
     }
     await shellState.handoffPromise;
   }
-  if (changed || preferencesChanged) window.dispatchEvent(new Event('codex-buddy:appearance'));
+  if (changed || preferencesChanged) window.dispatchEvent(new Event('palboo:appearance'));
 }
 
 /** @returns {import("../../shared/contracts").PanelSnapshot|null} */
@@ -462,7 +462,7 @@ function exportPanelState() {
     colors: panelAppearance().colors,
     accentColor: getComputedStyle(shellState.root).getPropertyValue('--csw-accent').trim(),
     hostTypography: shellState.hostTypography,
-    typography: window.__codexBuddyTypography?.resolved(),
+    typography: window.__palbooTypography?.resolved(),
     settings: runtimeState.settings,
     association,
     sourceLabel:
@@ -588,7 +588,7 @@ async function receivePanelState(result, initial) {
   runtimeState.settings = source.settings;
   shellState.hostTypography = source.hostTypography;
   syncTheme();
-  window.dispatchEvent(new Event('codex-buddy:appearance'));
+  window.dispatchEvent(new Event('palboo:appearance'));
   runtimeState.settingsLoaded = true;
   contextState.lastAssistantHash = source.answerHash;
   stepwiseState.promptContext = source.context;

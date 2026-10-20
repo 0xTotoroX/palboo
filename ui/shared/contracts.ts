@@ -201,15 +201,15 @@ export interface PopoutBridge {
   notice(message: string): void;
 }
 declare global {
-  const CODEX_BUDDY_DEVELOPMENT: boolean;
+  const PALBOO_DEVELOPMENT: boolean;
   interface Window {
     __codexhostRendererBindingProbeV1?: {
       status(): { version: number; selections?: { composerId: string; agent: string }[] };
     };
-    __codexBuddyHostCompatibility?: {
+    __palbooHostCompatibility?: {
       capability(composer?: Element | null): { officialModel: boolean; message: string };
     };
-    __codexBuddyModelControl?: {
+    __palbooModelControl?: {
       inputTarget(): {
         id: string;
         root: HTMLElement;
@@ -218,10 +218,10 @@ declare global {
         trigger?: HTMLElement;
       } | null;
     };
-    __codexBuddyTypography?: ReturnType<
+    __palbooTypography?: ReturnType<
       typeof import('../codex/typography.js').createTypographyTracker
     >;
-    __codexBuddyTerminology?: {
+    __palbooTerminology?: {
       locate(id: string, context: string): boolean;
       typography?(): {
         fontFamily: string;
@@ -240,8 +240,8 @@ declare global {
       destroy(): void;
       lastError: string;
     };
-    __codexBuddyPromptEnhancer?: { verify(requestId: string): boolean; destroy(): void };
-    __codexBuddyTokenMeter?: {
+    __palbooPromptEnhancer?: { verify(requestId: string): boolean; destroy(): void };
+    __palbooTokenMeter?: {
       refresh(): void;
       read(threadId: string): import('./token-meter').TokenMeterSnapshot | null;
       snapshot(): unknown;

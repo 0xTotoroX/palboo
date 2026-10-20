@@ -56,9 +56,7 @@ export function generateNotices(directory = join(root, 'dist/licenses')) {
     maxBuffer: 16 * 1024 * 1024,
   });
   if (metadata.status !== 0) throw new Error(metadata.stderr || 'cargo metadata failed');
-  const packages = JSON.parse(metadata.stdout).packages.filter(
-    (item) => item.name !== 'codex-buddy',
-  );
+  const packages = JSON.parse(metadata.stdout).packages.filter((item) => item.name !== 'palboo');
   const components = packages.map((item) => ({
     ecosystem: 'cargo',
     name: item.name,

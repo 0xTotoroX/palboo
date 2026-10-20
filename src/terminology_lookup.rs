@@ -24,7 +24,7 @@ async fn current(app: &Arc<App>, client: &Arc<Client>, id: &str) -> bool {
     }
     client
         .evaluate(format!(
-            "Boolean(window.__codexBuddyTerminology?.verify({}))",
+            "Boolean(window.__palbooTerminology?.verify({}))",
             json!(id)
         ))
         .await
@@ -37,7 +37,7 @@ async fn publish_confirmed(client: &Arc<Client>, id: &str, matches: &[Value]) {
     }
     let _ = client
         .evaluate(format!(
-            "window.__codexBuddyTerminology?.progress?.({}, {}) ?? false",
+            "window.__palbooTerminology?.progress?.({}, {}) ?? false",
             json!(id),
             json!(matches)
         ))
@@ -133,7 +133,7 @@ async fn source(query: &str) -> Result<Option<(String, String)>> {
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(12))
         .redirect(reqwest::redirect::Policy::none())
-        .user_agent("CodexBuddy/0.9 terminology lookup")
+        .user_agent("PALBOO/0.9 terminology lookup")
         .build()?;
     let resp = client
         .get("https://en.wikipedia.org/w/api.php")
@@ -444,8 +444,8 @@ mod tests {
     #[tokio::test]
     #[ignore = "Explicit synthetic context checks through configured model, no real chat or glossary writes"]
     async fn live_context_disambiguation() {
-        let directory = std::env::var("CODEX_BUDDY_TERMS_SMOKE_DATA")
-            .expect("explicit data directory required");
+        let directory =
+            crate::brand::env("PALBOO_TERMS_SMOKE_DATA").expect("explicit data directory required");
         let paths = crate::config::Paths::new(Some(directory.into())).unwrap();
         let model = Model::load(&paths.load().unwrap()).with_key(paths.load_key().unwrap());
         let selected = resolve_known(&model, &context(), &[candidate()], &terms())

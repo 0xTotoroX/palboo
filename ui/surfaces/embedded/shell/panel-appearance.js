@@ -142,7 +142,7 @@ function setPixelVariable(element, property, value) {
 
 function applyTypographyVariables() {
   if (!shellState.root) return;
-  const shared = window.__codexBuddyTypography?.resolved() || shellState.sharedTypography;
+  const shared = window.__palbooTypography?.resolved() || shellState.sharedTypography;
   if (shared) {
     const size = (shared.fontSize * shared.zoom) / layoutZoom(shellState.root);
     shellState.root.style.setProperty('--csw-font-family', shared.fontFamily);
@@ -237,9 +237,9 @@ function migrateMaterialStorageV3() {
 // 停靠外观只属于当前宿主场景，不写入胶囊/原生窗口的共享偏好。
 function dockAppearanceScope() {
   if (IS_POPOUT || shellState.root?.dataset.workbench !== 'true') return '';
-  const slot = shellState.root?.closest('[data-codex-buddy-dock]');
+  const slot = shellState.root?.closest('[data-palboo-dock]');
   if (!slot) return '';
-  return slot.closest('[data-codex-buddy-chat-row]') ? 'chat' : 'main';
+  return slot.closest('[data-palboo-chat-row]') ? 'chat' : 'main';
 }
 
 function currentAppearance() {
@@ -378,7 +378,7 @@ function applyMaterial(options = {}) {
     else button.removeAttribute('aria-description');
   }
   resetGlassPointer();
-  if (!IS_POPOUT) window.dispatchEvent(new Event('codex-buddy:appearance'));
+  if (!IS_POPOUT) window.dispatchEvent(new Event('palboo:appearance'));
 }
 
 function writeMaterial(value) {

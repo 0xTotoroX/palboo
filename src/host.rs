@@ -9,7 +9,7 @@ use std::{
 };
 
 pub fn find_desktop() -> Option<PathBuf> {
-    if let Some(path) = std::env::var_os("CODEX_BUDDY_DESKTOP_BIN") {
+    if let Some(path) = crate::brand::env_os("PALBOO_DESKTOP_BIN") {
         return Some(PathBuf::from(path));
     }
     for app in [

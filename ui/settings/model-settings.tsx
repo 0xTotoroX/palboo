@@ -300,7 +300,7 @@ export function ModelSettings({ editor, simple }: { editor: SettingsEditor; simp
               id="api-key-env"
               value={form.apiKeyEnv}
               onChange={(e) => change('apiKeyEnv', e.target.value)}
-              placeholder="CODEX_BUDDY_API_KEY"
+              placeholder="PALBOO_API_KEY"
               spellCheck={false}
             />
           </Field>

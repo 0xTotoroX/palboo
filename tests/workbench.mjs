@@ -20,12 +20,12 @@ const output = resolve(root, 'target/reports/workbench');
 const fixture = readFileSync(resolve(root, 'tests/host-fixture.html'), 'utf8');
 const bundle = await buildPanel(root);
 const hostUrl = 'http://127.0.0.1:47839/workbench-fixture';
-const slotSelector = '[data-codex-buddy-dock]';
+const slotSelector = '[data-palboo-dock]';
 const panelSelector = '[data-companion-stepwise-root] .csw-panel';
 const wide = { width: 1440, height: 960 };
 
 const browser = await chromium.launch({
-  executablePath: process.env.CODEX_BUDDY_CHROME_BIN || process.env.CHROME_PATH || undefined,
+  executablePath: process.env.PALBOO_CHROME_BIN || process.env.CHROME_PATH || undefined,
   headless: true,
 });
 const results = [];
@@ -159,9 +159,7 @@ async function openChatSurface(page, width = 1000) {
     window.__companionFloatingPanel.scan();
     window.__companionFloatingPanel.renderFloat();
   }, width);
-  await page.waitForFunction(() =>
-    document.querySelector('#foreground-chat [data-codex-buddy-dock]'),
-  );
+  await page.waitForFunction(() => document.querySelector('#foreground-chat [data-palboo-dock]'));
   await settle(page);
 }
 
@@ -170,8 +168,8 @@ async function mode(page, enabled) {
   await page.waitForFunction((enabled) => {
     const state = window.__companionFloatingPanel.state;
     return enabled
-      ? state.dockStatus === 'open' && document.querySelector('[data-codex-buddy-dock]')
-      : state.layoutMode === 'capsule' && !document.querySelector('[data-codex-buddy-dock]');
+      ? state.dockStatus === 'open' && document.querySelector('[data-palboo-dock]')
+      : state.layoutMode === 'capsule' && !document.querySelector('[data-palboo-dock]');
   }, enabled);
   await settle(page);
 }
@@ -447,17 +445,17 @@ const cases = [
       });
       await page.waitForFunction(
         () =>
-          ![...document.querySelectorAll('[data-codex-buddy-dock]')].some(
+          ![...document.querySelectorAll('[data-palboo-dock]')].some(
             (n) => n.getBoundingClientRect().width > 0,
           ),
       );
-      await page.getByRole('button', { name: 'CodexBuddy', exact: true }).press('Enter');
+      await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
       await settle(page);
-      assert.equal(await page.locator('[data-codex-buddy-features-root]').count(), 0);
+      assert.equal(await page.locator('[data-palboo-features-root]').count(), 0);
       assert.ok(
         await page.evaluate(
           () =>
-            ![...document.querySelectorAll('[data-codex-buddy-dock]')].some(
+            ![...document.querySelectorAll('[data-palboo-dock]')].some(
               (n) => n.getBoundingClientRect().width > 0,
             ),
         ),
@@ -697,7 +695,7 @@ const cases = [
     'rail launcher replaces capsule and survives navigation without duplicating the workspace',
     async (page) => {
       await mode(page, true);
-      const icon = page.getByRole('button', { name: 'CodexBuddy', exact: true });
+      const icon = page.getByRole('button', { name: 'PALBOO', exact: true });
       await icon.waitFor();
       assert.equal(await page.evaluate(() => window.__companionFloatingPanel.state.open), true);
       assert.equal(await icon.getAttribute('aria-pressed'), null);
@@ -715,7 +713,7 @@ const cases = [
       assert.equal(await page.locator('[data-companion-stepwise-root]').count(), 1);
       await page.evaluate(() => {
         const rail = document.querySelector('nav');
-        rail.querySelector('[data-codex-buddy-launcher]').remove();
+        rail.querySelector('[data-palboo-launcher]').remove();
         rail.replaceWith(rail.cloneNode(true));
       });
       await icon.waitFor();
@@ -780,7 +778,7 @@ const cases = [
       await icon.press('Enter');
       await page.waitForFunction(() => window.__companionFloatingPanel.state.open);
       await page.evaluate(() => window.__companionFloatingPanel.destroy());
-      assert.equal(await page.locator('[data-codex-buddy-launcher]').count(), 0);
+      assert.equal(await page.locator('[data-palboo-launcher]').count(), 0);
     },
   ],
   [
@@ -799,11 +797,9 @@ const cases = [
       const content = await box(page, '#fixture-host-content');
       const slot = await box(page, slotSelector);
       assert.ok(content.x + content.width <= slot.x + 1);
-      await page.getByRole('button', { name: 'CodexBuddy', exact: true }).press('Enter');
-      await page
-        .getByRole('button', { name: 'CodexBuddy', exact: true })
-        .waitFor({ state: 'visible' });
-      await page.getByRole('button', { name: 'CodexBuddy', exact: true }).press('Enter');
+      await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
+      await page.getByRole('button', { name: 'PALBOO', exact: true }).waitFor({ state: 'visible' });
+      await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
       await page.waitForFunction(() => window.__companionFloatingPanel.state.dockStatus === 'open');
       assert.equal(await page.locator(slotSelector).count(), 1);
     },
@@ -816,21 +812,19 @@ const cases = [
       await openChatSurface(page);
       await page.locator('#fixture-host-content .ProseMirror').focus();
       await page.waitForFunction(() =>
-        document.querySelector('#fixture-dock-row > [data-codex-buddy-dock]'),
+        document.querySelector('#fixture-dock-row > [data-palboo-dock]'),
       );
-      await page.getByRole('button', { name: 'CodexBuddy', exact: true }).press('Enter');
-      await page
-        .getByRole('button', { name: 'CodexBuddy', exact: true })
-        .waitFor({ state: 'visible' });
-      await page.getByRole('button', { name: 'CodexBuddy', exact: true }).press('Enter');
+      await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
+      await page.getByRole('button', { name: 'PALBOO', exact: true }).waitFor({ state: 'visible' });
+      await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
       await page.waitForFunction(() =>
-        document.querySelector('#fixture-dock-row > [data-codex-buddy-dock][data-expanded="true"]'),
+        document.querySelector('#fixture-dock-row > [data-palboo-dock][data-expanded="true"]'),
       );
       await page.locator('#foreground-composer .ProseMirror').focus();
       await page.waitForFunction(() =>
-        document.querySelector('#foreground-chat [data-codex-buddy-dock][data-expanded="true"]'),
+        document.querySelector('#foreground-chat [data-palboo-dock][data-expanded="true"]'),
       );
-      assert.equal(await page.locator('[data-codex-buddy-dock]').count(), 1);
+      assert.equal(await page.locator('[data-palboo-dock]').count(), 1);
     },
   ],
   ...featureSurfaceCases({ mode, createPopout, settle, output, bundle }),
@@ -857,12 +851,10 @@ const cases = [
           { placement, revision: 100 + index },
         );
         await settle(page);
-        const chip = await page
-          .getByRole('button', { name: 'CodexBuddy', exact: true })
-          .boundingBox();
+        const chip = await page.getByRole('button', { name: 'PALBOO', exact: true }).boundingBox();
         near(chip.width, 36, 'rail button width');
         near(chip.height, 28, 'rail button height');
-        await page.getByRole('button', { name: 'CodexBuddy', exact: true }).press('Enter');
+        await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
         await page.locator('.csw-workbench').waitFor({ state: 'visible' });
         await page.waitForFunction(() => !window.__companionFloatingPanel.state.morphAnimation);
         assert.equal(await page.locator(slotSelector).count(), placement === 'workbench' ? 1 : 0);
@@ -871,7 +863,7 @@ const cases = [
           false,
         );
         assert.equal(await page.locator('.csw-workbench-face').isVisible(), false);
-        const face = page.getByRole('button', { name: 'CodexBuddy', exact: true });
+        const face = page.getByRole('button', { name: 'PALBOO', exact: true });
         near((await face.boundingBox()).height, 28, 'expanded expression shares slim geometry');
         await face.hover();
         await page.mouse.down();
@@ -882,7 +874,7 @@ const cases = [
             !window.__companionFloatingPanel.state.open &&
             !window.__companionFloatingPanel.state.morphAnimation,
         );
-        await page.getByRole('button', { name: 'CodexBuddy', exact: true }).press('Enter');
+        await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
         await page.locator('.csw-workbench').waitFor({ state: 'visible' });
         await page.waitForFunction(() => !window.__companionFloatingPanel.state.morphAnimation);
         await face.focus();
@@ -977,7 +969,7 @@ const cases = [
         });
       });
       for (const open of [true, false]) {
-        await page.getByRole('button', { name: 'CodexBuddy', exact: true }).press('Enter');
+        await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
         await page.waitForFunction(
           (open) =>
             window.workbenchFixture.morphSamples.some((sample) => sample.open === open) &&
@@ -1003,7 +995,7 @@ const cases = [
           queueMicrotask(() => window.__companionDesktop.complete(input.id, { ok: true }));
         };
       });
-      await page.getByRole('button', { name: 'CodexBuddy', exact: true }).dblclick({ delay: 180 });
+      await page.getByRole('button', { name: 'PALBOO', exact: true }).dblclick({ delay: 180 });
       await page.waitForFunction(() => window.workbenchFixture.detaches.length === 1);
       assert.equal(await page.evaluate(() => window.workbenchFixture.detaches.length), 1);
       assert.equal(await page.evaluate(() => window.workbenchFixture.detaches[0].dockOpen), true);
@@ -1088,24 +1080,22 @@ const cases = [
       await page.locator('.csw-layout-menu summary').evaluate((node) => node.click());
       await page.locator('[data-placement=floating]').evaluate((node) => node.click());
       assert.equal(await page.locator(slotSelector).count(), 0);
-      await page.getByRole('button', { name: 'CodexBuddy', exact: true }).press('Enter');
+      await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
       await page.waitForFunction(
         () =>
           !window.__companionFloatingPanel.state.open &&
           !window.__companionFloatingPanel.state.morphAnimation,
       );
-      await page.getByRole('button', { name: 'CodexBuddy', exact: true }).press('Enter');
-      await page
-        .getByRole('button', { name: 'CodexBuddy', exact: true })
-        .waitFor({ state: 'visible' });
+      await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
+      await page.getByRole('button', { name: 'PALBOO', exact: true }).waitFor({ state: 'visible' });
       assert.equal(await page.locator('.csw-workbench-face').isVisible(), false);
       await page.locator('.csw-layout-menu summary').evaluate((node) => node.click());
       await page.locator('[data-placement=dock]').evaluate((node) => node.click());
-      await page.getByRole('button', { name: 'CodexBuddy', exact: true }).press('Enter');
+      await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
       await page.waitForFunction(
         () => window.__companionFloatingPanel.state.dockStatus === 'closed',
       );
-      await page.getByRole('button', { name: 'CodexBuddy', exact: true }).press('Enter');
+      await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
       assert.equal(await requestCount(), before, 'UI changes must not generate suggestions');
       await page.screenshot({ path: resolve(output, 'unified-icons-dock.png') });
     },
@@ -1125,7 +1115,7 @@ const cases = [
           queueMicrotask(() => window.__companionDesktop.complete(input.id, { ok: true }));
         };
       });
-      await host.getByRole('button', { name: 'CodexBuddy', exact: true }).dblclick();
+      await host.getByRole('button', { name: 'PALBOO', exact: true }).dblclick();
       assert.equal(await host.evaluate(() => window.workbenchFixture.detaches.length), 1);
       assert.equal(
         await host.evaluate(() => window.__companionFloatingPanel.panelPreferences().dockOpen),
@@ -1133,17 +1123,13 @@ const cases = [
       );
       await host.locator('.csw-layout-menu summary').evaluate((node) => node.click());
       await host.locator('[data-placement=floating]').evaluate((node) => node.click());
-      await host.getByRole('button', { name: 'CodexBuddy', exact: true }).press('Enter');
-      await host
-        .getByRole('button', { name: 'CodexBuddy', exact: true })
-        .waitFor({ state: 'visible' });
+      await host.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
+      await host.getByRole('button', { name: 'PALBOO', exact: true }).waitFor({ state: 'visible' });
       await host.waitForFunction(() => !window.__companionFloatingPanel.state.open);
-      await host.getByRole('button', { name: 'CodexBuddy', exact: true }).dblclick();
+      await host.getByRole('button', { name: 'PALBOO', exact: true }).dblclick();
       assert.equal(await host.evaluate(() => window.workbenchFixture.detaches.at(-1).open), false);
       await host.evaluate(() => window.__companionFloatingPanel.setOpen(true));
-      await host
-        .getByRole('button', { name: 'CodexBuddy', exact: true })
-        .waitFor({ state: 'visible' });
+      await host.getByRole('button', { name: 'PALBOO', exact: true }).waitFor({ state: 'visible' });
       assert.equal(await host.locator('.csw-view-tabs').count(), 0);
       const { page, projection, errors } = await createPopout(host);
       projection.preferences.ui.layoutMode = 'capsule';
@@ -1687,8 +1673,8 @@ const cases = [
         node.scrollTop = 120;
         window.workbenchFixture.outlineBody = node;
       });
-      await page.getByRole('button', { name: 'CodexBuddy', exact: true }).press('Enter');
-      await page.getByRole('button', { name: 'CodexBuddy', exact: true }).press('Enter');
+      await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
+      await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
       await page.waitForFunction(() => window.__companionFloatingPanel.state.dockStatus === 'open');
       await settle(page);
       near((await reading(page)).panes.outline.scrollTop, 120, 'capsule reopen retains reading');
@@ -1820,7 +1806,7 @@ const cases = [
       );
       for (const key of ['dockOpen', 'dockWidth', 'splitRatio'])
         assert.equal(collapsed[key], preferences[key], `${key} retains user intent`);
-      await page.getByRole('button', { name: 'CodexBuddy', exact: true }).press('Enter');
+      await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
       await page.waitForFunction(() => window.__companionFloatingPanel.state.dockStatus === 'open');
       await settle(page);
       await layout(page);
@@ -1875,7 +1861,7 @@ const cases = [
       );
       assert.deepEqual(errors, []);
       await page.locator('.csw-layout-menu summary').evaluate((node) => node.click());
-      await page.getByRole('button', { name: 'CodexBuddy', exact: true }).press('Enter');
+      await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
       const closed = await page.evaluate(() => window.__companionFloatingPanel.panelPreferences());
       assert.equal(closed.dockOpen, false, 'explicit close updates intent');
       await page.setViewportSize({ width: 1500, height: 960 });
@@ -1905,27 +1891,25 @@ const cases = [
       await openChatSurface(page);
       for (let i = 0; i < 3; i++) {
         const immediate = await page.evaluate(() => {
-          const old = document.querySelector('[data-codex-buddy-chat-content]');
+          const old = document.querySelector('[data-palboo-chat-content]');
           const row = old.parentElement;
           const next = old.cloneNode(true);
-          next.removeAttribute('data-codex-buddy-chat-content');
+          next.removeAttribute('data-palboo-chat-content');
           window.workbenchFixture.replacedContent = old;
           old.remove();
           // 宿主切换空聊天/已有对话时，会把新内容追加到仍存在的占位后面。
           row.append(next);
-          const slot = row.querySelector('[data-codex-buddy-dock]');
+          const slot = row.querySelector('[data-palboo-dock]');
           return next.getBoundingClientRect().right <= slot.getBoundingClientRect().left + 1;
         });
         assert.equal(immediate, true, 'replacement must not produce a left-docked frame');
         await page.waitForFunction(() => {
-          const content = document.querySelector(
-            '#foreground-chat [data-codex-buddy-chat-content]',
-          );
+          const content = document.querySelector('#foreground-chat [data-palboo-chat-content]');
           return content && window.__companionFloatingPanel.state.dockStatus === 'open';
         });
         await settle(page);
-        const content = await box(page, '#foreground-chat [data-codex-buddy-chat-content]');
-        const slot = await box(page, '#foreground-chat [data-codex-buddy-dock]');
+        const content = await box(page, '#foreground-chat [data-palboo-chat-content]');
+        const slot = await box(page, '#foreground-chat [data-palboo-dock]');
         const composer = await box(page, '#foreground-composer');
         const panel = await box(page, panelSelector);
         assert.ok(content.x + content.width <= slot.x + 1, 'chat stays left');
@@ -1935,7 +1919,7 @@ const cases = [
         assert.equal(await page.locator('[data-companion-stepwise-root]').count(), 1);
         assert.equal(
           await page.evaluate(() =>
-            window.workbenchFixture.replacedContent.hasAttribute('data-codex-buddy-chat-content'),
+            window.workbenchFixture.replacedContent.hasAttribute('data-palboo-chat-content'),
           ),
           false,
           'old content released',
@@ -1944,7 +1928,7 @@ const cases = [
       await page.evaluate(() => window.__companionFloatingPanel.setWorkbench(false));
       await settle(page);
       assert.equal(
-        await page.locator('[data-codex-buddy-chat-row],[data-codex-buddy-chat-content]').count(),
+        await page.locator('[data-palboo-chat-row],[data-palboo-chat-content]').count(),
         0,
       );
       assert.equal(await page.locator(slotSelector).count(), 0);
@@ -2008,8 +1992,8 @@ const cases = [
           .exportPanelState()
           .context.paneKey.startsWith('pane:dialog:'),
       );
-      const chat = await box(page, '[data-codex-buddy-chat-content]');
-      const slot = await box(page, '#foreground-chat [data-codex-buddy-dock]');
+      const chat = await box(page, '[data-palboo-chat-content]');
+      const slot = await box(page, '#foreground-chat [data-palboo-dock]');
       const composer = await box(page, '#foreground-composer');
       const panel = await box(page, panelSelector);
       assert.ok(chat.x + chat.width <= slot.x + 1);
@@ -2050,7 +2034,7 @@ const cases = [
       await page.locator('#foreground-chat').evaluate((node) => node.remove());
       await page.waitForFunction(
         () =>
-          !document.querySelector('[data-codex-buddy-chat-row]') &&
+          !document.querySelector('[data-palboo-chat-row]') &&
           window.__companionFloatingPanel.state.dockStatus === 'open',
       );
       await settle(page);
@@ -2068,7 +2052,7 @@ const cases = [
       await openChatSurface(page, 720);
       assert.equal(await page.locator('.csw-workbench').isVisible(), false);
       near(
-        (await page.locator('#foreground-chat [data-codex-buddy-dock]').boundingBox()).width,
+        (await page.locator('#foreground-chat [data-palboo-dock]').boundingBox()).width,
         0,
         'no collapsed rail',
       );
@@ -2133,7 +2117,7 @@ const cases = [
       if (foreground) await openChatSurface(page);
       await settle(page);
       const before = await page.evaluate(() => {
-        const slot = document.querySelector('[data-codex-buddy-dock]');
+        const slot = document.querySelector('[data-palboo-dock]');
         window.workbenchFixture.annotationSlot = slot;
         return {
           width: slot.getBoundingClientRect().width,
@@ -2186,7 +2170,7 @@ const cases = [
               await new Promise(requestAnimationFrame);
               samples.push(
                 original.isConnected &&
-                  document.querySelector('[data-codex-buddy-dock]') === original &&
+                  document.querySelector('[data-palboo-dock]') === original &&
                   window.__companionFloatingPanel.state.dockStatus === 'open',
               );
             }
@@ -2254,7 +2238,7 @@ const cases = [
       );
       assert.equal(await page.locator(slotSelector).count(), 0);
       assert.equal(await page.locator('.csw-workbench').isVisible(), false);
-      assert.equal(await page.locator('[data-codex-buddy-chat-row]').count(), 0);
+      assert.equal(await page.locator('[data-palboo-chat-row]').count(), 0);
       await page.locator('#settings-dialog').evaluate((node) => node.remove());
       await page.waitForFunction(() => window.__companionFloatingPanel.state.dockStatus === 'open');
       await settle(page);
@@ -2272,7 +2256,7 @@ const cases = [
       assert.equal(after.dockOpen, prefs.dockOpen);
       await page.evaluate(() => window.__companionFloatingPanel.destroy());
       assert.equal(
-        await page.locator('[data-codex-buddy-chat-row],[data-codex-buddy-chat-content]').count(),
+        await page.locator('[data-palboo-chat-row],[data-palboo-chat-content]').count(),
         0,
       );
     },
@@ -2370,12 +2354,12 @@ const cases = [
     'collapsed capsule frees the sidebar without prompts when space is insufficient',
     async (page, baseline) => {
       await mode(page, true);
-      await page.getByRole('button', { name: 'CodexBuddy', exact: true }).press('Enter');
+      await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
       await page.waitForFunction(
         () => window.__companionFloatingPanel.state.dockStatus === 'closed',
       );
       const rail = page.locator(slotSelector);
-      const entry = page.getByRole('button', { name: 'CodexBuddy', exact: true });
+      const entry = page.getByRole('button', { name: 'PALBOO', exact: true });
       assert.equal(await rail.locator(':scope > button:visible').count(), 0);
       near((await rail.boundingBox()).width, 0, 'no empty sidebar');
       assert.equal(await entry.isVisible(), true);
@@ -2433,7 +2417,7 @@ const cases = [
       await page.waitForFunction(
         () => window.__companionFloatingPanel.state.dockStatus === 'space',
       );
-      const entry = page.getByRole('button', { name: 'CodexBuddy', exact: true });
+      const entry = page.getByRole('button', { name: 'PALBOO', exact: true });
       await entry.press('Enter');
       assert.equal(await page.locator('.csw-dock-menu,.csw-dock-warning').count(), 0);
       await page
@@ -2478,9 +2462,9 @@ const cases = [
       await settle(page);
       assert.equal(await page.locator(slotSelector).count(), 0);
       assert.equal(await page.locator('.csw-workbench').count(), 0);
-      await page.getByRole('button', { name: 'CodexBuddy', exact: true }).boundingBox();
+      await page.getByRole('button', { name: 'PALBOO', exact: true }).boundingBox();
       await hostUnchanged(page, baseline);
-      await page.getByRole('button', { name: 'CodexBuddy', exact: true }).press('Enter');
+      await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
       await page.waitForTimeout(150);
       assert.equal(
         await page.evaluate(() => window.__companionFloatingPanel.panelPreferences().layoutMode),
@@ -2488,7 +2472,7 @@ const cases = [
         'opening an unavailable sidebar must not overwrite placement',
       );
       assert.equal(await page.locator('.csw-workbench').count(), 0);
-      await page.getByRole('button', { name: 'CodexBuddy', exact: true }).press('Enter');
+      await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
       await page.keyboard.press('Escape');
       assert.equal(await page.locator('.csw-dock-menu,.csw-dock-warning').count(), 0);
       assert.equal(await page.locator('.csw-workbench').count(), 0);
@@ -2496,7 +2480,7 @@ const cases = [
         await page.evaluate(() => window.__companionFloatingPanel.panelPreferences().layoutMode),
         'workbench',
       );
-      await page.getByRole('button', { name: 'CodexBuddy', exact: true }).boundingBox();
+      await page.getByRole('button', { name: 'PALBOO', exact: true }).boundingBox();
     },
   ],
   [
@@ -2510,7 +2494,7 @@ const cases = [
         () => window.__companionFloatingPanel.state.dockStatus === 'unsupported',
       );
       for (let i = 0; i < 3; i++) {
-        await page.getByRole('button', { name: 'CodexBuddy', exact: true }).press('Enter');
+        await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
         assert.equal(await page.locator('.csw-workbench').count(), 0);
         assert.equal(
           await page.evaluate(() => window.__companionFloatingPanel.state.layoutMode),
@@ -2553,7 +2537,7 @@ const cases = [
         new MutationObserver((records) => {
           for (const record of records)
             for (const node of record.addedNodes)
-              if (node instanceof Element && node.hasAttribute('data-codex-buddy-dock'))
+              if (node instanceof Element && node.hasAttribute('data-palboo-dock'))
                 window.workbenchFixture.mounts += 1;
         }).observe(document.querySelector('#fixture-dock-row'), { childList: true });
         window.__companionFloatingPanel.setWorkbench(true);
@@ -2564,7 +2548,7 @@ const cases = [
         'unsupported',
       );
       assert.equal(await page.locator(slotSelector).count(), 0);
-      await page.getByRole('button', { name: 'CodexBuddy', exact: true }).boundingBox();
+      await page.getByRole('button', { name: 'PALBOO', exact: true }).boundingBox();
       const mounts = await page.evaluate(() => window.workbenchFixture.mounts);
       for (let i = 0; i < 10; i += 1) await settle(page);
       assert.equal(await page.evaluate(() => window.workbenchFixture.mounts), mounts);
@@ -2781,7 +2765,7 @@ const cases = [
           0,
           'collapsed slot has zero width',
         );
-        const entry = page.getByRole('button', { name: 'CodexBuddy', exact: true });
+        const entry = page.getByRole('button', { name: 'PALBOO', exact: true });
         assert.equal(await entry.getAttribute('title'), null);
         const anchor = await page.evaluate(() =>
           window.__companionFloatingPanel.panelWindowAnchor(),
@@ -2863,14 +2847,14 @@ const cases = [
       await page.evaluate(() => {
         const oldRow = document.querySelector('#fixture-dock-row');
         const replacement = oldRow.cloneNode(true);
-        replacement.querySelector('[data-codex-buddy-dock]').remove();
-        window.workbenchFixture.oldSlot = oldRow.querySelector('[data-codex-buddy-dock]');
+        replacement.querySelector('[data-palboo-dock]').remove();
+        window.workbenchFixture.oldSlot = oldRow.querySelector('[data-palboo-dock]');
         window.workbenchFixture.remountedContent =
           replacement.querySelector('#fixture-host-content');
         oldRow.replaceWith(replacement);
       });
       await page.waitForFunction(() =>
-        document.querySelector('#fixture-dock-row > [data-codex-buddy-dock]'),
+        document.querySelector('#fixture-dock-row > [data-palboo-dock]'),
       );
       await settle(page);
       await layout(page);
@@ -2902,7 +2886,7 @@ const cases = [
           const row = document.querySelector('#fixture-dock-row');
           for (let i = 0; i < 3; i++) {
             const stale = document.createElement('aside');
-            stale.dataset.codexBuddyDock = 'true';
+            stale.dataset.palbooDock = 'true';
             stale.style.cssText = 'width:100px;flex:none;padding:0;border:0';
             row.append(stale);
           }

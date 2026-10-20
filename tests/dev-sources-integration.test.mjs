@@ -140,7 +140,7 @@ test(
             env: {
               ...process.env,
               HOME: join(base, 'home'),
-              CODEX_BUDDY_HOME: join(base, 'install'),
+              PALBOO_HOME: join(base, 'install'),
               BUDDY_FIXTURE_DIRECTORY: base,
               PATH: `${bin}:${process.env.PATH}`,
             },
@@ -164,7 +164,7 @@ test(
         const root = ${JSON.stringify(main)};
         claimLease(root + '/target/dev/owner.json', {root});
         claimTarget({endpoint:${JSON.stringify(endpoint)}, target:{id:'fixture-window'}}, root,
-          ${JSON.stringify(join(base, 'home/Library/Caches/codex-buddy/dev-targets'))});
+          ${JSON.stringify(join(base, 'home/Library/Caches/palboo/dev-targets'))});
       `,
       ]);
       stage = 'start supervisor';
@@ -220,7 +220,7 @@ test(
         method: 'POST',
         headers: {
           Authorization: `Bearer ${session.token}`,
-          'X-Codex-Buddy-Source': session.sourceEpoch,
+          'X-Palboo-Source': session.sourceEpoch,
           'Content-Type': 'application/json',
         },
         body: '{}',
@@ -255,7 +255,7 @@ test(
       stage = 'launch pinned browser';
       browserServer = await chromium.launchServer({
         headless: true,
-        executablePath: process.env.CODEX_BUDDY_CHROME_BIN || undefined,
+        executablePath: process.env.PALBOO_CHROME_BIN || undefined,
       });
       browser = await chromium.connect(browserServer.wsEndpoint(), { timeout: 20000 });
       const page = await browser.newPage();
@@ -280,8 +280,7 @@ test(
         responseChecks.push(
           (async () => {
             const path = new URL(response.url()).pathname;
-            const oldSource =
-              response.request().headers()['x-codex-buddy-source'] === previousEpoch;
+            const oldSource = response.request().headers()['x-palboo-source'] === previousEpoch;
             // Old-document responses can arrive after reload; its body may already be discarded.
             // The earlier staleSave assertion verifies this guard; the current page must save below.
             if (
@@ -373,7 +372,7 @@ test(
       const unauthenticated = await browser.newPage();
       await unauthenticated.goto(`${session.url}/#settings-dev`);
       await unauthenticated.getByText('开发来源 · 无法连接', { exact: true }).waitFor();
-      await unauthenticated.getByRole('alert').filter({ hasText: '尚未连接 Buddy' }).waitFor();
+      await unauthenticated.getByRole('alert').filter({ hasText: '尚未连接 PALBOO' }).waitFor();
       assert.equal(await unauthenticated.getByText('等待本地服务…', { exact: true }).count(), 0);
       await unauthenticated.close();
       const expired = await browser.newPage();

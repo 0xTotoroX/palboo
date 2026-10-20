@@ -31,8 +31,8 @@ test(
     api.listen(0, '127.0.0.1');
     await once(api, 'listening');
     const target = `http://127.0.0.1:${api.address().port}`;
-    const previous = process.env.CODEX_BUDDY_DEV_API;
-    process.env.CODEX_BUDDY_DEV_API = target;
+    const previous = process.env.PALBOO_DEV_API;
+    process.env.PALBOO_DEV_API = target;
     let vite;
     try {
       vite = await createServer({
@@ -64,8 +64,8 @@ test(
       assert.equal((await send('http://127.0.0.1:1')).status, 403);
       assert.equal((await send(origin, 'invalid-token')).status, 401);
     } finally {
-      if (previous === undefined) delete process.env.CODEX_BUDDY_DEV_API;
-      else process.env.CODEX_BUDDY_DEV_API = previous;
+      if (previous === undefined) delete process.env.PALBOO_DEV_API;
+      else process.env.PALBOO_DEV_API = previous;
       await vite?.close();
       api.closeAllConnections();
       await new Promise((resolve) => api.close(resolve));

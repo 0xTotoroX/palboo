@@ -180,6 +180,7 @@ export function claimLease(path, metadata = {}) {
 export function claimTarget(
   host,
   root,
+  // Share the same lease namespace with older worktrees during the rename.
   directory = join(homedir(), 'Library/Caches/codex-buddy/dev-targets'),
 ) {
   const endpoint = new URL(host.endpoint);

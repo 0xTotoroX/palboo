@@ -15,7 +15,7 @@ const compiled = await build({
   bundle: true,
   write: false,
   format: 'iife',
-  define: { CODEX_BUDDY_DEVELOPMENT: 'true' },
+  define: { PALBOO_DEVELOPMENT: 'true' },
 });
 async function fixture(previewEnabled = true) {
   const browser = await chromium.launch({ headless: true });
@@ -40,14 +40,14 @@ async function fixture(previewEnabled = true) {
       menu.setAttribute('role', 'menu');
       const item = document.createElement('button');
       item.setAttribute('role', 'menuitem');
-      item.textContent = window.pluginAvailable ? 'CodexBuddy' : '其他插件';
+      item.textContent = window.pluginAvailable ? 'PALBOO' : '其他插件';
       item.onclick = () => {
         menu.remove();
         setTimeout(() => {
           const tab = document.createElement('button');
           tab.setAttribute('role', 'tab');
           tab.setAttribute('aria-selected', 'true');
-          tab.textContent = 'CodexBuddy';
+          tab.textContent = 'PALBOO';
           tab.onclick = () => tab.setAttribute('aria-selected', 'true');
           tabs.append(tab);
         }, window.createDelay);
@@ -72,8 +72,8 @@ async function fixture(previewEnabled = true) {
     browser,
     page,
     button: page
-      .locator('[data-codex-buddy-launcher]')
-      .getByRole('button', { name: 'CodexBuddy', exact: true }),
+      .locator('[data-palboo-launcher]')
+      .getByRole('button', { name: 'PALBOO', exact: true }),
   };
 }
 test('manual launcher opens official plugin once and follows sessions without stealing same-session tabs', async () => {
@@ -88,11 +88,11 @@ test('manual launcher opens official plugin once and follows sessions without st
     await page.waitForFunction(() => window.opened === 2);
     assert.equal(await page.evaluate(() => window.menuClicks), 1);
     await page
-      .getByRole('tab', { name: 'CodexBuddy' })
+      .getByRole('tab', { name: 'PALBOO' })
       .evaluate((n) => n.setAttribute('aria-selected', 'false'));
     await page.waitForTimeout(650);
     assert.equal(
-      await page.getByRole('tab', { name: 'CodexBuddy' }).getAttribute('aria-selected'),
+      await page.getByRole('tab', { name: 'PALBOO' }).getAttribute('aria-selected'),
       'false',
     );
     await page.evaluate(() => window.switchSession('B'));
@@ -121,10 +121,10 @@ test('missing plugin stops with an error and never opens legacy UI or loops', as
     await page.waitForFunction(
       () =>
         document
-          .querySelector('[data-codex-buddy-launcher]')
+          .querySelector('[data-palboo-launcher]')
           .shadowRoot.querySelector('button')
           .getAttribute('aria-description')
-          .includes('未找到官方 Buddy'),
+          .includes('未找到官方 PALBOO'),
       {},
       { timeout: 7000 },
     );
@@ -149,7 +149,7 @@ test('unrelated menus and in-flight session changes are not adopted', async () =
     await button.click();
     await page.waitForFunction(() =>
       document
-        .querySelector('[data-codex-buddy-launcher]')
+        .querySelector('[data-palboo-launcher]')
         .shadowRoot.querySelector('button')
         .getAttribute('aria-description')
         .includes('请先关闭当前菜单'),
@@ -164,7 +164,7 @@ test('unrelated menus and in-flight session changes are not adopted', async () =
     await page.evaluate(() => window.switchSession('B'));
     await page.waitForFunction(() =>
       document
-        .querySelector('[data-codex-buddy-launcher]')
+        .querySelector('[data-palboo-launcher]')
         .shadowRoot.querySelector('button')
         .getAttribute('aria-description')
         .includes('聊天正在切换'),
@@ -232,7 +232,7 @@ test('two visible main conversations remain ambiguous instead of choosing the fi
     await button.click();
     await page.waitForFunction(() =>
       document
-        .querySelector('[data-codex-buddy-launcher]')
+        .querySelector('[data-palboo-launcher]')
         .shadowRoot.querySelector('button')
         .getAttribute('aria-description')
         .includes('无法唯一识别'),

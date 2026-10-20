@@ -13,15 +13,16 @@ use std::{path::PathBuf, time::Duration};
 
 pub fn bundle(paths: &Paths) -> Result<PathBuf> {
     use std::os::unix::fs::PermissionsExt;
-    let folder = paths.root.join("CodexBuddy Reminders.app");
+    let folder = paths.root.join("PALBOO Reminders.app");
     let contents = folder.join("Contents");
-    let binary = contents.join("MacOS/codex-buddy");
+    let binary = contents.join("MacOS/palboo");
     let id = if cfg!(debug_assertions) {
         format!(
             "org.codexbuddy.reminders.dev.{:x}",
             Sha256::digest(paths.root.to_string_lossy().as_bytes())
         )
     } else {
+        // This permission-holder identity is intentionally stable across the rename.
         "org.codexbuddy.reminders".into()
     };
     // UI-only rebuilds must not replace the native permission holder. Its
@@ -72,7 +73,7 @@ pub fn bundle(paths: &Paths) -> Result<PathBuf> {
     write_private(&binary, &bytes)?;
     std::fs::set_permissions(&binary, std::fs::Permissions::from_mode(0o755))?;
     let plist = format!(
-        r#"<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>CFBundleIdentifier</key><string>{id}</string><key>CFBundleExecutable</key><string>codex-buddy</string><key>CFBundleName</key><string>CodexBuddy Reminders</string><key>CFBundlePackageType</key><string>APPL</string><key>CFBundleVersion</key><string>1</string><key>LSMinimumSystemVersion</key><string>14.0</string><key>LSUIElement</key><true/><key>NSRemindersFullAccessUsageDescription</key><string>将你选择的提醒事项列表与 CodexBuddy 看板双向同步，任务内容仅在本机处理。</string></dict></plist>"#
+        r#"<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>CFBundleIdentifier</key><string>{id}</string><key>CFBundleExecutable</key><string>palboo</string><key>CFBundleName</key><string>PALBOO Reminders</string><key>CFBundlePackageType</key><string>APPL</string><key>CFBundleVersion</key><string>1</string><key>LSMinimumSystemVersion</key><string>14.0</string><key>LSUIElement</key><true/><key>NSRemindersFullAccessUsageDescription</key><string>将你选择的提醒事项列表与 PALBOO 看板双向同步，任务内容仅在本机处理。</string></dict></plist>"#
     );
     write_private(&contents.join("Info.plist"), plist.as_bytes())?;
     let legacy_stamp = contents.join("source.sha256");

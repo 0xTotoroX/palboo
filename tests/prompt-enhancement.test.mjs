@@ -18,7 +18,7 @@ window.setup=()=>installPromptEnhancer({isEnabled:()=>window.enabled,getTarget:(
     },
     bundle: true,
     write: false,
-    define: { CODEX_BUDDY_DEVELOPMENT: 'true' },
+    define: { PALBOO_DEVELOPMENT: 'true' },
   })
 ).outputFiles[0].text;
 
@@ -34,7 +34,7 @@ test('optimize and restore protect drafts, sessions, IME and cancellation withou
     const editor = page.getByLabel('草稿'),
       optimize = () => page.getByRole('button', { name: '优化提示词', exact: true });
     assert.equal(await optimize().isDisabled(), true);
-    const control = page.locator('[data-codex-buddy-prompt] button');
+    const control = page.locator('[data-palboo-prompt] button');
     const firstButton = await control.elementHandle();
     assert.equal(await control.count(), 1);
     const original = '只讨论，不执行。\n保留 $&、$1 和 "引号"。';
@@ -43,7 +43,7 @@ test('optimize and restore protect drafts, sessions, IME and cancellation withou
     assert.equal(await page.getByRole('button', { name: '取消优化' }).count(), 1);
     assert.equal(
       await page.evaluate(() =>
-        window.__codexBuddyPromptEnhancer.verify(window.calls[0].payload.requestId),
+        window.__palbooPromptEnhancer.verify(window.calls[0].payload.requestId),
       ),
       true,
     );
@@ -75,7 +75,7 @@ test('optimize and restore protect drafts, sessions, IME and cancellation withou
     await editor.fill('我正在继续编辑');
     assert.equal(
       await page.evaluate(() =>
-        window.__codexBuddyPromptEnhancer.verify(window.calls.at(-1).payload.requestId),
+        window.__palbooPromptEnhancer.verify(window.calls.at(-1).payload.requestId),
       ),
       false,
     );
@@ -111,7 +111,7 @@ test('optimize and restore protect drafts, sessions, IME and cancellation withou
     await page.evaluate(() => window.setup());
     assert.equal(await optimize().count(), 1);
     await page.evaluate(() => {
-      window.__codexBuddyPromptEnhancer.destroy();
+      window.__palbooPromptEnhancer.destroy();
       document.querySelector('textarea').outerHTML =
         '<div contenteditable="true" aria-label="草稿"><p>第一行</p><p>第二行 $&</p></div>';
       window.setup();
@@ -128,9 +128,9 @@ test('optimize and restore protect drafts, sessions, IME and cancellation withou
     await optimize().click();
     await page.getByRole('status').filter({ hasText: '特殊内容' }).waitFor();
     assert.equal(await page.evaluate(() => window.replies.length), 0);
-    assert.equal(await page.locator('[data-codex-buddy-prompt] [title]').count(), 0);
-    await page.evaluate(() => window.__codexBuddyPromptEnhancer.destroy());
-    assert.equal(await page.locator('[data-codex-buddy-prompt]').count(), 0);
+    assert.equal(await page.locator('[data-palboo-prompt] [title]').count(), 0);
+    await page.evaluate(() => window.__palbooPromptEnhancer.destroy());
+    assert.equal(await page.locator('[data-palboo-prompt]').count(), 0);
   } finally {
     await browser.close();
   }
@@ -160,7 +160,7 @@ test('multiline editor DOM keeps line boundaries and empty lines through optimiz
     ];
     for (const [name, html, original] of cases) {
       await page.evaluate((html) => {
-        window.__codexBuddyPromptEnhancer.destroy();
+        window.__palbooPromptEnhancer.destroy();
         document.querySelector('[contenteditable]').innerHTML = html;
         window.setup();
       }, html);
@@ -235,11 +235,11 @@ test('disabling prompt enhancement removes its control and invalidates pending r
     await page.evaluate(() => (window.enabled = false));
     assert.equal(
       await page.evaluate(() =>
-        window.__codexBuddyPromptEnhancer.verify(window.calls[0].payload.requestId),
+        window.__palbooPromptEnhancer.verify(window.calls[0].payload.requestId),
       ),
       false,
     );
-    await page.waitForFunction(() => !document.querySelector('[data-codex-buddy-prompt]'));
+    await page.waitForFunction(() => !document.querySelector('[data-palboo-prompt]'));
     await page.evaluate(() => window.replies.shift()({ prompt: '已停用的迟到结果' }));
     assert.equal(await page.getByLabel('草稿').inputValue(), '保留的草稿');
     await page.evaluate(() => (window.enabled = true));
@@ -282,9 +282,7 @@ test('CodexHost Agent controls stay stationary with the optimizer mounted beside
       true,
     );
     assert.equal(
-      await page.evaluate(
-        () => document.querySelector('[data-codex-buddy-prompt]').parentElement.id,
-      ),
+      await page.evaluate(() => document.querySelector('[data-palboo-prompt]').parentElement.id),
       'voice',
     );
     await page.evaluate(() => clearInterval(window.check));
@@ -303,24 +301,24 @@ test('input target works without model capabilities and rejects duplicate chat i
     );
     await page.addScriptTag({ content: await readFile('ui/codex/model.js', 'utf8') });
     assert.equal(
-      await page.evaluate(() => window.__codexBuddyModelControl.inputTarget()?.id),
+      await page.evaluate(() => window.__palbooModelControl.inputTarget()?.id),
       'chat-a',
     );
     await page.evaluate(() => document.body.append(document.querySelector('main').cloneNode(true)));
-    assert.equal(await page.evaluate(() => window.__codexBuddyModelControl.inputTarget()), null);
+    assert.equal(await page.evaluate(() => window.__palbooModelControl.inputTarget()), null);
     await page.evaluate(() => {
       document.querySelector('main:last-child').remove();
       document.querySelector('main').dataset.conversationId = 'chat-b';
     });
     assert.equal(
-      await page.evaluate(() => window.__codexBuddyModelControl.inputTarget()?.id),
+      await page.evaluate(() => window.__palbooModelControl.inputTarget()?.id),
       'chat-b',
     );
     await page.evaluate(() => {
       document.body.innerHTML =
         '<main><div data-codex-composer-root><div data-codex-composer contenteditable="true" style="width:400px;height:80px">New draft</div></div></main>';
     });
-    const before = await page.evaluate(() => window.__codexBuddyModelControl.inputTarget()?.id);
+    const before = await page.evaluate(() => window.__palbooModelControl.inputTarget()?.id);
     assert.match(before, /^draft:/);
     await page.evaluate(() =>
       document
@@ -328,7 +326,7 @@ test('input target works without model capabilities and rejects duplicate chat i
         .replaceWith(document.querySelector('[data-codex-composer-root]').cloneNode(true)),
     );
     assert.notEqual(
-      await page.evaluate(() => window.__codexBuddyModelControl.inputTarget()?.id),
+      await page.evaluate(() => window.__palbooModelControl.inputTarget()?.id),
       before,
     );
   } finally {

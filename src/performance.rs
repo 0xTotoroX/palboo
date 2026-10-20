@@ -1,6 +1,6 @@
 // [INPUT]: 本机进程资源计数、已连接 CDP 与配置中的独立性能偏好。
 // [OUTPUT]: 按需采样后台 CPU/物理内存和宿主页指标；不启动常驻分析器，不保存正文。
-// [POS]: 设置诊断服务；CPU 100% 表示一个核心，宿主页内存和长任务不能归因于 Buddy。
+// [POS]: 设置诊断服务；CPU 100% 表示一个核心，宿主页内存和长任务不能归因于 PALBOO。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 use crate::state::App;
 use serde::{Deserialize, Serialize};

@@ -4,10 +4,10 @@
  * [POS]: 工作台布局覆盖；不改变宿主样式或主题配方。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
-[data-codex-buddy-chat-row='true'] {
+[data-palboo-chat-row='true'] {
   flex-direction: row !important;
 }
-[data-codex-buddy-chat-content='true'] {
+[data-palboo-chat-content='true'] {
   flex: 1 1 0% !important;
   min-width: 0 !important;
 }
@@ -18,7 +18,7 @@
   box-sizing: border-box;
   overflow: hidden;
 }
-[data-codex-buddy-dock][data-expanded='true']::after {
+[data-palboo-dock][data-expanded='true']::after {
   content: '';
   position: absolute;
   inset: calc(var(--csw-dock-inset, 0px) + 20px) auto 20px 0;

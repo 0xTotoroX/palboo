@@ -6,8 +6,8 @@
  */
 import { foregroundSurface } from '../../codex/page-context.js';
 import { DOCK_MIN_WIDTH, CHAT_MIN_WIDTH } from './width.js';
-const SLOT = 'data-codex-buddy-dock';
-const OWN_UI = `[${SLOT}],[data-companion-stepwise-root],[data-codex-buddy-features-root]`;
+const SLOT = 'data-palboo-dock';
+const OWN_UI = `[${SLOT}],[data-companion-stepwise-root],[data-palboo-features-root]`;
 const visible = (node) =>
   node && node.getBoundingClientRect().width > 0 && getComputedStyle(node).visibility === 'visible';
 
@@ -119,8 +119,8 @@ export function createDock(onChange, beforeMove = () => {}) {
       if (attachedRoot.parentElement !== document.body) document.body.append(attachedRoot);
       delete attachedRoot.dataset.dockMounted;
     }
-    host?.row.removeAttribute('data-codex-buddy-chat-row');
-    host?.content.removeAttribute('data-codex-buddy-chat-content');
+    host?.row.removeAttribute('data-palboo-chat-row');
+    host?.content.removeAttribute('data-palboo-chat-content');
     slot?.remove();
     slot = null;
     host = null;
@@ -138,12 +138,12 @@ export function createDock(onChange, beforeMove = () => {}) {
       host = found;
       blocked = blockedRows.get(host.row) || false;
       if (host.dialog) {
-        host.row.setAttribute('data-codex-buddy-chat-row', 'true');
-        host.content.setAttribute('data-codex-buddy-chat-content', 'true');
+        host.row.setAttribute('data-palboo-chat-row', 'true');
+        host.content.setAttribute('data-palboo-chat-content', 'true');
       }
       slot = document.createElement('aside');
       slot.setAttribute(SLOT, 'true');
-      slot.setAttribute('aria-label', 'CodexBuddy 工作台入口');
+      slot.setAttribute('aria-label', 'PALBOO 工作台入口');
       slot.style.cssText =
         'order:1;flex:0 0 auto;min-width:0;position:relative;align-self:stretch;overflow:visible;padding:0;border:0;margin:0;box-sizing:border-box;';
       host.row.append(slot);

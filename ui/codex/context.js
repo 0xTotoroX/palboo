@@ -412,7 +412,7 @@ function pinThreadFromTarget(target, reason) {
   if (
     !(target instanceof Element) ||
     shellState.root?.contains(target) ||
-    target.closest('[data-codex-buddy-dock]')
+    target.closest('[data-palboo-dock]')
   )
     return false;
   const root = interactionThreadRoot(target);
@@ -599,8 +599,8 @@ function ignoredComposerContainer(node, targetRoot = null) {
   const blockedAncestor = node.closest(
     [
       `[${ROOT_ATTR}="true"]`,
-      '[data-codex-buddy-dock]',
-      '[data-codex-buddy-features-root]',
+      '[data-palboo-dock]',
+      '[data-palboo-features-root]',
       'nav',
       "[role='dialog']",
       "[aria-modal='true']",

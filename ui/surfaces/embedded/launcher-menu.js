@@ -10,7 +10,7 @@ const actions = [
 ];
 export function createLauncherMenu(anchor, options) {
   const host = document.createElement('div');
-  host.setAttribute('data-codex-buddy-launcher-menu', '');
+  host.setAttribute('data-palboo-launcher-menu', '');
   host.inert = true;
   host.style.cssText =
     'position:relative;display:block;flex:none;align-self:center;pointer-events:none;';
@@ -34,7 +34,7 @@ export function createLauncherMenu(anchor, options) {
     :host([data-keyboard]),:host([data-keyboard]) * {transition:none!important;}
     .status {position:absolute;left:34px;top:-30px;width:210px;font-size:12px;}
     @media(prefers-reduced-motion:reduce) {:host,*{transition:none!important;}}
-  </style><div class="menu-shell"><div class="hit"></div><div role="menu" aria-label="CodexBuddy 快捷菜单">${actions.map(([id, label, title, icon], i) => `<button type="button" role="menuitem" data-action="${id}" aria-label="${title}" style="--top:${6 + i * 57}px;--delay:${(2 - i) * 20}ms" tabindex="-1">${iconSvg(icon)}<span>${label}</span></button>`).join('')}</div></div><span class="status" role="status"></span>`;
+  </style><div class="menu-shell"><div class="hit"></div><div role="menu" aria-label="PALBOO 快捷菜单">${actions.map(([id, label, title, icon], i) => `<button type="button" role="menuitem" data-action="${id}" aria-label="${title}" style="--top:${6 + i * 57}px;--delay:${(2 - i) * 20}ms" tabindex="-1">${iconSvg(icon)}<span>${label}</span></button>`).join('')}</div></div><span class="status" role="status"></span>`;
   anchor.before(host);
   let open = false,
     enterTimer = 0,

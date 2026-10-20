@@ -11,7 +11,7 @@ import { spawn, execFileSync } from 'node:child_process';
 import { build } from 'esbuild';
 const root = resolve(import.meta.dirname, '..'),
   dir = await mkdtemp(join(tmpdir(), 'buddy-window-controls-'));
-const binary = join(root, 'target/debug/codex-buddy');
+const binary = join(root, 'target/debug/palboo');
 let latest,
   commands = [],
   child;
@@ -105,7 +105,7 @@ try {
   );
   child = spawn(binary, ['--data-dir', dir, 'panel-window', '--lease', 'fixture'], {
     stdio: 'pipe',
-    env: { ...process.env, CODEX_BUDDY_DEV_GENIE: '0' },
+    env: { ...process.env, PALBOO_DEV_GENIE: '0' },
   });
   await wait(
     () => latest?.ready && latest?.state && !latest.state.hidden && bounds(),

@@ -836,10 +836,10 @@ test(
       await themeButton('浅色').waitFor({ state: 'attached' });
       assert.equal(await themeButton('浅色').getAttribute('aria-pressed'), 'true');
       await expectTheme('light');
-      await peer.evaluate(() => localStorage.setItem('codex-buddy-settings-theme', 'unknown'));
+      await peer.evaluate(() => localStorage.setItem('palboo-settings-theme', 'unknown'));
       publishTheme('dark');
       await expectTheme('light'); // Invalid browser storage cannot replace a saved server preference.
-      await peer.evaluate(() => localStorage.removeItem('codex-buddy-settings-theme'));
+      await peer.evaluate(() => localStorage.removeItem('palboo-settings-theme'));
       await chooseTheme('自动');
       await peer.close();
       assert.equal(
@@ -941,12 +941,12 @@ test(
         const get = Storage.prototype.getItem,
           set = Storage.prototype.setItem;
         Storage.prototype.getItem = function (key) {
-          if (key === 'codex-buddy-settings-theme')
+          if (key === 'palboo-settings-theme')
             throw new DOMException('Storage unavailable', 'SecurityError');
           return get.call(this, key);
         };
         Storage.prototype.setItem = function (key, value) {
-          if (key === 'codex-buddy-settings-theme')
+          if (key === 'palboo-settings-theme')
             throw new DOMException('Storage unavailable', 'SecurityError');
           return set.call(this, key, value);
         };

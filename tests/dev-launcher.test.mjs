@@ -580,7 +580,7 @@ end script
 test(
   'native launcher shows in Dock and cooperatively activates an existing window',
   {
-    skip: process.platform !== 'darwin' || process.env.CODEX_BUDDY_NATIVE_LAUNCHER_TEST !== '1',
+    skip: process.platform !== 'darwin' || process.env.PALBOO_NATIVE_LAUNCHER_TEST !== '1',
     timeout: 30000,
   },
   async () => {
@@ -605,7 +605,7 @@ if CommandLine.arguments.count > 1 {
         try! Data("active".utf8).write(to: URL(fileURLWithPath: ${JSON.stringify(join(root, 'activated'))}))
     }
     let window = NSWindow(contentRect: NSRect(x:100,y:100,width:300,height:180), styleMask:[.titled], backing:.buffered, defer:false)
-    window.title = "CodexBuddy launcher test"
+    window.title = "PALBOO launcher test"
     window.makeKeyAndOrderFront(nil)
     try! Data("ready".utf8).write(to: URL(fileURLWithPath: ${JSON.stringify(join(root, 'ready'))}))
     app.run()
@@ -624,12 +624,12 @@ if CommandLine.arguments.count > 1 {
         '-replace',
         'CFBundleIdentifier',
         '-string',
-        'local.codex-buddy.launcher-test',
+        'local.palboo.launcher-test',
         join(app, 'Contents/Info.plist'),
       ]);
       await run('/usr/bin/codesign', ['--force', '--sign', '-', app]);
       const inspect = async () =>
-        JSON.parse((await run(probe, ['local.codex-buddy.launcher-test'])).stdout);
+        JSON.parse((await run(probe, ['local.palboo.launcher-test'])).stdout);
       for (let i = 0; i < 100 && !existsSync(join(root, 'ready')); i++) await delay(20);
       assert.ok(existsSync(join(root, 'ready')));
       rmSync(join(root, 'activated'), { force: true });

@@ -43,7 +43,7 @@ function fixture() {
     sent,
     timers,
     listeners,
-    read: (active = true) => JSON.parse(JSON.stringify(window.__codexBuddyUsage.read(active))),
+    read: (active = true) => JSON.parse(JSON.stringify(window.__palbooUsage.read(active))),
     event,
     reply: (
       result,

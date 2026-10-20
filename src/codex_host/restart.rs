@@ -1,6 +1,6 @@
 // [INPUT]: 已关闭的 CodexHost 配置、当前宿主身份与 Dev 会话记录。
 // [OUTPUT]: 显式重启停用的私有进度；独立协调进程跨越 Dev 的退出清理。
-// [POS]: 只协调 Buddy 现有退出/启动入口，不修改上游代码或执行热卸载。
+// [POS]: 只协调 PALBOO 现有退出/启动入口，不修改上游代码或执行热卸载。
 // [PROTOCOL]: 变更时同步 codex_host/AGENTS.md、src/AGENTS.md 与共享状态类型。
 use crate::{
     config::{HostRestartPolicy, Paths, write_private},
@@ -71,7 +71,7 @@ pub fn clear(paths: &Paths) -> Result<()> {
 pub fn status(paths: &Paths) -> Value {
     read(paths).map_or(Value::Null, |job| {
         if ["queued", "confirming", "restarting"].contains(&job.state.as_str()) && !active(&job) {
-            json!({"state":"failed","message":"重启协调进程已退出，请重试；可从 Buddy 重新打开 Codex。"})
+            json!({"state":"failed","message":"重启协调进程已退出，请重试；可从 PALBOO 重新打开 Codex。"})
         } else {
             json!({"state":job.state,"message":job.message})
         }
@@ -122,7 +122,7 @@ fn dev_context(paths: &Paths) -> Result<Option<Dev>> {
     );
     ensure!(
         [expected.clone(), format!("{expected} --exit-with-host")].contains(&args),
-        "此操作需要由 CodexBuddy Dev.app 启动的会话；终端 Dev 请先退出后重新打开"
+        "此操作需要由 PALBOO Dev.app 启动的会话；终端 Dev 请先退出后重新打开"
     );
     ensure!(
         controller.join("scripts/dev-launcher.mjs").is_file(),
@@ -147,7 +147,7 @@ pub async fn schedule(app: &App, input: &Value) -> Result<()> {
         .await?
         .context("CodexHost 已停用，无需重启")?;
     let desktop = host::find_desktop().context("找不到 Codex 程序")?;
-    let pid = host::desktop_process(&desktop)?.context("Codex 已退出，请从 Buddy 重新打开")?;
+    let pid = host::desktop_process(&desktop)?.context("Codex 已退出，请从 PALBOO 重新打开")?;
     let view = app.view();
     let endpoint = view
         .connection
@@ -329,7 +329,7 @@ async fn execute(
             }
             ensure!(
                 tokio::time::Instant::now() < deadline,
-                "CodexHost 仍在退出，请稍后从 Buddy 重新打开"
+                "CodexHost 仍在退出，请稍后从 PALBOO 重新打开"
             );
             tokio::time::sleep(Duration::from_millis(250)).await;
         }

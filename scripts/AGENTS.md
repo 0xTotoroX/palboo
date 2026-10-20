@@ -8,7 +8,7 @@ npm 命令进入开发、构建、审计、安装和验证编排工具；具体�
 
 成员清单：
 
-- [dev-launcher.mjs](dev-launcher.mjs)：install:dev 生成独立 CodexBuddy Dev.app，首次后台执行带 --restart-running 的开发流程，日志写入 launcher.log；按开发配置（首次回退日常配置）的策略准备无连接宿主；重复打开按 session 中所选来源唤起工作台，dev:settings 打开固定开发设置地址；失联重连原目标，失败显式提示，并发启动的失败记录不干扰已取得占用的会话；--stop 校验进程身份后正常退出后台会话。Applet 启动期间显示 Dock 图标，经 AppKit 协作交接焦点后退出；连接成功后的前台切换失败仅发系统通知，通知异常不升级为弹窗；不更新日常安装，复用 launcher 的图标生成。
+- [dev-launcher.mjs](dev-launcher.mjs)：install:dev 生成独立 PALBOO Dev.app，首次后台执行带 --restart-running 的开发流程，日志写入 launcher.log；按开发配置（首次回退日常配置）的策略准备无连接宿主；重复打开按 session 中所选来源唤起工作台，dev:settings 打开固定开发设置地址；失联重连原目标，失败显式提示，并发启动的失败记录不干扰已取得占用的会话；--stop 校验进程身份后正常退出后台会话。Applet 启动期间显示 Dock 图标，经 AppKit 协作交接焦点后退出；连接成功后的前台切换失败仅发系统通知，通知异常不升级为弹窗；不更新日常安装，复用 launcher 的图标生成。
 - [dev.mjs](dev.mjs)：真实 Codex 开发入口，管理独立后台、源码监听和编译失败回退，独立模型控制资源变化随原生后台重建；持有宿主目标与所选 worktree 租约，先绑定统一设置服务地址再传给开发后台齿轮，每个来源独立 Vite 缓存并去重 React；先编译后交接来源、失败回退，切换 Vite/监听/后台而不重启宿主；启动前先发现可调试宿主；显式 --restart-running 时先构建当前 CLI，再通过 host-only 模式准备宿主，仅在接管安装版后启用退出恢复，含占用获取和初始化在内的失败原因与进程 ID 写入私有 launcher-error.json，退出只清理本次会话记录；Ctrl+C 清理自身进程并恢复安装版连接。
 - [material-preview.mjs](material-preview.mjs)：`dev:materials` 入口，将 Swift 对照工具编译到 target/material-preview 后打开；`--check` 验证同步控制，`--package` 在 dist/material-preview 生成自带程序和 GPL-3.0-only 完整许可包的独立 App，并输出 ZIP；source/ 同时导出源码、独立构建入口和说明，可脱离主仓库二次开发；不修改安装版或产品偏好。
 - [material-preview.swift](material-preview.swift)：14 种 NSVisualEffectView 材质的原生并排对照；独立背景窗口提供重复图案，统一切换外观、焦点状态与背景，支持真实桌面采样；标题栏固定不透明底色并跟随预览明暗。
@@ -21,7 +21,7 @@ npm 命令进入开发、构建、审计、安装和验证编排工具；具体�
 
 - [build-panel.mjs](build-panel.mjs)：从 ui/codex/runtime/lifecycle.js 入口解析 ES modules，输出可重复注入的脚本，供 Cargo 内嵌。
 - [install.mjs](install.mjs)：源码安装入口，不修改 shell PATH；本地 CLI / .app 启动器安装、旧默认数据目录迁移、旧程序保留和服务恢复；App 默认位于 /Applications。
-- [launcher.mjs](launcher.mjs)：为安装器生成带本地签名的 CodexBuddy.app；从 ui/icon.png 生成多尺寸 ICNS 并绑定应用图标；双击调用 launch --restart-running 按设置处理缺少连接的宿主，取消不再弹错误；连接后在受支持系统弹出，以后台应用方式运行、不显示运行中的 Dock 图标；macOS 14 遇到浮窗门槛时保留内嵌，其他错误用系统对话框显示。
+- [launcher.mjs](launcher.mjs)：为安装器生成带本地签名的 PALBOO.app；从 ui/icon.png 生成多尺寸 ICNS 并绑定应用图标；双击调用 launch --restart-running 按设置处理缺少连接的宿主，取消不再弹错误；连接后在受支持系统弹出，以后台应用方式运行、不显示运行中的 Dock 图标；macOS 14 遇到浮窗门槛时保留内嵌，其他错误用系统对话框显示。
 - [package.mjs](package.mjs)：本地打包入口，构建并校验当前 release、最低系统版本及许可；归档自带与其文件匹配的使用说明；生成 macOS arm64 分发目录、manifest、包内程序 SHA256SUMS、程序 tar.gz；清理旧版生成的发布校验稿，Release 直接使用已审核的版本说明，不展示摘要或校验命令，不生成独立源码包或归档校验附件；使用 GitHub 标签归档交付 GPL 对应源码前，须核对该精确修订实际可用并包含必要构建、安装材料，旧标签不能替代。
 - [project-licenses.mjs](project-licenses.mjs)：验证完整 GPL 原文、历史 MIT 原文及授权范围，并为主程序与独立材质工具复制统一许可包。
 - [source-audit.mjs](source-audit.mjs)：Git 与无 Git 源码目录共用文件清单，供审计、打包和测试复用；无 Git 时排除构建目录，拒绝私有文件与符号链接。核对包名、固定 GPL-3.0-only 元数据、完整许可与历史原文，并拒绝历史排除的上游诊断标记、私有文档、运行配置、凭据和个人绝对路径。
@@ -59,3 +59,7 @@ Dev 租约先在同目录写完整私有临时文件，再通过独占硬链接�
 独立功能资源修订同时覆盖业务 bundle 和开发回读客户端；仅回读脚本改变也触发保存草稿后的页面更新，避免运行旧诊断代码。
 
 verify 追加 config-cli.mjs，以隔离真实后台验证配置命令与数据保留；不访问用户后台或提醒事项。
+
+- `brand.mjs`：当前/旧环境变量兼容，新变量优先；按所选源码包名选择旧或新可执行文件，兼容未迁移 worktree。install 在已核验的旧程序正常停止后调用新程序的本地 schema 路径执行数据迁移；新 CLI 与启动器成功后归档旧启动器和程序，并建立旧命令别名。
+
+开发目标独占记录保留原 codex-buddy 缓存命名空间，确保旧源码 worktree 和 PALBOO 共享同一把锁；它不属于产品显示名。

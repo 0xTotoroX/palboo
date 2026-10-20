@@ -42,7 +42,7 @@ try {
   const debugPort = reserve.address().port;
   await new Promise((r) => reserve.close(r));
   chrome = await chromium.launchServer({
-    executablePath: process.env.CODEX_BUDDY_CHROME_BIN || undefined,
+    executablePath: process.env.PALBOO_CHROME_BIN || undefined,
     headless: true,
     args: [`--remote-debugging-port=${debugPort}`],
   });
@@ -85,8 +85,9 @@ try {
     join(directory, 'panel.json'),
     JSON.stringify({ ui: { layoutMode: 'workbench', dockOpen: true } }),
   );
-  for (const key of Object.keys(env)) if (/^(CODEX_BUDDY_|COMPANION_)/.test(key)) delete env[key];
-  env.CODEX_BUDDY_PANEL_TEST = '1';
+  for (const key of Object.keys(env))
+    if (/^(PALBOO_|CODEX_BUDDY_|COMPANION_)/.test(key)) delete env[key];
+  env.PALBOO_PANEL_TEST = '1';
   service = spawn(
     artifact.binary,
     ['--data-dir', directory, 'serve', '--port', '0', '--allow-fixture'],
@@ -117,7 +118,7 @@ try {
   await page.waitForFunction(() => window.__companionFloatingPanel?.state.dockStatus === 'open');
   assert.equal((await state()).mainManaged, false);
   assert.equal((await entry('model')).placement, 'edge');
-  assert.equal(await page.locator('[data-codex-buddy-dock]').count(), 1);
+  assert.equal(await page.locator('[data-palboo-dock]').count(), 1);
   assert.ok(await page.locator('.csw-panel').isVisible());
   record('restored model edge window preserves the legacy sidebar before main content migration');
   let tasks = await api('tasks/state');

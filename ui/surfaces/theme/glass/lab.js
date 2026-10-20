@@ -7,13 +7,11 @@
 import { createSvgGlass } from './svg.js';
 
 const host =
-  /** @type {Window & {__codexBuddyGlassLab?: {destroy: () => void, status: () => object}}} */ (
-    window
-  );
-host.__codexBuddyGlassLab?.destroy();
+  /** @type {Window & {__palbooGlassLab?: {destroy: () => void, status: () => object}}} */ (window);
+host.__palbooGlassLab?.destroy();
 try {
-  localStorage.removeItem('codex-buddy-dev:glass-engine');
-  localStorage.removeItem('codex-buddy-dev:glass-comparison');
+  localStorage.removeItem('palboo-dev:glass-engine');
+  localStorage.removeItem('palboo-dev:glass-comparison');
 } catch {}
 let root, surface, glass, resize, observer;
 let frame = 0;
@@ -93,19 +91,19 @@ function onStop(event) {
 }
 function destroy() {
   stop();
-  window.removeEventListener('codex-buddy:appearance', sync);
-  window.removeEventListener('codex-buddy:stop', onStop);
+  window.removeEventListener('palboo:appearance', sync);
+  window.removeEventListener('palboo:stop', onStop);
   window.removeEventListener('focus', focusChanged);
   window.removeEventListener('blur', focusChanged);
   reduced.removeEventListener('change', sync);
-  delete host.__codexBuddyGlassLab;
+  delete host.__palbooGlassLab;
 }
-host.__codexBuddyGlassLab = {
+host.__palbooGlassLab = {
   destroy,
   status: () => ({ selected: 'svg', variant: variant(), backend: 'SVG', phase, ms: 0, frames: 0 }),
 };
-window.addEventListener('codex-buddy:appearance', sync);
-window.addEventListener('codex-buddy:stop', onStop);
+window.addEventListener('palboo:appearance', sync);
+window.addEventListener('palboo:stop', onStop);
 window.addEventListener('focus', focusChanged);
 window.addEventListener('blur', focusChanged);
 reduced.addEventListener('change', sync);

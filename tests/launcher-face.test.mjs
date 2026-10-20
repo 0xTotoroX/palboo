@@ -25,7 +25,7 @@ window.stopLauncher=stopLauncher;window.refresh('idle');window.originalEye=launc
   },
   bundle: true,
   write: false,
-  define: { CODEX_BUDDY_DEVELOPMENT: 'true' },
+  define: { PALBOO_DEVELOPMENT: 'true' },
 });
 test('launcher reuses original expressions and source geometry while retaining its menu', async () => {
   const browser = await chromium.launch({ headless: true });
@@ -37,11 +37,11 @@ test('launcher reuses original expressions and source geometry while retaining i
     const avatarBefore = await page.locator('#avatar').boundingBox();
     await page.addScriptTag({ content: compiled.outputFiles[0].text });
     const eye = page
-      .locator('[data-codex-buddy-launcher]')
-      .getByRole('button', { name: 'CodexBuddy', exact: true });
+      .locator('[data-palboo-launcher]')
+      .getByRole('button', { name: 'PALBOO', exact: true });
     assert.equal(await eye.locator('.csw-fab-eye').count(), 2);
     assert.equal(await eye.getAttribute('data-source-direction'), 'left');
-    assert.equal(await page.locator('[data-codex-buddy-launcher] .divider').count(), 0);
+    assert.equal(await page.locator('[data-palboo-launcher] .divider').count(), 0);
     assert.deepEqual(await page.locator('#avatar').boundingBox(), avatarBefore);
     const eyeBox = await eye.boundingBox();
     const profileBox = await page.locator('#profile').boundingBox();
@@ -95,7 +95,7 @@ test('launcher reuses original expressions and source geometry while retaining i
     assert.equal(await page.evaluate(() => window.clicks), 1);
     await eye.focus();
     await page.keyboard.press('ArrowRight');
-    const menu = page.locator('[data-codex-buddy-launcher-menu]');
+    const menu = page.locator('[data-palboo-launcher-menu]');
     assert.deepEqual(await eye.boundingBox(), eyeBox, 'menu opens upward without moving eyes');
     assert.deepEqual(await page.locator('#avatar').boundingBox(), avatarBefore);
     await menu.getByRole('menuitem', { name: '打开设置' }).click();
@@ -266,7 +266,7 @@ test('launcher reuses original expressions and source geometry while retaining i
       window.feedbackNode = window.currentEye().querySelector('.csw-fab-face');
     });
     await page.evaluate(() => window.stopLauncher());
-    assert.equal(await page.locator('[data-codex-buddy-launcher]').count(), 0);
+    assert.equal(await page.locator('[data-palboo-launcher]').count(), 0);
     assert.equal(await menu.count(), 0);
     assert.equal(
       await page.evaluate(() => window.feedbackNode.getAnimations().length),

@@ -41,7 +41,7 @@ export async function checkPopout({
     style.setProperty('--color-token-charts-blue', 'rgb(48, 164, 108)');
     return old;
   });
-  await desktop.getByRole('button', { name: 'CodexBuddy', exact: true }).dblclick({ delay: 80 });
+  await desktop.getByRole('button', { name: 'PALBOO', exact: true }).dblclick({ delay: 80 });
   await waitFor(
     async () =>
       !(await desktop.evaluate(() => window.__companionFloatingPanel.state.detachPending)),
@@ -123,7 +123,7 @@ export async function checkPopout({
   const settle = () =>
     waitFor(async () => (await state()) && !(await state()).busy, 'Popout transition stuck');
   const launcherAnchor = () =>
-    desktop.getByRole('button', { name: 'CodexBuddy', exact: true }).evaluate((button) => {
+    desktop.getByRole('button', { name: 'PALBOO', exact: true }).evaluate((button) => {
       const rect = button.getBoundingClientRect();
       const border = Math.max(0, (outerWidth - innerWidth) / 2);
       const titlebar = Math.max(0, outerHeight - innerHeight - border);
@@ -900,7 +900,7 @@ export async function checkPopout({
     // 主界面收起时，左栏首击可能已在 100ms 后展开；双击仍须记住首击前的状态。
     await desktop.evaluate(() => window.__companionFloatingPanel.setOpen(false));
     await settle();
-    await desktop.getByRole('button', { name: 'CodexBuddy', exact: true }).dblclick({ delay: 180 });
+    await desktop.getByRole('button', { name: 'PALBOO', exact: true }).dblclick({ delay: 180 });
     await waitFor(
       async () =>
         !(await desktop.evaluate(() => window.__companionFloatingPanel.state.detachPending)),

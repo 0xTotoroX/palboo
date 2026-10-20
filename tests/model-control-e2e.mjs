@@ -1,5 +1,5 @@
 /*
- * [INPUT]: Caller-built CODEX_BUDDY_TEST_BINARY (default target/debug/codex-buddy), synthetic Chrome.
+ * [INPUT]: Caller-built PALBOO_TEST_BINARY (default target/debug/palboo), synthetic Chrome.
  * [OUTPUT]: Authenticated HTTP -> Rust -> real CDP -> embedded host.js -> official fixture readback.
  * [POS]: Bounded standalone integration test; no live-host discovery, build, native window or model calls.
  * [PROTOCOL]: Parent prepares the binary and integrates verify/maps. Only fixture setup uses page.evaluate;
@@ -24,10 +24,8 @@ import { chromium } from 'playwright';
 import { records, installModelControlFixture } from './model-control-fixture.mjs';
 
 const root = resolve(import.meta.dirname, '..');
-const binary = resolve(
-  process.env.CODEX_BUDDY_TEST_BINARY || join(root, 'target/debug/codex-buddy'),
-);
-assert.ok(existsSync(binary), 'Build the test binary first, or set CODEX_BUDDY_TEST_BINARY');
+const binary = resolve(process.env.PALBOO_TEST_BINARY || join(root, 'target/debug/palboo'));
+assert.ok(existsSync(binary), 'Build the test binary first, or set PALBOO_TEST_BINARY');
 const output = join(root, 'target/reports/model-control-e2e');
 mkdirSync(output, { recursive: true });
 const report = {
@@ -46,6 +44,7 @@ const record = (name) => {
 let service,
   chromeServer,
   browser,
+  settingsPage,
   runtime,
   serviceError = '',
   serviceLog = '',
@@ -108,7 +107,7 @@ try {
   await new Promise((done) => reserve.close(done));
 
   chromeServer = await chromium.launchServer({
-    executablePath: process.env.CODEX_BUDDY_CHROME_BIN || undefined,
+    executablePath: process.env.PALBOO_CHROME_BIN || undefined,
     headless: true,
     timeout: 10000,
     args: [`--remote-debugging-port=${debugPort}`, '--remote-debugging-address=127.0.0.1'],
@@ -125,7 +124,7 @@ try {
   await page.goto(`${fixtureOrigin}/fixture?selected=1`);
   await decoy.goto(`${fixtureOrigin}/fixture?decoy=1`);
   await page.bringToFront();
-  assert.equal(await page.evaluate(() => typeof window.__codexBuddyModelControl), 'undefined');
+  assert.equal(await page.evaluate(() => typeof window.__palbooModelControl), 'undefined');
   const cdp = await context.newCDPSession(page);
   const { targetInfo } = await cdp.send('Target.getTargetInfo');
   await cdp.detach();
@@ -157,11 +156,12 @@ try {
     }),
     { mode: 0o600 },
   );
-  const env = { ...process.env, CODEX_BUDDY_PANEL_TEST: '1' };
+  const env = { ...process.env, PALBOO_PANEL_TEST: '1' };
   // Do not inherit development asset overrides, real credentials or model routing from the caller.
-  for (const key of Object.keys(env)) if (/^(CODEX_BUDDY_|COMPANION_)/.test(key)) delete env[key];
-  env.CODEX_BUDDY_PANEL_TEST = '1';
-  env.RUST_LOG = 'codex_buddy=debug';
+  for (const key of Object.keys(env))
+    if (/^(PALBOO_|CODEX_BUDDY_|COMPANION_)/.test(key)) delete env[key];
+  env.PALBOO_PANEL_TEST = '1';
+  env.RUST_LOG = 'palboo=debug';
   service = spawn(binary, ['--data-dir', directory, 'serve', '--port', '0', '--allow-fixture'], {
     cwd: tmpdir(),
     env,
@@ -209,14 +209,12 @@ try {
   const fast = { model: 'alpha', reasoning: 'high', speed: 'fast' };
   const beta = { model: 'beta', reasoning: 'high', speed: 'standard' };
   try {
-    await page.waitForFunction(
-      () => typeof window.__codexBuddyModelControl?.snapshot === 'function',
-    );
+    await page.waitForFunction(() => typeof window.__palbooModelControl?.snapshot === 'function');
   } catch (error) {
     report.startup = {
       connection: (await request('state')).body.connection,
       page: await page.evaluate(() => ({
-        adapter: typeof window.__codexBuddyModelControl,
+        adapter: typeof window.__palbooModelControl,
         panel: !!window.__companionFloatingPanel,
         settingsLoaded: window.__companionFloatingPanel?.state.settingsLoaded,
       })),
@@ -356,14 +354,12 @@ try {
   await page.reload();
   // No test-side injection: this must come from backend Page.addScriptToEvaluateOnNewDocument.
   try {
-    await page.waitForFunction(
-      () => typeof window.__codexBuddyModelControl?.snapshot === 'function',
-    );
+    await page.waitForFunction(() => typeof window.__palbooModelControl?.snapshot === 'function');
   } catch (error) {
     report.startup = {
       connection: (await request('state')).body.connection,
       page: await page.evaluate(() => ({
-        adapter: typeof window.__codexBuddyModelControl,
+        adapter: typeof window.__palbooModelControl,
         panel: !!window.__companionFloatingPanel,
         settingsLoaded: window.__companionFloatingPanel?.state.settingsLoaded,
       })),
@@ -386,14 +382,12 @@ try {
 
   await page.goto(`${fixtureOrigin}/fixture?modern=1`);
   try {
-    await page.waitForFunction(
-      () => typeof window.__codexBuddyModelControl?.snapshot === 'function',
-    );
+    await page.waitForFunction(() => typeof window.__palbooModelControl?.snapshot === 'function');
   } catch (error) {
     report.startup = {
       connection: (await request('state')).body.connection,
       page: await page.evaluate(() => ({
-        adapter: typeof window.__codexBuddyModelControl,
+        adapter: typeof window.__palbooModelControl,
         panel: !!window.__companionFloatingPanel,
         settingsLoaded: window.__companionFloatingPanel?.state.settingsLoaded,
       })),
@@ -446,13 +440,13 @@ try {
     'Ultra follows the selected model through authenticated Rust/CDP apply and official readback',
   );
 
-  assert.equal(await decoy.evaluate(() => typeof window.__codexBuddyModelControl), 'undefined');
+  assert.equal(await decoy.evaluate(() => typeof window.__palbooModelControl), 'undefined');
   assert.equal(await decoy.evaluate(() => host.triggerEvents), 0);
   assert.deepEqual(await page.evaluate(() => host.unexpected), []);
   assert.deepEqual(unexpectedRequests, []);
   assert.deepEqual(pageErrors, []);
   record('decoy target untouched; no model requests or page errors');
-  const settingsPage = await browser.newPage({ viewport: { width: 1100, height: 900 } });
+  settingsPage = await browser.newPage({ viewport: { width: 1100, height: 900 } });
   settingsPage.on('pageerror', (error) => pageErrors.push(error.message));
   await settingsPage.goto(`${base}/#token=${runtime.token}`);
   {
@@ -615,6 +609,17 @@ try {
   report.passed = true;
 } catch (error) {
   report.errors.push(String(error.stack || error));
+  if (settingsPage && !settingsPage.isClosed()) {
+    report.settingsFailure = await settingsPage
+      .evaluate(() => ({
+        title: document.title,
+        width: innerWidth,
+        links: [...document.querySelectorAll('nav a')].map((node) => node.textContent),
+        text: document.body.innerText.slice(0, 6000),
+      }))
+      .catch(() => null);
+    await settingsPage.screenshot({ path: join(output, 'settings-failure.png') }).catch(() => {});
+  }
   if (serviceLog)
     report.serviceLog = serviceLog.replaceAll(runtime?.token || 'never-match-token', '[redacted]');
   console.error(error);

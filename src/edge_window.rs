@@ -68,7 +68,7 @@ impl HitRegion {
 
 define_class!(
     #[unsafe(super = NSView)]
-    #[name = "CodexBuddyEdgeView"]
+    #[name = "PALBOOEdgeView"]
     #[thread_kind = MainThreadOnly]
     #[ivars = HitRegion]
     struct ControlView;
@@ -85,7 +85,7 @@ define_class!(
 define_class!(
     // 创建真实 NSPanel 子类；从不更改 Tao/NSWindow 的 Objective-C isa。
     #[unsafe(super = NSPanel)]
-    #[name = "CodexBuddyEdgePanel"]
+    #[name = "PALBOOEdgePanel"]
     #[thread_kind = MainThreadOnly]
     #[ivars = KeyboardGate]
     struct ControlPanel;

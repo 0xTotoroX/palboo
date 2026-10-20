@@ -72,13 +72,13 @@ jobs:
           version="${RELEASE_TAG#v}"
           notes=".github/release-notes/$RELEASE_TAG.md"
           assets=(
-            "dist/codex-buddy-$version-darwin-arm64.tar.gz"
+            "dist/palboo-$version-darwin-arm64.tar.gz"
           )
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             echo 'Release already exists; refusing to overwrite published assets.' >&2
             exit 1
           fi
-          gh release create "$RELEASE_TAG" "${assets[@]}" --verify-tag --draft --title "CodexBuddy $RELEASE_TAG" --notes-file "$notes"
+          gh release create "$RELEASE_TAG" "${assets[@]}" --verify-tag --draft --title "PALBOO $RELEASE_TAG" --notes-file "$notes"
           gh release edit "$RELEASE_TAG" --draft=false --latest
 
       - name: Preserve release reports on failure

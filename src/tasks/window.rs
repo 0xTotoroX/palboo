@@ -31,7 +31,7 @@ pub fn run(paths: &Paths, lease: &str) -> Result<()> {
     let store = super::Service::load(paths);
     let size = store.inner.try_lock().unwrap().store.window_size;
     let window = WindowBuilder::new()
-        .with_title("CodexBuddy · 任务看板")
+        .with_title("PALBOO · 任务看板")
         .with_resizable(true)
         .with_inner_size(LogicalSize::new(size[0], size[1]))
         .with_min_inner_size(LogicalSize::new(640, 420))

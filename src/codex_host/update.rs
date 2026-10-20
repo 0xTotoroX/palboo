@@ -22,7 +22,7 @@ pub fn version_tuple(value: &str) -> Result<(u64, u64, u64)> {
 pub async fn check() -> Result<Value> {
     let release: Value = reqwest::Client::builder()
         .timeout(Duration::from_secs(20))
-        .user_agent("CodexBuddy")
+        .user_agent("PALBOO")
         .build()?
         .get("https://api.github.com/repos/BytePioneer-AI/codex-host/releases/latest")
         .send()

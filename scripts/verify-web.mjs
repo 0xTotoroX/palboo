@@ -4,6 +4,7 @@
  * [POS]: 可在 Linux 运行的前端试点；不替代 verify、原生验收或发布门禁。
  * [PROTOCOL]: 变更时核对 scripts/AGENTS.md 与根地图。
  */
+import './brand.mjs';
 import { spawnSync } from 'node:child_process';
 import {
   existsSync,
@@ -30,14 +31,14 @@ const readLimit = (name) => {
 };
 const browser =
   process.env.CHROME_PATH ||
-  process.env.CODEX_BUDDY_CHROME_BIN ||
+  process.env.PALBOO_CHROME_BIN ||
   (process.platform === 'linux' && existsSync('/usr/bin/chromium')
     ? '/usr/bin/chromium'
     : undefined);
 const env = { ...process.env };
 if (browser) {
   env.CHROME_PATH = browser;
-  env.CODEX_BUDDY_CHROME_BIN = browser;
+  env.PALBOO_CHROME_BIN = browser;
 }
 const report = {
   scope: 'Frontend and synthetic browser pilot; not full product verification',

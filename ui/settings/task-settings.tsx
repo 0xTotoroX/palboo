@@ -156,7 +156,7 @@ export function TaskSettings({ tasks }: { tasks: ReturnType<typeof useTasks> }) 
             </Button>
           </div>
           <p className="text-[14px] text-muted-foreground">
-            一个列表，只同步标题、备注和完成状态。待办、进行中和归档仅在 Buddy
+            一个列表，只同步标题、备注和完成状态。待办、进行中和归档仅在 PALBOO
             内管理；归档不会删除提醒事项。
           </p>
           {!currentId && hasLinks && (

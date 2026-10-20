@@ -256,7 +256,7 @@ function WorkspacePreview({
           data-variant={theme?.liquidVariant}
         >
           <div className="preview-workspace-head">
-            <strong>CodexBuddy</strong>
+            <strong>PALBOO</strong>
             <Icon name={location === 'desktop' ? 'pin' : 'more'} />
           </div>
           {!ready ? (
@@ -511,7 +511,7 @@ function ConnectionPreview({ view, live, form }: PreviewProps) {
                 ? '页面暂未响应'
                 : '等待桌面连接'}
         </strong>
-        <span>CodexBuddy → ChatGPT</span>
+        <span>PALBOO → ChatGPT</span>
       </div>
       <Facts
         items={[

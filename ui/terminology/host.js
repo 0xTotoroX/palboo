@@ -1,5 +1,5 @@
 import { measureWork } from '../shared/performance.js';
-/* [INPUT]: Buddy 已识别的聊天根节点、一问一答与受限后台请求。
+/* [INPUT]: PALBOO 已识别的聊天根节点、一问一答与受限后台请求。
  * [OUTPUT]: 术语加粗标注、悬停释义与按聊天身份定位已确认范围；销毁恢复自有高亮，不改变宿主正文。
  * [POS]: 术语显示旁路；不读取输入草稿、不向主聊天写内容。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
@@ -8,9 +8,9 @@ import { textIndex, semanticSpans, scrollToRange } from './text-ranges.js';
 import { createMatcher } from './matcher.js';
 import { createTermPopover } from './popover.js';
 import { inheritedAppearance } from './appearance.js';
-const HIGHLIGHT = 'codex-buddy-terms';
+const HIGHLIGHT = 'palboo-terms';
 export function installTerminology({ request, getRoot, getExchange, isBusy }) {
-  window.__codexBuddyTerminology?.destroy();
+  window.__palbooTerminology?.destroy();
   let alive = true,
     root = null,
     observer = null,
@@ -107,7 +107,7 @@ export function installTerminology({ request, getRoot, getExchange, isBusy }) {
     );
   }
   function typography(a) {
-    if (window.__codexBuddyTypography) return window.__codexBuddyTypography.resolved();
+    if (window.__palbooTypography) return window.__palbooTypography.resolved();
     const source = a?.range.startContainer;
     return readTypography(
       source ? (source.nodeType === Node.ELEMENT_NODE ? source : source.parentElement) : root,
@@ -359,7 +359,7 @@ export function installTerminology({ request, getRoot, getExchange, isBusy }) {
               const element =
                 record.target instanceof Element ? record.target : record.target.parentElement;
               return !element?.closest(
-                '[data-companion-stepwise-root],[data-codex-buddy-features-root],[data-codex-buddy-prompt]',
+                '[data-companion-stepwise-root],[data-palboo-features-root],[data-palboo-prompt]',
               );
             })
           )
@@ -517,10 +517,10 @@ export function installTerminology({ request, getRoot, getExchange, isBusy }) {
       document.removeEventListener('buddy-terminology-change', changed);
       popup.destroy();
       highlightStyle.remove();
-      if (window.__codexBuddyTerminology === apiObject) delete window.__codexBuddyTerminology;
+      if (window.__palbooTerminology === apiObject) delete window.__palbooTerminology;
     },
   };
-  window.__codexBuddyTerminology = apiObject;
+  window.__palbooTerminology = apiObject;
   tick();
   void refresh();
   return apiObject;

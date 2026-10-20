@@ -22,7 +22,7 @@ function isOfficialButton(node) {
   if (
     !(node instanceof HTMLElement) ||
     !node.closest('nav[class~="group/sidebar-rail"]') ||
-    node.closest('[data-codex-buddy-launcher]')
+    node.closest('[data-palboo-launcher]')
   )
     return false;
   const name = (
@@ -31,7 +31,7 @@ function isOfficialButton(node) {
     node.getAttribute('title') ||
     ''
   ).trim();
-  return ['CodexBuddy 看板', 'CodexBuddy'].includes(name) && node.getBoundingClientRect().width > 0;
+  return ['PALBOO 看板', 'PALBOO'].includes(name) && node.getBoundingClientRect().width > 0;
 }
 function canReuseOfficial() {
   return isOfficialButton(official) && current?.canUseOfficial?.() === true;
@@ -87,8 +87,8 @@ function bindOfficial(button) {
   }
   official = button;
   if (official) {
-    // Remove only status text left by the previous Buddy adapter.
-    if (['正在打开官方 Buddy 插件页签…', '设置已在官方侧边页签打开。'].includes(official.title))
+    // Remove only status text left by the previous PALBOO adapter.
+    if (['正在打开官方 PALBOO 插件页签…', '设置已在官方侧边页签打开。'].includes(official.title))
       official.removeAttribute('title');
     official.addEventListener('pointerdown', officialPointer, true);
     official.addEventListener('click', officialClick, true);
@@ -193,7 +193,7 @@ export function syncLauncher(options) {
   }
   if (!entry) {
     entry = document.createElement('div');
-    entry.setAttribute('data-codex-buddy-launcher', 'true');
+    entry.setAttribute('data-palboo-launcher', 'true');
     entry.style.cssText = 'flex:none;align-self:stretch;min-width:0;';
     const shadow = entry.attachShadow({ mode: 'open' });
     shadow.innerHTML = `<style>
@@ -209,7 +209,7 @@ export function syncLauncher(options) {
       .settings-feedback button {flex:none;width:auto;height:28px;padding:0 6px;font:inherit;}
       ${launcherFaceStyles}
     </style><div class="entry">
-      <button type="button" class="csw-launcher-face csw-fab" aria-label="CodexBuddy" aria-keyshortcuts="Alt+Enter">
+      <button type="button" class="csw-launcher-face csw-fab" aria-label="PALBOO" aria-keyshortcuts="Alt+Enter">
         ${launcherFaceHtml()}
       </button></div><div class="settings-feedback" popover="manual"><span role="status"></span><button type="button" aria-label="关闭设置提示">关闭</button></div>`;
     shadow.querySelector('.settings-feedback button').addEventListener('click', (event) => {

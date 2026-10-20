@@ -14,7 +14,7 @@ const compiled = await build({
   },
   bundle: true,
   write: false,
-  define: { CODEX_BUDDY_DEVELOPMENT: 'true' },
+  define: { PALBOO_DEVELOPMENT: 'true' },
 });
 test('web settings use native browser address controls and return to split view', async () => {
   const browser = await chromium.launch({ headless: true });
