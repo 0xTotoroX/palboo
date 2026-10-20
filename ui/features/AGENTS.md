@@ -24,3 +24,5 @@ terminology 内容字号继承共享 feature-session；独立窗口中的点击�
 
 - `bots/view.tsx`：Palboo 的 Grok Bot 选择与当前聊天调用状态；现有四个 Bot 固定白名单，选择、追问、查看进度及停止请求均经 owner 保护后填入 Codex 主输入框，无独立输入框。
 - `bots/style.css`：继承容器语义颜色与字号的 Bot 入口、状态和动作样式；首版字形标识不声称同步官方头像。
+
+Bot 入口名称、状态与追问动作共享文字左边界；未观察到调用时不重复显示空状态文案。几何由 features-e2e 的真实渲染断言覆盖。

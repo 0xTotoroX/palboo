@@ -447,6 +447,24 @@ try {
     await page.locator('[data-feature="bots"] textarea,[data-feature="bots"] input').count(),
     0,
   );
+  const botGeometry = await page.locator('[data-feature="bots"] .palboo-bot').evaluateAll((rows) =>
+    rows.map((row) => {
+      const label = row.querySelector('.palboo-bot-select > span:last-child');
+      const status = row.querySelector('.palboo-bot-status');
+      const action = row.querySelector('.palboo-bot-actions button');
+      return {
+        label: label.getBoundingClientRect().left,
+        status: status
+          ? status.getBoundingClientRect().left + parseFloat(getComputedStyle(status).paddingLeft)
+          : null,
+        action: action?.getBoundingClientRect().left,
+      };
+    }),
+  );
+  assert.ok(botGeometry.every((row) => Math.abs(row.label - botGeometry[0].label) < 1));
+  assert.equal(botGeometry.filter((row) => row.status !== null).length, 1);
+  assert.ok(Math.abs(botGeometry[2].label - botGeometry[2].status) < 1);
+  assert.ok(Math.abs(botGeometry[2].label - botGeometry[2].action) < 1);
   await page.locator('[data-feature="bots"]').screenshot({ path: join(output, 'palboo-bots.png') });
   await api('settings', { grokbotEnabled: false });
   await page.waitForFunction(() => !window.__palbooBots);

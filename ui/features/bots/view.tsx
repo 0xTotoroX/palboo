@@ -59,13 +59,11 @@ export function BotsView({
               </span>
               <span>{bot.name}</span>
             </button>
-            <span className="palboo-bot-status" role="status">
-              {bot.occupied
-                ? '其他聊天正在调用'
-                : bot.current
-                  ? status[bot.current.status] || '状态待确认'
-                  : '尚未在本聊天调用'}
-            </span>
+            {(bot.current || bot.occupied) && (
+              <span className="palboo-bot-status" role="status">
+                {bot.occupied ? '其他聊天正在调用' : status[bot.current!.status] || '状态待确认'}
+              </span>
+            )}
             {bot.current && (
               <div className="palboo-bot-actions">
                 <button
