@@ -108,7 +108,7 @@ let state = {
     theme: 'light',
     hostTypography: fixtureTypography,
     settings,
-    sourceLabel: 'PALBOO · 合成测试',
+    sourceLabel: 'Palboo · 合成测试',
   },
 };
 let commands = [],

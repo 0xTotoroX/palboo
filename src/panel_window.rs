@@ -414,9 +414,9 @@ pub fn run_surface(
     let size = (prefs.ui.width + 24., prefs.ui.height + 24.);
     let window = WindowBuilder::new()
         .with_title(if crate::assets::development().is_some() {
-            "PALBOO · 开发版"
+            "Palboo · 开发版"
         } else {
-            "PALBOO"
+            "Palboo"
         })
         .with_decorations(false)
         .with_transparent(true)

@@ -50,7 +50,7 @@ async function fixture(t) {
 }
 test('backend failure is returned and visible for right-click, default click and menu; retry succeeds as a new request', async (t) => {
   const page = await fixture(t);
-  const eye = page.getByRole('button', { name: 'PALBOO', exact: true });
+  const eye = page.getByRole('button', { name: 'Palboo', exact: true });
   await eye.click({ button: 'right' });
   const feedback = page.locator('.settings-feedback');
   await feedback.waitFor({ state: 'visible' });

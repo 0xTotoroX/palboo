@@ -40,7 +40,7 @@
   function call(path, payload = {}, { signal } = {}) {
     if (signal?.aborted) return Promise.resolve({ error: '请求已取消', cancelled: true });
     if (!alive || typeof window.__companionHostRequest !== 'function')
-      return Promise.resolve({ error: 'PALBOO 未连接' });
+      return Promise.resolve({ error: 'Palboo 未连接' });
     if (!paths.has(path) || requests.size >= 8)
       return Promise.resolve({ error: '请求不可用，请稍后重试' });
     const id = `${prefix}:${++sequence}`;
@@ -56,7 +56,7 @@
             complete(id, {
               error:
                 path === '/panel/detach'
-                  ? '弹出请求未收到响应，请检查 PALBOO 后台连接后重试'
+                  ? '弹出请求未收到响应，请检查 Palboo 后台连接后重试'
                   : path === '/settings/open'
                     ? '设置请求未收到响应，请重试'
                     : '请求超时，请重试',

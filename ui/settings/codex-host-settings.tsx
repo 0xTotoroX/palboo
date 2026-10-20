@@ -147,7 +147,7 @@ export function CodexHostSettings({ live, active }: { live: boolean; active: boo
             </SettingsDrawer>
           )}
           {state.state === 'pendingEnable' && (
-            <p>需要重开 Codex 才能启用时，请先结束任务，再打开 PALBOO。</p>
+            <p>需要重开 Codex 才能启用时，请先结束任务，再打开 Palboo。</p>
           )}
           <div className="flex flex-wrap gap-3">
             {state.state === 'pendingDisable' && (

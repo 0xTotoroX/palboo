@@ -1,6 +1,6 @@
 /* [INPUT]: Authenticated Codex theme snapshot, shared icons and this origin's display preference.
  * [OUTPUT]: Light/dark settings theme and a compact trigger with three retained preference options.
- * [POS]: Settings-only preference; revision-checked PALBOO persistence, never writes Codex appearance.
+ * [POS]: Settings-only preference; revision-checked Palboo persistence, never writes Codex appearance.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { Icon } from '../shared/icons/react';

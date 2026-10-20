@@ -69,19 +69,19 @@ try {
   ]);
   assert.equal(hash(binary), hash(source));
   record('异目录安装及单文件版本检查');
-  run('/usr/bin/codesign', ['--verify', '--strict', join(appDir, 'PALBOO.app')]);
+  run('/usr/bin/codesign', ['--verify', '--strict', join(appDir, 'Palboo.app')]);
   const appInfo = JSON.parse(
     run('/usr/bin/plutil', [
       '-convert',
       'json',
       '-o',
       '-',
-      join(appDir, 'PALBOO.app/Contents/Info.plist'),
+      join(appDir, 'Palboo.app/Contents/Info.plist'),
     ]),
   );
   assert.equal(appInfo.LSUIElement, true);
   const appScript = run('/usr/bin/osadecompile', [
-    join(appDir, 'PALBOO.app/Contents/Resources/Scripts/main.scpt'),
+    join(appDir, 'Palboo.app/Contents/Resources/Scripts/main.scpt'),
   ]);
   assert.match(appScript, /launch --no-open --restart-running/);
   assert.match(appScript, /launchResult contains "Codex 集成已暂停"/);

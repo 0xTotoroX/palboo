@@ -449,7 +449,7 @@ const cases = [
             (n) => n.getBoundingClientRect().width > 0,
           ),
       );
-      await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
+      await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
       await settle(page);
       assert.equal(await page.locator('[data-palboo-features-root]').count(), 0);
       assert.ok(
@@ -695,7 +695,7 @@ const cases = [
     'rail launcher replaces capsule and survives navigation without duplicating the workspace',
     async (page) => {
       await mode(page, true);
-      const icon = page.getByRole('button', { name: 'PALBOO', exact: true });
+      const icon = page.getByRole('button', { name: 'Palboo', exact: true });
       await icon.waitFor();
       assert.equal(await page.evaluate(() => window.__companionFloatingPanel.state.open), true);
       assert.equal(await icon.getAttribute('aria-pressed'), null);
@@ -797,9 +797,9 @@ const cases = [
       const content = await box(page, '#fixture-host-content');
       const slot = await box(page, slotSelector);
       assert.ok(content.x + content.width <= slot.x + 1);
-      await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
-      await page.getByRole('button', { name: 'PALBOO', exact: true }).waitFor({ state: 'visible' });
-      await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
+      await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
+      await page.getByRole('button', { name: 'Palboo', exact: true }).waitFor({ state: 'visible' });
+      await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
       await page.waitForFunction(() => window.__companionFloatingPanel.state.dockStatus === 'open');
       assert.equal(await page.locator(slotSelector).count(), 1);
     },
@@ -814,9 +814,9 @@ const cases = [
       await page.waitForFunction(() =>
         document.querySelector('#fixture-dock-row > [data-palboo-dock]'),
       );
-      await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
-      await page.getByRole('button', { name: 'PALBOO', exact: true }).waitFor({ state: 'visible' });
-      await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
+      await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
+      await page.getByRole('button', { name: 'Palboo', exact: true }).waitFor({ state: 'visible' });
+      await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
       await page.waitForFunction(() =>
         document.querySelector('#fixture-dock-row > [data-palboo-dock][data-expanded="true"]'),
       );
@@ -851,10 +851,10 @@ const cases = [
           { placement, revision: 100 + index },
         );
         await settle(page);
-        const chip = await page.getByRole('button', { name: 'PALBOO', exact: true }).boundingBox();
+        const chip = await page.getByRole('button', { name: 'Palboo', exact: true }).boundingBox();
         near(chip.width, 36, 'rail button width');
         near(chip.height, 28, 'rail button height');
-        await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
+        await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
         await page.locator('.csw-workbench').waitFor({ state: 'visible' });
         await page.waitForFunction(() => !window.__companionFloatingPanel.state.morphAnimation);
         assert.equal(await page.locator(slotSelector).count(), placement === 'workbench' ? 1 : 0);
@@ -863,7 +863,7 @@ const cases = [
           false,
         );
         assert.equal(await page.locator('.csw-workbench-face').isVisible(), false);
-        const face = page.getByRole('button', { name: 'PALBOO', exact: true });
+        const face = page.getByRole('button', { name: 'Palboo', exact: true });
         near((await face.boundingBox()).height, 28, 'expanded expression shares slim geometry');
         await face.hover();
         await page.mouse.down();
@@ -874,7 +874,7 @@ const cases = [
             !window.__companionFloatingPanel.state.open &&
             !window.__companionFloatingPanel.state.morphAnimation,
         );
-        await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
+        await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
         await page.locator('.csw-workbench').waitFor({ state: 'visible' });
         await page.waitForFunction(() => !window.__companionFloatingPanel.state.morphAnimation);
         await face.focus();
@@ -969,7 +969,7 @@ const cases = [
         });
       });
       for (const open of [true, false]) {
-        await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
+        await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
         await page.waitForFunction(
           (open) =>
             window.workbenchFixture.morphSamples.some((sample) => sample.open === open) &&
@@ -995,7 +995,7 @@ const cases = [
           queueMicrotask(() => window.__companionDesktop.complete(input.id, { ok: true }));
         };
       });
-      await page.getByRole('button', { name: 'PALBOO', exact: true }).dblclick({ delay: 180 });
+      await page.getByRole('button', { name: 'Palboo', exact: true }).dblclick({ delay: 180 });
       await page.waitForFunction(() => window.workbenchFixture.detaches.length === 1);
       assert.equal(await page.evaluate(() => window.workbenchFixture.detaches.length), 1);
       assert.equal(await page.evaluate(() => window.workbenchFixture.detaches[0].dockOpen), true);
@@ -1080,22 +1080,22 @@ const cases = [
       await page.locator('.csw-layout-menu summary').evaluate((node) => node.click());
       await page.locator('[data-placement=floating]').evaluate((node) => node.click());
       assert.equal(await page.locator(slotSelector).count(), 0);
-      await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
+      await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
       await page.waitForFunction(
         () =>
           !window.__companionFloatingPanel.state.open &&
           !window.__companionFloatingPanel.state.morphAnimation,
       );
-      await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
-      await page.getByRole('button', { name: 'PALBOO', exact: true }).waitFor({ state: 'visible' });
+      await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
+      await page.getByRole('button', { name: 'Palboo', exact: true }).waitFor({ state: 'visible' });
       assert.equal(await page.locator('.csw-workbench-face').isVisible(), false);
       await page.locator('.csw-layout-menu summary').evaluate((node) => node.click());
       await page.locator('[data-placement=dock]').evaluate((node) => node.click());
-      await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
+      await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
       await page.waitForFunction(
         () => window.__companionFloatingPanel.state.dockStatus === 'closed',
       );
-      await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
+      await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
       assert.equal(await requestCount(), before, 'UI changes must not generate suggestions');
       await page.screenshot({ path: resolve(output, 'unified-icons-dock.png') });
     },
@@ -1115,7 +1115,7 @@ const cases = [
           queueMicrotask(() => window.__companionDesktop.complete(input.id, { ok: true }));
         };
       });
-      await host.getByRole('button', { name: 'PALBOO', exact: true }).dblclick();
+      await host.getByRole('button', { name: 'Palboo', exact: true }).dblclick();
       assert.equal(await host.evaluate(() => window.workbenchFixture.detaches.length), 1);
       assert.equal(
         await host.evaluate(() => window.__companionFloatingPanel.panelPreferences().dockOpen),
@@ -1123,13 +1123,13 @@ const cases = [
       );
       await host.locator('.csw-layout-menu summary').evaluate((node) => node.click());
       await host.locator('[data-placement=floating]').evaluate((node) => node.click());
-      await host.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
-      await host.getByRole('button', { name: 'PALBOO', exact: true }).waitFor({ state: 'visible' });
+      await host.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
+      await host.getByRole('button', { name: 'Palboo', exact: true }).waitFor({ state: 'visible' });
       await host.waitForFunction(() => !window.__companionFloatingPanel.state.open);
-      await host.getByRole('button', { name: 'PALBOO', exact: true }).dblclick();
+      await host.getByRole('button', { name: 'Palboo', exact: true }).dblclick();
       assert.equal(await host.evaluate(() => window.workbenchFixture.detaches.at(-1).open), false);
       await host.evaluate(() => window.__companionFloatingPanel.setOpen(true));
-      await host.getByRole('button', { name: 'PALBOO', exact: true }).waitFor({ state: 'visible' });
+      await host.getByRole('button', { name: 'Palboo', exact: true }).waitFor({ state: 'visible' });
       assert.equal(await host.locator('.csw-view-tabs').count(), 0);
       const { page, projection, errors } = await createPopout(host);
       projection.preferences.ui.layoutMode = 'capsule';
@@ -1673,8 +1673,8 @@ const cases = [
         node.scrollTop = 120;
         window.workbenchFixture.outlineBody = node;
       });
-      await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
-      await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
+      await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
+      await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
       await page.waitForFunction(() => window.__companionFloatingPanel.state.dockStatus === 'open');
       await settle(page);
       near((await reading(page)).panes.outline.scrollTop, 120, 'capsule reopen retains reading');
@@ -1806,7 +1806,7 @@ const cases = [
       );
       for (const key of ['dockOpen', 'dockWidth', 'splitRatio'])
         assert.equal(collapsed[key], preferences[key], `${key} retains user intent`);
-      await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
+      await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
       await page.waitForFunction(() => window.__companionFloatingPanel.state.dockStatus === 'open');
       await settle(page);
       await layout(page);
@@ -1861,7 +1861,7 @@ const cases = [
       );
       assert.deepEqual(errors, []);
       await page.locator('.csw-layout-menu summary').evaluate((node) => node.click());
-      await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
+      await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
       const closed = await page.evaluate(() => window.__companionFloatingPanel.panelPreferences());
       assert.equal(closed.dockOpen, false, 'explicit close updates intent');
       await page.setViewportSize({ width: 1500, height: 960 });
@@ -2354,12 +2354,12 @@ const cases = [
     'collapsed capsule frees the sidebar without prompts when space is insufficient',
     async (page, baseline) => {
       await mode(page, true);
-      await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
+      await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
       await page.waitForFunction(
         () => window.__companionFloatingPanel.state.dockStatus === 'closed',
       );
       const rail = page.locator(slotSelector);
-      const entry = page.getByRole('button', { name: 'PALBOO', exact: true });
+      const entry = page.getByRole('button', { name: 'Palboo', exact: true });
       assert.equal(await rail.locator(':scope > button:visible').count(), 0);
       near((await rail.boundingBox()).width, 0, 'no empty sidebar');
       assert.equal(await entry.isVisible(), true);
@@ -2417,7 +2417,7 @@ const cases = [
       await page.waitForFunction(
         () => window.__companionFloatingPanel.state.dockStatus === 'space',
       );
-      const entry = page.getByRole('button', { name: 'PALBOO', exact: true });
+      const entry = page.getByRole('button', { name: 'Palboo', exact: true });
       await entry.press('Enter');
       assert.equal(await page.locator('.csw-dock-menu,.csw-dock-warning').count(), 0);
       await page
@@ -2462,9 +2462,9 @@ const cases = [
       await settle(page);
       assert.equal(await page.locator(slotSelector).count(), 0);
       assert.equal(await page.locator('.csw-workbench').count(), 0);
-      await page.getByRole('button', { name: 'PALBOO', exact: true }).boundingBox();
+      await page.getByRole('button', { name: 'Palboo', exact: true }).boundingBox();
       await hostUnchanged(page, baseline);
-      await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
+      await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
       await page.waitForTimeout(150);
       assert.equal(
         await page.evaluate(() => window.__companionFloatingPanel.panelPreferences().layoutMode),
@@ -2472,7 +2472,7 @@ const cases = [
         'opening an unavailable sidebar must not overwrite placement',
       );
       assert.equal(await page.locator('.csw-workbench').count(), 0);
-      await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
+      await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
       await page.keyboard.press('Escape');
       assert.equal(await page.locator('.csw-dock-menu,.csw-dock-warning').count(), 0);
       assert.equal(await page.locator('.csw-workbench').count(), 0);
@@ -2480,7 +2480,7 @@ const cases = [
         await page.evaluate(() => window.__companionFloatingPanel.panelPreferences().layoutMode),
         'workbench',
       );
-      await page.getByRole('button', { name: 'PALBOO', exact: true }).boundingBox();
+      await page.getByRole('button', { name: 'Palboo', exact: true }).boundingBox();
     },
   ],
   [
@@ -2494,7 +2494,7 @@ const cases = [
         () => window.__companionFloatingPanel.state.dockStatus === 'unsupported',
       );
       for (let i = 0; i < 3; i++) {
-        await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
+        await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
         assert.equal(await page.locator('.csw-workbench').count(), 0);
         assert.equal(
           await page.evaluate(() => window.__companionFloatingPanel.state.layoutMode),
@@ -2548,7 +2548,7 @@ const cases = [
         'unsupported',
       );
       assert.equal(await page.locator(slotSelector).count(), 0);
-      await page.getByRole('button', { name: 'PALBOO', exact: true }).boundingBox();
+      await page.getByRole('button', { name: 'Palboo', exact: true }).boundingBox();
       const mounts = await page.evaluate(() => window.workbenchFixture.mounts);
       for (let i = 0; i < 10; i += 1) await settle(page);
       assert.equal(await page.evaluate(() => window.workbenchFixture.mounts), mounts);
@@ -2765,7 +2765,7 @@ const cases = [
           0,
           'collapsed slot has zero width',
         );
-        const entry = page.getByRole('button', { name: 'PALBOO', exact: true });
+        const entry = page.getByRole('button', { name: 'Palboo', exact: true });
         assert.equal(await entry.getAttribute('title'), null);
         const anchor = await page.evaluate(() =>
           window.__companionFloatingPanel.panelWindowAnchor(),

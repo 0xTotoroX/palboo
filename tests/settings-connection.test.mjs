@@ -62,7 +62,7 @@ test('settings tabs recover shared credentials and token rotation without replay
   try {
     const a = await context.newPage();
     await a.goto(origin + '/#settings-surfaces');
-    await a.getByText(/尚未连接 PALBOO/).waitFor();
+    await a.getByText(/尚未连接 Palboo/).waitFor();
     const b = await context.newPage();
     await b.goto(origin + '/#token=fixture-one');
     await connected(b);
@@ -90,7 +90,7 @@ test('settings tabs recover shared credentials and token rotation without replay
     const other = await browser.newContext();
     const isolated = await other.newPage();
     await isolated.goto(origin);
-    await isolated.getByText(/尚未连接 PALBOO/).waitFor();
+    await isolated.getByText(/尚未连接 Palboo/).waitFor();
     await other.close();
     const legacy = await browser.newContext();
     await legacy.addInitScript(() => sessionStorage.setItem('companion-token', 'fixture-two'));

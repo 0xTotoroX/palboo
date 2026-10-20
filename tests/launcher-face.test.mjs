@@ -38,7 +38,7 @@ test('launcher reuses original expressions and source geometry while retaining i
     await page.addScriptTag({ content: compiled.outputFiles[0].text });
     const eye = page
       .locator('[data-palboo-launcher]')
-      .getByRole('button', { name: 'PALBOO', exact: true });
+      .getByRole('button', { name: 'Palboo', exact: true });
     assert.equal(await eye.locator('.csw-fab-eye').count(), 2);
     assert.equal(await eye.getAttribute('data-source-direction'), 'left');
     assert.equal(await page.locator('[data-palboo-launcher] .divider').count(), 0);

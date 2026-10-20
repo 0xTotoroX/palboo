@@ -660,7 +660,7 @@ try {
   saveSession();
   if (args.source) writeFileSync(preference, JSON.stringify({ path: root }), { mode: 0o600 });
   console.log(
-    `PALBOO · 开发版\n设置页开发服务：${url}\n真实 Codex · 默认内嵌；保存自动更新，Ctrl+C 退出并恢复安装版。\n开发配置：${data}`,
+    `Palboo · 开发版\n设置页开发服务：${url}\n真实 Codex · 默认内嵌；保存自动更新，Ctrl+C 退出并恢复安装版。\n开发配置：${data}`,
   );
   if (!args['no-open']) {
     const opener = spawn('open', [`${url}/#token=${encodeURIComponent(token)}`], {

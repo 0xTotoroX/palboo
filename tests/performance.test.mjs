@@ -200,8 +200,8 @@ function App(){const[active,setActive]=useState(true);window.setActive=setActive
     await page.getByText('10.0 MB', { exact: true }).waitFor();
     await page.clock.runFor(5100);
     await page.getByText('2.0%', { exact: true }).waitFor();
-    await page.getByRole('img', { name: /PALBOO 后台 CPU.*1个采样点/ }).waitFor();
-    await page.getByRole('img', { name: /PALBOO 后台物理内存.*2个采样点/ }).waitFor();
+    await page.getByRole('img', { name: /Palboo 后台 CPU.*1个采样点/ }).waitFor();
+    await page.getByRole('img', { name: /Palboo 后台物理内存.*2个采样点/ }).waitFor();
     await page.getByText('工作明细', { exact: true }).click();
     await page.getByText('聊天检查', { exact: true }).waitFor();
     const beforeResize = requests;
@@ -248,7 +248,7 @@ function App(){const[active,setActive]=useState(true);window.setActive=setActive
       () => document.querySelectorAll('[role=switch]')[1].getAttribute('aria-checked') === 'false',
     );
     const end = samples;
-    await page.getByRole('img', { name: /PALBOO 后台 CPU.*0个采样点/ }).waitFor();
+    await page.getByRole('img', { name: /Palboo 后台 CPU.*0个采样点/ }).waitFor();
     await page.clock.runFor(15000);
     assert.equal(samples, end);
   } finally {

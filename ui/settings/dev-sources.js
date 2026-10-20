@@ -44,7 +44,7 @@ option:focus-visible{outline-offset:-1px}option:disabled{opacity:.45;cursor:not-
 }
 </style><details><summary>开发来源 · 读取中</summary><p data-path></p>
 <form><label for="source">调试 worktree</label><select id="source" aria-label="调试 worktree"></select><button type="submit">切换来源</button></form>
-<p data-state role="status" aria-live="polite"></p><p>切换只交接 PALBOO，不重启 Codex。各 worktree 保留独立配置；建议缓存等运行期状态不会跨来源迁移。</p></details>`;
+<p data-state role="status" aria-live="polite"></p><p>切换只交接 Palboo，不重启 Codex。各 worktree 保留独立配置；建议缓存等运行期状态不会跨来源迁移。</p></details>`;
 document.body.prepend(host);
 const summary = view.querySelector('summary');
 const select = view.querySelector('select');

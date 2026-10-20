@@ -1,5 +1,5 @@
 import { measureWork } from '../shared/performance.js';
-/* [INPUT]: PALBOO 已识别的聊天根节点、一问一答与受限后台请求。
+/* [INPUT]: Palboo 已识别的聊天根节点、一问一答与受限后台请求。
  * [OUTPUT]: 术语加粗标注、悬停释义与按聊天身份定位已确认范围；销毁恢复自有高亮，不改变宿主正文。
  * [POS]: 术语显示旁路；不读取输入草稿、不向主聊天写内容。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */

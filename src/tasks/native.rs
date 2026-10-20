@@ -96,7 +96,7 @@ fn remote(reminder: &EKReminder, bindings: &Bindings) -> Result<Remote> {
 fn snapshot(store: &EKEventStore, bindings: &Bindings) -> Result<Snapshot> {
     ensure!(
         authorized(),
-        "未获得提醒事项完整访问权限，请在系统设置中允许 PALBOO Reminders"
+        "未获得提醒事项完整访问权限，请在系统设置中允许 Palboo Reminders"
     );
     let calendars = calendars(store);
     bindings.validate(&calendars)?;
@@ -236,10 +236,10 @@ fn handle(store: &EKEventStore, request: &Value) -> Result<Value> {
             let source = unsafe { store.sourceWithIdentifier(&NSString::from_str(source_id)) }
                 .context("账户不存在")?;
             let mut ids = Vec::new();
-            for title in ["PALBOO"] {
+            for title in ["Palboo"] {
                 let existing: Vec<_> = calendars(store)
                     .into_iter()
-                    .filter(|c| c.source == source_id && c.title == title)
+                    .filter(|c| c.source == source_id && c.title.eq_ignore_ascii_case(title))
                     .collect();
                 ensure!(existing.len() <= 1, "同名列表不唯一，请手动选择");
                 if let Some(c) = existing.first() {

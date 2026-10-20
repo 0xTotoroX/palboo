@@ -21,7 +21,7 @@ function run(program, args, input) {
 
 export function installIcon(app, staging) {
   const source = join(import.meta.dirname, '../ui/icon.png');
-  const iconset = join(staging, 'PALBOO.iconset');
+  const iconset = join(staging, 'Palboo.iconset');
   mkdirSync(iconset);
   for (const size of [16, 32, 128, 256, 512]) {
     for (const scale of [1, 2]) {
@@ -50,7 +50,7 @@ export function installLauncher({ binary, dataDir, destination }) {
   }
   mkdirSync(dirname(destination), { recursive: true });
   const staging = mkdtempSync(join(dirname(destination), '.palboo-install-'));
-  const staged = join(staging, 'PALBOO.app');
+  const staged = join(staging, 'Palboo.app');
   const command = `${shellQuote(binary)} --data-dir ${shellQuote(dataDir)}`;
   const popoutRequirement = '桌面浮窗仅支持 macOS 15 及以上的 Apple Silicon 设备';
   try {
@@ -72,7 +72,7 @@ export function installLauncher({ binary, dataDir, destination }) {
   on error messageText
     if messageText does not contain "已取消重开" then
       activate
-      display alert "PALBOO" message messageText buttons {"好"} default button "好"
+      display alert "Palboo" message messageText buttons {"好"} default button "好"
     end if
   end try
 end run
@@ -86,6 +86,8 @@ end run
       run('/usr/bin/plutil', ['-remove', 'CFBundleIconName', stagedPlist]);
     for (const [key, type, value] of [
       ['CFBundleIdentifier', '-string', identifier],
+      ['CFBundleName', '-string', 'Palboo'],
+      ['CFBundleDisplayName', '-string', 'Palboo'],
       ['CFBundleIconFile', '-string', 'palboo.icns'],
       ['LSMinimumSystemVersion', '-string', '14.0'],
       ['LSUIElement', '-bool', 'true'],

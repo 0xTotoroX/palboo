@@ -319,9 +319,9 @@ export function independentFeatureCases({ mode, syncSettings }) {
         await page.keyboard.press('Escape');
         assert.equal(await page.locator('.csw-workbench[data-composition="focus"]').count(), 0);
         assert.equal(await outline.locator('.feature-pane-head strong').count(), 0);
-        await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
+        await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
         await page.waitForFunction(() => !window.__companionFloatingPanel.state.dockOpen);
-        await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
+        await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
         await outline.getByRole('navigation', { name: '大纲' }).waitFor();
         const widthHandle = page.getByRole('separator', { name: '调整工作台宽度' });
         const beforeWidth = Number(await widthHandle.getAttribute('aria-valuenow'));
@@ -402,7 +402,7 @@ export function independentFeatureCases({ mode, syncSettings }) {
         await page.mouse.up();
         await page.waitForFunction(() => !window.__companionFloatingPanel.state.dockOpen);
         assert.equal((await dock.boundingBox()).width, 0, 'collapsed sidebar releases its slot');
-        await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
+        await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
         await board.getByLabel('新任务标题', { exact: true }).waitFor();
         assert.equal(
           await board.getByLabel('新任务标题', { exact: true }).inputValue(),
@@ -425,7 +425,7 @@ export function independentFeatureCases({ mode, syncSettings }) {
           if (i === 0) {
             await checkOverlayMotion(page, configureFeature);
             await page.emulateMedia({ reducedMotion: 'no-preference' });
-            const face = page.getByRole('button', { name: 'PALBOO', exact: true });
+            const face = page.getByRole('button', { name: 'Palboo', exact: true });
             await face.press('Enter');
             await page.waitForFunction(
               () =>
@@ -433,12 +433,12 @@ export function independentFeatureCases({ mode, syncSettings }) {
                 window.__companionFloatingPanel.state.popover.dataset.morphing === 'false',
             );
             const rect = await page
-              .getByRole('button', { name: 'PALBOO', exact: true })
+              .getByRole('button', { name: 'Palboo', exact: true })
               .boundingBox();
             assert.equal(await page.locator('.csw-fab:not(.csw-launcher-face)').isVisible(), false);
             assert.equal(Math.round(rect.width), 36);
             assert.equal(Math.round(rect.height), 28);
-            await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
+            await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
             await page.waitForFunction(
               () =>
                 window.__companionFloatingPanel.state.open &&
@@ -492,9 +492,9 @@ export function independentFeatureCases({ mode, syncSettings }) {
         });
         await board.waitFor({ state: 'detached' });
         assert.equal(await outline.count(), 1);
-        await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
+        await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
         await page.waitForFunction(() => !window.__companionFloatingPanel.state.dockOpen);
-        await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
+        await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
         await outline.getByRole('navigation', { name: '大纲' }).waitFor();
         assert.equal(
           await board.count(),
@@ -715,7 +715,7 @@ export function independentFeatureCases({ mode, syncSettings }) {
         await page.waitForFunction(
           () => document.querySelector('[data-palboo-dock]')?.dataset.reason === 'space',
         );
-        await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
+        await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
         await page.waitForTimeout(150);
         assert.equal(await page.locator('.csw-dock-menu,.csw-dock-warning').count(), 0);
         assert.equal(
@@ -724,7 +724,7 @@ export function independentFeatureCases({ mode, syncSettings }) {
         );
         assert.equal(await model.isVisible(), false);
         await page.setViewportSize({ width: 1500, height: 1000 });
-        await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
+        await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
         await model.locator('[data-model="a"][data-reasoning="low"]').waitFor();
         await page.evaluate(() => {
           window.workbenchFixture.modelState.preferences.enabled = false;
@@ -747,7 +747,7 @@ export function independentFeatureCases({ mode, syncSettings }) {
         await page.waitForFunction(
           () => window.__companionFloatingPanel.state.dockStatus === 'unsupported',
         );
-        await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
+        await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
         await page.waitForTimeout(150);
         assert.equal(await page.locator('.csw-dock-menu,.csw-dock-warning').count(), 0);
         assert.equal(

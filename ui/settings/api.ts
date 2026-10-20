@@ -91,7 +91,7 @@ export async function request<T = { ok: boolean }>(path: string, body?: unknown)
   const value = await response.json().catch(() => ({
     ok: false,
     code: 'invalid_response',
-    message: '服务暂时没有响应，请检查 PALBOO 是否正在运行。',
+    message: '服务暂时没有响应，请检查 Palboo 是否正在运行。',
   }));
   if (!response.ok || value.ok === false) throw new ApiError(value);
   return value as T;
@@ -118,7 +118,7 @@ export function useCompanion() {
   }, []);
   useEffect(() => {
     if (!credential) {
-      setError('此标签页尚未连接 PALBOO。请从眼睛菜单打开一次设置，其他标签页会自动恢复。');
+      setError('此标签页尚未连接 Palboo。请从眼睛菜单打开一次设置，其他标签页会自动恢复。');
       return;
     }
     const controller = new AbortController();

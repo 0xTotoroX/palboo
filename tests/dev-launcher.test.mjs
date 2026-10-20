@@ -605,7 +605,7 @@ if CommandLine.arguments.count > 1 {
         try! Data("active".utf8).write(to: URL(fileURLWithPath: ${JSON.stringify(join(root, 'activated'))}))
     }
     let window = NSWindow(contentRect: NSRect(x:100,y:100,width:300,height:180), styleMask:[.titled], backing:.buffered, defer:false)
-    window.title = "PALBOO launcher test"
+    window.title = "Palboo launcher test"
     window.makeKeyAndOrderFront(nil)
     try! Data("ready".utf8).write(to: URL(fileURLWithPath: ${JSON.stringify(join(root, 'ready'))}))
     app.run()

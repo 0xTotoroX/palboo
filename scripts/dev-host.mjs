@@ -244,7 +244,7 @@ export async function findHost(source, options = {}) {
   }
   throw Object.assign(
     new Error(
-      '没有找到可调试的真实 Codex。请通过现有 PALBOO 启动入口打开 Codex，再运行 npm run dev；已有端口可用 --cdp 指定。不会打开示例页面或另建 ChatGPT 实例。',
+      '没有找到可调试的真实 Codex。请通过现有 Palboo 启动入口打开 Codex，再运行 npm run dev；已有端口可用 --cdp 指定。不会打开示例页面或另建 ChatGPT 实例。',
     ),
     { code: 'NO_DEBUG_HOST' },
   );

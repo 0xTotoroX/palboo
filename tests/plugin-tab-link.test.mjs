@@ -40,14 +40,14 @@ async function fixture(previewEnabled = true) {
       menu.setAttribute('role', 'menu');
       const item = document.createElement('button');
       item.setAttribute('role', 'menuitem');
-      item.textContent = window.pluginAvailable ? 'PALBOO' : '其他插件';
+      item.textContent = window.pluginAvailable ? 'Palboo' : '其他插件';
       item.onclick = () => {
         menu.remove();
         setTimeout(() => {
           const tab = document.createElement('button');
           tab.setAttribute('role', 'tab');
           tab.setAttribute('aria-selected', 'true');
-          tab.textContent = 'PALBOO';
+          tab.textContent = 'Palboo';
           tab.onclick = () => tab.setAttribute('aria-selected', 'true');
           tabs.append(tab);
         }, window.createDelay);
@@ -73,7 +73,7 @@ async function fixture(previewEnabled = true) {
     page,
     button: page
       .locator('[data-palboo-launcher]')
-      .getByRole('button', { name: 'PALBOO', exact: true }),
+      .getByRole('button', { name: 'Palboo', exact: true }),
   };
 }
 test('manual launcher opens official plugin once and follows sessions without stealing same-session tabs', async () => {
@@ -88,11 +88,11 @@ test('manual launcher opens official plugin once and follows sessions without st
     await page.waitForFunction(() => window.opened === 2);
     assert.equal(await page.evaluate(() => window.menuClicks), 1);
     await page
-      .getByRole('tab', { name: 'PALBOO' })
+      .getByRole('tab', { name: 'Palboo' })
       .evaluate((n) => n.setAttribute('aria-selected', 'false'));
     await page.waitForTimeout(650);
     assert.equal(
-      await page.getByRole('tab', { name: 'PALBOO' }).getAttribute('aria-selected'),
+      await page.getByRole('tab', { name: 'Palboo' }).getAttribute('aria-selected'),
       'false',
     );
     await page.evaluate(() => window.switchSession('B'));
@@ -124,7 +124,7 @@ test('missing plugin stops with an error and never opens legacy UI or loops', as
           .querySelector('[data-palboo-launcher]')
           .shadowRoot.querySelector('button')
           .getAttribute('aria-description')
-          .includes('未找到官方 PALBOO'),
+          .includes('未找到官方 Palboo'),
       {},
       { timeout: 7000 },
     );

@@ -96,7 +96,7 @@ final class Preview: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        window.title = "PALBOO · 原生材质对照"
+        window.title = "Palboo · 原生材质对照"
         window.titleVisibility = .hidden
         window.isReleasedWhenClosed = false
         window.isOpaque = false

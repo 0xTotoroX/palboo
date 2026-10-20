@@ -148,6 +148,6 @@ export async function checkOverlayMotion(page, configureFeature) {
     document.body.append(window.workbenchFixture.hiddenRail);
   });
   await page.waitForFunction(() => !window.__companionFloatingPanel.state.morphAnimation);
-  await page.getByRole('button', { name: 'PALBOO', exact: true }).press('Enter');
+  await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
   await page.waitForFunction(() => !window.__companionFloatingPanel.state.morphAnimation);
 }

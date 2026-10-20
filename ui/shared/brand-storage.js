@@ -1,5 +1,5 @@
 /* [INPUT]: A storage object containing this product's old preference keys.
- * [OUTPUT]: One-time PALBOO keys; current choices win and legacy values remain recoverable.
+ * [OUTPUT]: One-time Palboo keys; current choices win and legacy values remain recoverable.
  * [POS]: Identity migration only; values are copied verbatim and never sent to a service.
  * [PROTOCOL]: Keep shared/AGENTS.md in sync. */
 export function migrateBrandStorage(storage) {

@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="ui/icon.png" alt="PALBOO logo" width="140" />
+  <img src="ui/icon.png" alt="Palboo logo" width="140" />
   <h1>PALBOO</h1>
   <p><strong>Your desktop companion for Codex: navigate answers and find your next question.</strong></p>
   <p>Answer outlines and next-step suggestions, inside Codex or in a desktop panel.</p>
@@ -13,7 +13,7 @@
 
 **English** · [简体中文](README.zh-CN.md)
 
-PALBOO adds a companion panel to Codex / ChatGPT. Navigate long answers, generate follow-up questions, and keep your tools inside the conversation or in a desktop window.
+Palboo adds a companion panel to Codex / ChatGPT. Navigate long answers, generate follow-up questions, and keep your tools inside the conversation or in a desktop window.
 
 Use the eyes entry in the left rail to open the workbench. Hover for Inside, Desktop, and Settings; the default single-click action is configurable. Double-click or Alt+Enter moves the main interface between the chat and desktop. Right-click opens settings in ChatGPT’s built-in browser side panel. The desktop window has return-to-chat, maximize/restore, and pin controls; it stays on top by default and remembers your choice.
 
@@ -23,7 +23,7 @@ The workbench also provides a Terminology tab with concepts encountered in the c
 
 Enable **点击术语时跳转到上下文** in settings → Features → Terminology to scroll to the latest confirmed occurrence in the current chat when selecting a term. It is off by default and keeps the definition popover; unavailable or stale positions do not switch chats.
 
-PALBOO was previously named CodexBuddy. Upgrading stops the old backend normally and retains configuration, tasks, terminology and layouts. The default data directory is now `~/Library/Application Support/palboo`, the command is `palboo`, and the launcher is `PALBOO.app`. Old data and command paths remain compatibility links. `PALBOO_*` environment variables take precedence over legacy `CODEX_BUDDY_*` names. Migration refuses to merge two independent data directories; explicitly selected data locations stay unchanged. Historical releases and original license notices retain their original names.
+Palboo was previously named CodexBuddy. Upgrading stops the old backend normally and retains configuration, tasks, terminology and layouts. The default data directory is now `~/Library/Application Support/palboo`, the command is `palboo`, and the launcher is `Palboo.app`. Old data and command paths remain compatibility links. `PALBOO_*` environment variables take precedence over legacy `CODEX_BUDDY_*` names. Migration refuses to merge two independent data directories; explicitly selected data locations stay unchanged. Historical releases and original license notices retain their original names.
 
 ## Features
 
@@ -48,7 +48,7 @@ The model quick switch shows remaining Codex account usage to the left of the pr
 
 Outlines are parsed locally and do not require a model. Next-step suggestions require model configuration. You can disable either feature independently.
 
-Under **System → Performance & switches** (系统 → 性能与开关), turn off **Connect to Codex** to remove PALBOO's host interface and listeners. Settings, task data, drafts and independent Reminders sync are retained; turning it back on reconnects without restarting Codex. Optional monitoring runs while this settings page is visible and separates PALBOO backend CPU/physical memory, instrumented PALBOO work, and whole-host page metrics. Whole-page memory is not PALBOO's exclusive usage. A visual monitor shows CPU/memory trends, a CPU gauge and long-task activity, keeping at most five minutes of local, temporary history.
+Under **System → Performance & switches** (系统 → 性能与开关), turn off **Connect to Codex** to remove Palboo's host interface and listeners. Settings, task data, drafts and independent Reminders sync are retained; turning it back on reconnects without restarting Codex. Optional monitoring runs while this settings page is visible and separates Palboo backend CPU/physical memory, instrumented Palboo work, and whole-host page metrics. Whole-page memory is not Palboo's exclusive usage. A visual monitor shows CPU/memory trends, a CPU gauge and long-task activity, keeping at most five minutes of local, temporary history.
 
 In Web settings, choose **设置 → 系统 → 模型服务 → 高级设置 → 输入上下文 → 最近一次聊天（完整）** to send the complete latest question and answer without local character truncation. New configurations use this mode by default; existing character limits are preserved and remain configurable. The selected model’s context window still applies. Suggestions preserve the complete goal and authorization boundaries instead of splitting related tasks into competing buttons. Results are self-contained Chinese follow-up prompts; technical names may stay in their original language.
 
@@ -60,7 +60,7 @@ In Web settings, choose **设置 → 系统 → 模型服务 → 高级设置 �
 
 Web settings include six editable directions and custom directions. Counts are maximums, not quotas; empty results are valid. New configurations default to three suggestions; existing counts and generation timing are preserved. With an explicit input limit, the question takes priority and truncated context is marked. Jev and the generation model receive the same context snapshot. Jev's applicability cutoff is experimental and has not been calibrated for suggestion quality.
 
-PALBOO uses its own eyes entry in the left rail and does not require the plugin. Click to toggle the workbench; double-click or Alt+Enter keeps the existing window handoff. Right-click or Option-right-click opens settings in ChatGPT’s built-in browser side panel.
+Palboo uses its own eyes entry in the left rail and does not require the plugin. Click to toggle the workbench; double-click or Alt+Enter keeps the existing window handoff. Right-click or Option-right-click opens settings in ChatGPT’s built-in browser side panel.
 
 Hover over the independent eyes entry to choose inside, outside, or settings; configure its default click action under **界面 → 外观与字体**. Workbench headers no longer repeat the face. The desktop window has a horizontal-line return-to-chat button, maximize/restore, and pin controls at the top right. Maximize uses the available screen area; restore returns to the original position and size.
 
@@ -72,13 +72,13 @@ The outline and next-step suggestions share the same chat source. The source lab
 
 ## CodexHost management
 
-Open **设置 → 系统 → 宿主管理** for installed/running versions, enablement, updates, version restore, and explicit restart to disable. The switch saves the next-launch preference; restarts follow the existing host policy. Management does not require PALBOO’s MCP plugin.
+Open **设置 → 系统 → 宿主管理** for installed/running versions, enablement, updates, version restore, and explicit restart to disable. The switch saves the next-launch preference; restarts follow the existing host policy. Management does not require Palboo’s MCP plugin.
 
 ## Prompt enhancement
 
 Toggle prompt enhancement under **功能 → 常用开关** in settings. The settings search finds controls across categories and opens their original location; press `⌘K` or `Ctrl+K` to open its animated search dialog.
 
-Write a draft in the chat composer and click the pencil-and-sparkle icon. The result replaces the draft without sending it. Cancel while it runs, or restore the original afterward. Typing, switching chats, or replacing the editor invalidates old results; special reference nodes are left untouched. This uses PALBOO’s existing model and credentials under **设置 → 系统 → 模型服务**, and sends only the draft, without chat history.
+Write a draft in the chat composer and click the pencil-and-sparkle icon. The result replaces the draft without sending it. Cancel while it runs, or restore the original afterward. Typing, switching chats, or replacing the editor invalidates old results; special reference nodes are left untouched. This uses Palboo’s existing model and credentials under **设置 → 系统 → 模型服务**, and sends only the draft, without chat history.
 
 ## Settings navigation
 
@@ -102,8 +102,8 @@ Settings credentials are shared by browser tabs using the same backend address. 
 
 In Web settings, use **界面 → 布局与位置 → 主界面** to choose a sidebar, in-page overlay or resizable desktop window. Only one main interface exists. Each feature joins either this shared tabbed interface or the independent edge/notch panel, which can coexist with it. Drag edge tabs to reorder them, or use Alt+Left/Right. Their order is saved, and reopening restores the last selected feature. Each form saves its own black, matte, frosted or liquid (Regular/Clear) theme. Use the eyes entry to toggle the main interface or move it to and from the desktop. Revealing it from settings reuses its window. Moving preserves drafts, closed features and task data. The in-page overlay shrinks toward the eyes entry with a curved zoom effect and expands back along the same path; it never turns into a capsule.
 
-Under **设置 → 界面 → 外观与字体**, PALBOO follows Codex chat text by default across terminology cards, the workbench and settings. Choose chat text, sidebar conversation titles or composer text as the reference; adjust the relative size (75–150%) or use a fixed custom size (10–32px). While a conversation is switching or the reference is unavailable, PALBOO keeps the last valid font. Legacy per-feature size values remain stored.
-The board starts with To do, In progress and Done. Rename groups or add your own. Cards show titles; create tasks at the bottom of each group. Drag to another column, or onto a group tab in narrow views. Hover over a card to reveal its trash button and remove it from PALBOO immediately. The Apple reminder stays intact and is not imported again. Click a title to open task details for notes, priority and a due date. Closing retains the draft; external changes require review before saving. Priority and due dates stay local to PALBOO. Expand search when needed. Custom groups stay local, while moving to Done syncs completion.
+Under **设置 → 界面 → 外观与字体**, Palboo follows Codex chat text by default across terminology cards, the workbench and settings. Choose chat text, sidebar conversation titles or composer text as the reference; adjust the relative size (75–150%) or use a fixed custom size (10–32px). While a conversation is switching or the reference is unavailable, Palboo keeps the last valid font. Legacy per-feature size values remain stored.
+The board starts with To do, In progress and Done. Rename groups or add your own. Cards show titles; create tasks at the bottom of each group. Drag to another column, or onto a group tab in narrow views. Hover over a card to reveal its trash button and remove it from Palboo immediately. The Apple reminder stays intact and is not imported again. Click a title to open task details for notes, priority and a due date. Closing retains the draft; external changes require review before saving. Priority and due dates stay local to Palboo. Expand search when needed. Custom groups stay local, while moving to Done syncs completion.
 
 Return an existing desktop workbench before entering independent mode. Moving preserves reading state and inline creation drafts for the current service session without leaving the form. Closing a view does not disable its service or reminder sync. Desktop views require macOS 15+.
 
@@ -143,15 +143,15 @@ npm ci
 npm run install:local
 ```
 
-After installation, open **PALBOO** from Applications. Node.js and Rust are not required for everyday use.
+After installation, open **Palboo** from Applications. Node.js and Rust are not required for everyday use.
 
-> If ChatGPT / Codex is already running without a debugging connection, PALBOO asks before quitting and reopening it by default. You can select the force-restart option in the launch settings, but this may interrupt tasks or lose unsaved work. An existing debugging connection is reused directly.
+> If ChatGPT / Codex is already running without a debugging connection, Palboo asks before quitting and reopening it by default. You can select the force-restart option in the launch settings, but this may interrupt tasks or lose unsaved work. An existing debugging connection is reused directly.
 
 ### 2. Configure the suggestions model
 
 Open settings from the eyes entry. Choose your existing Codex login or enter your model API settings, then test the connection. Text fields save when focus leaves them; selections save automatically. The Save button remains available for immediate saving. Using an existing login requires a working local Codex CLI installation and login session.
 
-For Zhipu BigModel, select **Chat Completions** and use `https://open.bigmodel.cn/api/paas/v4` with your API key and model name. `glm-4.5-air`, `glm-4.7`, `glm-4.6v`, and `glm-4.1v-thinking-flashx` have passed the fixed-example connection test, including suggestion-format validation. PALBOO adapts requests to the official endpoint while retaining direction and output validation; model access and quota still depend on your account. The connection test sends a short fixed request without reading your chat or invoking Stepwise or Jev.
+For Zhipu BigModel, select **Chat Completions** and use `https://open.bigmodel.cn/api/paas/v4` with your API key and model name. `glm-4.5-air`, `glm-4.7`, `glm-4.6v`, and `glm-4.1v-thinking-flashx` have passed the fixed-example connection test, including suggestion-format validation. Palboo adapts requests to the official endpoint while retaining direction and output validation; model access and quota still depend on your account. The connection test sends a short fixed request without reading your chat or invoking Stepwise or Jev.
 
 Choose one shared main interface: a sidebar, an in-page overlay, or a desktop window. The edge/notch panel can coexist with it. Splits, tabs, and temporary focus only arrange the contents; they do not create additional main windows. Panel refresh controls appear on hover or keyboard focus and remain visible on touch devices.
 
@@ -162,13 +162,13 @@ Choose one shared main interface: a sidebar, an in-page overlay, or a desktop wi
 - **Ask a follow-up:** refresh the next-step panel to generate suggestions, or enable automatic generation. Automatic mode waits for the current response to finish and its text to settle, then reuses cached suggestions for unchanged context; local readiness checks do not call the model. Clicking a suggestion inserts it without sending by default. Existing drafts are appended directly without confirmation or automatic sending.
 - **Drag a recommendation:** drag a next-step recommendation into its linked chat composer to copy the full prompt. The original recommendation stays in the list. Existing drafts are preserved and appended without confirmation or automatic sending. Drop elsewhere or press Esc to cancel; stale chat or suggestion identities are rejected.
 - **Arrange features:** choose the main placement and each feature’s main/edge location in display settings. Drag headings to split or group panels, and drag sidebar edges or internal dividers to resize them. Closing a view preserves its service and saved placement.
-- **Adjust the window:** use the eyes menu or Alt+Enter for window handoff. Drag the desktop header to move and a lower corner to resize. The horizontal-line button returns to chat; maximize/restore and pin preserve their respective preferences. PALBOO follows Codex appearance without changing its colors.
+- **Adjust the window:** use the eyes menu or Alt+Enter for window handoff. Drag the desktop header to move and a lower corner to resize. The horizontal-line button returns to chat; maximize/restore and pin preserve their respective preferences. Palboo follows Codex appearance without changing its colors.
 
 ### Model quick switch
 
 Enable the model feature in settings or run `palboo model-control`. It initially opens in the shared edge form and subsequently uses its saved placement. Favorites, reasoning, speed and presets are available in every form; next-step generation settings remain independent. The catalog icon after the trailing plus switches the same panel to a manufacturer catalog containing every model, including favorites. Closing it restores the matrix and preset shortcuts. Click a neutral tile to add or remove it from favorites; refresh sits beside the catalog close button. The edge panel grows to fit the actual favorite model rows. Click the lightning button to toggle Fast with a brief downward electric pulse. Drag the separate thin divider below it to resize model names; dragging never toggles Fast. Reduced motion keeps only a brief brightness response. Presets are individual recessed tags without an outer box; only Fast presets show a lightning icon. The trailing plus immediately saves the current selection under the model name, without a confirmation form. Duplicate names receive a numeric suffix while presets for the same model remain independent. The pencil toggles editing: every tag gains a delete control, and clicking its name edits the text instead of applying the preset. Tags wrap automatically. In Web settings, open **功能 → 模型切换 → 模型分组** to correct manufacturers, create custom groups, move models in bulk, reorder groups/models, or restore automatic classification. Refreshing preserves manual choices and preferences for temporarily unavailable models. Different model IDs remain separate even when their names match. Only reasoning levels supported by favorite models occupy columns. The wider name-column budget and its divider support pointer and keyboard resizing and stop before reasoning labels become crowded. The outer frame stays stable during dragging, then adjusts its height to fit wrapped names on release. The full content scrolls only when it exceeds the available screen space.
 
-The edge/notch form is shared by the enabled features. Use **界面 → 布局与位置** for its display, edge, position and keep-open preference, and **界面 → 外观与字体** for its theme. Hover to expand, leave for roughly half a second to collapse, or press `⌘⇧M` to toggle. Editing and business operations suppress automatic collapse; collapsing or switching tabs preserves drafts. Choose **跟随 Codex** to follow the display containing the connected Codex window, or select a fixed display. The panel remains available across Spaces and full-screen apps without following other apps’ focus. Stopping PALBOO closes it.
+The edge/notch form is shared by the enabled features. Use **界面 → 布局与位置** for its display, edge, position and keep-open preference, and **界面 → 外观与字体** for its theme. Hover to expand, leave for roughly half a second to collapse, or press `⌘⇧M` to toggle. Editing and business operations suppress automatic collapse; collapsing or switching tabs preserves drafts. Choose **跟随 Codex** to follow the display containing the connected Codex window, or select a fixed display. The panel remains available across Spaces and full-screen apps without following other apps’ focus. Stopping Palboo closes it.
 
 Legacy model visual preferences migrate once to `surfaces.json`; model pins and presets remain in `model-control.json`.
 
@@ -184,7 +184,7 @@ To uninstall, first stop the background service:
 ~/.local/bin/palboo stop
 ```
 
-Then delete `/Applications/PALBOO.app` and `~/.local/bin/palboo`. To also remove configuration, delete `~/Library/Application Support/palboo/`.
+Then delete `/Applications/Palboo.app` and `~/.local/bin/palboo`. To also remove configuration, delete `~/Library/Application Support/palboo/`.
 
 ## Development
 
@@ -204,13 +204,13 @@ tests/             Automated tests
 scripts/           Development, build, and installation tools
 ```
 
-After installing dependencies, open the host through PALBOO, then run:
+After installing dependencies, open the host through Palboo, then run:
 
 ```sh
 npm run dev
 ```
 
-Alternatively, run `npm run install:dev` once to install **PALBOO Dev.app**. Opening it starts development in the background, updates saved source automatically, and does not open a terminal. Opening it again brings up the existing workbench. Without a debugging connection, it follows the development launch setting, initially inherited from the everyday installation. Stop background development with `npm run dev:stop`; logs are written to `target/dev/launcher.log`. After an abnormal exit, stale ownership records are recovered only when the supervisor and its associated backends have exited; otherwise startup reports the reason and preserves the records. This launcher depends on the local source tree and development tools. Stop and reopen it after changing development scripts or dependencies; regenerate it after moving the source tree or changing the Node.js path.
+Alternatively, run `npm run install:dev` once to install **Palboo Dev.app**. Opening it starts development in the background, updates saved source automatically, and does not open a terminal. Opening it again brings up the existing workbench. Without a debugging connection, it follows the development launch setting, initially inherited from the everyday installation. Stop background development with `npm run dev:stop`; logs are written to `target/dev/launcher.log`. After an abnormal exit, stale ownership records are recovered only when the supervisor and its associated backends have exited; otherwise startup reports the reason and preserves the records. This launcher depends on the local source tree and development tools. Stop and reopen it after changing development scripts or dependencies; regenerate it after moving the source tree or changing the Node.js path.
 
 The official plugin-tab link remains available as a disabled experiment. Both everyday and Dev builds use the original workbench entry and do not automatically expand the official panel when switching chats.
 
@@ -236,7 +236,7 @@ Open settings from the independent eyes menu or its right-click shortcut. The wo
 
 ## Privacy and license
 
-Configuration is stored locally. When generating suggestions, the latest question and answer are sent to your chosen model service, subject to your input-context setting. Smart mode also sends that exchange to the configured Jev service after explicit consent. PALBOO does not persist chat bodies or modify the official application bundle. Host updates may affect compatibility.
+Configuration is stored locally. When generating suggestions, the latest question and answer are sent to your chosen model service, subject to your input-context setting. Smart mode also sends that exchange to the configured Jev service after explicit consent. Palboo does not persist chat bodies or modify the official application bundle. Host updates may affect compatibility.
 
 Project-owned source code is licensed under the [GNU GPL version 3 only](LICENSE) (`GPL-3.0-only`). Commercial use is permitted without a separate license fee; conveying covered software requires compliance with GPLv3, including applicable Corresponding Source obligations. Earlier MIT grants remain valid. Third-party notices retain their original terms; see [LICENSING.md](LICENSING.md) for the scope and historical license.
 

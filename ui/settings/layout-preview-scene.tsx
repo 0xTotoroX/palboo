@@ -33,7 +33,7 @@ export function LayoutPreviewScene({ frame, children }: { frame: DemoFrame; chil
         <text x="147" y="48" className="demo-title">
           布局与位置
         </text>
-        {['新聊天', '搜索聊天', '项目', 'PALBOO', '布局与位置'].map((text, i) => (
+        {['新聊天', '搜索聊天', '项目', 'Palboo', '布局与位置'].map((text, i) => (
           <text key={text} x="14" y={45 + i * 28}>
             {text}
           </text>
@@ -43,7 +43,7 @@ export function LayoutPreviewScene({ frame, children }: { frame: DemoFrame; chil
           <rect x="8" width="4" height="10" rx="2" />
         </g>
         <text x="37" y="401">
-          PALBOO
+          Palboo
         </text>
         <rect
           className="demo-bubble"

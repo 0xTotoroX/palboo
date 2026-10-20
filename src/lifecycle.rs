@@ -93,7 +93,7 @@ async fn start_binary(
         if !no_open {
             webbrowser::open(&runtime.url()).context("无法自动打开浏览器")?;
         }
-        println!("PALBOO 已在运行：http://127.0.0.1:{}", runtime.port);
+        println!("Palboo 已在运行：http://127.0.0.1:{}", runtime.port);
         return Ok(());
     }
     let log_path = paths.root.join("service.log");
@@ -128,7 +128,7 @@ async fn start_binary(
             if !no_open {
                 webbrowser::open(&runtime.url()).context("服务已启动，但无法自动打开浏览器")?;
             }
-            println!("PALBOO 已启动：http://127.0.0.1:{}", runtime.port);
+            println!("Palboo 已启动：http://127.0.0.1:{}", runtime.port);
             return Ok(());
         }
         if let Some(status) = child.try_wait()? {
@@ -148,18 +148,18 @@ pub(crate) fn detach(command: &mut Command) {
 
 pub async fn stop(paths: &Paths) -> Result<()> {
     let Ok(runtime) = Runtime::read(paths) else {
-        println!("PALBOO 未运行");
+        println!("Palboo 未运行");
         return Ok(());
     };
     if !runtime.alive().await {
-        println!("PALBOO 未运行（发现旧运行信息）");
+        println!("Palboo 未运行（发现旧运行信息）");
         return Ok(());
     }
     runtime.request("shutdown", Some(json!({}))).await?;
     for _ in 0..70 {
         tokio::time::sleep(Duration::from_millis(100)).await;
         if !runtime.alive().await && service_unlocked(paths) {
-            println!("PALBOO 已停止");
+            println!("Palboo 已停止");
             return Ok(());
         }
     }
@@ -237,7 +237,7 @@ pub async fn launch(
             process_debug_endpoint(pid)?;
             anyhow::ensure!(
                 restart_running,
-                "启用 CodexHost 需要重开 Codex；请结束任务后从 PALBOO 启动入口应用更改"
+                "启用 CodexHost 需要重开 Codex；请结束任务后从 Palboo 启动入口应用更改"
             );
             if !restart_approved(config.host_restart_policy, || {
                 confirm_codex_host_restart(true)
@@ -277,7 +277,7 @@ pub async fn launch(
         }
         if !restart_running {
             bail!(
-                "ChatGPT / Codex 已打开但没有调试连接。请从 PALBOO App 打开，或使用 launch --restart-running 按启动设置重开；当前应用已保留。"
+                "ChatGPT / Codex 已打开但没有调试连接。请从 Palboo App 打开，或使用 launch --restart-running 按启动设置重开；当前应用已保留。"
             )
         }
         let policy = paths.load()?.host_restart_policy;
@@ -319,7 +319,7 @@ pub async fn launch(
         }
     }
     bail!(
-        "未能连接新启动的 Codex。请检查应用是否已打开，并稍后再次打开 PALBOO；不会继续退出或循环重启。"
+        "未能连接新启动的 Codex。请检查应用是否已打开，并稍后再次打开 Palboo；不会继续退出或循环重启。"
     )
 }
 
@@ -360,7 +360,7 @@ fn confirm_desktop_restart() -> Result<bool> {
     let output = Command::new("/usr/bin/osascript").args(["-e", r#"
         tell current application
             activate
-            set choice to display dialog "ChatGPT / Codex 已打开，但没有调试连接。是否正常退出后重开，以启用 PALBOO？正在执行的任务可能中断。" with title "PALBOO" buttons {"取消", "退出并重开"} default button "取消"
+            set choice to display dialog "ChatGPT / Codex 已打开，但没有调试连接。是否正常退出后重开，以启用 Palboo？正在执行的任务可能中断。" with title "Palboo" buttons {"取消", "退出并重开"} default button "取消"
             return button returned of choice
         end tell
     "#]).output()?;
@@ -388,7 +388,7 @@ fn confirm_codex_host_restart(enabled: bool) -> Result<bool> {
         r#"
         tell current application
             activate
-            set choice to display dialog "{message}" with title "PALBOO" buttons {{"取消", "退出并重开"}} default button "取消"
+            set choice to display dialog "{message}" with title "Palboo" buttons {{"取消", "退出并重开"}} default button "取消"
             return button returned of choice
         end tell
     "#
@@ -414,7 +414,7 @@ pub(crate) async fn quit_desktop(
     use objc2_app_kit::NSRunningApplication;
     // Recheck identity after the potentially long confirmation dialog.
     if desktop_process(executable)? != Some(pid) {
-        bail!("宿主进程已变化，请重新打开 PALBOO；未退出其他进程。")
+        bail!("宿主进程已变化，请重新打开 Palboo；未退出其他进程。")
     }
     let app = NSRunningApplication::runningApplicationWithProcessIdentifier(pid)
         .context("无法识别宿主应用；未退出进程。")?;
@@ -465,7 +465,7 @@ pub async fn update(paths: &Paths, from: &Path, expected_hash: &str) -> Result<(
         .output()
         .context("升级文件无法在此平台运行")?;
     if !result.status.success() || !String::from_utf8_lossy(&result.stdout).starts_with("palboo ") {
-        bail!("升级文件不是可运行的 PALBOO");
+        bail!("升级文件不是可运行的 Palboo");
     }
     let current = std::env::current_exe()?;
     let previous = paths.root.join("previous-binary");
@@ -517,7 +517,7 @@ pub async fn update(paths: &Paths, from: &Path, expected_hash: &str) -> Result<(
         bail!("新版未能启动，已恢复上一版本：{error}");
     }
     println!(
-        "PALBOO 已升级，配置已保留。上一版本：{}",
+        "Palboo 已升级，配置已保留。上一版本：{}",
         previous.display()
     );
     Ok(())

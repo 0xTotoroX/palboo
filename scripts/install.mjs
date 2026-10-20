@@ -157,7 +157,7 @@ try {
 }
 console.log(`已安装 ${destination}`);
 console.log(`数据目录：${dataDir}`);
-const launcher = join(appDir, 'PALBOO.app');
+const launcher = join(appDir, 'Palboo.app');
 installLauncher({ binary: destination, dataDir, destination: launcher });
 // Keep command aliases for old scripts, but only after the new launcher succeeds.
 const recovery = join(dataDir, 'legacy-installation');
@@ -185,5 +185,5 @@ console.log(`双击启动：${launcher}（可拖入 Dock）`);
 if (!(process.env.PATH || '').split(delimiter).some((path) => resolve(path) === binDir))
   console.log(`该目录尚未加入 PATH，可直接用完整路径运行，或自行将 ${binDir} 加入 PATH。`);
 console.log(
-  '以后直接打开 PALBOO.app，它会启动或连接 ChatGPT 并打开浮窗。已有普通 ChatGPT 实例时，会提示等待任务结束后退出再打开；不会自动结束对话或多开实例。',
+  '以后直接打开 Palboo.app，它会启动或连接 ChatGPT 并打开浮窗。已有普通 ChatGPT 实例时，会提示等待任务结束后退出再打开；不会自动结束对话或多开实例。',
 );

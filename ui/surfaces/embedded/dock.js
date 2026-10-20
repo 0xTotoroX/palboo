@@ -143,7 +143,7 @@ export function createDock(onChange, beforeMove = () => {}) {
       }
       slot = document.createElement('aside');
       slot.setAttribute(SLOT, 'true');
-      slot.setAttribute('aria-label', 'PALBOO 工作台入口');
+      slot.setAttribute('aria-label', 'Palboo 工作台入口');
       slot.style.cssText =
         'order:1;flex:0 0 auto;min-width:0;position:relative;align-self:stretch;overflow:visible;padding:0;border:0;margin:0;box-sizing:border-box;';
       host.row.append(slot);

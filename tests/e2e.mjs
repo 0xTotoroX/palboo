@@ -1064,17 +1064,17 @@ try {
     );
     record('表情拖动不误收起或弹出');
 
-    await desktop.getByRole('button', { name: 'PALBOO', exact: true }).click();
+    await desktop.getByRole('button', { name: 'Palboo', exact: true }).click();
     await settle();
     assert.equal((await panelState()).open, false);
-    await desktop.getByRole('button', { name: 'PALBOO', exact: true }).click();
+    await desktop.getByRole('button', { name: 'Palboo', exact: true }).click();
     await delay(100);
     await desktop.keyboard.press('Escape');
     await settle();
     assert.equal((await panelState()).open, false);
-    await desktop.getByRole('button', { name: 'PALBOO', exact: true }).click();
+    await desktop.getByRole('button', { name: 'Palboo', exact: true }).click();
     await settle();
-    await desktop.getByRole('button', { name: 'PALBOO', exact: true }).focus();
+    await desktop.getByRole('button', { name: 'Palboo', exact: true }).focus();
     await desktop.keyboard.press('Enter');
     assert.equal(
       (await panelState()).open,
@@ -1082,7 +1082,7 @@ try {
       'Keyboard collapse must not wait for double click',
     );
     await settle();
-    await desktop.getByRole('button', { name: 'PALBOO', exact: true }).focus();
+    await desktop.getByRole('button', { name: 'Palboo', exact: true }).focus();
     await desktop.keyboard.press('Enter');
     assert.equal((await panelState()).open, true, 'Keyboard expand must respond immediately');
     await settle();
@@ -1575,7 +1575,7 @@ try {
       await desktop.evaluate(() => typeof window.__companionDesktopRequest),
       'undefined',
     );
-    assert.equal(await desktop.title(), 'PALBOO 浮窗验收示例');
+    assert.equal(await desktop.title(), 'Palboo 浮窗验收示例');
     record('断开／重新连接／停止移除浮窗和重载脚本，保留宿主');
     writeFileSync(
       join(output, 'e2e-report.json'),

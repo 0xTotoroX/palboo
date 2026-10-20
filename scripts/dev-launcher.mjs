@@ -259,13 +259,13 @@ on openWorkbench()
       if (targets's |count|()) is not 1 then error "找不到唯一的 Codex 应用，未切换到其他程序。"
       set targetApp to targets's firstObject()
     else
-      set workbenchLocation to "PALBOO 工作台"
+      set workbenchLocation to "Palboo 工作台"
       set targetApp to current application's NSRunningApplication's runningApplicationWithProcessIdentifier:(outcome as integer)
     end if
     if targetApp is missing value then error "工作台已退出，请重新打开。"
   on error messageText
     activate
-    display alert "PALBOO Dev" message messageText buttons {"好"} default button "好"
+    display alert "Palboo Dev" message messageText buttons {"好"} default button "好"
     return
   end try
   try
@@ -283,13 +283,13 @@ on openWorkbench()
     end if
   end try
   try
-    display notification ("工作台已就绪，请手动切换到 " & workbenchLocation & " 继续使用。") with title "PALBOO Dev"
+    display notification ("工作台已就绪，请手动切换到 " & workbenchLocation & " 继续使用。") with title "Palboo Dev"
   end try
 end openWorkbench`;
 }
 
 function install() {
-  const destination = '/Applications/PALBOO Dev.app';
+  const destination = '/Applications/Palboo Dev.app';
   if (
     existsSync(destination) &&
     command('/usr/libexec/PlistBuddy', [
@@ -300,14 +300,14 @@ function install() {
   )
     throw new Error('目标位置已有其他应用，未覆盖。');
   const staging = mkdtempSync(join(dirname(destination), '.palboo-dev-'));
-  const staged = join(staging, 'PALBOO Dev.app');
+  const staged = join(staging, 'Palboo Dev.app');
   const directory = join(root, 'target/dev');
   const path = [dirname(process.execPath), process.env.PATH, '/usr/bin', '/bin']
     .filter(Boolean)
     .join(':');
   mkdirSync(directory, { recursive: true });
   writeFileSync(
-    join(directory, 'Start PALBOO Dev.command'),
+    join(directory, 'Start Palboo Dev.command'),
     terminalScript(root, process.execPath, path),
     { mode: 0o700 },
   );
@@ -321,7 +321,8 @@ function install() {
       command('/usr/bin/plutil', ['-remove', 'CFBundleIconName', plist]);
     for (const [key, type, value] of [
       ['CFBundleIdentifier', '-string', identifier],
-      ['CFBundleName', '-string', 'PALBOO Dev'],
+      ['CFBundleName', '-string', 'Palboo Dev'],
+      ['CFBundleDisplayName', '-string', 'Palboo Dev'],
       ['CFBundleIconFile', '-string', 'palboo.icns'],
       ['LSUIElement', '-bool', 'false'],
       ['LSMinimumSystemVersion', '-string', '14.0'],
@@ -414,7 +415,7 @@ export async function revealDevelopment(
 export function developmentSettingsUrl(directory) {
   const session = readJson(join(directory, 'target/dev/session.json'));
   if (!session?.url || !session.token || !hasDevelopmentOwner(directory))
-    throw new Error('开发会话尚未运行，请先打开 PALBOO Dev.app。');
+    throw new Error('开发会话尚未运行，请先打开 Palboo Dev.app。');
   const url = new URL(session.url);
   if (
     url.protocol !== 'http:' ||

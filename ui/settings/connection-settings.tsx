@@ -165,7 +165,7 @@ export function ConnectionSettings({
               className="min-h-0 p-2"
               disabled={!!busy}
               title="断开与 Codex 的连接？"
-              description="PALBOO 将暂时停止跟随当前聊天，并移除桌面浮窗。已有配置保持不变，可随时重新连接。"
+              description="Palboo 将暂时停止跟随当前聊天，并移除桌面浮窗。已有配置保持不变，可随时重新连接。"
               confirmLabel="确认断开"
               onConfirm={() =>
                 run('disconnect', async () => {

@@ -9,7 +9,7 @@ fn main() {
     assert!(
         env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("macos")
             && env::var("CARGO_CFG_TARGET_ARCH").as_deref() == Ok("aarch64"),
-        "PALBOO currently supports only macOS 14+ on Apple Silicon"
+        "Palboo currently supports only macOS 14+ on Apple Silicon"
     );
     for path in [
         "ui/codex",

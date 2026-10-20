@@ -11,7 +11,7 @@ const OWN = '[data-companion-stepwise-root],[data-palboo-features-root],[data-pa
 let selectedSurface = null;
 let selectedTopChat = null;
 
-// 保留用户最后操作的聊天；点击 PALBOO 入口不会改变其所属聊天。
+// 保留用户最后操作的聊天；点击 Palboo 入口不会改变其所属聊天。
 export function rememberChatTarget(target) {
   if (target === null) {
     selectedSurface = selectedTopChat = null;

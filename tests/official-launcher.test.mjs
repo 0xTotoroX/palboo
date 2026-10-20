@@ -20,7 +20,7 @@ async function fixture() {
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
   await page.setContent(
-    '<nav class="group/sidebar-rail"><button id="official" aria-label="PALBOO 看板">PALBOO</button><button id="other">Other</button></nav><div class="app-shell-main-content-frame" data-conversation-id="A"><div class="thread-scroll-container">Fixture</div></div><button id="toggle" aria-label="显示/隐藏侧边面板" aria-pressed="false">Panel</button><div id="right" data-app-shell-focus-area="right-panel" hidden><button id="new" aria-label="打开侧边面板标签页">New</button><div id="tabs"></div></div>',
+    '<nav class="group/sidebar-rail"><button id="official" aria-label="Palboo 看板">Palboo</button><button id="other">Other</button></nav><div class="app-shell-main-content-frame" data-conversation-id="A"><div class="thread-scroll-container">Fixture</div></div><button id="toggle" aria-label="显示/隐藏侧边面板" aria-pressed="false">Panel</button><div id="right" data-app-shell-focus-area="right-panel" hidden><button id="new" aria-label="打开侧边面板标签页">New</button><div id="tabs"></div></div>',
   );
   await page.evaluate(() => {
     window.chatReady = true;
@@ -35,11 +35,11 @@ async function fixture() {
       menu.setAttribute('role', 'menu');
       const item = document.createElement('button');
       item.setAttribute('role', 'menuitem');
-      item.textContent = 'PALBOO';
+      item.textContent = 'Palboo';
       item.onclick = () => {
         menu.remove();
         document.getElementById('tabs').innerHTML =
-          '<button role="tab" aria-selected="true">PALBOO</button>';
+          '<button role="tab" aria-selected="true">Palboo</button>';
       };
       menu.append(item);
       document.body.append(menu);
@@ -76,8 +76,8 @@ test('official entry toggles without navigation, removes duplicate icon and keep
     );
     await page.locator('#official').evaluate((node) => {
       node.removeAttribute('aria-label');
-      node.textContent = 'PALBOO';
-      node.title = 'PALBOO';
+      node.textContent = 'Palboo';
+      node.title = 'Palboo';
     });
     await page.locator('#official').click({ button: 'right' });
     assert.equal(await page.evaluate(() => window.nativeSettings), 1);
@@ -94,7 +94,7 @@ test('official entry toggles without navigation, removes duplicate icon and keep
     );
     assert.equal(await page.locator('#right').isVisible(), true);
     assert.equal(await page.locator('[data-palboo-launcher]').count(), 0);
-    assert.equal(await page.locator('#official').getAttribute('title'), 'PALBOO');
+    assert.equal(await page.locator('#official').getAttribute('title'), 'Palboo');
     assert.deepEqual(
       await page.evaluate(() => ({
         native: window.nativeSettings,
@@ -153,7 +153,7 @@ test('ambiguous official buttons are not intercepted', async () => {
     await page
       .locator('nav')
       .evaluate((n) =>
-        n.insertAdjacentHTML('beforeend', '<button aria-label="PALBOO">Second</button>'),
+        n.insertAdjacentHTML('beforeend', '<button aria-label="Palboo">Second</button>'),
       );
     await page.waitForSelector('[data-palboo-launcher]');
     await page.locator('#official').click();
@@ -173,7 +173,7 @@ test('default product entry works independently with the plugin button present o
     });
     const eye = page
       .locator('[data-palboo-launcher]')
-      .getByRole('button', { name: 'PALBOO', exact: true });
+      .getByRole('button', { name: 'Palboo', exact: true });
     await eye.click();
     assert.equal(await page.evaluate(() => window.toggles), 1);
     await page.locator('#official').click();

@@ -372,7 +372,7 @@ test(
       const unauthenticated = await browser.newPage();
       await unauthenticated.goto(`${session.url}/#settings-dev`);
       await unauthenticated.getByText('开发来源 · 无法连接', { exact: true }).waitFor();
-      await unauthenticated.getByRole('alert').filter({ hasText: '尚未连接 PALBOO' }).waitFor();
+      await unauthenticated.getByRole('alert').filter({ hasText: '尚未连接 Palboo' }).waitFor();
       assert.equal(await unauthenticated.getByText('等待本地服务…', { exact: true }).count(), 0);
       await unauthenticated.close();
       const expired = await browser.newPage();

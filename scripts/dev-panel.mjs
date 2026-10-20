@@ -182,7 +182,7 @@ export async function buildDevPanel(root, output) {
           script.onerror = () => { script.remove(); reject(new Error('开发资源加载失败')); };
           document.head.append(script);
         });
-      } catch (error) { console.warn('PALBOO 开发更新等待重试', error.message); }
+      } catch (error) { console.warn('Palboo 开发更新等待重试', error.message); }
       finally { pending = false; }
     }, 500);
   })();`;
@@ -239,7 +239,7 @@ export async function buildDevPanel(root, output) {
         if (next.feature && next.feature !== window.__buddyFeatureRevision &&
             !document.querySelector('[data-arranging="true"]') &&
             await window.__buddyFeatureFlush?.()) location.reload();
-      } catch (error) { console.warn('PALBOO 开发更新等待重试', error.message); }
+      } catch (error) { console.warn('Palboo 开发更新等待重试', error.message); }
       finally { updating = false; }
     }, 800);
   })();`;
@@ -261,7 +261,7 @@ export async function buildDevPanel(root, output) {
     client,
     probe,
     html: html
-      .replace('<title>PALBOO</title>', '<title>PALBOO · 开发版</title>')
+      .replace('<title>Palboo</title>', '<title>Palboo · 开发版</title>')
       .replace('</head>', '<script src="/dev-client.js" defer></script></head>')
       .replace(
         '<body>',
