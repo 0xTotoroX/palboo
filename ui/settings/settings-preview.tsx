@@ -2,6 +2,7 @@
  * [OUTPUT]: Linked configuration diagrams and isolated, state-preserving samples in a stable transition frame.
  * [POS]: Settings presentation only; no requests, credentials, task bodies or host commands.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
+import { LayoutPreview } from './layout-preview';
 import { useState, type CSSProperties, type ReactNode } from 'react';
 import type { SettingsPage } from './settings-outline';
 import type { EditableSettings, View } from './api';
@@ -249,6 +250,7 @@ function WorkspacePreview({
         </div>
         <div
           className="preview-workspace"
+          data-preview-workspace
           data-preview-part="workspace"
           data-material={theme?.theme || 'matte'}
           data-variant={theme?.liquidVariant}
@@ -532,7 +534,9 @@ export function SettingsPreview(props: PreviewProps) {
       hidden={['performance', 'terminology', 'codex-host', 'dev'].includes(props.page)}
       data-preview-kind={workspace ? 'workspace' : props.page}
     >
-      {workspace ? (
+      {props.page === 'surfaces' ? (
+        <LayoutPreview features={props.features} surfaces={props.surfaces} live={props.live} />
+      ) : workspace ? (
         <WorkspacePreview features={props.features} surfaces={props.surfaces} live={props.live} />
       ) : ['features', 'next', 'prompts', 'board', 'model-control'].includes(props.page) ? (
         <FeaturePreview {...props} />

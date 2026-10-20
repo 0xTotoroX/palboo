@@ -172,7 +172,7 @@ codex-host-settings.test验证独立API、版本修订与开关不隐式启动�
 
 `terminology.test.mjs` 检查合成聊天跨节点高亮、英文词边界、别名歧义、已掌握、旧样式兼容、原文/草稿不变、聊天切换取消与清理；卡片截图仅使用合成文本。Rust terminology 检查私有分文件持久化、中文导出与损坏数据保护；真实联网来源可用性另行记录，不以模拟代替。
 
-settings-search.test检查跨隐藏分类定位/展开、草稿保持及不索引凭据；prompt-enhancement.test增加关闭即取消，以及CodexHost相邻顺序/菜单保持展开检查。settings-modes核对5项常用开关；标准fixture补齐新布尔字段。Rust设置测试确认保存/并发校验且不推进Stepwise生成版本。target/reports/optimizer-codex-host-layout.json记录旧/新复现场景的重排4→0与菜单状态。
+settings-search.test检查跨隐藏分类定位/展开、草稿保持及不索引凭据；prompt-enhancement.test增加关闭即取消，以及CodexHost相邻顺序/菜单保持展开检查。settings-modes核对含聊天测速的6项常用开关；标准fixture补齐新布尔字段。Rust设置测试确认保存/并发校验且不推进Stepwise生成版本。target/reports/optimizer-codex-host-layout.json记录旧/新复现场景的重排4→0与菜单状态。
 
 - `model-groups.test.mjs`：保守厂家识别、渠道身份隔离、分组设置真实组件及矩阵联动；验证批量归属/恢复、增删改名/顺序、失败草稿与并发冲突、刷新保留手动值、暂不可用模型和窄屏布局。新增独立Fast/分隔线用例，核对标题同行和列中轴对齐、充电后放电及实心状态、失败回读、减少动态效果、拖动/键盘调整与图标尺寸；多行预设按真实屏幕坐标计行，避免相对标签自身的offsetTop误报。Rust model_control 单测验证旧配置兼容、引用校验及冷启动恢复。
 
@@ -264,3 +264,8 @@ launcher-face 回归覆盖眼睛入口单击、双击、Enter/Space 与逐一点
 - `token-meter.test.mjs`：当前聊天/宿主/轮次隔离、迟到/重复用量、中途观察、计数重置、分块估算与3秒/8192个UTF-16单元限额；隔离浏览器验证数值投影身份、无宿主UI、草稿不变、换聊天、隐藏、关闭清理及零请求。
 
 - `token-meter-view.test.mjs`：真实功能组合层在Shadow DOM内验证底栏按周/5小时额度/可选测速顺序排列、14px辅助文字小于18px图标、额度/测速与图标下边缘对齐及预设下24px间距、窄宽按组换行、插拔右侧位置及矩阵几何稳定、主题与窄宽、卸载不影响预设操作、断连隐藏/恢复、重插单份及零额外请求。
+
+- `sidebar-compact.test.mjs`：纯几何与真实工作台合成浏览器验证分隔线级联收紧、完整标题、点击展开的中间帧/反向、原节点草稿与 Shadow DOM 阅读保留、键盘/减少动态效果及销毁；页面浮层/桌面保持原最小尺寸。
+- `layout-preview.test.mjs`：真实设置演示与共享布局的合成快照，验证动态增加功能、拖动与草稿、副屏动画中间位置、快速反向、减少动态效果、恢复配置、窄屏零溢出和零API调用；产物只含合成内容。settings-modes 同时验证已保存功能/嵌套布局/材质的真实联动与演示零写入，窗口转场以实际SVG逐帧几何检查。
+
+model-preset-draft 与 typography 的 esbuild 夹具按文本读取已有测速模块的 inline CSS，保留真实功能依赖和原草稿/交接断言。

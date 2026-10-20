@@ -665,3 +665,12 @@
 .csw-feature-header-actions button:hover {
   color: var(--csw-text);
 }
+
+/* Sidebar compaction clips mounted bodies; their viewport and drafts stay alive. */
+.csw-workbench-pane[data-compact='true'] > .csw-feature-content {
+  visibility: hidden;
+  pointer-events: none;
+}
+.csw-workbench-pane[data-compact='true'] .csw-workbench-tabs button {
+  cursor: pointer;
+}

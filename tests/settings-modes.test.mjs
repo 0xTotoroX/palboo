@@ -378,7 +378,7 @@ test(
       await category('features');
       assert.equal(await page.locator('.settings-mode').count(), 0);
       assert.equal(await page.getByRole('navigation', { name: '设置分类' }).isVisible(), true);
-      assert.equal(await page.getByRole('switch').count(), 5);
+      assert.equal(await page.getByRole('switch').count(), 6);
       assert.equal(await page.getByRole('button', { name: /^打开/ }).count(), 0);
       await category('model');
       await category('features');
@@ -449,7 +449,7 @@ test(
         if (['next', 'prompts', 'board', 'model-control'].includes(id))
           assert.equal(await page.locator('.preview-scene[data-active="true"]').count(), 1);
         if (id === 'features') {
-          assert.equal(await page.getByRole('switch').count(), 5);
+          assert.equal(await page.getByRole('switch').count(), 6);
           assert.equal(
             await page.getByRole('button', { name: '模型分组', exact: true }).isVisible(),
             false,
@@ -620,7 +620,7 @@ test(
       const preview = page.getByRole('complementary', { name: '联动预览' });
       await preview.locator('[data-ready="true"]').waitFor();
       assert.equal(
-        await preview.locator('.preview-workspace').getAttribute('data-material'),
+        await preview.locator('[data-preview-workspace]').getAttribute('data-material'),
         'frosted',
       );
       rejectSurface = true;
@@ -628,32 +628,34 @@ test(
       await page.getByLabel('侧栏主题', { exact: true }).selectOption('black');
       await page.getByText('合成材质保存失败', { exact: false }).waitFor();
       assert.equal(
-        await preview.locator('.preview-workspace').getAttribute('data-material'),
+        await preview.locator('[data-preview-workspace]').getAttribute('data-material'),
         'frosted',
       );
       await category('appearance');
       await page.getByLabel('侧栏主题', { exact: true }).selectOption('black');
-      await preview.locator('.preview-workspace[data-material="black"]').waitFor();
+      await preview.locator('[data-preview-workspace][data-material="black"]').waitFor();
       await category('surfaces');
       await page.getByLabel('主界面布局', { exact: true }).selectOption('horizontal');
-      await preview.locator('.preview-split[data-axis="horizontal"]').waitFor();
+      await page.waitForFunction(
+        () => document.querySelectorAll('.layout-demo .csw-workbench-pane').length === 3,
+      );
       assert.equal(
-        await preview.locator('.preview-pane').count(),
+        await preview.locator('.csw-workbench-pane').count(),
         3,
         'only opened main features appear',
       );
       await category('surfaces');
       await page.getByRole('button', { name: '页面浮层', exact: true }).click();
-      await preview.locator('.preview-host[data-placement="overlay"]').waitFor();
+      await preview.locator('.layout-demo-canvas[data-demo-placement="overlay"]').waitFor();
       assert.equal(
-        await preview.locator('.preview-workspace').getAttribute('data-material'),
+        await preview.locator('[data-preview-workspace]').getAttribute('data-material'),
         'frosted',
         'each placement keeps its own material',
       );
       const previewWrites = writes.length;
       await preview.getByRole('button', { name: '贴边 / 刘海', exact: true }).click();
-      await preview.locator('.preview-host[data-placement="edge"]').waitFor();
-      await preview.getByRole('button', { name: '主界面', exact: true }).click();
+      await preview.locator('.layout-demo-canvas[data-demo-placement="edge"]').waitFor();
+      await preview.getByRole('button', { name: '恢复已保存配置', exact: true }).click();
       assert.equal(writes.length, previewWrites, 'preview navigation never moves real features');
 
       await page.bringToFront();
@@ -671,17 +673,17 @@ test(
           },
         ],
       };
-      await preview
-        .locator('.preview-split[data-axis="vertical"] .preview-split[data-axis="horizontal"]')
-        .waitFor();
+      await preview.locator('[data-axis="vertical"] [data-axis="horizontal"]').waitFor();
       assert.equal(
-        await preview.locator('.preview-pane').count(),
+        await preview.locator('.csw-workbench-pane').count(),
         3,
         'nested layout comes from the saved tree',
       );
       features.features.find((entry) => entry.id === 'board').open = false;
-      await page.waitForFunction(() => document.querySelectorAll('.preview-pane').length === 2);
-      assert.equal(await preview.getByRole('button', { name: '看板', exact: true }).count(), 0);
+      await page.waitForFunction(
+        () => document.querySelectorAll('.csw-workbench-pane').length === 2,
+      );
+      assert.equal(await preview.getByRole('tab', { name: '看板', exact: true }).count(), 0);
 
       await page.getByRole('link', { name: '常用开关', exact: true }).click();
       const demoWrites = writes.length;
@@ -846,18 +848,21 @@ test(
         'cross-tab theme choices only save the appearance preference',
       );
       await emulateMedia(page, { colorScheme: 'light', reducedMotion: 'no-preference' });
-      await preview.locator('.preview-workspace').evaluate((node) => {
-        window.placementAnimations = 0;
-        const animate = node.animate;
-        node.animate = function (...args) {
-          window.placementAnimations++;
-          return animate.apply(this, args);
+      await preview.locator('.layout-demo-window').evaluate((node) => {
+        window.placementFrames = [];
+        const sample = () => {
+          window.placementFrames.push(node.x.baseVal.value);
+          if (window.placementFrames.length < 100) requestAnimationFrame(sample);
         };
+        requestAnimationFrame(sample);
       });
       await page.getByRole('button', { name: '桌面窗口', exact: true }).click();
-      await preview.locator('.preview-host[data-placement="desktop"]').waitFor();
+      await preview.locator('.layout-demo-canvas[data-demo-placement="desktop"]').waitFor();
+      await page.waitForFunction(
+        () => document.querySelector('.layout-demo-window').x.baseVal.value === 754,
+      );
       assert.ok(
-        await page.evaluate(() => window.placementAnimations > 0),
+        await page.evaluate(() => window.placementFrames.some((x) => x > 470 && x < 730)),
         'placement changes animate only the illustration',
       );
       const beforeMotion = writes.length;

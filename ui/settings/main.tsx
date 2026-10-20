@@ -12,6 +12,8 @@ import './settings-layout.css';
 import './settings-preview.css';
 import './settings-controls.css';
 import './settings-motion.css';
+import '../surfaces/workspace/styles.css';
+import './layout-preview.css';
 import icon from '../icon.png';
 import { useCompanion, type Settings, type EditableSettings } from './api';
 import { useSettingsForm } from './use-settings-form';

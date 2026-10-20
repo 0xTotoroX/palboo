@@ -64,6 +64,8 @@ Hover over the independent eyes entry to choose inside, outside, or settings; co
 
 Drag a panel heading or tab to another panel's edge to split the layout, or to its center to group them as tabs. Double-click a heading or tab to temporarily enlarge that panel; double-click its heading again or press Esc to restore the layout. Keyboard users can focus a heading and press Enter or Space. Choose tabs, vertical, horizontal or automatic splits under **界面 → 布局与位置 → 主界面布局** in Web settings. Press Esc during a drag to cancel it.
 
+Vertically stacked sidebar panes can shrink to title rows as you drag a divider. Click a title to expand it again; content, drafts and reading position are retained. Short sidebars compact automatically. Other window layouts keep their existing behavior.
+
 The outline and next-step suggestions share the same chat source. The source label and follow/lock menu are temporarily hidden; existing associations are preserved. If the source becomes unavailable, previous results remain available for reading until it reconnects.
 
 ## CodexHost management
@@ -81,6 +83,8 @@ Write a draft in the chat composer and click the pencil-and-sparkle icon. The re
 Settings use one grouped interface, with no Simple/Detailed switch: Features, Interface and System. Common switches, next-step suggestions, quick prompts, terminology, task board and model control each have their own page; layout and appearance are separate too. Wide windows show grouped links in the left sidebar. At 760px and below, two navigation rows select a group and then its page. Switching retains unfinished edits and reading position. Advanced settings, terminology management and model groups use right-side drawers that retain inputs and scroll position when closed. Existing configuration, credentials and old settings links remain compatible. Shared model services live under System and serve enabled next-step, prompt enhancement and terminology features. Disabling a feature cancels its local requests and prevents follow-up calls while retaining connection settings.
 
 The Tom Modern settings design includes linked workspace, feature, generation and connection previews. Saved placement, nested layout and materials update the workspace diagram; generation previews identify unsaved edits. Sample interactions stay inside the preview. The Auto option follows Codex's light/dark appearance; the compact theme control in the page header also offers a saved light or dark override, while the brand icon retains its original appearance. Reduced-motion preferences and existing shared font settings remain in effect.
+
+The **界面 → 布局与位置** page includes an interactive display and secondary-screen demonstration. Drag dividers, expand headings, rearrange samples or watch the window move between screens. It follows saved features and layouts and lets you add temporary sample features. These interactions never change actual settings; **恢复已保存配置** resets the demonstration.
 
 ## Task board
 

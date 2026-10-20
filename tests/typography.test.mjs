@@ -32,6 +32,7 @@ window.settings=(raw,prefs)=>{window.settingsRoot ||= createRoot(document.queryS
     bundle: true,
     write: false,
     format: 'iife',
+    loader: { '.css': 'text' },
   })
 ).outputFiles[0].text;
 const html = `<aside class="app-shell-left-panel"><span data-marquee-text><span data-marquee-content style="font:14px/22px monospace">会话标题</span></span></aside><main style="zoom:1.3"><div data-content-search-turn-key="one"><p style="font:18px/27px serif">聊天正文</p></div><div contenteditable style="font:20px/30px sans-serif">输入</div></main><div id="feature" style="zoom:1.3"></div><div id="card"></div><div id="settings"></div>`;
