@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 已识别的 Codex 主内容、标签页与前景聊天布局、期望侧栏宽度和开合状态。
- * [OUTPUT]: dockWidthLimit 提供聊天实际可用宽度，自有根节点挂载、可撤销布局占位、含回程锚点的几何通知与临时让位状态；缩放下将屏幕顶部留白换算为局部尺寸；收起占位归零，宿主不可用时仅保留左栏入口，不创建提示或替代菜单。
+ * [OUTPUT]: dockWidthLimit 提供聊天实际可用宽度，自有根节点挂载、可撤销布局占位、含回程锚点的几何通知与临时让位状态；空白聊天与空间恢复沿用开合意愿，手动收起占位归零。
  * [POS]: 宿主布局适配；不移动聊天节点，不读取正文，不包含功能视图。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -25,7 +25,8 @@ export function findDockHost() {
       const content = [...row.children].find(
         (child) =>
           !child.hasAttribute(SLOT) &&
-          child.querySelector('.thread-scroll-container') &&
+          (child.querySelector('.thread-scroll-container') ||
+            child.querySelector('[data-codex-composer-root] [data-codex-composer]')) &&
           child.querySelector('.ProseMirror,[contenteditable="true"]'),
       );
       if (content && getComputedStyle(content).flexGrow !== '0') return { row, content };
@@ -51,12 +52,10 @@ export function createDock(onChange, beforeMove = () => {}) {
     frame = 0,
     fingerprint = '';
   let options = { width: 340, open: true, detached: false };
-  let blocked = false;
   let destroyed = false;
   let observer = null;
   let attachedRoot = null;
   let dockExpanded = false;
-  const blockedRows = new WeakMap();
   const schedule = () => {
     if (!destroyed && !frame)
       frame = requestAnimationFrame(() => {
@@ -114,7 +113,6 @@ export function createDock(onChange, beforeMove = () => {}) {
     if (slot) beforeMove();
     observer?.disconnect();
     observer = null;
-    if (host) blockedRows.set(host.row, blocked);
     if (attachedRoot) {
       if (attachedRoot.parentElement !== document.body) document.body.append(attachedRoot);
       delete attachedRoot.dataset.dockMounted;
@@ -136,7 +134,6 @@ export function createDock(onChange, beforeMove = () => {}) {
     if (host?.row !== found.row || host?.content !== found.content || !slot?.isConnected) {
       removeSlot();
       host = found;
-      blocked = blockedRows.get(host.row) || false;
       if (host.dialog) {
         host.row.setAttribute('data-palboo-chat-row', 'true');
         host.content.setAttribute('data-palboo-chat-content', 'true');
@@ -165,10 +162,8 @@ export function createDock(onChange, beforeMove = () => {}) {
     const enough =
       availableWidth >= CHAT_MIN_WIDTH + requestedWidth &&
       bounds.bottom - Math.max(bounds.top, 48) >= 426;
-    // 收起后即使空间恢复也保持收起，由用户主动重新打开。
-    if (options.open && !options.detached && !enough) blocked = true;
-    if (!options.open) blocked = false;
-    const returnExpanded = options.open && enough && !blocked;
+    // 空间变化只是暂时让位；聊天切换不能覆盖用户的开合意愿。
+    const returnExpanded = options.open && enough;
     const expanded = !options.detached && returnExpanded;
     if (dockExpanded && !expanded) beforeMove();
     dockExpanded = expanded;
@@ -233,7 +228,6 @@ export function createDock(onChange, beforeMove = () => {}) {
       placeRoot();
     },
     reopen() {
-      blocked = false;
       update({ ...options, open: true });
     },
     destroy() {

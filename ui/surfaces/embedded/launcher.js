@@ -16,6 +16,7 @@ let settingsLink = null;
 let observer = null;
 let frame = 0;
 let current = null;
+let actionStatus = '';
 const previewEnabled = () => DEVELOPMENT && current?.pluginTabPreview === true;
 
 function isOfficialButton(node) {
@@ -130,6 +131,7 @@ export function stopLauncher() {
   settingsLink?.stop();
   settingsLink = null;
   pluginStatus = '';
+  actionStatus = '';
   observer?.disconnect();
   observer = null;
   cancelAnimationFrame(frame);
@@ -223,6 +225,7 @@ export function syncLauncher(options) {
       </button></div><div class="settings-feedback" popover="manual"><span role="status"></span><button type="button" aria-label="关闭设置提示">关闭</button></div>`;
     shadow.querySelector('.settings-feedback button').addEventListener('click', (event) => {
       event.stopPropagation();
+      actionStatus = '';
       current?.dismissSettingsStatus?.();
       /** @type {HTMLElement} */ (shadow.querySelector('.settings-feedback')).hidePopover();
     });
@@ -261,14 +264,21 @@ export function syncLauncher(options) {
     radial = createLauncherMenu(entry.shadowRoot.querySelector('button'), () => ({
       ...current,
       action: (action) => {
+        actionStatus = '';
+        schedule();
         face?.acknowledge();
         return current?.action?.(action);
+      },
+      onError: (message) => {
+        // 设置错误已由运行层发布，其他动作共用同一个不受侧栏裁切的反馈。
+        if (!current?.settingsStatus) actionStatus = message;
+        schedule();
       },
     }));
   if (!face) face = createLauncherFace(entry.shadowRoot.querySelector('button'));
   face.update(options);
   const feedback = entry.shadowRoot.querySelector('.settings-feedback');
-  const message = options.settingsStatus || '';
+  const message = options.settingsStatus || actionStatus;
   const status = feedback.querySelector('[role="status"]');
   if (status.textContent !== message) status.textContent = message;
   entry.shadowRoot

@@ -1798,16 +1798,12 @@ const cases = [
         'collapse releases the chat width',
       );
       await page.setViewportSize(wide);
-      await page.waitForFunction(
-        () => window.__companionFloatingPanel.state.dockStatus === 'closed',
-      );
+      await page.waitForFunction(() => window.__companionFloatingPanel.state.dockStatus === 'open');
       const collapsed = await page.evaluate(() =>
         window.__companionFloatingPanel.panelPreferences(),
       );
       for (const key of ['dockOpen', 'dockWidth', 'splitRatio'])
         assert.equal(collapsed[key], preferences[key], `${key} retains user intent`);
-      await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
-      await page.waitForFunction(() => window.__companionFloatingPanel.state.dockStatus === 'open');
       await settle(page);
       await layout(page);
       const before = await scrollPanes(page, 90, 20, 25);
@@ -2394,6 +2390,10 @@ const cases = [
       await page.screenshot({ path: resolve(output, 'space-collapsed.png') });
       await page.setViewportSize(wide);
       await settle(page);
+      await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
+      await page.waitForFunction(
+        () => window.__companionFloatingPanel.state.dockStatus === 'closed',
+      );
       await hostUnchanged(page, baseline);
     },
   ],
@@ -2423,12 +2423,8 @@ const cases = [
       await page
         .locator('#fixture-file-panel')
         .evaluate((node) => (node.style.flexBasis = '325px'));
-      await page.waitForFunction(
-        () => window.__companionFloatingPanel.state.dockStatus === 'closed',
-      );
-      assert.equal(await page.locator('.csw-dock-menu,.csw-dock-warning').count(), 0);
-      await entry.press('Enter');
       await page.waitForFunction(() => window.__companionFloatingPanel.state.dockStatus === 'open');
+      assert.equal(await page.locator('.csw-dock-menu,.csw-dock-warning').count(), 0);
       near(
         (await box(page, '#fixture-host-content')).width,
         560,
@@ -2744,7 +2740,7 @@ const cases = [
     },
   ],
   [
-    'insufficient width/height stays collapsed until explicit reopen',
+    'insufficient width/height temporarily hides the sidebar without changing open intent',
     async (page) => {
       await mode(page, true);
       const preferences = await page.evaluate(() =>
@@ -2785,22 +2781,18 @@ const cases = [
         await page.evaluate(() => window.__companionFloatingPanel.setDetached(false));
         await page.setViewportSize(wide);
         await page.waitForFunction(
-          () => window.__companionFloatingPanel.state.dockStatus === 'closed',
+          () => window.__companionFloatingPanel.state.dockStatus === 'open',
         );
         await settle(page);
         assert.equal(
           await page.locator('.csw-workbench').isVisible(),
-          false,
-          'resize alone must not reopen',
+          true,
+          'restored space honors the existing open intent',
         );
         assert.equal(await entry.isVisible(), true);
         const after = await page.evaluate(() => window.__companionFloatingPanel.panelPreferences());
         for (const key of ['dockOpen', 'dockWidth', 'splitRatio'])
           assert.equal(after[key], preferences[key], `${key} survives space collapse`);
-        await entry.press('Enter');
-        await page.waitForFunction(
-          () => window.__companionFloatingPanel.state.dockStatus === 'open',
-        );
         await settle(page);
         await layout(page);
       }
@@ -2838,6 +2830,61 @@ const cases = [
       await syncSettings(page, { enabled: true, answerOutlineEnabled: true });
       await mode(page, true);
       await layout(page);
+    },
+  ],
+  [
+    'new and remounted chats preserve open closed and detached sidebar state',
+    async (page) => {
+      await mode(page, true);
+      for (const desired of ['open', 'closed', 'detached']) {
+        if (desired === 'closed') {
+          await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
+          await page.waitForFunction(
+            () => window.__companionFloatingPanel.state.dockOpen === false,
+          );
+        }
+        if (desired === 'detached') {
+          await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
+          await page.evaluate(() => window.__companionFloatingPanel.setDetached(true));
+        }
+        const before = await page.evaluate(() => ({
+          open: window.__companionFloatingPanel.state.dockOpen,
+          detached: window.__companionFloatingPanel.state.detached,
+        }));
+        await page.evaluate(() => {
+          const content = document.querySelector('#fixture-host-content');
+          const thread = content.querySelector('.thread-scroll-container');
+          if (thread) thread.remove();
+          content.querySelector('.composer').setAttribute('data-codex-composer-root', '');
+          content.querySelector('.ProseMirror').setAttribute('data-codex-composer', '');
+        });
+        await page.waitForFunction(
+          (desired) => window.__companionFloatingPanel.state.dockStatus === desired,
+          desired,
+        );
+        await page.evaluate(() => {
+          const row = document.querySelector('#fixture-dock-row');
+          const replacement = row.cloneNode(true);
+          replacement.querySelector('[data-palboo-dock]')?.remove();
+          row.replaceWith(replacement);
+        });
+        await page.waitForFunction(() =>
+          document.querySelector('#fixture-dock-row > [data-palboo-dock]'),
+        );
+        await page.waitForFunction(
+          (desired) => window.__companionFloatingPanel.state.dockStatus === desired,
+          desired,
+        );
+        assert.deepEqual(
+          await page.evaluate(() => ({
+            open: window.__companionFloatingPanel.state.dockOpen,
+            detached: window.__companionFloatingPanel.state.detached,
+          })),
+          before,
+        );
+        assert.equal(await page.locator('[data-palboo-dock]').count(), 1);
+        assert.equal(await page.locator('[data-palboo-launcher]').count(), 1);
+      }
     },
   ],
   [

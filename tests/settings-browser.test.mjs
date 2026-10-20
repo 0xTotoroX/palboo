@@ -99,6 +99,22 @@ async function syntheticBrowser(t, setup) {
   await page.addScriptTag({ content: compiled.outputFiles[0].text });
   return page;
 }
+test('a browser tab named New tab is not the create-tab button', async (t) => {
+  const page = await syntheticBrowser(t, () => {
+    const existing = document.createElement('button');
+    existing.setAttribute('role', 'tab');
+    existing.setAttribute('aria-label', '新标签页');
+    existing.textContent = '新标签页';
+    existing.onclick = () => window.clicks++;
+    document.querySelector('#new').before(existing);
+  });
+  assert.deepEqual(
+    await page.evaluate(() => window.openSettingsBrowser('http://127.0.0.1:12345/')),
+    { status: 'submitted' },
+  );
+  assert.equal(await page.evaluate(() => window.clicks), 1);
+  assert.equal(await page.evaluate(() => window.submits), 1);
+});
 test('delayed new tab ignores the old address including replacement nodes', async (t) => {
   const page = await syntheticBrowser(t, () => {
     window.old = window.createAddress('old-panel');

@@ -251,7 +251,10 @@ test('launcher reuses original expressions and source geometry while retaining i
     await eye.focus();
     await page.keyboard.press('ArrowRight');
     await menu.getByRole('menuitem', { name: '打开设置' }).click();
-    assert.equal(await menu.getByRole('status').textContent(), 'Error: fixture action failed');
+    const feedback = page.locator('.settings-feedback');
+    await feedback.waitFor({ state: 'visible' });
+    assert.equal(await feedback.getByRole('status').textContent(), 'fixture action failed');
+    assert.equal(await menu.getByRole('status').count(), 0);
     assert.equal(await eye.getAttribute('data-expression'), 'generating');
     await page.evaluate(() => {
       window.previousFeedback = window.feedback;

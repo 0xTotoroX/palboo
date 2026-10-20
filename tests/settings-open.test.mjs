@@ -69,7 +69,10 @@ test('backend failure is returned and visible for right-click, default click and
   await feedback.waitFor({ state: 'visible' });
   assert.match(await feedback.textContent(), /fixture backend unavailable/);
   assert.equal(await page.evaluate(() => window.requests.length), 3);
+  assert.equal(await page.locator('[data-palboo-launcher-menu] [role="status"]').count(), 0);
   assert.equal(await page.locator('[data-palboo-launcher-menu]').getAttribute('data-open'), '');
+  await page.getByRole('button', { name: '关闭设置提示' }).click();
+  assert.equal(await feedback.isVisible(), false);
   assert.equal(await page.locator('[data-palboo-launcher] [title]').count(), 0);
 });
 test('concurrent callers share the same pending promise and receive the same failure', async (t) => {

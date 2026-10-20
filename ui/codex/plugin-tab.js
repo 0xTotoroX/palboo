@@ -332,7 +332,7 @@ export async function openSettingsBrowser(
     'input[data-browser-sidebar-address-input],input[aria-label="搜索或输入网址"],input[aria-label="Search or enter a URL"],input[placeholder="搜索或输入网址"],input[placeholder="Search or enter a URL"]';
   const panelId = (input) => input.closest('[data-tab-id]')?.getAttribute('data-tab-id') || '';
   const next = await wait(
-    () => unique('button', ['新标签页', 'New tab', '新建标签页']),
+    () => unique('button:not([role="tab"])', ['新标签页', 'New tab', '新建标签页']),
     '未找到宿主的新标签页入口，请展开标签栏后重试。',
   );
   // 记录已有地址栏和标签，防止创建尚未完成时覆盖旧网页。

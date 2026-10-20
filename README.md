@@ -128,7 +128,7 @@ The eyes entry stays in the host’s left rail. The workbench and desktop header
 | Right-click the eyes or choose Settings | Open settings in the built-in browser side panel |
 | Drag headings/tabs; double-click a heading or tab | Split or group panels; temporarily focus a panel, then press Esc to restore |
 
-Collapsing releases sidebar space while preserving the saved placement. If the sidebar does not fit, it stays closed until you reopen it when space is available. Floating and docked placements are selected in settings; desktop maximize/restore preserves the normal window geometry.
+Collapsing releases sidebar space while preserving the saved placement. Switching or creating chats preserves the current open/closed state and desktop placement. Insufficient space temporarily hides an open sidebar; it returns when space is available, while a manually closed sidebar stays closed. Floating and docked placements are selected in settings; desktop maximize/restore preserves the normal window geometry.
 
 ## Installation and use
 
