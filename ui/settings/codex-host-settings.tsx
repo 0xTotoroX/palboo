@@ -1,7 +1,6 @@
 /* [INPUT]: 认证 CodexHost API。 [OUTPUT]: CodexHost 独立开关、运行状态、版本更新及显式重启停用。
  * [POS]: 设置展示，不管理进程或复制其他功能配置；只在此分类可见时轮询。
  * [PROTOCOL]: 变更时同步 settings/AGENTS.md。 */
-import { SettingsDrawer } from './settings-drawer';
 import { useEffect, useRef, useState } from 'react';
 import { request } from './api';
 import { Toggle, Feedback } from './settings-controls';
@@ -127,29 +126,25 @@ export function CodexHostSettings({ live, active }: { live: boolean; active: boo
                 <dd>{state.runningVersion}</dd>
               </div>
             )}
+            {state.executable && (
+              <div className="settings-row items-start">
+                <dt className="shrink-0">程序路径</dt>
+                <dd className="min-w-0 break-all text-right select-text">{state.executable}</dd>
+              </div>
+            )}
+            {state.runningExecutable && state.runningExecutable !== state.executable && (
+              <div className="settings-row items-start">
+                <dt className="shrink-0">运行路径</dt>
+                <dd className="min-w-0 break-all text-right select-text">
+                  {state.runningExecutable}
+                </dd>
+              </div>
+            )}
           </dl>
-          {state.executable && (
-            <SettingsDrawer title="程序路径">
-              <dl className="space-y-4">
-                {state.executable && (
-                  <div className="space-y-2">
-                    <dt>启动路径</dt>
-                    <dd className="break-all select-text">{state.executable}</dd>
-                  </div>
-                )}
-                {state.runningExecutable && state.runningExecutable !== state.executable && (
-                  <div className="space-y-2">
-                    <dt>运行路径</dt>
-                    <dd className="break-all select-text">{state.runningExecutable}</dd>
-                  </div>
-                )}
-              </dl>
-            </SettingsDrawer>
-          )}
           {state.state === 'pendingEnable' && (
             <p>需要重开 Codex 才能启用时，请先结束任务，再打开 Palboo。</p>
           )}
-          <div className="flex flex-wrap gap-3">
+          <div className="settings-actions">
             {state.state === 'pendingDisable' && (
               <ConfirmationButton
                 disabled={disabled}

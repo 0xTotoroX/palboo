@@ -909,32 +909,43 @@ test(
       await category('connection');
       await page.addScriptTag({ content: await readFile('ui/settings/dev-sources.js', 'utf8') });
       await category('dev');
-      await page.getByText('当前 · main · 1234567', { exact: true }).waitFor();
-      const source = page.getByLabel('调试 worktree', { exact: true });
+      const sourceWidget = page.locator('#buddy-dev-sources');
+      await sourceWidget.getByText('main', { exact: true }).waitFor();
+      assert.doesNotMatch(
+        await sourceWidget.locator('.source-content').innerText(),
+        /1234567|7654321|已同步/,
+      );
+      assert.equal(await sourceWidget.locator('select, summary').count(), 0);
+      const source = sourceWidget.getByRole('radio', { name: /codex\/long-source-name/ });
       const sourceWrites = writes.filter((w) => w.path.startsWith('/api/dev/')).length;
       for (const mode of ['浅色', '深色']) {
         await chooseTheme(mode);
         await page.setViewportSize({ width: 360, height: 900 });
-        await source.click();
-        await page.locator('#buddy-dev-sources select:open').waitFor();
-        assert.equal(await source.evaluate((n) => getComputedStyle(n).appearance), 'base-select');
-        const bounds = await page.locator('#buddy-dev-sources option').evaluateAll((nodes) =>
+        await source.check();
+        const bounds = await sourceWidget.locator('.source-row').evaluateAll((nodes) =>
           nodes.map((node) => ({
             left: node.getBoundingClientRect().left,
             right: node.getBoundingClientRect().right,
             width: innerWidth,
+            overflow: node.scrollWidth > node.clientWidth,
           })),
         );
         assert.ok(
-          bounds.every((box) => box.left >= 0 && box.right <= box.width),
+          bounds.every((box) => box.left >= 0 && box.right <= box.width && !box.overflow),
           'long Dev source labels remain inside a narrow viewport',
         );
-        await page.keyboard.press('Escape');
+        const edges = await sourceWidget.evaluate((host) => {
+          const view = host.shadowRoot;
+          return [view.querySelector('form'), view.querySelector('button')].map(
+            (n) => n.getBoundingClientRect().right,
+          );
+        });
+        assert.ok(Math.abs(edges[0] - edges[1]) < 1, 'switch action aligns to the right edge');
       }
       assert.equal(
         writes.filter((w) => w.path.startsWith('/api/dev/')).length,
         sourceWrites,
-        'previewing Dev menus never switches sources',
+        'selecting a source never switches it before confirmation',
       );
       const restricted = await browser.newContext({ colorScheme: 'dark', reducedMotion: 'reduce' });
       await restricted.addInitScript(() => {

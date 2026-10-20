@@ -214,8 +214,10 @@ export function ModelSettings({ editor, simple }: { editor: SettingsEditor; simp
                 }}
               />
             </Field>
-            <div className="mt-5 flex flex-wrap items-center gap-4">
-              {!saved.available && <p className="settings-error">{saved.reason || '等待配置'}</p>}
+            <div className="settings-actions mt-5">
+              {!saved.available && (
+                <p className="settings-error mr-auto">{saved.reason || '等待配置'}</p>
+              )}
               <Button
                 type="button"
                 variant="outline"
@@ -268,7 +270,9 @@ export function ModelSettings({ editor, simple }: { editor: SettingsEditor; simp
               <p
                 id="model-test-feedback"
                 className={
-                  testFeedback?.failed ? 'settings-feedback settings-error' : 'settings-feedback'
+                  testFeedback?.failed
+                    ? 'settings-feedback settings-error text-right'
+                    : 'settings-feedback text-right'
                 }
                 role={testFeedback?.failed ? 'alert' : 'status'}
               >

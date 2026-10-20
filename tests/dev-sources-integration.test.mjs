@@ -313,7 +313,10 @@ test(
       await outlineSwitch.waitFor();
       assert.equal(await outlineSwitch.isEnabled(), true, 'settings controls must be usable');
       await navigation.getByRole('link', { name: '开发来源', exact: true }).click();
-      await page.getByText(/当前 · Stepwise/).waitFor();
+      await page
+        .locator('.source-row[data-active="true"]')
+        .filter({ hasText: 'Stepwise' })
+        .waitFor();
       await Promise.all(responseChecks);
       assert.deepEqual(errors, [], 'complete settings page must render without React errors');
       const alignment = await page.evaluate(() => ({
@@ -329,9 +332,9 @@ test(
       );
       const sourceWidget = page.locator('#buddy-dev-sources');
       assert.equal(await sourceWidget.locator('summary').count(), 0);
-      assert.equal(await page.getByLabel('调试 worktree').isVisible(), true);
+      assert.equal(await sourceWidget.getByRole('group', { name: '开发来源' }).isVisible(), true);
       stage = 'switch source from settings';
-      await page.getByLabel('调试 worktree').selectOption(main);
+      await sourceWidget.getByRole('radio', { name: `main · ${main}`, exact: true }).check();
       rejectSourceForTest = true;
       await page.route('**/api/dev/sources', async (route) => {
         if (route.request().method() !== 'POST') return route.continue();
@@ -362,7 +365,10 @@ test(
       await page.getByRole('button', { name: '切换来源' }).click();
       const switchingButton = page.getByRole('button', { name: '切换中…' });
       assert.equal(await switchingButton.isDisabled(), true);
-      assert.equal(await page.getByLabel('调试 worktree').isDisabled(), true);
+      assert.equal(
+        await sourceWidget.getByRole('radio', { name: `main · ${main}`, exact: true }).isDisabled(),
+        true,
+      );
       assert.equal(
         await switchingButton.evaluate((node) => getComputedStyle(node, '::before').animationName),
         'source-spin',
@@ -379,11 +385,14 @@ test(
       ]);
       await page.unroute('**/api/dev/sources');
       stage = 'wait for switched source widget';
-      await page.getByText(/当前 · main/).waitFor({ timeout: 30000 });
+      await sourceWidget
+        .locator('.source-row[data-active="true"]')
+        .filter({ hasText: 'main' })
+        .waitFor({ timeout: 30000 });
       stage = 'wait for switched resource confirmation';
       await sourceWidget
         .getByRole('status')
-        .filter({ hasText: /已切换至 main · 已同步/ })
+        .filter({ hasText: /已切换至 main/ })
         .waitFor();
       assert.equal(
         await sourceWidget.locator('[data-state]').getAttribute('data-complete'),
@@ -425,10 +434,7 @@ test(
       stage = 'check missing and expired credentials';
       const unauthenticated = await browser.newPage();
       await unauthenticated.goto(`${session.url}/#settings-dev`);
-      await unauthenticated
-        .locator('#buddy-dev-sources [data-current]')
-        .filter({ hasText: '无法连接' })
-        .waitFor();
+      await unauthenticated.locator('#buddy-dev-sources [data-state][data-error="true"]').waitFor();
       await unauthenticated.getByRole('alert').filter({ hasText: '尚未连接 Palboo' }).waitFor();
       assert.equal(await unauthenticated.getByText('等待本地服务…', { exact: true }).count(), 0);
       await unauthenticated.close();
@@ -438,10 +444,7 @@ test(
         .getByRole('navigation', { name: '设置分类' })
         .getByRole('link', { name: '开发来源', exact: true })
         .click();
-      await expired
-        .locator('#buddy-dev-sources [data-current]')
-        .filter({ hasText: '无法连接' })
-        .waitFor();
+      await expired.locator('#buddy-dev-sources [data-state][data-error="true"]').waitFor();
       await expired.getByRole('alert').filter({ hasText: '设置连接已过期' }).waitFor();
       await expired.close();
       const events = readFileSync(join(base, 'events.jsonl'), 'utf8')

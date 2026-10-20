@@ -144,7 +144,7 @@ export function ConnectionSettings({
             </Field>
           )}
         </div>
-        <div className="mt-4 flex items-center justify-between">
+        <div className="settings-actions mt-4">
           <Button
             type="button"
             variant="outline"
