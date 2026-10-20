@@ -89,7 +89,7 @@ export function BotsView({
               disabled={blocked || bot.occupied || bot.available === false}
               onClick={() => send('ask')}
             >
-              <BotAvatar name={bot.name} avatar={bot.avatar} />
+              <BotAvatar avatar={bot.avatar} />
               <span className="palboo-bot-copy">
                 <span>{bot.name}</span>
                 {bot.preview && (
