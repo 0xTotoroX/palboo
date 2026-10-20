@@ -11,6 +11,7 @@ export const pageTitles = {
   prompts: '常用提示词',
   terminology: '术语释义',
   board: '任务看板',
+  bots: 'Grok Bot',
   'model-control': '模型切换',
   model: '模型服务',
   surfaces: '布局与位置',
@@ -23,7 +24,7 @@ export type SettingsPage = keyof typeof pageTitles;
 export const pageGroups: { title: string; pages: SettingsPage[] }[] = [
   {
     title: '功能',
-    pages: ['features', 'next', 'prompts', 'terminology', 'board', 'model-control'],
+    pages: ['features', 'next', 'prompts', 'terminology', 'board', 'model-control', 'bots'],
   },
   { title: '界面', pages: ['surfaces', 'appearance'] },
   { title: '系统', pages: ['model', 'connection', 'performance', 'codex-host', 'dev'] },
@@ -37,6 +38,7 @@ const aliases: Record<string, SettingsPage> = {
   'settings-model-control': 'model-control',
   'model-organization': 'model-control',
   'settings-next': 'next',
+  'settings-grokbot': 'bots',
   'settings-board': 'board',
   'settings-tasks': 'board',
   'settings-directions': 'next',

@@ -3,7 +3,18 @@
  * [POS]: Isolated end-to-end acceptance; no real chat, model requests or EventKit writes.
  * [PROTOCOL]: Keep tests/AGENTS.md in sync. */
 import assert from 'node:assert/strict';
-import { cacheFile } from '../scripts/grokbot-adapter/catalog.mjs';
+// Synthetic roster filename encoding; no product adapter is bundled.
+function cacheFile(key) {
+  let bits = '';
+  for (const byte of Buffer.from(key)) bits += byte.toString(2).padStart(8, '0');
+  const alphabet = 'abcdefghijklmnopqrstuvwxyz234567';
+  return (
+    bits
+      .match(/.{1,5}/g)
+      .map((v) => alphabet[parseInt(v.padEnd(5, '0'), 2)])
+      .join('') + '.blob'
+  );
+}
 import { spawn, execFileSync } from 'node:child_process';
 import { createServer } from 'node:http';
 import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, existsSync, rmSync } from 'node:fs';
@@ -43,6 +54,7 @@ let botCatalog = {
     available: true,
     avatar: { shape: 'cloud', color: 'violet' },
     preview: '合成资料摘要',
+    description: `合成简介：${name}`,
   })),
 };
 const fixture = createServer((req, res) => {
@@ -501,6 +513,15 @@ try {
   assert.ok(Math.abs(botGeometry[2].label - botGeometry[2].status) < 1);
   assert.ok(Math.abs(botGeometry[2].label - botGeometry[2].action) < 1);
   await page.locator('[data-feature="bots"]').screenshot({ path: join(output, 'palboo-bots.png') });
+  assert.equal(await page.locator('[data-feature="bots"] details').count(), 0);
+  assert.equal(await page.locator('[data-refresh="bots"]').count(), 0);
+  assert.equal(
+    await page
+      .locator('.palboo-bot-preview')
+      .first()
+      .evaluate((el) => getComputedStyle(el).webkitLineClamp),
+    '1',
+  );
   const quietCalls = botListCalls;
   await delay(6500);
   assert.equal(botListCalls, quietCalls, 'unchanged roster does not poll BDK every five seconds');
@@ -546,6 +567,75 @@ try {
   );
   record(
     'dynamic Bot addition appears without restart, preserves call status and rejects stale catalog actions',
+  );
+  const beforeManual = await api('settings');
+  const manual = await api('settings', {
+    grokbotAutoSync: false,
+    expectedRevision: beforeManual.configurationRevision,
+  });
+  assert.equal(manual.generationRevision, beforeManual.generationRevision);
+  assert.equal(
+    JSON.parse(readFileSync(join(directory, 'config.json'), 'utf8')).stepwise.grokbotAutoSync,
+    false,
+  );
+  await page.getByRole('button', { name: '刷新 Bot 资料', exact: true }).waitFor();
+  const manualCalls = botListCalls;
+  botCatalog = {
+    ...botCatalog,
+    revision: 'r3',
+    bots: [
+      ...botCatalog.bots,
+      {
+        id: 'manual-bot',
+        name: '手动新增 Bot',
+        available: true,
+        description: '仅在设置展示的简介',
+      },
+    ],
+  };
+  writeFileSync(
+    join(directory, cacheFile('sand.client.slice.account.fixture.roster.last-roster')),
+    'manual change',
+  );
+  await delay(6500);
+  assert.equal(botListCalls, manualCalls, 'manual mode ignores file changes and background reads');
+  assert.equal(await page.getByRole('button', { name: '手动新增 Bot', exact: true }).count(), 0);
+  await page.getByRole('button', { name: '刷新 Bot 资料', exact: true }).click();
+  await page.getByRole('button', { name: '手动新增 Bot', exact: true }).waitFor();
+  assert.equal(await page.evaluate(() => window.submitCount), sends);
+  const settingsPage = await context.newPage();
+  await settingsPage.goto(`${base}/#token=${runtime.token}`);
+  await settingsPage.evaluate(() => {
+    location.hash = 'settings-bots';
+  });
+  await settingsPage.getByRole('switch', { name: '自动同步 Bot 资料', exact: true }).waitFor();
+  await settingsPage.getByText('仅在设置展示的简介', { exact: true }).waitFor();
+  assert.equal(await page.getByText('仅在设置展示的简介', { exact: true }).count(), 0);
+  await settingsPage.getByRole('button', { name: '接入 Grok Bot', exact: true }).click();
+  const prompt = await settingsPage
+    .getByRole('textbox', { name: 'Grok Bot 接入 Prompt' })
+    .inputValue();
+  assert.match(prompt, /当前官方文档|当前官方/);
+  assert.match(prompt, /不新建 Bot/);
+  assert.doesNotMatch(prompt, /Users\/Totoro|grokbot setup|0\.2\.27/);
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: base });
+  await settingsPage.getByRole('button', { name: '复制接入 Prompt', exact: true }).click();
+  await settingsPage.getByText('已复制', { exact: true }).waitFor();
+  assert.equal(await settingsPage.evaluate(() => navigator.clipboard.readText()), prompt);
+  await settingsPage.getByRole('button', { name: '关闭接入 Grok Bot', exact: true }).click();
+  await settingsPage.getByRole('switch', { name: '自动同步 Bot 资料', exact: true }).click();
+  await wait(
+    async () => (await api('settings')).grokbotAutoSync === true,
+    'auto sync saved from settings',
+  );
+  await wait(
+    async () => !(await page.locator('[data-refresh="bots"]').count()),
+    'automatic mode hides manual refresh',
+  );
+  await settingsPage.screenshot({ path: join(output, 'palboo-bot-settings.png') });
+  await settingsPage.close();
+  record(
+    'manual sync ignores file events until refresh; descriptions and Agent setup prompt live in settings; automatic sync can resume',
   );
   await api('settings', { grokbotEnabled: false });
   await page.waitForFunction(() => !window.__palbooBots);

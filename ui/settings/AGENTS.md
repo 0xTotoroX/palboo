@@ -110,3 +110,6 @@ model-control-settings提供“启用额度显示”，复用模型快切独立�
 常用开关增加“聊天测速”，tokenMeterEnabled 复用独立控制补丁和 configurationRevision 串行保存；失败保留草稿，关闭不提交其他未保存模型字段。搜索支持 token/tok/s/用量；实际读数位于宿主输入区。
 
 常用功能新增默认关闭的 Grok Bot，grokbotEnabled 复用独立控制补丁与 configurationRevision 串行保存。功能位置与字号沿现有通用容器设置；设置预览仅示意主聊天交互，不调用 Bot。
+
+- `bot-settings.tsx`：Grok Bot 子页的自动同步开关、只读简介和接入说明抽屉；沿共享修订保存队列，按进入页面读取资料，手动模式显式刷新；无聊天输入、无接入安装操作。
+- `bot-setup-prompt.ts`：给用户 Agent 的接入 Prompt，包含官方文档、动态名单/账号校验和当前本机接口契约；外部依赖与 Skill 独立更新，不固定 BDK 版本或维护者路径。

@@ -4,6 +4,7 @@
  * [PROTOCOL]: 变更时同步 settings/AGENTS.md。 */
 import { useTypography } from './use-typography';
 import { StrictMode, useEffect, useState } from 'react';
+import { BotSettings } from './bot-settings';
 import { TerminologySettings } from './terminology-settings';
 import { createRoot } from 'react-dom/client';
 import '../shared/tokens.css';
@@ -43,6 +44,7 @@ function editable(value: Settings): EditableSettings {
     promptEnhancementEnabled,
     tokenMeterEnabled,
     grokbotEnabled,
+    grokbotAutoSync,
     generationMode,
     hostRestartPolicy,
     provider,
@@ -66,6 +68,7 @@ function editable(value: Settings): EditableSettings {
     promptEnhancementEnabled,
     tokenMeterEnabled,
     grokbotEnabled,
+    grokbotAutoSync,
     generationMode,
     hostRestartPolicy,
     provider,
@@ -98,7 +101,7 @@ function App() {
   const contentRef = useSettingsMotion(page);
   const tasks = useTasks(live);
   const common = page === 'features';
-  const featuresVisible = common || ['next', 'board', 'model-control'].includes(page);
+  const featuresVisible = common || ['next', 'board', 'model-control', 'bots'].includes(page);
   const surfacesVisible = page === 'surfaces' || page === 'appearance';
   useEffect(() => {
     setNotice((current) => (current.failed ? current : { text: '', failed: false }));
@@ -189,7 +192,7 @@ function App() {
                     onSnapshot={setModel}
                   />
                 </div>
-                <div id="settings-grokbot" hidden={!common}>
+                <div id="settings-grokbot" hidden={!common && page !== 'bots'}>
                   <FeatureSwitch
                     name="Grok Bot"
                     checked={editor.form?.grokbotEnabled ?? false}
@@ -229,6 +232,7 @@ function App() {
                   </Field>
                 </div>
               </section>
+              <BotSettings active={page === 'bots'} live={live} editor={editor} />
               <section
                 data-settings-page="surfaces"
                 hidden={!surfacesVisible}

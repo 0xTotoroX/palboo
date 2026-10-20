@@ -166,6 +166,7 @@ impl Model {
         options.prompt_enhancement_enabled = other.options.prompt_enhancement_enabled;
         options.token_meter_enabled = other.options.token_meter_enabled;
         options.grokbot_enabled = other.options.grokbot_enabled;
+        options.grokbot_auto_sync = other.options.grokbot_auto_sync;
         options.quick_prompts = other.options.quick_prompts.clone();
         if options.direction_source == crate::directions::DirectionSource::Auto
             && other.options.direction_source == options.direction_source

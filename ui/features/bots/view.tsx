@@ -2,8 +2,11 @@
  * [OUTPUT]: Dynamic Bot selectors with chat-scoped status, follow-up and stop requests.
  * [POS]: PALBOO feature content, shared by existing surfaces; no second chat input.
  * [PROTOCOL]: Keep ui/features/AGENTS.md in sync. */
+import { createPortal } from 'react-dom';
+import { Icon } from '../../shared/icons/react';
 import { BotAvatar } from './avatar';
 export type BotState = {
+  autoSync?: boolean;
   snapshot: {
     target: { threadId: string; token: string } | null;
     catalog?: { revision: string; stale: boolean; error?: string; updatedAt?: number };
@@ -35,7 +38,9 @@ export function BotsView({
   state,
   disabled,
   action,
+  headerActions,
 }: {
+  headerActions?: HTMLElement;
   state: BotState;
   disabled: boolean;
   action: (data: Record<string, unknown>) => void;
@@ -43,9 +48,21 @@ export function BotsView({
   const snapshot = state.snapshot;
   if (!snapshot) return <p className="feature-placeholder">等待 Codex 连接…</p>;
   const blocked = disabled || !snapshot.target || snapshot.catalog?.stale;
+  const refresh =
+    state.autoSync === false ? (
+      <button
+        type="button"
+        data-refresh="bots"
+        aria-label="刷新 Bot 资料"
+        disabled={disabled}
+        onClick={() => action({ action: 'refresh' })}
+      >
+        <Icon name="refresh" />
+      </button>
+    ) : null;
   return (
     <section className="palboo-bots" aria-label="Grok Bot">
-      <p className="palboo-bots-note">选择 Bot 后，在 Codex 主聊天输入并发送。</p>
+      {headerActions ? createPortal(refresh, headerActions) : refresh}
       {snapshot.catalog?.error && <p role="status">{snapshot.catalog.error}</p>}
       {snapshot.catalog?.stale && !snapshot.catalog.error && (
         <p role="status">资料已过期，请打开 Grok Bot 等待同步。</p>
@@ -68,23 +85,20 @@ export function BotsView({
             <button
               type="button"
               className="palboo-bot-select"
+              aria-label={bot.name}
               disabled={blocked || bot.occupied || bot.available === false}
               onClick={() => send('ask')}
             >
               <BotAvatar name={bot.name} avatar={bot.avatar} />
-              <span>{bot.name}</span>
+              <span className="palboo-bot-copy">
+                <span>{bot.name}</span>
+                {bot.preview && (
+                  <span className="palboo-bot-preview" title={bot.preview}>
+                    {bot.preview}
+                  </span>
+                )}
+              </span>
             </button>
-            {bot.preview && (
-              <p className="palboo-bot-preview" title={bot.preview}>
-                {bot.preview}
-              </p>
-            )}
-            {bot.description && (
-              <details className="palboo-bot-details">
-                <summary>简介</summary>
-                <p>{bot.description}</p>
-              </details>
-            )}
             {bot.available === false && (
               <span className="palboo-bot-status">存在同名 Bot，请先在 Grok Bot 中改名。</span>
             )}

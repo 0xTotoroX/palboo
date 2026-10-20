@@ -118,6 +118,7 @@ impl Scope {
                 "promptEnhancementEnabled",
                 "tokenMeterEnabled",
                 "grokbotEnabled",
+                "grokbotAutoSync",
                 "generationMode",
                 "provider",
                 "model",

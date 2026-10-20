@@ -47,3 +47,5 @@ EditableSettings.tokenMeterEnabled 声明聊天测速独立开关；__codexBuddy
 - `token-meter.ts`：当前聊天测速的只读数值投影，独立于模型选择和承载方式，不含正文或持久化配置。
 
 EditableSettings.grokbotEnabled 默认关闭，沿现有配置修订保存。features 增加 bots/Grok Bot 与默认字号；__palbooBots 仅提供 read/fill/destroy，fill 接收当前输入目标 token 和聊天身份，不暴露发送能力。
+
+EditableSettings.grokbotAutoSync 默认开启，控制本机资料监听，独立于功能开关与生成版本。

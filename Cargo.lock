@@ -368,7 +368,6 @@ dependencies = [
  "tokio-stream",
  "tokio-tungstenite",
  "toml",
- "toml_edit 0.20.2",
  "tower",
  "tracing",
  "tracing-subscriber",

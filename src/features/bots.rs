@@ -84,6 +84,7 @@ struct Cache {
     value: Value,
     generation: u64,
     watcher: Option<RosterWatch>,
+    auto_sync: bool,
 }
 static CACHE: OnceLock<Mutex<Option<Cache>>> = OnceLock::new();
 fn cache_root() -> PathBuf {
@@ -100,14 +101,29 @@ pub async fn stop() {
     // Drop the OS subscription and cached account data when the feature stops.
     *CACHE.get_or_init(|| Mutex::new(None)).lock().await = None;
 }
-pub async fn catalog(force: bool) -> Value {
+pub async fn pause_sync() {
+    if let Some(c) = CACHE.get_or_init(|| Mutex::new(None)).lock().await.as_mut() {
+        c.watcher = None;
+        c.auto_sync = false;
+    }
+}
+pub async fn catalog(force: bool, auto_sync: bool) -> Value {
     let mut cache = CACHE.get_or_init(|| Mutex::new(None)).lock().await;
     let c = cache.get_or_insert_with(|| Cache {
         at: Instant::now(),
         value: Value::Null,
         generation: 0,
-        watcher: RosterWatch::new(&cache_root()).ok(),
+        watcher: None,
+        auto_sync: false,
     });
+    let starting = auto_sync && !c.auto_sync;
+    c.auto_sync = auto_sync;
+    if !auto_sync {
+        c.watcher = None;
+        if !force && !c.value.is_null() {
+            return c.value.clone();
+        }
+    }
     let generation = c
         .watcher
         .as_ref()
@@ -122,6 +138,7 @@ pub async fn catalog(force: bool) -> Value {
         Duration::from_secs(60)
     };
     if !force
+        && !starting
         && !c.value.is_null()
         && generation == c.generation
         && !failed
@@ -129,7 +146,7 @@ pub async fn catalog(force: bool) -> Value {
     {
         return c.value.clone();
     }
-    if c.watcher.is_none() || failed || c.at.elapsed() >= Duration::from_secs(60) {
+    if auto_sync && (c.watcher.is_none() || failed || c.at.elapsed() >= Duration::from_secs(60)) {
         // Re-arm after directory replacement, watcher errors or missed OS events.
         c.watcher = RosterWatch::new(&cache_root()).ok();
     }
@@ -141,7 +158,7 @@ pub async fn catalog(force: bool) -> Value {
     c.value = match fetch().await {
         Ok(value) => value,
         Err(_) => {
-            json!({"version":1,"bots":[],"stale":true,"error":"无法同步 Grok Bot。请用 grokbot status 检查接入；首次连接请运行 PALBOO 的 grokbot setup。"})
+            json!({"version":1,"bots":[],"stale":true,"error":"无法同步 Grok Bot。请在设置 → Grok Bot 复制接入 Prompt，交给 Agent 检查连接。"})
         }
     };
     c.at = Instant::now();
@@ -190,25 +207,7 @@ async fn fetch() -> anyhow::Result<Value> {
         catalog["version"] == 1 && catalog["bots"].is_array(),
         "catalog overlay required"
     );
-    if !(cfg!(debug_assertions) && std::env::var_os("CODEX_BUDDY_TEST_GROKBOT_URL").is_some())
-        && let Some(home) = dirs::home_dir()
-    {
-        let manifest = home.join("Library/Application Support/palboo/grokbot/installation.json");
-        if let Ok(bytes) = std::fs::read(manifest) {
-            let installation: Value = serde_json::from_slice(&bytes)?;
-            anyhow::ensure!(
-                installation_matches(catalog, &installation),
-                "BDK installation identity changed"
-            );
-        }
-    }
     Ok(catalog.clone())
-}
-
-fn installation_matches(catalog: &Value, installation: &Value) -> bool {
-    // Uninstall keeps data for recovery but relinquishes the active endpoint binding.
-    installation["connected"] != true
-        || (installation["id"].is_string() && catalog["installationId"] == installation["id"])
 }
 
 #[cfg(test)]
@@ -230,20 +229,6 @@ mod tests {
             output.push(alphabet[((value << (5 - bits)) & 31) as usize] as char);
         }
         format!("{output}.blob")
-    }
-    #[test]
-    fn active_installation_rejects_another_service_but_uninstall_releases_binding() {
-        let own = json!({"installationId":"own"});
-        let other = json!({"installationId":"other"});
-        let legacy = json!({"version":1,"bots":[]});
-        let active = json!({"id":"own","connected":true});
-        assert!(installation_matches(&own, &active));
-        assert!(!installation_matches(&other, &active));
-        assert!(!installation_matches(&legacy, &active));
-        assert!(installation_matches(
-            &legacy,
-            &json!({"id":"own","connected":false})
-        ));
     }
     #[test]
     fn only_roster_and_account_keys_invalidate() {

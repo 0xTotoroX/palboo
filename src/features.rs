@@ -16,6 +16,9 @@ use std::{
 };
 
 mod bots;
+pub async fn pause_bot_sync() {
+    bots::pause_sync().await;
+}
 #[path = "features/main_surface.rs"]
 mod main_surface;
 use main_surface::{FeatureLayout, MainSurface, SavedFeatures};
@@ -272,6 +275,14 @@ impl App {
         let op = input["op"].as_str().unwrap_or("state");
         if op == "state" {
             return Ok(self.feature_state().await);
+        }
+        if op == "bots-catalog" {
+            let options = self.model.read().await.options.clone();
+            return Ok(bots::catalog(
+                input["refresh"] == true,
+                options.grokbot_enabled && options.grokbot_auto_sync,
+            )
+            .await);
         }
         if op == "edge-tabs" {
             return self.save_edge_tabs(input).await;
@@ -718,14 +729,15 @@ impl App {
             ensure!(action.is_none(), "Codex 已断开");
             return Ok(json!({"snapshot":null}));
         };
-        let catalog = bots::catalog(action.is_some()).await;
+        let auto_sync = self.model.read().await.options.grokbot_auto_sync;
+        let catalog = bots::catalog(action.is_some(), auto_sync).await;
         client
             .evaluate(format!(
                 "window.__palbooBots?.setCatalog({})",
                 serde_json::to_string(&catalog)?
             ))
             .await?;
-        if let Some(action) = action {
+        if let Some(action) = action.filter(|a| a["action"] != "refresh") {
             let result = client
                 .evaluate(format!(
                     "window.__palbooBots?.fill({}) ?? {{ok:false,message:'Grok Bot 尚未就绪'}}",
@@ -747,7 +759,7 @@ impl App {
                 .is_some_and(|now| std::sync::Arc::ptr_eq(&now, &client)),
             "Codex 连接已变化"
         );
-        Ok(json!({"snapshot":snapshot}))
+        Ok(json!({"snapshot":snapshot,"autoSync":auto_sync}))
     }
     async fn finish_feature(&self, id: &str, owner: &str) -> Result<Value> {
         let mut f = self.features.lock().await;

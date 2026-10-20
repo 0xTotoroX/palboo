@@ -120,8 +120,6 @@ settings.Options/Update 增加默认开启的 tokenMeterEnabled，沿现有配�
 
 model_control_state复用原CDP回读携带可选测速投影，以模型目标ID调用独立read；功能停用/连接变化返回null，模型操作忙碌期间清除缓存测速，不将测速写入模型偏好或选择修订。
 
-settings 的 grokbotEnabled 默认关闭，不影响 generationRevision。features 增加 bots，开启时登记现有主界面；bot_view 在当前 CDP 客户端读取元数据投影，动作经过 feature owner 与宿主 composer token 双重校验；后台不调用 BDK、不保存聊天内容。
+settings 的 grokbotEnabled 默认关闭，不影响 generationRevision。features 增加 bots，开启时登记现有主界面；bot_view 在当前 CDP 客户端读取元数据投影，动作经过 feature owner 与宿主 composer token 双重校验；后台只读 BDK 名单，不消费回复或保存聊天内容。
 
-- `features/bots.rs`：notify 监听本机账号槽/名单缓存文件，只在变化时经已有读取周期访问本机 BDK，60秒健康兜底、失败5秒重试，点击强制刷新；关闭/断连释放监听，安装器管理的服务须匹配安装 ID；超时或协议错误清空名单并提示，禁止重定向，不读取回复游标；debug测试只允许本机fixture。
-
-- `grokbot_setup.rs`：可选接入 CLI，内嵌安装器/适配器/锁文件并交给用户 Node；注册 MCP 时使用 toml_edit 保留其他配置与注释，安装 ID 标记和精确配置校验支持幂等重试/有界卸载，私有备份不覆盖后来编辑。
+- `features/bots.rs`：本机 BDK 名单缓存、自动文件监听与手动刷新；手动模式释放 watcher 并停止健康请求，首次读取/显式刷新/操作前校验保留。关闭/断连释放缓存；错误清空名单并提示接入 Prompt。`settings.grokbotAutoSync` 独立保存，不改变生成版本。features 的 bots-catalog 提供设置只读资料，refresh 动作复用功能 owner 校验，不填入输入框。

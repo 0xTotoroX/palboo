@@ -22,9 +22,9 @@ terminology 内容字号继承共享 feature-session；独立窗口中的点击�
 
 - [token-meter/AGENTS.md](token-meter/AGENTS.md)：独立可插拔测速读数；组合层通过ModelView可选footer接入，不参与模型操作或持久化。
 
-- `bots/view.tsx`：PALBOO 的 Grok Bot 选择与当前聊天调用状态；后台提供动态名单、简介与最新消息摘要，选择、追问、查看进度及停止请求均经 owner 保护后填入 Codex 主输入框，无独立输入框。
+- `bots/view.tsx`：PALBOO 的 Grok Bot 选择与当前聊天调用状态；后台提供动态名单与最新消息摘要，简介只在设置中展示，选择、追问、查看进度及停止请求均经 owner 保护后填入 Codex 主输入框，无独立输入框。
 - `bots/style.css`：继承容器语义颜色与字号的 Bot 入口、状态和动作样式；头像按真实颜色/形状独立绘制，缺失时回退首字。
 
-Bot 入口名称、状态与追问动作共享文字左边界；未观察到调用时不重复显示空状态文案。几何由 features-e2e 的真实渲染断言覆盖。
+Bot 入口名称、状态与追问动作共享文字左边界，摘要限制单行；手动同步时刷新按钮通过headerActions放在标题旁，自动模式隐藏；未观察到调用时不重复显示空状态文案。几何由 features-e2e 的真实渲染断言覆盖。
 
 - `bots/avatar.tsx`：按应用资料绘制自有几何头像，不加载远端图片或复制官方动画。

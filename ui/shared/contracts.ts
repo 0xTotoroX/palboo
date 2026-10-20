@@ -17,6 +17,7 @@ export interface EditableSettings {
   promptEnhancementEnabled: boolean;
   tokenMeterEnabled: boolean;
   grokbotEnabled: boolean;
+  grokbotAutoSync: boolean;
   generationMode: 'auto' | 'manual';
   provider: 'codex' | 'api';
   protocol: 'responses' | 'chat_completions' | 'anthropic_messages' | 'auto';

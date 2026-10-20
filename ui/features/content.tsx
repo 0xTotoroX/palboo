@@ -57,6 +57,7 @@ export function FeatureContent({
   if (id === 'bots')
     return (
       <BotsView
+        headerActions={headerActions}
         state={(value as unknown as BotState) ?? { snapshot: null }}
         disabled={locked || !connected}
         action={(data) => {

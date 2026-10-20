@@ -1,6 +1,0 @@
-{
-  "name": "palboo-grokbot",
-  "private": true,
-  "type": "module",
-  "dependencies": { "@cursor/bdk": "0.2.27" }
-}

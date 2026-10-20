@@ -3,16 +3,12 @@
  * [POS]: Feature styles only. [PROTOCOL]: Keep ui/features/AGENTS.md in sync. */
 .palboo-bots {
   display: grid;
-  gap: 16px;
+  gap: 10px;
   padding: 16px;
-}
-.palboo-bots-note {
-  margin: 0;
-  opacity: 0.7;
 }
 .palboo-bot {
   display: grid;
-  gap: 8px;
+  gap: 4px;
 }
 .palboo-bot-select {
   display: flex;
@@ -72,24 +68,17 @@
   height: 32px;
   overflow: visible;
 }
+.palboo-bot-copy {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
 .palboo-bot-preview {
   margin: 0;
-  padding-left: 42px;
   opacity: 0.7;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  overflow-wrap: anywhere;
-}
-.palboo-bot-details {
-  margin-left: 42px;
-}
-.palboo-bot-details summary {
-  cursor: pointer;
-}
-.palboo-bot-details p {
-  margin: 8px 0 0;
-  white-space: pre-wrap;
   overflow-wrap: anywhere;
 }

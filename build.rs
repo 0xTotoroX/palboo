@@ -17,9 +17,6 @@ fn main() {
         "ui/features",
         "ui/shared",
         "scripts/build-panel.mjs",
-        "scripts/grokbot-setup",
-        "scripts/grokbot-adapter",
-        "scripts/install-grokbot-adapter.mjs",
         "package-lock.json",
     ] {
         println!("cargo:rerun-if-changed={path}");

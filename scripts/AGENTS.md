@@ -60,10 +60,6 @@ Dev 租约先在同目录写完整私有临时文件，再通过独占硬链接�
 
 verify 追加 config-cli.mjs，以隔离真实后台验证配置命令与数据保留；不访问用户后台或提醒事项。
 
-- `grokbot-adapter/`：PALBOO 自有 BDK 0.2.27 目录覆盖源码，读取 Grok Bot 账号隔离的 roster 缓存，工具执行前核对现有名字，复用官方调用与锁；不保存凭据或读取完整对话。`catalog.mjs` 校验格式和账号、计算真实默认头像身份；`guard.mjs` 与 tools 负责名单和工具门控，SKILL.md 定义主聊天短句路由。
-- `install-grokbot-adapter.mjs`：显式指定现有 BDK 项目，备份旧挂载与 Skill，安装目录覆盖及本机账号指纹；不创建 Bot、不重启宿主、不安装依赖。之后正常重启 BDK 服务加载目录覆盖。
 
-- `grokbot-setup/main.mjs`：程序内嵌的新用户可选接入流程；固定锁文件安装 BDK、独立官方登录、人工同账号确认、安装 ID、LaunchAgent、MCP/Skill 注册与归属卸载，操作锁与预写事务支持中断恢复；不覆盖外部接入，不重启 Codex。
-- `grokbot-setup/project/package.json` / `package-lock.json`：BDK 0.2.27 的独立依赖模板；由用户 npm ci 下载，不将 BDK 实现打入 PALBOO。
 
 Grok Bot 安装资源通过 RustEmbed/include_str 随程序分发；build.rs、verify 源码摘要、Dev 原生输入包含嵌入脚本和 Skill，修改接入资源须重建程序。脚本升级后的 Dev 监督进程按既有约定正常重开。
