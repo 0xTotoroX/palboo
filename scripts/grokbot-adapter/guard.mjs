@@ -17,7 +17,10 @@ export function catalog() {
     throw new Error('BDK 登录已变化，请重新核对账号后连接');
   if (result.account !== account)
     throw new Error('Grok Bot 账号已变化，请重新核对 BDK 登录账号后连接');
-  return result;
+  return {
+    ...result,
+    ...(binding.installationId ? { installationId: binding.installationId } : {}),
+  };
 }
 export function requireBot(input) {
   const result = catalog();

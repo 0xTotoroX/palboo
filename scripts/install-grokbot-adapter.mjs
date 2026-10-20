@@ -14,7 +14,14 @@ if (!process.argv[2])
   throw new Error('用法: node scripts/install-grokbot-adapter.mjs <现有BDK项目>');
 const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
 if (pkg.dependencies?.['@cursor/bdk'] !== '0.2.27') throw new Error('仅验证过 BDK 0.2.27');
-const catalog = readCatalog();
+let catalog;
+try {
+  catalog = readCatalog();
+} catch (error) {
+  if (error.code === 'ENOENT')
+    throw new Error('请先安装并打开 Grok Bot，登录后等待现有 Bot 名单同步');
+  throw error;
+}
 const entry = createRequire(join(root, 'package.json')).resolve('@cursor/bdk');
 const { resolveApiKeySync } = await import(
   new URL('./internal/cursor/credentials.js', pathToFileURL(entry))
@@ -44,12 +51,19 @@ const stage = join(root, '.palboo-grokbot-stage');
 await cp(source, stage, { recursive: true });
 await writeFile(
   join(stage, 'account.json'),
-  JSON.stringify({ account: catalog.account, credentialFingerprint }),
+  JSON.stringify({
+    account: catalog.account,
+    credentialFingerprint,
+    ...(process.env.PALBOO_GROKBOT_INSTALLATION_ID
+      ? { installationId: process.env.PALBOO_GROKBOT_INSTALLATION_ID }
+      : {}),
+  }),
   {
     mode: 0o600,
   },
 );
 const dest = join(root, 'bot/extensions/grokbot');
+await mkdir(join(root, 'bot/extensions'), { recursive: true });
 try {
   await access(dest);
   await rename(dest, join(backup, 'previous-overlay'));

@@ -12,6 +12,7 @@ mod directions;
 mod edge_window;
 mod feature_window;
 mod features;
+mod grokbot_setup;
 mod host;
 mod jev;
 mod lifecycle;
@@ -49,6 +50,11 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    #[command(about = "安装和管理 PALBOO 的 Grok Bot 接入")]
+    Grokbot {
+        #[command(subcommand)]
+        command: grokbot_setup::Action,
+    },
     #[command(about = "查询、预览和修改本机配置（JSON），不自动启动后台")]
     Config {
         #[command(subcommand)]
@@ -165,6 +171,7 @@ async fn main() -> Result<()> {
         no_open: false,
         allow_fixture: false,
     }) {
+        Commands::Grokbot { command } => grokbot_setup::run(command),
         Commands::Config { command } => config_cli::run(&paths, command).await,
         Commands::CodexHostRestart { lease } => codex_host::restart::run(&paths, &lease).await,
         Commands::RemindersWorker {

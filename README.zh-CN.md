@@ -23,7 +23,20 @@ PALBOO（原名 CodexBuddy）为 Codex / ChatGPT 增加一个随手可用的辅�
 
 在“设置 → 功能 → 术语释义”开启“点击术语时跳转到上下文”后，点击术语会定位并短暂突出当前聊天中最近一次已确认的出现位置，同时保留释义浮层。开关默认关闭；找不到有效位置时提示失败，不切换聊天。
 
-在 PALBOO 的 **功能 → 常用开关 → Grok Bot** 开启 Bot 功能（默认关闭）。配置好本机 `grokbot.call_tool` MCP 后，执行 `node scripts/install-grokbot-adapter.mjs <现有BDK项目路径>` 安装 BDK 0.2.27 目录覆盖，再重启该 BDK 服务。安装前确认 BDK 与 Grok Bot 登录同一账号。名单、简介、头像颜色/形状和最新消息摘要跟随 Grok Bot 应用本机缓存，新增或改名无需改代码；打开面板时最多每5秒读取，应用关闭或资料过期会提示。头像为独立绘制的简洁图形，不含官方动画或远程照片。点击只在 Codex 主聊天追加“请问「Bot名」：”，追问、进度和停止也留在主聊天。Skill 整理必要背景；不自动发送、不建立第二套聊天记录、不消费未读回复。名称校验使用最新本机名单；官方 BDK 仍有按名称 get-or-create 语义，账号/名单异常时必须停止调用。
+Grok Bot 是可选接入。先安装 Node.js 22.16+（含 npm）和 Codex CLI，打开 Grok Bot 应用并登录。运行 PALBOO 可执行程序的 `grokbot setup` 子命令（本功能分支兼容 CLI 名称仍为 `codex-buddy`）：
+
+```sh
+codex-buddy grokbot setup
+codex-buddy grokbot status
+```
+
+安装器从 npm 安装锁定的 BDK 0.2.27，使用独立登录目录，打开官方登录流程；核对与 Grok Bot 相同的账号后注册 Codex MCP 与 Skill。非交互环境暂停在账号确认处，核对后运行 `codex-buddy grokbot connect --confirm-account` 接续。安装资源内置于程序，不依赖源码目录。已有同名 MCP、Skill 或 3417 端口占用时保留原接入并报告冲突，不覆盖或启动第二套服务。若当前聊天尚未加载新接入，可刷新 MCP/技能或新开聊天；不自动重启 Codex。
+
+然后在 **功能 → 常用开关 → Grok Bot** 开启 Bot 功能（默认关闭）。名单、简介、头像颜色/形状和最新消息摘要跟随 Grok Bot 应用本机缓存：文件变化触发刷新，无变化时复用内存；可见面板保留60秒健康检查，打开及操作时补验，关闭功能释放监听。新增或改名无需改代码。头像仍为自有图形，尚未获得可直接复用的官方头像/动画组件或照片接口。点击只在 Codex 主聊天追加“请问「Bot名」：”；追问、进度和停止也留在主聊天，不自动发送，也不额外消费回复。
+
+`grokbot login` 更换 BDK 登录；已运行时先 `grokbot stop`。`grokbot connect --confirm-account` 重新绑定并连接，`grokbot start/stop` 管理本机接入。`grokbot uninstall` 只删除仍匹配本次安装的 MCP、Skill 链接和后台服务，保留 BDK 状态与官方登录。安装、网络或登录中断后可重跑 `setup`；注册阶段失败可重跑 `connect`，复用已运行的自有服务。配置被用户修改时停止自动清理并保留它。
+
+已有 BDK 工程可继续使用 `node scripts/install-grokbot-adapter.mjs <现有BDK项目路径>` 更新适配器，再于无在途调用时正常重启该 BDK 服务。名单校验使用当前本机缓存；官方 BDK 仍有按名称 get-or-create 语义，账号/名单异常时停止，不能保证云端发生并发删除时绝不创建 Bot。
 
 Bot 沿用远端会话与记忆，不为每条 Codex 聊天建立隔离会话。已观察到其他聊天调用时显示占用；未观察到的调用与重载前的状态需要在主聊天核查。关闭界面或功能不会停止 Bot 任务，关闭功能会清理本机临时记录。此首版不提供跨聊天自动唤醒或历史回复跳转。
 

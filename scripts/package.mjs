@@ -54,7 +54,7 @@ writeFileSync(
   `# CodexBuddy ${version}
 
 Codex 的本地辅助工具：回答大纲、下一步建议、任务看板、模型切换、术语释义与提示词优化。
-此归档适用于 macOS 14.0+ Apple Silicon，包含可直接运行的程序，无需 Node.js 或 Rust。桌面浮窗需要 macOS 15+；macOS 14 仍可使用 Codex 内嵌面板。
+此归档适用于 macOS 14.0+ Apple Silicon，主程序无需 Node.js 或 Rust。可选的 Grok Bot 接入需要 Node.js 22.16+、npm、Codex CLI 和已登录的 Grok Bot 应用。桌面浮窗需要 macOS 15+；macOS 14 仍可使用 Codex 内嵌面板。
 
 ## 开始使用
 
@@ -70,6 +70,8 @@ Codex 的本地辅助工具：回答大纲、下一步建议、任务看板、�
 停止本工具：\`./codex-buddy stop\`。可用命令见 \`./codex-buddy --help\`。
 
 归档是命令行版本，不包含 .app 双击启动器。
+
+Grok Bot 接入：运行 \`./codex-buddy grokbot setup\`，按提示完成 BDK 官方登录并核对账号。程序内置安装资源，自动安装固定版本 BDK、注册 MCP 和 Skill；查看状态用 \`grokbot status\`，移除接入用 \`grokbot uninstall\`（保留登录和 Bot 状态）。然后在设置中开启 Grok Bot，所有咨询与追问留在 Codex 主聊天。已有同名接入或端口占用时保留原配置，不重复创建服务。
 回答大纲在本机解析；下一步建议和提示词优化使用配置的模型，提示词优化只发送当前草稿且不会自动发送。术语词库保存在本机、不随包分发；启用语义识别时会将当前一问一答发送到配置的模型，联网补充限于公共百科。默认只填入建议，已有草稿经确认后追加。Apple 提醒事项设置入口暂时隐藏，已有数据与绑定保留。
 
 ## 外观与窗口

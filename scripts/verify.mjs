@@ -26,10 +26,15 @@ function sourceFingerprint() {
     'build.rs',
     'scripts/build-panel.mjs',
     'scripts/verify.mjs',
+    'scripts/install-grokbot-adapter.mjs',
   ];
-  for (const dir of ['src', 'ui', '.cargo']) {
+  for (const dir of ['src', 'ui', '.cargo', 'scripts/grokbot-setup', 'scripts/grokbot-adapter']) {
     for (const file of readdirSync(join(root, dir), { recursive: true, withFileTypes: true })) {
-      if (file.isFile() && !file.name.endsWith('.md') && file.name !== '.DS_Store')
+      if (
+        file.isFile() &&
+        (!file.name.endsWith('.md') || dir.startsWith('scripts/grokbot-')) &&
+        file.name !== '.DS_Store'
+      )
         inputs.push(join(file.parentPath, file.name).slice(root.length + 1));
     }
   }
@@ -102,6 +107,7 @@ async function verify() {
   run(process.execPath, ['tests/model-control-e2e.mjs'], env);
   run(process.execPath, ['tests/board.mjs'], env);
   run(process.execPath, ['tests/config-cli.mjs'], env);
+  run(process.execPath, ['tests/grokbot-cli.mjs'], env);
   run(process.execPath, ['tests/features-e2e.mjs'], env);
   run(process.execPath, ['tests/e2e.mjs'], env);
   run(process.execPath, ['tests/lifecycle-test.mjs'], env);

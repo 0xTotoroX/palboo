@@ -3,6 +3,7 @@
  * [POS]: Isolated end-to-end acceptance; no real chat, model requests or EventKit writes.
  * [PROTOCOL]: Keep tests/AGENTS.md in sync. */
 import assert from 'node:assert/strict';
+import { cacheFile } from '../scripts/grokbot-adapter/catalog.mjs';
 import { spawn, execFileSync } from 'node:child_process';
 import { createServer } from 'node:http';
 import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, existsSync, rmSync } from 'node:fs';
@@ -30,6 +31,7 @@ async function wait(fn, label) {
   }
   throw Error(label);
 }
+let botListCalls = 0;
 let botCatalog = {
   version: 1,
   account: 'fixture',
@@ -45,6 +47,7 @@ let botCatalog = {
 };
 const fixture = createServer((req, res) => {
   if (req.url === '/v1/tools/grokbot__list') {
+    botListCalls++;
     res.setHeader('Content-Type', 'application/json');
     res.end(JSON.stringify({ isError: false, result: { catalog: botCatalog } }));
     return;
@@ -105,6 +108,7 @@ try {
   );
   for (const key of Object.keys(env)) if (/^(CODEX_BUDDY_|COMPANION_)/.test(key)) delete env[key];
   env.CODEX_BUDDY_PANEL_TEST = '1';
+  env.CODEX_BUDDY_TEST_GROKBOT_CACHE = directory;
   env.CODEX_BUDDY_TEST_GROKBOT_URL = `http://127.0.0.1:${fixture.address().port}`;
   service = spawn(
     artifact.binary,
@@ -497,6 +501,9 @@ try {
   assert.ok(Math.abs(botGeometry[2].label - botGeometry[2].status) < 1);
   assert.ok(Math.abs(botGeometry[2].label - botGeometry[2].action) < 1);
   await page.locator('[data-feature="bots"]').screenshot({ path: join(output, 'palboo-bots.png') });
+  const quietCalls = botListCalls;
+  await delay(6500);
+  assert.equal(botListCalls, quietCalls, 'unchanged roster does not poll BDK every five seconds');
   botCatalog = {
     ...botCatalog,
     revision: 'r2',
@@ -511,6 +518,10 @@ try {
       },
     ],
   };
+  writeFileSync(
+    join(directory, cacheFile('sand.client.slice.account.fixture.roster.last-roster')),
+    'changed',
+  );
   await page.getByRole('button', { name: '新测试 Bot', exact: true }).waitFor({ timeout: 15000 });
   await page.getByRole('button', { name: '新测试 Bot', exact: true }).click();
   await wait(

@@ -122,4 +122,6 @@ model_control_state复用原CDP回读携带可选测速投影，以模型目标I
 
 settings 的 grokbotEnabled 默认关闭，不影响 generationRevision。features 增加 bots，开启时登记现有主界面；bot_view 在当前 CDP 客户端读取元数据投影，动作经过 feature owner 与宿主 composer token 双重校验；后台不调用 BDK、不保存聊天内容。
 
-- `features/bots.rs`：只在已有功能读取周期访问本机 BDK 只读名单，5秒合并缓存，点击强制刷新；超时或协议错误清空名单并提示，禁止重定向，不读取回复游标；debug测试只允许本机fixture。
+- `features/bots.rs`：notify 监听本机账号槽/名单缓存文件，只在变化时经已有读取周期访问本机 BDK，60秒健康兜底、失败5秒重试，点击强制刷新；关闭/断连释放监听，安装器管理的服务须匹配安装 ID；超时或协议错误清空名单并提示，禁止重定向，不读取回复游标；debug测试只允许本机fixture。
+
+- `grokbot_setup.rs`：可选接入 CLI，内嵌安装器/适配器/锁文件并交给用户 Node；注册 MCP 时使用 toml_edit 保留其他配置与注释，安装 ID 标记和精确配置校验支持幂等重试/有界卸载，私有备份不覆盖后来编辑。

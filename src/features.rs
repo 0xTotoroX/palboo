@@ -897,7 +897,17 @@ impl App {
         } else {
             f.main.stop();
         }
+        let bots_open = f
+            .entries
+            .get("bots")
+            .is_some_and(|e| e.pref.open && e.closing.is_none());
         drop(f);
+        if !bots_open
+            || !self.model.read().await.options.grokbot_enabled
+            || self.desktop_client().await.is_none()
+        {
+            bots::stop().await;
+        }
         let active = self.edge_features_active().await;
         let mut surfaces = self.surfaces.lock().await;
         if active {
@@ -909,6 +919,7 @@ impl App {
         }
     }
     pub async fn stop_features(&self) {
+        bots::stop().await;
         self.surfaces.lock().await.stop();
         self.features.lock().await.main.stop();
     }

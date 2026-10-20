@@ -23,7 +23,20 @@ The workbench also provides a Terminology tab with concepts encountered in the c
 
 Enable **点击术语时跳转到上下文** in settings → Features → Terminology to scroll to the latest confirmed occurrence in the current chat when selecting a term. It is off by default and keeps the definition popover; unavailable or stale positions do not switch chats.
 
-Enable **Features → Common switches → Grok Bot** (off by default). With an existing local `grokbot.call_tool` MCP setup, run `node scripts/install-grokbot-adapter.mjs <existing-BDK-project>` and restart that BDK service. The overlay supports BDK 0.2.27; first verify that BDK and Grok Bot use the same account. Names, descriptions, avatar colors/shapes and the latest message preview follow Grok Bot's local account cache, with reads at most every five seconds while the panel is visible. Additions and renames need no code edits. Closed-app or stale data disables calls. Avatars are independently drawn shapes, without official animation or remote photos. Selecting a Bot appends a short “请问「Bot名」：” cue to the main Codex composer; follow-ups, progress checks and stops stay there too. The Skill handles routing and necessary context. There is no automatic send, separate chat history or extra unread-reply consumer. Calls validate the current local roster; the upstream name API still has get-or-create semantics, so account or roster mismatches must stop execution.
+Grok Bot is optional. Install Node.js 22.16+ (including npm) and the Codex CLI, then open and sign in to Grok Bot. Run the PALBOO executable's `grokbot setup` subcommand (this feature branch retains the compatible `codex-buddy` CLI name):
+
+```sh
+codex-buddy grokbot setup
+codex-buddy grokbot status
+```
+
+The embedded installer fetches locked BDK 0.2.27 dependencies from npm, uses a separate login directory, opens official sign-in, and registers the Codex MCP and Skill after account confirmation. In a noninteractive shell, verify that both applications use the same account, then resume with `codex-buddy grokbot connect --confirm-account`. No source checkout is needed. Existing MCP/Skill names or an occupied port 3417 are preserved and reported as conflicts. Refresh MCP/skills or start a new chat if the current chat has not discovered the integration; setup never restarts Codex.
+
+Enable **Features → Common switches → Grok Bot** (off by default). Names, descriptions, avatar colors/shapes and latest message previews follow the application's local account cache. File changes invalidate the in-memory catalog; visible panels retain a 60-second health fallback, with checks on opening/actions. Disabling the feature releases its watcher. Additions and renames need no code edits. Avatars remain independently drawn; no directly reusable official avatar/animation component or photo API has been integrated. Selecting a Bot adds a short “请问「Bot名」：” cue to the main Codex composer. Follow-ups, progress checks and stops stay there, without automatic sends or extra reply consumers.
+
+Use `grokbot login` to change the BDK login after `grokbot stop`, then `grokbot connect --confirm-account` to rebind and connect. `grokbot start/stop` controls the local bridge. `grokbot uninstall` removes only matching owned MCP, Skill links and service registrations, keeping BDK state and login. Rerun `setup` after an interrupted install/login, or `connect` after registration failure; a healthy owned service is reused. User-modified registrations are preserved.
+
+For an existing BDK project, keep using `node scripts/install-grokbot-adapter.mjs <existing-BDK-project>`, then restart that BDK service when no call is in flight. Calls validate the current local roster. Upstream name resolution still has get-or-create semantics: account/roster mismatches stop execution, but concurrent cloud deletion can still race with validation.
 
 Remote Bot conversations and memory remain shared across Codex chats. Observed calls from another chat show as occupied; unseen calls and pre-reload state require checking in the main chat. Closing the view or disabling the feature does not stop remote work; disabling clears temporary local records. This first version does not provide background chat wakeups or jumps to historical replies.
 

@@ -127,6 +127,12 @@ let injectedSettings;
 let hostProcess, stopHostWatch, cleanupTask;
 const nativeInputs = (root) => [
   ...filesUnder(root, 'src'),
+  ...['scripts/grokbot-setup', 'scripts/grokbot-adapter'].flatMap((path) =>
+    existsSync(join(root, path)) ? filesUnder(root, path) : [],
+  ),
+  ...['scripts/install-grokbot-adapter.mjs', 'scripts/grokbot-adapter/SKILL.md'].filter((path) =>
+    existsSync(join(root, path)),
+  ),
   existsSync(join(root, 'ui/codex/model.js')) ? 'ui/codex/model.js' : 'ui/model-control/host.js',
   ...(existsSync(join(root, 'ui/codex/codex-host.js')) ? ['ui/codex/codex-host.js'] : []),
   existsSync(join(root, 'ui/shared/tokens.css')) ? 'ui/shared/tokens.css' : 'ui/tokens.css',
@@ -287,6 +293,8 @@ function changed(path) {
     pendingPanel = true;
   if (
     path.startsWith('src/') ||
+    path.startsWith('scripts/grokbot-') ||
+    path === 'scripts/install-grokbot-adapter.mjs' ||
     path === 'ui/codex/model.js' ||
     path.startsWith('ui/model-control/') ||
     [
