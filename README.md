@@ -1,6 +1,6 @@
 <div align="center">
-  <img src="ui/icon.png" alt="CodexBuddy logo" width="140" />
-  <h1>CodexBuddy</h1>
+  <img src="ui/icon.png" alt="Palboo logo" width="140" />
+  <h1>Palboo</h1>
   <p><strong>Your desktop companion for Codex: navigate answers and find your next question.</strong></p>
   <p>Answer outlines and next-step suggestions, inside Codex or in a desktop panel.</p>
   <p>
@@ -13,7 +13,7 @@
 
 **English** · [简体中文](README.zh-CN.md)
 
-CodexBuddy adds a companion panel to Codex / ChatGPT. Navigate long answers, generate follow-up questions, and keep your tools inside the conversation or in a desktop window.
+Palboo (formerly CodexBuddy) adds a companion panel to Codex / ChatGPT. Navigate long answers, generate follow-up questions, and keep your tools inside the conversation or in a desktop window.
 
 Use the eyes entry in the left rail to open the workbench. Hover for Inside, Desktop, and Settings; the default single-click action is configurable. Double-click or Alt+Enter moves the main interface between the chat and desktop. Right-click opens settings in ChatGPT’s built-in browser side panel. The desktop window has return-to-chat, maximize/restore, and pin controls; it stays on top by default and remembers your choice.
 
@@ -22,6 +22,10 @@ Terminology annotations are available under settings → Features → Terminolog
 The workbench also provides a Terminology tab with concepts encountered in the current chat, favorites, and mastered terms. Semantic spans can cross paragraphs and inline formatting; results are cached and failed analysis is retried a bounded number of times.
 
 Enable **点击术语时跳转到上下文** in settings → Features → Terminology to scroll to the latest confirmed occurrence in the current chat when selecting a term. It is off by default and keeps the definition popover; unavailable or stale positions do not switch chats.
+
+Enable the first Palboo Bot integration under **Features → Common switches → Grok Bot** (off by default). It requires a configured local `grokbot.call_tool` MCP server and the four existing Bots: **X 资讯, 随口一问, 通用, 环境运维**. Selecting a Bot appends an editable instruction to the main Codex composer. Write and send your question there; follow-ups, progress checks and stop requests use that same composer. The view shows calls observed since activation, creates no Bots, does not send automatically, and provides no separate chat input. Initials are local placeholders, not imported official avatars.
+
+Remote Bot conversations and memory remain shared across Codex chats. Observed calls from another chat show as occupied; unseen calls and pre-reload state require checking in the main chat. Closing the view or disabling the feature does not stop remote work; disabling clears temporary local records. This first version does not provide background chat wakeups or jumps to historical replies.
 
 ## Features
 
@@ -58,7 +62,7 @@ In Web settings, choose **设置 → 系统 → 模型服务 → 高级设置 �
 
 Web settings include six editable directions and custom directions. Counts are maximums, not quotas; empty results are valid. New configurations default to three suggestions; existing counts and generation timing are preserved. With an explicit input limit, the question takes priority and truncated context is marked. Jev and the generation model receive the same context snapshot. Jev's applicability cutoff is experimental and has not been calibrated for suggestion quality.
 
-CodexBuddy uses its own eyes entry in the left rail and does not require the plugin. Click to toggle the workbench; double-click or Alt+Enter keeps the existing window handoff. Right-click or Option-right-click opens settings in ChatGPT’s built-in browser side panel.
+Palboo uses its own eyes entry in the left rail and does not require the plugin. Click to toggle the workbench; double-click or Alt+Enter keeps the existing window handoff. Right-click or Option-right-click opens settings in ChatGPT’s built-in browser side panel.
 
 Hover over the independent eyes entry to choose inside, outside, or settings; configure its default click action under **界面 → 外观与字体**. Workbench headers no longer repeat the face. The desktop window has a horizontal-line return-to-chat button, maximize/restore, and pin controls at the top right. Maximize uses the available screen area; restore returns to the original position and size.
 
@@ -139,7 +143,7 @@ npm run install:local
 
 After installation, open **CodexBuddy** from Applications. Node.js and Rust are not required for everyday use.
 
-> If ChatGPT / Codex is already running without a debugging connection, CodexBuddy asks before quitting and reopening it by default. You can select the force-restart option in the launch settings, but this may interrupt tasks or lose unsaved work. An existing debugging connection is reused directly.
+> If ChatGPT / Codex is already running without a debugging connection, Palboo asks before quitting and reopening it by default. You can select the force-restart option in the launch settings, but this may interrupt tasks or lose unsaved work. An existing debugging connection is reused directly.
 
 ### 2. Configure the suggestions model
 
@@ -230,7 +234,7 @@ Open settings from the independent eyes menu or its right-click shortcut. The wo
 
 ## Privacy and license
 
-Configuration is stored locally. When generating suggestions, the latest question and answer are sent to your chosen model service, subject to your input-context setting. Smart mode also sends that exchange to the configured Jev service after explicit consent. CodexBuddy does not persist chat bodies or modify the official application bundle. Host updates may affect compatibility.
+Configuration is stored locally. When generating suggestions, the latest question and answer are sent to your chosen model service, subject to your input-context setting. Smart mode also sends that exchange to the configured Jev service after explicit consent. Palboo does not persist chat bodies or modify the official application bundle. Host updates may affect compatibility.
 
 Project-owned source code is licensed under the [GNU GPL version 3 only](LICENSE) (`GPL-3.0-only`). Commercial use is permitted without a separate license fee; conveying covered software requires compliance with GPLv3, including applicable Corresponding Source obligations. Earlier MIT grants remain valid. Third-party notices retain their original terms; see [LICENSING.md](LICENSING.md) for the scope and historical license.
 

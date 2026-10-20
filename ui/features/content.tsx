@@ -1,8 +1,9 @@
 /* [INPUT]: Feature identity, business envelope, guarded transport, reading state and optional header slot.
- * [OUTPUT]: The five feature views and guarded business adapters, including revision-checked quick-prompt saves and optional token-meter composition.
+ * [OUTPUT]: The six feature views and guarded business adapters, including revision-checked quick-prompt saves and optional token-meter composition.
  * [POS]: Fixed feature composition; persistence and validation remain in existing services.
  * [PROTOCOL]: Keep AGENTS.md in this module in sync. */
 import { useCallback, useRef } from 'react';
+import { BotsView, type BotState } from './bots/view';
 import { Board } from './board/app';
 import { TerminologyView, type TermData } from './terminology';
 import type { TaskRequest } from './board/api';
@@ -53,6 +54,20 @@ export function FeatureContent({
     },
     [call],
   );
+  if (id === 'bots')
+    return (
+      <BotsView
+        state={(value as unknown as BotState) ?? { snapshot: null }}
+        disabled={locked || !connected}
+        action={(data) => {
+          void operation(async () => {
+            const result = await call<FeatureData>('action', { data });
+            update(result);
+            return result;
+          });
+        }}
+      />
+    );
   if (id === 'terms')
     return value ? (
       <TerminologyView

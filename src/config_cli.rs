@@ -117,6 +117,7 @@ impl Scope {
                 "answerOutlineEnabled",
                 "promptEnhancementEnabled",
                 "tokenMeterEnabled",
+                "grokbotEnabled",
                 "generationMode",
                 "provider",
                 "model",

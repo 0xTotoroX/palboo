@@ -3,6 +3,7 @@ import { bridgeCall } from './state.js';
 import { installNextDrop } from '../next-drop.js';
 import { installPromptEnhancer } from '../prompt-enhancement.js';
 import { installTokenMeter } from '../token-meter.js';
+import { installBots } from '../bots.js';
 import { createTypographyTracker } from '../typography.js';
 import { installTerminology } from '../../terminology/host.js';
 /*
@@ -489,6 +490,7 @@ function destroy() {
   stopPerformance();
   if (!IS_POPOUT) window.__codexBuddyPromptEnhancer?.destroy();
   if (!IS_POPOUT) window.__codexBuddyTokenMeter?.destroy();
+  if (!IS_POPOUT) window.__palbooBots?.destroy();
   if (!IS_POPOUT) window.__codexBuddyTerminology?.destroy();
   shellState.featureCleanup?.();
   clearTimeout(shellState.detachedRecoveryTimer);
@@ -561,6 +563,12 @@ function syncTools() {
     stopNextDrop?.();
     stopNextDrop = null;
   }
+  if (runtimeState.settings?.grokbotEnabled === true) {
+    if (!window.__palbooBots)
+      installBots({
+        isEnabled: () => isCurrentInstance() && runtimeState.settings?.grokbotEnabled === true,
+      });
+  } else window.__palbooBots?.destroy();
   if (runtimeState.settings?.tokenMeterEnabled === true) {
     if (!window.__codexBuddyTokenMeter)
       installTokenMeter({

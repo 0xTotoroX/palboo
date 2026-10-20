@@ -22,6 +22,7 @@ pub struct Options {
     pub answer_outline_enabled: bool,
     pub prompt_enhancement_enabled: bool,
     pub token_meter_enabled: bool,
+    pub grokbot_enabled: bool,
     pub generation_mode: String,
     pub protocol: String,
     pub api_key_env: String,
@@ -106,6 +107,24 @@ mod tests {
         assert!(step.check().is_ok() && prompt.check().is_ok());
         assert!(!paths.load().unwrap().stepwise.token_meter_enabled);
         assert!(app.save_settings(serde_json::from_value(json!({"tokenMeterEnabled":true,"expectedRevision":before["configurationRevision"]})).unwrap()).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn bot_toggle_is_opt_in_and_does_not_invalidate_generation() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths::new(Some(dir.path().into())).unwrap();
+        let config: Config = serde_json::from_str(r#"{"stepwise":{"enabled":true}}"#).unwrap();
+        assert!(!config.stepwise.grokbot_enabled);
+        let app = App::new(paths.clone(), config, None, false);
+        let before = app.settings().await;
+        let lease = app
+            .model_requests
+            .lease(crate::model_requests::Scope::Stepwise);
+        let saved = app.save_settings(serde_json::from_value(json!({"grokbotEnabled":true,"expectedRevision":before["configurationRevision"]})).unwrap()).await.unwrap();
+        assert!(paths.load().unwrap().stepwise.grokbot_enabled);
+        assert_eq!(saved["generationRevision"], before["generationRevision"]);
+        assert!(lease.check().is_ok());
+        assert!(app.save_settings(serde_json::from_value(json!({"grokbotEnabled":false,"expectedRevision":before["configurationRevision"]})).unwrap()).await.is_err());
     }
 
     #[tokio::test]
@@ -330,6 +349,7 @@ impl Default for Options {
             answer_outline_enabled: true,
             prompt_enhancement_enabled: true,
             token_meter_enabled: true,
+            grokbot_enabled: false,
             generation_mode: "manual".into(),
             protocol: "responses".into(),
             api_key_env: "CODEX_BUDDY_API_KEY".into(),
@@ -361,6 +381,7 @@ pub struct Update {
     pub answer_outline_enabled: Option<bool>,
     pub prompt_enhancement_enabled: Option<bool>,
     pub token_meter_enabled: Option<bool>,
+    pub grokbot_enabled: Option<bool>,
     pub generation_mode: Option<String>,
     pub provider: Option<String>,
     pub model: Option<String>,
@@ -439,6 +460,12 @@ impl App {
         }
         let toggles = [
             (
+                "bots",
+                patch
+                    .grokbot_enabled
+                    .filter(|v| *v != config.stepwise.grokbot_enabled),
+            ),
+            (
                 "outline",
                 patch
                     .answer_outline_enabled
@@ -475,6 +502,9 @@ impl App {
         }
         if let Some(value) = patch.answer_outline_enabled {
             options.answer_outline_enabled = value;
+        }
+        if let Some(value) = patch.grokbot_enabled {
+            options.grokbot_enabled = value;
         }
         if let Some(value) = patch.token_meter_enabled {
             options.token_meter_enabled = value;

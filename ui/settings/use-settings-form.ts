@@ -14,6 +14,7 @@ type ControlPatch = {
   answerOutlineEnabled?: boolean;
   promptEnhancementEnabled?: boolean;
   tokenMeterEnabled?: boolean;
+  grokbotEnabled?: boolean;
   directionLibrary?: EditableSettings['directionLibrary'];
   selectedDirections?: string[];
   quickPrompts?: EditableSettings['quickPrompts'];
@@ -176,6 +177,7 @@ export function useSettingsForm(
               'answerOutlineEnabled',
               'promptEnhancementEnabled',
               'tokenMeterEnabled',
+              'grokbotEnabled',
             ] as const) {
               if (control[key] !== undefined && form[key] === control[key]) form[key] = value[key];
             }
@@ -252,7 +254,8 @@ export function useSettingsForm(
       key === 'enabled' ||
       key === 'answerOutlineEnabled' ||
       key === 'promptEnhancementEnabled' ||
-      key === 'tokenMeterEnabled'
+      key === 'tokenMeterEnabled' ||
+      key === 'grokbotEnabled'
         ? { [key]: value }
         : key === 'directionSource' && value !== 'smart'
           ? { directionSource: value as EditableSettings['directionSource'] }

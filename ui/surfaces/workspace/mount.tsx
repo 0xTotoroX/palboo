@@ -5,6 +5,7 @@ import { FeatureView } from './feature-session';
 import type { Entry, Request } from '../../shared/features';
 import styles from './content.css?inline';
 import contentStyles from '../../features/content.css?inline';
+import botsStyles from '../../features/bots/style.css?inline';
 import sharedTokens from '../../shared/tokens.css?inline';
 import modelStyles from '../../features/model/styles.css?inline';
 import { Board, type BoardView } from '../../features/board/app';
@@ -59,6 +60,7 @@ export function mountFeature(
 ) {
   element.dataset.placement = placement;
   const css =
+    botsStyles +
     boardStyles.replaceAll(':root', ':host').replace(/\bbody\s*\{/g, '.board-app {') +
     '\n' +
     modelStyles +

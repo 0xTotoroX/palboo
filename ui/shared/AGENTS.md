@@ -45,3 +45,5 @@ FeatureState.edgeTabs/edgeTabsRevision 提供贴边标签顺序和选择的确�
 EditableSettings.tokenMeterEnabled 声明聊天测速独立开关；__codexBuddyTokenMeter 提供 refresh/read(expectedThreadId)/snapshot/destroy，快照不含正文。
 
 - `token-meter.ts`：当前聊天测速的只读数值投影，独立于模型选择和承载方式，不含正文或持久化配置。
+
+EditableSettings.grokbotEnabled 默认关闭，沿现有配置修订保存。features 增加 bots/Grok Bot 与默认字号；__palbooBots 仅提供 read/fill/destroy，fill 接收当前输入目标 token 和聊天身份，不暴露发送能力。

@@ -355,6 +355,105 @@ try {
   record(
     'quick prompt editor and legacy bridge persist guarded changes without invalidating suggestions',
   );
+  const botSettings = await api('settings');
+  assert.equal(botSettings.grokbotEnabled, false);
+  const botEnabled = await api('settings', {
+    grokbotEnabled: true,
+    expectedRevision: botSettings.configurationRevision,
+  });
+  assert.equal(botEnabled.generationRevision, botSettings.generationRevision);
+  await wait(async () => {
+    const e = await entry('bots');
+    return e?.open && !e.pending;
+  }, 'Bot feature ready');
+  const botEntry = await entry('bots');
+  const botRead = () => api('features', { op: 'read', id: 'bots', owner: botEntry.owner });
+  const botView = await botRead();
+  assert.equal(botView.snapshot.target.threadId, 'fixture-thread-a');
+  assert.deepEqual(
+    botView.snapshot.bots.map((b) => b.name),
+    ['X 资讯', '随口一问', '通用', '环境运维'],
+  );
+  const composer = page.getByRole('textbox', { name: '测试草稿' });
+  await composer.fill('保留我的原草稿');
+  const sends = await page.evaluate(() => window.submitCount);
+  await api('features', {
+    op: 'action',
+    id: 'bots',
+    owner: botEntry.owner,
+    data: { ...botView.snapshot.target, agent: '通用', action: 'ask' },
+  });
+  assert.match(await composer.innerText(), /^保留我的原草稿\n请通过 grokbot MCP/);
+  assert.equal(await page.evaluate(() => window.submitCount), sends);
+  await assert.rejects(
+    api('features', {
+      op: 'action',
+      id: 'bots',
+      owner: 'stale-owner',
+      data: { ...botView.snapshot.target, agent: '通用', action: 'ask' },
+    }),
+  );
+  await assert.rejects(
+    api('features', {
+      op: 'action',
+      id: 'bots',
+      owner: botEntry.owner,
+      data: { ...botView.snapshot.target, token: 'stale-composer', agent: '通用', action: 'ask' },
+    }),
+  );
+  await page.evaluate(() => {
+    const item = {
+      type: 'mcpToolCall',
+      id: 'synthetic-bot-call',
+      server: 'grokbot',
+      tool: 'call_tool',
+      arguments: { toolName: 'grokbot__ask', input: { agent: '通用' } },
+      result: {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              toolName: 'grokbot__ask',
+              result: {
+                agent: '通用',
+                status: 'finished',
+                reply: 'DO_NOT_PROJECT',
+                earlierReplies: ['DO_NOT_PROJECT'],
+              },
+            }),
+          },
+        ],
+      },
+    };
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        source: window,
+        data: {
+          type: 'mcp-notification',
+          hostId: 'local',
+          method: 'item/completed',
+          params: { threadId: 'fixture-thread-a', turnId: 'synthetic-bot-turn', item },
+        },
+      }),
+    );
+  });
+  const returned = await botRead();
+  assert.equal(returned.snapshot.bots[2].current.status, 'finished');
+  assert.doesNotMatch(JSON.stringify(returned), /DO_NOT_PROJECT/);
+  await page.locator('.csw-feature-panes [data-pane-tab="bots"]').click();
+  await page.getByRole('button', { name: '通用', exact: true }).waitFor();
+  await page.getByText('回复已返回 Codex', { exact: true }).waitFor();
+  assert.equal(
+    await page.locator('[data-feature="bots"] textarea,[data-feature="bots"] input').count(),
+    0,
+  );
+  await page.locator('[data-feature="bots"]').screenshot({ path: join(output, 'palboo-bots.png') });
+  await api('settings', { grokbotEnabled: false });
+  await page.waitForFunction(() => !window.__palbooBots);
+  await assert.rejects(botRead());
+  record(
+    'Palboo Bot owner/composer guards, main-chat-only input, scoped MCP result and disable cleanup',
+  );
   await page.screenshot({ path: join(output, 'independent-surfaces.png') });
   await api('disconnect', {});
   const current = await entry('board');

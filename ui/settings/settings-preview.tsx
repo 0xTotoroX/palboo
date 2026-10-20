@@ -97,6 +97,13 @@ function MiniContent({ id }: { id: string }) {
         <i />
       </div>
     );
+  if (id === 'bots')
+    return (
+      <div className="preview-mini-text">
+        <strong>通用</strong>
+        <span>在 Codex 主聊天输入与追问</span>
+      </div>
+    );
   if (id === 'terms')
     return (
       <div className="preview-mini-text">

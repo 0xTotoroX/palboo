@@ -42,6 +42,7 @@ function editable(value: Settings): EditableSettings {
     answerOutlineEnabled,
     promptEnhancementEnabled,
     tokenMeterEnabled,
+    grokbotEnabled,
     generationMode,
     hostRestartPolicy,
     provider,
@@ -64,6 +65,7 @@ function editable(value: Settings): EditableSettings {
     answerOutlineEnabled,
     promptEnhancementEnabled,
     tokenMeterEnabled,
+    grokbotEnabled,
     generationMode,
     hostRestartPolicy,
     provider,
@@ -185,6 +187,14 @@ function App() {
                     active={common || page === 'model-control'}
                     detailed={page === 'model-control'}
                     onSnapshot={setModel}
+                  />
+                </div>
+                <div id="settings-grokbot" hidden={!common}>
+                  <FeatureSwitch
+                    name="Grok Bot"
+                    checked={editor.form?.grokbotEnabled ?? false}
+                    disabled={!live || !editor.form}
+                    onChange={(value) => editor.change('grokbotEnabled', value)}
                   />
                 </div>
                 <div id="settings-token-meter" hidden={!common}>

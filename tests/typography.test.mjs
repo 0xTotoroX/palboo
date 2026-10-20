@@ -29,6 +29,7 @@ function Settings({raw,prefs}){useTypography(raw,prefs);return <div id="settings
 window.settings=(raw,prefs)=>{window.settingsRoot ||= createRoot(document.querySelector('#settings'));window.settingsRoot.render(<Settings raw={raw} prefs={prefs}/>)};
 `,
     },
+    loader: { '.css': 'text' },
     bundle: true,
     write: false,
     format: 'iife',

@@ -60,6 +60,7 @@ window.editAndRemount=(name)=>{
 };
 window.mount();`,
     },
+    loader: { '.css': 'text' },
     bundle: true,
     write: false,
     format: 'iife',

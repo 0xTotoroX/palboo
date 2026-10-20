@@ -108,3 +108,5 @@ Cmd/Ctrl+K 打开搜索弹窗并聚焦输入，模态抽屉开启时保留抽屉
 model-control-settings提供“启用额度显示”，复用模型快切独立偏好串行保存与revision冲突处理，只更新showUsage；关闭停止宿主额度读取，不改模型、预设或共享模型服务。
 
 常用开关增加“聊天测速”，tokenMeterEnabled 复用独立控制补丁和 configurationRevision 串行保存；失败保留草稿，关闭不提交其他未保存模型字段。搜索支持 token/tok/s/用量；实际读数位于宿主输入区。
+
+常用功能新增默认关闭的 Grok Bot，grokbotEnabled 复用独立控制补丁与 configurationRevision 串行保存。功能位置与字号沿现有通用容器设置；设置预览仅示意主聊天交互，不调用 Bot。

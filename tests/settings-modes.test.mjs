@@ -378,7 +378,7 @@ test(
       await category('features');
       assert.equal(await page.locator('.settings-mode').count(), 0);
       assert.equal(await page.getByRole('navigation', { name: '设置分类' }).isVisible(), true);
-      assert.equal(await page.getByRole('switch').count(), 5);
+      assert.equal(await page.getByRole('switch').count(), 7);
       assert.equal(await page.getByRole('button', { name: /^打开/ }).count(), 0);
       await category('model');
       await category('features');
@@ -449,7 +449,7 @@ test(
         if (['next', 'prompts', 'board', 'model-control'].includes(id))
           assert.equal(await page.locator('.preview-scene[data-active="true"]').count(), 1);
         if (id === 'features') {
-          assert.equal(await page.getByRole('switch').count(), 5);
+          assert.equal(await page.getByRole('switch').count(), 7);
           assert.equal(
             await page.getByRole('button', { name: '模型分组', exact: true }).isVisible(),
             false,
