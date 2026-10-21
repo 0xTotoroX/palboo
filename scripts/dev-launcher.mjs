@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 当前源码目录、Node/Rust 工具路径与现有开发进程锁。
- * [OUTPUT]: --settings 打开当前稳定开发设置地址，唤起跟随已选来源；install:dev 生成带 Dock 启动反馈的 App，前台切换失败仅发通知；--open 后台启动并唤起，--stop 正常退出后台会话，--run 保留前台兼容入口；启动请求串行，确认原宿主退出后清理旧 Dev 再启动；日志追加到 launcher.log，唤起错误也保留；新会话按监督进程身份就绪，不复用旧记录；允许固定已有连接以无宿主重启方式接续Dev。
+ * [OUTPUT]: --settings 打开当前稳定开发设置地址，唤起跟随已选来源；install:dev 生成带 Dock 启动反馈的 App，等待前台目标注册，切换失败仅发通知；--open 后台启动并唤起，--stop 正常退出后台会话，--run 保留前台兼容入口；启动请求串行，确认原宿主退出后清理旧 Dev 再启动；日志追加到 launcher.log，唤起错误也保留；新会话按监督进程身份就绪，重试失效窗口 PID，不复用旧记录；允许固定已有连接以无宿主重启方式接续Dev。
  * [POS]: 仅为现有开发流程提供 Finder 入口，不更新安装版；冷启动按共享策略准备宿主。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -253,22 +253,26 @@ on openWorkbench()
   try
     activate
     set outcome to do shell script ${appleQuote(launch)}
-    if outcome is "host" then
-      set workbenchLocation to "ChatGPT"
-      set targets to current application's NSRunningApplication's runningApplicationsWithBundleIdentifier:"com.openai.codex"
-      if (targets's |count|()) is not 1 then error "找不到唯一的 Codex 应用，未切换到其他程序。"
-      set targetApp to targets's firstObject()
-    else
-      set workbenchLocation to "Palboo 工作台"
-      set targetApp to current application's NSRunningApplication's runningApplicationWithProcessIdentifier:(outcome as integer)
-    end if
-    if targetApp is missing value then error "工作台已退出，请重新打开。"
   on error messageText
     activate
     display alert "Palboo Dev" message messageText buttons {"好"} default button "好"
     return
   end try
+  set workbenchLocation to "ChatGPT"
+  if outcome is not "host" then set workbenchLocation to "Palboo 工作台"
   try
+    repeat 40 times
+      if outcome is "host" then
+        set targets to current application's NSRunningApplication's runningApplicationsWithBundleIdentifier:"com.openai.codex"
+        if (targets's |count|()) is not 1 then error "找不到唯一的 Codex 应用，未切换到其他程序。"
+        set targetApp to targets's firstObject()
+      else
+        set targetApp to current application's NSRunningApplication's runningApplicationWithProcessIdentifier:(outcome as integer)
+      end if
+      if targetApp is not missing value then exit repeat
+      delay 0.05
+    end repeat
+    if targetApp is missing value then error "前台目标尚未可用。"
     set launcherApp to current application's NSRunningApplication's currentApplication()
     set nativeApp to current application's NSApplication's sharedApplication()
     targetApp's unhide()
@@ -399,7 +403,19 @@ export async function revealDevelopment(
             targetId: config.targetId,
           });
         } else if (state.connection.status === 'connected') {
-          return await requestRuntime(runtime, 'development/reveal', {});
+          const result = await requestRuntime(runtime, 'development/reveal', {});
+          if (result.pid != null) {
+            if (!Number.isSafeInteger(result.pid) || result.pid <= 0)
+              throw new Error('开发浮窗进程记录无效');
+            // A native rebuild can replace the window after the reveal response was sent.
+            try {
+              process.kill(result.pid, 0);
+            } catch (error) {
+              if (error.code !== 'ESRCH') throw error;
+              throw new Error('开发浮窗进程已退出，正在重新确认工作台');
+            }
+          }
+          return result;
         }
       } catch (error) {
         lastError = error;
