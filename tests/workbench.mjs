@@ -824,6 +824,101 @@ const cases = [
       assert.equal(await page.locator(slotSelector).count(), 1);
     },
   ],
+  ...['new chat', 'Dots'].map((kind) => [
+    `sidebar supports ${kind} with one official composer marker and no message list`,
+    async (page, baseline) => {
+      await mode(page, true);
+      const entry = page.getByRole('button', { name: 'Palboo', exact: true });
+      const composer = page.locator('#composer-form .ProseMirror');
+      await composer.fill('尚未发送的合成草稿');
+      await entry.press('Enter');
+      await page.waitForFunction(
+        () => window.__companionFloatingPanel.state.dockStatus === 'closed',
+      );
+      const saved = await page.evaluate(() => window.__companionFloatingPanel.panelPreferences());
+      await page.evaluate((kind) => {
+        const form = document.querySelector('#composer-form');
+        const editor = form.querySelector('.ProseMirror');
+        window.workbenchFixture.messageList = document.querySelector('.thread-scroll-container');
+        window.workbenchFixture.messageList.remove();
+        window.workbenchFixture.composer = editor;
+        editor.removeAttribute('data-codex-composer');
+        form.removeAttribute('data-codex-composer-root');
+        editor.setAttribute('data-composer-markdown', '');
+        if (kind === 'new chat') editor.setAttribute('data-codex-composer', '');
+        else form.setAttribute('data-codex-composer-root', '');
+        window.__companionFloatingPanel.scan();
+        window.__companionFloatingPanel.renderFloat();
+      }, kind);
+      await page.waitForFunction(
+        () => window.__companionFloatingPanel.state.dockStatus === 'closed',
+      );
+      await entry.press('Enter');
+      await page.waitForFunction(() => window.__companionFloatingPanel.state.dockStatus === 'open');
+      const content = await box(page, '#fixture-host-content');
+      const slot = await box(page, slotSelector);
+      assert.ok(content.x + content.width <= slot.x + 1, 'content yields real sidebar space');
+      near(content.width + slot.width, baseline.width, 'no leftover or duplicate space');
+      assert.equal(await page.locator(slotSelector).count(), 1);
+      assert.equal(await composer.innerText(), '尚未发送的合成草稿');
+      assert.equal(
+        await composer.evaluate((node) => node === window.workbenchFixture.composer),
+        true,
+        'opening keeps the host editor node',
+      );
+      const actual = await page.evaluate(() => window.__companionFloatingPanel.panelPreferences());
+      assert.equal(actual.layoutMode, saved.layoutMode);
+      assert.equal(actual.dockWidth, saved.dockWidth);
+      await entry.press('Enter');
+      await page.waitForFunction(
+        () => window.__companionFloatingPanel.state.dockStatus === 'closed',
+      );
+      near((await box(page, '#fixture-host-content')).width, baseline.width, 'close frees width');
+      await page.evaluate(() => {
+        const form = document.querySelector('#composer-form');
+        form.before(window.workbenchFixture.messageList);
+        window.__companionFloatingPanel.scan();
+        window.__companionFloatingPanel.renderFloat();
+      });
+      await page.waitForFunction(
+        () => window.__companionFloatingPanel.state.dockStatus === 'closed',
+      );
+      assert.equal(await composer.innerText(), '尚未发送的合成草稿');
+      await entry.press('Enter');
+      await page.waitForFunction(() => window.__companionFloatingPanel.state.dockStatus === 'open');
+      await hostUnchanged(page);
+    },
+  ]),
+  [
+    'sidebar rejects unmarked editors and hidden or self-owned composer markers',
+    async (page) => {
+      await mode(page, true);
+      await page.evaluate(() => {
+        document.querySelector('.thread-scroll-container').remove();
+        document
+          .querySelector('#composer-form .ProseMirror')
+          .removeAttribute('data-codex-composer');
+        const hidden = document.createElement('div');
+        hidden.hidden = true;
+        hidden.innerHTML =
+          '<div data-codex-composer-root><div class="ProseMirror" contenteditable="true"></div></div>';
+        document.querySelector('#fixture-host-content').append(hidden);
+        const own = document.createElement('div');
+        own.setAttribute('data-palboo-features-root', 'true');
+        own.innerHTML =
+          '<div data-codex-composer-root><div class="ProseMirror" contenteditable="true">合成自有编辑框</div></div>';
+        document.querySelector('#fixture-host-content').append(own);
+        window.__companionFloatingPanel.scan();
+        window.__companionFloatingPanel.renderFloat();
+      });
+      await page.waitForFunction(
+        () => window.__companionFloatingPanel.state.dockStatus === 'unsupported',
+      );
+      await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
+      assert.equal(await page.locator(slotSelector).count(), 0);
+      assert.equal(await page.locator('.csw-workbench').count(), 0);
+    },
+  ],
   [
     'sidebar follows the last interacted chat while another floating chat stays open',
     async (page) => {

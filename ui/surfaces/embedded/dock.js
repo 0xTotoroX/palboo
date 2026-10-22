@@ -1,5 +1,5 @@
 /*
- * [INPUT]: 已识别的 Codex 主内容、标签页与前景聊天布局、期望侧栏宽度和开合状态。
+ * [INPUT]: 已识别的 Codex 主内容、标签页、前景聊天及 Dots 官方输入区布局、期望侧栏宽度和开合状态。
  * [OUTPUT]: dockWidthLimit 提供聊天实际可用宽度，自有根节点挂载、可撤销布局占位、含回程锚点的几何通知与临时让位状态；空白聊天与空间恢复沿用开合意愿，手动收起占位归零。
  * [POS]: 宿主布局适配；不移动聊天节点，不读取正文，不包含功能视图。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
@@ -9,7 +9,23 @@ import { DOCK_MIN_WIDTH, CHAT_MIN_WIDTH } from './width.js';
 const SLOT = 'data-palboo-dock';
 const OWN_UI = `[${SLOT}],[data-companion-stepwise-root],[data-palboo-features-root]`;
 const visible = (node) =>
-  node && node.getBoundingClientRect().width > 0 && getComputedStyle(node).visibility === 'visible';
+  node &&
+  node.getBoundingClientRect().width > 0 &&
+  node.getBoundingClientRect().height > 0 &&
+  getComputedStyle(node).visibility === 'visible';
+
+function hasDockContent(content) {
+  const thread = [...content.querySelectorAll('.thread-scroll-container')].some(visible);
+  return [...content.querySelectorAll('.ProseMirror,[contenteditable="true"]')].some(
+    (editor) =>
+      visible(editor) &&
+      !editor.closest(OWN_UI) &&
+      // 新聊天可只有编辑器标记；Dots 只有官方外层标记，两者不要求同时存在。
+      (thread ||
+        editor.matches('[data-codex-composer]') ||
+        content.contains(editor.closest('[data-codex-composer-root]'))),
+  );
+}
 
 export function findDockHost() {
   const surface = foregroundSurface();
@@ -23,11 +39,7 @@ export function findDockHost() {
       const style = getComputedStyle(row);
       if (style.display !== 'flex' || style.flexDirection !== 'row') continue;
       const content = [...row.children].find(
-        (child) =>
-          !child.hasAttribute(SLOT) &&
-          (child.querySelector('.thread-scroll-container') ||
-            child.querySelector('[data-codex-composer-root] [data-codex-composer]')) &&
-          child.querySelector('.ProseMirror,[contenteditable="true"]'),
+        (child) => !child.matches(OWN_UI) && visible(child) && hasDockContent(child),
       );
       if (content && getComputedStyle(content).flexGrow !== '0') return { row, content };
     }
