@@ -14,6 +14,8 @@ model-control-host 覆盖能力延迟到达、空列表刷新超时及重试、�
 
 成员清单：
 
+- [dev-dock.test.mjs](dev-dock.test.mjs)：隔离 Foundation 偏好域验收旧 Dev 固定项原位迁移、书签清理、重复项合并、重复执行及未固定时零新增，验证备份权限和其他偏好不变；不写真实 Dock。
+
 - [dev-sources.test.mjs](dev-sources.test.mjs)：Git 清单/共享偏好、路径限制、跨目标互斥、异常退出恢复、并发抢占、孤儿后台保护、并发切换/失败回退与认证开发 API 回归。
 - [dev-sources-integration.test.mjs](dev-sources-integration.test.mjs)：完整监督脚本、真实 Vite/浏览器、临时双 worktree 的进程级交接/回退、热更新、稳定设置地址、旧标签页写保护与重开恢复及失效 controller/target 租约启动；全部使用合成宿主。覆盖完整 React 设置表单与常驻展开的来源选择器、切换加载动画/减少动态效果/失败重试/刷新后回读成功，以及缺失/过期凭据提示；不剥离主页面模块。
 - [dev-source-fixture.mjs](dev-source-fixture.mjs)：上项测试的可控编译器和单实例后台夹具，不连接用户应用。

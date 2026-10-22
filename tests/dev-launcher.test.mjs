@@ -409,7 +409,13 @@ test(
     for (const directory of ['scripts', 'target/dev', 'node_modules/vite'])
       mkdirSync(join(root, directory), { recursive: true });
     writeFileSync(join(root, 'node_modules/vite/package.json'), '{}');
-    for (const name of ['dev-launcher.mjs', 'dev-host.mjs', 'dev-sources.mjs', 'launcher.mjs'])
+    for (const name of [
+      'dev-launcher.mjs',
+      'dev-host.mjs',
+      'dev-sources.mjs',
+      'dev-dock.mjs',
+      'launcher.mjs',
+    ])
       copyFileSync(new URL('../scripts/' + name, import.meta.url), join(root, 'scripts', name));
     writeFileSync(
       join(root, 'scripts/dev.mjs'),
