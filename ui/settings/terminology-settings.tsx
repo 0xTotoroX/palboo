@@ -1,8 +1,9 @@
 /* [INPUT]: 认证术语 API、可唤起状态、共用卡片/动作图标与用户导入/输入。
- * [OUTPUT]: 直接显示识别、预览、检索和掌握列表；统一词库管理入口，导入先确认覆盖影响。
+ * [OUTPUT]: 顶部共用预览外框、识别设置、检索和掌握列表；统一词库管理入口，导入先确认覆盖影响。
  * [POS]: 详细设置的功能区，不访问主聊天内容。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { SettingsDrawer } from './settings-drawer';
+import { PreviewFrame } from './preview-frame';
 import { useEffect, useRef, useState } from 'react';
 import { useConfirmation } from './settings-confirmation';
 import { request } from './api';
@@ -155,6 +156,11 @@ export function TerminologySettings({ active }: { active: boolean }) {
         <p>正在读取术语库…</p>
       ) : (
         <>
+          <div className="settings-local-preview" aria-label="联动预览">
+            <PreviewFrame title="术语卡片" label="已保存外观 · 示例内容">
+              <Preview term={preview} preferences={prefs} />
+            </PreviewFrame>
+          </div>
           <div className="settings-row">
             <label>
               <input
@@ -244,7 +250,6 @@ export function TerminologySettings({ active }: { active: boolean }) {
               </label>
             )}
           </div>
-          <Preview term={preview} preferences={prefs} />
           <section className="settings-subsection">
             <h3>识别与自动积累</h3>
             <div className="settings-row">

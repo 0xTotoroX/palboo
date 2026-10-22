@@ -1,8 +1,10 @@
-/* [INPUT]: Saved feature/surface snapshots, feature registry and shared workspace layout controller.
+/* [INPUT]: Saved feature/surface/typography snapshots, shared preview frame and workspace layout controller.
  * [OUTPUT]: Isolated interactive layout demonstration with real compaction and reversible screen motion.
- * [POS]: Settings-only sample content; save callbacks stay in memory and never call an API.
+ * [POS]: Shared layout/appearance sample content; save callbacks stay in memory and never call an API.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { PreviewFrame } from './preview-frame';
+import { typographyStyle, type Typography, type TypographyPreferences } from '../shared/typography';
 import { titles, type FeatureLayout, type FeatureState } from '../shared/features';
 import type { SurfaceState } from './surface-settings';
 import { installFeatureLayout, resolveFeatureLayout } from '../surfaces/workspace/layout';
@@ -16,6 +18,7 @@ function WorkspaceSample({
   material,
   variant,
   onLayout,
+  textStyle,
 }: {
   entries: Sample[];
   layout: FeatureLayout;
@@ -23,6 +26,7 @@ function WorkspaceSample({
   material: string;
   variant?: string;
   onLayout: (next: FeatureLayout) => void;
+  textStyle?: CSSProperties;
 }) {
   const ref = useRef<HTMLDivElement>(null),
     controller = useRef<ReturnType<typeof installFeatureLayout> | null>(null);
@@ -78,6 +82,7 @@ function WorkspaceSample({
       ref={ref}
       className="csw-workbench layout-demo-workspace"
       data-preview-workspace
+      style={textStyle}
       data-material={material}
       data-variant={variant}
     />
@@ -170,10 +175,16 @@ export function LayoutPreview({
   features,
   surfaces,
   live,
+  appearance = false,
+  typography,
+  typographyPreferences,
 }: {
   features: FeatureState | null;
   surfaces: SurfaceState | null;
   live: boolean;
+  appearance?: boolean;
+  typography?: Typography | null;
+  typographyPreferences?: TypographyPreferences;
 }) {
   const [mode, setMode] = useState<string | null>(null),
     [extra, setExtra] = useState<Sample[]>([]),
@@ -245,17 +256,17 @@ export function LayoutPreview({
     );
   }
   return (
-    <section className="preview-frame layout-demo" aria-label="你的工作空间">
-      <header className="preview-heading">
-        <h2>你的工作空间</h2>
-        <span>
-          {!live
-            ? '连接中断 · 末次状态'
-            : mode || demoLayout || extra.length
-              ? '仅演示 · 不保存'
-              : '已保存配置 · 可试拖动'}
-        </span>
-      </header>
+    <PreviewFrame
+      className="layout-demo"
+      title={appearance ? '外观效果' : '你的工作空间'}
+      label={
+        !live
+          ? '连接中断 · 末次状态'
+          : mode || demoLayout || extra.length
+            ? '仅演示 · 不保存'
+            : '已保存配置 · 可试拖动'
+      }
+    >
       <div className="layout-demo-toolbar" data-settings-navigation>
         <div className="preview-selector" role="group" aria-label="演示位置">
           <button
@@ -303,7 +314,7 @@ export function LayoutPreview({
         </button>
       </div>
       <div className="layout-demo-canvas" data-demo-placement={location} data-ready={ready}>
-        <LayoutPreviewScene frame={frame}>
+        <LayoutPreviewScene frame={frame} title={appearance ? '外观与字体' : '布局与位置'}>
           {ready ? (
             <WorkspaceSample
               entries={samples}
@@ -312,6 +323,7 @@ export function LayoutPreview({
               material={theme?.theme || 'matte'}
               variant={theme?.liquidVariant}
               onLayout={setDemoLayout}
+              textStyle={typographyStyle(typography, typographyPreferences)}
             />
           ) : (
             <p>正在读取布局…</p>
@@ -355,6 +367,6 @@ export function LayoutPreview({
       <p className="preview-note">
         拖动分隔线收紧，点击标题展开。这里只操作示例，材质以实际窗口为准。
       </p>
-    </section>
+    </PreviewFrame>
   );
 }

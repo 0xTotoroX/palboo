@@ -204,7 +204,6 @@ Built with **Rust, JavaScript / TypeScript, and React**.
 
 Frontend changes reuse the local shadcn/ui and Radix settings controls, shared icons, and theme tokens. See the relevant `AGENTS.md` maps before adding a component or dependency; preserve existing form state and save behavior.
 
-The development settings server provides an independent Nova-style preview at `/nova-preview.html`. It leaves the default page unchanged and is excluded from production builds. It reuses the existing settings functionality and current configuration, so edits still save normally.
 
 ```text
 src/               Backend, CLI, and native windows

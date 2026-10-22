@@ -32,16 +32,16 @@
 - [styles.css](styles.css)：Tailwind v4、语义主题映射、搜索和保留的旧总览样式；只扫描本目录，不注入宿主。
 - [settings-layout.css](settings-layout.css)：Tom Modern 设置专属色值、分组导航、表单与深浅/窄屏适配；继续跟随统一字体，不修改共享工作台主题。主布局和表单节奏的唯一样式入口；760px及以下使用紧凑版，761px起保留宽屏左侧目录、1440px内容上限。两套主题均取消背景网格、页头/列表/预览内的重复线条，普通选择器使用灰阶底面与字重，页头主题为单一入口和轻量选项浮层，仅标题层级保留 Tom Modern 字重和朱橙点缀：页面标题、分区/预览/抽屉标题及当前导航项；表单底色、预览边界、软阴影、列宽、留白与中性控件恢复视觉改版前样式。控件4px微圆角，开关保留6px轨道/4px滑块及原尺寸动效；字体继续跟随已保存偏好。
 - [settings-controls.css](settings-controls.css)：按钮、输入框、选择器、开关的统一高度、微圆角、中性焦点与禁用态；支持 base-select 时定制原生菜单和选项，原生键盘、点击、取消、禁用及 change 事件不变，不支持时保留系统菜单。自由输入候选和搜索弹层沿用同一菜单样式。Dev 来源因 Shadow DOM 隔离，在 dev-sources.js 内以同一语义变量适配，不依赖新版源码文件。
-- [settings-preview.tsx](settings-preview.tsx)：只读联动预览入口，布局页委托 layout-preview，外观页沿用材质示意。复用既有模块回读的功能、材质、模型和看板快照；嵌套布局复用 resolveFeatureLayout，过滤关闭功能。生成参数显示当前草稿并标识未保存；主形式与材质只显示成功保存的值。示例操作只改变本组件状态，不请求 API、不读任务正文或凭据。
-- `layout-preview.tsx`：布局与位置页的独立交互示例，消费已保存功能登记、布局和材质，复用真实工作台布局控制器；临时拖动、展开、排列和添加示例功能仅改内存。新登记功能自动参与排列；演示正文独立维护，不连接业务内容或保存接口。窗口先弹出再移向副屏，反向从当前几何接续，键盘/减少动态效果即时完成，隐藏或卸载停止动画。
-- `layout-preview-scene.tsx` / `layout-preview.css`：正面16:10 ChatGPT示意与小副屏、四边窄框；副屏在移入时显现，窗口填满其屏幕。仅布局页采用全宽预览上置，其他设置页保持原布局；贴边预览跟随保存的边与相对位置，材质为近似效果。
-- [settings-preview.css](settings-preview.css)：预览画布、功能示例、生成路径和连接示意的样式，材质为近似效果，不用于实际业务视图。
+- [settings-preview.tsx](settings-preview.tsx)：只读联动预览入口，布局与外观页共用 layout-preview，功能页含 Grok Bot 的隔离选择示例。复用既有模块回读的功能、材质、模型和看板快照；嵌套布局复用 resolveFeatureLayout，过滤关闭功能。生成参数显示当前草稿并标识未保存；主形式与材质只显示成功保存的值。示例操作只改变本组件状态，不请求 API、不读任务正文或凭据。
+- `layout-preview.tsx`：布局与位置页的独立交互示例，消费已保存功能登记、布局和材质，复用真实工作台布局控制器；临时拖动、展开、排列和添加示例功能仅改内存。新登记功能自动参与排列；演示正文独立维护，不连接业务内容或保存接口；外观页沿用同一材质/Regular/Clear和统一字体解析。窗口先弹出再移向副屏，反向从当前几何接续，键盘/减少动态效果即时完成，隐藏或卸载停止动画。
+- `layout-preview-scene.tsx` / `layout-preview.css`：正面16:10 ChatGPT示意与小副屏、四边窄框；副屏在移入时显现，窗口填满其屏幕。全部预览统一位于对应页面表单顶部，布局与外观页共用此工作空间示例；贴边预览跟随保存的边与相对位置，材质为近似效果。
+- `preview-frame.tsx`：所有设置预览共用外框、标题和状态，不读取或保存配置；术语预览同样使用此框架并位于控件之前。
+- [settings-preview.css](settings-preview.css)：共用预览外框、功能示例、模型和连接示意的样式，材质为近似效果，不用于实际业务视图。
 - [settings-list-motion.ts](settings-list-motion.ts)：配置列表增删/排序的200ms补位和新项4px淡入；以稳定ID测量相对位置，提示词没有持久ID时使用仅在界面保留的身份，兼容重复内容、后台整表回读与删除确认；不改变布局、保存时机或数据结构。
-- [settings-motion.ts](settings-motion.ts)：分类入场、预览位置/分栏变化与功能预览200ms交叉淡入淡出的可中断动画，读取输入方式以保持键盘即时响应，尊重动态减少效果偏好；ResizeObserver 同步顶栏真实高度至目录/预览粘性偏移，不重新挂载控件、不存储配置。
+- [settings-motion.ts](settings-motion.ts)：分类入场与功能预览200ms交叉淡入淡出的可中断动画，读取输入方式以保持键盘即时响应，尊重动态减少效果偏好；ResizeObserver 同步顶栏真实高度至目录粘性偏移，不重新挂载控件、不存储配置。
 - [settings-motion.css](settings-motion.css)：主题颜色、按钮反馈、搜索/候选/原生菜单入场和原生 details 展开/收起；不支持插值的浏览器保留原生即时行为。键盘和减少动态效果不等待装饰动画，候选菜单不受折叠裁切。
 - [settings-theme.tsx](settings-theme.tsx)：页头单一主题入口，展开后保留“自动”及浅色/深色选项；方向键/Home/End 切换焦点，Esc 关闭回到入口，外点或移出焦点关闭；默认跟随认证 SSE 的 panelTheme，无有效快照时保留本页末次主题，尚未收到时回退系统。后台未设置时沿用同源 localStorage；明确选择通过 appearance 修订保存，并跨标签页同步。受限存储仍可通过后台保存；不写宿主、不触发模型表单失焦保存。settings-layout.css 统一语义色，品牌图标保持原图，动作图标沿用 currentColor。
 - [index.html](index.html)：设置网页入口，图标复用 ../icon.png。
-- `nova-preview.html` / `nova-preview.css`：仅开发服务的独立 Nova 风格预览，复用 main.tsx、现有导航/表单/保存队列及同源配置；顶栏明确修改会同步保存。中性色、紧凑控件、圆角及间距限定在 data-settings-preview=nova 文档内，默认入口与正式构建不加载；不增加业务副本或依赖。
 - [board.html](board.html)：旧独立看板 HTML 入口，仍挂载 ../surfaces/desktop/legacy-board.tsx 及共用看板内容。
 - [feature.html](feature.html)：桌面和贴边通用 HTML 入口。
 - [vite.config.ts](vite.config.ts)：React/Tailwind 多入口构建到 target/web，缓存按 worktree 隔离并去重 React；本机代理只处理 /api/ 请求。

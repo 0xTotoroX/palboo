@@ -58,7 +58,11 @@ test(
       await page.waitForFunction(
         () => document.querySelectorAll('[data-compact="true"]').length === 3,
       );
-      await page.screenshot({ path: 'target/reports/sidebar-layout-preview.png', fullPage: true });
+      if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
+        await page.screenshot({
+          path: 'target/reports/sidebar-layout-preview.png',
+          fullPage: true,
+        });
       await page.getByRole('tab', { name: '下一步', exact: true }).click();
       assert.equal(
         await page.getByLabel('下一步示例草稿', { exact: true }).inputValue(),
@@ -83,10 +87,11 @@ test(
       await page.waitForFunction(
         () => document.querySelector('.layout-demo-window').x.baseVal.value === 754,
       );
-      await page.screenshot({
-        path: 'target/reports/sidebar-layout-secondary.png',
-        fullPage: true,
-      });
+      if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
+        await page.screenshot({
+          path: 'target/reports/sidebar-layout-secondary.png',
+          fullPage: true,
+        });
       await page.getByRole('button', { name: '演示侧栏', exact: true }).click();
       await page.getByRole('button', { name: '演示页面浮层', exact: true }).click();
       await page.waitForFunction(

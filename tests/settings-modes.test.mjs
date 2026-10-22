@@ -172,7 +172,7 @@ test(
               if (entry.placement !== 'edge') entry.placement = body.placement;
           }
           if (body?.op === 'main-layout') features.layouts[body.placement] = body.layout;
-          value = features;
+          value = body?.op === 'bots-catalog' ? { stale: false, bots: [] } : features;
         } else if (path === '/api/surfaces') {
           if (body?.op === 'save') {
             if (rejectSurface) {
@@ -583,10 +583,11 @@ test(
       );
       await mkdir('target/reports', { recursive: true });
       await page.evaluate(() => scrollTo({ top: 0, behavior: 'instant' }));
-      await page.screenshot({
-        path: 'target/reports/settings-unified-switches.png',
-        fullPage: true,
-      });
+      if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
+        await page.screenshot({
+          path: 'target/reports/settings-unified-switches.png',
+          fullPage: true,
+        });
       await category('surfaces');
       assert.equal(
         await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
@@ -594,10 +595,11 @@ test(
         'settings controls fit the narrow viewport',
       );
       await page.evaluate(() => scrollTo({ top: 0, behavior: 'instant' }));
-      await page.screenshot({
-        path: 'target/reports/settings-unified-layout.png',
-        fullPage: true,
-      });
+      if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
+        await page.screenshot({
+          path: 'target/reports/settings-unified-layout.png',
+          fullPage: true,
+        });
       const count = writes.length;
       await category('features');
       await page.reload();
@@ -768,20 +770,53 @@ test(
           publishTheme(colorScheme);
           await page.getByRole('status', { name: '已连接', exact: true }).waitFor();
 
-          for (const id of ['surfaces', 'features', 'model', 'connection']) {
-            if (width <= 760) await category(id);
-            else
-              await page
-                .getByRole('link', {
-                  name: {
-                    surfaces: '布局与位置',
-                    features: '常用开关',
-                    model: '模型服务',
-                    connection: '启动与连接',
-                  }[id],
-                  exact: true,
-                })
-                .click();
+          for (const id of [
+            'surfaces',
+            'appearance',
+            'features',
+            'next',
+            'prompts',
+            'board',
+            'model-control',
+            'bots',
+            'terminology',
+            'model',
+            'connection',
+          ]) {
+            await category(id);
+            if (id === 'terminology')
+              await page.locator('#settings-terminology .settings-row').first().waitFor();
+            const previewOrder = await page.evaluate(() => {
+              const sample = document
+                .querySelector('.settings-preview:not([hidden]), .settings-local-preview')
+                ?.getBoundingClientRect();
+              const controls = document
+                .querySelector(
+                  document.querySelector('.settings-app').dataset.settingsCategory === 'terminology'
+                    ? '#settings-terminology .settings-row'
+                    : '.settings-form-column',
+                )
+                .getBoundingClientRect();
+              return {
+                top: sample?.top,
+                bottom: sample?.bottom,
+                left: sample?.left,
+                width: sample?.width,
+                controls: controls.toJSON(),
+              };
+            });
+            assert.ok(
+              previewOrder.bottom <= previewOrder.controls.top,
+              `${id}: preview above every setting`,
+            );
+            assert.ok(
+              Math.abs(previewOrder.left - previewOrder.controls.left) < 1,
+              `${id}: preview and controls align`,
+            );
+            assert.ok(
+              Math.abs(previewOrder.width - previewOrder.controls.width) < 1,
+              `${id}: shared preview width`,
+            );
             assert.equal(
               await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
               false,
@@ -790,10 +825,11 @@ test(
           }
           if (width <= 760) await category('surfaces');
           else await page.getByRole('link', { name: '布局与位置', exact: true }).click();
-          await page.screenshot({
-            path: `target/reports/settings-tom-${colorScheme}-${width}.png`,
-            fullPage: true,
-          });
+          if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
+            await page.screenshot({
+              path: `target/reports/settings-tom-${colorScheme}-${width}.png`,
+              fullPage: true,
+            });
           await page.getByLabel('主界面布局', { exact: true }).click();
           await page.locator('#main-layout:open').waitFor();
           const menuGeometry = await page.locator('#main-layout option').evaluateAll((options) =>
@@ -816,9 +852,10 @@ test(
             ),
             'menu stays inside the viewport',
           );
-          await page.screenshot({
-            path: `target/reports/settings-menu-${colorScheme}-${width}.png`,
-          });
+          if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
+            await page.screenshot({
+              path: `target/reports/settings-menu-${colorScheme}-${width}.png`,
+            });
           await page.keyboard.press('Escape');
           assert.equal(
             await page.evaluate(
@@ -830,6 +867,40 @@ test(
           );
         }
       }
+      await category('bots');
+      const botWrites = writes.length;
+      await page
+        .getByRole('group', { name: 'Bot 选择示例' })
+        .getByRole('button', { name: '代码审查', exact: true })
+        .click();
+      assert.ok((await preview.getByRole('status').textContent()).includes('「代码审查」'));
+      assert.equal(writes.length, botWrites, 'Bot preview never calls a Bot or saves settings');
+      await category('appearance');
+      await preview.getByRole('heading', { name: '外观效果', exact: true }).waitFor();
+      await preview.getByRole('button', { name: '恢复已保存配置', exact: true }).click();
+      const sampleStyle = await preview
+        .locator('[data-preview-workspace]')
+        .evaluate((n) => getComputedStyle(n).fontSize);
+      assert.equal(
+        sampleStyle,
+        `${appearance.typography.customSize}px`,
+        'appearance preview uses saved typography',
+      );
+      await page.getByLabel('页面浮层主题', { exact: true }).selectOption('native-glass');
+      await preview.locator('[data-preview-workspace][data-material="native-glass"]').waitFor();
+      const regularColor = await preview
+        .locator('[data-preview-workspace]')
+        .evaluate((n) => getComputedStyle(n).backgroundColor);
+      await page.getByLabel('页面浮层液态变体', { exact: true }).selectOption('clear');
+      await preview.locator('[data-preview-workspace][data-variant="clear"]').waitFor();
+      assert.notEqual(
+        await preview
+          .locator('[data-preview-workspace]')
+          .evaluate((n) => getComputedStyle(n).backgroundColor),
+        regularColor,
+        'Clear changes the rendered sample material',
+      );
+      await category('surfaces');
       const themeWrites = writes.length;
       const peer = await context.newPage();
       await peer.goto(origin);
@@ -1035,9 +1106,10 @@ test(
             assert.ok(layout.navBottom <= layout.contentTop, 'narrow navigation precedes content');
           else
             assert.ok(layout.navRight < layout.contentLeft, 'wide navigation sits left of content');
-          await page.screenshot({
-            path: `target/reports/settings-header-${color === '浅色' ? 'light' : 'dark'}-${width}.png`,
-          });
+          if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
+            await page.screenshot({
+              path: `target/reports/settings-header-${color === '浅色' ? 'light' : 'dark'}-${width}.png`,
+            });
         }
       }
       assert.equal(

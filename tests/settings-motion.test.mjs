@@ -349,9 +349,11 @@ return <div className="settings-app" ref={ref}><div style={{width:430}}><Setting
       await testButton.locator('[data-action-state="success"]').waitFor();
       await emulateMedia(page, { reducedMotion: 'no-preference' });
       await mkdir('target/reports', { recursive: true });
-      await page.screenshot({ path: 'target/reports/settings-motion-light.png', fullPage: true });
+      if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
+        await page.screenshot({ path: 'target/reports/settings-motion-light.png', fullPage: true });
       await page.evaluate(() => (document.documentElement.dataset.settingsTheme = 'dark'));
-      await page.screenshot({ path: 'target/reports/settings-motion-dark.png', fullPage: true });
+      if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
+        await page.screenshot({ path: 'target/reports/settings-motion-dark.png', fullPage: true });
       assert.deepEqual(errors, []);
     } finally {
       await browser.close();

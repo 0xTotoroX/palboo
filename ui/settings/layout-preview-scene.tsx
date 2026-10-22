@@ -11,7 +11,15 @@ export const demoFrames: Record<string, DemoFrame> = {
   desktop: { x: 754, y: 230, w: 330, h: 246, secondary: 1 },
   edge: { x: 468, y: 100, w: 230, h: 362, secondary: 0 },
 };
-export function LayoutPreviewScene({ frame, children }: { frame: DemoFrame; children: ReactNode }) {
+export function LayoutPreviewScene({
+  frame,
+  children,
+  title = '布局与位置',
+}: {
+  frame: DemoFrame;
+  children: ReactNode;
+  title?: string;
+}) {
   const chatWidth = frame.x < 710 ? Math.max(230, frame.x - 190) : 498;
   return (
     <svg
@@ -31,9 +39,9 @@ export function LayoutPreviewScene({ frame, children }: { frame: DemoFrame; chil
           ChatGPT
         </text>
         <text x="147" y="48" className="demo-title">
-          布局与位置
+          {title}
         </text>
-        {['新聊天', '搜索聊天', '项目', 'Palboo', '布局与位置'].map((text, i) => (
+        {['新聊天', '搜索聊天', '项目', 'Palboo', title].map((text, i) => (
           <text key={text} x="14" y={45 + i * 28}>
             {text}
           </text>

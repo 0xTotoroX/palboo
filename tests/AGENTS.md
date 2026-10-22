@@ -295,3 +295,5 @@ Bot 侧栏回归覆盖置顶/分组顺序、隐藏项与旧接口兼容、排序
 设置时序回归：settings-motion 通过可释放的合成请求验证 pending/success，不靠固定响应延时抢读短暂状态；startup-settings 的长流程保留逐项等待与串行修订校验。workbench 每个用例包含页面创建的60秒截止，记录阶段、先保存失败再做短时限截图，清理超时仅终止该测试拥有的 browserServer，浏览器断开后停止后续用例。popout-checks 在点击前观察指定正文高亮，延迟回读后仍核验实际滚动位置与命令回执。
 
 设置长流程和 Dev 来源组件使用独立 browserServer，注册 Node test.after 幂等清理；整例超时也终止测试浏览器及本机夹具服务，避免 browser.close 挂起阻塞测试文件退出。
+
+设置预览统一验收：settings-modes 覆盖11类预览在浅深色及360/600/900/1360px下均先于控件、左右对齐且无横向溢出，外观复用布局场景与统一字号，Bot示例选择零保存。layout-preview、settings-motion、settings-modes 默认只验状态/几何；仅显式 PALBOO_TEST_SCREENSHOTS=1 生成合成截图。

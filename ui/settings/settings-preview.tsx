@@ -1,32 +1,20 @@
-/* [INPUT]: Read-only snapshots from the existing forms, saved surfaces and feature layout.
+/* [INPUT]: Shared preview frame, existing form snapshots, saved surfaces and feature layout.
  * [OUTPUT]: Linked configuration diagrams and isolated, state-preserving samples in a stable transition frame.
  * [POS]: Settings presentation only; no requests, credentials, task bodies or host commands.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 import { LayoutPreview } from './layout-preview';
-import { useState, type CSSProperties, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { SettingsPage } from './settings-outline';
 import type { EditableSettings, View } from './api';
 import type { SurfaceState } from './surface-settings';
-import { titles, type FeatureId, type FeatureLayout, type FeatureState } from '../shared/features';
+import { titles, type FeatureState } from '../shared/features';
 import type { ModelState } from '../features/model/catalog';
 import type { TaskState } from '../features/board/api';
 import { columns as defaultColumns } from '../features/board/api';
-import { resolveFeatureLayout } from '../surfaces/workspace/layout';
 import { Icon } from '../shared/icons/react';
-import { usePreviewMotion, usePreviewTransition } from './settings-motion';
+import { PreviewFrame as Frame } from './preview-frame';
+import { usePreviewTransition } from './settings-motion';
 
-const placements = {
-  sidebar: '侧栏',
-  overlay: '页面浮层',
-  desktop: '桌面窗口',
-  edge: '贴边 / 刘海',
-};
-const materials: Record<string, string> = {
-  black: '纯黑',
-  matte: '哑光',
-  frosted: '磨砂',
-  'native-glass': '液态',
-};
 function suggestionLimit(form: EditableSettings | null) {
   return form?.directionSource === 'manual'
     ? form.selectedDirections.length
@@ -44,25 +32,6 @@ type PreviewProps = {
   live: boolean;
 };
 
-function Frame({
-  title,
-  label = '示意预览',
-  children,
-}: {
-  title: string;
-  label?: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="preview-frame" aria-label={title}>
-      <header className="preview-heading">
-        <h2>{title}</h2>
-        <span>{label}</span>
-      </header>
-      {children}
-    </section>
-  );
-}
 function Facts({ items }: { items: [string, ReactNode][] }) {
   return (
     <dl className="preview-facts">
@@ -76,240 +45,28 @@ function Facts({ items }: { items: [string, ReactNode][] }) {
   );
 }
 
-function MiniContent({ id }: { id: string }) {
-  if (id === 'board')
-    return (
-      <div className="preview-mini-board" aria-hidden="true">
-        {['待办', '进行中', '完成'].map((label) => (
-          <div key={label}>
-            <span>{label}</span>
-            <i />
-            <i />
-          </div>
-        ))}
-      </div>
-    );
-  if (id === 'model')
-    return (
-      <div className="preview-mini-model" aria-hidden="true">
-        <span>当前模型</span>
-        <b>● ● ● ○ ○</b>
-        <i />
-        <i />
-      </div>
-    );
-  if (id === 'bots')
-    return (
-      <div className="preview-mini-text">
-        <strong>通用</strong>
-        <span>在 Codex 主聊天输入与追问</span>
-      </div>
-    );
-  if (id === 'terms')
-    return (
-      <div className="preview-mini-text">
-        <strong>Context</strong>
-        <span>上下文 · 当前任务的背景信息</span>
-      </div>
-    );
-  return (
-    <ol className="preview-mini-list">
-      {(id === 'next'
-        ? ['继续完善方案', '检查关键边界']
-        : ['整体思路', '具体实现', '验证与交付']
-      ).map((text, index) => (
-        <li key={text}>
-          <span>{String(index + 1).padStart(2, '0')}</span>
-          {text}
-        </li>
-      ))}
-    </ol>
-  );
-}
-
-function LayoutDiagram({ layout, visible }: { layout: FeatureLayout; visible: string[] }) {
-  const containsVisible = (node: FeatureLayout['groups'][number]): boolean =>
-    'groups' in node
-      ? node.groups.some(containsVisible)
-      : node.ids.some((id) => visible.includes(id));
-  return (
-    <div className="preview-split" data-axis={layout.axis}>
-      {layout.groups.filter(containsVisible).map((group, index) =>
-        'groups' in group ? (
-          <div className="preview-split-child" key={index} style={{ flexGrow: group.weight || 1 }}>
-            <LayoutDiagram layout={group} visible={visible} />
-          </div>
-        ) : (
-          <PreviewPane
-            key={group.ids.join('-')}
-            ids={group.ids.filter((id) => visible.includes(id))}
-            active={group.active}
-            weight={group.weight}
-          />
-        ),
-      )}
-    </div>
-  );
-}
-function PreviewPane({ ids, active, weight }: { ids: string[]; active: string; weight: number }) {
-  const [selected, setSelected] = useState('');
-  const current = ids.includes(selected) ? selected : ids.includes(active) ? active : ids[0];
-  if (!current) return null;
-  return (
-    <div
-      className="preview-pane"
-      data-preview-part={`pane-${ids.join('-')}`}
-      style={{ flexGrow: weight || 1 }}
-    >
-      <div
-        className="preview-pane-tabs"
-        role="group"
-        aria-label="示意功能标签"
-        data-settings-navigation
-      >
-        {ids.map((id) => (
-          <button
-            type="button"
-            key={id}
-            aria-pressed={id === current}
-            onClick={() => setSelected(id)}
-          >
-            {titles[id as FeatureId] || id}
-          </button>
-        ))}
-      </div>
-      <MiniContent id={current} />
-    </div>
-  );
-}
-
-function WorkspacePreview({
-  features,
-  surfaces,
-  live,
-}: Pick<PreviewProps, 'features' | 'surfaces' | 'live'>) {
-  const [target, setTarget] = useState<'main' | 'edge'>('main');
-  const placement = features?.mainPlacement || 'sidebar';
-  const location = target === 'edge' ? 'edge' : placement;
-  const theme = surfaces?.preferences.themes[location];
-  const entries = features?.features || [];
-  const ids = entries
-    .filter((entry) => entry.placement === location && entry.open)
-    .map((entry) => entry.id);
-  const layout = resolveFeatureLayout(
-    features?.layouts?.[location],
-    features?.legacyLayouts?.[location],
-    ids,
-  );
-  const edge = surfaces?.preferences.edge;
-  const ref = usePreviewMotion(JSON.stringify([location, layout, ids, edge?.edge, edge?.position]));
-  const ready = !!features && !!surfaces;
-  return (
-    <Frame title="你的工作空间" label={!live ? '连接中断 · 末次状态' : '已保存配置 · 示意'}>
-      <div className="preview-selector" role="group" aria-label="预览范围" data-settings-navigation>
-        <button type="button" aria-pressed={target === 'main'} onClick={() => setTarget('main')}>
-          主界面
-        </button>
-        <button type="button" aria-pressed={target === 'edge'} onClick={() => setTarget('edge')}>
-          贴边 / 刘海
-        </button>
-      </div>
-      <div
-        ref={ref}
-        className="preview-host"
-        data-placement={location}
-        data-edge={edge?.edge || 'right'}
-        data-ready={ready}
-        style={
-          {
-            '--edge-position': `${Math.max(0, Math.min(1, edge?.position ?? 0.5)) * 100}%`,
-          } as CSSProperties
-        }
-      >
-        <div className="preview-host-bar">
-          <span className="preview-window-dots" aria-hidden="true">
-            <i />
-            <i />
-            <i />
-          </span>
-          <span>ChatGPT</span>
-          <Icon name="layout" />
-        </div>
-        <div className="preview-host-rail" aria-hidden="true">
-          <i />
-          <i />
-          <i />
-          <span className="preview-eyes">
-            <i />
-            <i />
-          </span>
-        </div>
-        <div className="preview-chat" aria-hidden="true">
-          <span className="preview-caption">聊天区域</span>
-          <div className="preview-message" />
-          <i />
-          <i />
-          <i />
-          <div className="preview-composer">
-            输入消息…
-            <Icon name="turn-start" />
-          </div>
-        </div>
-        <div
-          className="preview-workspace"
-          data-preview-workspace
-          data-preview-part="workspace"
-          data-material={theme?.theme || 'matte'}
-          data-variant={theme?.liquidVariant}
-        >
-          <div className="preview-workspace-head">
-            <strong>Palboo</strong>
-            <Icon name={location === 'desktop' ? 'pin' : 'more'} />
-          </div>
-          {!ready ? (
-            <p className="preview-empty">正在读取布局…</p>
-          ) : ids.length ? (
-            <LayoutDiagram layout={layout} visible={ids} />
-          ) : (
-            <p className="preview-empty">这里还没有打开的功能</p>
-          )}
-        </div>
-      </div>
-      <Facts
-        items={[
-          ['所在位置', ready ? placements[location] : '读取中'],
-          [
-            '界面材质',
-            theme
-              ? `${materials[theme.theme] || theme.theme}${theme.theme === 'native-glass' ? ` · ${theme.liquidVariant === 'clear' ? 'Clear' : 'Regular'}` : ''}`
-              : '读取中',
-          ],
-          ['显示功能', ready ? ids.map((id) => titles[id]).join('、') || '暂无' : '读取中'],
-        ]}
-      />
-      <p className="preview-note">材质效果以实际窗口为准。</p>
-    </Frame>
-  );
-}
-
 function FeaturePreview({ form, tasks, model, view, dirty, page }: PreviewProps) {
-  const [tab, setTab] = useState<'outline' | 'next' | 'board' | 'model'>('next');
+  const [tab, setTab] = useState<'outline' | 'next' | 'board' | 'model' | 'bots'>('next');
   const [selected, setSelected] = useState(0);
   const [demoDraft, setDemoDraft] = useState('');
+  const [selectedBot, setSelectedBot] = useState('通用');
   const activeScene =
-    page === 'board'
-      ? 'board'
-      : page === 'model-control'
-        ? 'model'
-        : ['next', 'prompts'].includes(page)
-          ? 'next'
-          : tab;
+    page === 'bots'
+      ? 'bots'
+      : page === 'board'
+        ? 'board'
+        : page === 'model-control'
+          ? 'model'
+          : ['next', 'prompts'].includes(page)
+            ? 'next'
+            : tab;
   const transition = usePreviewTransition(activeScene);
   const enabled = {
     outline: form?.answerOutlineEnabled,
     next: form?.enabled,
     board: tasks?.store.boardEnabled,
     model: model?.preferences.enabled,
+    bots: form?.grokbotEnabled,
   };
   const groups = tasks?.store.columns || defaultColumns;
   const mode = view?.panelPreferences.ui.promptClickMode || 'fill';
@@ -328,7 +85,7 @@ function FeaturePreview({ form, tasks, model, view, dirty, page }: PreviewProps)
         hidden={page !== 'features'}
         data-settings-navigation
       >
-        {(['outline', 'next', 'board', 'model'] as const).map((id) => (
+        {(['outline', 'next', 'board', 'model', 'bots'] as const).map((id) => (
           <button
             key={id}
             type="button"
@@ -340,7 +97,7 @@ function FeaturePreview({ form, tasks, model, view, dirty, page }: PreviewProps)
         ))}
       </div>
       <div className="preview-scenes" ref={transition}>
-        {(['outline', 'next', 'board', 'model'] as const).map((scene) => {
+        {(['outline', 'next', 'board', 'model', 'bots'] as const).map((scene) => {
           const active = enabled[scene];
           return (
             <div
@@ -436,6 +193,32 @@ function FeaturePreview({ form, tasks, model, view, dirty, page }: PreviewProps)
                       </div>
                     ))}
                   </div>
+                )}
+                {scene === 'bots' && (
+                  <>
+                    <div
+                      className="preview-outline"
+                      role="group"
+                      aria-label="Bot 选择示例"
+                      data-settings-navigation
+                    >
+                      {['通用', '代码审查', '资料整理'].map((name) => (
+                        <button
+                          type="button"
+                          key={name}
+                          aria-pressed={selectedBot === name}
+                          onClick={() => setSelectedBot(name)}
+                        >
+                          {name}
+                          <Icon name="chevron-right" />
+                        </button>
+                      ))}
+                    </div>
+                    <div
+                      className="preview-draft"
+                      role="status"
+                    >{`请问「${selectedBot}」：帮我检查这个方案。`}</div>
+                  </>
                 )}
                 {scene === 'model' && (
                   <>
@@ -538,14 +321,19 @@ export function SettingsPreview(props: PreviewProps) {
     <aside
       className="settings-preview"
       aria-label="联动预览"
-      hidden={['performance', 'terminology', 'codex-host', 'dev', 'bots'].includes(props.page)}
+      hidden={['performance', 'terminology', 'codex-host', 'dev'].includes(props.page)}
       data-preview-kind={workspace ? 'workspace' : props.page}
     >
-      {props.page === 'surfaces' ? (
-        <LayoutPreview features={props.features} surfaces={props.surfaces} live={props.live} />
-      ) : workspace ? (
-        <WorkspacePreview features={props.features} surfaces={props.surfaces} live={props.live} />
-      ) : ['features', 'next', 'prompts', 'board', 'model-control'].includes(props.page) ? (
+      {workspace ? (
+        <LayoutPreview
+          features={props.features}
+          surfaces={props.surfaces}
+          live={props.live}
+          appearance={props.page === 'appearance'}
+          typography={props.view?.panelTypography}
+          typographyPreferences={props.view?.panelPreferences.typography}
+        />
+      ) : ['features', 'next', 'prompts', 'board', 'model-control', 'bots'].includes(props.page) ? (
         <FeaturePreview {...props} />
       ) : props.page === 'model' ? (
         <GenerationPreview {...props} />

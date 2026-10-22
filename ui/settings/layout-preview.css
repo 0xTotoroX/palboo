@@ -2,19 +2,6 @@
  * [OUTPUT]: Scoped device finish, readable sample panes and compact responsive controls.
  * [POS]: Settings illustration only; no styles applied to product workspaces.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
-.settings-app[data-settings-category='surfaces'] .settings-body {
-  grid-template-columns: minmax(0, 1fr);
-}
-.settings-app[data-settings-category='surfaces'] .settings-preview {
-  grid-column: 1;
-  grid-row: 1;
-  position: static;
-  padding-right: 0;
-}
-.settings-app[data-settings-category='surfaces'] .settings-form-column {
-  grid-column: 1;
-  grid-row: 2;
-}
 .layout-demo {
   overflow: hidden;
 }
@@ -146,6 +133,10 @@
     inset 0 0 0 1px #ffffff77,
     0 3px 12px #0001;
 }
+.layout-demo-workspace[data-material='native-glass'][data-variant='clear'] {
+  background: color-mix(in srgb, var(--buddy-surface) 32%, transparent);
+  backdrop-filter: blur(2px);
+}
 .layout-demo-workspace[data-material='black'] {
   background: #000;
   color: #eee;
@@ -158,7 +149,7 @@
   height: 100%;
   overflow: auto;
   padding: 4px 8px 12px;
-  font-size: 15px;
+  font-size: inherit;
 }
 .layout-demo-content ol {
   padding-left: 20px;
