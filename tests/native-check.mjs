@@ -203,6 +203,7 @@ function probePage() {
           sentAt: Date.now(),
           visibility: document.visibilityState,
           active: current?.runtimeActive,
+          motionActive: window.__companionPopout?.motionActive(),
           open: current?.open,
           material: current?.material,
           viewport: [innerWidth, innerHeight],
@@ -283,6 +284,9 @@ function probePage() {
           windowControls: [...document.querySelectorAll('[data-window-control]')]
             .filter((node) => measure(node)?.visible)
             .map((node) => node.dataset.windowControl),
+          windowControlsDisabled: [...document.querySelectorAll('[data-window-control]')].some(
+            (node) => node.disabled,
+          ),
           rect: current?.glass?.getBoundingClientRect(),
           animations: current?.glass?.getAnimations().filter((a) => a.playState === 'running')
             .length,
@@ -848,7 +852,17 @@ try {
         () => telemetry?.warp?.frames > 0 && !telemetry.warp.active,
         'genie entry completes',
       );
-    } else await delay(450);
+    }
+    await waitFor(() => {
+      const sample = motionSamples.at(-1);
+      return (
+        telemetry?.motionActive === false &&
+        telemetry.sentAt > requests.find((r) => r.path === '/api/panel/presented')?.at &&
+        sample?.alpha === 1 &&
+        Math.abs(sample.bounds?.Width - telemetry.viewport[0]) <= 1 &&
+        Math.abs(sample.bounds?.Height - telemetry.viewport[1]) <= 1
+      );
+    }, 'native entry did not finish at its final size');
     entryFinishedAt = Date.now();
     const settled = motionSamples.at(-1);
     if (
@@ -888,6 +902,8 @@ try {
           Math.abs((sample.bounds?.X ?? Infinity) - settled.bounds.X) <= 2 &&
           Math.abs((sample.bounds?.Height ?? Infinity) - settled.bounds.Height) <= 2 &&
           sample.alpha === 1 &&
+          telemetry.motionActive === false &&
+          telemetry.windowControlsDisabled === false &&
           (!genieOnly || (telemetry.warp?.frames > beforeFrames && !telemetry.warp.active))
         );
       }, 'return cancellation did not settle');
@@ -1247,8 +1263,22 @@ try {
       );
       if (new Set(growing.map((s) => Math.round(s.bounds.Height))).size < 3)
         throw Error('Genie entry skipped the visible expansion');
-    } else if (!motionSamples.some((s) => s.at < presentedAt && intermediate(s)))
-      throw Error('Native window did not fade in before presentation');
+    } else {
+      // CGWindowList and the HTTP acknowledgement arrive on independent queues.
+      // Prove the fade at its actual source pose, before travel, rather than ordering receipt times.
+      const entryEnd = entryFinishedAt ?? closingAt;
+      const sourceFade = motionSamples.some(
+        (s) =>
+          s.at >= readyAt &&
+          s.at < entryEnd &&
+          intermediate(s) &&
+          Math.abs(s.bounds?.X - (sourceAnchor.x - 12)) <= 2 &&
+          Math.abs(s.bounds?.Y - (sourceAnchor.y - 12)) <= 2 &&
+          Math.abs(s.bounds?.Width - (sourceAnchor.width + 24)) <= 2 &&
+          Math.abs(s.bounds?.Height - (sourceAnchor.height + 24)) <= 2,
+      );
+      if (!sourceFade) throw Error('Native window did not fade in at its source pose');
+    }
     if (!motionSamples.some((s) => s.at > closingAt && intermediate(s)))
       throw Error('Native window did not fade out before exit');
   }
@@ -1279,6 +1309,7 @@ try {
   const reportPath = output + '/report.json';
   const report = JSON.parse(readFileSync(reportPath, 'utf8'));
   writeFileSync(reportPath, JSON.stringify({ ...report, motionCheck }, null, 2));
+  rmSync(join(output, 'failure.json'), { force: true });
   console.log('原生窗口呈现确认、几何与透明度轨迹、退出检查通过。');
 } catch (e) {
   rmSync(join(output, 'report.json'), { force: true });

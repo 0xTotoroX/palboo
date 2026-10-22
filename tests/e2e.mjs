@@ -1,7 +1,7 @@
 /*
  * [INPUT]: 独立 Chromium、合成 fixture、release/debug 程序与模型 stub。
  * [OUTPUT]: target/reports/e2e 下的 CDP、设置与统一字体双向同步、完整长上下文三协议传输、建议、大纲及弹出交互验收报告。
- * [POS]: 端到端测试入口，委托 popout-checks 验证窗口协议。
+ * [POS]: 端到端测试入口，委托 popout-checks 验证窗口协议；--native-popout 以真实 Wry 窗口验收大纲定位与往返，不截图。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
 import { showWorkbenchView } from './workbench-actions.mjs';
@@ -23,16 +23,18 @@ import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
 import { chromium } from 'playwright';
 import { checkPopout } from './popout-checks.mjs';
+import { checkNativePopout } from './native-popout-checks.mjs';
 
 const root = resolve(import.meta.dirname, '..');
 const artifact = prepareTestBinary();
 const binary = artifact.binary;
 const popoutOnly = process.argv.includes('--popout-only');
+const nativePopout = process.argv.includes('--native-popout');
 const settingsOnly = process.argv.includes('--settings-only');
 const output = join(
   root,
   'target/reports',
-  settingsOnly ? 'settings' : popoutOnly ? 'popout' : 'e2e',
+  nativePopout ? 'native-popout' : settingsOnly ? 'settings' : popoutOnly ? 'popout' : 'e2e',
 );
 mkdirSync(output, { recursive: true });
 rmSync(join(output, 'e2e-report.json'), { force: true });
@@ -529,6 +531,26 @@ try {
     writeFileSync(
       join(output, 'e2e-report.json'),
       JSON.stringify({ artifact, scope: 'settings', reports, pageErrors: errors }, null, 2),
+    );
+  } else if (nativePopout) {
+    await desktop.evaluate(() => window.__companionFloatingPanel.setOpen(true));
+    await settle();
+    await checkNativePopout({
+      desktop,
+      api,
+      base,
+      runtime,
+      binary,
+      dataDir,
+      output,
+      record,
+      waitFor,
+      delay,
+    });
+    assert.deepEqual(errors, []);
+    writeFileSync(
+      join(output, 'e2e-report.json'),
+      JSON.stringify({ artifact, scope: 'native-popout', reports, pageErrors: errors }, null, 2),
     );
   } else if (popoutOnly) {
     await desktop.evaluate(() => window.__companionFloatingPanel.setOpen(true));
@@ -1642,7 +1664,8 @@ try {
           .catch(() => null),
       ),
     );
-    await desktop.screenshot({ path: join(output, 'desktop-failure.png') }).catch(() => {});
+    if (!nativePopout)
+      await desktop.screenshot({ path: join(output, 'desktop-failure.png') }).catch(() => {});
   }
   process.exitCode = 1;
 } finally {
