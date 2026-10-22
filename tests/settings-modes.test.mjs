@@ -14,7 +14,7 @@ import { fixtureSettings } from './fixtures.mjs';
 test(
   'unified settings retain grouped pages, legacy links, drafts, drawers and reading without navigation writes',
   { timeout: 120000 },
-  async () => {
+  async (testContext) => {
     let settings = structuredClone(fixtureSettings),
       rejectNext = false,
       rejectSurface = false;
@@ -256,7 +256,16 @@ test(
     });
     await new Promise((r) => server.listen(0, '127.0.0.1', r));
     const origin = `http://127.0.0.1:${server.address().port}`;
-    const browser = await chromium.launch({ headless: true });
+    let browserServer, cleanupPromise;
+    const cleanup = () =>
+      (cleanupPromise ||= (async () => {
+        await browserServer?.kill();
+        server.closeAllConnections();
+        await new Promise((r) => server.close(r));
+      })());
+    testContext.after(cleanup);
+    browserServer = await chromium.launchServer({ headless: true });
+    const browser = await chromium.connect(browserServer.wsEndpoint());
     const context = await browser.newContext({
       viewport: { width: 420, height: 800 },
       reducedMotion: 'reduce',
@@ -1038,9 +1047,7 @@ test(
       );
       assert.deepEqual(errors, []);
     } finally {
-      await browser.close();
-      server.closeAllConnections();
-      await new Promise((r) => server.close(r));
+      await cleanup();
     }
   },
 );

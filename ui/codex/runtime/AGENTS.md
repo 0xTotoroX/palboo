@@ -68,3 +68,5 @@ lifecycle 的220ms页面变化防抖和1300ms文本稳定等待仅进行本地�
 聊天测速由 tools 信号按 tokenMeterEnabled 安装/销毁，使用输入目标而非工作台阅读锁定；scan/desktopStatus 复用原调度刷新目标，不新增轮询。正文扫描排除测速根节点。全局销毁移除测速监听与定时器。
 
 Grok Bot 由 grokbotEnabled 独立开启，syncTools 安装/销毁 __palbooBots；runtimeEnabled 包含此开关，允许只启用 Bot 功能。调用记录随宿主实例销毁，不持久化。
+
+大纲定位/锚点命令成功只返回 ok=true；仅失败时附带错误文案，避免成功回执误报失败。

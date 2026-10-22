@@ -290,3 +290,7 @@ model-preset-draft 与 typography 的 esbuild 夹具按文本读取已有测速�
 Grok Bot 合并回归覆盖缺失目录身份拒绝、账号/同名换 ID 的迟到事件、失败检查不解除活动任务占用、turn.id 收尾，以及可见设置页的文件变化与错误恢复；使用合成资料，不发送真实 Bot 消息。
 
 Bot 侧栏回归覆盖置顶/分组顺序、隐藏项与旧接口兼容、排序保留调用关联和草稿、同一主输入框；features-e2e 分别触发 sidebar.last-sections/ui-agent-refs 文件事件，验证自动同步与手动等待刷新、设置与主面板一致。Rust 拒绝重复/缺失/未知/隐藏组成员和未知 schema；外部接入解析器测试独立维护，不随 Palboo 分发。
+
+设置时序回归：settings-motion 通过可释放的合成请求验证 pending/success，不靠固定响应延时抢读短暂状态；startup-settings 的长流程保留逐项等待与串行修订校验。workbench 每个用例包含页面创建的60秒截止，记录阶段、先保存失败再做短时限截图，清理超时仅终止该测试拥有的 browserServer，浏览器断开后停止后续用例。popout-checks 在点击前观察指定正文高亮，延迟回读后仍核验实际滚动位置与命令回执。
+
+设置长流程和 Dev 来源组件使用独立 browserServer，注册 Node test.after 幂等清理；整例超时也终止测试浏览器及本机夹具服务，避免 browser.close 挂起阻塞测试文件退出。

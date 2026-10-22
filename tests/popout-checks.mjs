@@ -501,11 +501,66 @@ export async function checkPopout({
     );
     record('Web 与桌面胶囊的全量偏好同步，置顶传入原生窗口');
 
-    await pop.locator('.csw-outline-row').nth(1).click();
-    await waitFor(
-      async () => (await desktop.locator('.companion-stepwise-outline-target-flash').count()) > 0,
-      'Popout outline did not navigate host',
-    );
+    const jumpRow = pop.locator('.csw-outline-row').nth(1);
+    const jumpId = await jumpRow.getAttribute('data-outline-id');
+    assert.ok(jumpId);
+    const beforeJump = await desktop.evaluate((id) => {
+      const target = document.querySelector(
+        `[data-companion-stepwise-outline-id="${CSS.escape(id)}"]`,
+      );
+      if (!target) throw Error('Expected outline target missing');
+      const scroll = target.closest('.thread-scroll-container');
+      scroll.scrollTo({ top: 0, behavior: 'instant' });
+      window.popoutJumpObserved = false;
+      window.popoutJumpObserver = new MutationObserver(() => {
+        if (
+          target.classList.contains('companion-stepwise-outline-target-flash') &&
+          target.getBoundingClientRect().height
+        )
+          window.popoutJumpObserved = true;
+      });
+      window.popoutJumpObserver.observe(target, { attributes: true, attributeFilter: ['class'] });
+      return scroll.scrollTop;
+    }, jumpId);
+    assert.equal(beforeJump, 0, 'jump starts at the beginning of the conversation');
+    try {
+      const response = pop.waitForResponse(
+        (r) =>
+          r.url().endsWith('/panel/command') &&
+          r.request().postDataJSON()?.command?.kind === 'outline-jump',
+      );
+      await jumpRow.click();
+      const result = await (await response).json();
+      assert.equal(result.ok, true);
+      assert.equal(result.message, undefined, 'successful navigation has no failure message');
+      // Deliberately inspect after the transient 1200ms flash has ended.
+      await delay(1300);
+      await desktop.waitForFunction(
+        ({ id, before }) => {
+          const target = document.querySelector(
+            `[data-companion-stepwise-outline-id="${CSS.escape(id)}"]`,
+          );
+          const scroll = target?.closest('.thread-scroll-container');
+          if (!target || !scroll || !window.popoutJumpObserved) return false;
+          const box = target.getBoundingClientRect(),
+            viewport = scroll.getBoundingClientRect();
+          return (
+            Math.abs(scroll.scrollTop - before) > 1 &&
+            box.top >= viewport.top - 1 &&
+            box.bottom <= viewport.bottom + 1
+          );
+        },
+        { id: jumpId, before: beforeJump },
+        { timeout: 6000 },
+      );
+    } finally {
+      await desktop.evaluate(() => {
+        window.popoutJumpObserver?.disconnect();
+        delete window.popoutJumpObserver;
+        delete window.popoutJumpObserved;
+      });
+    }
+    record('浮窗大纲定位到指定正文、高亮可在延迟回读后确认，成功回执无错误文案');
     await pop.locator('.csw-head').hover();
     await showWorkbenchView(pop, 'next');
     await settle();

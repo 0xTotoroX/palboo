@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 工作台纯布局模型的旧比例迁移； 后台 popoutSupported 能力、共享胶囊状态、宿主上下文与弹出页通信对象。
- * [OUTPUT]: 宿主明暗/语义色投影及原生外观同步； 共享关联及双面板阅读投影、关联/快捷词填入或发送命令及配置/身份校验；阅读状态与自定义任务分组按实际渲染外壳接续，窗口往返优先使用左栏图标锚点，桌面置顶按钮串行保存目标值。
+ * [OUTPUT]: 宿主明暗/语义色投影及原生外观同步； 共享关联及双面板阅读投影、关联/快捷词填入或发送命令及配置/身份校验，大纲成功回执不携带失败文案；阅读状态与自定义任务分组按实际渲染外壳接续，窗口往返优先使用左栏图标锚点，桌面置顶按钮串行保存目标值。
  * [POS]: 内嵌与系统窗口的显示边界，宿主保留业务权威状态，在不可见宿主中仍提供临时屏幕区域与交接眨眼，配合原生窗口位置接续。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -515,9 +515,13 @@ function panelCommand(command) {
   if (command.kind.startsWith('outline-') && command.outlineToken !== current.outlineToken)
     return { ok: false, message: '大纲已经更新，请重新选择小节。' };
   if (command.kind === 'outline-jump')
-    return { ok: outlineJumpTo(command.id), message: '找不到对应小节，请刷新后重试。' };
+    return outlineJumpTo(command.id)
+      ? { ok: true }
+      : { ok: false, message: '找不到对应小节，请刷新后重试。' };
   if (command.kind === 'outline-anchor')
-    return { ok: outlineJumpToAnchor(command.anchor), message: '找不到当前回答位置。' };
+    return outlineJumpToAnchor(command.anchor)
+      ? { ok: true }
+      : { ok: false, message: '找不到当前回答位置。' };
   if (command.kind === 'fill' || command.kind === 'quick-fill') {
     if (command.promptToken !== current.promptToken)
       return { ok: false, message: '建议已经更新，请重新选择。' };

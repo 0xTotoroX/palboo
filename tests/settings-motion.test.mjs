@@ -1,4 +1,4 @@
-/* [INPUT]: Actual settings components/CSS, synthetic services and isolated Chromium.
+/* [INPUT]: Actual settings components/CSS, controlled synthetic responses and isolated Chromium.
  * [OUTPUT]: Preview continuity, fixed button geometry, truthful outcomes and reduced-motion checks.
  * [POS]: No real credentials, generation, settings writes or host actions.
  * [PROTOCOL]: Keep tests/AGENTS.md in sync. */
@@ -48,15 +48,23 @@ return <div className="settings-app" ref={ref}><div style={{width:430}}><Setting
       page.on('pageerror', (e) => errors.push(e.message));
       let generation = true,
         status = 200,
-        delay = 320,
         writes = 0;
       let settings = structuredClone(fixtureSettings);
+      let gate = null;
+      const holdResponse = () => {
+        const { promise, resolve } = Promise.withResolvers();
+        gate = promise;
+        return () => {
+          gate = null;
+          resolve();
+        };
+      };
       await page.route('http://motion.test/**', async (route) => {
         const path = new URL(route.request().url()).pathname;
         if (path.startsWith('/api/') || path === '/refresh') {
           const code = status,
             attempted = generation;
-          await new Promise((r) => setTimeout(r, delay));
+          if (gate) await gate;
           let body = {};
           if (path.endsWith('/test')) body = { generationAttempted: attempted, items: [] };
           else if (path.endsWith('/models')) body = { models: ['Alpha', 'Beta'] };
@@ -162,7 +170,7 @@ return <div className="settings-app" ref={ref}><div style={{width:430}}><Setting
       );
       const testButton = page.locator('.settings-connection-test');
       const width = (await testButton.boundingBox()).width;
-      delay = 1000;
+      let release = holdResponse();
       await testButton.click();
       const pending = page.getByRole('button', { name: '正在测试…', exact: true });
       await pending.waitFor();
@@ -193,6 +201,7 @@ return <div className="settings-app" ref={ref}><div style={{width:430}}><Setting
       });
       assert.ok(new Set(motion.map((x) => x.bar)).size > 2, 'waiting line visibly travels');
       assert.ok(new Set(motion.map((x) => x.spin)).size > 2, 'wait icon visibly rotates');
+      release();
       await testButton.locator('[data-action-state="success"]').waitFor();
       assert.equal((await testButton.boundingBox()).width, width);
       await page.getByRole('button', { name: '连接成功', exact: true }).waitFor();
@@ -202,7 +211,6 @@ return <div className="settings-app" ref={ref}><div style={{width:430}}><Setting
         'success',
         'connection result remains until the next action or edit',
       );
-      delay = 320;
       const iconDurations = await testButton
         .locator('.settings-action-layer')
         .first()
@@ -225,8 +233,10 @@ return <div className="settings-app" ref={ref}><div style={{width:430}}><Setting
       );
       const arrow = page.getByRole('button', { name: '选择模型', exact: true });
       const arrowWidth = (await arrow.boundingBox()).width;
+      release = holdResponse();
       await arrow.click();
       await arrow.locator('[data-action-state="pending"]').waitFor();
+      release();
       await arrow.locator('[data-action-state="success"]').waitFor();
       assert.equal((await arrow.boundingBox()).width, arrowWidth);
       await page.getByRole('combobox', { name: '模型名称', exact: true }).press('Escape');
@@ -235,9 +245,11 @@ return <div className="settings-app" ref={ref}><div style={{width:430}}><Setting
       await input.press('Escape');
       const save = page.getByRole('button', { name: '保存设置', exact: true });
       const saveWidth = (await save.boundingBox()).width;
+      release = holdResponse();
       await save.click();
       await save.locator('[data-action-state="pending"]').waitFor();
       assert.equal((await save.boundingBox()).width, saveWidth);
+      release();
       await save.locator('[data-action-state="success"]').waitFor();
       assert.equal((await save.boundingBox()).width, saveWidth);
       assert.equal(settings.model, 'new-model');
@@ -254,8 +266,10 @@ return <div className="settings-app" ref={ref}><div style={{width:430}}><Setting
       await page.getByRole('button', { name: '模型分组', exact: true }).click();
       status = 200;
       const refresh = page.getByRole('button', { name: '刷新可用模型', exact: true });
+      release = holdResponse();
       await refresh.click();
       await refresh.locator('[data-action-state="pending"]').waitFor();
+      release();
       await refresh.locator('[data-action-state="success"]').waitFor();
       status = 500;
       await refresh.click();
@@ -283,6 +297,7 @@ return <div className="settings-app" ref={ref}><div style={{width:430}}><Setting
       );
       status = 200;
       generation = true;
+      release = holdResponse();
       await input.fill(settings.model);
       await input.press('Escape');
       await testButton.click();
@@ -302,6 +317,7 @@ return <div className="settings-app" ref={ref}><div style={{width:430}}><Setting
         ) <= 0.00001,
         'reduced motion has no perceptible transition',
       );
+      release();
       await testButton.locator('[data-action-state="success"]').waitFor();
       await emulateMedia(page, { reducedMotion: 'no-preference' });
       await tabs.getByRole('button', { name: '看板', exact: true }).focus();
@@ -312,6 +328,7 @@ return <div className="settings-app" ref={ref}><div style={{width:430}}><Setting
           .evaluate((el) => el.getAnimations({ subtree: true }).length),
         0,
       );
+      release = holdResponse();
       await testButton.focus();
       await page.keyboard.press('Enter');
       await pending.waitFor();
@@ -328,6 +345,7 @@ return <div className="settings-app" ref={ref}><div style={{width:430}}><Setting
         'none',
         'reduce stops the waiting line',
       );
+      release();
       await testButton.locator('[data-action-state="success"]').waitFor();
       await emulateMedia(page, { reducedMotion: 'no-preference' });
       await mkdir('target/reports', { recursive: true });

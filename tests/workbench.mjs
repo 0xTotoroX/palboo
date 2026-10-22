@@ -1,6 +1,6 @@
 /*
  * [INPUT]: Playwright Chromium、buildPanel、合成宿主与设置 fixture。
- * [OUTPUT]: 工作台真实布局、键盘操作、设置隔离与宿主生命周期行为回归。
+ * [OUTPUT]: 工作台真实布局、键盘操作、设置隔离与宿主生命周期行为回归；分阶段限时、失败留证及测试浏览器清理。
  * [POS]: 独立浏览器验收；只模拟后台桥，不请求模型、不读取真实聊天。
  * [PROTOCOL]: 变更时核对 tests/AGENTS.md；入口与地图由主任务维护。
  */
@@ -24,11 +24,27 @@ const slotSelector = '[data-palboo-dock]';
 const panelSelector = '[data-companion-stepwise-root] .csw-panel';
 const wide = { width: 1440, height: 960 };
 
-const browser = await chromium.launch({
+const browserServer = await chromium.launchServer({
   executablePath: process.env.PALBOO_CHROME_BIN || process.env.CHROME_PATH || undefined,
   headless: true,
 });
+const browser = await chromium.connect(browserServer.wsEndpoint());
 const results = [];
+let stage = 'idle';
+function deadline(promise, ms, label) {
+  let timer;
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`${label}: timed out during ${stage}`)), ms);
+    }),
+  ]).finally(() => clearTimeout(timer));
+}
+const saveResults = () =>
+  writeFileSync(
+    resolve(output, process.env.WORKBENCH_CASE ? 'selected-results.json' : 'results.json'),
+    `${JSON.stringify(results, null, 2)}\n`,
+  );
 mkdirSync(output, { recursive: true });
 
 const settle = (page) =>
@@ -312,12 +328,15 @@ async function createPopout(host, preserveSnapshot = false) {
     projection.snapshot.bridgeStatus = 'ok';
     projection.snapshot.readingState = null;
   }
+  stage = 'popout: newPage';
   const page = await host.context().newPage();
   page.setDefaultTimeout(6000);
   await page.setViewportSize({ width: 500, height: 744 });
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
+  stage = 'popout: goto';
   await page.goto(`${hostUrl}/popout`);
+  stage = 'popout: inject/project';
   await page.evaluate((settings) => {
     window.popoutFixture = { saves: [], pins: [], unexpected: [], settingsOpens: 0 };
     window.__companionHostRequest = (raw) => {
@@ -358,6 +377,7 @@ async function createPopout(host, preserveSnapshot = false) {
   assert.equal(await page.locator(slotSelector).count(), 0, 'popout never installs a host slot');
   for (const kind of ['outline', 'next'])
     await page.locator(`[data-pane="${kind}"]`).waitFor({ state: 'attached' });
+  stage = 'case assertions';
   return { page, projection, errors };
 }
 
@@ -3013,64 +3033,101 @@ const cases = [
 try {
   for (const [index, [name, run]] of cases.entries()) {
     if (process.env.WORKBENCH_CASE && !name.includes(process.env.WORKBENCH_CASE)) continue;
-    const context = await browser.newContext({
-      viewport: wide,
-      reducedMotion: 'reduce',
-    });
-    const page = await context.newPage();
-    page.setDefaultTimeout(6000);
-    const errors = [];
-    const network = [];
-    page.on('pageerror', (error) => errors.push(error.message));
-    await context.route('**/*', (route) => {
-      if (route.request().url() === `${hostUrl}/popout`)
-        return route.fulfill({
-          contentType: 'text/html',
-          body: '<!doctype html><html><head><title>Synthetic popout</title></head><body></body></html>',
-        });
-      if (route.request().url() === hostUrl)
-        return route.fulfill({ contentType: 'text/html', body: fixture });
-      network.push(route.request().url());
-      return route.abort();
-    });
+    if (!browser.isConnected()) {
+      results.push({ name, status: 'failed', error: 'Test browser disconnected before this case' });
+      break;
+    }
+    let context;
+    const errors = [],
+      network = [];
+    const began = Date.now();
+    stage = 'context creation';
+    console.log(`RUN ${name}`);
     try {
-      const baseline = await setup(page);
-      await run(page, baseline);
-      assert.deepEqual(errors, [], 'no uncaught browser errors');
-      assert.deepEqual(network, [], 'no external network requests');
-      assert.deepEqual(
-        await page.evaluate(() => window.workbenchFixture.unexpected),
-        [],
-        'no model or unsupported bridge calls',
+      await deadline(
+        (async () => {
+          context = await browser.newContext({ viewport: wide, reducedMotion: 'reduce' });
+          stage = 'host: newPage';
+          const page = await context.newPage();
+          page.setDefaultTimeout(6000);
+          page.on('pageerror', (error) => errors.push(error.message));
+          await context.route('**/*', (route) => {
+            if (route.request().url() === `${hostUrl}/popout`)
+              return route.fulfill({
+                contentType: 'text/html',
+                body: '<!doctype html><html><head><title>Synthetic popout</title></head><body></body></html>',
+              });
+            if (route.request().url() === hostUrl)
+              return route.fulfill({ contentType: 'text/html', body: fixture });
+            network.push(route.request().url());
+            return route.abort();
+          });
+          stage = 'host: setup';
+          const baseline = await setup(page);
+          stage = 'case assertions';
+          await run(page, baseline);
+          assert.deepEqual(errors, [], 'no uncaught browser errors');
+          assert.deepEqual(network, [], 'no external network requests');
+          assert.deepEqual(
+            await page.evaluate(() => window.workbenchFixture.unexpected),
+            [],
+            'no model or unsupported bridge calls',
+          );
+          assert.equal(
+            await page.evaluate(() => window.__companionDesktop.pending()),
+            0,
+            'bridge requests completed',
+          );
+        })(),
+        60000,
+        name,
       );
-      assert.equal(
-        await page.evaluate(() => window.__companionDesktop.pending()),
-        0,
-        'bridge requests completed',
-      );
-      results.push({ name, status: 'passed' });
+      results.push({ name, status: 'passed', elapsedMs: Date.now() - began });
       console.log(`PASS ${name}`);
     } catch (error) {
-      const screenshots = [];
-      for (const [pageIndex, target] of context.pages().entries()) {
-        const file = `failure-${index + 1}-${pageIndex === 0 ? 'host' : 'popout'}.png`;
-        await target
-          .screenshot({ path: resolve(output, file) })
-          .then(() => screenshots.push(file))
-          .catch(() => {});
-      }
-      results.push({ name, status: 'failed', error: error.message, errors, network, screenshots });
+      const result = {
+        name,
+        status: 'failed',
+        error: error.message,
+        stage,
+        errors,
+        network,
+        screenshots: [],
+        elapsedMs: Date.now() - began,
+      };
+      results.push(result);
+      // Preserve the original failure before attempting diagnostics or browser cleanup.
       console.error(`FAIL ${name}: ${error.stack}`);
+      saveResults();
+      if (error.message.includes('timed out during')) {
+        await browserServer.kill();
+      } else {
+        for (const [pageIndex, target] of (context?.pages() ?? []).entries()) {
+          const file = `failure-${index + 1}-${pageIndex === 0 ? 'host' : 'popout'}.png`;
+          await target
+            .screenshot({ path: resolve(output, file), timeout: 2000 })
+            .then(() => result.screenshots.push(file))
+            .catch((e) => {
+              result.diagnosticError = e.message;
+            });
+        }
+      }
     } finally {
-      await context.close();
+      saveResults();
+      if (context && browser.isConnected()) {
+        try {
+          await deadline(context.close(), 5000, 'context cleanup');
+        } catch (error) {
+          results.push({ name: `${name}: cleanup`, status: 'failed', error: error.message });
+          await browserServer.kill();
+        }
+      }
     }
   }
 } finally {
-  await browser.close();
-  writeFileSync(
-    resolve(output, process.env.WORKBENCH_CASE ? 'selected-results.json' : 'results.json'),
-    `${JSON.stringify(results, null, 2)}\n`,
-  );
+  saveResults();
+  // This server owns only the isolated fixture browser, never a user application.
+  await browserServer.kill();
 }
 assert.ok(results.length, 'at least one case matched');
 const failed = results.filter((result) => result.status === 'failed').length;

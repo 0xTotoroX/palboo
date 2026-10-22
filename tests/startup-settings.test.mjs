@@ -14,8 +14,9 @@ import { fixtureSettings } from './fixtures.mjs';
 
 test(
   'settings autosave on selection and blur, serialize edits, preserve errors and support manual save',
-  { timeout: 60000 },
-  async () => {
+  // This scenario covers more than 100 UI operations; each assertion remains bounded.
+  { timeout: 120000 },
+  async (testContext) => {
     const bundle = await build({
       entryPoints: ['ui/settings/main.tsx'],
       bundle: true,
@@ -24,7 +25,7 @@ test(
       outfile: 'app.js',
       jsx: 'automatic',
       loader: { '.css': 'empty', '.png': 'dataurl' },
-      define: { 'import.meta.env.DEV': 'false' },
+      define: { 'import.meta.env.DEV': 'false', 'import.meta.hot': 'undefined' },
     });
     let settings = { ...fixtureSettings };
     const saves = [];
@@ -36,7 +37,7 @@ test(
     async function until(check) {
       const deadline = Date.now() + 10000;
       while (!check()) {
-        if (Date.now() > deadline) throw Error('settings condition timed out');
+        if (Date.now() > deadline) throw Error(`settings condition timed out: ${check}`);
         await new Promise((r) => setTimeout(r, 20));
       }
     }
@@ -123,11 +124,19 @@ test(
     server.listen(0, '127.0.0.1');
     await once(server, 'listening');
 
-    let browser;
+    let browserServer, cleanupPromise;
+    const cleanup = () =>
+      (cleanupPromise ||= (async () => {
+        await browserServer?.kill();
+        server.closeAllConnections();
+        await new Promise((resolve) => server.close(resolve));
+      })());
+    testContext.after(cleanup);
     try {
-      browser = await chromium.launch({
+      browserServer = await chromium.launchServer({
         executablePath: process.env.PALBOO_CHROME_BIN || undefined,
       });
+      const browser = await chromium.connect(browserServer.wsEndpoint());
       const page = await browser.newPage();
       const errors = [];
       page.on('pageerror', (error) => {
@@ -391,67 +400,78 @@ test(
       await until(() => settings.tokenMeterEnabled === true && inFlight === 0);
       assert.deepEqual(errors, []);
     } finally {
-      await browser?.close();
-      server.closeAllConnections();
-      await new Promise((resolve) => server.close(resolve));
+      await cleanup();
     }
   },
 );
 
-test('Dev source widget survives settings unmount and remount', { timeout: 15000 }, async () => {
-  const bundle = await build({
-    stdin: {
-      contents: `import React from 'react';
+test(
+  'Dev source widget survives settings unmount and remount',
+  { timeout: 15000 },
+  async (testContext) => {
+    const bundle = await build({
+      stdin: {
+        contents: `import React from 'react';
         import { createRoot } from 'react-dom/client';
         import { useSettingsPage, SettingsOutline } from './ui/settings/settings-outline';
         function Page() { const page = useSettingsPage(true); return <><SettingsOutline {...page} /><div id="settings-dev-content" /></>; }
         let root;
         window.mountSettings = () => { root=createRoot(document.getElementById('root')); root.render(<React.StrictMode><Page /></React.StrictMode>); };
         window.unmountSettings = () => root.unmount();`,
-      resolveDir: new URL('..', import.meta.url).pathname,
-      loader: 'tsx',
-    },
-    bundle: true,
-    write: false,
-    format: 'iife',
-    jsx: 'automatic',
-  });
-
-  const browser = await chromium.launch({
-    executablePath: process.env.PALBOO_CHROME_BIN || undefined,
-  });
-  try {
-    const page = await browser.newPage();
-    await page.route('http://settings.test/**', (route) =>
-      route.fulfill({ contentType: 'text/html', body: '<div id="root"></div>' }),
-    );
-    await page.goto('http://settings.test/');
-    await page.evaluate(() => {
-      const host = document.createElement('section');
-      host.id = 'buddy-dev-sources';
-      host.attachShadow({ mode: 'open' }).innerHTML =
-        '<details><summary>开发来源</summary><input value="source-draft" /></details>';
-      document.body.prepend(host);
-      window.devHost = host;
+        resolveDir: new URL('..', import.meta.url).pathname,
+        loader: 'tsx',
+      },
+      bundle: true,
+      write: false,
+      format: 'iife',
+      jsx: 'automatic',
     });
-    await page.addScriptTag({ content: bundle.outputFiles[0].text });
-    for (let i = 0; i < 2; i++) {
-      await page.evaluate(() => window.mountSettings());
-      await page.waitForFunction(() =>
-        document.querySelector('#settings-dev-content > #buddy-dev-sources'),
+
+    const browserServer = await chromium.launchServer({
+      executablePath: process.env.PALBOO_CHROME_BIN || undefined,
+    });
+    let cleanupPromise;
+    const cleanup = () => (cleanupPromise ||= browserServer.kill());
+    testContext.after(cleanup);
+    const browser = await chromium.connect(browserServer.wsEndpoint());
+    try {
+      const page = await browser.newPage();
+      page.setDefaultTimeout(5000);
+      await page.route('http://settings.test/**', (route) =>
+        route.fulfill({ contentType: 'text/html', body: '<div id="root"></div>' }),
       );
-      assert.equal(
-        await page.evaluate(
-          () =>
-            document.querySelector('#settings-dev-content > #buddy-dev-sources') === window.devHost,
-        ),
-        true,
-      );
-      assert.equal(await page.locator('#buddy-dev-sources input').inputValue(), 'source-draft');
-      await page.evaluate(() => window.unmountSettings());
-      assert.equal(await page.evaluate(() => window.devHost.parentElement === document.body), true);
+      await page.goto('http://settings.test/');
+      await page.evaluate(() => {
+        const host = document.createElement('section');
+        host.id = 'buddy-dev-sources';
+        host.attachShadow({ mode: 'open' }).innerHTML =
+          '<details><summary>开发来源</summary><input value="source-draft" /></details>';
+        document.body.prepend(host);
+        window.devHost = host;
+      });
+      await page.addScriptTag({ content: bundle.outputFiles[0].text });
+      for (let i = 0; i < 2; i++) {
+        await page.evaluate(() => window.mountSettings());
+        await page.waitForFunction(() =>
+          document.querySelector('#settings-dev-content > #buddy-dev-sources'),
+        );
+        assert.equal(
+          await page.evaluate(
+            () =>
+              document.querySelector('#settings-dev-content > #buddy-dev-sources') ===
+              window.devHost,
+          ),
+          true,
+        );
+        assert.equal(await page.locator('#buddy-dev-sources input').inputValue(), 'source-draft');
+        await page.evaluate(() => window.unmountSettings());
+        assert.equal(
+          await page.evaluate(() => window.devHost.parentElement === document.body),
+          true,
+        );
+      }
+    } finally {
+      await cleanup();
     }
-  } finally {
-    await browser.close();
-  }
-});
+  },
+);

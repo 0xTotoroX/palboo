@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 当前回答 DOM、上下文、窗口投影与大纲状态。
- * [OUTPUT]: 大纲解析、刷新和定位；来源失联或锁定回答变化时拒绝旧导航。
+ * [OUTPUT]: 大纲解析、刷新和定位；来源失联、锁定回答变化或无法滚动时拒绝导航。
  * [POS]: Codex 大纲适配；解析和定位在此，内容由 features/outline 渲染。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -603,8 +603,8 @@ function outlineJumpTo(id) {
     return false;
   const element = outlineResolveElement(id);
   if (!(element instanceof Element)) return false;
+  if (!outlineScrollToElement(element)) return false;
   outlineSetActiveTarget({ id });
-  outlineScrollToElement(element);
   outlineFlash(element);
   return true;
 }
