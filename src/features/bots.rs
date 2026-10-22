@@ -1,4 +1,4 @@
-// [INPUT]: OS roster/account file events, local BDK catalog and feature lifecycle.
+// [INPUT]: OS roster/account/sidebar/UI-reference events, local BDK catalog and lifecycle.
 // [OUTPUT]: Event-invalidated catalog with 60s health fallback; no reply cursor reads.
 // [POS]: Palboo metadata transport. [PROTOCOL]: Keep src/AGENTS.md in sync.
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
@@ -13,7 +13,7 @@ use std::{
 };
 use tokio::sync::Mutex;
 
-// The UI may read frequently; only roster/account file events invalidate metadata.
+// Only account, roster, saved sections and UI-reference events invalidate metadata.
 // No per-file content reads in the event handler, and no chat cache files are read.
 struct RosterWatch {
     _watcher: RecommendedWatcher,
@@ -46,7 +46,14 @@ fn relevant(path: &Path) -> bool {
     }
     let key = String::from_utf8_lossy(&bytes);
     key == "sand.client.slice.client-meta.account-slot"
-        || (key.starts_with("sand.client.slice.account.") && key.ends_with(".roster.last-roster"))
+        || (key.starts_with("sand.client.slice.account.")
+            && [
+                ".roster.last-roster",
+                ".sidebar.last-sections",
+                ".ui-agent-refs",
+            ]
+            .iter()
+            .any(|suffix| key.ends_with(suffix)))
 }
 impl RosterWatch {
     fn new(root: &Path) -> notify::Result<Self> {
@@ -231,17 +238,96 @@ fn valid_catalog(catalog: &Value) -> bool {
             && ids.insert(bot["id"].as_str().unwrap())
             && nonempty(&bot["name"])
             && bot["available"].is_boolean()
+            && bot.get("hidden").is_none_or(Value::is_boolean)
             && ["description", "preview"]
                 .iter()
                 .all(|key| bot.get(key).is_none_or(Value::is_string))
             && (!bot["available"].as_bool().unwrap()
                 || names.get(bot["name"].as_str().unwrap()) == Some(&1))
-    })
+    }) && catalog.get("sidebarError").is_none_or(Value::is_string)
+        && valid_sidebar(catalog, bots)
+}
+
+fn valid_sidebar(catalog: &Value, bots: &[Value]) -> bool {
+    let Some(sidebar) = catalog.get("sidebar") else {
+        return true;
+    };
+    let Some(groups) = sidebar["groups"].as_array() else {
+        return false;
+    };
+    if sidebar["version"] != 1 {
+        return false;
+    }
+    let visible: std::collections::HashSet<_> = bots
+        .iter()
+        .filter(|b| b["hidden"] != true)
+        .filter_map(|b| b["id"].as_str())
+        .collect();
+    let mut seen = std::collections::HashSet::new();
+    let mut group_ids = std::collections::HashSet::new();
+    for (index, group) in groups.iter().enumerate() {
+        let Some(id) = group["id"].as_str().filter(|s| !s.trim().is_empty()) else {
+            return false;
+        };
+        let Some(kind) = group["kind"].as_str() else {
+            return false;
+        };
+        let Some(ids) = group["botIds"].as_array() else {
+            return false;
+        };
+        if !group_ids.insert(id)
+            || !group["name"].is_string()
+            || !matches!(kind, "pinned" | "section" | "unassigned")
+            || (kind == "pinned" && index != 0)
+        {
+            return false;
+        }
+        for id in ids {
+            let Some(id) = id.as_str() else {
+                return false;
+            };
+            if !visible.contains(id) || !seen.insert(id) {
+                return false;
+            }
+        }
+    }
+    seen == visible
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn sidebar_must_partition_visible_bots_without_forged_or_duplicate_ids() {
+        let good = json!({"version":1,"account":"fixture","revision":"r1","stale":false,
+            "bots":[{"id":"a","name":"A","available":true},
+                    {"id":"b","name":"B","available":true,"hidden":true}],
+            "sidebar":{"version":1,"groups":[{"id":"pins","kind":"pinned","name":"置顶","botIds":["a"]}]}});
+        assert!(valid_catalog(&good));
+        for ids in [
+            json!([]),
+            json!(["a", "a"]),
+            json!(["a", "b"]),
+            json!(["unknown"]),
+        ] {
+            let mut value = good.clone();
+            value["sidebar"]["groups"][0]["botIds"] = ids;
+            assert!(!valid_catalog(&value));
+        }
+        for invalid in [
+            Value::Null,
+            json!({"version":2,"groups":[]}),
+            json!({"version":1}),
+        ] {
+            let mut value = good.clone();
+            value["sidebar"] = invalid;
+            assert!(!valid_catalog(&value));
+        }
+        let mut legacy = good.clone();
+        legacy.as_object_mut().unwrap().remove("sidebar");
+        legacy["sidebarError"] = json!("layout unavailable");
+        assert!(valid_catalog(&legacy));
+    }
     #[test]
     fn incomplete_catalogs_cannot_be_used_as_verified_identities() {
         let good = json!({"version":1,"account":"fixture","revision":"r1","stale":false,
@@ -293,10 +379,12 @@ mod tests {
         format!("{output}.blob")
     }
     #[test]
-    fn only_roster_and_account_keys_invalidate() {
+    fn only_saved_catalog_keys_invalidate() {
         for key in [
             "sand.client.slice.client-meta.account-slot",
             "sand.client.slice.account.fixture.roster.last-roster",
+            "sand.client.slice.account.fixture.sidebar.last-sections",
+            "sand.client.slice.account.fixture.ui-agent-refs",
         ] {
             assert!(relevant(Path::new(&filename(key))));
         }

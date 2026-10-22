@@ -10,6 +10,21 @@
   display: grid;
   gap: 4px;
 }
+.palboo-bot-group {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.palboo-bot-group + .palboo-bot-group {
+  margin-top: 8px;
+}
+.palboo-bot-group-title {
+  margin: 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--muted, inherit);
+  overflow-wrap: anywhere;
+}
 .palboo-bot-select {
   display: flex;
   align-items: center;

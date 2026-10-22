@@ -311,3 +311,125 @@ test('nested turn completion clears an unconfirmed call without releasing a conf
   assert.equal(t.snapshot('a')[2].current.status, 'running');
   assert.equal(t.snapshot('b')[2].occupied, true);
 });
+
+test('saved sidebar groups reorder without losing calls, hide stale actions and keep the sole composer', async () => {
+  const bundle = await build({
+    stdin: {
+      resolveDir: process.cwd(),
+      loader: 'tsx',
+      contents: `
+      import {installBots} from './ui/codex/bots.js';
+      import {BotsView} from './ui/features/bots/view';
+      import {BotSettings} from './ui/settings/bot-settings';
+      import {createRoot} from 'react-dom/client';
+      window.__palbooModelControl={inputTarget:()=>({id:'a',scope:document.querySelector('main'),composer:document.querySelector('textarea')})};
+      window.api=installBots();window.root=createRoot(document.querySelector('#view'));
+      window.render=c=>{window.api.setCatalog(c);window.root.render(<BotsView state={{snapshot:window.api.read()}} disabled={false} action={d=>window.last=window.api.fill(d)}/>)};
+      window.settings=createRoot(document.querySelector('#settings'));
+      window.showSettings=()=>window.settings.render(<BotSettings active live editor={{form:{grokbotAutoSync:false},saved:{grokbotAutoSync:false,grokbotEnabled:true}}}/>);
+    `,
+    },
+    bundle: true,
+    write: false,
+    jsx: 'automatic',
+    format: 'iife',
+  });
+  const { readFileSync, mkdirSync } = await import('node:fs');
+  const browser = await chromium.launch({ headless: true });
+  const value = structuredClone(catalog);
+  value.bots[3].hidden = true;
+  value.sidebar = {
+    version: 1,
+    groups: [
+      { id: 'pins', kind: 'pinned', name: '置顶', botIds: ['bot-2'] },
+      { id: 'work', kind: 'section', name: '工作', botIds: ['bot-1'] },
+      { id: 'rest', kind: 'unassigned', name: '未分组', botIds: ['bot-0'] },
+    ],
+  };
+  try {
+    const page = await browser.newPage({ viewport: { width: 390, height: 850 } });
+    await page.route('http://127.0.0.1:47990/**', (route) =>
+      route.fulfill(
+        route.request().url().includes('/api/')
+          ? { json: value }
+          : {
+              contentType: 'text/html; charset=utf-8',
+              body: '<main><textarea>保留草稿</textarea></main><div id="view"></div><div id="settings"></div>',
+            },
+      ),
+    );
+    await page.goto('http://127.0.0.1:47990/');
+    await page.addStyleTag({ content: readFileSync('ui/features/bots/style.css', 'utf8') });
+    await page.addScriptTag({ content: bundle.outputFiles[0].text });
+    await page.evaluate((v) => window.render(v), value);
+    await page.getByRole('heading', { name: '工作', exact: true }).waitFor();
+    assert.deepEqual(await page.locator('.palboo-bot-select').allTextContents(), [
+      '通用',
+      '随口一问',
+      'X 资讯',
+    ]);
+    assert.equal(await page.getByRole('button', { name: '环境运维', exact: true }).count(), 0);
+    await page.evaluate(
+      (params) =>
+        window.dispatchEvent(
+          new MessageEvent('message', {
+            source: window,
+            data: { type: 'mcp-notification', hostId: 'local', method: 'item/started', params },
+          }),
+        ),
+      event(),
+    );
+    const reordered = structuredClone(value);
+    reordered.sidebar.groups = [
+      value.sidebar.groups[0],
+      value.sidebar.groups[2],
+      value.sidebar.groups[1],
+    ];
+    // Pure presentation changes must not drop the observed call or alter the main draft.
+    await page.evaluate((v) => window.render(v), reordered);
+    await page.getByRole('button', { name: '查看进度', exact: true }).waitFor();
+    assert.deepEqual(await page.locator('.palboo-bot-select').allTextContents(), [
+      '通用',
+      'X 资讯',
+      '随口一问',
+    ]);
+    assert.equal(await page.locator('textarea').inputValue(), '保留草稿');
+    const rejected = await page.evaluate(() =>
+      window.api.fill({
+        ...window.api.read().target,
+        agent: '环境运维',
+        botId: 'bot-3',
+        revision: 'r1',
+        action: 'ask',
+      }),
+    );
+    assert.equal(rejected.ok, false);
+    await page.getByRole('button', { name: '查看进度', exact: true }).click();
+    assert.equal(await page.locator('textarea').inputValue(), '保留草稿\n查看「通用」的进度。');
+    assert.equal(await page.locator('#view input,#view textarea').count(), 0);
+    // Settings consume the same saved order and never reintroduce hidden profiles.
+    await page.evaluate(() => window.showSettings());
+    await page.locator('#settings').getByRole('button', { name: '通用', exact: true }).waitFor();
+    assert.deepEqual(
+      (await page.locator('#settings .settings-drawer-trigger').allTextContents()).map((text) =>
+        text.trim(),
+      ),
+      ['通用', '随口一问', 'X 资讯'],
+    );
+    assert.equal(
+      await page
+        .locator('#settings')
+        .getByRole('button', { name: '环境运维', exact: true })
+        .count(),
+      0,
+    );
+    mkdirSync('target/reports/bot-sidebar', { recursive: true });
+    await page.screenshot({ path: 'target/reports/bot-sidebar/narrow.png', fullPage: true });
+    assert.equal(
+      await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+      true,
+    );
+  } finally {
+    await browser.close();
+  }
+});

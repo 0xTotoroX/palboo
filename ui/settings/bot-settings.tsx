@@ -10,11 +10,14 @@ import { Button } from './components/ui/button';
 import type { SettingsEditor } from './use-settings-form';
 import { botSetupPrompt } from './bot-setup-prompt';
 import { ActionIcon } from './components/ui/action-feedback';
+import { botGroups, type BotSidebar } from '../shared/bot-catalog';
 
 type Catalog = {
   stale: boolean;
   error?: string;
-  bots: { id: string; name: string; description?: string }[];
+  sidebar?: BotSidebar;
+  sidebarError?: string;
+  bots: { id: string; name: string; description?: string; hidden?: boolean }[];
 };
 export function BotSettings({
   active,
@@ -115,16 +118,26 @@ export function BotSettings({
           )}
         </div>
         <Feedback text={error || catalog?.error} failed />
+        <Feedback text={catalog?.sidebarError} failed />
         {!catalog?.error && catalog?.stale && <Feedback text="资料已过期，请打开 Grok Bot。" />}
         {!catalog && busy && <Feedback text="正在读取 Bot 资料…" />}
         {catalog && !catalog.stale && !catalog.error && catalog.bots.length === 0 && (
           <Feedback text="暂无 Bot" />
         )}
         <div className="bot-settings-profiles">
-          {catalog?.bots.map((bot) => (
-            <SettingsDrawer key={bot.id} title={bot.name} hidden={!active}>
-              <p className="bot-settings-description">{bot.description || '暂无简介'}</p>
-            </SettingsDrawer>
+          {botGroups(catalog?.bots ?? [], catalog?.sidebar).map((group) => (
+            <section
+              key={group.id}
+              className="bot-settings-group"
+              aria-label={group.name || 'Bot 列表'}
+            >
+              {group.name && <h3>{group.name}</h3>}
+              {group.bots.map((bot) => (
+                <SettingsDrawer key={bot.id} title={bot.name} hidden={!active}>
+                  <p className="bot-settings-description">{bot.description || '暂无简介'}</p>
+                </SettingsDrawer>
+              ))}
+            </section>
           ))}
         </div>
       </div>

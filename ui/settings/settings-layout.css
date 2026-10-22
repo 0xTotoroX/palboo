@@ -883,6 +883,15 @@ html:root .settings-nav {
   overflow-wrap: anywhere;
   line-height: 1.75;
 }
+.bot-settings-group + .bot-settings-group {
+  margin-top: 20px;
+}
+.bot-settings-group > h3 {
+  margin: 0 0 8px;
+  font-size: inherit;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
 
 .bot-settings-setup .settings-drawer-entry {
   margin: 0;

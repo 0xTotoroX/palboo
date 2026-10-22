@@ -449,57 +449,59 @@ try {
       data: { ...botView.snapshot.target, token: 'stale-composer', agent: '通用', action: 'ask' },
     }),
   );
-  await page.evaluate(() => {
-    const item = {
-      type: 'mcpToolCall',
-      id: 'synthetic-bot-call',
-      server: 'grokbot',
-      tool: 'call_tool',
-      arguments: { toolName: 'grokbot__ask', input: { agent: '通用' } },
-      result: {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify({
-              toolName: 'grokbot__ask',
-              result: {
-                agent: '通用',
-                status: 'finished',
-                reply: 'DO_NOT_PROJECT',
-                earlierReplies: ['DO_NOT_PROJECT'],
-              },
-            }),
-          },
-        ],
-      },
-    };
-    window.dispatchEvent(
-      new MessageEvent('message', {
-        source: window,
-        data: {
-          type: 'mcp-notification',
-          hostId: 'local',
-          method: 'item/started',
-          params: {
-            threadId: 'fixture-thread-a',
-            turnId: 'synthetic-bot-turn',
-            item: { ...item, result: undefined },
-          },
+  const reportBotFinished = (id = 'synthetic-bot-call') =>
+    page.evaluate((id) => {
+      const item = {
+        type: 'mcpToolCall',
+        id,
+        server: 'grokbot',
+        tool: 'call_tool',
+        arguments: { toolName: 'grokbot__ask', input: { agent: '通用' } },
+        result: {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({
+                toolName: 'grokbot__ask',
+                result: {
+                  agent: '通用',
+                  status: 'finished',
+                  reply: 'DO_NOT_PROJECT',
+                  earlierReplies: ['DO_NOT_PROJECT'],
+                },
+              }),
+            },
+          ],
         },
-      }),
-    );
-    window.dispatchEvent(
-      new MessageEvent('message', {
-        source: window,
-        data: {
-          type: 'mcp-notification',
-          hostId: 'local',
-          method: 'item/completed',
-          params: { threadId: 'fixture-thread-a', turnId: 'synthetic-bot-turn', item },
-        },
-      }),
-    );
-  });
+      };
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          source: window,
+          data: {
+            type: 'mcp-notification',
+            hostId: 'local',
+            method: 'item/started',
+            params: {
+              threadId: 'fixture-thread-a',
+              turnId: 'synthetic-bot-turn',
+              item: { ...item, result: undefined },
+            },
+          },
+        }),
+      );
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          source: window,
+          data: {
+            type: 'mcp-notification',
+            hostId: 'local',
+            method: 'item/completed',
+            params: { threadId: 'fixture-thread-a', turnId: 'synthetic-bot-turn', item },
+          },
+        }),
+      );
+    }, id);
+  await reportBotFinished();
   const returned = await botRead();
   assert.equal(returned.snapshot.bots[2].current.status, 'finished');
   assert.doesNotMatch(JSON.stringify(returned), /DO_NOT_PROJECT/);
@@ -726,6 +728,99 @@ try {
   await settingsPage.keyboard.press('Escape');
   record(
     'visible automatic settings recover from invalid identities and update file-driven catalog changes',
+  );
+  // The invalid-identity recovery retired the old item; seed a genuinely new call.
+  await reportBotFinished('saved-sidebar-call');
+  assert.equal(
+    (await botRead()).snapshot.bots.find((b) => b.id === 'bot-2').current.status,
+    'finished',
+  );
+  // The independent adapter supplies order; Rust validates it and both views use it.
+  botCatalog.bots.find((b) => b.id === 'bot-3').hidden = true;
+  const unassigned = botCatalog.bots
+    .filter((b) => !b.hidden && !['bot-2', 'bot-0'].includes(b.id))
+    .map((b) => b.id);
+  botCatalog.sidebar = {
+    version: 1,
+    groups: [
+      { id: 'pins', kind: 'pinned', name: '置顶', botIds: ['bot-2'] },
+      { id: 'work', kind: 'section', name: '工作分组', botIds: ['bot-0'] },
+      { id: 'rest', kind: 'unassigned', name: '未分组', botIds: unassigned },
+    ],
+  };
+  writeFileSync(
+    join(directory, cacheFile('sand.client.slice.account.fixture.sidebar.last-sections')),
+    'sections changed',
+  );
+  await settingsPage.getByRole('heading', { name: '工作分组', exact: true }).waitFor();
+  await page.getByRole('heading', { name: '工作分组', exact: true }).waitFor();
+  await page
+    .locator('[data-feature="bots"]')
+    .screenshot({ path: join(output, 'bot-saved-groups.png') });
+  await settingsPage.screenshot({ path: join(output, 'bot-saved-groups-settings.png') });
+  const sidebarViewport = settingsPage.viewportSize();
+  await settingsPage.setViewportSize({ width: 390, height: 844 });
+  assert.equal(
+    await settingsPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+    true,
+  );
+  await settingsPage.screenshot({
+    path: join(output, 'bot-saved-groups-settings-narrow.png'),
+    fullPage: true,
+  });
+  await settingsPage.setViewportSize(sidebarViewport);
+  assert.equal(await page.getByRole('button', { name: '环境运维', exact: true }).count(), 0);
+  assert.equal(
+    await settingsPage.getByRole('button', { name: '环境运维', exact: true }).count(),
+    0,
+  );
+  assert.equal(
+    (await botRead()).snapshot.bots.find((b) => b.id === 'bot-2').current.status,
+    'finished',
+  );
+  assert.deepEqual(await page.locator('.palboo-bot-select').allTextContents(), [
+    '通用合成资料摘要',
+    'X 资讯合成资料摘要',
+    '随口一问合成资料摘要',
+    '新测试 Bot更新后的合成摘要',
+    '手动新增 Bot',
+    '自动同步新增',
+  ]);
+  botCatalog.sidebar.groups[0].botIds = ['bot-0', 'bot-2'];
+  botCatalog.sidebar.groups[1].botIds = [];
+  writeFileSync(
+    join(directory, cacheFile('sand.client.slice.account.fixture.ui-agent-refs')),
+    'pins changed',
+  );
+  await wait(
+    async () =>
+      (await page.locator('.palboo-bot-select').first().getAttribute('aria-label')) === 'X 资讯',
+    'saved pin order event',
+  );
+  await settingsPage.getByRole('switch', { name: '自动同步 Bot 资料', exact: true }).click();
+  await wait(async () => (await api('settings')).grokbotAutoSync === false, 'manual sidebar sync');
+  const beforeSidebarRefresh = botListCalls;
+  botCatalog.sidebar.groups[0].botIds.reverse();
+  writeFileSync(
+    join(directory, cacheFile('sand.client.slice.account.fixture.ui-agent-refs')),
+    'manual pins changed',
+  );
+  await delay(6500);
+  assert.equal(botListCalls, beforeSidebarRefresh, 'manual sidebar changes do not read BDK');
+  assert.equal(
+    await page.locator('.palboo-bot-select').first().getAttribute('aria-label'),
+    'X 资讯',
+  );
+  await settingsPage.getByRole('button', { name: '刷新 Bot 资料', exact: true }).click();
+  await wait(
+    async () =>
+      (await page.locator('.palboo-bot-select').first().getAttribute('aria-label')) === '通用',
+    'explicit sidebar refresh',
+  );
+  await settingsPage.getByRole('switch', { name: '自动同步 Bot 资料', exact: true }).click();
+  await wait(async () => (await api('settings')).grokbotAutoSync === true, 'restore auto sync');
+  record(
+    'saved sections, pins and hidden items update in both views; manual mode waits for explicit refresh and call status survives',
   );
   await settingsPage.close();
   record(

@@ -44,6 +44,8 @@ export function installBots({
         stale: catalog.stale,
         error: catalog.error,
         updatedAt: catalog.updatedAt,
+        sidebar: catalog.sidebar,
+        sidebarError: catalog.sidebarError,
       },
     };
   }
@@ -57,7 +59,11 @@ export function installBots({
       !nonempty(input.botId) ||
       !nonempty(input.agent) ||
       !catalog.bots.some(
-        (b) => b?.name === input.agent && b.id === input.botId && b.available === true,
+        (b) =>
+          b?.name === input.agent &&
+          b.id === input.botId &&
+          b.available === true &&
+          b.hidden !== true,
       ) ||
       catalog.stale !== false ||
       input.revision !== catalog.revision ||

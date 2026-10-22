@@ -288,3 +288,5 @@ model-preset-draft 与 typography 的 esbuild 夹具按文本读取已有测速�
 - `brand.test.mjs`：新环境变量优先、旧 worktree 环境别名/程序名选择、浏览器偏好首次复制与新值保留；Rust brand 单测验证原始字节、重复迁移、旧路径链接、活动服务与双目录拒绝。Dev 宿主夹具复制 brand 脚本依赖。
 
 Grok Bot 合并回归覆盖缺失目录身份拒绝、账号/同名换 ID 的迟到事件、失败检查不解除活动任务占用、turn.id 收尾，以及可见设置页的文件变化与错误恢复；使用合成资料，不发送真实 Bot 消息。
+
+Bot 侧栏回归覆盖置顶/分组顺序、隐藏项与旧接口兼容、排序保留调用关联和草稿、同一主输入框；features-e2e 分别触发 sidebar.last-sections/ui-agent-refs 文件事件，验证自动同步与手动等待刷新、设置与主面板一致。Rust 拒绝重复/缺失/未知/隐藏组成员和未知 schema；外部接入解析器测试独立维护，不随 Palboo 分发。
