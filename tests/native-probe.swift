@@ -1,28 +1,91 @@
 // [INPUT]: 合成背景颜色文件，或指定测试进程的窗口信息/测试截图。
-// [OUTPUT]: 原生背景窗口、指定 PID 的窗口几何/透明度轨迹及截图平均颜色。
+// [OUTPUT]: 只读事件权限、原生背景窗口、指定 PID 的窗口几何/透明度轨迹及截图平均颜色。
 // [POS]: native-check.mjs 的 macOS 验收辅助程序，仅编译到临时目录。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
 import AppKit
 import Foundation
-if CommandLine.arguments[1] == "drag" {
-    if !CGPreflightPostEventAccess() { fatalError("Native drag test requires event posting access") }
+// Measurement/input helpers must never become foreground apps themselves.
+if ["permissions", "drag", "screens", "sample", "motion", "windows"].contains(CommandLine.arguments[1]) {
+    NSApplication.shared.setActivationPolicy(.prohibited)
+}
+if CommandLine.arguments[1] == "permissions" {
+    print("{\"canPostEvents\":\(CGPreflightPostEventAccess())}")
+} else if CommandLine.arguments[1] == "drag" {
+    guard CGPreflightPostEventAccess() else {
+        fputs("Native drag test requires event posting access; no permission requested\n", stderr)
+        exit(2)
+    }
+    func bounds(_ pid: Int32) -> [String: Double] {
+        let rows = CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]] ?? []
+        return rows.filter { ($0[kCGWindowOwnerPID as String] as? Int32) == pid }
+            .compactMap { $0[kCGWindowBounds as String] as? [String: Double] }
+            .max { ($0["Width"] ?? 0) * ($0["Height"] ?? 0) < ($1["Width"] ?? 0) * ($1["Height"] ?? 0) } ?? [:]
+    }
+    var originalBounds: [String: Double] = [:]
+    var activeBounds: [String: Double] = [:]
+    var activated = false
+    var frontmost: Int32 = 0
     if CommandLine.arguments.count > 6, let pid = Int32(CommandLine.arguments[6]) {
-        NSRunningApplication(processIdentifier: pid)?.activate(options: [])
+        originalBounds = bounds(pid)
+        activated = NSRunningApplication(processIdentifier: pid)?.activate(options: [.activateAllWindows]) ?? false
         usleep(300000)
+        frontmost = NSWorkspace.shared.frontmostApplication?.processIdentifier ?? 0
+        if !activated || frontmost != pid {
+            let name = NSWorkspace.shared.frontmostApplication?.localizedName ?? "unknown"
+            fputs("Native test app activation failed: requested=\(pid), frontmost=\(frontmost) (\(name)), helper=\(getpid()), activated=\(activated); no mouse button pressed\n", stderr)
+            exit(6)
+        }
+        activeBounds = bounds(pid)
+        if originalBounds != activeBounds {
+            fputs("Native test window moved during activation; retry after geometry settles\n", stderr)
+            exit(3)
+        }
     }
     let x1 = Double(CommandLine.arguments[2])!, y1 = Double(CommandLine.arguments[3])!
     let x2 = Double(CommandLine.arguments[4])!, y2 = Double(CommandLine.arguments[5])!
-    func send(_ type: CGEventType, _ x: Double, _ y: Double) {
-        CGEvent(mouseEventSource: nil, mouseType: type, mouseCursorPosition: CGPoint(x:x,y:y), mouseButton: .left)?.post(tap: .cghidEventTap)
+    if CommandLine.arguments.count > 6, let pid = Int32(CommandLine.arguments[6]) {
+        let rows = CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]] ?? []
+        let hit = rows.first { row in
+            guard let b = row[kCGWindowBounds as String] as? [String: Double],
+                  (row[kCGWindowAlpha as String] as? Double ?? 0) > 0 else { return false }
+            return x1 >= (b["X"] ?? 0) && y1 >= (b["Y"] ?? 0)
+                && x1 < (b["X"] ?? 0) + (b["Width"] ?? 0) && y1 < (b["Y"] ?? 0) + (b["Height"] ?? 0)
+        }
+        if (hit?[kCGWindowOwnerPID as String] as? Int32) != pid {
+            let owner = hit?[kCGWindowOwnerName as String] as? String ?? "unknown"
+            fputs("Native test point is covered by \(owner); no mouse button pressed\n", stderr)
+            exit(4)
+        }
     }
-    send(.mouseMoved, x1, y1); usleep(80000)
+    let source = CGEventSource(stateID: .hidSystemState)
+    var previousPoint = CGPoint(x: x1, y: y1)
+    func send(_ type: CGEventType, _ x: Double, _ y: Double) {
+        let point = CGPoint(x: x, y: y)
+        let event = CGEvent(mouseEventSource: source, mouseType: type, mouseCursorPosition: point, mouseButton: .left)!
+        event.flags = []
+        event.setIntegerValueField(.mouseEventClickState, value: type == .mouseMoved ? 0 : 1)
+        event.setIntegerValueField(.mouseEventDeltaX, value: Int64((point.x - previousPoint.x).rounded()))
+        event.setIntegerValueField(.mouseEventDeltaY, value: Int64((point.y - previousPoint.y).rounded()))
+        event.post(tap: .cghidEventTap)
+        previousPoint = point
+    }
+    send(.mouseMoved, x1, y1); usleep(150000)
+    let cursorStart = CGEvent(source: nil)!.location
+    if abs(cursorStart.x - x1) > 2 || abs(cursorStart.y - y1) > 2 {
+        fputs("Native pointer did not reach requested point: \(cursorStart.x),\(cursorStart.y) vs \(x1),\(y1); no mouse button pressed\n", stderr)
+        exit(5)
+    }
     send(.leftMouseDown, x1, y1); usleep(80000)
     for i in 1...18 {
         let t = Double(i) / 18
         send(.leftMouseDragged, x1 + (x2-x1)*t, y1 + (y2-y1)*t); usleep(16000)
     }
     send(.leftMouseUp, x2, y2)
+    let cursorEnd = CGEvent(source: nil)!.location
+    let result: [String: Any] = ["activated":activated,"frontmost":frontmost,"start": [x1,y1], "end": [x2,y2], "cursorStart": [cursorStart.x,cursorStart.y], "cursorEnd": [cursorEnd.x,cursorEnd.y], "windowBefore": originalBounds,
+        "windowAfterActivation": activeBounds]
+    print(String(data: try! JSONSerialization.data(withJSONObject: result), encoding: .utf8)!)
 } else if CommandLine.arguments[1] == "screens" {
     let top = NSScreen.screens.first!.frame.maxY
     let rows = NSScreen.screens.map { s in ["x": s.frame.minX, "y": top - s.frame.maxY,

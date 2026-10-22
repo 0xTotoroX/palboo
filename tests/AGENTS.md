@@ -49,7 +49,7 @@ model-control-host 覆盖能力延迟到达、空列表刷新超时及重试、�
 - [popout-checks.mjs](popout-checks.mjs)：端到端测试的弹出窗口子流程；检查快捷词只填入不发送及草稿保护、三材质单入口与双向保存、投影、宿主强调色动态同步及回退、收回、受限操作、隐藏像素、表面偏色、哑光/磨砂的单层圆角浅阴影，以及宿主 reset 有无变化时的公共几何、内边距和字体。
 - [native-popout-checks.mjs](native-popout-checks.mjs)：`node tests/e2e.mjs --native-popout` 显式启动真实 Wry 窗口；测试代理只给自有页面加入操作探针，认证和租约请求原样交给隔离 Rust 后台。验证两轮呈现隐藏宿主、原生大纲点击经 CDP 实际滚动并高亮正文、收回按钮可用、进程正常退出及宿主恢复；不截图、不读取真实聊天。
 - [lifecycle-test.mjs](lifecycle-test.mjs)：进程生命周期测试入口，不使用真实聊天数据；验证启动器在不支持浮窗时保留内嵌、其他错误仍提示，以及旧默认目录迁移、安装、服务复用、升级、回滚和模型请求取消；报告写入 target/reports/lifecycle.json。 正式程序冷启动覆盖旧胶囊配置、工作台开合意图与独立宽度/比例。
-- [native-check.mjs](native-check.mjs)：macOS 原生背景验收；--header-only 仅验证三材质透明头部与真实置顶开关层级、偏好保存和退出，写入 native-header，不发送鼠标事件；--genie-only 额外启用开发版私有网格，在哑光、磨砂和液态 Regular/Clear 中确认接口实际成功、形变完成后复位及收回取消，结果写入 target/reports/native-genie，追加 --chip-anchor 验证 84×36 胶囊锚点并写入 native-genie-chip；--motion-only 免截图单测提起、三材质回程取消、不同高度与中间偏好隔离，报告写入 target/reports/native-motion；验证闲置后的投影持续更新、窗口/WebView 与宿主主题一致及语义色同步、明暗材质与展开尺寸；`--workbench-only` 免截图检查原生工作台双轴布局、交换/重置与双面板、设置返回、独立滚动及三材质缩放，使用系统鼠标事件验证面板拖拽合并/专注/拆分且原生窗口不移动；默认走免截图的 appearance-only，只有显式 --screenshots 才运行像素采样；`--appearance-only` 可免截图检查主题、材质能力、通过保留的设置测试入口切换三材质后的 传统磨砂 HUDWindow/Active 状态/液态星星的 Regular/Clear 切换和拒绝收起及 AppKit 回读、跨材质保持展开与原生尺寸同步；同时验证 WebKit 的共同标题栏与盒模型，不证明原生折射像素。
+- [native-check.mjs](native-check.mjs)：macOS 原生背景验收；--header-only 仅验证三材质透明头部与真实置顶开关层级、偏好保存和退出，写入 native-header，不发送鼠标事件；--genie-only 额外启用开发版私有网格，在哑光、磨砂和液态 Regular/Clear 中确认接口实际成功、形变完成后复位及收回取消，结果写入 target/reports/native-genie，追加 --chip-anchor 验证 84×36 胶囊锚点并写入 native-genie-chip；--motion-only 免截图单测提起、三材质回程取消、不同高度与中间偏好隔离，报告写入 target/reports/native-motion；验证闲置后的投影持续更新、窗口/WebView 与宿主主题一致及语义色同步、明暗材质与展开尺寸；`--workbench-only` 免截图检查原生工作台双轴布局、交换/重置与双面板、设置返回、独立滚动及三材质缩放，先只读预检事件投递权限，无权限时在打开测试窗口前退出且不请求授权；使用系统鼠标事件验证面板拖拽合并/专注/拆分且原生窗口不移动，并验证左右下角真实拖动缩放、固定对角和可信指针输入；默认走免截图的 appearance-only，只有显式 --screenshots 才运行像素采样；`--appearance-only` 可免截图检查主题、材质能力、通过保留的设置测试入口切换三材质后的 传统磨砂 HUDWindow/Active 状态/液态星星的 Regular/Clear 切换和拒绝收起及 AppKit 回读、跨材质保持展开与原生尺寸同步；同时验证 WebKit 的共同标题栏与盒模型，不证明原生折射像素。
 - [native-backdrop.test.mjs](native-backdrop.test.mjs)：暂停动画帧时仍发送原生材质与收放状态通知，背景按宿主明暗设置自有窗口；不提供系统切换 IPC，且不重复发送未变状态；并发尺寸请求保留最后展开尺寸；旧样式迁入新材质后不覆盖后续选择。
 
 - [dev-host.test.mjs](dev-host.test.mjs)：真实目标筛选、安装版连接恢复与配置/存储隔离；覆盖开发配置优先与首次继承日常策略、Dev 无连接准备/取消/复用及显式目标保护、无宿主启动不触发旧恢复、错误透传和失效旧目标保留归档；只使用合成本机服务。
@@ -58,7 +58,7 @@ model-control-host 覆盖能力延迟到达、空列表刷新超时及重试、�
 - [fixtures.mjs](fixtures.mjs)：符合共享设置/字体契约的合成投影数据。
 
 - [panel-modules.test.mjs](panel-modules.test.mjs)：对既有胶囊检查范围及共用内容模块执行 checkJs，检查依赖无环、Codex context 与大纲/下一步保持依赖边界；窗口入口及独立传输仍由各自检查覆盖。
-- [native-probe.swift](native-probe.swift)：原生验收的合成背景窗口、指定测试进程窗口几何、合成窗口的真实鼠标拖拽及截图颜色读取器，只编译到临时目录。
+- [native-probe.swift](native-probe.swift)：原生验收的只读事件权限预检、合成背景窗口、指定测试进程窗口几何、合成窗口的真实鼠标拖拽及截图颜色读取器，只编译到临时目录。
 
 - [host-fixture.html](host-fixture.html)：e2e 和弹出测试的宿主 fixture，不包含真实聊天；共享胶囊可交互的桌面宿主 DOM。
 - [source-audit.test.mjs](source-audit.test.mjs)：公开边界、固定 GPL 元数据/正文、历史 MIT 保留、打包许可与真实依赖声明的行为测试；覆盖嵌套署名、显式路径、来源补充和原文引用，以及无 Git 源码清单和私有文件/符号链接拒绝。

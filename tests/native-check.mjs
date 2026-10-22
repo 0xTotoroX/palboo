@@ -1,7 +1,7 @@
 /*
  * [INPUT]: 编译后的系统窗口、合成投影；默认免截图；显式 --screenshots 才启动像素采样验收。
  * [OUTPUT]: --features-only 验证真实 Wry 的大纲/看板切换与响应式任务视图；target/reports/native 中的背景验收；--genie-only 加验开发版网格接口及复位（--cross-screen/--reverse-screens 验实际双屏）；--motion-only 单测三材质空间交接与取消；--appearance-only 将免截图的窗口透明度轨迹、呈现确认、强调色/材质和尺寸检查写入 native-appearance。
- * [POS]: --header-only 免鼠标权限验证三材质透明头部和实际置顶层级；原生合成验收；--workbench-only 单测 Wry 双栏布局、独立滚动、设置覆盖页、拒绝收起及缩放退出，报告写入 native-workbench；仅启动自有测试窗口，临时数据不使用真实宿主或模型。
+ * [POS]: --header-only 免鼠标权限验证三材质透明头部和实际置顶层级；--workbench-only 预检事件权限，验证 Wry 双栏布局、真实鼠标合并与两底角缩放、独立滚动、保留设置页及退出，报告写入 native-workbench；仅启动自有测试窗口，临时数据不使用真实宿主或模型。
  * 设置验收要求头部入口保持隐藏，通过保留的旧处理器验证设置区与阅读恢复，不依赖旧 activeTab。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -54,6 +54,15 @@ mkdirSync(output, { recursive: true });
 rmSync(join(output, 'report.json'), { force: true });
 const helper = join(dir, 'native-probe');
 execFileSync('swiftc', [join(root, 'tests/native-probe.swift'), '-o', helper]);
+if (workbenchOnly && !featuresOnly && !headerOnly) {
+  const permissions = JSON.parse(execFileSync(helper, ['permissions'], { encoding: 'utf8' }));
+  if (!permissions.canPostEvents) {
+    rmSync(dir, { recursive: true, force: true });
+    throw Error(
+      'Native pointer acceptance requires Accessibility event posting access; no permission requested.',
+    );
+  }
+}
 const screens = JSON.parse(execFileSync(helper, ['screens'], { encoding: 'utf8' }));
 if (crossScreen && screens.length < 2)
   throw Error('Cross-screen verification needs two connected displays');
@@ -70,7 +79,14 @@ const destinationPosition = crossScreen
       x: (destinationScreen.x + 100) * destinationScreen.scale,
       y: (destinationScreen.y + 125) * destinationScreen.scale,
     }
-  : { x: 220, y: 250 };
+  : workbenchOnly
+    ? {
+        // Leave room for the largest fixture and left-corner growth. The native
+        // keep-on-screen correction must not mask the fixed-corner assertion.
+        x: (sourceScreen.x + Math.max(0, (sourceScreen.width - 924) / 2)) * sourceScreen.scale,
+        y: (sourceScreen.y + 125) * sourceScreen.scale,
+      }
+    : { x: 220, y: 250 };
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 const settings = fixtureSettings;
 let ui = {
@@ -161,17 +177,29 @@ const requests = [];
 const script = await buildPanel();
 function probePage() {
   const pointerEvents = [];
-  for (const name of ['pointerdown', 'pointerup', 'pointercancel', 'lostpointercapture']) {
+  let trustedPointerDowns = 0;
+  for (const name of [
+    'pointerdown',
+    'pointerup',
+    'pointercancel',
+    'lostpointercapture',
+    'pointermove',
+  ]) {
     window.addEventListener(
       name,
       (event) => {
+        if (name === 'pointermove' && !event.buttons) return;
+        if (name === 'pointerdown' && event.isTrusted) trustedPointerDowns++;
         pointerEvents.push({
           type: name,
+          trusted: event.isTrusted,
+          buttons: event.buttons,
+          screen: [event.screenX, event.screenY],
           x: event.clientX,
           y: event.clientY,
           tag: event.target?.tagName,
         });
-        if (pointerEvents.length > 12) pointerEvents.shift();
+        if (pointerEvents.length > 32) pointerEvents.shift();
       },
       true,
     );
@@ -192,6 +220,9 @@ function probePage() {
               scrollTop: node.scrollTop,
               scrollHeight: node.scrollHeight,
               clientHeight: node.clientHeight,
+              scrollWidth: node.scrollWidth,
+              clientWidth: node.clientWidth,
+              overflowY: getComputedStyle(node).overflowY,
               textLength: node.textContent.trim().length,
             }
           : null;
@@ -200,6 +231,7 @@ function probePage() {
         method: 'POST',
         body: JSON.stringify({
           pointerEvents,
+          trustedPointerDowns,
           sentAt: Date.now(),
           visibility: document.visibilityState,
           active: current?.runtimeActive,
@@ -207,6 +239,12 @@ function probePage() {
           open: current?.open,
           material: current?.material,
           viewport: [innerWidth, innerHeight],
+          resizeHandles: Object.fromEntries(
+            [...document.querySelectorAll('.csw-resize-handle[data-corner]')].map((node) => [
+              node.dataset.corner,
+              measure(node),
+            ]),
+          ),
           activeTab: current?.activeTab,
           commandId: window.probeCommandId,
           feature: workbench?.dataset.feature,
@@ -232,6 +270,7 @@ function probePage() {
             layout: getComputedStyle(workbench).display,
             rect: workbench.getBoundingClientRect(),
             panesVisible: measure(workbench.querySelector('.csw-workbench-panes'))?.visible,
+            panesViewport: measure(workbench.querySelector('.csw-workbench-panes')),
             panes: Object.fromEntries(
               ['outline', 'next'].map((kind) => [
                 kind,
@@ -333,6 +372,9 @@ function probePage() {
         if (cmd.kind === 'pane-scroll') {
           const body = document.querySelector(`[data-view-body="${cmd.pane}"]`);
           if (body) body.scrollTop = cmd.top;
+        }
+        if (cmd.kind === 'panes-scroll') {
+          document.querySelector('.csw-workbench-panes').scrollTop = cmd.top;
         }
         if (cmd.kind === 'tab' && document.querySelector('.csw-workbench-settings')?.hidden) {
           document.querySelector('[data-legacy-settings]')?.click();
@@ -494,6 +536,25 @@ async function waitFor(fn, label) {
 function windows() {
   return JSON.parse(execFileSync(helper, ['windows', String(panel.pid)], { encoding: 'utf8' }));
 }
+const pointerDrags = [];
+async function drag(from, to) {
+  const input = ['drag', ...from.map(String), ...to.map(String), String(panel.pid)];
+  const child = spawn(helper, input);
+  let stdout = '',
+    stderr = '';
+  child.stdout.on('data', (chunk) => {
+    stdout += chunk;
+  });
+  child.stderr.on('data', (chunk) => {
+    stderr += chunk;
+  });
+  const code = await new Promise((resolve, reject) => {
+    child.once('error', reject);
+    child.once('exit', resolve);
+  });
+  pointerDrags.push({ from, to, code, stderr, ...(stdout ? JSON.parse(stdout) : {}) });
+  if (code !== 0) throw Error(`Native drag helper failed (${code}): ${stderr}`);
+}
 function capture(name) {
   if (!screenshots) throw Error('Screen capture requires explicit --screenshots');
   const bounds = windows()
@@ -591,22 +652,35 @@ try {
         throw Error('Workbench panes/settings visibility is incorrect');
       if (bench.dockWidth !== 340 || bench.splitRatio !== 0.45)
         throw Error('Native resizing changed independent dock preferences');
+      const viewport = bench.panesViewport;
+      if (
+        viewport.rect.left < bench.rect.left - 1 ||
+        viewport.rect.right > bench.rect.right + 1 ||
+        viewport.rect.top < bench.rect.top - 1 ||
+        viewport.rect.bottom > bench.rect.bottom + 1 ||
+        viewport.scrollWidth > viewport.clientWidth + 1 ||
+        viewport.overflowY !== 'auto'
+      )
+        throw Error('Native pane viewport does not contain its scrollable content');
       for (const kind of ['outline', 'next']) {
         const pane = bench.panes[kind];
         if (
           !pane?.visible ||
           pane.rect.height < 180 ||
           !pane.body?.visible ||
+          pane.body.clientHeight <= 0 ||
           !pane.body.textLength
         )
           throw Error(`${kind} pane is missing, empty or below 180px: ${JSON.stringify(pane)}`);
+        // Keep the existing 180px panes in short windows; the outer pane area scrolls.
+        const contentTop = viewport.rect.top - viewport.scrollTop;
         if (
-          pane.rect.left < bench.rect.left - 1 ||
-          pane.rect.right > bench.rect.right + 1 ||
-          pane.rect.top < bench.rect.top - 1 ||
-          pane.rect.bottom > bench.rect.bottom + 1
+          pane.rect.left < viewport.rect.left - 1 ||
+          pane.rect.right > viewport.rect.right + 1 ||
+          pane.rect.top < contentTop - 1 ||
+          pane.rect.bottom > contentTop + viewport.scrollHeight + 1
         )
-          throw Error(`${kind} pane extends outside the native workbench`);
+          throw Error(`${kind} pane extends outside the native scrollable content`);
       }
       const horizontal = bench.axis === 'horizontal';
       const first = bench.panes[bench.first];
@@ -745,6 +819,7 @@ try {
       if (!telemetry.open) throw Error('Native workbench accepted setOpen(false)');
       assertLayout();
       const sizes = [];
+      const pointerResizes = [];
       for (const [width, height] of [
         [924, 824],
         [664, 564],
@@ -762,6 +837,19 @@ try {
           'native workbench viewport resize',
         );
         const resized = assertLayout();
+        if (width === 324) {
+          const viewport = resized.panesViewport;
+          await command({ kind: 'panes-scroll', top: viewport.scrollHeight });
+          await waitFor(
+            () => telemetry.workbench.panesViewport.scrollTop > 0,
+            'short native workbench cannot scroll to the last pane',
+          );
+          const scrolled = assertLayout();
+          if (scrolled.panes.next.rect.bottom > scrolled.panesViewport.rect.bottom + 1)
+            throw Error('Last native pane remains clipped after scrolling');
+          await command({ kind: 'panes-scroll', top: viewport.scrollTop });
+          assertLayout();
+        }
         if (width === 664) {
           if (resized.axis !== 'horizontal')
             throw Error('Wide native workbench did not become horizontal');
@@ -778,14 +866,10 @@ try {
           const origin = beforeWindow.kCGWindowBounds;
           const from = telemetry.workbench.panes.outline.rect;
           const to = telemetry.workbench.panes.next.rect;
-          execFileSync(helper, [
-            'drag',
-            String(origin.X + from.left + 22),
-            String(origin.Y + from.top + 18),
-            String(origin.X + to.left + to.width / 2),
-            String(origin.Y + to.top + to.height / 2),
-            String(panel.pid),
-          ]);
+          await drag(
+            [origin.X + from.left + 22, origin.Y + from.top + 18],
+            [origin.X + to.left + to.width / 2, origin.Y + to.top + to.height / 2],
+          );
           await waitFor(
             () => telemetry.workbench.composition === 'tabs',
             'native pointer drag did not merge panes',
@@ -804,6 +888,49 @@ try {
             throw Error('Native focus did not restore tabs');
           await command({ kind: 'pane-arrange', pane: 'outline', action: 'split' });
           assertLayout();
+          for (const [corner, dx, dy] of [
+            ['br', 72, 48],
+            ['bl', -64, 40],
+          ]) {
+            const before = windows().find(
+              (w) => Math.abs(w.kCGWindowBounds.Width - width) <= 1,
+            )?.kCGWindowBounds;
+            const handle = telemetry.resizeHandles[corner];
+            if (!before || !handle?.visible) throw Error(`Native ${corner} resize handle missing`);
+            const x = before.X + handle.rect.left + handle.rect.width / 2;
+            const y = before.Y + handle.rect.top + handle.rect.height / 2;
+            const pointerDownsBefore = telemetry.trustedPointerDowns;
+            await drag([x, y], [x + dx, y + dy]);
+            const expectedWidth = before.Width + Math.abs(dx);
+            const expectedHeight = before.Height + dy;
+            await waitFor(
+              () =>
+                Math.abs(telemetry.viewport[0] - expectedWidth) <= 2 &&
+                Math.abs(telemetry.viewport[1] - expectedHeight) <= 2 &&
+                Math.abs(telemetry.rect.width - telemetry.viewport[0] + 24) <= 1 &&
+                Math.abs(telemetry.rect.height - telemetry.viewport[1] + 24) <= 1 &&
+                !telemetry.animations,
+              `native ${corner} pointer resize`,
+            );
+            const after = windows().find(
+              (w) => Math.abs(w.kCGWindowBounds.Width - expectedWidth) <= 2,
+            )?.kCGWindowBounds;
+            const expectedX = before.X + (corner === 'bl' ? dx : 0);
+            if (!after || Math.abs(after.X - expectedX) > 2 || Math.abs(after.Y - before.Y) > 2)
+              throw Error(`Native ${corner} resize did not keep the opposite corner fixed`);
+            if (telemetry.trustedPointerDowns <= pointerDownsBefore)
+              throw Error('Native resize did not receive trusted pointer input');
+            assertLayout();
+            pointerResizes.push({ corner, delta: [dx, dy], before, after, trusted: true });
+            await command({ kind: 'viewport', width, height });
+            await waitFor(
+              () =>
+                telemetry.viewport[0] === width &&
+                telemetry.viewport[1] === height &&
+                !telemetry.animations,
+              'restore viewport after pointer resize',
+            );
+          }
         }
         const native = windows().find(
           (window) =>
@@ -825,6 +952,7 @@ try {
         overlay,
         ignoresCollapse: true,
         sizes,
+        pointerResizes,
       });
     }
     writeFileSync(
@@ -1308,7 +1436,7 @@ try {
   };
   const reportPath = output + '/report.json';
   const report = JSON.parse(readFileSync(reportPath, 'utf8'));
-  writeFileSync(reportPath, JSON.stringify({ ...report, motionCheck }, null, 2));
+  writeFileSync(reportPath, JSON.stringify({ ...report, motionCheck, pointerDrags }, null, 2));
   rmSync(join(output, 'failure.json'), { force: true });
   console.log('原生窗口呈现确认、几何与透明度轨迹、退出检查通过。');
 } catch (e) {
@@ -1323,6 +1451,7 @@ try {
         log,
         dir,
         motionSamples,
+        pointerDrags,
         presentationRequests: requests.filter((request) =>
           ['/api/panel/ready', '/api/panel/presented'].includes(request.path),
         ),
