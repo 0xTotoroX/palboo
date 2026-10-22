@@ -197,6 +197,8 @@ npm run install:local
 
 前端改动复用本地 shadcn/ui 与 Radix 设置控件、共享图标和主题变量。新增组件或依赖前先读对应 `AGENTS.md` 地图，保留已有表单状态与保存行为。
 
+开发设置地址下的 `/nova-preview.html` 提供独立 Nova 风格预览，默认页面不变，也不加入正式构建。它复用现有设置功能与当前配置，修改仍会正常保存。
+
 ```text
 src/          后台、CLI 和原生窗口
 ui/features/  看板、大纲、下一步、模型切换、术语内容

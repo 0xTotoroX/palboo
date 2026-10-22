@@ -1,0 +1,334 @@
+/*
+ * [INPUT]: 现有设置页 DOM、语义主题、用户字号及 shadcn/ui Nova 的控件尺度。
+ * [OUTPUT]: 独立预览的中性色、紧凑间距、圆角和控件外观；不修改事件或数据。
+ * [POS]: 仅 nova-preview.html 加载；默认设置入口及正式构建不引用。
+ * 参考：https://ui.shadcn.com/r/styles/radix-nova/button.json（32px 控件、8px 圆角）。
+ * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
+ */
+html:root[data-settings-preview='nova'] {
+  --buddy-page: #fafafa;
+  --buddy-surface: #ffffff;
+  --buddy-text: #171717;
+  --buddy-muted: #737373;
+  --buddy-border: #e5e5e5;
+  --buddy-input: #ffffff;
+  --buddy-accent: #171717;
+  --buddy-focus: #a3a3a3;
+  --buddy-subtle: #f5f5f5;
+  --buddy-radius-small: 0.5rem;
+  --settings-control-radius: 0.5rem;
+  --settings-control-height: 2rem;
+  --settings-rule: #e5e5e5;
+  --settings-selected: #ededed;
+  --settings-selected-text: #171717;
+  --settings-selected-border: transparent;
+  --settings-accent-text: #171717;
+  --settings-switch-on: #171717;
+  --settings-switch-thumb: #ffffff;
+  --switch-track: #e5e5e5;
+  --settings-shadow: 0 1px 2px #00000005;
+  --settings-menu-shadow: 0 4px 12px #00000012;
+  --nova-primary-foreground: #fafafa;
+
+  &[data-settings-theme='dark'] {
+    --buddy-page: #0a0a0a;
+    --buddy-surface: #171717;
+    --buddy-text: #fafafa;
+    --buddy-muted: #a3a3a3;
+    --buddy-border: #ffffff1a;
+    --buddy-input: #ffffff08;
+    --buddy-accent: #e5e5e5;
+    --buddy-focus: #737373;
+    --buddy-subtle: #262626;
+    --settings-rule: #ffffff1a;
+    --settings-selected: #292929;
+    --settings-selected-text: #fafafa;
+    --settings-accent-text: #fafafa;
+    --settings-switch-on: #e5e5e5;
+    --settings-switch-thumb: #171717;
+    --switch-track: #404040;
+    --settings-shadow: 0 1px 2px #00000020;
+    --settings-menu-shadow: 0 4px 16px #00000050;
+    --nova-primary-foreground: #171717;
+  }
+
+  .nova-preview-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 6px 16px;
+    min-height: 36px;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--buddy-border);
+    background: var(--buddy-surface);
+    color: var(--buddy-muted);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .nova-preview-bar strong {
+    color: var(--buddy-text);
+    font-weight: 600;
+  }
+  .nova-preview-bar a {
+    color: var(--buddy-text);
+    text-underline-offset: 3px;
+    text-decoration: underline;
+  }
+
+  .settings-app {
+    min-height: calc(100dvh - 36px);
+    max-width: 1320px;
+    padding: 20px 28px 24px;
+  }
+  .settings-topline {
+    min-height: 56px;
+    gap: 16px;
+  }
+  .settings-header {
+    border-bottom: 1px solid var(--buddy-border);
+    padding-bottom: 12px;
+  }
+  .settings-brand {
+    font-size: 1.125em;
+    letter-spacing: -0.025em;
+    font-weight: 600;
+  }
+  .settings-brand img {
+    width: 28px;
+    height: 28px;
+  }
+  .settings-edition {
+    font-size: 0.7em;
+  }
+  .settings-layout {
+    gap: 28px;
+  }
+  .settings-nav {
+    margin-top: 24px;
+    padding-right: 12px;
+  }
+  .settings-category-links {
+    gap: 24px;
+  }
+  .settings-nav-group h2 {
+    padding-inline: 10px;
+    font-weight: 500;
+  }
+  .settings-nav .settings-nav-children a {
+    min-height: 32px;
+    padding: 6px 10px;
+    border-radius: 6px;
+  }
+  .settings-nav .settings-nav-children a:hover {
+    background: var(--buddy-subtle);
+  }
+  .settings-nav .settings-nav-children a[aria-current='page'] {
+    color: var(--buddy-text);
+    background: var(--settings-selected);
+    font-weight: 550;
+  }
+  .settings-nav .settings-nav-children a[aria-current='page']::before,
+  .settings-title::after,
+  :is(
+    .settings-section h2,
+    .settings-section h3,
+    .preview-heading h2,
+    .settings-drawer-header h2,
+    .settings-nav-group h2
+  )::after {
+    content: none;
+  }
+  .settings-content {
+    padding-top: 24px;
+  }
+  .settings-page-heading {
+    margin-bottom: 20px;
+  }
+  .settings-title {
+    margin: 0;
+    font-size: 1.5em;
+    line-height: 1.35;
+    letter-spacing: -0.035em;
+    font-weight: 600;
+  }
+  .settings-body {
+    gap: 24px;
+  }
+  .settings-form-column {
+    padding: 20px;
+    border: 1px solid var(--buddy-border);
+    border-radius: 12px;
+    background: var(--buddy-surface);
+    box-shadow: var(--settings-shadow);
+  }
+  .settings-section {
+    margin-bottom: 24px;
+  }
+  .settings-section h2,
+  .settings-section-heading {
+    margin-bottom: 16px;
+    font-weight: 550;
+  }
+  .settings-section-heading > h2 {
+    margin: 0;
+  }
+  .settings-field {
+    gap: 8px 16px;
+    margin-bottom: 16px;
+  }
+  .settings-field > label {
+    padding-top: 6px;
+  }
+  .settings-row {
+    padding-block: 10px;
+  }
+  .settings-feature-list .settings-row {
+    min-height: 46px;
+  }
+  .settings-subsection {
+    margin-block: 20px;
+  }
+  .settings-save {
+    margin-block: 16px 0;
+    padding-block: 12px 0;
+  }
+  .settings-choice {
+    gap: 4px;
+    margin-bottom: 16px;
+  }
+  .settings-choice button {
+    min-height: 32px;
+    padding: 5px 8px;
+  }
+  .settings-app :is([data-slot='input'], [data-slot='native-select']) {
+    padding-inline: 10px;
+    box-shadow: 0 1px 2px #00000004;
+  }
+  .settings-app [data-slot='button'].bg-primary {
+    color: var(--nova-primary-foreground);
+  }
+  .settings-app :is(input, select, textarea):focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--buddy-focus) 28%, transparent);
+    outline-offset: 0;
+    border-color: var(--buddy-focus);
+  }
+  .settings-app [data-slot='switch'] {
+    position: relative;
+    width: 32px;
+    height: 18.4px;
+    min-height: 18.4px;
+    border-radius: 999px;
+  }
+  .settings-app [data-slot='switch']::after {
+    content: '';
+    position: absolute;
+    inset: -5px -3px;
+  }
+  .settings-app [data-slot='switch-thumb'] {
+    width: 16px;
+    height: 16px;
+    border-radius: 999px;
+  }
+  .settings-app [data-slot='switch-thumb'][data-state='checked'] {
+    translate: 14px 0;
+  }
+  .settings-app [data-slot='switch-thumb'][data-state='unchecked'] {
+    translate: 0 0;
+  }
+  .settings-app .settings-drawer-trigger {
+    min-height: 40px;
+    padding: 10px 12px;
+    background: var(--buddy-subtle);
+  }
+  .settings-drawer {
+    background: var(--buddy-surface);
+    border-left: 1px solid var(--buddy-border);
+  }
+  .settings-drawer-header {
+    padding: 20px 24px 12px;
+  }
+  .settings-app .settings-drawer-header h2 {
+    font-size: 1.125em;
+    letter-spacing: -0.025em;
+    font-weight: 600;
+  }
+  .settings-drawer-content {
+    padding: 12px 24px 24px;
+  }
+  .settings-drawer-content > * + * {
+    margin-top: 20px;
+  }
+  .settings-drawer-footer {
+    padding: 16px 24px 20px;
+  }
+  .preview-frame,
+  .settings-search-dialog,
+  .settings-key-dialog {
+    border-radius: 12px;
+  }
+  .preview-frame {
+    padding: 0 16px 16px;
+  }
+  .preview-heading {
+    min-height: 52px;
+    margin-bottom: 16px;
+  }
+  .preview-selector button[aria-pressed='true'] {
+    background: var(--buddy-surface);
+    box-shadow: 0 1px 3px #00000014;
+  }
+  .settings-footer {
+    margin-top: 24px;
+  }
+
+  @media (max-width: 760px) {
+    .settings-app {
+      padding: 16px 20px 24px;
+    }
+    .settings-topline {
+      min-height: 44px;
+      gap: 10px;
+    }
+    .settings-nav {
+      margin-top: 12px;
+      padding: 0 0 12px;
+    }
+    .settings-category-links {
+      gap: 0;
+    }
+    .settings-mobile-groups {
+      gap: 18px;
+    }
+    .settings-nav-children {
+      gap: 4px;
+    }
+    .settings-content {
+      padding-top: 20px;
+    }
+    .settings-form-column {
+      padding: 16px;
+    }
+  }
+  @media (max-width: 460px) {
+    .settings-app {
+      padding-inline: 16px;
+    }
+    .settings-field > label {
+      padding-top: 0;
+    }
+    .nova-preview-bar {
+      gap: 4px 12px;
+    }
+    .nova-preview-bar > span {
+      order: 3;
+      flex-basis: 100%;
+      text-align: center;
+    }
+    .settings-drawer-header,
+    .settings-drawer-content,
+    .settings-drawer-footer {
+      padding-inline: 20px;
+    }
+  }
+}

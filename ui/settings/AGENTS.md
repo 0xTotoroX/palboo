@@ -41,6 +41,7 @@
 - [settings-motion.css](settings-motion.css)：主题颜色、按钮反馈、搜索/候选/原生菜单入场和原生 details 展开/收起；不支持插值的浏览器保留原生即时行为。键盘和减少动态效果不等待装饰动画，候选菜单不受折叠裁切。
 - [settings-theme.tsx](settings-theme.tsx)：页头单一主题入口，展开后保留“自动”及浅色/深色选项；方向键/Home/End 切换焦点，Esc 关闭回到入口，外点或移出焦点关闭；默认跟随认证 SSE 的 panelTheme，无有效快照时保留本页末次主题，尚未收到时回退系统。后台未设置时沿用同源 localStorage；明确选择通过 appearance 修订保存，并跨标签页同步。受限存储仍可通过后台保存；不写宿主、不触发模型表单失焦保存。settings-layout.css 统一语义色，品牌图标保持原图，动作图标沿用 currentColor。
 - [index.html](index.html)：设置网页入口，图标复用 ../icon.png。
+- `nova-preview.html` / `nova-preview.css`：仅开发服务的独立 Nova 风格预览，复用 main.tsx、现有导航/表单/保存队列及同源配置；顶栏明确修改会同步保存。中性色、紧凑控件、圆角及间距限定在 data-settings-preview=nova 文档内，默认入口与正式构建不加载；不增加业务副本或依赖。
 - [board.html](board.html)：旧独立看板 HTML 入口，仍挂载 ../surfaces/desktop/legacy-board.tsx 及共用看板内容。
 - [feature.html](feature.html)：桌面和贴边通用 HTML 入口。
 - [vite.config.ts](vite.config.ts)：React/Tailwind 多入口构建到 target/web，缓存按 worktree 隔离并去重 React；本机代理只处理 /api/ 请求。
