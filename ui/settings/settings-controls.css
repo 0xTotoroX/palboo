@@ -347,3 +347,12 @@ html[data-settings-input='keyboard'] .settings-drawer::backdrop {
     padding: 12px 20px 20px;
   }
 }
+
+/* 独立操作区统一靠右，字段内编辑按钮继续跟随字段。 */
+.settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}

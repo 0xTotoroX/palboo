@@ -27,15 +27,15 @@ test('inline expanding menu preserves eyes hit target and has stable hover, keyb
     );
     await page.goto('http://localhost:12345/');
     await page.setContent(
-      `<body style="margin:0;background:#f4f4f4;font-family:system-ui"><aside style="width:64px;height:460px;display:flex;flex-direction:column;align-items:center;gap:8px;background:#eee;border-right:1px solid #ddd"><div id="rail-content" style="flex:1;min-height:0"></div><div id="entry" style="display:flex;flex:none;flex-direction:column;align-items:center;gap:8px"><button id="eyes" aria-label="CodexBuddy" style="width:36px;height:36px;flex:none;border:0;border-radius:10px;background:transparent;color:#292929"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="7" width="4" height="10" rx="2"/><rect x="15" y="7" width="4" height="10" rx="2"/></svg></button></div><div style="height:48px;flex:none"></div></aside></body>`,
+      `<body style="margin:0;background:#f4f4f4;font-family:system-ui"><aside style="width:64px;height:460px;display:flex;flex-direction:column;align-items:center;gap:8px;background:#eee;border-right:1px solid #ddd"><div id="rail-content" style="flex:1;min-height:0"></div><div id="entry" style="display:flex;flex:none;flex-direction:column;align-items:center;gap:8px"><button id="eyes" aria-label="Palboo" style="width:36px;height:36px;flex:none;border:0;border-radius:10px;background:transparent;color:#292929"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="7" width="4" height="10" rx="2"/><rect x="15" y="7" width="4" height="10" rx="2"/></svg></button></div><div style="height:48px;flex:none"></div></aside></body>`,
     );
     await page.addScriptTag({ content: compiled.outputFiles[0].text });
     const eye = page.locator('#eyes'),
-      host = page.locator('[data-codex-buddy-launcher-menu]');
+      host = page.locator('[data-palboo-launcher-menu]');
     const initialEye = await eye.boundingBox();
     await eye.hover();
     await page.waitForFunction(() =>
-      document.querySelector('[data-codex-buddy-launcher-menu]').hasAttribute('data-open'),
+      document.querySelector('[data-palboo-launcher-menu]').hasAttribute('data-open'),
     );
     const rect = await eye.boundingBox();
     assert.equal(Math.round(rect.y), Math.round(initialEye.y));
@@ -96,7 +96,7 @@ test('inline expanding menu preserves eyes hit target and has stable hover, keyb
     await page.mouse.move(300, 100);
     await eye.hover();
     await page.waitForFunction(() =>
-      document.querySelector('[data-codex-buddy-launcher-menu]').hasAttribute('data-open'),
+      document.querySelector('[data-palboo-launcher-menu]').hasAttribute('data-open'),
     );
     assert.equal(await host.getAttribute('data-flip-y'), null);
     assert.equal(await host.getByRole('menuitem', { name: '在桌面打开' }).isDisabled(), true);

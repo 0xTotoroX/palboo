@@ -242,7 +242,7 @@ function renderState(next) {
       let item = mounts.get(key);
       if (!item) {
         const node = document.createElement('div');
-        node.setAttribute('data-codex-buddy-features-root', 'true');
+        node.setAttribute('data-palboo-features-root', 'true');
         node.style.cssText = 'height:100%;min-height:0;';
         item = {
           node,

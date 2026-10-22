@@ -75,7 +75,7 @@ try {
   const debugPort = reserve.address().port;
   await new Promise((r) => reserve.close(r));
   chrome = await chromium.launchServer({
-    executablePath: process.env.CODEX_BUDDY_CHROME_BIN || undefined,
+    executablePath: process.env.PALBOO_CHROME_BIN || undefined,
     headless: true,
     args: [`--remote-debugging-port=${debugPort}`],
   });
@@ -118,10 +118,11 @@ try {
     join(directory, 'panel.json'),
     JSON.stringify({ ui: { layoutMode: 'workbench', dockOpen: true } }),
   );
-  for (const key of Object.keys(env)) if (/^(CODEX_BUDDY_|COMPANION_)/.test(key)) delete env[key];
-  env.CODEX_BUDDY_PANEL_TEST = '1';
-  env.CODEX_BUDDY_TEST_GROKBOT_CACHE = directory;
-  env.CODEX_BUDDY_TEST_GROKBOT_URL = `http://127.0.0.1:${fixture.address().port}`;
+  for (const key of Object.keys(env))
+    if (/^(PALBOO_|CODEX_BUDDY_|COMPANION_)/.test(key)) delete env[key];
+  env.PALBOO_PANEL_TEST = '1';
+  env.PALBOO_TEST_GROKBOT_CACHE = directory;
+  env.PALBOO_TEST_GROKBOT_URL = `http://127.0.0.1:${fixture.address().port}`;
   service = spawn(
     artifact.binary,
     ['--data-dir', directory, 'serve', '--port', '0', '--allow-fixture'],
@@ -152,7 +153,7 @@ try {
   await page.waitForFunction(() => window.__companionFloatingPanel?.state.dockStatus === 'open');
   assert.equal((await state()).mainManaged, false);
   assert.equal((await entry('model')).placement, 'edge');
-  assert.equal(await page.locator('[data-codex-buddy-dock]').count(), 1);
+  assert.equal(await page.locator('[data-palboo-dock]').count(), 1);
   assert.ok(await page.locator('.csw-panel').isVisible());
   record('restored model edge window preserves the legacy sidebar before main content migration');
   let tasks = await api('tasks/state');
@@ -478,6 +479,21 @@ try {
         data: {
           type: 'mcp-notification',
           hostId: 'local',
+          method: 'item/started',
+          params: {
+            threadId: 'fixture-thread-a',
+            turnId: 'synthetic-bot-turn',
+            item: { ...item, result: undefined },
+          },
+        },
+      }),
+    );
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        source: window,
+        data: {
+          type: 'mcp-notification',
+          hostId: 'local',
           method: 'item/completed',
           params: { threadId: 'fixture-thread-a', turnId: 'synthetic-bot-turn', item },
         },
@@ -685,6 +701,32 @@ try {
     'automatic mode hides manual refresh',
   );
   await settingsPage.screenshot({ path: join(output, 'palboo-bot-settings.png') });
+  const goodCatalog = botCatalog;
+  botCatalog = { version: 1, bots: [{ name: '无身份 Bot', available: true }] };
+  await api('features', { op: 'bots-catalog', refresh: true });
+  await settingsPage.getByText(/无法同步 Grok Bot/).waitFor();
+  assert.equal((await botRead()).snapshot.catalog.stale, true);
+  botCatalog = {
+    ...goodCatalog,
+    revision: 'r4',
+    bots: [
+      ...goodCatalog.bots,
+      { id: 'settings-live', name: '自动同步新增', available: true, description: '实时更新的资料' },
+    ],
+  };
+  writeFileSync(
+    join(directory, cacheFile('sand.client.slice.account.fixture.roster.last-roster')),
+    'settings change',
+  );
+  await settingsPage
+    .getByRole('button', { name: '自动同步新增', exact: true })
+    .waitFor({ timeout: 15000 });
+  await settingsPage.getByRole('button', { name: '自动同步新增', exact: true }).click();
+  await settingsPage.getByText('实时更新的资料', { exact: true }).waitFor();
+  await settingsPage.keyboard.press('Escape');
+  record(
+    'visible automatic settings recover from invalid identities and update file-driven catalog changes',
+  );
   await settingsPage.close();
   record(
     'manual sync ignores file events until refresh; descriptions and Agent setup prompt live in settings; automatic sync can resume',
@@ -693,7 +735,7 @@ try {
   await page.waitForFunction(() => !window.__palbooBots);
   await assert.rejects(botRead());
   record(
-    'PALBOO Bot owner/composer guards, main-chat-only input, scoped MCP result and disable cleanup',
+    'Palboo Bot owner/composer guards, main-chat-only input, scoped MCP result and disable cleanup',
   );
   await page.screenshot({ path: join(output, 'independent-surfaces.png') });
   await api('disconnect', {});

@@ -13,6 +13,8 @@ import './settings-layout.css';
 import './settings-preview.css';
 import './settings-controls.css';
 import './settings-motion.css';
+import '../surfaces/workspace/styles.css';
+import './layout-preview.css';
 import icon from '../icon.png';
 import { useCompanion, type Settings, type EditableSettings } from './api';
 import { useSettingsForm } from './use-settings-form';
@@ -113,7 +115,7 @@ function App() {
         <div className="settings-topline">
           <a href="#settings-features" className="settings-brand" data-settings-navigation>
             <img src={icon} alt="" />
-            CodexBuddy{' '}
+            Palboo{' '}
             <span className="settings-edition">{import.meta.env.DEV ? '开发版' : '设置'}</span>
           </a>
           <SettingsSearch navigate={navigate} />
@@ -313,7 +315,7 @@ function App() {
         </main>
       </div>
       <footer className="settings-footer">
-        <span>CodexBuddy {view?.version || '—'}</span>
+        <span>Palboo {view?.version || '—'}</span>
       </footer>
     </div>
   );

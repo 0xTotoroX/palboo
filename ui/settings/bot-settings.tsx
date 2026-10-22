@@ -31,15 +31,20 @@ export function BotSettings({
   const [refreshed, setRefreshed] = useState(false);
   const sequence = useRef(0);
   const auto = editor.form?.grokbotAutoSync ?? true;
-  async function load(refresh = false) {
+  async function load(refresh = false, quiet = false) {
     const id = ++sequence.current;
-    setBusy(true);
-    setError('');
-    setRefreshed(false);
+    if (!quiet) {
+      setBusy(true);
+      setError('');
+      setRefreshed(false);
+    }
     try {
       const value = await request<Catalog>('features', { op: 'bots-catalog', refresh });
       if (id === sequence.current) {
-        setCatalog(value);
+        setCatalog((previous) =>
+          JSON.stringify(previous) === JSON.stringify(value) ? previous : value,
+        );
+        setError('');
         setRefreshed(refresh && !value.stale && !value.error);
       }
     } catch (e) {
@@ -49,11 +54,35 @@ export function BotSettings({
     }
   }
   useEffect(() => {
-    if (active && live) void load();
-    return () => {
-      sequence.current++;
+    if (!active || !live) return;
+    let stopped = false,
+      reading = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const automatic =
+      editor.saved?.grokbotEnabled === true && (editor.saved?.grokbotAutoSync ?? true);
+    const read = async (initial = false) => {
+      if (stopped || reading || document.hidden) return;
+      reading = true;
+      try {
+        await load(false, !initial);
+      } finally {
+        reading = false;
+        if (!stopped && automatic && !document.hidden) timer = setTimeout(() => void read(), 2000);
+      }
     };
-  }, [active, live, editor.saved?.grokbotAutoSync]);
+    const visible = () => {
+      clearTimeout(timer);
+      if (!document.hidden && automatic) void read();
+    };
+    void read(true);
+    document.addEventListener('visibilitychange', visible);
+    return () => {
+      stopped = true;
+      clearTimeout(timer);
+      sequence.current++;
+      document.removeEventListener('visibilitychange', visible);
+    };
+  }, [active, live, editor.saved?.grokbotAutoSync, editor.saved?.grokbotEnabled]);
   return (
     <section data-settings-page="bots" hidden={!active} className="settings-section bot-settings">
       <Toggle
@@ -115,17 +144,19 @@ export function BotSetupInstructions({ hidden }: { hidden: boolean }) {
           readOnly
           value={botSetupPrompt}
         />
-        <Button
-          type="button"
-          onClick={() =>
-            void navigator.clipboard.writeText(botSetupPrompt).then(
-              () => setCopied('已复制'),
-              () => setCopied('无法自动复制，请选中上方文本复制。'),
-            )
-          }
-        >
-          复制接入 Prompt
-        </Button>
+        <div className="settings-actions">
+          <Button
+            type="button"
+            onClick={() =>
+              void navigator.clipboard.writeText(botSetupPrompt).then(
+                () => setCopied('已复制'),
+                () => setCopied('无法自动复制，请选中上方文本复制。'),
+              )
+            }
+          >
+            复制接入 Prompt
+          </Button>
+        </div>
         <Feedback text={copied} />
       </SettingsDrawer>
     </div>

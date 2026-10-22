@@ -7,12 +7,11 @@
 const MAIN =
   '.app-shell-main-content-frame,[class*="_MainContentFrame_"],[data-app-shell-tab-panel-controller]';
 const CHAT = 'section[role="dialog"][class*="floatingSurface"]';
-const OWN =
-  '[data-companion-stepwise-root],[data-codex-buddy-features-root],[data-codex-buddy-launcher]';
+const OWN = '[data-companion-stepwise-root],[data-palboo-features-root],[data-palboo-launcher]';
 let selectedSurface = null;
 let selectedTopChat = null;
 
-// 保留用户最后操作的聊天；点击 Buddy 入口不会改变其所属聊天。
+// 保留用户最后操作的聊天；点击 Palboo 入口不会改变其所属聊天。
 export function rememberChatTarget(target) {
   if (target === null) {
     selectedSurface = selectedTopChat = null;
@@ -35,7 +34,7 @@ export function visibleSurface(node) {
 export function foregroundSurface() {
   const dialogs = [...document.querySelectorAll('[role="dialog"],dialog[open]')].filter(
     (node) =>
-      !node.closest('[data-companion-stepwise-root],[data-codex-buddy-features-root]') &&
+      !node.closest('[data-companion-stepwise-root],[data-palboo-features-root]') &&
       visibleSurface(node),
   );
   const modal = dialogs.filter(
@@ -69,7 +68,7 @@ export function foregroundSurface() {
     content !== dialog &&
     row &&
     row !== dialog &&
-    row.children.length - row.querySelectorAll(':scope > [data-codex-buddy-dock]').length === 1 &&
+    row.children.length - row.querySelectorAll(':scope > [data-palboo-dock]').length === 1 &&
     getComputedStyle(row).display === 'flex' &&
     getComputedStyle(content).flexGrow !== '0';
   return { dialog, thread, row: supported ? row : null, content: supported ? content : null };

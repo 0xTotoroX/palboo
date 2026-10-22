@@ -10,7 +10,7 @@ ui/codex 是宿主识别和写入的唯一实现，经受限请求桥请求模�
 
 窗口交接由 panel 管理 ready / presented / docking：server 暴露呈现确认端点，panel_window 在来源位置已可见时回报 presented，随后隐藏内嵌并继续移动；收回须等待内嵌确认恢复。ReadingState 仅供同任务、同内容的阅读接续，不持久化；可选 panes 分别保存 outline/next 的 contentToken 与 scrollTop，全局提示词预览索引和滚动位置保持兼容。Ui 的 layoutMode 默认 capsule，工作台 dockWidth（默认 340，最低 240，不截断大宽度，前端按聊天可用空间限制实际显示）、splitRatio（默认 0.45，截取到 0.2–0.8）和 dockOpen（默认 true）独立持久化；可选 dockLayout/popoutLayout 分别保存分栏/标签分组、激活标签、自动/上下/左右、首个面板和双轴比例（旧配置默认为分栏、大纲标签），旧配置缺失时由前端迁移旧比例，外观 PATCH 保持旧 splitRatio 与停靠上下比例兼容，不覆盖胶囊 width/height。Ui 的 width/height 只校验有限正数与最小尺寸，不再限定浮窗最大宽高；内嵌在渲染时约束实际尺寸，不截断保存的大尺寸。Preferences.alwaysOnTop 默认 true，缺失字段沿用默认，显式 false 持久保留；Preferences.returnOpen 独立持久保存出发形态，弹出 ui.open 恒为 true，投影给内嵌时恢复 returnOpen，收回成功才把该值写回 ui.open；旧配置缺少字段时保持此前展开行为。原生整窗位置、尺寸与共同容器轻缩放驱动 320ms 提起、260ms 收回移动及 90ms 交还后的淡出；panel/anchor 临时读取内嵌屏幕区域，隐藏时按布局计算，断开的屏幕或无效坐标回退短过渡，减少动态效果时立即完成；原生材质与 WebView 在同一无动画事务内切换，尺寸更新不追赶动画。
 
-开发版 `window_warp` 动态解析 CGS 私有网格接口，不截屏；原生内容尺寸在动画中固定，合成后网格按临时坐标收束。入场在窗口显示前预置来源网格，再沿收回曲线反向展开，取消起步停顿与淡入遮挡；来源与目标按 NSScreen 全局逻辑坐标分别校验，可跨屏，不乘 backingScaleFactor；失效坐标仍回退。每 16ms 至多更新一次，完成、取消或接管后复位；失败停用，正式构建不加载。临时原生测试可在 debug 程序使用 `CODEX_BUDDY_DEV_GENIE=1`。
+开发版 `window_warp` 动态解析 CGS 私有网格接口，不截屏；原生内容尺寸在动画中固定，合成后网格按临时坐标收束。入场在窗口显示前预置来源网格，再沿收回曲线反向展开，取消起步停顿与淡入遮挡；来源与目标按 NSScreen 全局逻辑坐标分别校验，可跨屏，不乘 backingScaleFactor；失效坐标仍回退。每 16ms 至多更新一次，完成、取消或接管后复位；失败停用，正式构建不加载。临时原生测试可在 debug 程序使用 `PALBOO_DEV_GENIE=1`。
 
 模型快切由 model_control 管理能力、串行切换、实际回读、置顶与预设；与生成建议的 model.rs 分离。模型指令绑定宿主当前唯一输入目标和版本，经官方菜单执行后核验完整配置；preserveSpeed 用于模型格在同一事务内保留实际可用 Fast，预设指定完整配置。私有 model-control.json 只保存业务开关、置顶、预设和兼容列宽，不保存聊天正文；旧视觉偏好由 surfaces 一次迁移到 surfaces.json。model-control-diagnostic.json 只保留最近一次显式刷新/切换的阶段与失败计数，0600 写入，不含聊天身份、正文或凭据，被动轮询不覆盖。
 
@@ -30,13 +30,13 @@ ui/codex 是宿主识别和写入的唯一实现，经受限请求桥请求模�
 - [edge_geometry.rs](edge_geometry.rs)：逻辑点布局、精确凹角点击与稳定悬停区域、安全区、固定屏幕选择与 CDP 顶部坐标转换后的宿主最大相交屏幕选择及可反向连续阻尼开合的纯计算及测试。
 
 
-- [assets.rs](assets.rs)：正式内嵌与开发快照的资源边界；只有 debug 程序接受显式 CODEX_BUDDY_DEV_ASSETS，release 始终使用内嵌资源；debug 通过 CODEX_BUDDY_DEV_SETTINGS 接收经验证的本机统一设置地址。
+- [assets.rs](assets.rs)：正式内嵌与开发快照的资源边界；只有 debug 程序接受显式 PALBOO_DEV_ASSETS，release 始终使用内嵌资源；debug 通过 PALBOO_DEV_SETTINGS 接收经验证的本机统一设置地址。
 
 - [cdp.rs](cdp.rs)：宿主连接基础层，被 state.rs 和 requests.rs 使用；目标发现与 Client 请求/事件/注入生命周期，内嵌共享胶囊，开发时检查胶囊归属并更新当前与导航后的脚本，将存活、显示同步和不含正文的状态摘要合并读取。
-- [config.rs](config.rs)：Rust 配置基础层，以 CODEX_BUDDY_HOME 或 codex-buddy 默认目录管理独立数据；Config、HostRestartPolicy（旧配置默认 ask）、Paths、默认参数及私有文件读写。
+- [config.rs](config.rs)：Rust 配置基础层，以 PALBOO_HOME 或 palboo 默认目录管理独立数据；Config、HostRestartPolicy（旧配置默认 ask）、Paths、默认参数及私有文件读写。
 - [requests.rs](requests.rs)：renderer 与独立后台的受限操作边界，生成前后校验上下文；按 maxInputChars=0 传递完整最近一问一答，正数预算由 Exchange 优先保留用户问题并标记截断，生成请求豁免普通设置请求的字节上限；桌面请求分发、建议 items 转换及结果回送。
 - [lifecycle.rs](lifecycle.rs)：CLI 进程管理层，负责复用服务和本地更新回滚；start/stop/status/doctor/launch/update 与 Runtime；Dev 齿轮与启动入口优先使用监督进程的稳定设置地址；launch 优先复用现有进程的调试连接，--restart-running 按 ask/force 策略确认正常退出或强制退出指定原生应用；等待退出后重开，取消/超时不升级或循环重启；--host-only 只输出就绪端点，不启动后台或改写配置，供 Dev 共享启动策略。
-- [main.rs](main.rs)：独立可执行文件入口，区分后台和窗口子进程；codex-buddy 命令分发与进程入口。
+- [main.rs](main.rs)：独立可执行文件入口，区分后台和窗口子进程；palboo 命令分发与进程入口。
 - [model.rs](model.rs)：模型适配层，统一 CLI 与 API 请求和结构化结果、三种方向来源的共享生成、总超时及有序方向 ID 校验；智谱官方端点按文本/视觉模型适配 JSON 模式、输出上限与思考参数，只解析完整的最终回答包装，其他服务商保留严格 schema；Model、ModelInfo、Suggestion 与生成/测试/模型查询。
 - [panel.rs](panel.rs)：后台系统浮窗管理层，窗口呈现确认后才隐藏内嵌胶囊，宿主恢复失败时保留浮窗；携带 ui 的收回请求必须匹配 expectedRevision，有效偏好先按修订号保存，过期请求不覆盖 Web 新选择；Panel、Preferences、临时 ReadingState 及弹出/收回/受限命令协调，普通建议与快捷词填入成功后唤起宿主；reveal_panel 保留现有呈现方式和实例，提供开发入口的唤起目标；统一检测 macOS 15+ arm64 弹出能力，限制手动/自动恢复及窗口子进程入口；旧玻璃偏好迁移为磨砂，弹出偏好始终展开且忽略宿主收起同步，外观 PATCH（含 liquidVariant 和四功能 fontSizes）验证与版本控制，旧整份 ui 写回保留独立字号，Web 修改和宿主回传分开同步，不提供 Codex 主题写入 API。
 - [window_warp.rs](window_warp.rs)：panel_window 的开发版整窗形变后端；私有 ABI 动态加载、独立曲面网格、错误回退和复位，网格身份/四方向顺序测试同文件维护。
@@ -123,3 +123,5 @@ model_control_state复用原CDP回读携带可选测速投影，以模型目标I
 settings 的 grokbotEnabled 默认关闭，不影响 generationRevision。features 增加 bots，开启时登记现有主界面；bot_view 在当前 CDP 客户端读取元数据投影，动作经过 feature owner 与宿主 composer token 双重校验；后台只读 BDK 名单，不消费回复或保存聊天内容。
 
 - `features/bots.rs`：本机 BDK 名单缓存、自动文件监听与手动刷新；手动模式释放 watcher 并停止健康请求，首次读取/显式刷新/操作前校验保留。关闭/断连释放缓存；错误清空名单并提示接入 Prompt。`settings.grokbotAutoSync` 独立保存，不改变生成版本。features 的 bots-catalog 提供设置只读资料，refresh 动作复用功能 owner 校验，不填入输入框。
+
+- `brand.rs`：Palboo 环境变量优先与旧名称回退；默认数据目录迁移持有迁移锁与旧服务锁，拒绝活动服务/独立目录冲突，原子移动并保留旧路径别名。显式 --data-dir 不触发自动迁移，业务文件原样保留。

@@ -140,7 +140,7 @@ test(
             env: {
               ...process.env,
               HOME: join(base, 'home'),
-              CODEX_BUDDY_HOME: join(base, 'install'),
+              PALBOO_HOME: join(base, 'install'),
               BUDDY_FIXTURE_DIRECTORY: base,
               PATH: `${bin}:${process.env.PATH}`,
             },
@@ -164,7 +164,7 @@ test(
         const root = ${JSON.stringify(main)};
         claimLease(root + '/target/dev/owner.json', {root});
         claimTarget({endpoint:${JSON.stringify(endpoint)}, target:{id:'fixture-window'}}, root,
-          ${JSON.stringify(join(base, 'home/Library/Caches/codex-buddy/dev-targets'))});
+          ${JSON.stringify(join(base, 'home/Library/Caches/palboo/dev-targets'))});
       `,
       ]);
       stage = 'start supervisor';
@@ -220,7 +220,7 @@ test(
         method: 'POST',
         headers: {
           Authorization: `Bearer ${session.token}`,
-          'X-Codex-Buddy-Source': session.sourceEpoch,
+          'X-Palboo-Source': session.sourceEpoch,
           'Content-Type': 'application/json',
         },
         body: '{}',
@@ -255,7 +255,7 @@ test(
       stage = 'launch pinned browser';
       browserServer = await chromium.launchServer({
         headless: true,
-        executablePath: process.env.CODEX_BUDDY_CHROME_BIN || undefined,
+        executablePath: process.env.PALBOO_CHROME_BIN || undefined,
       });
       browser = await chromium.connect(browserServer.wsEndpoint(), { timeout: 20000 });
       const page = await browser.newPage();
@@ -263,7 +263,8 @@ test(
       page.setDefaultNavigationTimeout(20000);
       const previousEpoch = readRecord(join(main, 'target/dev/session.json')).sourceEpoch;
       let switchingSource = false,
-        switchStarted = false;
+        switchStarted = false,
+        rejectSourceForTest = false;
       const responseChecks = [];
       page.on('pageerror', (error) => errors.push(error.message));
       page.on('console', (message) => {
@@ -280,8 +281,9 @@ test(
         responseChecks.push(
           (async () => {
             const path = new URL(response.url()).pathname;
-            const oldSource =
-              response.request().headers()['x-codex-buddy-source'] === previousEpoch;
+            if (rejectSourceForTest && path === '/api/dev/sources' && response.status() === 409)
+              return;
+            const oldSource = response.request().headers()['x-palboo-source'] === previousEpoch;
             // Old-document responses can arrive after reload; its body may already be discarded.
             // The earlier staleSave assertion verifies this guard; the current page must save below.
             if (
@@ -311,13 +313,16 @@ test(
       await outlineSwitch.waitFor();
       assert.equal(await outlineSwitch.isEnabled(), true, 'settings controls must be usable');
       await navigation.getByRole('link', { name: '开发来源', exact: true }).click();
-      await page.getByText(/开发来源 · Stepwise/).waitFor();
+      await page
+        .locator('.source-row[data-active="true"]')
+        .filter({ hasText: 'Stepwise' })
+        .waitFor();
       await Promise.all(responseChecks);
       assert.deepEqual(errors, [], 'complete settings page must render without React errors');
       const alignment = await page.evaluate(() => ({
         source: document
           .querySelector('#buddy-dev-sources')
-          .shadowRoot.querySelector('details')
+          .shadowRoot.querySelector('.source-content')
           .getBoundingClientRect().left,
         settings: document.querySelector('#root main h1').getBoundingClientRect().left,
       }));
@@ -325,18 +330,75 @@ test(
         Math.abs(alignment.source - alignment.settings) <= 1,
         'source and settings share the same content edge',
       );
+      const sourceWidget = page.locator('#buddy-dev-sources');
+      assert.equal(await sourceWidget.locator('summary').count(), 0);
+      assert.equal(await sourceWidget.getByRole('group', { name: '开发来源' }).isVisible(), true);
       stage = 'switch source from settings';
-      await page.getByLabel('调试 worktree').selectOption(main);
+      await sourceWidget.getByRole('radio', { name: `main · ${main}`, exact: true }).check();
+      rejectSourceForTest = true;
+      await page.route('**/api/dev/sources', async (route) => {
+        if (route.request().method() !== 'POST') return route.continue();
+        await route.fulfill({
+          status: 409,
+          contentType: 'application/json',
+          body: JSON.stringify({ message: '合成编译失败，原来源保持运行。' }),
+        });
+      });
+      await page.getByRole('button', { name: '切换来源' }).click();
+      await sourceWidget.getByRole('status').filter({ hasText: '合成编译失败' }).waitFor();
+      assert.equal(await page.getByRole('button', { name: '切换来源' }).isEnabled(), true);
+      assert.equal(
+        await sourceWidget.locator('[data-state]').getAttribute('data-complete'),
+        'false',
+      );
+      await Promise.all(responseChecks);
+      rejectSourceForTest = false;
+      await page.unroute('**/api/dev/sources');
+      let releaseSwitch;
+      const switchGate = new Promise((resolve) => (releaseSwitch = resolve));
+      await page.route('**/api/dev/sources', async (route) => {
+        if (route.request().method() === 'POST') await switchGate;
+        await route.continue();
+      });
       switchingSource = true;
       switchStarted = true;
+      await page.getByRole('button', { name: '切换来源' }).click();
+      const switchingButton = page.getByRole('button', { name: '切换中…' });
+      assert.equal(await switchingButton.isDisabled(), true);
+      assert.equal(
+        await sourceWidget.getByRole('radio', { name: `main · ${main}`, exact: true }).isDisabled(),
+        true,
+      );
+      assert.equal(
+        await switchingButton.evaluate((node) => getComputedStyle(node, '::before').animationName),
+        'source-spin',
+      );
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      assert.equal(
+        await switchingButton.evaluate((node) => getComputedStyle(node, '::before').animationName),
+        'none',
+      );
+      await page.emulateMedia({ reducedMotion: 'no-preference' });
       await Promise.all([
         page.waitForEvent('domcontentloaded', { timeout: 30000 }),
-        page.getByRole('button', { name: '切换来源' }).click({ noWaitAfter: true }),
+        Promise.resolve().then(() => releaseSwitch()),
       ]);
+      await page.unroute('**/api/dev/sources');
       stage = 'wait for switched source widget';
-      await page.getByText(/开发来源 · main/).waitFor({ timeout: 30000 });
+      await sourceWidget
+        .locator('.source-row[data-active="true"]')
+        .filter({ hasText: 'main' })
+        .waitFor({ timeout: 30000 });
       stage = 'wait for switched resource confirmation';
-      await page.getByText(/界面资源已确认/).waitFor();
+      await sourceWidget
+        .getByRole('status')
+        .filter({ hasText: /已切换至 main/ })
+        .waitFor();
+      assert.equal(
+        await sourceWidget.locator('[data-state]').getAttribute('data-complete'),
+        'true',
+      );
+      assert.equal(await page.getByRole('button', { name: '切换来源' }).isDisabled(), true);
       switchingSource = false;
       assert.notEqual(readRecord(join(main, 'target/dev/session.json')).sourceEpoch, previousEpoch);
       stage = 'check switched settings usability';
@@ -372,8 +434,8 @@ test(
       stage = 'check missing and expired credentials';
       const unauthenticated = await browser.newPage();
       await unauthenticated.goto(`${session.url}/#settings-dev`);
-      await unauthenticated.getByText('开发来源 · 无法连接', { exact: true }).waitFor();
-      await unauthenticated.getByRole('alert').filter({ hasText: '尚未连接 Buddy' }).waitFor();
+      await unauthenticated.locator('#buddy-dev-sources [data-state][data-error="true"]').waitFor();
+      await unauthenticated.getByRole('alert').filter({ hasText: '尚未连接 Palboo' }).waitFor();
       assert.equal(await unauthenticated.getByText('等待本地服务…', { exact: true }).count(), 0);
       await unauthenticated.close();
       const expired = await browser.newPage();
@@ -382,7 +444,7 @@ test(
         .getByRole('navigation', { name: '设置分类' })
         .getByRole('link', { name: '开发来源', exact: true })
         .click();
-      await expired.getByText('开发来源 · 无法连接', { exact: true }).waitFor();
+      await expired.locator('#buddy-dev-sources [data-state][data-error="true"]').waitFor();
       await expired.getByRole('alert').filter({ hasText: '设置连接已过期' }).waitFor();
       await expired.close();
       const events = readFileSync(join(base, 'events.jsonl'), 'utf8')

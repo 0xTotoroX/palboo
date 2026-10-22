@@ -21,7 +21,7 @@ if (['cargo', 'npm'].includes(basename(process.argv[1]))) {
   if (existsSync(join(root, 'fail-build'))) process.exit(1);
   if (basename(process.argv[1]) === 'cargo') {
     mkdirSync(join(root, 'target/debug'), { recursive: true });
-    copyFileSync(process.argv[1], join(root, 'target/debug/codex-buddy'));
+    copyFileSync(process.argv[1], join(root, 'target/debug/palboo'));
   } else {
     mkdirSync(join(root, 'target/web'), { recursive: true });
     writeFileSync(join(root, 'target/web/index.html'), '<p>fixture</p>');
@@ -31,7 +31,7 @@ if (['cargo', 'npm'].includes(basename(process.argv[1]))) {
     rmSync(join(root, 'fail-connect'));
     process.exit(1);
   }
-  const data = process.env.CODEX_BUDDY_HOME;
+  const data = process.env.PALBOO_HOME;
   const config = JSON.parse(readFileSync(join(data, 'config.json')));
   const injection = join(process.env.BUDDY_FIXTURE_DIRECTORY, 'injection.json');
   const events = join(process.env.BUDDY_FIXTURE_DIRECTORY, 'events.jsonl');
@@ -49,7 +49,7 @@ if (['cargo', 'npm'].includes(basename(process.argv[1]))) {
     readFileSync(join(process.env.BUDDY_FIXTURE_DIRECTORY, 'settings.json')),
   );
   const view = {
-    settingsUrl: process.env.CODEX_BUDDY_DEV_SETTINGS,
+    settingsUrl: process.env.PALBOO_DEV_SETTINGS,
     version: 'fixture',
     configurationRevision: 1,
     panelFontBase: 13,
@@ -158,7 +158,7 @@ if (['cargo', 'npm'].includes(basename(process.argv[1]))) {
       return;
     }
     if (req.url === '/api/development') {
-      const snapshot = JSON.parse(readFileSync(process.env.CODEX_BUDDY_DEV_ASSETS));
+      const snapshot = JSON.parse(readFileSync(process.env.PALBOO_DEV_ASSETS));
       res.end(JSON.stringify({ development: true, roots: 1, revision: snapshot.revision }));
     } else
       res.end(

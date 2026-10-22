@@ -32,16 +32,16 @@ if (audit.error || audit.status !== 0) throw new Error('源码与公开内容检
 const { version } = JSON.parse(readFileSync(join(root, 'package.json')));
 const cargo = readFileSync(join(root, 'Cargo.toml'), 'utf8');
 if (!cargo.includes(`version = "${version}"`)) throw new Error('Cargo 与网页版本不一致');
-const file = 'codex-buddy';
+const file = 'palboo';
 const artifact = prepareTestBinary('release');
 const source = artifact.binary;
 const result = spawnSync(source, ['--version'], { encoding: 'utf8' });
-if (result.error || result.status !== 0 || result.stdout.trim() !== `codex-buddy ${version}`)
+if (result.error || result.status !== 0 || result.stdout.trim() !== `palboo ${version}`)
   throw new Error('请先构建与当前版本一致的 release 产物');
 const build = spawnSync('xcrun', ['vtool', '-show-build', source], { encoding: 'utf8' });
 if (build.error || build.status !== 0 || !/minos\s+14\.0\b/.test(build.stdout))
   throw new Error('产物最低 macOS 版本必须为 14.0，请按项目配置重新构建');
-const name = `codex-buddy-${version}-${process.platform}-${process.arch}`;
+const name = `palboo-${version}-${process.platform}-${process.arch}`;
 const folder = join(root, 'dist', name);
 // Rebuild this generated directory so retired files cannot remain in the archive.
 rmSync(folder, { recursive: true, force: true });
@@ -51,7 +51,7 @@ copyFileSync(source, destination);
 chmodSync(destination, 0o755);
 writeFileSync(
   join(folder, 'README.md'),
-  `# CodexBuddy ${version}
+  `# Palboo ${version}
 
 Codex 的本地辅助工具：回答大纲、下一步建议、任务看板、模型切换、术语释义与提示词优化。
 此归档适用于 macOS 14.0+ Apple Silicon，主程序无需 Node.js 或 Rust。可选的 Grok Bot 接入由用户 Agent 根据当前官方文档检查并准备依赖。桌面浮窗需要 macOS 15+；macOS 14 仍可使用 Codex 内嵌面板。
@@ -61,17 +61,17 @@ Codex 的本地辅助工具：回答大纲、下一步建议、任务看板、�
 在终端进入解压目录，执行：
 
 \`\`\`sh
-./codex-buddy launch --no-open --restart-running
-./codex-buddy popout
+./palboo launch --no-open --restart-running
+./palboo popout
 \`\`\`
 
 若 ChatGPT 已打开但没有调试连接，第一条命令按启动设置询问或直接重开；已有可用连接时直接复用。
-打开配置页：\`./codex-buddy start\`。查看诊断：\`./codex-buddy doctor\`。
-停止本工具：\`./codex-buddy stop\`。可用命令见 \`./codex-buddy --help\`。
+打开配置页：\`./palboo start\`。查看诊断：\`./palboo doctor\`。
+停止本工具：\`./palboo stop\`。可用命令见 \`./palboo --help\`。
 
 归档是命令行版本，不包含 .app 双击启动器。
 
-Grok Bot 接入：在设置的 Grok Bot 子页复制接入 Prompt，交给自己的 Agent 按当前官方文档配置 BDK、MCP 与 Skill。接入独立安装和更新，PALBOO 不携带安装器或适配器。自动同步可关闭，关闭后点击刷新更新资料；所有咨询与追问仍留在 Codex 主聊天。
+Grok Bot 接入：在设置的 Grok Bot 子页复制接入 Prompt，交给自己的 Agent 按当前官方文档配置 BDK、MCP 与 Skill。接入独立安装和更新，Palboo 不携带安装器或适配器。自动同步可关闭，关闭后点击刷新更新资料；所有咨询与追问仍留在 Codex 主聊天。
 回答大纲在本机解析；下一步建议和提示词优化使用配置的模型，提示词优化只发送当前草稿且不会自动发送。术语词库保存在本机、不随包分发；启用语义识别时会将当前一问一答发送到配置的模型，联网补充限于公共百科。默认只填入建议，已有草稿经确认后追加。Apple 提醒事项设置入口暂时隐藏，已有数据与绑定保留。
 
 ## 外观与窗口
@@ -87,7 +87,7 @@ macOS 15+ 的弹出窗口始终展开，可拖动、调整尺寸和置顶，默�
 
 ## 文件
 
-- [codex-buddy](codex-buddy)：可执行程序。
+- [palboo](palboo)：可执行程序。
 - [LICENSE](LICENSE)：项目 GPL-3.0-only 完整许可。
 - [LICENSING.md](LICENSING.md)：许可范围、免费商用、对应源码义务及旧 MIT 授权说明。
 - [licenses/LICENSE-MIT-legacy](licenses/LICENSE-MIT-legacy)：变更前 MIT 历史原文。
@@ -105,7 +105,7 @@ writeFileSync(
   join(folder, 'manifest.json'),
   JSON.stringify(
     {
-      name: 'codex-buddy',
+      name: 'palboo',
       version,
       license: PROJECT_LICENSE,
       platform: process.platform,

@@ -247,7 +247,7 @@ export function independentFeatureCases({ mode, syncSettings }) {
           }, zoom);
           await page
             .waitForFunction(() => {
-              const slot = document.querySelector('[data-codex-buddy-dock]');
+              const slot = document.querySelector('[data-palboo-dock]');
               const panel = slot?.querySelector('.csw-panel');
               if (!panel) return false;
               const available = slot.getBoundingClientRect();
@@ -260,7 +260,7 @@ export function independentFeatureCases({ mode, syncSettings }) {
             })
             .catch(async (error) => {
               const geometry = await page.evaluate(() => {
-                const slot = document.querySelector('[data-codex-buddy-dock]');
+                const slot = document.querySelector('[data-palboo-dock]');
                 const panel = slot?.querySelector('.csw-panel');
                 return {
                   slot: slot?.getBoundingClientRect().toJSON(),
@@ -319,9 +319,9 @@ export function independentFeatureCases({ mode, syncSettings }) {
         await page.keyboard.press('Escape');
         assert.equal(await page.locator('.csw-workbench[data-composition="focus"]').count(), 0);
         assert.equal(await outline.locator('.feature-pane-head strong').count(), 0);
-        await page.getByRole('button', { name: 'CodexBuddy', exact: true }).press('Enter');
+        await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
         await page.waitForFunction(() => !window.__companionFloatingPanel.state.dockOpen);
-        await page.getByRole('button', { name: 'CodexBuddy', exact: true }).press('Enter');
+        await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
         await outline.getByRole('navigation', { name: '大纲' }).waitFor();
         const widthHandle = page.getByRole('separator', { name: '调整工作台宽度' });
         const beforeWidth = Number(await widthHandle.getAttribute('aria-valuenow'));
@@ -334,7 +334,7 @@ export function independentFeatureCases({ mode, syncSettings }) {
           await page.evaluate(() => window.__companionFloatingPanel.panelPreferences().dockWidth),
           Math.min(Number(await widthHandle.getAttribute('aria-valuemax')), beforeWidth + 16),
         );
-        const dock = page.locator('[data-codex-buddy-dock]');
+        const dock = page.locator('[data-palboo-dock]');
         const dockBefore = await dock.boundingBox();
         const handleBox = await widthHandle.boundingBox();
         const savedBefore = Number(await widthHandle.getAttribute('aria-valuenow'));
@@ -357,7 +357,7 @@ export function independentFeatureCases({ mode, syncSettings }) {
         await page.waitForFunction(
           ({ before, dx }) =>
             Math.abs(
-              document.querySelector('[data-codex-buddy-dock]').getBoundingClientRect().width -
+              document.querySelector('[data-palboo-dock]').getBoundingClientRect().width -
                 before +
                 dx,
             ) < 2,
@@ -384,7 +384,7 @@ export function independentFeatureCases({ mode, syncSettings }) {
         assert.equal(await page.locator('select[aria-label="打开功能"]').count(), 0);
         const board = page.locator('[data-feature="board"]');
         await board.getByText('保留原任务', { exact: true }).waitFor();
-        assert.equal(await page.locator('[data-codex-buddy-dock]').count(), 1);
+        assert.equal(await page.locator('[data-palboo-dock]').count(), 1);
         await board.getByRole('button', { name: '新建任务', exact: true }).first().click();
         await board.getByLabel('新任务标题', { exact: true }).fill('尚未保存的标题');
         const beforeCollapse = await dock.boundingBox();
@@ -402,7 +402,7 @@ export function independentFeatureCases({ mode, syncSettings }) {
         await page.mouse.up();
         await page.waitForFunction(() => !window.__companionFloatingPanel.state.dockOpen);
         assert.equal((await dock.boundingBox()).width, 0, 'collapsed sidebar releases its slot');
-        await page.getByRole('button', { name: 'CodexBuddy', exact: true }).press('Enter');
+        await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
         await board.getByLabel('新任务标题', { exact: true }).waitFor();
         assert.equal(
           await board.getByLabel('新任务标题', { exact: true }).inputValue(),
@@ -425,7 +425,7 @@ export function independentFeatureCases({ mode, syncSettings }) {
           if (i === 0) {
             await checkOverlayMotion(page, configureFeature);
             await page.emulateMedia({ reducedMotion: 'no-preference' });
-            const face = page.getByRole('button', { name: 'CodexBuddy', exact: true });
+            const face = page.getByRole('button', { name: 'Palboo', exact: true });
             await face.press('Enter');
             await page.waitForFunction(
               () =>
@@ -433,12 +433,12 @@ export function independentFeatureCases({ mode, syncSettings }) {
                 window.__companionFloatingPanel.state.popover.dataset.morphing === 'false',
             );
             const rect = await page
-              .getByRole('button', { name: 'CodexBuddy', exact: true })
+              .getByRole('button', { name: 'Palboo', exact: true })
               .boundingBox();
             assert.equal(await page.locator('.csw-fab:not(.csw-launcher-face)').isVisible(), false);
             assert.equal(Math.round(rect.width), 36);
             assert.equal(Math.round(rect.height), 28);
-            await page.getByRole('button', { name: 'CodexBuddy', exact: true }).press('Enter');
+            await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
             await page.waitForFunction(
               () =>
                 window.__companionFloatingPanel.state.open &&
@@ -455,7 +455,7 @@ export function independentFeatureCases({ mode, syncSettings }) {
               'only one main shell',
             );
             assert.equal(
-              await page.locator('[data-codex-buddy-dock]').count(),
+              await page.locator('[data-palboo-dock]').count(),
               0,
               'overlay releases sidebar',
             );
@@ -470,7 +470,7 @@ export function independentFeatureCases({ mode, syncSettings }) {
           );
           await board.getByLabel('新任务标题', { exact: true }).waitFor();
           assert.equal(await page.locator('[data-feature="board"]').count(), 1);
-          assert.equal(await page.locator('[data-codex-buddy-dock]').count(), 1);
+          assert.equal(await page.locator('[data-palboo-dock]').count(), 1);
         }
 
         assert.equal(
@@ -492,9 +492,9 @@ export function independentFeatureCases({ mode, syncSettings }) {
         });
         await board.waitFor({ state: 'detached' });
         assert.equal(await outline.count(), 1);
-        await page.getByRole('button', { name: 'CodexBuddy', exact: true }).press('Enter');
+        await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
         await page.waitForFunction(() => !window.__companionFloatingPanel.state.dockOpen);
-        await page.getByRole('button', { name: 'CodexBuddy', exact: true }).press('Enter');
+        await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
         await outline.getByRole('navigation', { name: '大纲' }).waitFor();
         assert.equal(
           await board.count(),
@@ -637,7 +637,7 @@ export function independentFeatureCases({ mode, syncSettings }) {
         });
         await page.waitForFunction(
           ({ height }) => {
-            const host = [...document.querySelectorAll('[data-codex-buddy-features-root]')].find(
+            const host = [...document.querySelectorAll('[data-palboo-features-root]')].find(
               (node) => node.shadowRoot?.querySelector('[data-feature="next"]'),
             );
             return (
@@ -713,9 +713,9 @@ export function independentFeatureCases({ mode, syncSettings }) {
         await page.screenshot({ path: 'target/reports/workbench/independent-model.png' });
         await page.setViewportSize({ width: 880, height: 960 });
         await page.waitForFunction(
-          () => document.querySelector('[data-codex-buddy-dock]')?.dataset.reason === 'space',
+          () => document.querySelector('[data-palboo-dock]')?.dataset.reason === 'space',
         );
-        await page.getByRole('button', { name: 'CodexBuddy', exact: true }).press('Enter');
+        await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
         await page.waitForTimeout(150);
         assert.equal(await page.locator('.csw-dock-menu,.csw-dock-warning').count(), 0);
         assert.equal(
@@ -724,7 +724,7 @@ export function independentFeatureCases({ mode, syncSettings }) {
         );
         assert.equal(await model.isVisible(), false);
         await page.setViewportSize({ width: 1500, height: 1000 });
-        await page.getByRole('button', { name: 'CodexBuddy', exact: true }).press('Enter');
+        await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
         await model.locator('[data-model="a"][data-reasoning="low"]').waitFor();
         await page.evaluate(() => {
           window.workbenchFixture.modelState.preferences.enabled = false;
@@ -747,7 +747,7 @@ export function independentFeatureCases({ mode, syncSettings }) {
         await page.waitForFunction(
           () => window.__companionFloatingPanel.state.dockStatus === 'unsupported',
         );
-        await page.getByRole('button', { name: 'CodexBuddy', exact: true }).press('Enter');
+        await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
         await page.waitForTimeout(150);
         assert.equal(await page.locator('.csw-dock-menu,.csw-dock-warning').count(), 0);
         assert.equal(
@@ -773,8 +773,8 @@ export function independentFeatureCases({ mode, syncSettings }) {
         });
         assert.equal(destroyedDuringMotion, true);
         assert.equal(await page.locator('[id^="csw-overlay-warp-"]').count(), 0);
-        assert.equal(await page.locator('[data-codex-buddy-features-root]').count(), 0);
-        assert.equal(await page.locator('[data-codex-buddy-dock]').count(), 0);
+        assert.equal(await page.locator('[data-palboo-features-root]').count(), 0);
+        assert.equal(await page.locator('[data-palboo-dock]').count(), 0);
       },
     ],
   ];

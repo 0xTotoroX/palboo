@@ -11,7 +11,7 @@ import { PROJECT_LICENSE, copyProjectLicenses } from './project-licenses.mjs';
 
 if (process.platform !== 'darwin') throw new Error('材质对照需要 macOS。');
 const root = resolve(import.meta.dirname, '..');
-const contents = join(root, 'target/material-preview/CodexBuddy Materials.app/Contents');
+const contents = join(root, 'target/material-preview/Palboo Materials.app/Contents');
 mkdirSync(join(contents, 'MacOS'), { recursive: true });
 const binary = join(contents, 'MacOS/material-preview');
 const { version } = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
@@ -34,8 +34,8 @@ writeFileSync(
   `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-<key>CFBundleIdentifier</key><string>local.codexbuddy.material-preview</string>
-<key>CFBundleName</key><string>CodexBuddy Materials</string>
+<key>CFBundleIdentifier</key><string>local.palboo.material-preview</string>
+<key>CFBundleName</key><string>Palboo Materials</string>
 <key>CFBundleExecutable</key><string>material-preview</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>${version}</string>
@@ -49,7 +49,7 @@ mkdirSync(join(contents, 'Resources'), { recursive: true });
 copyProjectLicenses(root, join(contents, 'Resources'));
 if (process.argv.includes('--package')) {
   const output = join(root, 'dist/material-preview');
-  const name = 'CodexBuddy Materials.app';
+  const name = 'Palboo Materials.app';
   const app = join(output, name);
   mkdirSync(output, { recursive: true });
   run('ditto', [resolve(contents, '..'), app]);
@@ -66,7 +66,7 @@ if (process.argv.includes('--package')) {
     join(source, 'package.json'),
     JSON.stringify(
       {
-        name: 'codex-buddy-materials',
+        name: 'palboo-materials',
         version,
         private: true,
         license: PROJECT_LICENSE,
@@ -84,9 +84,9 @@ if (process.argv.includes('--package')) {
   );
   writeFileSync(
     join(source, 'README.md'),
-    `# CodexBuddy Materials 源码
+    `# Palboo Materials 源码
 
-这里包含 ZIP 内材质预览 App 的全部应用源码和构建脚本，可独立二次开发。它是 Swift/AppKit 原生工具，不包含 CodexBuddy 主程序、聊天连接或网页液态玻璃实现。
+这里包含 ZIP 内材质预览 App 的全部应用源码和构建脚本，可独立二次开发。它是 Swift/AppKit 原生工具，不包含 Palboo 主程序、聊天连接或网页液态玻璃实现。
 
 ## 文件
 
@@ -100,7 +100,7 @@ if (process.argv.includes('--package')) {
 
 ## 修改与运行
 
-构建需要 Apple Silicon Mac、macOS 14+、Node.js 22.16+、Xcode Command Line Tools。首次缺少编译工具时执行 xcode-select --install。无需 npm install，也不需要原 CodexBuddy 仓库。
+构建需要 Apple Silicon Mac、macOS 14+、Node.js 22.16+、Xcode Command Line Tools。首次缺少编译工具时执行 xcode-select --install。无需 npm install，也不需要原 Palboo 仓库。
 
 在本 source 目录打开终端：
 
@@ -119,16 +119,16 @@ App 自带可执行程序，使用者无需开发工具。macOS 14 为构建最�
   );
   writeFileSync(
     join(output, '使用说明.txt'),
-    `CodexBuddy Materials ${version}
+    `Palboo Materials ${version}
 
-双击 CodexBuddy Materials.app 即可打开 14 种原生材质对照。
+双击 Palboo Materials.app 即可打开 14 种原生材质对照。
 可将整个 App 拖入“应用程序”，或放在任意长期保存的文件夹。
-App 自带可执行程序，不需要 Node.js、Rust、开发工具或 CodexBuddy 项目。
+App 自带可执行程序，不需要 Node.js、Rust、开发工具或 Palboo 项目。
 source 文件夹包含完整预览源码、GPL-3.0-only 许可包和独立构建入口；二次开发见 source/README.md。
 
 顶部可以统一切换背景、浅色/深色、跟随焦点/保持激活/模拟失焦。
 “真实桌面”隐藏对照背景，拖动窗口可观察实际桌面效果。
-这些操作只影响预览，不修改系统设置或 CodexBuddy 胶囊偏好。
+这些操作只影响预览，不修改系统设置或 Palboo 胶囊偏好。
 关闭窗口或按 Command+Q 退出。
 
 平台要求：macOS 14+、Apple Silicon。构建目标不等于所有旧系统均已实测。
@@ -136,7 +136,7 @@ source 文件夹包含完整预览源码、GPL-3.0-only 许可包和独立构建
 完整 GPL 许可、范围说明和 MIT 历史原文随 App 保存在 Contents/Resources/。
 `,
   );
-  const archive = join(root, `dist/codex-buddy-materials-${version}-macos-arm64.zip`);
+  const archive = join(root, `dist/palboo-materials-${version}-macos-arm64.zip`);
   run('ditto', ['-c', '-k', '--sequesterRsrc', '--keepParent', output, archive]);
   console.log(`独立 App：${app}\n保存用 ZIP：${archive}`);
 } else if (process.argv.includes('--check')) run(binary, ['--check']);

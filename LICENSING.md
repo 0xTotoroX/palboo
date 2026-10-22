@@ -1,8 +1,8 @@
-# CodexBuddy licensing / 许可说明
+# Palboo licensing / 许可说明
 
 Copyright (c) 2026 0xTotoroX
 
-CodexBuddy project-owned code, including the standalone material-preview tool, is offered under the GNU General Public License **version 3 only** (`GPL-3.0-only`). The complete, unmodified license is in [LICENSE](LICENSE), preserved from the [SPDX license-list-data text](https://raw.githubusercontent.com/spdx/license-list-data/main/text/GPL-3.0-only.txt) (SHA-256 `fb981668c18a279e285fc4d83fba1e836cc84dd4daa73c9697d3cfd2d8aca6e0`). This applies to this license-change revision and subsequent revisions that the copyright holder is entitled to license. It does not relicense third-party code.
+Palboo project-owned code, including the standalone material-preview tool, is offered under the GNU General Public License **version 3 only** (`GPL-3.0-only`). The complete, unmodified license is in [LICENSE](LICENSE), preserved from the [SPDX license-list-data text](https://raw.githubusercontent.com/spdx/license-list-data/main/text/GPL-3.0-only.txt) (SHA-256 `fb981668c18a279e285fc4d83fba1e836cc84dd4daa73c9697d3cfd2d8aca6e0`). This applies to this license-change revision and subsequent revisions that the copyright holder is entitled to license. It does not relicense third-party code.
 
 Commercial use is permitted; no separate commercial license or license fee is required. When conveying covered software, comply with GPLv3, including its applicable Corresponding Source requirements. Private use does not require publication to everyone. The license text governs the precise obligations.
 
@@ -18,7 +18,7 @@ Preserve the separate original notices for the [Model Deck adapter](ui/codex/LIC
 
 ## 中文
 
-CodexBuddy 自有源码及独立材质对照工具，从本次许可变更版本起，采用 GNU 通用公共许可证**固定第三版**（`GPL-3.0-only`）。完整未修改原文见 LICENSE；适用范围限于版权人有权授权的当前及后续版本，不改变第三方代码的原有许可。
+Palboo 自有源码及独立材质对照工具，从本次许可变更版本起，采用 GNU 通用公共许可证**固定第三版**（`GPL-3.0-only`）。完整未修改原文见 LICENSE；适用范围限于版权人有权授权的当前及后续版本，不改变第三方代码的原有许可。
 
 允许免费商用，无需另购商业许可，也没有许可收费条件。分发受 GPL 覆盖的软件时，须遵守 GPLv3 的适用对应源码义务；私人使用不要求向全世界公开源码。具体义务以许可原文为准。
 

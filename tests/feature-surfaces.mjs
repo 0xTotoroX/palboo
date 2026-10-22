@@ -69,7 +69,7 @@ export function featureSurfaceCases({ mode, createPopout, settle, output, bundle
         const outlineCount = await page.locator('[data-outline-id]').count();
         assert.ok(outlineCount > 0);
         await page.getByLabel('功能显示位置', { exact: true }).selectOption('overlay');
-        await page.waitForFunction(() => !document.querySelector('[data-codex-buddy-dock]'));
+        await page.waitForFunction(() => !document.querySelector('[data-palboo-dock]'));
         assert.equal(await page.locator('[data-outline-id]').count(), outlineCount);
         await page.getByLabel('功能显示位置', { exact: true }).selectOption('sidebar');
         await page.getByLabel('显示功能', { exact: true }).selectOption('board');
@@ -90,7 +90,7 @@ export function featureSurfaceCases({ mode, createPopout, settle, output, bundle
         await board.getByRole('button', { name: '搜索任务', exact: true }).click();
         await board.getByPlaceholder('搜索任务…').fill('试点');
         await page.getByLabel('功能显示位置', { exact: true }).selectOption('overlay');
-        await page.waitForFunction(() => !document.querySelector('[data-codex-buddy-dock]'));
+        await page.waitForFunction(() => !document.querySelector('[data-palboo-dock]'));
         await board.getByText('试点任务', { exact: true }).waitFor();
         assert.equal(await board.getByPlaceholder('搜索任务…').inputValue(), '试点');
         await board.getByRole('button', { name: '新建任务', exact: true }).first().click();
@@ -125,9 +125,9 @@ export function featureSurfaceCases({ mode, createPopout, settle, output, bundle
         for (let i = 0; i < 3; i++) {
           await page.evaluate(() => window.__companionFloatingPanel.setOpen(false));
           await page
-            .getByRole('button', { name: 'CodexBuddy', exact: true })
+            .getByRole('button', { name: 'Palboo', exact: true })
             .waitFor({ state: 'visible' });
-          await page.getByRole('button', { name: 'CodexBuddy', exact: true }).press('Enter');
+          await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
           await board.getByText('试点任务', { exact: true }).waitFor();
         }
         const reads = await page.evaluate(() => window.workbenchFixture.taskReads);
@@ -204,9 +204,9 @@ export function featureSurfaceCases({ mode, createPopout, settle, output, bundle
         await page.evaluate(bundle);
         await page.waitForFunction(() => window.__companionFloatingPanel?.state.settingsLoaded);
         await page
-          .getByRole('button', { name: 'CodexBuddy', exact: true })
+          .getByRole('button', { name: 'Palboo', exact: true })
           .waitFor({ state: 'visible' });
-        await page.getByRole('button', { name: 'CodexBuddy', exact: true }).press('Enter');
+        await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
         await page.getByLabel('显示功能', { exact: true }).selectOption('board');
         await board.getByRole('button', { name: '搜索任务', exact: true }).waitFor();
       },

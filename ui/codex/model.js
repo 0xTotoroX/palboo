@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 官方 DOM 菜单、稳定聊天标记/新聊天输入区和关联的 model/list 消息；不依赖工作台锁定。
- * [OUTPUT]: window.__codexBuddyModelControl 的异步 snapshot/apply 和同步 presence/cancel/dispose/inputTarget，dispose同时回收独立额度读取；inputTarget只读当前唯一输入目标。
+ * [OUTPUT]: window.__palbooModelControl 的异步 snapshot/apply 和同步 presence/cancel/dispose/inputTarget，dispose同时回收独立额度读取；inputTarget只读当前唯一输入目标。
  * [POS]: include_str / Page.addScriptToEvaluateOnNewDocument 可独立安装的宿主边界。
  * [PROTOCOL]: 父任务维护集成和地图；本文件不写 React、持久存储或发送模型请求。
  * snapshot(false) 不操作 DOM；refresh=true 显式探测菜单，限时等待能力后完整回读。target 无法确认时 id/title 为空。
@@ -33,11 +33,11 @@
  */
 (() => {
   'use strict';
-  const KEY = '__codexBuddyModelControl';
-  const CAPABILITIES = Symbol.for('codexBuddy.modelCapabilities');
+  const KEY = '__palbooModelControl';
+  const CAPABILITIES = Symbol.for('palboo.modelCapabilities');
   window[KEY]?.dispose?.();
   const OWN =
-    '[data-companion-stepwise-root],[data-codex-buddy-dock],[data-codexpp-qmp-root],[data-codex-buddy-prompt]';
+    '[data-companion-stepwise-root],[data-palboo-dock],[data-codexpp-qmp-root],[data-palboo-prompt]';
   const EDITOR = '.ProseMirror,[contenteditable="true"],textarea';
   const MENU =
     '[role="menu"][data-state="open"],[role="listbox"],[data-radix-menu-content][data-state="open"]';
@@ -435,7 +435,7 @@
   function passive() {
     const target = resolveTarget(),
       busy = generating(target);
-    const compatibility = window.__codexBuddyHostCompatibility?.capability(target?.composer);
+    const compatibility = window.__palbooHostCompatibility?.capability(target?.composer);
     const current =
       cache &&
       sameTarget(cache.target, target) &&
@@ -497,7 +497,7 @@
   }
   function guard(op, node) {
     checkLive();
-    const compatibility = window.__codexBuddyHostCompatibility?.capability(op.target?.composer);
+    const compatibility = window.__palbooHostCompatibility?.capability(op.target?.composer);
     if (compatibility?.officialModel === false) op.aborted ||= compatibility.message;
     if (op.controller.signal.aborted || performance.now() >= op.deadline)
       op.aborted ||= String(op.controller.signal.reason || '操作超过 11 秒截止时间');
@@ -1161,7 +1161,7 @@
   function dispose() {
     if (disposed) return;
     disposed = true;
-    window.__codexBuddyUsage?.dispose();
+    window.__palbooUsage?.dispose();
     cancel();
     life.abort();
     observer.disconnect();

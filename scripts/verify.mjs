@@ -4,6 +4,7 @@
  * [POS]: 验证编排入口；测试开始前检查产物与源码一致。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
+import './brand.mjs';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -47,19 +48,19 @@ function sourceFingerprint() {
   return digest.digest('hex');
 }
 export function prepareTestBinary(profile) {
-  const explicit = process.env.CODEX_BUDDY_TEST_BINARY;
+  const explicit = process.env.PALBOO_TEST_BINARY;
   if (!profile && explicit) {
     const match = ['debug', 'release'].find(
-      (p) => resolve(explicit) === join(root, 'target', p, 'codex-buddy'),
+      (p) => resolve(explicit) === join(root, 'target', p, 'palboo'),
     );
     if (!match)
       throw new Error(
-        'CODEX_BUDDY_TEST_BINARY 请指向本仓库 target/debug 或 target/release 的程序，以核验源码一致性。',
+        'PALBOO_TEST_BINARY 请指向本仓库 target/debug 或 target/release 的程序，以核验源码一致性。',
       );
     profile = match;
   }
   profile ||= 'debug';
-  const binary = join(root, 'target', profile, 'codex-buddy');
+  const binary = join(root, 'target', profile, 'palboo');
   const manifestPath = join(root, 'target', `verified-${profile}.json`);
   const source = sourceFingerprint();
   let previous;
@@ -85,6 +86,11 @@ export function prepareTestBinary(profile) {
     };
     writeFileSync(manifestPath, JSON.stringify(previous, null, 2) + '\n');
   }
+  // Moving the checkout does not invalidate bytes, but cached absolute paths must follow it.
+  if (previous.binary !== binary) {
+    previous = { ...previous, binary };
+    writeFileSync(manifestPath, JSON.stringify(previous, null, 2) + '\n');
+  }
   return previous;
 }
 async function verify() {
@@ -98,7 +104,7 @@ async function verify() {
   run('cargo', ['fmt', '--check']);
   run('cargo', ['test', '--locked']);
   run('cargo', ['clippy', '--locked', '--', '-D', 'warnings']);
-  const env = { ...process.env, CODEX_BUDDY_TEST_BINARY: artifact.binary };
+  const env = { ...process.env, PALBOO_TEST_BINARY: artifact.binary };
   run(process.execPath, ['tests/model-control-e2e.mjs'], env);
   run(process.execPath, ['tests/board.mjs'], env);
   run(process.execPath, ['tests/config-cli.mjs'], env);

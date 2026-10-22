@@ -1,5 +1,5 @@
 /*
- * [INPUT]: 已构建的 codex-buddy、真实通用功能页面和隔离 loopback fixture。
+ * [INPUT]: 已构建的 palboo、真实通用功能页面和隔离 loopback fixture。
  * [OUTPUT]: target/reports/edge-native 的跨桌面策略/几何/焦点/租约证据及可选截图。
  * [POS]: 只创建本工具合成窗口；不连接、读取或重启官方宿主。运行前 cargo build --locked。
  * [PROTOCOL]: 由集成任务同步 tests/AGENTS.md。
@@ -17,7 +17,7 @@ const root = resolve(import.meta.dirname, '..');
 let screenshots = process.argv.includes('--screenshots');
 const binaryIndex = process.argv.indexOf('--binary');
 const binary =
-  binaryIndex < 0 ? join(root, 'target/debug/codex-buddy') : resolve(process.argv[binaryIndex + 1]);
+  binaryIndex < 0 ? join(root, 'target/debug/palboo') : resolve(process.argv[binaryIndex + 1]);
 const dir = mkdtempSync(join(tmpdir(), 'buddy-model-control-'));
 const output = join(root, 'target/reports/edge-native');
 mkdirSync(output, { recursive: true });

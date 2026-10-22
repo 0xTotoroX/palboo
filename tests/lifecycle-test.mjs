@@ -20,6 +20,8 @@ import {
   rmSync,
   chmodSync,
   existsSync,
+  lstatSync,
+  realpathSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
@@ -29,9 +31,9 @@ const scratch = mkdtempSync(join(tmpdir(), 'companion-lifecycle-'));
 const binDir = join(scratch, 'bin');
 const dataDir = join(scratch, 'data');
 const appDir = join(scratch, 'Applications');
-const binary = join(binDir, 'codex-buddy');
+const binary = join(binDir, 'palboo');
 // 所有测试子进程仅能发现临时程序，不能自动连接用户正在运行的 Codex。
-const lifecycleEnv = { ...process.env, CODEX_BUDDY_DESKTOP_BIN: binary };
+const lifecycleEnv = { ...process.env, PALBOO_DESKTOP_BIN: binary };
 const artifact = prepareTestBinary('release');
 const source = artifact.binary;
 const hash = (path) => createHash('sha256').update(readFileSync(path)).digest('hex');
@@ -67,19 +69,19 @@ try {
   ]);
   assert.equal(hash(binary), hash(source));
   record('异目录安装及单文件版本检查');
-  run('/usr/bin/codesign', ['--verify', '--strict', join(appDir, 'CodexBuddy.app')]);
+  run('/usr/bin/codesign', ['--verify', '--strict', join(appDir, 'Palboo.app')]);
   const appInfo = JSON.parse(
     run('/usr/bin/plutil', [
       '-convert',
       'json',
       '-o',
       '-',
-      join(appDir, 'CodexBuddy.app/Contents/Info.plist'),
+      join(appDir, 'Palboo.app/Contents/Info.plist'),
     ]),
   );
   assert.equal(appInfo.LSUIElement, true);
   const appScript = run('/usr/bin/osadecompile', [
-    join(appDir, 'CodexBuddy.app/Contents/Resources/Scripts/main.scpt'),
+    join(appDir, 'Palboo.app/Contents/Resources/Scripts/main.scpt'),
   ]);
   assert.match(appScript, /launch --no-open --restart-running/);
   assert.match(appScript, /launchResult contains "Codex 集成已暂停"/);
@@ -122,7 +124,7 @@ try {
     const broken = join(scratch, 'broken-companion');
     writeFileSync(
       broken,
-      '#!/bin/sh\nif [ "$1" = "--version" ]; then echo "codex-buddy 0.2.0"; exit 0; fi\nexit 3\n',
+      '#!/bin/sh\nif [ "$1" = "--version" ]; then echo "palboo 0.2.0"; exit 0; fi\nexit 3\n',
     );
     chmodSync(broken, 0o755);
     cli(['update', '--from', broken, '--sha256', hash(broken)], 1);
@@ -181,9 +183,9 @@ try {
   const modelUrl = `http://127.0.0.1:${modelServer.address().port}/v1`;
   const modelEnv = {
     ...lifecycleEnv,
-    CODEX_BUDDY_PROVIDER: 'api',
-    CODEX_BUDDY_MODEL: 'fixture',
-    CODEX_BUDDY_BASE_URL: modelUrl,
+    PALBOO_PROVIDER: 'api',
+    PALBOO_MODEL: 'fixture',
+    PALBOO_BASE_URL: modelUrl,
   };
   try {
     writeFileSync(
@@ -236,27 +238,59 @@ try {
     await new Promise((resolve) => modelServer.close(resolve));
     writeFileSync(join(dataDir, 'config.json'), JSON.stringify(config));
   }
-  const migrationHome = join(scratch, 'migration-home');
-  const legacyData = join(migrationHome, 'Library/Application Support/codex-companion');
-  const migratedData = join(migrationHome, 'Library/Application Support/codex-buddy');
-  mkdirSync(legacyData, { recursive: true });
-  writeFileSync(join(legacyData, 'config.json'), JSON.stringify(config));
-  writeFileSync(join(legacyData, 'secrets.json'), '{"apiKey":"fixture-only"}');
-  const migrationEnv = { ...lifecycleEnv, HOME: migrationHome };
-  delete migrationEnv.CODEX_BUDDY_HOME;
-  const migrated = spawnSync(
-    process.execPath,
-    [join(root, 'scripts/install.mjs'), '--skip-build', '--bin-dir', binDir, '--app-dir', appDir],
-    { cwd: root, env: migrationEnv, encoding: 'utf8', timeout: 30000 },
-  );
-  assert.equal(migrated.status, 0, migrated.stderr || migrated.stdout);
-  assert.equal(existsSync(legacyData), false);
-  assert.deepEqual(JSON.parse(readFileSync(join(migratedData, 'config.json'))), config);
-  assert.equal(
-    readFileSync(join(migratedData, 'secrets.json'), 'utf8'),
-    '{"apiKey":"fixture-only"}',
-  );
-  record('旧默认目录自动迁移，配置及密钥逐字保留');
+  for (const legacyName of ['codex-buddy', 'codex-companion']) {
+    const migrationHome = join(scratch, `migration-home-${legacyName}`);
+    const legacyData = join(migrationHome, 'Library/Application Support', legacyName);
+    const migratedData = join(migrationHome, 'Library/Application Support/palboo');
+    mkdirSync(legacyData, { recursive: true });
+    writeFileSync(join(legacyData, 'config.json'), JSON.stringify(config));
+    writeFileSync(join(legacyData, 'secrets.json'), '{"apiKey":"fixture-only"}');
+    const migrationEnv = { ...lifecycleEnv, HOME: migrationHome };
+    delete migrationEnv.PALBOO_HOME;
+    delete migrationEnv.CODEX_BUDDY_HOME;
+    const migrated = spawnSync(
+      process.execPath,
+      [join(root, 'scripts/install.mjs'), '--skip-build', '--bin-dir', binDir, '--app-dir', appDir],
+      { cwd: root, env: migrationEnv, encoding: 'utf8', timeout: 30000 },
+    );
+    assert.equal(migrated.status, 0, migrated.stderr || migrated.stdout);
+    assert.ok(lstatSync(legacyData).isSymbolicLink());
+    assert.equal(realpathSync(legacyData), realpathSync(migratedData));
+    assert.deepEqual(JSON.parse(readFileSync(join(migratedData, 'config.json'))), config);
+    assert.equal(
+      readFileSync(join(migratedData, 'secrets.json'), 'utf8'),
+      '{"apiKey":"fixture-only"}',
+    );
+    const repeated = spawnSync(
+      process.execPath,
+      [join(root, 'scripts/install.mjs'), '--skip-build', '--bin-dir', binDir, '--app-dir', appDir],
+      { cwd: root, env: migrationEnv, encoding: 'utf8', timeout: 30000 },
+    );
+    assert.equal(repeated.status, 0, repeated.stderr || repeated.stdout);
+    assert.equal(realpathSync(legacyData), realpathSync(migratedData));
+    assert.equal(
+      readFileSync(join(legacyData, 'secrets.json'), 'utf8'),
+      '{"apiKey":"fixture-only"}',
+    );
+    record(`${legacyName} 默认目录迁移保留兼容链接，配置及密钥逐字保留，重复安装幂等`);
+    const conflict = join(
+      migrationHome,
+      'Library/Application Support',
+      legacyName === 'codex-buddy' ? 'codex-companion' : 'codex-buddy',
+    );
+    mkdirSync(conflict);
+    writeFileSync(join(conflict, 'config.json'), '{"unrelated":"keep"}');
+    const refused = spawnSync(
+      process.execPath,
+      [join(root, 'scripts/install.mjs'), '--skip-build', '--bin-dir', binDir, '--app-dir', appDir],
+      { cwd: root, env: migrationEnv, encoding: 'utf8', timeout: 30000 },
+    );
+    assert.notEqual(refused.status, 0);
+    assert.match(refused.stderr, /多份独立应用数据/);
+    assert.equal(readFileSync(join(conflict, 'config.json'), 'utf8'), '{"unrelated":"keep"}');
+    assert.deepEqual(JSON.parse(readFileSync(join(migratedData, 'config.json'))), config);
+    record('安装器发现独立旧数据时提前拒绝，两个目录均未覆盖');
+  }
   blocker = createServer();
   await new Promise((resolve) => blocker.listen(0, '127.0.0.1', resolve));
   cli(['serve', '--port', String(blocker.address().port)], 1);

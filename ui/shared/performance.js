@@ -1,6 +1,6 @@
 /* [INPUT]: 宿主中的同步工作，以及设置页发出的短期采样请求。
  * [OUTPUT]: 有界、无正文的执行耗时与宿主页长任务/JS内存；采样租约到期自动清理。
- * [POS]: 只测量已标记同步工作，不把异步等待或整个宿主页开销归属 Buddy。
+ * [POS]: 只测量已标记同步工作，不把异步等待或整个宿主页开销归属 Palboo。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 let observer = null;
 /** @type {ReturnType<typeof setTimeout> | 0} */

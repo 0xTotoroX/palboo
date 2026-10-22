@@ -53,10 +53,10 @@ export function auditSource(root) {
   assert.match(readFileSync(join(root, 'Cargo.toml'), 'utf8'), /^license = "GPL-3.0-only"$/m);
   const metadata = JSON.parse(readFileSync(join(root, 'package.json')));
   const lock = JSON.parse(readFileSync(join(root, 'package-lock.json')));
-  assert.equal(metadata.name, 'codex-buddy', 'Product name mismatch');
+  assert.equal(metadata.name, 'palboo', 'Product name mismatch');
   assert.equal(lock.name, metadata.name, 'Lockfile name mismatch');
   assert.equal(lock.packages[''].name, metadata.name, 'Lockfile root name mismatch');
-  assert.match(readFileSync(join(root, 'Cargo.toml'), 'utf8'), /^name = "codex-buddy"$/m);
+  assert.match(readFileSync(join(root, 'Cargo.toml'), 'utf8'), /^name = "palboo"$/m);
 
   const files = publicSourceFiles(root);
   for (const path of files) {

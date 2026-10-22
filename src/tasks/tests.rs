@@ -216,34 +216,36 @@ fn repeated_remote_changes_do_not_create_false_conflicts() {
 }
 #[test]
 fn uncertain_create_preserves_remote_edits_and_does_not_import_twice() {
-    let mut store = Store::default();
-    let desired = fields("created title");
-    store.tasks.push(Task {
-        id: "local-one".into(),
-        fields: desired.clone(),
-        archived: false,
-        delete_requested: false,
-        remote: None,
-        remote_missing: false,
-        conflict: None,
-    });
-    store.inflight = Some(Intent {
-        task_id: "local-one".into(),
-        action: "create".into(),
-        expected: None,
-        desired,
-    });
-    let mut changed = remote("apple-one", "edited on phone");
-    changed.marker = Some("codexbuddy://task/local-one".into());
-    let snapshot = Snapshot {
-        reminders: vec![changed],
-        ..Default::default()
-    };
-    recover_inflight(&mut store, &snapshot);
-    reconcile(&mut store, &snapshot);
-    assert_eq!(store.tasks.len(), 1);
-    assert_eq!(store.tasks[0].fields.title, "edited on phone");
-    assert!(store.inflight.is_none());
+    for scheme in ["palboo", "codexbuddy"] {
+        let mut store = Store::default();
+        let desired = fields("created title");
+        store.tasks.push(Task {
+            id: "local-one".into(),
+            fields: desired.clone(),
+            archived: false,
+            delete_requested: false,
+            remote: None,
+            remote_missing: false,
+            conflict: None,
+        });
+        store.inflight = Some(Intent {
+            task_id: "local-one".into(),
+            action: "create".into(),
+            expected: None,
+            desired,
+        });
+        let mut changed = remote("apple-one", "edited on phone");
+        changed.marker = Some(format!("{scheme}://task/local-one"));
+        let snapshot = Snapshot {
+            reminders: vec![changed],
+            ..Default::default()
+        };
+        recover_inflight(&mut store, &snapshot);
+        reconcile(&mut store, &snapshot);
+        assert_eq!(store.tasks.len(), 1);
+        assert_eq!(store.tasks[0].fields.title, "edited on phone");
+        assert!(store.inflight.is_none());
+    }
 }
 #[test]
 fn uncertain_create_absence_is_not_retried() {
@@ -572,7 +574,7 @@ async fn local_removal_persists_without_reimporting_or_writing_remote() {
     let paths = Paths::new(Some(dir.path().into())).unwrap();
     let service = Service::load(&paths);
     let mut original = remote("one", "remote task");
-    original.marker = Some("codexbuddy://task/old".into());
+    original.marker = Some("palboo://task/old".into());
     let snapshot = Snapshot {
         reminders: vec![original.clone()],
         ..Default::default()

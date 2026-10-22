@@ -1,6 +1,6 @@
 /* [INPUT]: Metadata-only host projection and guarded main-composer actions.
  * [OUTPUT]: Dynamic Bot selectors with chat-scoped status, follow-up and stop requests.
- * [POS]: PALBOO feature content, shared by existing surfaces; no second chat input.
+ * [POS]: Palboo feature content, shared by existing surfaces; no second chat input.
  * [PROTOCOL]: Keep ui/features/AGENTS.md in sync. */
 import { createPortal } from 'react-dom';
 import { Icon } from '../../shared/icons/react';

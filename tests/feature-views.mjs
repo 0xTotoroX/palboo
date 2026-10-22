@@ -11,7 +11,7 @@ prepareTestBinary();
 const output = join(root, 'target/reports/feature-views');
 mkdirSync(output, { recursive: true });
 const browser = await chromium.launch({
-  executablePath: process.env.CODEX_BUDDY_CHROME_BIN || undefined,
+  executablePath: process.env.PALBOO_CHROME_BIN || undefined,
   headless: true,
 });
 const report = { passed: false, checks: [] };

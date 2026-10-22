@@ -131,7 +131,7 @@ test('collector projects only matching chat, never mounts UI or polls, and relea
     const reads = await page.evaluate(() => window.reads);
     await page.clock.runFor(10000);
     assert.equal(await page.evaluate(() => window.reads), reads);
-    assert.equal(await page.locator('[data-codex-buddy-token-meter]').count(), 0);
+    assert.equal(await page.locator('[data-palboo-token-meter]').count(), 0);
     await page.evaluate(() => {
       window.notify('turn/started');
       window.notify('item/agentMessage/delta', { itemId: 'm', delta: '当前回复速度 hello world' });
@@ -152,15 +152,15 @@ test('collector projects only matching chat, never mounts UI or polls, and relea
         },
       });
     });
-    const state = await page.evaluate(() => window.__codexBuddyTokenMeter.read('a'));
+    const state = await page.evaluate(() => window.__palbooTokenMeter.read('a'));
     assert.ok(state.speed > 0);
     assert.equal(state.official.outputTokens, 120);
     assert.equal(state.scope, 'turn');
-    assert.equal(await page.evaluate(() => window.__codexBuddyTokenMeter.read('other')), null);
+    assert.equal(await page.evaluate(() => window.__palbooTokenMeter.read('other')), null);
     assert.equal(
       await page.evaluate(() => {
-        const first = window.__codexBuddyTokenMeter.read('a');
-        return first === window.__codexBuddyTokenMeter.read('a');
+        const first = window.__palbooTokenMeter.read('a');
+        return first === window.__palbooTokenMeter.read('a');
       }),
       true,
     );
@@ -168,15 +168,15 @@ test('collector projects only matching chat, never mounts UI or polls, and relea
     await page.evaluate(() =>
       window.notify('item/agentMessage/delta', { threadId: 'other', itemId: 'x', delta: 'ignore' }),
     );
-    assert.deepEqual(await page.evaluate(() => window.__codexBuddyTokenMeter.read('a')), state);
+    assert.deepEqual(await page.evaluate(() => window.__palbooTokenMeter.read('a')), state);
     await page.evaluate(() => {
       Object.defineProperty(document, 'hidden', { configurable: true, value: true });
       document.dispatchEvent(new Event('visibilitychange'));
       window.notify('item/agentMessage/delta', { itemId: 'hidden', delta: '不可缓存' });
     });
-    assert.equal(await page.evaluate(() => window.__codexBuddyTokenMeter.read('a')), null);
+    assert.equal(await page.evaluate(() => window.__palbooTokenMeter.read('a')), null);
     assert.equal(
-      await page.evaluate(() => window.__codexBuddyTokenMeter.snapshot().bufferedCharacters),
+      await page.evaluate(() => window.__palbooTokenMeter.snapshot().bufferedCharacters),
       0,
     );
     await page.evaluate(() => {
@@ -184,8 +184,8 @@ test('collector projects only matching chat, never mounts UI or polls, and relea
       window.session = 'b';
       document.dispatchEvent(new Event('visibilitychange'));
     });
-    assert.equal(await page.evaluate(() => window.__codexBuddyTokenMeter.read('a')), null);
-    assert.equal(await page.evaluate(() => window.__codexBuddyTokenMeter.read('b').official), null);
+    assert.equal(await page.evaluate(() => window.__palbooTokenMeter.read('a')), null);
+    assert.equal(await page.evaluate(() => window.__palbooTokenMeter.read('b').official), null);
     await page.evaluate(() => {
       document.querySelector('main').removeAttribute('data-current');
       document.dispatchEvent(new Event('pointerup'));
@@ -198,7 +198,7 @@ test('collector projects only matching chat, never mounts UI or polls, and relea
     assert.equal(await page.evaluate(() => window.reads), missingReads);
     await page.evaluate(() => {
       window.enabled = false;
-      window.__codexBuddyTokenMeter.refresh();
+      window.__palbooTokenMeter.refresh();
     });
     const stopped = await page.evaluate(() => window.reads);
     await page.evaluate(() => {
@@ -207,7 +207,7 @@ test('collector projects only matching chat, never mounts UI or polls, and relea
     });
     await page.clock.runFor(10000);
     assert.equal(await page.evaluate(() => window.reads), stopped);
-    assert.equal(await page.evaluate(() => !!window.__codexBuddyTokenMeter), false);
+    assert.equal(await page.evaluate(() => !!window.__palbooTokenMeter), false);
     assert.equal(await page.evaluate(() => window.requests), 0);
   } finally {
     await browser.close();

@@ -14,13 +14,13 @@ const result = await build({
   bundle: true,
   write: false,
   format: 'iife',
-  define: { CODEX_BUDDY_DEVELOPMENT: 'true' },
+  define: { PALBOO_DEVELOPMENT: 'true' },
 });
 async function fixture() {
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
   await page.setContent(
-    '<nav class="group/sidebar-rail"><button id="official" aria-label="CodexBuddy 看板">Buddy</button><button id="other">Other</button></nav><div class="app-shell-main-content-frame" data-conversation-id="A"><div class="thread-scroll-container">Fixture</div></div><button id="toggle" aria-label="显示/隐藏侧边面板" aria-pressed="false">Panel</button><div id="right" data-app-shell-focus-area="right-panel" hidden><button id="new" aria-label="打开侧边面板标签页">New</button><div id="tabs"></div></div>',
+    '<nav class="group/sidebar-rail"><button id="official" aria-label="Palboo 看板">Palboo</button><button id="other">Other</button></nav><div class="app-shell-main-content-frame" data-conversation-id="A"><div class="thread-scroll-container">Fixture</div></div><button id="toggle" aria-label="显示/隐藏侧边面板" aria-pressed="false">Panel</button><div id="right" data-app-shell-focus-area="right-panel" hidden><button id="new" aria-label="打开侧边面板标签页">New</button><div id="tabs"></div></div>',
   );
   await page.evaluate(() => {
     window.chatReady = true;
@@ -35,11 +35,11 @@ async function fixture() {
       menu.setAttribute('role', 'menu');
       const item = document.createElement('button');
       item.setAttribute('role', 'menuitem');
-      item.textContent = 'CodexBuddy';
+      item.textContent = 'Palboo';
       item.onclick = () => {
         menu.remove();
         document.getElementById('tabs').innerHTML =
-          '<button role="tab" aria-selected="true">CodexBuddy</button>';
+          '<button role="tab" aria-selected="true">Palboo</button>';
       };
       menu.append(item);
       document.body.append(menu);
@@ -67,7 +67,7 @@ async function fixture() {
 test('official entry toggles without navigation, removes duplicate icon and keeps native right-click and opens settings through the explicit action', async () => {
   const { page, browser } = await fixture();
   try {
-    assert.equal(await page.locator('[data-codex-buddy-launcher]').count(), 0);
+    assert.equal(await page.locator('[data-palboo-launcher]').count(), 0);
     await page.locator('#official').click();
     await page.locator('#official').press('Enter');
     assert.deepEqual(
@@ -76,8 +76,8 @@ test('official entry toggles without navigation, removes duplicate icon and keep
     );
     await page.locator('#official').evaluate((node) => {
       node.removeAttribute('aria-label');
-      node.textContent = 'CodexBuddy';
-      node.title = 'CodexBuddy';
+      node.textContent = 'Palboo';
+      node.title = 'Palboo';
     });
     await page.locator('#official').click({ button: 'right' });
     assert.equal(await page.evaluate(() => window.nativeSettings), 1);
@@ -93,8 +93,8 @@ test('official entry toggles without navigation, removes duplicate icon and keep
         '设置已在官方侧边页签打开。',
     );
     assert.equal(await page.locator('#right').isVisible(), true);
-    assert.equal(await page.locator('[data-codex-buddy-launcher]').count(), 0);
-    assert.equal(await page.locator('#official').getAttribute('title'), 'CodexBuddy');
+    assert.equal(await page.locator('[data-palboo-launcher]').count(), 0);
+    assert.equal(await page.locator('#official').getAttribute('title'), 'Palboo');
     assert.deepEqual(
       await page.evaluate(() => ({
         native: window.nativeSettings,
@@ -125,7 +125,7 @@ test('rail replacement rebinds once and non-chat pages retain native navigation'
   const { page, browser } = await fixture();
   try {
     await page.locator('nav').evaluate((n) => {
-      n.innerHTML = '<button id="official" aria-label="CodexBuddy">Buddy</button>';
+      n.innerHTML = '<button id="official" aria-label="PALBOO">PALBOO</button>';
     });
     await page.waitForFunction(
       () => window.launcherButton() === document.getElementById('official'),
@@ -153,9 +153,9 @@ test('ambiguous official buttons are not intercepted', async () => {
     await page
       .locator('nav')
       .evaluate((n) =>
-        n.insertAdjacentHTML('beforeend', '<button aria-label="CodexBuddy">Second</button>'),
+        n.insertAdjacentHTML('beforeend', '<button aria-label="Palboo">Second</button>'),
       );
-    await page.waitForSelector('[data-codex-buddy-launcher]');
+    await page.waitForSelector('[data-palboo-launcher]');
     await page.locator('#official').click();
     assert.equal(await page.evaluate(() => window.navigation), 1);
     assert.equal(await page.evaluate(() => window.toggles), 0);
@@ -172,8 +172,8 @@ test('default product entry works independently with the plugin button present o
       window.refresh();
     });
     const eye = page
-      .locator('[data-codex-buddy-launcher]')
-      .getByRole('button', { name: 'CodexBuddy', exact: true });
+      .locator('[data-palboo-launcher]')
+      .getByRole('button', { name: 'Palboo', exact: true });
     await eye.click();
     assert.equal(await page.evaluate(() => window.toggles), 1);
     await page.locator('#official').click();

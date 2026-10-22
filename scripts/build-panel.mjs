@@ -19,6 +19,7 @@ export async function buildPanel(projectRoot = root, development = false) {
     jsx: 'automatic',
     bundle: true,
     define: {
+      PALBOO_DEVELOPMENT: String(development),
       CODEX_BUDDY_DEVELOPMENT: String(development),
       'process.env.NODE_ENV': '"production"',
     },

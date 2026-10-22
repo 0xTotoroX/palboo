@@ -146,7 +146,7 @@
       ],
     });
     window.addEventListener('resize', scheduleBackdrop);
-    window.addEventListener('codex-buddy:appearance', scheduleBackdrop);
+    window.addEventListener('palboo:appearance', scheduleBackdrop);
     syncBackdrop();
   }
   function notice(message) {

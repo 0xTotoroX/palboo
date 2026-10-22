@@ -48,7 +48,7 @@ function Trend({
         viewBox="0 0 304 92"
         preserveAspectRatio="none"
         role="img"
-        aria-label={`${metric === 'cpu' ? 'Buddy 后台 CPU' : 'Buddy 后台物理内存'}最近${minutes}分钟走势，${history.filter((p) => p[metric] !== null).length}个采样点`}
+        aria-label={`${metric === 'cpu' ? 'Palboo 后台 CPU' : 'Palboo 后台物理内存'}最近${minutes}分钟走势，${history.filter((p) => p[metric] !== null).length}个采样点`}
       >
         <defs>
           <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
@@ -146,9 +146,9 @@ export function PerformanceMonitor({
         </p>
       )}
       <div className="performance-primary" aria-label="性能读数">
-        <section className="performance-instrument" data-metric="cpu" aria-label="Buddy 后台 CPU">
+        <section className="performance-instrument" data-metric="cpu" aria-label="Palboo 后台 CPU">
           <div className="performance-instrument-title">
-            <h3 title="Buddy 后台进程；100% 表示占用一个核心">Buddy CPU</h3>
+            <h3 title="Palboo 后台进程；100% 表示占用一个核心">Palboo CPU</h3>
           </div>
           <div className="performance-value-row">
             <p className="performance-value">
@@ -178,10 +178,10 @@ export function PerformanceMonitor({
         <section
           className="performance-instrument"
           data-metric="memory"
-          aria-label="Buddy 后台物理内存"
+          aria-label="Palboo 后台物理内存"
         >
           <div className="performance-instrument-title">
-            <h3 title="Buddy 后台物理内存，不含独立窗口">Buddy 内存</h3>
+            <h3 title="Palboo 后台物理内存，不含独立窗口">Palboo 内存</h3>
           </div>
           <div className="performance-value-row">
             <p className="performance-value">
@@ -194,7 +194,7 @@ export function PerformanceMonitor({
       </div>
       <div className="performance-host-work">
         <div>
-          <h3 title="仅统计 Buddy 在 Codex 页面内已计时的同步工作">Buddy 页面耗时</h3>
+          <h3 title="仅统计 Palboo 在 Codex 页面内已计时的同步工作">Palboo 页面耗时</h3>
         </div>
         <p className="performance-work-value">
           {host ? host.busyMs.toFixed(1) : '—'}
@@ -210,7 +210,7 @@ export function PerformanceMonitor({
       </div>
       <section className="performance-host" aria-label="Codex 整页指标">
         <div className="performance-host-heading">
-          <h3 title="包含 Codex 自身，不能视为 Buddy 独占">Codex 整页</h3>
+          <h3 title="包含 Codex 自身，不能视为 Palboo 独占">Codex 整页</h3>
         </div>
         <div className="performance-host-metrics">
           <div>

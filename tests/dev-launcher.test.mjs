@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 临时源码路径、进程锁与启动器脚本生成函数。
- * [OUTPUT]: 开发入口唤起/重连/失败边界、早期错误透传、非阻塞前台失败通知、其他会话保护与 shell 转义回归；可选合成原生窗口焦点验收。
+ * [OUTPUT]: 开发入口唤起/重连/失效窗口回查、早期错误透传、前台目标注册等待与非阻塞失败通知、其他会话保护与 shell 转义回归；可选合成原生窗口焦点验收。
  * [POS]: 独立 Node 验收，不连接宿主或启动实际开发后台。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -89,6 +89,8 @@ test('App sessions clean up after host exit and concurrent reopen starts one rep
       hostProcess: { pid: 2147483647, startedAt: 'old', executable: 'old' },
     }),
   );
+  for (const name of ['owner.json', 'launcher-owner.json'])
+    writeFileSync(join(root, 'target/dev', name), JSON.stringify({ pid: 2147483647 }));
   await Promise.all([openDevelopment(root), openDevelopment(root)]);
   const first = JSON.parse(readFileSync(join(root, 'target/dev/owner.json'))).pid;
   assert.equal(readFileSync(join(root, 'starts.log'), 'utf8').trim().split('\n').length, 1);
@@ -211,6 +213,44 @@ async function developmentFixture(t, handler) {
   );
   return { root, requests };
 }
+
+test('reveal retries an exited window and returns the replacement without reconnecting', async (t) => {
+  let reveals = 0;
+  const { root, requests } = await developmentFixture(t, (req, res) => {
+    res.end(
+      JSON.stringify(
+        req.url === '/api/state'
+          ? { connection: { status: 'connected' } }
+          : { ok: true, pid: ++reveals === 1 ? 2147483647 : process.pid },
+      ),
+    );
+  });
+  assert.deepEqual(await revealDevelopment(root, { timeout: 2000, interval: 5 }), {
+    ok: true,
+    pid: process.pid,
+  });
+  assert.equal(reveals, 2);
+  assert.deepEqual(
+    requests.map((r) => r.path),
+    ['/api/state', '/api/development/reveal', '/api/state', '/api/development/reveal'],
+  );
+});
+
+test('reveal never reports an exited window as ready', async (t) => {
+  const { root } = await developmentFixture(t, (req, res) => {
+    res.end(
+      JSON.stringify(
+        req.url === '/api/state'
+          ? { connection: { status: 'connected' } }
+          : { ok: true, pid: 2147483647 },
+      ),
+    );
+  });
+  await assert.rejects(
+    revealDevelopment(root, { timeout: 150, interval: 5 }),
+    /开发工作台尚未就绪.*开发浮窗进程已退出/,
+  );
+});
 
 test('reopening reveals the connected workbench without reconnecting or opening a panel', async (t) => {
   const { root, requests } = await developmentFixture(t, (req, res) => {
@@ -369,7 +409,13 @@ test(
     for (const directory of ['scripts', 'target/dev', 'node_modules/vite'])
       mkdirSync(join(root, directory), { recursive: true });
     writeFileSync(join(root, 'node_modules/vite/package.json'), '{}');
-    for (const name of ['dev-launcher.mjs', 'dev-host.mjs', 'dev-sources.mjs', 'launcher.mjs'])
+    for (const name of [
+      'dev-launcher.mjs',
+      'dev-host.mjs',
+      'dev-sources.mjs',
+      'dev-dock.mjs',
+      'launcher.mjs',
+    ])
       copyFileSync(new URL('../scripts/' + name, import.meta.url), join(root, 'scripts', name));
     writeFileSync(
       join(root, 'scripts/dev.mjs'),
@@ -505,19 +551,36 @@ test(
         activationError,
         notificationError,
         startupError,
+        targetReadyAfter,
         expected,
+        outcome = 'host',
       ] of [
-        ['already active', true, true, false, false, false, [0, 0, 1]],
-        ['activation refused', false, false, false, false, false, [0, 1, 1]],
-        ['activation timeout', false, true, false, false, false, [0, 1, 1]],
-        ['activation API error', false, true, true, false, false, [0, 1, 1]],
-        ['notification unavailable', false, false, false, true, false, [0, 1, 1]],
-        ['startup failed', false, false, false, false, true, [1, 0, 2]],
+        ['already active', true, true, false, false, false, 1, [0, 0, 1]],
+        ['activation refused', false, false, false, false, false, 1, [0, 1, 1]],
+        ['activation timeout', false, true, false, false, false, 1, [0, 1, 1]],
+        ['activation API error', false, true, true, false, false, 1, [0, 1, 1]],
+        ['notification unavailable', false, false, false, true, false, 1, [0, 1, 1]],
+        ['startup failed', false, false, false, false, true, 1, [1, 0, 2]],
+        ['registration delayed', true, true, false, false, false, 3, [0, 0, 1]],
+        ['target gone after startup', true, true, false, false, false, 41, [0, 1, 1]],
+        [
+          'target gone and notifications unavailable',
+          true,
+          true,
+          false,
+          true,
+          false,
+          41,
+          [0, 1, 1],
+        ],
+        ['native registration delayed', true, true, false, false, false, 3, [0, 0, 1], '123'],
+        ['native target gone after startup', true, true, false, false, false, 41, [0, 1, 1], '123'],
       ]) {
         const fixture = `
 property alertCount : 0
 property noticeCount : 0
 property activationCount : 0
+property lookupCount : 0
 script targetFixture
   on unhide()
   end unhide
@@ -537,15 +600,23 @@ end script
         const script = original
           .replace(
             'on run\n  my openWorkbench()\nend run',
-            `${fixture}\non run\n  my openWorkbench()\n  return {alertCount, noticeCount, activationCount}\nend run`,
+            `${fixture}\non run\n  my openWorkbench()\n  return {alertCount, noticeCount, activationCount, lookupCount}\nend run`,
           )
           .replace(
             /set outcome to do shell script .*\n/,
-            `if ${startupError} then error "synthetic startup failure"\n    set outcome to "host"\n`,
+            `if ${startupError} then error "synthetic startup failure"\n    set outcome to "${outcome}"\n`,
           )
           .replace(
             /set targets to .*\n.*\n.*set targetApp to targets's firstObject\(\)/,
-            'set targetApp to targetFixture',
+            `set lookupCount to lookupCount + 1
+        set targetApp to missing value
+        if lookupCount >= ${targetReadyAfter} then set targetApp to targetFixture`,
+          )
+          .replace(
+            /set targetApp to current application's NSRunningApplication's runningApplicationWithProcessIdentifier:.*\n/,
+            `set lookupCount to lookupCount + 1
+        set targetApp to missing value
+        if lookupCount >= ${targetReadyAfter} then set targetApp to targetFixture\n`,
           )
           .replace(
             /set launcherApp to current application's .*\n/,
@@ -561,14 +632,18 @@ end script
             /display notification .*\n/,
             `set noticeCount to noticeCount + 1\n    if ${notificationError} then error "synthetic notification failure"\n`,
           )
-          .replace('delay 0.05', '-- no wall-clock wait in the fixture');
+          .replaceAll('delay 0.05', '-- no wall-clock wait in the fixture');
         const result = spawnSync('/usr/bin/osascript', ['-'], {
           input: script,
           encoding: 'utf8',
           timeout: 5000,
         });
         assert.equal(result.status, 0, `${name}: ${result.stderr}`);
-        assert.deepEqual(result.stdout.trim().split(', ').map(Number), expected, name);
+        assert.deepEqual(
+          result.stdout.trim().split(', ').map(Number),
+          [...expected, startupError ? 0 : Math.min(targetReadyAfter, 40)],
+          name,
+        );
       }
     } finally {
       rmSync(root, { recursive: true, force: true });
@@ -580,7 +655,7 @@ end script
 test(
   'native launcher shows in Dock and cooperatively activates an existing window',
   {
-    skip: process.platform !== 'darwin' || process.env.CODEX_BUDDY_NATIVE_LAUNCHER_TEST !== '1',
+    skip: process.platform !== 'darwin' || process.env.PALBOO_NATIVE_LAUNCHER_TEST !== '1',
     timeout: 30000,
   },
   async () => {
@@ -605,7 +680,7 @@ if CommandLine.arguments.count > 1 {
         try! Data("active".utf8).write(to: URL(fileURLWithPath: ${JSON.stringify(join(root, 'activated'))}))
     }
     let window = NSWindow(contentRect: NSRect(x:100,y:100,width:300,height:180), styleMask:[.titled], backing:.buffered, defer:false)
-    window.title = "CodexBuddy launcher test"
+    window.title = "Palboo launcher test"
     window.makeKeyAndOrderFront(nil)
     try! Data("ready".utf8).write(to: URL(fileURLWithPath: ${JSON.stringify(join(root, 'ready'))}))
     app.run()
@@ -624,12 +699,12 @@ if CommandLine.arguments.count > 1 {
         '-replace',
         'CFBundleIdentifier',
         '-string',
-        'local.codex-buddy.launcher-test',
+        'local.palboo.launcher-test',
         join(app, 'Contents/Info.plist'),
       ]);
       await run('/usr/bin/codesign', ['--force', '--sign', '-', app]);
       const inspect = async () =>
-        JSON.parse((await run(probe, ['local.codex-buddy.launcher-test'])).stdout);
+        JSON.parse((await run(probe, ['local.palboo.launcher-test'])).stdout);
       for (let i = 0; i < 100 && !existsSync(join(root, 'ready')); i++) await delay(20);
       assert.ok(existsSync(join(root, 'ready')));
       rmSync(join(root, 'activated'), { force: true });

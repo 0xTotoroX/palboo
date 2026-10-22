@@ -1,6 +1,6 @@
 /*
- * [INPUT]: 当前源码目录、Node/Rust 工具路径与现有开发进程锁。
- * [OUTPUT]: --settings 打开当前稳定开发设置地址，唤起跟随已选来源；install:dev 生成带 Dock 启动反馈的 App，前台切换失败仅发通知；--open 后台启动并唤起，--stop 正常退出后台会话，--run 保留前台兼容入口；启动请求串行，确认原宿主退出后清理旧 Dev 再启动；日志追加到 launcher.log，唤起错误也保留；新会话按监督进程身份就绪，不复用旧记录；允许固定已有连接以无宿主重启方式接续Dev。
+ * [INPUT]: 当前源码目录、Node/Rust 工具路径、现有开发进程锁与 dev-dock 的旧固定入口迁移。
+ * [OUTPUT]: --settings 打开当前稳定开发设置地址，唤起跟随已选来源；install:dev 生成带 Dock 启动反馈的 App，等待前台目标注册，切换失败仅发通知；--open 后台启动并唤起，--stop 正常退出后台会话，--run 保留前台兼容入口；启动请求串行，确认原宿主退出后清理旧 Dev 再启动；日志追加到 launcher.log，唤起错误也保留；新会话按监督进程身份就绪，重试失效窗口 PID，不复用旧记录；允许固定已有连接以无宿主重启方式接续Dev。
  * [POS]: 仅为现有开发流程提供 Finder 入口，不更新安装版；冷启动按共享策略准备宿主。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -20,6 +20,7 @@ import { dirname, join, resolve } from 'node:path';
 import { spawnSync, spawn } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { installIcon } from './launcher.mjs';
+import { repairDevelopmentDock } from './dev-dock.mjs';
 import {
   readJson,
   requestRuntime,
@@ -31,7 +32,7 @@ import { claimLease } from './dev-sources.mjs';
 import { setTimeout as delay } from 'node:timers/promises';
 
 const root = resolve(import.meta.dirname, '..');
-const identifier = 'local.codex-buddy.dev-launcher';
+const identifier = 'local.palboo.dev-launcher';
 const quote = (value) => `'${value.replaceAll("'", "'\\''")}'`;
 const appleQuote = (value) => `"${value.replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
 function logLaunch(directory, message) {
@@ -253,22 +254,26 @@ on openWorkbench()
   try
     activate
     set outcome to do shell script ${appleQuote(launch)}
-    if outcome is "host" then
-      set workbenchLocation to "ChatGPT"
-      set targets to current application's NSRunningApplication's runningApplicationsWithBundleIdentifier:"com.openai.codex"
-      if (targets's |count|()) is not 1 then error "找不到唯一的 Codex 应用，未切换到其他程序。"
-      set targetApp to targets's firstObject()
-    else
-      set workbenchLocation to "CodexBuddy 工作台"
-      set targetApp to current application's NSRunningApplication's runningApplicationWithProcessIdentifier:(outcome as integer)
-    end if
-    if targetApp is missing value then error "工作台已退出，请重新打开。"
   on error messageText
     activate
-    display alert "CodexBuddy Dev" message messageText buttons {"好"} default button "好"
+    display alert "Palboo Dev" message messageText buttons {"好"} default button "好"
     return
   end try
+  set workbenchLocation to "ChatGPT"
+  if outcome is not "host" then set workbenchLocation to "Palboo 工作台"
   try
+    repeat 40 times
+      if outcome is "host" then
+        set targets to current application's NSRunningApplication's runningApplicationsWithBundleIdentifier:"com.openai.codex"
+        if (targets's |count|()) is not 1 then error "找不到唯一的 Codex 应用，未切换到其他程序。"
+        set targetApp to targets's firstObject()
+      else
+        set targetApp to current application's NSRunningApplication's runningApplicationWithProcessIdentifier:(outcome as integer)
+      end if
+      if targetApp is not missing value then exit repeat
+      delay 0.05
+    end repeat
+    if targetApp is missing value then error "前台目标尚未可用。"
     set launcherApp to current application's NSRunningApplication's currentApplication()
     set nativeApp to current application's NSApplication's sharedApplication()
     targetApp's unhide()
@@ -283,13 +288,13 @@ on openWorkbench()
     end if
   end try
   try
-    display notification ("工作台已就绪，请手动切换到 " & workbenchLocation & " 继续使用。") with title "CodexBuddy Dev"
+    display notification ("工作台已就绪，请手动切换到 " & workbenchLocation & " 继续使用。") with title "Palboo Dev"
   end try
 end openWorkbench`;
 }
 
 function install() {
-  const destination = '/Applications/CodexBuddy Dev.app';
+  const destination = '/Applications/Palboo Dev.app';
   if (
     existsSync(destination) &&
     command('/usr/libexec/PlistBuddy', [
@@ -299,15 +304,15 @@ function install() {
     ]) !== identifier
   )
     throw new Error('目标位置已有其他应用，未覆盖。');
-  const staging = mkdtempSync(join(dirname(destination), '.codex-buddy-dev-'));
-  const staged = join(staging, 'CodexBuddy Dev.app');
+  const staging = mkdtempSync(join(dirname(destination), '.palboo-dev-'));
+  const staged = join(staging, 'Palboo Dev.app');
   const directory = join(root, 'target/dev');
   const path = [dirname(process.execPath), process.env.PATH, '/usr/bin', '/bin']
     .filter(Boolean)
     .join(':');
   mkdirSync(directory, { recursive: true });
   writeFileSync(
-    join(directory, 'Start CodexBuddy Dev.command'),
+    join(directory, 'Start Palboo Dev.command'),
     terminalScript(root, process.execPath, path),
     { mode: 0o700 },
   );
@@ -321,8 +326,9 @@ function install() {
       command('/usr/bin/plutil', ['-remove', 'CFBundleIconName', plist]);
     for (const [key, type, value] of [
       ['CFBundleIdentifier', '-string', identifier],
-      ['CFBundleName', '-string', 'CodexBuddy Dev'],
-      ['CFBundleIconFile', '-string', 'codex-buddy.icns'],
+      ['CFBundleName', '-string', 'Palboo Dev'],
+      ['CFBundleDisplayName', '-string', 'Palboo Dev'],
+      ['CFBundleIconFile', '-string', 'palboo.icns'],
       ['LSUIElement', '-bool', 'false'],
       ['LSMinimumSystemVersion', '-string', '14.0'],
     ])
@@ -339,6 +345,8 @@ function install() {
   } finally {
     rmSync(staging, { recursive: true, force: true });
   }
+  const dock = repairDevelopmentDock();
+  if (dock.changed) console.log(`Dock 开发入口已更新；恢复副本：${dock.backup}`);
   console.log(
     `开发入口已安装：${destination}\n源码目录或 Node 路径改变后，重新运行 npm run install:dev。`,
   );
@@ -398,7 +406,19 @@ export async function revealDevelopment(
             targetId: config.targetId,
           });
         } else if (state.connection.status === 'connected') {
-          return await requestRuntime(runtime, 'development/reveal', {});
+          const result = await requestRuntime(runtime, 'development/reveal', {});
+          if (result.pid != null) {
+            if (!Number.isSafeInteger(result.pid) || result.pid <= 0)
+              throw new Error('开发浮窗进程记录无效');
+            // A native rebuild can replace the window after the reveal response was sent.
+            try {
+              process.kill(result.pid, 0);
+            } catch (error) {
+              if (error.code !== 'ESRCH') throw error;
+              throw new Error('开发浮窗进程已退出，正在重新确认工作台');
+            }
+          }
+          return result;
         }
       } catch (error) {
         lastError = error;
@@ -414,7 +434,7 @@ export async function revealDevelopment(
 export function developmentSettingsUrl(directory) {
   const session = readJson(join(directory, 'target/dev/session.json'));
   if (!session?.url || !session.token || !hasDevelopmentOwner(directory))
-    throw new Error('开发会话尚未运行，请先打开 CodexBuddy Dev.app。');
+    throw new Error('开发会话尚未运行，请先打开 Palboo Dev.app。');
   const url = new URL(session.url);
   if (
     url.protocol !== 'http:' ||

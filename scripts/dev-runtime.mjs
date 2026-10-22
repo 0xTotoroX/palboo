@@ -116,7 +116,7 @@ export async function startGateway(token, getRuntime, development) {
         if (
           development?.epoch &&
           !['GET', 'HEAD'].includes(req.method) &&
-          req.headers['x-codex-buddy-source'] !== development.epoch()
+          req.headers['x-palboo-source'] !== development.epoch()
         ) {
           res
             .writeHead(409, { 'Content-Type': 'application/json' })

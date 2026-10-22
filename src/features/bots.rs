@@ -1,6 +1,6 @@
 // [INPUT]: OS roster/account file events, local BDK catalog and feature lifecycle.
 // [OUTPUT]: Event-invalidated catalog with 60s health fallback; no reply cursor reads.
-// [POS]: PALBOO metadata transport. [PROTOCOL]: Keep src/AGENTS.md in sync.
+// [POS]: Palboo metadata transport. [PROTOCOL]: Keep src/AGENTS.md in sync.
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use serde_json::{Value, json};
 use std::{
@@ -89,7 +89,7 @@ struct Cache {
 static CACHE: OnceLock<Mutex<Option<Cache>>> = OnceLock::new();
 fn cache_root() -> PathBuf {
     if cfg!(debug_assertions)
-        && let Some(root) = std::env::var_os("CODEX_BUDDY_TEST_GROKBOT_CACHE")
+        && let Some(root) = crate::brand::env_os("PALBOO_TEST_GROKBOT_CACHE")
     {
         return root.into();
     }
@@ -167,7 +167,7 @@ pub async fn catalog(force: bool, auto_sync: bool) -> Value {
 async fn fetch() -> anyhow::Result<Value> {
     // Fixture override exists only in debug builds and must remain loopback.
     let base = if cfg!(debug_assertions) {
-        std::env::var("CODEX_BUDDY_TEST_GROKBOT_URL")
+        crate::brand::env("PALBOO_TEST_GROKBOT_URL")
             .unwrap_or_else(|_| "http://127.0.0.1:3417".into())
     } else {
         "http://127.0.0.1:3417".into()
@@ -203,16 +203,78 @@ async fn fetch() -> anyhow::Result<Value> {
     let body: Value = serde_json::from_slice(&bytes)?;
     anyhow::ensure!(body["isError"] != true, "BDK catalog failed");
     let catalog = &body["result"]["catalog"];
-    anyhow::ensure!(
-        catalog["version"] == 1 && catalog["bots"].is_array(),
-        "catalog overlay required"
-    );
+    anyhow::ensure!(valid_catalog(catalog), "catalog overlay required");
     Ok(catalog.clone())
+}
+
+fn valid_catalog(catalog: &Value) -> bool {
+    let nonempty = |v: &Value| v.as_str().is_some_and(|s| !s.trim().is_empty());
+    if catalog["version"] != 1
+        || !nonempty(&catalog["account"])
+        || !nonempty(&catalog["revision"])
+        || catalog["stale"] != false
+    {
+        return false;
+    }
+    let Some(bots) = catalog["bots"].as_array() else {
+        return false;
+    };
+    let mut names = std::collections::HashMap::new();
+    for bot in bots {
+        if let Some(name) = bot["name"].as_str() {
+            *names.entry(name).or_insert(0usize) += 1;
+        }
+    }
+    let mut ids = std::collections::HashSet::new();
+    bots.iter().all(|bot| {
+        nonempty(&bot["id"])
+            && ids.insert(bot["id"].as_str().unwrap())
+            && nonempty(&bot["name"])
+            && bot["available"].is_boolean()
+            && ["description", "preview"]
+                .iter()
+                .all(|key| bot.get(key).is_none_or(Value::is_string))
+            && (!bot["available"].as_bool().unwrap()
+                || names.get(bot["name"].as_str().unwrap()) == Some(&1))
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn incomplete_catalogs_cannot_be_used_as_verified_identities() {
+        let good = json!({"version":1,"account":"fixture","revision":"r1","stale":false,
+            "bots":[{"id":"bot-1","name":"Synthetic Bot","available":true}]});
+        assert!(valid_catalog(&good));
+        for key in ["account", "revision", "stale"] {
+            for invalid in [Value::Null, json!(""), json!(42)] {
+                let mut value = good.clone();
+                value[key] = invalid;
+                assert!(!valid_catalog(&value), "invalid {key}");
+            }
+        }
+        for key in ["id", "name", "available"] {
+            let mut value = good.clone();
+            value["bots"][0].as_object_mut().unwrap().remove(key);
+            assert!(!valid_catalog(&value), "missing bot {key}");
+        }
+        for invalid in [
+            Value::Null,
+            json!("bot"),
+            json!({"name":"Synthetic Bot","available":true}),
+        ] {
+            let mut value = good.clone();
+            value["bots"][0] = invalid;
+            assert!(!valid_catalog(&value));
+        }
+        let mut duplicated = good.clone();
+        duplicated["bots"]
+            .as_array_mut()
+            .unwrap()
+            .push(good["bots"][0].clone());
+        assert!(!valid_catalog(&duplicated));
+    }
     fn filename(key: &str) -> String {
         let alphabet = b"abcdefghijklmnopqrstuvwxyz234567";
         let (mut bits, mut value) = (0, 0u32);

@@ -139,7 +139,7 @@ export async function checkOverlayMotion(page, configureFeature) {
     window.workbenchFixture.hiddenRail = document.querySelector('nav');
     window.workbenchFixture.hiddenRail.remove();
   });
-  await page.waitForFunction(() => !document.querySelector('[data-codex-buddy-launcher]'));
+  await page.waitForFunction(() => !document.querySelector('[data-palboo-launcher]'));
   const missing = await sample(false, 0.2);
   assert.equal(missing.capsule, 'none');
   assert.equal(missing.filter, 'none');
@@ -148,6 +148,6 @@ export async function checkOverlayMotion(page, configureFeature) {
     document.body.append(window.workbenchFixture.hiddenRail);
   });
   await page.waitForFunction(() => !window.__companionFloatingPanel.state.morphAnimation);
-  await page.getByRole('button', { name: 'CodexBuddy', exact: true }).press('Enter');
+  await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
   await page.waitForFunction(() => !window.__companionFloatingPanel.state.morphAnimation);
 }

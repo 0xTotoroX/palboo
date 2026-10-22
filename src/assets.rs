@@ -31,7 +31,7 @@ fn empty_probe() -> String {
 pub fn development() -> Option<Arc<Development>> {
     #[cfg(debug_assertions)]
     {
-        let file = std::env::var_os("CODEX_BUDDY_DEV_ASSETS")?;
+        let file = crate::brand::env_os("PALBOO_DEV_ASSETS")?;
         static CACHE: std::sync::OnceLock<std::sync::Mutex<DevelopmentCache>> =
             std::sync::OnceLock::new();
         CACHE
@@ -75,7 +75,7 @@ pub fn settings_url() -> Option<String> {
     #[cfg(debug_assertions)]
     {
         development()?;
-        let value = std::env::var("CODEX_BUDDY_DEV_SETTINGS").ok()?;
+        let value = crate::brand::env("PALBOO_DEV_SETTINGS").ok()?;
         validate_settings_url(&value).then_some(value)
     }
     #[cfg(not(debug_assertions))]

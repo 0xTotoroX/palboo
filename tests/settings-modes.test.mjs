@@ -620,7 +620,7 @@ test(
       const preview = page.getByRole('complementary', { name: '联动预览' });
       await preview.locator('[data-ready="true"]').waitFor();
       assert.equal(
-        await preview.locator('.preview-workspace').getAttribute('data-material'),
+        await preview.locator('[data-preview-workspace]').getAttribute('data-material'),
         'frosted',
       );
       rejectSurface = true;
@@ -628,32 +628,34 @@ test(
       await page.getByLabel('侧栏主题', { exact: true }).selectOption('black');
       await page.getByText('合成材质保存失败', { exact: false }).waitFor();
       assert.equal(
-        await preview.locator('.preview-workspace').getAttribute('data-material'),
+        await preview.locator('[data-preview-workspace]').getAttribute('data-material'),
         'frosted',
       );
       await category('appearance');
       await page.getByLabel('侧栏主题', { exact: true }).selectOption('black');
-      await preview.locator('.preview-workspace[data-material="black"]').waitFor();
+      await preview.locator('[data-preview-workspace][data-material="black"]').waitFor();
       await category('surfaces');
       await page.getByLabel('主界面布局', { exact: true }).selectOption('horizontal');
-      await preview.locator('.preview-split[data-axis="horizontal"]').waitFor();
+      await page.waitForFunction(
+        () => document.querySelectorAll('.layout-demo .csw-workbench-pane').length === 3,
+      );
       assert.equal(
-        await preview.locator('.preview-pane').count(),
+        await preview.locator('.csw-workbench-pane').count(),
         3,
         'only opened main features appear',
       );
       await category('surfaces');
       await page.getByRole('button', { name: '页面浮层', exact: true }).click();
-      await preview.locator('.preview-host[data-placement="overlay"]').waitFor();
+      await preview.locator('.layout-demo-canvas[data-demo-placement="overlay"]').waitFor();
       assert.equal(
-        await preview.locator('.preview-workspace').getAttribute('data-material'),
+        await preview.locator('[data-preview-workspace]').getAttribute('data-material'),
         'frosted',
         'each placement keeps its own material',
       );
       const previewWrites = writes.length;
       await preview.getByRole('button', { name: '贴边 / 刘海', exact: true }).click();
-      await preview.locator('.preview-host[data-placement="edge"]').waitFor();
-      await preview.getByRole('button', { name: '主界面', exact: true }).click();
+      await preview.locator('.layout-demo-canvas[data-demo-placement="edge"]').waitFor();
+      await preview.getByRole('button', { name: '恢复已保存配置', exact: true }).click();
       assert.equal(writes.length, previewWrites, 'preview navigation never moves real features');
 
       await page.bringToFront();
@@ -671,17 +673,17 @@ test(
           },
         ],
       };
-      await preview
-        .locator('.preview-split[data-axis="vertical"] .preview-split[data-axis="horizontal"]')
-        .waitFor();
+      await preview.locator('[data-axis="vertical"] [data-axis="horizontal"]').waitFor();
       assert.equal(
-        await preview.locator('.preview-pane').count(),
+        await preview.locator('.csw-workbench-pane').count(),
         3,
         'nested layout comes from the saved tree',
       );
       features.features.find((entry) => entry.id === 'board').open = false;
-      await page.waitForFunction(() => document.querySelectorAll('.preview-pane').length === 2);
-      assert.equal(await preview.getByRole('button', { name: '看板', exact: true }).count(), 0);
+      await page.waitForFunction(
+        () => document.querySelectorAll('.csw-workbench-pane').length === 2,
+      );
+      assert.equal(await preview.getByRole('tab', { name: '看板', exact: true }).count(), 0);
 
       await page.getByRole('link', { name: '常用开关', exact: true }).click();
       const demoWrites = writes.length;
@@ -834,10 +836,10 @@ test(
       await themeButton('浅色').waitFor({ state: 'attached' });
       assert.equal(await themeButton('浅色').getAttribute('aria-pressed'), 'true');
       await expectTheme('light');
-      await peer.evaluate(() => localStorage.setItem('codex-buddy-settings-theme', 'unknown'));
+      await peer.evaluate(() => localStorage.setItem('palboo-settings-theme', 'unknown'));
       publishTheme('dark');
       await expectTheme('light'); // Invalid browser storage cannot replace a saved server preference.
-      await peer.evaluate(() => localStorage.removeItem('codex-buddy-settings-theme'));
+      await peer.evaluate(() => localStorage.removeItem('palboo-settings-theme'));
       await chooseTheme('自动');
       await peer.close();
       assert.equal(
@@ -846,18 +848,21 @@ test(
         'cross-tab theme choices only save the appearance preference',
       );
       await emulateMedia(page, { colorScheme: 'light', reducedMotion: 'no-preference' });
-      await preview.locator('.preview-workspace').evaluate((node) => {
-        window.placementAnimations = 0;
-        const animate = node.animate;
-        node.animate = function (...args) {
-          window.placementAnimations++;
-          return animate.apply(this, args);
+      await preview.locator('.layout-demo-window').evaluate((node) => {
+        window.placementFrames = [];
+        const sample = () => {
+          window.placementFrames.push(node.x.baseVal.value);
+          if (window.placementFrames.length < 100) requestAnimationFrame(sample);
         };
+        requestAnimationFrame(sample);
       });
       await page.getByRole('button', { name: '桌面窗口', exact: true }).click();
-      await preview.locator('.preview-host[data-placement="desktop"]').waitFor();
+      await preview.locator('.layout-demo-canvas[data-demo-placement="desktop"]').waitFor();
+      await page.waitForFunction(
+        () => document.querySelector('.layout-demo-window').x.baseVal.value === 754,
+      );
       assert.ok(
-        await page.evaluate(() => window.placementAnimations > 0),
+        await page.evaluate(() => window.placementFrames.some((x) => x > 470 && x < 730)),
         'placement changes animate only the illustration',
       );
       const beforeMotion = writes.length;
@@ -904,44 +909,55 @@ test(
       await category('connection');
       await page.addScriptTag({ content: await readFile('ui/settings/dev-sources.js', 'utf8') });
       await category('dev');
-      await page.getByText('开发来源 · main · 1234567', { exact: true }).waitFor();
-      const source = page.getByLabel('调试 worktree', { exact: true });
+      const sourceWidget = page.locator('#buddy-dev-sources');
+      await sourceWidget.getByText('main', { exact: true }).waitFor();
+      assert.doesNotMatch(
+        await sourceWidget.locator('.source-content').innerText(),
+        /1234567|7654321|已同步/,
+      );
+      assert.equal(await sourceWidget.locator('select, summary').count(), 0);
+      const source = sourceWidget.getByRole('radio', { name: /codex\/long-source-name/ });
       const sourceWrites = writes.filter((w) => w.path.startsWith('/api/dev/')).length;
       for (const mode of ['浅色', '深色']) {
         await chooseTheme(mode);
         await page.setViewportSize({ width: 360, height: 900 });
-        await source.click();
-        await page.locator('#buddy-dev-sources select:open').waitFor();
-        assert.equal(await source.evaluate((n) => getComputedStyle(n).appearance), 'base-select');
-        const bounds = await page.locator('#buddy-dev-sources option').evaluateAll((nodes) =>
+        await source.check();
+        const bounds = await sourceWidget.locator('.source-row').evaluateAll((nodes) =>
           nodes.map((node) => ({
             left: node.getBoundingClientRect().left,
             right: node.getBoundingClientRect().right,
             width: innerWidth,
+            overflow: node.scrollWidth > node.clientWidth,
           })),
         );
         assert.ok(
-          bounds.every((box) => box.left >= 0 && box.right <= box.width),
+          bounds.every((box) => box.left >= 0 && box.right <= box.width && !box.overflow),
           'long Dev source labels remain inside a narrow viewport',
         );
-        await page.keyboard.press('Escape');
+        const edges = await sourceWidget.evaluate((host) => {
+          const view = host.shadowRoot;
+          return [view.querySelector('form'), view.querySelector('button')].map(
+            (n) => n.getBoundingClientRect().right,
+          );
+        });
+        assert.ok(Math.abs(edges[0] - edges[1]) < 1, 'switch action aligns to the right edge');
       }
       assert.equal(
         writes.filter((w) => w.path.startsWith('/api/dev/')).length,
         sourceWrites,
-        'previewing Dev menus never switches sources',
+        'selecting a source never switches it before confirmation',
       );
       const restricted = await browser.newContext({ colorScheme: 'dark', reducedMotion: 'reduce' });
       await restricted.addInitScript(() => {
         const get = Storage.prototype.getItem,
           set = Storage.prototype.setItem;
         Storage.prototype.getItem = function (key) {
-          if (key === 'codex-buddy-settings-theme')
+          if (key === 'palboo-settings-theme')
             throw new DOMException('Storage unavailable', 'SecurityError');
           return get.call(this, key);
         };
         Storage.prototype.setItem = function (key, value) {
-          if (key === 'codex-buddy-settings-theme')
+          if (key === 'palboo-settings-theme')
             throw new DOMException('Storage unavailable', 'SecurityError');
           return set.call(this, key, value);
         };

@@ -16,13 +16,14 @@ let settingsLink = null;
 let observer = null;
 let frame = 0;
 let current = null;
+let actionStatus = '';
 const previewEnabled = () => DEVELOPMENT && current?.pluginTabPreview === true;
 
 function isOfficialButton(node) {
   if (
     !(node instanceof HTMLElement) ||
     !node.closest('nav[class~="group/sidebar-rail"]') ||
-    node.closest('[data-codex-buddy-launcher]')
+    node.closest('[data-palboo-launcher]')
   )
     return false;
   const name = (
@@ -31,7 +32,10 @@ function isOfficialButton(node) {
     node.getAttribute('title') ||
     ''
   ).trim();
-  return ['CodexBuddy 看板', 'CodexBuddy'].includes(name) && node.getBoundingClientRect().width > 0;
+  return (
+    ['Palboo 看板', 'Palboo', 'PALBOO 看板', 'PALBOO'].includes(name) &&
+    node.getBoundingClientRect().width > 0
+  );
 }
 function canReuseOfficial() {
   return isOfficialButton(official) && current?.canUseOfficial?.() === true;
@@ -87,8 +91,14 @@ function bindOfficial(button) {
   }
   official = button;
   if (official) {
-    // Remove only status text left by the previous Buddy adapter.
-    if (['正在打开官方 Buddy 插件页签…', '设置已在官方侧边页签打开。'].includes(official.title))
+    // Remove only status text left by the previous Palboo adapter.
+    if (
+      [
+        '正在打开官方 Palboo 插件页签…',
+        '正在打开官方 PALBOO 插件页签…',
+        '设置已在官方侧边页签打开。',
+      ].includes(official.title)
+    )
       official.removeAttribute('title');
     official.addEventListener('pointerdown', officialPointer, true);
     official.addEventListener('click', officialClick, true);
@@ -121,6 +131,7 @@ export function stopLauncher() {
   settingsLink?.stop();
   settingsLink = null;
   pluginStatus = '';
+  actionStatus = '';
   observer?.disconnect();
   observer = null;
   cancelAnimationFrame(frame);
@@ -193,7 +204,7 @@ export function syncLauncher(options) {
   }
   if (!entry) {
     entry = document.createElement('div');
-    entry.setAttribute('data-codex-buddy-launcher', 'true');
+    entry.setAttribute('data-palboo-launcher', 'true');
     entry.style.cssText = 'flex:none;align-self:stretch;min-width:0;';
     const shadow = entry.attachShadow({ mode: 'open' });
     shadow.innerHTML = `<style>
@@ -209,11 +220,12 @@ export function syncLauncher(options) {
       .settings-feedback button {flex:none;width:auto;height:28px;padding:0 6px;font:inherit;}
       ${launcherFaceStyles}
     </style><div class="entry">
-      <button type="button" class="csw-launcher-face csw-fab" aria-label="CodexBuddy" aria-keyshortcuts="Alt+Enter">
+      <button type="button" class="csw-launcher-face csw-fab" aria-label="Palboo" aria-keyshortcuts="Alt+Enter">
         ${launcherFaceHtml()}
       </button></div><div class="settings-feedback" popover="manual"><span role="status"></span><button type="button" aria-label="关闭设置提示">关闭</button></div>`;
     shadow.querySelector('.settings-feedback button').addEventListener('click', (event) => {
       event.stopPropagation();
+      actionStatus = '';
       current?.dismissSettingsStatus?.();
       /** @type {HTMLElement} */ (shadow.querySelector('.settings-feedback')).hidePopover();
     });
@@ -252,14 +264,21 @@ export function syncLauncher(options) {
     radial = createLauncherMenu(entry.shadowRoot.querySelector('button'), () => ({
       ...current,
       action: (action) => {
+        actionStatus = '';
+        schedule();
         face?.acknowledge();
         return current?.action?.(action);
+      },
+      onError: (message) => {
+        // 设置错误已由运行层发布，其他动作共用同一个不受侧栏裁切的反馈。
+        if (!current?.settingsStatus) actionStatus = message;
+        schedule();
       },
     }));
   if (!face) face = createLauncherFace(entry.shadowRoot.querySelector('button'));
   face.update(options);
   const feedback = entry.shadowRoot.querySelector('.settings-feedback');
-  const message = options.settingsStatus || '';
+  const message = options.settingsStatus || actionStatus;
   const status = feedback.querySelector('[role="status"]');
   if (status.textContent !== message) status.textContent = message;
   entry.shadowRoot

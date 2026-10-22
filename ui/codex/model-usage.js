@@ -1,10 +1,10 @@
 /* [INPUT]: 宿主 electronBridge 的本机 account/rateLimits/read 与额度/账号通知。
- * [OUTPUT]: __codexBuddyUsage.read(enabled) 只读、限频的 5 小时/周剩余额度；未知值不猜测。
+ * [OUTPUT]: __palbooUsage.read(enabled) 只读、限频的 5 小时/周剩余额度；未知值不猜测。
  * [POS]: 独立宿主适配器，无凭据、聊天读取、模型调用或持久化；模型快切停用时回收。
  * [PROTOCOL]: 与 model.js 一起安装/销毁；额度不进入模型选择 revision。 */
 (() => {
   'use strict';
-  const KEY = '__codexBuddyUsage';
+  const KEY = '__palbooUsage';
   const host =
     /** @type {Window & {electronBridge?: {sendMessageFromView?: (message: object) => Promise<unknown>}}} */ (
       window

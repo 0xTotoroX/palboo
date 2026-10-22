@@ -10,7 +10,7 @@ import { records, installModelControlFixture } from './model-control-fixture.mjs
 const source = readFileSync(new URL('../ui/codex/codex-host.js', import.meta.url), 'utf8');
 test('CodexHost adapter keeps Agent capability scoped to each composer', async () => {
   const browser = await chromium.launch({
-    executablePath: process.env.CODEX_BUDDY_CHROME_BIN || undefined,
+    executablePath: process.env.PALBOO_CHROME_BIN || undefined,
     headless: true,
   });
   try {
@@ -21,7 +21,7 @@ test('CodexHost adapter keeps Agent capability scoped to each composer', async (
     await page.addScriptTag({ content: source });
     const check = (id) =>
       page.evaluate(
-        (id) => window.__codexBuddyHostCompatibility.capability(document.getElementById(id)),
+        (id) => window.__palbooHostCompatibility.capability(document.getElementById(id)),
         id,
       );
     assert.equal((await check('a')).officialModel, false);
@@ -72,7 +72,7 @@ test('CodexHost adapter keeps Agent capability scoped to each composer', async (
 
 test('official model adapter refuses external Agent without touching its menus', async () => {
   const browser = await chromium.launch({
-    executablePath: process.env.CODEX_BUDDY_CHROME_BIN || undefined,
+    executablePath: process.env.PALBOO_CHROME_BIN || undefined,
     headless: true,
   });
   try {
@@ -96,12 +96,12 @@ test('official model adapter refuses external Agent without touching its menus',
         status: () => ({ version: 2, selections: [{ composerId: 'external', agent: 'claude' }] }),
       };
     });
-    const value = await page.evaluate(() => window.__codexBuddyModelControl.snapshot(true));
+    const value = await page.evaluate(() => window.__palbooModelControl.snapshot(true));
     assert.equal(value.status, 'unavailable');
     assert.match(value.message, /claude/);
     const result = await page.evaluate(
       (state) =>
-        window.__codexBuddyModelControl.apply({
+        window.__palbooModelControl.apply({
           target: state.target,
           expectedRevision: state.revision,
           selection: { model: 'beta', reasoning: 'high', speed: 'standard' },
@@ -117,10 +117,10 @@ test('official model adapter refuses external Agent without touching its menus',
       delete window.__codexhostRendererBindingProbeV1;
       document.querySelector('[data-agent]').setAttribute('data-agent', 'codex');
     });
-    const unavailable = await page.evaluate(() => window.__codexBuddyModelControl.snapshot(true));
+    const unavailable = await page.evaluate(() => window.__palbooModelControl.snapshot(true));
     const refused = await page.evaluate(
       (state) =>
-        window.__codexBuddyModelControl.apply({
+        window.__palbooModelControl.apply({
           target: state.target,
           expectedRevision: state.revision,
           selection: { model: 'beta', reasoning: 'high', speed: 'standard' },

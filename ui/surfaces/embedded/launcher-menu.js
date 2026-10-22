@@ -1,5 +1,5 @@
 /* [INPUT]: The independent eyes anchor and current action/default/capability callbacks.
- * [OUTPUT]: An inline sidebar menu with cancellable hover and keyboard access.
+ * [OUTPUT]: An inline sidebar menu with cancellable hover, keyboard access and errors forwarded to the shared launcher feedback.
  * [POS]: Launcher presentation only; actions remain in the runtime coordinator.
  * [PROTOCOL]: Keep embedded/AGENTS.md in sync. */
 import { iconSvg } from '../../shared/icons/index.js';
@@ -10,7 +10,7 @@ const actions = [
 ];
 export function createLauncherMenu(anchor, options) {
   const host = document.createElement('div');
-  host.setAttribute('data-codex-buddy-launcher-menu', '');
+  host.setAttribute('data-palboo-launcher-menu', '');
   host.inert = true;
   host.style.cssText =
     'position:relative;display:block;flex:none;align-self:center;pointer-events:none;';
@@ -32,9 +32,8 @@ export function createLauncherMenu(anchor, options) {
     :host([data-open]) .hit {pointer-events:auto;}
     :host([data-open]) button {opacity:1;pointer-events:auto;transform:translateY(0);transition-delay:var(--delay,0ms);}
     :host([data-keyboard]),:host([data-keyboard]) * {transition:none!important;}
-    .status {position:absolute;left:34px;top:-30px;width:210px;font-size:12px;}
     @media(prefers-reduced-motion:reduce) {:host,*{transition:none!important;}}
-  </style><div class="menu-shell"><div class="hit"></div><div role="menu" aria-label="CodexBuddy 快捷菜单">${actions.map(([id, label, title, icon], i) => `<button type="button" role="menuitem" data-action="${id}" aria-label="${title}" style="--top:${6 + i * 57}px;--delay:${(2 - i) * 20}ms" tabindex="-1">${iconSvg(icon)}<span>${label}</span></button>`).join('')}</div></div><span class="status" role="status"></span>`;
+  </style><div class="menu-shell"><div class="hit"></div><div role="menu" aria-label="Palboo 快捷菜单">${actions.map(([id, label, title, icon], i) => `<button type="button" role="menuitem" data-action="${id}" aria-label="${title}" style="--top:${6 + i * 57}px;--delay:${(2 - i) * 20}ms" tabindex="-1">${iconSvg(icon)}<span>${label}</span></button>`).join('')}</div></div>`;
   anchor.before(host);
   let open = false,
     enterTimer = 0,
@@ -158,12 +157,11 @@ export function createLauncherMenu(anchor, options) {
       if (busy) return;
       busy = true;
       update();
-      shadow.querySelector('.status').textContent = '';
       try {
         await options().action?.(button.dataset.action);
         if (!destroyed) close();
       } catch (error) {
-        if (!destroyed) shadow.querySelector('.status').textContent = String(error);
+        if (!destroyed) options().onError?.(String(error?.message || error));
       } finally {
         busy = false;
         if (!destroyed) update();

@@ -1,6 +1,6 @@
 /* [INPUT]: 认证性能 API、页面可见性与独立偏好修订号。
  * [OUTPUT]: 集成/监测开关与实时仪表窗；隐藏页面不采样，展示历史有界且不持久化。
- * [POS]: 系统设置展示；宿主页指标与 Buddy 自身耗时明确区分。
+ * [POS]: 系统设置展示；宿主页指标与 Palboo 自身耗时明确区分。
  * [PROTOCOL]: 变更时同步 settings/AGENTS.md。 */
 import { useEffect, useRef, useState } from 'react';
 import { request } from './api';
@@ -22,7 +22,7 @@ async function readState(path: string, body?: unknown): Promise<State> {
     typeof value.preferences.monitoringEnabled !== 'boolean' ||
     !Number.isSafeInteger(value.preferences.revision)
   )
-    throw Error('当前后台尚未提供性能设置，请重新打开 CodexBuddy 后再试。');
+    throw Error('当前后台尚未提供性能设置，请重新打开 Palboo 后再试。');
   return value;
 }
 export function PerformanceSettings({ live, active }: { live: boolean; active: boolean }) {

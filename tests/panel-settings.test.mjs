@@ -26,7 +26,7 @@ test('workbench settings save only their own preference fields', { timeout: 3000
   });
 
   const browser = await chromium.launch({
-    executablePath: process.env.CODEX_BUDDY_CHROME_BIN || undefined,
+    executablePath: process.env.PALBOO_CHROME_BIN || undefined,
   });
   try {
     const page = await browser.newPage();

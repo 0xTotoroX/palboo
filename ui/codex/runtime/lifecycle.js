@@ -161,7 +161,7 @@ function scanCurrent(generation, timerId) {
   if (timerId && runtimeState.timer !== timerId) return;
   if (timerId) runtimeState.timer = 0;
   runtimeState.scans += 1;
-  window.__codexBuddyTokenMeter?.refresh();
+  window.__palbooTokenMeter?.refresh();
   installStyle();
   installFloat();
   const stepwiseActive = stepwiseEnabled();
@@ -326,9 +326,7 @@ function installObserver() {
       if (
         shellState.root?.contains(mutation.target) ||
         (mutation.target instanceof Element &&
-          mutation.target.closest(
-            '[data-codex-buddy-features-root],[data-codex-buddy-token-meter]',
-          ))
+          mutation.target.closest('[data-palboo-features-root],[data-palboo-token-meter]'))
       )
         return false;
       return mutation.addedNodes.length || mutation.type === 'characterData';
@@ -350,7 +348,7 @@ function stopRuntime() {
   stopWorkbench();
   cancelFaceClick();
   window.dispatchEvent(
-    new CustomEvent('codex-buddy:stop', { detail: { destroy: runtimeState.destroyed } }),
+    new CustomEvent('palboo:stop', { detail: { destroy: runtimeState.destroyed } }),
   );
   runtimeState.runtimeActive = false;
   runtimeState.runtimeGeneration += 1;
@@ -488,10 +486,10 @@ function destroy() {
   stopNextDrop?.();
   stopNextDrop = null;
   stopPerformance();
-  if (!IS_POPOUT) window.__codexBuddyPromptEnhancer?.destroy();
-  if (!IS_POPOUT) window.__codexBuddyTokenMeter?.destroy();
+  if (!IS_POPOUT) window.__palbooPromptEnhancer?.destroy();
+  if (!IS_POPOUT) window.__palbooTokenMeter?.destroy();
+  if (!IS_POPOUT) window.__palbooTerminology?.destroy();
   if (!IS_POPOUT) window.__palbooBots?.destroy();
-  if (!IS_POPOUT) window.__codexBuddyTerminology?.destroy();
   shellState.featureCleanup?.();
   clearTimeout(shellState.detachedRecoveryTimer);
   if (!IS_POPOUT) sessionStorage.removeItem(DETACHED_KEY);
@@ -570,21 +568,21 @@ function syncTools() {
       });
   } else window.__palbooBots?.destroy();
   if (runtimeState.settings?.tokenMeterEnabled === true) {
-    if (!window.__codexBuddyTokenMeter)
+    if (!window.__palbooTokenMeter)
       installTokenMeter({
         isEnabled: () => isCurrentInstance() && runtimeState.settings?.tokenMeterEnabled === true,
       });
-  } else window.__codexBuddyTokenMeter?.destroy();
+  } else window.__palbooTokenMeter?.destroy();
   if (runtimeState.settings?.promptEnhancementEnabled !== false) {
-    if (!window.__codexBuddyPromptEnhancer)
+    if (!window.__palbooPromptEnhancer)
       installPromptEnhancer({
         request: bridgeCall,
         isEnabled: () =>
           isCurrentInstance() && runtimeState.settings?.promptEnhancementEnabled !== false,
       });
-  } else window.__codexBuddyPromptEnhancer?.destroy();
+  } else window.__palbooPromptEnhancer?.destroy();
   if (runtimeState.settings?.terminologyEnabled !== false) {
-    if (!window.__codexBuddyTerminology)
+    if (!window.__palbooTerminology)
       installTerminology({
         request: bridgeCall,
         getRoot: chatRoot,
@@ -595,7 +593,7 @@ function syncTools() {
           title: document.title,
         }),
       });
-  } else window.__codexBuddyTerminology?.destroy();
+  } else window.__palbooTerminology?.destroy();
 }
 
 function install() {
@@ -610,7 +608,7 @@ function install() {
     Boolean(previous?.state?.observer) &&
     document.querySelectorAll?.(`[${ROOT_ATTR}="true"]`).length === 1 &&
     document.querySelectorAll?.(`#${STYLE_ID}`).length === 1 &&
-    document.querySelectorAll('[data-codex-buddy-dock]').length <= 1 &&
+    document.querySelectorAll('[data-palboo-dock]').length <= 1 &&
     document.getElementById(STYLE_ID)?.dataset.codexStepwiseStyleVersion === SCRIPT_VERSION;
   if (
     previous?.version === SCRIPT_VERSION &&
@@ -624,7 +622,9 @@ function install() {
   if (previous && typeof previous.destroy === 'function') previous.destroy();
   document.querySelectorAll?.(`[${ROOT_ATTR}="true"]`).forEach((node) => node.remove());
   // Older runtimes could leave empty layout slots after replacing their root.
-  document.querySelectorAll('[data-codex-buddy-dock]').forEach((node) => node.remove());
+  document
+    .querySelectorAll('[data-palboo-dock],[data-codex-buddy-dock]')
+    .forEach((node) => node.remove());
   document.getElementById(STYLE_ID)?.remove();
 
   initializeState({
@@ -730,9 +730,9 @@ function install() {
   ];
   runtimeState.signalCleanup = () => stopSignals.forEach((stop) => stop());
   if (!IS_POPOUT)
-    window.__codexBuddyTypography = createTypographyTracker(
+    window.__palbooTypography = createTypographyTracker(
       chatRoot,
-      () => window.__codexBuddyModelControl?.inputTarget()?.composer,
+      () => window.__palbooModelControl?.inputTarget()?.composer,
     );
   window[API_KEY] = {
     version: SCRIPT_VERSION,
@@ -758,9 +758,9 @@ function install() {
     panelPreferences,
     exportPanelState,
     panelAppearance,
-    syncTypography: (value) => window.__codexBuddyTypography?.configure(value),
+    syncTypography: (value) => window.__palbooTypography?.configure(value),
     typography: () => {
-      const value = window.__codexBuddyTypography?.snapshot();
+      const value = window.__palbooTypography?.snapshot();
       syncTheme();
       return value;
     },
@@ -774,7 +774,7 @@ function install() {
     panelDisconnected,
     nativeGestureEnded,
     desktopStatus: () => {
-      if (!IS_POPOUT) window.__codexBuddyTokenMeter?.refresh();
+      if (!IS_POPOUT) window.__palbooTokenMeter?.refresh();
       if (runtimeState.runtimeActive && !shellState.root?.isConnected) scheduleScan(0);
       return {
         hasAnswer: Boolean(contextState.lastAssistantHash),

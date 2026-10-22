@@ -24,7 +24,7 @@ const bundle = await build({
 
 test('dock appearances remember independent choices and leave shared window preferences intact', async () => {
   const browser = await chromium.launch({
-    executablePath: process.env.CODEX_BUDDY_CHROME_BIN || process.env.CHROME_PATH || undefined,
+    executablePath: process.env.PALBOO_CHROME_BIN || process.env.CHROME_PATH || undefined,
     headless: true,
   });
   try {
@@ -38,7 +38,7 @@ test('dock appearances remember independent choices and leave shared window pref
         await page.evaluate((popout) => {
           if (popout) window.__companionPopout = {};
           document.body.innerHTML =
-            '<div id="main"><aside data-codex-buddy-dock><div id="root" data-workbench="true"><div class="csw-popover"><div class="csw-panel"><button data-action="material"><span data-material-value></span></button><button class="csw-control-button csw-liquid-star" data-action="liquid-variant"></button></div></div></div></aside></div><div id="chat" data-codex-buddy-chat-row="true"></div>';
+            '<div id="main"><aside data-palboo-dock><div id="root" data-workbench="true"><div class="csw-popover"><div class="csw-panel"><button data-action="material"><span data-material-value></span></button><button class="csw-control-button csw-liquid-star" data-action="liquid-variant"></button></div></div></div></aside></div><div id="chat" data-palboo-chat-row="true"></div>';
         }, popout);
         await page.evaluate(bundle.outputFiles[0].text);
         await page.evaluate(() => {
@@ -59,7 +59,7 @@ test('dock appearances remember independent choices and leave shared window pref
       const read = () => page.evaluate(() => window.probe.currentAppearance());
       const move = (id) =>
         page.evaluate((id) => {
-          document.getElementById(id).append(document.querySelector('[data-codex-buddy-dock]'));
+          document.getElementById(id).append(document.querySelector('[data-palboo-dock]'));
           window.probe.applyMaterial({ animate: false });
         }, id);
       if (popout) {
@@ -122,7 +122,7 @@ test('dock appearances remember independent choices and leave shared window pref
 
 test('opaque black host remains dark with a light system preference', async () => {
   const browser = await chromium.launch({
-    executablePath: process.env.CODEX_BUDDY_CHROME_BIN || process.env.CHROME_PATH || undefined,
+    executablePath: process.env.PALBOO_CHROME_BIN || process.env.CHROME_PATH || undefined,
     headless: true,
   });
   try {

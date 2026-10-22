@@ -1,5 +1,5 @@
 /* [INPUT]: Local MCP notifications and the unique current Codex composer.
- * [OUTPUT]: PALBOO Bot projection and identity-checked append-only composer actions.
+ * [OUTPUT]: Palboo Bot projection and identity-checked append-only composer actions.
  * [POS]: Host adapter; no remote requests, reply consumption, submission or timers.
  * [PROTOCOL]: Keep ui/codex/AGENTS.md and runtime/AGENTS.md in sync. */
 import { createBotTracker } from './bots-state.js';
@@ -7,13 +7,14 @@ import { rawComposerText, setEditableText, setNativeValue } from './composer.js'
 
 /** @param {{getTarget?:()=>any, isEnabled?:()=>boolean}} options */
 export function installBots({
-  getTarget = () => window.__codexBuddyModelControl?.inputTarget(),
+  getTarget = () => window.__palbooModelControl?.inputTarget(),
   isEnabled = () => true,
 } = {}) {
   window.__palbooBots?.destroy();
   const tracker = createBotTracker();
   const life = new AbortController();
   let catalog = { bots: [], revision: '', stale: true, error: '正在同步 Grok Bot…' };
+  const nonempty = (value) => typeof value === 'string' && value.trim().length > 0;
   let target = null,
     token = '',
     disposed = false;
@@ -51,8 +52,14 @@ export function installBots({
     if (!next || input.token !== token || input.threadId !== next.id)
       return { ok: false, message: '聊天或输入框已变化，请重新选择 Bot。' };
     if (
-      !catalog.bots.some((b) => b.name === input.agent && b.id === input.botId && b.available) ||
-      catalog.stale ||
+      !nonempty(catalog.account) ||
+      !nonempty(catalog.revision) ||
+      !nonempty(input.botId) ||
+      !nonempty(input.agent) ||
+      !catalog.bots.some(
+        (b) => b?.name === input.agent && b.id === input.botId && b.available === true,
+      ) ||
+      catalog.stale !== false ||
       input.revision !== catalog.revision ||
       !['ask', 'followup', 'check', 'stop'].includes(input.action)
     )
@@ -102,6 +109,13 @@ export function installBots({
     setCatalog(next) {
       if (disposed || !isEnabled()) return;
       if (!next || next.version !== 1 || !Array.isArray(next.bots)) return;
+      if (
+        next.bots.some(
+          (b) => !b || !nonempty(b.id) || !nonempty(b.name) || typeof b.available !== 'boolean',
+        )
+      ) {
+        next = { version: 1, bots: [], stale: true, error: 'Bot 资料不完整，请检查接入。' };
+      }
       if (catalog.account !== next.account) tracker.clear();
       catalog = next;
       tracker.setCatalog(next.bots);

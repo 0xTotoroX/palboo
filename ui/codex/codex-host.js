@@ -1,5 +1,5 @@
 /* [INPUT]: CodexHost 0.10.2 的版本化只读探针与当前输入框附近的 Agent 控件。
- * [OUTPUT]: window.__codexBuddyHostCompatibility，按输入框判断官方模型操作是否可用。
+ * [OUTPUT]: window.__palbooHostCompatibility，按输入框判断官方模型操作是否可用。
  * [POS]: 上游只读适配；缺失或未知协议拒绝模型写入，不覆盖上游实现。
  * [PROTOCOL]: 变更时同步 codex/AGENTS.md。 */
 (() => {
@@ -45,5 +45,5 @@
       ? { officialModel: false, message: 'CodexHost 输入框尚未就绪' }
       : { officialModel: true, message: '' };
   }
-  window.__codexBuddyHostCompatibility = { capability };
+  window.__palbooHostCompatibility = { capability };
 })();

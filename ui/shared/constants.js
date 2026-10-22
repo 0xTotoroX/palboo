@@ -5,6 +5,9 @@
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
 
+import { migrateBrowserBrandStorage } from './brand-storage.js';
+migrateBrowserBrandStorage();
+
 /** @type {import("./contracts").PopoutBridge|null} */
 const POPOUT = window.__companionPopout || null;
 const IS_POPOUT = Boolean(POPOUT);
@@ -13,13 +16,13 @@ const STYLE_ID = 'companion-stepwise-panel-style';
 const ROOT_ATTR = 'data-companion-stepwise-root';
 const MARK_ATTR = 'data-companion-stepwise-outline-id';
 const HIGHLIGHT_CLASS = 'companion-stepwise-outline-target-flash';
-const SCRIPT_VERSION = 'companion-0.4.0';
+const SCRIPT_VERSION = 'palboo-0.9.0';
 const PAGE_BRIDGE = '__companionDesktopRequest';
 const CONVERSATION_TURN_SELECTOR = 'div.contents[data-content-search-turn-key]';
 const POPOVER_ID = 'companion-stepwise-popover';
-const DEVELOPMENT = typeof CODEX_BUDDY_DEVELOPMENT !== 'undefined' && CODEX_BUDDY_DEVELOPMENT;
-const storageKey = (name) => (DEVELOPMENT ? 'codex-buddy-dev:' : '') + name;
-const CHAT_BINDING_KEY = storageKey('codex-buddy-chat-binding-v1');
+const DEVELOPMENT = typeof PALBOO_DEVELOPMENT !== 'undefined' && PALBOO_DEVELOPMENT;
+const storageKey = (name) => (DEVELOPMENT ? 'palboo-dev:' : '') + name;
+const CHAT_BINDING_KEY = storageKey('palboo-chat-binding-v1');
 const DETACHED_KEY = storageKey('companion-panel-detached');
 const LEGACY_THEME_MODE_KEY = storageKey('companion-stepwise-theme-mode-v1');
 const POSITION_KEY = storageKey('companion-stepwise-float-position-v2');
@@ -31,7 +34,7 @@ const LEGACY_MATERIAL_KEY = storageKey('companion-stepwise-material-v1');
 const PREVIOUS_MATERIAL_KEY = storageKey('companion-stepwise-material-v2');
 const LEGACY_GLASS_STYLE_KEY = storageKey('companion-glass-style');
 const PREVIOUS_V3_MATERIAL_KEY = storageKey('companion-stepwise-material-v3');
-const LIQUID_VARIANT_KEY = storageKey('codex-buddy-liquid-variant');
+const LIQUID_VARIANT_KEY = storageKey('palboo-liquid-variant');
 const MATERIAL_KEY = storageKey('companion-stepwise-material-v4');
 const MATERIAL_ORIGIN_KEY = storageKey('companion-stepwise-material-v3-origin');
 const MATERIAL_MIGRATION_KEY = storageKey('companion-stepwise-material-v3-migrated');

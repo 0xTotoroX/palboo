@@ -324,7 +324,7 @@ impl Client {
     }
 
     pub(crate) async fn suspend_desktop(&self) -> Result<()> {
-        self.evaluate("window.__companionDesktop?.destroy(); window.__companionFloatingPanel?.destroy(); window.__codexBuddyModelControl?.dispose(); true".into()).await?;
+        self.evaluate("window.__companionDesktop?.destroy(); window.__companionFloatingPanel?.destroy(); window.__palbooModelControl?.dispose(); true".into()).await?;
         for installed in [&self.script_id, &self.model_control_script_id] {
             let mut identifier = installed.lock().await;
             if let Some(value) = identifier.as_ref() {
@@ -336,7 +336,7 @@ impl Client {
                 *identifier = None;
             }
         }
-        let clean = self.evaluate("!window.__companionFloatingPanel && !window.__codexBuddyModelControl && !window.__codexBuddyTerminology && !window.__codexBuddyPromptEnhancer".into()).await?;
+        let clean = self.evaluate("!window.__companionFloatingPanel && !window.__palbooModelControl && !window.__palbooTerminology && !window.__palbooPromptEnhancer".into()).await?;
         anyhow::ensure!(clean == true, "宿主清理尚未完成，请重试；连接未报告为关闭");
         Ok(())
     }
@@ -345,7 +345,7 @@ impl Client {
         if !self.is_closed() {
             if let Some(identifier) = self.model_control_script_id.lock().await.take() {
                 let _ = self
-                    .evaluate("window.__codexBuddyModelControl?.dispose(); true".into())
+                    .evaluate("window.__palbooModelControl?.dispose(); true".into())
                     .await;
                 let _ = self
                     .request(

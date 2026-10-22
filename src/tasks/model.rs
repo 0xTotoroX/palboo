@@ -4,6 +4,17 @@
 // [PROTOCOL]: Keep tasks/AGENTS.md in sync when changing the contract.
 use serde::{Deserialize, Serialize};
 
+pub fn task_marker_id(marker: &str) -> Option<&str> {
+    marker
+        .strip_prefix("palboo://task/")
+        .or_else(|| marker.strip_prefix("codexbuddy://task/"))
+        .filter(|id| !id.is_empty())
+}
+
+pub fn task_marker_matches(marker: Option<&str>, task_id: &str) -> bool {
+    marker.and_then(task_marker_id) == Some(task_id)
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Due {
@@ -384,7 +395,7 @@ pub fn recover_inflight(next: &mut Store, snapshot: &Snapshot) {
             .iter()
             .filter(|r| {
                 if intent.action == "create" {
-                    r.marker.as_deref() == Some(&format!("codexbuddy://task/{}", intent.task_id))
+                    task_marker_matches(r.marker.as_deref(), &intent.task_id)
                 } else {
                     intent.expected.as_ref().is_some_and(|e| {
                         r.id == e.id || (e.external_id.is_some() && r.external_id == e.external_id)

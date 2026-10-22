@@ -108,7 +108,7 @@ let state = {
     theme: 'light',
     hostTypography: fixtureTypography,
     settings,
-    sourceLabel: 'CodexBuddy · 合成测试',
+    sourceLabel: 'Palboo · 合成测试',
   },
 };
 let commands = [],
@@ -464,7 +464,7 @@ writeFileSync(dir + '/color', 'red');
 const background = appearanceOnly ? null : spawn(helper, ['board', dir + '/color']);
 await delay(500);
 const panel = spawn(artifact.binary, ['--data-dir', dir, 'panel-window', '--lease', 'synthetic'], {
-  env: { ...process.env, CODEX_BUDDY_DEV_GENIE: genieOnly ? '1' : '0' },
+  env: { ...process.env, PALBOO_DEV_GENIE: genieOnly ? '1' : '0' },
 });
 const motionProbe = spawn(helper, ['motion', String(panel.pid)]);
 const motionSamples = [];

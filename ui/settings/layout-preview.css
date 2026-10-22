@@ -1,0 +1,195 @@
+/* [INPUT]: Frontal preview geometry, shared workspace classes and settings theme tokens.
+ * [OUTPUT]: Scoped device finish, readable sample panes and compact responsive controls.
+ * [POS]: Settings illustration only; no styles applied to product workspaces.
+ * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
+.settings-app[data-settings-category='surfaces'] .settings-body {
+  grid-template-columns: minmax(0, 1fr);
+}
+.settings-app[data-settings-category='surfaces'] .settings-preview {
+  grid-column: 1;
+  grid-row: 1;
+  position: static;
+  padding-right: 0;
+}
+.settings-app[data-settings-category='surfaces'] .settings-form-column {
+  grid-column: 1;
+  grid-row: 2;
+}
+.layout-demo {
+  overflow: hidden;
+}
+.layout-demo-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.layout-demo-toolbar .preview-selector {
+  margin: 0;
+  border: 0;
+  gap: 4px;
+}
+.layout-demo-reset {
+  padding: 6px 0;
+  border: 0;
+  background: transparent;
+  color: var(--buddy-muted);
+  font: inherit;
+  cursor: pointer;
+}
+.layout-demo-canvas {
+  width: 100%;
+  margin: 12px 0;
+}
+.layout-demo-scene {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1120/500;
+}
+.layout-demo-scene text {
+  font-family: inherit;
+  font-size: 10px;
+  fill: var(--buddy-muted);
+}
+.layout-demo-scene .demo-title {
+  font-weight: 600;
+  fill: var(--buddy-text);
+  font-size: 11px;
+}
+.demo-device-shadow {
+  fill: #000;
+  opacity: 0.13;
+}
+.demo-device {
+  fill: #292929;
+  stroke: #515151;
+  stroke-width: 1;
+}
+.demo-screen {
+  fill: var(--buddy-surface);
+}
+.demo-rim {
+  fill: none;
+  stroke: #777;
+  stroke-width: 0.7;
+}
+.demo-desk {
+  fill: none;
+  stroke: var(--buddy-border);
+  stroke-width: 0.7;
+}
+.demo-rail,
+.demo-bubble {
+  fill: var(--buddy-subtle);
+}
+.demo-eyes {
+  fill: var(--buddy-text);
+}
+.demo-line {
+  fill: var(--buddy-muted);
+  opacity: 0.45;
+}
+.demo-composer {
+  fill: var(--buddy-surface);
+  stroke: var(--buddy-border);
+  stroke-width: 1;
+}
+.layout-demo-window {
+  overflow: hidden;
+}
+.layout-demo-workspace {
+  --csw-text: var(--buddy-text);
+  --csw-muted: var(--buddy-muted);
+  --csw-accent: var(--buddy-focus);
+  --csw-chrome-font: 16px;
+  color: var(--buddy-text);
+  background: var(--buddy-surface);
+  border: 1px solid var(--buddy-border);
+  border-radius: 6px;
+  box-shadow: 0 3px 12px #0001;
+  font-size: 16px;
+  line-height: 1.5;
+}
+.layout-demo-workspace .csw-feature-panes {
+  padding-top: 8px;
+}
+.layout-demo-workspace .csw-workbench-tabs {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  white-space: nowrap;
+}
+.layout-demo-workspace .csw-workbench-tabs button {
+  border: 0;
+  padding: 6px 4px;
+  background: transparent;
+  color: inherit;
+  font-weight: 550;
+}
+.layout-demo-workspace .csw-workbench-tabs button[aria-selected='false'] {
+  color: var(--buddy-muted);
+}
+.layout-demo-workspace .csw-workbench-tabs button:focus-visible {
+  outline: 2px solid var(--buddy-focus);
+  outline-offset: -2px;
+}
+.layout-demo-workspace[data-material='frosted'] {
+  background: color-mix(in srgb, var(--buddy-surface) 85%, transparent);
+  backdrop-filter: blur(12px);
+}
+.layout-demo-workspace[data-material='native-glass'] {
+  background: color-mix(in srgb, var(--buddy-surface) 75%, transparent);
+  backdrop-filter: blur(6px);
+  box-shadow:
+    inset 0 0 0 1px #ffffff77,
+    0 3px 12px #0001;
+}
+.layout-demo-workspace[data-material='black'] {
+  background: #000;
+  color: #eee;
+  --buddy-text: #eee;
+  --buddy-muted: #999;
+  --buddy-border: #333;
+  --buddy-surface: #000;
+}
+.layout-demo-content {
+  height: 100%;
+  overflow: auto;
+  padding: 4px 8px 12px;
+  font-size: 15px;
+}
+.layout-demo-content ol {
+  padding-left: 20px;
+  list-style: disc;
+  margin: 0 0 20px;
+}
+.layout-demo-content li {
+  margin: 10px 0;
+}
+.layout-demo-content input {
+  width: 100%;
+  padding: 7px;
+  border: 1px solid var(--buddy-border);
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+@media (max-width: 760px) {
+  .layout-demo {
+    padding-right: 10px;
+    padding-left: 10px;
+  }
+  .layout-demo-toolbar {
+    gap: 8px;
+  }
+  .layout-demo-toolbar .preview-selector button {
+    padding: 6px;
+    font-size: 12px;
+  }
+  .layout-demo-reset {
+    font-size: 12px;
+  }
+}

@@ -76,8 +76,8 @@ try {
   }
   await command({ op: 'modules', boardEnabled: true });
   browser = await chromium.launch({
-    ...(process.env.CODEX_BUDDY_CHROME_BIN
-      ? { executablePath: process.env.CODEX_BUDDY_CHROME_BIN }
+    ...(process.env.PALBOO_CHROME_BIN
+      ? { executablePath: process.env.PALBOO_CHROME_BIN }
       : { channel: 'chrome' }),
     headless: true,
   });

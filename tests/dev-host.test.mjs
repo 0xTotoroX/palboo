@@ -162,6 +162,7 @@ test('no-host startup reports one useful error and leaves the old restoration jo
   mkdirSync(data, { recursive: true });
   for (const file of [
     'dev.mjs',
+    'brand.mjs',
     'dev-sources.mjs',
     'dev-host.mjs',
     'dev-panel.mjs',
@@ -193,7 +194,7 @@ test('no-host startup reports one useful error and leaves the old restoration jo
       process.execPath,
       [join(scripts, 'dev.mjs'), '--no-open', '--cdp', host.origin],
       {
-        env: { ...process.env, CODEX_BUDDY_HOME: join(root, 'installation') },
+        env: { ...process.env, PALBOO_HOME: join(root, 'installation') },
         timeout: 10000,
       },
     ),
@@ -400,14 +401,14 @@ test('development storage never reads or migrates installation preferences', asy
       bundle: true,
       write: false,
       format: 'iife',
-      define: { CODEX_BUDDY_DEVELOPMENT: String(development) },
+      define: { PALBOO_DEVELOPMENT: String(development) },
     });
     const context = { window: {} };
     runInNewContext(result.outputFiles[0].text, context);
     for (const [key, value] of Object.entries(context.result).filter(
       ([key]) => key.endsWith('_KEY') && key !== 'API_KEY',
     )) {
-      assert.equal(value.startsWith('codex-buddy-dev:'), development, key);
+      assert.equal(value.startsWith('palboo-dev:'), development, key);
     }
     assert.equal(context.result.DEVELOPMENT, development);
   }
@@ -421,6 +422,7 @@ test('an orphan development backend blocks startup before touching installation 
   mkdirSync(data, { recursive: true });
   for (const file of [
     'dev.mjs',
+    'brand.mjs',
     'dev-sources.mjs',
     'dev-host.mjs',
     'dev-panel.mjs',
@@ -444,7 +446,7 @@ test('an orphan development backend blocks startup before touching installation 
   writeFileSync(journal, JSON.stringify({ runtime: { port: api.port, token: 'synthetic' } }));
   await assert.rejects(
     promisify(execFile)(process.execPath, [join(scripts, 'dev.mjs'), '--no-open'], {
-      env: { ...process.env, CODEX_BUDDY_HOME: join(root, 'installation') },
+      env: { ...process.env, PALBOO_HOME: join(root, 'installation') },
       timeout: 10000,
     }),
     (error) => error.code === 1 && error.stderr.includes('开发数据目录仍有后台运行'),

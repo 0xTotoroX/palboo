@@ -1,8 +1,10 @@
 /* [INPUT]: Live feature mounts with header actions, per-surface layout and authenticated save callback.
- * [OUTPUT]: Flat/nested layout interpretation, tabs, local split/merge, focus and resizing with checked saves; views stay mounted.
+ * [OUTPUT]: Flat/nested layout interpretation, tabs, local split/merge, focus, sidebar title compaction and resizing with checked saves; views stay mounted.
  * [POS]: Presentation-only composition; reuses the workbench gestures and styles.
  * [PROTOCOL]: Keep AGENTS.md in this module in sync. */
 import { titles } from '../../shared/features';
+import { installSidebarCompact } from './sidebar-compact.js';
+import { transferRows } from './compact-rows.js';
 import { installArrangement } from './arrangement.js';
 import { bindSeparator, elementScale } from './separator.js';
 import { layoutGroups, layoutMinimum, arrangeFeatureLayout } from './layout-tree.js';
@@ -42,12 +44,14 @@ export function installFeatureLayout(root, { save, error }) {
   const panes = document.createElement('div');
   panes.className = 'csw-workbench-panes csw-feature-panes';
   root.append(panes);
+  const compact = installSidebarCompact(panes);
   /** @type {import('../../shared/features').FeatureLayout} */
   let layout;
   let placement,
     items = [],
     shape = null,
     selected = '';
+  const title = (id) => items.find((item) => item.id === id)?.title || titles[id] || id;
   const containers = new WeakMap();
   let dirty = false,
     saving = false,
@@ -90,8 +94,8 @@ export function installFeatureLayout(root, { save, error }) {
       delete root.dataset.layoutSaving;
     }
   }
-  const arrange = (value, id, action, width, height, target) =>
-    arrangeFeatureLayout(
+  const arrange = (value, id, action, width, height, target) => {
+    const next = arrangeFeatureLayout(
       value,
       id,
       action,
@@ -100,6 +104,9 @@ export function installFeatureLayout(root, { save, error }) {
       target,
       items.filter((item) => item.active).map((item) => item.id),
     );
+    if (next && action === 'activate' && placement === 'sidebar') compact.expand(next, id);
+    return next;
+  };
   function splitFits(section, id, action) {
     const axis = ['left', 'right'].includes(action) ? 'horizontal' : 'vertical';
     const size = axis === 'horizontal' ? 'width' : 'height';
@@ -170,7 +177,7 @@ export function installFeatureLayout(root, { save, error }) {
       tab.type = 'button';
       tab.dataset.paneTab = id;
       tab.setAttribute('role', 'tab');
-      tab.textContent = titles[id];
+      tab.textContent = title(id);
       tab.removeAttribute('title');
       tabs.append(tab);
     }
@@ -200,7 +207,16 @@ export function installFeatureLayout(root, { save, error }) {
         const axis = container.dataset.axis;
         const size = axis === 'horizontal' ? 'width' : 'height';
         const scale = elementScale(container)[axis === 'horizontal' ? 'x' : 'y'];
+        compact.stop(true);
         return {
+          surface: placement,
+          layout,
+          compact: container.dataset.sidebarCompact === 'true',
+          header: Number(container.dataset.compactHeader) || 36,
+          groups: groups.map((group) => group.original),
+          heights: groups.map(
+            (_, i) => container.children[i * 2].getBoundingClientRect().height / scale,
+          ),
           first: container.children[(index - 1) * 2].getBoundingClientRect()[size] / scale,
           second: container.children[index * 2].getBoundingClientRect()[size] / scale,
           scale,
@@ -212,7 +228,22 @@ export function installFeatureLayout(root, { save, error }) {
         };
       },
       (start, delta) => {
-        if (start.axis !== container.dataset.axis) return;
+        if (
+          start.axis !== container.dataset.axis ||
+          start.surface !== placement ||
+          start.layout !== layout
+        )
+          return;
+        if (start.compact) {
+          const heights = transferRows(start.heights, index, delta, start.header);
+          const total = heights.reduce((sum, height) => sum + height, 0);
+          const weight = start.groups.reduce((sum, group) => sum + group.weight, 0);
+          start.groups.forEach((group, i) => {
+            group.weight = (weight * heights[i]) / total;
+          });
+          render();
+          return;
+        }
         const total = start.first + start.second;
         if (total < start.minimumFirst + start.minimumSecond) return;
         const ratio =
@@ -243,7 +274,7 @@ export function installFeatureLayout(root, { save, error }) {
   function updateSection(section, group, focused) {
     const active = group.ids.includes(group.active) ? group.active : group.ids[0];
     section.dataset.pane = active;
-    section.setAttribute('aria-label', titles[active]);
+    section.setAttribute('aria-label', title(active));
     const body = section.querySelector('.csw-feature-content');
     for (const item of items.filter((entry) => group.ids.includes(entry.id))) {
       if (item.node.parentNode !== body) body.append(item.node);
@@ -256,12 +287,14 @@ export function installFeatureLayout(root, { save, error }) {
       }
     }
     for (const tab of section.querySelectorAll('button[data-pane-tab]')) {
+      tab.textContent = title(tab.dataset.paneTab);
       const current = tab.dataset.paneTab === (focused || active);
       tab.setAttribute('aria-selected', String(current));
       tab.tabIndex = current ? 0 : -1;
     }
   }
   function updateGrid(node, container, focused) {
+    const previousRows = getComputedStyle(container).gridTemplateRows;
     containers.set(container, node);
     const included = (group) =>
       !focused ||
@@ -298,12 +331,22 @@ export function installFeatureLayout(root, { save, error }) {
     });
     container.style.gridTemplateColumns =
       axis === 'horizontal' ? tracks.join(' ') : 'minmax(0,1fr)';
-    container.style.gridTemplateRows = axis === 'vertical' ? tracks.join(' ') : 'minmax(0,1fr)';
+    const compactEnabled =
+      placement === 'sidebar' &&
+      axis === 'vertical' &&
+      !focused &&
+      node.groups.length > 1 &&
+      node.groups.every((group) => !group.groups);
+    // Capture live content before shrinking rows; an intermediate minimum-sized
+    // grid could clamp a scroller before the compaction controller remembers it.
+    if (!compactEnabled)
+      container.style.gridTemplateRows = axis === 'vertical' ? tracks.join(' ') : 'minmax(0,1fr)';
     node.groups.forEach((group, index) => {
       const element = container.children[index * 2];
       if (group.groups) updateGrid(group, element, focused);
       else updateSection(element, group, focused);
     });
+    compact.apply(node, container, compactEnabled, previousRows);
   }
   function render() {
     if (!layout) return;
@@ -323,6 +366,7 @@ export function installFeatureLayout(root, { save, error }) {
     root.dataset.composition = focused ? 'focus' : layoutGroups(tree).length > 1 ? 'split' : 'tabs';
     updateGrid(tree, panes, focused);
     arrangement.sync();
+    compact.finishRender();
   }
   const observer = new ResizeObserver(render);
   observer.observe(panes);
@@ -349,6 +393,7 @@ export function installFeatureLayout(root, { save, error }) {
       }
       if (placement !== surface) {
         arrangement.cancel();
+        compact.stop();
         placement = surface;
         shape = null;
         if (changedSurface) selected = '';
@@ -392,6 +437,7 @@ export function installFeatureLayout(root, { save, error }) {
     destroy() {
       observer.disconnect();
       arrangement.destroy();
+      compact.destroy();
       panes.remove();
     },
   };

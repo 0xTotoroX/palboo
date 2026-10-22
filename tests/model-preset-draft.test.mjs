@@ -64,6 +64,7 @@ window.mount();`,
     bundle: true,
     write: false,
     format: 'iife',
+    loader: { '.css': 'text' },
   })
 ).outputFiles[0].text;
 

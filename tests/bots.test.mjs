@@ -60,6 +60,7 @@ test('Bot status is isolated by host/thread/turn/item and never stores message b
   t.receive('local', 'item/started', event());
   assert.equal(t.snapshot('b')[2].current, null);
   assert.equal(t.snapshot('b')[2].occupied, true);
+  t.receive('local', 'item/started', event('b', 'call-b'));
   t.receive('local', 'item/completed', event('b', 'call-b', 'busy'));
   assert.equal(t.snapshot('a')[2].current.status, 'calling');
   t.receive('local', 'item/completed', event('a', 'call-a', 'finished'));
@@ -77,10 +78,12 @@ test('unknown errors, disconnect and duplicate completions cannot invent success
   t.receive('local', 'item/started', event('a', 'lost'));
   t.receive('local', 'turn/completed', { threadId: 'a', turnId: 'turn-a' });
   assert.equal(t.snapshot('a')[2].current.status, 'unknown');
+  t.receive('local', 'item/started', event('a', 'bad'));
   t.receive('local', 'item/completed', event('a', 'bad'));
   assert.equal(t.snapshot('a')[2].current.status, 'unknown');
   t.receive('local', 'item/completed', event('a', 'bad', 'finished'));
   assert.equal(t.snapshot('a')[2].current.status, 'unknown');
+  t.receive('local', 'item/started', event('a', 'running'));
   t.receive('local', 'item/completed', event('a', 'running', 'running'));
   t.disconnect();
   assert.equal(t.snapshot('a')[2].current.status, 'disconnected');
@@ -89,6 +92,7 @@ test('unknown errors, disconnect and duplicate completions cannot invent success
     toolName: 'grokbot__ask',
     result: { created: true },
   });
+  t.receive('local', 'item/started', event('a', 'created'));
   t.receive('local', 'item/completed', unexpected);
   assert.equal(t.snapshot('a')[2].current.status, 'unexpected');
   for (let i = 0; i < 200; i++) t.receive('local', 'item/started', event(`thread${i}`, `call${i}`));
@@ -108,7 +112,8 @@ test('Bot view uses the sole main composer, preserves drafts, rejects stale targ
       import {createRoot} from 'react-dom/client';
       window.session='a';window.enabled=true;window.submits=0;
       document.querySelector('form').addEventListener('submit',e=>{e.preventDefault();window.submits++});
-      window.setup=()=>installBots({isEnabled:()=>window.enabled,getTarget:()=>({id:window.session,scope:document.querySelector('main'),composer:document.querySelector('textarea')})});
+      window.__palbooModelControl={inputTarget:()=>({id:window.session,scope:document.querySelector('main'),composer:document.querySelector('textarea')})};
+      window.setup=()=>installBots({isEnabled:()=>window.enabled});
       window.api=window.setup();window.api.setCatalog(${JSON.stringify(catalog)});
       window.react=createRoot(document.querySelector('#view'));
       window.render=()=>window.react.render(<BotsView state={{snapshot:window.api.read()}} disabled={false} action={data=>{window.last=window.api.fill(data)}}/>);
@@ -195,6 +200,24 @@ test('Bot view uses the sole main composer, preserves drafts, rejects stale targ
       });
     });
     assert.equal(await page.evaluate(() => window.api.read().bots[2].current), null);
+    for (const missing of ['account', 'revision', 'stale', 'id']) {
+      const invalid = structuredClone(catalog);
+      if (missing === 'id') delete invalid.bots[2].id;
+      else delete invalid[missing];
+      const before = await page.locator('textarea').inputValue();
+      const result = await page.evaluate((value) => {
+        window.api.setCatalog(value);
+        return window.api.fill({
+          ...window.api.read().target,
+          agent: '通用',
+          botId: value.bots[2].id,
+          revision: value.revision,
+          action: 'ask',
+        });
+      }, invalid);
+      assert.equal(result.ok, false, `missing ${missing} must block composer actions`);
+      assert.equal(await page.locator('textarea').inputValue(), before);
+    }
     const fresh = await page.evaluate(() => ({
       ...window.api.read().target,
       agent: 'X 资讯',
@@ -212,6 +235,7 @@ test('Bot view uses the sole main composer, preserves drafts, rejects stale targ
 
 test('catalog rename and deletion reject old identities while unrelated calls remain', () => {
   const t = tracker();
+  t.receive('local', 'item/started', event('a', 'finished'));
   t.receive('local', 'item/completed', event('a', 'finished', 'finished'));
   t.setCatalog([...catalog.bots, { id: 'new-id', name: '新增 Bot', available: true }]);
   assert.equal(t.snapshot('a').find((b) => b.name === '通用').current.status, 'finished');
@@ -221,4 +245,69 @@ test('catalog rename and deletion reject old identities while unrelated calls re
   assert.ok(t.snapshot('a').every((b) => !b.current));
   t.setCatalog([]);
   assert.deepEqual(t.snapshot('a'), []);
+});
+
+test('late completions cannot claim a new account or replacement Bot with the same name', () => {
+  for (const accountChanged of [false, true]) {
+    const t = tracker();
+    t.receive('local', 'item/started', event());
+    if (accountChanged) t.clear();
+    t.setCatalog(catalog.bots.map((b) => ({ ...b, id: `replacement-${b.id}` })));
+    t.receive('local', 'item/started', event());
+    t.receive('local', 'item/completed', event('a', 'call-a', 'running'));
+    assert.equal(t.snapshot('a')[2].current, null);
+    assert.equal(t.snapshot('b')[2].occupied, false);
+  }
+});
+
+test('failed checks, stop requests and busy responses preserve the confirmed active task', () => {
+  const t = tracker();
+  t.receive('local', 'item/started', event());
+  t.receive('local', 'item/completed', event('a', 'call-a', 'running'));
+  const reply = (id, action, status, error = false, sessionId = 'remote') => {
+    const params = event('a', id);
+    params.item.arguments.toolName = action;
+    t.receive('local', 'item/started', params);
+    params.item.result = {
+      isError: error,
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            toolName: action,
+            result: { agent: '通用', status, sessionId },
+          }),
+        },
+      ],
+    };
+    t.receive('local', 'item/completed', params);
+  };
+  for (const [id, action, status, error] of [
+    ['failed-check', 'grokbot__check', undefined, true],
+    ['unknown-check', 'grokbot__check', undefined, false],
+    ['failed-stop', 'grokbot__interrupt', undefined, true],
+    ['busy-ask', 'grokbot__ask', 'busy', false],
+  ]) {
+    reply(id, action, status, error);
+    assert.equal(t.snapshot('a')[2].current.status, 'running');
+    assert.equal(t.snapshot('b')[2].occupied, true);
+  }
+  reply('wrong-session', 'grokbot__check', 'finished', false, 'other-session');
+  assert.equal(t.snapshot('b')[2].occupied, true);
+  reply('finished-check', 'grokbot__check', 'finished');
+  assert.equal(t.snapshot('a')[2].current.status, 'finished');
+  assert.equal(t.snapshot('b')[2].occupied, false);
+});
+
+test('nested turn completion clears an unconfirmed call without releasing a confirmed task', () => {
+  const t = tracker();
+  t.receive('local', 'item/started', event());
+  t.receive('local', 'turn/completed', { threadId: 'a', turn: { id: 'turn-a' } });
+  assert.equal(t.snapshot('a')[2].current.status, 'unknown');
+  assert.equal(t.snapshot('b')[2].occupied, false);
+  t.receive('local', 'item/completed', event('a', 'call-a', 'running'));
+  t.receive('local', 'item/started', event('a', 'check'));
+  t.receive('local', 'turn/completed', { threadId: 'a', turn: { id: 'turn-a' } });
+  assert.equal(t.snapshot('a')[2].current.status, 'running');
+  assert.equal(t.snapshot('b')[2].occupied, true);
 });

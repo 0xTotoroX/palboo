@@ -1,9 +1,10 @@
 // [INPUT]: CLI 参数以及 config/lifecycle/server/panel_window/model_control/tasks 模块。
-// [OUTPUT]: codex-buddy 命令分发与进程入口；launch --host-only 供开发入口仅准备宿主。
+// [OUTPUT]: palboo 命令分发与进程入口；launch --host-only 供开发入口仅准备宿主。
 // [POS]: 独立可执行文件入口，区分后台和窗口子进程。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
 mod assets;
+mod brand;
 mod cdp;
 mod codex_host;
 mod config;
@@ -39,7 +40,7 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
 #[derive(Parser)]
-#[command(name = "codex-buddy", version, about = "Codex 桌面浮窗与网页配置")]
+#[command(name = "palboo", version, about = "Codex 桌面浮窗与网页配置")]
 struct Cli {
     #[arg(long, global = true, help = "本工具数据目录，不影响 CODEX_HOME")]
     data_dir: Option<PathBuf>,
@@ -211,7 +212,7 @@ async fn main() -> Result<()> {
             tracing_subscriber::fmt()
                 .with_env_filter(
                     tracing_subscriber::EnvFilter::try_from_default_env()
-                        .unwrap_or_else(|_| "codex_buddy=info".into()),
+                        .unwrap_or_else(|_| "palboo=info".into()),
                 )
                 .with_target(false)
                 .init();

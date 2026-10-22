@@ -10,9 +10,9 @@ import { iconSvg } from '../shared/icons/index.js';
 export function installPromptEnhancer({
   request,
   isEnabled = () => true,
-  getTarget = () => window.__codexBuddyModelControl?.inputTarget(),
+  getTarget = () => window.__palbooModelControl?.inputTarget(),
 }) {
-  window.__codexBuddyPromptEnhancer?.destroy();
+  window.__palbooPromptEnhancer?.destroy();
   const life = new AbortController();
   let mounted = null,
     pending = null,
@@ -21,7 +21,7 @@ export function installPromptEnhancer({
     applying = false;
   let composing = false;
   const host = document.createElement('span');
-  host.dataset.codexBuddyPrompt = 'true';
+  host.dataset.palbooPrompt = 'true';
   host.style.cssText = 'display:inline-flex;align-items:center;flex:none;margin-inline-end:4px;';
   const shadow = host.attachShadow({ mode: 'open' });
   shadow.innerHTML = `<style>
@@ -30,7 +30,7 @@ export function installPromptEnhancer({
   </style><button type="button" aria-label="优化提示词">${iconSvg('prompt-improve')}</button>`;
   const button = shadow.querySelector('button');
   const message = document.createElement('div');
-  message.dataset.codexBuddyPrompt = 'true';
+  message.dataset.palbooPrompt = 'true';
   message.setAttribute('role', 'status');
   message.style.cssText = 'font-size:12px;line-height:1.5;padding:4px 8px;color:inherit;';
   message.hidden = true;
@@ -212,8 +212,7 @@ export function installPromptEnhancer({
     // Place beside the native voice/send actions, outside the model selector's wrapping span.
     const composerRoot = target.composer.closest('[data-codex-composer-root]') || target.scope;
     const actions = [...composerRoot.querySelectorAll('button[aria-label]')].filter(
-      (node) =>
-        !node.closest('[data-codex-buddy-prompt]') && node.getBoundingClientRect().width > 0,
+      (node) => !node.closest('[data-palboo-prompt]') && node.getBoundingClientRect().width > 0,
     );
     const action =
       actions.find((node) => /^(听写|dictate|dictation)$/i.test(node.getAttribute('aria-label'))) ||
@@ -271,10 +270,10 @@ export function installPromptEnhancer({
       life.abort();
       host.remove();
       message.remove();
-      if (window.__codexBuddyPromptEnhancer === api) delete window.__codexBuddyPromptEnhancer;
+      if (window.__palbooPromptEnhancer === api) delete window.__palbooPromptEnhancer;
     },
   };
-  window.__codexBuddyPromptEnhancer = api;
+  window.__palbooPromptEnhancer = api;
   tick();
   return api;
 }

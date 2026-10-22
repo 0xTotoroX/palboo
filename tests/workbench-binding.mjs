@@ -282,7 +282,7 @@ export function chatBindingCases({
           page.evaluate((data) => {
             const target = document.querySelector('#composer-form .ProseMirror');
             const transfer = new DataTransfer();
-            transfer.setData('application/x-codex-buddy-next', JSON.stringify(data));
+            transfer.setData('application/x-palboo-next', JSON.stringify(data));
             target.dispatchEvent(
               new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: transfer }),
             );
@@ -296,7 +296,7 @@ export function chatBindingCases({
           const target = document.querySelector('#composer-form .ProseMirror');
           const transfer = new DataTransfer();
           transfer.setData(
-            'application/x-codex-buddy-next',
+            'application/x-palboo-next',
             JSON.stringify({ ...source, kind: 'fill', index: 0 }),
           );
           target.dispatchEvent(
@@ -877,7 +877,7 @@ export function chatBindingCases({
         assert.equal(cold.association.available, false);
         assert.equal(cold.context.sessionId, '');
         const saved = await page.evaluate(() =>
-          JSON.parse(localStorage.getItem('codex-buddy-chat-binding-v1')),
+          JSON.parse(localStorage.getItem('palboo-chat-binding-v1')),
         );
         assert.deepEqual(Object.keys(saved).sort(), ['label', 'mode', 'sessionId']);
         await associate(page, 'follow');

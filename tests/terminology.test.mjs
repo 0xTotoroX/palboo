@@ -52,9 +52,9 @@ test('hover, style, mastery, navigation and cleanup preserve host content', asyn
     );
     const before = await page.locator('main').innerHTML();
     await page.addScriptTag({ content: bundle });
-    await page.waitForFunction(() => CSS.highlights.get('codex-buddy-terms')?.size === 1);
+    await page.waitForFunction(() => CSS.highlights.get('palboo-terms')?.size === 1);
     const point = await page.evaluate(() => {
-      const range = [...CSS.highlights.get('codex-buddy-terms')][0];
+      const range = [...CSS.highlights.get('palboo-terms')][0];
       const r = range.getBoundingClientRect();
       return { x: r.x + 6, y: r.y + 6 };
     });
@@ -64,7 +64,7 @@ test('hover, style, mastery, navigation and cleanup preserve host content', asyn
     for (const style of ['plain', 'frost']) {
       await page.evaluate(async (style) => {
         window.state.preferences.cardStyle = style;
-        await window.__codexBuddyTerminology.refresh();
+        await window.__palbooTerminology.refresh();
       }, style);
       await page.mouse.move(5, 5);
       await page.mouse.move(point.x, point.y);
@@ -76,32 +76,32 @@ test('hover, style, mastery, navigation and cleanup preserve host content', asyn
       );
     }
     await page.getByRole('button', { name: '已掌握，不再提示' }).click();
-    await page.waitForFunction(() => CSS.highlights.get('codex-buddy-terms')?.size === 0);
+    await page.waitForFunction(() => CSS.highlights.get('palboo-terms')?.size === 0);
     assert.equal(await page.locator('textarea').inputValue(), '未发送草稿：竞态条件');
     await page.evaluate(async () => {
       window.state.preferences.mastered = [];
       window.state.preferences.semantic = true;
-      await window.__codexBuddyTerminology.refresh();
+      await window.__palbooTerminology.refresh();
     });
     await page.waitForFunction(() => window.semanticReply !== null);
     const id = await page.evaluate(
       () => window.calls.find((c) => c.path.endsWith('/analyze')).payload.requestId,
     );
-    assert.equal(await page.evaluate((id) => window.__codexBuddyTerminology.verify(id), id), true);
+    assert.equal(await page.evaluate((id) => window.__palbooTerminology.verify(id), id), true);
     await page.evaluate(() => {
       window.session = 'two';
       document.querySelector('main').innerHTML = '<p>另一个聊天</p>';
       window.answer = '新回答';
     });
-    assert.equal(await page.evaluate((id) => window.__codexBuddyTerminology.verify(id), id), false);
+    assert.equal(await page.evaluate((id) => window.__palbooTerminology.verify(id), id), false);
     await page.evaluate(() =>
       window.semanticReply({ matches: [{ id: 'TERM-1', quote: '旧请求回来覆盖新页面' }] }),
     );
     await page.waitForTimeout(1100);
     assert.equal(await page.getByRole('dialog').count(), 0);
-    await page.evaluate(() => window.__codexBuddyTerminology.destroy());
+    await page.evaluate(() => window.__palbooTerminology.destroy());
     assert.equal(await page.locator('[data-buddy-terms]').count(), 0);
-    assert.equal(await page.evaluate(() => CSS.highlights.has('codex-buddy-terms')), false);
+    assert.equal(await page.evaluate(() => CSS.highlights.has('palboo-terms')), false);
   } finally {
     await browser.close();
   }
@@ -121,9 +121,9 @@ test('term navigation targets the latest current-chat range and rejects stale co
       <aside style="height:80px;overflow:auto"><div style="height:500px">另一个面板</div></aside>`);
     const original = await page.locator('main').innerHTML();
     await page.addScriptTag({ content: bundle });
-    await page.waitForFunction(() => CSS.highlights.get('codex-buddy-terms')?.size === 2);
+    await page.waitForFunction(() => CSS.highlights.get('palboo-terms')?.size === 2);
     const locate = (context = 'one', id = 'TERM-1') =>
-      page.evaluate(({ context, id }) => window.__codexBuddyTerminology.locate(id, context), {
+      page.evaluate(({ context, id }) => window.__palbooTerminology.locate(id, context), {
         context,
         id,
       });
@@ -134,7 +134,7 @@ test('term navigation targets the latest current-chat range and rejects stale co
     const position = await page.evaluate(() => {
       const main = document.querySelector('main');
       const bounds = main.getBoundingClientRect();
-      const highlight = [...CSS.highlights.get('codex-buddy-terms-located')][0];
+      const highlight = [...CSS.highlights.get('palboo-terms-located')][0];
       const rect = highlight.getBoundingClientRect();
       return {
         top: rect.top,
@@ -152,14 +152,14 @@ test('term navigation targets the latest current-chat range and rejects stale co
     assert.equal(await page.locator('textarea').inputValue(), '未发送草稿：竞态条件');
     await page.evaluate(async () => {
       window.state.preferences.mastered = ['TERM-1'];
-      await window.__codexBuddyTerminology.refresh();
+      await window.__palbooTerminology.refresh();
     });
-    assert.equal(await page.evaluate(() => CSS.highlights.get('codex-buddy-terms').size), 0);
+    assert.equal(await page.evaluate(() => CSS.highlights.get('palboo-terms').size), 0);
     assert.equal(await locate(), true, 'mastered terms remain explicitly navigable');
     await page.evaluate(async () => {
       window.session = 'two';
       window.state.preferences.semantic = true;
-      await window.__codexBuddyTerminology.refresh();
+      await window.__palbooTerminology.refresh();
     });
     assert.equal(
       await locate(),
@@ -171,8 +171,8 @@ test('term navigation targets the latest current-chat range and rejects stale co
       false,
       'semantic mode never falls back to an unverified name',
     );
-    await page.evaluate(() => window.__codexBuddyTerminology.destroy());
-    assert.equal(await page.evaluate(() => CSS.highlights.has('codex-buddy-terms-located')), false);
+    await page.evaluate(() => window.__palbooTerminology.destroy());
+    assert.equal(await page.evaluate(() => CSS.highlights.has('palboo-terms-located')), false);
   } finally {
     await browser.close();
   }
@@ -194,7 +194,7 @@ test('dark term marks remain visible and follow the host theme without recolorin
       window.__companionFloatingPanel = { panelAppearance: () => window.hostAppearance };
     });
     await page.addScriptTag({ content: bundle });
-    await page.waitForFunction(() => CSS.highlights.get('codex-buddy-terms')?.size === 1);
+    await page.waitForFunction(() => CSS.highlights.get('palboo-terms')?.size === 1);
     for (const theme of ['dark', 'light', 'dark']) {
       await page.evaluate((theme) => {
         window.hostAppearance.theme = theme;
@@ -204,8 +204,8 @@ test('dark term marks remain visible and follow the host theme without recolorin
       // 等待已有主题轮询，覆盖打开卡片期间的实时主题切换。
       await page.waitForTimeout(1100);
       const metrics = await page.locator('main p').evaluate((node) => {
-        const style = getComputedStyle(node, '::highlight(codex-buddy-terms)');
-        const active = getComputedStyle(node, '::highlight(codex-buddy-terms-active)');
+        const style = getComputedStyle(node, '::highlight(palboo-terms)');
+        const active = getComputedStyle(node, '::highlight(palboo-terms-active)');
         const canvas = document.createElement('canvas');
         canvas.width = canvas.height = 1;
         const ctx = canvas.getContext('2d');
@@ -259,7 +259,7 @@ test('dark term marks remain visible and follow the host theme without recolorin
         );
       }
       const range = await page.evaluate(() => {
-        const r = [...CSS.highlights.get('codex-buddy-terms')][0].getBoundingClientRect();
+        const r = [...CSS.highlights.get('palboo-terms')][0].getBoundingClientRect();
         return { x: r.x + 5, y: r.y + 5 };
       });
       await page.mouse.move(range.x, range.y);
@@ -338,7 +338,7 @@ test('semantic response paints a multi-paragraph phrase without a literal term a
     await page.addScriptTag({ content: bundle });
     await page.evaluate(async () => {
       window.state.preferences.semantic = true;
-      await window.__codexBuddyTerminology.refresh();
+      await window.__palbooTerminology.refresh();
     });
     await page.waitForFunction(() => window.semanticReply !== null);
     await page.evaluate(() =>
@@ -346,13 +346,11 @@ test('semantic response paints a multi-paragraph phrase without a literal term a
         matches: [{ id: 'TERM-1', quote: '旧请求回来 覆盖新页面，该怎么处理？' }],
       }),
     );
-    await page.waitForFunction(() => CSS.highlights.get('codex-buddy-terms')?.size === 1);
-    const text = await page.evaluate(() =>
-      [...CSS.highlights.get('codex-buddy-terms')][0].toString(),
-    );
+    await page.waitForFunction(() => CSS.highlights.get('palboo-terms')?.size === 1);
+    const text = await page.evaluate(() => [...CSS.highlights.get('palboo-terms')][0].toString());
     assert.ok(text.includes('旧请求回来') && text.includes('覆盖新页面'));
     assert.ok(!text.includes('竞态条件'));
-    await page.evaluate(() => window.__codexBuddyTerminology.refresh());
+    await page.evaluate(() => window.__palbooTerminology.refresh());
     await page.waitForTimeout(1300);
     assert.equal(
       await page.evaluate(
@@ -360,7 +358,7 @@ test('semantic response paints a multi-paragraph phrase without a literal term a
       ),
       1,
     );
-    await page.evaluate(() => window.__codexBuddyTerminology.destroy());
+    await page.evaluate(() => window.__palbooTerminology.destroy());
   } finally {
     await browser.close();
   }
@@ -377,11 +375,11 @@ test('long phrase popover follows hover point, clamps to viewport and stays stil
     await page.addScriptTag({ content: bundle });
     await page.evaluate(async (phrase) => {
       window.state.entries[0].aliases = [phrase];
-      await window.__codexBuddyTerminology.refresh();
+      await window.__palbooTerminology.refresh();
     }, phrase);
-    await page.waitForFunction(() => CSS.highlights.get('codex-buddy-terms')?.size === 1);
+    await page.waitForFunction(() => CSS.highlights.get('palboo-terms')?.size === 1);
     const line = await page.evaluate(() => {
-      const r = [...CSS.highlights.get('codex-buddy-terms')][0].getBoundingClientRect();
+      const r = [...CSS.highlights.get('palboo-terms')][0].getBoundingClientRect();
       return { left: r.left, right: r.right, y: r.top + r.height / 2 };
     });
     const x = line.right - 15;
@@ -420,7 +418,7 @@ test('long phrase popover follows hover point, clamps to viewport and stays stil
     await page.mouse.move(5, 5);
     await page.keyboard.press('Escape');
     const edge = await page.evaluate(() => {
-      const r = [...CSS.highlights.get('codex-buddy-terms')][0].getClientRects()[0];
+      const r = [...CSS.highlights.get('palboo-terms')][0].getClientRects()[0];
       return { x: r.right - 5, y: r.top + r.height / 2 };
     });
     await page.mouse.move(edge.x, edge.y);
@@ -465,7 +463,7 @@ test('long phrase popover follows hover point, clamps to viewport and stays stil
       assert.ok(styles.right <= 771 && styles.bottom <= 691, JSON.stringify(styles));
     }
 
-    await page.evaluate(() => window.__codexBuddyTerminology.destroy());
+    await page.evaluate(() => window.__palbooTerminology.destroy());
   } finally {
     await browser.close();
   }
@@ -499,16 +497,16 @@ test('context-approved sense replaces a conflicting literal match and failure do
         },
       ];
       window.state.preferences.semantic = true;
-      await window.__codexBuddyTerminology.refresh();
+      await window.__palbooTerminology.refresh();
     });
     await page.waitForFunction(() => window.semanticReply !== null);
-    assert.equal(await page.evaluate(() => CSS.highlights.get('codex-buddy-terms')?.size), 0);
+    assert.equal(await page.evaluate(() => CSS.highlights.get('palboo-terms')?.size), 0);
     await page.evaluate(() =>
       window.semanticReply({
         matches: [{ id: 'ui', quote: '背景材质使用磨砂和液态，在界面中调整透明度。' }],
       }),
     );
-    await page.waitForFunction(() => CSS.highlights.get('codex-buddy-terms')?.size === 1);
+    await page.waitForFunction(() => CSS.highlights.get('palboo-terms')?.size === 1);
     await page.keyboard.press('Alt+Shift+KeyT');
     await page.getByRole('dialog', { name: '界面材质释义' }).waitFor();
     assert.ok(!(await page.locator('.term-card').innerText()).includes('放射'));
@@ -530,11 +528,9 @@ test('context-approved sense replaces a conflicting literal match and failure do
     });
     await page.waitForFunction(() => window.semanticReply !== null);
     await page.evaluate(() => window.semanticReply({ error: '模拟语义服务失败' }));
-    await page.waitForFunction(
-      () => window.__codexBuddyTerminology.lastError === '模拟语义服务失败',
-    );
-    assert.equal(await page.evaluate(() => CSS.highlights.get('codex-buddy-terms')?.size), 0);
-    await page.evaluate(() => window.__codexBuddyTerminology.destroy());
+    await page.waitForFunction(() => window.__palbooTerminology.lastError === '模拟语义服务失败');
+    assert.equal(await page.evaluate(() => CSS.highlights.get('palboo-terms')?.size), 0);
+    await page.evaluate(() => window.__palbooTerminology.destroy());
   } finally {
     await browser.close();
   }
@@ -550,32 +546,32 @@ test('completed exchange keeps terminology analysis alive while a new answer str
       window.state.preferences.semantic = true;
       window.busy = true;
       window.complete = true;
-      await window.__codexBuddyTerminology.refresh();
+      await window.__palbooTerminology.refresh();
     });
     await page.waitForFunction(() => window.semanticReply !== null);
     const id = await page.evaluate(
       () => window.calls.find((c) => c.path.endsWith('/analyze')).payload.requestId,
     );
     await page.waitForTimeout(1100);
-    assert.equal(await page.evaluate((id) => window.__codexBuddyTerminology.verify(id), id), true);
+    assert.equal(await page.evaluate((id) => window.__palbooTerminology.verify(id), id), true);
     assert.equal(
       await page.evaluate(
         (id) =>
-          window.__codexBuddyTerminology.progress(id, [{ id: 'TERM-1', quote: '这是竞态条件。' }]),
+          window.__palbooTerminology.progress(id, [{ id: 'TERM-1', quote: '这是竞态条件。' }]),
         id,
       ),
       true,
     );
-    assert.equal(await page.evaluate(() => CSS.highlights.get('codex-buddy-terms')?.size), 1);
+    assert.equal(await page.evaluate(() => CSS.highlights.get('palboo-terms')?.size), 1);
     assert.equal(
-      await page.evaluate(() => window.__codexBuddyTerminology.progress('expired', [])),
+      await page.evaluate(() => window.__palbooTerminology.progress('expired', [])),
       false,
     );
     await page.evaluate(() =>
       window.semanticReply({ matches: [{ id: 'TERM-1', quote: '这是竞态条件。' }] }),
     );
-    await page.waitForFunction(() => CSS.highlights.get('codex-buddy-terms')?.size === 1);
-    await page.evaluate(() => window.__codexBuddyTerminology.destroy());
+    await page.waitForFunction(() => CSS.highlights.get('palboo-terms')?.size === 1);
+    await page.evaluate(() => window.__palbooTerminology.destroy());
   } finally {
     await browser.close();
   }

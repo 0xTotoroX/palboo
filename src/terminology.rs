@@ -320,7 +320,7 @@ pub(crate) async fn command(app: &App, mut input: Value) -> Result<Value> {
             let client = app.desktop_client().await.context("宿主未连接")?;
             let located = client
                 .evaluate(format!(
-                    "window.__codexBuddyTerminology?.locate({}, {}) ?? false",
+                    "window.__palbooTerminology?.locate({}, {}) ?? false",
                     json!(id),
                     json!(context)
                 ))

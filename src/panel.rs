@@ -300,7 +300,7 @@ impl Panel {
             child: None,
             restore_attempted: false,
             heartbeat: Instant::now(),
-            test_window: allow_fixture && std::env::var_os("CODEX_BUDDY_PANEL_TEST").is_some(),
+            test_window: allow_fixture && crate::brand::env_os("PALBOO_PANEL_TEST").is_some(),
         }
     }
     fn validate_lease(&self, lease: &str) -> Result<()> {
