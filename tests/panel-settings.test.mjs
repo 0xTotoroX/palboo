@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 实际 React PanelSettings 与隔离浏览器中的合成外观 API。
- * [OUTPUT]: 内容/容器设置逐字段保存，保留旧布局、材质和尺寸，核对数值范围。
+ * [OUTPUT]: 内容/容器设置及默认关闭的新聊天/Dots 侧栏开关逐字段保存，保留旧布局、材质和尺寸，核对数值范围。
  * [POS]: Web 设置交互契约，不连接真实宿主。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -80,6 +80,33 @@ test('workbench settings save only their own preference fields', { timeout: 3000
     }, prefs);
     assert.equal(await page.getByLabel('字体大小', { exact: true }).inputValue(), 'follow');
     assert.equal(await page.getByLabel('跟随对象', { exact: true }).inputValue(), 'body');
+    const newChat = page.getByRole('switch', { name: '新聊天中显示侧栏', exact: true });
+    const dots = page.getByRole('switch', { name: 'Dots 中显示侧栏', exact: true });
+    assert.equal(await newChat.getAttribute('aria-checked'), 'false');
+    assert.equal(await dots.getAttribute('aria-checked'), 'false');
+    await newChat.click();
+    await page.waitForFunction(
+      () =>
+        document.querySelector('#sidebar-new-chat [role=switch]')?.getAttribute('aria-checked') ===
+        'true',
+    );
+    assert.deepEqual(saves.at(-1).ui, { sidebarNewChat: true });
+    assert.equal(await dots.getAttribute('aria-checked'), 'false');
+    await dots.click();
+    await page.waitForFunction(
+      () =>
+        document.querySelector('#sidebar-dots [role=switch]')?.getAttribute('aria-checked') ===
+        'true',
+    );
+    assert.deepEqual(saves.at(-1).ui, { sidebarDots: true });
+    await newChat.click();
+    await page.waitForFunction(
+      () =>
+        document.querySelector('#sidebar-new-chat [role=switch]')?.getAttribute('aria-checked') ===
+        'false',
+    );
+    assert.deepEqual(saves.at(-1).ui, { sidebarNewChat: false });
+    assert.equal(await dots.getAttribute('aria-checked'), 'true');
     const width = page.getByLabel('侧栏宽度（px）', { exact: true });
     await width.fill('640');
     await width.press('Tab');
@@ -98,7 +125,9 @@ test('workbench settings save only their own preference fields', { timeout: 3000
     );
     await page.getByRole('switch', { name: '桌面窗口置顶' }).click();
     await page.waitForFunction(
-      () => document.querySelector('[role=switch]').getAttribute('aria-checked') === 'true',
+      () =>
+        document.querySelector('#window-pinning [role=switch]').getAttribute('aria-checked') ===
+        'true',
     );
     assert.equal(prefs.ui.dockWidth, 640);
     assert.deepEqual(prefs.typography, {

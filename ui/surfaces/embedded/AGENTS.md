@@ -36,3 +36,5 @@ dock 按实际几何去重通知；功能状态不变时仍刷新外壳尺寸。
 launcher接收settingsStatus/settingsBusy，只在设置处理中或动作失败时在入口旁显示可关闭的状态；快捷菜单的onError复用同一个手动popover，菜单内不再绘制会被侧栏裁切的重复文字；主题沿用宿主，成功/销毁清除。不依赖隐藏的旧设置视图，入口动作与身份不变。
 
 官方入口兼容 `Palboo` 与旧 `PALBOO` 显示名；自有入口使用 `Palboo`，保留唯一匹配与旧状态标题清理。
+
+dock 区分普通聊天、无消息列表的新聊天与 messaging-root.messaging-embedded 内的 Dots；后两者仅在 sidebarNewChat/sidebarDots 对应开关开启时允许停靠。legacy/features 共用此门控，关闭撤销占位但保留开合意愿；入口不能绕过设置，普通聊天不受影响。

@@ -54,3 +54,5 @@ EditableSettings.grokbotAutoSync 默认开启，控制本机资料监听，独�
 - `bot-catalog.ts`：可选 sidebar v1 类型及纯 botGroups 投影，主面板与设置共用已验证的分组顺序/隐藏过滤；旧接口保留平铺名单，无 I/O。
 
 - `brand-storage.js`：仅首次复制旧 codex-buddy 前缀偏好至 palboo 前缀，值原样保留、新键优先、旧键不删除；分别处理 localStorage/sessionStorage，受限存储不阻塞启动。constants 与设置主题在读取偏好前复用。
+
+PanelPreferences.sidebarNewChat/sidebarDots 为兼容旧快照的可选布尔字段，缺省均关闭；由 Web 外观设置保存，运行时与窗口投影保留。

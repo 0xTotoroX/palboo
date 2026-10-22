@@ -1,5 +1,5 @@
 import { measureWork } from '../../shared/performance.js';
-/* [INPUT]: Feature owners, main ownership, saved placements and the existing capsule/dock.
+/* [INPUT]: Feature owners, main ownership, saved placements, opt-in sidebar page switches and the existing capsule/dock.
  * [OUTPUT]: Business views inside the original shell, geometry refresh on dock changes, window round trips retaining the departure state, reveal of the existing main window, and cancellation of motion when changing surfaces.
  * [POS]: Embedded surface adapter. Geometry and gestures remain in shell.
  * [PROTOCOL]: Keep embedded/AGENTS.md in sync. */
@@ -188,6 +188,8 @@ function updateDock() {
     width: shellState.dockWidth,
     open: entries.length > 0 && shellState.dockOpen,
     detached: false,
+    sidebarNewChat: shellState.sidebarNewChat,
+    sidebarDots: shellState.sidebarDots,
   });
 }
 /** @param {import('../../shared/features').FeatureState} next */

@@ -1,5 +1,5 @@
 /*
- * [INPUT]: 工作台偏好、宿主占位适配、运行时通知。
+ * [INPUT]: 工作台偏好及新聊天/Dots 侧栏开关、宿主占位适配、运行时通知。
  * [OUTPUT]: 停靠生命周期与独立偏好；位置切换与开合分离，共用胶囊恢复停靠，迁移前保存表情位置与阅读。
  * [POS]: 工作台布局控制器；不导入视图和业务模块。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
@@ -77,6 +77,8 @@ export function syncWorkbench() {
     width: shellState.dockWidth,
     open: shellState.dockOpen,
     detached: shellState.detached,
+    sidebarNewChat: shellState.sidebarNewChat,
+    sidebarDots: shellState.sidebarDots,
   });
   syncing = false;
 }

@@ -63,7 +63,11 @@ function targetPage(field: string): SettingsPage | undefined {
   )
     return 'model';
   if (/^(font-|theme-|launcher-click-action)/.test(field)) return 'appearance';
-  if (/^(edge-|placement-|main-|dock-width|window-pinning|settings-window)/.test(field))
+  if (
+    /^(edge-|placement-|main-|dock-width|sidebar-|window-pinning|settings-window|settings-sidebar)/.test(
+      field,
+    )
+  )
     return 'surfaces';
   if (/^(generation-mode|direction-|jev-|suggestion-)/.test(field)) return 'next';
   return undefined;

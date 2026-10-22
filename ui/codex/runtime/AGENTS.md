@@ -70,3 +70,5 @@ lifecycle 的220ms页面变化防抖和1300ms文本稳定等待仅进行本地�
 Grok Bot 由 grokbotEnabled 独立开启，syncTools 安装/销毁 __palbooBots；runtimeEnabled 包含此开关，允许只启用 Bot 功能。调用记录随宿主实例销毁，不持久化。
 
 大纲定位/锚点命令成功只返回 ok=true；仅失败时附带错误文案，避免成功回执误报失败。
+
+state 默认关闭 sidebarNewChat/sidebarDots；presentation 从外观偏好同步，旧快照缺省关闭，通知旧工作台和独立功能外壳重新计算停靠，不改变 dockOpen 意愿。

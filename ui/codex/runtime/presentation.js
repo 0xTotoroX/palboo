@@ -1,5 +1,5 @@
 /*
- * [INPUT]: 工作台纯布局模型的旧比例迁移； 后台 popoutSupported 能力、共享胶囊状态、宿主上下文与弹出页通信对象。
+ * [INPUT]: 工作台纯布局模型的旧比例迁移及新聊天/Dots 侧栏许可；后台 popoutSupported 能力、共享胶囊状态、宿主上下文与弹出页通信对象。
  * [OUTPUT]: 宿主明暗/语义色投影及原生外观同步； 共享关联及双面板阅读投影、关联/快捷词填入或发送命令及配置/身份校验，大纲成功回执不携带失败文案；阅读状态与自定义任务分组按实际渲染外壳接续，窗口往返优先使用左栏图标锚点，桌面置顶按钮串行保存目标值。
  * [POS]: 内嵌与系统窗口的显示边界，宿主保留业务权威状态，在不可见宿主中仍提供临时屏幕区域与交接眨眼，配合原生窗口位置接续。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
@@ -144,6 +144,8 @@ function applyWorkbenchPreferences(ui) {
   shellState.popoutLayout = normalizeWorkbenchLayout(ui.popoutLayout, shellState.splitRatio);
   shellState.splitRatio = shellState.dockLayout.verticalRatio;
   shellState.dockOpen = ui.dockOpen !== false;
+  shellState.sidebarNewChat = ui.sidebarNewChat === true;
+  shellState.sidebarDots = ui.sidebarDots === true;
 }
 
 function applyPanelPreferences(ui) {

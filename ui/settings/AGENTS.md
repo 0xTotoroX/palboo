@@ -122,3 +122,5 @@ model-control-settings提供“启用额度显示”，复用模型快切独立�
 设置主题通过 shared/brand-storage 接续旧品牌存储，不覆盖已经保存的 Palboo 选择；后台保存队列和设置凭据协议不变。
 
 独立操作区使用 settings-actions 靠右排列，模型测试反馈与按钮右对齐；宿主管理的程序路径和不同的运行路径直接展示为可选中文本，不再使用单字段抽屉。
+
+panel-settings 在“布局与位置 → 侧栏显示范围”提供新聊天与 Dots 两个默认关闭的独立开关，复用 appearance 的 expectedRevision 逐字段保存及失败反馈；settings-outline 支持对应搜索/锚点定位。

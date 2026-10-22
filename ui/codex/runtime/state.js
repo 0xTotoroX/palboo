@@ -1,6 +1,6 @@
 import { normalizeText, clamp, escapeHtml, escapeAttr } from '../../shared/text.js';
 /*
- * [INPUT]: 工作台纯布局模型的默认偏好； 稳定常量、初始化偏好与页面桥接。
+ * [INPUT]: 工作台纯布局模型的默认偏好及默认关闭的新聊天/Dots 侧栏开关；稳定常量、初始化偏好与页面桥接。
  * [OUTPUT]: 五组状态与宿主本地聊天锁定元数据（弹出初始化展开）、窗口交接动画与表情点击记录与单击计时状态、兼容调试投影、完整输入采集、自选位置数量和能力判断（字符预算仅在后台应用）。
  * [POS]: 无上层依赖的状态基础层，初始化由 lifecycle 显式调用。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
@@ -259,6 +259,8 @@ function createShellState(preferences) {
     dockLayout: normalizeWorkbenchLayout(null),
     popoutLayout: normalizeWorkbenchLayout(null),
     dockOpen: true,
+    sidebarNewChat: false,
+    sidebarDots: false,
     dockRect: null,
     dockStatus: '',
     workbenchSettings: false,

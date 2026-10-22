@@ -1,4 +1,4 @@
-// [INPUT]: App、宿主投影、窗口租约与私有 panel 偏好。
+// [INPUT]: App、宿主投影、窗口租约与私有 panel 偏好（新聊天/Dots 侧栏开关仅由外观设置修改）。
 // [OUTPUT]: macOS 15+ arm64 弹出能力与入口校验、Panel、独立胶囊/工作台尺寸、统一字体跟随偏好、兼容分功能字号及分呈现方式的排列/比例偏好、带分栏阅读位置与新建任务草稿接续的弹出/收回/受限命令（含常用提示词填入），以及保留原实例的开发唤起目标。
 // [POS]: 后台系统浮窗管理层，窗口在来源位置原生呈现后隐藏内嵌胶囊；受租约保护的临时坐标不持久化，收回偏好按版本校验并保存。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
@@ -68,6 +68,8 @@ pub struct Ui {
     pub dock_layout: Option<WorkbenchLayout>,
     pub popout_layout: Option<WorkbenchLayout>,
     pub dock_open: bool,
+    pub sidebar_new_chat: bool,
+    pub sidebar_dots: bool,
     pub material: String,
     pub liquid_variant: String,
     pub font_offset: f64,
@@ -90,6 +92,8 @@ impl Default for Ui {
             dock_layout: None,
             popout_layout: None,
             dock_open: true,
+            sidebar_new_chat: false,
+            sidebar_dots: false,
             material: "frosted".into(),
             liquid_variant: "regular".into(),
             font_offset: 0.,
@@ -101,8 +105,10 @@ impl Default for Ui {
     }
 }
 impl Ui {
-    // Legacy full-UI clients cannot clear feature fonts; reset uses explicit default values.
-    fn preserve_font_sizes(&mut self, previous: &Self) {
+    // Full-UI clients preserve Web-only page switches and missing legacy feature fonts.
+    fn preserve_web_preferences(&mut self, previous: &Self) {
+        self.sidebar_new_chat = previous.sidebar_new_chat;
+        self.sidebar_dots = previous.sidebar_dots;
         if self.font_sizes.is_empty() {
             self.font_sizes = previous.font_sizes.clone();
         }
@@ -466,7 +472,7 @@ impl App {
             return Ok(());
         }
         if let Some(mut ui) = ui {
-            ui.preserve_font_sizes(&panel.prefs.ui);
+            ui.preserve_web_preferences(&panel.prefs.ui);
             ui.validate()?;
             panel.prefs.return_open = Some(ui.open);
             panel.prefs.ui = ui;
@@ -602,7 +608,7 @@ impl App {
                 if panel.prefs.ui != *ui {
                     let mut next = panel.prefs.clone();
                     next.ui = ui.clone();
-                    next.ui.preserve_font_sizes(&panel.prefs.ui);
+                    next.ui.preserve_web_preferences(&panel.prefs.ui);
                     next.ui.open = true;
                     next.revision += 1;
                     next.save(&self.paths)?;
@@ -647,7 +653,7 @@ impl App {
         if let Some(ui) = &input.ui {
             ui.validate()?;
             next.ui = ui.clone();
-            next.ui.preserve_font_sizes(&panel.prefs.ui);
+            next.ui.preserve_web_preferences(&panel.prefs.ui);
         }
         if let Some(pinned) = input.always_on_top {
             next.always_on_top = pinned;
@@ -847,7 +853,7 @@ impl App {
             return Ok(());
         }
         let mut ui: Ui = serde_json::from_value(ui)?;
-        ui.preserve_font_sizes(&panel.prefs.ui);
+        ui.preserve_web_preferences(&panel.prefs.ui);
         ui.validate()?;
         if panel.prefs.ui != ui {
             let mut next = panel.prefs.clone();
@@ -1048,6 +1054,7 @@ mod tests {
         assert_eq!(legacy.ui.dock_width, 340.);
         assert_eq!(legacy.ui.split_ratio, 0.45);
         assert!(legacy.ui.dock_open);
+        assert!(!legacy.ui.sidebar_new_chat && !legacy.ui.sidebar_dots);
         assert_eq!((legacy.ui.width, legacy.ui.height), (510., 600.));
         assert_eq!(legacy.ui.material, "matte");
         for (width, ratio, expected_width, expected_ratio) in [
@@ -1080,9 +1087,50 @@ mod tests {
             json!({"dockWidth":"340"}),
             json!({"splitRatio":null}),
             json!({"dockOpen":1}),
+            json!({"sidebarNewChat":"true"}),
+            json!({"sidebarDots":null}),
         ] {
             assert!(serde_json::from_value::<Ui>(patch).is_err());
         }
+    }
+
+    #[tokio::test]
+    async fn sidebar_page_switches_are_opt_in_and_preserved_by_host_updates() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths::new(Some(dir.path().into())).unwrap();
+        let app = App::new(paths, crate::config::Config::default(), None, true);
+        let before = app.appearance().await;
+        assert!(!before.ui.sidebar_new_chat && !before.ui.sidebar_dots);
+        let new_chat = app
+            .save_appearance(json!({"expectedRevision":before.revision,
+            "ui":{"sidebarNewChat":true}}))
+            .await
+            .unwrap();
+        assert!(new_chat.ui.sidebar_new_chat && !new_chat.ui.sidebar_dots);
+        assert!(
+            app.save_appearance(json!({"expectedRevision":before.revision,
+            "ui":{"sidebarDots":true}}))
+                .await
+                .is_err()
+        );
+        let both = app
+            .save_appearance(json!({"expectedRevision":new_chat.revision,
+            "ui":{"sidebarDots":true}}))
+            .await
+            .unwrap();
+        app.observe_panel_ui(both.revision, json!(Ui::default()))
+            .await
+            .unwrap();
+        let observed = app.appearance().await;
+        assert!(observed.ui.sidebar_new_chat && observed.ui.sidebar_dots);
+        let dots_only = app
+            .save_appearance(json!({"expectedRevision":observed.revision,
+            "ui":{"sidebarNewChat":false}}))
+            .await
+            .unwrap();
+        assert!(!dots_only.ui.sidebar_new_chat && dots_only.ui.sidebar_dots);
+        assert_eq!(dots_only.ui.dock_open, before.ui.dock_open);
+        assert_eq!(Preferences::read(&app.paths), dots_only);
     }
 
     #[tokio::test]

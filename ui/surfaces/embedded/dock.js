@@ -1,5 +1,5 @@
 /*
- * [INPUT]: 已识别的 Codex 主内容、标签页、前景聊天及 Dots 官方输入区布局、期望侧栏宽度和开合状态。
+ * [INPUT]: 已识别的 Codex 主内容、标签页、前景聊天及 Dots 官方输入区布局、期望侧栏宽度、开合状态和默认关闭的新聊天/Dots 独立许可。
  * [OUTPUT]: dockWidthLimit 提供聊天实际可用宽度，自有根节点挂载、可撤销布局占位、含回程锚点的几何通知与临时让位状态；空白聊天与空间恢复沿用开合意愿，手动收起占位归零。
  * [POS]: 宿主布局适配；不移动聊天节点，不读取正文，不包含功能视图。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
@@ -14,9 +14,9 @@ const visible = (node) =>
   node.getBoundingClientRect().height > 0 &&
   getComputedStyle(node).visibility === 'visible';
 
-function hasDockContent(content) {
+function dockContentKind(content) {
   const thread = [...content.querySelectorAll('.thread-scroll-container')].some(visible);
-  return [...content.querySelectorAll('.ProseMirror,[contenteditable="true"]')].some(
+  const editor = [...content.querySelectorAll('.ProseMirror,[contenteditable="true"]')].find(
     (editor) =>
       visible(editor) &&
       !editor.closest(OWN_UI) &&
@@ -25,6 +25,9 @@ function hasDockContent(content) {
         editor.matches('[data-codex-composer]') ||
         content.contains(editor.closest('[data-codex-composer-root]'))),
   );
+  if (!editor) return null;
+  if (editor.closest('.messaging-root.messaging-embedded')) return 'dots';
+  return thread ? 'chat' : 'new-chat';
 }
 
 export function findDockHost() {
@@ -39,9 +42,10 @@ export function findDockHost() {
       const style = getComputedStyle(row);
       if (style.display !== 'flex' || style.flexDirection !== 'row') continue;
       const content = [...row.children].find(
-        (child) => !child.matches(OWN_UI) && visible(child) && hasDockContent(child),
+        (child) => !child.matches(OWN_UI) && visible(child) && dockContentKind(child),
       );
-      if (content && getComputedStyle(content).flexGrow !== '0') return { row, content };
+      if (content && getComputedStyle(content).flexGrow !== '0')
+        return { row, content, kind: dockContentKind(content) };
     }
   }
   return null;
@@ -141,6 +145,13 @@ export function createDock(onChange, beforeMove = () => {}) {
     const found = findDockHost();
     if (!found) {
       unavailable(!!foregroundSurface());
+      return;
+    }
+    if (
+      (found.kind === 'new-chat' && next.sidebarNewChat !== true) ||
+      (found.kind === 'dots' && next.sidebarDots !== true)
+    ) {
+      unavailable(false);
       return;
     }
     if (host?.row !== found.row || host?.content !== found.content || !slot?.isConnected) {

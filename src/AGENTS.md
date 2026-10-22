@@ -125,3 +125,5 @@ settings 的 grokbotEnabled 默认关闭，不影响 generationRevision。featur
 - `features/bots.rs`：本机 BDK 名单缓存、自动文件监听与手动刷新；手动模式释放 watcher 并停止健康请求，首次读取/显式刷新/操作前校验保留。关闭/断连释放缓存；错误清空名单并提示接入 Prompt。`settings.grokbotAutoSync` 独立保存，不改变生成版本。features 的 bots-catalog 提供设置只读资料，refresh 动作复用功能 owner 校验，不填入输入框。
 
 - `brand.rs`：Palboo 环境变量优先与旧名称回退；默认数据目录迁移持有迁移锁与旧服务锁，拒绝活动服务/独立目录冲突，原子移动并保留旧路径别名。显式 --data-dir 不触发自动迁移，业务文件原样保留。
+
+panel::Ui.sidebar_new_chat/sidebar_dots 默认 false，经 appearance 修订逐字段保存；宿主或旧窗口整份 Ui 回传保留 Web 设置值，不能清除这些开关。旧配置缺省关闭，普通聊天与生成设置不受影响。

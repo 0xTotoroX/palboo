@@ -1,5 +1,5 @@
 /* [INPUT]: 版本化外观偏好与认证 API。
- * [OUTPUT]: 下一步的显示/点击设置，及按布局/外观页面显示的全局字体、宽度和置顶设置，草稿持续挂载。
+ * [OUTPUT]: 下一步的显示/点击设置，及按布局/外观页面显示的全局字体、侧栏页面开关、宽度和置顶设置，草稿持续挂载。
  * [POS]: 保留有效旧字段的设置适配；不再编辑旧两功能布局、主题或窗口归属。
  * [PROTOCOL]: 变更时同步 settings/AGENTS.md。 */
 import { DOCK_MIN_WIDTH } from '../surfaces/embedded/width.js';
@@ -181,6 +181,28 @@ export function PanelSettings({
               value={prefs.typography}
               save={(typography) => update({ typography })}
             />
+          </section>
+          <section
+            className="settings-section settings-surface-group"
+            id="settings-sidebar-pages"
+            data-settings-page="surfaces"
+            hidden={page === 'appearance'}
+          >
+            <h2>侧栏显示范围</h2>
+            <div id="sidebar-new-chat">
+              <Toggle
+                label="新聊天中显示侧栏"
+                checked={ui.sidebarNewChat === true}
+                onChange={(v) => change('sidebarNewChat', v)}
+              />
+            </div>
+            <div id="sidebar-dots">
+              <Toggle
+                label="Dots 中显示侧栏"
+                checked={ui.sidebarDots === true}
+                onChange={(v) => change('sidebarDots', v)}
+              />
+            </div>
           </section>
           <section
             className="settings-section settings-surface-group"

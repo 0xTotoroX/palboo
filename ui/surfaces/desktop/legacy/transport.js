@@ -1,5 +1,5 @@
 /*
- * [INPUT]: 原生窗口桥接、窗口偏好与远端命令身份。
+ * [INPUT]: 原生窗口桥接、窗口偏好与新聊天/Dots 侧栏许可、远端命令身份。
  * [OUTPUT]: 强制展开的偏好和窗口尺寸、受限远端操作；浮窗统一工作台最低高度，保留返回形态。
  * [POS]: 窗口通信底层，不读取宿主正文或渲染业务视图。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
@@ -19,6 +19,8 @@ function panelPreferences() {
     dockLayout: { ...shellState.dockLayout },
     popoutLayout: { ...shellState.popoutLayout },
     dockOpen: shellState.dockOpen,
+    sidebarNewChat: shellState.sidebarNewChat,
+    sidebarDots: shellState.sidebarDots,
     width: shellState.width,
     height: shellState.height,
     material: shellState.material,

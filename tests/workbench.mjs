@@ -1,6 +1,6 @@
 /*
  * [INPUT]: Playwright Chromium、buildPanel、合成宿主与设置 fixture。
- * [OUTPUT]: 工作台真实布局、键盘操作、设置隔离与宿主生命周期行为回归；分阶段限时、失败留证及测试浏览器清理。
+ * [OUTPUT]: 工作台真实布局、新聊天/Dots 独立开关、键盘操作、设置隔离与宿主生命周期行为回归；分阶段限时、失败留证及测试浏览器清理。
  * [POS]: 独立浏览器验收；只模拟后台桥，不请求模型、不读取真实聊天。
  * [PROTOCOL]: 变更时核对 tests/AGENTS.md；入口与地图由主任务维护。
  */
@@ -825,7 +825,7 @@ const cases = [
     },
   ],
   ...['new chat', 'Dots'].map((kind) => [
-    `sidebar supports ${kind} with one official composer marker and no message list`,
+    `sidebar opts into ${kind} independently with one official composer marker and no message list`,
     async (page, baseline) => {
       await mode(page, true);
       const entry = page.getByRole('button', { name: 'Palboo', exact: true });
@@ -846,10 +846,44 @@ const cases = [
         form.removeAttribute('data-codex-composer-root');
         editor.setAttribute('data-composer-markdown', '');
         if (kind === 'new chat') editor.setAttribute('data-codex-composer', '');
-        else form.setAttribute('data-codex-composer-root', '');
+        else {
+          form.setAttribute('data-codex-composer-root', '');
+          document
+            .querySelector('#fixture-host-content')
+            .classList.add('messaging-root', 'messaging-embedded');
+        }
         window.__companionFloatingPanel.scan();
         window.__companionFloatingPanel.renderFloat();
       }, kind);
+      await page.waitForFunction(
+        () => window.__companionFloatingPanel.state.dockStatus === 'unsupported',
+      );
+      assert.equal(await page.locator(slotSelector).count(), 0, 'default is disabled');
+      await entry.press('Enter');
+      assert.equal(await page.locator(slotSelector).count(), 0, 'entry cannot bypass the setting');
+      const key = kind === 'new chat' ? 'sidebarNewChat' : 'sidebarDots';
+      const other = kind === 'new chat' ? 'sidebarDots' : 'sidebarNewChat';
+      await page.evaluate(
+        ({ saved, other }) => {
+          window.__companionFloatingPanel.syncPanelPreferences(
+            { ...saved, [other]: true },
+            1,
+            false,
+          );
+        },
+        { saved, other },
+      );
+      assert.equal(
+        await page.locator(slotSelector).count(),
+        0,
+        'other page setting cannot enable this page',
+      );
+      await page.evaluate(
+        ({ saved, key }) => {
+          window.__companionFloatingPanel.syncPanelPreferences({ ...saved, [key]: true }, 2, false);
+        },
+        { saved, key },
+      );
       await page.waitForFunction(
         () => window.__companionFloatingPanel.state.dockStatus === 'closed',
       );
@@ -869,6 +903,33 @@ const cases = [
       const actual = await page.evaluate(() => window.__companionFloatingPanel.panelPreferences());
       assert.equal(actual.layoutMode, saved.layoutMode);
       assert.equal(actual.dockWidth, saved.dockWidth);
+      await page.evaluate((key) => {
+        const api = window.__companionFloatingPanel;
+        api.syncPanelPreferences({ ...api.panelPreferences(), [key]: false }, 3, false);
+      }, key);
+      await page.waitForFunction(
+        () => window.__companionFloatingPanel.state.dockStatus === 'unsupported',
+      );
+      assert.equal(
+        await page.locator(slotSelector).count(),
+        0,
+        'disabling releases the existing slot',
+      );
+      near(
+        (await box(page, '#fixture-host-content')).width,
+        baseline.width,
+        'disabled restores host width',
+      );
+      assert.equal(
+        await page.evaluate(() => window.__companionFloatingPanel.state.dockOpen),
+        true,
+        'disabled preserves open intent',
+      );
+      await page.evaluate((key) => {
+        const api = window.__companionFloatingPanel;
+        api.syncPanelPreferences({ ...api.panelPreferences(), [key]: true }, 4, false);
+      }, key);
+      await page.waitForFunction(() => window.__companionFloatingPanel.state.dockStatus === 'open');
       await entry.press('Enter');
       await page.waitForFunction(
         () => window.__companionFloatingPanel.state.dockStatus === 'closed',
@@ -876,6 +937,9 @@ const cases = [
       near((await box(page, '#fixture-host-content')).width, baseline.width, 'close frees width');
       await page.evaluate(() => {
         const form = document.querySelector('#composer-form');
+        document
+          .querySelector('#fixture-host-content')
+          .classList.remove('messaging-root', 'messaging-embedded');
         form.before(window.workbenchFixture.messageList);
         window.__companionFloatingPanel.scan();
         window.__companionFloatingPanel.renderFloat();
@@ -2951,6 +3015,10 @@ const cases = [
     'new and remounted chats preserve open closed and detached sidebar state',
     async (page) => {
       await mode(page, true);
+      await page.evaluate(() => {
+        const api = window.__companionFloatingPanel;
+        api.syncPanelPreferences({ ...api.panelPreferences(), sidebarNewChat: true }, 1, false);
+      });
       for (const desired of ['open', 'closed', 'detached']) {
         if (desired === 'closed') {
           await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');

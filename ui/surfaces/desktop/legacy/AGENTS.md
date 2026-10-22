@@ -22,3 +22,5 @@ boot 的 taskRequest 仅提供 tasks/state 与 tasks/command 的自有认证 HTT
 boot与共用窗口控件同步临时放大状态；放大及几何交接不保存位置/尺寸，收回时沿用放大前普通尺寸。
 
 原生动画结束及收回请求结束时刷新窗口控件可用状态，避免进入动画时的禁用状态滞留；取消和失败恢复同样重新计算 moving/docking。
+
+transport 的完整偏好投影包含 sidebarNewChat/sidebarDots；窗口往返保持这两个 Web 设置，不因旧窗口整份 Ui 回传而清除。
