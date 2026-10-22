@@ -2,7 +2,7 @@
  * [INPUT]: 编译后的系统窗口、合成投影；默认免截图；显式 --screenshots 才启动像素采样验收。
  * [OUTPUT]: --features-only 验证真实 Wry 的大纲/看板切换与响应式任务视图；target/reports/native 中的背景验收；--genie-only 加验开发版网格接口及复位（--cross-screen/--reverse-screens 验实际双屏）；--motion-only 单测三材质空间交接与取消；--appearance-only 将免截图的窗口透明度轨迹、呈现确认、强调色/材质和尺寸检查写入 native-appearance。
  * [POS]: --header-only 免鼠标权限验证三材质透明头部和实际置顶层级；原生合成验收；--workbench-only 单测 Wry 双栏布局、独立滚动、设置覆盖页、拒绝收起及缩放退出，报告写入 native-workbench；仅启动自有测试窗口，临时数据不使用真实宿主或模型。
- * 设置验收使用公共头部入口与实际设置区可见性，不依赖旧 activeTab。
+ * 设置验收要求头部入口保持隐藏，通过保留的旧处理器验证设置区与阅读恢复，不依赖旧 activeTab。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
 import { prepareTestBinary } from '../scripts/verify.mjs';
@@ -258,7 +258,7 @@ function probePage() {
             settings: measure(workbench.querySelector('.csw-workbench-settings')),
             settingsButton: measure(workbench.querySelector('[data-workbench-settings]')),
             settingsLabel: workbench
-              .querySelector('[data-workbench-settings]')
+              .querySelector('[data-legacy-settings]')
               ?.getAttribute('aria-label'),
           },
           glassStyleButton: Boolean(document.querySelector('[data-action=glass-style]')),
@@ -583,7 +583,7 @@ try {
       const bench = telemetry.workbench;
       if (!bench || bench.layoutMode !== 'workbench' || bench.layout !== 'flex' || !bench.dockOpen)
         throw Error('Native workbench layout is missing');
-      if (!bench.panesVisible || bench.settings?.visible || !bench.settingsButton?.visible)
+      if (!bench.panesVisible || bench.settings?.visible || bench.settingsButton?.visible)
         throw Error('Workbench panes/settings visibility is incorrect');
       if (bench.dockWidth !== 340 || bench.splitRatio !== 0.45)
         throw Error('Native resizing changed independent dock preferences');
@@ -722,7 +722,7 @@ try {
       if (
         !overlay.textLength ||
         overlay.rect.height <= 0 ||
-        telemetry.workbench.settingsLabel !== '设置'
+        telemetry.workbench.settingsLabel !== '旧版内置设置'
       )
         throw Error('Workbench settings overlay/return control is empty');
       await command({ kind: 'retained-settings' });
