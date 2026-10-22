@@ -12,7 +12,7 @@
 
 [PROTOCOL]: 图标变更时同步语义映射与固定来源，保留许可原文。
 
-- `react.tsx`：设置和看板共用的React适配，固定18px，不引入第二套图标。新增语义映射：eye→Eye、eye-off→EyeOff、arrow-up→ArrowUp、arrow-down→ArrowDown、trash→Trash、search→Search、warning→ExclamationMarkCircle；均来自上述固定提交。加载动画复用refresh旋转。
+- `react.tsx`：设置和看板共用的React适配，读取共享 --buddy-action-icon-size，缺少样式时回退18px；SVG与外层占位保持同尺寸，不引入第二套图标。新增语义映射：eye→Eye、eye-off→EyeOff、arrow-up→ArrowUp、arrow-down→ArrowDown、trash→Trash、search→Search、warning→ExclamationMarkCircle；均来自上述固定提交。加载动画复用refresh旋转。
 
 window-expand→ExpandMd、window-restore→CollapseSmall，来自同一固定提交；仅供窗口控件，不改变内容面板专注图标。
 

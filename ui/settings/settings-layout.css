@@ -15,7 +15,7 @@ html:root {
   --buddy-focus: #85858f;
   --buddy-subtle: #f1f1f2;
   --buddy-radius-small: 4px;
-  --settings-control-radius: 4px;
+  --settings-control-radius: var(--buddy-radius-small);
   --settings-control-height: 38px;
   --settings-menu-shadow: 0 8px 28px #18181b14;
   --switch-track: #d7d7dd;

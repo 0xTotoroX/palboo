@@ -72,16 +72,18 @@ Map 系统用项目地图、模块地图和文件契约说明职责与依赖；�
 
 Rust + Tokio/Axum + Tao/Wry + JavaScript 共享胶囊 + React/TypeScript/Vite + Tailwind CSS v4/shadcn/ui 设置页。
 
+前端基础组件继续使用本地 shadcn/ui 与 Radix，动作图标只从 shared/icons 获取。新增页面复用现有主题变量、设置控件与保存队列，不引入第二套同职责组件或图标库。普通布局和动效复用 CSS、现有浏览器动画及工作台控制器；Motion、Pragmatic drag and drop、react-resizable-panels、Zustand 仅在具体需求确认后按职责接入，不预装备用依赖，不替换后台修订校验或跨窗口同步。
+
 - [src/AGENTS.md](src/AGENTS.md)：命令、后台、CDP、模型和系统窗口；macOS 手势内联于 `src/panel_window.rs`。
 - [ui/codex/AGENTS.md](ui/codex/AGENTS.md)：聊天读取、定位、输入框与官方模型菜单适配，以及浏览器运行协调；不包含功能内容渲染。
 - [ui/shared/bridge/AGENTS.md](ui/shared/bridge/AGENTS.md)：受限 CDP binding 与请求生命周期。
 - [ui/features/AGENTS.md](ui/features/AGENTS.md)：看板、大纲、下一步与模型快切的内容界面及交互，各形式复用。
 - [ui/surfaces/AGENTS.md](ui/surfaces/AGENTS.md)：workspace 共用头部与布局、embedded 嵌入外壳、desktop 桌面、edge 贴边、theme 主题材质；不修改业务数据。
 - [ui/shared/AGENTS.md](ui/shared/AGENTS.md)：跨模块类型、受限通信、图标及纯资源。
-- `components.json`：shadcn/ui 的设置页路径与组件别名配置。
+- `components.json`：shadcn/ui 的设置页路径与组件别名配置；保留 new-york/Radix 基础，上游生成的图标统一适配到 shared/icons。
 - [ui/settings/AGENTS.md](ui/settings/AGENTS.md)：React 配置页、基础组件与 Vite 入口，构建输出到 `target/web/`。
 - `ui/shared/contracts.ts`：设置、字体、上下文与投影命令的共享类型；保存版本和生成版本各司其职。
-- `ui/shared/tokens.css`：设置页与胶囊共享的颜色、间距、圆角和控件尺寸变量。
+- `ui/shared/tokens.css`：设置页与胶囊共享的颜色、间距、圆角和控件尺寸变量，动作图标与点击区统一使用18px/28px变量。
 - `ui/icon.png`：启动器图标唯一源图；安装时由系统工具生成多尺寸 ICNS，不修改原始构图。
 - [scripts/AGENTS.md](scripts/AGENTS.md)：开发、构建、来源/许可、安装、打包与统一验证编排。
 - [tests/AGENTS.md](tests/AGENTS.md)：Node 契约测试、端到端/生命周期/原生验收，以及测试辅助和合成宿主 fixture。

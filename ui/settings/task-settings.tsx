@@ -4,7 +4,7 @@
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 import { useSettingsListMotion } from './settings-list-motion';
 import { useState } from 'react';
-import { Button } from './components/ui/button';
+import { Button, IconButton } from './components/ui/button';
 import { Input } from './components/ui/input';
 import { Switch } from './components/ui/switch';
 import { NativeSelect } from './components/ui/native-select';
@@ -77,17 +77,15 @@ export function TaskSettings({ tasks }: { tasks: ReturnType<typeof useTasks> }) 
                   setGroupNames({ ...groupNames, [column.id]: event.target.value })
                 }
               />
-              <Button
+              <IconButton
                 type="submit"
-                variant="ghost"
-                size="icon"
                 aria-label={`保存分组：${column.title}`}
                 disabled={
                   busy || !groupNames[column.id]?.trim() || groupNames[column.id] === column.title
                 }
               >
                 <Icon name="check" />
-              </Button>
+              </IconButton>
             </form>
           ))}
           <form
@@ -109,15 +107,13 @@ export function TaskSettings({ tasks }: { tasks: ReturnType<typeof useTasks> }) 
               value={newGroup}
               onChange={(event) => setNewGroup(event.target.value)}
             />
-            <Button
+            <IconButton
               type="submit"
-              variant="ghost"
-              size="icon"
               aria-label="新增分组"
               disabled={busy || !state || !newGroup.trim()}
             >
               <Icon name="plus" />
-            </Button>
+            </IconButton>
           </form>
         </div>
       </section>

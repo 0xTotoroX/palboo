@@ -8,7 +8,7 @@ import { useConfirmation } from './settings-confirmation';
 import { request } from './api';
 import { inheritedAppearance } from '../terminology/appearance.js';
 import { NativeSelect } from './components/ui/native-select';
-import { Button } from './components/ui/button';
+import { Button, IconButton } from './components/ui/button';
 import { Input, inputStyles } from './components/ui/input';
 import { Switch } from './components/ui/switch';
 import { Icon } from '../shared/icons/react';
@@ -317,10 +317,7 @@ export function TerminologySettings({ active }: { active: boolean }) {
                     {t.name}
                     {t.english !== t.name && <small> · {t.english}</small>}
                   </button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
+                  <IconButton
                     aria-label={`${prefs.mastered.includes(t.id) ? '恢复提示' : '已掌握'}：${t.name}`}
                     disabled={busy}
                     onClick={() =>
@@ -331,7 +328,7 @@ export function TerminologySettings({ active }: { active: boolean }) {
                     }
                   >
                     <Icon name={prefs.mastered.includes(t.id) ? 'return' : 'check'} />
-                  </Button>
+                  </IconButton>
                 </div>
               ))}
               {!results.length && <p>没有匹配的术语</p>}

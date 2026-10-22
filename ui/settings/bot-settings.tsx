@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { request } from './api';
 import { Toggle, Feedback } from './settings-controls';
 import { SettingsDrawer } from './settings-drawer';
-import { Button } from './components/ui/button';
+import { Button, IconButton } from './components/ui/button';
 import type { SettingsEditor } from './use-settings-form';
 import { botSetupPrompt } from './bot-setup-prompt';
 import { ActionIcon } from './components/ui/action-feedback';
@@ -101,10 +101,7 @@ export function BotSettings({
         <div className="bot-settings-heading">
           <h2>Bot 资料</h2>
           {!auto && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
+            <IconButton
               aria-label="刷新 Bot 资料"
               title={busy ? '正在刷新…' : '刷新 Bot 资料'}
               disabled={!live || busy}
@@ -114,7 +111,7 @@ export function BotSettings({
                 name="refresh"
                 state={busy ? 'pending' : refreshed ? 'success' : 'idle'}
               />
-            </Button>
+            </IconButton>
           )}
         </div>
         <Feedback text={error || catalog?.error} failed />

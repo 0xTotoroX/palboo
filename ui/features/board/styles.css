@@ -225,8 +225,8 @@ h1 {
   position: absolute;
   top: 9px;
   right: 7px;
-  width: 28px;
-  height: 28px;
+  width: var(--buddy-action-hit-size, 28px);
+  height: var(--buddy-action-hit-size, 28px);
   padding: 5px;
   border: 0;
   border-radius: 8px;

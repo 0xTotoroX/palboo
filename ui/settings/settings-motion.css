@@ -115,8 +115,8 @@ html[data-settings-input='keyboard'] .settings-app button:active {
 
 .settings-action-icon {
   display: inline-grid;
-  width: 18px;
-  height: 18px;
+  width: var(--buddy-action-icon-size, 18px);
+  height: var(--buddy-action-icon-size, 18px);
   flex-shrink: 0;
 }
 .settings-action-layer {

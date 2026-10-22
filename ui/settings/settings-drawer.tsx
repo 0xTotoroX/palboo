@@ -3,7 +3,7 @@
  * [POS]: Settings presentation; keeps native form ownership and never writes configuration.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 import { useEffect, useLayoutEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { Button } from './components/ui/button';
+import { Button, IconButton } from './components/ui/button';
 import type { SettingsEditor } from './use-settings-form';
 import { Icon } from '../shared/icons/react';
 
@@ -135,18 +135,15 @@ export function SettingsDrawer({
           <h2 ref={heading} id={`${dialogId}-title`} tabIndex={-1} data-drawer-heading>
             {title}
           </h2>
-          <Button
+          <IconButton
             ref={closeButton}
             data-drawer-close
-            type="button"
-            variant="ghost"
-            size="icon"
             data-settings-navigation
             aria-label={`关闭${title}`}
             onClick={close}
           >
             <Icon name="close" />
-          </Button>
+          </IconButton>
         </header>
         <div ref={content} className="settings-drawer-content">
           {children}

@@ -3,7 +3,7 @@
  * [POS]: Functional settings only; shared model configuration lives in model-settings.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { usePromptKeys, useSettingsListMotion } from './settings-list-motion';
-import { Button } from './components/ui/button';
+import { IconButton } from './components/ui/button';
 import { Input } from './components/ui/input';
 import { Card } from './components/ui/card';
 import type { View } from './api';
@@ -103,10 +103,8 @@ export function NextSettings({
                 </ConfirmationButton>
               </div>
             ))}
-            <Button
-              type="button"
+            <IconButton
               variant="outline"
-              size="icon"
               data-settings-list-item="add"
               aria-label="添加提示词"
               disabled={form.quickPrompts.length >= 8}
@@ -115,7 +113,7 @@ export function NextSettings({
               }
             >
               <Icon name="plus" />
-            </Button>
+            </IconButton>
           </div>
         </Card>
       </div>

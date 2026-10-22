@@ -2,17 +2,17 @@
 
 > L2 | 父级：[设置页地图](../../AGENTS.md)
 
-基于 shadcn/ui 的 new-york-v4 registry 定制；只提供结构、交互和 Tailwind 样式，不调用业务 API。页面通过 props 传入状态；utils.cn 合并类名，styles.css 映射共享颜色。添加上游组件时通过根目录 components.json 路由到这里。
+基于 shadcn/ui 的 new-york-v4 registry 与 Radix 定制；只提供结构、交互和样式，不调用业务 API。页面通过 props 传入状态；utils.cn 合并类名，styles.css 映射共享颜色，settings-controls.css 统一控件几何。添加上游组件时通过根目录 components.json 路由到这里；其中 iconLibrary 是上游生成选项，生成的图标引用须改用 shared/icons，不据此安装另一套图标库。
 
-- [button.tsx](button.tsx)：按钮变体与尺寸；Slot 支持复用子元素。
+- [button.tsx](button.tsx)：Button 提供按钮变体与内边距，Slot 支持复用子元素；IconButton 复用同一个 Button，要求 aria-label，默认普通按钮/ghost，可显式保留 submit、其他变体、ref 和全部原事件，不添加 DOM 包装或 Tooltip。
 - [action-feedback.tsx](action-feedback.tsx)：接收真实请求状态，固定18px的操作/等待/成功图标和等宽文字；成功勾号默认短暂保留，retainSuccess可保留真实结果；标签原位160ms切换，不发请求。键盘保留等待指示，减少动态效果使用静态状态。
 - [input.tsx](input.tsx)：输入框及输入控件的公共样式。
 - [suggestion-input.tsx](suggestion-input.tsx)：可自由输入的候选框；键盘/指针选择只更新原草稿，Esc 取消、输入法确认不选取，普通失焦沿用调用方保存流程；列表沿用共用菜单样式并在底部空间不足时向上显示。可选 dropdown 属性提供展开箭头、读取回调及忙碌/成功/空/错误状态，主动展开显示全部候选、输入时过滤；外部点击和 Esc 关闭，组件不发网络请求。箭头使用共享图标。
 - [native-select.tsx](native-select.tsx)：保留原生选择语义与事件的下拉框，复用输入样式。settings-controls.css 在支持 base-select 的浏览器中统一弹出菜单、选中态与键盘焦点，不支持时保留原生菜单；不改变 onChange、禁用选项或保存流程。
 - [card.tsx](card.tsx)：语义设置分组，沿用共享留白，不重复叠加卡片边框。
-- [switch.tsx](switch.tsx)：Radix 开关负责键盘与受控状态，Tailwind 负责轨道和滑块。
+- [switch.tsx](switch.tsx)：Radix 开关负责键盘与受控状态，保留独立挂载时的基础尺寸；settings-controls.css 统一设置页内的轨道、滑块与位移动画。
 - [LICENSE](LICENSE)：shadcn/ui 原始 MIT 许可，分发时并入第三方声明。
 
 [PROTOCOL]: 变更时更新本文，然后检查父级 AGENTS.md。
 
-设置页的控件高度、微圆角、灰阶选中底和细焦点线统一由 settings-controls.css 管理；基础组件保留语义及原生/Radix 行为，样式不进入宿主工作台。
+设置页的控件高度、微圆角、灰阶选中底和细焦点线统一由 settings-controls.css 管理；基础组件保留独立挂载需要的默认样式、语义及原生/Radix 行为，样式不进入宿主工作台。

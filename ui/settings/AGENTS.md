@@ -57,7 +57,7 @@
 
 - `launcher-settings.tsx`：外观与字体分类中的眼睛默认单击动作（内/外/设置），保存 appearance.launcherAction 并保留修订冲突校验；不支持桌面浮窗时禁用外选项，切换默认值本身不移动工作台。
 
-所有动作图标通过shared/icons/react读取同一公开SVG目录，统一18px。页面保留桌面16px、窄屏12px额外顶部留白及底部边距。
+所有动作图标通过shared/icons/react读取同一公开SVG目录及18px共享变量。普通图标按钮复用components/ui/button的IconButton，确认操作继续由ConfirmationButton处理；原提交类型、焦点和保存通道不变。设置页内控件高度、圆角及开关几何统一由settings-controls.css管理，基础组件保留独立挂载所需的默认样式。页面保留桌面16px、窄屏12px额外顶部留白及底部边距。
 
 大纲保留在常用开关；下一步、常用提示词、术语释义、任务看板和模型快切各有独立子页。旧锚点可进入对应详细分类并展开目标；Apple提醒事项继续隐藏。原settings-overview组件保留代码，但不作为当前页面入口。
 

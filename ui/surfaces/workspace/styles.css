@@ -89,8 +89,8 @@
   grid-row: 1;
 }
 .csw-workbench .csw-icon {
-  width: 28px;
-  height: 28px;
+  width: var(--buddy-action-hit-size, 28px);
+  height: var(--buddy-action-hit-size, 28px);
 }
 .csw-workbench-panes {
   display: grid;
@@ -183,8 +183,8 @@
   display: none;
 }
 .csw-layout-menu svg {
-  width: 18px;
-  height: 18px;
+  width: var(--buddy-action-icon-size, 18px);
+  height: var(--buddy-action-icon-size, 18px);
 }
 .csw-layout-options {
   position: absolute;
@@ -242,8 +242,8 @@
   flex: 1;
 }
 .csw-pane-arrange {
-  width: 28px;
-  height: 28px;
+  width: var(--buddy-action-hit-size, 28px);
+  height: var(--buddy-action-hit-size, 28px);
   flex-shrink: 0;
   appearance: none;
   border: 0;
@@ -379,14 +379,14 @@
   grid-row: 1;
 }
 .csw-association-menu > summary > svg {
-  flex: 0 0 18px;
-  width: 18px;
-  height: 18px;
+  flex: 0 0 var(--buddy-action-icon-size, 18px);
+  width: var(--buddy-action-icon-size, 18px);
+  height: var(--buddy-action-icon-size, 18px);
 }
 .csw-workbench .csw-icon svg,
 .csw-pane-menu > svg {
-  width: 18px;
-  height: 18px;
+  width: var(--buddy-action-icon-size, 18px);
+  height: var(--buddy-action-icon-size, 18px);
 }
 .csw-menu-label {
   padding: 8px 10px 4px;
@@ -406,8 +406,8 @@
   position: relative;
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
+  width: var(--buddy-action-hit-size, 28px);
+  height: var(--buddy-action-hit-size, 28px);
   flex-shrink: 0;
   color: var(--csw-muted);
 }
@@ -572,8 +572,8 @@
 .csw-feature-header-actions button {
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
+  width: var(--buddy-action-hit-size, 28px);
+  height: var(--buddy-action-hit-size, 28px);
   padding: 5px;
   border: 0;
   border-radius: 7px;
@@ -583,8 +583,8 @@
 }
 .csw-feature-header-actions svg {
   display: block;
-  width: 18px;
-  height: 18px;
+  width: var(--buddy-action-icon-size, 18px);
+  height: var(--buddy-action-icon-size, 18px);
 }
 .csw-feature-header-actions button:disabled {
   opacity: 0.45;
@@ -644,16 +644,16 @@
   justify-self: end;
 }
 .csw-window-controls button {
-  width: 28px;
-  height: 28px;
+  width: var(--buddy-action-hit-size, 28px);
+  height: var(--buddy-action-hit-size, 28px);
 }
 [data-buddy-maximized] .csw-resize-handle {
   display: none;
 }
 
 .csw-workbench-head[data-window='desktop'] .csw-icon svg {
-  width: 18px;
-  height: 18px;
+  width: var(--buddy-action-icon-size, 18px);
+  height: var(--buddy-action-icon-size, 18px);
 }
 
 /* A pressed window control stays in the same neutral hierarchy as its neighbours. */

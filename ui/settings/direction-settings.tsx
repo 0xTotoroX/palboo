@@ -10,7 +10,7 @@ import { useState } from 'react';
 import { Icon } from '../shared/icons/react';
 import { Card } from './components/ui/card';
 import { Input } from './components/ui/input';
-import { Button } from './components/ui/button';
+import { IconButton } from './components/ui/button';
 import { NativeSelect } from './components/ui/native-select';
 import { ModelApiKey, DeleteModelApiKey } from './model-credentials';
 import { ConfirmationButton } from './settings-confirmation';
@@ -94,35 +94,26 @@ export function DirectionSettings({ editor }: { editor: SettingsEditor }) {
                     </option>
                   ))}
               </NativeSelect>
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
+              <IconButton
                 aria-label={`上移方向 ${index + 1}`}
                 disabled={index === 0}
                 onClick={() => move(index, -1)}
               >
                 <Icon name="arrow-up" />
-              </Button>
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
+              </IconButton>
+              <IconButton
                 aria-label={`下移方向 ${index + 1}`}
                 disabled={index === form.selectedDirections.length - 1}
                 onClick={() => move(index, 1)}
               >
                 <Icon name="arrow-down" />
-              </Button>
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
+              </IconButton>
+              <IconButton
                 aria-label={`移除方向位置 ${index + 1}`}
                 onClick={() => slots(form.selectedDirections.filter((_, i) => i !== index))}
               >
                 <Icon name="trash" />
-              </Button>
+              </IconButton>
             </div>
           ))}
           <div data-settings-list-item="add" className="flex items-center gap-2">
@@ -140,10 +131,8 @@ export function DirectionSettings({ editor }: { editor: SettingsEditor }) {
                   </option>
                 ))}
             </NativeSelect>
-            <Button
-              type="button"
+            <IconButton
               variant="outline"
-              size="icon"
               aria-label="加入"
               disabled={!adding || form.selectedDirections.length >= 6}
               onClick={() => {
@@ -152,7 +141,7 @@ export function DirectionSettings({ editor }: { editor: SettingsEditor }) {
               }}
             >
               <Icon name="plus" />
-            </Button>
+            </IconButton>
           </div>
           <p className="text-[14px] text-muted-foreground">
             {form.selectedDirections.length
@@ -234,10 +223,8 @@ export function DirectionSettings({ editor }: { editor: SettingsEditor }) {
                 />
               </div>
             ))}
-            <Button
-              type="button"
+            <IconButton
               variant="outline"
-              size="icon"
               data-settings-list-item="add"
               aria-label="添加自定义方向"
               disabled={library.length >= 24}
@@ -249,7 +236,7 @@ export function DirectionSettings({ editor }: { editor: SettingsEditor }) {
               }
             >
               <Icon name="plus" />
-            </Button>
+            </IconButton>
           </div>
         </section>
       )}

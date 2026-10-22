@@ -17,6 +17,8 @@
   --buddy-control-height: 32px;
   --buddy-font-ui: 12px;
   --buddy-icon-size: 16px;
+  --buddy-action-icon-size: 18px;
+  --buddy-action-hit-size: 28px;
 }
 :root,
 [data-companion-stepwise-root='true'][data-theme='light'] {

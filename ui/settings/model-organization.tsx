@@ -6,7 +6,7 @@ import { SettingsDrawer } from './settings-drawer';
 import { useSettingsListMotion } from './settings-list-motion';
 import { useState } from 'react';
 import { ConfirmationButton } from './settings-confirmation';
-import { Button } from './components/ui/button';
+import { Button, IconButton } from './components/ui/button';
 import { Input } from './components/ui/input';
 import { NativeSelect } from './components/ui/native-select';
 import { SuggestionInput } from './components/ui/suggestion-input';
@@ -106,10 +106,8 @@ export function ModelOrganization({
     >
       <div ref={listRef} data-settings-list="model-groups" className="space-y-5">
         <div className="flex flex-wrap items-center gap-3">
-          <Button
-            type="button"
+          <IconButton
             variant="outline"
-            size="icon"
             aria-label="刷新可用模型"
             disabled={busy || !prefs.enabled}
             onClick={async () => {
@@ -123,7 +121,7 @@ export function ModelOrganization({
             aria-busy={refreshState === 'pending'}
           >
             <ActionIcon name="refresh" state={refreshState} />
-          </Button>
+          </IconButton>
           <span className="text-muted-foreground">{available.length} 个可用模型</span>
         </div>
         <form
@@ -146,15 +144,14 @@ export function ModelOrganization({
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
           />
-          <Button
+          <IconButton
             type="submit"
             variant="outline"
-            size="icon"
             aria-label="新增分组"
             disabled={busy || !newName.trim()}
           >
             <Icon name="plus" />
-          </Button>
+          </IconButton>
         </form>
         <fieldset disabled={busy} className="space-y-3">
           <legend className="mb-2">
@@ -202,10 +199,8 @@ export function ModelOrganization({
                 onValueChange={setMaker}
               />
             </label>
-            <Button
-              type="button"
+            <IconButton
               variant="outline"
-              size="icon"
               aria-label="指定厂家"
               disabled={blocked || !maker.trim()}
               onClick={() =>
@@ -213,7 +208,7 @@ export function ModelOrganization({
               }
             >
               <Icon name="check" />
-            </Button>
+            </IconButton>
           </div>
           <div className="flex flex-wrap items-end gap-2">
             <label className="min-w-0 flex-1 basis-40 space-y-1">
@@ -231,10 +226,8 @@ export function ModelOrganization({
                 ))}
               </NativeSelect>
             </label>
-            <Button
-              type="button"
+            <IconButton
               variant="outline"
-              size="icon"
               aria-label="移动模型"
               disabled={
                 blocked || (!!destination && !prefs.groups?.some((g) => g.id === destination))
@@ -247,7 +240,7 @@ export function ModelOrganization({
               }
             >
               <Icon name="check" />
-            </Button>
+            </IconButton>
           </div>
         </fieldset>
         {!models.length && (
@@ -267,30 +260,24 @@ export function ModelOrganization({
                 <h3 className="mr-auto font-medium">
                   {group.name} · {group.models.length}
                 </h3>
-                <Button
-                  type="button"
-                  variant="ghost"
+                <IconButton
                   disabled={busy || !index}
                   aria-label={`上移分组 ${group.name}`}
-                  size="icon"
                   onClick={() =>
                     void save({ groupOrder: moveItem(groupOrder, group.id, groups[index - 1].id) })
                   }
                 >
                   <Icon name="arrow-up" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
+                </IconButton>
+                <IconButton
                   disabled={busy || index === groups.length - 1}
                   aria-label={`下移分组 ${group.name}`}
-                  size="icon"
                   onClick={() =>
                     void save({ groupOrder: moveItem(groupOrder, group.id, groups[index + 1].id) })
                   }
                 >
                   <Icon name="arrow-down" />
-                </Button>
+                </IconButton>
               </div>
               {custom && (
                 <form
@@ -319,10 +306,8 @@ export function ModelOrganization({
                     value={names[custom.id] ?? custom.name}
                     onChange={(e) => setNames({ ...names, [custom.id]: e.target.value })}
                   />
-                  <Button
+                  <IconButton
                     type="submit"
-                    variant="ghost"
-                    size="icon"
                     aria-label={`保存分组名称 ${custom.name}`}
                     disabled={
                       busy ||
@@ -331,7 +316,7 @@ export function ModelOrganization({
                     }
                   >
                     <Icon name="check" />
-                  </Button>
+                  </IconButton>
                   <ConfirmationButton
                     type="button"
                     variant="ghost"
@@ -389,11 +374,8 @@ export function ModelOrganization({
                       </span>
                     </label>
                     <div className="flex flex-wrap gap-1">
-                      <Button
-                        type="button"
-                        variant="ghost"
+                      <IconButton
                         aria-label={`上移模型 ${model.label}`}
-                        size="icon"
                         disabled={busy || !i}
                         onClick={() =>
                           void save({
@@ -402,12 +384,9 @@ export function ModelOrganization({
                         }
                       >
                         <Icon name="arrow-up" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
+                      </IconButton>
+                      <IconButton
                         aria-label={`下移模型 ${model.label}`}
-                        size="icon"
                         disabled={busy || i === group.models.length - 1}
                         onClick={() =>
                           void save({
@@ -416,17 +395,14 @@ export function ModelOrganization({
                         }
                       >
                         <Icon name="arrow-down" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
+                      </IconButton>
+                      <IconButton
                         aria-expanded={detail === model.id}
                         aria-label={`详情 ${model.label}`}
-                        size="icon"
                         onClick={() => setDetail(detail === model.id ? null : model.id)}
                       >
                         <Icon name="more" />
-                      </Button>
+                      </IconButton>
                     </div>
                     {detail === model.id && (
                       <div className="basis-full space-y-2 break-all text-muted-foreground">

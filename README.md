@@ -202,6 +202,8 @@ New Dev App sessions clean up after the ChatGPT process exits, using its PID, st
 
 Built with **Rust, JavaScript / TypeScript, and React**.
 
+Frontend changes reuse the local shadcn/ui and Radix settings controls, shared icons, and theme tokens. See the relevant `AGENTS.md` maps before adding a component or dependency; preserve existing form state and save behavior.
+
 ```text
 src/               Backend, CLI, and native windows
 ui/features/       Board, outline, next-step, model, and terminology content

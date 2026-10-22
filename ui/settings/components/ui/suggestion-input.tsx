@@ -4,7 +4,7 @@
  * [PROTOCOL]: Keep components/ui/AGENTS.md in sync. */
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ComponentProps } from 'react';
 import { Input } from './input';
-import { Button } from './button';
+import { IconButton } from './button';
 import { ActionIcon } from './action-feedback';
 
 type Props = Omit<ComponentProps<'input'>, 'value' | 'onChange' | 'list' | 'ref'> & {
@@ -140,10 +140,7 @@ export function SuggestionInput({
         }}
       />
       {dropdown && (
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
+        <IconButton
           className="settings-suggestion-trigger"
           tabIndex={-1}
           aria-label={dropdown.label}
@@ -161,7 +158,7 @@ export function SuggestionInput({
             name="chevron-down"
             state={dropdown.loading ? 'pending' : dropdown.success ? 'success' : 'idle'}
           />
-        </Button>
+        </IconButton>
       )}
       {expanded && (
         <ul

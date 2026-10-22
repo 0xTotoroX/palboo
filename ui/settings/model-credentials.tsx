@@ -3,7 +3,7 @@
  * [POS]: Settings presentation; never reads stored secret values or stages deletion in autosave drafts.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 import { useEffect, useRef, useState } from 'react';
-import { Button } from './components/ui/button';
+import { Button, IconButton } from './components/ui/button';
 import { Input } from './components/ui/input';
 import { Field } from './settings-controls';
 import { Icon } from '../shared/icons/react';
@@ -78,17 +78,14 @@ export function ModelApiKey({ editor, busy, kind = 'api' }: KeyProps) {
               spellCheck={false}
             />
             {!!apiKey && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
+              <IconButton
                 className="absolute right-1"
                 data-settings-navigation
                 aria-label={visible ? '隐藏新密钥' : '显示新密钥'}
                 onClick={() => setVisible(!visible)}
               >
                 <Icon name={visible ? 'eye-off' : 'eye'} />
-              </Button>
+              </IconButton>
             )}
           </div>
           {stored && (
