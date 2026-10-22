@@ -1,4 +1,4 @@
-/* [INPUT]: 现有设置表单、认证 API 与共用设置控件。
+/* [INPUT]: 现有设置表单、认证 API、共用设置控件及 PALBOO 矢量字标。
  * [OUTPUT]: 常规配置直接显示的 Tom Modern 统一设置、分组与二级页面导航、主题/字体及联动预览，保留保存与错误反馈。
  * [POS]: 设置展示层，不执行后台业务或读取聊天正文。
  * [PROTOCOL]: 变更时同步 settings/AGENTS.md。 */
@@ -16,6 +16,7 @@ import './settings-motion.css';
 import '../surfaces/workspace/styles.css';
 import './layout-preview.css';
 import icon from '../icon.png';
+import { PalbooWordmark } from '../shared/brand';
 import { useCompanion, type Settings, type EditableSettings } from './api';
 import { useSettingsForm } from './use-settings-form';
 import { SettingsOutline, useSettingsPage, pageTitles } from './settings-outline';
@@ -113,9 +114,14 @@ function App() {
     <div className="settings-app" data-settings-category={page}>
       <header className="settings-header">
         <div className="settings-topline">
-          <a href="#settings-features" className="settings-brand" data-settings-navigation>
+          <a
+            href="#settings-features"
+            className="settings-brand"
+            aria-label={`Palboo ${import.meta.env.DEV ? '开发版' : '设置'}`}
+            data-settings-navigation
+          >
             <img src={icon} alt="" />
-            Palboo{' '}
+            <PalbooWordmark className="settings-wordmark" />
             <span className="settings-edition">{import.meta.env.DEV ? '开发版' : '设置'}</span>
           </a>
           <SettingsSearch navigate={navigate} />

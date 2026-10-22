@@ -113,7 +113,7 @@ return <div className="settings-app" ref={ref}><div style={{width:430}}><Setting
           return animation;
         };
       });
-      for (const name of ['大纲', '看板', '模型切换', '下一步']) {
+      for (const name of ['大纲', '看板', '模型切换', 'Grok Bot', '下一步']) {
         await page.evaluate(() => (window.previewTransitions = []));
         await tabs.getByRole('button', { name, exact: true }).click();
         const frames = await page.locator('.preview-scenes').evaluate(async (el) => {

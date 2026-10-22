@@ -132,6 +132,12 @@ html:root :is(.settings-theme, .settings-choice, .preview-selector) button[aria-
   height: 30px;
   border-radius: 9px;
 }
+.settings-wordmark {
+  display: block;
+  width: 5.6em;
+  height: auto;
+  flex-shrink: 0;
+}
 .settings-edition {
   font-size: 0.6em;
   font-weight: 450;

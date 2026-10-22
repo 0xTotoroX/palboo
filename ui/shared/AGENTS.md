@@ -9,6 +9,7 @@
 - `scroll.js`：功能预览与容器共用的滚动读写，保留隐藏标签和尺寸变化时被浏览器夹紧的阅读意图。
 - `text.js`：文本归一化、数值限制与 HTML/属性转义的纯函数。
 - `tokens.css`：功能及设置页共用的基础颜色、间距、圆角和控件尺寸变量；action-icon-size/action-hit-size 统一18px动作图标与28px点击区，旧 icon-size 继续保留16px文字控件语义。
+- `brand.tsx`：自有 PALBOO 几何矢量字标，双 O 呼应眼睛、颜色继承正文；无外部字体、状态或动效。产品图标仍使用 ui/icon.png，品牌规范见根 DESIGN_SYSTEM.md。
 - [bridge/AGENTS.md](bridge/AGENTS.md)：受限 CDP 请求生命周期。
 - [icons/AGENTS.md](icons/AGENTS.md)：公开 MIT SVG 子集及许可。
 

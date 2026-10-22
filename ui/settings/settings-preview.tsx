@@ -1,5 +1,5 @@
 /* [INPUT]: Shared preview frame, existing form snapshots, saved surfaces and feature layout.
- * [OUTPUT]: Linked configuration diagrams and isolated, state-preserving samples in a stable transition frame.
+ * [OUTPUT]: Compact linked diagrams and state-preserving samples; only the common switcher reserves inactive geometry.
  * [POS]: Settings presentation only; no requests, credentials, task bodies or host commands.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 import { LayoutPreview } from './layout-preview';
@@ -69,12 +69,6 @@ function FeaturePreview({ form, tasks, model, view, dirty, page }: PreviewProps)
     bots: form?.grokbotEnabled,
   };
   const groups = tasks?.store.columns || defaultColumns;
-  const mode = view?.panelPreferences.ui.promptClickMode || 'fill';
-  const clickLabels: Record<string, string> = {
-    fill: '仅填入',
-    direct: '直接发送',
-    hybrid: '单击填入 / 双击发送',
-  };
   const examples = ['完善实现方案', '检查边界条件', '补充验证步骤'];
   return (
     <Frame title="功能如何呈现" label={dirty ? '未保存编辑 · 交互示例' : '交互示例'}>
@@ -96,7 +90,7 @@ function FeaturePreview({ form, tasks, model, view, dirty, page }: PreviewProps)
           </button>
         ))}
       </div>
-      <div className="preview-scenes" ref={transition}>
+      <div className="preview-scenes" data-single-scene={page !== 'features'} ref={transition}>
         {(['outline', 'next', 'board', 'model', 'bots'] as const).map((scene) => {
           const active = enabled[scene];
           return (
@@ -169,15 +163,21 @@ function FeaturePreview({ form, tasks, model, view, dirty, page }: PreviewProps)
                           </button>
                         ))}
                     </div>
-                    <div className="preview-quick-prompts" data-settings-navigation>
-                      {form?.quickPrompts.map((item, index) => (
-                        <button type="button" key={index} onClick={() => setDemoDraft(item.prompt)}>
-                          {item.label || '未命名'}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="preview-draft" role="status">
-                      {demoDraft || '点选建议，查看示例输入效果'}
+                    <div className="preview-composer">
+                      <div className="preview-quick-prompts" data-settings-navigation>
+                        {form?.quickPrompts.map((item, index) => (
+                          <button
+                            type="button"
+                            key={index}
+                            onClick={() => setDemoDraft(item.prompt)}
+                          >
+                            {item.label || '未命名'}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="preview-draft" role="status">
+                        {demoDraft || '点选建议，查看示例输入效果'}
+                      </div>
                     </div>
                   </>
                 )}
@@ -241,24 +241,6 @@ function FeaturePreview({ form, tasks, model, view, dirty, page }: PreviewProps)
                   </>
                 )}
               </div>
-              {scene === 'next' && (
-                <Facts
-                  items={[
-                    [
-                      '生成时机',
-                      form?.generationMode === 'auto' ? '回答完成后自动生成' : '手动刷新',
-                    ],
-                    [
-                      '方向来源',
-                      { auto: '自动探索', manual: '自选方向', smart: '智能挑选' }[
-                        form?.directionSource || 'auto'
-                      ],
-                    ],
-                    ['数量上限', form ? `最多 ${suggestionLimit(form)} 条` : '读取中'],
-                    ['实际点击行为', clickLabels[mode] || mode],
-                  ]}
-                />
-              )}
             </div>
           );
         })}

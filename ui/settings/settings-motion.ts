@@ -53,7 +53,7 @@ export function useSettingsMotion(identity: string) {
   return ref;
 }
 
-// Keep scenes mounted so demo state survives; inactive scenes only contribute geometry.
+// Keep scene state mounted; only the common feature switcher reserves inactive geometry.
 export function usePreviewTransition(identity: string) {
   const ref = useRef<HTMLDivElement>(null);
   const previous = useRef(identity);

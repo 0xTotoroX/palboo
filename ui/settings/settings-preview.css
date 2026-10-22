@@ -9,9 +9,10 @@
   font-size: 0.8125em;
 }
 .preview-frame {
+  container-type: inline-size;
   border: 1px solid var(--settings-rule);
   box-shadow: var(--settings-shadow);
-  padding: 0 20px 18px;
+  padding: 0 16px 12px;
   background: var(--buddy-surface);
 }
 .preview-heading {
@@ -19,9 +20,9 @@
   justify-content: space-between;
   align-items: center;
   gap: 10px;
-  min-height: 64px;
+  min-height: 44px;
   border-bottom: 1px solid var(--buddy-border);
-  margin-bottom: 18px;
+  margin-bottom: 12px;
 }
 .preview-heading h2 {
   font-size: 1.08em;
@@ -37,13 +38,13 @@
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  margin-bottom: 18px;
+  margin-bottom: 12px;
   padding: 3px;
   border: 1px solid var(--buddy-border);
 }
 .preview-selector button {
   flex: 1;
-  min-height: 34px;
+  min-height: 28px;
   padding: 4px 8px;
   color: var(--buddy-muted);
   cursor: pointer;
@@ -55,24 +56,25 @@
   box-shadow: inset 0 0 0 1px var(--settings-selected-border);
 }
 .preview-note {
-  margin-top: 18px;
-  padding-top: 14px;
+  margin: 10px 0 0;
+  padding-top: 8px;
   border-top: 1px solid var(--buddy-border);
   font-size: 0.84em;
   color: var(--buddy-muted);
   line-height: 1.65;
 }
 .preview-facts {
-  margin-top: 18px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 110px), 1fr));
+  gap: 8px 16px;
+  margin: 12px 0 0;
 }
 .preview-facts > div {
-  display: grid;
-  grid-template-columns: minmax(74px, 0.8fr) minmax(0, 1.4fr);
-  gap: 14px;
-  padding-block: 8px;
+  min-width: 0;
 }
 .preview-facts dt {
   color: var(--buddy-muted);
+  margin-bottom: 4px;
 }
 .preview-facts dd {
   margin: 0;
@@ -91,15 +93,15 @@
 }
 .preview-demo {
   border: 1px solid var(--buddy-border);
-  padding: 14px;
+  padding: 10px 12px;
 }
 .preview-demo-heading {
   display: flex;
   justify-content: space-between;
   gap: 12px;
   border-bottom: 1px solid var(--buddy-border);
-  padding-bottom: 12px;
-  margin-bottom: 12px;
+  padding-bottom: 8px;
+  margin-bottom: 4px;
 }
 .preview-demo-heading span {
   font-size: 0.84em;
@@ -115,7 +117,8 @@
   align-items: start;
   width: 100%;
   text-align: left;
-  padding: 14px 0;
+  padding: 8px 0;
+  min-height: 32px;
   border-bottom: 1px solid var(--buddy-border);
   cursor: pointer;
 }
@@ -136,7 +139,7 @@
 .preview-suggestions small {
   display: block;
   color: var(--buddy-muted);
-  margin-top: 5px;
+  margin-top: 3px;
   font-size: 0.85em;
 }
 .preview-suggestions > button:hover {
@@ -146,8 +149,8 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 14px;
+  gap: 6px;
+  margin-top: 8px;
 }
 .preview-quick-prompts button {
   max-width: 100%;
@@ -185,10 +188,10 @@
 .preview-draft {
   border: 1px dashed var(--buddy-border);
   padding: 10px;
-  margin-top: 14px;
+  margin-top: 8px;
   color: var(--buddy-muted);
-  min-height: 56px;
-  max-height: 150px;
+  min-height: 40px;
+  max-height: 100px;
   overflow: auto;
   overflow-wrap: anywhere;
 }
@@ -202,7 +205,7 @@
   color: var(--buddy-accent);
 }
 .preview-answer {
-  padding: 16px 0 0;
+  padding: 10px 0 0;
 }
 .preview-answer span {
   display: block;
@@ -212,7 +215,7 @@
 .preview-answer strong {
   display: block;
   font-weight: 550;
-  margin: 10px 0 18px;
+  margin: 6px 0 10px;
 }
 .preview-board {
   display: flex;
@@ -244,7 +247,7 @@
   background: var(--settings-orange);
 }
 .preview-model-name {
-  padding: 12px 0;
+  padding: 8px 0;
   display: grid;
   gap: 8px;
 }
@@ -262,8 +265,8 @@
   display: flex;
   align-items: center;
   flex-direction: column;
-  gap: 12px;
-  padding: 30px 0;
+  gap: 8px;
+  padding: 12px 0;
   border-bottom: 1px solid var(--buddy-border);
 }
 .preview-connection > .buddy-icon {
@@ -308,8 +311,31 @@
   pointer-events: auto;
   z-index: 1;
 }
+.preview-scenes[data-single-scene='true'] > .preview-scene:not([data-active='true']) {
+  display: none;
+}
+
+@container (min-width: 420px) {
+  .preview-scene:is(
+      [data-preview-scene='next'],
+      [data-preview-scene='outline'],
+      [data-preview-scene='bots']
+    )
+    .preview-demo {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    column-gap: 20px;
+    align-items: start;
+  }
+  .preview-demo-heading {
+    grid-column: 1 / -1;
+  }
+  .preview-composer {
+    min-width: 0;
+  }
+}
 
 .settings-local-preview {
-  margin-bottom: 32px;
+  margin-bottom: 20px;
   font-size: 0.8125em;
 }

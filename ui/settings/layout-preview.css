@@ -27,12 +27,14 @@
 }
 .layout-demo-canvas {
   width: 100%;
-  margin: 12px 0;
+  margin: 8px 0;
 }
 .layout-demo-scene {
   display: block;
   width: 100%;
   height: auto;
+  max-width: 493px;
+  margin-inline: auto;
   aspect-ratio: 1120/500;
 }
 .layout-demo-scene text {

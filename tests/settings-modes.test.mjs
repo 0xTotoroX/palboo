@@ -1,11 +1,11 @@
 /* [INPUT]: Built settings page, synthetic authenticated services and isolated Chromium.
- * [OUTPUT]: Shared drafts/DOM, Codex/manual themes without writes, retained details/scroll and responsive navigation.
+ * [OUTPUT]: Shared drafts/DOM, theme/wordmark checks, compact top-preview geometry, retained scroll and responsive navigation.
  * [POS]: No real user data, model requests or host restarts.
  * [PROTOCOL]: Keep tests/AGENTS.md in sync. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { readFile, mkdir } from 'node:fs/promises';
+import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { chromium } from 'playwright';
 import { emulateMedia } from './browser-motion.mjs';
@@ -19,6 +19,7 @@ test(
       rejectNext = false,
       rejectSurface = false;
     const writes = [];
+    const previewGeometry = [];
     let panelTheme = null;
     let connectionStatus = 'connected';
     const streams = new Set();
@@ -330,6 +331,18 @@ test(
         await page.locator('.settings-brand img').evaluate((n) => getComputedStyle(n).filter),
         'none',
         'the original brand icon stays unchanged in both themes',
+      );
+      assert.equal(await page.getByRole('link', { name: 'Palboo 设置', exact: true }).count(), 1);
+      await page.waitForFunction(
+        (expected) => {
+          const wordmark = document.querySelector('.settings-wordmark');
+          const brand = document.querySelector('.settings-brand');
+          return (
+            getComputedStyle(wordmark).fill === expected &&
+            getComputedStyle(brand).color === expected
+          );
+        },
+        theme === 'light' ? 'rgb(39, 39, 42)' : 'rgb(238, 238, 239)',
       );
     };
     try {
@@ -802,6 +815,7 @@ test(
                 bottom: sample?.bottom,
                 left: sample?.left,
                 width: sample?.width,
+                height: sample?.height,
                 controls: controls.toJSON(),
               };
             });
@@ -817,6 +831,19 @@ test(
               Math.abs(previewOrder.width - previewOrder.controls.width) < 1,
               `${id}: shared preview width`,
             );
+            // Keep the preview below half of the 900px desktop viewport, with
+            // room for wrapping rather than shrinking text on narrow screens.
+            const budget = width <= 760 ? 540 : 420;
+            assert.ok(
+              previewOrder.height <= budget,
+              `${colorScheme} ${width} ${id}: preview ${previewOrder.height}px exceeds ${budget}px`,
+            );
+            previewGeometry.push({
+              theme: colorScheme,
+              width,
+              page: id,
+              height: previewOrder.height,
+            });
             assert.equal(
               await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
               false,
@@ -868,6 +895,10 @@ test(
         }
       }
       await category('bots');
+      await writeFile(
+        'target/reports/settings-preview-geometry.json',
+        JSON.stringify(previewGeometry, null, 2),
+      );
       const botWrites = writes.length;
       await page
         .getByRole('group', { name: 'Bot 选择示例' })
@@ -922,6 +953,7 @@ test(
       await peer.evaluate(() => localStorage.removeItem('palboo-settings-theme'));
       await chooseTheme('自动');
       await peer.close();
+      await page.bringToFront();
       assert.equal(
         writes.length,
         themeWrites + 2,
