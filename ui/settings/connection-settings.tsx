@@ -60,47 +60,6 @@ export function ConnectionSettings({
   return (
     <>
       {confirmation}
-      {form && (
-        <>
-          <Card tabIndex={-1} id="settings-startup" aria-labelledby="startup-title">
-            <h2 id="startup-title" className="mb-5 text-[15px] font-semibold">
-              启动行为
-            </h2>
-            <Field
-              id="host-restart-policy"
-              label="ChatGPT 已打开，但没有调试连接时"
-              hint={
-                form.hostRestartPolicy === 'force'
-                  ? '强制重开可能中断任务或丢失未保存内容。'
-                  : undefined
-              }
-            >
-              <NativeSelect
-                id="host-restart-policy"
-                value={form.hostRestartPolicy}
-                onChange={(e) => {
-                  if (e.target.value === 'force') {
-                    e.stopPropagation();
-                    confirm({
-                      title: '允许直接强制重开？',
-                      description:
-                        '以后无法连接已打开的 Codex 时，将不再询问而直接强制退出，可能中断任务或丢失未保存内容。',
-                      confirmLabel: '确认启用',
-                      action: () => {
-                        change('hostRestartPolicy', 'force');
-                        return editor.save();
-                      },
-                    });
-                  } else change('hostRestartPolicy', 'ask');
-                }}
-              >
-                <option value="ask">询问后正常重开</option>
-                <option value="force">直接强制重开</option>
-              </NativeSelect>
-            </Field>
-          </Card>
-        </>
-      )}
       <Card tabIndex={-1} id="settings-connection" aria-labelledby="connection-title">
         <h2 id="connection-title">桌面连接</h2>
         {!connected && view?.connection.message && (
@@ -198,6 +157,47 @@ export function ConnectionSettings({
           </div>
         )}
       </Card>
+      {form && (
+        <>
+          <Card tabIndex={-1} id="settings-startup" aria-labelledby="startup-title">
+            <h2 id="startup-title" className="mb-5 text-[15px] font-semibold">
+              启动行为
+            </h2>
+            <Field
+              id="host-restart-policy"
+              label="ChatGPT 已打开，但没有调试连接时"
+              hint={
+                form.hostRestartPolicy === 'force'
+                  ? '强制重开可能中断任务或丢失未保存内容。'
+                  : undefined
+              }
+            >
+              <NativeSelect
+                id="host-restart-policy"
+                value={form.hostRestartPolicy}
+                onChange={(e) => {
+                  if (e.target.value === 'force') {
+                    e.stopPropagation();
+                    confirm({
+                      title: '允许直接强制重开？',
+                      description:
+                        '以后无法连接已打开的 Codex 时，将不再询问而直接强制退出，可能中断任务或丢失未保存内容。',
+                      confirmLabel: '确认启用',
+                      action: () => {
+                        change('hostRestartPolicy', 'force');
+                        return editor.save();
+                      },
+                    });
+                  } else change('hostRestartPolicy', 'ask');
+                }}
+              >
+                <option value="ask">询问后正常重开</option>
+                <option value="force">直接强制重开</option>
+              </NativeSelect>
+            </Field>
+          </Card>
+        </>
+      )}
     </>
   );
 }

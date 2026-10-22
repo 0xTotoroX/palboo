@@ -31,11 +31,11 @@ export function NextSettings({
   return (
     <>
       <div data-settings-page="next" hidden={section === 'prompts'}>
+        <DirectionSettings editor={editor} />
         <section className="settings-section">
-          <h2>下一步交互</h2>
+          <h2>显示与操作</h2>
           <PanelSettings value={appearance} section="next" />
         </section>
-        <DirectionSettings editor={editor} />
       </div>
       <div data-settings-page="prompts" hidden={section === 'next'}>
         <Card tabIndex={-1} id="settings-quick-prompts" aria-labelledby="quick-prompts-title">

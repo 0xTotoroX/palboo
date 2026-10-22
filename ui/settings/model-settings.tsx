@@ -145,7 +145,7 @@ export function ModelSettings({ editor, simple }: { editor: SettingsEditor; simp
       <Card tabIndex={-1} id="settings-model" aria-labelledby="model-title">
         <div ref={fieldsRef} className="settings-model-editor">
           <div>
-            <h2 id="model-title" hidden={simple}>
+            <h2 id="model-title" hidden>
               模型服务
             </h2>
             {saved.environmentOverrides.length > 0 && (

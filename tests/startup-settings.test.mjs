@@ -1,5 +1,5 @@
 /*
- * [INPUT]: 实际设置页、合成 SSE/设置 API 与独立 Chromium。
+ * [INPUT]: 实际设置页及布局样式、合成 SSE/设置 API 与独立 Chromium。
  * [OUTPUT]: 启动策略与完整/限长上下文选项、自动/手动保存、在途编辑、冲突保护、快捷词与重载恢复验收。
  * [POS]: 设置页行为测试，不接触真实宿主或重启应用。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
+import { readFile } from 'node:fs/promises';
 import { build } from 'esbuild';
 import { chromium } from 'playwright';
 import { fixtureSettings } from './fixtures.mjs';
@@ -27,6 +28,16 @@ test(
       loader: { '.css': 'empty', '.png': 'dataurl' },
       define: { 'import.meta.env.DEV': 'false', 'import.meta.hot': 'undefined' },
     });
+    const css = (
+      await Promise.all(
+        [
+          'ui/shared/tokens.css',
+          'ui/settings/settings-layout.css',
+          'ui/settings/settings-controls.css',
+          'ui/settings/settings-preview.css',
+        ].map((path) => readFile(path, 'utf8')),
+      )
+    ).join('\n');
     let settings = { ...fixtureSettings };
     const saves = [];
     let hold = false;
@@ -118,13 +129,16 @@ test(
         res.end(bundle.outputFiles[0].text);
       } else {
         res.setHeader('Content-Type', 'text/html');
-        res.end('<div id="root"></div><script src="/app.js"></script>');
+        res.end(
+          `<!doctype html><meta charset="utf-8"><style>${css}</style><div id="root"></div><script src="/app.js"></script>`,
+        );
       }
     });
     server.listen(0, '127.0.0.1');
     await once(server, 'listening');
 
-    let browserServer, cleanupPromise;
+    let browserServer, cleanupPromise, page;
+    const errors = [];
     const cleanup = () =>
       (cleanupPromise ||= (async () => {
         await browserServer?.kill();
@@ -137,8 +151,7 @@ test(
         executablePath: process.env.PALBOO_CHROME_BIN || undefined,
       });
       const browser = await chromium.connect(browserServer.wsEndpoint());
-      const page = await browser.newPage();
-      const errors = [];
+      page = await browser.newPage();
       page.on('pageerror', (error) => {
         errors.push(error.message);
       });
@@ -280,7 +293,11 @@ test(
       await page.getByRole('link', { name: '常用提示词', exact: true }).click();
       const quick = page.getByLabel('常用提示词 1 内容', { exact: true });
       await quick.fill('请继续推进整体目标');
-      await page.getByRole('heading', { name: '常用提示词', exact: true, level: 1 }).click();
+      // Blur onto noninteractive content; preview buttons intentionally preserve unsaved drafts.
+      await page
+        .getByRole('region', { name: '功能如何呈现', exact: true })
+        .locator('.preview-note')
+        .click();
       await until(() => settings.quickPrompts[0].prompt === '请继续推进整体目标');
       await page.waitForFunction(
         () =>
@@ -399,6 +416,29 @@ test(
       await tokenSwitch.click();
       await until(() => settings.tokenMeterEnabled === true && inFlight === 0);
       assert.deepEqual(errors, []);
+    } catch (error) {
+      const dom = await Promise.race([
+        page
+          ?.evaluate(() => ({
+            page: document.querySelector('.settings-app')?.dataset.settingsCategory,
+            dialogs: [...document.querySelectorAll('dialog[open]')].map((node) => node.id),
+            input: document.querySelector('#max-input')?.value,
+            scope: document.querySelector('#context-scope')?.value,
+            scopeLabel: !!document.querySelector('label[for="context-scope"]'),
+            focused: document.activeElement?.id,
+            save: document.querySelector('[data-save-state]')?.dataset.saveState,
+          }))
+          .catch((failure) => ({ error: failure.message })),
+        new Promise((resolve) => setTimeout(() => resolve({ timeout: true }), 1500)),
+      ]);
+      console.error('Synthetic settings failure', {
+        dom,
+        errors,
+        maxInputChars: settings.maxInputChars,
+        inFlight,
+        saveCount: saves.length,
+      });
+      throw error;
     } finally {
       await cleanup();
     }

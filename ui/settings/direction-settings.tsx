@@ -9,6 +9,7 @@ import { useSettingsListMotion } from './settings-list-motion';
 import { useState } from 'react';
 import { Icon } from '../shared/icons/react';
 import { Card } from './components/ui/card';
+import { Field } from './settings-controls';
 import { Input } from './components/ui/input';
 import { IconButton } from './components/ui/button';
 import { NativeSelect } from './components/ui/native-select';
@@ -39,25 +40,21 @@ export function DirectionSettings({ editor }: { editor: SettingsEditor }) {
       <h2 id="direction-title" className="mb-5 text-[15px] font-semibold">
         建议方向
       </h2>
-      <label htmlFor="direction-source" className={labelClass}>
-        方向来源
-      </label>
-      <NativeSelect
-        id="direction-source"
-        value={form.directionSource}
-        onChange={(e) =>
-          change('directionSource', e.target.value as EditableSettings['directionSource'])
-        }
-      >
-        <option value="auto">自动探索</option>
-        <option value="manual">我来选择</option>
-        <option value="smart">智能挑选（实验）</option>
-      </NativeSelect>
+      <Field id="direction-source" label="方向来源">
+        <NativeSelect
+          id="direction-source"
+          value={form.directionSource}
+          onChange={(e) =>
+            change('directionSource', e.target.value as EditableSettings['directionSource'])
+          }
+        >
+          <option value="auto">自动探索</option>
+          <option value="manual">我来选择</option>
+          <option value="smart">智能挑选（实验）</option>
+        </NativeSelect>
+      </Field>
       {form.directionSource !== 'manual' ? (
-        <div className="mt-4">
-          <label htmlFor="max-items" className={labelClass}>
-            最多建议数量
-          </label>
+        <Field id="max-items" label="最多建议数量">
           <Input
             id="max-items"
             type="number"
@@ -66,7 +63,7 @@ export function DirectionSettings({ editor }: { editor: SettingsEditor }) {
             value={form.maxItems}
             onChange={(e) => change('maxItems', Number(e.target.value))}
           />
-        </div>
+        </Field>
       ) : (
         <div data-settings-list="direction-slots" className="mt-4 space-y-3">
           {form.selectedDirections.map((id, index) => (

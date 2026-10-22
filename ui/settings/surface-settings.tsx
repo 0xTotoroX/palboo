@@ -122,7 +122,7 @@ export function SurfaceSettings({
         />
       </div>
       <section
-        className="settings-section settings-surface-group"
+        className="settings-section"
         data-settings-page="appearance"
         hidden={!simple && page === 'surfaces'}
       >

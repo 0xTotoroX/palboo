@@ -1,5 +1,5 @@
 /* [INPUT]: Built settings page, synthetic authenticated services and isolated Chromium.
- * [OUTPUT]: Shared drafts/DOM, theme/wordmark checks, compact top-preview geometry, retained scroll and responsive navigation.
+ * [OUTPUT]: Shared drafts/DOM, title-free page hierarchy, terminology controls/tools, compact preview geometry and responsive navigation.
  * [POS]: No real user data, model requests or host restarts.
  * [PROTOCOL]: Keep tests/AGENTS.md in sync. */
 import test from 'node:test';
@@ -205,6 +205,16 @@ test(
             };
           value = appearance;
         } else if (path === '/api/terminology') {
+          if (body?.action === 'settings') {
+            assert.equal(body.revision, terminology.preferences.revision);
+            const { action, revision, ...patch } = body;
+            assert.equal(
+              Object.keys(patch).length,
+              1,
+              'a term preference saves only its own field',
+            );
+            Object.assign(terminology.preferences, patch, { revision: revision + 1 });
+          }
           if (body?.action === 'master') terminology.preferences.mastered = [body.id];
           if (body?.action === 'restore') terminology.preferences.mastered = [];
           value = terminology;
@@ -504,6 +514,71 @@ test(
       await page.getByRole('button', { name: '恢复提示：合成术语', exact: true }).click();
       await page.getByRole('button', { name: '已掌握：合成术语', exact: true }).waitFor();
       assert.deepEqual(terminology.preferences.mastered, []);
+      const termSettings = page.locator('#settings-terminology');
+      const termSwitch = page.getByRole('switch', {
+        name: '结合问答核对词义与识别概念',
+        exact: true,
+      });
+      await termSwitch.click();
+      await page.waitForFunction(
+        () =>
+          document
+            .querySelector('[aria-label="结合问答核对词义与识别概念"]')
+            .getAttribute('aria-checked') === 'true',
+      );
+      assert.equal(terminology.preferences.semantic, true);
+      await termSwitch.click();
+      await page.waitForFunction(
+        () =>
+          document
+            .querySelector('[aria-label="结合问答核对词义与识别概念"]')
+            .getAttribute('aria-checked') === 'false',
+      );
+      await page.getByLabel('术语卡片背景', { exact: true }).selectOption('native-glass');
+      await page.getByLabel('术语卡片液态变体', { exact: true }).selectOption('clear');
+      await page.getByLabel('术语卡片背景', { exact: true }).selectOption('custom');
+      await page.getByLabel('术语卡片自定义颜色', { exact: true }).fill('#334455');
+      await page.waitForFunction(
+        () =>
+          document.querySelector('.term-preview .term-card')?.getAttribute('data-material') ===
+          'custom',
+      );
+      await page.getByLabel('术语卡片背景', { exact: true }).selectOption('matte');
+      await page.waitForFunction(
+        () =>
+          document.querySelector('.term-preview .term-card')?.getAttribute('data-material') ===
+          'matte',
+      );
+      const beforeTermNavigation = writes.length;
+      await page.getByRole('searchbox', { name: '搜索术语', exact: true }).fill('Fixture');
+      await termSettings.locator('.term-result-name').click();
+      assert.equal(
+        await termSettings.locator('.term-result-name').getAttribute('aria-pressed'),
+        'true',
+      );
+      await page.getByLabel('只看收藏', { exact: true }).check();
+      await termSettings.getByText('没有匹配的术语', { exact: true }).waitFor();
+      await page.getByLabel('只看收藏', { exact: true }).uncheck();
+      await page.getByRole('button', { name: '词库管理', exact: true }).click();
+      await page.getByLabel('中文术语名', { exact: true }).fill('未保存的术语');
+      await page.getByRole('button', { name: '关闭词库管理', exact: true }).click();
+      await category('next');
+      await category('terminology');
+      await page.getByRole('button', { name: '词库管理', exact: true }).click();
+      assert.equal(
+        await page.getByLabel('中文术语名', { exact: true }).inputValue(),
+        '未保存的术语',
+      );
+      await page.getByRole('button', { name: '关闭词库管理', exact: true }).click();
+      assert.equal(
+        await page.getByRole('searchbox', { name: '搜索术语', exact: true }).inputValue(),
+        'Fixture',
+      );
+      assert.equal(
+        writes.length,
+        beforeTermNavigation,
+        'term search, filters, preview and drawer navigation do not save drafts',
+      );
       await category('board');
       assert.equal(await page.getByLabel('分组名称：待办', { exact: true }).isVisible(), true);
       const group = page.getByLabel('分组名称：待办', { exact: true });
@@ -549,7 +624,7 @@ test(
       );
       rejectNext = true;
       await model.fill('失败后保留模型');
-      await page.getByRole('heading', { name: '模型服务', exact: true, level: 1 }).click();
+      await page.getByRole('region', { name: '共享模型连接', exact: true }).click();
       await page.locator('.settings-feedback').filter({ hasText: '合成保存失败' }).waitFor();
       await roundTrip();
       assert.equal(await model.inputValue(), '失败后保留模型');
@@ -624,13 +699,13 @@ test(
       assert.equal(writes.length, count);
       for (const hash of ['settings-simple', 'settings-overview']) {
         await page.goto(origin + '/#' + hash);
-        await page.getByRole('heading', { name: '常用开关', exact: true, level: 1 }).waitFor();
+        await page.getByRole('main', { name: '常用开关', exact: true }).waitFor();
         assert.equal(await page.getByRole('navigation', { name: '设置分类' }).isVisible(), true);
         assert.equal(await page.locator('.settings-mode').count(), 0);
       }
       assert.equal(writes.length, count, 'legacy mode and hashes never reset configuration');
       await page.goto(origin + '/#settings-limits/timeout');
-      await page.getByRole('heading', { name: '模型服务', exact: true, level: 1 }).waitFor();
+      await page.getByRole('main', { name: '模型服务', exact: true }).waitFor();
       await page.getByLabel('请求超时（秒）', { exact: true }).waitFor();
       assert.equal(await limits.locator('dialog').getAttribute('open'), '');
       assert.equal(settings.directionSource, fixtureSettings.directionSource);
@@ -717,7 +792,7 @@ test(
       await page.getByRole('link', { name: '模型服务', exact: true }).click();
       await model.fill('新的预览模型草稿');
       await preview.getByText('新的预览模型草稿', { exact: true }).waitFor();
-      assert.ok((await preview.textContent()).includes('未全部保存'));
+      assert.equal(await preview.locator('.preview-status').innerText(), '包含未保存的编辑');
       const draftWrites = writes.length;
       await category('surfaces');
       await preview.getByRole('button', { name: '贴边 / 刘海', exact: true }).click();
@@ -797,6 +872,11 @@ test(
             'connection',
           ]) {
             await category(id);
+            assert.equal(
+              await page.locator('main h1, .preview-heading').count(),
+              0,
+              `${id}: no repeated page or preview title`,
+            );
             if (id === 'terminology')
               await page.locator('#settings-terminology .settings-row').first().waitFor();
             const previewOrder = await page.evaluate(() => {
@@ -849,6 +929,47 @@ test(
               false,
               `${colorScheme} ${width} ${id} fits`,
             );
+            if (id === 'terminology') {
+              const geometry = await page.locator('#settings-terminology').evaluate((root) => {
+                const rect = (selector) => root.querySelector(selector).getBoundingClientRect();
+                return {
+                  behavior: rect('.term-behavior').toJSON(),
+                  appearance: rect('[aria-labelledby="term-appearance-title"]').toJSON(),
+                  library: rect('[aria-labelledby="term-library-title"]').toJSON(),
+                  search: rect('[aria-label="搜索术语"]').toJSON(),
+                  manage: rect('.settings-drawer-trigger').toJSON(),
+                  filters: rect('.term-filters').toJSON(),
+                  results: rect('.term-results').toJSON(),
+                  switches: [...root.querySelectorAll('.term-behavior [role="switch"]')].map(
+                    (node) => node.getBoundingClientRect().right,
+                  ),
+                };
+              });
+              assert.ok(
+                geometry.behavior.bottom <= geometry.appearance.top &&
+                  geometry.appearance.bottom <= geometry.library.top,
+                'term settings keep behavior, appearance and library in reading order',
+              );
+              assert.ok(
+                geometry.search.bottom <= geometry.filters.top &&
+                  geometry.manage.bottom <= geometry.filters.top &&
+                  geometry.filters.bottom <= geometry.results.top,
+                'term search and management stay beside their filters and results',
+              );
+              assert.ok(
+                Math.max(...geometry.switches) - Math.min(...geometry.switches) < 1,
+                'all term switches align',
+              );
+              assert.ok(
+                Math.abs(geometry.search.height - geometry.manage.height) < 1,
+                'term search and management use the same control height',
+              );
+              if (width > 420)
+                assert.ok(
+                  Math.abs(geometry.search.y - geometry.manage.y) < 1,
+                  'term search and management share a row',
+                );
+            }
           }
           if (width <= 760) await category('surfaces');
           else await page.getByRole('link', { name: '布局与位置', exact: true }).click();
@@ -907,7 +1028,7 @@ test(
       assert.ok((await preview.getByRole('status').textContent()).includes('「代码审查」'));
       assert.equal(writes.length, botWrites, 'Bot preview never calls a Bot or saves settings');
       await category('appearance');
-      await preview.getByRole('heading', { name: '外观效果', exact: true }).waitFor();
+      await preview.getByRole('region', { name: '外观效果', exact: true }).waitFor();
       await preview.getByRole('button', { name: '恢复已保存配置', exact: true }).click();
       const sampleStyle = await preview
         .locator('[data-preview-workspace]')

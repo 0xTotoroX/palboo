@@ -259,12 +259,12 @@ export function LayoutPreview({
     <PreviewFrame
       className="layout-demo"
       title={appearance ? '外观效果' : '你的工作空间'}
-      label={
+      status={
         !live
           ? '连接中断 · 末次状态'
           : mode || demoLayout || extra.length
             ? '仅演示 · 不保存'
-            : '已保存配置 · 可试拖动'
+            : undefined
       }
     >
       <div className="layout-demo-toolbar" data-settings-navigation>

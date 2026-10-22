@@ -2,6 +2,22 @@
 
 这份文档记录仓库当前使用的设计语言与复用入口。界面沿用 Tom Modern 设置页及现有工作台；设计系统由源码中的语义变量、基础组件、共享外壳和交互约定组成。
 
+## 设计参考与实际选型
+
+Tom Modern 是本项目已选定的界面方案名称，代表中性色、细分隔线、平直控件和少量橙色强调；它不是 npm 组件库。具体外观以本仓库的变量和样式为准。Nova 独立预览已移除，现有设置页继续使用原方案。
+
+| 范围 | 参考来源 / 实际采用 | 仓库入口与边界 |
+| --- | --- | --- |
+| 基础组件 | [shadcn/ui](https://ui.shadcn.com/docs) | [components.json](components.json) 使用 `new-york` 生成配置；组件源码位于 [components/ui/](ui/settings/components/ui/)，按 Palboo 主题定制，保留本地许可 |
+| 开关与组件组合 | [Radix Primitives](https://www.radix-ui.com/primitives/docs/overview/introduction) | 仅引入 `@radix-ui/react-switch`、`@radix-ui/react-slot`；抽屉和确认继续复用现有原生 `dialog` 封装 |
+| 样式与语义变量 | [Tailwind CSS v4](https://tailwindcss.com/docs/styling-with-utility-classes) | [styles.css](ui/settings/styles.css)、[settings-layout.css](ui/settings/settings-layout.css) 与 [tokens.css](ui/shared/tokens.css)；只在设置文档加载 Preflight |
+| 图标 | [OpenAI apps-sdk-ui](https://github.com/openai/apps-sdk-ui) 的 MIT SVG 子集 | [shared/icons/](ui/shared/icons/) 保存选用源码、来源和许可；各页面统一调用 `Icon`，不安装整套 SDK UI |
+| 动效 | 现有 CSS / Web Animations API | [settings-motion.ts](ui/settings/settings-motion.ts)、[settings-list-motion.ts](ui/settings/settings-list-motion.ts) 与共享工作台动效；目前未引入 Motion |
+| 布局与拖拽 | 现有共享工作台实现 | [surfaces/workspace/](ui/surfaces/workspace/) 统一分栏、标签、拖动和阅读状态；目前未引入 react-resizable-panels 或 dnd-kit |
+| 设置状态 | React 状态与现有串行保存队列 | [use-settings-form.ts](ui/settings/use-settings-form.ts) 维护草稿、保存和修订冲突；目前未引入 Zustand |
+
+前期方案中的 Lucide、Motion、react-resizable-panels、dnd-kit、Zustand 是候选示例，不代表已安装。实际依赖以 [package.json](package.json) 和锁文件为准；新增能力先检查本表的复用入口。
+
 ## 品牌
 
 - 日常名称、窗口标题和正文使用 **Palboo**；Logo 字标使用 **PALBOO**。包名、命令和数据目录继续使用 `palboo`。
@@ -40,7 +56,7 @@
 | 设置控件 | 高 38px，圆角 4px | `--settings-control-height`、`--settings-control-radius` |
 | 动作图形 | 18px，点击区至少 28px | `--buddy-action-icon-size`、`--buddy-action-hit-size` |
 | 普通容器控件 | 高 32px，控制圆角 12px | `--buddy-control-height`、`--buddy-radius-control` |
-| 设置预览标题行 | 最小高 44px | `.preview-heading` |
+| 独立设置分组 / 预览内边距 | 组间距 24px；预览内边距 12px × 16px | `.settings-body`、`.preview-frame` |
 | 设置预览画布 | 布局场景最大宽 493px，约高 220px | `.layout-demo-scene` |
 | 侧栏 / 桌面顶栏 | 16px 留白 / 44px 拖动条 | `ui/surfaces/workspace/styles.css` |
 
@@ -50,13 +66,34 @@
 
 设置页在宽屏使用左侧目录，760px 及以下改为顶部两级导航。所有表单只挂载一份，分类切换隐藏原节点，保留草稿、修订保护和阅读位置。常用配置直接展示；高级设置、模型分组和词库管理使用共用右侧抽屉，不嵌套折叠表单。
 
+导航已经标明当前页，正文不再重复放页面大标题；`main` 保留页面的可访问名称。预览直接显示内容，以区域名称供辅助技术识别，仅在未保存、演示已修改或断线时显示必要状态。内容只保留用于区分不同设置组的短标题，不把每一层容器都命名。
+
+| 页面 | 从上到下的阅读顺序（有预览时始终置顶） |
+| --- | --- |
+| 常用开关 | 功能示例 → 各功能开关 |
+| 下一步 | 示例 → 启用与生成时机 → 建议方向 → 显示与操作 |
+| 常用提示词 | 示例 → 名称与内容列表 → 添加与保存 |
+| 术语释义 | 卡片预览 → 标注、识别与点击行为 → 卡片外观 → 词库搜索、管理、筛选与结果 |
+| 任务看板 | 示例 → 启用 → 分组编辑 |
+| 模型快切 | 当前模型示意 → 启用与额度显示 → 模型分组入口 |
+| Grok Bot | 示例 → 启用与接入入口 → 自动同步 → 按组排列的资料名单 |
+| 布局与位置 | 工作空间示例 → 主界面位置与排列 → 各功能位置 → 侧栏显示范围 → 尺寸与置顶 → 贴边位置 |
+| 外观 | 工作空间示例 → 各形式材质 → 字体 → 表情操作 |
+| 模型服务 | 当前连接概况 → 来源、协议、地址、凭据与模型 → 测试 → 高级设置 |
+| 启动与连接 | 真实连接状态 → 当前连接与操作 → 后续启动行为 |
+| 性能与开关 | 连接总开关 → 监测开关 → 实际指标 |
+| 宿主管理 | 启用 → 实际状态、版本与路径 → 管理操作 |
+| 开发来源 | 当前来源与可选来源 → 显式切换操作 |
+
+同一表单中的标签、选择器和输入框共用 `Field` 对齐。功能偏好用开关行，临时列表筛选用复选框；两者保持明确区分。相关操作就近放置：词库管理紧邻词库搜索，导入导出留在管理抽屉，长术语与英文允许自然换行。
+
 所有有效预览位于该页第一组设置之前，外框与控件左右对齐。使用 [PreviewFrame](ui/settings/preview-frame.tsx)；外观与布局共用 [LayoutPreview](ui/settings/layout-preview.tsx)，术语保留真实卡片示例。宿主管理、性能与开发来源显示实际状态，不增加无关示意。
 
 预览默认紧凑：先去掉隐藏场景占位与重复空白，再限制画布尺寸；不缩小整页字号。专用功能页只由当前场景决定高度，常用开关中的场景切换保留稳定高度与草稿。足够宽时，建议与示例输入并排；窄屏自然换行。演示只改内存，不保存配置、写入真实任务或发送消息。
 
 | 需要的能力 | 复用入口 |
 | --- | --- |
-| 按钮、图标按钮、输入、选择、开关 | [components/ui/](ui/settings/components/ui/)，本地 shadcn/ui 与 Radix 源码 |
+| 按钮、图标按钮、输入、选择、开关 | [components/ui/](ui/settings/components/ui/)，本地 shadcn/ui 组件与 Radix 原语 |
 | 设置行、开关行、保存反馈 | [settings-controls.tsx](ui/settings/settings-controls.tsx) |
 | 右侧抽屉 | [settings-drawer.tsx](ui/settings/settings-drawer.tsx) |
 | 危险操作确认 | [settings-confirmation.tsx](ui/settings/settings-confirmation.tsx) |

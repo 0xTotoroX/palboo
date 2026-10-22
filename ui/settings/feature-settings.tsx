@@ -129,7 +129,7 @@ export function FeatureSettings({
   }
   return (
     <section className="settings-section">
-      <h2 hidden={simple}>功能位置与布局</h2>
+      <h2 hidden={simple}>主界面</h2>
       <div className="settings-placement-row">
         <span hidden={!simple}>主界面位置</span>
         <div id="main-placement" className="settings-choice" role="group" aria-label="主界面形式">
@@ -147,6 +147,24 @@ export function FeatureSettings({
         </div>
       </div>
       <div hidden={simple}>
+        <Field id="main-layout" label="主界面布局">
+          <NativeSelect
+            id="main-layout"
+            disabled={moving || !ids.length}
+            value={mode}
+            onChange={(e) => arrange(e.target.value)}
+          >
+            <option value="tabs">标签组</option>
+            <option value="vertical">上下分栏</option>
+            <option value="horizontal">左右分栏</option>
+            <option value="auto">自动分栏</option>
+            {mode === 'custom' && (
+              <option value="custom" disabled>
+                自定义分栏
+              </option>
+            )}
+          </NativeSelect>
+        </Field>
         <section id="feature-placements" className="settings-subsection">
           <h3>各功能位置</h3>
           {Object.entries(titles).map(([id, title]) => (
@@ -171,24 +189,6 @@ export function FeatureSettings({
             </Field>
           ))}
         </section>
-        <Field id="main-layout" label="主界面布局">
-          <NativeSelect
-            id="main-layout"
-            disabled={moving || !ids.length}
-            value={mode}
-            onChange={(e) => arrange(e.target.value)}
-          >
-            <option value="tabs">标签组</option>
-            <option value="vertical">上下分栏</option>
-            <option value="horizontal">左右分栏</option>
-            <option value="auto">自动分栏</option>
-            {mode === 'custom' && (
-              <option value="custom" disabled>
-                自定义分栏
-              </option>
-            )}
-          </NativeSelect>
-        </Field>
       </div>
       <Feedback text={error || readError} failed />
     </section>

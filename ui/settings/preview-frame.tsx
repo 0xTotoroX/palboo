@@ -1,27 +1,24 @@
-/* [INPUT]: 预览标题、状态及示例内容。
- * [OUTPUT]: 各设置页共用的预览外框与标题层级。
+/* [INPUT]: 预览可访问名称、必要状态及示例内容。
+ * [OUTPUT]: 无重复可见标题的预览外框；仅在有变化或异常时显示状态。
  * [POS]: 纯展示组件，不读取配置或发出保存请求。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import type { ReactNode } from 'react';
 
 export function PreviewFrame({
   title,
-  label = '示意预览',
+  status,
   className = '',
   children,
 }: {
   title: string;
-  label?: string;
+  status?: string;
   className?: string;
   children: ReactNode;
 }) {
   return (
     <section className={`preview-frame ${className}`.trim()} aria-label={title}>
-      <header className="preview-heading">
-        <h2>{title}</h2>
-        <span>{label}</span>
-      </header>
       {children}
+      {status && <p className="preview-status">{status}</p>}
     </section>
   );
 }

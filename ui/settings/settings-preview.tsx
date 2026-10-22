@@ -71,7 +71,7 @@ function FeaturePreview({ form, tasks, model, view, dirty, page }: PreviewProps)
   const groups = tasks?.store.columns || defaultColumns;
   const examples = ['完善实现方案', '检查边界条件', '补充验证步骤'];
   return (
-    <Frame title="功能如何呈现" label={dirty ? '未保存编辑 · 交互示例' : '交互示例'}>
+    <Frame title="功能如何呈现" status={dirty ? '包含未保存的编辑' : undefined}>
       <div
         className="preview-selector"
         role="group"
@@ -103,10 +103,6 @@ function FeaturePreview({ form, tasks, model, view, dirty, page }: PreviewProps)
               inert={activeScene !== scene}
             >
               <div className="preview-demo" data-enabled={active !== false}>
-                <div className="preview-demo-heading">
-                  <strong>{titles[scene]}</strong>
-                  <span>{active === undefined ? '读取中' : active ? '已开启' : '已关闭'}</span>
-                </div>
                 {scene === 'outline' && (
                   <>
                     <div
@@ -252,7 +248,7 @@ function FeaturePreview({ form, tasks, model, view, dirty, page }: PreviewProps)
 
 function GenerationPreview({ form, dirty }: PreviewProps) {
   return (
-    <Frame title="共享模型连接" label={dirty ? '当前编辑 · 未全部保存' : '当前配置'}>
+    <Frame title="共享模型连接" status={dirty ? '包含未保存的编辑' : undefined}>
       <div className="preview-model-name">
         <strong>{form?.model || '尚未配置模型'}</strong>
         <span>{form?.provider === 'codex' ? 'Codex 登录' : form?.protocol || '—'}</span>
@@ -271,7 +267,7 @@ function ConnectionPreview({ view, live, form }: PreviewProps) {
   const status = view?.connection.status;
   const connected = live && status === 'connected';
   return (
-    <Frame title="连接状态" label="实时回读">
+    <Frame title="连接状态">
       <div className="preview-connection" data-connected={connected}>
         <Icon name="connection" />
         <strong>

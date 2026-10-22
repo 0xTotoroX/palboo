@@ -11,6 +11,7 @@ import '../shared/tokens.css';
 import './styles.css';
 import './settings-layout.css';
 import './settings-preview.css';
+import './terminology-settings.css';
 import './settings-controls.css';
 import './settings-motion.css';
 import '../surfaces/workspace/styles.css';
@@ -149,10 +150,7 @@ function App() {
       </header>
       <div className="settings-layout">
         <SettingsOutline page={page} dev={dev} navigate={navigate} />
-        <main className="settings-content min-w-0" ref={contentRef}>
-          <div className="settings-page-heading">
-            <h1 className="settings-title">{pageTitles[page]}</h1>
-          </div>
+        <main className="settings-content min-w-0" aria-label={pageTitles[page]} ref={contentRef}>
           <Feedback text={error} failed />
           {!editor.form && !error && <p role="status">正在读取设置…</p>}
           <Feedback text={notice.text} failed={notice.failed} />
@@ -175,7 +173,6 @@ function App() {
                 className="settings-section settings-feature-list"
                 aria-label="常用功能"
               >
-                {/* Page heading names the common switches. */}
                 <div id="settings-outline" hidden={!common}>
                   <FeatureSwitch
                     name="大纲"
@@ -258,7 +255,6 @@ function App() {
                 hidden={!surfacesVisible}
                 className="settings-section settings-common-surface"
               >
-                {/* Layout and appearance keep their existing section headings. */}
                 <SurfaceSettings
                   live={live}
                   active={surfacesVisible}
@@ -292,7 +288,6 @@ function App() {
                   />
                 </div>
                 <div data-settings-page="model" hidden={page !== 'model'}>
-                  {/* The model form retains its own section heading. */}
                   <ModelSettings editor={editor} />
                 </div>
                 <div data-settings-page="connection" hidden={page !== 'connection'}>
@@ -313,7 +308,6 @@ function App() {
                 hidden={page !== 'dev' || !dev}
                 className="settings-section"
               >
-                <h2>开发来源</h2>
                 <div id="settings-dev-content" />
               </section>
             </div>

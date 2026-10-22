@@ -293,21 +293,11 @@ html:root .settings-nav {
   min-width: 0;
   padding-top: 30px;
 }
-.settings-page-heading {
-  margin-bottom: 32px;
-}
-.settings-title {
-  margin: 0 0 8px;
-  font-size: 1.85em;
-  line-height: 1.15;
-  letter-spacing: -0.045em;
-  font-weight: 720;
-}
 
 .settings-body {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 32px;
+  gap: 24px;
   align-items: start;
 }
 .settings-form-column {
@@ -316,7 +306,7 @@ html:root .settings-nav {
 
 .settings-section {
   min-width: 0;
-  margin-bottom: 30px;
+  margin-bottom: 24px;
 }
 .settings-section h2 {
   font-size: 1em;
@@ -494,10 +484,6 @@ html:root .settings-nav {
     min-height: 50px;
     font-size: 0.8125em;
   }
-  .settings-title {
-    margin: 10px 0 8px;
-    font-size: 2.35em;
-  }
 }
 @media (min-width: 761px) and (max-width: 1190px) {
   .settings-app {
@@ -535,9 +521,6 @@ html:root .settings-nav {
   }
   .settings-content {
     padding-top: 26px;
-  }
-  .settings-page-heading {
-    margin-bottom: 26px;
   }
 
   .settings-body {
@@ -630,14 +613,6 @@ html:root .settings-nav {
   padding: 6px 0 6px 12px;
   font-size: 0.8125em;
 }
-/* The page heading already names these sections; keep their DOM and accessible labels. */
-.settings-app[data-settings-category='model'] #model-title,
-.settings-app[data-settings-category='terminology']
-  #settings-terminology
-  > .settings-section-heading,
-.settings-app[data-settings-category='dev'] .settings-form-column > section > h2 {
-  display: none;
-}
 @media (min-width: 761px) {
   html:root .settings-nav {
     max-height: calc(100dvh - var(--settings-sticky-offset, 100px) - 24px);
@@ -685,12 +660,10 @@ html:root .settings-nav {
 }
 
 /* Accent belongs to titles and the current navigation item, not form labels or controls. */
-.settings-title::after,
 .settings-app
   :is(
     .settings-section h2,
     .settings-section h3,
-    .preview-heading h2,
     .settings-drawer-header h2,
     .settings-nav-group h2
   )::after {
@@ -700,11 +673,6 @@ html:root .settings-nav {
   height: 4px;
   margin-left: 8px;
   background: var(--settings-orange);
-}
-.settings-title::after {
-  width: 7px;
-  height: 7px;
-  margin-left: 12px;
 }
 .settings-nav .settings-nav-children a[aria-current='page'] {
   color: var(--settings-accent-text);
@@ -891,4 +859,8 @@ html:root .settings-nav {
 }
 .settings-app .bot-settings-setup .settings-drawer-trigger:hover {
   color: var(--buddy-text);
+}
+
+.settings-status-list > .settings-row + .settings-row {
+  border-top: 1px solid var(--buddy-border);
 }

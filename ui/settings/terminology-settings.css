@@ -1,0 +1,115 @@
+/* [INPUT]: 术语设置分组、共用控件及原术语卡片。
+ * [OUTPUT]: 对齐的识别开关、外观表单与搜索/管理工具栏，窄屏自然换行。
+ * [POS]: 仅设置页布局，不影响宿主术语卡片或业务视图。
+ * [PROTOCOL]: 变更时同步 settings/AGENTS.md。 */
+#settings-terminology .term-preview {
+  --term-bg: var(--background);
+  --term-fg: var(--foreground);
+  --term-muted: var(--muted-foreground);
+  --term-border: var(--border);
+}
+#settings-terminology .term-preview .term-card {
+  max-width: 100%;
+}
+#settings-terminology .term-section {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--buddy-border);
+}
+#settings-terminology .term-section > .settings-field:last-child {
+  margin-bottom: 0;
+}
+#settings-terminology .term-library-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 16px;
+  margin-bottom: 16px;
+}
+#settings-terminology .term-library-heading h2 {
+  margin: 0;
+}
+#settings-terminology .term-library-count {
+  color: var(--buddy-muted);
+  font-size: 0.8125em;
+}
+#settings-terminology .term-library-tools {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+}
+#settings-terminology .term-library-tools .settings-drawer-entry {
+  margin: 0;
+}
+#settings-terminology .term-library-tools .settings-drawer-trigger {
+  min-height: var(--settings-control-height);
+  height: var(--settings-control-height);
+  padding: 0 12px;
+  gap: 8px;
+  white-space: nowrap;
+}
+#settings-terminology .term-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  margin: 12px 0;
+  font-size: 0.875em;
+}
+#settings-terminology .term-filters label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  cursor: pointer;
+}
+#settings-terminology .term-results {
+  max-height: 300px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+#settings-terminology .term-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding-block: 8px;
+  border-bottom: 1px solid var(--buddy-border);
+  font-size: 0.875em;
+}
+#settings-terminology .term-result-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  min-width: 0;
+  min-height: 28px;
+  padding-block: 4px;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+#settings-terminology .term-result-name[aria-pressed='true'] {
+  font-weight: 600;
+}
+#settings-terminology .term-result-english {
+  color: var(--buddy-muted);
+  font-weight: 400;
+}
+#settings-terminology .term-entry,
+#settings-terminology .term-actions {
+  margin-block: 16px 24px;
+}
+#settings-terminology .term-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+@media (max-width: 420px) {
+  #settings-terminology .term-library-tools {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  #settings-terminology .term-library-tools .settings-drawer-entry {
+    justify-self: end;
+  }
+}

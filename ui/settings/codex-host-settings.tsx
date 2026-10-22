@@ -98,7 +98,6 @@ export function CodexHostSettings({ live, active }: { live: boolean; active: boo
       aria-label="CodexHost 设置"
       id="settings-codex-host"
     >
-      <h2>CodexHost</h2>
       <Toggle
         label="启用 CodexHost"
         checked={state?.enabled ?? false}
@@ -111,7 +110,7 @@ export function CodexHostSettings({ live, active }: { live: boolean; active: boo
       )}
       {state && (
         <>
-          <dl className="space-y-4">
+          <dl className="settings-status-list">
             <div className="settings-row">
               <dt>状态</dt>
               <dd>{labels[state.state]}</dd>

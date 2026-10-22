@@ -12,27 +12,13 @@
   container-type: inline-size;
   border: 1px solid var(--settings-rule);
   box-shadow: var(--settings-shadow);
-  padding: 0 16px 12px;
+  padding: 12px 16px;
   background: var(--buddy-surface);
 }
-.preview-heading {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-  min-height: 44px;
-  border-bottom: 1px solid var(--buddy-border);
-  margin-bottom: 12px;
-}
-.preview-heading h2 {
-  font-size: 1.08em;
-  font-weight: 650;
-  margin: 0;
-}
-.preview-heading > span {
+.preview-status {
+  margin: 8px 0 0;
   color: var(--buddy-muted);
-  font-size: 0.77em;
-  text-align: right;
+  font-size: 0.84em;
 }
 .preview-selector {
   display: flex;
@@ -95,19 +81,7 @@
   border: 1px solid var(--buddy-border);
   padding: 10px 12px;
 }
-.preview-demo-heading {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  border-bottom: 1px solid var(--buddy-border);
-  padding-bottom: 8px;
-  margin-bottom: 4px;
-}
-.preview-demo-heading span {
-  font-size: 0.84em;
-  color: var(--buddy-muted);
-}
-.preview-demo[data-enabled='false'] > :not(.preview-demo-heading) {
+.preview-demo[data-enabled='false'] > * {
   opacity: 0.5;
 }
 .preview-suggestions > button,
@@ -326,9 +300,6 @@
     grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
     column-gap: 20px;
     align-items: start;
-  }
-  .preview-demo-heading {
-    grid-column: 1 / -1;
   }
   .preview-composer {
     min-width: 0;

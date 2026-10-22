@@ -1,9 +1,10 @@
 /* [INPUT]: 认证术语 API、可唤起状态、共用卡片/动作图标与用户导入/输入。
- * [OUTPUT]: 顶部共用预览外框、识别设置、检索和掌握列表；统一词库管理入口，导入先确认覆盖影响。
+ * [OUTPUT]: 顶部卡片预览、识别行为、卡片外观及统一检索工具栏；词库管理紧邻检索，保留草稿与导入确认。
  * [POS]: 详细设置的功能区，不访问主聊天内容。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { SettingsDrawer } from './settings-drawer';
 import { PreviewFrame } from './preview-frame';
+import { Field, Toggle } from './settings-controls';
 import { useEffect, useRef, useState } from 'react';
 import { useConfirmation } from './settings-confirmation';
 import { request } from './api';
@@ -138,17 +139,11 @@ export function TerminologySettings({ active }: { active: boolean }) {
       ),
   );
   return (
-    <section className="settings-section" id="settings-terminology">
+    <section className="settings-section" id="settings-terminology" aria-label="术语释义设置">
       {confirmation}
-      <style>
-        {cardStyles +
-          `.term-preview{margin:18px 0;--term-bg:var(--background);--term-fg:var(--foreground);--term-muted:var(--muted-foreground);--term-border:var(--border)}.term-preview .term-card{max-width:100%}.term-style-options{display:flex;gap:8px;flex-wrap:wrap}.term-style-options button{padding:7px 12px;border:1px solid var(--border);border-radius:8px}.term-style-options button[aria-pressed=true]{background:var(--muted);font-weight:600}.term-search{width:100%;margin:12px 0;padding:8px;border:1px solid var(--border);border-radius:8px}.term-results{max-height:300px;overflow:auto}.term-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;gap:12px;border-bottom:1px solid var(--border)}.term-row button{font-size:13px}.term-entry{display:grid;gap:10px;margin-top:14px}.term-actions{display:flex;flex-wrap:wrap;gap:14px;margin:14px 0}`}
-      </style>
-      <div className="settings-section-heading">
-        <h2>术语释义</h2>
-      </div>
+      <style>{cardStyles}</style>
       {error && (
-        <p role="alert" className="text-destructive">
+        <p role="alert" className="settings-feedback settings-error">
           {error}
         </p>
       )}
@@ -157,42 +152,53 @@ export function TerminologySettings({ active }: { active: boolean }) {
       ) : (
         <>
           <div className="settings-local-preview" aria-label="联动预览">
-            <PreviewFrame title="术语卡片" label="已保存外观 · 示例内容">
+            <PreviewFrame title="术语卡片预览">
               <Preview term={preview} preferences={prefs} />
             </PreviewFrame>
           </div>
-          <div className="settings-row">
-            <label>
-              <input
-                type="checkbox"
-                checked={prefs.enabled}
-                disabled={busy}
-                onChange={(e) =>
-                  void command({
-                    action: 'settings',
-                    revision: prefs.revision,
-                    enabled: e.target.checked,
-                  })
-                }
-              />{' '}
-              在聊天中标注术语
-            </label>
-          </div>
-          <div className="settings-row">
-            <label htmlFor="terms-jump-on-click">点击术语时跳转到上下文</label>
-            <Switch
-              id="terms-jump-on-click"
-              checked={prefs.jumpOnClick ?? false}
+          <div className="term-behavior" role="group" aria-label="识别与操作">
+            <Toggle
+              label="在聊天中标注术语"
+              checked={prefs.enabled}
               disabled={busy}
-              onCheckedChange={(jumpOnClick) =>
-                void command({ action: 'settings', revision: prefs.revision, jumpOnClick })
+              onChange={(enabled) =>
+                void command({ action: 'settings', revision: prefs.revision, enabled })
               }
             />
+            <Toggle
+              label="结合问答核对词义与识别概念"
+              checked={prefs.semantic}
+              disabled={busy}
+              onChange={(semantic) =>
+                void command({ action: 'settings', revision: prefs.revision, semantic })
+              }
+            />
+            <Toggle
+              label="联网核对并补充缺失术语"
+              checked={prefs.autoExpand}
+              disabled={busy}
+              onChange={(autoExpand) =>
+                void command({ action: 'settings', revision: prefs.revision, autoExpand })
+              }
+            />
+            <p className="settings-hint">语义识别使用已配置模型处理当前问答；联网仅查询术语名。</p>
+            <div className="settings-row">
+              <label htmlFor="terms-jump-on-click">点击术语时跳转到上下文</label>
+              <Switch
+                id="terms-jump-on-click"
+                checked={prefs.jumpOnClick ?? false}
+                disabled={busy}
+                onCheckedChange={(jumpOnClick) =>
+                  void command({ action: 'settings', revision: prefs.revision, jumpOnClick })
+                }
+              />
+            </div>
           </div>
-          <div className="term-style-options">
-            <label>
-              背景材质
+          <section className="term-section" aria-labelledby="term-appearance-title">
+            <h2 id="term-appearance-title">卡片外观</h2>
+            <Field id="term-material" label="背景材质">
               <NativeSelect
+                id="term-material"
                 aria-label="术语卡片背景"
                 disabled={busy}
                 value={prefs.cardMaterial || (prefs.cardStyle === 'frost' ? 'frosted' : 'matte')}
@@ -210,11 +216,11 @@ export function TerminologySettings({ active }: { active: boolean }) {
                 <option value="black">纯黑</option>
                 <option value="custom">自定义</option>
               </NativeSelect>
-            </label>
+            </Field>
             {prefs.cardMaterial === 'native-glass' && (
-              <label>
-                液态变体
+              <Field id="term-liquid-variant" label="液态变体">
                 <NativeSelect
+                  id="term-liquid-variant"
                   aria-label="术语卡片液态变体"
                   disabled={busy}
                   value={prefs.cardLiquidVariant || 'regular'}
@@ -229,12 +235,12 @@ export function TerminologySettings({ active }: { active: boolean }) {
                   <option value="regular">Regular</option>
                   <option value="clear">Clear</option>
                 </NativeSelect>
-              </label>
+              </Field>
             )}
             {prefs.cardMaterial === 'custom' && (
-              <label>
-                背景颜色
-                <input
+              <Field id="term-custom-color" label="背景颜色">
+                <Input
+                  id="term-custom-color"
                   type="color"
                   aria-label="术语卡片自定义颜色"
                   disabled={busy}
@@ -247,80 +253,228 @@ export function TerminologySettings({ active }: { active: boolean }) {
                     })
                   }
                 />
-              </label>
+              </Field>
             )}
-          </div>
-          <section className="settings-subsection">
-            <h3>识别与自动积累</h3>
-            <div className="settings-row">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={prefs.semantic}
-                  disabled={busy}
-                  onChange={(e) =>
-                    void command({
-                      action: 'settings',
-                      revision: prefs.revision,
-                      semantic: e.target.checked,
-                    })
-                  }
-                />{' '}
-                结合问答核对词义与识别概念
-              </label>
-            </div>
-            <div className="settings-row">
-              <label>
-                <input
-                  type="checkbox"
-                  checked={prefs.autoExpand}
-                  disabled={busy}
-                  onChange={(e) =>
-                    void command({
-                      action: 'settings',
-                      revision: prefs.revision,
-                      autoExpand: e.target.checked,
-                    })
-                  }
-                />{' '}
-                联网核对并补充缺失术语
-              </label>
-            </div>
-            <p className="settings-hint">语义识别使用已配置模型处理当前问答；联网仅查询术语名。</p>
           </section>
-          <section className="settings-subsection">
-            <h3>
-              术语库 · {data.entries.length} 条 · 已掌握 {prefs.mastered.length} 条
-            </h3>
-            <input
-              className="term-search"
-              aria-label="搜索术语"
-              placeholder="搜索名称、别名或分类"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-            <label>
-              <input
-                type="checkbox"
-                checked={masteredOnly}
-                onChange={(e) => setMasteredOnly(e.target.checked)}
-              />{' '}
-              只看已掌握
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={favoritesOnly}
-                onChange={(e) => setFavoritesOnly(e.target.checked)}
-              />{' '}
-              只看收藏
-            </label>
+          <section className="term-section" aria-labelledby="term-library-title">
+            <div className="term-library-heading">
+              <h2 id="term-library-title">术语库</h2>
+              <span className="term-library-count">
+                {data.entries.length} 条 · 已掌握 {prefs.mastered.length} 条
+              </span>
+            </div>
+            <div className="term-library-tools">
+              <Input
+                type="search"
+                aria-label="搜索术语"
+                placeholder="搜索名称、别名或分类"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+              <SettingsDrawer
+                id="settings-library"
+                title="词库管理"
+                footer={
+                  error ? (
+                    <p role="alert" className="settings-error text-sm">
+                      {error}
+                    </p>
+                  ) : undefined
+                }
+              >
+                <h3>添加自定义术语</h3>
+                <div className="term-entry">
+                  <Field id="term-name" label="中文术语名">
+                    <Input
+                      id="term-name"
+                      aria-label="中文术语名"
+                      placeholder="中文术语名"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                    />
+                  </Field>
+                  <Field id="term-english" label="英文名称">
+                    <Input
+                      id="term-english"
+                      aria-label="英文名称"
+                      placeholder="英文名称（可选）"
+                      value={english}
+                      onChange={(e) => setEnglish(e.target.value)}
+                    />
+                  </Field>
+                  <Field id="term-definition" label="中文释义">
+                    <textarea
+                      className={inputStyles + ' min-h-28 py-2 resize-y'}
+                      id="term-definition"
+                      aria-label="中文释义"
+                      placeholder="中文释义"
+                      rows={3}
+                      value={definition}
+                      onChange={(e) => setDefinition(e.target.value)}
+                    />
+                  </Field>
+                  <Field id="term-category" label="词条分类">
+                    <NativeSelect
+                      id="term-category"
+                      aria-label="词条分类"
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value)}
+                    >
+                      <option value="">
+                        {prefs?.enabled ? '自动分类（使用模型）' : '请选择分类'}
+                      </option>
+                      {Array.from(
+                        new Set(
+                          (data?.entries || [])
+                            .map((t) => JSON.stringify(t.category))
+                            .filter((value) => value !== '[]'),
+                        ),
+                      )
+                        .sort()
+                        .map((value) => (
+                          <option key={value} value={value}>
+                            {JSON.parse(value).join(' / ')}
+                          </option>
+                        ))}
+                    </NativeSelect>
+                  </Field>
+                  <div className="settings-actions">
+                    <Button
+                      variant="outline"
+                      type="button"
+                      disabled={
+                        busy || (!prefs?.enabled && !category) || !name.trim() || !definition.trim()
+                      }
+                      onClick={async () => {
+                        if (
+                          await command({
+                            action: 'manual',
+                            entries: [
+                              {
+                                id: 'manual',
+                                name,
+                                english,
+                                definition,
+                                aliases: [],
+                                category: category ? JSON.parse(category) : [],
+                                example: '',
+                                source: '',
+                              },
+                            ],
+                          })
+                        ) {
+                          setName('');
+                          setEnglish('');
+                          setDefinition('');
+                        }
+                      }}
+                    >
+                      {category ? '添加词条' : '自动分类并添加'}
+                    </Button>
+                  </div>
+                </div>
+
+                <h3>导入与导出</h3>
+                <div className="term-actions">
+                  <Button variant="outline" type="button" onClick={() => void exportFile()}>
+                    导出术语文档
+                  </Button>
+                  <Button variant="outline" type="button" onClick={() => void exportFile(true)}>
+                    导出手动词条
+                  </Button>
+                  <Button
+                    variant="outline"
+                    type="button"
+                    onClick={() => void exportFile(false, true)}
+                  >
+                    导出可导入备份
+                  </Button>
+                  <label className="grid w-full gap-2 text-sm">
+                    导入词库{' '}
+                    <input
+                      type="file"
+                      className={
+                        inputStyles +
+                        ' h-auto py-2 file:mr-3 file:border-0 file:bg-transparent file:text-foreground'
+                      }
+                      accept=".json,application/json"
+                      disabled={busy}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const input = e.target;
+                        input.value = '';
+                        setError('');
+                        try {
+                          if (file.size > 8_000_000) throw Error('文件过大');
+                          const entries = JSON.parse(await file.text());
+                          if (!Array.isArray(entries) || !entries.length)
+                            throw Error('请选择包含词条的 JSON 数组');
+                          confirm({
+                            title: `导入 ${entries.length} 条术语？`,
+                            description: `将从“${file.name}”合并词条，相同编号的已有释义会被替换；其他词条与掌握记录保留。建议先导出备份。`,
+                            confirmLabel: '确认导入',
+                            action: async () => {
+                              setBusy(true);
+                              let imported = 0;
+                              try {
+                                for (let i = 0; i < entries.length; i += 20) {
+                                  await request('terminology', {
+                                    action: 'import',
+                                    entries: entries.slice(i, i + 20),
+                                  });
+                                  imported += Math.min(20, entries.length - i);
+                                }
+                              } catch (error) {
+                                throw Error(
+                                  `已导入 ${imported} 条，其余未完成：${(error as Error).message}`,
+                                );
+                              } finally {
+                                await load();
+                                setBusy(false);
+                              }
+                            },
+                          });
+                        } catch (err) {
+                          setError((err as Error).message);
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+              </SettingsDrawer>
+            </div>
+            <div className="term-filters" role="group" aria-label="词库筛选">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={masteredOnly}
+                  onChange={(e) => setMasteredOnly(e.target.checked)}
+                />
+                只看已掌握
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={favoritesOnly}
+                  onChange={(e) => setFavoritesOnly(e.target.checked)}
+                />
+                只看收藏
+              </label>
+            </div>
             <div className="term-results">
               {results.slice(0, 80).map((t) => (
                 <div className="term-row" key={t.id}>
-                  <button type="button" onClick={() => setPreview(t)}>
-                    {t.name}
-                    {t.english !== t.name && <small> · {t.english}</small>}
+                  <button
+                    type="button"
+                    className="term-result-name"
+                    aria-pressed={preview.id === t.id}
+                    onClick={() => setPreview(t)}
+                  >
+                    <span>{t.name}</span>
+                    {t.english && t.english !== t.name && (
+                      <span className="term-result-english">{t.english}</span>
+                    )}
                   </button>
                   <IconButton
                     aria-label={`${prefs.mastered.includes(t.id) ? '恢复提示' : '已掌握'}：${t.name}`}
@@ -336,7 +490,7 @@ export function TerminologySettings({ active }: { active: boolean }) {
                   </IconButton>
                 </div>
               ))}
-              {!results.length && <p>没有匹配的术语</p>}
+              {!results.length && <p className="settings-hint">没有匹配的术语</p>}
             </div>
             {results.length > 80 && (
               <p className="settings-hint">
@@ -344,158 +498,6 @@ export function TerminologySettings({ active }: { active: boolean }) {
               </p>
             )}
           </section>
-          <SettingsDrawer
-            id="settings-library"
-            title="词库管理"
-            footer={
-              error ? (
-                <p role="alert" className="settings-error text-sm">
-                  {error}
-                </p>
-              ) : undefined
-            }
-          >
-            <h3 className="mt-4">添加自定义术语</h3>
-            <div className="term-entry">
-              <Input
-                aria-label="中文术语名"
-                placeholder="中文术语名"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-              <Input
-                aria-label="英文名称"
-                placeholder="英文名称（可选）"
-                value={english}
-                onChange={(e) => setEnglish(e.target.value)}
-              />
-              <textarea
-                className={inputStyles + ' min-h-28 py-2 resize-y'}
-                aria-label="中文释义"
-                placeholder="中文释义"
-                rows={3}
-                value={definition}
-                onChange={(e) => setDefinition(e.target.value)}
-              />
-              <NativeSelect
-                aria-label="词条分类"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-              >
-                <option value="">{prefs?.enabled ? '自动分类（使用模型）' : '请选择分类'}</option>
-                {Array.from(
-                  new Set(
-                    (data?.entries || [])
-                      .map((t) => JSON.stringify(t.category))
-                      .filter((value) => value !== '[]'),
-                  ),
-                )
-                  .sort()
-                  .map((value) => (
-                    <option key={value} value={value}>
-                      {JSON.parse(value).join(' / ')}
-                    </option>
-                  ))}
-              </NativeSelect>
-              <Button
-                variant="outline"
-                type="button"
-                disabled={
-                  busy || (!prefs?.enabled && !category) || !name.trim() || !definition.trim()
-                }
-                onClick={async () => {
-                  if (
-                    await command({
-                      action: 'manual',
-                      entries: [
-                        {
-                          id: 'manual',
-                          name,
-                          english,
-                          definition,
-                          aliases: [],
-                          category: category ? JSON.parse(category) : [],
-                          example: '',
-                          source: '',
-                        },
-                      ],
-                    })
-                  ) {
-                    setName('');
-                    setEnglish('');
-                    setDefinition('');
-                  }
-                }}
-              >
-                {category ? '添加词条' : '自动分类并添加'}
-              </Button>
-            </div>
-
-            <h3 className="mt-5">导入与导出</h3>
-            <div className="term-actions">
-              <Button variant="outline" type="button" onClick={() => void exportFile()}>
-                导出术语文档
-              </Button>
-              <Button variant="outline" type="button" onClick={() => void exportFile(true)}>
-                导出手动词条
-              </Button>
-              <Button variant="outline" type="button" onClick={() => void exportFile(false, true)}>
-                导出可导入备份
-              </Button>
-              <label className="grid w-full gap-2 text-sm">
-                导入词库{' '}
-                <input
-                  type="file"
-                  className={
-                    inputStyles +
-                    ' h-auto py-2 file:mr-3 file:border-0 file:bg-transparent file:text-foreground'
-                  }
-                  accept=".json,application/json"
-                  disabled={busy}
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    const input = e.target;
-                    input.value = '';
-                    setError('');
-                    try {
-                      if (file.size > 8_000_000) throw Error('文件过大');
-                      const entries = JSON.parse(await file.text());
-                      if (!Array.isArray(entries) || !entries.length)
-                        throw Error('请选择包含词条的 JSON 数组');
-                      confirm({
-                        title: `导入 ${entries.length} 条术语？`,
-                        description: `将从“${file.name}”合并词条，相同编号的已有释义会被替换；其他词条与掌握记录保留。建议先导出备份。`,
-                        confirmLabel: '确认导入',
-                        action: async () => {
-                          setBusy(true);
-                          let imported = 0;
-                          try {
-                            for (let i = 0; i < entries.length; i += 20) {
-                              await request('terminology', {
-                                action: 'import',
-                                entries: entries.slice(i, i + 20),
-                              });
-                              imported += Math.min(20, entries.length - i);
-                            }
-                          } catch (error) {
-                            throw Error(
-                              `已导入 ${imported} 条，其余未完成：${(error as Error).message}`,
-                            );
-                          } finally {
-                            await load();
-                            setBusy(false);
-                          }
-                        },
-                      });
-                    } catch (err) {
-                      setError((err as Error).message);
-                    }
-                  }}
-                />
-              </label>
-            </div>
-          </SettingsDrawer>
         </>
       )}
     </section>

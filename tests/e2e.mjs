@@ -90,14 +90,13 @@ async function checkSettingsNavigation(page, context, base, runtime) {
     for (const id of ['features', 'model', 'surfaces', 'connection']) {
       await selectSettingsCategory(page, id);
       await page
-        .getByRole('heading', {
+        .getByRole('main', {
           name: {
             features: '常用开关',
             model: '模型服务',
             surfaces: '布局与位置',
             connection: '启动与连接',
           }[id],
-          level: 1,
           exact: true,
         })
         .waitFor();
