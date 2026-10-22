@@ -111,6 +111,7 @@ export function SettingsOverview({
   const primary = features.mainPlacement || 'sidebar';
   const ui = view?.panelPreferences.ui;
   const enabled: Record<FeatureId, boolean> = {
+    bots: settings.grokbotEnabled,
     outline: settings.answerOutlineEnabled,
     next: settings.enabled,
     board: tasks.store.boardEnabled,

@@ -836,3 +836,66 @@ html:root .settings-nav {
 .settings-search-dialog li small {
   text-align: right;
 }
+
+/* Bot profiles share one reading column; descriptions open only on demand. */
+.settings-app[data-settings-category='bots'] .settings-form-column {
+  max-width: 680px;
+}
+.settings-app[data-settings-category='bots'] .settings-feature-list {
+  margin-bottom: 0;
+}
+.settings-app[data-settings-category='bots'] .bot-settings {
+  border-top: 0;
+  padding-top: 0;
+}
+.bot-settings > .settings-hint {
+  margin-top: 0;
+}
+.bot-settings-catalog {
+  margin-top: 32px;
+}
+.bot-settings-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 36px;
+  margin-bottom: 8px;
+}
+.bot-settings-heading h2 {
+  margin: 0;
+}
+.bot-settings-profiles .settings-drawer-entry {
+  margin: 0;
+}
+.settings-app .bot-settings-profiles .settings-drawer-trigger {
+  min-height: 52px;
+  padding: 12px 0;
+  background: transparent;
+  border-radius: 0;
+  border-bottom: 1px solid var(--buddy-border);
+}
+.settings-app .bot-settings-profiles .settings-drawer-trigger:hover {
+  background: var(--buddy-subtle);
+}
+.bot-settings-description {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.75;
+}
+
+.bot-settings-setup .settings-drawer-entry {
+  margin: 0;
+}
+.settings-app .bot-settings-setup .settings-drawer-trigger {
+  min-height: 28px;
+  width: auto;
+  padding: 2px 0;
+  gap: 4px;
+  background: transparent;
+  color: var(--buddy-muted);
+  font-size: 0.875em;
+}
+.settings-app .bot-settings-setup .settings-drawer-trigger:hover {
+  color: var(--buddy-text);
+}

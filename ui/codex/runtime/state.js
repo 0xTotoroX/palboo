@@ -344,6 +344,7 @@ function outlineEnabled(settings = runtimeState.settings) {
 function runtimeEnabled(settings = runtimeState.settings) {
   return (
     IS_POPOUT ||
+    settings?.grokbotEnabled === true ||
     settings?.modelControlEnabled === true ||
     settings?.taskBoardEnabled === true ||
     stepwiseEnabled(settings) ||

@@ -70,6 +70,7 @@ async function syncSettings(patch = {}) {
     typeof normalizedPatch.enabled === 'boolean' ||
     typeof normalizedPatch.answerOutlineEnabled === 'boolean' ||
     typeof normalizedPatch.promptEnhancementEnabled === 'boolean' ||
+    typeof normalizedPatch.grokbotEnabled === 'boolean' ||
     typeof normalizedPatch.tokenMeterEnabled === 'boolean' ||
     typeof normalizedPatch.terminologyEnabled === 'boolean' ||
     Object.prototype.hasOwnProperty.call(normalizedPatch, 'generationMode');

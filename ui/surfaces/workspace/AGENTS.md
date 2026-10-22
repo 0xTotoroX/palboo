@@ -46,3 +46,5 @@ legacy-content 为共享推荐视图提供当前宿主/远端投影作为拖动�
 legacy-content通过既有/settings/set桥仅保存quickPrompts和expectedRevision，确认成功后同步运行态；编辑控件复用next/quick-prompts，不改变填入与发送。
 
 mount 标记承载位置；贴边看板以720px正文宽度请求完整多列，原生层按显示器可用空间夹紧。详情打开时把表单自然高度纳入尺寸测量，详情用不透明主题背景并限制在贴边内容矩形，矮屏内部滚动且操作栏可达；其余形式尺寸及布局不变。
+
+mount 为 bots 功能加载隔离样式，复用原 feature-session、owner、阅读及交接协议；不增加窗口或业务输入框。

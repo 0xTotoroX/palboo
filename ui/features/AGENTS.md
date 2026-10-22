@@ -2,13 +2,13 @@
 
 > L2 | 父级：[AGENTS.md](../../AGENTS.md)
 
-五种功能共用内容实现，只消费业务投影和受限操作。任务拖放、建议预览及模型选择属于功能；外层窗口、位置、分栏、主题与交接由 surfaces 管理。任务保存和提醒事项同步保留在 Rust，必须读取或操作 Codex DOM 的逻辑保留在 codex。
+六种功能共用内容实现，只消费业务投影和受限操作。任务拖放、建议预览及模型选择属于功能；外层窗口、位置、分栏、主题与交接由 surfaces 管理。任务保存和提醒事项同步保留在 Rust，必须读取或操作 Codex DOM 的逻辑保留在 codex。
 
 - [board/AGENTS.md](board/AGENTS.md)：卡片、组内创建、悬停删除、同步异常处理与跨组拖动。
 - [outline/AGENTS.md](outline/AGENTS.md)：大纲列表、编号对齐及定位操作。
 - [next/AGENTS.md](next/AGENTS.md)：建议列表、预览与点击规则。
 - [model/AGENTS.md](model/AGENTS.md)：模型矩阵、预设和选择操作。
-- `content.tsx`：固定五种功能的内容组合与业务命令适配；接收受限传输和可选顶栏操作位置，保持身份校验，草稿直接追加且不发送。
+- `content.tsx`：固定六种功能的内容组合与业务命令适配；接收受限传输和可选顶栏操作位置，保持身份校验，草稿直接追加且不发送。
 - `projected.tsx`：大纲/下一步的 React 投影适配，复用各自 view.js，保留预览及滚动状态；不解析宿主 DOM；空状态撑满剩余内容区并居中；名称由容器标签显示，内容区不重复绘制小标题；刷新操作通过 portal 放入容器顶部槽，业务校验仍归功能。
 - `content.css`：大纲、建议与快捷词的共用内容样式、焦点及内容动效；状态提示共用14px/500字重及中性颜色，加载共用18px圆环和文字动效，减少动态效果时停止；不绘制容器材质。
 
@@ -21,3 +21,10 @@ terminology 内容字号继承共享 feature-session；独立窗口中的点击�
 下一步的快捷指令由next/quick-prompts管理展示和临时草稿；content通过owner保护的quick-prompts action保存列表及expectedRevision，projected只适配回调与禁用状态。更新回读只合并当前投影的设置，不恢复旧聊天快照。
 
 - [token-meter/AGENTS.md](token-meter/AGENTS.md)：独立可插拔测速读数；组合层通过ModelView可选footer接入，不参与模型操作或持久化。
+
+- `bots/view.tsx`：Palboo 的 Grok Bot 选择与当前聊天调用状态；后台提供动态名单与最新消息摘要，简介只在设置中展示，选择、追问、查看进度及停止请求均经 owner 保护后填入 Codex 主输入框，无独立输入框。
+- `bots/style.css`：继承容器语义颜色与字号的 Bot 入口、状态和动作样式；头像统一圆形与倾斜白色眼睛，保留真实颜色，未知颜色回退中性灰。
+
+Bot 入口名称、状态与追问动作共享文字左边界，摘要限制单行；手动同步时刷新按钮通过headerActions放在标题旁，自动模式隐藏；未观察到调用时不重复显示空状态文案。几何由 features-e2e 的真实渲染断言覆盖。
+
+- `bots/avatar.tsx`：统一绘制静态圆形与倾斜白色眼睛，只同步应用颜色，忽略形状字段；未知颜色使用中性灰，不加载远端图片或复制官方动画。

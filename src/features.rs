@@ -15,11 +15,15 @@ use std::{
     time::{Duration, Instant},
 };
 
+mod bots;
+pub async fn pause_bot_sync() {
+    bots::pause_sync().await;
+}
 #[path = "features/main_surface.rs"]
 mod main_surface;
 use main_surface::{FeatureLayout, MainSurface, SavedFeatures};
 
-pub const IDS: [&str; 5] = ["outline", "board", "next", "model", "terms"];
+pub const IDS: [&str; 6] = ["outline", "board", "next", "model", "terms", "bots"];
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 pub struct Preference {
@@ -237,7 +241,11 @@ impl App {
         })
     }
     pub async fn set_feature_enabled(&self, id: &str, enabled: bool) -> Result<()> {
-        if enabled && (self.feature_managed(id).await || self.main_features_managed().await) {
+        if enabled
+            && (id == "bots"
+                || self.feature_managed(id).await
+                || self.main_features_managed().await)
+        {
             self.feature_request(json!({"op":"reveal", "id":id}))
                 .await?;
         } else if !enabled {
@@ -267,6 +275,14 @@ impl App {
         let op = input["op"].as_str().unwrap_or("state");
         if op == "state" {
             return Ok(self.feature_state().await);
+        }
+        if op == "bots-catalog" {
+            let options = self.model.read().await.options.clone();
+            return Ok(bots::catalog(
+                input["refresh"] == true,
+                options.grokbot_enabled && options.grokbot_auto_sync,
+            )
+            .await);
         }
         if op == "edge-tabs" {
             return self.save_edge_tabs(input).await;
@@ -397,6 +413,7 @@ impl App {
             let mut result = match id {
                 "terms" => crate::terminology::command(self, json!({"action":"view"})).await,
                 "board" => Ok(self.tasks.state().await),
+                "bots" => self.bot_view(None).await,
                 "model" => self.model_control_state(false).await,
                 _ => {
                     let snapshot = if let Some(c) = self.desktop_client().await {
@@ -462,6 +479,12 @@ impl App {
                     model.options.enabled
                 };
                 ensure!(enabled, "请先在设置页开启该功能");
+            }
+            if id == "bots" {
+                ensure!(
+                    self.model.read().await.options.grokbot_enabled,
+                    "请先在设置中开启 Grok Bot"
+                );
             }
             if id == "model" {
                 ensure!(
@@ -645,6 +668,7 @@ impl App {
                 crate::terminology::command(self, json!({"action":"view"})).await
             }
             "board" => self.tasks.view_command(data).await,
+            "bots" => self.bot_view(Some(data)).await,
             "model" => match input["action"].as_str().unwrap_or("") {
                 "refresh" => {
                     ensure!(
@@ -696,6 +720,47 @@ impl App {
             }
         }
     }
+    async fn bot_view(&self, action: Option<Value>) -> Result<Value> {
+        ensure!(
+            self.model.read().await.options.grokbot_enabled,
+            "Grok Bot 已关闭"
+        );
+        let Some(client) = self.desktop_client().await else {
+            ensure!(action.is_none(), "Codex 已断开");
+            return Ok(json!({"snapshot":null}));
+        };
+        let auto_sync = self.model.read().await.options.grokbot_auto_sync;
+        let catalog = bots::catalog(action.is_some(), auto_sync).await;
+        client
+            .evaluate(format!(
+                "window.__palbooBots?.setCatalog({})",
+                serde_json::to_string(&catalog)?
+            ))
+            .await?;
+        if let Some(action) = action.filter(|a| a["action"] != "refresh") {
+            let result = client
+                .evaluate(format!(
+                    "window.__palbooBots?.fill({}) ?? {{ok:false,message:'Grok Bot 尚未就绪'}}",
+                    serde_json::to_string(&action)?
+                ))
+                .await?;
+            ensure!(
+                result["ok"] == true,
+                "{}",
+                result["message"].as_str().unwrap_or("无法填入 Codex")
+            );
+        }
+        let snapshot = client
+            .evaluate("window.__palbooBots?.read() ?? null".into())
+            .await?;
+        ensure!(
+            self.desktop_client()
+                .await
+                .is_some_and(|now| std::sync::Arc::ptr_eq(&now, &client)),
+            "Codex 连接已变化"
+        );
+        Ok(json!({"snapshot":snapshot,"autoSync":auto_sync}))
+    }
     async fn finish_feature(&self, id: &str, owner: &str) -> Result<Value> {
         let mut f = self.features.lock().await;
         let e = f.entries.get_mut(id).context("功能已关闭")?;
@@ -736,9 +801,13 @@ impl App {
         if !self.main_features_managed().await || self.appearance().await.detached {
             return Ok(());
         }
-        let (outline, next) = {
+        let (outline, next, bots) = {
             let model = self.model.read().await;
-            (model.options.answer_outline_enabled, model.options.enabled)
+            (
+                model.options.answer_outline_enabled,
+                model.options.enabled,
+                model.options.grokbot_enabled,
+            )
         };
         let board = self.tasks.board_enabled().await && !self.tasks.window_open().await;
         let mut f = self.features.lock().await;
@@ -754,6 +823,7 @@ impl App {
             ("next", next),
             ("board", board),
             ("terms", terminology),
+            ("bots", bots),
         ]
         .into_iter()
         .filter(|(id, enabled)| *enabled && !f.entries.contains_key(*id))
@@ -839,7 +909,17 @@ impl App {
         } else {
             f.main.stop();
         }
+        let bots_open = f
+            .entries
+            .get("bots")
+            .is_some_and(|e| e.pref.open && e.closing.is_none());
         drop(f);
+        if !bots_open
+            || !self.model.read().await.options.grokbot_enabled
+            || self.desktop_client().await.is_none()
+        {
+            bots::stop().await;
+        }
         let active = self.edge_features_active().await;
         let mut surfaces = self.surfaces.lock().await;
         if active {
@@ -851,6 +931,7 @@ impl App {
         }
     }
     pub async fn stop_features(&self) {
+        bots::stop().await;
         self.surfaces.lock().await.stop();
         self.features.lock().await.main.stop();
     }

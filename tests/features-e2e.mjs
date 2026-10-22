@@ -3,6 +3,18 @@
  * [POS]: Isolated end-to-end acceptance; no real chat, model requests or EventKit writes.
  * [PROTOCOL]: Keep tests/AGENTS.md in sync. */
 import assert from 'node:assert/strict';
+// Synthetic roster filename encoding; no product adapter is bundled.
+function cacheFile(key) {
+  let bits = '';
+  for (const byte of Buffer.from(key)) bits += byte.toString(2).padStart(8, '0');
+  const alphabet = 'abcdefghijklmnopqrstuvwxyz234567';
+  return (
+    bits
+      .match(/.{1,5}/g)
+      .map((v) => alphabet[parseInt(v.padEnd(5, '0'), 2)])
+      .join('') + '.blob'
+  );
+}
 import { spawn, execFileSync } from 'node:child_process';
 import { createServer } from 'node:http';
 import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, existsSync, rmSync } from 'node:fs';
@@ -30,7 +42,28 @@ async function wait(fn, label) {
   }
   throw Error(label);
 }
+let botListCalls = 0;
+let botCatalog = {
+  version: 1,
+  account: 'fixture',
+  revision: 'r1',
+  stale: false,
+  bots: ['X 资讯', '随口一问', '通用', '环境运维'].map((name, i) => ({
+    id: `bot-${i}`,
+    name,
+    available: true,
+    avatar: { shape: 'cloud', color: 'violet' },
+    preview: '合成资料摘要',
+    description: `合成简介：${name}`,
+  })),
+};
 const fixture = createServer((req, res) => {
+  if (req.url === '/v1/tools/grokbot__list') {
+    botListCalls++;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ isError: false, result: { catalog: botCatalog } }));
+    return;
+  }
   res.setHeader('Content-Type', 'text/html');
   res.end(readFileSync(join(root, 'tests/host-fixture.html')));
 });
@@ -88,6 +121,8 @@ try {
   for (const key of Object.keys(env))
     if (/^(PALBOO_|CODEX_BUDDY_|COMPANION_)/.test(key)) delete env[key];
   env.PALBOO_PANEL_TEST = '1';
+  env.PALBOO_TEST_GROKBOT_CACHE = directory;
+  env.PALBOO_TEST_GROKBOT_URL = `http://127.0.0.1:${fixture.address().port}`;
   service = spawn(
     artifact.binary,
     ['--data-dir', directory, 'serve', '--port', '0', '--allow-fixture'],
@@ -355,6 +390,352 @@ try {
   );
   record(
     'quick prompt editor and legacy bridge persist guarded changes without invalidating suggestions',
+  );
+  const botSettings = await api('settings');
+  assert.equal(botSettings.grokbotEnabled, false);
+  const botEnabled = await api('settings', {
+    grokbotEnabled: true,
+    expectedRevision: botSettings.configurationRevision,
+  });
+  assert.equal(botEnabled.generationRevision, botSettings.generationRevision);
+  await wait(async () => {
+    const e = await entry('bots');
+    return e?.open && !e.pending;
+  }, 'Bot feature ready');
+  const botEntry = await entry('bots');
+  const botRead = () => api('features', { op: 'read', id: 'bots', owner: botEntry.owner });
+  const botView = await botRead();
+  assert.equal(botView.snapshot.target.threadId, 'fixture-thread-a');
+  assert.deepEqual(
+    botView.snapshot.bots.map((b) => b.name),
+    ['X 资讯', '随口一问', '通用', '环境运维'],
+  );
+  const composer = page.getByRole('textbox', { name: '测试草稿' });
+  await composer.fill('保留我的原草稿');
+  const sends = await page.evaluate(() => window.submitCount);
+  await api('features', {
+    op: 'action',
+    id: 'bots',
+    owner: botEntry.owner,
+    data: {
+      ...botView.snapshot.target,
+      botId: 'bot-2',
+      revision: 'r1',
+      agent: '通用',
+      action: 'ask',
+    },
+  });
+  assert.match(await composer.innerText(), /^保留我的原草稿\n请问「通用」：$/);
+  assert.equal(await page.evaluate(() => window.submitCount), sends);
+  await assert.rejects(
+    api('features', {
+      op: 'action',
+      id: 'bots',
+      owner: 'stale-owner',
+      data: {
+        ...botView.snapshot.target,
+        botId: 'bot-2',
+        revision: 'r1',
+        agent: '通用',
+        action: 'ask',
+      },
+    }),
+  );
+  await assert.rejects(
+    api('features', {
+      op: 'action',
+      id: 'bots',
+      owner: botEntry.owner,
+      data: { ...botView.snapshot.target, token: 'stale-composer', agent: '通用', action: 'ask' },
+    }),
+  );
+  await page.evaluate(() => {
+    const item = {
+      type: 'mcpToolCall',
+      id: 'synthetic-bot-call',
+      server: 'grokbot',
+      tool: 'call_tool',
+      arguments: { toolName: 'grokbot__ask', input: { agent: '通用' } },
+      result: {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              toolName: 'grokbot__ask',
+              result: {
+                agent: '通用',
+                status: 'finished',
+                reply: 'DO_NOT_PROJECT',
+                earlierReplies: ['DO_NOT_PROJECT'],
+              },
+            }),
+          },
+        ],
+      },
+    };
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        source: window,
+        data: {
+          type: 'mcp-notification',
+          hostId: 'local',
+          method: 'item/started',
+          params: {
+            threadId: 'fixture-thread-a',
+            turnId: 'synthetic-bot-turn',
+            item: { ...item, result: undefined },
+          },
+        },
+      }),
+    );
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        source: window,
+        data: {
+          type: 'mcp-notification',
+          hostId: 'local',
+          method: 'item/completed',
+          params: { threadId: 'fixture-thread-a', turnId: 'synthetic-bot-turn', item },
+        },
+      }),
+    );
+  });
+  const returned = await botRead();
+  assert.equal(returned.snapshot.bots[2].current.status, 'finished');
+  assert.doesNotMatch(JSON.stringify(returned), /DO_NOT_PROJECT/);
+  await page.locator('.csw-feature-panes [data-pane-tab="bots"]').click();
+  await page.getByRole('button', { name: '通用', exact: true }).waitFor();
+  await page.getByText('回复已返回 Codex', { exact: true }).waitFor();
+  assert.equal(
+    await page.locator('[data-feature="bots"] textarea,[data-feature="bots"] input').count(),
+    0,
+  );
+  const botGeometry = await page.locator('[data-feature="bots"] .palboo-bot').evaluateAll((rows) =>
+    rows.map((row) => {
+      const label = row.querySelector('.palboo-bot-select > span:last-child');
+      const status = row.querySelector('.palboo-bot-status');
+      const action = row.querySelector('.palboo-bot-actions button');
+      return {
+        label: label.getBoundingClientRect().left,
+        status: status
+          ? status.getBoundingClientRect().left + parseFloat(getComputedStyle(status).paddingLeft)
+          : null,
+        action: action?.getBoundingClientRect().left,
+      };
+    }),
+  );
+  assert.ok(botGeometry.every((row) => Math.abs(row.label - botGeometry[0].label) < 1));
+  assert.equal(botGeometry.filter((row) => row.status !== null).length, 1);
+  assert.ok(Math.abs(botGeometry[2].label - botGeometry[2].status) < 1);
+  assert.ok(Math.abs(botGeometry[2].label - botGeometry[2].action) < 1);
+  await page.locator('[data-feature="bots"]').screenshot({ path: join(output, 'palboo-bots.png') });
+  assert.equal(await page.locator('[data-feature="bots"] details').count(), 0);
+  assert.equal(await page.locator('[data-refresh="bots"]').count(), 0);
+  assert.equal(
+    await page
+      .locator('.palboo-bot-preview')
+      .first()
+      .evaluate((el) => getComputedStyle(el).webkitLineClamp),
+    '1',
+  );
+  const quietCalls = botListCalls;
+  await delay(6500);
+  assert.equal(botListCalls, quietCalls, 'unchanged roster does not poll BDK every five seconds');
+  botCatalog = {
+    ...botCatalog,
+    revision: 'r2',
+    bots: [
+      ...botCatalog.bots,
+      {
+        id: 'bot-4',
+        name: '新测试 Bot',
+        available: true,
+        avatar: { shape: 'sparkle', color: 'green' },
+        preview: '更新后的合成摘要',
+      },
+    ],
+  };
+  writeFileSync(
+    join(directory, cacheFile('sand.client.slice.account.fixture.roster.last-roster')),
+    'changed',
+  );
+  await page.getByRole('button', { name: '新测试 Bot', exact: true }).waitFor({ timeout: 15000 });
+  await page.getByRole('button', { name: '新测试 Bot', exact: true }).click();
+  await wait(
+    async () => (await composer.innerText()).includes('请问「新测试 Bot」：'),
+    'dynamic Bot selection',
+  );
+  assert.equal(await page.evaluate(() => window.submitCount), sends);
+  assert.equal((await botRead()).snapshot.bots[2].current.status, 'finished');
+  await assert.rejects(
+    api('features', {
+      op: 'action',
+      id: 'bots',
+      owner: botEntry.owner,
+      data: {
+        ...botView.snapshot.target,
+        botId: 'bot-2',
+        revision: 'r1',
+        agent: '通用',
+        action: 'ask',
+      },
+    }),
+  );
+  record(
+    'dynamic Bot addition appears without restart, preserves call status and rejects stale catalog actions',
+  );
+  const beforeManual = await api('settings');
+  const manual = await api('settings', {
+    grokbotAutoSync: false,
+    expectedRevision: beforeManual.configurationRevision,
+  });
+  assert.equal(manual.generationRevision, beforeManual.generationRevision);
+  assert.equal(
+    JSON.parse(readFileSync(join(directory, 'config.json'), 'utf8')).stepwise.grokbotAutoSync,
+    false,
+  );
+  await page.getByRole('button', { name: '刷新 Bot 资料', exact: true }).waitFor();
+  const manualCalls = botListCalls;
+  botCatalog = {
+    ...botCatalog,
+    revision: 'r3',
+    bots: [
+      ...botCatalog.bots,
+      {
+        id: 'manual-bot',
+        name: '手动新增 Bot',
+        available: true,
+        description: '仅在设置展示的简介',
+      },
+    ],
+  };
+  writeFileSync(
+    join(directory, cacheFile('sand.client.slice.account.fixture.roster.last-roster')),
+    'manual change',
+  );
+  await delay(6500);
+  assert.equal(botListCalls, manualCalls, 'manual mode ignores file changes and background reads');
+  assert.equal(await page.getByRole('button', { name: '手动新增 Bot', exact: true }).count(), 0);
+  await page.getByRole('button', { name: '刷新 Bot 资料', exact: true }).click();
+  await page.getByRole('button', { name: '手动新增 Bot', exact: true }).waitFor();
+  assert.equal(await page.evaluate(() => window.submitCount), sends);
+  const settingsPage = await context.newPage();
+  await settingsPage.goto(`${base}/#token=${runtime.token}`);
+  await settingsPage.evaluate(() => {
+    location.hash = 'settings-bots';
+  });
+  await settingsPage.getByRole('switch', { name: '自动同步 Bot 资料', exact: true }).waitFor();
+  assert.equal(
+    await settingsPage.getByText('仅在设置展示的简介', { exact: true }).isVisible(),
+    false,
+  );
+  assert.equal(await settingsPage.getByRole('complementary', { name: '联动预览' }).count(), 0);
+  await settingsPage.getByRole('button', { name: '手动新增 Bot', exact: true }).click();
+  await settingsPage.getByText('仅在设置展示的简介', { exact: true }).waitFor();
+  await settingsPage.keyboard.press('Escape');
+  assert.equal(
+    await settingsPage
+      .getByRole('button', { name: '手动新增 Bot', exact: true })
+      .evaluate((el) => document.activeElement === el),
+    true,
+  );
+  assert.equal(await page.getByText('仅在设置展示的简介', { exact: true }).count(), 0);
+  const setupRow = await settingsPage.evaluate(() => {
+    const setup = document.querySelector('.bot-settings-setup button').getBoundingClientRect();
+    const toggle = document
+      .querySelector('#settings-grokbot [role="switch"]')
+      .getBoundingClientRect();
+    return {
+      delta: Math.abs(setup.top + setup.height / 2 - toggle.top - toggle.height / 2),
+      ahead: setup.right < toggle.left,
+    };
+  });
+  assert.ok(setupRow.delta < 1 && setupRow.ahead, 'setup entry sits beside the enable switch');
+  const callsBeforeSettingsRefresh = botListCalls;
+  await settingsPage.getByRole('button', { name: '刷新 Bot 资料', exact: true }).click();
+  await settingsPage.locator('.bot-settings-heading [data-action-state="success"]').waitFor();
+  assert.equal(botListCalls, callsBeforeSettingsRefresh + 1);
+  const geometry = await settingsPage.evaluate(() => {
+    const heading = document.querySelector('.bot-settings-heading h2').getBoundingClientRect();
+    const refresh = document.querySelector('.bot-settings-heading button').getBoundingClientRect();
+    const entries = [
+      ...document.querySelectorAll('.bot-settings-profiles .settings-drawer-trigger'),
+    ].map((el) => el.getBoundingClientRect());
+    return {
+      aligned: entries.every((rect) => Math.abs(rect.left - heading.left) < 1 && rect.height >= 48),
+      centers: Math.abs(heading.top + heading.height / 2 - refresh.top - refresh.height / 2),
+    };
+  });
+  assert.equal(geometry.aligned, true);
+  assert.ok(geometry.centers < 1, 'refresh is centered on its heading');
+  await settingsPage.screenshot({ path: join(output, 'palboo-bot-settings-manual.png') });
+  await settingsPage.setViewportSize({ width: 390, height: 844 });
+  assert.equal(
+    await settingsPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+    true,
+  );
+  await settingsPage.getByRole('button', { name: '手动新增 Bot', exact: true }).click();
+  await settingsPage.getByText('仅在设置展示的简介', { exact: true }).waitFor();
+  await settingsPage.keyboard.press('Escape');
+  await settingsPage.screenshot({ path: join(output, 'palboo-bot-settings-narrow.png') });
+  await settingsPage.setViewportSize({ width: 1440, height: 960 });
+  await settingsPage.getByRole('button', { name: '接入 Grok Bot', exact: true }).click();
+  const prompt = await settingsPage
+    .getByRole('textbox', { name: 'Grok Bot 接入 Prompt' })
+    .inputValue();
+  assert.match(prompt, /当前官方文档|当前官方/);
+  assert.match(prompt, /不新建 Bot/);
+  assert.doesNotMatch(prompt, /Users\/Totoro|grokbot setup|0\.2\.27/);
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: base });
+  await settingsPage.getByRole('button', { name: '复制接入 Prompt', exact: true }).click();
+  await settingsPage.getByText('已复制', { exact: true }).waitFor();
+  assert.equal(await settingsPage.evaluate(() => navigator.clipboard.readText()), prompt);
+  await settingsPage.getByRole('button', { name: '关闭接入 Grok Bot', exact: true }).click();
+  await settingsPage.getByRole('switch', { name: '自动同步 Bot 资料', exact: true }).click();
+  await wait(
+    async () => (await api('settings')).grokbotAutoSync === true,
+    'auto sync saved from settings',
+  );
+  await wait(
+    async () => !(await page.locator('[data-refresh="bots"]').count()),
+    'automatic mode hides manual refresh',
+  );
+  await settingsPage.screenshot({ path: join(output, 'palboo-bot-settings.png') });
+  const goodCatalog = botCatalog;
+  botCatalog = { version: 1, bots: [{ name: '无身份 Bot', available: true }] };
+  await api('features', { op: 'bots-catalog', refresh: true });
+  await settingsPage.getByText(/无法同步 Grok Bot/).waitFor();
+  assert.equal((await botRead()).snapshot.catalog.stale, true);
+  botCatalog = {
+    ...goodCatalog,
+    revision: 'r4',
+    bots: [
+      ...goodCatalog.bots,
+      { id: 'settings-live', name: '自动同步新增', available: true, description: '实时更新的资料' },
+    ],
+  };
+  writeFileSync(
+    join(directory, cacheFile('sand.client.slice.account.fixture.roster.last-roster')),
+    'settings change',
+  );
+  await settingsPage
+    .getByRole('button', { name: '自动同步新增', exact: true })
+    .waitFor({ timeout: 15000 });
+  await settingsPage.getByRole('button', { name: '自动同步新增', exact: true }).click();
+  await settingsPage.getByText('实时更新的资料', { exact: true }).waitFor();
+  await settingsPage.keyboard.press('Escape');
+  record(
+    'visible automatic settings recover from invalid identities and update file-driven catalog changes',
+  );
+  await settingsPage.close();
+  record(
+    'manual sync ignores file events until refresh; descriptions and Agent setup prompt live in settings; automatic sync can resume',
+  );
+  await api('settings', { grokbotEnabled: false });
+  await page.waitForFunction(() => !window.__palbooBots);
+  await assert.rejects(botRead());
+  record(
+    'Palboo Bot owner/composer guards, main-chat-only input, scoped MCP result and disable cleanup',
   );
   await page.screenshot({ path: join(output, 'independent-surfaces.png') });
   await api('disconnect', {});

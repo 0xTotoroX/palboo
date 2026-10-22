@@ -56,4 +56,7 @@ context.chatBusy 在当前聊天及其唯一关联输入区识别停止控件（
 - `token-meter-state.js`：当前聊天的流式测速状态机；tokenx 轻量多语言估算，3秒/8192个UTF-16单元/31桶上限，按轮次隔离官方累计与最近调用，不读取历史正文。
 - `token-meter.js`：独立的无UI采集器，按宿主与聊天过滤通知；read(expectedThreadId)校验目标并以最多2Hz缓存数值投影，复用宿主状态回读及交互跟随目标，无独立计时器；隐藏不收集文字，关闭/断连/销毁清空。
 
+- `bots-state.js`：只接收本机 grokbot.call_tool 的 MCP 事件，按 host/thread/turn/item 保存最多128条元数据；忽略正文和 earlierReplies，完成事件必须匹配已观察的开始身份并去重，名单或账号切换后的迟到结果不能认领新 Bot；兼容 turnId/turn.id，检查失败和 busy 不解除已确认任务占用，终态校验会话身份。
+- `bots.js`：Palboo 的 Grok Bot 宿主适配；复用唯一输入目标，以临时 token 和真实 DOM 身份校验后追加草稿、聚焦但不发送。通过setCatalog接收后台动态名单；动作校验Bot ID、名称和名单修订，追问/查进度/停止请求也只填入主聊天。关闭后清理监听和记录，无独立轮询，不调用 BDK。
+
 插件名称匹配兼容 `Palboo` 和旧 `PALBOO`，同时出现时仍按重复入口拒绝；不修改已安装插件身份。

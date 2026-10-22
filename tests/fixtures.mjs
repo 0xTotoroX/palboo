@@ -12,6 +12,8 @@ export const fixtureSettings = {
   answerOutlineEnabled: true,
   promptEnhancementEnabled: true,
   tokenMeterEnabled: true,
+  grokbotEnabled: false,
+  grokbotAutoSync: true,
   generationMode: 'manual',
   provider: 'api',
   protocol: 'responses',

@@ -120,4 +120,8 @@ settings.Options/Update 增加默认开启的 tokenMeterEnabled，沿现有配�
 
 model_control_state复用原CDP回读携带可选测速投影，以模型目标ID调用独立read；功能停用/连接变化返回null，模型操作忙碌期间清除缓存测速，不将测速写入模型偏好或选择修订。
 
+settings 的 grokbotEnabled 默认关闭，不影响 generationRevision。features 增加 bots，开启时登记现有主界面；bot_view 在当前 CDP 客户端读取元数据投影，动作经过 feature owner 与宿主 composer token 双重校验；后台只读 BDK 名单，不消费回复或保存聊天内容。
+
+- `features/bots.rs`：本机 BDK 名单缓存、自动文件监听与手动刷新；手动模式释放 watcher 并停止健康请求，首次读取/显式刷新/操作前校验保留。关闭/断连释放缓存；错误清空名单并提示接入 Prompt。`settings.grokbotAutoSync` 独立保存，不改变生成版本。features 的 bots-catalog 提供设置只读资料，refresh 动作复用功能 owner 校验，不填入输入框。
+
 - `brand.rs`：Palboo 环境变量优先与旧名称回退；默认数据目录迁移持有迁移锁与旧服务锁，拒绝活动服务/独立目录冲突，原子移动并保留旧路径别名。显式 --data-dir 不触发自动迁移，业务文件原样保留。

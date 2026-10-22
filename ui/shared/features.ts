@@ -1,5 +1,5 @@
 /* [INPUT]: Authenticated feature transport and shared business DTOs.
- * [OUTPUT]: Persisted edge navigation, five-feature placement, main ownership, default fonts, recursive split geometry and transient view, preset and quick-prompt draft contracts.
+ * [OUTPUT]: Persisted edge navigation, six-feature placement, main ownership, default fonts, recursive split geometry and transient view, preset and quick-prompt draft contracts.
  * [POS]: Presentation boundary. [PROTOCOL]: Keep AGENTS.md in this module in sync. */
 import type { BoardView } from '../features/board/app';
 export const titles = {
@@ -8,6 +8,7 @@ export const titles = {
   next: '下一步',
   model: '模型切换',
   terms: '术语',
+  bots: 'Grok Bot',
 };
 export type FeatureId = keyof typeof titles;
 export type FontSizes = Partial<Record<FeatureId, number>>;
@@ -17,6 +18,7 @@ export const defaultFontSizes: Record<FeatureId, number> = {
   board: 15,
   model: 14,
   terms: 14,
+  bots: 14,
 };
 export function featureFontSize(id: FeatureId, sizes?: FontSizes, legacySize?: number) {
   const size =

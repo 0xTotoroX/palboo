@@ -66,3 +66,5 @@ lifecycle 随下一步开关安装/回收 next-drop；销毁清除拖放监听�
 lifecycle 的220ms页面变化防抖和1300ms文本稳定等待仅进行本地读取。宿主回答中每1300ms检查本地忙碌状态，覆盖停止控件单独消失；结束后重新等待文本稳定，再按当前模式和缓存决定是否请求模型，不因轮询重复生成。
 
 聊天测速由 tools 信号按 tokenMeterEnabled 安装/销毁，使用输入目标而非工作台阅读锁定；scan/desktopStatus 复用原调度刷新目标，不新增轮询。正文扫描排除测速根节点。全局销毁移除测速监听与定时器。
+
+Grok Bot 由 grokbotEnabled 独立开启，syncTools 安装/销毁 __palbooBots；runtimeEnabled 包含此开关，允许只启用 Bot 功能。调用记录随宿主实例销毁，不持久化。

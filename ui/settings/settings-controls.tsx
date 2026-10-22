@@ -54,8 +54,10 @@ export function FeatureSwitch({
   checked,
   disabled,
   onChange,
+  actions,
 }: {
   name: string;
+  actions?: ReactNode;
   checked: boolean;
   disabled?: boolean;
   onChange: (value: boolean) => void;
@@ -65,6 +67,7 @@ export function FeatureSwitch({
     <div className="settings-row settings-feature-switch">
       <label htmlFor={id}>启用{name}</label>
       <div className="flex shrink-0 items-center gap-4">
+        {actions}
         <Switch
           id={id}
           aria-label={`启用${name}`}

@@ -16,6 +16,8 @@ export interface EditableSettings {
   answerOutlineEnabled: boolean;
   promptEnhancementEnabled: boolean;
   tokenMeterEnabled: boolean;
+  grokbotEnabled: boolean;
+  grokbotAutoSync: boolean;
   generationMode: 'auto' | 'manual';
   provider: 'codex' | 'api';
   protocol: 'responses' | 'chat_completions' | 'anthropic_messages' | 'auto';
@@ -241,6 +243,11 @@ declare global {
       lastError: string;
     };
     __palbooPromptEnhancer?: { verify(requestId: string): boolean; destroy(): void };
+    __palbooBots?: {
+      read(): import('../features/bots/view').BotState['snapshot'];
+      fill(input: any): { ok: boolean; message?: string };
+      destroy(): void;
+    };
     __palbooTokenMeter?: {
       refresh(): void;
       read(threadId: string): import('./token-meter').TokenMeterSnapshot | null;

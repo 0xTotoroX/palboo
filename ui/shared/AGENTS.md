@@ -46,4 +46,8 @@ EditableSettings.tokenMeterEnabled 声明聊天测速独立开关；__palbooToke
 
 - `token-meter.ts`：当前聊天测速的只读数值投影，独立于模型选择和承载方式，不含正文或持久化配置。
 
+EditableSettings.grokbotEnabled 默认关闭，沿现有配置修订保存。features 增加 bots/Grok Bot 与默认字号；__palbooBots 仅提供 read/fill/destroy，fill 接收当前输入目标 token 和聊天身份，不暴露发送能力。
+
+EditableSettings.grokbotAutoSync 默认开启，控制本机资料监听，独立于功能开关与生成版本。
+
 - `brand-storage.js`：仅首次复制旧 codex-buddy 前缀偏好至 palboo 前缀，值原样保留、新键优先、旧键不删除；分别处理 localStorage/sessionStorage，受限存储不阻塞启动。constants 与设置主题在读取偏好前复用。

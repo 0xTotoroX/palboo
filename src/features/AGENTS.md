@@ -9,3 +9,7 @@
 features.rs负责主界面接管后的缺失成员补登记，只补开关已开启且无条目的outline/next/board；旧桌面/旧看板窗口存在、整组交接中或当前系统不支持目标形式时暂不迁移。已有条目的owner/open/布局不改。task_command复用原任务服务，打开看板与功能开关统一接入这一策略。
 
 terms 使用同一主窗口与功能owner，业务读取/操作转 terminology，locate 沿用 owner 与交接互斥校验；有私有词库时为已管理主界面补登记，不重开已关闭条目。
+
+bots 使用现有主界面与 owner，独立 grokbotEnabled 开关控制；已有设置可恢复缺失成员但不重开已关闭条目。业务读取和填入由 features.rs::bot_view 委托当前 CDP 的 __palbooBots，连接变化拒绝投影，所有动作保持主聊天输入。
+
+- `bots.rs`：本机 BDK 名单传输与 OS 文件监听；过滤账号槽/roster 事件，以原有可见读取节奏消费变化，60秒健康兜底；手动模式回收 watcher，首次/显式刷新/动作时读取；停止时回收缓存；校验账号、修订、时效及 Bot 身份字段，异常目录不可操作；不消费回复游标。
