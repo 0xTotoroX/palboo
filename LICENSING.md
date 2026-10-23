@@ -16,6 +16,8 @@ Some owner-authored Stepwise, outline and floating-panel modules were migrated f
 
 Preserve the separate original notices for the [Model Deck adapter](ui/codex/LICENSE.model-deck), [shadcn/ui](ui/settings/components/ui/LICENSE) and [OpenAI apps-sdk-ui icons](ui/shared/icons/LICENSE). External dependencies retain their own copyright and license terms. The packaging tools collect their notices into THIRD_PARTY_NOTICES.md and dependencies.json; that inventory is not a complete copyright-chain certification. The standalone material-preview tool does not include those vendored UI components and has no npm runtime dependencies.
 
+The custom feature icons in [ui/shared/icons/features.js](ui/shared/icons/features.js) are project-owned and use GPL-3.0-only. The OpenAI MIT notice applies to the retained upstream control icons, not to the custom feature artwork.
+
 ## 中文
 
 Palboo 自有源码及独立材质对照工具，从本次许可变更版本起，采用 GNU 通用公共许可证**固定第三版**（`GPL-3.0-only`）。完整未修改原文见 LICENSE；适用范围限于版权人有权授权的当前及后续版本，不改变第三方代码的原有许可。
@@ -27,3 +29,5 @@ Palboo 自有源码及独立材质对照工具，从本次许可变更版本起�
 后续分发 GPL 版本须按许可提供与分发修订精确对应的完整源码及必要构建、安装材料。GitHub 标签归档只有在对应修订实际可用且内容符合要求时才能作为源码入口；旧版归档不能代替新增改动的源码。
 
 部分 Stepwise、大纲与浮窗模块来自版权人自有的 CodexPlusPlus 贡献，来源审查保留了固定上游提交及其他作者实现的排除记录。上游整体仍为 AGPL-3.0-only；本次只改变有权授权的自有代码，不能将其他作者的 AGPL 实现降为 GPL。Model Deck、shadcn/ui、OpenAI 图标及依赖的原许可与署名继续保留。
+
+[ui/shared/icons/features.js](ui/shared/icons/features.js) 中的自绘功能图标属于项目自有资源，采用 GPL-3.0-only；OpenAI MIT 许可仅适用于保留的上游控件图标。

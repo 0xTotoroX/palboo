@@ -11,7 +11,7 @@
 - `tokens.css`：功能及设置页共用的基础颜色、间距、圆角和控件尺寸变量；action-icon-size/action-hit-size 统一18px动作图标与28px点击区，旧 icon-size 继续保留16px文字控件语义。
 - `brand.tsx`：自有 PALBOO 融合矢量字标，末尾双 O 直接使用图标的直立圆润双眼与淡粉腮红；字母及双眼继承正文颜色，无外部字体、状态或动效。产品图标仍使用 ui/icon.png，品牌规范见根 DESIGN_SYSTEM.md。
 - [bridge/AGENTS.md](bridge/AGENTS.md)：受限 CDP 请求生命周期。
-- [icons/AGENTS.md](icons/AGENTS.md)：公开 MIT SVG 子集及许可。
+- [icons/AGENTS.md](icons/AGENTS.md)：自绘功能 SVG、公开 MIT 控件 SVG 子集及各自许可。
 
 仅放真正跨模块使用的契约与资源；不承担功能呈现、窗口管理或业务保存。
 

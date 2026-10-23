@@ -12,12 +12,12 @@ export const titles = {
 };
 export type FeatureId = keyof typeof titles;
 export const featureIcons: Record<FeatureId, string> = {
-  outline: 'outline',
-  board: 'tasks',
-  next: 'next',
-  model: 'brain',
-  terms: 'book-open',
-  bots: 'agent',
+  outline: 'feature-outline',
+  board: 'feature-board',
+  next: 'feature-next',
+  model: 'feature-model',
+  terms: 'feature-terms',
+  bots: 'feature-bots',
 };
 export type FontSizes = Partial<Record<FeatureId, number>>;
 export const defaultFontSizes: Record<FeatureId, number> = {

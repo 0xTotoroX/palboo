@@ -262,7 +262,14 @@ test('six icon tabs remain reachable beside model headings and catalog controls 
   const icons = await inspect();
   assert.deepEqual(
     icons.map((item) => item.icon),
-    ['tasks', 'brain', 'outline', 'next', 'book-open', 'agent'],
+    [
+      'feature-board',
+      'feature-model',
+      'feature-outline',
+      'feature-next',
+      'feature-terms',
+      'feature-bots',
+    ],
   );
   for (const icon of icons) {
     assert.equal(icon.text.trim(), '');

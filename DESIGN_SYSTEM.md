@@ -11,7 +11,7 @@ Tom Modern 是本项目已选定的界面方案名称，代表中性色、细分
 | 基础组件 | [shadcn/ui](https://ui.shadcn.com/docs) | [components.json](components.json) 使用 `new-york` 生成配置；组件源码位于 [components/ui/](ui/settings/components/ui/)，按 Palboo 主题定制，保留本地许可 |
 | 开关与组件组合 | [Radix Primitives](https://www.radix-ui.com/primitives/docs/overview/introduction) | 仅引入 `@radix-ui/react-switch`、`@radix-ui/react-slot`；抽屉和确认继续复用现有原生 `dialog` 封装 |
 | 样式与语义变量 | [Tailwind CSS v4](https://tailwindcss.com/docs/styling-with-utility-classes) | [styles.css](ui/settings/styles.css)、[settings-layout.css](ui/settings/settings-layout.css) 与 [tokens.css](ui/shared/tokens.css)；只在设置文档加载 Preflight |
-| 图标 | [OpenAI apps-sdk-ui](https://github.com/openai/apps-sdk-ui) 的 MIT SVG 子集 | [shared/icons/](ui/shared/icons/) 保存选用源码、来源和许可；各页面统一调用 `Icon`，不安装整套 SDK UI |
+| 图标 | 自绘功能图标 + [OpenAI apps-sdk-ui](https://github.com/openai/apps-sdk-ui) 的 MIT 控件 SVG 子集 | [shared/icons/](ui/shared/icons/) 统一提供 SVG；自绘采用项目许可，第三方保留原许可，不安装整套 SDK UI |
 | 动效 | 现有 CSS / Web Animations API | [settings-motion.ts](ui/settings/settings-motion.ts)、[settings-list-motion.ts](ui/settings/settings-list-motion.ts) 与共享工作台动效；目前未引入 Motion |
 | 布局与拖拽 | 现有共享工作台实现 | [surfaces/workspace/](ui/surfaces/workspace/) 统一分栏、标签、拖动和阅读状态；目前未引入 react-resizable-panels 或 dnd-kit |
 | 设置状态 | React 状态与现有串行保存队列 | [use-settings-form.ts](ui/settings/use-settings-form.ts) 维护草稿、保存和修订冲突；目前未引入 Zustand |
@@ -106,7 +106,7 @@ Tom Modern 是本项目已选定的界面方案名称，代表中性色、细分
 
 普通图标按钮使用 `IconButton`；操作名称放在 `aria-label`。公共窗口控制不显示来源文字或浏览器原生 `title` 提示；不可用原因和失败反馈仍须可读。顶部窗口按钮保持图形与至少 28px 点击区，键盘聚焦仍显现；工作台的悬停规则不扩散到设置表单。
 
-主工作台与贴边／刘海的功能导航统一使用共享图标：大纲 outline、下一步 next、看板 Tasks、模型 Brain、术语 BookOpen、Bot Agent。图形18px，点击区28px，间距4px；单击直接切换，选中项用明暗区分，悬停显示功能名称，辅助技术保留名称及动作。主工作台保留拖动分栏／合并、双击放大及原键盘操作；贴边保留拖动及 Alt+左右方向键排序。窄空间自然换行并计入容器高度；Fast、推理强度及模型目录操作始终预留独立空间。
+主工作台、贴边／刘海和设置预览的功能导航统一使用 [自绘图标](ui/shared/icons/features.js)：大纲为章节层级，下一步为简洁水平右箭头，看板为分栏轮廓，模型为双方块与双向箭头，术语为词典，Bot为对话气泡与双眼。采用24×24画布、1.8px圆角描边（Bot双眼2.5px），通过 currentColor 跟随主题；自绘图形遵循项目 GPL-3.0-only，其他控件保留原 MIT 来源。图形18px，点击区28px，间距4px；单击直接切换，选中项用明暗区分，悬停显示功能名称，辅助技术保留名称及动作。主工作台保留拖动分栏／合并、双击放大及原键盘操作；贴边保留拖动及 Alt+左右方向键排序。窄空间自然换行并计入容器高度；Fast、推理强度及模型目录操作始终预留独立空间。
 
 内容层次依靠对齐、文字明暗、尺寸和留白。标签已说明的事情不重复写小字；辅助说明仅保留影响操作、判断或风险的信息。独立操作组默认右对齐，附加图标不得挤偏标题或数值中轴。
 
@@ -119,7 +119,7 @@ Tom Modern 是本项目已选定的界面方案名称，代表中性色、细分
 
 ## 依赖与维护
 
-当前使用 React、Tailwind v4、本地 shadcn/ui、Radix 和公开 SVG 子集。Tailwind 的全局重置仅在设置文档内，不进入宿主或隔离功能视图。`components.json` 的生成器图标字段不代表已引入 Lucide；新增生成组件须适配现有 `Icon`，不能带入第二套图标包。
+当前使用 React、Tailwind v4、本地 shadcn/ui、Radix、自绘功能 SVG 和公开控件 SVG 子集。Tailwind 的全局重置仅在设置文档内，不进入宿主或隔离功能视图。`components.json` 的生成器图标字段不代表已引入 Lucide；新增生成组件须适配现有 `Icon`，不能带入第二套图标包。
 
 优先复用现有组件和成熟依赖。工作台已有共享分栏、拖动和状态协议，新增库须解决明确缺口，并替代重叠实现；不为技术清单同时引入第二套 UI、图标、动效或状态库。组件源代码、许可和依赖范围保持可追踪。
 

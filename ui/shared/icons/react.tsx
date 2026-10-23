@@ -1,4 +1,4 @@
-/* [INPUT]: Trusted shared apps-sdk-ui SVG catalog, shared action size token and optional presentation class.
+/* [INPUT]: Trusted shared Palboo/apps-sdk-ui SVG catalog, shared action size token and optional presentation class.
  * [OUTPUT]: Shared React action icon with a consistent 18px canvas.
  * [POS]: React adapter only; artwork and license remain in shared/icons.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
