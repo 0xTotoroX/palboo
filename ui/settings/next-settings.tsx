@@ -1,5 +1,5 @@
 /* [INPUT]: Shared settings editor, direction credentials and appearance preferences.
- * [OUTPUT]: Separate next-step and quick-prompt pages sharing mounted drafts, stable list identity and the original save queue.
+ * [OUTPUT]: Next-step generation with library/display drawers and separate quick-prompt page sharing mounted drafts, stable list identity and the original save queue.
  * [POS]: Functional settings only; shared model configuration lives in model-settings.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { usePromptKeys, useSettingsListMotion } from './settings-list-motion';
@@ -11,6 +11,7 @@ import type { SettingsEditor } from './use-settings-form';
 import { Icon } from '../shared/icons/react';
 import { ConfirmationButton } from './settings-confirmation';
 import { DirectionSettings } from './direction-settings';
+import { SettingsDrawer } from './settings-drawer';
 import { PanelSettings } from './panel-settings';
 export function NextSettings({
   editor,
@@ -32,10 +33,11 @@ export function NextSettings({
     <>
       <div data-settings-page="next" hidden={section === 'prompts'}>
         <DirectionSettings editor={editor} />
-        <section className="settings-section">
-          <h2>显示与操作</h2>
-          <PanelSettings value={appearance} section="next" />
-        </section>
+        <div className="next-settings-menu">
+          <SettingsDrawer id="settings-next-display" title="显示与操作">
+            <PanelSettings value={appearance} section="next" />
+          </SettingsDrawer>
+        </div>
       </div>
       <div data-settings-page="prompts" hidden={section === 'next'}>
         <Card tabIndex={-1} id="settings-quick-prompts" aria-labelledby="quick-prompts-title">

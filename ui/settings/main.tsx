@@ -1,5 +1,5 @@
 /* [INPUT]: 现有设置表单、认证 API、共用设置控件及 PALBOO 矢量字标。
- * [OUTPUT]: 常规配置直接显示的 Tom Modern 统一设置、分组与二级页面导航、主题/字体及联动预览，保留保存与错误反馈。
+ * [OUTPUT]: Tom Modern 统一设置、常用开关、分组页面及抽屉入口、主题/字体与联动预览，保留保存与错误反馈。
  * [POS]: 设置展示层，不执行后台业务或读取聊天正文。
  * [PROTOCOL]: 变更时同步 settings/AGENTS.md。 */
 import { useTypography } from './use-typography';
@@ -29,8 +29,6 @@ import { NextSettings } from './next-settings';
 import { LauncherSettings } from './launcher-settings';
 import { ModelSettings } from './model-settings';
 import { useTasks } from '../features/board/api';
-import { Field } from './settings-controls';
-import { NativeSelect } from './components/ui/native-select';
 import { ConnectionSettings } from './connection-settings';
 import { CodexHostSettings } from './codex-host-settings';
 import { PerformanceSettings } from './performance-settings';
@@ -233,21 +231,6 @@ function App() {
                     disabled={!live || !editor.form}
                     onChange={(value) => editor.change('promptEnhancementEnabled', value)}
                   />
-                </div>
-                <div data-settings-page="next" hidden={!editor.form?.enabled || page !== 'next'}>
-                  <Field id="generation-mode" label="建议生成方式">
-                    <NativeSelect
-                      id="generation-mode"
-                      disabled={!editor.form}
-                      value={editor.form?.generationMode ?? 'manual'}
-                      onChange={(event) =>
-                        editor.change('generationMode', event.target.value as 'auto' | 'manual')
-                      }
-                    >
-                      <option value="manual">手动刷新</option>
-                      <option value="auto">自动生成</option>
-                    </NativeSelect>
-                  </Field>
                 </div>
               </section>
               <BotSettings active={page === 'bots'} live={live} editor={editor} />

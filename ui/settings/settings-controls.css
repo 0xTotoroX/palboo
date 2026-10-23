@@ -391,6 +391,79 @@ html:has(.settings-drawer[open]) {
 .settings-drawer-footer:empty {
   display: none;
 }
+
+/* Stepwise: two-level directory inside one drawer, with the original fields kept mounted. */
+.next-settings-menu .settings-drawer-entry {
+  margin-block: 12px;
+}
+.direction-library-nav {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 16px;
+  background: var(--buddy-subtle);
+  border-radius: var(--settings-control-radius);
+}
+.settings-app .direction-library-nav button {
+  flex: 1;
+  color: var(--buddy-muted);
+  font-size: 1em;
+}
+.settings-app .direction-library-nav button[aria-pressed='true'] {
+  background: var(--settings-selected);
+  color: var(--buddy-text);
+}
+.direction-library-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--buddy-border);
+}
+.settings-app .direction-library-row button {
+  flex: 1;
+  min-width: 0;
+  justify-content: space-between;
+  padding: 12px 8px;
+  min-height: 48px;
+  font-size: 1em;
+  text-align: left;
+  white-space: normal;
+  color: var(--buddy-text);
+}
+.direction-library-row button > span:first-child {
+  overflow-wrap: anywhere;
+}
+.settings-app .direction-library-row button:hover {
+  background: var(--buddy-subtle);
+}
+.settings-app .direction-library-add {
+  width: 100%;
+  justify-content: flex-start;
+  min-height: 48px;
+  margin-top: 8px;
+  font-size: 1em;
+}
+.settings-app .direction-library-back {
+  padding-inline: 0;
+  margin-bottom: 20px;
+  font-size: 1em;
+}
+.direction-back-icon {
+  rotate: 180deg;
+}
+.direction-library [data-slot='input'] {
+  font: inherit;
+}
+.direction-library textarea {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--settings-control-border);
+  font: inherit;
+  line-height: 1.65;
+  resize: vertical;
+  min-height: 160px;
+}
 .settings-drawer-footer > * + * {
   margin-top: 12px;
 }

@@ -111,6 +111,7 @@ createRoot(document.getElementById('root')).render(<App/>);`,
       const cancel = () => dialog.getByRole('button', { name: '取消', exact: true }).click();
       const accept = (label) => dialog.getByRole('button', { name: label, exact: true }).click();
       const jevDelete = page.getByRole('button', { name: '删除已保存的 Jev 密钥', exact: true });
+      await page.getByRole('button', { name: '智能挑选服务', exact: true }).click();
       await page.getByRole('button', { name: '更换 Jev 密钥' }).waitFor();
       assert.equal(await page.locator('input#jev-key').count(), 0);
       await page.getByRole('button', { name: '更换 Jev 密钥' }).click();
@@ -120,7 +121,6 @@ createRoot(document.getElementById('root')).render(<App/>);`,
       assert.equal(writes.length, 0);
       await page.getByRole('button', { name: '取消更换' }).click();
       assert.equal(writes.length, 0);
-      await page.getByRole('button', { name: 'Jev 高级设置', exact: true }).click();
       await jevDelete.click();
       assert.equal(
         await dialog
@@ -144,45 +144,57 @@ createRoot(document.getElementById('root')).render(<App/>);`,
       assert.equal(settings.storedJevApiKey, true);
       assert.equal(settings.storedApiKey, fixtureSettings.storedApiKey);
       await cancel();
-      await page.getByRole('button', { name: '关闭Jev 高级设置', exact: true }).click();
+      await page.getByRole('button', { name: '关闭智能挑选服务', exact: true }).click();
       const failedCount = writes.length;
-      await page.getByRole('heading', { name: '建议方向', exact: true }).click();
+      await page.getByRole('heading', { name: '建议生成', exact: true }).click();
       await page.waitForTimeout(250);
       assert.equal(writes.length, failedCount, 'failed deletion is not retried by blur');
       failKey = false;
-      await page.getByRole('button', { name: 'Jev 高级设置', exact: true }).click();
+      await page.getByRole('button', { name: '智能挑选服务', exact: true }).click();
       await jevDelete.click();
       await accept('确认删除');
       await page.locator('input#jev-key').waitFor();
       assert.equal(settings.storedJevApiKey, false);
       assert.equal(settings.apiKeyConfigured, true);
-      const builtIns = page.getByRole('region', { name: '系统自带', exact: true });
-      const customs = page.getByRole('region', { name: '自定义', exact: true });
-      assert.equal(await builtIns.locator('.settings-entry').count(), 3);
-      assert.equal(await customs.locator('.settings-entry').count(), 0);
+      await page.getByRole('button', { name: '关闭智能挑选服务', exact: true }).click();
+      assert.equal(
+        await page.getByRole('textbox', { name: '方向名称 1', exact: true }).isVisible(),
+        false,
+      );
+      await page.getByRole('button', { name: '方向库', exact: true }).click();
+      const builtIns = page.getByRole('region', { name: '内置方向', exact: true });
+      assert.equal(await builtIns.locator('[data-direction-open]').count(), 3);
+      await builtIns.getByRole('button', { name: '整体推进', exact: true }).click();
       const selectedBefore = [...settings.selectedDirections];
       await page
         .getByRole('textbox', { name: '倾向说明 1', exact: true })
         .fill('自己修改的推进说明');
       await page
-        .getByRole('button', { name: '恢复方向 整体推进 的系统默认', exact: true })
+        .getByRole('button', { name: '恢复方向 整体推进 的默认内容', exact: true })
         .waitFor();
-      assert.equal(await builtIns.getByTitle('已修改，恢复系统默认').count(), 1);
-      assert.equal(await builtIns.getByText('已修改', { exact: true }).count(), 0);
-      await page.getByRole('button', { name: '恢复方向 整体推进 的系统默认', exact: true }).click();
+      assert.equal(await page.getByText('已修改', { exact: true }).count(), 0);
+      await page.getByRole('button', { name: '恢复方向 整体推进 的默认内容', exact: true }).click();
       await page.waitForFunction(
-        () => !document.querySelector('[aria-label="恢复方向 整体推进 的系统默认"]'),
+        () => !document.querySelector('[aria-label="恢复方向 整体推进 的默认内容"]'),
       );
-      await page.getByRole('button', { name: '添加自定义方向', exact: true }).click();
+      await page.getByRole('button', { name: '返回内置方向', exact: true }).click();
+      await page.getByRole('button', { name: '我的方向', exact: true }).click();
+      const customs = page.getByRole('region', { name: '我的方向', exact: true });
+      assert.equal(await customs.locator('[data-direction-open]').count(), 0);
+      await page.getByRole('button', { name: '添加方向', exact: true }).click();
       await page.getByRole('textbox', { name: '方向名称 4', exact: true }).fill('用户自定义');
       await page.getByRole('textbox', { name: '倾向说明 4', exact: true }).fill('只对这台设备保存');
       await Promise.all([
         page.waitForResponse(
           (r) => r.url().endsWith('/api/settings') && r.request().method() === 'POST',
         ),
-        page.getByRole('heading', { name: '建议方向', exact: true }).click(),
+        page
+          .getByRole('dialog', { name: '方向库', exact: true })
+          .getByRole('button', { name: '保存设置', exact: true })
+          .click(),
       ]);
-      assert.equal(await customs.locator('.settings-entry').count(), 1);
+      await page.getByRole('button', { name: '返回我的方向', exact: true }).click();
+      assert.equal(await customs.locator('[data-direction-open]').count(), 1);
       assert.equal(await customs.getByText('已修改', { exact: true }).count(), 0);
       assert.equal(
         settings.directionLibrary[0].instruction,
@@ -194,6 +206,8 @@ createRoot(document.getElementById('root')).render(<App/>);`,
           .filter((w) => w.path === '/api/settings')
           .every((w) => !('builtInDirections' in w.body)),
       );
+      await page.getByRole('button', { name: '内置方向', exact: true }).click();
+      await builtIns.getByRole('button', { name: '整体推进', exact: true }).click();
       const beforeDirections = structuredClone(settings.directionLibrary);
       await page
         .getByRole('button', { name: `删除方向 ${beforeDirections[0].name}`, exact: true })
@@ -211,6 +225,7 @@ createRoot(document.getElementById('root')).render(<App/>);`,
       });
       assert.equal(settings.directionLibrary.length, beforeDirections.length - 1);
       assert.equal(settings.selectedDirections.includes(beforeDirections[0].id), false);
+      await page.getByRole('button', { name: '关闭方向库', exact: true }).click();
       const prompts = structuredClone(settings.quickPrompts);
       await page.getByRole('button', { name: '删除常用提示词 1', exact: true }).click();
       await cancel();
@@ -226,7 +241,7 @@ createRoot(document.getElementById('root')).render(<App/>);`,
         prompts[0].label,
       );
       const failedPromptWrites = writes.length;
-      await page.getByRole('heading', { name: '建议方向', exact: true }).click();
+      await page.getByRole('heading', { name: '建议生成', exact: true }).click();
       await page.waitForTimeout(250);
       assert.equal(writes.length, failedPromptWrites);
       failPrompt = false;

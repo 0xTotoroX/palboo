@@ -4,7 +4,11 @@
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { Icon } from '../shared/icons/react';
-import { closeSettingsDrawers, revealSettingsDrawer } from './settings-drawer';
+import {
+  closeSettingsDrawers,
+  revealSettingsDrawer,
+  revealSettingsDetail,
+} from './settings-drawer';
 export const pageTitles = {
   performance: '性能与开关',
   features: '常用开关',
@@ -43,6 +47,8 @@ const aliases: Record<string, SettingsPage> = {
   'settings-board': 'board',
   'settings-tasks': 'board',
   'settings-directions': 'next',
+  'settings-direction-library': 'next',
+  'settings-next-display': 'next',
   'settings-quick-prompts': 'prompts',
   'settings-terminology': 'terminology',
   'settings-library': 'terminology',
@@ -112,6 +118,7 @@ function fromHash() {
 }
 let revealedField = 0;
 export function revealSettingsField(target: HTMLElement) {
+  revealSettingsDetail(target);
   if (!target.id) target.id = `buddy-settings-invalid-${++revealedField}`;
   const owner = target.closest<HTMLElement>('[data-settings-page]')?.dataset.settingsPage;
   if (owner && owner in pageTitles && target.closest('[hidden]')) {
@@ -201,6 +208,7 @@ export function useSettingsPage(ready: boolean) {
         navigate(owner as SettingsPage, `#settings-${owner}/${encodeURIComponent(target)}`);
         return true;
       }
+      revealSettingsDetail(node);
       if (node.closest('[hidden]')) return false;
       node = revealSettingsDrawer(node);
       for (let parent: HTMLElement | null = node; parent; parent = parent.parentElement)
@@ -212,13 +220,23 @@ export function useSettingsPage(ready: boolean) {
       reportInvalidField(node);
       return true;
     };
-    if (focusTarget()) return;
-    const observer = new MutationObserver(() => {
-      if (focusTarget()) observer.disconnect();
+    // Detail navigation may synchronously reveal a mounted React field. Run after
+    // this commit so its state can settle before focus, including initial deep links.
+    let disposed = false;
+    const attempt = () => {
+      if (!disposed && focusTarget()) observer.disconnect();
+    };
+    const observer = new MutationObserver(attempt);
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['hidden'],
     });
-    observer.observe(document.body, { childList: true, subtree: true });
+    queueMicrotask(attempt);
     const timer = setTimeout(() => observer.disconnect(), 5000);
     return () => {
+      disposed = true;
       observer.disconnect();
       clearTimeout(timer);
     };

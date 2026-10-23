@@ -1,5 +1,5 @@
 /* [INPUT]: Mounted settings labels, explicit page catalog and lazy drawer entries.
- * [OUTPUT]: Local search with Cmd/Ctrl+K, retained inert exit content and original-control navigation without remounting forms.
+ * [OUTPUT]: Local label search with Cmd/Ctrl+K and original-control navigation; library editors opt out of indexing private names.
  * [POS]: Presentation only; never indexes input values, credentials or chat content.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { useEffect, useRef, useState, useId } from 'react';
@@ -31,7 +31,11 @@ function indexSettings(): Entry[] {
   const fields = Array.from(
     content.querySelectorAll('label,h2,summary,button[aria-label]'),
   ).flatMap((node, i) => {
-    if (node.matches('[data-drawer-heading], [data-drawer-close]')) return [];
+    if (
+      node.matches('[data-drawer-heading], [data-drawer-close]') ||
+      node.closest('[data-settings-search-ignore]')
+    )
+      return [];
     const category = node.closest<HTMLElement>('[data-settings-page]')?.dataset
       .settingsPage as SettingsPage;
     if (!category || !(category in pageTitles)) return [];

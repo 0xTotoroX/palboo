@@ -244,19 +244,12 @@ createRoot(document.getElementById('root')).render(<App/>);`,
       assert.ok(log.some((x) => x.list === 'direction-slots' && x.duration === 200));
       await page.getByRole('button', { name: '移除方向位置 1', exact: true }).click();
       assert.ok((await animations()).some((x) => x.list === 'direction-slots' && x.key === 'add'));
-      const libraryDetails = page
-        .locator('details')
-        .filter({ has: page.getByText('自定义方向库', { exact: true }) });
-      if (await libraryDetails.count()) await libraryDetails.locator('summary').click();
-      await clear();
-      await page.getByRole('button', { name: '添加自定义方向', exact: true }).click();
-      assert.ok(
-        (await animations()).some(
-          (x) => x.list === 'direction-library' && x.frames[0].opacity === 0,
-        ),
-      );
+      await page.getByRole('button', { name: '方向库', exact: true }).click();
+      await page.getByRole('button', { name: '我的方向', exact: true }).click();
+      await page.getByRole('button', { name: '添加方向', exact: true }).click();
       await page.getByRole('textbox', { name: '方向名称 4', exact: true }).fill('新增方向');
       await page.getByRole('textbox', { name: '倾向说明 4', exact: true }).fill('合成方向说明');
+      await page.getByRole('button', { name: '关闭方向库', exact: true }).click();
       // Board/model grouping use the same motion with successful synthetic persistence.
       await page.getByRole('textbox', { name: '新分组名称', exact: true }).fill('新看板分组');
       await clear();

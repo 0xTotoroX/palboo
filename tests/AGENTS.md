@@ -313,3 +313,5 @@ Bot 侧栏回归覆盖置顶/分组顺序、隐藏项与旧接口兼容、排序
 - `settings-preview-controls.test.mjs`：合成 localhost 安全上下文中验证模型选择/预设零请求、材质正常尺寸与成功变更跟随、空位置样本、柔和控件的明暗主题和360–1360px无页面溢出；不连接产品服务。
 
 术语浏览器回归覆盖部分补词失败保留标注、30秒退避、最多三次及恢复后的完成缓存；settings-safety 覆盖系统/自定义分组、恢复内置原文不改变已选位置、目录元数据不写回。directions Rust 用临时配置覆盖新安装十二项和旧配置增量升级、修改/删除/自定义及智能选择兼容；terminology_lookup 提供显式 live_public_definition 公共来源与真实配置模型的合成验证，不写私有词库。
+
+Stepwise 设置的目录层级由 settings-modes.test.mjs 验证：主页面隐藏说明、分类进入单条编辑、返回焦点、跨层/关闭草稿与 DOM 保留、无效字段自动揭示、窄屏及显示操作旧链接；settings-safety.test.mjs 保留内置恢复、自定义增删及 Jev 密钥确认边界。

@@ -1,5 +1,5 @@
 /* [INPUT]: Existing mounted settings content and presentation-only open/close requests.
- * [OUTPUT]: Accessible right-side drawer, inert closing content, retained drafts/scroll and anchor reveal helpers.
+ * [OUTPUT]: Accessible right-side drawer, retained drafts/scroll and reveal helpers for nested detail navigation.
  * [POS]: Settings presentation; keeps native form ownership and never writes configuration.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 import { useEffect, useLayoutEffect, useId, useRef, useState, type ReactNode } from 'react';
@@ -9,12 +9,16 @@ import { Icon } from '../shared/icons/react';
 
 const openEvent = 'buddy-settings-drawer-open';
 const closeEvent = 'buddy-settings-drawer-close';
+export function revealSettingsDetail(target: HTMLElement) {
+  target.dispatchEvent(new Event('buddy-settings-detail-reveal', { bubbles: true }));
+}
 export function closeSettingsDrawers(except?: HTMLElement | null) {
   for (const drawer of document.querySelectorAll<HTMLElement>('[data-settings-drawer]')) {
     if (drawer !== except) drawer.dispatchEvent(new Event(closeEvent));
   }
 }
 export function revealSettingsDrawer(target: HTMLElement) {
+  revealSettingsDetail(target);
   const drawer = target.closest<HTMLElement>('[data-settings-drawer]');
   closeSettingsDrawers(drawer);
   if (!drawer) return target;

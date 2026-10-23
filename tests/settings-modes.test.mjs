@@ -379,7 +379,87 @@ test(
       assert.equal(writes.length, 0, 'theme subscription never writes business preferences');
       // Exercise the styled native picker through actual keyboard/pointer input, not selectOption.
       await category('next');
-      const generation = page.getByLabel('建议生成方式', { exact: true });
+      // The page keeps frequent choices; the library is a directory, then one editor.
+      assert.equal(await page.locator('.settings-content textarea:visible').count(), 0);
+      const originalInstruction = fixtureSettings.directionLibrary[0].instruction;
+      const firstId = fixtureSettings.directionLibrary[0].id;
+      const library = page.getByRole('dialog', { name: '方向库', exact: true });
+      await page.getByRole('button', { name: '方向库', exact: true }).click();
+      assert.equal(await library.locator('[data-direction-open]:visible').count(), 3);
+      assert.equal(await library.locator('textarea:visible').count(), 0);
+      const lightDrawer = await library.evaluate((node) => getComputedStyle(node).backgroundColor);
+      publishTheme('dark');
+      await expectTheme('dark');
+      assert.notEqual(
+        await library.evaluate((node) => getComputedStyle(node).backgroundColor),
+        lightDrawer,
+      );
+      if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
+        await library.screenshot({ path: 'target/reports/stepwise-library-dark.png' });
+      publishTheme('light');
+      await expectTheme('light');
+      await library.getByRole('button', { name: '整体推进', exact: true }).click();
+      const instruction = page.locator(`#direction-${firstId}-instruction`);
+      await instruction.evaluate((node) => {
+        window.directionInput = node;
+      });
+      await instruction.fill('尚未完成的方向草稿');
+      await library.getByRole('button', { name: '返回内置方向', exact: true }).click();
+      assert.equal(
+        await page.evaluate(() => document.activeElement.dataset.directionOpen),
+        firstId,
+      );
+      await library.getByRole('button', { name: '我的方向', exact: true }).click();
+      assert.equal(await library.locator('[data-direction-open]:visible').count(), 0);
+      await library.getByRole('button', { name: '内置方向', exact: true }).click();
+      await library.getByRole('button', { name: '整体推进', exact: true }).click();
+      assert.equal(await instruction.inputValue(), '尚未完成的方向草稿');
+      await library.getByRole('button', { name: '关闭方向库', exact: true }).click();
+      await page.getByRole('button', { name: '方向库', exact: true }).click();
+      assert.equal(await instruction.evaluate((node) => node === window.directionInput), true);
+      assert.equal(await instruction.inputValue(), '尚未完成的方向草稿');
+      assert.equal(
+        writes.length,
+        0,
+        'directory navigation and closing preserve drafts without writes',
+      );
+      // A hidden invalid detail must be revealed for native validation, not silently skipped.
+      await instruction.fill('');
+      await library.getByRole('button', { name: '返回内置方向', exact: true }).click();
+      await library.getByRole('button', { name: '关闭方向库', exact: true }).click();
+      await page
+        .locator('.settings-save')
+        .getByRole('button', { name: '保存设置', exact: true })
+        .click();
+      await instruction.waitFor({ state: 'visible' });
+      assert.equal(await instruction.evaluate((node) => node === document.activeElement), true);
+      assert.equal(writes.length, 0);
+      await instruction.fill(originalInstruction);
+      await library.getByRole('button', { name: '返回内置方向', exact: true }).click();
+      await page.setViewportSize({ width: 360, height: 760 });
+      const libraryBox = await library.boundingBox();
+      assert.equal(Math.round(libraryBox.width), 360);
+      assert.equal(await library.evaluate((node) => node.scrollWidth <= node.clientWidth), true);
+      if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
+        await page.screenshot({ path: 'target/reports/stepwise-library-mobile.png' });
+      await library.getByRole('button', { name: '关闭方向库', exact: true }).click();
+      await page.goto(origin + '/#settings-next/suggestion-click');
+      const display = page.getByRole('dialog', { name: '显示与操作', exact: true });
+      await display.waitFor({ state: 'visible' });
+      assert.equal(await page.evaluate(() => document.activeElement.id), 'suggestion-click');
+      await display.getByRole('button', { name: '关闭显示与操作', exact: true }).click();
+      await page.goto(origin + `/#settings-next/direction-${firstId}-instruction`);
+      await instruction.waitFor({ state: 'visible' });
+      assert.equal(await instruction.evaluate((node) => node === document.activeElement), true);
+      assert.equal(
+        await instruction.evaluate((node) => getComputedStyle(node).fontSize),
+        await page
+          .locator(`#direction-${firstId}-name`)
+          .evaluate((node) => getComputedStyle(node).fontSize),
+      );
+      await library.getByRole('button', { name: '关闭方向库', exact: true }).click();
+      await page.setViewportSize({ width: 1360, height: 900 });
+      const generation = page.getByLabel('生成方式', { exact: true });
       await generation.click();
       await page.locator('#generation-mode:open').waitFor();
       await page.keyboard.press('ArrowDown');
