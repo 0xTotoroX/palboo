@@ -237,39 +237,13 @@
   background: var(--buddy-page);
   box-shadow: -12px 0 40px rgb(0 0 0 / 10%);
   overflow: hidden;
-  opacity: 0;
-  transform: translateX(24px);
-  transition:
-    opacity 180ms ease,
-    transform 220ms var(--settings-ease),
-    display 220ms allow-discrete,
-    overlay 220ms allow-discrete;
 }
 .settings-drawer[open] {
   display: flex;
   flex-direction: column;
-  opacity: 1;
-  transform: none;
 }
 .settings-drawer::backdrop {
   background: rgb(0 0 0 / 22%);
-  opacity: 0;
-  transition:
-    opacity 180ms ease,
-    display 220ms allow-discrete,
-    overlay 220ms allow-discrete;
-}
-.settings-drawer[open]::backdrop {
-  opacity: 1;
-}
-@starting-style {
-  .settings-drawer[open] {
-    opacity: 0;
-    transform: translateX(24px);
-  }
-  .settings-drawer[open]::backdrop {
-    opacity: 0;
-  }
 }
 .settings-drawer-header {
   display: flex;
@@ -310,10 +284,6 @@ html:has(.settings-drawer[open]) {
   overflow: hidden;
   scrollbar-gutter: stable;
 }
-html[data-settings-input='keyboard'] .settings-drawer,
-html[data-settings-input='keyboard'] .settings-drawer::backdrop {
-  transition: none !important;
-}
 @media (max-width: 600px) {
   .settings-drawer {
     width: 100vw;
@@ -323,12 +293,6 @@ html[data-settings-input='keyboard'] .settings-drawer::backdrop {
   }
   .settings-drawer-content {
     padding: 12px 20px 28px;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .settings-app .settings-drawer,
-  .settings-app .settings-drawer::backdrop {
-    transition: none !important;
   }
 }
 

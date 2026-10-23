@@ -1,5 +1,5 @@
 /* [INPUT]: Mounted settings labels, explicit page catalog and lazy drawer entries.
- * [OUTPUT]: Local search with Cmd/Ctrl+K and original-control navigation without remounting forms.
+ * [OUTPUT]: Local search with Cmd/Ctrl+K, retained inert exit content and original-control navigation without remounting forms.
  * [POS]: Presentation only; never indexes input values, credentials or chat content.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { useEffect, useRef, useState, useId } from 'react';
@@ -126,14 +126,23 @@ export function SettingsSearch({
   const dialogId = useId();
   function show() {
     if (document.querySelector('dialog[open]')) return;
+    setQuery('');
+    if (dialogRef.current) dialogRef.current.inert = false;
     dialogRef.current?.showModal();
     setOpen(true);
     inputRef.current?.focus();
   }
   function close() {
     dialogRef.current?.close();
+    if (dialogRef.current) dialogRef.current.inert = true;
     setOpen(false);
-    setQuery('');
+    if (
+      !dialogRef.current ||
+      getComputedStyle(dialogRef.current)
+        .transitionDuration.split(',')
+        .every((value) => parseFloat(value) === 0)
+    )
+      setQuery('');
     triggerRef.current?.focus({ preventScroll: true });
   }
   const inputRef = useRef<HTMLInputElement>(null);
@@ -185,7 +194,6 @@ export function SettingsSearch({
       entry.category,
       `#settings-${entry.category}${entry.id ? '/' + encodeURIComponent(entry.id) : ''}`,
     );
-    setQuery('');
   }
   return (
     <div className="settings-search" data-settings-navigation>
@@ -207,6 +215,14 @@ export function SettingsSearch({
         id={dialogId}
         className="settings-search-dialog"
         aria-label="搜索设置"
+        onTransitionEnd={(event) => {
+          if (
+            event.target === event.currentTarget &&
+            event.propertyName === 'opacity' &&
+            !event.currentTarget.open
+          )
+            setQuery('');
+        }}
         onCancel={(event) => {
           event.preventDefault();
           close();

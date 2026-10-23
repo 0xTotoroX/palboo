@@ -38,10 +38,15 @@ export function useSettingsMotion(identity: string) {
     if (reduce.matches || document.documentElement.dataset.settingsInput === 'keyboard') return;
     const animation = element.animate(
       [
-        { opacity: 0.65, transform: 'translateY(5px)' },
+        { opacity: 0.65, transform: 'translateY(4px)' },
         { opacity: 1, transform: 'none' },
       ],
-      { duration: 220, easing: 'cubic-bezier(.23,1,.32,1)' },
+      {
+        duration: 220,
+        easing:
+          getComputedStyle(element).getPropertyValue('--settings-ease').trim() ||
+          'cubic-bezier(.2,.7,.2,1)',
+      },
     );
     const cancel = () => animation.cancel();
     reduce.addEventListener('change', cancel);

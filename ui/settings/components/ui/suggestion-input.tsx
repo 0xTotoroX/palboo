@@ -1,5 +1,5 @@
 /* [INPUT]: Editable text, suggestions, optional dropdown loading/status and the caller's draft callback.
- * [OUTPUT]: Accessible free-text combobox with a themed suggestion list.
+ * [OUTPUT]: Accessible free-text combobox with an animated, retained suggestion list; closing content is inert.
  * [POS]: Settings UI only; selection updates the same draft without submitting a form.
  * [PROTOCOL]: Keep components/ui/AGENTS.md in sync. */
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ComponentProps } from 'react';
@@ -43,6 +43,8 @@ export function SuggestionInput({
   );
   const expanded = open && !props.disabled && (!!dropdown || matches.length > 0);
   const index = active >= 0 ? Math.min(active, matches.length - 1) : -1;
+  const lastMatches = useRef<string[]>([]);
+  const shownMatches = expanded ? matches : lastMatches.current;
 
   function show() {
     const box = input.current?.getBoundingClientRect();
@@ -61,6 +63,9 @@ export function SuggestionInput({
     show();
     dropdown?.onOpen();
   }
+  useLayoutEffect(() => {
+    if (expanded) lastMatches.current = matches;
+  });
   useLayoutEffect(() => {
     if (expanded && index >= 0) list.current?.children[index]?.scrollIntoView({ block: 'nearest' });
   }, [expanded, index]);
@@ -160,39 +165,40 @@ export function SuggestionInput({
           />
         </IconButton>
       )}
-      {expanded && (
-        <ul
-          ref={list}
-          id={id}
-          role="listbox"
-          aria-label={dropdown?.label || '可选建议'}
-          aria-busy={dropdown?.loading || undefined}
-          className="settings-suggestion-list"
-          data-above={above}
-        >
-          {dropdown && !matches.length && (
-            <li role="presentation" className="settings-suggestion-status">
-              <span role="status">
-                {dropdown.loading
-                  ? '正在读取模型…'
-                  : dropdown.message || '没有匹配的模型，可直接输入模型 ID。'}
-              </span>
-            </li>
-          )}
-          {matches.map((option, position) => (
-            <li
-              key={option}
-              id={`${id}-${position}`}
-              role="option"
-              aria-selected={position === index}
-              onPointerDown={(event) => event.preventDefault()}
-              onClick={() => choose(option)}
-            >
-              {option}
-            </li>
-          ))}
-        </ul>
-      )}
+      <ul
+        ref={list}
+        id={id}
+        role="listbox"
+        aria-label={dropdown?.label || '可选建议'}
+        aria-busy={dropdown?.loading || undefined}
+        className="settings-suggestion-list settings-menu-motion"
+        hidden={!expanded}
+        inert={!expanded}
+        aria-hidden={!expanded}
+        data-above={above}
+      >
+        {dropdown && !shownMatches.length && (
+          <li role="presentation" className="settings-suggestion-status">
+            <span role="status">
+              {dropdown.loading
+                ? '正在读取模型…'
+                : dropdown.message || '没有匹配的模型，可直接输入模型 ID。'}
+            </span>
+          </li>
+        )}
+        {shownMatches.map((option, position) => (
+          <li
+            key={option}
+            id={`${id}-${position}`}
+            role="option"
+            aria-selected={position === index}
+            onPointerDown={(event) => event.preventDefault()}
+            onClick={() => choose(option)}
+          >
+            {option}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

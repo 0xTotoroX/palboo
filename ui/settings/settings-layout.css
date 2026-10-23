@@ -756,17 +756,6 @@ html:root .settings-nav {
   border: 1px solid var(--buddy-border);
   border-radius: 9px;
   box-shadow: var(--settings-menu-shadow);
-  opacity: 0;
-  transform: translateY(-6px);
-  transition:
-    opacity 180ms ease,
-    transform 180ms var(--settings-ease),
-    display 180ms allow-discrete,
-    overlay 180ms allow-discrete;
-}
-.settings-search-dialog[open] {
-  opacity: 1;
-  transform: none;
 }
 .settings-search-dialog::backdrop {
   background: #0003;
@@ -791,17 +780,6 @@ html:root .settings-nav {
   padding: 0;
   border: 0;
   box-shadow: none;
-}
-@starting-style {
-  .settings-search-dialog[open] {
-    opacity: 0;
-    transform: translateY(-6px);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .settings-search-dialog {
-    transition: none;
-  }
 }
 
 .settings-search-dialog li button {

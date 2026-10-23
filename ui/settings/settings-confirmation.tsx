@@ -1,5 +1,5 @@
 /* [INPUT]: Explicit action, consequence text and optional configuration revision.
- * [OUTPUT]: Shared confirmation dialog with safe initial focus, cancellation and failure feedback.
+ * [OUTPUT]: Shared confirmation dialog with safe initial focus, retained inert exit content, cancellation and failure feedback.
  * [POS]: Settings-only presentation; opening/cancelling never executes the supplied action.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 import { useEffect, useId, useRef, useState, type ComponentProps } from 'react';
@@ -18,6 +18,7 @@ export function useConfirmation(revision?: number | string, blocked = false) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const flight = useRef(false);
+  const lastContent = useRef<Omit<Confirmation, 'action'> | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const id = useId();
   const latest = useRef({ revision, blocked });
@@ -29,6 +30,8 @@ export function useConfirmation(revision?: number | string, blocked = false) {
   }, [pending]);
   function confirm(options: Confirmation) {
     if (flight.current) return;
+    const { action, ...content } = options;
+    lastContent.current = content;
     setError('');
     setPending({ ...options, revision });
   }
@@ -56,6 +59,7 @@ export function useConfirmation(revision?: number | string, blocked = false) {
     <dialog
       ref={dialog}
       className="settings-key-dialog"
+      inert={!pending}
       data-settings-navigation
       aria-labelledby={`${id}-title`}
       aria-describedby={`${id}-description`}
@@ -64,9 +68,9 @@ export function useConfirmation(revision?: number | string, blocked = false) {
         else setPending(null);
       }}
     >
-      <h3 id={`${id}-title`}>{pending?.title}</h3>
+      <h3 id={`${id}-title`}>{lastContent.current?.title}</h3>
       <p id={`${id}-description`} className="mt-3 text-sm text-muted-foreground">
-        {pending?.description}
+        {lastContent.current?.description}
       </p>
       {error && (
         <p role="alert" className="settings-error mt-3 text-sm">
@@ -91,7 +95,7 @@ export function useConfirmation(revision?: number | string, blocked = false) {
           aria-busy={busy}
           onClick={() => void run()}
         >
-          {busy ? '处理中…' : pending?.confirmLabel || '确认'}
+          {busy ? '处理中…' : lastContent.current?.confirmLabel || '确认'}
         </Button>
       </div>
     </dialog>

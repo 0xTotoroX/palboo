@@ -10,7 +10,7 @@ import { cn } from '@/utils';
 import { inputStyles } from './input';
 export function NativeSelect({ className, ...props }: React.ComponentProps<'select'>) {
   return (
-    <div className="relative w-full">
+    <div className="settings-native-select relative w-full">
       <select
         data-slot="native-select"
         className={cn(inputStyles, 'appearance-none pr-8', className)}

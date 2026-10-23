@@ -1,5 +1,5 @@
 /* [INPUT]: Authenticated Codex theme snapshot, shared icons and this origin's display preference.
- * [OUTPUT]: Light/dark settings theme and a compact trigger with three retained preference options.
+ * [OUTPUT]: Light/dark settings theme and a compact animated menu with retained, inert closing options.
  * [POS]: Settings-only preference; revision-checked Palboo persistence, never writes Codex appearance.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
@@ -168,10 +168,12 @@ export function SettingsTheme({
       <div
         id={menuId}
         ref={menu}
-        className="settings-theme-menu"
+        className="settings-theme-menu settings-menu-motion"
         role="group"
         aria-label="设置页主题"
         hidden={!open}
+        inert={!open}
+        aria-hidden={!open}
         onKeyDown={(event) => {
           if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
           event.preventDefault();

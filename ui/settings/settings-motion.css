@@ -1,7 +1,13 @@
 /* [INPUT]: Settings markup, theme variables and pointer/keyboard modality.
- * [OUTPUT]: Consistent theme, mode, control, menu and disclosure transitions.
+ * [OUTPUT]: Shared reversible menu/dialog motion, theme/control feedback and immediate keyboard/reduced-motion states.
  * [POS]: Visual feedback only; native actions and form mounting stay unchanged.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
+html:root {
+  --settings-menu-enter: 180ms;
+  --settings-menu-exit: 140ms;
+  --settings-panel-enter: 220ms;
+  --settings-panel-exit: 160ms;
+}
 html:root,
 body,
 .settings-header,
@@ -22,15 +28,47 @@ body,
 .settings-app button:active:not(:disabled):not([role='switch']) {
   transform: scale(0.97);
 }
-.settings-search ul,
-.settings-suggestion-list {
-  transform-origin: top center;
+/* Retain the surface until its fade finishes; React makes closing content inert. */
+.settings-menu-motion {
+  --settings-menu-offset: -4px;
+  opacity: 0;
+  transform: translateY(var(--settings-menu-offset)) scale(0.985);
+  transform-origin: top left;
+  pointer-events: none;
   transition:
-    opacity 140ms ease,
-    transform 180ms var(--settings-ease);
+    opacity var(--settings-menu-exit) var(--settings-ease),
+    transform var(--settings-menu-exit) var(--settings-ease),
+    display var(--settings-menu-exit) allow-discrete;
+}
+.settings-menu-motion:not([hidden]) {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+  transition-duration: var(--settings-menu-enter);
+}
+.settings-theme-menu {
+  transform-origin: top right;
 }
 .settings-suggestion-list[data-above='true'] {
-  transform-origin: bottom center;
+  --settings-menu-offset: 4px;
+  transform-origin: bottom left;
+}
+@starting-style {
+  .settings-menu-motion:not([hidden]) {
+    opacity: 0;
+    transform: translateY(var(--settings-menu-offset)) scale(0.985);
+  }
+}
+.settings-native-select > .buddy-icon,
+.settings-suggestion-trigger .settings-action-layer:first-child > .buddy-icon,
+.settings-nav-trigger .buddy-icon {
+  transition: rotate var(--settings-menu-enter) var(--settings-ease);
+}
+.settings-native-select:has(> select:open) > .buddy-icon,
+.settings-suggestion-trigger[aria-expanded='true']
+  .settings-action-layer:first-child
+  > .buddy-icon {
+  rotate: 180deg;
 }
 @media (max-width: 640px) {
   .settings-category-links {
@@ -39,21 +77,18 @@ body,
     transform-origin: top left;
     pointer-events: none;
     transition:
-      opacity 140ms var(--settings-ease),
-      transform 140ms var(--settings-ease),
-      display 140ms allow-discrete;
+      opacity var(--settings-menu-exit) var(--settings-ease),
+      transform var(--settings-menu-exit) var(--settings-ease),
+      display var(--settings-menu-exit) allow-discrete;
   }
   .settings-nav[data-open='true'] .settings-category-links {
     opacity: 1;
     transform: none;
     pointer-events: auto;
-    transition-duration: 180ms;
-  }
-  .settings-nav-trigger .buddy-icon {
-    transition: transform 180ms var(--settings-ease);
+    transition-duration: var(--settings-menu-enter);
   }
   .settings-nav[data-open='true'] .settings-nav-trigger .buddy-icon {
-    transform: rotate(180deg);
+    rotate: 180deg;
   }
   @starting-style {
     .settings-nav[data-open='true'] .settings-category-links {
@@ -62,28 +97,97 @@ body,
     }
   }
 }
-@starting-style {
-  .settings-search ul,
-  .settings-suggestion-list {
-    opacity: 0;
-    transform: translateY(-3px) scale(0.985);
-  }
-}
 @supports (appearance: base-select) {
   .settings-app select[data-slot='native-select']::picker(select) {
-    transform-origin: top center;
+    opacity: 0;
+    transform: translateY(-4px) scale(0.985);
+    transform-origin: top left;
+    pointer-events: none;
     transition:
-      opacity 140ms ease,
-      transform 180ms var(--settings-ease),
-      display 180ms allow-discrete,
-      overlay 180ms allow-discrete;
+      opacity var(--settings-menu-exit) var(--settings-ease),
+      transform var(--settings-menu-exit) var(--settings-ease),
+      display var(--settings-menu-exit) allow-discrete,
+      overlay var(--settings-menu-exit) allow-discrete;
+  }
+  .settings-app select[data-slot='native-select']:open::picker(select) {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+    transition-duration: var(--settings-menu-enter);
   }
   @starting-style {
     .settings-app select[data-slot='native-select']:open::picker(select) {
       opacity: 0;
-      transform: translateY(-3px) scale(0.985);
+      transform: translateY(-4px) scale(0.985);
     }
   }
+}
+
+/* Dialogs share the menu rhythm, with a longer travel for the right-hand sheet. */
+:is(.settings-drawer, .settings-search-dialog, .settings-key-dialog) {
+  --settings-dialog-enter: var(--settings-menu-enter);
+  --settings-dialog-exit: var(--settings-menu-exit);
+  --settings-dialog-from: translateY(4px) scale(0.985);
+  opacity: 0;
+  transform: var(--settings-dialog-from);
+  pointer-events: none;
+  transition:
+    opacity var(--settings-dialog-exit) var(--settings-ease),
+    transform var(--settings-dialog-exit) var(--settings-ease),
+    display var(--settings-dialog-exit) allow-discrete,
+    overlay var(--settings-dialog-exit) allow-discrete;
+}
+.settings-drawer {
+  --settings-dialog-enter: var(--settings-panel-enter);
+  --settings-dialog-exit: var(--settings-panel-exit);
+  --settings-dialog-from: translateX(16px);
+}
+.settings-search-dialog {
+  --settings-dialog-from: translateY(-4px) scale(0.985);
+}
+:is(.settings-drawer, .settings-search-dialog, .settings-key-dialog)[open] {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+  transition-duration: var(--settings-dialog-enter);
+}
+:is(.settings-drawer, .settings-search-dialog, .settings-key-dialog)::backdrop {
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity var(--settings-dialog-exit) var(--settings-ease),
+    display var(--settings-dialog-exit) allow-discrete,
+    overlay var(--settings-dialog-exit) allow-discrete;
+}
+:is(.settings-drawer, .settings-search-dialog, .settings-key-dialog)[open]::backdrop {
+  opacity: 1;
+  pointer-events: auto;
+  transition-duration: var(--settings-dialog-enter);
+}
+@starting-style {
+  :is(.settings-drawer, .settings-search-dialog, .settings-key-dialog)[open] {
+    opacity: 0;
+    transform: var(--settings-dialog-from);
+  }
+  :is(.settings-drawer, .settings-search-dialog, .settings-key-dialog)[open]::backdrop {
+    opacity: 0;
+  }
+}
+.settings-drawer-trigger > .buddy-icon {
+  transition: translate 160ms var(--settings-ease);
+}
+@media (hover: hover) and (pointer: fine) {
+  .settings-drawer-trigger:hover > .buddy-icon {
+    translate: 2px 0;
+  }
+}
+.settings-app [data-slot='switch-thumb'] {
+  transition:
+    translate 160ms var(--settings-ease),
+    scale 120ms var(--settings-ease);
+}
+.settings-app [data-slot='switch']:active:not(:disabled) [data-slot='switch-thumb'] {
+  scale: 0.94;
 }
 @supports (interpolate-size: allow-keywords) and selector(details::details-content) {
   .settings-app details {
@@ -120,8 +224,18 @@ body,
 html[data-settings-input='keyboard'],
 html[data-settings-input='keyboard'] :is(body, .settings-header, .preview-frame),
 html[data-settings-input='keyboard'] .settings-app :is(button, a, input, select, textarea),
-html[data-settings-input='keyboard'] .settings-search ul,
-html[data-settings-input='keyboard'] .settings-suggestion-list,
+html[data-settings-input='keyboard'] .settings-menu-motion,
+html[data-settings-input='keyboard']
+  :is(.settings-drawer, .settings-search-dialog, .settings-key-dialog),
+html[data-settings-input='keyboard']
+  :is(.settings-drawer, .settings-search-dialog, .settings-key-dialog)::backdrop,
+html[data-settings-input='keyboard'] .settings-native-select > .buddy-icon,
+html[data-settings-input='keyboard']
+  .settings-suggestion-trigger
+  .settings-action-layer:first-child
+  > .buddy-icon,
+html[data-settings-input='keyboard'] .settings-drawer-trigger > .buddy-icon,
+html[data-settings-input='keyboard'] [data-slot='switch-thumb'],
 html[data-settings-input='keyboard'] .settings-category-links,
 html[data-settings-input='keyboard'] .settings-nav-trigger .buddy-icon,
 html[data-settings-input='keyboard'] .settings-app details::details-content,
@@ -131,12 +245,19 @@ html[data-settings-input='keyboard'] .settings-app select::picker(select) {
 html[data-settings-input='keyboard'] .settings-app button:active {
   transform: none;
 }
+html[data-settings-input='keyboard'] .settings-feedback {
+  animation: none;
+}
+html[data-settings-input='keyboard'] [data-slot='switch']:active [data-slot='switch-thumb'] {
+  scale: none;
+}
 @media (prefers-reduced-motion: reduce) {
   html:root,
   body,
   .settings-app *,
   .settings-app *::before,
   .settings-app *::after,
+  .settings-app dialog::backdrop,
   .settings-app details::details-content,
   .settings-app select::picker(select) {
     animation: none !important;

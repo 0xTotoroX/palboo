@@ -7,8 +7,8 @@
 - [button.tsx](button.tsx)：Button 提供按钮变体与内边距，Slot 支持复用子元素；IconButton 复用同一个 Button，要求 aria-label，默认普通按钮/ghost，可显式保留 submit、其他变体、ref 和全部原事件，不添加 DOM 包装或 Tooltip。
 - [action-feedback.tsx](action-feedback.tsx)：接收真实请求状态，固定18px的操作/等待/成功图标和等宽文字；成功勾号默认短暂保留，retainSuccess可保留真实结果；标签原位160ms切换，不发请求。键盘保留等待指示，减少动态效果使用静态状态。
 - [input.tsx](input.tsx)：输入框及输入控件的公共样式。
-- [suggestion-input.tsx](suggestion-input.tsx)：可自由输入的候选框；键盘/指针选择只更新原草稿，Esc 取消、输入法确认不选取，普通失焦沿用调用方保存流程；列表沿用共用菜单样式并在底部空间不足时向上显示。可选 dropdown 属性提供展开箭头、读取回调及忙碌/成功/空/错误状态，主动展开显示全部候选、输入时过滤；外部点击和 Esc 关闭，组件不发网络请求。箭头使用共享图标。
-- [native-select.tsx](native-select.tsx)：保留原生选择语义与事件的下拉框，复用输入样式。settings-controls.css 在支持 base-select 的浏览器中统一弹出菜单、选中态与键盘焦点，不支持时保留原生菜单；不改变 onChange、禁用选项或保存流程。
+- [suggestion-input.tsx](suggestion-input.tsx)：可自由输入的候选框；键盘/指针选择只更新原草稿，Esc 取消、输入法确认不选取，普通失焦沿用调用方保存流程；列表沿用共用菜单样式并在底部空间不足时向上显示。可选 dropdown 属性提供展开箭头、读取回调及忙碌/成功/空/错误状态，主动展开显示全部候选、输入时过滤；外部点击和 Esc 关闭，组件不发网络请求。箭头使用共享图标；列表常驻并冻结退出选项，收起立即inert/aria-hidden，共用180ms进入/140ms退出，向上列表从输入框所在的底边展开。
+- [native-select.tsx](native-select.tsx)：保留原生选择语义与事件的下拉框，复用输入样式。settings-controls.css 在支持 base-select 的浏览器中统一弹出菜单、选中态与键盘焦点，不支持时保留原生菜单；settings-motion.css统一进出过渡与箭头旋转，不改变 onChange、禁用选项或保存流程。
 - [card.tsx](card.tsx)：语义设置分组，沿用共享留白，不重复叠加卡片边框。
 - [switch.tsx](switch.tsx)：Radix 开关负责键盘与受控状态，保留独立挂载时的基础尺寸；settings-controls.css 统一设置页内的轨道、滑块与位移动画。
 - [LICENSE](LICENSE)：shadcn/ui 原始 MIT 许可，分发时并入第三方声明。

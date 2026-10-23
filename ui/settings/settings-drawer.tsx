@@ -1,5 +1,5 @@
 /* [INPUT]: Existing mounted settings content and presentation-only open/close requests.
- * [OUTPUT]: Accessible right-side drawer, retained drafts/scroll and anchor reveal helpers.
+ * [OUTPUT]: Accessible right-side drawer, inert closing content, retained drafts/scroll and anchor reveal helpers.
  * [POS]: Settings presentation; keeps native form ownership and never writes configuration.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 import { useEffect, useLayoutEffect, useId, useRef, useState, type ReactNode } from 'react';
@@ -50,6 +50,7 @@ export function SettingsDrawer({
   function show() {
     if (!dialog.current || dialog.current.open || wrapper.current?.closest('[hidden]')) return;
     closeSettingsDrawers(wrapper.current);
+    dialog.current.inert = false;
     dialog.current.showModal();
     setOpen(true);
     heading.current?.focus({ preventScroll: true });
@@ -63,6 +64,7 @@ export function SettingsDrawer({
       nested.close();
     closeButton.current?.focus({ preventScroll: true });
     dialog.current.close();
+    dialog.current.inert = true;
     setOpen(false);
     trigger.current?.focus({ preventScroll: true });
   }
