@@ -56,3 +56,5 @@ EditableSettings.grokbotAutoSync 默认开启，控制本机资料监听，独�
 - `brand-storage.js`：仅首次复制旧 codex-buddy 前缀偏好至 palboo 前缀，值原样保留、新键优先、旧键不删除；分别处理 localStorage/sessionStorage，受限存储不阻塞启动。constants 与设置主题在读取偏好前复用。
 
 PanelPreferences.sidebarNewChat/sidebarDots 为兼容旧快照的可选布尔字段，缺省均关闭；由 Web 外观设置保存，运行时与窗口投影保留。
+
+Settings 的 builtInDirections/directionLibraryLimit 是后台只读目录及上限，EditableSettings 仍只提交本机方向库和位置；前端按内置 ID 区分来源，不能用显示名称判断系统方向。

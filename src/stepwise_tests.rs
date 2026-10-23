@@ -139,14 +139,22 @@ async fn smart_shares_snapshot_and_does_not_mechanically_rank_top_n() {
     model.options.direction_source = DirectionSource::Smart;
     model.options.max_items = 2;
     model.options.direction_library[0].enabled = false;
+    let expected = model.options.direction_library.len() - 1;
     model.generate_exchange(&exchange()).await.unwrap();
     let calls = &state.lock().await.calls;
     assert_eq!(calls.len(), 2);
     assert_eq!(calls[0]["stage"], "judge");
-    assert_eq!(calls[0]["body"]["questions"].as_object().unwrap().len(), 5);
+    assert_eq!(
+        calls[0]["body"]["questions"].as_object().unwrap().len(),
+        expected
+    );
+    assert!(calls[0]["body"]["questions"].get("advance").is_none());
     let input: Value = serde_json::from_str(calls[1]["body"]["input"].as_str().unwrap()).unwrap();
     assert_eq!(input["exchange"], calls[0]["body"]["state"]);
-    assert_eq!(input["suppliedDirections"].as_array().unwrap().len(), 5);
+    assert_eq!(
+        input["suppliedDirections"].as_array().unwrap().len(),
+        expected
+    );
     task.abort();
 }
 

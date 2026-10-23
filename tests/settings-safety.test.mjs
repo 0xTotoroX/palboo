@@ -1,5 +1,5 @@
 /* [INPUT]: Actual settings components/save queue and isolated synthetic APIs.
- * [OUTPUT]: Cancellation/confirmation, Jev key preservation and partial-import failure coverage.
+ * [OUTPUT]: Confirmation, direction provenance/default restoration, Jev key preservation and partial-import failure coverage.
  * [POS]: Fake configuration only; never deletes live data or restarts Codex.
  * [PROTOCOL]: Keep tests/AGENTS.md in sync. */
 import test from 'node:test';
@@ -66,7 +66,7 @@ createRoot(document.getElementById('root')).render(<App/>);`,
         failPrompt = false,
         failImport = false;
       const writes = [];
-      await page.route('http://safety.test/**', async (route) => {
+      await page.route('https://safety.test/**', async (route) => {
         const url = new URL(route.request().url()),
           body = route.request().postDataJSON();
         if (!url.pathname.startsWith('/api/'))
@@ -104,7 +104,7 @@ createRoot(document.getElementById('root')).render(<App/>);`,
         }
         await route.fulfill({ json: result });
       });
-      await page.goto('http://safety.test/');
+      await page.goto('https://safety.test/');
       await page.evaluate((value) => (window.fixture = value), settings);
       await page.addScriptTag({ content: script });
       const dialog = page.locator('.settings-key-dialog[open]');
@@ -156,6 +156,44 @@ createRoot(document.getElementById('root')).render(<App/>);`,
       await page.locator('input#jev-key').waitFor();
       assert.equal(settings.storedJevApiKey, false);
       assert.equal(settings.apiKeyConfigured, true);
+      const builtIns = page.getByRole('region', { name: '系统自带', exact: true });
+      const customs = page.getByRole('region', { name: '自定义', exact: true });
+      assert.equal(await builtIns.locator('.settings-entry').count(), 3);
+      assert.equal(await customs.locator('.settings-entry').count(), 0);
+      const selectedBefore = [...settings.selectedDirections];
+      await page
+        .getByRole('textbox', { name: '倾向说明 1', exact: true })
+        .fill('自己修改的推进说明');
+      await page
+        .getByRole('button', { name: '恢复方向 整体推进 的系统默认', exact: true })
+        .waitFor();
+      assert.equal(await builtIns.getByTitle('已修改，恢复系统默认').count(), 1);
+      assert.equal(await builtIns.getByText('已修改', { exact: true }).count(), 0);
+      await page.getByRole('button', { name: '恢复方向 整体推进 的系统默认', exact: true }).click();
+      await page.waitForFunction(
+        () => !document.querySelector('[aria-label="恢复方向 整体推进 的系统默认"]'),
+      );
+      await page.getByRole('button', { name: '添加自定义方向', exact: true }).click();
+      await page.getByRole('textbox', { name: '方向名称 4', exact: true }).fill('用户自定义');
+      await page.getByRole('textbox', { name: '倾向说明 4', exact: true }).fill('只对这台设备保存');
+      await Promise.all([
+        page.waitForResponse(
+          (r) => r.url().endsWith('/api/settings') && r.request().method() === 'POST',
+        ),
+        page.getByRole('heading', { name: '建议方向', exact: true }).click(),
+      ]);
+      assert.equal(await customs.locator('.settings-entry').count(), 1);
+      assert.equal(await customs.getByText('已修改', { exact: true }).count(), 0);
+      assert.equal(
+        settings.directionLibrary[0].instruction,
+        fixtureSettings.builtInDirections[0].instruction,
+      );
+      assert.deepEqual(settings.selectedDirections, selectedBefore);
+      assert.ok(
+        writes
+          .filter((w) => w.path === '/api/settings')
+          .every((w) => !('builtInDirections' in w.body)),
+      );
       const beforeDirections = structuredClone(settings.directionLibrary);
       await page
         .getByRole('button', { name: `删除方向 ${beforeDirections[0].name}`, exact: true })

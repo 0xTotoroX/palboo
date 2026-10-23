@@ -131,7 +131,17 @@ mod tests {
             })
             .collect();
         let value = json!({"answers": answers});
-        assert_eq!(selected_from(&value, &candidates).unwrap().len(), 5);
+        assert_eq!(
+            selected_from(&value, &candidates)
+                .unwrap()
+                .iter()
+                .map(|d| d.id.as_str())
+                .collect::<Vec<_>>(),
+            candidates[1..]
+                .iter()
+                .map(|d| d.id.as_str())
+                .collect::<Vec<_>>()
+        );
         let mut missing = value.clone();
         missing["answers"].as_object_mut().unwrap().remove("gaps");
         assert!(selected_from(&missing, &candidates).is_err());

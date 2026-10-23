@@ -1,6 +1,6 @@
 import { measureWork } from '../shared/performance.js';
 /* [INPUT]: Palboo 已识别的聊天根节点、一问一答与受限后台请求。
- * [OUTPUT]: 术语加粗标注、悬停释义与按聊天身份定位已确认范围；销毁恢复自有高亮，不改变宿主正文。
+ * [OUTPUT]: 术语标注与悬停释义；部分失败保留已确认范围并有限重试，销毁恢复自有高亮，不改变宿主正文。
  * [POS]: 术语显示旁路；不读取输入草稿、不向主聊天写内容。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { readTypography } from '../codex/typography.js';
@@ -38,6 +38,13 @@ export function installTerminology({ request, getRoot, getExchange, isBusy }) {
     retryAt = 0,
     failures = 0;
   const cache = new Map();
+  function failedAnalysis() {
+    failures++;
+    if (failures < 3) {
+      lastAnalysis = '';
+      retryAt = Date.now() + 30000;
+    }
+  }
   const ACTIVE = HIGHLIGHT + '-active';
   const LOCATED = HIGHLIGHT + '-located';
   let point = { x: 0, y: 0 },
@@ -307,12 +314,19 @@ export function installTerminology({ request, getRoot, getExchange, isBusy }) {
       if (!alive || pending !== id || root !== originalRoot || identity()?.key !== exchange.key)
         return;
       semanticMatches = result.matches || [];
-      cache.set(exchange.key, { context: exchange.sessionId, matches: semanticMatches });
+      cache.set(exchange.key, {
+        context: exchange.sessionId,
+        matches: semanticMatches,
+        complete: !result.warning,
+      });
       if (cache.size > 32) cache.delete(cache.keys().next().value);
-      failures = 0;
-      retryAt = 0;
       phase = result.warning ? 'error' : 'ready';
       apiObject.lastError = result.warning || '';
+      if (result.warning) failedAnalysis();
+      else {
+        failures = 0;
+        retryAt = 0;
+      }
       const updated = await api({ action: 'state' });
       if (!alive || pending !== id) return;
       state = updated;
@@ -321,11 +335,7 @@ export function installTerminology({ request, getRoot, getExchange, isBusy }) {
       if (alive && pending === id) {
         apiObject.lastError = e.message;
         phase = 'error';
-        failures++;
-        if (failures < 3) {
-          lastAnalysis = '';
-          retryAt = Date.now() + 30000;
-        }
+        failedAnalysis();
         scan();
       }
     } finally {

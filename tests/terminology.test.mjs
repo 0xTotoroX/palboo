@@ -620,3 +620,60 @@ test('context adapter uses the preceding completed turn and never another chat w
     await browser.close();
   }
 });
+
+test('partial expansion failure preserves confirmed marks, retries and stops after three failures', async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage();
+    await page.clock.install();
+    await page.setContent('<main style="margin:80px"><p>这是竞态条件。</p></main>');
+    await page.addScriptTag({ content: bundle });
+    await page.evaluate(async () => {
+      window.state.preferences.semantic = true;
+      await window.__palbooTerminology.refresh();
+    });
+    const requests = () =>
+      page.evaluate(() => window.calls.filter((c) => c.path.endsWith('/analyze')).length);
+    const reply = (warning) =>
+      page.evaluate((warning) => {
+        const finish = window.semanticReply;
+        window.semanticReply = null;
+        finish({
+          matches: [{ id: 'TERM-1', quote: '这是竞态条件。' }],
+          ...(warning ? { warning } : {}),
+        });
+      }, warning);
+    await page.clock.runFor(2100);
+    assert.equal(await requests(), 1);
+    await reply('公共资料检索失败：请求超时');
+    await page.waitForFunction(() => window.__palbooTerminology.lastError.includes('检索失败'));
+    assert.equal(await page.evaluate(() => CSS.highlights.get('palboo-terms')?.size), 1);
+    await page.clock.runFor(29000);
+    assert.equal(await requests(), 1, 'partial failures must respect the retry delay');
+    await page.clock.runFor(2100);
+    assert.equal(await requests(), 2, 'partial result is not cached as completed');
+    await reply('');
+    await page.waitForFunction(() => window.__palbooTerminology.lastError === '');
+    await page.clock.runFor(61000);
+    assert.equal(await requests(), 2, 'successful retry stays cached');
+    assert.equal(await page.evaluate(() => CSS.highlights.get('palboo-terms')?.size), 1);
+    // A new exchange gets its own bounded attempts, while old verified marks remain.
+    await page.evaluate(() => {
+      window.answer = '这还是竞态条件。';
+    });
+    await page.clock.runFor(2100);
+    for (let attempt = 0; attempt < 3; attempt++) {
+      assert.equal(await requests(), 3 + attempt);
+      await reply('术语释义生成失败：请求超时');
+      await page.waitForFunction(() =>
+        window.__palbooTerminology.lastError.includes('释义生成失败'),
+      );
+      await page.clock.runFor(31000);
+    }
+    await page.clock.runFor(61000);
+    assert.equal(await requests(), 5, 'repeated partial errors stop after three attempts');
+    await page.evaluate(() => window.__palbooTerminology.destroy());
+  } finally {
+    await browser.close();
+  }
+});

@@ -27,6 +27,12 @@ export const fixtureSettings = {
     { id: 'gaps', name: '检查遗漏', instruction: '检查真实遗漏', enabled: true },
     { id: 'understand', name: '理解解释', instruction: '解释必要概念', enabled: true },
   ],
+  builtInDirections: [
+    { id: 'advance', name: '整体推进', instruction: '推进完整目标', enabled: true },
+    { id: 'gaps', name: '检查遗漏', instruction: '检查真实遗漏', enabled: true },
+    { id: 'understand', name: '理解解释', instruction: '解释必要概念', enabled: true },
+  ],
+  directionLibraryLimit: 36,
   selectedDirections: [],
   jev: { consent: false, endpoint: 'https://api.typesafe.ai/v1/systemone', model: 'jev-latest' },
   jevKeyConfigured: false,

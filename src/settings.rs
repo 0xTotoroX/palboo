@@ -1,5 +1,5 @@
 // [INPUT]: App、有效模型配置与私有配置/密钥文件。
-// [OUTPUT]: 三种方向来源/库/位置/Jev 设置与独立密钥保存、并发保存版本与有效生成版本；快捷指令编辑只接受列表和必填修订号。
+// [OUTPUT]: 三种方向来源/库/位置/Jev 设置、只读内置目录及独立密钥保存、并发保存版本与有效生成版本；快捷指令编辑只接受列表和必填修订号。
 // [POS]: 设置事务边界；共享连接和各功能请求分域取消；无关大纲开关与常用提示词修改不取消生成；maxInputChars=0 表示完整最近一问一答，旧正数上限保留。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
@@ -30,6 +30,8 @@ pub struct Options {
     pub max_items: usize,
     pub direction_source: crate::directions::DirectionSource,
     pub direction_library: Vec<crate::directions::Direction>,
+    #[serde(default)]
+    pub direction_catalog_version: u32,
     pub selected_directions: Vec<String>,
     pub jev: crate::jev::Options,
     pub quick_prompts: Vec<QuickPrompt>,
@@ -363,6 +365,7 @@ impl Default for Options {
             max_items: 3,
             direction_source: Default::default(),
             direction_library: crate::directions::defaults(),
+            direction_catalog_version: crate::directions::CATALOG_VERSION,
             selected_directions: vec![],
             jev: Default::default(),
             quick_prompts: ["继续", "执行"]
@@ -420,6 +423,8 @@ impl App {
         let mut value = serde_json::to_value(&config.stepwise).expect("settings serialize");
         let fields = value.as_object_mut().expect("settings object");
         fields.extend(json!({
+            "builtInDirections": crate::directions::defaults(),
+            "directionLibraryLimit": crate::directions::LIBRARY_LIMIT,
             "hostRestartPolicy": config.host_restart_policy,
             "popoutSupported": self.panel.lock().await.popout_supported,
             "taskBoardEnabled": self.tasks.board_enabled().await,
