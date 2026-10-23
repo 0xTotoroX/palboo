@@ -57,7 +57,7 @@ test(
       ui: {
         width: 500,
         height: 620,
-        dockWidth: 340,
+        dockWidth: 688.6875,
         layoutMode: 'workbench',
         open: true,
         dockOpen: true,
@@ -643,6 +643,26 @@ test(
           true,
           `${label} is directly visible`,
         );
+      const dockWidth = page.getByLabel('侧栏宽度（px）', { exact: true });
+      assert.equal(await dockWidth.inputValue(), '689');
+      const beforeWidth = writes.length;
+      await dockWidth.focus();
+      await dockWidth.press('Tab');
+      assert.equal(
+        writes.length,
+        beforeWidth,
+        'reading a rounded width does not rewrite saved geometry',
+      );
+      await dockWidth.fill('700.7');
+      await Promise.all([
+        page.waitForResponse(
+          (response) =>
+            response.url().endsWith('/api/appearance') && response.request().method() === 'POST',
+        ),
+        dockWidth.press('Enter'),
+      ]);
+      assert.equal(await dockWidth.inputValue(), '701');
+      assert.equal(appearance.ui.dockWidth, 701, 'settings edits save integer pixels');
       await category('appearance');
       await page.getByLabel('自定义字号（px）', { exact: true }).waitFor();
       assert.equal(await page.getByLabel('自定义字号（px）', { exact: true }).inputValue(), '17');

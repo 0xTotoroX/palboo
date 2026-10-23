@@ -1,5 +1,5 @@
 /* [INPUT]: 版本化外观偏好与认证 API。
- * [OUTPUT]: 下一步的显示/点击设置，及按布局/外观页面显示的全局字体、侧栏页面开关、宽度和置顶设置，草稿持续挂载。
+ * [OUTPUT]: 下一步的显示/点击设置，及按布局/外观页面显示的全局字体、侧栏页面开关、整数宽度和置顶设置，草稿持续挂载。
  * [POS]: 保留有效旧字段的设置适配；不再编辑旧两功能布局、主题或窗口归属。
  * [PROTOCOL]: 变更时同步 settings/AGENTS.md。 */
 import { DOCK_MIN_WIDTH } from '../surfaces/embedded/width.js';
@@ -100,7 +100,7 @@ export function PanelSettings({
               )
                 return;
               const entered = e.currentTarget.valueAsNumber;
-              const n = decimal ? Math.round(entered * 10) / 10 : entered;
+              const n = decimal ? Math.round(entered * 10) / 10 : Math.round(entered);
               if (Number.isFinite(n) && n >= min && n <= max) {
                 e.currentTarget.value = String(n);
                 if (n !== value) commit(n);
@@ -209,8 +209,13 @@ export function PanelSettings({
             hidden={page === 'appearance'}
           >
             <h2>尺寸与窗口</h2>
-            {number('dock-width', '侧栏宽度（px）', ui.dockWidth, DOCK_MIN_WIDTH, Infinity, (n) =>
-              change('dockWidth', n),
+            {number(
+              'dock-width',
+              '侧栏宽度（px）',
+              Math.round(ui.dockWidth),
+              DOCK_MIN_WIDTH,
+              Infinity,
+              (n) => change('dockWidth', n),
             )}
             <div id="window-pinning">
               <Toggle
