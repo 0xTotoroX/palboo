@@ -363,6 +363,13 @@ test('saved sidebar groups reorder without losing calls, hide stale actions and 
     await page.addScriptTag({ content: bundle.outputFiles[0].text });
     await page.evaluate((v) => window.render(v), value);
     await page.getByRole('heading', { name: '工作', exact: true }).waitFor();
+    assert.equal(
+      await page
+        .locator('.palboo-bots')
+        .getByRole('heading', { name: '置顶', exact: true })
+        .count(),
+      0,
+    );
     assert.deepEqual(await page.locator('.palboo-bot-select').allTextContents(), [
       '通用',
       '随口一问',
@@ -410,6 +417,7 @@ test('saved sidebar groups reorder without losing calls, hide stale actions and 
     // Settings consume the same saved order and never reintroduce hidden profiles.
     await page.evaluate(() => window.showSettings());
     await page.locator('#settings').getByRole('button', { name: '通用', exact: true }).waitFor();
+    assert.equal(await page.locator('.bot-settings-group[data-pinned="true"]').count(), 1);
     assert.deepEqual(
       (await page.locator('#settings .settings-drawer-trigger').allTextContents()).map((text) =>
         text.trim(),

@@ -46,14 +46,15 @@ export function NextSettings({
           >
             常用提示词
           </h2>
-          <div ref={listRef} data-settings-list="quick-prompts" className="space-y-3">
+          <div ref={listRef} data-settings-list="quick-prompts" className="settings-entry-list">
             {form.quickPrompts.map((item, index) => (
               <div
                 key={promptKeys[index]}
                 data-settings-list-item={promptKeys[index]}
-                className="grid grid-cols-[120px_minmax(0,1fr)_auto] gap-3 items-start max-[600px]:grid-cols-[minmax(0,1fr)_auto] [&>textarea]:max-[600px]:col-span-full [&>textarea]:max-[600px]:row-start-2"
+                className="settings-entry settings-prompt-entry"
               >
                 <Input
+                  className="settings-entry-name"
                   aria-label={`常用提示词 ${index + 1} 名称`}
                   value={item.label}
                   maxLength={20}
@@ -72,8 +73,8 @@ export function NextSettings({
                   value={item.prompt}
                   maxLength={4000}
                   required
-                  rows={2}
-                  className="w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-[14px]"
+                  rows={1}
+                  className="settings-entry-content"
                   onChange={(e) =>
                     change(
                       'quickPrompts',

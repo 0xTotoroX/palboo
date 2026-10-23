@@ -18,7 +18,7 @@
 - [next-settings.tsx](next-settings.tsx)：下一步的方向和点击/显示行为、独立常用提示词页；按 section 隐藏原节点保留草稿；共享模型配置移入model-settings，不复制表单。
 - [model-settings.tsx](model-settings.tsx)：系统中的唯一共享模型服务/凭据表单，直接显示常规参数及协议；环境变量名与高级生成参数统一在“高级设置”抽屉中编辑；局部模型列表、密钥显示与草稿保留，调用共用SettingsEditor。模型候选使用共用 SuggestionInput，箭头/方向键主动读取已保存连接的列表，展开显示全部候选、输入过滤；读取失败或空列表仍可手填。未保存连接不读旧候选，修订号及请求序号隔离迟到结果；展开不提交草稿，保留原失焦保存。连接测试的保存中/等待耗时/成功/失败结果直接显示在按钮下方，不依赖页顶通知；保存失败不测试旧配置，编辑或修订变化清除旧结果，在途配置变更不显示为当前连接成功。
 - [model-credentials.tsx](model-credentials.tsx)：已存 API 密钥显示配置状态与更换入口，不回读原值；新草稿非空才提供眼睛，取消保留旧密钥。删除仅在高级连接设置显示，原生 dialog 默认聚焦取消，确认后走独立清除补丁；失败保留状态，确认修订过期时拒绝删除。
-- [direction-settings.tsx](direction-settings.tsx)：方向来源、方向库及有序位置、Jev 同意与独立凭据，共用模型保存队列。
+- [direction-settings.tsx](direction-settings.tsx)：方向来源、方向库及有序位置、Jev 同意与独立凭据，共用模型保存队列；名称与说明使用紧凑的一体编辑区，与常用提示词共用 settings-entry 样式。
 - [connection-settings.tsx](connection-settings.tsx)：启动策略及本机连接详情；Dev 固定启动时的目标，重连和断开不提交模型表单。
 - [use-settings-form.ts](use-settings-form.ts)：模型及两套独立密钥的草稿、修订校验、保存队列及在途编辑合并；大纲与下一步开关单独提交，不携带其他字段或密钥草稿；删除 API 密钥复用串行队列，仅发送 clearApiKey 与修订号，不携带其他草稿或将删除意图留在自动保存中；导出 SettingsEditor 供展示模块组合。
 - [panel-settings.tsx](panel-settings.tsx)：有效旧字段的分区适配；下一步显示及常用提示词/推荐指令共用的点击行为、统一字体跟随来源、相对比例及自定义字号、侧栏宽度以整数显示和提交，仅读取/聚焦不改写已有小数几何；桌面置顶逐项保存；旧 fontOffset 作为大纲与下一步的兼容回退。不再编辑旧 dockLayout/popoutLayout、位置或主题。
@@ -67,7 +67,7 @@
 
 分类按钮带data-settings-navigation；切换不触发模型表单或字号输入的失焦保存。常规模型、各形式材质、字体、窗口、功能位置、看板分组及术语识别/词库直接显示。高级设置、Jev 高级设置、模型分组与词库管理统一使用右侧抽屉，内部不嵌套折叠；手动/智能模式的方向库直接显示；Dev 来源属于高级开发配置。小字去掉装饰和重复描述，保留发送/重开后果、数据使用、环境覆盖、失败和必要状态。
 
-- codex-host-settings.tsx：详细模式“系统 → 宿主管理”独立页面，分类可见时轮询codex-host API；启停保存独立revision，安装、更新、回退、启动及重启停用均为显式操作。旧settings-codex-host锚点保持有效。
+- codex-host-settings.tsx：详细模式“系统 → CodexHost”独立页面，分类可见时轮询codex-host API；启停保存独立revision，安装、更新、回退、启动及重启停用均为显式操作。旧settings-codex-host锚点保持有效。
 
 View.connection.status支持unresponsive：主标题显示页面暂未响应，启动与连接仍保留断开/手动重连操作，不将短暂页面迟缓显示为凭据错误。
 
@@ -102,7 +102,7 @@ Cmd/Ctrl+K 打开搜索弹窗并聚焦输入，模态抽屉开启时保留抽屉
 - `settings-drawer.tsx`：共用原生 dialog 右侧抽屉，保留原 DOM/表单归属、草稿和内部滚动；关闭、Esc、背景点击及分类切换不增加保存。搜索/旧锚点可打开目标，重复定位仍有效；关闭按钮与标题不进入搜索索引。窄屏占满宽度，键盘/减少动态效果即时完成，嵌套危险操作确认仍单独取消。
 - 抽屉中的保存状态/失败反馈读取既有 SettingsEditor；手动保存继续提交原 SettingsForm，同一串行队列与修订保护不变。模型分组和词库复用原操作反馈；模型/密钥/词库数据不迁移。样式归 settings-controls.css，常用配置仍直接显示。
 
-两级设置导航：settings-outline.tsx 集中维护界面、功能、系统三组/子页和旧锚点映射；界面在前，常用开关归入界面；中宽屏分组始终显示，窄屏以“分类 / 当前页”展开同一份完整目录，按分类直接选页；不再显示两行导航。main.tsx、next-settings.tsx、surface-settings.tsx 和 panel-settings.tsx 只隐藏原节点：下一步/提示词、布局/外观各分开，表单与草稿不重复创建。搜索索引补充页面及按需加载的词库入口，字段按最近 data-settings-page 定位；手动保存遇到隐藏的无效字段会切到所属页/抽屉并显示原生校验。预览按当前功能选取场景，术语/宿主管理/开发来源不挂无关预览。
+两级设置导航：settings-outline.tsx 集中维护界面、功能、系统三组/子页和旧锚点映射；界面在前，常用开关归入界面；中宽屏分组始终显示，窄屏以“分类 / 当前页”展开同一份完整目录，按分类直接选页；不再显示两行导航。main.tsx、next-settings.tsx、surface-settings.tsx 和 panel-settings.tsx 只隐藏原节点：下一步/提示词、布局/外观各分开，表单与草稿不重复创建。搜索索引补充页面及按需加载的词库入口，字段按最近 data-settings-page 定位；手动保存遇到隐藏的无效字段会切到所属页/抽屉并显示原生校验。预览按当前功能选取场景，术语/CodexHost/开发来源不挂无关预览。
 
 设置模式合并：main.tsx 不再渲染模式入口或简易聚合表单；settings-outline 不读写模式偏好，仅维护分组子页、历史和逐页滚动；settings-preview 按子页选择预览。settings-layout.css 移除模式专用样式，分组目录复用于中宽屏侧栏与窄屏单行菜单，保留主题与表单节奏。
 
@@ -125,10 +125,12 @@ model-control-settings提供“启用额度显示”，复用模型快切独立�
 
 设置主题通过 shared/brand-storage 接续旧品牌存储，不覆盖已经保存的 Palboo 选择；后台保存队列和设置凭据协议不变。
 
-独立操作区使用 settings-actions 靠右排列，模型测试反馈与按钮右对齐；宿主管理的程序路径和不同的运行路径直接展示为可选中文本，不再使用单字段抽屉。
+独立操作区使用 settings-actions 靠右排列，模型测试反馈与按钮右对齐；CodexHost的程序路径和不同的运行路径直接展示为可选中文本，不再使用单字段抽屉。
 
 panel-settings 在“布局与位置 → 侧栏显示范围”提供新聊天与 Dots 两个默认关闭的独立开关，复用 appearance 的 expectedRevision 逐字段保存及失败反馈；settings-outline 支持对应搜索/锚点定位。
 
 设置弹层关闭时保留最后可见内容完成退出，不延迟原生关闭与焦点恢复：settings-search 的查询在动画结束后清空，下次打开重置；settings-confirmation 只保留标题/描述，不保留可执行确认动作；settings-drawer 保留原草稿与滚动。动效统一在settings-motion.css，布局与控件CSS只管理几何和配色。
 
 设置页输入、下拉、未选中的选项及描边按钮共用柔和灰底和低对比边界；悬停加深、聚焦保留细线；深色继续原有配色。FeatureSwitch 可见名称不加“启用”，可访问动作名称保留。
+
+Bot 资料的置顶组使用中性底色与边框集中呈现，其余分组保留原顺序；共用 botGroups.kind，不把置顶文字带入各功能表面。外观样本背景复用 shared/brand 的 PALBOO 字标，无额外图片请求。

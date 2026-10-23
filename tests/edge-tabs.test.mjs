@@ -119,6 +119,8 @@ test('edge board uses columns and an opaque detail surface within native bounds 
     () => document.querySelector('.edge-view').getBoundingClientRect().width >= 720,
   );
   assert.equal(await board.locator('.board-column:visible').count(), 3);
+  const boardSize = await board.boundingBox();
+  assert.ok(boardSize.height >= 440, 'few tasks retain a full reading surface');
   await board.getByRole('button', { name: '任务详情：测试任务', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: '任务详情' });
   await dialog.waitFor();
@@ -213,6 +215,40 @@ test('edge tab saves serialize rapid selection and preserve absent feature prefe
       document.querySelector('[data-edge-tab="board"]')?.getAttribute('aria-pressed') === 'true',
   );
   assert.deepEqual(await labels(page), ['模型切换', '看板']);
+});
+
+test('board keeps its reading size as tasks grow and uses tabs on a constrained display', async (t) => {
+  const page = await fixture(t);
+  const panel = page.locator('#edge-panel');
+  await page.waitForFunction(() => document.querySelector('#edge-panel').offsetHeight >= 480);
+  const initial = await panel.boundingBox();
+  await page.evaluate(() => {
+    const original = tasks.store.tasks[0];
+    tasks.store.tasks = Array.from({ length: 18 }, (_, i) => ({
+      ...original,
+      id: `task-${i}`,
+      fields: {
+        ...original.fields,
+        title: `长任务 ${i}：保留完整说明，检查不同窗口与分组内的可读性。`,
+      },
+    }));
+    tasks.store.revision++;
+  });
+  await page.waitForFunction(
+    () =>
+      document.querySelector('.edge-view').shadowRoot.querySelectorAll('.task-card').length === 18,
+  );
+  assert.equal((await panel.boundingBox()).height, initial.height);
+  assert.ok(await page.locator('.board-grid').evaluate((n) => n.scrollHeight > n.clientHeight));
+  await page.setViewportSize({ width: 420, height: 600 });
+  await page.evaluate(() =>
+    ipc.postMessage(JSON.stringify({ action: 'content-size', width: 744, height: 498 })),
+  );
+  await page.locator('.board-grid.narrow').waitFor();
+  assert.equal(await page.locator('.board-column:visible').count(), 1);
+  assert.equal(await page.locator('.stage-tabs button').count(), 3);
+  const rect = await panel.boundingBox();
+  assert.ok(rect.x >= 0 && rect.x + rect.width <= 420 && rect.y + rect.height <= 600);
 });
 
 test('six icon tabs remain reachable beside model headings and catalog controls in a narrow panel', async (t) => {

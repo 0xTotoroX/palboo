@@ -846,6 +846,15 @@ html:root .settings-nav {
 .bot-settings-group + .bot-settings-group {
   margin-top: 20px;
 }
+.bot-settings-group[data-pinned='true'] {
+  padding: 14px 16px 4px;
+  border: 1px solid var(--buddy-border);
+  border-radius: 10px;
+  background: var(--buddy-subtle);
+}
+.bot-settings-group[data-pinned='true'] .settings-drawer-entry:last-child .settings-drawer-trigger {
+  border-bottom: 0;
+}
 .bot-settings-group > h3 {
   margin: 0 0 8px;
   font-size: inherit;

@@ -171,33 +171,20 @@
   position: absolute;
   inset: 0;
   z-index: -1;
-  background: linear-gradient(125deg, #b5c6d9, #ded3c4 55%, #b7b5c9);
+  background: #e6e3e4;
+  color: #57535a;
 }
-.layout-demo-material-backdrop i {
+.layout-demo-material-backdrop svg {
   position: absolute;
-  width: 65%;
-  height: 54px;
-  right: -10%;
-  top: 34px;
-  border-radius: 24px;
-  background: #ffffff80;
-  transform: rotate(-24deg);
-}
-.layout-demo-material-backdrop i:nth-child(2) {
-  top: 140px;
-  right: 40%;
-  background: #657a9560;
-}
-.layout-demo-material-backdrop i:nth-child(3) {
-  top: 220px;
-  right: -5%;
-  background: #ffffff90;
+  width: 120%;
+  max-width: none;
+  left: -10%;
+  top: 50%;
+  transform: translateY(-50%) rotate(-16deg);
 }
 [data-settings-theme='dark'] .layout-demo-material-backdrop {
-  background: linear-gradient(125deg, #35485e, #564d43 55%, #49405b);
-}
-[data-settings-theme='dark'] .layout-demo-material-backdrop i {
-  opacity: 0.35;
+  background: #29272b;
+  color: #b4aeb8;
 }
 .layout-demo-material-sample {
   width: min(100%, 460px);

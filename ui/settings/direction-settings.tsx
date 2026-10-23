@@ -65,7 +65,7 @@ export function DirectionSettings({ editor }: { editor: SettingsEditor }) {
           />
         </Field>
       ) : (
-        <div data-settings-list="direction-slots" className="mt-4 space-y-3">
+        <div data-settings-list="direction-slots" className="mt-3 space-y-2">
           {form.selectedDirections.map((id, index) => (
             <div key={id} data-settings-list-item={id} className="flex items-center gap-2">
               <label htmlFor={`direction-slot-${index}`} className="shrink-0 text-[14px]">
@@ -148,14 +148,10 @@ export function DirectionSettings({ editor }: { editor: SettingsEditor }) {
       {form.directionSource !== 'auto' && (
         <section className="mt-5">
           <h3 className="text-[14px] font-medium">方向库</h3>
-          <div data-settings-list="direction-library" className="mt-4 space-y-5">
+          <div data-settings-list="direction-library" className="settings-entry-list mt-3">
             {library.map((item, index) => (
-              <div
-                key={item.id}
-                data-settings-list-item={item.id}
-                className="space-y-2 border-b border-border pb-4"
-              >
-                <div className="flex items-center gap-2">
+              <div key={item.id} data-settings-list-item={item.id} className="settings-entry">
+                <div className="settings-entry-heading">
                   {form.directionSource === 'smart' && (
                     <input
                       type="checkbox"
@@ -173,6 +169,7 @@ export function DirectionSettings({ editor }: { editor: SettingsEditor }) {
                     />
                   )}
                   <Input
+                    className="settings-entry-name"
                     required
                     maxLength={40}
                     aria-label={`方向名称 ${index + 1}`}
@@ -205,7 +202,8 @@ export function DirectionSettings({ editor }: { editor: SettingsEditor }) {
                   required
                   maxLength={4000}
                   aria-label={`倾向说明 ${index + 1}`}
-                  className="w-full min-h-20 rounded-md border border-input bg-background px-3 py-2 text-[14px] leading-relaxed focus-visible:outline-2 focus-visible:outline-ring"
+                  rows={2}
+                  className="settings-entry-content"
                   value={item.instruction}
                   onChange={(e) =>
                     change(

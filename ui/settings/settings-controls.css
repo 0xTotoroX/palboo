@@ -136,6 +136,68 @@
   }
 }
 
+/* A name and its instruction form one editable surface. */
+.settings-entry-list {
+  display: grid;
+  gap: 10px;
+}
+.settings-entry {
+  min-width: 0;
+  padding: 8px 12px 12px;
+  border: 1px solid var(--settings-control-border);
+  border-radius: 10px;
+  background: var(--buddy-input);
+}
+.settings-entry:focus-within {
+  border-color: var(--buddy-focus);
+}
+.settings-entry-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.settings-app .settings-entry .settings-entry-name {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 0;
+  border-color: transparent;
+  background: transparent;
+  font-weight: 600;
+  box-shadow: none;
+}
+.settings-app .settings-entry .settings-entry-content {
+  display: block;
+  width: 100%;
+  min-height: 2.8em;
+  max-height: 18em;
+  field-sizing: content;
+  resize: vertical;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 2px 0;
+  font: inherit;
+  line-height: 1.55;
+}
+.settings-prompt-entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 8px;
+}
+.settings-app .settings-prompt-entry .settings-entry-content {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  padding-top: 10px;
+  margin-top: 4px;
+  border-top-color: var(--buddy-border);
+  border-radius: 0;
+}
+.settings-prompt-entry > button {
+  grid-column: 2;
+  grid-row: 1;
+}
+
 /* Unsupported browsers retain the native picker and its keyboard/form behavior. */
 @supports (appearance: base-select) {
   .settings-app select[data-slot='native-select'],

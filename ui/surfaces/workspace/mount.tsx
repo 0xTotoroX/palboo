@@ -1,4 +1,4 @@
-/* [INPUT]: Surface element, owner, transport and optional header slot. [OUTPUT]: Isolated view lifecycle, edge board natural size and bounded detail measurement.
+/* [INPUT]: Surface element, owner, transport and optional header slot. [OUTPUT]: Isolated view lifecycle, stable edge board reading size and bounded detail measurement.
  * [POS]: React adapter shared by host and native pages. [PROTOCOL]: Keep AGENTS.md in this module in sync. */
 import { createRoot } from 'react-dom/client';
 import { FeatureView } from './feature-session';
@@ -156,7 +156,14 @@ export function mountFeature(
           : 0;
         return {
           width,
-          height: Math.ceil(Math.max(view.getBoundingClientRect().height, editorHeight)),
+          height: Math.ceil(
+            Math.max(
+              initial.id === 'board' && placement === 'edge'
+                ? 440
+                : view.getBoundingClientRect().height,
+              editorHeight,
+            ),
+          ),
         };
       } finally {
         delete element.dataset.measuring;

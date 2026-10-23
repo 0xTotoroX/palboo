@@ -18,7 +18,7 @@ export const pageTitles = {
   surfaces: '布局与位置',
   appearance: '外观与字体',
   connection: '启动与连接',
-  'codex-host': '宿主管理',
+  'codex-host': 'CodexHost',
   dev: '开发来源',
 };
 export type SettingsPage = keyof typeof pageTitles;

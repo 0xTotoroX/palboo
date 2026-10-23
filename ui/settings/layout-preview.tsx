@@ -4,6 +4,7 @@
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { PreviewFrame } from './preview-frame';
+import { PalbooWordmark } from '../shared/brand';
 import { typographyStyle, type Typography, type TypographyPreferences } from '../shared/typography';
 import { titles, type FeatureLayout, type FeatureState } from '../shared/features';
 import type { SurfaceState } from './surface-settings';
@@ -350,9 +351,7 @@ export function LayoutPreview({
         {appearance ? (
           <div className="layout-demo-material-stage">
             <div className="layout-demo-material-backdrop" aria-hidden="true">
-              <i />
-              <i />
-              <i />
+              <PalbooWordmark />
             </div>
             <div className="layout-demo-material-sample">{sample}</div>
           </div>

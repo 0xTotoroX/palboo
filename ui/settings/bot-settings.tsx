@@ -123,6 +123,7 @@ export function BotSettings({
             <section
               key={group.id}
               className="bot-settings-group"
+              data-pinned={group.kind === 'pinned' && group.bots.length > 0}
               aria-label={group.name || 'Bot 列表'}
             >
               {group.name && <h3>{group.name}</h3>}

@@ -293,11 +293,10 @@ test(
       await page.getByRole('link', { name: '常用提示词', exact: true }).click();
       const quick = page.getByLabel('常用提示词 1 内容', { exact: true });
       await quick.fill('请继续推进整体目标');
-      // Blur onto noninteractive content; preview buttons intentionally preserve unsaved drafts.
+      // Blur onto the preview padding; preview buttons intentionally preserve unsaved drafts.
       await page
         .getByRole('region', { name: '功能如何呈现', exact: true })
-        .locator('.preview-note')
-        .click();
+        .click({ position: { x: 4, y: 4 } });
       await until(() => settings.quickPrompts[0].prompt === '请继续推进整体目标');
       await page.waitForFunction(
         () =>

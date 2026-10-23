@@ -307,7 +307,7 @@ test(
       stage = 'render complete settings';
       await page.goto(`${session.url}/#token=${session.token}`);
       const navigation = page.getByRole('navigation', { name: '设置分类' });
-      await page.getByRole('heading', { name: '常用开关', exact: true }).waitFor();
+      await page.getByRole('main', { name: '常用开关', exact: true }).waitFor();
       await navigation.getByRole('link', { name: '常用开关', exact: true }).click();
       const outlineSwitch = page.getByRole('switch', { name: '启用大纲', exact: true });
       await outlineSwitch.waitFor();
@@ -324,7 +324,7 @@ test(
           .querySelector('#buddy-dev-sources')
           .shadowRoot.querySelector('.source-content')
           .getBoundingClientRect().left,
-        settings: document.querySelector('#root main h1').getBoundingClientRect().left,
+        settings: document.querySelector('#root main').getBoundingClientRect().left,
       }));
       assert.ok(
         Math.abs(alignment.source - alignment.settings) <= 1,

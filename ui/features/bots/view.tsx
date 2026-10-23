@@ -83,7 +83,9 @@ export function BotsView({
       )}
       {groups.map((group) => (
         <section className="palboo-bot-group" key={group.id} aria-label={group.name || 'Bot 列表'}>
-          {group.name && <h3 className="palboo-bot-group-title">{group.name}</h3>}
+          {group.kind !== 'pinned' && group.name && (
+            <h3 className="palboo-bot-group-title">{group.name}</h3>
+          )}
           {group.bots.map((bot) => {
             const send = (intent: string) =>
               action({
