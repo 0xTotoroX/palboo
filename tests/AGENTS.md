@@ -296,7 +296,7 @@ Bot 侧栏回归覆盖置顶/分组顺序、隐藏项与旧接口兼容、排序
 
 设置长流程和 Dev 来源组件使用独立 browserServer，注册 Node test.after 幂等清理；整例超时也终止测试浏览器及本机夹具服务，避免 browser.close 挂起阻塞测试文件退出。
 
-设置预览统一验收：settings-modes 覆盖11类预览在浅深色及360/600/900/1360px下均先于控件、左右对齐且无横向溢出，外观复用布局场景与统一字号，Bot示例选择零保存。layout-preview、settings-motion、settings-modes 默认只验状态/几何；仅显式 PALBOO_TEST_SCREENSHOTS=1 生成合成截图。
+设置预览统一验收：settings-modes 验证常用开关页无预览及空占位，并覆盖10类预览在浅深色及360/600/900/1360px下均先于控件、左右对齐且无横向溢出，外观复用布局场景与统一字号，Bot示例选择零保存。layout-preview、settings-motion、settings-modes 默认只验状态/几何；仅显式 PALBOO_TEST_SCREENSHOTS=1 生成合成截图。
 
 `workspace-chrome.test.mjs` 直接渲染共享头部，验证关联初始化前/来源更新后文字始终隐藏、窗口按钮无原生 title 且键盘可聚焦、点击区不小于28px；只读合成浏览器状态与几何，不截图。settings-modes 另检查紧凑预览的高度预算与字标无障碍名称。
 

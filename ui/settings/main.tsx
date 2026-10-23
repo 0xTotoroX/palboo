@@ -154,17 +154,19 @@ function App() {
           {!editor.form && !error && <p role="status">正在读取设置…</p>}
           <Feedback text={notice.text} failed={notice.failed} />
           <div className="settings-body">
-            <SettingsPreview
-              page={page}
-              form={editor.form}
-              dirty={editor.dirty}
-              features={features}
-              surfaces={surfaces}
-              model={model}
-              tasks={tasks.state}
-              view={view}
-              live={live}
-            />
+            {page !== 'features' && (
+              <SettingsPreview
+                page={page}
+                form={editor.form}
+                dirty={editor.dirty}
+                features={features}
+                surfaces={surfaces}
+                model={model}
+                tasks={tasks.state}
+                view={view}
+                live={live}
+              />
+            )}
             <div className="settings-form-column">
               <section
                 hidden={!featuresVisible}

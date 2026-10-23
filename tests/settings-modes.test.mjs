@@ -483,6 +483,7 @@ test(
         if (['next', 'prompts', 'board', 'model-control'].includes(id))
           assert.equal(await page.locator('.preview-scene[data-active="true"]').count(), 1);
         if (id === 'features') {
+          assert.equal(await page.locator('.settings-preview').count(), 0);
           assert.equal(await page.getByRole('switch').count(), 7);
           assert.equal(
             await page.getByRole('button', { name: '模型分组', exact: true }).isVisible(),
@@ -806,7 +807,7 @@ test(
       );
       assert.equal(await preview.getByRole('tab', { name: '看板', exact: true }).count(), 0);
 
-      await page.getByRole('link', { name: '常用开关', exact: true }).click();
+      await page.getByRole('link', { name: '下一步', exact: true }).click();
       const demoWrites = writes.length;
       await preview.getByRole('button', { name: /完善实现方案/ }).click();
       assert.equal(await preview.getByRole('status').textContent(), '完善实现方案');
@@ -899,6 +900,20 @@ test(
               0,
               `${id}: no repeated page or preview title`,
             );
+            if (id === 'features') {
+              assert.equal(
+                await page.locator('.settings-preview').count(),
+                0,
+                'common switches have no preview',
+              );
+              assert.equal(await page.getByRole('switch').count(), 7);
+              const top = await page.locator('.settings-body').evaluate((node) => ({
+                body: node.getBoundingClientRect().top,
+                controls: node.querySelector('.settings-form-column').getBoundingClientRect().top,
+              }));
+              assert.ok(Math.abs(top.body - top.controls) < 1, 'no empty preview space remains');
+              continue;
+            }
             if (id === 'terminology')
               await page.locator('#settings-terminology .settings-row').first().waitFor();
             const stage = await page.locator('.preview-frame:visible').evaluate((node) => {
