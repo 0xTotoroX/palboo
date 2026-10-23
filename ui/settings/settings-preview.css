@@ -323,3 +323,18 @@
   margin-bottom: 20px;
   font-size: 0.8125em;
 }
+
+.preview-model-control {
+  --paper: var(--buddy-surface);
+  --ink: var(--buddy-text);
+  --muted: var(--buddy-muted);
+  --accent: var(--buddy-text);
+  --hover: var(--buddy-subtle);
+  --line: var(--buddy-border);
+  min-width: 0;
+  height: 240px;
+  color: var(--buddy-text);
+}
+.preview-model-control .feature-model {
+  height: 100%;
+}

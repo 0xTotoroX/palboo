@@ -10,7 +10,9 @@ html:root {
   --buddy-text: #27272a;
   --buddy-muted: #64646e;
   --buddy-border: #e2e2e6;
-  --buddy-input: #fff;
+  --buddy-input: #f0f0f3;
+  --settings-control-border: #e8e8ed;
+  --settings-control-hover: #e9e9ee;
   --buddy-accent: #c94300;
   --buddy-focus: #85858f;
   --buddy-subtle: #f1f1f2;
@@ -47,6 +49,8 @@ html:root[data-settings-theme='dark'] {
   --buddy-muted: #adadb6;
   --buddy-border: #36363c;
   --buddy-input: #252528;
+  --settings-control-border: var(--buddy-border);
+  --settings-control-hover: #2c2c30;
   --buddy-accent: #c94300;
   --buddy-focus: #9898a3;
   --buddy-subtle: #2c2c30;
@@ -399,8 +403,8 @@ html:root .settings-nav {
   min-width: 0;
   min-height: 40px;
   padding: 7px 8px;
-  border: 1px solid var(--buddy-border);
-  background: var(--buddy-surface);
+  border: 1px solid var(--settings-control-border);
+  background: var(--buddy-input);
   font-size: 0.8125em;
   cursor: pointer;
 }

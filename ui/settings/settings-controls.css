@@ -11,6 +11,32 @@
 .settings-app :is([data-slot='input'], [data-slot='native-select']) {
   height: var(--settings-control-height);
 }
+.settings-app
+  :is(
+    [data-slot='input'],
+    [data-slot='native-select'],
+    textarea,
+    [data-slot='button'][data-variant='outline']
+  ) {
+  background-color: var(--buddy-input);
+  border-color: var(--settings-control-border);
+}
+@media (hover: hover) {
+  .settings-app
+    :is(
+      [data-slot='input'],
+      [data-slot='native-select'],
+      textarea,
+      [data-slot='button'][data-variant='outline']
+    ):hover:not(:disabled),
+  .settings-choice button:hover:not(:disabled):not([aria-pressed='true']) {
+    background-color: var(--settings-control-hover);
+    border-color: color-mix(in srgb, var(--buddy-focus) 35%, var(--buddy-input));
+  }
+}
+.settings-app :is([data-slot='input'], [data-slot='native-select'], textarea):focus-visible {
+  border-color: var(--buddy-focus);
+}
 .settings-app :is(.settings-theme, .preview-selector) {
   border-radius: var(--settings-control-radius);
 }

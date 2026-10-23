@@ -3,6 +3,7 @@
  * [POS]: Settings presentation only; no requests, credentials, task bodies or host commands.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 import { LayoutPreview } from './layout-preview';
+import { ModelPreview } from './model-preview';
 import { useState, type ReactNode } from 'react';
 import type { SettingsPage } from './settings-outline';
 import type { EditableSettings, View } from './api';
@@ -225,26 +226,7 @@ function FeaturePreview({ form, tasks, model, view, dirty, page }: PreviewProps)
                     >{`请问「${selectedBot}」：帮我检查这个方案。`}</div>
                   </>
                 )}
-                {scene === 'model' && (
-                  <>
-                    <div className="preview-model-name">
-                      <span>当前模型</span>
-                      <strong>{model?.snapshot?.current?.model || '尚未识别'}</strong>
-                      <small>
-                        {[model?.snapshot?.current?.reasoning, model?.snapshot?.current?.speed]
-                          .filter(Boolean)
-                          .join(' · ')}
-                      </small>
-                    </div>
-                    <Facts
-                      items={[
-                        ['常用模型', String(model?.preferences.pinned?.length ?? 0)],
-                        ['收藏预设', String(model?.preferences.presets?.length ?? 0)],
-                        ['自定义分组', String(model?.preferences.groups?.length ?? 0)],
-                      ]}
-                    />
-                  </>
-                )}
+                {scene === 'model' && <ModelPreview model={model} />}
               </div>
             </div>
           );

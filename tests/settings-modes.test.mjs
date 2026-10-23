@@ -756,7 +756,7 @@ test(
       const previewWrites = writes.length;
       await preview.getByRole('button', { name: '贴边 / 刘海', exact: true }).click();
       await preview.locator('.layout-demo-canvas[data-demo-placement="edge"]').waitFor();
-      await preview.getByRole('button', { name: '恢复已保存配置', exact: true }).click();
+      await preview.getByRole('button', { name: '重置预览', exact: true }).click();
       assert.equal(writes.length, previewWrites, 'preview navigation never moves real features');
 
       await page.bringToFront();
@@ -1043,7 +1043,7 @@ test(
       assert.equal(writes.length, botWrites, 'Bot preview never calls a Bot or saves settings');
       await category('appearance');
       await preview.getByRole('region', { name: '外观效果', exact: true }).waitFor();
-      await preview.getByRole('button', { name: '恢复已保存配置', exact: true }).click();
+      await preview.getByRole('button', { name: '重置预览', exact: true }).click();
       const sampleStyle = await preview
         .locator('[data-preview-workspace]')
         .evaluate((n) => getComputedStyle(n).fontSize);

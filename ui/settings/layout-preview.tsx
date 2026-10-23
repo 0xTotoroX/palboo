@@ -1,5 +1,5 @@
 /* [INPUT]: Saved feature/surface/typography snapshots, shared preview frame and workspace layout controller.
- * [OUTPUT]: Isolated interactive layout demonstration with real compaction and reversible screen motion.
+ * [OUTPUT]: Isolated layout and material demonstrations with readable arrangements and reversible screen motion.
  * [POS]: Shared layout/appearance sample content; save callbacks stay in memory and never call an API.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
@@ -88,7 +88,7 @@ function WorkspaceSample({
     />
   );
 }
-function useDemoJourney(location: string, target: DemoFrame) {
+function useDemoJourney(location: string, target: DemoFrame, animate = true) {
   const [frame, setFrame] = useState(target);
   const current = useRef(frame),
     previous = useRef(location);
@@ -155,6 +155,7 @@ function useDemoJourney(location: string, target: DemoFrame) {
       Object.keys(target).every(
         (key) => target[key as keyof DemoFrame] === from[key as keyof DemoFrame],
       ) ||
+      !animate ||
       reduced.matches ||
       document.hidden ||
       document.documentElement.dataset.settingsInput === 'keyboard'
@@ -168,7 +169,7 @@ function useDemoJourney(location: string, target: DemoFrame) {
       document.removeEventListener('visibilitychange', onVisibility);
       document.removeEventListener('keydown', finish);
     };
-  }, [location, target]);
+  }, [location, target, animate]);
   return frame;
 }
 export function LayoutPreview({
@@ -191,8 +192,8 @@ export function LayoutPreview({
     [demoLayout, setDemoLayout] = useState<FeatureLayout | null>(null);
   const source = features?.mainPlacement || 'sidebar',
     location = mode || source;
-  const samples = useMemo(
-    () => [
+  const samples = useMemo(() => {
+    const entries = [
       ...(features?.features || [])
         .filter(
           (entry) =>
@@ -201,9 +202,9 @@ export function LayoutPreview({
         )
         .map(({ id }) => ({ id, title: titles[id] })),
       ...extra,
-    ],
-    [features, location, source, extra],
-  );
+    ];
+    return appearance && !entries.length ? [{ id: 'outline', title: titles.outline }] : entries;
+  }, [features, location, source, extra, appearance]);
   const signature = JSON.stringify([
     source,
     features?.features.map(({ id, open, placement }) => [id, open, placement]),
@@ -226,8 +227,19 @@ export function LayoutPreview({
   );
   const layout = demoLayout || saved,
     theme = surfaces?.preferences.themes[location];
+  const previousThemes = useRef(surfaces?.preferences.themes);
+  useEffect(() => {
+    const themes = surfaces?.preferences.themes;
+    if (appearance && themes && previousThemes.current) {
+      const changed = Object.keys(themes).find(
+        (id) => JSON.stringify(themes[id]) !== JSON.stringify(previousThemes.current?.[id]),
+      );
+      if (changed) setMode(changed);
+    }
+    previousThemes.current = themes;
+  }, [appearance, surfaces?.preferences.themes]);
   const edge = surfaces?.preferences.edge;
-  const target = useMemo(() => {
+  const placementFrame = useMemo(() => {
     if (location !== 'edge') return demoFrames[location];
     const position = Math.max(0, Math.min(1, edge?.position ?? 0.5));
     const horizontal = ['top', 'bottom'].includes(edge?.edge || 'right');
@@ -241,23 +253,54 @@ export function LayoutPreview({
       secondary: 0,
     };
   }, [location, edge?.edge, edge?.position]);
-  const frame = useDemoJourney(location, target),
+  const target = useMemo(() => {
+    if (demoLayout?.axis !== 'horizontal' || location === 'desktop') return placementFrame;
+    const w = Math.max(400, placementFrame.w);
+    return { ...placementFrame, w, x: Math.min(placementFrame.x, 710 - w) };
+  }, [placementFrame, demoLayout?.axis, location]);
+  const frame = useDemoJourney(location, target, !appearance),
     ready = !!features && !!surfaces;
   function arrange(axis: string) {
-    setDemoLayout(
+    // Show two readable panes even if the saved placement has only one feature.
+    const additions = Array.from({ length: Math.max(0, 2 - samples.length) }, (_, index) => ({
+      id: `demo-${extra.length + index + 1}`,
+      title: extra.length + index ? `示例功能 ${extra.length + index + 1}` : '笔记',
+    }));
+    const entries = [...samples, ...additions];
+    if (additions.length) setExtra([...extra, ...additions]);
+    const groups =
       axis === 'tabs'
-        ? {
-            axis: 'auto',
-            groups: [
-              { ids: samples.map((item) => item.id), active: samples[0]?.id || '', weight: 1 },
-            ],
-          }
-        : { axis, groups: samples.map((item) => ({ ids: [item.id], active: item.id, weight: 1 })) },
-    );
+        ? [entries]
+        : [
+            entries.slice(0, Math.ceil(entries.length / 2)),
+            entries.slice(Math.ceil(entries.length / 2)),
+          ];
+    setDemoLayout({
+      axis: axis === 'tabs' ? 'auto' : axis,
+      groups: groups.map((items) => ({
+        ids: items.map((item) => item.id),
+        active: items[0].id,
+        weight: 1,
+      })),
+    });
   }
+  const arrangement = layout.groups.length === 1 ? 'tabs' : layout.axis;
+  const sample = ready ? (
+    <WorkspaceSample
+      entries={samples}
+      layout={layout}
+      placement={location}
+      material={theme?.theme || 'matte'}
+      variant={theme?.liquidVariant}
+      onLayout={setDemoLayout}
+      textStyle={typographyStyle(typography, typographyPreferences)}
+    />
+  ) : (
+    <p>正在读取布局…</p>
+  );
   return (
     <PreviewFrame
-      className="layout-demo"
+      className={`layout-demo${appearance ? ' layout-demo-appearance' : ''}`}
       title={appearance ? '外观效果' : '你的工作空间'}
       status={!live ? '连接中断 · 末次状态' : undefined}
     >
@@ -281,17 +324,13 @@ export function LayoutPreview({
           </button>
           <button
             type="button"
-            aria-label="演示移到副屏"
+            aria-label={appearance ? '演示桌面窗口' : '演示移到副屏'}
             aria-pressed={location === 'desktop'}
             onClick={() => setMode('desktop')}
           >
-            移到副屏
+            {appearance ? '桌面窗口' : '移到副屏'}
           </button>
-          <button
-            type="button"
-            aria-pressed={location === 'edge'}
-            onClick={() => setMode(location === 'edge' ? null : 'edge')}
-          >
+          <button type="button" aria-pressed={location === 'edge'} onClick={() => setMode('edge')}>
             贴边 / 刘海
           </button>
         </div>
@@ -304,35 +343,46 @@ export function LayoutPreview({
             setDemoLayout(null);
           }}
         >
-          恢复已保存配置
+          重置预览
         </button>
       </div>
       <div className="layout-demo-canvas" data-demo-placement={location} data-ready={ready}>
-        <LayoutPreviewScene frame={frame} title={appearance ? '外观与字体' : '布局与位置'}>
-          {ready ? (
-            <WorkspaceSample
-              entries={samples}
-              layout={layout}
-              placement={location}
-              material={theme?.theme || 'matte'}
-              variant={theme?.liquidVariant}
-              onLayout={setDemoLayout}
-              textStyle={typographyStyle(typography, typographyPreferences)}
-            />
-          ) : (
-            <p>正在读取布局…</p>
-          )}
-        </LayoutPreviewScene>
+        {appearance ? (
+          <div className="layout-demo-material-stage">
+            <div className="layout-demo-material-backdrop" aria-hidden="true">
+              <i />
+              <i />
+              <i />
+            </div>
+            <div className="layout-demo-material-sample">{sample}</div>
+          </div>
+        ) : (
+          <LayoutPreviewScene frame={frame} title="布局与位置">
+            {sample}
+          </LayoutPreviewScene>
+        )}
       </div>
-      <div className="layout-demo-toolbar" data-settings-navigation>
+      <div className="layout-demo-toolbar" data-settings-navigation hidden={appearance}>
         <div className="preview-selector" role="group" aria-label="演示排列">
-          <button type="button" onClick={() => arrange('vertical')}>
+          <button
+            type="button"
+            aria-pressed={arrangement === 'vertical'}
+            onClick={() => arrange('vertical')}
+          >
             上下
           </button>
-          <button type="button" onClick={() => arrange('horizontal')}>
+          <button
+            type="button"
+            aria-pressed={arrangement === 'horizontal'}
+            onClick={() => arrange('horizontal')}
+          >
             左右
           </button>
-          <button type="button" onClick={() => arrange('tabs')}>
+          <button
+            type="button"
+            aria-pressed={arrangement === 'tabs'}
+            onClick={() => arrange('tabs')}
+          >
             标签
           </button>
         </div>

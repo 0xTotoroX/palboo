@@ -102,8 +102,42 @@ test(
       await page.waitForFunction(
         () => document.querySelector('.layout-demo-window').x.baseVal.value === 754,
       );
-      await page.getByRole('button', { name: '恢复已保存配置', exact: true }).click();
+      await page.getByRole('button', { name: '重置预览', exact: true }).click();
       await page.getByRole('tab', { name: '笔记', exact: true }).waitFor({ state: 'detached' });
+      // A single feature must still demonstrate two axes rather than silently doing nothing.
+      await page.getByRole('button', { name: '贴边 / 刘海', exact: true }).click();
+      assert.equal(await pane.count(), 1);
+      await page.getByRole('button', { name: '左右', exact: true }).click();
+      await page.waitForFunction(
+        () => document.querySelector('.csw-feature-panes').dataset.axis === 'horizontal',
+      );
+      assert.equal(await pane.count(), 2);
+      const positions = () =>
+        pane.evaluateAll((nodes) =>
+          nodes.map((n) => {
+            const r = n.getBoundingClientRect();
+            return { x: r.x, y: r.y, w: r.width, h: r.height };
+          }),
+        );
+      const horizontal = await positions();
+      assert.ok(horizontal[1].x > horizontal[0].x + horizontal[0].w);
+      assert.ok(Math.abs(horizontal[1].y - horizontal[0].y) < 1);
+      await page.getByLabel('笔记示例草稿', { exact: true }).fill('切换排列保留草稿');
+      await page.getByRole('button', { name: '上下', exact: true }).click();
+      await page.waitForFunction(
+        () => document.querySelector('.csw-feature-panes').dataset.axis === 'vertical',
+      );
+      const vertical = await positions();
+      assert.ok(vertical[1].y > vertical[0].y + vertical[0].h);
+      await page.getByRole('button', { name: '标签', exact: true }).click();
+      assert.equal(await pane.count(), 1);
+      await page.getByRole('tab', { name: '笔记', exact: true }).click();
+      assert.equal(
+        await page.getByLabel('笔记示例草稿', { exact: true }).inputValue(),
+        '切换排列保留草稿',
+      );
+      await page.getByRole('button', { name: '重置预览', exact: true }).click();
+      assert.equal(await pane.count(), 4);
       for (const width of [390, 760, 1360]) {
         await page.setViewportSize({ width, height: 1050 });
         assert.equal(

@@ -10,6 +10,7 @@ import { createRoot } from 'react-dom/client';
 import '../shared/tokens.css';
 import './styles.css';
 import './settings-layout.css';
+import '../features/model/styles.css';
 import './settings-preview.css';
 import './terminology-settings.css';
 import './settings-controls.css';

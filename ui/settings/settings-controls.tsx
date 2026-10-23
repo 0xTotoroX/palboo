@@ -65,7 +65,7 @@ export function FeatureSwitch({
   const id = useId();
   return (
     <div className="settings-row settings-feature-switch">
-      <label htmlFor={id}>启用{name}</label>
+      <label htmlFor={id}>{name}</label>
       <div className="flex shrink-0 items-center gap-4">
         {actions}
         <Switch
