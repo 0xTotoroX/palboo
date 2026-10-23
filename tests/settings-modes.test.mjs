@@ -287,17 +287,9 @@ test(
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));
     const category = async (id) => {
-      const group = ['next', 'prompts', 'terminology', 'board', 'model-control', 'bots'].includes(
-        id,
-      )
-        ? '功能'
-        : ['features', 'surfaces', 'appearance'].includes(id)
-          ? '界面'
-          : '系统';
       const link = page.locator(`.settings-nav a[href="#settings-${id}"]`);
       await link.waitFor({ state: 'attached' });
-      if (!(await link.isVisible()))
-        await page.getByRole('button', { name: group, exact: true }).click();
+      if (!(await link.isVisible())) await page.locator('.settings-nav-trigger').click();
       await link.click();
     };
     const roundTrip = async () => {
@@ -829,7 +821,7 @@ test(
           colorScheme === 'light' ? 'rgb(250, 250, 250)' : 'rgb(25, 25, 27)',
           'production CSS chunk ordering must not overwrite the approved settings palette',
         );
-        for (const width of [360, 600, 900, 1360]) {
+        for (const width of [360, 600, 641, 900, 1360]) {
           await page.setViewportSize({ width, height: 900 });
           const header = await page.locator('.settings-header').evaluate((node) => {
             const rect = (selector) => node.querySelector(selector).getBoundingClientRect();
@@ -993,7 +985,7 @@ test(
                 );
             }
           }
-          if (width <= 760) await category('surfaces');
+          if (width <= 640) await category('surfaces');
           else await page.getByRole('link', { name: '布局与位置', exact: true }).click();
           if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
             await page.screenshot({
@@ -1247,7 +1239,7 @@ test(
       await page.keyboard.press('Escape');
       for (const color of ['浅色', '深色']) {
         await chooseTheme(color);
-        for (const width of [390, 680, 760, 761, 1100, 1440]) {
+        for (const width of [320, 390, 600, 640, 641, 680, 760, 900, 1100, 1440]) {
           await page.setViewportSize({ width, height: 850 });
           await page.evaluate(() => scrollTo(0, 0));
           await page.locator('.settings-theme-trigger').click();
@@ -1263,7 +1255,7 @@ test(
           );
           assert.ok(links.length >= 12, 'all original settings leaves remain available');
           assert.ok(links.filter((n) => n.visible).every((n) => n.width >= n.content));
-          assert.equal(links.filter((n) => n.visible).length, width <= 760 ? 5 : links.length);
+          assert.equal(links.filter((n) => n.visible).length, width <= 640 ? 0 : links.length);
           assert.equal(await page.locator('.settings-nav summary').count(), 0);
           const layout = await page.evaluate(() => {
             const nav = document.querySelector('.settings-nav').getBoundingClientRect();
@@ -1277,16 +1269,110 @@ test(
             };
           });
           assert.equal(layout.overflow, false, `no horizontal overflow at ${width}px`);
-          if (width <= 760)
+          if (width <= 640)
             assert.ok(layout.navBottom <= layout.contentTop, 'narrow navigation precedes content');
           else
             assert.ok(layout.navRight < layout.contentLeft, 'wide navigation sits left of content');
+          const trigger = page.locator('.settings-nav-trigger');
+          assert.equal(await trigger.isVisible(), width <= 640);
+          if (width <= 640) {
+            assert.ok((await page.locator('.settings-nav').boundingBox()).height <= 45);
+            assert.match(await trigger.textContent(), /系统\s*\/\s*模型服务/);
+            await trigger.click();
+            assert.equal(await trigger.getAttribute('aria-expanded'), 'true');
+            assert.equal(
+              await page.locator('.settings-category-links a:visible').count(),
+              links.length,
+            );
+            assert.equal(await page.locator('.settings-nav-group h2:visible').count(), 3);
+            const popup = await page.locator('.settings-category-links').boundingBox();
+            assert.ok(popup.x >= 0 && popup.x + popup.width <= width);
+            assert.ok(
+              popup.y > 0 && popup.y + popup.height <= 850,
+              'grouped menu fits the viewport',
+            );
+            assert.equal(
+              await page
+                .locator('.settings-nav a[aria-current="page"]')
+                .evaluate((n) => n === document.activeElement),
+              true,
+            );
+            await page.keyboard.press('End');
+            assert.equal(
+              await page
+                .locator('.settings-category-links a')
+                .last()
+                .evaluate((n) => n === document.activeElement),
+              true,
+            );
+            await page.keyboard.press('Home');
+            await page.keyboard.press('ArrowDown');
+            await page.keyboard.press('Enter');
+            await page.getByRole('main', { name: '布局与位置', exact: true }).waitFor();
+            assert.equal(await trigger.getAttribute('aria-expanded'), 'false');
+            assert.match(await trigger.textContent(), /界面\s*\/\s*布局与位置/);
+            await category('model');
+            await trigger.press('ArrowDown');
+            await page.keyboard.press('Escape');
+            assert.equal(await trigger.getAttribute('aria-expanded'), 'false');
+            assert.equal(await trigger.evaluate((n) => n === document.activeElement), true);
+            await trigger.click();
+            await page.mouse.click(width - 3, 300);
+            assert.equal(
+              await trigger.getAttribute('aria-expanded'),
+              'false',
+              'outside click closes navigation',
+            );
+          }
           if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
             await page.screenshot({
               path: `target/reports/settings-header-${color === '浅色' ? 'light' : 'dark'}-${width}.png`,
             });
         }
       }
+      await page.setViewportSize({ width: 390, height: 500 });
+      await page.locator('.settings-nav-trigger').click();
+      await page.keyboard.press('End');
+      const lastLink = await page.locator('.settings-category-links a').last().boundingBox();
+      assert.ok(
+        lastLink.y >= 0 && lastLink.y + lastLink.height <= 500,
+        'short screen scrolls the last destination into view',
+      );
+      assert.ok(
+        lastLink.x >= 0 && lastLink.x + lastLink.width <= 390,
+        'short menu scrolls vertically instead of wrapping groups offscreen',
+      );
+      await page.setViewportSize({ width: 641, height: 850 });
+      await page.waitForFunction(
+        () =>
+          document.querySelector('.settings-nav-trigger').getAttribute('aria-expanded') === 'false',
+      );
+      assert.equal(
+        await page.locator('.settings-nav-trigger').getAttribute('aria-expanded'),
+        'false',
+      );
+      assert.equal(
+        await page
+          .locator('.settings-nav a[aria-current="page"]')
+          .evaluate((n) => n === document.activeElement),
+        true,
+      );
+      await page.setViewportSize({ width: 390, height: 850 });
+      await page.waitForFunction(
+        () => document.activeElement === document.querySelector('.settings-nav-trigger'),
+      );
+      assert.equal(
+        await page.locator('.settings-nav-trigger').evaluate((n) => n === document.activeElement),
+        true,
+      );
+      await page.locator('.settings-nav-trigger').click();
+      await page.keyboard.press('End');
+      await page.keyboard.press('Tab');
+      assert.equal(
+        await page.locator('.settings-nav-trigger').getAttribute('aria-expanded'),
+        'false',
+        'Tab leaves the menu without trapping focus',
+      );
       assert.equal(
         writes.filter((w) => w.path !== '/api/appearance').length,
         headerWrites,

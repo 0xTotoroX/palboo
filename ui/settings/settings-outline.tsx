@@ -1,8 +1,9 @@
-/* [INPUT]: URL anchors, saved page preference (legacy mode ignored) and the Dev source widget.
- * [OUTPUT]: Grouped two-level navigation, legacy/search/invalid-field routing and per-page reading restoration without remounting forms.
+/* [INPUT]: URL anchors, saved page preference (legacy mode ignored), shared icons and the Dev source widget.
+ * [OUTPUT]: Shared sidebar/compact grouped disclosure, keyboard navigation, legacy/search/invalid-field routing and reading restoration without remounting forms.
  * [POS]: Presentation state only; never changes backend configuration or remounts forms.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { Icon } from '../shared/icons/react';
 import { closeSettingsDrawers, revealSettingsDrawer } from './settings-drawer';
 export const pageTitles = {
   performance: '性能与开关',
@@ -259,21 +260,115 @@ export function SettingsOutline({
   navigate: (page: SettingsPage, hash: string) => void;
 }) {
   const group = pageGroup(page);
+  const [open, setOpen] = useState(false);
+  const menuId = useId();
+  const root = useRef<HTMLElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const links = useRef<HTMLDivElement>(null);
+  const focusedLink = useRef<HTMLElement | null>(null);
+  const close = () => {
+    setOpen(false);
+    trigger.current?.focus({ preventScroll: true });
+  };
+  useLayoutEffect(() => {
+    if (open)
+      links.current?.querySelector<HTMLElement>('[aria-current="page"]')?.focus({
+        preventScroll: true,
+      });
+  }, [open]);
+  useEffect(() => setOpen(false), [page]);
+  useEffect(() => {
+    // Keep this threshold aligned with settings-layout.css.
+    const narrow = matchMedia('(max-width: 640px)');
+    const resize = () => {
+      // CSS can hide the focused link before the media-query event reaches React.
+      const hiddenFocus =
+        document.activeElement === document.body &&
+        focusedLink.current &&
+        !focusedLink.current.getClientRects().length;
+      if (root.current?.contains(document.activeElement) || hiddenFocus) {
+        const target = narrow.matches
+          ? trigger.current
+          : links.current?.querySelector<HTMLElement>('[aria-current="page"]');
+        target?.focus({ preventScroll: true });
+      }
+      setOpen(false);
+    };
+    narrow.addEventListener('change', resize);
+    return () => narrow.removeEventListener('change', resize);
+  }, []);
+  useEffect(() => {
+    if (!open) return;
+    const outside = (event: Event) => {
+      if (event.target instanceof Node && !root.current?.contains(event.target)) setOpen(false);
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        close();
+      }
+    };
+    document.addEventListener('pointerdown', outside, true);
+    document.addEventListener('focusin', outside);
+    document.addEventListener('keydown', escape);
+    return () => {
+      document.removeEventListener('pointerdown', outside, true);
+      document.removeEventListener('focusin', outside);
+      document.removeEventListener('keydown', escape);
+    };
+  }, [open]);
   return (
-    <nav aria-label="设置分类" className="settings-nav" data-settings-navigation>
-      <div className="settings-mobile-groups" aria-label="设置分组">
-        {pageGroups.map((item) => (
-          <button
-            key={item.title}
-            type="button"
-            aria-pressed={item === group}
-            onClick={() => navigate(item.pages[0], `#settings-${item.pages[0]}`)}
-          >
-            {item.title}
-          </button>
-        ))}
-      </div>
-      <div className="settings-category-links">
+    <nav
+      ref={root}
+      aria-label="设置分类"
+      className="settings-nav"
+      data-open={open}
+      data-settings-navigation
+      onFocusCapture={(event) => (focusedLink.current = event.target)}
+      onBlurCapture={(event) => {
+        if (event.relatedTarget || event.target.getClientRects().length) focusedLink.current = null;
+      }}
+    >
+      <button
+        ref={trigger}
+        type="button"
+        className="settings-nav-trigger"
+        aria-expanded={open}
+        aria-controls={menuId}
+        onClick={() => setOpen(!open)}
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+            event.preventDefault();
+            setOpen(true);
+          }
+        }}
+      >
+        <span className="settings-nav-parent">{group.title}</span>
+        <span className="settings-nav-slash" aria-hidden="true">
+          /
+        </span>
+        <span className="settings-nav-current">{pageTitles[page]}</span>
+        <Icon name="chevron-down" />
+      </button>
+      <div
+        id={menuId}
+        ref={links}
+        className="settings-category-links"
+        onKeyDown={(event) => {
+          if (!open || !['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+          event.preventDefault();
+          const items = Array.from(event.currentTarget.querySelectorAll('a'));
+          const index = items.indexOf(document.activeElement as HTMLAnchorElement);
+          const next =
+            event.key === 'Home'
+              ? 0
+              : event.key === 'End'
+                ? items.length - 1
+                : (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+          items[next]?.focus({ preventScroll: true });
+          items[next]?.scrollIntoView({ block: 'nearest' });
+        }}
+      >
         {pageGroups.map((item) => (
           <section
             key={item.title}
@@ -293,6 +388,7 @@ export function SettingsOutline({
                     onClick={(event) => {
                       if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
                       event.preventDefault();
+                      if (open) close();
                       navigate(id, event.currentTarget.hash);
                     }}
                   >
