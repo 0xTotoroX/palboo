@@ -262,14 +262,10 @@ function App() {
               <SettingsForm
                 editor={editor}
                 notify={notify}
-                active={['model', 'next', 'prompts', 'features', 'connection'].includes(page)}
+                active={['model', 'next', 'features', 'connection'].includes(page)}
               >
-                <div hidden={!['next', 'prompts'].includes(page)}>
-                  <NextSettings
-                    editor={editor}
-                    appearance={view?.panelPreferences}
-                    section={page === 'prompts' ? 'prompts' : 'next'}
-                  />
+                <div hidden={page !== 'next'}>
+                  <NextSettings editor={editor} appearance={view?.panelPreferences} />
                 </div>
                 <div data-settings-page="model" hidden={page !== 'model'}>
                   <ModelSettings editor={editor} />

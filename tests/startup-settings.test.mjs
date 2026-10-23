@@ -28,14 +28,12 @@ test(
       loader: { '.css': 'empty', '.png': 'dataurl' },
       define: { 'import.meta.env.DEV': 'false', 'import.meta.hot': 'undefined' },
     });
+    const builtHtml = await readFile('target/web/index.html', 'utf8');
     const css = (
       await Promise.all(
-        [
-          'ui/shared/tokens.css',
-          'ui/settings/settings-layout.css',
-          'ui/settings/settings-controls.css',
-          'ui/settings/settings-preview.css',
-        ].map((path) => readFile(path, 'utf8')),
+        [...builtHtml.matchAll(/<link rel="stylesheet"[^>]*href="([^"]+)"/g)].map(([, href]) =>
+          readFile(`target/web${href}`, 'utf8'),
+        ),
       )
     ).join('\n');
     let settings = { ...fixtureSettings };
@@ -152,6 +150,7 @@ test(
       });
       const browser = await chromium.connect(browserServer.wsEndpoint());
       page = await browser.newPage();
+      page.setDefaultTimeout(5000);
       page.on('pageerror', (error) => {
         errors.push(error.message);
       });
@@ -290,7 +289,7 @@ test(
       await input.waitFor();
       assert.equal(await input.inputValue(), '13000');
       await page.getByRole('button', { name: '关闭高级设置', exact: true }).click();
-      await page.getByRole('link', { name: '常用提示词', exact: true }).click();
+      await page.getByRole('link', { name: '下一步', exact: true }).click();
       const quick = page.getByLabel('常用提示词 1 内容', { exact: true });
       await quick.fill('请继续推进整体目标');
       // Blur onto the preview padding; preview buttons intentionally preserve unsaved drafts.
@@ -310,19 +309,30 @@ test(
       await source.selectOption('manual');
       await until(() => settings.directionSource === 'manual');
       assert.equal(await page.getByLabel('最多建议数量', { exact: true }).count(), 0);
-      await page.getByLabel('添加方向位置', { exact: true }).selectOption('gaps');
-      await page.getByRole('button', { name: '加入', exact: true }).click();
+      await page.getByRole('button', { name: '选择方向', exact: true }).click();
+      await page.getByRole('option', { name: '检查遗漏', exact: true }).click();
       await until(() => settings.selectedDirections.length === 1);
-      await page.getByLabel('添加方向位置', { exact: true }).selectOption('advance');
-      await page.getByRole('button', { name: '加入', exact: true }).click();
+      await page.getByRole('button', { name: '选择方向', exact: true }).click();
+      await page.getByRole('option', { name: '整体推进', exact: true }).click();
       await until(() => settings.selectedDirections.length === 2);
-      await page.getByRole('button', { name: '上移方向 2', exact: true }).click();
+      await page.locator('.direction-slot').nth(1).press('Alt+ArrowUp');
       await until(() => settings.selectedDirections[0] === 'advance');
 
-      await page.getByRole('button', { name: '添加自定义方向', exact: true }).click();
+      const directionLibrary = page.getByRole('dialog', { name: '方向库', exact: true });
+      const closeLibrary = () =>
+        directionLibrary.getByRole('button', { name: '关闭方向库', exact: true }).click();
+      const addCustomDirection = async () => {
+        await page.getByRole('button', { name: '方向库', exact: true }).click();
+        const back = directionLibrary.getByRole('button', { name: /^返回/ });
+        if (await back.isVisible()) await back.click();
+        await directionLibrary.getByRole('button', { name: '我的方向', exact: true }).click();
+        await directionLibrary.getByRole('button', { name: '添加方向', exact: true }).click();
+      };
+      await addCustomDirection();
       await page.getByLabel('方向名称 4', { exact: true }).fill('长期维护');
       await page.getByLabel('倾向说明 4', { exact: true }).fill('关注维护成本与依赖负担');
-      await page.getByRole('heading', { name: '建议方向', exact: true }).click();
+      await directionLibrary.getByRole('button', { name: '保存设置', exact: true }).click();
+      await closeLibrary();
       await until(() => settings.directionLibrary.length === 4);
       await page.waitForFunction(
         () =>
@@ -331,18 +341,24 @@ test(
       await page.reload();
       await source.waitFor();
       assert.equal(await source.inputValue(), 'manual');
-      assert.equal(await page.getByLabel('方向位置 1', { exact: true }).inputValue(), 'advance');
+      assert.equal(
+        await page.locator('.direction-slot').first().getAttribute('data-settings-list-item'),
+        'advance',
+      );
       await source.selectOption('smart');
       await until(() => settings.directionSource === 'smart');
+      await page.getByRole('button', { name: '方向库', exact: true }).click();
       await page.getByLabel('启用方向 检查遗漏', { exact: true }).uncheck();
       await until(() => !settings.directionLibrary.find((d) => d.id === 'gaps').enabled);
+      await closeLibrary();
       await page.getByLabel('我同意将最近一问一答', { exact: false }).check();
       await until(() => settings.jev.consent);
       hold = true;
       await page.getByLabel('Jev 模型', { exact: true }).fill('jev-fixture');
-      await page.getByRole('heading', { name: '建议方向', exact: true }).click();
+      await page.getByRole('heading', { name: '建议生成', exact: true }).click();
       await until(() => pending.length === 1);
-      await page.getByRole('button', { name: '添加自定义方向', exact: true }).click();
+      await addCustomDirection();
+      await closeLibrary();
       await page.getByLabel('我同意将最近一问一答', { exact: false }).uncheck();
       rejectNext = true;
       hold = false;
@@ -350,8 +366,16 @@ test(
       await until(() => !settings.jev.consent);
       assert.equal(settings.directionLibrary.length, 4);
       assert.equal(await page.getByLabel('方向名称 5', { exact: true }).inputValue(), '');
-      await page.getByRole('button', { name: '删除方向', exact: true }).click();
-      await page.getByRole('dialog').getByRole('button', { name: '确认删除', exact: true }).click();
+      await page.getByRole('button', { name: '方向库', exact: true }).click();
+      await directionLibrary
+        .locator('[data-direction-detail]:not([hidden])')
+        .getByRole('button', { name: /^删除方向/ })
+        .click();
+      await page
+        .locator('.settings-key-dialog[open]')
+        .getByRole('button', { name: '确认删除', exact: true })
+        .click();
+      await closeLibrary();
       await page.getByLabel('我同意将最近一问一答', { exact: false }).check();
       await until(() => settings.jev.consent);
       await page.waitForFunction(
@@ -360,7 +384,7 @@ test(
       );
       hold = true;
       await page.getByLabel('Jev 模型', { exact: true }).fill('jev-second');
-      await page.getByRole('heading', { name: '建议方向', exact: true }).click();
+      await page.getByRole('heading', { name: '建议生成', exact: true }).click();
       await until(() => pending.length === 1);
       await page.getByLabel('我同意将最近一问一答', { exact: false }).uncheck();
       await page.getByLabel('我同意将最近一问一答', { exact: false }).check();
@@ -391,18 +415,23 @@ test(
       await page.getByLabel('Jev 模型', { exact: true }).click();
       await until(() => !settings.jev.consent);
       await page.getByLabel('Jev API 密钥', { exact: true }).fill('fixture-judge-secret');
-      await page.getByRole('heading', { name: '建议方向', exact: true }).click();
+      await page.getByRole('heading', { name: '建议生成', exact: true }).click();
       await until(() => saves.at(-1).jevApiKey === 'fixture-judge-secret');
       await page.waitForFunction(
         () =>
           document.querySelector('[data-save-state]')?.getAttribute('data-save-state') === 'saved',
       );
       assert.equal(await page.getByLabel('Jev API 密钥', { exact: true }).inputValue(), '');
-      await page.getByRole('button', { name: '添加自定义方向', exact: true }).click();
+      await addCustomDirection();
+      await closeLibrary();
       await source.selectOption('auto');
       await until(() => settings.directionSource === 'auto');
       assert.equal(await page.getByLabel('Jev 请求地址', { exact: true }).count(), 0);
       assert.equal(await page.getByLabel('最多建议数量', { exact: true }).count(), 1);
+      // The independent mode patch succeeds while full-form validation reveals the blank draft.
+      await directionLibrary.waitFor({ state: 'visible' });
+      assert.equal(await page.getByLabel('方向名称 5', { exact: true }).inputValue(), '');
+      await closeLibrary();
       await page.getByRole('link', { name: '常用开关', exact: true }).click();
       const tokenSwitch = page.getByRole('switch', { name: '启用聊天测速', exact: true });
       assert.equal(await tokenSwitch.isChecked(), true);
@@ -475,6 +504,7 @@ test(
     const browser = await chromium.connect(browserServer.wsEndpoint());
     try {
       const page = await browser.newPage();
+      page.setDefaultTimeout(5000);
       page.setDefaultTimeout(5000);
       await page.route('http://settings.test/**', (route) =>
         route.fulfill({ contentType: 'text/html', body: '<div id="root"></div>' }),

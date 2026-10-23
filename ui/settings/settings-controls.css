@@ -415,12 +415,42 @@ html:has(.settings-drawer[open]) {
   min-width: 0;
 }
 .direction-slot {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
   min-height: 40px;
   padding-block: 4px;
   font-size: 0.875em;
+  border-radius: 5px;
+}
+.direction-slot[draggable='true'] {
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.direction-slot[data-dragging='true'] {
+  opacity: 0.4;
+}
+.direction-slot:focus-visible {
+  outline: 1px solid var(--buddy-focus);
+  outline-offset: 3px;
+}
+.direction-slot[data-drop-edge]::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--buddy-muted);
+  pointer-events: none;
+}
+.direction-slot[data-drop-edge='before']::after {
+  top: 0;
+}
+.direction-slot[data-drop-edge='after']::after {
+  bottom: 0;
 }
 .direction-slot-number {
   flex: 0 0 1em;
@@ -431,11 +461,6 @@ html:has(.settings-drawer[open]) {
   min-width: 0;
   flex: 1;
   overflow-wrap: anywhere;
-}
-.direction-slot-actions {
-  display: flex;
-  flex-shrink: 0;
-  gap: 2px;
 }
 .direction-picker {
   position: relative;

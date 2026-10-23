@@ -13,7 +13,6 @@ export const pageTitles = {
   performance: '性能与开关',
   features: '常用开关',
   next: '下一步',
-  prompts: '常用提示词',
   terminology: '术语释义',
   board: '任务看板',
   bots: 'Grok Bot',
@@ -30,7 +29,7 @@ export const pageGroups: { title: string; pages: SettingsPage[] }[] = [
   { title: '界面', pages: ['features', 'surfaces', 'appearance'] },
   {
     title: '功能',
-    pages: ['next', 'prompts', 'terminology', 'board', 'model-control', 'bots'],
+    pages: ['next', 'terminology', 'board', 'model-control', 'bots'],
   },
   { title: '系统', pages: ['model', 'connection', 'performance', 'codex-host', 'dev'] },
 ];
@@ -49,7 +48,8 @@ const aliases: Record<string, SettingsPage> = {
   'settings-directions': 'next',
   'settings-direction-library': 'next',
   'settings-next-display': 'next',
-  'settings-quick-prompts': 'prompts',
+  'settings-prompts': 'next',
+  'settings-quick-prompts': 'next',
   'settings-terminology': 'terminology',
   'settings-library': 'terminology',
   'settings-jev-advanced': 'next',
@@ -80,6 +80,7 @@ function targetPage(field: string): SettingsPage | undefined {
   return undefined;
 }
 const legacyTargets: Record<string, string> = {
+  'settings-prompts': 'settings-quick-prompts',
   'settings-board': 'settings-tasks',
   'settings-dev': 'settings-dev-content',
 };

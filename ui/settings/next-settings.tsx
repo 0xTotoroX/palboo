@@ -1,5 +1,5 @@
 /* [INPUT]: Shared settings editor, direction credentials and appearance preferences.
- * [OUTPUT]: Inline display controls before generation, a library drawer and a separate quick-prompt page sharing mounted drafts and the original save queue.
+ * [OUTPUT]: One next-step page with display controls, generation, a library drawer and quick prompts sharing mounted drafts and the original save queue.
  * [POS]: Functional settings only; shared model configuration lives in model-settings.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { usePromptKeys, useSettingsListMotion } from './settings-list-motion';
@@ -15,9 +15,7 @@ import { PanelSettings } from './panel-settings';
 export function NextSettings({
   editor,
   appearance,
-  section,
 }: {
-  section?: 'next' | 'prompts';
   editor: SettingsEditor;
   appearance?: View['panelPreferences'];
 }) {
@@ -29,95 +27,85 @@ export function NextSettings({
   );
   if (!form || !saved) return null;
   return (
-    <>
-      <div data-settings-page="next" hidden={section === 'prompts'}>
-        <Card id="settings-next-display" aria-labelledby="next-display-title">
-          <h2 id="next-display-title">显示与操作</h2>
-          <PanelSettings value={appearance} section="next" />
-        </Card>
-        <DirectionSettings editor={editor} />
-      </div>
-      <div data-settings-page="prompts" hidden={section === 'next'}>
-        <Card tabIndex={-1} id="settings-quick-prompts" aria-labelledby="quick-prompts-title">
-          <h2
-            hidden={section === 'prompts'}
-            id="quick-prompts-title"
-            className="mb-2 text-[15px] font-semibold"
-          >
-            常用提示词
-          </h2>
-          <div ref={listRef} data-settings-list="quick-prompts" className="settings-entry-list">
-            {form.quickPrompts.map((item, index) => (
-              <div
-                key={promptKeys[index]}
-                data-settings-list-item={promptKeys[index]}
-                className="settings-entry settings-prompt-entry"
-              >
-                <Input
-                  className="settings-entry-name"
-                  aria-label={`常用提示词 ${index + 1} 名称`}
-                  value={item.label}
-                  maxLength={20}
-                  required
-                  onChange={(e) =>
-                    change(
-                      'quickPrompts',
-                      form.quickPrompts.map((p, i) =>
-                        i === index ? { ...p, label: e.target.value } : p,
-                      ),
-                    )
-                  }
-                />
-                <textarea
-                  aria-label={`常用提示词 ${index + 1} 内容`}
-                  value={item.prompt}
-                  maxLength={4000}
-                  required
-                  rows={1}
-                  className="settings-entry-content"
-                  onChange={(e) =>
-                    change(
-                      'quickPrompts',
-                      form.quickPrompts.map((p, i) =>
-                        i === index ? { ...p, prompt: e.target.value } : p,
-                      ),
-                    )
-                  }
-                />
-                <ConfirmationButton
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  aria-label={`删除常用提示词 ${index + 1}`}
-                  revision={saved.configurationRevision}
-                  disabled={editor.saving || editor.remoteChanged}
-                  title={`删除提示词“${item.label || '未命名'}”？`}
-                  description="会删除这条常用提示词的名称与内容，其他提示词保持不变。"
-                  confirmLabel="确认删除"
-                  onConfirm={() =>
-                    trackRemoval(index, () =>
-                      editor.removeEntry('prompt', index, saved.configurationRevision),
-                    )
-                  }
-                >
-                  <Icon name="trash" />
-                </ConfirmationButton>
-              </div>
-            ))}
-            <IconButton
-              variant="outline"
-              data-settings-list-item="add"
-              aria-label="添加提示词"
-              disabled={form.quickPrompts.length >= 8}
-              onClick={() =>
-                change('quickPrompts', [...form.quickPrompts, { label: '', prompt: '' }])
-              }
+    <div data-settings-page="next">
+      <Card id="settings-next-display" aria-labelledby="next-display-title">
+        <h2 id="next-display-title">显示与操作</h2>
+        <PanelSettings value={appearance} section="next" />
+      </Card>
+      <DirectionSettings editor={editor} />
+      <Card tabIndex={-1} id="settings-quick-prompts" aria-labelledby="quick-prompts-title">
+        <h2 id="quick-prompts-title">常用提示词</h2>
+        <div ref={listRef} data-settings-list="quick-prompts" className="settings-entry-list">
+          {form.quickPrompts.map((item, index) => (
+            <div
+              key={promptKeys[index]}
+              data-settings-list-item={promptKeys[index]}
+              className="settings-entry settings-prompt-entry"
             >
-              <Icon name="plus" />
-            </IconButton>
-          </div>
-        </Card>
-      </div>
-    </>
+              <Input
+                className="settings-entry-name"
+                aria-label={`常用提示词 ${index + 1} 名称`}
+                value={item.label}
+                maxLength={20}
+                required
+                onChange={(e) =>
+                  change(
+                    'quickPrompts',
+                    form.quickPrompts.map((p, i) =>
+                      i === index ? { ...p, label: e.target.value } : p,
+                    ),
+                  )
+                }
+              />
+              <textarea
+                aria-label={`常用提示词 ${index + 1} 内容`}
+                value={item.prompt}
+                maxLength={4000}
+                required
+                rows={1}
+                className="settings-entry-content"
+                onChange={(e) =>
+                  change(
+                    'quickPrompts',
+                    form.quickPrompts.map((p, i) =>
+                      i === index ? { ...p, prompt: e.target.value } : p,
+                    ),
+                  )
+                }
+              />
+              <ConfirmationButton
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label={`删除常用提示词 ${index + 1}`}
+                revision={saved.configurationRevision}
+                disabled={editor.saving || editor.remoteChanged}
+                title={`删除提示词“${item.label || '未命名'}”？`}
+                description="会删除这条常用提示词的名称与内容，其他提示词保持不变。"
+                confirmLabel="确认删除"
+                onConfirm={() =>
+                  trackRemoval(index, () =>
+                    editor.removeEntry('prompt', index, saved.configurationRevision),
+                  )
+                }
+              >
+                <Icon name="trash" />
+              </ConfirmationButton>
+            </div>
+          ))}
+          <IconButton
+            variant="outline"
+            data-settings-list-item="add"
+            aria-label="添加提示词"
+            disabled={form.quickPrompts.length >= 8}
+            onClick={() =>
+              change('quickPrompts', [...form.quickPrompts, { label: '', prompt: '' }])
+            }
+          >
+            <Icon name="plus" />
+          </IconButton>
+        </div>
+      </Card>
+    </div>
   );
 }

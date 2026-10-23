@@ -58,7 +58,7 @@ function FeaturePreview({ form, tasks, model, view, dirty, page }: PreviewProps)
         ? 'board'
         : page === 'model-control'
           ? 'model'
-          : ['next', 'prompts'].includes(page)
+          : page === 'next'
             ? 'next'
             : tab;
   const transition = usePreviewTransition(activeScene);
@@ -303,7 +303,7 @@ export function SettingsPreview(props: PreviewProps) {
           typography={props.view?.panelTypography}
           typographyPreferences={props.view?.panelPreferences.typography}
         />
-      ) : ['features', 'next', 'prompts', 'board', 'model-control', 'bots'].includes(props.page) ? (
+      ) : ['features', 'next', 'board', 'model-control', 'bots'].includes(props.page) ? (
         <FeaturePreview {...props} />
       ) : props.page === 'model' ? (
         <GenerationPreview {...props} />

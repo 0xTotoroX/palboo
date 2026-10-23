@@ -1,5 +1,5 @@
 /* [INPUT]: Direction catalog, built-in identities, selected IDs and the existing selection callback.
- * [OUTPUT]: Searchable, categorized local picker; selection only adds an existing direction.
+ * [OUTPUT]: Searchable, categorized local picker that follows its trigger while scrolling; selection only adds an existing direction.
  * [POS]: Stepwise selection presentation, independent of library editing and persistence.
  * [PROTOCOL]: Keep settings/AGENTS.md and DESIGN_SYSTEM.md in sync. */
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
@@ -47,12 +47,22 @@ export function DirectionPicker({
     setOpen(false);
     if (restoreFocus) trigger.current?.focus({ preventScroll: true });
   }
-  function show() {
-    if (disabled) return;
+  function position() {
     const rect = trigger.current!.getBoundingClientRect();
+    if (rect.bottom < 0 || rect.top > window.innerHeight) {
+      close();
+      return;
+    }
     const below = window.innerHeight - rect.bottom;
     const above = below < 320 && rect.top > below;
-    setPlacement({ above, height: Math.max(0, (above ? rect.top : below) - 12) });
+    const height = Math.max(0, (above ? rect.top : below) - 12);
+    setPlacement((current) =>
+      current.above === above && current.height === height ? current : { above, height },
+    );
+  }
+  function show() {
+    if (disabled) return;
+    position();
     setQuery('');
     setGroup(available.some((item) => !originals.has(item.id)) ? 'custom' : 'builtin');
     setActive(null);
@@ -80,16 +90,20 @@ export function DirectionPicker({
     const outside = (event: Event) => {
       if (event.target instanceof Node && !root.current?.contains(event.target)) setOpen(false);
     };
+    const scroll = (event: Event) => {
+      if (event.target instanceof Node && root.current?.contains(event.target)) return;
+      position();
+    };
     const dismiss = () => setOpen(false);
     document.addEventListener('pointerdown', outside);
     document.addEventListener('focusin', outside);
-    document.addEventListener('scroll', outside, true);
+    document.addEventListener('scroll', scroll, true);
     window.addEventListener('resize', dismiss);
     window.addEventListener('hashchange', dismiss);
     return () => {
       document.removeEventListener('pointerdown', outside);
       document.removeEventListener('focusin', outside);
-      document.removeEventListener('scroll', outside, true);
+      document.removeEventListener('scroll', scroll, true);
       window.removeEventListener('resize', dismiss);
       window.removeEventListener('hashchange', dismiss);
     };

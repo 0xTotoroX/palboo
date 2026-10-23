@@ -197,8 +197,31 @@ return <div className="settings-app" style={{maxWidth:720,margin:'20px auto',pad
       await trigger.click();
       assert.deepEqual(await options.allTextContents(), [custom.name]);
       await search.press('Escape');
-      await save(() => selected.getByRole('button', { name: '下移方向 1', exact: true }).click());
+      const rows = selected.locator('.direction-slot');
+      assert.equal(await selected.getByRole('button', { name: /[上下]移方向/ }).count(), 0);
+      assert.deepEqual(
+        await rows.evaluateAll((nodes) =>
+          nodes.map((node) => node.querySelectorAll('button').length),
+        ),
+        [1, 1, 1],
+      );
+      const dragWrites = writes.length;
+      await rows.first().dragTo(page.getByRole('heading', { name: '建议生成', exact: true }));
+      await page.waitForTimeout(250);
+      assert.equal(writes.length, dragWrites, 'dropping outside the list does not save');
+      assert.equal(await selected.locator('[data-dragging="true"], [data-drop-edge]').count(), 0);
+      await rows.first().dragTo(rows.nth(1), { targetPosition: { x: 40, y: 2 } });
+      await page.waitForTimeout(250);
+      assert.equal(writes.length, dragWrites, 'dropping back in the same position is a no-op');
+      await save(() => rows.first().dragTo(rows.nth(1), { targetPosition: { x: 40, y: 36 } }));
+      assert.equal(writes.length, dragWrites + 1, 'drag commits only once on drop');
       assert.deepEqual(settings.selectedDirections, ['gaps', 'advance', 'understand']);
+      await save(() => rows.last().dragTo(rows.first(), { targetPosition: { x: 40, y: 2 } }));
+      assert.deepEqual(settings.selectedDirections, ['understand', 'gaps', 'advance']);
+      await save(() => rows.first().press('Alt+ArrowDown'));
+      assert.deepEqual(settings.selectedDirections, ['gaps', 'understand', 'advance']);
+      assert.equal(await rows.nth(1).evaluate((node) => node === document.activeElement), true);
+      assert.deepEqual(settings.directionLibrary, originalLibrary);
 
       await page.setViewportSize({ width: 360, height: 520 });
       await trigger.click();

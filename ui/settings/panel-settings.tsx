@@ -146,15 +146,7 @@ export function PanelSettings({
               <option value="true">仅标题</option>
             </NativeSelect>
           </Field>
-          <Field
-            id="suggestion-click"
-            label="指令执行模式"
-            hint={
-              ui.promptClickMode === 'direct' || ui.promptClickMode === 'hybrid'
-                ? '已有草稿时只追加。'
-                : undefined
-            }
-          >
+          <Field id="suggestion-click" label="指令执行模式">
             <NativeSelect
               id="suggestion-click"
               value={ui.promptClickMode}

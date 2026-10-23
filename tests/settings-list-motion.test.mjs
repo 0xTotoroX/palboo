@@ -237,9 +237,11 @@ createRoot(document.getElementById('root')).render(<App/>);`,
       await page.getByRole('textbox', { name: '常用提示词 3 名称', exact: true }).fill('新提示');
       await page.getByRole('textbox', { name: '常用提示词 3 内容', exact: true }).fill('新内容');
       // Existing IDs cover direction reorder/removal without remounting controls.
-      await page.getByRole('button', { name: '下移方向 1', exact: true }).scrollIntoViewIfNeeded();
+      const firstDirection = page.locator('.direction-slot').first();
+      const secondDirection = page.locator('.direction-slot').nth(1);
+      await firstDirection.scrollIntoViewIfNeeded();
       await clear();
-      await page.getByRole('button', { name: '下移方向 1', exact: true }).click();
+      await firstDirection.dragTo(secondDirection, { targetPosition: { x: 40, y: 36 } });
       log = await animations();
       assert.ok(log.some((x) => x.list === 'direction-slots' && x.duration === 200));
       await page.getByRole('button', { name: '移除方向位置 1', exact: true }).click();

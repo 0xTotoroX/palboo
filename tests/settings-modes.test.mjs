@@ -380,7 +380,13 @@ test(
       // Exercise the styled native picker through actual keyboard/pointer input, not selectOption.
       await category('next');
       // The page keeps frequent choices; the library is a directory, then one editor.
-      assert.equal(await page.locator('.settings-content textarea:visible').count(), 0);
+      assert.equal(await page.locator('.direction-library textarea:visible').count(), 0);
+      assert.equal(await page.getByRole('link', { name: '常用提示词', exact: true }).count(), 0);
+      assert.equal(
+        await page.getByRole('heading', { name: '常用提示词', exact: true }).isVisible(),
+        true,
+      );
+      assert.equal(await page.getByText('已有草稿时只追加。', { exact: true }).count(), 0);
       const originalInstruction = fixtureSettings.directionLibrary[0].instruction;
       const firstId = fixtureSettings.directionLibrary[0].id;
       const library = page.getByRole('dialog', { name: '方向库', exact: true });
@@ -452,6 +458,14 @@ test(
         (await display.boundingBox()).y <
           (await page.locator('#settings-directions').boundingBox()).y,
       );
+      await page.goto(origin + '/#settings-prompts');
+      await page.locator('#settings-quick-prompts').waitFor();
+      assert.equal(
+        await page.locator('.settings-app').getAttribute('data-settings-category'),
+        'next',
+      );
+      assert.equal(await page.evaluate(() => document.activeElement.id), 'settings-quick-prompts');
+      assert.equal(await page.getByRole('link', { name: '常用提示词', exact: true }).count(), 0);
       await page.goto(origin + `/#settings-next/direction-${firstId}-instruction`);
       await instruction.waitFor({ state: 'visible' });
       assert.equal(await instruction.evaluate((node) => node === document.activeElement), true);
@@ -550,7 +564,6 @@ test(
       for (const id of [
         'features',
         'next',
-        'prompts',
         'board',
         'model-control',
         'surfaces',
@@ -564,7 +577,7 @@ test(
         assert.equal(await key.inputValue(), 'fixture-unsaved-key');
         assert.equal(await model.evaluate((n, original) => n === original, modelNode), true);
         assert.equal(await page.getByLabel('搜索术语', { exact: true }).isVisible(), false);
-        if (['next', 'prompts', 'board', 'model-control'].includes(id))
+        if (['next', 'board', 'model-control'].includes(id))
           assert.equal(await page.locator('.preview-scene[data-active="true"]').count(), 1);
         if (id === 'features') {
           assert.equal(await page.locator('.settings-preview').count(), 0);
@@ -970,7 +983,6 @@ test(
             'appearance',
             'features',
             'next',
-            'prompts',
             'board',
             'model-control',
             'bots',
