@@ -9,4 +9,6 @@ src/codex_host.rs管理Options、安装/运行身份、启停选择、有界冷�
 
 开关只保存意愿；启用/停用通过现有启动策略及显式操作，普通会话不能被上游launcher隐式接管。codexHost、revision、previousExecutable和运行记录名保持兼容。
 
+遵循根目录的外部环境原样接入约定：本模块只管理官方分发包、启动与 Palboo 连接，不修改上游程序、Agent CLI、模型或登录配置，不安装模型别名、启动包装或协议转换。
+
 [PROTOCOL]: 成员或接口变化时同步本文及父级地图。
