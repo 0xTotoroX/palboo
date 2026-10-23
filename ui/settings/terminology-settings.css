@@ -16,7 +16,6 @@
 #settings-terminology .term-section {
   margin-top: 24px;
   padding-top: 24px;
-  border-top: 1px solid var(--buddy-border);
 }
 #settings-terminology .term-section > .settings-field:last-child {
   margin-bottom: 0;
@@ -100,6 +99,9 @@
 #settings-terminology .term-entry,
 #settings-terminology .term-actions {
   margin-block: 16px 24px;
+}
+#settings-terminology [data-term-management][hidden] {
+  display: none;
 }
 #settings-terminology .term-actions {
   display: flex;

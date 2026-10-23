@@ -251,6 +251,39 @@ test(
       await view.locator('[data-model-tile="route-b/claude-test"]').click();
       await page.evaluate(() => window.dispatchEvent(new Event('focus')));
       await settings.getByRole('button', { name: '模型分组', exact: true }).click();
+      assert.equal(await settings.getByLabel('批量指定厂家').isVisible(), false);
+      const writesBeforeSearch = writes;
+      await settings.getByRole('searchbox', { name: '搜索模型' }).fill('route-b/');
+      assert.equal(await settings.locator('[data-model-id]').count(), 1);
+      assert.equal(
+        await settings.locator('[data-model-id]').getAttribute('data-model-id'),
+        'route-b/claude-test',
+      );
+      assert.equal(await settings.locator('[data-model-id]').getAttribute('draggable'), 'false');
+      await settings.getByRole('searchbox', { name: '搜索模型' }).fill('');
+      await settings.getByLabel('筛选模型分组').selectOption('vendor:Anthropic');
+      assert.equal(await settings.locator('[data-model-id]').count(), 2);
+      await settings.getByLabel('筛选模型分组').selectOption('all');
+      assert.equal(writes, writesBeforeSearch);
+      const claudeRows = settings
+        .getByRole('region', { name: '分组：Anthropic' })
+        .locator('[data-model-id]');
+      const orderBeforeDrag = [...state.preferences.modelOrder];
+      await claudeRows.first().dragTo(claudeRows.last(), { targetPosition: { x: 90, y: 36 } });
+      await page.waitForFunction(
+        () =>
+          document.querySelector('#settings [aria-label="分组：Anthropic"] [data-model-id]')
+            ?.dataset.modelId === 'route-b/claude-test',
+      );
+      assert.deepEqual(state.preferences.pinned, ['gpt-test']);
+      assert.deepEqual(state.preferences.presets, originalPresets);
+      await claudeRows.first().press('Alt+ArrowDown');
+      await page.waitForFunction(
+        () =>
+          document.querySelector('#settings [aria-label="分组：Anthropic"] [data-model-id]')
+            ?.dataset.modelId === 'route-a/claude-test',
+      );
+      assert.deepEqual(state.preferences.modelOrder, orderBeforeDrag);
       await settings.getByLabel('新模型分组名称').fill('编程');
       rejectNext = true;
       await settings.getByRole('button', { name: '新增分组' }).click();
@@ -265,7 +298,9 @@ test(
       const groupOrderBefore = await settings
         .locator('[aria-label^="分组："]')
         .evaluateAll((nodes) => nodes.map((node) => node.getAttribute('aria-label')));
-      await settings.getByRole('button', { name: '下移分组 Anthropic', exact: true }).click();
+      await settings
+        .getByRole('group', { name: '排序分组 Anthropic', exact: true })
+        .press('Alt+ArrowDown');
       await page.waitForFunction(
         (before) =>
           JSON.stringify(
@@ -275,7 +310,9 @@ test(
           ) !== JSON.stringify(before),
         groupOrderBefore,
       );
-      await settings.getByRole('button', { name: '上移分组 Anthropic', exact: true }).click();
+      await settings
+        .getByRole('group', { name: '排序分组 Anthropic', exact: true })
+        .press('Alt+ArrowUp');
       await page.waitForFunction(
         (before) =>
           JSON.stringify(
@@ -303,7 +340,10 @@ test(
         (await manufacturerSaved.json()).preferences.modelOverrides.custom.manufacturer,
         '私人厂家',
       );
-      await settings.getByText('私人厂家 · 手动', { exact: true }).waitFor();
+      await settings
+        .getByRole('region', { name: '分组：私人厂家' })
+        .getByText('手动', { exact: true })
+        .waitFor();
       await settings.getByLabel('批量移动分组').selectOption(groupId);
       await settings.getByRole('button', { name: '移动模型' }).click();
       await settings
@@ -371,14 +411,20 @@ test(
       state.preferences.modelOverrides.custom = { manufacturer: '保留厂家' };
       await page.evaluate(() => window.dispatchEvent(new Event('focus')));
       await settings.getByRole('button', { name: '模型分组', exact: true }).click();
-      await settings.getByText('保留厂家 · 手动 · 暂不可用').waitFor();
+      await settings
+        .getByRole('region', { name: '分组：保留厂家' })
+        .getByText('手动 · 暂不可用')
+        .waitFor();
       state.snapshot.models.push(
         model('custom', '私有别名'),
         model('route-new/gemini-test', 'Gemini test'),
       );
       await settings.getByRole('button', { name: '刷新可用模型', exact: true }).click();
       await settings.getByRole('region', { name: '分组：Google' }).waitFor();
-      await settings.getByText('保留厂家 · 手动', { exact: true }).waitFor();
+      await settings
+        .getByRole('region', { name: '分组：保留厂家' })
+        .getByText('手动', { exact: true })
+        .waitFor();
       assert.equal(state.preferences.modelOverrides.custom.manufacturer, '保留厂家');
 
       mkdirSync('target/reports/model-groups', { recursive: true });

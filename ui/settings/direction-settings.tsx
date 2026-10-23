@@ -5,7 +5,7 @@
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
 import { useSettingsListMotion } from './settings-list-motion';
-import { useLayoutEffect, useRef, useState, type DragEvent } from 'react';
+import { SettingsSortableList } from './settings-sortable-list';
 import { Icon } from '../shared/icons/react';
 import { Card } from './components/ui/card';
 import { Field } from './settings-controls';
@@ -18,54 +18,15 @@ import { DirectionPicker } from './direction-picker';
 import type { SettingsEditor } from './use-settings-form';
 import type { EditableSettings } from '../shared/contracts';
 
-const directionDragType = 'application/x-palboo-direction';
 export function DirectionSettings({ editor }: { editor: SettingsEditor }) {
   const { form: draft, saved: baseline, change, schedule } = editor;
   const form = draft!,
     saved = baseline!;
   const listRef = useSettingsListMotion<HTMLElement>();
   const library = form.directionLibrary;
-  const [dragging, setDragging] = useState<string | null>(null);
-  const [dropTarget, setDropTarget] = useState<{ id: string; after: boolean } | null>(null);
-  const dragBlocked = useRef(false);
-  const focusAfterMove = useRef<string | null>(null);
-  useLayoutEffect(() => {
-    if (!focusAfterMove.current) return;
-    const row = Array.from(
-      listRef.current?.querySelectorAll<HTMLElement>('.direction-slot') || [],
-    ).find((node) => node.dataset.settingsListItem === focusAfterMove.current);
-    row?.focus({ preventScroll: true });
-    focusAfterMove.current = null;
-  }, [form.selectedDirections]);
   function slots(ids: string[]) {
     change('selectedDirections', ids);
     schedule();
-  }
-  function move(index: number, delta: number) {
-    if (index + delta < 0 || index + delta >= form.selectedDirections.length) return;
-    const ids = [...form.selectedDirections];
-    focusAfterMove.current = ids[index];
-    [ids[index], ids[index + delta]] = [ids[index + delta], ids[index]];
-    slots(ids);
-  }
-  function finishDrag() {
-    setDragging(null);
-    setDropTarget(null);
-  }
-  function dragOver(event: DragEvent<HTMLDivElement>, id: string) {
-    if (!dragging || !event.dataTransfer.types.includes(directionDragType)) return false;
-    event.preventDefault();
-    event.stopPropagation();
-    event.dataTransfer.dropEffect = 'move';
-    if (dragging === id) {
-      setDropTarget(null);
-      return false;
-    }
-    return true;
-  }
-  function afterMiddle(event: DragEvent<HTMLDivElement>) {
-    const rect = event.currentTarget.getBoundingClientRect();
-    return event.clientY >= rect.top + rect.height / 2;
   }
   return (
     <>
@@ -119,85 +80,30 @@ export function DirectionSettings({ editor }: { editor: SettingsEditor }) {
               data-settings-list="direction-slots"
               className="direction-slots"
             >
-              {form.selectedDirections.map((id, index) => (
-                <div
-                  key={id}
-                  data-settings-list-item={id}
-                  className="direction-slot"
-                  role="group"
-                  tabIndex={0}
-                  aria-label={`方向 ${index + 1}：${library.find((item) => item.id === id)?.name || '未命名方向'}`}
-                  aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
-                  aria-description="拖动排序，或按 Alt+上下方向键调整"
-                  data-settings-navigation
-                  draggable={form.selectedDirections.length > 1}
-                  data-dragging={dragging === id}
-                  data-drop-edge={
-                    dropTarget?.id === id ? (dropTarget.after ? 'after' : 'before') : undefined
-                  }
-                  onPointerDown={(event) => {
-                    dragBlocked.current = !!(event.target as Element).closest('button');
-                  }}
-                  onDragStart={(event) => {
-                    if (dragBlocked.current) {
-                      event.preventDefault();
-                      return;
-                    }
-                    event.stopPropagation();
-                    event.currentTarget.focus({ preventScroll: true });
-                    event.dataTransfer.setData(directionDragType, id);
-                    event.dataTransfer.effectAllowed = 'move';
-                    setDragging(id);
-                  }}
-                  onDragOver={(event) => {
-                    if (!dragOver(event, id)) return;
-                    const after = afterMiddle(event);
-                    setDropTarget((current) =>
-                      current?.id === id && current.after === after ? current : { id, after },
-                    );
-                  }}
-                  onDragLeave={(event) => {
-                    if (
-                      !(event.relatedTarget instanceof Node) ||
-                      !event.currentTarget.contains(event.relatedTarget)
-                    )
-                      setDropTarget(null);
-                  }}
-                  onDrop={(event) => {
-                    if (dragOver(event, id) && form.selectedDirections.includes(dragging!)) {
-                      const ids = form.selectedDirections.filter((item) => item !== dragging);
-                      ids.splice(ids.indexOf(id) + (afterMiddle(event) ? 1 : 0), 0, dragging!);
-                      if (ids.some((item, i) => item !== form.selectedDirections[i])) {
-                        focusAfterMove.current = dragging;
-                        slots(ids);
-                      }
-                    }
-                    finishDrag();
-                  }}
-                  onDragEnd={finishDrag}
-                  onKeyDown={(event) => {
-                    if (
-                      event.target !== event.currentTarget ||
-                      !event.altKey ||
-                      !['ArrowUp', 'ArrowDown'].includes(event.key)
-                    )
-                      return;
-                    event.preventDefault();
-                    move(index, event.key === 'ArrowUp' ? -1 : 1);
-                  }}
-                >
-                  <span className="direction-slot-number">{index + 1}</span>
-                  <span className="direction-slot-name" id={`direction-slot-${index}`}>
-                    {library.find((item) => item.id === id)?.name || '未命名方向'}
-                  </span>
-                  <IconButton
-                    aria-label={`移除方向位置 ${index + 1}`}
-                    onClick={() => slots(form.selectedDirections.filter((_, i) => i !== index))}
-                  >
-                    <Icon name="trash" />
-                  </IconButton>
-                </div>
-              ))}
+              <SettingsSortableList ids={form.selectedDirections} onReorder={slots}>
+                {(rowProps) =>
+                  form.selectedDirections.map((id, index) => (
+                    <div
+                      key={id}
+                      data-settings-list-item={id}
+                      className="direction-slot"
+                      {...rowProps(id)}
+                      aria-label={`方向 ${index + 1}：${library.find((item) => item.id === id)?.name || '未命名方向'}`}
+                    >
+                      <span className="direction-slot-number">{index + 1}</span>
+                      <span className="direction-slot-name" id={`direction-slot-${index}`}>
+                        {library.find((item) => item.id === id)?.name || '未命名方向'}
+                      </span>
+                      <IconButton
+                        aria-label={`移除方向位置 ${index + 1}`}
+                        onClick={() => slots(form.selectedDirections.filter((_, i) => i !== index))}
+                      >
+                        <Icon name="trash" />
+                      </IconButton>
+                    </div>
+                  ))
+                }
+              </SettingsSortableList>
               <div data-settings-list-item="add">
                 <DirectionPicker
                   library={library}

@@ -267,6 +267,20 @@ createRoot(document.getElementById('root')).render(<App/>);`,
         await page.getByRole('textbox', { name: '中文术语名', exact: true }).isVisible(),
         true,
       );
+      const beforeManagementNavigation = writes.length;
+      await page.getByRole('textbox', { name: '中文术语名', exact: true }).fill('保留的词条草稿');
+      await page.getByRole('button', { name: '导入与导出', exact: true }).click();
+      assert.equal(
+        await page.getByRole('textbox', { name: '中文术语名', exact: true }).isVisible(),
+        false,
+      );
+      await page.getByRole('button', { name: '新增词条', exact: true }).click();
+      assert.equal(
+        await page.getByRole('textbox', { name: '中文术语名', exact: true }).inputValue(),
+        '保留的词条草稿',
+      );
+      await page.getByRole('button', { name: '导入与导出', exact: true }).click();
+      assert.equal(writes.length, beforeManagementNavigation);
       const entries = Array.from({ length: 21 }, (_, i) => ({
         id: `TERM-${i}`,
         name: `合成词条${i}`,

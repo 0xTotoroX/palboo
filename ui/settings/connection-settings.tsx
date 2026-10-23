@@ -160,9 +160,7 @@ export function ConnectionSettings({
       {form && (
         <>
           <Card tabIndex={-1} id="settings-startup" aria-labelledby="startup-title">
-            <h2 id="startup-title" className="mb-5 text-[15px] font-semibold">
-              启动行为
-            </h2>
+            <h2 id="startup-title">启动行为</h2>
             <Field
               id="host-restart-policy"
               label="ChatGPT 已打开，但没有调试连接时"

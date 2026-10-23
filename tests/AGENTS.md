@@ -319,3 +319,5 @@ Stepwise 设置的目录层级由 settings-modes.test.mjs 验证：主页面隐�
 - `direction-picker.test.mjs`：真实选择控件与保存队列，合成服务验证分类默认值、跨分类搜索、排除已选、点选即保存一次、选用/移除不改库、原生拖动/键盘排序、列表外与原位置落点零保存、草稿在导航中保持、Esc/Tab/外点焦点、内部键盘滚动及360px上下避让；不读写真实配置。
 
 Stepwise 设置合并回归：settings-modes 检查常用提示词与下一步同页、左侧无独立入口、旧 settings-prompts 定位、冗余草稿说明移除；startup-settings 通过现有目录/选择小面板验证提示词保存重载和 Jev 在途编辑，panel-settings 保留无说明时的点击模式独立保存。
+
+设置整理回归：model-groups 覆盖模型搜索/分类零写入、勾选后显示批量操作、拖动与键盘排序、暂不可用模型偏好保留；settings-safety 验证词库管理分区切换保留草稿且不保存，导入确认/部分失败沿用原流程；bots 覆盖本地名称/简介搜索、空结果与清除恢复分组。direction-picker 与 settings-list-motion 同时回归共用排序及原节点补位。

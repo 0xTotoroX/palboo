@@ -77,7 +77,7 @@ Tom Modern 是本项目已选定的界面方案名称，代表中性色、细分
 | 术语释义 | 卡片预览 → 标注、识别与点击行为 → 卡片外观 → 词库搜索、管理、筛选与结果 |
 | 任务看板 | 示例 → 启用 → 分组编辑 |
 | 模型快切 | 当前模型示意 → 启用与额度显示 → 模型分组入口 |
-| Grok Bot | 示例 → 启用与接入入口 → 自动同步 → 按组排列的资料名单 |
+| Grok Bot | 示例 → 启用与接入入口 → 自动同步 → 本地搜索与按组排列的资料名单 |
 | 布局与位置 | 工作空间示例 → 主界面位置与排列 → 各功能位置 → 侧栏显示范围 → 尺寸与置顶 → 贴边位置 |
 | 外观 | 工作空间示例 → 各形式材质 → 字体 → 表情操作 |
 | 模型服务 | 当前连接概况 → 来源、协议、地址、凭据与模型 → 测试 → 高级设置 |
@@ -87,6 +87,8 @@ Tom Modern 是本项目已选定的界面方案名称，代表中性色、细分
 | 开发来源 | 当前来源与可选来源 → 显式切换操作 |
 
 同一表单中的标签、选择器和输入框共用 `Field` 对齐。功能偏好用开关行，临时列表筛选用复选框；两者保持明确区分。相关操作就近放置：词库管理紧邻词库搜索，导入导出留在管理抽屉，长术语与英文允许自然换行。
+
+长名单先搜索或分类再操作。模型分组抽屉顶部集中搜索、分类与刷新，勾选后才显示批量操作；模型行不重复所在厂家标题，拖动与键盘排序共用下一步的交互。词库管理通过“新增词条 / 导入与导出”切换当前任务，草稿持续挂载；词库结果按批显示，可继续加载。常规偏好仍留在主页面，不为简单设置增加二级入口。
 
 常用开关页只显示功能开关，不挂载顶部功能预览。其余有效预览位于该页第一组设置之前，外框与控件左右对齐。使用 [PreviewFrame](ui/settings/preview-frame.tsx)；外观与布局复用 [LayoutPreview](ui/settings/layout-preview.tsx) 的工作台内容：布局页保留设备示意，外观页使用正常尺寸材质样本及放大的 PALBOO 融合字标背景，保持深浅明暗层次，术语保留真实卡片示例。CodexHost、性能与开发来源显示实际状态，不增加无关示意。
 
@@ -101,6 +103,7 @@ Tom Modern 是本项目已选定的界面方案名称，代表中性色、细分
 | 按钮、图标按钮、输入、选择、开关 | [components/ui/](ui/settings/components/ui/)，本地 shadcn/ui 组件与 Radix 原语 |
 | 设置行、开关行、保存反馈 | [settings-controls.tsx](ui/settings/settings-controls.tsx) |
 | 右侧抽屉 | [settings-drawer.tsx](ui/settings/settings-drawer.tsx) |
+| 列表拖动与键盘排序 | [settings-sortable-list.tsx](ui/settings/settings-sortable-list.tsx)，沿用列表补位动效与各模块保存队列 |
 | 危险操作确认 | [settings-confirmation.tsx](ui/settings/settings-confirmation.tsx) |
 | 可输入候选 | 现有 `SuggestionInput`，保留原生表单语义 |
 | 操作图标 | [shared/icons/](ui/shared/icons/)，OpenAI apps-sdk-ui MIT SVG 子集及原许可 |

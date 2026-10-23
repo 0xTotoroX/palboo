@@ -431,6 +431,18 @@ test('saved sidebar groups reorder without losing calls, hide stale actions and 
         .count(),
       0,
     );
+    const botSearch = page.getByRole('searchbox', { name: '搜索 Bot', exact: true });
+    await botSearch.fill('资讯');
+    assert.deepEqual(
+      (await page.locator('#settings .settings-drawer-trigger').allTextContents()).map((text) =>
+        text.trim(),
+      ),
+      ['X 资讯'],
+    );
+    await botSearch.fill('没有这个 Bot');
+    await page.getByText('没有匹配的 Bot', { exact: true }).waitFor();
+    await botSearch.fill('');
+    assert.equal(await page.locator('#settings .settings-drawer-trigger').count(), 3);
     mkdirSync('target/reports/bot-sidebar', { recursive: true });
     await page.screenshot({ path: 'target/reports/bot-sidebar/narrow.png', fullPage: true });
     assert.equal(

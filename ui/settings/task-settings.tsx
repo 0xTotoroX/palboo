@@ -68,7 +68,6 @@ export function TaskSettings({ tasks }: { tasks: ReturnType<typeof useTasks> }) 
               }}
             >
               <Input
-                className="text-[15px]"
                 aria-label={`分组名称：${column.title}`}
                 maxLength={40}
                 disabled={busy || !state}
@@ -99,7 +98,6 @@ export function TaskSettings({ tasks }: { tasks: ReturnType<typeof useTasks> }) 
             }}
           >
             <Input
-              className="text-[15px]"
               aria-label="新分组名称"
               placeholder="新分组名称"
               maxLength={40}

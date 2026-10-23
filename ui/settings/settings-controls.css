@@ -424,19 +424,23 @@ html:has(.settings-drawer[open]) {
   font-size: 0.875em;
   border-radius: 5px;
 }
-.direction-slot[draggable='true'] {
+[data-settings-sort-item] {
+  position: relative;
+  border-radius: 5px;
+}
+[data-settings-sort-item][draggable='true'] {
   cursor: grab;
   user-select: none;
   -webkit-user-select: none;
 }
-.direction-slot[data-dragging='true'] {
+[data-settings-sort-item][data-dragging='true'] {
   opacity: 0.4;
 }
-.direction-slot:focus-visible {
+[data-settings-sort-item]:focus-visible {
   outline: 1px solid var(--buddy-focus);
   outline-offset: 3px;
 }
-.direction-slot[data-drop-edge]::after {
+[data-settings-sort-item][data-drop-edge]::after {
   content: '';
   position: absolute;
   left: 0;
@@ -446,10 +450,10 @@ html:has(.settings-drawer[open]) {
   background: var(--buddy-muted);
   pointer-events: none;
 }
-.direction-slot[data-drop-edge='before']::after {
+[data-settings-sort-item][data-drop-edge='before']::after {
   top: 0;
 }
-.direction-slot[data-drop-edge='after']::after {
+[data-settings-sort-item][data-drop-edge='after']::after {
   bottom: 0;
 }
 .direction-slot-number {
@@ -465,6 +469,53 @@ html:has(.settings-drawer[open]) {
 .direction-picker {
   position: relative;
   margin-top: 6px;
+}
+
+.settings-catalog-tools {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(100px, 0.65fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+.settings-catalog-selection {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+}
+.settings-catalog-bulk {
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--buddy-subtle);
+  min-width: 0;
+}
+.model-organization-heading {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  gap: 12px;
+}
+.model-organization-heading h3 {
+  margin: 0;
+}
+.settings-section-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 20px;
+}
+.settings-section-tabs [aria-pressed='true'] {
+  color: var(--buddy-text);
+  background: var(--settings-selected);
+  font-weight: 600;
+}
+@media (max-width: 420px) {
+  .settings-catalog-tools {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .settings-catalog-tools > input {
+    grid-column: 1 / -1;
+  }
 }
 .settings-app .direction-picker-trigger {
   min-height: 32px;

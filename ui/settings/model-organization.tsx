@@ -1,10 +1,11 @@
-/* [INPUT]: 模型状态、带修订校验的保存与刷新操作、共用自由输入候选控件与操作图标。
- * [OUTPUT]: 右侧抽屉中的自定义模型分组、厂家纠正与稳定排序；删除和恢复分类统一确认并校验修订。
+/* [INPUT]: 模型状态、带修订校验的保存与刷新操作、共用候选与列表排序控件。
+ * [OUTPUT]: 可搜索/分类的模型分组、按选择出现的批量操作与拖动排序；删除和恢复分类统一确认并校验修订。
  * [POS]: 只管理模型展示偏好，不切换模型或修改预设。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { SettingsDrawer } from './settings-drawer';
 import { useSettingsListMotion } from './settings-list-motion';
 import { useState } from 'react';
+import { SettingsSortableList, replaceVisibleOrder } from './settings-sortable-list';
 import { ConfirmationButton } from './settings-confirmation';
 import { Button, IconButton } from './components/ui/button';
 import { Input } from './components/ui/input';
@@ -17,7 +18,6 @@ import {
   manufacturer,
   manufacturerNames,
   groupedModels,
-  moveItem,
   orderedModelIds,
   type Model,
   type ModelState,
@@ -46,6 +46,8 @@ export function ModelOrganization({
   const [names, setNames] = useState<Record<string, string>>({});
   const [maker, setMaker] = useState('');
   const [destination, setDestination] = useState('');
+  const [query, setQuery] = useState('');
+  const [category, setCategory] = useState('all');
   const [detail, setDetail] = useState<string | null>(null);
   const available = state.snapshot.models;
   const remembered = [
@@ -63,6 +65,22 @@ export function ModelOrganization({
       .map((id) => ({ id, label: id, reasoning: [], fast: false })),
   ];
   const groups = groupedModels(models, prefs, true);
+  const term = query.trim().toLocaleLowerCase();
+  const categoryId = category === 'all' || groups.some((g) => g.id === category) ? category : 'all';
+  const visibleGroups = groups
+    .filter((group) => categoryId === 'all' || group.id === categoryId)
+    .map((group) => ({
+      ...group,
+      models: group.models.filter(
+        (model) =>
+          !term ||
+          `${model.label} ${model.id} ${manufacturer(model, prefs)} ${group.name}`
+            .toLocaleLowerCase()
+            .includes(term),
+      ),
+    }))
+    .filter((group) => !term || group.models.length);
+  const visibleModels = visibleGroups.flatMap((group) => group.models);
   const order = orderedModelIds(models, prefs);
   const groupOrder = [...new Set([...(prefs.groupOrder || []), ...groups.map((g) => g.id)])];
   const blocked = busy || !selected.length;
@@ -105,7 +123,26 @@ export function ModelOrganization({
       }
     >
       <div ref={listRef} data-settings-list="model-groups" className="space-y-5">
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="settings-catalog-tools">
+          <Input
+            type="search"
+            aria-label="搜索模型"
+            placeholder="搜索模型或厂家"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          <NativeSelect
+            aria-label="筛选模型分组"
+            value={categoryId}
+            onChange={(e) => setCategory(e.target.value)}
+          >
+            <option value="all">全部分组</option>
+            {groups.map((group) => (
+              <option key={group.id} value={group.id}>
+                {group.name}
+              </option>
+            ))}
+          </NativeSelect>
           <IconButton
             variant="outline"
             aria-label="刷新可用模型"
@@ -122,7 +159,6 @@ export function ModelOrganization({
           >
             <ActionIcon name="refresh" state={refreshState} />
           </IconButton>
-          <span className="text-muted-foreground">{available.length} 个可用模型</span>
         </div>
         <form
           className="flex flex-wrap gap-2"
@@ -153,27 +189,32 @@ export function ModelOrganization({
             <Icon name="plus" />
           </IconButton>
         </form>
-        <fieldset disabled={busy} className="space-y-3">
+        <div className="settings-catalog-selection" data-settings-navigation>
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={busy || !visibleModels.length}
+            onClick={() =>
+              setSelected([...new Set([...selected, ...visibleModels.map((m) => m.id)])])
+            }
+          >
+            全选当前列表
+          </Button>
+          {!!selected.length && (
+            <Button type="button" variant="ghost" disabled={busy} onClick={() => setSelected([])}>
+              取消选择
+            </Button>
+          )}
+        </div>
+        <fieldset
+          hidden={!selected.length}
+          disabled={busy}
+          className="settings-catalog-bulk space-y-3"
+        >
           <legend className="mb-2">
             批量调整{selected.length ? ` · 已选 ${selected.length} 个` : ''}
           </legend>
           <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setSelected(models.map((m) => m.id))}
-              disabled={!models.length}
-            >
-              全选
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setSelected([])}
-              disabled={!selected.length}
-            >
-              取消选择
-            </Button>
             <ConfirmationButton
               type="button"
               variant="ghost"
@@ -246,194 +287,190 @@ export function ModelOrganization({
         {!models.length && (
           <p className="text-muted-foreground">暂无模型。开启模型切换后刷新可用列表。</p>
         )}
-        {groups.map((group, index) => {
-          const custom = prefs.groups?.find((g) => `custom:${g.id}` === group.id);
-          return (
-            <section
-              key={group.id}
-              data-settings-list-item={group.id}
-              data-settings-list={group.id}
-              className="space-y-2"
-              aria-label={`分组：${group.name}`}
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <h3 className="mr-auto font-medium">
-                  {group.name} · {group.models.length}
-                </h3>
-                <IconButton
-                  disabled={busy || !index}
-                  aria-label={`上移分组 ${group.name}`}
-                  onClick={() =>
-                    void save({ groupOrder: moveItem(groupOrder, group.id, groups[index - 1].id) })
-                  }
+        {term && !visibleGroups.length && (
+          <p role="status" className="settings-feedback">
+            没有匹配的模型
+          </p>
+        )}
+        <SettingsSortableList
+          ids={visibleGroups.map((g) => g.id)}
+          disabled={busy || !!term || categoryId !== 'all'}
+          onReorder={(next) => void save({ groupOrder: replaceVisibleOrder(groupOrder, next) })}
+        >
+          {(groupProps) =>
+            visibleGroups.map((group) => {
+              const custom = prefs.groups?.find((g) => `custom:${g.id}` === group.id);
+              return (
+                <section
+                  key={group.id}
+                  data-settings-list-item={group.id}
+                  data-settings-list={group.id}
+                  className="space-y-2"
+                  aria-label={`分组：${group.name}`}
                 >
-                  <Icon name="arrow-up" />
-                </IconButton>
-                <IconButton
-                  disabled={busy || index === groups.length - 1}
-                  aria-label={`下移分组 ${group.name}`}
-                  onClick={() =>
-                    void save({ groupOrder: moveItem(groupOrder, group.id, groups[index + 1].id) })
-                  }
-                >
-                  <Icon name="arrow-down" />
-                </IconButton>
-              </div>
-              {custom && (
-                <form
-                  className="flex flex-wrap gap-2"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    void save({
-                      groups: prefs.groups!.map((g) =>
-                        g.id === custom.id ? { ...g, name: (names[g.id] ?? g.name).trim() } : g,
-                      ),
-                    }).then((ok) => {
-                      if (ok)
-                        setNames((drafts) => {
-                          const next = { ...drafts };
-                          delete next[custom.id];
-                          return next;
+                  <div
+                    {...groupProps(group.id)}
+                    aria-label={`排序分组 ${group.name}`}
+                    className="model-organization-heading"
+                  >
+                    <h3 className="mr-auto font-medium">
+                      {group.name} · {group.models.length}
+                    </h3>
+                  </div>
+                  {custom && (
+                    <form
+                      className="flex flex-wrap gap-2"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        void save({
+                          groups: prefs.groups!.map((g) =>
+                            g.id === custom.id ? { ...g, name: (names[g.id] ?? g.name).trim() } : g,
+                          ),
+                        }).then((ok) => {
+                          if (ok)
+                            setNames((drafts) => {
+                              const next = { ...drafts };
+                              delete next[custom.id];
+                              return next;
+                            });
                         });
-                    });
-                  }}
-                >
-                  <Input
-                    className="min-w-0 flex-1 basis-32"
-                    aria-label={`分组名称 ${custom.name}`}
-                    maxLength={60}
-                    disabled={busy}
-                    value={names[custom.id] ?? custom.name}
-                    onChange={(e) => setNames({ ...names, [custom.id]: e.target.value })}
-                  />
-                  <IconButton
-                    type="submit"
-                    aria-label={`保存分组名称 ${custom.name}`}
-                    disabled={
-                      busy ||
-                      !(names[custom.id] || '').trim() ||
-                      names[custom.id]?.trim() === custom.name
+                      }}
+                    >
+                      <Input
+                        className="min-w-0 flex-1 basis-32"
+                        aria-label={`分组名称 ${custom.name}`}
+                        maxLength={60}
+                        disabled={busy}
+                        value={names[custom.id] ?? custom.name}
+                        onChange={(e) => setNames({ ...names, [custom.id]: e.target.value })}
+                      />
+                      <IconButton
+                        type="submit"
+                        aria-label={`保存分组名称 ${custom.name}`}
+                        disabled={
+                          busy ||
+                          !(names[custom.id] || '').trim() ||
+                          names[custom.id]?.trim() === custom.name
+                        }
+                      >
+                        <Icon name="check" />
+                      </IconButton>
+                      <ConfirmationButton
+                        type="button"
+                        variant="ghost"
+                        disabled={busy}
+                        revision={state.revision}
+                        title={`删除分组“${custom.name}”？`}
+                        description="组内模型会回到厂家分类，常用、预设和模型本身保持不变。"
+                        confirmLabel="确认删除"
+                        onConfirm={() => deleteGroup(custom.id)}
+                        size="icon"
+                        aria-label={`删除分组 ${custom.name}`}
+                      >
+                        <Icon name="trash" />
+                      </ConfirmationButton>
+                    </form>
+                  )}
+                  <SettingsSortableList
+                    ids={group.models.map((m) => m.id)}
+                    disabled={busy || !!term}
+                    onReorder={(next) =>
+                      void save({ modelOrder: replaceVisibleOrder(order, next) })
                     }
                   >
-                    <Icon name="check" />
-                  </IconButton>
-                  <ConfirmationButton
-                    type="button"
-                    variant="ghost"
-                    disabled={busy}
-                    revision={state.revision}
-                    title={`删除分组“${custom.name}”？`}
-                    description="组内模型会回到厂家分类，常用、预设和模型本身保持不变。"
-                    confirmLabel="确认删除"
-                    onConfirm={() => deleteGroup(custom.id)}
-                    size="icon"
-                    aria-label={`删除分组 ${custom.name}`}
-                  >
-                    <Icon name="trash" />
-                  </ConfirmationButton>
-                </form>
-              )}
-              {group.models.map((model, i) => {
-                const manual = prefs.modelOverrides?.[model.id];
-                const offline = !available.some((m) => m.id === model.id);
-                return (
-                  <div
-                    key={model.id}
-                    data-settings-list-item={model.id}
-                    className="model-organization-row"
-                    data-model-id={model.id}
-                  >
-                    <label className="flex min-w-0 flex-1 items-start gap-3">
-                      <input
-                        type="checkbox"
-                        className="mt-1 shrink-0"
-                        aria-label={`选择 ${model.label}`}
-                        checked={selected.includes(model.id)}
-                        disabled={busy}
-                        onChange={(e) =>
-                          setSelected(
-                            e.target.checked
-                              ? [...selected, model.id]
-                              : selected.filter((id) => id !== model.id),
-                          )
-                        }
-                      />
-                      <span className="min-w-0 break-words">
-                        {model.label}
-                        {models.some(
-                          (other) => other.id !== model.id && other.label === model.label,
-                        ) && (
-                          <span className="block break-all text-muted-foreground">{model.id}</span>
-                        )}
-                        <span className="block text-muted-foreground">
-                          {manufacturer(model, prefs) || '未分类'}
-                          {manual?.manufacturer || manual?.groupId ? ' · 手动' : ''}
-                          {prefs.pinned.includes(model.id) ? ' · 常用' : ''}
-                          {offline ? ' · 暂不可用' : ''}
-                        </span>
-                      </span>
-                    </label>
-                    <div className="flex flex-wrap gap-1">
-                      <IconButton
-                        aria-label={`上移模型 ${model.label}`}
-                        disabled={busy || !i}
-                        onClick={() =>
-                          void save({
-                            modelOrder: moveItem(order, model.id, group.models[i - 1].id),
-                          })
-                        }
-                      >
-                        <Icon name="arrow-up" />
-                      </IconButton>
-                      <IconButton
-                        aria-label={`下移模型 ${model.label}`}
-                        disabled={busy || i === group.models.length - 1}
-                        onClick={() =>
-                          void save({
-                            modelOrder: moveItem(order, model.id, group.models[i + 1].id),
-                          })
-                        }
-                      >
-                        <Icon name="arrow-down" />
-                      </IconButton>
-                      <IconButton
-                        aria-expanded={detail === model.id}
-                        aria-label={`详情 ${model.label}`}
-                        onClick={() => setDetail(detail === model.id ? null : model.id)}
-                      >
-                        <Icon name="more" />
-                      </IconButton>
-                    </div>
-                    {detail === model.id && (
-                      <div className="basis-full space-y-2 break-all text-muted-foreground">
-                        <div>{model.id}</div>
-                        <div>自动识别：{automaticManufacturer(model) || '未分类'}</div>
-                        {(manual?.manufacturer || manual?.groupId) && (
-                          <ConfirmationButton
-                            type="button"
-                            variant="ghost"
-                            disabled={busy}
-                            revision={state.revision}
-                            title={`恢复“${model.label}”的自动分类？`}
-                            description="会移除这个模型的手动厂家与分组归属，保留常用和预设。"
-                            confirmLabel="确认恢复"
-                            onConfirm={() => {
-                              const overrides = { ...prefs.modelOverrides };
-                              delete overrides[model.id];
-                              return save({ modelOverrides: overrides });
-                            }}
+                    {(modelProps) =>
+                      group.models.map((model) => {
+                        const manual = prefs.modelOverrides?.[model.id];
+                        const offline = !available.some((m) => m.id === model.id);
+                        const annotations = [
+                          custom ? manufacturer(model, prefs) || '未分类' : '',
+                          manual?.manufacturer || manual?.groupId ? '手动' : '',
+                          prefs.pinned.includes(model.id) ? '常用' : '',
+                          offline ? '暂不可用' : '',
+                        ].filter(Boolean);
+                        return (
+                          <div
+                            key={model.id}
+                            data-settings-list-item={model.id}
+                            className="model-organization-row"
+                            data-model-id={model.id}
+                            {...modelProps(model.id)}
+                            aria-label={`排序模型 ${model.label}`}
                           >
-                            恢复自动
-                          </ConfirmationButton>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </section>
-          );
-        })}
+                            <label className="flex min-w-0 flex-1 items-start gap-3">
+                              <input
+                                type="checkbox"
+                                className="mt-1 shrink-0"
+                                aria-label={`选择 ${model.label}`}
+                                checked={selected.includes(model.id)}
+                                disabled={busy}
+                                onChange={(e) =>
+                                  setSelected(
+                                    e.target.checked
+                                      ? [...selected, model.id]
+                                      : selected.filter((id) => id !== model.id),
+                                  )
+                                }
+                              />
+                              <span className="min-w-0 break-words">
+                                {model.label}
+                                {models.some(
+                                  (other) => other.id !== model.id && other.label === model.label,
+                                ) && (
+                                  <span className="block break-all text-muted-foreground">
+                                    {model.id}
+                                  </span>
+                                )}
+                                {!!annotations.length && (
+                                  <span className="block text-muted-foreground">
+                                    {annotations.join(' · ')}
+                                  </span>
+                                )}
+                              </span>
+                            </label>
+                            <div className="flex flex-wrap gap-1">
+                              <IconButton
+                                aria-expanded={detail === model.id}
+                                aria-label={`详情 ${model.label}`}
+                                onClick={() => setDetail(detail === model.id ? null : model.id)}
+                              >
+                                <Icon name="more" />
+                              </IconButton>
+                            </div>
+                            {detail === model.id && (
+                              <div className="basis-full space-y-2 break-all text-muted-foreground">
+                                <div>{model.id}</div>
+                                <div>自动识别：{automaticManufacturer(model) || '未分类'}</div>
+                                {(manual?.manufacturer || manual?.groupId) && (
+                                  <ConfirmationButton
+                                    type="button"
+                                    variant="ghost"
+                                    disabled={busy}
+                                    revision={state.revision}
+                                    title={`恢复“${model.label}”的自动分类？`}
+                                    description="会移除这个模型的手动厂家与分组归属，保留常用和预设。"
+                                    confirmLabel="确认恢复"
+                                    onConfirm={() => {
+                                      const overrides = { ...prefs.modelOverrides };
+                                      delete overrides[model.id];
+                                      return save({ modelOverrides: overrides });
+                                    }}
+                                  >
+                                    恢复自动
+                                  </ConfirmationButton>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })
+                    }
+                  </SettingsSortableList>
+                </section>
+              );
+            })
+          }
+        </SettingsSortableList>
       </div>
     </SettingsDrawer>
   );

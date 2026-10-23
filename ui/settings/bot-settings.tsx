@@ -1,10 +1,11 @@
 /* [INPUT]: Saved sync preference, shared settings queue and read-only local Bot catalog.
- * [OUTPUT]: Grouped sync controls, compact profile entries and Agent setup instructions.
+ * [OUTPUT]: Grouped sync controls, locally searchable profile entries and Agent setup instructions.
  * [POS]: Settings only; no Bot conversations or dependency installation.
  * [PROTOCOL]: Keep ui/settings/AGENTS.md in sync. */
 import { useEffect, useRef, useState } from 'react';
 import { request } from './api';
 import { Toggle, Feedback } from './settings-controls';
+import { Input } from './components/ui/input';
 import { SettingsDrawer } from './settings-drawer';
 import { Button, IconButton } from './components/ui/button';
 import type { SettingsEditor } from './use-settings-form';
@@ -28,6 +29,7 @@ export function BotSettings({
   live: boolean;
   editor: SettingsEditor;
 }) {
+  const [query, setQuery] = useState('');
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -86,6 +88,16 @@ export function BotSettings({
       document.removeEventListener('visibilitychange', visible);
     };
   }, [active, live, editor.saved?.grokbotAutoSync, editor.saved?.grokbotEnabled]);
+  const term = query.trim().toLocaleLowerCase();
+  const groups = botGroups(catalog?.bots ?? [], catalog?.sidebar)
+    .map((group) => ({
+      ...group,
+      bots: group.bots.filter((bot) =>
+        `${bot.name} ${bot.description || ''}`.toLocaleLowerCase().includes(term),
+      ),
+    }))
+    .filter((group) => group.bots.length);
+
   return (
     <section data-settings-page="bots" hidden={!active} className="settings-section bot-settings">
       <Toggle
@@ -100,7 +112,6 @@ export function BotSettings({
           {!auto && (
             <IconButton
               aria-label="刷新 Bot 资料"
-              title={busy ? '正在刷新…' : '刷新 Bot 资料'}
               disabled={!live || busy}
               onClick={() => void load(true)}
             >
@@ -118,8 +129,18 @@ export function BotSettings({
         {catalog && !catalog.stale && !catalog.error && catalog.bots.length === 0 && (
           <Feedback text="暂无 Bot" />
         )}
+        {!!catalog?.bots.length && (
+          <Input
+            type="search"
+            aria-label="搜索 Bot"
+            placeholder="搜索 Bot"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        )}
+        {!!catalog?.bots.length && term && !groups.length && <Feedback text="没有匹配的 Bot" />}
         <div className="bot-settings-profiles">
-          {botGroups(catalog?.bots ?? [], catalog?.sidebar).map((group) => (
+          {groups.map((group) => (
             <section
               key={group.id}
               className="bot-settings-group"

@@ -378,8 +378,3 @@
   gap: 8px;
   padding-block: 8px;
 }
-@media (max-width: 520px) {
-  .model-organization-row > label {
-    flex-basis: 100%;
-  }
-}
