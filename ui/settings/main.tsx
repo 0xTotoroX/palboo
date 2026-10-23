@@ -16,7 +16,6 @@ import './settings-controls.css';
 import './settings-motion.css';
 import '../surfaces/workspace/styles.css';
 import './layout-preview.css';
-import icon from '../icon.png';
 import { PalbooWordmark } from '../shared/brand';
 import { useCompanion, type Settings, type EditableSettings } from './api';
 import { useSettingsForm } from './use-settings-form';
@@ -121,7 +120,6 @@ function App() {
             aria-label={`Palboo ${import.meta.env.DEV ? '开发版' : '设置'}`}
             data-settings-navigation
           >
-            <img src={icon} alt="" />
             <PalbooWordmark className="settings-wordmark" />
             <span className="settings-edition">{import.meta.env.DEV ? '开发版' : '设置'}</span>
           </a>

@@ -127,11 +127,6 @@ html:root :is(.settings-theme, .settings-choice, .preview-selector) button[aria-
   white-space: nowrap;
   text-decoration: none;
 }
-.settings-brand img {
-  width: 30px;
-  height: 30px;
-  border-radius: 9px;
-}
 .settings-wordmark {
   display: block;
   width: 5.6em;
@@ -551,10 +546,6 @@ html:root .settings-nav {
   .settings-brand {
     font-size: 1.1875em;
     gap: 7px;
-  }
-  .settings-brand img {
-    width: 27px;
-    height: 27px;
   }
   .settings-topline {
     gap: 12px;

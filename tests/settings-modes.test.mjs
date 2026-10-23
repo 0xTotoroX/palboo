@@ -338,18 +338,21 @@ test(
         theme === 'light' ? 'rgb(250, 250, 250)' : 'rgb(25, 25, 27)',
       );
       assert.equal(
-        await page.locator('.settings-brand img').evaluate((n) => getComputedStyle(n).filter),
-        'none',
-        'the original brand icon stays unchanged in both themes',
+        await page.locator('.settings-brand img').count(),
+        0,
+        'the header uses one integrated wordmark without a separate icon',
       );
       assert.equal(await page.getByRole('link', { name: 'Palboo 设置', exact: true }).count(), 1);
       await page.waitForFunction(
         (expected) => {
           const wordmark = document.querySelector('.settings-wordmark');
           const brand = document.querySelector('.settings-brand');
+          const eyes = wordmark.querySelectorAll('[data-brand-eyes] rect');
           return (
             getComputedStyle(wordmark).fill === expected &&
-            getComputedStyle(brand).color === expected
+            getComputedStyle(brand).color === expected &&
+            eyes.length === 2 &&
+            Array.from(eyes).every((eye) => getComputedStyle(eye).fill === expected)
           );
         },
         theme === 'light' ? 'rgb(39, 39, 42)' : 'rgb(238, 238, 239)',
