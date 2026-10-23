@@ -1,5 +1,5 @@
 /* [INPUT]: Shared preview frame, existing form snapshots, saved surfaces and feature layout.
- * [OUTPUT]: Compact linked diagrams and state-preserving samples; only the common switcher reserves inactive geometry.
+ * [OUTPUT]: Compact linked diagrams and floating feature samples without instructional footnotes; only the common switcher reserves inactive geometry.
  * [POS]: Settings presentation only; no requests, credentials, task bodies or host commands.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 import { LayoutPreview } from './layout-preview';
@@ -71,7 +71,11 @@ function FeaturePreview({ form, tasks, model, view, dirty, page }: PreviewProps)
   const groups = tasks?.store.columns || defaultColumns;
   const examples = ['完善实现方案', '检查边界条件', '补充验证步骤'];
   return (
-    <Frame title="功能如何呈现" status={dirty ? '包含未保存的编辑' : undefined}>
+    <Frame
+      title="功能如何呈现"
+      className="preview-feature-frame"
+      status={dirty ? '包含未保存的编辑' : undefined}
+    >
       <div
         className="preview-selector"
         role="group"
@@ -125,7 +129,6 @@ function FeaturePreview({ form, tasks, model, view, dirty, page }: PreviewProps)
                       ))}
                     </div>
                     <div className="preview-answer">
-                      <span>示例段落</span>
                       <strong>{['整体思路', '具体实现', '验证与交付'][selected]}</strong>
                       <i />
                       <i />
@@ -139,7 +142,12 @@ function FeaturePreview({ form, tasks, model, view, dirty, page }: PreviewProps)
                       {examples
                         .slice(0, Math.max(0, Math.min(3, suggestionLimit(form))))
                         .map((text, index) => (
-                          <button type="button" key={text} onClick={() => setDemoDraft(text)}>
+                          <button
+                            type="button"
+                            key={text}
+                            aria-pressed={demoDraft === text}
+                            onClick={() => setDemoDraft(text)}
+                          >
                             <span>0{index + 1}</span>
                             <div>
                               <strong>{text}</strong>
@@ -171,8 +179,13 @@ function FeaturePreview({ form, tasks, model, view, dirty, page }: PreviewProps)
                           </button>
                         ))}
                       </div>
-                      <div className="preview-draft" role="status">
-                        {demoDraft || '点选建议，查看示例输入效果'}
+                      <div
+                        className="preview-draft"
+                        role="status"
+                        aria-label="示例输入框"
+                        data-empty={!demoDraft}
+                      >
+                        {demoDraft || '发消息…'}
                       </div>
                     </div>
                   </>
@@ -241,7 +254,6 @@ function FeaturePreview({ form, tasks, model, view, dirty, page }: PreviewProps)
           );
         })}
       </div>
-      <p className="preview-note">示例操作不发送消息或修改任务。</p>
     </Frame>
   );
 }
@@ -253,7 +265,6 @@ function GenerationPreview({ form, dirty }: PreviewProps) {
         <strong>{form?.model || '尚未配置模型'}</strong>
         <span>{form?.provider === 'codex' ? 'Codex 登录' : form?.protocol || '—'}</span>
       </div>
-      <p className="preview-note">下一步、提示词优化与术语共用此连接，只在功能开启且需要时调用。</p>
       <Facts
         items={[
           ['输出上限', `${form?.maxOutputTokens ?? '—'} tokens`],

@@ -259,13 +259,7 @@ export function LayoutPreview({
     <PreviewFrame
       className="layout-demo"
       title={appearance ? '外观效果' : '你的工作空间'}
-      status={
-        !live
-          ? '连接中断 · 末次状态'
-          : mode || demoLayout || extra.length
-            ? '仅演示 · 不保存'
-            : undefined
-      }
+      status={!live ? '连接中断 · 末次状态' : undefined}
     >
       <div className="layout-demo-toolbar" data-settings-navigation>
         <div className="preview-selector" role="group" aria-label="演示位置">
@@ -364,9 +358,6 @@ export function LayoutPreview({
           ＋ 添加示例功能
         </button>
       </div>
-      <p className="preview-note">
-        拖动分隔线收紧，点击标题展开。这里只操作示例，材质以实际窗口为准。
-      </p>
     </PreviewFrame>
   );
 }

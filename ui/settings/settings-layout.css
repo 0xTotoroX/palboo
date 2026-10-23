@@ -77,8 +77,7 @@ html:root
     .settings-surface-group,
     .settings-save,
     .settings-footer,
-    .preview-heading,
-    .preview-note
+    .preview-heading
   ) {
   border-color: transparent;
 }

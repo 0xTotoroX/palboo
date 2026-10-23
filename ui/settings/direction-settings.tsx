@@ -140,11 +140,9 @@ export function DirectionSettings({ editor }: { editor: SettingsEditor }) {
               <Icon name="plus" />
             </IconButton>
           </div>
-          <p className="text-[14px] text-muted-foreground">
-            {form.selectedDirections.length
-              ? `最多 ${form.selectedDirections.length} 条，按位置排序。`
-              : '请选择至少一个方向后再生成。'}
-          </p>
+          {!form.selectedDirections.length && (
+            <p className="text-[14px] text-muted-foreground">请选择至少一个方向后再生成。</p>
+          )}
         </div>
       )}
       {form.directionSource !== 'auto' && (
