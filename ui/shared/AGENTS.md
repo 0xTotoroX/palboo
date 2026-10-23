@@ -2,7 +2,7 @@
 
 > L2 | 父级：[AGENTS.md](../../AGENTS.md)
 
-- `features.ts`：固定功能、默认字号与旧偏移回退、owner、递归分栏与标签组布局、传输与临时阅读状态类型，closing/disable-ready 用于关闭前捕获；Reading.modelPresetDraft 保存预设新增/改名的 ID、名称、原始选择及 creating，仅用于内存交接。
+- `features.ts`：固定功能名称及共享图标映射、默认字号与旧偏移回退、owner、递归分栏与标签组布局、传输与临时阅读状态类型，closing/disable-ready 用于关闭前捕获；Reading.modelPresetDraft 保存预设新增/改名的 ID、名称、原始选择及 creating，仅用于内存交接。
 - `contracts.ts`：设置、字体、上下文、投影和受限命令类型；presentationError 区分保存成功后的窗口失败。
 - `constants.js`：注入实例 DOM 标识、尺寸、时间和开发存储键。
 - `performance.js`：默认无计时器的同步工作计时；采样建立12秒租约，断开/停用/过期清理长任务观察器，嵌套工作不重复计入总耗时；宿主页 JS 内存与长任务单列，不视为 Palboo 独占。

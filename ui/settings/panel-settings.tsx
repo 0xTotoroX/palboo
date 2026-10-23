@@ -150,11 +150,9 @@ export function PanelSettings({
             id="suggestion-click"
             label="指令执行模式"
             hint={
-              ui.promptClickMode === 'direct'
-                ? '单击即发送；已有草稿时只追加。'
-                : ui.promptClickMode === 'hybrid'
-                  ? '双击即发送；已有草稿时只追加。'
-                  : undefined
+              ui.promptClickMode === 'direct' || ui.promptClickMode === 'hybrid'
+                ? '已有草稿时只追加。'
+                : undefined
             }
           >
             <NativeSelect

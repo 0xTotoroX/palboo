@@ -94,9 +94,6 @@ export function BotSettings({
         disabled={!live || !editor.form}
         onChange={(value) => editor.change('grokbotAutoSync', value)}
       />
-      <p className="settings-hint">
-        {auto ? '文件变化时同步名单与资料。' : '名单与资料手动刷新，聊天回复和任务状态照常更新。'}
-      </p>
       <div className="bot-settings-catalog" aria-busy={busy}>
         <div className="bot-settings-heading">
           <h2>Bot 资料</h2>

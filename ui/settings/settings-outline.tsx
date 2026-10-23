@@ -22,11 +22,11 @@ export const pageTitles = {
 };
 export type SettingsPage = keyof typeof pageTitles;
 export const pageGroups: { title: string; pages: SettingsPage[] }[] = [
+  { title: '界面', pages: ['features', 'surfaces', 'appearance'] },
   {
     title: '功能',
-    pages: ['features', 'next', 'prompts', 'terminology', 'board', 'model-control', 'bots'],
+    pages: ['next', 'prompts', 'terminology', 'board', 'model-control', 'bots'],
   },
-  { title: '界面', pages: ['surfaces', 'appearance'] },
   { title: '系统', pages: ['model', 'connection', 'performance', 'codex-host', 'dev'] },
 ];
 export const pageGroup = (page: SettingsPage) =>

@@ -1,4 +1,4 @@
-/* [INPUT]: Native edge geometry/events and feature owners. [OUTPUT]: Persisted reorderable edge tabs, bounded dialogs and per-view header slots.
+/* [INPUT]: Native edge geometry/events and feature owners. [OUTPUT]: Persisted reorderable icon tabs with measured wrapping, bounded dialogs and per-view header slots.
  * [POS]: Keeps mounted views alive while collapsed or in another tab; no business state.
  * [PROTOCOL]: Keep AGENTS.md in this module in sync. */
 import { createEdgeTabs } from './tabs';
@@ -78,6 +78,7 @@ export function startEdge(request: Request) {
   };
   const contentChanges = new MutationObserver(measure);
   const contentResize = new ResizeObserver(measure);
+  contentResize.observe(panel.querySelector('header')!);
 
   const held = () =>
     [...mounts.values()].some(({ node }) => {

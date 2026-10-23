@@ -90,7 +90,7 @@ export function ModelView({
   useEffect(() => {
     if (!others) return;
     const document = root.current!.ownerDocument;
-    const outside = (event: PointerEvent) => {
+    const outside = (event: MouseEvent) => {
       const path = event.composedPath();
       if (
         !path.includes(picker.current!) &&
@@ -105,11 +105,12 @@ export function ModelView({
       restorePickerFocus.current = true;
       setOthers(false);
     };
-    document.addEventListener('pointerdown', outside, true);
+    // Wait for the click: closing on pointerdown can move a wrapping header tab before release.
+    document.addEventListener('click', outside, true);
     document.addEventListener('keydown', escape, true);
     picker.current?.querySelector<HTMLButtonElement>('.model-tile')?.focus({ preventScroll: true });
     return () => {
-      document.removeEventListener('pointerdown', outside, true);
+      document.removeEventListener('click', outside, true);
       document.removeEventListener('keydown', escape, true);
     };
   }, [others]);

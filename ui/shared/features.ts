@@ -1,5 +1,5 @@
 /* [INPUT]: Authenticated feature transport and shared business DTOs.
- * [OUTPUT]: Persisted edge navigation, six-feature placement, main ownership, default fonts, recursive split geometry and transient view, preset and quick-prompt draft contracts.
+ * [OUTPUT]: Persisted edge navigation, six-feature icon mapping and placement, main ownership, default fonts, recursive split geometry and transient view, preset and quick-prompt draft contracts.
  * [POS]: Presentation boundary. [PROTOCOL]: Keep AGENTS.md in this module in sync. */
 import type { BoardView } from '../features/board/app';
 export const titles = {
@@ -11,6 +11,14 @@ export const titles = {
   bots: 'Grok Bot',
 };
 export type FeatureId = keyof typeof titles;
+export const featureIcons: Record<FeatureId, string> = {
+  outline: 'outline',
+  board: 'tasks',
+  next: 'next',
+  model: 'brain',
+  terms: 'book-open',
+  bots: 'agent',
+};
 export type FontSizes = Partial<Record<FeatureId, number>>;
 export const defaultFontSizes: Record<FeatureId, number> = {
   outline: 16,

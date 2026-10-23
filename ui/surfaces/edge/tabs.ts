@@ -1,14 +1,23 @@
 /* [INPUT]: Available feature IDs, persisted edge tabs and guarded feature requests.
- * [OUTPUT]: Reorderable tabs with serialized saves, keyboard movement and cold-start selection.
+ * [OUTPUT]: Accessible icon tabs with serialized saves, keyboard movement and cold-start selection.
  * [POS]: Edge navigation only; never edits feature content or remounts views.
  * [PROTOCOL]: Keep edge/AGENTS.md in sync. */
-import { titles, type EdgeTabs, type FeatureState, type Request } from '../../shared/features';
+import {
+  featureIcons,
+  titles,
+  type FeatureId,
+  type EdgeTabs,
+  type FeatureState,
+  type Request,
+} from '../../shared/features';
+import { iconSvg } from '../../shared/icons/index.js';
 export function createEdgeTabs(
   nav: HTMLElement,
   request: Request,
   changed: () => void,
   error: (message: string) => void,
 ) {
+  nav.dataset.iconTabs = '';
   let value: EdgeTabs = { order: [], selected: '' },
     confirmed = structuredClone(value);
   let ids: string[] = [],
@@ -92,10 +101,12 @@ export function createEdgeTabs(
     for (const id of order) {
       const button = document.createElement('button');
       button.type = 'button';
-      button.textContent = titles[id as keyof typeof titles];
+      const feature = id as FeatureId;
+      button.innerHTML = iconSvg(featureIcons[feature]);
+      button.setAttribute('aria-label', titles[feature]);
       button.dataset.edgeTab = id;
       button.setAttribute('aria-pressed', String(id === current));
-      button.title = '拖动调整顺序，或按 Alt + 左右方向键';
+      button.title = titles[feature];
       button.draggable = true;
       button.onclick = () => {
         if (performance.now() >= suppressClick) select(id);

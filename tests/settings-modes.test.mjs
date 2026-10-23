@@ -287,16 +287,11 @@ test(
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));
     const category = async (id) => {
-      const group = [
-        'features',
-        'next',
-        'prompts',
-        'terminology',
-        'board',
-        'model-control',
-      ].includes(id)
+      const group = ['next', 'prompts', 'terminology', 'board', 'model-control', 'bots'].includes(
+        id,
+      )
         ? '功能'
-        : ['surfaces', 'appearance'].includes(id)
+        : ['features', 'surfaces', 'appearance'].includes(id)
           ? '界面'
           : '系统';
       const link = page.locator(`.settings-nav a[href="#settings-${id}"]`);
@@ -364,6 +359,18 @@ test(
       });
       await page.goto(origin + '/#token=fixture');
       await page.getByRole('switch', { name: '启用大纲', exact: true }).waitFor();
+      assert.deepEqual(await page.locator('.settings-nav-group > h2').allTextContents(), [
+        '界面',
+        '功能',
+        '系统',
+      ]);
+      assert.equal(
+        await page
+          .locator('.settings-nav-group[aria-label="界面"] a[href="#settings-features"]')
+          .count(),
+        1,
+      );
+
       assert.equal(await themeButton('自动').getAttribute('aria-pressed'), 'true');
       await expectTheme('dark'); // Before Codex is known, the browser supplies the fallback.
       await emulateMedia(page, { colorScheme: 'light' });
@@ -882,6 +889,18 @@ test(
             );
             if (id === 'terminology')
               await page.locator('#settings-terminology .settings-row').first().waitFor();
+            const stage = await page.locator('.preview-frame:visible').evaluate((node) => {
+              const style = getComputedStyle(node);
+              return {
+                border: style.borderWidth,
+                radius: style.borderRadius,
+                background: style.backgroundColor,
+              };
+            });
+            assert.equal(stage.border, '0px', `${id}: no nested preview border`);
+            assert.equal(stage.radius, '12px', `${id}: shared rounded preview stage`);
+            assert.notEqual(stage.background, 'rgba(0, 0, 0, 0)');
+
             const previewOrder = await page.evaluate(() => {
               const sample = document
                 .querySelector('.settings-preview:not([hidden]), .settings-local-preview')

@@ -285,13 +285,11 @@ export function DirectionSettings({ editor }: { editor: SettingsEditor }) {
               <DeleteModelApiKey editor={editor} busy={editor.saving} kind="jev" />
             </SettingsDrawer>
           )}
-          <p className="text-[14px] text-muted-foreground">
-            {saved.directionSource !== 'smart' || !saved.jev.consent
-              ? '智能挑选未启用，不会发送判断请求。'
-              : saved.jevKeyConfigured
-                ? '凭据已配置，可在「模型与生成」中测试连接。'
-                : '尚未连接：可保存密钥，或在后台环境设置 TYPESAFE_API_KEY。'}
-          </p>
+          {saved.directionSource === 'smart' && saved.jev.consent && !saved.jevKeyConfigured && (
+            <p role="status" className="settings-hint">
+              尚未连接：可保存密钥，或在后台环境设置 TYPESAFE_API_KEY。
+            </p>
+          )}
         </div>
       )}
     </Card>

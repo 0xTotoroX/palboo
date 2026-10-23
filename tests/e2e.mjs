@@ -55,11 +55,9 @@ async function waitFor(check, message, timeout = 12000) {
   throw new Error(message);
 }
 async function selectSettingsCategory(page, id) {
-  const group = ['features', 'next', 'prompts', 'terminology', 'board', 'model-control'].includes(
-    id,
-  )
+  const group = ['next', 'prompts', 'terminology', 'board', 'model-control', 'bots'].includes(id)
     ? '功能'
-    : ['surfaces', 'appearance'].includes(id)
+    : ['features', 'surfaces', 'appearance'].includes(id)
       ? '界面'
       : '系统';
   const link = page.locator(`.settings-nav a[href="#settings-${id}"]`);

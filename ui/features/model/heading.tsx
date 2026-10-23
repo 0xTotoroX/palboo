@@ -1,5 +1,5 @@
 /* [INPUT]: Surface header slot, matrix geometry, reasoning columns and catalog group/controls.
- * [OUTPUT]: Title-aligned Fast/reasoning headings or current catalog group/controls, including scroll alignment.
+ * [OUTPUT]: Title-aligned Fast/reasoning headings or current catalog group/controls, including scroll alignment and space for surface icon navigation.
  * [POS]: Model-only presentation adapter for the existing surface header slot.
  * [PROTOCOL]: Keep model/AGENTS.md in sync. */
 import { useLayoutEffect, useRef, type ReactNode, type RefObject } from 'react';
@@ -8,11 +8,13 @@ import { createPortal } from 'react-dom';
 const styles = `
 .model-heading-host { position: relative; }
 .model-heading-host:has([data-model-heading-slot]:not([hidden])) { box-sizing: content-box; padding-top: 12px; }
-.model-heading-host:has([data-model-heading-slot]:not([hidden]) .model-catalog-heading) > nav > button:is([aria-pressed='true'], [data-pane-tab='model']) { visibility: hidden; pointer-events: none; }
+.model-heading-host:has([data-model-heading-slot]:not([hidden]) .model-catalog-heading) > nav:not([data-icon-tabs]) > button:is([aria-pressed='true'], [data-pane-tab='model']) { visibility: hidden; pointer-events: none; }
 .model-heading-host:has([data-model-heading-slot]:not([hidden]) .model-inline-heading:not([hidden])) > nav, .model-heading-host:has([data-model-heading-slot]:not([hidden]) .model-inline-heading:not([hidden])) > .csw-workbench-tabs {
   max-width: var(--model-title-space); min-width: 0; overflow: auto; scrollbar-width: none;
 }
 .model-heading-host > nav button { white-space: nowrap; }
+.model-heading-host > nav[data-icon-tabs] { min-width: 28px; overflow: visible; }
+.model-heading-host:has([data-model-heading-slot]:not([hidden]) .model-catalog-heading) > nav[data-icon-tabs] { max-width: calc(100% - 72px); }
 .model-inline-heading { position: relative; display: grid; align-items: center; min-height: 28px; pointer-events: none; }
 .model-inline-heading[hidden] { display: none; }
 .model-heading-portal { position: absolute; inset: 12px 0 0; overflow: hidden; pointer-events: none; }
@@ -97,14 +99,18 @@ export function ModelHeading({
         const modelTab = host.querySelector<HTMLElement>(
           'nav > button:is([aria-pressed="true"], [data-pane-tab="model"])',
         );
+        const iconTabs = host.querySelector('nav[data-icon-tabs]');
+        const iconsRight = iconTabs
+          ? Math.max(rect.left, ...Array.from(tabs, (tab) => tab.getBoundingClientRect().right))
+          : null;
         const tab = tabs.length > 1 ? modelTab?.getBoundingClientRect() : null;
         catalog.current.style.setProperty(
           '--model-catalog-label-left',
-          `${tab ? Math.max(0, (tab.left - rect.left) / scale) : 0}px`,
+          `${iconsRight !== null ? (iconsRight - rect.left) / scale + 8 : tab ? Math.max(0, (tab.left - rect.left) / scale) : 0}px`,
         );
         catalog.current.style.setProperty(
           '--model-catalog-label-width',
-          tab ? `${tab.width / scale}px` : 'none',
+          !iconTabs && tab ? `${tab.width / scale}px` : 'none',
         );
       }
       host.style.setProperty('--model-title-space', `${Math.max(0, left + nameWidth - 20)}px`);
@@ -118,6 +124,8 @@ export function ModelHeading({
     node.addEventListener('scroll', measure);
     const raf = requestAnimationFrame(measure);
     measure();
+    const nav = actions.closest('header, .csw-feature-pane-head')?.querySelector('nav');
+    if (nav) observer.observe(nav);
     return () => {
       cancelAnimationFrame(raf);
       observer.disconnect();

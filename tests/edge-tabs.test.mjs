@@ -19,7 +19,7 @@ window.fail=false;window.pause=false;window.writes=[];window.messages=[];
 window.features=['board','model'].map(id=>({id,placement:'edge',owner:id,open:true,pending:null,reveal:1,view:{},size:[720,600]}));
 const task={id:'task',fields:{title:'测试任务',notes:'原备注',priority:0,due:null,column:'todo',completed:false},archived:false,remote:null,conflict:null};
 window.tasks={store:{revision:1,boardEnabled:true,syncEnabled:false,bindings:{calendarId:''},tasks:[task],inflight:null},status:'本地看板'};
-const model={revision:1,preferences:{enabled:true,pinned:[],presets:[]},snapshot:{target:{id:'fixture'},revision:'1',status:'ready',message:'',current:{model:'a',reasoning:'high',speed:'standard'},models:[{id:'a',label:'测试模型',reasoning:['high'],fast:false}]}};
+window.model={revision:1,preferences:{enabled:true,pinned:[],presets:[]},snapshot:{target:{id:'fixture'},revision:'1',status:'ready',message:'',current:{model:'a',reasoning:'high',speed:'standard'},models:[{id:'a',label:'测试模型',reasoning:['high'],fast:false}]}};
 window.theme='native-glass';window.dark=false;window.expanded=true;let size={width:744,height:500};
 window.geometry=()=>window.dispatchEvent(new CustomEvent('edge-native',{detail:{expanded,unfold:expanded?1:0,layoutX:20,layoutY:40,layoutWidth:size.width,layoutHeight:size.height,compactWidth:10,compactHeight:80,sceneRevision:1,theme,liquidVariant:'clear',nativeGlassAvailable:true,appearance:{hostTheme:{theme:dark?'dark':'light'}}}}));
 window.ipc={postMessage:raw=>{const m=JSON.parse(raw);messages.push(m);if(m.action==='content-size')size={width:Math.min(innerWidth-40,m.width),height:Math.min(innerHeight-80,m.height)};if(m.action==='collapse')expanded=false;if(['expand','focus'].includes(m.action))expanded=true;if(['ready','content-size','expand','collapse','focus'].includes(m.action))geometry();}};
@@ -27,6 +27,7 @@ window.request=async input=>{
  if(input.op==='state')return structuredClone({...prefs,features,appearance:{themes:{edge:{theme,liquidVariant:'clear'}}}});
  if(input.op==='edge-tabs') {writes.push(input);if(pause)await new Promise(r=>window.finish=r);if(fail)throw Error('模拟保存失败');if(JSON.stringify(input.expected)!==JSON.stringify(prefs.edgeTabs))throw Error('标签冲突');prefs={edgeTabs:input.tabs,edgeTabsRevision:prefs.edgeTabsRevision+1};localStorage.setItem('test-tabs',JSON.stringify(prefs));return structuredClone(prefs);}
  const entry=features.find(e=>e.id===input.id);
+ if(input.op==='read'&&!['board','model'].includes(input.id))throw Error('未连接的测试功能');
  if(input.op==='read')return structuredClone({...input.id==='board'?tasks:model,appearance:{theme:dark?'dark':'light',surface:{theme,liquidVariant:'clear'}}});
  if(input.op==='save'){entry.view=input.view;return {};}
  if(input.op==='action'&&input.id==='board'){writes.push(input);task.fields=input.data.fields;tasks.store.revision++;return structuredClone(tasks);}
@@ -71,7 +72,10 @@ async function fixture(t, viewport = { width: 1050, height: 920 }) {
   await page.locator('.card-title').waitFor();
   return page;
 }
-const labels = (page) => page.locator('#edge-panel > header > nav > button').allTextContents();
+const labels = (page) =>
+  page
+    .locator('#edge-panel > header > nav > button')
+    .evaluateAll((nodes) => nodes.map((node) => node.getAttribute('aria-label')));
 test('edge tabs drag and keyboard reorder, persist selection, retain drafts and reject failed saves', async (t) => {
   const page = await fixture(t);
   const nav = page.locator('#edge-panel > header > nav');
@@ -143,7 +147,8 @@ test('edge board uses columns and an opaque detail surface within native bounds 
       !metrics.background.startsWith('rgba') && !metrics.background.includes(' / '),
       metrics.background,
     );
-    await page.screenshot({ path: 'target/reports/edge-tabs/board-' + theme + '.png' });
+    if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
+      await page.screenshot({ path: 'target/reports/edge-tabs/board-' + theme + '.png' });
   }
   // Short display: every field and save remain reachable within the clipped native panel.
   await page.setViewportSize({ width: 800, height: 460 });
@@ -208,4 +213,92 @@ test('edge tab saves serialize rapid selection and preserve absent feature prefe
       document.querySelector('[data-edge-tab="board"]')?.getAttribute('aria-pressed') === 'true',
   );
   assert.deepEqual(await labels(page), ['模型切换', '看板']);
+});
+
+test('six icon tabs remain reachable beside model headings and catalog controls in a narrow panel', async (t) => {
+  const page = await fixture(t, { width: 420, height: 920 });
+  const errors = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  const nav = page.locator('#edge-panel > header > nav');
+  await page.evaluate(() => {
+    model.preferences.pinned = ['a'];
+    model.preferences.modelColumnWidth = 100;
+    model.snapshot.models[0].reasoning = ['low', 'high'];
+    model.snapshot.models[0].fast = true;
+    features.push(
+      ...['outline', 'next', 'terms', 'bots'].map((id) => ({
+        ...features[0],
+        id,
+        owner: id,
+        view: {},
+      })),
+    );
+  });
+  await nav.getByRole('button', { name: 'Grok Bot', exact: true }).waitFor();
+  await nav.getByRole('button', { name: '模型切换', exact: true }).click();
+  await page
+    .locator('.model-inline-heading:not([hidden]) [data-reasoning-label]')
+    .first()
+    .waitFor();
+  const inspect = () =>
+    nav.locator('button').evaluateAll((nodes) =>
+      nodes.map((node) => {
+        const box = node.getBoundingClientRect();
+        const svg = node.querySelector('svg').getBoundingClientRect();
+        return {
+          id: node.dataset.edgeTab,
+          icon: node.querySelector('svg').dataset.icon,
+          label: node.getAttribute('aria-label'),
+          title: node.title,
+          text: node.textContent,
+          box: box.toJSON(),
+          svg: svg.toJSON(),
+          reachable: node.contains(
+            document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2),
+          ),
+        };
+      }),
+    );
+  const icons = await inspect();
+  assert.deepEqual(
+    icons.map((item) => item.icon),
+    ['tasks', 'brain', 'outline', 'next', 'book-open', 'agent'],
+  );
+  for (const icon of icons) {
+    assert.equal(icon.text.trim(), '');
+    assert.equal(icon.label, icon.title);
+    assert.equal(icon.box.width, 28);
+    assert.equal(icon.box.height, 28);
+    assert.equal(icon.svg.width, 18);
+    assert.equal(icon.svg.height, 18);
+    assert.ok(icon.reachable, icon.id + ' is directly clickable');
+  }
+  const fast = await page.locator('header .model-fast').boundingBox();
+  assert.ok(
+    icons.every((icon) => icon.box.right <= fast.x),
+    'icons leave the Fast column clear',
+  );
+  const head = await page.locator('#edge-panel > header').boundingBox();
+  const body = await page.locator('#edge-views').boundingBox();
+  assert.ok(Math.max(...icons.map((icon) => icon.box.bottom)) <= head.y + head.height);
+  assert.ok(body.y >= head.y + head.height, 'wrapping is included in native content height');
+  await page.getByRole('button', { name: '所有模型', exact: true }).click();
+  await page.locator('.model-catalog-title').waitFor();
+  assert.ok(
+    (await inspect()).every((icon) => icon.reachable),
+    'catalog retains every feature switch',
+  );
+  const title = await page.locator('.model-catalog-title').boundingBox();
+  const catalogIcons = await inspect();
+  assert.ok(title.x >= Math.max(...catalogIcons.map((icon) => icon.box.right)));
+  for (const label of ['Grok Bot', '术语', '下一步', '大纲', '看板', '模型切换']) {
+    await nav.getByRole('button', { name: label, exact: true }).click();
+    assert.equal(
+      await nav.getByRole('button', { name: label, exact: true }).getAttribute('aria-pressed'),
+      'true',
+      `${label}: ${JSON.stringify(await page.evaluate(() => ({ prefs, writes })))}`,
+    );
+  }
+  assert.equal(await page.evaluate(() => writes.some((write) => write.op === 'action')), false);
+  assert.deepEqual(errors, []);
 });

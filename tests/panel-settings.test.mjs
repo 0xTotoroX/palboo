@@ -119,7 +119,7 @@ test('workbench settings save only their own preference fields', { timeout: 3000
     );
     await page.getByLabel('内容显示', { exact: true }).selectOption('true');
     await page.getByLabel('指令执行模式', { exact: true }).selectOption('hybrid');
-    await page.getByText('双击即发送；已有草稿时只追加。', { exact: true }).waitFor();
+    await page.getByText('已有草稿时只追加。', { exact: true }).waitFor();
     await page.waitForFunction(() =>
       [...document.querySelectorAll('fieldset')].every((field) => !field.disabled),
     );

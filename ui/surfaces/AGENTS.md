@@ -8,7 +8,7 @@
 - [workspace/AGENTS.md](workspace/AGENTS.md)：公共头部、标签、分栏、比例、临时放大、阅读与草稿交接。
 - [embedded/AGENTS.md](embedded/AGENTS.md)：Codex 内侧栏占位、页面浮层曲面收放和调宽，保留原胶囊兼容实现。
 - [desktop/AGENTS.md](desktop/AGENTS.md)：独立桌面窗口与原生尺寸、置顶、往返适配。
-- [edge/AGENTS.md](edge/AGENTS.md)：贴边标签、悬停收放与原生首帧/轮廓适配。
+- [edge/AGENTS.md](edge/AGENTS.md)：贴边图标导航、悬停收放与原生首帧/轮廓适配。
 - [theme/AGENTS.md](theme/AGENTS.md)：各形式主题语义色、材质和内嵌 SVG 液态。
 
 ui/codex/runtime/lifecycle.js 仍是浏览器注入的集成入口。Rust src/features.rs 管理功能 owner 和业务分发，src/surfaces.rs 管理承载配置及窗口生命周期。原生操作只在各形式适配层实现，功能视图不决定窗口位置。

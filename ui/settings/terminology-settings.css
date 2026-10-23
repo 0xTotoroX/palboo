@@ -3,6 +3,8 @@
  * [POS]: 仅设置页布局，不影响宿主术语卡片或业务视图。
  * [PROTOCOL]: 变更时同步 settings/AGENTS.md。 */
 #settings-terminology .term-preview {
+  display: flex;
+  justify-content: center;
   --term-bg: var(--background);
   --term-fg: var(--foreground);
   --term-muted: var(--muted-foreground);
