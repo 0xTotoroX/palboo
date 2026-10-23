@@ -1081,6 +1081,34 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn all_six_feature_rows_can_persist_collapsed_and_reopen() {
+        let (_dir, app) = app().await;
+        let rows: Vec<Value> = IDS
+            .iter()
+            .map(|id| json!({"ids":[id],"active":id,"weight":1.0,"collapsed":true}))
+            .collect();
+        let layout = json!({"axis":"vertical","groups":rows});
+        for placement in ["sidebar", "overlay", "desktop"] {
+            app.feature_request(json!({"op":"main-layout","placement":placement,"expectedLayout":null,"layout":layout})).await.unwrap();
+            assert_eq!(
+                Features::load(&app.paths).snapshot()["layouts"][placement],
+                layout
+            );
+            let mut reopened = layout.clone();
+            reopened["groups"][0]
+                .as_object_mut()
+                .unwrap()
+                .remove("collapsed");
+            app.feature_request(json!({"op":"main-layout","placement":placement,"expectedLayout":layout,"layout":reopened})).await.unwrap();
+            assert_eq!(
+                Features::load(&app.paths).snapshot()["layouts"][placement],
+                reopened
+            );
+            assert!(app.feature_request(json!({"op":"main-layout","placement":placement,"expectedLayout":layout,"layout":layout})).await.is_err());
+        }
+    }
+
+    #[tokio::test]
     async fn nested_layout_round_trips_and_rejects_duplicate_leaves() {
         let (_dir, app) = app().await;
         let layout = json!({"axis":"vertical","groups":[

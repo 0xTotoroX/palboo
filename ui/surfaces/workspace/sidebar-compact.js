@@ -1,6 +1,6 @@
-/* [INPUT]: Existing mounted panes, sidebar-only vertical leaf groups and shared reading helpers.
- * [OUTPUT]: Header compaction without unmounting, restored reading and interruptible grid motion.
- * [POS]: Workspace presentation; does not store bodies, create owners or change other surfaces.
+/* [INPUT]: Existing mounted panes, vertical leaf groups, saved collapse flags and shared reading helpers.
+ * [OUTPUT]: Independent title-row folding including all-closed, restored reading and interruptible grid motion.
+ * [POS]: Workspace presentation; does not store bodies or create owners.
  * [PROTOCOL]: Keep workspace/AGENTS.md in sync. */
 import { compactRows } from './compact-rows.js';
 import { readWorkbenchScroll, writeWorkbenchScroll } from '../../shared/scroll.js';
@@ -84,8 +84,7 @@ export function installSidebarCompact(panes) {
     },
     stop,
     apply(node, container, enabled, previous) {
-      const eligible =
-        enabled && node.groups.length > 1 && node.groups.every((group) => !group.groups);
+      const eligible = enabled && node.groups.every((group) => !group.groups);
       container.dataset.sidebarCompact = String(eligible);
       const sections = [...container.children].filter((el) => el.matches('section[data-pane]'));
       if (!eligible) {
@@ -112,6 +111,8 @@ export function installSidebarCompact(panes) {
         node.groups.map((group) => group.weight),
         height,
         header,
+        8,
+        node.groups.map((group) => group.collapsed === true),
       );
       rows.forEach((row, i) => collapse(sections[i], row.collapsed));
       const tracks = rows
@@ -143,14 +144,21 @@ export function installSidebarCompact(panes) {
       }
       return tracks;
     },
-    expand(layout, id) {
+    activate(layout, id, wasActive) {
       const section = [...panes.querySelectorAll('section[data-pane]')].find((el) =>
         el.querySelector(`[data-pane-tab="${id}"]`),
       );
-      if (section?.dataset.compact !== 'true') return;
+      if (!section?.hasAttribute('data-compact')) return;
+      const closed = section.dataset.compact === 'true';
+      if (!closed && !wasActive) return;
       function visit(node) {
         const index = node.groups.findIndex((group) => !group.groups && group.ids.includes(id));
         if (index >= 0 && node.groups.every((group) => !group.groups)) {
+          if (!closed) {
+            node.groups[index].collapsed = true;
+            return;
+          }
+          delete node.groups[index].collapsed;
           const total = node.groups.reduce((sum, group) => sum + group.weight, 0);
           node.groups.forEach((group, i) => {
             group.weight = total * (i === index ? 0.9 : 0.1 / (node.groups.length - 1));

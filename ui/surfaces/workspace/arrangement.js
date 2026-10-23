@@ -23,6 +23,7 @@ export function installArrangement(
       _target,
     ) => arrangeWorkbench(value, pane, action, width, height),
     targetAt = null,
+    deferActivation = (_id) => false,
   },
 ) {
   const events = new AbortController();
@@ -36,6 +37,7 @@ export function installArrangement(
   let drag = null;
   let suppressClick = false;
   let suppressTimer;
+  let activationTimer;
   const bounds = () => {
     const style = getComputedStyle(panes);
     return {
@@ -58,6 +60,7 @@ export function installArrangement(
     return true;
   }
   function cancel() {
+    clearTimeout(activationTimer);
     if (drag?.moved) suppressClick = true;
     if (drag && panes.hasPointerCapture(drag.pointerId))
       panes.releasePointerCapture(drag.pointerId);
@@ -85,6 +88,7 @@ export function installArrangement(
   root.addEventListener(
     'click',
     (event) => {
+      clearTimeout(activationTimer);
       if (suppressClick) {
         event.preventDefault();
         event.stopPropagation();
@@ -92,7 +96,12 @@ export function installArrangement(
         return;
       }
       const tab = event.target.closest('[data-pane-tab]');
-      if (tab) command(tab.dataset.paneTab, 'activate');
+      if (!tab || event.detail > 1) return;
+      const id = tab.dataset.paneTab;
+      // Wait only for a pointer collapse, so double-click focus never folds/moves its target.
+      if (event.detail && deferActivation(id))
+        activationTimer = setTimeout(() => command(id, 'activate'), 220);
+      else command(id, 'activate');
     },
     { capture: true, signal: events.signal },
   );
@@ -250,13 +259,21 @@ export function installArrangement(
         height /= 2;
         if (action === 'bottom') top += height;
       }
+      if (['before', 'after'].includes(action)) {
+        if (action === 'after') top += height - 4;
+        height = 4;
+      }
       Object.assign(preview.style, {
         left: `${left / scale.x - parent.clientLeft + parent.scrollLeft}px`,
         top: `${top / scale.y - parent.clientTop + parent.scrollTop}px`,
         width: `${width / scale.x}px`,
         height: `${height / scale.y}px`,
       });
-      preview.textContent = action === 'merge' ? '合并为标签' : '分栏';
+      preview.textContent = ['before', 'after'].includes(action)
+        ? ''
+        : action === 'merge'
+          ? '合并为标签'
+          : '分栏';
     },
     { signal: events.signal },
   );

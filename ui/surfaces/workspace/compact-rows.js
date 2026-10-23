@@ -1,15 +1,17 @@
 /* [INPUT]: Visible row weights, available CSS height and measured header height.
  * [OUTPUT]: Complete title rows, readable expanded rows and cascading separator transfers.
- * [POS]: Pure sidebar geometry, also used by the settings demonstration.
+ * [POS]: Pure vertical-row geometry, also used by the settings demonstration.
  * [PROTOCOL]: Keep workspace/AGENTS.md in sync. */
-export function compactRows(weights, height, header = 36, gap = 8) {
+export function compactRows(weights, height, header = 36, gap = 8, collapsed = []) {
   if (!weights.length) return [];
+  const closed = new Set(weights.map((_, i) => i).filter((i) => collapsed[i]));
+  if (closed.size === weights.length)
+    return weights.map(() => ({ height: header, collapsed: true }));
   const minimum = header + 84;
   const available = Math.max(
     height - gap * (weights.length - 1),
     header * (weights.length - 1) + minimum,
   );
-  const closed = new Set();
   let sizes;
   for (;;) {
     const open = weights.map((_, i) => i).filter((i) => !closed.has(i));

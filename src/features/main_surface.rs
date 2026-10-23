@@ -1,5 +1,5 @@
 // [INPUT]: Feature owners, main placement and saved flat/nested layouts.
-// [OUTPUT]: Validated recursive layout persistence, one main window and atomic group handoff.
+// [OUTPUT]: Validated recursive layout persistence with optional collapsed rows, one main window and atomic group handoff.
 // [POS]: Main-surface lifecycle within features; no task or model business logic.
 // [PROTOCOL]: Keep features/AGENTS.md in sync.
 use super::*;
@@ -10,6 +10,8 @@ pub(super) struct LayoutGroup {
     pub ids: Vec<String>,
     pub active: String,
     pub weight: f64,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub collapsed: bool,
 }
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -47,7 +49,7 @@ impl FeatureLayout {
     ) -> bool {
         depth < IDS.len()
             && ["auto", "vertical", "horizontal"].contains(&axis)
-            && ((if depth == 0 { 1 } else { 2 })..=4).contains(&groups.len())
+            && ((if depth == 0 { 1 } else { 2 })..=IDS.len()).contains(&groups.len())
             && groups.iter().all(|node| {
                 let weight = match node {
                     LayoutNode::Group(group) => group.weight,

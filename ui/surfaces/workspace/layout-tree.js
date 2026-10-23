@@ -1,5 +1,5 @@
 /* [INPUT]: Saved flat or nested feature layouts and drag destinations.
- * [OUTPUT]: Leaf traversal, minimum geometry and local split/merge with released visible allocations.
+ * [OUTPUT]: Leaf traversal, flattened vertical rows, folded-row reorder and local split/merge with released allocations.
  * [POS]: Pure workspace geometry shared by rendering and settings; no business state.
  * [PROTOCOL]: Keep workspace/AGENTS.md in sync. */
 /** @typedef {import('../../shared/features').FeatureLayout} FeatureLayout */
@@ -9,6 +9,23 @@
  * @returns {import('../../shared/features').LayoutGroup[]} */
 export function layoutGroups(layout) {
   return layout.groups.flatMap((node) => ('groups' in node ? layoutGroups(node) : [node]));
+}
+
+/** Remove redundant vertical nesting while preserving each row's share and saved identity.
+ * Works on an owned layout copy; persistence still happens only after a user operation.
+ * @param {FeatureLayout} layout */
+export function flattenVerticalLayout(layout) {
+  for (const group of layout.groups) if ('groups' in group) flattenVerticalLayout(group);
+  if (layout.axis !== 'vertical') return layout;
+  layout.groups = layout.groups.flatMap((group) => {
+    if (!('groups' in group) || group.axis !== 'vertical') return [group];
+    const total = group.groups.reduce((sum, row) => sum + row.weight, 0);
+    return group.groups.map((row) => ({
+      ...row,
+      weight: Math.max(0.01, Math.min(100, (group.weight * row.weight) / total)),
+    }));
+  });
+  return layout;
 }
 
 /** @param {FeatureLayout | LayoutNode} node */
@@ -75,9 +92,32 @@ export function arrangeFeatureLayout(value, id, action, width, height, target, v
     source.active = id;
     return next;
   }
-  if (!['left', 'right', 'top', 'bottom', 'merge'].includes(action)) return null;
+  if (!['left', 'right', 'top', 'bottom', 'merge', 'before', 'after'].includes(action)) return null;
   const destination = leaves.find((group) => group.ids.includes(target));
   if (!destination || (source === destination && source.ids.length === 1)) return null;
+  if (action === 'before' || action === 'after') {
+    const parentOf = (node) =>
+      node.groups.includes(source)
+        ? node
+        : node.groups
+            .filter((group) => 'groups' in group)
+            .map(parentOf)
+            .find(Boolean);
+    const parent = parentOf(next);
+    if (
+      source === destination ||
+      !parent?.groups.includes(destination) ||
+      parent.axis !== 'vertical'
+    )
+      return null;
+    parent.groups.splice(parent.groups.indexOf(source), 1);
+    parent.groups.splice(
+      parent.groups.indexOf(destination) + Number(action === 'after'),
+      0,
+      source,
+    );
+    return next;
+  }
   const previouslyVisible = new Set();
   const rememberVisible = (node) => {
     if ('groups' in node) node.groups.forEach(rememberVisible);

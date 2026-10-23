@@ -1,5 +1,5 @@
 /* [INPUT]: Shared feature icons, live mounts with header actions, per-surface layout and authenticated save callback.
- * [OUTPUT]: Flat/nested layout interpretation, icon tabs, local split/merge, focus, sidebar title compaction and resizing with checked saves; views stay mounted.
+ * [OUTPUT]: Flat/nested layout interpretation, icon tabs, local split/merge, focus, persistent title folding and resizing with checked saves; views stay mounted.
  * [POS]: Presentation-only composition; reuses the workbench gestures and styles.
  * [PROTOCOL]: Keep AGENTS.md in this module in sync. */
 import { featureIcons, titles } from '../../shared/features';
@@ -8,12 +8,17 @@ import { installSidebarCompact } from './sidebar-compact.js';
 import { transferRows } from './compact-rows.js';
 import { installArrangement } from './arrangement.js';
 import { bindSeparator, elementScale } from './separator.js';
-import { layoutGroups, layoutMinimum, arrangeFeatureLayout } from './layout-tree.js';
+import {
+  layoutGroups,
+  layoutMinimum,
+  arrangeFeatureLayout,
+  flattenVerticalLayout,
+} from './layout-tree.js';
 
 // Settings and the workspace must interpret an old two-feature layout identically.
 /** @returns {import('../../shared/features').FeatureLayout} */
 export function resolveFeatureLayout(saved, legacy, ids) {
-  if (saved) return structuredClone(saved);
+  if (saved) return flattenVerticalLayout(structuredClone(saved));
   const first = legacy?.first || 'outline';
   const other = first === 'outline' ? 'next' : 'outline';
   const ratio = legacy?.mode === 'horizontal' ? legacy.horizontalRatio : legacy?.verticalRatio;
@@ -105,8 +110,11 @@ export function installFeatureLayout(root, { save, error }) {
       target,
       items.filter((item) => item.active).map((item) => item.id),
     );
-    if (next && action === 'activate' && placement === 'sidebar') compact.expand(next, id);
-    return next;
+    if (next && action === 'activate') {
+      const wasActive = layoutGroups(value).some((group) => group.active === id);
+      compact.activate(next, id, wasActive);
+    }
+    return next && flattenVerticalLayout(next);
   };
   function splitFits(section, id, action) {
     const axis = ['left', 'right'].includes(action) ? 'horizontal' : 'vertical';
@@ -140,6 +148,10 @@ export function installFeatureLayout(root, { save, error }) {
     update: () => render(),
     enabled: (id) => items.some((item) => item.id === id && item.active && !item.node.inert),
     arrange,
+    deferActivation(id) {
+      const section = panes.querySelector(`[data-pane-tab="${id}"]`)?.closest('[data-pane]');
+      return section?.dataset.compact === 'false' && section.dataset.pane === id;
+    },
     targetAt(event, id, { width, height }) {
       for (const section of /** @type {NodeListOf<HTMLElement>} */ (
         panes.querySelectorAll('section[data-pane]')
@@ -149,7 +161,7 @@ export function installFeatureLayout(root, { save, error }) {
           y = (event.clientY - box.top) / box.height;
         if (x < 0 || x > 1 || y < 0 || y > 1) continue;
         const edge = Math.min(x, 1 - x, y, 1 - y);
-        const action =
+        let action =
           edge >= 0.25
             ? 'merge'
             : edge === x
@@ -160,7 +172,16 @@ export function installFeatureLayout(root, { save, error }) {
                   ? 'top'
                   : 'bottom';
         const target = section.dataset.pane;
-        if (action !== 'merge' && !splitFits(section, id, action)) continue;
+        const source = panes.querySelector(`[data-pane-tab="${id}"]`)?.closest('[data-pane]');
+        if (
+          ['top', 'bottom'].includes(action) &&
+          section.parentElement.dataset.sidebarCompact === 'true' &&
+          source?.parentElement === section.parentElement &&
+          source.querySelectorAll('[data-pane-tab]').length === 1
+        )
+          action = action === 'top' ? 'before' : 'after';
+        if (!['merge', 'before', 'after'].includes(action) && !splitFits(section, id, action))
+          continue;
         if (arrange(layout, id, action, width, height, target)) return { action, box, id: target };
       }
       return null;
@@ -241,6 +262,8 @@ export function installFeatureLayout(root, { save, error }) {
           const weight = start.groups.reduce((sum, group) => sum + group.weight, 0);
           start.groups.forEach((group, i) => {
             group.weight = (weight * heights[i]) / total;
+            if (heights[i] <= start.header) group.collapsed = true;
+            else delete group.collapsed;
           });
           render();
           return;
@@ -335,10 +358,9 @@ export function installFeatureLayout(root, { save, error }) {
     container.style.gridTemplateColumns =
       axis === 'horizontal' ? tracks.join(' ') : 'minmax(0,1fr)';
     const compactEnabled =
-      placement === 'sidebar' &&
+      ['sidebar', 'overlay', 'desktop'].includes(placement) &&
       axis === 'vertical' &&
       !focused &&
-      node.groups.length > 1 &&
       node.groups.every((group) => !group.groups);
     // Capture live content before shrinking rows; an intermediate minimum-sized
     // grid could clamp a scroller before the compaction controller remembers it.
@@ -406,7 +428,7 @@ export function installFeatureLayout(root, { save, error }) {
         placement = surface;
         shape = null;
         if (changedSurface) selected = '';
-        layout = cache.get(surface) || (saved && structuredClone(saved));
+        layout = cache.get(surface) || (saved && flattenVerticalLayout(structuredClone(saved)));
         if (!layout) {
           const ids = items.filter((item) => item.active).map((item) => item.id);
           layout = resolveFeatureLayout(null, legacy, ids);
@@ -427,6 +449,11 @@ export function installFeatureLayout(root, { save, error }) {
         const group = layoutGroups(layout).find((group) => group.ids.includes(reveal));
         if (group) {
           group.active = reveal;
+          // The initial selected feature is a snapshot, not a new request to unfold it.
+          if (selected) {
+            delete group.collapsed;
+            compact.activate(layout, reveal, false);
+          }
           selected = selection;
         }
       }

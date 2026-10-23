@@ -1,5 +1,5 @@
 /* [INPUT]: Authenticated feature transport and shared business DTOs.
- * [OUTPUT]: Persisted edge navigation, six-feature icon mapping and placement, main ownership, default fonts, recursive split geometry and transient view, preset and quick-prompt draft contracts.
+ * [OUTPUT]: Persisted edge navigation, six-feature icon mapping and placement, main ownership, default fonts, recursive split geometry with optional row collapse flags and transient view, preset and quick-prompt draft contracts.
  * [POS]: Presentation boundary. [PROTOCOL]: Keep AGENTS.md in this module in sync. */
 import type { BoardView } from '../features/board/app';
 export const titles = {
@@ -80,7 +80,7 @@ export type Entry = {
   view: Reading;
   pending: { placement: Placement; owner: string; ready: boolean } | null;
 };
-export type LayoutGroup = { ids: string[]; active: string; weight: number };
+export type LayoutGroup = { ids: string[]; active: string; weight: number; collapsed?: boolean };
 export type LayoutNode = LayoutGroup | (FeatureLayout & { weight: number });
 export type FeatureLayout = { axis: string; groups: LayoutNode[] };
 export type EdgeTabs = { order: string[]; selected: string };

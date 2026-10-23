@@ -76,7 +76,7 @@ Hover over the independent eyes entry to choose inside, outside, or settings; co
 
 Drag a panel heading or tab to another panel's edge to split the layout, or to its center to group them as tabs. Double-click a heading or tab to temporarily enlarge that panel; double-click its heading again or press Esc to restore the layout. Keyboard users can focus a heading and press Enter or Space. Choose tabs, vertical, horizontal or automatic splits under **界面 → 布局与位置 → 主界面布局** in Web settings. Press Esc during a drag to cancel it.
 
-Vertically stacked sidebar panes can shrink to title rows as you drag a divider. Click a title to expand it again; content, drafts and reading position are retained. Short sidebars compact automatically. Other window layouts keep their existing behavior.
+Vertically stacked panes in the sidebar, page overlay and desktop window can fold to one title row each. Click the selected icon to fold or reopen a pane, including the last open pane. Dividers can collapse consecutive rows; folded rows remain draggable. Folding is saved per surface and retains content, drafts and reading position. Short layouts compact automatically.
 
 The outline and next-step suggestions share the same chat source. The source label and follow/lock menu are temporarily hidden; existing associations are preserved. If the source becomes unavailable, previous results remain available for reading until it reconnects.
 
