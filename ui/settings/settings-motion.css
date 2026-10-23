@@ -32,6 +32,36 @@ body,
 .settings-suggestion-list[data-above='true'] {
   transform-origin: bottom center;
 }
+@media (max-width: 640px) {
+  .settings-category-links {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.985);
+    transform-origin: top left;
+    pointer-events: none;
+    transition:
+      opacity 140ms var(--settings-ease),
+      transform 140ms var(--settings-ease),
+      display 140ms allow-discrete;
+  }
+  .settings-nav[data-open='true'] .settings-category-links {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+    transition-duration: 180ms;
+  }
+  .settings-nav-trigger .buddy-icon {
+    transition: transform 180ms var(--settings-ease);
+  }
+  .settings-nav[data-open='true'] .settings-nav-trigger .buddy-icon {
+    transform: rotate(180deg);
+  }
+  @starting-style {
+    .settings-nav[data-open='true'] .settings-category-links {
+      opacity: 0;
+      transform: translateY(-4px) scale(0.985);
+    }
+  }
+}
 @starting-style {
   .settings-search ul,
   .settings-suggestion-list {
@@ -92,6 +122,8 @@ html[data-settings-input='keyboard'] :is(body, .settings-header, .preview-frame)
 html[data-settings-input='keyboard'] .settings-app :is(button, a, input, select, textarea),
 html[data-settings-input='keyboard'] .settings-search ul,
 html[data-settings-input='keyboard'] .settings-suggestion-list,
+html[data-settings-input='keyboard'] .settings-category-links,
+html[data-settings-input='keyboard'] .settings-nav-trigger .buddy-icon,
 html[data-settings-input='keyboard'] .settings-app details::details-content,
 html[data-settings-input='keyboard'] .settings-app select::picker(select) {
   transition: none;

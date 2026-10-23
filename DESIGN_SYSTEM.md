@@ -113,6 +113,7 @@ Tom Modern 是本项目已选定的界面方案名称，代表中性色、细分
 ## 动效与状态
 
 - 设置分类入场 220ms；功能预览交叉切换 200ms / 4px；列表增删补位 200ms；具体曲线以 [settings-motion.ts](ui/settings/settings-motion.ts)、[settings-list-motion.ts](ui/settings/settings-list-motion.ts) 为准。
+- 窄屏导航菜单从左上方轻移4px并淡入，展开180ms、收起140ms，箭头同步转向；关闭时立即禁止菜单交互，连续开关平滑接续，键盘和减少动态效果即时切换。
 - 鼠标操作保留可中断的轻量反馈；键盘与“减少动态效果”立即响应并取消在途装饰动画。主题、菜单、抽屉等使用现有 [settings-motion.css](ui/settings/settings-motion.css)，不新增动画框架。
 - 工作台到原生窗口的交接沿用真实窗口几何与 ready/presented 协议，不以设置预览动画替代。
 - 保存反馈依据真实请求结果。隐藏、切页、窗口交接不丢草稿；异步回读不覆盖新编辑；错误与外部修订冲突明确呈现。

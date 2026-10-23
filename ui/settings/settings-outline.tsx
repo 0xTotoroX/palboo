@@ -1,5 +1,5 @@
 /* [INPUT]: URL anchors, saved page preference (legacy mode ignored), shared icons and the Dev source widget.
- * [OUTPUT]: Shared sidebar/compact grouped disclosure, keyboard navigation, legacy/search/invalid-field routing and reading restoration without remounting forms.
+ * [OUTPUT]: Shared sidebar/compact grouped disclosure with inert closing content, keyboard navigation, legacy/search/invalid-field routing and reading restoration without remounting forms.
  * [POS]: Presentation state only; never changes backend configuration or remounts forms.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
@@ -271,6 +271,8 @@ export function SettingsOutline({
     trigger.current?.focus({ preventScroll: true });
   };
   useLayoutEffect(() => {
+    // Closing links stay painted for the fade but stop accepting focus or input immediately.
+    if (links.current) links.current.inert = !open && matchMedia('(max-width: 640px)').matches;
     if (open)
       links.current?.querySelector<HTMLElement>('[aria-current="page"]')?.focus({
         preventScroll: true,
@@ -286,6 +288,7 @@ export function SettingsOutline({
         document.activeElement === document.body &&
         focusedLink.current &&
         !focusedLink.current.getClientRects().length;
+      if (links.current) links.current.inert = narrow.matches;
       if (root.current?.contains(document.activeElement) || hiddenFocus) {
         const target = narrow.matches
           ? trigger.current

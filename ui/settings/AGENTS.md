@@ -39,7 +39,7 @@
 - [settings-preview.css](settings-preview.css)：共用预览外框、功能示例、模型和连接示意的样式；全部预览共用中性灰底和12px圆角，功能与连接示例用圆角悬浮面板区别表单，建议与输入分区，去除套框和逐条分隔线。材质为近似效果，不用于实际业务视图。
 - [settings-list-motion.ts](settings-list-motion.ts)：配置列表增删/排序的200ms补位和新项4px淡入；以稳定ID测量相对位置，提示词没有持久ID时使用仅在界面保留的身份，兼容重复内容、后台整表回读与删除确认；不改变布局、保存时机或数据结构。
 - [settings-motion.ts](settings-motion.ts)：分类入场与功能预览200ms交叉淡入淡出的可中断动画，读取输入方式以保持键盘即时响应，尊重动态减少效果偏好；ResizeObserver 同步顶栏真实高度至目录粘性偏移，不重新挂载控件、不存储配置。
-- [settings-motion.css](settings-motion.css)：主题颜色、按钮反馈、搜索/候选/原生菜单入场和原生 details 展开/收起；不支持插值的浏览器保留原生即时行为。键盘和减少动态效果不等待装饰动画，候选菜单不受折叠裁切。
+- [settings-motion.css](settings-motion.css)：主题颜色、按钮反馈、搜索/候选/原生菜单入场和原生 details 展开/收起；窄屏导航以180ms展开、140ms收起，顶部4px位移与淡入接续，箭头同步旋转，settings-outline 在收起期间立即设为 inert。侧栏不参与动画，不支持离散过渡的浏览器即时切换。键盘和减少动态效果不等待装饰动画，候选菜单不受折叠裁切。
 - [settings-theme.tsx](settings-theme.tsx)：页头单一主题入口，展开后保留“自动”及浅色/深色选项；方向键/Home/End 切换焦点，Esc 关闭回到入口，外点或移出焦点关闭；默认跟随认证 SSE 的 panelTheme，无有效快照时保留本页末次主题，尚未收到时回退系统。后台未设置时沿用同源 localStorage；明确选择通过 appearance 修订保存，并跨标签页同步。受限存储仍可通过后台保存；不写宿主、不触发模型表单失焦保存。settings-layout.css 统一语义色，品牌图标保持原图，动作图标沿用 currentColor。
 - [index.html](index.html)：设置网页入口，图标复用 ../icon.png。
 - [board.html](board.html)：旧独立看板 HTML 入口，仍挂载 ../surfaces/desktop/legacy-board.tsx 及共用看板内容。

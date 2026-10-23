@@ -1,5 +1,5 @@
 /* [INPUT]: Built settings page, synthetic authenticated services and isolated Chromium.
- * [OUTPUT]: Shared drafts/DOM, title-free page hierarchy, terminology controls/tools, compact preview geometry and responsive navigation.
+ * [OUTPUT]: Shared drafts/DOM, title-free page hierarchy, terminology controls/tools, compact preview geometry and responsive navigation with interruptible menu motion.
  * [POS]: No real user data, model requests or host restarts.
  * [PROTOCOL]: Keep tests/AGENTS.md in sync. */
 import test from 'node:test';
@@ -1378,6 +1378,60 @@ test(
         headerWrites,
         'header navigation never submits business settings',
       );
+      await emulateMedia(page, { reducedMotion: 'no-preference' });
+      const menu = page.locator('.settings-category-links');
+      const menuTrigger = page.locator('.settings-nav-trigger');
+      await menu.evaluate((node) => {
+        window.menuMotion = [];
+        node.addEventListener('transitionrun', (event) => {
+          if (event.target !== node || event.propertyName !== 'opacity') return;
+          const animation = node.getAnimations().find((a) => a.transitionProperty === 'opacity');
+          if (!animation) return; // A rapid reversal can cancel a queued transitionrun event.
+          window.menuMotion.push({
+            open: node.closest('nav').dataset.open,
+            duration: animation.effect.getTiming().duration,
+            frames: animation.effect.getKeyframes().map((frame) => frame.opacity),
+            inert: node.inert,
+          });
+        });
+      });
+      await menuTrigger.click();
+      await menu.evaluate(async (node) => {
+        await Promise.allSettled(node.getAnimations().map((a) => a.finished));
+      });
+      assert.equal(await menu.evaluate((n) => n.inert), false);
+      await menuTrigger.click();
+      assert.equal(await menu.evaluate((n) => n.inert), true, 'closing menu is immediately inert');
+      await menu.waitFor({ state: 'hidden' });
+      assert.deepEqual(await page.evaluate(() => window.menuMotion), [
+        { open: 'true', duration: 180, frames: ['0', '1'], inert: false },
+        { open: 'false', duration: 140, frames: ['1', '0'], inert: true },
+      ]);
+      // Reverse during the actual CSS transition, retaining the same menu and links.
+      await menuTrigger.click();
+      await menu.evaluate(async (node) => {
+        const trigger = document.querySelector('.settings-nav-trigger');
+        trigger.click();
+        await new Promise(requestAnimationFrame);
+        trigger.click();
+      });
+      await menu.evaluate(async (node) => {
+        await Promise.allSettled(node.getAnimations().map((a) => a.finished));
+      });
+      assert.equal(await menuTrigger.getAttribute('aria-expanded'), 'true');
+      assert.equal(await menu.evaluate((n) => getComputedStyle(n).opacity), '1');
+      assert.equal(await menu.evaluate((n) => n.inert), false);
+      await page.keyboard.press('Escape');
+      assert.equal(await menu.isVisible(), false, 'keyboard closing skips the exit animation');
+      await menuTrigger.press('ArrowDown');
+      assert.equal(await menu.evaluate((n) => n.getAnimations().length), 0);
+      await page.keyboard.press('Escape');
+      await emulateMedia(page, { reducedMotion: 'reduce' });
+      await menuTrigger.click();
+      assert.equal(await menu.evaluate((n) => n.getAnimations().length), 0);
+      await menuTrigger.click();
+      assert.equal(await menu.isVisible(), false, 'reduced motion closes immediately');
+      assert.equal(writes.filter((w) => w.path !== '/api/appearance').length, headerWrites);
       assert.deepEqual(errors, []);
     } finally {
       await cleanup();
