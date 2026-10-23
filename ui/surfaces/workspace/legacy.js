@@ -1,9 +1,10 @@
 /*
- * [INPUT]: 共享大纲与 Stepwise 视图、当前聊天身份、工作台布局偏好。
- * [OUTPUT]: 唯一展开外壳、居中共享表情、来源及布局位置菜单、快捷词配置同步、双面板编排和表情单击收放/双击窗口往返、桌面置顶及外部网页设置入口；保留无公开入口的旧设置模板。
+ * [INPUT]: 共享功能图标、大纲与 Stepwise 视图、当前聊天身份、工作台布局偏好。
+ * [OUTPUT]: 唯一展开外壳、居中共享表情、来源及布局位置菜单、快捷词配置同步、双面板图标编排和表情单击收放/双击窗口往返、桌面置顶及外部网页设置入口；保留无公开入口的旧设置模板。
  * [POS]: 工作台组合视图；复用业务状态和写入校验，不创建第二套运行时。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
+import { featureIcons } from '../../shared/features';
 import { bindDockResize } from '../embedded/width.js';
 import { dockWidthLimit } from '../embedded/dock.js';
 import { installWindowControls } from './window-controls.js';
@@ -123,8 +124,8 @@ export function renderWorkbench(nextHtml, attachNextEvents, clearPromptTimers) {
     panel.innerHTML = `<div class="csw-workbench">
       ${workbenchHeadHtml(IS_POPOUT)}
       <div class="csw-workbench-panes">
-        <div class="csw-workbench-tabs" role="tablist" aria-label="工作台面板" hidden>${registry.map((pane) => `<button type="button" role="tab" id="csw-tab-${pane.id}" data-pane-tab="${pane.id}" aria-controls="csw-pane-${pane.id}">${pane.title}</button>`).join('')}</div>
-        ${registry.map((pane, index) => `${index ? '<div class="csw-workbench-split" role="separator" tabindex="0" aria-label="调整大纲与下一步比例" aria-orientation="horizontal" aria-valuemin="20" aria-valuemax="80"></div>' : ''}<section class="csw-workbench-pane" id="csw-pane-${pane.id}" data-pane="${pane.id}" aria-label="${pane.title}"><header><strong data-pane-focus="${pane.id}" role="button" tabindex="0">${pane.title}</strong><button class="csw-icon" data-refresh="${pane.id}" aria-label="${pane.id === 'outline' ? '刷新大纲（本地）' : '重新生成建议'}">${iconSvg('refresh')}</button><span class="csw-pane-menu" hidden>${iconSvg('more')}<select class="csw-pane-arrange" data-pane-arrange="${pane.id}" aria-label="编排${pane.title}"><option value="">编排</option><option value="left">移到左侧</option><option value="right">移到右侧</option><option value="top">移到上方</option><option value="bottom">移到下方</option><option value="merge">合并为标签</option><option value="split">拆回分栏</option><option value="reorder">调整标签顺序</option></select></span></header><div class="csw-body" data-view-body="${pane.id}" tabindex="0"></div></section>`).join('')}
+        <div class="csw-workbench-tabs" role="tablist" aria-label="工作台面板" data-icon-tabs hidden>${registry.map((pane) => `<button type="button" role="tab" id="csw-tab-${pane.id}" data-pane-tab="${pane.id}" aria-controls="csw-pane-${pane.id}" aria-label="${pane.title}" title="${pane.title}">${iconSvg(featureIcons[pane.id])}</button>`).join('')}</div>
+        ${registry.map((pane, index) => `${index ? '<div class="csw-workbench-split" role="separator" tabindex="0" aria-label="调整大纲与下一步比例" aria-orientation="horizontal" aria-valuemin="20" aria-valuemax="80"></div>' : ''}<section class="csw-workbench-pane" id="csw-pane-${pane.id}" data-pane="${pane.id}" aria-label="${pane.title}"><header><strong data-pane-focus="${pane.id}" role="button" tabindex="0" title="${pane.title}">${iconSvg(featureIcons[pane.id])}</strong><button class="csw-icon" data-refresh="${pane.id}" aria-label="${pane.id === 'outline' ? '刷新大纲（本地）' : '重新生成建议'}">${iconSvg('refresh')}</button><span class="csw-pane-menu" hidden>${iconSvg('more')}<select class="csw-pane-arrange" data-pane-arrange="${pane.id}" aria-label="编排${pane.title}"><option value="">编排</option><option value="left">移到左侧</option><option value="right">移到右侧</option><option value="top">移到上方</option><option value="bottom">移到下方</option><option value="merge">合并为标签</option><option value="split">拆回分栏</option><option value="reorder">调整标签顺序</option></select></span></header><div class="csw-body" data-view-body="${pane.id}" tabindex="0"></div></section>`).join('')}
       </div>
       <section class="csw-workbench-settings" aria-label="工作台设置" hidden></section><button hidden data-legacy-settings aria-label="旧版内置设置"></button>
       <div class="csw-workbench-resize" role="separator" tabindex="0" aria-label="调整工作台宽度" aria-orientation="vertical"></div>

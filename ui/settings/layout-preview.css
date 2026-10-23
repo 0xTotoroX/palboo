@@ -104,26 +104,6 @@
 .layout-demo-workspace .csw-feature-panes {
   padding-top: 8px;
 }
-.layout-demo-workspace .csw-workbench-tabs {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  white-space: nowrap;
-}
-.layout-demo-workspace .csw-workbench-tabs button {
-  border: 0;
-  padding: 6px 4px;
-  background: transparent;
-  color: inherit;
-  font-weight: 550;
-}
-.layout-demo-workspace .csw-workbench-tabs button[aria-selected='false'] {
-  color: var(--buddy-muted);
-}
-.layout-demo-workspace .csw-workbench-tabs button:focus-visible {
-  outline: 2px solid var(--buddy-focus);
-  outline-offset: -2px;
-}
 .layout-demo-workspace[data-material='frosted'] {
   background: color-mix(in srgb, var(--buddy-surface) 85%, transparent);
   backdrop-filter: blur(12px);

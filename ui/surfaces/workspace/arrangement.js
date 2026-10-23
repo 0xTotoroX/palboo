@@ -326,9 +326,8 @@ export function installArrangement(
         const expanded = focused === title.dataset.paneFocus;
         title.setAttribute(
           'aria-label',
-          `${title.textContent}：${expanded ? '恢复原布局' : '放大查看'}`,
+          `${title.getAttribute('title') || title.textContent}：${expanded ? '恢复原布局' : '放大查看'}`,
         );
-        title.removeAttribute('title');
         title.setAttribute('aria-pressed', String(expanded));
       }
     },

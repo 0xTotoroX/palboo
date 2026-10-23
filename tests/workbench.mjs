@@ -1440,6 +1440,12 @@ const cases = [
         window.originalPanes = [...document.querySelectorAll('[data-pane]')];
       });
       const before = await scrollPanes(page, 100, 30, 80);
+      for (const label of ['大纲', '下一步']) {
+        const title = page.getByRole('button', { name: label + '：放大查看', exact: true });
+        assert.equal(await title.textContent().then((text) => text.trim()), '');
+        assert.equal(await title.locator('svg').count(), 1);
+      }
+
       const arrange = (pane, action) =>
         page.locator(`[data-pane-arrange="${pane}"]`).selectOption(action, { force: true });
       await arrange('outline', 'merge');
@@ -1514,9 +1520,11 @@ const cases = [
       );
       assert.deepEqual(errors, []);
       assert.deepEqual(await page.evaluate(() => window.popoutFixture.unexpected), []);
-      await page.screenshot({ path: resolve(output, 'arrangement-split.png') });
+      if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
+        await page.screenshot({ path: resolve(output, 'arrangement-split.png') });
       await arrange('outline', 'merge');
-      await page.screenshot({ path: resolve(output, 'arrangement-tabs.png') });
+      if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
+        await page.screenshot({ path: resolve(output, 'arrangement-tabs.png') });
       await page.getByRole('tab', { name: '下一步', exact: true }).click();
       const away = structuredClone(projection);
       away.snapshot.viewToken = 'fixture-other-chat';
@@ -3264,7 +3272,7 @@ try {
       saveResults();
       if (error.message.includes('timed out during')) {
         await browserServer.kill();
-      } else {
+      } else if (process.env.PALBOO_TEST_SCREENSHOTS === '1') {
         for (const [pageIndex, target] of (context?.pages() ?? []).entries()) {
           const file = `failure-${index + 1}-${pageIndex === 0 ? 'host' : 'popout'}.png`;
           await target

@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 工作台状态与共享材质/控件变量。
- * [OUTPUT]: 顶部留白、右侧统一窗口操作、透明工具按钮、文字明暗的标签选中反馈、分隔线和各级菜单样式。
+ * [OUTPUT]: 顶部留白、右侧统一窗口操作、透明工具按钮、图标明暗的标签选中反馈、分隔线和各级菜单样式。
  * [POS]: 工作台布局覆盖；不改变宿主样式或主题配方。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -270,12 +270,33 @@
   border-radius: 7px;
   background: transparent;
   color: var(--csw-muted);
-  padding: 5px 10px;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  flex: none;
+  width: var(--buddy-action-hit-size, 28px);
+  height: var(--buddy-action-hit-size, 28px);
+  padding: 5px;
   font: inherit;
   font-size: calc(var(--csw-chrome-font, 16px) * 0.8);
   cursor: grab;
   touch-action: none;
 }
+.csw-workbench-tabs button svg,
+.csw-workbench-pane [data-pane-focus] svg {
+  display: block;
+  width: var(--buddy-action-icon-size, 18px);
+  height: var(--buddy-action-icon-size, 18px);
+}
+.csw-workbench-pane [data-pane-focus] {
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: var(--buddy-action-hit-size, 28px);
+  height: var(--buddy-action-hit-size, 28px);
+  padding: 5px;
+}
+.csw-workbench-tabs button:hover,
 .csw-workbench-tabs button[aria-selected='true'] {
   color: var(--csw-text);
 }
@@ -528,7 +549,8 @@
 }
 
 .csw-feature-panes .csw-workbench-tabs {
-  overflow-x: auto;
+  flex-wrap: wrap;
+  overflow: visible;
   padding-right: 8px;
   flex: 0 0 auto;
   min-height: 36px;

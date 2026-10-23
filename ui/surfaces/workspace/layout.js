@@ -1,8 +1,9 @@
-/* [INPUT]: Live feature mounts with header actions, per-surface layout and authenticated save callback.
- * [OUTPUT]: Flat/nested layout interpretation, tabs, local split/merge, focus, sidebar title compaction and resizing with checked saves; views stay mounted.
+/* [INPUT]: Shared feature icons, live mounts with header actions, per-surface layout and authenticated save callback.
+ * [OUTPUT]: Flat/nested layout interpretation, icon tabs, local split/merge, focus, sidebar title compaction and resizing with checked saves; views stay mounted.
  * [POS]: Presentation-only composition; reuses the workbench gestures and styles.
  * [PROTOCOL]: Keep AGENTS.md in this module in sync. */
-import { titles } from '../../shared/features';
+import { featureIcons, titles } from '../../shared/features';
+import { iconSvg } from '../../shared/icons/index.js';
 import { installSidebarCompact } from './sidebar-compact.js';
 import { transferRows } from './compact-rows.js';
 import { installArrangement } from './arrangement.js';
@@ -170,6 +171,7 @@ export function installFeatureLayout(root, { save, error }) {
     section.className = 'csw-workbench-pane';
     const tabs = document.createElement('nav');
     tabs.className = 'csw-workbench-tabs';
+    tabs.dataset.iconTabs = '';
     tabs.setAttribute('role', 'tablist');
     tabs.setAttribute('aria-label', '工作台面板');
     for (const id of group.ids) {
@@ -177,8 +179,7 @@ export function installFeatureLayout(root, { save, error }) {
       tab.type = 'button';
       tab.dataset.paneTab = id;
       tab.setAttribute('role', 'tab');
-      tab.textContent = title(id);
-      tab.removeAttribute('title');
+      tab.innerHTML = iconSvg(featureIcons[id] || 'catalog');
       tabs.append(tab);
     }
     const body = document.createElement('div');
@@ -287,7 +288,9 @@ export function installFeatureLayout(root, { save, error }) {
       }
     }
     for (const tab of section.querySelectorAll('button[data-pane-tab]')) {
-      tab.textContent = title(tab.dataset.paneTab);
+      const name = title(tab.dataset.paneTab);
+      tab.setAttribute('aria-label', name);
+      tab.title = name;
       const current = tab.dataset.paneTab === (focused || active);
       tab.setAttribute('aria-selected', String(current));
       tab.tabIndex = current ? 0 : -1;
@@ -352,6 +355,8 @@ export function installFeatureLayout(root, { save, error }) {
     if (!layout) return;
     const tree = visible(layout);
     if (!tree) {
+      observer.disconnect();
+      observer.observe(panes);
       panes.replaceChildren();
       shape = null;
       return;
@@ -360,7 +365,11 @@ export function installFeatureLayout(root, { save, error }) {
     const nextShape = JSON.stringify(signature(tree));
     if (shape !== nextShape) {
       shape = nextShape;
+      observer.disconnect();
+      observer.observe(panes);
       build(tree, panes);
+      // Icon wrapping and the model heading can change after the feature mounts.
+      for (const head of panes.querySelectorAll('.csw-feature-pane-head')) observer.observe(head);
     }
     const focused = arrangement.focused;
     root.dataset.composition = focused ? 'focus' : layoutGroups(tree).length > 1 ? 'split' : 'tabs';

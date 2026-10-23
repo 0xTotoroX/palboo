@@ -34,4 +34,4 @@ bolt-filled 复用同一固定提交 Bolt 的外轮廓路径，去除内轮廓�
 
 theme-auto 摘取上述固定提交的 MoonSunSystem.tsx，日月组合表示“自动”，供设置主题入口使用；保留原路径、24px 画布和 MIT 许可。
 
-tasks、brain、book-open、agent 分别摘取同一固定提交的 Tasks、Brain、BookOpen、Agent，保留原始24px路径；用于贴边／刘海的看板、模型、术语和Bot功能入口，大纲及下一步复用已有outline／next图标。
+tasks、brain、book-open、agent 分别摘取同一固定提交的 Tasks、Brain、BookOpen、Agent，保留原始24px路径；用于主工作台及贴边／刘海的看板、模型、术语和Bot功能入口，大纲及下一步复用已有outline／next图标。
