@@ -111,7 +111,6 @@ createRoot(document.getElementById('root')).render(<App/>);`,
       const cancel = () => dialog.getByRole('button', { name: '取消', exact: true }).click();
       const accept = (label) => dialog.getByRole('button', { name: label, exact: true }).click();
       const jevDelete = page.getByRole('button', { name: '删除已保存的 Jev 密钥', exact: true });
-      await page.getByRole('button', { name: '智能挑选服务', exact: true }).click();
       await page.getByRole('button', { name: '更换 Jev 密钥' }).waitFor();
       assert.equal(await page.locator('input#jev-key').count(), 0);
       await page.getByRole('button', { name: '更换 Jev 密钥' }).click();
@@ -144,19 +143,16 @@ createRoot(document.getElementById('root')).render(<App/>);`,
       assert.equal(settings.storedJevApiKey, true);
       assert.equal(settings.storedApiKey, fixtureSettings.storedApiKey);
       await cancel();
-      await page.getByRole('button', { name: '关闭智能挑选服务', exact: true }).click();
       const failedCount = writes.length;
       await page.getByRole('heading', { name: '建议生成', exact: true }).click();
       await page.waitForTimeout(250);
       assert.equal(writes.length, failedCount, 'failed deletion is not retried by blur');
       failKey = false;
-      await page.getByRole('button', { name: '智能挑选服务', exact: true }).click();
       await jevDelete.click();
       await accept('确认删除');
       await page.locator('input#jev-key').waitFor();
       assert.equal(settings.storedJevApiKey, false);
       assert.equal(settings.apiKeyConfigured, true);
-      await page.getByRole('button', { name: '关闭智能挑选服务', exact: true }).click();
       assert.equal(
         await page.getByRole('textbox', { name: '方向名称 1', exact: true }).isVisible(),
         false,

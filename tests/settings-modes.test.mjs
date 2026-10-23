@@ -444,10 +444,14 @@ test(
         await page.screenshot({ path: 'target/reports/stepwise-library-mobile.png' });
       await library.getByRole('button', { name: '关闭方向库', exact: true }).click();
       await page.goto(origin + '/#settings-next/suggestion-click');
-      const display = page.getByRole('dialog', { name: '显示与操作', exact: true });
+      const display = page.getByRole('region', { name: '显示与操作', exact: true });
       await display.waitFor({ state: 'visible' });
       assert.equal(await page.evaluate(() => document.activeElement.id), 'suggestion-click');
-      await display.getByRole('button', { name: '关闭显示与操作', exact: true }).click();
+      assert.equal(await page.getByRole('dialog', { name: '显示与操作' }).count(), 0);
+      assert.ok(
+        (await display.boundingBox()).y <
+          (await page.locator('#settings-directions').boundingBox()).y,
+      );
       await page.goto(origin + `/#settings-next/direction-${firstId}-instruction`);
       await instruction.waitFor({ state: 'visible' });
       assert.equal(await instruction.evaluate((node) => node === document.activeElement), true);
