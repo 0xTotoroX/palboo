@@ -26,6 +26,7 @@
   },
   "include": [
     "ui/settings",
+    "ui/website",
     "ui/features",
     "ui/surfaces",
     "ui/shared/contracts.ts"

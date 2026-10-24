@@ -216,9 +216,12 @@ ui/surfaces/  共用工作台、嵌入、桌面、贴边和主题
 ui/codex/     Codex 页面读取、定位和输入适配
 ui/shared/    共用契约、通信、图标和基础变量
 ui/settings/  设置网页
+ui/website/   独立产品介绍页与交互演示
 tests/        自动测试
 scripts/      开发、构建与安装工具
 ```
+
+独立介绍页复用品牌与图标。运行 `npm run dev:site`，在 `http://127.0.0.1:52152` 预览；`npm run build:site` 将可独立托管的静态文件输出到 `target/site/`，`npm run preview:site` 本地预览构建结果。`npm run test:site` 检查隔离演示与响应布局。介绍页不连接 Codex、不读取个人配置；构建不会发布页面或将其加入 App。
 
 安装依赖后，先通过 Palboo 打开宿主，再运行：
 

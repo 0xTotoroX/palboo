@@ -223,9 +223,12 @@ ui/surfaces/       Shared workspace, embedded, desktop, edge, and themes
 ui/codex/          Codex page reading, navigation, and input adapters
 ui/shared/         Shared contracts, communication, icons, and tokens
 ui/settings/       Settings web app
+ui/website/        Standalone product introduction and interactive demos
 tests/             Automated tests
 scripts/           Development, build, and installation tools
 ```
+
+The standalone introduction page uses the same brand and icons. Run `npm run dev:site` to preview it at `http://127.0.0.1:52152`; `npm run build:site` creates portable static files in `target/site/`, and `npm run preview:site` serves that build locally. `npm run test:site` checks its isolated interactions and responsive layouts. It does not connect to Codex or read personal configuration. Building the page does not publish it or add it to the App.
 
 After installing dependencies, open the host through Palboo, then run:
 
