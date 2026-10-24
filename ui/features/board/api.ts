@@ -1,6 +1,7 @@
 /* [INPUT]: Authenticated local task API. [OUTPUT]: Task/group DTOs and a refreshable state hook.
  * [POS]: Shared board/settings task client. [PROTOCOL]: Keep board/AGENTS.md in sync. */
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { errorMessage } from '../../shared/text.js';
 export type TaskRequest = <T = TaskState>(path: string, body?: unknown) => Promise<T>;
 const localRequest: TaskRequest = async (path, body) => {
   const { request } = await import('../../settings/api');
@@ -90,7 +91,7 @@ export function useTasks(poll = false, request: TaskRequest = localRequest) {
         if (next.error) setError(next.error);
       }
     } catch (e) {
-      if (epoch === generation.current) setError(String(e));
+      if (epoch === generation.current) setError(errorMessage(e));
     }
   }, [request]);
   useEffect(() => {
@@ -121,7 +122,7 @@ export function useTasks(poll = false, request: TaskRequest = localRequest) {
       if (result.presentationError) setError(result.presentationError);
       return result;
     } catch (e) {
-      setError(String(e));
+      setError(errorMessage(e));
       return null;
     } finally {
       writing.current = false;

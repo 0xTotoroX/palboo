@@ -354,7 +354,7 @@ try {
   assert.equal(await view.locator('.model-tile svg').count(), 0);
   rejectPinnedSave = true;
   await tile('a').click();
-  await view.getByText('Error: 常用保存冲突', { exact: true }).waitFor();
+  await view.getByText('常用保存冲突', { exact: true }).waitFor();
   assert.deepEqual(model.preferences.pinned, []);
   assert.equal(await tile('a').getAttribute('aria-pressed'), 'false');
   assert.equal(await picker().getAttribute('aria-expanded'), 'true');

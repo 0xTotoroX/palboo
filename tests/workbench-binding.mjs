@@ -108,7 +108,7 @@ export function chatBindingCases({
         );
         assert.deepEqual(
           (await styles()).map((row) => row.opacity),
-          [0.45, 1, 0.45],
+          [0.9, 1, 0.9],
         );
         await page.mouse.move(5, 5);
         assert.ok((await styles()).every((row) => row.opacity === 1 && row.arrow === row.label));
@@ -123,7 +123,7 @@ export function chatBindingCases({
         await page.waitForTimeout(200);
         assert.deepEqual(
           (await styles()).map((row) => row.opacity),
-          [0.45, 0.45, 1],
+          [0.9, 0.9, 1],
         );
         await page.mouse.move(5, 5);
         await page.waitForTimeout(200);

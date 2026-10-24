@@ -363,7 +363,9 @@ h1 {
   border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent);
   border-radius: 10px;
   background: color-mix(in srgb, var(--danger) 5%, var(--surface));
-  font-size: var(--board-font-size, 15px);
+  font-size: var(--feature-status-font, var(--board-font-size, 15px));
+  line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 .error,
 .attention,

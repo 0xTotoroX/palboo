@@ -46,6 +46,8 @@ input:focus-visible {
   outline-offset: 2px;
 }
 .feature-view {
+  --feature-status-font: max(14px, calc(var(--csw-item-font, 16px) * 0.875));
+  --feature-status-color: color-mix(in srgb, var(--ink) 62%, var(--muted));
   position: relative;
   isolation: isolate;
   height: 100%;
@@ -88,6 +90,15 @@ input:focus-visible {
 }
 .feature-view > p {
   padding: 0 12px;
+}
+.feature-view :is([role='status'], [role='alert'], .feature-placeholder) {
+  font-size: var(--feature-status-font);
+  line-height: 1.5;
+  color: var(--feature-status-color);
+  overflow-wrap: anywhere;
+}
+.feature-view [role='alert'] {
+  color: var(--danger);
 }
 .feature-source {
   font-size: 11px;

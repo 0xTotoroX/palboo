@@ -34,9 +34,9 @@ export type BotState = {
 };
 const status: Record<string, string> = {
   calling: '正在调用',
-  running: 'Bot 处理中',
-  finished: '回复已返回 Codex',
-  busy: 'Bot 忙碌',
+  running: '处理中',
+  finished: '已回复',
+  busy: '忙碌',
   interrupted: '已停止',
   error: '调用失败',
   unknown: '状态待确认',
@@ -58,6 +58,17 @@ export function BotsView({
   if (!snapshot) return <p className="feature-placeholder">等待 Codex 连接…</p>;
   const blocked = disabled || !snapshot.target || snapshot.catalog?.stale;
   const groups = botGroups(snapshot.bots, snapshot.catalog?.sidebar);
+  const hasBots = groups.some((group) => group.bots.length);
+  const notice =
+    snapshot.catalog?.error ||
+    snapshot.catalog?.sidebarError ||
+    (snapshot.catalog?.stale
+      ? '请打开 Grok Bot 更新资料。'
+      : !hasBots
+        ? '暂无 Bot'
+        : !snapshot.target
+          ? '请先打开可输入的聊天'
+          : '');
   const refresh =
     state.autoSync === false ? (
       <button
@@ -73,14 +84,7 @@ export function BotsView({
   return (
     <section className="palboo-bots" aria-label="Grok Bot">
       {headerActions ? createPortal(refresh, headerActions) : refresh}
-      {snapshot.catalog?.error && <p role="status">{snapshot.catalog.error}</p>}
-      {snapshot.catalog?.sidebarError && <p role="status">{snapshot.catalog.sidebarError}</p>}
-      {snapshot.catalog?.stale && !snapshot.catalog.error && (
-        <p role="status">请打开 Grok Bot 更新资料。</p>
-      )}
-      {!snapshot.catalog?.error && !groups.some((group) => group.bots.length) && (
-        <p role="status">当前没有显示的 Bot。</p>
-      )}
+      {notice && <p role="status">{notice}</p>}
       {groups.map((group) => (
         <section className="palboo-bot-group" key={group.id} aria-label={group.name || 'Bot 列表'}>
           {group.kind !== 'pinned' && group.name && (
@@ -116,7 +120,7 @@ export function BotsView({
                   </span>
                 </button>
                 {bot.available === false && (
-                  <span className="palboo-bot-status">存在同名 Bot，请先在 Grok Bot 中改名。</span>
+                  <span className="palboo-bot-status">Bot 重名，请在 Grok Bot 中改名。</span>
                 )}
                 {(bot.current || bot.occupied) && (
                   <span className="palboo-bot-status" role="status">

@@ -103,7 +103,7 @@ export function TerminologyView({
 
   return (
     <div className="term-module" ref={module}>
-      <style>{`.term-module{padding:12px 14px;min-width:0;color:var(--ink);font-size:inherit;line-height:inherit}.term-module nav{display:flex;gap:18px;margin-bottom:16px;flex-wrap:wrap}.term-module nav button{border:0;background:none;color:var(--muted);padding:4px 0;font:inherit;cursor:pointer}.term-module nav button[aria-pressed=true]{color:var(--ink);font-weight:600}.term-bricks{display:flex;flex-wrap:wrap;gap:8px;align-content:flex-start}.term-brick{border:1px solid var(--line);border-radius:8px;padding:6px 10px;color:var(--ink);background:var(--surface);font:inherit;line-height:1.4;cursor:pointer;max-width:100%;overflow-wrap:anywhere;transition:background 120ms,transform 120ms}.term-brick:active{transform:scale(.97)}.term-brick[aria-pressed=true]{background:var(--hover);border-color:var(--muted)}.term-brick[data-mastered=true]{color:var(--muted)}.term-module .term-status{font-size:.85em;color:var(--muted);margin:12px 0}.term-module button:focus-visible{outline:2px solid currentColor;outline-offset:3px}@media(prefers-reduced-motion:reduce){.term-brick{transition:none}}`}</style>
+      <style>{`.term-module{padding:12px 14px;min-width:0;color:var(--ink);font-size:inherit;line-height:inherit}.term-module nav{display:flex;gap:18px;margin-bottom:16px;flex-wrap:wrap}.term-module nav button{border:0;background:none;color:var(--muted);padding:4px 0;font:inherit;cursor:pointer}.term-module nav button[aria-pressed=true]{color:var(--ink);font-weight:600}.term-bricks{display:flex;flex-wrap:wrap;gap:8px;align-content:flex-start}.term-brick{border:1px solid var(--line);border-radius:8px;padding:6px 10px;color:var(--ink);background:var(--surface);font:inherit;line-height:1.4;cursor:pointer;max-width:100%;overflow-wrap:anywhere;transition:background 120ms,transform 120ms}.term-brick:active{transform:scale(.97)}.term-brick[aria-pressed=true]{background:var(--hover);border-color:var(--muted)}.term-brick[data-mastered=true]{color:var(--muted)}.term-module .term-status{font-size:var(--feature-status-font,.875em);line-height:1.5;color:var(--feature-status-color,var(--muted));margin:12px 0;overflow-wrap:anywhere}.term-module button:focus-visible{outline:2px solid currentColor;outline-offset:3px}@media(prefers-reduced-motion:reduce){.term-brick{transition:none}}`}</style>
       <nav aria-label="术语范围">
         {[
           ['current', '当前聊天'],
@@ -149,25 +149,25 @@ export function TerminologyView({
           </button>
         ))}
       </div>
-      {!terms.length && (
+      {!terms.length && !(filter === 'current' && ['analyzing', 'error'].includes(state.phase)) && (
         <p className="term-status">
           {filter === 'current'
             ? state.context
-              ? '当前聊天尚未识别到术语'
-              : '等待识别当前聊天'
+              ? '当前聊天暂无术语'
+              : '请先打开聊天'
             : filter === 'favorites'
-              ? '还没有收藏术语'
-              : '还没有已掌握术语'}
+              ? '暂无收藏'
+              : '暂无已掌握术语'}
         </p>
       )}
       {filter === 'current' && state.phase === 'analyzing' && (
         <p className="term-status" role="status">
-          正在核对上下文词义…
+          正在核对词义…
         </p>
       )}
       {filter === 'current' && state.phase === 'error' && (
         <p className="term-status" role="status">
-          {state.message || '本次词义核对未完成，仅保留已确认的结果。'}
+          {state.message || '词义核对失败，保留已有结果。'}
         </p>
       )}
     </div>

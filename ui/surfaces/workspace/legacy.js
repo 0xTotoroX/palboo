@@ -296,6 +296,10 @@ export function renderWorkbench(nextHtml, attachNextEvents, clearPromptTimers) {
     const enabled = entry.enabled();
     const pane = root.querySelector(`[data-pane="${kind}"]`);
     const body = pane.querySelector('.csw-body');
+    if (kind === 'next')
+      pane
+        .querySelector('[data-refresh]')
+        .setAttribute('aria-label', stepwiseState.prompts.length ? '重新生成建议' : '生成建议');
     pane.querySelector('[data-refresh]').disabled =
       !enabled ||
       source?.association?.available === false ||

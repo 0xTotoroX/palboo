@@ -125,9 +125,15 @@ export function createNextView({
         message: '',
       };
     }
-    if ((read().settings?.generationMode || 'manual') === 'manual') {
+    if (
+      (read().settings?.generationMode || 'manual') === 'manual' &&
+      read().bridgeStatus === 'manual-ready' &&
+      read().scanStatus === 'ready' &&
+      !read().scanBusy &&
+      read().association?.available !== false
+    ) {
       return {
-        title: '当前为手动模式',
+        title: '点击刷新生成建议',
         message: '',
         state: 'manual',
       };

@@ -507,7 +507,7 @@ try {
   assert.doesNotMatch(JSON.stringify(returned), /DO_NOT_PROJECT/);
   await page.locator('.csw-feature-panes [data-pane-tab="bots"]').click();
   await page.getByRole('button', { name: '通用', exact: true }).waitFor();
-  await page.getByText('回复已返回 Codex', { exact: true }).waitFor();
+  await page.getByText('已回复', { exact: true }).waitFor();
   assert.equal(
     await page.locator('[data-feature="bots"] textarea,[data-feature="bots"] input').count(),
     0,

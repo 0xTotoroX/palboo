@@ -311,9 +311,9 @@
   justify-content: space-between;
   gap: 8px 16px;
   margin-top: 24px;
-  font-size: 14px;
+  font-size: var(--feature-status-font, max(14px, 0.875em));
   line-height: 1.5;
-  color: var(--muted);
+  color: var(--feature-status-color, var(--muted));
 }
 .model-metrics {
   display: flex;
@@ -335,7 +335,7 @@
   display: flex;
   align-items: flex-end;
   gap: 8px;
-  color: var(--muted);
+  color: inherit;
   font-size: inherit;
   line-height: inherit;
   font-variant-numeric: tabular-nums;
@@ -441,11 +441,12 @@
 .model-footer {
   display: flex;
   margin-top: 8px;
-  color: var(--muted);
+  color: var(--feature-status-color, var(--muted));
+  font-size: var(--feature-status-font, max(14px, 0.875em));
+  line-height: 1.5;
 }
 .model-footer > span {
   flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }

@@ -141,12 +141,12 @@ const SUBMIT_RETRY_LIMIT = 80;
 const FRIENDLY_BRIDGE_ERRORS = [
   {
     pattern: /回答生成中/i,
-    title: '回答尚未完成，完成后再试',
+    title: '等待回答完成后重试',
     message: '',
   },
   {
     pattern: /未找到可用于生成的回答/i,
-    title: '回答尚未完成，完成后再试',
+    title: '暂无回答，请先开始聊天',
     message: '',
   },
   {
@@ -161,12 +161,12 @@ const FRIENDLY_BRIDGE_ERRORS = [
   },
   {
     pattern: /\b401\b|\b403\b|unauthori[sz]ed|forbidden|api.?key|鉴权|认证/i,
-    title: '连接异常，检查模型与配置',
+    title: '模型访问失败，请检查配置',
     message: '',
   },
   {
     pattern: /econnrefused|failed to fetch|network|connection|连接失败|无法连接/i,
-    title: '暂时无法连接，检查服务后重试',
+    title: '连接失败，请检查服务',
     message: '',
   },
   {

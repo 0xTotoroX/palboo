@@ -455,7 +455,8 @@ try {
   const initial = windowInfo();
   const preparedWidth = initial.kCGWindowBounds.Width;
   assert.equal(preparedWidth, telemetry.native.layoutWidth);
-  assert.ok(preparedWidth >= 320 && preparedWidth <= 720);
+  // Intrinsic model content can use 976px, plus the edge shell's 12px padding per side.
+  assert.ok(preparedWidth >= 320 && preparedWidth <= 1000);
   assert.deepEqual(telemetry.viewport, [preparedWidth, initial.kCGWindowBounds.Height]);
   check('initial painted compact shell has a prepared stable viewport', initial.kCGWindowBounds);
   check('initial presentation waits for current scene and rejects stale paint acknowledgements');
@@ -829,12 +830,13 @@ try {
     keyboardActivations: events,
   });
 
+  const beforeCollapseWidth = windowInfo().kCGWindowBounds.Width;
   await ipc({ action: 'collapse' });
   await until(
     () => !telemetry.native.expanded && !telemetry.native.animating && !telemetry.native.keyboard,
     'collapse',
   );
-  assert.equal(windowInfo().kCGWindowBounds.Width, preparedWidth);
+  assert.equal(windowInfo().kCGWindowBounds.Width, beforeCollapseWidth);
   assert.equal(telemetry.native.shell.width, 10);
   check('collapse retains prepared viewport and shrinks only the native contour');
   await command('window.fixturePointer({inside:false,buttons:0,hoverSuppressed:false})');

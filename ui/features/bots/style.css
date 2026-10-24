@@ -48,7 +48,10 @@
   flex: none;
 }
 .palboo-bot-status {
-  opacity: 0.65;
+  color: var(--feature-status-color, var(--muted));
+  font-size: var(--feature-status-font, 0.875em);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
   padding-left: 42px;
 }
 .palboo-bot-actions {

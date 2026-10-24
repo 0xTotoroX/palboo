@@ -67,9 +67,9 @@
   width: 100%;
 }
 
-@media (hover: hover) {
-  .csw-list:has(.csw-row:hover) .csw-row:not(:hover) {
-    opacity: 0.45;
+@media (hover: hover) and (pointer: fine) {
+  .csw-list:has(.csw-row:hover) .csw-row:not(:hover):not(:focus-visible) {
+    opacity: 0.9;
   }
 }
 
@@ -210,7 +210,7 @@
 .csw-empty-title,
 .csw-progress-title {
   color: color-mix(in srgb, var(--csw-text) 62%, var(--csw-muted));
-  font-size: 14px;
+  font-size: max(14px, calc(var(--csw-item-font, 16px) * 0.875));
   font-weight: 500;
   line-height: 1.25;
   max-width: 100%;

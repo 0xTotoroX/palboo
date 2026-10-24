@@ -1,4 +1,5 @@
 import { measureWork } from '../../shared/performance.js';
+import { errorMessage } from '../../shared/text.js';
 /* [INPUT]: Feature owners, main ownership, saved placements, opt-in sidebar page switches and the existing capsule/dock.
  * [OUTPUT]: Business views inside the original shell, geometry refresh on dock changes, window round trips retaining the departure state, reveal of the existing main window, and cancellation of motion when changing surfaces.
  * [POS]: Embedded surface adapter. Geometry and gestures remain in shell.
@@ -66,7 +67,7 @@ function group(placement) {
 function showError(error) {
   const node = shellState.panel?.querySelector('[data-feature-error]');
   if (node) {
-    node.textContent = String(error);
+    node.textContent = errorMessage(error);
     node.hidden = false;
   }
 }

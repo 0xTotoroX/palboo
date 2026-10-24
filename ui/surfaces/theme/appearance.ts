@@ -58,6 +58,7 @@ export function surfaceStyle(appearance: Appearance, native = false): CSSPropert
     '--surface': translucent ? `color-mix(in srgb, ${paper} 28%, transparent)` : paper,
     '--ink': ink,
     '--muted': black ? '#999' : colors.muted || (dark ? '#aaa' : '#6f6f6f'),
+    '--danger': colors.danger || (dark ? '#f69a91' : '#ac3b38'),
     '--accent': black ? '#75a7ff' : colors.accent || '#4d8dff',
     '--hover': colors.hover || `color-mix(in srgb, ${ink} 6%, transparent)`,
     '--line': colors.divider || `color-mix(in srgb, ${ink} 9%, transparent)`,

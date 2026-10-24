@@ -1,4 +1,4 @@
-/* [INPUT]: Native edge geometry/events and feature owners. [OUTPUT]: Persisted reorderable icon tabs with measured wrapping, bounded dialogs and per-view header slots.
+/* [INPUT]: Native edge geometry/events and feature owners. [OUTPUT]: Persisted reorderable icon tabs with stable measured wrapping, bounded dialogs and per-view header slots.
  * [POS]: Keeps mounted views alive while collapsed or in another tab; no business state.
  * [PROTOCOL]: Keep AGENTS.md in this module in sync. */
 import { createEdgeTabs } from './tabs';
@@ -70,10 +70,19 @@ export function startEdge(request: Request) {
         panel.querySelector('header')!.getBoundingClientRect().height +
         parseFloat(style.paddingTop) +
         parseFloat(style.paddingBottom);
-      const key = `${Math.ceil(width)}:${Math.ceil(height)}`;
+      // Fractional WebKit text metrics can alternate by one pixel after native resizing.
+      // Keep the larger size for that single-pixel shrink so scene-ready can settle.
+      const [previousWidth, previousHeight] = measured.split(':').map(Number);
+      const stable = (size: number, previous: number) => {
+        const rounded = Math.ceil(size);
+        return rounded === previous - 1 ? previous : rounded;
+      };
+      const nextWidth = stable(width, previousWidth);
+      const nextHeight = stable(height, previousHeight);
+      const key = `${nextWidth}:${nextHeight}`;
       if (key === measured) return;
       measured = key;
-      ipc({ action: 'content-size', width: Math.ceil(width), height: Math.ceil(height) });
+      ipc({ action: 'content-size', width: nextWidth, height: nextHeight });
     });
   };
   const contentChanges = new MutationObserver(measure);

@@ -12,6 +12,7 @@ import {
 } from 'react';
 import { typographyStyle, layoutZoom } from '../../shared/typography';
 import { readWorkbenchScroll, writeWorkbenchScroll } from './reading.js';
+import { errorMessage } from '../../shared/text.js';
 import { FeatureContent, contentToken, type FeatureData } from '../../features/content';
 import type { PanelSnapshot } from '../../shared/contracts';
 import { surfaceStyle, type Appearance } from '../theme/appearance';
@@ -66,7 +67,7 @@ export function FeatureView({
     if (entry.closing && active) {
       void call('disable-ready', { view: capture() })
         .then(onState)
-        .catch((e) => setError(String(e)));
+        .catch((e) => setError(errorMessage(e)));
     }
   }, [entry.closing, active, call, capture, onState]);
   useLayoutEffect(
@@ -86,7 +87,7 @@ export function FeatureView({
   useEffect(() => {
     if (wasMoving.current && !entry.pending && entry.owner === owner) {
       onHandoffError?.(wasMoving.current);
-      setError('切换未完成，已保留原位置。请检查目标窗口后重试。');
+      setError('未能切换位置，请重试。');
     }
     wasMoving.current = entry.owner === owner ? entry.pending?.owner || '' : '';
   }, [entry.pending, entry.owner, owner]);
@@ -110,7 +111,7 @@ export function FeatureView({
             return;
           }
           onHandoffError?.(entry.pending!.owner);
-          setError(String(e));
+          setError(errorMessage(e));
         });
     }
   }, [entry.pending, entry.owner, owner, call, capture, onState]);
@@ -231,7 +232,7 @@ export function FeatureView({
     try {
       return await fn();
     } catch (e) {
-      setError(String(e));
+      setError(errorMessage(e));
       if (propagate) throw e;
       return null;
     } finally {
@@ -311,7 +312,9 @@ export function FeatureView({
     >
       {entry.pending && <p role="status">正在移到新位置…</p>}
       {error && <p role="alert">{error}</p>}
-      {!connected && entry.id !== 'board' && <p role="status">宿主连接暂不可用，保留上次内容。</p>}
+      {!connected && value && entry.id !== 'board' && (
+        <p role="status">连接已断开，保留上次内容。</p>
+      )}
       <div
         className="feature-body"
         data-reading-key={reading.current.token || entry.id}
