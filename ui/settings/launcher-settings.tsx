@@ -46,6 +46,7 @@ export function LauncherSettings({
       <Field id="launcher-click-action" label="眼睛单击">
         <NativeSelect
           id="launcher-click-action"
+          controlWidth="medium"
           aria-label="眼睛单击默认动作"
           disabled={!prefs || busy}
           value={prefs?.launcherAction ?? 'inside'}

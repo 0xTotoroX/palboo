@@ -172,6 +172,7 @@ export function ConnectionSettings({
             >
               <NativeSelect
                 id="host-restart-policy"
+                controlWidth="short"
                 value={form.hostRestartPolicy}
                 onChange={(e) => {
                   if (e.target.value === 'force') {

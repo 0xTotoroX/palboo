@@ -42,6 +42,7 @@ export function TypographySettings({
       <Field id="typography-mode" label="字体大小">
         <NativeSelect
           id="typography-mode"
+          controlWidth="short"
           value={p.mode}
           onChange={(e) =>
             void save({ ...p, mode: e.target.value as TypographyPreferences['mode'] })
@@ -55,6 +56,7 @@ export function TypographySettings({
         <Field id="typography-source" label="跟随对象">
           <NativeSelect
             id="typography-source"
+            controlWidth="short"
             value={p.source}
             onChange={(e) =>
               void save({ ...p, source: e.target.value as TypographyPreferences['source'] })

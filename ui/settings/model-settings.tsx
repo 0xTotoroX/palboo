@@ -157,6 +157,7 @@ export function ModelSettings({ editor, simple }: { editor: SettingsEditor; simp
             <Field id="provider" label="模型来源">
               <NativeSelect
                 id="provider"
+                controlWidth="short"
                 value={form.provider}
                 onChange={(e) => change('provider', e.target.value as 'codex' | 'api')}
               >
@@ -170,6 +171,7 @@ export function ModelSettings({ editor, simple }: { editor: SettingsEditor; simp
                   <Field id="protocol" label="API 协议">
                     <NativeSelect
                       id="protocol"
+                      controlWidth="medium"
                       value={form.protocol}
                       onChange={(e) =>
                         change('protocol', e.target.value as EditableSettings['protocol'])
@@ -314,6 +316,7 @@ export function ModelSettings({ editor, simple }: { editor: SettingsEditor; simp
           <Field id="context-scope" label="输入上下文" hint="最近一次提问与回答，不包含更早历史。">
             <NativeSelect
               id="context-scope"
+              controlWidth="medium"
               value={form.maxInputChars === 0 ? 'latest' : 'limited'}
               onChange={(e) => change('maxInputChars', e.target.value === 'latest' ? 0 : 12000)}
             >

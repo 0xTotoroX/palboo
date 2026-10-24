@@ -148,8 +148,9 @@ export function SurfaceSettings({
               >
                 <div className="settings-field">
                   <span className="text-sm">{simple ? '主界面材质' : label}</span>
-                  <div className="flex min-w-0 flex-wrap gap-2 [&>div]:flex-1">
+                  <div className="settings-control-pair">
                     <NativeSelect
+                      controlWidth="short"
                       aria-label={`${label}主题`}
                       disabled={disabled}
                       value={theme.theme}
@@ -164,6 +165,7 @@ export function SurfaceSettings({
                     </NativeSelect>
                     {theme.theme === 'native-glass' && (
                       <NativeSelect
+                        controlWidth="short"
                         aria-label={`${label}液态变体`}
                         disabled={disabled}
                         value={theme.liquidVariant}
@@ -221,6 +223,7 @@ export function SurfaceSettings({
           <label className="settings-field text-sm">
             <span className="whitespace-nowrap">边缘</span>
             <NativeSelect
+              controlWidth="short"
               aria-label="贴边边缘"
               disabled={disabled}
               value={edge?.edge || 'right'}

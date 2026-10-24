@@ -149,6 +149,7 @@ export function PanelSettings({
           <Field id="suggestion-labels" label="内容显示">
             <NativeSelect
               id="suggestion-labels"
+              controlWidth="short"
               value={String(ui.labelOnly)}
               onChange={(e) => change('labelOnly', e.target.value === 'true')}
             >
@@ -159,6 +160,7 @@ export function PanelSettings({
           <Field id="suggestion-click" label="指令执行模式">
             <NativeSelect
               id="suggestion-click"
+              controlWidth="medium"
               value={ui.promptClickMode}
               onChange={(e) => change('promptClickMode', e.target.value)}
             >

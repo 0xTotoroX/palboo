@@ -38,6 +38,7 @@ export function DirectionSettings({ editor }: { editor: SettingsEditor }) {
         <Field id="generation-mode" label="生成方式">
           <NativeSelect
             id="generation-mode"
+            controlWidth="short"
             value={form.generationMode}
             onChange={(event) => change('generationMode', event.target.value as 'auto' | 'manual')}
           >
@@ -48,6 +49,7 @@ export function DirectionSettings({ editor }: { editor: SettingsEditor }) {
         <Field id="direction-source" label="方向来源">
           <NativeSelect
             id="direction-source"
+            controlWidth="short"
             value={form.directionSource}
             onChange={(e) =>
               change('directionSource', e.target.value as EditableSettings['directionSource'])

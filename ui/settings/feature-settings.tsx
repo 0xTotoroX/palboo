@@ -158,6 +158,7 @@ export function FeatureSettings({
         <Field id="main-layout" label="主界面布局">
           <NativeSelect
             id="main-layout"
+            controlWidth="short"
             disabled={moving || !ids.length}
             value={mode}
             onChange={(e) => arrange(e.target.value)}
@@ -179,6 +180,7 @@ export function FeatureSettings({
             <Field key={id} id={`placement-${id}`} label={title}>
               <NativeSelect
                 id={`placement-${id}`}
+                controlWidth="short"
                 aria-label={`${title}默认位置`}
                 disabled={moving}
                 value={

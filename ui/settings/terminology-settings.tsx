@@ -263,6 +263,7 @@ export function TerminologySettings({ active }: { active: boolean }) {
             <Field id="term-material" label="背景材质">
               <NativeSelect
                 id="term-material"
+                controlWidth="short"
                 aria-label="术语卡片背景"
                 disabled={busy}
                 value={prefs.cardMaterial || (prefs.cardStyle === 'frost' ? 'frosted' : 'matte')}
@@ -285,6 +286,7 @@ export function TerminologySettings({ active }: { active: boolean }) {
               <Field id="term-liquid-variant" label="液态变体">
                 <NativeSelect
                   id="term-liquid-variant"
+                  controlWidth="short"
                   aria-label="术语卡片液态变体"
                   disabled={busy}
                   value={prefs.cardLiquidVariant || 'regular'}

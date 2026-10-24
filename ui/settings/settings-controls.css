@@ -91,6 +91,32 @@
 .settings-app [data-slot='switch-thumb'][data-state='unchecked'] {
   translate: 2px 0;
 }
+/* Width follows the field's purpose, never the currently selected value. */
+.settings-native-select {
+  min-width: 0;
+  max-width: 100%;
+  margin-inline-start: auto;
+  --settings-select-short: max(180px, calc(var(--settings-text-size, 14px) * 10 + 40px));
+  --settings-select-medium: max(260px, calc(var(--settings-text-size, 14px) * 15 + 40px));
+}
+.settings-native-select[data-control-width='short'] {
+  width: min(100%, var(--settings-select-short));
+}
+.settings-native-select[data-control-width='medium'] {
+  width: min(100%, var(--settings-select-medium));
+}
+.settings-control-pair {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
+.settings-control-pair > .settings-native-select {
+  flex-shrink: 0;
+  margin-inline-start: 0;
+}
+
 .settings-suggestion-input {
   position: relative;
   width: 100%;
@@ -119,7 +145,7 @@
   padding: 4px;
   list-style: none;
   color: var(--buddy-text);
-  background: var(--buddy-surface);
+  background: var(--settings-menu-surface);
   border: 1px solid var(--buddy-border);
   border-radius: var(--settings-control-radius);
   box-shadow: var(--settings-menu-shadow);
@@ -220,6 +246,9 @@
     appearance: base-select;
   }
   .settings-app select[data-slot='native-select'] {
+    height: auto;
+    white-space: normal;
+    overflow-wrap: anywhere;
     align-items: center;
     cursor: pointer;
   }
@@ -232,13 +261,14 @@
   .settings-app select[data-slot='native-select']::picker(select) {
     color-scheme: inherit;
     color: var(--buddy-text);
-    background: var(--buddy-surface);
+    background: var(--settings-menu-surface);
     border: 1px solid var(--buddy-border);
     border-radius: var(--settings-control-radius);
     box-shadow: var(--settings-menu-shadow);
     padding: 4px;
     margin-block: 5px;
-    min-width: anchor-size(width);
+    width: anchor-size(width);
+    min-width: 0;
     max-width: calc(100vw - 24px);
     max-height: min(360px, 60vh);
     overflow-y: auto;
@@ -591,7 +621,7 @@ html:has(.settings-drawer[open]) {
   border: 1px solid var(--buddy-border);
   border-radius: 10px;
   color: var(--buddy-text);
-  background: var(--buddy-surface);
+  background: var(--settings-menu-surface);
   box-shadow: var(--settings-menu-shadow);
   font-size: 0.875em;
 }

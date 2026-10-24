@@ -40,6 +40,7 @@ export function SettingsEntry({ value }: { value?: AppearanceSettings }) {
       <Field id="settings-open-target" label="设置按钮打开方式">
         <NativeSelect
           id="settings-open-target"
+          controlWidth="medium"
           disabled={!prefs || busy}
           value={prefs?.settingsTarget ?? 'plugin'}
           onChange={(e) => void change(e.target.value)}
