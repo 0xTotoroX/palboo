@@ -21,6 +21,7 @@ export function OpeningStory() {
   const { ref, progress, staticView } = useScrollScene();
   const brand = useRef<HTMLDivElement>(null);
   const entry = useRef<HTMLDivElement>(null);
+  const preview = useRef<HTMLDivElement>(null);
   const [landing, setLanding] = useState({ x: 0, y: 0, scale: 0.1 });
   useLayoutEffect(() => {
     const measure = () => {
@@ -35,10 +36,13 @@ export function OpeningStory() {
     const observer = new ResizeObserver(measure);
     observer.observe(ref.current!);
     observer.observe(entry.current!);
+    observer.observe(brand.current!);
+    observer.observe(preview.current!);
     measure();
     return () => observer.disconnect();
   }, [ref]);
-  const travel = staticView ? 0 : smooth((progress - 0.68) / 0.32);
+  const travel = staticView ? 0 : smooth((progress - 0.64) / 0.26);
+  const reveal = staticView ? 1 : smooth((progress - 0.87) / 0.11);
   return (
     <section
       ref={ref}
@@ -51,8 +55,9 @@ export function OpeningStory() {
           <div
             className="brand-flight"
             style={{
-              transform: `translate(${landing.x * travel}px, ${landing.y * travel}px) scale(${1 + (landing.scale - 1) * travel})`,
-              opacity: travel > 0.999 ? 0 : 1,
+              // Turn toward the rail before descending past the headline. Keep
+              // the same SVG at the destination, including its blush and spacing.
+              transform: `translate(${landing.x * (1 - (1 - travel) ** 3)}px, ${landing.y * smooth(travel)}px) scale(${Math.pow(landing.scale, smooth(travel))})`,
             }}
           >
             <BrandOpening progress={progress} staticView={staticView} />
@@ -74,7 +79,7 @@ export function OpeningStory() {
             <Icon name="feature-next" />
           </a>
         </div>
-        <div className="intro-preview" aria-label="Codex 中的 Palboo 外观示例">
+        <div ref={preview} className="intro-preview" aria-label="Codex 中的 Palboo 外观示例">
           <div className="intro-rail">
             <span>Codex</span>
             <div className="intro-rail-lines">
@@ -83,7 +88,7 @@ export function OpeningStory() {
               <span>个人作品集</span>
             </div>
             <div ref={entry} className="intro-entry">
-              <span style={{ opacity: staticView || travel > 0.999 ? 1 : 0 }}>
+              <span style={{ opacity: staticView ? 1 : 0 }}>
                 <Eyes />
               </span>
             </div>
@@ -98,7 +103,13 @@ export function OpeningStory() {
             </p>
             <div className="intro-input">接着聊…</div>
           </div>
-          <div className="intro-panel">
+          <div
+            className="intro-panel"
+            style={{
+              opacity: 0.12 + reveal * 0.88,
+              transform: `translateX(${18 * (1 - reveal)}px)`,
+            }}
+          >
             <div className="intro-icons">
               <Icon name="feature-next" />
               <Icon name="feature-outline" />
@@ -138,18 +149,64 @@ const chapters: { feature: FeatureId; title: string; text: string; detail: strin
   },
 ];
 export function ReadingStory() {
-  const { ref, progress, staticView } = useScrollScene();
+  const { ref, activeIndex: index, staticView } = useScrollScene('.story-copy h2');
   const [active, setActive] = useState<FeatureId[]>(chapters.map((chapter) => chapter.feature));
   const [primary, setPrimary] = useState(0);
   const [engaged, setEngaged] = useState(false);
   const [dragging, setDragging] = useState(false);
   const pending = useRef<FeatureId | null>(null);
-  const index = Math.min(2, Math.floor(progress * 3));
+  const keyboard = useRef(false);
+  const layoutFocus = useRef(false);
+  const previousStatic = useRef(staticView);
+  useLayoutEffect(() => {
+    if (previousStatic.current === staticView) return;
+    previousStatic.current = staticView;
+    const hasFocus = ref.current?.contains(document.activeElement);
+    layoutFocus.current = !!hasFocus;
+    if (staticView) {
+      setActive((current) =>
+        current.map((feature, i) => (hasFocus && i === primary ? feature : chapters[i].feature)),
+      );
+    }
+  }, [staticView, engaged, primary, ref]);
+  useEffect(() => {
+    const resumeReading = () => {
+      if (!engaged) layoutFocus.current = false;
+    };
+    addEventListener('wheel', resumeReading, { passive: true });
+    addEventListener('touchmove', resumeReading, { passive: true });
+    return () => {
+      removeEventListener('wheel', resumeReading);
+      removeEventListener('touchmove', resumeReading);
+    };
+  }, [engaged]);
+  useLayoutEffect(() => {
+    let request = 0;
+    const revealEditor = () => {
+      cancelAnimationFrame(request);
+      request = requestAnimationFrame(() => {
+        const focused = document.activeElement as HTMLElement | null;
+        if (!focused || !ref.current?.contains(focused)) return;
+        const box = focused.getBoundingClientRect();
+        if (box.top < 16 || box.bottom > innerHeight - 16) {
+          focused.scrollIntoView({ block: 'nearest', behavior: 'instant' });
+        }
+      });
+    };
+    // Only correct layout changes while editing. Ordinary document scrolling
+    // and completed pointer actions are never captured.
+    revealEditor();
+    addEventListener('resize', revealEditor);
+    return () => {
+      cancelAnimationFrame(request);
+      removeEventListener('resize', revealEditor);
+    };
+  }, [staticView, engaged, ref]);
   useEffect(() => {
     pending.current = staticView ? null : chapters[index].feature;
   }, [index, staticView, primary]);
   useEffect(() => {
-    if (staticView || engaged || dragging || !pending.current) return;
+    if (staticView || engaged || dragging || layoutFocus.current || !pending.current) return;
     const feature = pending.current;
     pending.current = null;
     setActive((current) => current.map((value, i) => (i === primary ? feature : value)));
@@ -171,12 +228,31 @@ export function ReadingStory() {
           <div
             className="reading-stage"
             hidden={!staticView && primary !== i}
-            onFocusCapture={() => {
-              setPrimary(i);
+            onPointerDownCapture={(event) => {
+              keyboard.current = false;
+              layoutFocus.current = false;
+              setEngaged(
+                !!(event.target as HTMLElement).closest(
+                  'input, textarea, select, [contenteditable="true"]',
+                ),
+              );
+            }}
+            onKeyDownCapture={() => {
+              keyboard.current = true;
               setEngaged(true);
+            }}
+            onFocusCapture={(event) => {
+              setPrimary(i);
+              setEngaged(
+                keyboard.current ||
+                  (event.target as HTMLElement).matches(
+                    'input, textarea, select, [contenteditable="true"]',
+                  ),
+              );
             }}
             onBlurCapture={(event) => {
               if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                layoutFocus.current = false;
                 setEngaged(false);
               }
             }}
@@ -197,16 +273,21 @@ export function ReadingStory() {
   );
 }
 
+const poppedWithDisplay = { ...demoFrames.popped, secondary: 1 };
 const frameStops = [
   { at: 0, frame: demoFrames.sidebar },
-  { at: 0.16, frame: demoFrames.sidebar },
-  { at: 0.31, frame: demoFrames.overlay },
-  { at: 0.39, frame: demoFrames.overlay },
-  { at: 0.48, frame: demoFrames.popped },
-  { at: 0.55, frame: demoFrames.popped },
-  { at: 0.72, frame: demoFrames.desktop },
-  { at: 0.79, frame: demoFrames.desktop },
-  { at: 0.91, frame: demoFrames.popped },
+  { at: 0.12, frame: demoFrames.sidebar },
+  { at: 0.25, frame: demoFrames.overlay },
+  { at: 0.34, frame: demoFrames.overlay },
+  { at: 0.42, frame: demoFrames.popped },
+  // Establish the destination and settle the camera before moving the window.
+  { at: 0.5, frame: poppedWithDisplay },
+  { at: 0.54, frame: poppedWithDisplay },
+  { at: 0.7, frame: demoFrames.desktop },
+  { at: 0.78, frame: demoFrames.desktop },
+  { at: 0.88, frame: poppedWithDisplay },
+  { at: 0.94, frame: demoFrames.popped },
+  { at: 0.98, frame: demoFrames.edge },
   { at: 1, frame: demoFrames.edge },
 ];
 function frameAt(progress: number): DemoFrame {
@@ -250,10 +331,17 @@ export function SurfaceStory() {
   const { ref, progress, staticView } = useScrollScene();
   const [override, setOverride] = useState<SurfaceId | null>(null);
   const [animate, setAnimate] = useState(true);
-  const index = progress < 0.24 ? 0 : progress < 0.46 ? 1 : progress < 0.85 ? 2 : 3;
+  const [editing, setEditing] = useState(false);
+  const heldProgress = useRef(progress);
+  const position = editing ? heldProgress.current : progress;
+  const index = position < 0.2 ? 0 : position < 0.38 ? 1 : position < 0.94 ? 2 : 3;
+  const previousChapter = useRef({ index, staticView });
   useEffect(() => {
-    if (!staticView) setOverride(null);
-  }, [index, staticView]);
+    const changed =
+      previousChapter.current.index !== index || previousChapter.current.staticView !== staticView;
+    previousChapter.current = { index, staticView };
+    if (changed && !staticView && !editing) setOverride(null);
+  }, [index, staticView, editing]);
   const surface = override ?? (staticView ? 'sidebar' : (places[index].id as SurfaceId));
   return (
     <section
@@ -274,11 +362,24 @@ export function SurfaceStory() {
           贴边与刘海可以独立使用。
         </p>
       </div>
-      <div className="surface-sticky">
+      <div
+        className="surface-sticky"
+        onFocusCapture={(event) => {
+          if ((event.target as HTMLElement).matches('input, textarea')) {
+            heldProgress.current = progress;
+            setEditing(true);
+          }
+        }}
+        onBlurCapture={(event) => {
+          if (!(event.relatedTarget as HTMLElement | null)?.matches('input, textarea'))
+            setEditing(false);
+        }}
+      >
         <SurfaceDemo
           surface={surface}
           animate={animate}
-          scrollFrame={!staticView && !override ? frameAt(clamp(progress)) : undefined}
+          paused={editing}
+          scrollFrame={!staticView && !override ? frameAt(clamp(position)) : undefined}
         />
         <div
           className="surface-tabs"

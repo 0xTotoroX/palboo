@@ -142,10 +142,12 @@ test(
           dx: point.x - target.x - target.width / 2,
           dy: point.y - target.y - target.height / 2,
           entry: getComputedStyle(document.querySelector('.intro-entry > span')).opacity,
+          artwork: getComputedStyle(document.querySelector('.brand-flight')).opacity,
         };
       });
       assert.ok(Math.abs(landing.dx) < 2 && Math.abs(landing.dy) < 2, JSON.stringify(landing));
-      assert.equal(landing.entry, '1');
+      assert.equal(landing.entry, '0');
+      assert.equal(landing.artwork, '1', 'the original eyes stay present at the destination');
       await scrollScene(page, '.reading-story', 0.1);
       const demo = page.locator('.product-demo:visible');
       assert.equal(await demo.getAttribute('data-feature'), 'next');
@@ -204,8 +206,13 @@ test('active editing and local state survive chapter changes, responsive modes a
       { width: 1440, height: 1000 },
     ]) {
       await page.setViewportSize(viewport);
+      await page.evaluate(
+        () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+      );
       assert.equal(await input.inputValue(), '仍在编辑的任务');
       assert.equal(await input.evaluate((el) => el === document.activeElement), true);
+      const box = await input.boundingBox();
+      assert.ok(box.y >= 0 && box.y + box.height <= viewport.height, JSON.stringify(box));
     }
     await page.emulateMedia({ reducedMotion: 'reduce' });
     assert.equal(await input.inputValue(), '仍在编辑的任务');
@@ -291,6 +298,7 @@ test('shared device geometry follows scroll in both directions, and manual/keybo
     await scrollScene(page, '.surface-story', 0);
     assert.equal(await x(), 454);
     await page.getByLabel('窗口演示草稿').fill('保留窗口草稿');
+    await page.getByLabel('窗口演示草稿').blur();
     await scrollScene(page, '.surface-story', 0.62);
     assert.ok((await x()) > 414 && (await x()) < 754);
     const interruptedX = await x();
@@ -308,12 +316,15 @@ test('shared device geometry follows scroll in both directions, and manual/keybo
     );
     assert.ok(
       await page.evaluate((limit) => Math.max(...window.journeySamples) <= limit + 2, interruptedX),
-      'manual handoff must begin at the visible intermediate frame',
+      `manual handoff must begin at the visible intermediate frame ${interruptedX}: ${await page.evaluate(() => window.journeySamples)}`,
     );
-    await scrollScene(page, '.surface-story', 0.35);
+    await scrollScene(page, '.surface-story', 0.3);
     await scrollScene(page, '.surface-story', 0.75);
+    await page.waitForFunction(
+      () => document.querySelector('.layout-demo-window').x.baseVal.value === 754,
+    );
     assert.equal(await x(), 754);
-    await scrollScene(page, '.surface-story', 0.35);
+    await scrollScene(page, '.surface-story', 0.3);
     assert.equal(await x(), 402);
     await scrollScene(page, '.surface-story', 1);
     assert.equal(await x(), 468);
@@ -333,6 +344,221 @@ test('shared device geometry follows scroll in both directions, and manual/keybo
     await page.keyboard.press('ArrowRight');
     assert.equal(await page.locator('#surface-overlay').getAttribute('aria-selected'), 'true');
     assert.equal(await x(), 402);
+  } finally {
+    await page.close();
+  }
+});
+
+test('opening stays within short desktop viewports and the original eyes clear the copy throughout the flight', async () => {
+  const page = await browser.newPage();
+  try {
+    for (const viewport of [
+      { width: 1440, height: 900 },
+      { width: 900, height: 700 },
+      { width: 1280, height: 651 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await page.goto(base);
+      for (const progress of [0, 0.64, 0.7, 0.74, 0.78, 0.83, 0.9, 1, 0.74, 0.3]) {
+        await scrollScene(page, '.opening-story', progress);
+        const geometry = await page.evaluate(() => {
+          const rect = (selector) =>
+            document.querySelector(selector).getBoundingClientRect().toJSON();
+          return {
+            entry: rect('.intro-entry'),
+            preview: rect('.intro-preview'),
+            copy: rect('.opening-copy'),
+            eyes: [rect('#ring-0'), rect('#ring-1')],
+            text: [rect('h1'), rect('.opening-copy p')],
+          };
+        });
+        assert.ok(
+          geometry.preview.bottom <= viewport.height && geometry.entry.bottom <= viewport.height,
+          JSON.stringify({ viewport, progress, geometry }),
+        );
+        assert.ok(
+          geometry.copy.bottom + 8 <= geometry.preview.top,
+          JSON.stringify({ viewport, geometry }),
+        );
+        if (progress >= 0.64) {
+          for (const eye of geometry.eyes)
+            for (const text of geometry.text) {
+              assert.ok(
+                eye.right <= text.left ||
+                  eye.left >= text.right ||
+                  eye.bottom <= text.top ||
+                  eye.top >= text.bottom,
+                JSON.stringify({ viewport, progress, eye, text }),
+              );
+            }
+        }
+      }
+    }
+  } finally {
+    await page.close();
+  }
+});
+
+test('reading changes with the visible heading, releases pointer actions and restores static chapter correspondence', async () => {
+  const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+  try {
+    await page.goto(base);
+    const demo = page.locator('.product-demo:visible');
+    for (const feature of ['next', 'outline', 'terms', 'next']) {
+      await page
+        .locator(`[data-chapter="${feature}"] h2`)
+        .evaluate((node) => node.scrollIntoView({ block: 'center' }));
+      await page.waitForFunction(
+        (value) =>
+          document.querySelector('.reading-stage:not([hidden]) .product-demo').dataset.feature ===
+          value,
+        feature,
+      );
+      if (feature === 'next') await demo.getByRole('button', { name: /拆解第一版/ }).click();
+    }
+    await page
+      .locator('[data-chapter="terms"] h2')
+      .evaluate((node) => node.scrollIntoView({ block: 'center' }));
+    await page.waitForFunction(
+      () =>
+        document.querySelector('.reading-stage:not([hidden]) .product-demo').dataset.feature ===
+        'terms',
+    );
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.waitForFunction(
+      () => document.querySelector('.reading-story').dataset.static === 'true',
+    );
+    assert.deepEqual(
+      await page
+        .locator('.static-chapter .product-demo')
+        .evaluateAll((nodes) => nodes.map((node) => node.dataset.feature)),
+      ['next', 'outline', 'terms'],
+    );
+    const first = page.locator('.product-demo').first();
+    await first.getByLabel('接着聊', { exact: true }).focus();
+    await page.keyboard.press('Tab');
+    assert.notEqual(
+      await first
+        .getByRole('button', { name: '重置功能演示' })
+        .evaluate((node) => node === document.activeElement),
+      true,
+    );
+  } finally {
+    await page.close();
+  }
+});
+
+test('secondary display settles before transfer; reverse, manual interruption and editing preserve the visible window', async () => {
+  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  try {
+    await page.goto(base);
+    const pose = () =>
+      page.locator('.layout-demo-scene').evaluate((svg) => ({
+        camera: svg.getAttribute('viewBox'),
+        x: svg.querySelector('.layout-demo-window').x.baseVal.value,
+        secondary: svg.querySelector('g[opacity]').getAttribute('opacity'),
+      }));
+    await scrollScene(page, '.surface-story', 0.46);
+    const reveal = await pose();
+    assert.equal(reveal.x, 414);
+    assert.ok(+reveal.secondary > 0 && +reveal.secondary < 1);
+    await scrollScene(page, '.surface-story', 0.53);
+    const ready = await pose();
+    assert.equal(ready.x, 414);
+    assert.equal(ready.secondary, '1');
+    await scrollScene(page, '.surface-story', 0.62);
+    const moving = await pose();
+    assert.equal(moving.camera, ready.camera);
+    assert.equal(moving.secondary, '1');
+    assert.ok(moving.x > 414 && moving.x < 754);
+    await scrollScene(page, '.surface-story', 0.82);
+    const returning = await pose();
+    assert.equal(returning.secondary, '1');
+    assert.equal(returning.camera, ready.camera);
+    await page.getByLabel('窗口演示草稿').fill('中途编辑');
+    const held = await pose();
+    await scrollScene(page, '.surface-story', 0.3);
+    assert.deepEqual(await pose(), held);
+    await page.getByLabel('窗口演示草稿').blur();
+    await page.waitForFunction(
+      () => document.querySelector('.layout-demo-window').x.baseVal.value === 402,
+    );
+    assert.equal(await page.getByLabel('窗口演示草稿').inputValue(), '中途编辑');
+    await page.locator('#surface-desktop').click();
+    await page.locator('#surface-edge').click();
+    await page.waitForFunction(
+      () => document.querySelector('.layout-demo-window').x.baseVal.value === 468,
+    );
+    await page.evaluate(() => {
+      window.resumeSamples = [document.querySelector('.layout-demo-window').x.baseVal.value];
+      const sample = () => {
+        window.resumeSamples.push(document.querySelector('.layout-demo-window').x.baseVal.value);
+        if (window.resumeSamples.length < 30) requestAnimationFrame(sample);
+      };
+      requestAnimationFrame(sample);
+    });
+    await scrollScene(page, '.surface-story', 0.62);
+    await page.waitForFunction(
+      () => Math.abs(document.querySelector('.layout-demo-window').x.baseVal.value - 584) < 1,
+    );
+    const resume = await page.evaluate(() => window.resumeSamples);
+    assert.ok(
+      resume.some((x) => x > 469 && x < 583),
+      'resuming scroll traverses visible intermediate frames',
+    );
+    assert.ok(
+      Math.max(...resume.slice(1).map((x, i) => Math.abs(x - resume[i]))) < 100,
+      JSON.stringify(resume),
+    );
+  } finally {
+    await page.close();
+  }
+});
+
+test('pointer takeover releases keyboard chapter lock; static resizing and manual window editing retain focus', async () => {
+  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  try {
+    await page.goto(base);
+    await scrollScene(page, '.reading-story', 0.1);
+    const demo = page.locator('.product-demo').first();
+    const suggestion = demo.getByRole('button', { name: /拆解第一版/ });
+    await suggestion.focus();
+    await page.keyboard.press('Enter');
+    await suggestion.click();
+    await scrollScene(page, '.reading-story', 0.9);
+    assert.equal(await demo.getAttribute('data-feature'), 'terms');
+    await demo.getByRole('button', { name: '收藏', exact: true }).click();
+    const favorite = demo.getByRole('button', { name: '已收藏', exact: true });
+    await page.setViewportSize({ width: 550, height: 900 });
+    await page.waitForFunction(
+      () => document.querySelector('.reading-story').dataset.static === 'true',
+    );
+    assert.equal(await demo.getAttribute('data-feature'), 'terms');
+    assert.equal(await favorite.evaluate((el) => el === document.activeElement), true);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.waitForFunction(
+      () => document.querySelector('.reading-story').dataset.static === 'false',
+    );
+    assert.equal(await favorite.evaluate((el) => el === document.activeElement), true);
+    await favorite.blur();
+    await scrollScene(page, '.surface-story', 0.1);
+    await page.locator('#surface-desktop').click();
+    await page.getByLabel('窗口演示草稿').focus();
+    const samples = await page.evaluate(async () => {
+      const result = [];
+      for (let i = 0; i < 20; i++) {
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+        result.push(document.querySelector('.layout-demo-window').getAttribute('x'));
+      }
+      return result;
+    });
+    assert.equal(new Set(samples).size, 1, 'manual journey pauses while its input is focused');
+    await page.getByLabel('窗口演示草稿').fill('继续保留');
+    await page.getByLabel('窗口演示草稿').blur();
+    await page.waitForFunction(
+      () => document.querySelector('.layout-demo-window').x.baseVal.value === 754,
+    );
+    assert.equal(await page.locator('#surface-desktop').getAttribute('aria-selected'), 'true');
   } finally {
     await page.close();
   }

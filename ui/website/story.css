@@ -16,7 +16,7 @@
   position: absolute;
   top: -6svh;
   left: 50%;
-  width: min(760px, 82vw);
+  width: min(760px, 82vw, 78svh);
   aspect-ratio: 1200/620;
   transform: translateX(-50%);
   z-index: 3;
@@ -33,31 +33,36 @@
 }
 .opening-copy {
   position: absolute;
-  top: 31svh;
+  top: 28svh;
   left: 24px;
   right: 24px;
   text-align: center;
   z-index: 1;
 }
 h1 {
-  font-size: clamp(36px, 4.7vw, 64px);
+  font-size: clamp(36px, min(4.7vw, 7svh), 64px);
   line-height: 1.25;
-  letter-spacing: -0.055em;
+  letter-spacing: -0.035em;
   font-weight: 550;
 }
 .opening-copy p {
-  font-size: clamp(16px, 1.7vw, 20px);
+  font-size: clamp(16px, min(1.7vw, 2.2svh), 20px);
   line-height: 1.85;
-  margin: 20px 0 14px;
+  margin: 16px 0 8px;
   color: var(--site-muted);
+}
+.opening-copy h1,
+.opening-copy p {
+  width: fit-content;
+  margin-inline: auto;
 }
 .intro-preview {
   position: absolute;
-  top: 65svh;
+  bottom: 28px;
   left: 50%;
   transform: translateX(-50%);
   width: min(1020px, calc(100% - 96px));
-  height: 360px;
+  height: clamp(276px, 36svh, 360px);
   display: grid;
   grid-template-columns: 130px 1fr 320px;
   border: 1px solid var(--site-border);
@@ -88,7 +93,8 @@ h1 {
 .intro-entry {
   width: 36px;
   height: 36px;
-  margin-top: 32px;
+  margin-top: auto;
+  flex-shrink: 0;
   display: grid;
   place-items: center;
 }
@@ -101,14 +107,14 @@ h1 {
   width: 6px;
 }
 .intro-chat {
-  padding: 28px 32px;
+  padding: 24px 28px;
   position: relative;
 }
 .intro-chat > p:first-child {
   background: var(--site-input);
   padding: 12px;
   border-radius: 10px;
-  margin-bottom: 28px;
+  margin-bottom: 20px;
 }
 .intro-chat h3,
 .intro-panel h3 {
@@ -141,12 +147,20 @@ h1 {
   margin-bottom: 24px;
 }
 .intro-panel p {
-  margin-bottom: 24px;
+  margin-bottom: 18px;
   font-size: 13px;
 }
 .intro-quick {
   color: var(--site-muted);
-  margin-top: 30px;
+  margin-top: 18px;
+}
+@media (min-width: 761px) and (max-height: 800px) {
+  .brand-origin {
+    width: min(680px, 82vw, 70svh);
+  }
+  .opening-copy {
+    top: 23svh;
+  }
 }
 .surface-story {
   height: 350svh;
@@ -253,7 +267,7 @@ h1 {
   --edge: #fff;
   --pink: #f39ca2;
   --pink-edge: #f8a8ad;
-  background: var(--paper);
+  background: transparent;
 }
 [data-site-theme='dark'] .brand-opening {
   --ink-top: #f6f6ef;

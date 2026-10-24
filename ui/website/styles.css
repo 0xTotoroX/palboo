@@ -165,6 +165,9 @@ h2 {
   margin-top: calc((100svh - 590px) / 2);
   min-width: 0;
 }
+.reading-stage :is(input, textarea, select, [contenteditable='true']) {
+  scroll-margin-block: 24px;
+}
 .product-demo {
   max-width: none;
   border-radius: 14px;
@@ -174,6 +177,8 @@ h2 {
   grid-template-columns: 1fr 1fr;
 }
 .demo-chat {
+  grid-column: 1;
+  grid-row: 1;
   padding: 22px;
   display: flex;
   flex-direction: column;
@@ -215,6 +220,8 @@ h2 {
   color: var(--site-text);
 }
 .demo-panel {
+  grid-column: 2;
+  grid-row: 1;
   padding: 22px 20px;
 }
 .demo-panel-top {
@@ -597,6 +604,7 @@ h2 {
 .opening-story[data-static='true'] .intro-preview {
   position: relative;
   top: auto;
+  bottom: auto;
   left: auto;
   transform: none;
   margin: auto;
@@ -718,11 +726,9 @@ h2 {
     min-height: 0;
   }
   .demo-panel {
-    order: 0;
     padding: 22px;
   }
   .demo-chat {
-    order: 1;
     border-right: 0;
     border-top: 1px solid var(--site-border);
     padding: 18px 22px;

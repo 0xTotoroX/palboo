@@ -10,9 +10,10 @@ export const smooth = (value: number) => {
   return t * t * (3 - 2 * t);
 };
 
-export function useScrollScene() {
+export function useScrollScene(anchors?: string) {
   const ref = useRef<HTMLElement>(null);
   const [progress, setProgress] = useState(0);
+  const [activeIndex, setActiveIndex] = useState(0);
   const [staticView, setStaticView] = useState(
     () =>
       matchMedia('(prefers-reduced-motion: reduce), (max-width: 760px), (max-height: 650px)')
@@ -29,6 +30,15 @@ export function useScrollScene() {
       const box = element.getBoundingClientRect();
       const value = clamp(-box.top / Math.max(1, box.height - innerHeight));
       setProgress((old) => (Math.abs(old - value) < 0.0001 ? old : value));
+      if (anchors) {
+        // Follow the actual copy entering the reading band, not equal fractions
+        // of a section whose sticky and padding geometry can change.
+        let index = 0;
+        element.querySelectorAll(anchors).forEach((anchor, i) => {
+          if (anchor.getBoundingClientRect().top <= innerHeight * 0.55) index = i;
+        });
+        setActiveIndex(index);
+      }
     };
     const schedule = () => {
       if (!frame && !document.hidden) frame = requestAnimationFrame(update);
@@ -57,6 +67,6 @@ export function useScrollScene() {
       document.removeEventListener('visibilitychange', onVisibility);
       media.removeEventListener('change', onMedia);
     };
-  }, []);
-  return { ref, progress, staticView };
+  }, [anchors]);
+  return { ref, progress, staticView, activeIndex };
 }
