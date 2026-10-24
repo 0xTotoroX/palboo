@@ -1,11 +1,12 @@
 /*
  * [INPUT]: 工作台合成宿主、既有布局/投影测试辅助。
- * [OUTPUT]: 跟随/锁定、建议缓存恢复与失效、失联恢复、迟到结果、误写保护与冷启动行为回归。
+ * [OUTPUT]: 悬停动效终态、跟随/锁定、建议缓存恢复与失效、失联恢复、迟到结果、误写保护与冷启动行为回归。
  * [POS]: workbench.mjs 的关联场景；不调用真实模型。
  * [PROTOCOL]: 变更时检查 tests/AGENTS.md。
  */
 import assert from 'node:assert/strict';
 import { resolve } from 'node:path';
+import { emulateMedia } from './browser-motion.mjs';
 
 const snapshot = (page) => page.evaluate(() => window.__companionFloatingPanel.exportPanelState());
 async function associate(page, action) {
@@ -100,6 +101,18 @@ export function chatBindingCases({
               label: getComputedStyle(node.querySelector('.csw-row-label')).color,
             })),
           );
+        const waitForOpacities = (expected) =>
+          page.waitForFunction(
+            (values) => {
+              const nodes = [...document.querySelectorAll('.csw-row')];
+              return (
+                nodes.length === values.length &&
+                nodes.every((node, i) => Number(getComputedStyle(node).opacity) === values[i])
+              );
+            },
+            expected,
+            { timeout: 4000 },
+          );
         await page.mouse.move(5, 5);
         assert.ok((await styles()).every((row) => row.opacity === 1 && row.arrow === row.label));
         await rows.nth(1).hover();
@@ -118,15 +131,15 @@ export function chatBindingCases({
           'reading selection persists without dimming',
         );
         assert.equal(await page.locator('.csw-list').getAttribute('aria-label'), '下一步');
-        await page.emulateMedia({ reducedMotion: 'no-preference' });
+        await emulateMedia(page, { reducedMotion: 'no-preference' });
         await rows.nth(2).hover();
-        await page.waitForTimeout(200);
+        await waitForOpacities([0.9, 0.9, 1]);
         assert.deepEqual(
           (await styles()).map((row) => row.opacity),
           [0.9, 0.9, 1],
         );
         await page.mouse.move(5, 5);
-        await page.waitForTimeout(200);
+        await waitForOpacities([1, 1, 1]);
         assert.ok((await styles()).every((row) => row.opacity === 1));
       },
     ],
