@@ -12,7 +12,7 @@
   container-type: inline-size;
   border: 0;
   border-radius: 12px;
-  padding: 20px;
+  padding: 16px;
   background: color-mix(in srgb, var(--buddy-text) 7%, var(--buddy-page));
   box-shadow: none;
 }
@@ -83,7 +83,7 @@
   )
   .preview-demo {
   display: grid;
-  gap: 16px;
+  gap: 12px;
   padding: 0;
   background: transparent;
   box-shadow: none;
@@ -94,7 +94,7 @@
 .preview-answer,
 .preview-scene[data-preview-scene='bots'] .preview-draft {
   min-width: 0;
-  padding: 12px;
+  padding: 10px;
   border-radius: 12px;
   background: var(--buddy-surface);
   box-shadow: var(--settings-menu-shadow);
@@ -109,7 +109,7 @@
   align-items: start;
   width: 100%;
   text-align: left;
-  padding: 10px 8px;
+  padding: 8px 6px;
   min-height: 32px;
   border: 0;
   border-radius: 8px;
@@ -190,7 +190,7 @@
   padding: 12px;
   background: var(--buddy-subtle);
   color: var(--buddy-text);
-  min-height: 64px;
+  min-height: 48px;
   max-height: 100px;
   overflow: auto;
   overflow-wrap: anywhere;

@@ -35,6 +35,16 @@ test(
           example: '',
           source: '',
         },
+        ...Array.from({ length: 12 }, (_, index) => ({
+          id: `reading-${index}`,
+          name: `阅读词条 ${index + 1}`,
+          english: '',
+          definition: '用于验证长释义在词库附近完整阅读，展开不会把页面带回顶部。'.repeat(12),
+          aliases: [],
+          category: ['阅读测试'],
+          example: '',
+          source: '',
+        })),
       ],
       preferences: {
         enabled: true,
@@ -653,9 +663,68 @@ test(
       await page.getByRole('searchbox', { name: '搜索术语', exact: true }).fill('Fixture');
       await termSettings.locator('.term-result-name').click();
       assert.equal(
-        await termSettings.locator('.term-result-name').getAttribute('aria-pressed'),
+        await termSettings.locator('.term-result-name').getAttribute('aria-expanded'),
         'true',
       );
+      await termSettings.getByRole('region', { name: '合成术语释义', exact: true }).waitFor();
+      assert.equal(
+        await termSettings.locator('.term-preview .term-card strong').innerText(),
+        '竞态条件',
+        'reading an entry does not replace the appearance sample',
+      );
+      await page.keyboard.press('Escape');
+      assert.equal(
+        await termSettings.locator('.term-result-name').getAttribute('aria-expanded'),
+        'false',
+      );
+      assert.equal(
+        await termSettings
+          .locator('.term-result-name')
+          .evaluate((e) => e === document.activeElement),
+        true,
+      );
+      await page.setViewportSize({ width: 390, height: 900 });
+      await page.getByRole('searchbox', { name: '搜索术语', exact: true }).fill('');
+      const lastTerm = termSettings.getByRole('button', { name: '阅读词条 12', exact: true });
+      await lastTerm.scrollIntoViewIfNeeded();
+      const termScroll = await page.evaluate(() => scrollY);
+      await lastTerm.click();
+      const reading = await termSettings.locator('.term-results').evaluate((list) => {
+        const row = list.querySelector('.term-result:has([aria-expanded="true"])');
+        const details = row.querySelector('.term-result-detail');
+        return {
+          list: list.getBoundingClientRect().toJSON(),
+          row: row.getBoundingClientRect().toJSON(),
+          details: details.getBoundingClientRect().toJSON(),
+          scroll: scrollY,
+          previewBottom: document.querySelector('.term-preview').getBoundingClientRect().bottom,
+        };
+      });
+      assert.ok(
+        Math.abs(reading.scroll - termScroll) <= 1,
+        'expanding only scrolls inside the list',
+      );
+      assert.ok(
+        reading.previewBottom < 0,
+        'appearance sample stays offscreen while reading entries',
+      );
+      assert.ok(
+        reading.row.top >= reading.list.top - 1 && reading.details.top < reading.list.bottom - 40,
+      );
+      await termSettings.locator('.term-results').evaluate((list) => {
+        list.scrollTop = list.scrollHeight;
+      });
+      const detailsEnd = await termSettings
+        .getByRole('region', { name: '阅读词条 12释义', exact: true })
+        .boundingBox();
+      assert.ok(
+        detailsEnd.y + detailsEnd.height <= reading.list.bottom + 1,
+        'long definitions remain fully scrollable',
+      );
+      await lastTerm.click();
+      assert.equal(await lastTerm.getAttribute('aria-expanded'), 'false');
+      await page.getByRole('searchbox', { name: '搜索术语', exact: true }).fill('Fixture');
+      await page.setViewportSize({ width: 1360, height: 900 });
       await page.getByLabel('只看收藏', { exact: true }).check();
       await termSettings.getByText('没有匹配的术语', { exact: true }).waitFor();
       await page.getByLabel('只看收藏', { exact: true }).uncheck();
@@ -1055,7 +1124,7 @@ test(
             );
             // Keep the preview below half of the 900px desktop viewport, with
             // room for wrapping rather than shrinking text on narrow screens.
-            const budget = width <= 760 ? 540 : 420;
+            const budget = width <= 760 ? 400 : 330;
             assert.ok(
               previewOrder.height <= budget,
               `${colorScheme} ${width} ${id}: preview ${previewOrder.height}px exceeds ${budget}px`,

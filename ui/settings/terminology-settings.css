@@ -1,5 +1,5 @@
 /* [INPUT]: 术语设置分组、共用控件及原术语卡片。
- * [OUTPUT]: 对齐的识别开关、外观表单与搜索/管理工具栏，窄屏自然换行。
+ * [OUTPUT]: 对齐的识别开关、外观表单与搜索/管理工具栏；词条详情原位展开，窄屏自然换行。
  * [POS]: 仅设置页布局，不影响宿主术语卡片或业务视图。
  * [PROTOCOL]: 变更时同步 settings/AGENTS.md。 */
 #settings-terminology .term-preview {
@@ -68,6 +68,13 @@
   max-height: 300px;
   overflow: auto;
   overscroll-behavior: contain;
+  overflow-anchor: none;
+}
+#settings-terminology .term-result {
+  border-bottom: 1px solid var(--buddy-border);
+}
+#settings-terminology .term-result > .term-row {
+  border-bottom: 0;
 }
 #settings-terminology .term-row {
   display: flex;
@@ -89,8 +96,38 @@
   text-align: left;
   overflow-wrap: anywhere;
 }
-#settings-terminology .term-result-name[aria-pressed='true'] {
+#settings-terminology button.term-result-name {
+  flex: 1;
+}
+#settings-terminology .term-result-name > .buddy-icon {
+  align-self: center;
+  margin-left: auto;
+  color: var(--buddy-muted);
+  transition: transform 160ms var(--settings-ease);
+}
+#settings-terminology .term-result-name[aria-expanded='true'] {
   font-weight: 600;
+}
+#settings-terminology .term-result-name[aria-expanded='true'] > .buddy-icon {
+  transform: rotate(180deg);
+}
+#settings-terminology .term-result-detail {
+  padding: 0 40px 14px 0;
+  font-size: 0.875em;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+#settings-terminology .term-result-detail p {
+  margin: 0;
+}
+#settings-terminology .term-result-detail .term-result-category {
+  margin-top: 8px;
+  color: var(--buddy-muted);
+}
+@media (prefers-reduced-motion: reduce) {
+  #settings-terminology .term-result-name > .buddy-icon {
+    transition: none;
+  }
 }
 #settings-terminology .term-result-english {
   color: var(--buddy-muted);

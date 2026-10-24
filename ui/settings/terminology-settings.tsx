@@ -1,11 +1,11 @@
 /* [INPUT]: 认证术语 API、可唤起状态、共用卡片/动作图标与用户导入/输入。
- * [OUTPUT]: 卡片预览、识别/外观与词库检索；管理抽屉按新增/导入导出分区，保留草稿与深链接，名称/文件排队交给下次主聊天，个人导出与确认重置。
+ * [OUTPUT]: 独立外观预览、词条原位展开与词库检索；管理抽屉按新增/导入导出分区，保留草稿与深链接，名称/文件排队交给下次主聊天，个人导出与确认重置。
  * [POS]: 详细设置的功能区，不访问主聊天内容。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { SettingsDrawer } from './settings-drawer';
 import { PreviewFrame } from './preview-frame';
 import { Field, Toggle } from './settings-controls';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { useConfirmation } from './settings-confirmation';
 import { request, uploadTerminology } from './api';
@@ -118,7 +118,22 @@ export function TerminologySettings({ active }: { active: boolean }) {
     root?.addEventListener('buddy-settings-detail-reveal', reveal);
     return () => root?.removeEventListener('buddy-settings-detail-reveal', reveal);
   }, [!!data]);
-  const [preview, setPreview] = useState<Term>(sample);
+  const [expandedTerm, setExpandedTerm] = useState<string | null>(null);
+  const resultsRoot = useRef<HTMLDivElement>(null);
+  const detailId = useId();
+  useLayoutEffect(() => {
+    if (!active || !expandedTerm) return;
+    const list = resultsRoot.current;
+    const row = list?.querySelector<HTMLElement>('.term-result:has([aria-expanded="true"])');
+    if (!list || !row) return;
+    // 只调整词库自身的阅读位置，让展开的开头可见，不把整页拉回顶部。
+    const bounds = list.getBoundingClientRect();
+    const rect = row.getBoundingClientRect();
+    const visibleHeight = Math.min(rect.height, list.clientHeight);
+    if (rect.top < bounds.top) list.scrollTop += rect.top - bounds.top;
+    else if (rect.top + visibleHeight > bounds.bottom)
+      list.scrollTop += rect.top + visibleHeight - bounds.bottom;
+  }, [active, expandedTerm]);
   const load = () =>
     request<Library>('terminology')
       .then(setData)
@@ -191,7 +206,7 @@ export function TerminologySettings({ active }: { active: boolean }) {
         <>
           <div className="settings-local-preview" aria-label="联动预览">
             <PreviewFrame title="术语卡片预览">
-              <Preview term={preview} preferences={prefs} />
+              <Preview term={sample} preferences={prefs} />
             </PreviewFrame>
           </div>
           <div className="term-behavior" role="group" aria-label="识别与操作">
@@ -503,7 +518,7 @@ export function TerminologySettings({ active }: { active: boolean }) {
                 只看收藏
               </label>
             </div>
-            <div className="term-results">
+            <div className="term-results" ref={resultsRoot}>
               {!favoritesOnly &&
                 !masteredOnly &&
                 pendingJobs.map((job) => (
@@ -513,30 +528,57 @@ export function TerminologySettings({ active }: { active: boolean }) {
                   </div>
                 ))}
               {results.slice(0, resultLimit).map((t) => (
-                <div className="term-row" key={t.id}>
-                  <button
-                    type="button"
-                    className="term-result-name"
-                    aria-pressed={preview.id === t.id}
-                    onClick={() => setPreview(t)}
+                <div
+                  className="term-result"
+                  key={t.id}
+                  onKeyDown={(event) => {
+                    if (event.key !== 'Escape' || expandedTerm !== t.id) return;
+                    event.preventDefault();
+                    setExpandedTerm(null);
+                    event.currentTarget
+                      .querySelector<HTMLButtonElement>('.term-result-name')
+                      ?.focus({ preventScroll: true });
+                  }}
+                >
+                  <div className="term-row">
+                    <button
+                      type="button"
+                      className="term-result-name"
+                      aria-expanded={expandedTerm === t.id}
+                      aria-controls={`${detailId}-${t.id}`}
+                      onClick={() => setExpandedTerm((current) => (current === t.id ? null : t.id))}
+                    >
+                      <span>{t.name}</span>
+                      {t.english && t.english !== t.name && (
+                        <span className="term-result-english">{t.english}</span>
+                      )}
+                      <Icon name="chevron-down" />
+                    </button>
+                    <IconButton
+                      aria-label={`${prefs.mastered.includes(t.id) ? '恢复提示' : '已掌握'}：${t.name}`}
+                      disabled={busy}
+                      onClick={() =>
+                        void command({
+                          action: prefs.mastered.includes(t.id) ? 'restore' : 'master',
+                          id: t.id,
+                        })
+                      }
+                    >
+                      <Icon name={prefs.mastered.includes(t.id) ? 'return' : 'check'} />
+                    </IconButton>
+                  </div>
+                  <div
+                    id={`${detailId}-${t.id}`}
+                    className="term-result-detail"
+                    role="region"
+                    aria-label={`${t.name}释义`}
+                    hidden={expandedTerm !== t.id}
                   >
-                    <span>{t.name}</span>
-                    {t.english && t.english !== t.name && (
-                      <span className="term-result-english">{t.english}</span>
+                    <p>{t.definition}</p>
+                    {t.category.length > 0 && (
+                      <p className="term-result-category">{t.category.join(' › ')}</p>
                     )}
-                  </button>
-                  <IconButton
-                    aria-label={`${prefs.mastered.includes(t.id) ? '恢复提示' : '已掌握'}：${t.name}`}
-                    disabled={busy}
-                    onClick={() =>
-                      void command({
-                        action: prefs.mastered.includes(t.id) ? 'restore' : 'master',
-                        id: t.id,
-                      })
-                    }
-                  >
-                    <Icon name={prefs.mastered.includes(t.id) ? 'return' : 'check'} />
-                  </IconButton>
+                  </div>
                 </div>
               ))}
               {!results.length && (favoritesOnly || masteredOnly || !pendingJobs.length) && (
