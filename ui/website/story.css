@@ -1,0 +1,304 @@
+/* [INPUT]: Scroll scene composition and original SVG/device geometry.
+ * [OUTPUT]: Pinned opening, brand flight, window journey and original palette.
+ * [POS]: Website story styles; responsive overrides live in styles.css.
+ * [PROTOCOL]: Keep website/AGENTS.md in sync. */
+.opening-story {
+  height: 220svh;
+}
+.opening-pin {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  min-height: 650px;
+  overflow: hidden;
+}
+.brand-origin {
+  position: absolute;
+  top: -6svh;
+  left: 50%;
+  width: min(760px, 82vw);
+  aspect-ratio: 1200/620;
+  transform: translateX(-50%);
+  z-index: 3;
+  pointer-events: none;
+}
+.brand-flight {
+  transform-origin: 50% 49.516%;
+}
+.original-opening > svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1200/620;
+}
+.opening-copy {
+  position: absolute;
+  top: 31svh;
+  left: 24px;
+  right: 24px;
+  text-align: center;
+  z-index: 1;
+}
+h1 {
+  font-size: clamp(36px, 4.7vw, 64px);
+  line-height: 1.25;
+  letter-spacing: -0.055em;
+  font-weight: 550;
+}
+.opening-copy p {
+  font-size: clamp(16px, 1.7vw, 20px);
+  line-height: 1.85;
+  margin: 20px 0 14px;
+  color: var(--site-muted);
+}
+.intro-preview {
+  position: absolute;
+  top: 65svh;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(1020px, calc(100% - 96px));
+  height: 360px;
+  display: grid;
+  grid-template-columns: 130px 1fr 320px;
+  border: 1px solid var(--site-border);
+  border-radius: 12px;
+  background: var(--site-surface);
+  box-shadow: var(--site-shadow);
+  overflow: hidden;
+  font-size: 14px;
+}
+.intro-rail {
+  padding: 24px 20px;
+  background: var(--site-input);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  font-size: 12px;
+}
+.intro-rail > span {
+  font-weight: 600;
+  font-size: 14px;
+}
+.intro-rail-lines {
+  display: grid;
+  gap: 20px;
+  margin-top: 30px;
+  color: var(--site-muted);
+}
+.intro-entry {
+  width: 36px;
+  height: 36px;
+  margin-top: 32px;
+  display: grid;
+  place-items: center;
+}
+.intro-entry .demo-eyes {
+  height: 18px;
+  gap: 8px;
+}
+.intro-entry .demo-eyes i {
+  height: 18px;
+  width: 6px;
+}
+.intro-chat {
+  padding: 28px 32px;
+  position: relative;
+}
+.intro-chat > p:first-child {
+  background: var(--site-input);
+  padding: 12px;
+  border-radius: 10px;
+  margin-bottom: 28px;
+}
+.intro-chat h3,
+.intro-panel h3 {
+  font-size: 15px;
+  font-weight: 550;
+  margin-bottom: 12px;
+}
+.intro-chat p,
+.intro-panel p {
+  line-height: 1.8;
+  color: var(--site-muted);
+}
+.intro-input {
+  position: absolute;
+  bottom: 22px;
+  left: 24px;
+  right: 24px;
+  background: var(--site-input);
+  padding: 16px;
+  border-radius: 10px;
+  color: var(--site-muted);
+}
+.intro-panel {
+  padding: 26px 24px;
+  border-left: 1px solid var(--site-border);
+}
+.intro-icons {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+.intro-panel p {
+  margin-bottom: 24px;
+  font-size: 13px;
+}
+.intro-quick {
+  color: var(--site-muted);
+  margin-top: 30px;
+}
+.surface-story {
+  height: 350svh;
+  padding-top: 80px;
+  --buddy-text: var(--site-text);
+  --buddy-muted: var(--site-muted);
+  --buddy-border: var(--site-border);
+  --buddy-surface: var(--site-surface);
+  --buddy-subtle: var(--site-input);
+}
+.surface-story .section-intro {
+  margin-bottom: 36px;
+}
+.surface-sticky {
+  position: sticky;
+  top: max(20px, calc((100svh - 730px) / 2));
+}
+.surface-model {
+  overflow: hidden;
+}
+.surface-model .layout-demo-scene {
+  width: 100%;
+  max-width: none;
+  max-height: 55svh;
+}
+.modeled-workspace {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  border-radius: 12px;
+  color: var(--site-text);
+  background: var(--site-input);
+  border: 1px solid var(--site-border);
+  font-size: 17px;
+  line-height: 1.65;
+}
+.modeled-heading {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.modeled-workspace ol {
+  margin: 28px 0 auto;
+  padding-left: 20px;
+}
+.modeled-workspace li {
+  margin-bottom: 20px;
+}
+.modeled-workspace input {
+  min-width: 0;
+  width: 100%;
+  margin-top: 18px;
+  border: 1px solid var(--site-border);
+  border-radius: 6px;
+  padding: 12px;
+  background: var(--site-surface);
+  color: inherit;
+}
+.surface-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 20px 0;
+}
+.surface-tabs button {
+  font-size: 14px;
+  padding: 10px 18px;
+  min-height: 40px;
+  border-radius: 6px;
+  color: var(--site-muted);
+  transition:
+    background 160ms,
+    color 160ms;
+}
+.surface-tabs button[aria-selected='true'] {
+  color: var(--site-text);
+  background: var(--site-input);
+}
+.surface-caption {
+  text-align: center;
+  max-width: 560px;
+  margin: 26px auto 0;
+  min-height: 130px;
+}
+.surface-caption h3 {
+  font-size: 24px;
+  font-weight: 550;
+  letter-spacing: -0.025em;
+}
+.surface-caption p {
+  margin-top: 16px;
+  font-size: 16px;
+  line-height: 1.85;
+  color: var(--site-muted);
+}
+/* Original v3 palette and fills. Geometry and timing are shared with its source. */
+.brand-opening {
+  --paper: var(--site-page);
+  --ink-top: #30312d;
+  --ink-mid: #252622;
+  --ink-low: #20211e;
+  --edge: #fff;
+  --pink: #f39ca2;
+  --pink-edge: #f8a8ad;
+  background: var(--paper);
+}
+[data-site-theme='dark'] .brand-opening {
+  --ink-top: #f6f6ef;
+  --ink-mid: #e3e5da;
+  --ink-low: #ced1c3;
+  --pink: #f49ba3;
+  --pink-edge: #d9858e;
+}
+.original-opening .ink {
+  fill: url(#ink);
+}
+.original-opening .paper {
+  fill: var(--paper);
+}
+.original-opening .ink-top {
+  stop-color: var(--ink-top);
+}
+.original-opening .ink-mid {
+  stop-color: var(--ink-mid);
+}
+.original-opening .ink-low {
+  stop-color: var(--ink-low);
+}
+.original-opening .pink-center {
+  stop-color: var(--pink);
+}
+.original-opening .pink-edge {
+  stop-color: var(--pink-edge);
+}
+.original-opening .eye-edge {
+  stroke: var(--edge);
+  stroke-opacity: 0.12;
+  stroke-width: 0.7;
+}
+.original-opening .roll-mark {
+  stroke: var(--paper);
+  stroke-width: 3;
+  stroke-opacity: 0.33;
+  stroke-linecap: round;
+}
+.opening-controls {
+  color: var(--site-muted);
+}
+@media (prefers-reduced-motion: reduce) {
+  .opening-controls {
+    display: none;
+  }
+}

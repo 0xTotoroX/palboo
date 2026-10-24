@@ -1,10 +1,10 @@
-/* [INPUT]: Shared icons, original settings device scene and motion, static examples and visitor input.
- * [OUTPUT]: Isolated feature interactions and the original settings window model with local state.
+/* [INPUT]: Shared icons, settings device geometry, synthetic portfolio content and visitor input.
+ * [OUTPUT]: Local six-feature demo, draggable board, composer helpers and shared window model.
  * [POS]: Website illustration layer; no backend, host or model calls.
  * [PROTOCOL]: Keep website/AGENTS.md and browser acceptance in sync. */
-import { useState, type KeyboardEvent } from 'react';
+import { useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { Icon } from '../shared/icons/react';
-import { LayoutPreviewScene, demoFrames } from '../settings/layout-preview-scene';
+import { LayoutPreviewScene, demoFrames, type DemoFrame } from '../settings/layout-preview-scene';
 import { useDemoJourney } from '../settings/layout-preview-journey';
 
 export const features = [
@@ -15,17 +15,15 @@ export const features = [
   { id: 'terms', label: '术语释义', icon: 'feature-terms' },
   { id: 'bots', label: 'Grok Bot', icon: 'feature-bots' },
 ] as const;
-
 export type FeatureId = (typeof features)[number]['id'];
 export type SurfaceId = 'sidebar' | 'overlay' | 'desktop' | 'edge';
 export const surfaces: { id: SurfaceId; label: string }[] = [
   { id: 'sidebar', label: '侧栏' },
   { id: 'overlay', label: '页面浮层' },
-  { id: 'desktop', label: '移到副屏' },
+  { id: 'desktop', label: '桌面与副屏' },
   { id: 'edge', label: '贴边 / 刘海' },
 ];
-
-/** Arrow keys move focus and selection together; no delayed keyboard animation. */
+export const headings = ['确定作品集内容', '安排页面与布局', '上线前检查'];
 export function tabKeys(event: KeyboardEvent<HTMLDivElement>) {
   const tabs = [...event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
   const index = tabs.indexOf(event.target as HTMLButtonElement);
@@ -41,8 +39,7 @@ export function tabKeys(event: KeyboardEvent<HTMLDivElement>) {
   tabs[next].focus();
   tabs[next].click();
 }
-
-function Eyes() {
+export function Eyes() {
   return (
     <span className="demo-eyes" aria-hidden="true">
       <i />
@@ -51,41 +48,263 @@ function Eyes() {
   );
 }
 
-function Chat({ heading }: { heading: number }) {
+const statuses = ['待办', '进行中', '完成'];
+export function BoardDemo() {
+  const [tasks, setTasks] = useState([
+    { id: 0, text: '整理三个代表作品', status: 0 },
+    { id: 1, text: '完成首页布局', status: 1 },
+    { id: 2, text: '确定第一版范围', status: 2 },
+  ]);
+  const [adding, setAdding] = useState<number | null>(null);
+  const [draft, setDraft] = useState('');
+  const [over, setOver] = useState<number | null>(null);
+  const dragging = useRef<number | null>(null);
+  const nextId = useRef(3);
+  const taskButtons = useRef(new Map<number, HTMLButtonElement>());
+  const movedFocus = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    if (movedFocus.current !== null) {
+      taskButtons.current.get(movedFocus.current)?.focus({ preventScroll: true });
+      movedFocus.current = null;
+    }
+  }, [tasks]);
+  const addButtons = useRef<(HTMLButtonElement | null)[]>([]);
+  const restoreFocus = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    if (adding === null && restoreFocus.current !== null) {
+      addButtons.current[restoreFocus.current]?.focus({ preventScroll: true });
+      restoreFocus.current = null;
+    }
+  }, [adding]);
+  const closeForm = (index: number) => {
+    restoreFocus.current = index;
+    setAdding(null);
+    setDraft('');
+  };
+  const move = (id: number, status: number) =>
+    setTasks((items) => items.map((item) => (item.id === id ? { ...item, status } : item)));
   return (
-    <div className="demo-chat">
-      <div className="chat-title">
-        <span>Codex</span>
-        <span>周末计划</span>
-      </div>
-      <div className="chat-question">
-        我想做一个周末能完成的小项目，
-        <br />
-        从哪里开始？
-      </div>
-      <article>
-        <div className="chat-avatar">
-          <Eyes />
+    <div className="demo-board" aria-label="作品集任务看板">
+      {statuses.map((status, index) => (
+        <div
+          key={status}
+          className={over === index ? 'board-lane is-over' : 'board-lane'}
+          onDragOver={(event) => {
+            if (dragging.current !== null) {
+              event.preventDefault();
+              setOver(index);
+            }
+          }}
+          onDragLeave={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOver(null);
+          }}
+          onDrop={(event) => {
+            event.preventDefault();
+            if (dragging.current !== null) move(dragging.current, index);
+            dragging.current = null;
+            setOver(null);
+          }}
+        >
+          <h4>
+            {status}
+            <span>{tasks.filter((task) => task.status === index).length}</span>
+          </h4>
+          <div className="board-cards">
+            {tasks
+              .filter((task) => task.status === index)
+              .map((task) => (
+                <div
+                  key={task.id}
+                  className="demo-task"
+                  draggable
+                  onDragStart={(event) => {
+                    dragging.current = task.id;
+                    event.dataTransfer.effectAllowed = 'move';
+                    event.dataTransfer.setData('text/plain', task.text);
+                  }}
+                  onDragEnd={() => {
+                    dragging.current = null;
+                    setOver(null);
+                  }}
+                >
+                  <span>{task.text}</span>
+                  <button
+                    className="icon-button"
+                    aria-label={`${task.text}，移到${statuses[(index + 1) % 3]}`}
+                    ref={(node) => {
+                      if (node) taskButtons.current.set(task.id, node);
+                      else taskButtons.current.delete(task.id);
+                    }}
+                    onClick={() => {
+                      movedFocus.current = task.id;
+                      move(task.id, (index + 1) % 3);
+                    }}
+                  >
+                    <Icon name={index === 1 ? 'check' : 'feature-next'} />
+                  </button>
+                </div>
+              ))}
+          </div>
+          {adding === index ? (
+            <form
+              className="board-add"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (!draft.trim()) return;
+                setTasks((items) => [
+                  ...items,
+                  { id: nextId.current++, text: draft.trim(), status: index },
+                ]);
+                closeForm(index);
+              }}
+            >
+              <input
+                autoFocus
+                aria-label={`${status}任务名称`}
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape') {
+                    event.preventDefault();
+                    closeForm(index);
+                  }
+                }}
+              />
+              <button type="submit" className="icon-button" aria-label="添加任务">
+                <Icon name="check" />
+              </button>
+            </form>
+          ) : (
+            <button
+              className="board-new"
+              ref={(node) => {
+                addButtons.current[index] = node;
+              }}
+              aria-label={`在${status}中新建任务`}
+              onClick={() => {
+                setAdding(index);
+                setDraft('');
+              }}
+            >
+              <Icon name="plus" />
+              新建任务
+            </button>
+          )}
         </div>
-        <p>先做出一个小而完整的版本。</p>
-        {['找到要解决的问题', '画出第一条使用路径', '做完，再验证'].map((title, index) => (
-          <section
-            key={title}
-            className={heading === index ? 'chat-paragraph is-focused' : 'chat-paragraph'}
+      ))}
+    </div>
+  );
+}
+
+export function ModelDemo() {
+  const [model, setModel] = useState('通用模型');
+  return (
+    <div className="demo-models" aria-label="模型选择演示">
+      {['通用模型', '推理模型', '快速模型'].map((name) => (
+        <button key={name} aria-pressed={model === name} onClick={() => setModel(name)}>
+          <Icon name="feature-model" />
+          <span>{name}</span>
+          {model === name && <Icon name="check" />}
+        </button>
+      ))}
+      <p className="model-readback" aria-live="polite">
+        当前选择<strong>{model}</strong>
+      </p>
+    </div>
+  );
+}
+export function BotDemo({ onInsert }: { onInsert: (value: string) => void }) {
+  const [bot, setBot] = useState('工程主管');
+  return (
+    <div className="demo-bots">
+      {['工程主管', '资料助手', '随口一问'].map((name) => (
+        <button
+          key={name}
+          aria-pressed={bot === name}
+          onClick={() => {
+            setBot(name);
+            onInsert(`请问「${name}」：帮我检查作品集方案。`);
+          }}
+        >
+          <Icon name="feature-bots" />
+          {name}
+          <Icon name="chevron-right" />
+        </button>
+      ))}
+    </div>
+  );
+}
+export function TermDemo() {
+  const [saved, setSaved] = useState(false);
+  const [known, setKnown] = useState(false);
+  return (
+    <div className="demo-term">
+      <span className="term-en">Responsive layout</span>
+      <h4>响应式布局</h4>
+      <p>让页面随屏幕宽度调整排列。例如电脑上并排展示作品，手机上改为纵向阅读。</p>
+      <div className="term-actions">
+        <button aria-pressed={saved} onClick={() => setSaved(!saved)}>
+          <Icon name={saved ? 'bookmark-filled' : 'bookmark'} />
+          {saved ? '已收藏' : '收藏'}
+        </button>
+        <button aria-pressed={known} onClick={() => setKnown(!known)}>
+          <Icon name="check" />
+          {known ? '已掌握' : '掌握了'}
+        </button>
+      </div>
+    </div>
+  );
+}
+export function ComposerDemo({
+  draft,
+  onChange,
+  label = '接着聊',
+  optimize = false,
+}: {
+  draft: string;
+  onChange: (value: string) => void;
+  label?: string;
+  optimize?: boolean;
+}) {
+  const id = useId();
+  const [previous, setPrevious] = useState<string | null>(null);
+  return (
+    <div className="demo-composer">
+      <label className="sr-only" htmlFor={id}>
+        {label}
+      </label>
+      <textarea
+        id={id}
+        value={draft}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder="接着聊…"
+        rows={2}
+      />
+      {optimize && (
+        <div className="composer-actions">
+          {previous !== null && (
+            <button
+              onClick={() => {
+                onChange(previous);
+                setPrevious(null);
+              }}
+            >
+              撤销
+            </button>
+          )}
+          <button
+            onClick={() => {
+              setPrevious(draft);
+              onChange(
+                '请把这个个人作品集方案整理成两天内可完成的步骤，列出每一步的交付内容与检查方法。',
+              );
+            }}
           >
-            <h3>{title}</h3>
-            <p>
-              {
-                [
-                  '选一个你自己经常遇到的小麻烦。',
-                  '从打开页面，到完成第一件事。',
-                  '请一个朋友试试，看看哪里会卡住。',
-                ][index]
-              }
-            </p>
-          </section>
-        ))}
-      </article>
+            优化提示词
+            <Icon name="feature-next" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -97,19 +316,69 @@ export function FeatureDemo({
   active: FeatureId;
   onChange: (id: FeatureId) => void;
 }) {
+  const uid = useId();
   const [draft, setDraft] = useState('');
   const [heading, setHeading] = useState(0);
-  const [task, setTask] = useState(0);
-  const [model, setModel] = useState('通用模型');
-  const [saved, setSaved] = useState(false);
-  const [known, setKnown] = useState(false);
-  const [bot, setBot] = useState('工程主管');
+  const [direction, setDirection] = useState('整体推进');
+  const [reset, setReset] = useState(0);
+  const article = useRef<HTMLElement>(null);
+  const insert = (value: string) =>
+    setDraft((current) => (current ? `${current}\n${value}` : value));
   const selected = features.find((feature) => feature.id === active)!;
-
   return (
-    <div className="product-demo" aria-label="Palboo 交互演示">
+    <div className="product-demo" data-feature={active} aria-label="Palboo 交互演示">
       <div className="demo-window-body">
-        <Chat heading={active === 'outline' ? heading : -1} />
+        <div className="demo-chat">
+          <div className="chat-title">
+            <span>Codex</span>
+            <span>个人作品集</span>
+          </div>
+          <div className="chat-question">
+            我想用周末做一个个人作品集，
+            <br />
+            第一版应该怎么安排？
+          </div>
+          <article ref={article}>
+            <p>先让别人看懂你做过什么。</p>
+            {headings.map((title, index) => (
+              <section
+                key={title}
+                className={
+                  active === 'outline' && heading === index
+                    ? 'chat-paragraph is-focused'
+                    : 'chat-paragraph'
+                }
+              >
+                <h3>{title}</h3>
+                <p>
+                  {index === 0 ? (
+                    '选三个代表作品，写清问题、你的贡献和最终结果。'
+                  ) : index === 1 ? (
+                    <>
+                      用
+                      <button className="inline-term" onClick={() => onChange('terms')}>
+                        响应式布局
+                      </button>
+                      适配电脑与手机，保留简介、作品和联系方式。
+                    </>
+                  ) : (
+                    '检查小屏阅读、图片加载和联系链接，再请朋友试用。'
+                  )}
+                </p>
+                <p>
+                  {
+                    [
+                      '每个作品保留背景、过程和结果，配两三张能说明问题的图片。先整理素材，再决定页面的视觉表现。',
+                      '电脑上可以并排展示，手机上改成纵向排列。让标题、图片和正文在不同宽度下都有清楚的阅读顺序。',
+                      '在真实手机上读一遍，检查图片尺寸、文字换行和按钮位置。确认所有联系入口可用，再把链接发给朋友。',
+                    ][index]
+                  }
+                </p>
+              </section>
+            ))}
+          </article>
+          <ComposerDemo draft={draft} onChange={setDraft} />
+        </div>
         <aside className={`demo-panel demo-panel-${active}`}>
           <div className="demo-panel-top">
             <Eyes />
@@ -120,11 +389,8 @@ export function FeatureDemo({
               onClick={() => {
                 setDraft('');
                 setHeading(0);
-                setTask(0);
-                setModel('通用模型');
-                setSaved(false);
-                setKnown(false);
-                setBot('工程主管');
+                setDirection('整体推进');
+                setReset((value) => value + 1);
               }}
             >
               <Icon name="refresh" />
@@ -139,10 +405,10 @@ export function FeatureDemo({
             {features.map((feature) => (
               <button
                 key={feature.id}
-                id={`feature-${feature.id}`}
+                id={`${uid}-${feature.id}`}
                 role="tab"
                 aria-selected={active === feature.id}
-                aria-controls="feature-panel"
+                aria-controls={`${uid}-panel`}
                 aria-label={feature.label}
                 title={feature.label}
                 tabIndex={active === feature.id ? 0 : -1}
@@ -153,47 +419,91 @@ export function FeatureDemo({
             ))}
           </div>
           <div
-            id="feature-panel"
+            id={`${uid}-panel`}
             className="demo-feature-content"
             role="tabpanel"
-            aria-labelledby={`feature-${active}`}
+            aria-labelledby={`${uid}-${active}`}
           >
             <div className="demo-content-heading">
               <span>{selected.label}</span>
             </div>
             {active === 'next' && (
-              <div className="demo-suggestions">
-                {[
-                  [
-                    '完善实现方案',
-                    '把想法分解成可执行的步骤。',
-                    '把这个项目分解成周末能完成的具体步骤。',
-                  ],
-                  [
-                    '检查边界条件',
-                    '看看还有哪些遗漏的情况。',
-                    '帮我检查这个方案可能遗漏的边界条件。',
-                  ],
-                ].map(([title, description, value], index) => (
-                  <button className="suggestion" key={title} onClick={() => setDraft(value)}>
-                    <span className="suggestion-number">0{index + 1}</span>
-                    <span>
-                      <strong>{title}</strong>
-                      <small>{description}</small>
-                    </span>
-                    <Icon name="chevron-right" />
-                  </button>
-                ))}
-              </div>
+              <>
+                <div className="demo-suggestions">
+                  {(direction === '整体推进'
+                    ? [
+                        [
+                          '拆解第一版',
+                          '把作品集方案分成两天可完成的步骤。',
+                          '请把作品集第一版拆解成两天内可完成的具体步骤。',
+                        ],
+                        [
+                          '检查移动端',
+                          '看看小屏阅读和图片加载还有哪些遗漏。',
+                          '帮我检查作品集在手机上阅读和加载图片时可能遗漏的问题。',
+                        ],
+                      ]
+                    : [
+                        [
+                          '比较展示方式',
+                          '比较长页面与独立项目页。',
+                          '比较长页面和独立项目页，哪个更适合这三个作品？',
+                        ],
+                        [
+                          '探索呈现角度',
+                          '让每个作品更突出你的贡献。',
+                          '这些作品还可以从哪些角度展示我的个人贡献？',
+                        ],
+                      ]
+                  ).map(([title, description, value], index) => (
+                    <button className="suggestion" key={title} onClick={() => insert(value)}>
+                      <span className="suggestion-number">0{index + 1}</span>
+                      <span>
+                        <strong>{title}</strong>
+                        <small>{description}</small>
+                      </span>
+                      <Icon name="chevron-right" />
+                    </button>
+                  ))}
+                </div>
+                <div className="next-demo-actions">
+                  <select
+                    aria-label="演示建议方向"
+                    value={direction}
+                    onChange={(event) => setDirection(event.target.value)}
+                  >
+                    <option>整体推进</option>
+                    <option>探索拓展</option>
+                  </select>
+                  <div className="quick-prompts">
+                    {['继续', '执行'].map((word) => (
+                      <button key={word} onClick={() => insert(word)}>
+                        {word}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
             )}
             {active === 'outline' && (
               <div className="demo-outline">
-                {['找到要解决的问题', '画出第一条使用路径', '做完，再验证'].map((title, index) => (
+                {headings.map((title, index) => (
                   <button
                     key={title}
                     className={heading === index ? 'is-current' : ''}
                     aria-pressed={heading === index}
-                    onClick={() => setHeading(index)}
+                    onClick={() => {
+                      setHeading(index);
+                      const container = article.current!;
+                      const target = container.querySelectorAll('section')[index];
+                      container.scrollTo({
+                        top:
+                          target.getBoundingClientRect().top -
+                          container.getBoundingClientRect().top +
+                          container.scrollTop -
+                          6,
+                      });
+                    }}
                   >
                     <span>0{index + 1}</span>
                     {title}
@@ -202,91 +512,20 @@ export function FeatureDemo({
                 ))}
               </div>
             )}
-            {active === 'board' && (
-              <div className="demo-board">
-                {['待办', '进行中', '完成'].map((status, index) => (
-                  <div key={status}>
-                    <h4>
-                      {status}
-                      <span>{task === index ? '1' : '0'}</span>
-                    </h4>
-                    {task === index ? (
-                      <button
-                        className="demo-task"
-                        onClick={() => setTask((task + 1) % 3)}
-                        aria-label={`明确第一版范围，移到${['待办', '进行中', '完成'][(task + 1) % 3]}`}
-                      >
-                        <span>明确第一版范围</span>
-                        <Icon name={task === 2 ? 'check' : 'feature-next'} />
-                      </button>
-                    ) : (
-                      <span className="empty-lane" aria-hidden="true" />
-                    )}
-                  </div>
-                ))}
+            <div key={reset}>
+              <div hidden={active !== 'board'}>
+                <BoardDemo />
               </div>
-            )}
-            {active === 'model' && (
-              <div className="demo-models">
-                {['通用模型', '推理模型', '快速模型'].map((name) => (
-                  <button key={name} aria-pressed={model === name} onClick={() => setModel(name)}>
-                    <Icon name="feature-model" />
-                    <span>{name}</span>
-                    {model === name && <Icon name="check" />}
-                  </button>
-                ))}
-                <p className="model-readback" aria-live="polite">
-                  当前选择 <strong>{model}</strong>
-                </p>
+              <div hidden={active !== 'model'}>
+                <ModelDemo />
               </div>
-            )}
-            {active === 'terms' && (
-              <div className="demo-term">
-                <span className="term-en">CONTEXT WINDOW</span>
-                <h4>上下文窗口</h4>
-                <p>模型一次能处理的信息范围，包括你的提问、聊天历史和它的回答。</p>
-                <div className="term-actions">
-                  <button aria-pressed={saved} onClick={() => setSaved(!saved)}>
-                    <Icon name={saved ? 'bookmark-filled' : 'bookmark'} />
-                    {saved ? '已收藏' : '收藏'}
-                  </button>
-                  <button aria-pressed={known} onClick={() => setKnown(!known)}>
-                    <Icon name="check" />
-                    {known ? '已掌握' : '掌握了'}
-                  </button>
-                </div>
+              <div hidden={active !== 'terms'}>
+                <TermDemo />
               </div>
-            )}
-            {active === 'bots' && (
-              <div className="demo-bots">
-                {['工程主管', '资料助手', '随口一问'].map((name) => (
-                  <button
-                    key={name}
-                    aria-pressed={bot === name}
-                    onClick={() => {
-                      setBot(name);
-                      setDraft(`请问「${name}」：帮我检查这个方案。`);
-                    }}
-                  >
-                    <Icon name="feature-bots" />
-                    {name}
-                    <Icon name="chevron-right" />
-                  </button>
-                ))}
+              <div hidden={active !== 'bots'}>
+                <BotDemo onInsert={insert} />
               </div>
-            )}
-          </div>
-          <div className="demo-composer">
-            <label className="sr-only" htmlFor="demo-draft">
-              接着聊
-            </label>
-            <textarea
-              id="demo-draft"
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              placeholder="从一个下一步开始…"
-              rows={2}
-            />
+            </div>
           </div>
         </aside>
       </div>
@@ -294,28 +533,33 @@ export function FeatureDemo({
   );
 }
 
-/** Uses the exact settings device model and its original two-stage screen handoff. */
 export function SurfaceDemo({
   surface,
   animate = true,
+  scrollFrame,
 }: {
   surface: SurfaceId;
   animate?: boolean;
+  scrollFrame?: DemoFrame;
 }) {
-  const frame = useDemoJourney(surface, demoFrames[surface], animate);
+  const animatedFrame = useDemoJourney(
+    surface,
+    scrollFrame ?? demoFrames[surface],
+    !scrollFrame && animate,
+  );
   const [draft, setDraft] = useState('');
   return (
     <div className="surface-model" data-surface={surface}>
-      <LayoutPreviewScene frame={frame} title="周末计划" hostName="Codex">
+      <LayoutPreviewScene frame={scrollFrame ?? animatedFrame} title="个人作品集" hostName="Codex">
         <div className="modeled-workspace">
           <div className="modeled-heading">
             <Icon name="feature-next" />
             <span>下一步</span>
           </div>
           <ol>
-            <li>明确第一版范围</li>
-            <li>拆解实现步骤</li>
-            <li>检查边界条件</li>
+            <li>整理三个代表作品</li>
+            <li>完成首页布局</li>
+            <li>检查移动端</li>
           </ol>
           <input
             aria-label="窗口演示草稿"
