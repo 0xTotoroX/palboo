@@ -201,7 +201,7 @@ const chapters: { feature: FeatureId; title: string; text: string; detail: strin
     title: '术语释义。\n读到哪里，理解到哪里。',
     text: '遇到不熟悉的词，就在阅读的位置查看释义。想继续了解的收藏起来，已经理解的标为掌握。',
     detail:
-      '基础词库开箱即用，也可用模型按语境识别。只填名称或导入文件，下次主聊天运行时交给当前 Agent 整理。个人添加、收藏和已掌握的词条可以导出，卡片外观可单独设置。',
+      '使用本机词库，也可用模型按语境识别。只填名称或导入文件，下次主聊天运行时交给当前 Agent 整理。个人添加、收藏和已掌握的词条可以导出，卡片外观可单独设置。',
   },
 ];
 export function ReadingStory() {

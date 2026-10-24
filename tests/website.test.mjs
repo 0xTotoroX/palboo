@@ -112,7 +112,7 @@ test('portfolio demos preserve drafts, preferences and undo without service requ
     assert.deepEqual(errors, []);
     assert.ok(requests.every((url) => url.startsWith(base) && !url.includes('/api/')));
     assert.equal(
-      await page.getByRole('link', { name: '安装，前往 GitHub 发布页面' }).getAttribute('href'),
+      await page.getByRole('link', { name: '下载，前往 GitHub 发布页面' }).getAttribute('href'),
       'https://github.com/0xTotoroX/palboo/releases',
     );
     assert.equal(await page.locator('a[download]').count(), 0);

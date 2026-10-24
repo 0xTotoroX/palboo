@@ -160,7 +160,6 @@ h2 {
 }
 .story-copy h2 {
   white-space: pre-line;
-  font-size: clamp(28px, 2.7vw, 38px);
 }
 .story-copy p {
   font-size: 16px;
@@ -556,7 +555,7 @@ h2 {
 .github-link--outline {
   border-color: color-mix(in srgb, var(--site-text) 32%, var(--site-page));
 }
-.github-link--install {
+.github-link--download {
   gap: 10px;
 }
 .github-mark,
@@ -581,7 +580,7 @@ h2 {
 .back-to-top:active {
   transform: translateY(1px);
 }
-.github-link:not(.github-link--install):focus-visible svg,
+.github-link:not(.github-link--download):focus-visible svg,
 .text-link:focus-visible svg {
   transform: translateX(3px);
 }
@@ -626,7 +625,7 @@ h2 {
   .back-to-top:hover {
     background: color-mix(in srgb, var(--site-text) 85%, var(--site-page));
   }
-  .github-link:not(.github-link--install):hover svg,
+  .github-link:not(.github-link--download):hover svg,
   .text-link:hover svg {
     transform: translateX(3px);
   }
@@ -697,9 +696,6 @@ h2 {
 }
 .reading-story[data-static='true'] .static-chapter + .static-chapter {
   margin-top: 90px;
-}
-.reading-story[data-static='true'] .story-copy h2 {
-  font-size: 28px;
 }
 .reading-story[data-static='true'] .reading-stage {
   grid-column: auto;

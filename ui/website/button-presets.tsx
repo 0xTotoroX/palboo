@@ -11,11 +11,11 @@ const presets = [
   { value: 'text', label: '文字' },
   { value: 'outline', label: '描边' },
   { value: 'solid', label: '实心' },
-  { value: 'install', label: '图标＋安装' },
+  { value: 'download', label: '图标＋下载' },
 ] as const;
 
 export function ButtonPresets() {
-  const [variant, setVariant] = useState<GithubLinkVariant>('install');
+  const [variant, setVariant] = useState<GithubLinkVariant>('download');
   return (
     <>
       <App githubVariant={variant} />

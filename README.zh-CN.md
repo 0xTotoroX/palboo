@@ -13,6 +13,8 @@
 
 [English](README.md) · **简体中文**
 
+[产品介绍](https://palboo.0xtotoro.com) · [下载](https://github.com/0xTotoroX/palboo/releases)
+
 Palboo 为 Codex / ChatGPT 增加一个随手可用的辅助面板：快速定位长回答，生成下一步问题，留在对话内或弹到桌面使用。
 
 从左侧栏的眼睛入口打开工作台，悬停可选择“内／外／设置”，单击默认动作可配置。双击或 Alt+Enter 在聊天与桌面之间切换主界面；右键在 ChatGPT 内置浏览器侧栏打开设置。桌面窗口右上角提供收回聊天、放大／还原和置顶，默认置顶并记住选择。

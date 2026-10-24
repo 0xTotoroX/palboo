@@ -5,26 +5,26 @@
 import { Icon } from '../shared/icons/react';
 import githubMark from './media/github-mark.svg?raw';
 
-export type GithubLinkVariant = 'text' | 'outline' | 'solid' | 'install';
+export type GithubLinkVariant = 'text' | 'outline' | 'solid' | 'download';
 
-export function GithubLink({ variant = 'install' }: { variant?: GithubLinkVariant }) {
-  const install = variant === 'install';
+export function GithubLink({ variant = 'download' }: { variant?: GithubLinkVariant }) {
+  const download = variant === 'download';
   return (
     <a
-      className={`github-link github-link--${install ? 'outline github-link--install' : variant}`}
+      className={`github-link github-link--${download ? 'outline github-link--download' : variant}`}
       href="https://github.com/0xTotoroX/palboo/releases"
       target="_blank"
       rel="noopener noreferrer"
-      aria-label={install ? '安装，前往 GitHub 发布页面' : '前往 GitHub 发布页面'}
+      aria-label={download ? '下载，前往 GitHub 发布页面' : '前往 GitHub 发布页面'}
     >
-      {install ? (
+      {download ? (
         <>
           <span
             className="github-mark"
             aria-hidden="true"
             dangerouslySetInnerHTML={{ __html: githubMark }}
           />
-          安装
+          下载
         </>
       ) : (
         <>

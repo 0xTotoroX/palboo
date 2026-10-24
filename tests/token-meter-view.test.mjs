@@ -94,15 +94,19 @@ test('token module plugs into model footer and unplugs without changing model co
       await page.evaluate((color) => document.body.style.setProperty('--muted', color), color);
       assert.equal(await meter.evaluate((n) => getComputedStyle(n).color), color);
     }
-    for (const size of [14, 18, 22]) {
+    for (const [size, statusSize] of [
+      [14, '14px'],
+      [18, '15.75px'],
+      [22, '19.25px'],
+    ]) {
       await page.evaluate(
         (size) => (document.getElementById('root').style.fontSize = `${size}px`),
         size,
       );
-      assert.equal(await meter.evaluate((n) => getComputedStyle(n).fontSize), '14px');
+      assert.equal(await meter.evaluate((n) => getComputedStyle(n).fontSize), statusSize);
       assert.equal(
         await page.locator('.model-usage').evaluate((n) => getComputedStyle(n).fontSize),
-        '14px',
+        statusSize,
       );
     }
     await page.evaluate(() => (document.getElementById('root').style.fontSize = '14px'));

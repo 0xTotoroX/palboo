@@ -120,6 +120,10 @@
   flex-shrink: 0;
   margin-inline-start: 0;
 }
+.settings-control-pair:has(> .settings-native-select + .settings-native-select)
+  > .settings-native-select[data-control-width='short'] {
+  width: min(100%, var(--settings-select-compact));
+}
 
 .settings-suggestion-input {
   position: relative;

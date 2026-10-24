@@ -13,6 +13,8 @@
 
 **English** · [简体中文](README.zh-CN.md)
 
+[Website](https://palboo.0xtotoro.com) · [Download](https://github.com/0xTotoroX/palboo/releases)
+
 Palboo adds a companion panel to Codex / ChatGPT. Navigate long answers, generate follow-up questions, and keep your tools inside the conversation or in a desktop window.
 
 Use the eyes entry in the left rail to open the workbench. Hover for Inside, Desktop, and Settings; the default single-click action is configurable. Double-click or Alt+Enter moves the main interface between the chat and desktop. Right-click opens settings in ChatGPT’s built-in browser side panel. The desktop window has return-to-chat, maximize/restore, and pin controls; it stays on top by default and remembers your choice.
