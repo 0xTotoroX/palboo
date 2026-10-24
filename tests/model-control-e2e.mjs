@@ -461,6 +461,7 @@ try {
       'custom model group persisted',
     );
     await modelSettings.locator('[data-model-id="alpha"] input[type="checkbox"]').check();
+    await modelSettings.getByLabel('批量操作', { exact: true }).selectOption('maker');
     await modelSettings.getByLabel('批量指定厂家').fill('合成厂家');
     await modelSettings.getByRole('button', { name: '指定厂家', exact: true }).click();
     await waitFor(
@@ -468,6 +469,7 @@ try {
         (await api('state')).preferences.modelOverrides.alpha?.manufacturer === '合成厂家',
       'manufacturer persisted through settings',
     );
+    await modelSettings.getByLabel('批量操作', { exact: true }).selectOption('group');
     await modelSettings.getByLabel('批量移动分组').selectOption(created.id);
     await modelSettings.getByRole('button', { name: '移动模型', exact: true }).click();
     await waitFor(
@@ -494,6 +496,7 @@ try {
       .locator('[data-model-id="alpha"]')
       .waitFor();
     await modelSettings.locator('[data-model-id="alpha"] input[type="checkbox"]').check();
+    await modelSettings.getByLabel('批量操作', { exact: true }).selectOption('reset');
     await modelSettings.getByRole('button', { name: '恢复自动分类', exact: true }).click();
     await modelSettings
       .locator('.settings-key-dialog[open]')

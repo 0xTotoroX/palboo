@@ -401,6 +401,16 @@ test(
       assert.equal(await page.getByRole('button', { name: '切换来源' }).isDisabled(), true);
       switchingSource = false;
       assert.notEqual(readRecord(join(main, 'target/dev/session.json')).sourceEpoch, previousEpoch);
+      stage = 'retain resource confirmation across an additional Vite reload';
+      await page.reload();
+      await sourceWidget
+        .getByRole('status')
+        .filter({ hasText: /已切换至 main/ })
+        .waitFor();
+      assert.equal(
+        await sourceWidget.locator('[data-state]').getAttribute('data-complete'),
+        'true',
+      );
       stage = 'check switched settings usability';
       await navigation.getByRole('link', { name: '常用开关', exact: true }).click();
       await outlineSwitch.waitFor();

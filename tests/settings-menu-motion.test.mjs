@@ -186,6 +186,7 @@ return <div className="settings-app" ref={ref}>
       '0.22s',
     );
     await page.locator('#draft').fill('未保存输入');
+    await finishAnimations(drawer);
     await page.getByRole('button', { name: '关闭高级设置', exact: true }).click();
     assert.equal(await drawer.evaluate((n) => n.inert), true);
     await drawer.waitFor({ state: 'hidden' });

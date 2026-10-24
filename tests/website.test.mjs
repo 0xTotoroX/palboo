@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { build, preview } from 'vite';
 import { chromium } from 'playwright';
 import { readFile } from 'node:fs/promises';
+import { emulateMedia } from './browser-motion.mjs';
 
 let server;
 let browser;
@@ -321,7 +322,8 @@ test('active editing and local state survive chapter changes, responsive modes a
       const box = await input.boundingBox();
       assert.ok(box.y >= 0 && box.y + box.height <= viewport.height, JSON.stringify(box));
     }
-    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await emulateMedia(page, { reducedMotion: 'reduce' });
+    await page.locator('.reading-story[data-static="true"]').waitFor();
     assert.equal(await input.inputValue(), '仍在编辑的任务');
     await page.keyboard.press('Enter');
     assert.match(await demo.innerText(), /仍在编辑的任务/);
@@ -334,7 +336,8 @@ test('active editing and local state survive chapter changes, responsive modes a
     // A static chapter that has focus becomes the persistent animated stage on return.
     const third = page.locator('.product-demo').nth(2);
     await third.getByLabel('接着聊', { exact: true }).fill('术语章节草稿');
-    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await emulateMedia(page, { reducedMotion: 'no-preference' });
+    await page.locator('.reading-story[data-static="false"]').waitFor();
     assert.equal(await third.isVisible(), true);
     assert.equal(await third.getByLabel('接着聊', { exact: true }).inputValue(), '术语章节草稿');
     assert.equal(
@@ -344,7 +347,13 @@ test('active editing and local state survive chapter changes, responsive modes a
       true,
     );
     await third.getByLabel('接着聊', { exact: true }).blur();
-    await scrollScene(page, '.reading-story', 0.48);
+    await page.locator('.story-copy[data-chapter="outline"] h2').evaluate((heading) => {
+      scrollTo({
+        top: scrollY + heading.getBoundingClientRect().top - innerHeight * 0.5,
+        behavior: 'instant',
+      });
+    });
+    await third.locator('[role="tab"][aria-label="大纲"][aria-selected="true"]').waitFor();
     assert.equal(await third.getAttribute('data-feature'), 'outline');
   } finally {
     await page.close();

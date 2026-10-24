@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 开发网关注入的脚本、同源认证 API 与共享外观变量。
- * [OUTPUT]: 仅 Dev 设置页的目录单选列表、右侧切换操作与资源回读确认；不显示提交或资源哈希。
+ * [OUTPUT]: 仅 Dev 设置页的目录单选列表、右侧切换操作与跨重载资源回读确认；不显示提交或资源哈希。
  * [POS]: 由开发监督进程提供，旧 worktree 无需合并此模块；不进入正式构建或聊天界面。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -71,7 +71,6 @@ let active = '',
 const switchKey = 'palboo-dev-source-switch';
 try {
   switchTarget = sessionStorage.getItem(switchKey) || '';
-  sessionStorage.removeItem(switchKey);
 } catch {}
 function updateControls(busy) {
   button.dataset.busy = String(busy);
@@ -203,6 +202,11 @@ view.querySelector('form').addEventListener('submit', async (event) => {
   requestEpoch += 1;
   pending = true;
   switchError = switchTarget = '';
+  // Vite can reload again while preparing the new source. Keep the last
+  // requested target until another switch begins, and always recheck loaded.
+  try {
+    sessionStorage.removeItem(switchKey);
+  } catch {}
   state.dataset.complete = 'false';
   state.dataset.error = 'false';
   updateControls(true);

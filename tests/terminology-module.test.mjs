@@ -96,6 +96,7 @@ test('settings default to no jump and card clicks use the saved toggle and curre
       { action: 'locate', id: 'a', context: 'chat-one' },
     ]);
     await page.getByRole('dialog', { name: '防抖释义' }).waitFor();
+    await page.locator('.term-popover[data-open="true"]').waitFor();
     assert.equal(
       await page.getByRole('dialog', { name: '防抖释义' }).evaluate((dialog) => {
         document.getElementById('chat').dispatchEvent(new Event('scroll', { bubbles: true }));
