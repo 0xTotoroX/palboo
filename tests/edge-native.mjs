@@ -74,11 +74,15 @@ let valid = true,
   telemetry = null,
   queue = [],
   sequence = 0;
+let extraFeature = false;
+let edgeTabs = { order: [], selected: '' },
+  edgeTabsRevision = 0;
 let child,
   stderr = '',
   commandResult = new Map();
 const report = {
   environment,
+  pointerInputs: [],
   checks: [],
   skipped: [
     ...(!screenshots
@@ -158,6 +162,7 @@ function probePage() {
   let native = null,
     nativeEvents = 0,
     keyboardActivations = 0,
+    sample = 0,
     busy = false,
     pointerDown = null,
     pointer = null;
@@ -189,7 +194,14 @@ function probePage() {
   window.addEventListener(
     'pointerdown',
     (event) => {
-      pointerDown = { trusted: event.isTrusted, target: event.target?.id };
+      pointerDown = {
+        serial: (pointerDown?.serial || 0) + 1,
+        trusted: event.isTrusted,
+        target: event.target?.id,
+        tag: event.target?.tagName,
+        tab: event.target?.closest?.('[data-edge-tab]')?.dataset.edgeTab,
+        client: [event.clientX, event.clientY],
+      };
     },
     true,
   );
@@ -200,6 +212,7 @@ function probePage() {
       const response = await fetch('/native-probe', {
         method: 'POST',
         body: JSON.stringify({
+          sample: ++sample,
           native,
           nativeEvents,
           heldScenes: window.heldScenes.length,
@@ -210,6 +223,11 @@ function probePage() {
           errors,
           pointerDown,
           pointer,
+          selectedFeature: document.querySelector('[data-edge-tab][aria-pressed="true"]')?.dataset
+            .edgeTab,
+          availableFeatures: [...document.querySelectorAll('[data-edge-tab]')].map(
+            (n) => n.dataset.edgeTab,
+          ),
           background: getComputedStyle(document.getElementById('edge-panel')).backgroundColor,
           handleBackground: getComputedStyle(document.getElementById('edge-handle'))
             .backgroundColor,
@@ -231,6 +249,8 @@ function probePage() {
               groups: root?.querySelectorAll('[data-model-group]').length,
               rows: root?.querySelectorAll('.model-row').length,
               divider: divider ? getComputedStyle(divider).borderTopWidth : null,
+              editing: root?.activeElement?.matches('input[aria-label="预设名称"]') || false,
+              presetCount: root?.querySelectorAll('.model-preset-tag').length,
             };
           })(),
           columnWidth: document
@@ -308,7 +328,27 @@ const server = createServer(async (request, response) => {
         theme: appearance.hostTheme.theme,
         surface: { theme: prefs.theme, liquidVariant: prefs.liquidVariant },
       };
-      if (input.op === 'read') return json({ ...envelope(), appearance: visual });
+      if (input.op === 'read')
+        return json(
+          input.id === 'next'
+            ? {
+                appearance: visual,
+                snapshot: {
+                  settings: { enabled: true, generationMode: 'manual', quickPrompts: [] },
+                  prompts: [{ label: '检查合成功能切换', prompt: '仅用于本机测试' }],
+                  scanBusy: false,
+                  scanStatus: 'ready',
+                  bridgeStatus: 'ok',
+                  display: { labelOnly: true },
+                },
+              }
+            : { ...envelope(), appearance: visual },
+        );
+      if (input.op === 'edge-tabs') {
+        assert.deepEqual(input.expected, edgeTabs);
+        edgeTabs = input.tabs;
+        edgeTabsRevision++;
+      }
       if (input.op === 'action' && input.action === 'preferences') {
         assert.equal(input.owner, 'feature-lease');
         assert.equal(input.data.revision, revision);
@@ -321,7 +361,14 @@ const server = createServer(async (request, response) => {
         revision++;
         return json(envelope());
       }
-      return json({ features: [feature] });
+      return json({
+        features: [
+          feature,
+          ...(extraFeature ? [{ ...feature, id: 'next', owner: 'next-lease', reveal: 0 }] : []),
+        ],
+        edgeTabs,
+        edgeTabsRevision,
+      });
     }
     return json({});
   }
@@ -381,6 +428,77 @@ function windowInfo() {
         b.kCGWindowBounds.Width * b.kCGWindowBounds.Height -
         a.kCGWindowBounds.Width * a.kCGWindowBounds.Height,
     )[0];
+}
+function pointerInput(action, point) {
+  const evidence = JSON.parse(
+    execFileSync(inputProbe, [action, ...point.map(String)], { encoding: 'utf8' }),
+  );
+  report.pointerInputs.push({ action, ...evidence });
+}
+async function leaveEdge() {
+  const b = windowInfo().kCGWindowBounds;
+  const screen = environment.screens.find(
+    (s) =>
+      b.X + b.Width / 2 >= s.x &&
+      b.X + b.Width / 2 < s.x + s.width &&
+      b.Y + b.Height / 2 >= s.y &&
+      b.Y + b.Height / 2 < s.y + s.height,
+  );
+  assert.ok(screen, 'test window belongs to a connected screen');
+  const point = [
+    [screen.x + 24, screen.y + 24],
+    [screen.x + screen.width - 24, screen.y + screen.height - 24],
+  ].find(([x, y]) => x < b.X || x >= b.X + b.Width || y < b.Y || y >= b.Y + b.Height);
+  assert.ok(point, 'a real pointer exit is available on the same screen');
+  pointerInput('move', point);
+  await until(
+    () =>
+      telemetry.pointer?.inside === false &&
+      telemetry.pointer.buttons === 0 &&
+      !telemetry.pointer.hoverSuppressed,
+    'real pointer leaves and re-arms hover',
+  );
+}
+function enterEdge() {
+  const b = windowInfo().kCGWindowBounds;
+  pointerInput('move', [
+    b.X + telemetry.native.compactX + telemetry.native.compactWidth / 2,
+    b.Y + telemetry.native.compactY + telemetry.native.compactHeight / 2,
+  ]);
+}
+async function clickNativeElement(expression) {
+  // Switching content can move the header and leave the cursor outside; reacquire the real panel.
+  enterEdge();
+  let previousSample = 0,
+    previousFrame = '',
+    stableSamples = 0;
+  await until(() => {
+    if (telemetry.sample === previousSample) return false;
+    previousSample = telemetry.sample;
+    const frame = JSON.stringify([telemetry.native.sceneRevision, telemetry.viewport]);
+    stableSamples = frame === previousFrame ? stableSamples + 1 : 0;
+    previousFrame = frame;
+    return (
+      telemetry.native.expanded &&
+      !telemetry.native.animating &&
+      telemetry.pointer?.inside &&
+      stableSamples >= 2
+    );
+  }, 'native click target has settled after expansion and content resize');
+  const point = await command(
+    `(() => { const r = (${expression})?.getBoundingClientRect(); return r ? [r.x+r.width/2,r.y+r.height/2] : null })()`,
+  );
+  assert.ok(point, 'native click target exists');
+  const bounds = windowInfo().kCGWindowBounds;
+  const previousDown = telemetry.pointerDown?.serial || 0;
+  pointerInput('click', [bounds.X + point[0], bounds.Y + point[1]]);
+  await until(() => telemetry.pointerDown?.serial > previousDown, 'real pointerdown is received');
+  report.pointerInputs.at(-1).target = {
+    expression,
+    point,
+    bounds,
+    received: telemetry.pointerDown,
+  };
 }
 async function capture(name) {
   if (!screenshots) return;
@@ -487,19 +605,16 @@ try {
   );
   await ipc({ action: 'collapse' });
   await until(() => !telemetry.native.expanded && !telemetry.native.animating, 'restore compact');
-  // Re-arm hover after the explicit collapse before testing pointer entry.
-  await command(
-    `window.ignoreNativePointer = ${!environment.canPostEvents}; window.fixturePointer({inside:false,buttons:0,hoverSuppressed:false})`,
-  );
+  // Real input must leave the native hover region; a DOM event cannot clear native suppression.
+  if (environment.canPostEvents) await leaveEdge();
+  else
+    await command(
+      'window.ignoreNativePointer = true; window.fixturePointer({inside:false,buttons:0,hoverSuppressed:false})',
+    );
   hostPresence = { visible: true, focused: true };
 
   if (environment.canPostEvents) {
-    const bounds = windowInfo().kCGWindowBounds;
-    execFileSync(inputProbe, [
-      'move',
-      String(bounds.X + telemetry.native.compactX + 5),
-      String(bounds.Y + telemetry.native.compactY + 40),
-    ]);
+    enterEdge();
   } else {
     await command('window.fixturePointer({inside:true,buttons:0,hoverSuppressed:false})');
   }
@@ -533,6 +648,109 @@ try {
   assert.equal(telemetry.modelView.groups, 0);
   assert.equal(telemetry.modelView.divider, null);
   check('native model view defaults to favorites with a borderless collapsed picker');
+  if (environment.canPostEvents) {
+    extraFeature = true;
+    await command(
+      "window.keptModel = document.querySelector('.edge-view').shadowRoot.querySelector('.model-row'); true",
+    );
+    await until(
+      () => telemetry.availableFeatures.includes('next'),
+      'second feature becomes available',
+    );
+    assert.equal(telemetry.selectedFeature, 'model');
+    for (const id of ['next', 'model', 'next', 'model']) {
+      await clickNativeElement(`document.querySelector('[data-edge-tab="${id}"]')`);
+      await until(
+        () =>
+          telemetry.selectedFeature === id &&
+          edgeTabs.selected === id &&
+          !telemetry.native.animating,
+        'real feature tab click and persisted selection',
+      );
+      assert.ok(
+        await command('window.keptModel.isConnected'),
+        'switching preserves mounted model content',
+      );
+      assert.equal(telemetry.pointerDown?.trusted, true);
+    }
+    check('real clicks switch next/model repeatedly and preserve the mounted content', {
+      selected: edgeTabs.selected,
+    });
+    for (let cycle = 0; cycle < 3; cycle++) {
+      await leaveEdge();
+      await until(
+        () => !telemetry.native.expanded && !telemetry.native.animating,
+        'real pointer exit collapses edge',
+      );
+      enterEdge();
+      await until(
+        () => telemetry.native.expanded && !telemetry.native.animating,
+        'real pointer reentry expands edge',
+      );
+      assert.equal(telemetry.selectedFeature, 'model');
+    }
+    check('three real hover leave/reenter cycles preserve the selected feature');
+    const modelRoot = "document.querySelector('.edge-view').shadowRoot";
+    prefs.presets = [
+      { id: 'editor-fixture', name: '编辑保护测试', selection: { ...snapshot.current } },
+    ];
+    revision++;
+    await until(() => telemetry.modelView.presetCount === 1, 'editor fixture is visible');
+    await clickNativeElement(`${modelRoot}.querySelector('[aria-label="编辑预设"]')`);
+    await clickNativeElement(`${modelRoot}.querySelector('.model-preset-choice')`);
+    await until(() => telemetry.modelView.editing, 'real preset click focuses the editor');
+    await leaveEdge();
+    await delay(700);
+    assert.equal(
+      telemetry.native.expanded,
+      true,
+      'editing holds the panel open after real pointer exit',
+    );
+    assert.equal(telemetry.modelView.editing, true);
+    await clickNativeElement(`${modelRoot}.querySelector('[aria-label="取消"]')`);
+    await until(() => !telemetry.modelView.editing, 'cancel keeps stored presets unchanged');
+    assert.equal(prefs.presets[0].name, '编辑保护测试');
+    prefs.presets = [];
+    revision++;
+    await until(() => telemetry.modelView.presetCount === 0, 'remove editor fixture');
+    await leaveEdge();
+    await until(
+      () => !telemetry.native.expanded && !telemetry.native.animating,
+      'cancelled editor no longer holds pointer interaction',
+    );
+    enterEdge();
+    await until(
+      () => telemetry.native.expanded && !telemetry.native.animating,
+      'reopen after editing',
+    );
+    check(
+      'real editor clicks protect drafts on pointer exit and cancellation restores hover collapse',
+    );
+    await clickNativeElement('document.querySelector(\'[data-edge-tab="model"]\')');
+    await command(
+      "document.dispatchEvent(new KeyboardEvent('keydown',{key:'Tab',bubbles:true})); true",
+    );
+    await leaveEdge();
+    await delay(700);
+    assert.equal(telemetry.native.expanded, true, 'keyboard navigation remains protected');
+    check('keyboard intent still holds the native panel open after pointer exit');
+    // Match the original fixture's non-key hover state before the remaining focus checks.
+    await ipc({ action: 'collapse' });
+    await until(
+      () => !telemetry.native.expanded && !telemetry.native.animating,
+      'collapse after real tab clicks',
+    );
+    await leaveEdge();
+    enterEdge();
+    await until(
+      () => telemetry.native.expanded && !telemetry.native.animating,
+      'restore hover-only state',
+    );
+    extraFeature = false;
+    edgeTabs = { order: [], selected: '' };
+    edgeTabsRevision++;
+    await until(() => telemetry.availableFeatures.length === 1, 'restore one-feature fixture');
+  }
   const favoriteHeight = telemetry.native.layoutHeight;
   await command(
     "document.querySelector('.edge-view').shadowRoot.querySelector('[data-model-picker]').click()",
@@ -799,10 +1017,9 @@ try {
   if (environment.canPostEvents) {
     const bounds = windowInfo().kCGWindowBounds,
       search = telemetry.searchRect;
-    execFileSync(inputProbe, [
-      'click',
-      String(bounds.X + search.x + search.width / 2),
-      String(bounds.Y + search.y + search.height / 2),
+    pointerInput('click', [
+      bounds.X + search.x + search.width / 2,
+      bounds.Y + search.y + search.height / 2,
     ]);
   } else {
     await command(
@@ -1028,6 +1245,17 @@ try {
     );
   throw error;
 } finally {
+  try {
+    if (environment.canPostEvents && report.pointerInputs.length) {
+      const current = JSON.parse(execFileSync(inputProbe, ['state'], { encoding: 'utf8' }));
+      const last = report.pointerInputs.at(-1).actual;
+      // 用户已接管鼠标时不抢回；仅恢复仍停留在本次测试落点的指针。
+      if (!current.buttons && current.pointer.every((v, i) => Math.abs(v - last[i]) <= 2))
+        pointerInput('move', environment.pointer);
+    }
+  } catch (error) {
+    report.pointerRestoreError = String(error);
+  }
   if (child && child.exitCode === null) child.kill('SIGTERM'); // Only our fixture child.
   server.close();
   server.closeAllConnections();

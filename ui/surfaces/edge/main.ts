@@ -39,7 +39,8 @@ export function startEdge(request: Request) {
     enter = 0,
     leave = 0,
     measureFrame = 0,
-    measured = '';
+    measured = '',
+    pointerInteraction = false;
   const navigation = createEdgeTabs(
     tabs,
     request,
@@ -110,7 +111,7 @@ export function startEdge(request: Request) {
         expanded &&
         !buttons &&
         !native.keepOpen &&
-        !native.keyboard &&
+        (!native.keyboard || pointerInteraction) &&
         !tabs.dataset.dragging &&
         !held()
       )
@@ -231,6 +232,7 @@ export function startEdge(request: Request) {
   window.addEventListener('edge-native', (event) => {
     native = (event as CustomEvent).detail;
     expanded = !!native.expanded;
+    if (!expanded) pointerInteraction = false;
     window.__buddyNativeSurface = true;
     window.__buddyNativeGlass = !!native.nativeGlassAvailable;
     panel.style.left = `${native.layoutX || 0}px`;
@@ -279,9 +281,17 @@ export function startEdge(request: Request) {
         enter = window.setTimeout(() => ipc({ action: 'expand', keyboard: false }), 100);
     } else scheduleCollapse();
   });
-  handle.onclick = () => ipc({ action: 'expand', keyboard: true });
-  panel.addEventListener('pointerdown', () => ipc({ action: 'focus' }));
+  handle.onclick = (event) => {
+    pointerInteraction = event.detail > 0;
+    ipc({ action: 'expand', keyboard: true });
+  };
+  panel.addEventListener('pointerdown', () => {
+    // Native key focus enables clicking/editing; only keyboard navigation holds the panel open.
+    pointerInteraction = true;
+    ipc({ action: 'focus' });
+  });
   document.addEventListener('keydown', (event) => {
+    pointerInteraction = false;
     if (event.key === 'Escape' && !held()) collapse();
   });
   void refresh();

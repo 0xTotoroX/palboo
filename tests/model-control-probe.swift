@@ -5,6 +5,7 @@
 import AppKit
 import Foundation
 
+NSApplication.shared.setActivationPolicy(.prohibited)
 let args = CommandLine.arguments
 func emit(_ value: Any) {
     print(String(data: try! JSONSerialization.data(withJSONObject: value), encoding: .utf8)!)
@@ -15,6 +16,8 @@ case "state":
     emit([
         "frontmost": NSWorkspace.shared.frontmostApplication?.processIdentifier ?? 0,
         "canPostEvents": CGPreflightPostEventAccess(),
+        "pointer": [CGEvent(source: nil)!.location.x, CGEvent(source: nil)!.location.y],
+        "buttons": NSEvent.pressedMouseButtons,
         "screens": NSScreen.screens.map { s -> [String: Any] in
             let notch = (s.auxiliaryTopLeftArea != nil && s.auxiliaryTopRightArea != nil)
                 ? s.frame.width - s.auxiliaryTopLeftArea!.width - s.auxiliaryTopRightArea!.width : 0
@@ -24,14 +27,39 @@ case "state":
     ])
 case "move", "click":
     guard CGPreflightPostEventAccess() else { fputs("Event posting unavailable; no permission requested\n", stderr); exit(2) }
-    let p = CGPoint(x: Double(args[2])!, y: Double(args[3])!)
-    CGEvent(mouseEventSource: nil, mouseType: .mouseMoved, mouseCursorPosition: p, mouseButton: .left)?.post(tap: .cghidEventTap)
-    if args[1] == "click" {
-        usleep(50000)
-        CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown, mouseCursorPosition: p, mouseButton: .left)?.post(tap: .cghidEventTap)
-        usleep(50000)
-        CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: p, mouseButton: .left)?.post(tap: .cghidEventTap)
+    guard NSEvent.pressedMouseButtons == 0 else {
+        fputs("Mouse button is held; no test input sent\n", stderr); exit(3)
     }
+    let p = CGPoint(x: Double(args[2])!, y: Double(args[3])!)
+    let source = CGEventSource(stateID: .hidSystemState)
+    let previous = CGEvent(source: nil)!.location
+    func send(_ type: CGEventType) {
+        let event = CGEvent(mouseEventSource: source, mouseType: type, mouseCursorPosition: p, mouseButton: .left)!
+        event.flags = []
+        event.setIntegerValueField(.mouseEventClickState, value: type == .mouseMoved ? 0 : 1)
+        if type == .mouseMoved {
+            event.setIntegerValueField(.mouseEventDeltaX, value: Int64((p.x - previous.x).rounded()))
+            event.setIntegerValueField(.mouseEventDeltaY, value: Int64((p.y - previous.y).rounded()))
+        }
+        event.post(tap: .cghidEventTap)
+    }
+    send(.mouseMoved)
+    // 等待系统处理短命探针发出的事件；回读失败时不继续点击。
+    usleep(50000)
+    let actual = CGEvent(source: nil)!.location
+    guard abs(actual.x - p.x) <= 2 && abs(actual.y - p.y) <= 2 else {
+        fputs("Mouse did not reach test point; requested=\(p), actual=\(actual); no click sent\n", stderr); exit(4)
+    }
+    if args[1] == "click" {
+        send(.leftMouseDown)
+        usleep(50000)
+        send(.leftMouseUp)
+        usleep(50000)
+    }
+    guard NSEvent.pressedMouseButtons == 0 else {
+        fputs("Mouse button release was not confirmed\n", stderr); exit(5)
+    }
+    emit(["requested": [p.x, p.y], "actual": [actual.x, actual.y], "buttons": NSEvent.pressedMouseButtons])
 default:
     fatalError("Unknown probe command")
 }
