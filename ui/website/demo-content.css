@@ -202,7 +202,6 @@
   color: var(--site-muted);
 }
 .demo-outline button,
-.demo-models > button,
 .demo-bots button {
   display: flex;
   align-items: center;
@@ -267,23 +266,8 @@
   display: block;
   border-bottom: 1px solid var(--site-border);
 }
-.demo-models > button > span:nth-child(2) {
-  flex: 1;
-}
-.demo-models > button[aria-pressed='true'],
 .demo-bots > button[aria-pressed='true'] {
   background: var(--site-input);
-}
-.model-readback {
-  display: flex;
-  justify-content: space-between;
-  padding: 14px 8px 0;
-  font-size: 10px;
-  color: var(--site-muted);
-}
-.model-readback strong {
-  font-weight: 500;
-  color: var(--site-text);
 }
 .term-en {
   font-size: 9px;

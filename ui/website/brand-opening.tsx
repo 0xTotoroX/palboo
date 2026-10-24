@@ -72,8 +72,13 @@ export function BrandOpening({
     if (progress >= 0.62 || skip) finish.current();
   }, [progress, replay, skip]);
   return (
-    <div className="brand-opening">
-      <div className="original-opening" ref={ref} dangerouslySetInnerHTML={{ __html: artwork }} />
+    <div className="brand-opening" role="img" aria-label="PALBOO 字标变成双眼">
+      <div
+        className="original-opening"
+        ref={ref}
+        aria-hidden="true"
+        dangerouslySetInnerHTML={{ __html: artwork }}
+      />
     </div>
   );
 }

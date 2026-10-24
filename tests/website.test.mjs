@@ -565,7 +565,11 @@ test('light/dark responsive and short screens preserve readable controls without
   try {
     await page.goto(base);
     for (const theme of ['light', 'dark']) {
-      if (theme === 'dark') await page.getByRole('button', { name: '切换到深色' }).click();
+      await page.emulateMedia({ colorScheme: theme });
+      await page.waitForFunction(
+        (value) => document.documentElement.dataset.siteTheme === value,
+        theme,
+      );
       for (const width of [360, 550, 900, 1440]) {
         await page.setViewportSize({ width, height: 1000 });
         const geometry = await page.evaluate(() => ({

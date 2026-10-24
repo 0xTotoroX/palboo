@@ -1,8 +1,8 @@
 /* [INPUT]: Scroll stories, shared brand/icons and isolated portfolio demonstrations.
  * [OUTPUT]: Feature, workspace, material and connection overview with truthful release entry.
- * [POS]: Independent website; only visitor theme persists, no business data or services.
+ * [POS]: Independent website; follows system appearance, no business data or services.
  * [PROTOCOL]: Keep website/AGENTS.md and DESIGN_SYSTEM.md in sync. */
-import { useEffect, useState } from 'react';
+import { useLayoutEffect, useState } from 'react';
 import { Icon } from '../shared/icons/react';
 import { PalbooWordmark } from '../shared/brand';
 import { BoardDemo, BotDemo, ComposerDemo, ModelDemo, SpeedDemo } from './demos';
@@ -10,36 +10,21 @@ import { OpeningStory, ReadingStory } from './story';
 import { SurfaceStory, MaterialStory } from './workspace-demo';
 
 const repository = 'https://github.com/0xTotoroX/palboo';
-const themeKey = 'palboo.website.theme';
-function initialTheme(): 'light' | 'dark' {
-  try {
-    const saved = localStorage.getItem(themeKey);
-    if (saved === 'light' || saved === 'dark') return saved;
-  } catch {
-    /* Private storage may be denied. */
-  }
-  return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-}
 function ToolDetails() {
   const [botDraft, setBotDraft] = useState('');
   const [prompt, setPrompt] = useState('帮我把这个作品集方案安排一下');
   return (
     <section className="tools-section page-width" aria-labelledby="tools-title">
       <h2 id="tools-title">
-        模型、输入与 Bot，
+        常用操作，
         <br />
-        都在对话里完成。
+        不必离开对话。
       </h2>
       <div className="tool-row">
         <div>
           <h3>模型快切</h3>
-          <p>
-            直接切换 Codex 当前可用的具体模型，同时选择推理强度与
-            Fast。把常用组合存成预设，下次单击切换；也能查看 Codex 剩余额度。
-          </p>
-          <p>
-            这里用 GPT-6.1-Sol 与 GPT-6-Astra 演示。实际模型和档位来自你的 Codex，额度为示例数值。
-          </p>
+          <p>Codex 模型、推理强度和 Fast，在同一处切换。把常用组合存成预设，随时查看剩余额度。</p>
+          <p>模型与额度为示例，实际选项以你的 Codex 为准。</p>
         </div>
         <ModelDemo />
       </div>
@@ -47,11 +32,10 @@ function ToolDetails() {
         <div>
           <h3>聊天测速</h3>
           <p>
-            查看最近 3
-            秒可见回复的估算速度，区分等待、思考、工具执行与生成状态。官方用量可用时，还能查看输入、缓存、输出和思考
-            token。
+            分清等待、思考、工具执行与生成状态。生成时显示最近 3
+            秒的估算速度；官方用量可用时，还能查看本轮 token 消耗。
           </p>
-          <p>速度不包含隐藏思考与工具输出，开启后显示在模型快切底部。</p>
+          <p>显示在模型快切底部。速度只统计可见回复，不含隐藏思考和工具输出。</p>
         </div>
         <SpeedDemo />
       </div>
@@ -65,10 +49,7 @@ function ToolDetails() {
       <div className="tool-row">
         <div>
           <h3>Grok Bot</h3>
-          <p>
-            选一个已有的 Bot，把咨询填入当前聊天。Bot 资料可自动同步、搜索和置顶整理；常用 Bot
-            排在前面，只用分隔线区分。
-          </p>
+          <p>找到合适的 Bot，把咨询带进当前聊天。资料自动同步，支持搜索与置顶，常用的放在前面。</p>
           <p>沿用你的 BDK、MCP 与 Skill 配置，由当前聊天里的 Agent 发起咨询。</p>
         </div>
         <div>
@@ -82,19 +63,20 @@ function ToolDetails() {
   );
 }
 export function App() {
-  const [theme, setTheme] = useState(initialTheme);
-  useEffect(() => {
-    document.documentElement.dataset.siteTheme = theme;
-    document.documentElement.style.colorScheme = theme;
-    document
-      .querySelector('meta[name="theme-color"]')
-      ?.setAttribute('content', theme === 'dark' ? '#19191b' : '#fdfcf9');
-    try {
-      localStorage.setItem(themeKey, theme);
-    } catch {
-      /* Keep the visit usable without storage. */
-    }
-  }, [theme]);
+  useLayoutEffect(() => {
+    const media = matchMedia('(prefers-color-scheme: dark)');
+    const apply = () => {
+      const theme = media.matches ? 'dark' : 'light';
+      document.documentElement.dataset.siteTheme = theme;
+      document.documentElement.style.colorScheme = theme;
+      document
+        .querySelector('meta[name="theme-color"]')
+        ?.setAttribute('content', theme === 'dark' ? '#19191b' : '#fdfcf9');
+    };
+    apply();
+    media.addEventListener('change', apply);
+    return () => media.removeEventListener('change', apply);
+  }, []);
   return (
     <>
       <a className="skip-link" href="#main">
@@ -111,9 +93,7 @@ export function App() {
               把聊过的事一件件做完。
             </h2>
             <p>
-              把待办留在对话旁。添加任务、拖动整理，
-              <br />
-              从待办到进行中，再到完成。分组可自定义，窄侧栏按分组查看，贴边展开保留可读的卡片空间。
+              把聊到的事情留在手边。添加任务，拖动到进行中，再逐项完成。分组按需自定义，窄侧栏与贴边也能清楚查看。
             </p>
           </div>
           <div className="board-stage">
@@ -138,25 +118,34 @@ export function App() {
           </div>
           <div className="connection-details">
             <details>
-              <summary>模型服务与 CodexHost</summary>
+              <summary>
+                模型服务与 CodexHost
+                <Icon name="chevron-down" />
+              </summary>
               <p>
                 下一步、提示词优化和可选的术语识别使用已配置的模型服务。CodexHost
                 可按需开启、更新或恢复版本，沿用各 Agent 原有的安装与登录环境。
               </p>
             </details>
             <details>
-              <summary>启动与连接</summary>
+              <summary>
+                启动与连接
+                <Icon name="chevron-down" />
+              </summary>
               <p>
                 Palboo 是独立 App，通过本机连接与 Codex
                 协作。可查看连接状态、手动重连，并选择宿主重新打开时的处理方式。
               </p>
             </details>
             <details>
-              <summary>性能与开关</summary>
+              <summary>
+                性能与开关
+                <Icon name="chevron-down" />
+              </summary>
               <p>
                 可暂停与 Codex
-                的连接，保留任务和功能配置；重新开启继续使用。性能监测默认关闭，开启后在设置里查看
-                Palboo 后台的 CPU、内存与已测同步工作。
+                的连接，保留任务和功能配置；重新开启继续使用。性能监测默认关闭，需要时在设置中查看
+                Palboo 后台的 CPU 和内存。
               </p>
             </details>
           </div>
@@ -169,7 +158,6 @@ export function App() {
                 下一次对话，
                 <br />让 Palboo 陪你一起。
               </h2>
-              <p>1.0.0 安装包准备中</p>
             </div>
             <a
               className="release-link"
@@ -209,19 +197,6 @@ export function App() {
           </dl>
         </section>
       </main>
-      <footer className="site-footer page-width">
-        <a href={repository} target="_blank" rel="noopener noreferrer">
-          GitHub
-        </a>
-        <span>GPL-3.0-only · 开源</span>
-        <button
-          className="icon-button"
-          aria-label={theme === 'light' ? '切换到深色' : '切换到浅色'}
-          onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
-        >
-          <Icon name={theme === 'light' ? 'moon' : 'sun'} />
-        </button>
-      </footer>
     </>
   );
 }
