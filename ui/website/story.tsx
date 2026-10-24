@@ -241,6 +241,7 @@ export function ReadingStory() {
     const revealEditor = () => {
       cancelAnimationFrame(request);
       request = requestAnimationFrame(() => {
+        if (!engaged && !layoutFocus.current) return;
         const focused = document.activeElement as HTMLElement | null;
         if (!focused || !ref.current?.contains(focused)) return;
         const box = focused.getBoundingClientRect();

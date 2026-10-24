@@ -22,7 +22,7 @@ const set = (scope, patch, ...args) => cli('set', scope, '--json', JSON.stringif
 async function start() {
   child = spawn(
     binary,
-    ['--data-dir', data, 'serve', '--port', '0', '--cdp', 'http://127.0.0.1:9'],
+    ['--data-dir', data, 'serve', '--port', '0', '--cdp', 'http://127.0.0.1:9', '--allow-fixture'],
     { stdio: 'ignore' },
   );
   for (let n = 0; n < 100; n++) {

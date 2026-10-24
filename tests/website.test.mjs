@@ -632,7 +632,13 @@ test('pointer takeover releases keyboard chapter lock; static resizing and manua
     await suggestion.focus();
     await page.keyboard.press('Enter');
     await suggestion.click();
-    await scrollScene(page, '.reading-story', 0.9);
+    await page.locator('.story-copy[data-chapter="terms"] h2').evaluate((heading) => {
+      scrollTo(0, scrollY + heading.getBoundingClientRect().top - innerHeight * 0.5);
+    });
+    await demo
+      .getByRole('tab', { name: '术语释义', exact: true })
+      .and(page.locator('[aria-selected="true"]'))
+      .waitFor();
     assert.equal(await demo.getAttribute('data-feature'), 'terms');
     await demo.getByRole('button', { name: '收藏', exact: true }).click();
     const favorite = demo.getByRole('button', { name: '已收藏', exact: true });
