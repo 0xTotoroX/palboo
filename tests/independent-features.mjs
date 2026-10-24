@@ -400,6 +400,19 @@ export function independentFeatureCases({ mode, syncSettings }) {
           { steps: 15 },
         );
         await page.mouse.up();
+        await page.waitForFunction(
+          () =>
+            Math.abs(
+              document.querySelector('[data-palboo-dock]').getBoundingClientRect().width - 240,
+            ) < 2,
+        );
+        assert.equal(
+          await page.evaluate(() => window.__companionFloatingPanel.state.dockOpen),
+          true,
+          'resizing to the minimum does not collapse the sidebar',
+        );
+        const clampedWidth = (await dock.boundingBox()).width;
+        await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
         await page.waitForFunction(() => !window.__companionFloatingPanel.state.dockOpen);
         assert.equal((await dock.boundingBox()).width, 0, 'collapsed sidebar releases its slot');
         await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
@@ -409,8 +422,8 @@ export function independentFeatureCases({ mode, syncSettings }) {
           '尚未保存的标题',
         );
         assert.ok(
-          Math.abs((await dock.boundingBox()).width - beforeCollapse.width) < 2,
-          'reopen restores pre-collapse width',
+          Math.abs((await dock.boundingBox()).width - clampedWidth) < 2,
+          'reopen restores the saved minimum width',
         );
 
         for (let i = 0; i < 10; i++) {
@@ -511,7 +524,7 @@ export function independentFeatureCases({ mode, syncSettings }) {
         );
         await openFeature('next');
         const next = page.locator('[data-feature="next"]');
-        await page.getByRole('button', { name: '重新生成建议', exact: true }).waitFor();
+        await page.getByRole('button', { name: '生成建议', exact: true }).waitFor();
         await page.mouse.move(10, 10);
         const waitNextRefresh = (opacity) =>
           page.waitForFunction(
@@ -525,7 +538,7 @@ export function independentFeatureCases({ mode, syncSettings }) {
         await page.locator('.csw-workbench-head').hover();
         await waitNextRefresh('1');
         const nextRefreshBox = await page
-          .getByRole('button', { name: '重新生成建议', exact: true })
+          .getByRole('button', { name: '生成建议', exact: true })
           .boundingBox();
         const nextTabBox = await page
           .getByRole('tab', { name: '下一步', exact: true })
@@ -712,6 +725,10 @@ export function independentFeatureCases({ mode, syncSettings }) {
         assert.equal(action.data.target.id, 'synthetic-chat');
         await page.screenshot({ path: 'target/reports/workbench/independent-model.png' });
         await page.setViewportSize({ width: 880, height: 960 });
+        await page.waitForFunction(
+          () => window.__companionFloatingPanel.state.dockStatus === 'open',
+        );
+        await page.setViewportSize({ width: 440, height: 960 });
         await page.waitForFunction(
           () => document.querySelector('[data-palboo-dock]')?.dataset.reason === 'space',
         );

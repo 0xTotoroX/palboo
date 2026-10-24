@@ -672,7 +672,19 @@ const cases = [
         await page.mouse.move(handle.x + handle.width / 2, handle.y + 400 * zoom, { steps: 10 });
         await page.mouse.up();
         const minimum = await scope.locator('[data-pane="next"]').boundingBox();
-        near(minimum.height / zoom, 180, 'pointer resize protects the CSS minimum');
+        near(minimum.height / zoom, 36, 'pointer resize preserves the complete folded row');
+        assert.equal(
+          await scope.locator('[data-pane="next"] .csw-feature-content').evaluate((e) => e.inert),
+          true,
+          'folded content cannot receive interactions',
+        );
+        await scope.getByRole('tab', { name: '下一步', exact: true }).press('Enter');
+        const reopened = await scope.locator('[data-pane="next"]').boundingBox();
+        assert.ok(reopened.height / zoom >= 120, 'opening restores readable content');
+        assert.equal(
+          await scope.locator('[data-pane="next"] .csw-feature-content').evaluate((e) => e.inert),
+          false,
+        );
         await page.evaluate(() => {
           window.scaledLayout.destroy();
           const root = document.getElementById('scaled-feature-fixture');
@@ -1976,6 +1988,8 @@ const cases = [
         window.__companionFloatingPanel.panelPreferences(),
       );
       await page.setViewportSize({ width: 880, height: 960 });
+      await page.waitForFunction(() => window.__companionFloatingPanel.state.dockStatus === 'open');
+      await page.setViewportSize({ width: 440, height: 960 });
       await page.waitForFunction(
         () => window.__companionFloatingPanel.state.dockStatus === 'space',
       );
@@ -2557,6 +2571,8 @@ const cases = [
       await entry.press('Enter');
       await page.waitForFunction(() => window.__companionFloatingPanel.state.dockStatus === 'open');
       await page.setViewportSize({ width: 880, height: 960 });
+      await page.waitForFunction(() => window.__companionFloatingPanel.state.dockStatus === 'open');
+      await page.setViewportSize({ width: 440, height: 960 });
       await page.waitForFunction(
         () => window.__companionFloatingPanel.state.dockStatus === 'space',
       );
