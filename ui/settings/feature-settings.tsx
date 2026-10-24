@@ -138,27 +138,37 @@ export function FeatureSettings({
       onPointerDownCapture={feedback.track}
     >
       <h2 hidden={simple}>主界面</h2>
-      <div className={simple ? undefined : 'settings-surface-grid settings-surface-grid--stacked'}>
-        <div className="settings-grid-cell settings-placement-row">
-          <span className={simple ? undefined : 'settings-grid-label'}>主界面位置</span>
-          <div id="main-placement" className="settings-choice" role="group" aria-label="主界面形式">
-            {(['sidebar', 'overlay', 'desktop'] as const).map((p) => (
-              <button
-                type="button"
-                key={p}
-                aria-pressed={(state.pendingPlacement || primary) === p}
-                disabled={moving || (p === 'desktop' && !desktopSupported)}
-                onClick={() => void change({ op: 'main-placement', placement: p })}
-              >
-                {simple ? { sidebar: '侧栏', overlay: '浮层', desktop: '桌面' }[p] : labels[p]}
-              </button>
-            ))}
+      <div className={simple ? undefined : 'settings-surface-rows'}>
+        <div className="settings-surface-item">
+          <div
+            className={simple ? 'settings-placement-row' : 'settings-field settings-placement-row'}
+          >
+            <span>主界面位置</span>
+            <div
+              id="main-placement"
+              className="settings-choice"
+              role="group"
+              aria-label="主界面形式"
+            >
+              {(['sidebar', 'overlay', 'desktop'] as const).map((p) => (
+                <button
+                  type="button"
+                  key={p}
+                  aria-pressed={(state.pendingPlacement || primary) === p}
+                  disabled={moving || (p === 'desktop' && !desktopSupported)}
+                  onClick={() => void change({ op: 'main-placement', placement: p })}
+                >
+                  {simple ? { sidebar: '侧栏', overlay: '浮层', desktop: '桌面' }[p] : labels[p]}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
-        <div className="settings-grid-cell" hidden={simple}>
+        <div className="settings-surface-item" hidden={simple}>
           <Field id="main-layout" label="主界面布局">
             <NativeSelect
               id="main-layout"
+              controlWidth="short"
               disabled={moving || !ids.length}
               value={mode}
               onChange={(e) => arrange(e.target.value)}
@@ -179,9 +189,9 @@ export function FeatureSettings({
       <div hidden={simple}>
         <section id="feature-placements" className="settings-subsection">
           <h3>各功能位置</h3>
-          <div className="settings-surface-grid settings-surface-grid--features settings-surface-grid--stacked">
+          <div className="settings-feature-grid">
             {Object.entries(titles).map(([id, title]) => (
-              <div key={id} className="settings-grid-cell">
+              <div key={id} className="settings-feature-cell">
                 <Field id={`placement-${id}`} label={title}>
                   <NativeSelect
                     id={`placement-${id}`}

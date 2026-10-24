@@ -931,16 +931,28 @@ test(
                 toggleRows: [
                   ...document.querySelectorAll('#settings-sidebar-pages [role=switch]'),
                 ].map((e) => Math.round(e.getBoundingClientRect().top)),
+                widthRight: document.getElementById('dock-width').getBoundingClientRect().right,
+                pinRight: document
+                  .querySelector('#window-pinning [role=switch]')
+                  .getBoundingClientRect().right,
+                mainOrder:
+                  document.getElementById('main-placement').getBoundingClientRect().bottom <=
+                  document.getElementById('main-layout').getBoundingClientRect().top,
               };
             });
             assert.equal(layout.overflow, false, JSON.stringify({ width, base, theme, layout }));
             assert.equal(layout.clipped, false);
             assert.equal(layout.aligned, true);
             assert.equal(layout.retained, true);
+            assert.equal(layout.mainOrder, true);
+            assert.ok(
+              Math.abs(layout.widthRight - layout.pinRight) < 1,
+              'width and pinning share the control edge without sharing a row',
+            );
+            assert.equal(new Set(layout.toggleRows).size, 2);
             if (width === 360) assert.equal(layout.columns, 1);
             if (width === 1360 && base === 17) {
               assert.equal(layout.columns, 3);
-              assert.equal(new Set(layout.toggleRows).size, 1);
             }
             if (width === 740 && base === 17) assert.equal(layout.columns, 2);
           }
@@ -1003,13 +1015,13 @@ test(
       rejectFeature = true;
       await page.locator('#placement-outline').selectOption('edge');
       const placementCell = page
-        .locator('.settings-grid-cell')
+        .locator('.settings-feature-cell')
         .filter({ has: page.locator('#placement-outline') });
       await placementCell.getByRole('alert').waitFor();
       assert.equal(await page.locator('#placement-outline').inputValue(), 'sidebar');
       assert.equal(
         await page
-          .locator('#feature-placements > .settings-surface-grid > .settings-grid-cell')
+          .locator('#feature-placements > .settings-feature-grid > .settings-feature-cell')
           .count(),
         6,
       );

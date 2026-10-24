@@ -191,15 +191,15 @@ export function PanelSettings({
             hidden={page === 'appearance'}
           >
             <h2>侧栏显示范围</h2>
-            <div className="settings-surface-grid">
-              <div id="sidebar-new-chat" className="settings-grid-cell">
+            <div className="settings-surface-rows">
+              <div id="sidebar-new-chat" className="settings-surface-item">
                 <Toggle
                   label="新聊天中显示侧栏"
                   checked={ui.sidebarNewChat === true}
                   onChange={(v) => change('sidebarNewChat', v)}
                 />
               </div>
-              <div id="sidebar-dots" className="settings-grid-cell">
+              <div id="sidebar-dots" className="settings-surface-item">
                 <Toggle
                   label="Dots 中显示侧栏"
                   checked={ui.sidebarDots === true}
@@ -215,8 +215,8 @@ export function PanelSettings({
             hidden={page === 'appearance'}
           >
             <h2>尺寸与窗口</h2>
-            <div className="settings-surface-grid">
-              <div className="settings-grid-cell">
+            <div className="settings-surface-rows">
+              <div className="settings-surface-item">
                 {number(
                   'dock-width',
                   '侧栏宽度（px）',
@@ -226,7 +226,7 @@ export function PanelSettings({
                   (n) => change('dockWidth', n),
                 )}
               </div>
-              <div id="window-pinning" className="settings-grid-cell">
+              <div id="window-pinning" className="settings-surface-item">
                 <Toggle
                   label="桌面窗口置顶"
                   checked={prefs.alwaysOnTop}

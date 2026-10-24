@@ -197,8 +197,8 @@ export function SurfaceSettings({
         hidden={simple || page === 'appearance'}
       >
         <h2>贴边 / 刘海位置</h2>
-        <div className="settings-surface-grid">
-          <div className="settings-grid-cell settings-grid-cell--wide">
+        <div className="settings-surface-rows">
+          <div className="settings-surface-item">
             <label className="settings-field text-sm">
               <span className="whitespace-nowrap">屏幕</span>
               <NativeSelect
@@ -222,7 +222,7 @@ export function SurfaceSettings({
               </NativeSelect>
             </label>
           </div>
-          <div className="settings-grid-cell">
+          <div className="settings-surface-item">
             <label className="settings-field text-sm">
               <span className="whitespace-nowrap">边缘</span>
               <NativeSelect
@@ -238,16 +238,7 @@ export function SurfaceSettings({
               </NativeSelect>
             </label>
           </div>
-          <div className="settings-grid-cell">
-            <Toggle
-              id="edge-keep-open"
-              label="保持展开"
-              disabled={disabled}
-              checked={edge?.keepOpen || false}
-              onChange={(keepOpen) => void save({ edge: { keepOpen } })}
-            />
-          </div>
-          <div className="settings-grid-cell settings-grid-cell--wide">
+          <div className="settings-surface-item">
             <label className="settings-field text-sm">
               <span className="whitespace-nowrap">位置 {Math.round(position)}%</span>
               <input
@@ -262,6 +253,15 @@ export function SurfaceSettings({
                 onKeyUp={() => void save({ edge: { position: position / 100 } })}
               />
             </label>
+          </div>
+          <div className="settings-surface-item">
+            <Toggle
+              id="edge-keep-open"
+              label="保持展开"
+              disabled={disabled}
+              checked={edge?.keepOpen || false}
+              onChange={(keepOpen) => void save({ edge: { keepOpen } })}
+            />
           </div>
         </div>
       </section>
