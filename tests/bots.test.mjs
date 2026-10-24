@@ -406,6 +406,25 @@ test('saved sidebar groups reorder without losing calls, hide stale actions and 
       '随口一问',
     ]);
     assert.equal(await page.locator('textarea').inputValue(), '保留草稿');
+    const staleCatalog = { ...reordered, stale: true };
+    await page.evaluate((v) => window.render(v), staleCatalog);
+    await page.getByText('请打开 Grok Bot 更新资料。', { exact: true }).waitFor();
+    assert.equal(await page.locator('.palboo-bot-select').count(), 3);
+    assert.equal(await page.locator('.palboo-bot-select:disabled').count(), 3);
+    const staleDraft = await page.locator('textarea').inputValue();
+    const staleResult = await page.evaluate(() =>
+      window.api.fill({
+        ...window.api.read().target,
+        agent: '通用',
+        botId: 'bot-2',
+        revision: 'r1',
+        action: 'ask',
+      }),
+    );
+    assert.equal(staleResult.ok, false);
+    assert.equal(await page.locator('textarea').inputValue(), staleDraft);
+    await page.evaluate((v) => window.render(v), reordered);
+    await page.waitForFunction(() => !document.querySelector('.palboo-bot-select').disabled);
     const rejected = await page.evaluate(() =>
       window.api.fill({
         ...window.api.read().target,

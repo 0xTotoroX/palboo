@@ -49,6 +49,10 @@ export function closeWorkbench() {
   emitSignal('render', undefined);
   saveWorkbench();
 }
+export function resizeWorkbench(width) {
+  shellState.dockWidth = width;
+  dock?.resize(width);
+}
 export function syncWorkbench() {
   if (IS_POPOUT) return;
   if (!isWorkbench()) {

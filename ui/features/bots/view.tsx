@@ -76,7 +76,7 @@ export function BotsView({
       {snapshot.catalog?.error && <p role="status">{snapshot.catalog.error}</p>}
       {snapshot.catalog?.sidebarError && <p role="status">{snapshot.catalog.sidebarError}</p>}
       {snapshot.catalog?.stale && !snapshot.catalog.error && (
-        <p role="status">资料已过期，请打开 Grok Bot 等待同步。</p>
+        <p role="status">请打开 Grok Bot 更新资料。</p>
       )}
       {!snapshot.catalog?.error && !groups.some((group) => group.bots.length) && (
         <p role="status">当前没有显示的 Bot。</p>

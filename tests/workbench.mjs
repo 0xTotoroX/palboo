@@ -2233,11 +2233,11 @@ const cases = [
         window.__companionFloatingPanel.panelPreferences(),
       );
       await openChatSurface(page, 720);
-      assert.equal(await page.locator('.csw-workbench').isVisible(), false);
+      assert.equal(await page.locator('.csw-workbench').isVisible(), true);
       near(
         (await page.locator('#foreground-chat [data-palboo-dock]').boundingBox()).width,
-        0,
-        'no collapsed rail',
+        240,
+        'narrow foreground chat keeps the minimum sidebar visible',
       );
       const current = await page.evaluate(() => window.__companionFloatingPanel.panelPreferences());
       assert.equal(current.dockOpen, preferences.dockOpen);
@@ -2601,16 +2601,22 @@ const cases = [
         panel.textContent = '文件预览';
         document.querySelector('#fixture-dock-row').append(panel);
       });
-      await page.waitForFunction(
-        () => window.__companionFloatingPanel.state.dockStatus === 'space',
+      await settle(page);
+      assert.equal(
+        await page.evaluate(() => window.__companionFloatingPanel.state.dockStatus),
+        'open',
       );
-      const entry = page.getByRole('button', { name: 'Palboo', exact: true });
-      await entry.press('Enter');
+      near(
+        (await box(page, slotSelector)).width,
+        240,
+        'narrow chat retains the sidebar instead of hiding it',
+      );
       assert.equal(await page.locator('.csw-dock-menu,.csw-dock-warning').count(), 0);
       await page
         .locator('#fixture-file-panel')
         .evaluate((node) => (node.style.flexBasis = '325px'));
       await page.waitForFunction(() => window.__companionFloatingPanel.state.dockStatus === 'open');
+      await settle(page);
       assert.equal(await page.locator('.csw-dock-menu,.csw-dock-warning').count(), 0);
       near(
         (await box(page, '#fixture-host-content')).width,
@@ -2872,15 +2878,140 @@ const cases = [
       await page.mouse.down();
       await page.mouse.move(box.x + box.width / 2 + 65, box.y + box.height / 2, { steps: 10 });
       await page.mouse.up();
-      await page.waitForFunction(() => !window.__companionFloatingPanel.state.dockOpen);
-      near(
-        (await page.locator(slotSelector).boundingBox()).width,
-        0,
-        'drag past breakpoint releases sidebar',
-      );
-      await mode(page, true);
-      near((await layout(page)).slot.width, 240, 'reopening restores pre-collapse width');
+      await settle(page);
+      assert.equal(await page.evaluate(() => window.__companionFloatingPanel.state.dockOpen), true);
+      near((await layout(page)).slot.width, 240, 'drag stops at the minimum without hiding');
       await hostUnchanged(page);
+    },
+  ],
+  [
+    'host and dock dividers stay independent across page zoom and narrow chat widths',
+    async (page) => {
+      await page.setViewportSize({ width: 2000, height: 1100 });
+      await page.evaluate(() => {
+        const workspace = document.querySelector('.workspace');
+        workspace.style.cssText = 'flex:0 0 1100px;min-width:0;position:relative';
+        const splitter = document.createElement('div');
+        splitter.id = 'fixture-chat-split';
+        splitter.setAttribute('role', 'separator');
+        splitter.setAttribute('aria-label', '调整左右聊天');
+        splitter.style.cssText =
+          'position:absolute;right:-4px;top:0;height:100%;width:8px;z-index:999999;cursor:col-resize';
+        workspace.append(splitter);
+        splitter.onpointerdown = (event) => {
+          splitter.setPointerCapture(event.pointerId);
+          const origin = event.clientX;
+          const width = parseFloat(workspace.style.flexBasis);
+          const zoom = Number(document.documentElement.style.zoom) || 1;
+          splitter.onpointermove = (move) => {
+            workspace.style.flexBasis = `${Math.max(480, width + (move.clientX - origin) / zoom)}px`;
+          };
+          splitter.onpointerup = splitter.onpointercancel = () => {
+            splitter.onpointermove = null;
+          };
+        };
+      });
+      await mode(page, true);
+      for (const [index, zoom] of [0.8, 1, 1.2].entries()) {
+        await page.evaluate(
+          ({ zoom, revision }) => {
+            document.documentElement.style.zoom = String(zoom);
+            document.documentElement.classList.toggle('dark', zoom === 1.2);
+            document.querySelector('.workspace').style.flexBasis = '1100px';
+            window.__companionFloatingPanel.syncPanelPreferences(
+              {
+                ...window.__companionFloatingPanel.panelPreferences(),
+                dockWidth: 440,
+                dockOpen: true,
+              },
+              revision,
+              false,
+            );
+          },
+          { zoom, revision: index + 100 },
+        );
+        await settle(page);
+        const initial = await box(page, slotSelector);
+        const hostDivider = page.locator('#fixture-chat-split');
+        const split = await hostDivider.boundingBox();
+        const x = split.x + split.width / 2,
+          y = split.y + 120;
+        await page.mouse.move(x, y);
+        await page.mouse.down();
+        await page.mouse.move(x - 100 * zoom, y, { steps: 8 });
+        await settle(page);
+        near((await box(page, slotSelector)).x, initial.x, 'host drag keeps Palboo boundary fixed');
+        await page.evaluate(() => window.dispatchEvent(new Event('blur')));
+        await page.mouse.move(x + 80 * zoom, y, { steps: 8 });
+        await settle(page);
+        near(
+          (await box(page, slotSelector)).x,
+          initial.x,
+          'reversing host drag keeps the same boundary',
+        );
+        await page.mouse.up();
+        await settle(page);
+        near((await box(page, slotSelector)).x, initial.x, 'host release does not snap back');
+        const hostX = (await hostDivider.boundingBox()).x;
+        const handle = page.getByRole('separator', { name: '调整工作台宽度' });
+        const before = await box(page, slotSelector);
+        const grip = await handle.boundingBox();
+        const gx = grip.x + grip.width / 2,
+          gy = grip.y + grip.height / 2;
+        await page.mouse.move(gx, gy);
+        await page.mouse.down();
+        await page.mouse.move(gx + 80 * zoom, gy, { steps: 8 });
+        await page.mouse.up();
+        await settle(page);
+        near(
+          (await box(page, slotSelector)).x - before.x,
+          80 * zoom,
+          'dock pointer follows screen position at zoom',
+        );
+        near(
+          (await hostDivider.boundingBox()).x,
+          hostX,
+          'dock drag never moves the official divider',
+        );
+        const keyBefore = await box(page, slotSelector);
+        await handle.press('ArrowRight');
+        await settle(page);
+        near(
+          keyBefore.width - (await box(page, slotSelector)).width,
+          16 * zoom,
+          'keyboard stays in CSS pixels',
+        );
+        const narrow = await hostDivider.boundingBox();
+        await page.mouse.move(narrow.x + narrow.width / 2, y);
+        await page.mouse.down();
+        await page.mouse.move(narrow.x + narrow.width / 2 - 500 * zoom, y, { steps: 16 });
+        await page.mouse.up();
+        await settle(page);
+        assert.equal(
+          await page.evaluate(() => window.__companionFloatingPanel.state.dockStatus),
+          'open',
+        );
+        near(
+          (await box(page, slotSelector)).width / zoom,
+          240,
+          'minimum sidebar stays available in a narrow chat',
+        );
+        const minimumGrip = await handle.boundingBox();
+        await page.mouse.move(minimumGrip.x + minimumGrip.width / 2, gy);
+        await page.mouse.down();
+        await page.mouse.move(minimumGrip.x + 160 * zoom, gy, { steps: 8 });
+        await page.mouse.up();
+        await settle(page);
+        assert.equal(
+          await page.evaluate(() => window.__companionFloatingPanel.state.dockOpen),
+          true,
+        );
+        near(
+          (await box(page, slotSelector)).width / zoom,
+          240,
+          'dragging past the minimum never closes the sidebar',
+        );
+      }
     },
   ],
   [
@@ -2934,7 +3065,7 @@ const cases = [
         window.__companionFloatingPanel.panelPreferences(),
       );
       for (const viewport of [
-        { width: 880, height: 960 },
+        { width: 440, height: 960 },
         { width: 1440, height: 420 },
       ]) {
         await page.setViewportSize(viewport);

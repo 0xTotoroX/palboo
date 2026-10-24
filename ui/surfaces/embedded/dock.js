@@ -1,11 +1,12 @@
 /*
  * [INPUT]: 已识别的 Codex 主内容、标签页、前景聊天及 Dots 官方输入区布局、期望侧栏宽度、开合状态和默认关闭的新聊天/Dots 独立许可。
- * [OUTPUT]: dockWidthLimit 提供聊天实际可用宽度，自有根节点挂载、可撤销布局占位、含回程锚点的几何通知与临时让位状态；空白聊天与空间恢复沿用开合意愿，手动收起占位归零。
+ * [OUTPUT]: CSS 像素宽度上限、独立调节的聊天/侧栏边界、可撤销占位和屏幕几何；缩窄优先保留最小侧栏，手动收起占位归零。
  * [POS]: 宿主布局适配；不移动聊天节点，不读取正文，不包含功能视图。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
 import { foregroundSurface } from '../../codex/page-context.js';
-import { DOCK_MIN_WIDTH, CHAT_MIN_WIDTH } from './width.js';
+import { DOCK_MIN_WIDTH, CHAT_PREFERRED_WIDTH } from './width.js';
+import { elementScale } from '../workspace/separator.js';
 const SLOT = 'data-palboo-dock';
 const OWN_UI = `[${SLOT}],[data-companion-stepwise-root],[data-palboo-features-root]`;
 const visible = (node) =>
@@ -59,7 +60,7 @@ export function dockWidthLimit() {
     host.row.getBoundingClientRect().width,
     host.content.getBoundingClientRect().width + (slot?.getBoundingClientRect().width || 0),
   );
-  return Math.max(DOCK_MIN_WIDTH, available - CHAT_MIN_WIDTH);
+  return Math.max(DOCK_MIN_WIDTH, available / elementScale(host.row).x - CHAT_PREFERRED_WIDTH);
 }
 
 export function createDock(onChange, beforeMove = () => {}) {
@@ -72,6 +73,10 @@ export function createDock(onChange, beforeMove = () => {}) {
   let observer = null;
   let attachedRoot = null;
   let dockExpanded = false;
+  let allocatedWidth = null;
+  let preferredWidth = null;
+  let chatReserve = CHAT_PREFERRED_WIDTH;
+  let hostResize = null;
   const schedule = () => {
     if (!destroyed && !frame)
       frame = requestAnimationFrame(() => {
@@ -121,6 +126,38 @@ export function createDock(onChange, beforeMove = () => {}) {
   window.addEventListener('resize', schedule);
   document.addEventListener('focusin', schedule);
   document.addEventListener('pointerdown', schedule);
+  document.addEventListener('pointerdown', startHostResize, true);
+  window.addEventListener('pointermove', moveHostResize, true);
+  window.addEventListener('pointerup', endHostResize, true);
+  window.addEventListener('pointercancel', endHostResize, true);
+  window.addEventListener('lostpointercapture', endHostResize, true);
+  function startHostResize(event) {
+    if (event.button !== 0 || !dockExpanded || !slot) return;
+    const separator = event.target instanceof Element && event.target.closest('[role="separator"]');
+    if (!separator || separator.closest(OWN_UI)) return;
+    const bounds = separator.getBoundingClientRect();
+    const rect = slot.getBoundingClientRect();
+    // Only the host divider bordering this chat; never intercept its gesture.
+    if (
+      bounds.height <= bounds.width ||
+      Math.abs((bounds.left + bounds.right) / 2 - rect.right) > 24
+    )
+      return;
+    hostResize = { pointerId: event.pointerId, left: rect.left };
+    chatReserve = Math.min(
+      CHAT_PREFERRED_WIDTH,
+      host.content.getBoundingClientRect().width / elementScale(host.row).x,
+    );
+  }
+  function moveHostResize(event) {
+    if (hostResize?.pointerId === event.pointerId) schedule();
+  }
+  function endHostResize(event) {
+    if (!hostResize || (event.pointerId !== undefined && event.pointerId !== hostResize.pointerId))
+      return;
+    update();
+    hostResize = null;
+  }
   function unavailable(suspended) {
     removeSlot();
     publish({ status: suspended ? 'suspended' : 'unsupported', rect: null });
@@ -138,6 +175,10 @@ export function createDock(onChange, beforeMove = () => {}) {
     slot?.remove();
     slot = null;
     host = null;
+    allocatedWidth = null;
+    preferredWidth = null;
+    chatReserve = CHAT_PREFERRED_WIDTH;
+    hostResize = null;
   }
   function update(next = options) {
     if (destroyed) return;
@@ -173,18 +214,29 @@ export function createDock(onChange, beforeMove = () => {}) {
       if (host.dialog) observer.observe(host.dialog);
     }
     const bounds = host.row.getBoundingClientRect();
+    const scale = elementScale(host.row).x;
     // 只计算聊天与自有占位可分配的宽度，不把文件/浏览器侧栏算进来。
-    const availableWidth = Math.min(
-      bounds.width,
-      host.content.getBoundingClientRect().width + slot.getBoundingClientRect().width,
-    );
+    const availableWidth =
+      Math.min(
+        bounds.width,
+        host.content.getBoundingClientRect().width + slot.getBoundingClientRect().width,
+      ) / scale;
+    if (allocatedWidth === null || preferredWidth !== options.width) {
+      allocatedWidth = options.width;
+      preferredWidth = options.width;
+      chatReserve = CHAT_PREFERRED_WIDTH;
+    }
+    if (hostResize && options.open)
+      allocatedWidth = Math.max(
+        DOCK_MIN_WIDTH,
+        (slot.getBoundingClientRect().right - hostResize.left) / scale,
+      );
     const requestedWidth = Math.min(
-      options.width,
-      Math.max(DOCK_MIN_WIDTH, availableWidth - CHAT_MIN_WIDTH),
+      allocatedWidth,
+      Math.max(DOCK_MIN_WIDTH, availableWidth - chatReserve),
     );
     const enough =
-      availableWidth >= CHAT_MIN_WIDTH + requestedWidth &&
-      bounds.bottom - Math.max(bounds.top, 48) >= 426;
+      availableWidth >= requestedWidth && bounds.bottom - Math.max(bounds.top, 48) >= 426;
     // 空间变化只是暂时让位；聊天切换不能覆盖用户的开合意愿。
     const returnExpanded = options.open && enough;
     const expanded = !options.detached && returnExpanded;
@@ -213,15 +265,16 @@ export function createDock(onChange, beforeMove = () => {}) {
         left: rect.left,
         top: Math.max(rect.top, 48),
         width: rect.width,
+        scale,
         height: rect.bottom - Math.max(rect.top, 48),
         right: rect.right,
         bottom: rect.bottom,
         anchor: {
-          left: returnExpanded ? rect.right - requestedWidth : rect.right,
+          left: returnExpanded ? rect.right - requestedWidth * scale : rect.right,
           top: Math.max(rect.top, 48),
           right: rect.right,
           bottom: returnExpanded ? rect.bottom : Math.max(rect.top, 48),
-          width: returnExpanded ? requestedWidth : 0,
+          width: returnExpanded ? requestedWidth * scale : 0,
           height: returnExpanded ? rect.bottom - Math.max(rect.top, 48) : 0,
         },
       },
@@ -245,6 +298,11 @@ export function createDock(onChange, beforeMove = () => {}) {
   }
   return {
     update,
+    resize(width) {
+      allocatedWidth = width;
+      preferredWidth = width;
+      chatReserve = CHAT_PREFERRED_WIDTH;
+    },
     attachRoot(root) {
       if (destroyed) return;
       attachedRoot = root;
@@ -261,6 +319,11 @@ export function createDock(onChange, beforeMove = () => {}) {
       window.removeEventListener('resize', schedule);
       document.removeEventListener('focusin', schedule);
       document.removeEventListener('pointerdown', schedule);
+      document.removeEventListener('pointerdown', startHostResize, true);
+      window.removeEventListener('pointermove', moveHostResize, true);
+      window.removeEventListener('pointerup', endHostResize, true);
+      window.removeEventListener('pointercancel', endHostResize, true);
+      window.removeEventListener('lostpointercapture', endHostResize, true);
       cancelAnimationFrame(frame);
       removeSlot();
       attachedRoot = null;

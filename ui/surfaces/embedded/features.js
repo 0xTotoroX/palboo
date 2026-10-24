@@ -116,13 +116,15 @@ function frame(container, faceClick) {
   bindDockResize(
     handle,
     () => ({
-      width: dockValue.rect?.width || shellState.dockWidth,
+      width: dockValue.rect?.width / (dockValue.rect?.scale || 1) || shellState.dockWidth,
+      scale: dockValue.rect?.scale || 1,
       saved: shellState.dockWidth,
       maximum: dockWidthLimit(),
     }),
     (width, open) => {
       shellState.dockWidth = width;
       shellState.dockOpen = open;
+      dock?.resize(width);
       updateDock();
       emitSignal('render', undefined);
     },
@@ -136,7 +138,12 @@ function content(root, placement) {
   root.querySelector('.csw-workbench-face').dataset.expression = resolveFabExpression();
   const handle = root.querySelector('.csw-workbench-resize');
   handle.hidden = placement !== 'sidebar';
-  handle.setAttribute('aria-valuenow', String(dockValue.rect?.width || shellState.dockWidth));
+  handle.setAttribute(
+    'aria-valuenow',
+    String(
+      Math.round(dockValue.rect?.width / (dockValue.rect?.scale || 1) || shellState.dockWidth),
+    ),
+  );
   handle.setAttribute('aria-valuemax', String(dockWidthLimit()));
   const items = [...mounts.values()].filter((item) => item.placement === placement);
   for (const item of items)

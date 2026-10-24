@@ -170,7 +170,7 @@ export function BotSettings({
         </div>
         <Feedback text={error || catalog?.error} failed />
         <Feedback text={catalog?.sidebarError} failed />
-        {!catalog?.error && catalog?.stale && <Feedback text="资料已过期，请打开 Grok Bot。" />}
+        {!catalog?.error && catalog?.stale && <Feedback text="请打开 Grok Bot 更新资料。" />}
         {!catalog && busy && <Feedback text="正在读取 Bot 资料…" />}
         {catalog && !catalog.stale && !catalog.error && catalog.bots.length === 0 && (
           <Feedback text="暂无 Bot" />

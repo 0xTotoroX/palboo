@@ -631,7 +631,10 @@ try {
     await settingsPage.getByText('仅在设置展示的简介', { exact: true }).isVisible(),
     false,
   );
-  assert.equal(await settingsPage.getByRole('complementary', { name: '联动预览' }).count(), 0);
+  assert.equal(
+    await settingsPage.getByRole('complementary', { name: '联动预览' }).isVisible(),
+    true,
+  );
   await settingsPage.getByRole('button', { name: '手动新增 Bot', exact: true }).click();
   await settingsPage.getByText('仅在设置展示的简介', { exact: true }).waitFor();
   await settingsPage.keyboard.press('Escape');
@@ -704,9 +707,15 @@ try {
   );
   await settingsPage.screenshot({ path: join(output, 'palboo-bot-settings.png') });
   const goodCatalog = botCatalog;
+  botCatalog = { ...goodCatalog, stale: true };
+  const cachedCatalog = await api('features', { op: 'bots-catalog', refresh: true });
+  assert.equal(cachedCatalog.stale, true);
+  assert.equal(cachedCatalog.bots.length, goodCatalog.bots.length);
+  assert.equal(cachedCatalog.error, undefined);
+  await settingsPage.getByText('请打开 Grok Bot 更新资料。', { exact: true }).waitFor();
   botCatalog = { version: 1, bots: [{ name: '无身份 Bot', available: true }] };
   await api('features', { op: 'bots-catalog', refresh: true });
-  await settingsPage.getByText(/无法同步 Grok Bot/).waitFor();
+  await settingsPage.getByText('Grok Bot 同步失败，请重试。', { exact: true }).waitFor();
   assert.equal((await botRead()).snapshot.catalog.stale, true);
   botCatalog = {
     ...goodCatalog,

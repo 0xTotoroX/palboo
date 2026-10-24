@@ -32,7 +32,12 @@ import {
   exportPanelState,
   readingContentToken,
 } from '../../codex/runtime/presentation.js';
-import { closeWorkbench, setWorkbench, saveWorkbench } from '../embedded/legacy.js';
+import {
+  closeWorkbench,
+  setWorkbench,
+  saveWorkbench,
+  resizeWorkbench,
+} from '../embedded/legacy.js';
 import { installPanelDrag, onWorkbenchFaceClick } from '../embedded/shell/interaction.js';
 import {
   workbenchReading,
@@ -191,12 +196,14 @@ export function renderWorkbench(nextHtml, attachNextEvents, clearPromptTimers) {
     bindDockResize(
       panel.querySelector('.csw-workbench-resize'),
       () => ({
-        width: shellState.dockRect?.width || shellState.dockWidth,
+        width:
+          shellState.dockRect?.width / (shellState.dockRect?.scale || 1) || shellState.dockWidth,
+        scale: shellState.dockRect?.scale || 1,
         saved: shellState.dockWidth,
         maximum: dockWidthLimit(),
       }),
       (width, open) => {
-        shellState.dockWidth = width;
+        resizeWorkbench(width);
         shellState.dockOpen = open;
         emitSignal('render', undefined);
       },
@@ -357,7 +364,14 @@ export function renderWorkbench(nextHtml, attachNextEvents, clearPromptTimers) {
   applyMaterial({ animate: false });
   root
     .querySelector('.csw-workbench-resize')
-    .setAttribute('aria-valuenow', String(shellState.dockRect?.width || shellState.dockWidth));
+    .setAttribute(
+      'aria-valuenow',
+      String(
+        Math.round(
+          shellState.dockRect?.width / (shellState.dockRect?.scale || 1) || shellState.dockWidth,
+        ),
+      ),
+    );
   root
     .querySelector('.csw-workbench-resize')
     .setAttribute('aria-valuemax', String(dockWidthLimit()));

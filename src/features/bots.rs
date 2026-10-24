@@ -1,5 +1,5 @@
 // [INPUT]: OS roster/account/sidebar/UI-reference events, local BDK catalog and lifecycle.
-// [OUTPUT]: Event-invalidated catalog with 60s health fallback; no reply cursor reads.
+// [OUTPUT]: Validated fresh or stale metadata with 60s health fallback; no reply cursor reads.
 // [POS]: Palboo metadata transport. [PROTOCOL]: Keep src/AGENTS.md in sync.
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use serde_json::{Value, json};
@@ -165,7 +165,7 @@ pub async fn catalog(force: bool, auto_sync: bool) -> Value {
     c.value = match fetch().await {
         Ok(value) => value,
         Err(_) => {
-            json!({"version":1,"bots":[],"stale":true,"error":"无法同步 Grok Bot。请在设置 → Grok Bot 复制接入 Prompt，交给 Agent 检查连接。"})
+            json!({"version":1,"bots":[],"stale":true,"error":"Grok Bot 同步失败，请重试。"})
         }
     };
     c.at = Instant::now();
@@ -219,7 +219,7 @@ fn valid_catalog(catalog: &Value) -> bool {
     if catalog["version"] != 1
         || !nonempty(&catalog["account"])
         || !nonempty(&catalog["revision"])
-        || catalog["stale"] != false
+        || !catalog["stale"].is_boolean()
     {
         return false;
     }
@@ -304,6 +304,9 @@ mod tests {
                     {"id":"b","name":"B","available":true,"hidden":true}],
             "sidebar":{"version":1,"groups":[{"id":"pins","kind":"pinned","name":"置顶","botIds":["a"]}]}});
         assert!(valid_catalog(&good));
+        let mut cached = good.clone();
+        cached["stale"] = json!(true);
+        assert!(valid_catalog(&cached), "stale metadata remains readable");
         for ids in [
             json!([]),
             json!(["a", "a"]),
