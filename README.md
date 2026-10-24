@@ -230,6 +230,8 @@ scripts/           Development, build, and installation tools
 
 The standalone introduction page follows a portfolio project through next steps, reading tools, tasks and workspace surfaces. Original brand and device models follow scrolling, with inline interactions on narrow screens. Run `npm run dev:site` to preview it at `http://127.0.0.1:52152`; `npm run build:site` creates portable static files in `target/site/`, and `npm run preview:site` serves that build locally. `npm run test:site` checks its isolated interactions and responsive layouts. It does not connect to Codex or read personal configuration. Building the page does not publish it or add it to the App.
 
+In the development preview, add `?preview=github-buttons` to compare the GitHub button styles in place. This comparison control is excluded from the production build.
+
 After installing dependencies, open the host through Palboo, then run:
 
 ```sh

@@ -5,10 +5,11 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Icon } from '../shared/icons/react';
 import { BrandOpening } from './brand-opening';
+import { GithubLink, type GithubLinkVariant } from './github-link';
 import { Eyes, FeatureDemo, type FeatureId } from './demos';
 import { clamp, smooth, useScrollScene } from './scroll-motion';
 
-export function OpeningStory() {
+export function OpeningStory({ githubVariant }: { githubVariant?: GithubLinkVariant }) {
   const { ref, progress, staticView, scrollToStart } = useScrollScene();
   const brand = useRef<HTMLDivElement>(null);
   const entry = useRef<HTMLDivElement>(null);
@@ -90,17 +91,14 @@ export function OpeningStory() {
           <h1 id="page-title">
             让对话，
             <br className="mobile-break" />
-            有下一步。
+            多一维度
           </h1>
           <p>
             Palboo，你的 Codex 桌面搭档。
             <br />
             读懂长回答，接着推进，把常用工具放在对话旁。
           </p>
-          <a className="text-link" href="#install">
-            了解安装
-            <Icon name="feature-next" />
-          </a>
+          <GithubLink variant={githubVariant} />
         </div>
         <div
           ref={preview}

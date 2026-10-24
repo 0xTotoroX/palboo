@@ -91,6 +91,9 @@ p {
   outline: 2px solid var(--site-muted);
   outline-offset: 4px;
 }
+main:focus {
+  outline: none;
+}
 ::selection {
   background: #f4a3ad55;
 }
@@ -528,31 +531,62 @@ h2 {
   font-size: clamp(30px, 3vw, 42px);
   max-width: 13em;
 }
-.release-link {
+.github-link,
+.back-to-top {
   display: inline-flex;
   align-items: center;
-  gap: 24px;
+  justify-content: center;
+  gap: 20px;
   min-height: 48px;
   padding: 12px 22px;
-  border-radius: 7px;
-  background: var(--site-text);
-  color: var(--site-page);
+  border: 1px solid transparent;
+  border-radius: 8px;
   font-size: 15px;
+  font-weight: 500;
+  line-height: 1.4;
   flex-shrink: 0;
   transition:
     background 180ms var(--site-ease),
+    border-color 180ms var(--site-ease),
     transform 180ms var(--site-ease);
 }
-.release-link svg,
+.github-link {
+  margin-top: 12px;
+}
+.github-link--outline {
+  border-color: color-mix(in srgb, var(--site-text) 32%, var(--site-page));
+}
+.github-link--install {
+  gap: 10px;
+}
+.github-mark,
+.github-mark svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  fill: currentColor;
+}
+.github-link--solid,
+.back-to-top {
+  background: var(--site-text);
+  color: var(--site-page);
+}
+.github-link svg,
+.back-to-top svg,
 .text-link svg {
   transition: transform 180ms var(--site-ease);
 }
-.release-link:active {
+.github-link:active,
+.back-to-top:active {
   transform: translateY(1px);
 }
-.release-link:focus-visible svg,
+.github-link:not(.github-link--install):focus-visible svg,
 .text-link:focus-visible svg {
   transform: translateX(3px);
+}
+.back-to-top:focus-visible svg {
+  transform: translateY(-3px);
 }
 .install-facts {
   margin: 0;
@@ -581,12 +615,23 @@ h2 {
   .icon-button:hover {
     background: var(--site-input);
   }
-  .release-link:hover {
+  .github-link--text:hover,
+  .github-link--outline:hover {
+    background: var(--site-input);
+  }
+  .github-link--outline:hover {
+    border-color: var(--site-muted);
+  }
+  .github-link--solid:hover,
+  .back-to-top:hover {
     background: color-mix(in srgb, var(--site-text) 85%, var(--site-page));
   }
-  .release-link:hover svg,
+  .github-link:not(.github-link--install):hover svg,
   .text-link:hover svg {
     transform: translateX(3px);
+  }
+  .back-to-top:hover svg {
+    transform: translateY(-3px);
   }
   .suggestion:hover strong,
   .inline-term:hover {

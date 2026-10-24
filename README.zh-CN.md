@@ -223,6 +223,8 @@ scripts/      开发、构建与安装工具
 
 独立介绍页用作品集任务串联下一步、大纲、术语、看板与多形态工作台，原品牌和设备模型随滚动展示，窄屏提供逐段交互。运行 `npm run dev:site`，在 `http://127.0.0.1:52152` 预览；`npm run build:site` 将可独立托管的静态文件输出到 `target/site/`，`npm run preview:site` 本地预览构建结果。`npm run test:site` 检查隔离演示与响应布局。介绍页不连接 Codex、不读取个人配置；构建不会发布页面或将其加入 App。
 
+开发预览地址加上 `?preview=github-buttons`，可在原页面中比较 GitHub 按钮样式；该对比控件不进入正式构建。
+
 安装依赖后，先通过 Palboo 打开宿主，再运行：
 
 ```sh

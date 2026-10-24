@@ -1,5 +1,5 @@
 /* [INPUT]: Scroll stories, shared brand/icons and isolated portfolio demonstrations.
- * [OUTPUT]: Feature, workspace, material and connection overview with truthful release entry.
+ * [OUTPUT]: Feature overview, installation conditions and an accessible return to the opening.
  * [POS]: Independent website; follows system appearance, no business data or services.
  * [PROTOCOL]: Keep website/AGENTS.md and DESIGN_SYSTEM.md in sync. */
 import { useLayoutEffect, useState } from 'react';
@@ -8,8 +8,8 @@ import { PalbooWordmark } from '../shared/brand';
 import { BoardDemo, BotDemo, ComposerDemo, ModelDemo, SpeedDemo } from './demos';
 import { OpeningStory, ReadingStory } from './story';
 import { SurfaceStory, MaterialStory } from './workspace-demo';
+import type { GithubLinkVariant } from './github-link';
 
-const repository = 'https://github.com/0xTotoroX/palboo';
 function ToolDetails() {
   const [botDraft, setBotDraft] = useState('');
   const [prompt, setPrompt] = useState('帮我把这个作品集方案安排一下');
@@ -62,7 +62,7 @@ function ToolDetails() {
     </section>
   );
 }
-export function App() {
+export function App({ githubVariant }: { githubVariant?: GithubLinkVariant }) {
   useLayoutEffect(() => {
     const media = matchMedia('(prefers-color-scheme: dark)');
     const apply = () => {
@@ -82,8 +82,8 @@ export function App() {
       <a className="skip-link" href="#main">
         跳到正文
       </a>
-      <main id="main">
-        <OpeningStory />
+      <main id="main" tabIndex={-1}>
+        <OpeningStory githubVariant={githubVariant} />
         <ReadingStory />
         <section className="board-story page-width" aria-labelledby="board-title">
           <div className="section-intro">
@@ -160,13 +160,23 @@ export function App() {
               </h2>
             </div>
             <a
-              className="release-link"
-              href={`${repository}/releases`}
-              target="_blank"
-              rel="noopener noreferrer"
+              className="back-to-top"
+              href="#main"
+              onClick={(event) => {
+                if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                event.preventDefault();
+                history.replaceState(history.state, '', '#main');
+                document.getElementById('main')?.focus({ preventScroll: true });
+                scrollTo({
+                  top: 0,
+                  behavior: matchMedia('(prefers-reduced-motion: reduce)').matches
+                    ? 'instant'
+                    : 'smooth',
+                });
+              }}
             >
-              前往 GitHub 下载
-              <Icon name="feature-next" />
+              回到顶部
+              <Icon name="arrow-up" />
             </a>
           </div>
           <dl className="install-facts">

@@ -18,6 +18,8 @@ Preserve the separate original notices for the [Model Deck adapter](ui/codex/LIC
 
 The custom feature icons in [ui/shared/icons/features.js](ui/shared/icons/features.js) are project-owned and use GPL-3.0-only. The OpenAI MIT notice applies to the retained upstream control icons, not to the custom feature artwork.
 
+The standalone website uses one GitHub mark from [Primer Octicons](https://github.com/primer/octicons), with its original [MIT notice](ui/website/media/LICENSE-octicons) included in the site's LICENSES.txt. The mark remains a GitHub trademark, is used only to link to GitHub, and is not Palboo-owned artwork or included in the App.
+
 ## 中文
 
 Palboo 自有源码及独立材质对照工具，从本次许可变更版本起，采用 GNU 通用公共许可证**固定第三版**（`GPL-3.0-only`）。完整未修改原文见 LICENSE；适用范围限于版权人有权授权的当前及后续版本，不改变第三方代码的原有许可。
@@ -31,3 +33,5 @@ Palboo 自有源码及独立材质对照工具，从本次许可变更版本起�
 部分 Stepwise、大纲与浮窗模块来自版权人自有的 CodexPlusPlus 贡献，来源审查保留了固定上游提交及其他作者实现的排除记录。上游整体仍为 AGPL-3.0-only；本次只改变有权授权的自有代码，不能将其他作者的 AGPL 实现降为 GPL。Model Deck、shadcn/ui、OpenAI 图标及依赖的原许可与署名继续保留。
 
 [ui/shared/icons/features.js](ui/shared/icons/features.js) 中的自绘功能图标属于项目自有资源，采用 GPL-3.0-only；OpenAI MIT 许可仅适用于保留的上游控件图标。
+
+独立介绍页使用一个来自 Primer Octicons 的 GitHub 标记，原始 MIT 许可保留在 ui/website/media/LICENSE-octicons，并收录于网页产物的 LICENSES.txt。标记仍属于 GitHub 商标，仅用于跳转 GitHub，不属于 Palboo 自有图形，也不进入 App。

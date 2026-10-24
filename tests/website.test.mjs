@@ -112,10 +112,48 @@ test('portfolio demos preserve drafts, preferences and undo without service requ
     assert.deepEqual(errors, []);
     assert.ok(requests.every((url) => url.startsWith(base) && !url.includes('/api/')));
     assert.equal(
-      await page.getByRole('link', { name: '前往 GitHub 下载' }).getAttribute('href'),
+      await page.getByRole('link', { name: '安装，前往 GitHub 发布页面' }).getAttribute('href'),
       'https://github.com/0xTotoroX/palboo/releases',
     );
     assert.equal(await page.locator('a[download]').count(), 0);
+  } finally {
+    await page.close();
+  }
+});
+
+test('footer returns to the opening with keyboard focus and keeps demonstration drafts', async () => {
+  const page = await browser.newPage({ viewport: { width: 847, height: 988 } });
+  try {
+    await page.goto(base);
+    const draft = page.getByLabel('提示词优化演示', { exact: true });
+    await draft.fill('保留我的示例草稿');
+    const back = page.getByRole('link', { name: '回到顶部', exact: true });
+    for (const reducedMotion of ['no-preference', 'reduce']) {
+      await page.emulateMedia({ reducedMotion });
+      await back.scrollIntoViewIfNeeded();
+      assert.ok(await page.evaluate(() => scrollY > innerHeight));
+      if (reducedMotion === 'reduce') {
+        await back.focus();
+        await page.keyboard.press('Enter');
+      } else {
+        await back.click();
+      }
+      await page.waitForFunction(() => scrollY < 1);
+      await page.waitForFunction(() => {
+        const copy = document.querySelector('.opening-copy');
+        return (
+          getComputedStyle(copy).visibility === 'visible' && +getComputedStyle(copy).opacity === 1
+        );
+      });
+      assert.equal(await page.evaluate(() => document.activeElement.id), 'main');
+      assert.equal(await page.evaluate(() => location.hash), '#main');
+      assert.ok(
+        await page.getByRole('heading', { level: 1, name: /让对话，\s*多一维度/ }).isVisible(),
+      );
+      assert.equal(await draft.inputValue(), '保留我的示例草稿');
+      await page.keyboard.press('Tab');
+      assert.equal(await page.locator(':focus').getAttribute('aria-label'), '重播品牌开场');
+    }
   } finally {
     await page.close();
   }
@@ -130,13 +168,14 @@ test(
       await page.goto(base);
       page.setDefaultTimeout(15000);
       const stage = page.locator('.original-opening');
-      await page.waitForFunction(() => {
+      const typing = await page.waitForFunction(() => {
         const t = +document.querySelector('.original-opening').dataset.time;
-        return t > 0.45 && t < 0.65;
+        if (t <= 0.45 || t >= 0.65) return false;
+        return ['p', 'a', 'l'].map((letter) =>
+          document.querySelector(`#letter-${letter}`).getAttribute('opacity'),
+        );
       });
-      assert.equal(await page.locator('#letter-p').getAttribute('opacity'), '1');
-      assert.equal(await page.locator('#letter-a').getAttribute('opacity'), '1');
-      assert.equal(await page.locator('#letter-l').getAttribute('opacity'), '0');
+      assert.deepEqual(await typing.jsonValue(), ['1', '1', '0']);
       await page.getByRole('button', { name: '重播品牌开场' }).click();
       assert.ok(+(await stage.getAttribute('data-time')) < 0.3);
       await page.waitForFunction(
