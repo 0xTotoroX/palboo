@@ -693,7 +693,7 @@ mod tests {
         let b = screen("fallback-uuid", 0., 0., 1920., 1080.);
         let preferred = a.id.clone();
         assert_eq!(
-            select_screen(&[b.clone()], &preferred, "", (0., 0.))
+            select_screen(std::slice::from_ref(&b), &preferred, "", (0., 0.))
                 .unwrap()
                 .id,
             b.id

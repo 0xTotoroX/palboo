@@ -909,7 +909,10 @@ mod tests {
                 .unwrap()
                 .contains("防抖（Debouncing）")
         );
-        assert_eq!(known(&[t.clone()], "DEBOUNCING").unwrap().id, t.id);
+        assert_eq!(
+            known(std::slice::from_ref(&t), "DEBOUNCING").unwrap().id,
+            t.id
+        );
         assert!(known(&[t], "节流").is_none());
         std::fs::write(dir.path().join("terminology-library.json"), "broken").unwrap();
         assert!(library(dir.path()).is_err());

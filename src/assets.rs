@@ -99,6 +99,13 @@ fn validate_settings_url(value: &str) -> bool {
             .is_some_and(|fragment| fragment.starts_with("token=") && fragment.len() > 6)
 }
 
+pub fn panel_script() -> String {
+    development().map_or_else(
+        || crate::cdp::PANEL_SCRIPT.to_owned(),
+        |dev| dev.script.clone(),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -145,11 +152,4 @@ mod tests {
             assert!(!validate_settings_url(invalid), "{invalid}");
         }
     }
-}
-
-pub fn panel_script() -> String {
-    development().map_or_else(
-        || crate::cdp::PANEL_SCRIPT.to_owned(),
-        |dev| dev.script.clone(),
-    )
 }

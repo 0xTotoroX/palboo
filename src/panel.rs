@@ -1020,8 +1020,10 @@ mod tests {
     async fn unsupported_popout_rejects_requests_and_skips_saved_restore() {
         let dir = tempfile::tempdir().unwrap();
         let paths = Paths::new(Some(dir.path().into())).unwrap();
-        let mut prefs = Preferences::default();
-        prefs.detached = true;
+        let prefs = Preferences {
+            detached: true,
+            ..Default::default()
+        };
         prefs.save(&paths).unwrap();
         let app = App::new(paths, crate::config::Config::default(), None, true);
         app.panel.lock().await.popout_supported = false;
@@ -1306,11 +1308,16 @@ mod tests {
     async fn detached_preferences_reopen_and_ignore_host_collapse() {
         let dir = tempfile::tempdir().unwrap();
         let paths = Paths::new(Some(dir.path().into())).unwrap();
-        let mut prefs = Preferences::default();
-        prefs.detached = true;
-        prefs.ui.open = false;
-        prefs.ui.width = 510.;
-        prefs.return_open = Some(false);
+        let prefs = Preferences {
+            detached: true,
+            ui: Ui {
+                open: false,
+                width: 510.,
+                ..Default::default()
+            },
+            return_open: Some(false),
+            ..Default::default()
+        };
         prefs.save(&paths).unwrap();
         let app = App::new(paths, crate::config::Config::default(), None, true);
         let before = app.appearance().await;
@@ -1348,8 +1355,10 @@ mod tests {
             let mut input = panel_input("surface-test".into());
             input.expand = expand;
             input.expected_revision = Some(app.appearance().await.revision);
-            let mut ui = Ui::default();
-            ui.layout_mode = "capsule".into();
+            let ui = Ui {
+                layout_mode: "capsule".into(),
+                ..Default::default()
+            };
             input.ui = Some(ui);
             app.dock_panel(&input).await.unwrap();
             assert_eq!(app.appearance().await.ui.open, expand);
@@ -1564,8 +1573,10 @@ mod tests {
         prefs.ui.validate().unwrap();
         prefs.save(&paths).unwrap();
         assert_eq!(Preferences::read(&paths), prefs);
-        let mut invalid = Ui::default();
-        invalid.width = f64::INFINITY;
+        let invalid = Ui {
+            width: f64::INFINITY,
+            ..Default::default()
+        };
         assert!(invalid.validate().is_err());
         let extra: Ui = serde_json::from_value(json!({"chat":"must not persist"})).unwrap();
         assert!(
