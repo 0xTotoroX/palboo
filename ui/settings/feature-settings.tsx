@@ -1,5 +1,5 @@
 /* [INPUT]: 四功能的归属、版本化布局与旧布局兼容读取。
- * [OUTPUT]: 唯一主界面形式、功能放置与布局设置，以及预览用的只读已加载快照。
+ * [OUTPUT]: 紧凑分组的主界面形式、功能放置与布局设置，以及预览用的只读已加载快照。
  * [POS]: 设置页编排；写入 features，不再写旧两功能 dockLayout/popoutLayout。
  * [PROTOCOL]: 变更时同步 settings/AGENTS.md。 */
 import { useEffect, useRef, useState } from 'react';
@@ -138,66 +138,72 @@ export function FeatureSettings({
       onPointerDownCapture={feedback.track}
     >
       <h2 hidden={simple}>主界面</h2>
-      <div className="settings-placement-row">
-        <span hidden={!simple}>主界面位置</span>
-        <div id="main-placement" className="settings-choice" role="group" aria-label="主界面形式">
-          {(['sidebar', 'overlay', 'desktop'] as const).map((p) => (
-            <button
-              type="button"
-              key={p}
-              aria-pressed={(state.pendingPlacement || primary) === p}
-              disabled={moving || (p === 'desktop' && !desktopSupported)}
-              onClick={() => void change({ op: 'main-placement', placement: p })}
+      <div className={simple ? undefined : 'settings-surface-grid settings-surface-grid--stacked'}>
+        <div className="settings-grid-cell settings-placement-row">
+          <span className={simple ? undefined : 'settings-grid-label'}>主界面位置</span>
+          <div id="main-placement" className="settings-choice" role="group" aria-label="主界面形式">
+            {(['sidebar', 'overlay', 'desktop'] as const).map((p) => (
+              <button
+                type="button"
+                key={p}
+                aria-pressed={(state.pendingPlacement || primary) === p}
+                disabled={moving || (p === 'desktop' && !desktopSupported)}
+                onClick={() => void change({ op: 'main-placement', placement: p })}
+              >
+                {simple ? { sidebar: '侧栏', overlay: '浮层', desktop: '桌面' }[p] : labels[p]}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="settings-grid-cell" hidden={simple}>
+          <Field id="main-layout" label="主界面布局">
+            <NativeSelect
+              id="main-layout"
+              disabled={moving || !ids.length}
+              value={mode}
+              onChange={(e) => arrange(e.target.value)}
             >
-              {simple ? { sidebar: '侧栏', overlay: '浮层', desktop: '桌面' }[p] : labels[p]}
-            </button>
-          ))}
+              <option value="tabs">标签组</option>
+              <option value="vertical">上下分栏</option>
+              <option value="horizontal">左右分栏</option>
+              <option value="auto">自动分栏</option>
+              {mode === 'custom' && (
+                <option value="custom" disabled>
+                  自定义分栏
+                </option>
+              )}
+            </NativeSelect>
+          </Field>
         </div>
       </div>
       <div hidden={simple}>
-        <Field id="main-layout" label="主界面布局">
-          <NativeSelect
-            id="main-layout"
-            controlWidth="short"
-            disabled={moving || !ids.length}
-            value={mode}
-            onChange={(e) => arrange(e.target.value)}
-          >
-            <option value="tabs">标签组</option>
-            <option value="vertical">上下分栏</option>
-            <option value="horizontal">左右分栏</option>
-            <option value="auto">自动分栏</option>
-            {mode === 'custom' && (
-              <option value="custom" disabled>
-                自定义分栏
-              </option>
-            )}
-          </NativeSelect>
-        </Field>
         <section id="feature-placements" className="settings-subsection">
           <h3>各功能位置</h3>
-          {Object.entries(titles).map(([id, title]) => (
-            <Field key={id} id={`placement-${id}`} label={title}>
-              <NativeSelect
-                id={`placement-${id}`}
-                controlWidth="short"
-                aria-label={`${title}默认位置`}
-                disabled={moving}
-                value={
-                  state.features.find((e) => e.id === id)?.placement === 'edge' ||
-                  (!state.features.some((e) => e.id === id) && id === 'model')
-                    ? 'edge'
-                    : primary
-                }
-                onChange={(e) => void change({ op: 'move', id, placement: e.target.value })}
-              >
-                <option value={primary}>{labels[primary]}</option>
-                <option value="edge" disabled={!desktopSupported}>
-                  贴边 / 刘海
-                </option>
-              </NativeSelect>
-            </Field>
-          ))}
+          <div className="settings-surface-grid settings-surface-grid--features settings-surface-grid--stacked">
+            {Object.entries(titles).map(([id, title]) => (
+              <div key={id} className="settings-grid-cell">
+                <Field id={`placement-${id}`} label={title}>
+                  <NativeSelect
+                    id={`placement-${id}`}
+                    aria-label={`${title}默认位置`}
+                    disabled={moving}
+                    value={
+                      state.features.find((e) => e.id === id)?.placement === 'edge' ||
+                      (!state.features.some((e) => e.id === id) && id === 'model')
+                        ? 'edge'
+                        : primary
+                    }
+                    onChange={(e) => void change({ op: 'move', id, placement: e.target.value })}
+                  >
+                    <option value={primary}>{labels[primary]}</option>
+                    <option value="edge" disabled={!desktopSupported}>
+                      贴边 / 刘海
+                    </option>
+                  </NativeSelect>
+                </Field>
+              </div>
+            ))}
+          </div>
         </section>
       </div>
       <Feedback

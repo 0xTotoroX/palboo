@@ -197,64 +197,72 @@ export function SurfaceSettings({
         hidden={simple || page === 'appearance'}
       >
         <h2>贴边 / 刘海位置</h2>
-        <div className="mt-3 space-y-3">
-          <label className="settings-field text-sm">
-            <span className="whitespace-nowrap">屏幕</span>
-            <NativeSelect
-              aria-label="贴边屏幕"
+        <div className="settings-surface-grid">
+          <div className="settings-grid-cell settings-grid-cell--wide">
+            <label className="settings-field text-sm">
+              <span className="whitespace-nowrap">屏幕</span>
+              <NativeSelect
+                aria-label="贴边屏幕"
+                disabled={disabled}
+                value={edge?.screen || ''}
+                onChange={(event) => void save({ edge: { screen: event.target.value } })}
+              >
+                <option value="">自动选择</option>
+                <option value="codex">跟随 Codex</option>
+                {displays.screens.map((screen) => (
+                  <option key={screen.id} value={screen.id}>
+                    {screen.label}
+                  </option>
+                ))}
+                {edge?.screen &&
+                  edge.screen !== 'codex' &&
+                  !displays.screens.some((screen) => screen.id === edge.screen) && (
+                    <option value={edge.screen}>已断开的屏幕（保留选择）</option>
+                  )}
+              </NativeSelect>
+            </label>
+          </div>
+          <div className="settings-grid-cell">
+            <label className="settings-field text-sm">
+              <span className="whitespace-nowrap">边缘</span>
+              <NativeSelect
+                controlWidth="short"
+                aria-label="贴边边缘"
+                disabled={disabled}
+                value={edge?.edge || 'right'}
+                onChange={(event) => void save({ edge: { edge: event.target.value } })}
+              >
+                <option value="right">右侧</option>
+                <option value="left">左侧</option>
+                <option value="top">顶部 / 刘海</option>
+              </NativeSelect>
+            </label>
+          </div>
+          <div className="settings-grid-cell">
+            <Toggle
+              id="edge-keep-open"
+              label="保持展开"
               disabled={disabled}
-              value={edge?.screen || ''}
-              onChange={(event) => void save({ edge: { screen: event.target.value } })}
-            >
-              <option value="">自动选择</option>
-              <option value="codex">跟随 Codex</option>
-              {displays.screens.map((screen) => (
-                <option key={screen.id} value={screen.id}>
-                  {screen.label}
-                </option>
-              ))}
-              {edge?.screen &&
-                edge.screen !== 'codex' &&
-                !displays.screens.some((screen) => screen.id === edge.screen) && (
-                  <option value={edge.screen}>已断开的屏幕（保留选择）</option>
-                )}
-            </NativeSelect>
-          </label>
-          <label className="settings-field text-sm">
-            <span className="whitespace-nowrap">边缘</span>
-            <NativeSelect
-              controlWidth="short"
-              aria-label="贴边边缘"
-              disabled={disabled}
-              value={edge?.edge || 'right'}
-              onChange={(event) => void save({ edge: { edge: event.target.value } })}
-            >
-              <option value="right">右侧</option>
-              <option value="left">左侧</option>
-              <option value="top">顶部 / 刘海</option>
-            </NativeSelect>
-          </label>
-          <label className="settings-field text-sm">
-            <span className="whitespace-nowrap">位置 {Math.round(position)}%</span>
-            <input
-              aria-label="贴边位置"
-              type="range"
-              min="0"
-              max="100"
-              disabled={disabled}
-              value={position}
-              onChange={(event) => setPosition(Number(event.target.value))}
-              onPointerUp={() => void save({ edge: { position: position / 100 } })}
-              onKeyUp={() => void save({ edge: { position: position / 100 } })}
+              checked={edge?.keepOpen || false}
+              onChange={(keepOpen) => void save({ edge: { keepOpen } })}
             />
-          </label>
-          <Toggle
-            id="edge-keep-open"
-            label="保持展开"
-            disabled={disabled}
-            checked={edge?.keepOpen || false}
-            onChange={(keepOpen) => void save({ edge: { keepOpen } })}
-          />
+          </div>
+          <div className="settings-grid-cell settings-grid-cell--wide">
+            <label className="settings-field text-sm">
+              <span className="whitespace-nowrap">位置 {Math.round(position)}%</span>
+              <input
+                aria-label="贴边位置"
+                type="range"
+                min="0"
+                max="100"
+                disabled={disabled}
+                value={position}
+                onChange={(event) => setPosition(Number(event.target.value))}
+                onPointerUp={() => void save({ edge: { position: position / 100 } })}
+                onKeyUp={() => void save({ edge: { position: position / 100 } })}
+              />
+            </label>
+          </div>
         </div>
       </section>
       <Feedback

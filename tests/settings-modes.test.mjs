@@ -17,6 +17,7 @@ test(
   async (testContext) => {
     let settings = structuredClone(fixtureSettings),
       rejectNext = false,
+      rejectFeature = false,
       rejectSurface = false;
     const writes = [];
     const previewGeometry = [];
@@ -177,6 +178,13 @@ test(
           }
           value = settings;
         } else if (path === '/api/features') {
+          if (body?.op === 'move' && rejectFeature) {
+            rejectFeature = false;
+            res
+              .writeHead(409, { 'Content-Type': 'application/json' })
+              .end('{"message":"合成功能位置保存失败"}');
+            return;
+          }
           if (body?.op === 'main-placement') {
             features.mainPlacement = body.placement;
             for (const entry of features.features)
@@ -876,6 +884,76 @@ test(
           path: 'target/reports/settings-unified-layout.png',
           fullPage: true,
         });
+      // Surface preferences pack related controls without remounting or saving on resize.
+      const surfaceWrites = writes.length;
+      const surfaceStyle = await page.evaluate(() =>
+        document.documentElement.getAttribute('style'),
+      );
+      const surfaceTheme = await page.evaluate(
+        () => document.documentElement.dataset.settingsTheme,
+      );
+      await page.evaluate(() => {
+        window.surfaceWidthInput = document.getElementById('dock-width');
+        window.surfaceSelects = [...document.querySelectorAll('#feature-placements select')];
+      });
+      for (const width of [360, 550, 740, 1360])
+        for (const base of [17, 32])
+          for (const theme of ['light', 'dark']) {
+            await page.setViewportSize({ width, height: 900 });
+            await page.evaluate(
+              ({ base, theme }) => {
+                document.documentElement.style.fontSize = base + 'px';
+                document.documentElement.style.setProperty('--buddy-type-size', base + 'px');
+                document.documentElement.dataset.settingsTheme = theme;
+              },
+              { base, theme },
+            );
+            const layout = await page.evaluate(() => {
+              const controls = [...document.querySelectorAll('#feature-placements select')];
+              const boxes = controls.map((e) => e.getBoundingClientRect());
+              return {
+                columns: new Set(boxes.map((r) => Math.round(r.left))).size,
+                overflow: document.documentElement.scrollWidth > innerWidth,
+                clipped: controls.some((e) => e.scrollHeight > e.clientHeight + 2),
+                aligned: controls.every((e) => {
+                  const r = e.getBoundingClientRect();
+                  const field = e.closest('.settings-field');
+                  const l = field.querySelector('label').getBoundingClientRect();
+                  return (
+                    Math.abs(l.left - r.left) < 1 &&
+                    Math.abs(field.getBoundingClientRect().right - r.right) < 1 &&
+                    l.bottom <= r.top
+                  );
+                }),
+                retained:
+                  document.getElementById('dock-width') === window.surfaceWidthInput &&
+                  controls.every((e, i) => e === window.surfaceSelects[i]),
+                toggleRows: [
+                  ...document.querySelectorAll('#settings-sidebar-pages [role=switch]'),
+                ].map((e) => Math.round(e.getBoundingClientRect().top)),
+              };
+            });
+            assert.equal(layout.overflow, false, JSON.stringify({ width, base, theme, layout }));
+            assert.equal(layout.clipped, false);
+            assert.equal(layout.aligned, true);
+            assert.equal(layout.retained, true);
+            if (width === 360) assert.equal(layout.columns, 1);
+            if (width === 1360 && base === 17) {
+              assert.equal(layout.columns, 3);
+              assert.equal(new Set(layout.toggleRows).size, 1);
+            }
+            if (width === 740 && base === 17) assert.equal(layout.columns, 2);
+          }
+      await page.evaluate(
+        ({ style, theme }) => {
+          if (style === null) document.documentElement.removeAttribute('style');
+          else document.documentElement.setAttribute('style', style);
+          document.documentElement.dataset.settingsTheme = theme;
+        },
+        { style: surfaceStyle, theme: surfaceTheme },
+      );
+      await page.setViewportSize({ width: 360, height: 800 });
+      assert.equal(writes.length, surfaceWrites, 'responsive layout never saves preferences');
       const count = writes.length;
       await category('features');
       await page.reload();
@@ -922,6 +1000,31 @@ test(
       await page.getByLabel('侧栏主题', { exact: true }).selectOption('black');
       await preview.locator('[data-preview-workspace][data-material="black"]').waitFor();
       await category('surfaces');
+      rejectFeature = true;
+      await page.locator('#placement-outline').selectOption('edge');
+      const placementCell = page
+        .locator('.settings-grid-cell')
+        .filter({ has: page.locator('#placement-outline') });
+      await placementCell.getByRole('alert').waitFor();
+      assert.equal(await page.locator('#placement-outline').inputValue(), 'sidebar');
+      assert.equal(
+        await page
+          .locator('#feature-placements > .settings-surface-grid > .settings-grid-cell')
+          .count(),
+        6,
+      );
+      const neighborOffset = await page
+        .locator('#placement-board')
+        .evaluate((e) =>
+          Math.abs(
+            e.getBoundingClientRect().top -
+              document.getElementById('placement-outline').getBoundingClientRect().top,
+          ),
+        );
+      assert.ok(
+        neighborOffset < 1,
+        'save failure stays in its cell without displacing neighboring controls',
+      );
       await page.getByLabel('主界面布局', { exact: true }).selectOption('horizontal');
       await page.waitForFunction(
         () => document.querySelectorAll('.layout-demo .csw-workbench-pane').length === 3,

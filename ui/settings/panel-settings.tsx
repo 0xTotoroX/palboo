@@ -191,19 +191,21 @@ export function PanelSettings({
             hidden={page === 'appearance'}
           >
             <h2>侧栏显示范围</h2>
-            <div id="sidebar-new-chat">
-              <Toggle
-                label="新聊天中显示侧栏"
-                checked={ui.sidebarNewChat === true}
-                onChange={(v) => change('sidebarNewChat', v)}
-              />
-            </div>
-            <div id="sidebar-dots">
-              <Toggle
-                label="Dots 中显示侧栏"
-                checked={ui.sidebarDots === true}
-                onChange={(v) => change('sidebarDots', v)}
-              />
+            <div className="settings-surface-grid">
+              <div id="sidebar-new-chat" className="settings-grid-cell">
+                <Toggle
+                  label="新聊天中显示侧栏"
+                  checked={ui.sidebarNewChat === true}
+                  onChange={(v) => change('sidebarNewChat', v)}
+                />
+              </div>
+              <div id="sidebar-dots" className="settings-grid-cell">
+                <Toggle
+                  label="Dots 中显示侧栏"
+                  checked={ui.sidebarDots === true}
+                  onChange={(v) => change('sidebarDots', v)}
+                />
+              </div>
             </div>
           </section>
           <section
@@ -213,20 +215,24 @@ export function PanelSettings({
             hidden={page === 'appearance'}
           >
             <h2>尺寸与窗口</h2>
-            {number(
-              'dock-width',
-              '侧栏宽度（px）',
-              Math.round(ui.dockWidth),
-              DOCK_MIN_WIDTH,
-              Infinity,
-              (n) => change('dockWidth', n),
-            )}
-            <div id="window-pinning">
-              <Toggle
-                label="桌面窗口置顶"
-                checked={prefs.alwaysOnTop}
-                onChange={(v) => void update({ alwaysOnTop: v })}
-              />
+            <div className="settings-surface-grid">
+              <div className="settings-grid-cell">
+                {number(
+                  'dock-width',
+                  '侧栏宽度（px）',
+                  Math.round(ui.dockWidth),
+                  DOCK_MIN_WIDTH,
+                  Infinity,
+                  (n) => change('dockWidth', n),
+                )}
+              </div>
+              <div id="window-pinning" className="settings-grid-cell">
+                <Toggle
+                  label="桌面窗口置顶"
+                  checked={prefs.alwaysOnTop}
+                  onChange={(v) => void update({ alwaysOnTop: v })}
+                />
+              </div>
             </div>
           </section>
         </>
