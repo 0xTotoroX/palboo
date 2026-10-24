@@ -162,8 +162,12 @@ createRoot(document.getElementById('root')).render(<App/>);`,
         .getByRole('textbox', { name: '常用提示词 3 内容', exact: true })
         .fill('保留的草稿');
       await page.evaluate(() => {
-        window.kept = document.querySelectorAll('[data-settings-list="quick-prompts"] > div')[1];
-        window.last = document.querySelectorAll('[data-settings-list="quick-prompts"] > div')[2];
+        window.kept = document.querySelectorAll(
+          '[data-settings-list="quick-prompts"] > .settings-prompt-entry',
+        )[1];
+        window.last = document.querySelectorAll(
+          '[data-settings-list="quick-prompts"] > .settings-prompt-entry',
+        )[2];
       });
       await clear();
       await page.getByRole('button', { name: '删除常用提示词 1', exact: true }).click();
@@ -172,15 +176,21 @@ createRoot(document.getElementById('root')).render(<App/>);`,
       if (await confirmation.count())
         await confirmation.getByRole('button', { name: '确认删除', exact: true }).click();
       await page.waitForFunction(
-        () => document.querySelectorAll('[data-settings-list="quick-prompts"] > div').length === 2,
+        () =>
+          document.querySelectorAll('[data-settings-list="quick-prompts"] > .settings-prompt-entry')
+            .length === 2,
       );
       assert.equal(
         await page.evaluate(
           () =>
             window.kept ===
-              document.querySelectorAll('[data-settings-list="quick-prompts"] > div')[0] &&
+              document.querySelectorAll(
+                '[data-settings-list="quick-prompts"] > .settings-prompt-entry',
+              )[0] &&
             window.last ===
-              document.querySelectorAll('[data-settings-list="quick-prompts"] > div')[1],
+              document.querySelectorAll(
+                '[data-settings-list="quick-prompts"] > .settings-prompt-entry',
+              )[1],
         ),
         true,
       );

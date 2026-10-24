@@ -19,6 +19,9 @@ html:root {
   --buddy-radius-small: 4px;
   --settings-control-radius: var(--buddy-radius-small);
   --settings-control-height: 38px;
+  --settings-text-size: calc(var(--buddy-type-size, 16px) * 0.875);
+  --settings-heading-size: var(--buddy-type-size, 16px);
+  --settings-title-size: calc(var(--buddy-type-size, 16px) * 1.125);
   --settings-menu-shadow: 0 8px 28px #18181b14;
   --switch-track: #d7d7dd;
   --notice: #faf6ed;
@@ -309,12 +312,12 @@ html:root .settings-nav {
   margin-bottom: 24px;
 }
 .settings-section h2 {
-  font-size: 1em;
+  font-size: var(--settings-heading-size);
   font-weight: 600;
   margin: 0 0 20px;
 }
 .settings-section h3 {
-  font-size: 0.875em;
+  font-size: var(--settings-text-size);
   font-weight: 550;
 }
 .settings-form-column > .settings-section:not([hidden]) ~ .settings-section:not([hidden]),
@@ -334,7 +337,7 @@ html:root .settings-nav {
 }
 .settings-field > label {
   padding-top: 8px;
-  font-size: 0.875em;
+  font-size: var(--settings-text-size);
 }
 .settings-row {
   display: flex;
@@ -342,7 +345,7 @@ html:root .settings-nav {
   align-items: center;
   gap: 16px;
   padding: 12px 0;
-  font-size: 0.875em;
+  font-size: var(--settings-text-size);
 }
 .settings-feature-switch > label {
   cursor: pointer;
@@ -375,13 +378,30 @@ html:root .settings-nav {
 .settings-save {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 12px;
-  padding: 14px 0;
-  margin: 20px 0;
-  border-top: 1px solid var(--buddy-border);
+  padding: 0;
+  margin: 8px 0 16px;
   color: var(--buddy-muted);
-  font-size: 0.8125em;
+  font-size: var(--settings-text-size);
+}
+.settings-feedback-slot {
+  min-width: 0;
+  grid-column: 1 / -1;
+  font-size: var(--settings-text-size);
+}
+.settings-feedback-slot .settings-feedback {
+  margin: 4px 0 8px;
+  font-size: inherit;
+}
+.settings-feedback-slot:empty,
+.settings-feedback-slot:has(> [hidden]),
+.settings-app:has(.settings-drawer[open]) [data-settings-form-feedback] {
+  display: none;
+}
+.settings-field:has(+ .settings-feedback-slot > :not([hidden])),
+.settings-row:has(+ .settings-feedback-slot > :not([hidden])) {
+  margin-bottom: 4px;
 }
 .settings-section > summary,
 .settings-details > summary {

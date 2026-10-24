@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { request } from './api';
 import { Field, Feedback } from './settings-controls';
+import { useFeedbackTarget } from './settings-feedback';
 import { NativeSelect } from './components/ui/native-select';
 import { titles, type FeatureState } from '../shared/features';
 import { resolveFeatureLayout } from '../surfaces/workspace/layout';
@@ -64,6 +65,7 @@ export function FeatureSettings({
   useEffect(() => onSnapshot?.(ready ? state : null), [state, ready, onSnapshot]);
   async function change(input: object) {
     if (writing.current) return;
+    feedback.capture();
     writing.current = true;
     generation.current++;
     setBusy(true);
@@ -127,8 +129,14 @@ export function FeatureSettings({
       },
     });
   }
+  const feedback = useFeedbackTarget();
   return (
-    <section className="settings-section">
+    <section
+      className="settings-section"
+      onBlurCapture={feedback.track}
+      onChangeCapture={feedback.track}
+      onPointerDownCapture={feedback.track}
+    >
       <h2 hidden={simple}>主界面</h2>
       <div className="settings-placement-row">
         <span hidden={!simple}>主界面位置</span>
@@ -190,7 +198,11 @@ export function FeatureSettings({
           ))}
         </section>
       </div>
-      <Feedback text={error || readError} failed />
+      <Feedback
+        text={error || readError || (busy ? '正在保存…' : '')}
+        failed={!!(error || readError)}
+        target={error || busy ? feedback.target : null}
+      />
     </section>
   );
 }

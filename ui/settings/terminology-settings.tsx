@@ -4,7 +4,8 @@
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { SettingsDrawer } from './settings-drawer';
 import { PreviewFrame } from './preview-frame';
-import { Field, Toggle } from './settings-controls';
+import { Field, Toggle, Feedback } from './settings-controls';
+import { useFeedbackTarget } from './settings-feedback';
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { useConfirmation } from './settings-confirmation';
@@ -98,6 +99,7 @@ function download(text: string, name: string, type = 'text/markdown;charset=utf-
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 export function TerminologySettings({ active }: { active: boolean }) {
+  const feedback = useFeedbackTarget();
   const [data, setData] = useState<Library | null>(null),
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false);
@@ -150,6 +152,7 @@ export function TerminologySettings({ active }: { active: boolean }) {
     return () => clearInterval(timer);
   }, [active, hasPending, busy]);
   async function command(payload: object) {
+    feedback.capture();
     setBusy(true);
     setError('');
     try {
@@ -164,6 +167,7 @@ export function TerminologySettings({ active }: { active: boolean }) {
     }
   }
   async function exportFile() {
+    feedback.capture();
     setError('');
     try {
       const value = await request<{ filename: string; markdown: string; entries: Term[] }>(
@@ -192,14 +196,21 @@ export function TerminologySettings({ active }: { active: boolean }) {
       ),
   );
   return (
-    <section className="settings-section" id="settings-terminology" aria-label="术语释义设置">
+    <section
+      className="settings-section"
+      id="settings-terminology"
+      aria-label="术语释义设置"
+      onBlurCapture={feedback.track}
+      onChangeCapture={feedback.track}
+      onPointerDownCapture={feedback.track}
+    >
       {confirmation}
       <style>{cardStyles}</style>
-      {error && (
-        <p role="alert" className="settings-feedback settings-error">
-          {error}
-        </p>
-      )}
+      <Feedback
+        text={error}
+        failed
+        target={feedback.target?.closest('dialog') ? null : feedback.target}
+      />
       {!prefs ? (
         <p>正在读取术语库…</p>
       ) : (
@@ -400,6 +411,7 @@ export function TerminologySettings({ active }: { active: boolean }) {
 
                   <div
                     className="term-actions"
+                    data-settings-feedback-anchor
                     data-term-management="transfer"
                     hidden={management !== 'transfer'}
                   >
@@ -530,6 +542,7 @@ export function TerminologySettings({ active }: { active: boolean }) {
               {results.slice(0, resultLimit).map((t) => (
                 <div
                   className="term-result"
+                  data-settings-feedback-anchor
                   key={t.id}
                   onKeyDown={(event) => {
                     if (event.key !== 'Escape' || expandedTerm !== t.id) return;

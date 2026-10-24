@@ -1,11 +1,12 @@
 /*
  * [INPUT]: 版本化设置 API、连接状态与服务端修订。
- * [OUTPUT]: 生成/Jev 独立密钥及表单的失焦/选择自动保存与手动保存共用队列，功能开关及确认后的密钥/方向/提示词删除单独保存，保留在途编辑和失败草稿。
+ * [OUTPUT]: 生成/Jev 独立密钥及表单的失焦/选择自动保存与手动保存共用队列，功能开关及确认后的密钥/方向/提示词删除单独保存，保留在途编辑和失败草稿，并在请求期间固定反馈来源。
  * [POS]: 设置表单事务；不执行模型生成、宿主重启或窗口操作。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
 import { useEffect, useRef, useState } from 'react';
 import { request, type EditableSettings, type Settings } from './api';
+import { feedbackTarget } from './settings-feedback';
 
 type ControlPatch = {
   directionSource?: EditableSettings['directionSource'];
@@ -46,6 +47,9 @@ export function useSettingsForm(
   });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [feedbackAt, setFeedbackAt] = useState<HTMLElement | null>(null);
+  const editedAt = useRef<HTMLElement | null>(null);
+  const editSource = useRef<Element | null>(null);
   const [remoteChanged, setRemoteChanged] = useState(false);
   const current = useRef(draft);
   const baseline = useRef(saved);
@@ -66,6 +70,17 @@ export function useSettingsForm(
   function update(value: Draft) {
     current.current = value;
     setDraft(value);
+  }
+  function locateEdit() {
+    const target = feedbackTarget(editSource.current || document.activeElement);
+    if (target) editedAt.current = target;
+    if (!flight.current) setFeedbackAt(editedAt.current);
+  }
+  function trackFeedback(element: Element) {
+    editSource.current = element;
+    queueMicrotask(() => {
+      if (editSource.current === element) editSource.current = null;
+    });
   }
   function load(value: Settings) {
     setSaveError('');
@@ -152,6 +167,7 @@ export function useSettingsForm(
               !submitted.clearJevKey)
           )
             continue;
+          setFeedbackAt(editedAt.current);
           const value = await request<Settings>('settings', {
             ...(control || {
               ...submitted.form,
@@ -203,6 +219,7 @@ export function useSettingsForm(
             clearJevKey:
               !control && latest.clearJevKey === submitted.clearJevKey ? false : latest.clearJevKey,
           });
+          setSaveError(value.presentationError || '');
           notifyRef.current(value.presentationError || '', !!value.presentationError);
         }
         return baseline.current;
@@ -240,6 +257,8 @@ export function useSettingsForm(
     const snapshot = current.current;
     timer.current = setTimeout(() => {
       if (formElement && !formElement.checkValidity()) {
+        setSaveError('有未完成或无效的输入，请修正后保存。');
+        setFeedbackAt(feedbackTarget(formElement.querySelector(':invalid')));
         notifyRef.current('有未完成或无效的输入，请修正后保存。', true);
         return;
       }
@@ -248,6 +267,7 @@ export function useSettingsForm(
   }
   function change<K extends keyof EditableSettings>(key: K, value: EditableSettings[K]) {
     if (!current.current.form) return;
+    locateEdit();
     const previous = current.current.form;
     update({ ...current.current, form: { ...previous, [key]: value } });
     setSaveError('');
@@ -280,6 +300,7 @@ export function useSettingsForm(
       schedule();
   }
   function setApiKey(value: string) {
+    locateEdit();
     update({ ...current.current, apiKey: value });
   }
   function removeApiKey(expectedRevision: number, kind: 'api' | 'jev' = 'api') {
@@ -310,13 +331,16 @@ export function useSettingsForm(
     );
   }
   function setClearKey(value: boolean, autoSave = true) {
+    locateEdit();
     update({ ...current.current, clearKey: value });
     if (autoSave) schedule();
   }
   function setJevApiKey(value: string) {
+    locateEdit();
     update({ ...current.current, jevApiKey: value, clearJevKey: false });
   }
   function setClearJevKey(value: boolean, autoSave = true) {
+    locateEdit();
     update({ ...current.current, clearJevKey: value });
     if (autoSave) schedule();
   }
@@ -333,6 +357,8 @@ export function useSettingsForm(
     remoteChanged,
     saving,
     saveError,
+    feedbackAt,
+    trackFeedback,
     load,
     change,
     save,

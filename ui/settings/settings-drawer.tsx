@@ -174,9 +174,9 @@ export function DrawerSaveControls({ editor }: { editor: SettingsEditor }) {
           设置已在其他窗口更新，草稿已保留。关闭抽屉后可重新载入。
         </p>
       ) : (
-        <div className="flex items-center justify-between gap-4">
-          <span role="status" className="text-sm text-muted-foreground">
-            {editor.saving ? '正在保存…' : editor.dirty ? '有未保存的更改' : ''}
+        <div className="settings-actions">
+          <span role="status" className="text-muted-foreground">
+            {editor.saving ? '正在保存…' : ''}
           </span>
           <Button type="submit" variant="outline" disabled={editor.saving || !editor.dirty}>
             保存设置

@@ -1,5 +1,5 @@
 /* [INPUT]: 现有基础控件、动作反馈和设置保存队列。
- * [OUTPUT]: 统一设置行、功能开关、反馈、表单保存状态及跨页无效字段定位。
+ * [OUTPUT]: 统一设置行、功能开关、就近保存反馈及跨页无效字段定位；原表单归属与队列不变。
  * [POS]: 设置页组合组件，不持有业务数据或新增保存服务。
  * [PROTOCOL]: 变更时同步 settings/AGENTS.md。 */
 import { useId, useRef, useState, useEffect, type ReactNode } from 'react';
@@ -10,6 +10,7 @@ import { ActionIcon, type ActionState } from './components/ui/action-feedback';
 import { Switch } from './components/ui/switch';
 import { request, type Settings } from './api';
 import type { SettingsEditor } from './use-settings-form';
+import { NearbyFeedback } from './settings-feedback';
 export function Field({
   label,
   id,
@@ -79,14 +80,24 @@ export function FeatureSwitch({
     </div>
   );
 }
-export function Feedback({ text, failed = false }: { text?: string; failed?: boolean }) {
+export function Feedback({
+  text,
+  failed = false,
+  target,
+}: {
+  text?: string;
+  failed?: boolean;
+  target?: HTMLElement | null;
+}) {
   return text ? (
-    <p
-      className={failed ? 'settings-feedback settings-error' : 'settings-feedback'}
-      role={failed ? 'alert' : 'status'}
-    >
-      {text}
-    </p>
+    <NearbyFeedback target={target}>
+      <p
+        className={failed ? 'settings-feedback settings-error' : 'settings-feedback'}
+        role={failed ? 'alert' : 'status'}
+      >
+        {text}
+      </p>
+    </NearbyFeedback>
   ) : null;
 }
 export function SettingsForm({
@@ -101,7 +112,21 @@ export function SettingsForm({
   active: boolean;
 }) {
   const { dirty, saving, remoteChanged, save, schedule, load } = editor;
+  const formId = useId();
   const [manualState, setManualState] = useState<ActionState>('idle');
+  const [savedBriefly, setSavedBriefly] = useState(false);
+  const wasSaving = useRef(false);
+  useEffect(() => {
+    if (wasSaving.current && !saving && !dirty && !editor.saveError && !remoteChanged)
+      setSavedBriefly(true);
+    if (dirty || saving || editor.saveError || remoteChanged) setSavedBriefly(false);
+    wasSaving.current = saving;
+  }, [saving, dirty, editor.saveError, remoteChanged]);
+  useEffect(() => {
+    if (!savedBriefly) return;
+    const timer = setTimeout(() => setSavedBriefly(false), 1200);
+    return () => clearTimeout(timer);
+  }, [savedBriefly]);
   const manualFlight = useRef(false);
   useEffect(() => {
     if (manualState !== 'success') return;
@@ -130,6 +155,8 @@ export function SettingsForm({
   }
   return (
     <form
+      id={formId}
+      onChangeCapture={(event) => editor.trackFeedback(event.target)}
       onInvalidCapture={(event) => {
         if ((event.target as HTMLElement).closest('[hidden],dialog:not([open])'))
           event.preventDefault();
@@ -156,49 +183,63 @@ export function SettingsForm({
       }}
     >
       {children}
-      <div hidden={!active || !editor.form}>
-        {remoteChanged && (
-          <div className="settings-feedback settings-error" role="alert">
-            设置已在其他窗口更新，当前编辑已保留。
-            <ConfirmationButton
-              type="button"
-              variant="ghost"
-              title="放弃当前草稿并重新载入？"
-              description="尚未保存的编辑和新输入密钥会被丢弃，重新读取其他窗口已保存的设置。"
-              confirmLabel="确认重新载入"
-              onConfirm={() => request<Settings>('settings').then(load)}
-            >
-              重新载入设置
-            </ConfirmationButton>
-          </div>
-        )}
+      <NearbyFeedback target={editor.feedbackAt?.closest('dialog') ? null : editor.feedbackAt}>
         <div
-          className="settings-save"
-          data-save-state={saving ? 'saving' : dirty ? 'dirty' : 'saved'}
-          hidden={!dirty && !saving && manualState === 'idle'}
+          data-settings-form-feedback
+          hidden={
+            (!active && !editor.feedbackAt) ||
+            !editor.form ||
+            (!dirty &&
+              !saving &&
+              !editor.saveError &&
+              !remoteChanged &&
+              manualState === 'idle' &&
+              !savedBriefly)
+          }
         >
-          <span role="status">
-            {saving
-              ? '正在保存…'
-              : dirty
-                ? '编辑中，离开输入框后自动保存'
-                : actionState === 'success'
+          {!remoteChanged && <Feedback text={editor.saveError} failed />}
+          {remoteChanged && (
+            <div className="settings-feedback settings-error" role="alert">
+              设置已在其他窗口更新，当前编辑已保留。
+              <ConfirmationButton
+                type="button"
+                variant="ghost"
+                title="放弃当前草稿并重新载入？"
+                description="尚未保存的编辑和新输入密钥会被丢弃，重新读取其他窗口已保存的设置。"
+                confirmLabel="确认重新载入"
+                onConfirm={() => request<Settings>('settings').then(load)}
+              >
+                重新载入设置
+              </ConfirmationButton>
+            </div>
+          )}
+          <div
+            className="settings-save"
+            data-save-state={saving ? 'saving' : dirty ? 'dirty' : 'saved'}
+            hidden={!dirty && !saving && manualState === 'idle' && !savedBriefly}
+          >
+            <span role="status">
+              {saving
+                ? '正在保存…'
+                : !dirty && !editor.saveError && (savedBriefly || actionState === 'success')
                   ? '已保存'
                   : ''}
-          </span>
-          {(dirty || manualState !== 'idle') && (
-            <Button
-              type="submit"
-              variant="outline"
-              aria-busy={actionState === 'pending'}
-              disabled={saving || manualFlight.current || remoteChanged || !dirty}
-            >
-              <ActionIcon name="bookmark" state={actionState} />
-              保存设置
-            </Button>
-          )}
+            </span>
+            {(dirty || manualState !== 'idle') && (
+              <Button
+                type="submit"
+                form={formId}
+                variant="outline"
+                aria-busy={actionState === 'pending'}
+                disabled={saving || manualFlight.current || remoteChanged || !dirty}
+              >
+                <ActionIcon name="bookmark" state={actionState} />
+                保存设置
+              </Button>
+            )}
+          </div>
         </div>
-      </div>
+      </NearbyFeedback>
     </form>
   );
 }

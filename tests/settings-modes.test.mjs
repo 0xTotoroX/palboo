@@ -780,6 +780,8 @@ test(
           })),
         ),
       );
+      // Compact typography lets this page fit a tall window; constrain height to test restoration.
+      await page.setViewportSize({ width: 1360, height: 760 });
       await page.evaluate(() => scrollTo({ top: 400, behavior: 'instant' }));
       const scroll = await page.evaluate(() => scrollY);
       assert.ok(scroll > 100);

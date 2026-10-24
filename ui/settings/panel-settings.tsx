@@ -9,6 +9,7 @@ import { TypographySettings } from './typography-settings';
 import { Input } from './components/ui/input';
 import { NativeSelect } from './components/ui/native-select';
 import { Field, Toggle, Feedback } from './settings-controls';
+import { useFeedbackTarget } from './settings-feedback';
 import { request } from './api';
 import type { AppearanceSettings, PanelPreferences } from '../shared/contracts';
 export function PanelSettings({
@@ -22,6 +23,7 @@ export function PanelSettings({
   section?: 'next' | 'surfaces';
   page?: 'surfaces' | 'appearance';
 }) {
+  const feedback = useFeedbackTarget();
   const [prefs, setPrefs] = useState(value),
     [busy, setBusy] = useState(false),
     [error, setError] = useState('');
@@ -33,6 +35,7 @@ export function PanelSettings({
   const { ui } = prefs;
   async function update(body: object) {
     if (!prefs || busy) return;
+    feedback.capture();
     setBusy(true);
     setError('');
     try {
@@ -105,6 +108,7 @@ export function PanelSettings({
                 e.currentTarget.value = String(n);
                 if (n !== value) commit(n);
               } else {
+                feedback.capture();
                 e.currentTarget.value = String(value);
                 setError(
                   Number.isFinite(max) ? `${label}范围为 ${min}–${max}` : `${label}不能小于 ${min}`,
@@ -133,7 +137,13 @@ export function PanelSettings({
     );
   };
   return (
-    <fieldset className="min-w-0 border-0 p-0" disabled={busy}>
+    <fieldset
+      className="min-w-0 border-0 p-0"
+      disabled={busy}
+      onBlurCapture={feedback.track}
+      onChangeCapture={feedback.track}
+      onPointerDownCapture={feedback.track}
+    >
       {section === 'next' ? (
         <>
           <Field id="suggestion-labels" label="内容显示">
@@ -219,7 +229,11 @@ export function PanelSettings({
           </section>
         </>
       )}
-      <Feedback text={error} failed />
+      <Feedback
+        text={error || (busy ? '正在保存…' : '')}
+        failed={!!error}
+        target={feedback.target}
+      />
     </fieldset>
   );
 }

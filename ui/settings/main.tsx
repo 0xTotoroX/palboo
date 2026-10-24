@@ -150,7 +150,10 @@ function App() {
         <main className="settings-content min-w-0" aria-label={pageTitles[page]} ref={contentRef}>
           <Feedback text={error} failed />
           {!editor.form && !error && <p role="status">正在读取设置…</p>}
-          <Feedback text={notice.text} failed={notice.failed} />
+          <Feedback
+            text={notice.text === editor.saveError ? '' : notice.text}
+            failed={notice.failed}
+          />
           <div className="settings-body">
             {page !== 'features' && (
               <SettingsPreview

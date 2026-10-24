@@ -2,6 +2,8 @@
  * [POS]: Presentation settings, no feature enable/disable or business state.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 import { useEffect, useRef, useState } from 'react';
+import { useFeedbackTarget } from './settings-feedback';
+import { Feedback } from './settings-controls';
 import { FeatureSettings } from './feature-settings';
 import { request } from './api';
 import { NativeSelect } from './components/ui/native-select';
@@ -76,6 +78,7 @@ export function SurfaceSettings({
   }, [live, active]);
   async function save(patch: object) {
     if (!state || writing.current) return;
+    feedback.capture();
     writing.current = true;
     generation.current++;
     setBusy(true);
@@ -104,12 +107,16 @@ export function SurfaceSettings({
   }
   const disabled = !live || !state || busy || !!state.error,
     edge = state?.preferences.edge;
+  const feedback = useFeedbackTarget();
   return (
     <section
       id="settings-surfaces"
       tabIndex={-1}
       aria-label="呈现形式设置"
       className="settings-section"
+      onBlurCapture={feedback.track}
+      onChangeCapture={feedback.track}
+      onPointerDownCapture={feedback.track}
     >
       <div hidden={page === 'appearance'} data-settings-page="surfaces">
         <FeatureSettings
@@ -251,11 +258,11 @@ export function SurfaceSettings({
           </label>
         </div>
       </section>
-      {(message || state?.error) && (
-        <p role="status" className="mt-2 text-[14px] text-muted-foreground">
-          {message || state?.error}
-        </p>
-      )}
+      <Feedback
+        text={message || state?.error || (busy ? '正在保存…' : '')}
+        failed={!!(message || state?.error)}
+        target={feedback.target}
+      />
     </section>
   );
 }
