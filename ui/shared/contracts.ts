@@ -39,6 +39,7 @@ export interface Settings extends EditableSettings {
   builtInDirections: Direction[];
   directionLibraryLimit: number;
   terminologyEnabled?: boolean;
+  terminologyImportsPending?: boolean;
   presentationError?: string;
   taskBoardEnabled?: boolean;
   modelControlEnabled?: boolean;
@@ -227,6 +228,10 @@ declare global {
     __palbooTypography?: ReturnType<
       typeof import('../codex/typography.js').createTypographyTracker
     >;
+    __palbooTerminologyImports?: {
+      verify(token: string, target: string): boolean;
+      destroy(): void;
+    };
     __palbooTerminology?: {
       locate(id: string, context: string): boolean;
       typography?(): {

@@ -460,6 +460,13 @@ test('saved sidebar groups reorder without losing calls, hide stale actions and 
       0,
     );
     const botSearch = page.getByRole('searchbox', { name: '搜索 Bot', exact: true });
+    assert.equal(
+      await botSearch.count(),
+      0,
+      'search starts as an icon, without a full-width input',
+    );
+    await page.getByRole('button', { name: '搜索 Bot', exact: true }).click();
+    assert.equal(await botSearch.evaluate((node) => node === document.activeElement), true);
     await botSearch.fill('资讯');
     assert.deepEqual(
       (await page.locator('#settings .settings-drawer-trigger').allTextContents()).map((text) =>
@@ -469,7 +476,14 @@ test('saved sidebar groups reorder without losing calls, hide stale actions and 
     );
     await botSearch.fill('没有这个 Bot');
     await page.getByText('没有匹配的 Bot', { exact: true }).waitFor();
-    await botSearch.fill('');
+    await botSearch.press('Escape');
+    assert.equal(await botSearch.count(), 0);
+    assert.equal(
+      await page
+        .getByRole('button', { name: '搜索 Bot', exact: true })
+        .evaluate((node) => node === document.activeElement),
+      true,
+    );
     assert.equal(await page.locator('#settings .settings-drawer-trigger').count(), 3);
     mkdirSync('target/reports/bot-sidebar', { recursive: true });
     await page.screenshot({ path: 'target/reports/bot-sidebar/narrow.png', fullPage: true });

@@ -4,6 +4,7 @@ import { installNextDrop } from '../next-drop.js';
 import { installPromptEnhancer } from '../prompt-enhancement.js';
 import { installTokenMeter } from '../token-meter.js';
 import { installBots } from '../bots.js';
+import { installTerminologyImports } from '../terminology-import.js';
 import { createTypographyTracker } from '../typography.js';
 import { installTerminology } from '../../terminology/host.js';
 /*
@@ -489,6 +490,7 @@ function destroy() {
   if (!IS_POPOUT) window.__palbooPromptEnhancer?.destroy();
   if (!IS_POPOUT) window.__palbooTokenMeter?.destroy();
   if (!IS_POPOUT) window.__palbooTerminology?.destroy();
+  if (!IS_POPOUT) window.__palbooTerminologyImports?.destroy();
   if (!IS_POPOUT) window.__palbooBots?.destroy();
   shellState.featureCleanup?.();
   clearTimeout(shellState.detachedRecoveryTimer);
@@ -581,6 +583,14 @@ function syncTools() {
           isCurrentInstance() && runtimeState.settings?.promptEnhancementEnabled !== false,
       });
   } else window.__palbooPromptEnhancer?.destroy();
+  if (runtimeState.settings?.terminologyImportsPending === true) {
+    if (!window.__palbooTerminologyImports)
+      installTerminologyImports({
+        request: bridgeCall,
+        isEnabled: () =>
+          isCurrentInstance() && runtimeState.settings?.terminologyImportsPending === true,
+      });
+  } else window.__palbooTerminologyImports?.destroy();
   if (runtimeState.settings?.terminologyEnabled !== false) {
     if (!window.__palbooTerminology)
       installTerminology({

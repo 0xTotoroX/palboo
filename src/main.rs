@@ -33,6 +33,7 @@ mod stepwise_tests;
 mod surfaces;
 mod tasks;
 mod terminology;
+mod terminology_import;
 mod terminology_lookup;
 
 use anyhow::Result;

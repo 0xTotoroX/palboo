@@ -73,6 +73,7 @@ async function syncSettings(patch = {}) {
     typeof normalizedPatch.grokbotEnabled === 'boolean' ||
     typeof normalizedPatch.tokenMeterEnabled === 'boolean' ||
     typeof normalizedPatch.terminologyEnabled === 'boolean' ||
+    typeof normalizedPatch.terminologyImportsPending === 'boolean' ||
     Object.prototype.hasOwnProperty.call(normalizedPatch, 'generationMode');
   if (patch?.enabled === true) {
     pushDiagnostic('settings:enabled-sync', {});

@@ -124,6 +124,18 @@ pub(crate) async fn dispatch(
             if !Arc::ptr_eq(client, &current) {
                 bail!("宿主连接已变化");
             }
+            if request.payload["action"] == "prepare-import" {
+                let valid = client
+                    .evaluate(format!(
+                        "window.__palbooTerminologyImports?.verify({}, {}) === true",
+                        json!(request.payload["token"].as_str().unwrap_or("")),
+                        json!(request.payload["target"].as_str().unwrap_or(""))
+                    ))
+                    .await?;
+                if valid != true {
+                    bail!("聊天或草稿已变化，未交接术语任务");
+                }
+            }
             if request.payload["action"] == "observe" {
                 let same = client
                     .evaluate(format!(

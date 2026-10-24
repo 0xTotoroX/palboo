@@ -58,3 +58,5 @@ EditableSettings.grokbotAutoSync 默认开启，控制本机资料监听，独�
 PanelPreferences.sidebarNewChat/sidebarDots 为兼容旧快照的可选布尔字段，缺省均关闭；由 Web 外观设置保存，运行时与窗口投影保留。
 
 Settings 的 builtInDirections/directionLibraryLimit 是后台只读目录及上限，EditableSettings 仍只提交本机方向库和位置；前端按内置 ID 区分来源，不能用显示名称判断系统方向。
+
+Settings.terminologyImportsPending 为只读待处理状态；__palbooTerminologyImports 仅暴露当前发送意图的 verify 与 destroy，不暴露任意发送接口。

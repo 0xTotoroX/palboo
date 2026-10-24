@@ -1,5 +1,5 @@
 /* [INPUT]: 认证术语 API、可唤起状态、共用卡片/动作图标与用户导入/输入。
- * [OUTPUT]: 卡片预览、识别/外观与词库检索；管理抽屉按新增/导入导出分区，保留草稿、深链接与导入确认。
+ * [OUTPUT]: 卡片预览、识别/外观与词库检索；管理抽屉按新增/导入导出分区，保留草稿与深链接，名称/文件排队交给下次主聊天，个人导出与确认重置。
  * [POS]: 详细设置的功能区，不访问主聊天内容。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { SettingsDrawer } from './settings-drawer';
@@ -8,7 +8,7 @@ import { Field, Toggle } from './settings-controls';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { useConfirmation } from './settings-confirmation';
-import { request } from './api';
+import { request, uploadTerminology } from './api';
 import { inheritedAppearance } from '../terminology/appearance.js';
 import { NativeSelect } from './components/ui/native-select';
 import { Button, IconButton } from './components/ui/button';
@@ -27,8 +27,25 @@ type Term = {
   example: string;
   source: string;
 };
+type ImportJob = {
+  id: string;
+  name: string;
+  kind: 'name' | 'file';
+  status: string;
+  error: string;
+  count: number;
+};
+const jobStatus = (job: ImportJob) =>
+  job.status === 'done'
+    ? `已添加 ${job.count} 条`
+    : job.status === 'error'
+      ? '未完成'
+      : job.status === 'prepared'
+        ? '等待聊天处理'
+        : '待下次聊天处理';
 type Library = {
   entries: Term[];
+  imports?: { revision: number; jobs: ImportJob[] };
   preferences: {
     enabled: boolean;
     semantic: boolean;
@@ -87,10 +104,7 @@ export function TerminologySettings({ active }: { active: boolean }) {
   const [query, setQuery] = useState(''),
     [masteredOnly, setMasteredOnly] = useState(false);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
-  const [name, setName] = useState(''),
-    [english, setEnglish] = useState(''),
-    [definition, setDefinition] = useState(''),
-    [category, setCategory] = useState('');
+  const [name, setName] = useState('');
   const [management, setManagement] = useState('add');
   const managementRoot = useRef<HTMLDivElement>(null);
   const [resultLimit, setResultLimit] = useState(80);
@@ -112,6 +126,14 @@ export function TerminologySettings({ active }: { active: boolean }) {
   useEffect(() => {
     if (active) void load();
   }, [active]);
+  const hasPending = data?.imports?.jobs.some((job) => job.status === 'prepared');
+  useEffect(() => {
+    if (!active || !hasPending) return;
+    const timer = setInterval(() => {
+      if (document.visibilityState === 'visible' && !busy) void load();
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [active, hasPending, busy]);
   async function command(payload: object) {
     setBusy(true);
     setError('');
@@ -126,24 +148,26 @@ export function TerminologySettings({ active }: { active: boolean }) {
       setBusy(false);
     }
   }
-  async function exportFile(manual = false, json = false) {
+  async function exportFile() {
     setError('');
     try {
       const value = await request<{ filename: string; markdown: string; entries: Term[] }>(
         'terminology',
-        { action: 'export', manual },
+        { action: 'export' },
       );
-      download(
-        json ? JSON.stringify(value.entries, null, 2) : value.markdown,
-        json ? value.filename.replace('.md', '.json') : value.filename,
-        json ? 'application/json' : 'text/markdown;charset=utf-8',
-      );
+      download(value.markdown, value.filename);
     } catch (e) {
       setError((e as Error).message);
     }
   }
   const prefs = data?.preferences;
-  const { confirm, confirmation } = useConfirmation(prefs?.revision, busy);
+  const { confirm, confirmation } = useConfirmation(
+    `${prefs?.revision}:${data?.imports?.revision}`,
+    busy,
+  );
+  const pendingJobs = (data?.imports?.jobs ?? []).filter(
+    (job) => job.status !== 'done' && job.name.toLowerCase().includes(query.trim().toLowerCase()),
+  );
   const results = (data?.entries || []).filter(
     (t) =>
       (!masteredOnly || prefs?.mastered.includes(t.id)) &&
@@ -324,95 +348,39 @@ export function TerminologySettings({ active }: { active: boolean }) {
                     data-term-management="add"
                     hidden={management !== 'add'}
                   >
-                    <Field id="term-name" label="中文术语名">
-                      <Input
+                    <Field id="term-name" label="术语名称">
+                      <textarea
                         id="term-name"
-                        aria-label="中文术语名"
+                        aria-label="术语名称"
+                        className={inputStyles + ' min-h-24 resize-y py-2'}
+                        placeholder="每行一个名称"
                         value={name}
                         onChange={(e) => setName(e.target.value)}
                       />
                     </Field>
-                    <Field id="term-english" label="英文名称">
-                      <Input
-                        id="term-english"
-                        aria-label="英文名称"
-                        placeholder="可选"
-                        value={english}
-                        onChange={(e) => setEnglish(e.target.value)}
-                      />
-                    </Field>
-                    <Field id="term-definition" label="中文释义">
-                      <textarea
-                        className={inputStyles + ' min-h-28 py-2 resize-y'}
-                        id="term-definition"
-                        aria-label="中文释义"
-                        rows={3}
-                        value={definition}
-                        onChange={(e) => setDefinition(e.target.value)}
-                      />
-                    </Field>
-                    <Field id="term-category" label="词条分类">
-                      <NativeSelect
-                        id="term-category"
-                        aria-label="词条分类"
-                        value={category}
-                        onChange={(e) => setCategory(e.target.value)}
-                      >
-                        <option value="">
-                          {prefs?.enabled ? '自动分类（使用模型）' : '请选择分类'}
-                        </option>
-                        {Array.from(
-                          new Set(
-                            (data?.entries || [])
-                              .map((t) => JSON.stringify(t.category))
-                              .filter((value) => value !== '[]'),
-                          ),
-                        )
-                          .sort()
-                          .map((value) => (
-                            <option key={value} value={value}>
-                              {JSON.parse(value).join(' / ')}
-                            </option>
-                          ))}
-                      </NativeSelect>
-                    </Field>
                     <div className="settings-actions">
                       <Button
-                        variant="outline"
                         type="button"
-                        disabled={
-                          busy ||
-                          (!prefs?.enabled && !category) ||
-                          !name.trim() ||
-                          !definition.trim()
-                        }
+                        disabled={busy || !name.trim()}
                         onClick={async () => {
                           if (
                             await command({
-                              action: 'manual',
-                              entries: [
-                                {
-                                  id: 'manual',
-                                  name,
-                                  english,
-                                  definition,
-                                  aliases: [],
-                                  category: category ? JSON.parse(category) : [],
-                                  example: '',
-                                  source: '',
-                                },
-                              ],
+                              action: 'add-names',
+                              names: name
+                                .split(/\r?\n/)
+                                .map((v) => v.trim())
+                                .filter(Boolean),
                             })
-                          ) {
+                          )
                             setName('');
-                            setEnglish('');
-                            setDefinition('');
-                          }
                         }}
                       >
-                        {category ? '添加词条' : '自动分类并添加'}
+                        添加
                       </Button>
                     </div>
+                    <p className="settings-hint">
+                      名称立即加入；下次主聊天运行时，由当前 Agent 联网补全。
+                    </p>
                   </div>
 
                   <div
@@ -420,72 +388,100 @@ export function TerminologySettings({ active }: { active: boolean }) {
                     data-term-management="transfer"
                     hidden={management !== 'transfer'}
                   >
-                    <Button variant="outline" type="button" onClick={() => void exportFile()}>
-                      导出词库（Markdown）
-                    </Button>
-                    <Button variant="outline" type="button" onClick={() => void exportFile(true)}>
-                      导出手动词条（Markdown）
-                    </Button>
-                    <Button
-                      variant="outline"
-                      type="button"
-                      onClick={() => void exportFile(false, true)}
-                    >
-                      导出词库（JSON）
-                    </Button>
                     <label className="grid w-full gap-2 text-sm">
-                      导入词库（JSON）{' '}
+                      导入文件
                       <input
                         type="file"
+                        aria-label="导入术语文件"
                         className={
                           inputStyles +
                           ' h-auto py-2 file:mr-3 file:border-0 file:bg-transparent file:text-foreground'
                         }
-                        accept=".json,application/json"
                         disabled={busy}
                         onChange={async (e) => {
                           const file = e.target.files?.[0];
+                          e.target.value = '';
                           if (!file) return;
-                          const input = e.target;
-                          input.value = '';
                           setError('');
+                          setBusy(true);
                           try {
-                            if (file.size > 8_000_000) throw Error('文件过大');
-                            const entries = JSON.parse(await file.text());
-                            if (!Array.isArray(entries) || !entries.length)
-                              throw Error('请选择包含词条的 JSON 数组');
-                            confirm({
-                              title: `导入 ${entries.length} 条术语？`,
-                              description: `将从“${file.name}”合并词条，相同编号的已有释义会被替换；其他词条与掌握记录保留。建议先导出备份。`,
-                              confirmLabel: '确认导入',
-                              action: async () => {
-                                setBusy(true);
-                                let imported = 0;
-                                try {
-                                  for (let i = 0; i < entries.length; i += 20) {
-                                    await request('terminology', {
-                                      action: 'import',
-                                      entries: entries.slice(i, i + 20),
-                                    });
-                                    imported += Math.min(20, entries.length - i);
-                                  }
-                                } catch (error) {
-                                  throw Error(
-                                    `已导入 ${imported} 条，其余未完成：${(error as Error).message}`,
-                                  );
-                                } finally {
-                                  await load();
-                                  setBusy(false);
-                                }
-                              },
-                            });
-                          } catch (err) {
-                            setError((err as Error).message);
+                            if (!file.size || file.size > 8_000_000)
+                              throw Error('文件需为 1 字节至 8 MB');
+                            setData(await uploadTerminology<Library>(file));
+                          } catch (e) {
+                            setError((e as Error).message);
+                          } finally {
+                            setBusy(false);
                           }
                         }}
                       />
                     </label>
+                    <p className="settings-hint">
+                      不限格式，最多 8 MB；下次主聊天由当前 Agent 解析，支持范围取决于其文件能力。
+                    </p>
+                    <div className="settings-actions">
+                      <Button
+                        variant="outline"
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void exportFile()}
+                      >
+                        导出我的术语
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        type="button"
+                        disabled={busy}
+                        onClick={() =>
+                          confirm({
+                            title: '重置词库？',
+                            description:
+                              '删除个人添加、导入内容、导入文件及待处理任务，保留基础词库和其中的收藏、掌握记录。',
+                            confirmLabel: '重置词库',
+                            action: () =>
+                              command({
+                                action: 'reset-library',
+                                revision: data.imports?.revision ?? 0,
+                              }),
+                          })
+                        }
+                      >
+                        重置词库
+                      </Button>
+                    </div>
                   </div>
+                  {!!data.imports?.jobs.length && (
+                    <section className="term-import-jobs" aria-label="术语处理记录">
+                      {data.imports.jobs.map((job) => (
+                        <div className="term-import-job" key={job.id}>
+                          <div>
+                            <strong>{job.name}</strong>
+                            <span>{jobStatus(job)}</span>
+                            {job.error && <p role="alert">{job.error}</p>}
+                          </div>
+                          <div className="settings-actions">
+                            {['prepared', 'error'].includes(job.status) && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                disabled={busy}
+                                onClick={() => void command({ action: 'retry-import', id: job.id })}
+                              >
+                                重试
+                              </Button>
+                            )}
+                            <IconButton
+                              aria-label={`移除记录：${job.name}`}
+                              disabled={busy}
+                              onClick={() => void command({ action: 'remove-import', id: job.id })}
+                            >
+                              <Icon name="close" />
+                            </IconButton>
+                          </div>
+                        </div>
+                      ))}
+                    </section>
+                  )}
                 </div>
               </SettingsDrawer>
             </div>
@@ -508,6 +504,14 @@ export function TerminologySettings({ active }: { active: boolean }) {
               </label>
             </div>
             <div className="term-results">
+              {!favoritesOnly &&
+                !masteredOnly &&
+                pendingJobs.map((job) => (
+                  <div className="term-row" key={job.id}>
+                    <span className="term-result-name">{job.name}</span>
+                    <span className="term-import-status">{jobStatus(job)}</span>
+                  </div>
+                ))}
               {results.slice(0, resultLimit).map((t) => (
                 <div className="term-row" key={t.id}>
                   <button
@@ -535,7 +539,9 @@ export function TerminologySettings({ active }: { active: boolean }) {
                   </IconButton>
                 </div>
               ))}
-              {!results.length && <p className="settings-hint">没有匹配的术语</p>}
+              {!results.length && (favoritesOnly || masteredOnly || !pendingJobs.length) && (
+                <p className="settings-hint">没有匹配的术语</p>
+              )}
             </div>
             {results.length > resultLimit && (
               <div className="settings-actions">

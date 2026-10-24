@@ -824,6 +824,17 @@ html:root .settings-nav {
 }
 .bot-settings-heading h2 {
   margin: 0;
+  flex-shrink: 0;
+}
+.bot-settings-actions,
+.bot-settings-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.bot-settings-search input {
+  width: min(200px, 28vw);
 }
 .bot-settings-profiles .settings-drawer-entry {
   margin: 0;

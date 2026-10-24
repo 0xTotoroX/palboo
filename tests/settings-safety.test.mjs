@@ -9,7 +9,7 @@ import { chromium } from 'playwright';
 import { fixtureSettings } from './fixtures.mjs';
 
 test(
-  'settings require explicit confirmation and preserve secrets, drafts and import progress',
+  'settings confirm destructive actions, preserve drafts and queue arbitrary files',
   { timeout: 45000 },
   async () => {
     const script = (
@@ -52,6 +52,7 @@ createRoot(document.getElementById('root')).render(<App/>);`,
       };
       const terms = {
         entries: [],
+        imports: { revision: 1, jobs: [] },
         preferences: {
           enabled: false,
           semantic: false,
@@ -68,7 +69,10 @@ createRoot(document.getElementById('root')).render(<App/>);`,
       const writes = [];
       await page.route('https://safety.test/**', async (route) => {
         const url = new URL(route.request().url()),
-          body = route.request().postDataJSON();
+          body =
+            url.pathname === '/api/terminology/file'
+              ? { file: url.searchParams.get('name') }
+              : route.request().postDataJSON();
         if (!url.pathname.startsWith('/api/'))
           return route.fulfill({ contentType: 'text/html', body: '<div id="root"></div>' });
         if (body) writes.push({ path: url.pathname, body });
@@ -98,8 +102,33 @@ createRoot(document.getElementById('root')).render(<App/>);`,
           }
           result = host;
         } else if (url.pathname === '/api/terminology') {
-          if (body?.action === 'import' && failImport && body.entries[0].id === 'TERM-20')
-            return route.fulfill({ status: 400, json: { message: '合成词条冲突' } });
+          if (body?.action === 'reset-library' && failImport)
+            return route.fulfill({ status: 400, json: { message: '合成重置失败' } });
+          if (body?.action === 'reset-library') terms.imports.jobs = [];
+          if (body?.action === 'add-names') {
+            assert.deepEqual(body.names, ['待补全名称']);
+            terms.imports.jobs.push({
+              id: 'name-1',
+              name: body.names[0],
+              kind: 'name',
+              status: 'queued',
+              count: 0,
+              error: '',
+            });
+            terms.imports.revision++;
+          }
+          result = terms;
+        } else if (url.pathname === '/api/terminology/file') {
+          assert.equal(route.request().postDataBuffer().toString(), 'opaque fixture file');
+          terms.imports.jobs.push({
+            id: 'job-1',
+            name: body.file,
+            kind: 'file',
+            status: 'queued',
+            count: 0,
+            error: '',
+          });
+          terms.imports.revision++;
           result = terms;
         }
         await route.fulfill({ json: result });
@@ -264,50 +293,69 @@ createRoot(document.getElementById('root')).render(<App/>);`,
       }
       await page.getByRole('button', { name: '词库管理', exact: true }).click();
       assert.equal(
-        await page.getByRole('textbox', { name: '中文术语名', exact: true }).isVisible(),
+        await page.getByRole('textbox', { name: '术语名称', exact: true }).isVisible(),
         true,
       );
       const beforeManagementNavigation = writes.length;
-      await page.getByRole('textbox', { name: '中文术语名', exact: true }).fill('保留的词条草稿');
+      await page.getByRole('textbox', { name: '术语名称', exact: true }).fill('保留的词条草稿');
       await page.getByRole('button', { name: '导入与导出', exact: true }).click();
       assert.equal(
-        await page.getByRole('textbox', { name: '中文术语名', exact: true }).isVisible(),
+        await page.getByRole('textbox', { name: '术语名称', exact: true }).isVisible(),
         false,
       );
       await page.getByRole('button', { name: '新增词条', exact: true }).click();
       assert.equal(
-        await page.getByRole('textbox', { name: '中文术语名', exact: true }).inputValue(),
+        await page.getByRole('textbox', { name: '术语名称', exact: true }).inputValue(),
         '保留的词条草稿',
       );
       await page.getByRole('button', { name: '导入与导出', exact: true }).click();
       assert.equal(writes.length, beforeManagementNavigation);
-      const entries = Array.from({ length: 21 }, (_, i) => ({
-        id: `TERM-${i}`,
-        name: `合成词条${i}`,
-        english: '',
-        definition: '合成释义',
-        aliases: [],
-        category: [],
-        example: '',
-        source: '',
-      }));
+      await page.getByRole('button', { name: '新增词条', exact: true }).click();
+      await page.getByRole('textbox', { name: '术语名称', exact: true }).fill('待补全名称');
+      await page
+        .getByRole('dialog', { name: '词库管理', exact: true })
+        .getByRole('button', { name: '添加', exact: true })
+        .click();
+      await page
+        .getByRole('region', { name: '术语处理记录' })
+        .getByText('待补全名称', { exact: true })
+        .waitFor();
+      assert.equal(
+        await page.getByRole('textbox', { name: '术语名称', exact: true }).inputValue(),
+        '',
+      );
+      await page.getByRole('button', { name: '导入与导出', exact: true }).click();
       const file = {
-        name: 'fixture.json',
-        mimeType: 'application/json',
-        buffer: Buffer.from(JSON.stringify(entries)),
+        name: 'fixture.pdf',
+        mimeType: 'application/pdf',
+        buffer: Buffer.from('opaque fixture file'),
       };
-      const fileInput = page.locator('input[type=file]');
-      const beforeImport = writes.length;
+      const fileInput = page.getByLabel('导入术语文件');
+      assert.equal(await fileInput.getAttribute('accept'), null);
       await fileInput.setInputFiles(file);
-      await dialog.getByText(/相同编号的已有释义会被替换/).waitFor();
+      await page
+        .getByRole('region', { name: '术语处理记录' })
+        .getByText('fixture.pdf', { exact: true })
+        .waitFor();
+      assert.equal(writes.at(-1).path, '/api/terminology/file');
+      assert.equal(await dialog.count(), 0);
+      const reset = page.getByRole('button', { name: '重置词库', exact: true });
+      const beforeReset = writes.length;
+      await reset.click();
       await cancel();
-      assert.equal(writes.length, beforeImport);
+      assert.equal(writes.length, beforeReset);
       failImport = true;
-      await fileInput.setInputFiles(file);
-      await accept('确认导入');
-      await dialog.getByRole('alert').filter({ hasText: '已导入 20 条，其余未完成' }).waitFor();
-      assert.equal(writes.filter((x) => x.body.action === 'import').length, 2);
+      await reset.click();
+      await accept('重置词库');
+      await page.getByRole('alert').filter({ hasText: '合成重置失败' }).first().waitFor();
+      assert.equal(terms.imports.jobs.length, 2);
       await cancel();
+      failImport = false;
+      await reset.click();
+      await accept('重置词库');
+      await dialog.waitFor({ state: 'hidden' });
+      assert.equal(terms.imports.jobs.length, 0);
+      assert.equal(writes.at(-1).body.revision, 3);
       assert.deepEqual(
         settings.jev,
         fixtureSettings.jev,

@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 启动令牌、React 与本机认证 API/SSE。
- * [OUTPUT]: 公开数据类型、request 与 useCompanion 状态订阅。
+ * [OUTPUT]: 公开数据类型、request、原样术语文件上传与 useCompanion 状态订阅。
  * [POS]: 网页通信层，令牌在同源标签页共享并自动恢复认证连接；认证状态中的 Dev 地址将普通设置入口导向监督进程。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -92,6 +92,21 @@ export async function request<T = { ok: boolean }>(path: string, body?: unknown)
     ok: false,
     code: 'invalid_response',
     message: '服务暂时没有响应，请检查 Palboo 是否正在运行。',
+  }));
+  if (!response.ok || value.ok === false) throw new ApiError(value);
+  return value as T;
+}
+
+export async function uploadTerminology<T>(file: File): Promise<T> {
+  const response = await fetch(`/api/terminology/file?name=${encodeURIComponent(file.name)}`, {
+    method: 'POST',
+    headers: { Authorization: headers().Authorization, 'Content-Type': 'application/octet-stream' },
+    body: file,
+  });
+  const value = await response.json().catch(() => ({
+    ok: false,
+    code: 'upload_failed',
+    message: '文件上传失败，请检查文件大小和连接。',
   }));
   if (!response.ok || value.ok === false) throw new ApiError(value);
   return value as T;

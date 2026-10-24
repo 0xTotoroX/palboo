@@ -117,3 +117,40 @@
     justify-self: end;
   }
 }
+
+#settings-terminology .term-import-jobs {
+  margin-top: 24px;
+  border-top: 1px solid var(--border);
+}
+#settings-terminology .term-import-job {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+#settings-terminology .term-import-job > div:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+#settings-terminology .term-import-job strong {
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+#settings-terminology .term-import-job span,
+#settings-terminology .term-import-status {
+  color: var(--muted-foreground);
+  font-size: 13px;
+}
+#settings-terminology .term-import-job p {
+  color: var(--destructive);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+#settings-terminology .term-actions > .settings-hint {
+  width: 100%;
+  text-align: left;
+}

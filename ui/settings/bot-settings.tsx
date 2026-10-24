@@ -1,8 +1,8 @@
 /* [INPUT]: Saved sync preference, shared settings queue and read-only local Bot catalog.
- * [OUTPUT]: Grouped sync controls, locally searchable profile entries and Agent setup instructions.
+ * [OUTPUT]: Grouped sync controls, an on-demand local search and profile entries, and Agent setup instructions.
  * [POS]: Settings only; no Bot conversations or dependency installation.
  * [PROTOCOL]: Keep ui/settings/AGENTS.md in sync. */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { request } from './api';
 import { Toggle, Feedback } from './settings-controls';
 import { Input } from './components/ui/input';
@@ -11,6 +11,7 @@ import { Button, IconButton } from './components/ui/button';
 import type { SettingsEditor } from './use-settings-form';
 import { botSetupPrompt } from './bot-setup-prompt';
 import { ActionIcon } from './components/ui/action-feedback';
+import { Icon } from '../shared/icons/react';
 import { botGroups, type BotSidebar } from '../shared/bot-catalog';
 
 type Catalog = {
@@ -30,6 +31,18 @@ export function BotSettings({
   editor: SettingsEditor;
 }) {
   const [query, setQuery] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchId = useId();
+  const searchInput = useRef<HTMLInputElement>(null);
+  const searchButton = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (searchOpen && active) searchInput.current?.focus();
+  }, [searchOpen, active]);
+  const closeSearch = () => {
+    setQuery('');
+    setSearchOpen(false);
+    searchButton.current?.focus();
+  };
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -109,18 +122,51 @@ export function BotSettings({
       <div className="bot-settings-catalog" aria-busy={busy}>
         <div className="bot-settings-heading">
           <h2>Bot 资料</h2>
-          {!auto && (
-            <IconButton
-              aria-label="刷新 Bot 资料"
-              disabled={!live || busy}
-              onClick={() => void load(true)}
-            >
-              <ActionIcon
-                name="refresh"
-                state={busy ? 'pending' : refreshed ? 'success' : 'idle'}
-              />
-            </IconButton>
-          )}
+          <div className="bot-settings-actions">
+            {!!catalog?.bots.length && (
+              <div className="bot-settings-search" data-open={searchOpen}>
+                {searchOpen && (
+                  <Input
+                    ref={searchInput}
+                    id={searchId}
+                    type="search"
+                    aria-label="搜索 Bot"
+                    placeholder="搜索 Bot"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        closeSearch();
+                      }
+                    }}
+                  />
+                )}
+                <IconButton
+                  ref={searchButton}
+                  aria-label={searchOpen ? '关闭 Bot 搜索' : '搜索 Bot'}
+                  aria-expanded={searchOpen}
+                  aria-controls={searchOpen ? searchId : undefined}
+                  onClick={() => (searchOpen ? closeSearch() : setSearchOpen(true))}
+                >
+                  <Icon name={searchOpen ? 'close' : 'search'} />
+                </IconButton>
+              </div>
+            )}
+            {!auto && (
+              <IconButton
+                aria-label="刷新 Bot 资料"
+                disabled={!live || busy}
+                onClick={() => void load(true)}
+              >
+                <ActionIcon
+                  name="refresh"
+                  state={busy ? 'pending' : refreshed ? 'success' : 'idle'}
+                />
+              </IconButton>
+            )}
+          </div>
         </div>
         <Feedback text={error || catalog?.error} failed />
         <Feedback text={catalog?.sidebarError} failed />
@@ -128,15 +174,6 @@ export function BotSettings({
         {!catalog && busy && <Feedback text="正在读取 Bot 资料…" />}
         {catalog && !catalog.stale && !catalog.error && catalog.bots.length === 0 && (
           <Feedback text="暂无 Bot" />
-        )}
-        {!!catalog?.bots.length && (
-          <Input
-            type="search"
-            aria-label="搜索 Bot"
-            placeholder="搜索 Bot"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
         )}
         {!!catalog?.bots.length && term && !groups.length && <Feedback text="没有匹配的 Bot" />}
         <div className="bot-settings-profiles">

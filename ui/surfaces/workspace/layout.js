@@ -150,7 +150,11 @@ export function installFeatureLayout(root, { save, error }) {
     arrange,
     deferActivation(id) {
       const section = panes.querySelector(`[data-pane-tab="${id}"]`)?.closest('[data-pane]');
-      return section?.dataset.compact === 'false' && section.dataset.pane === id;
+      return (
+        section instanceof HTMLElement &&
+        section.dataset.compact === 'false' &&
+        section.dataset.pane === id
+      );
     },
     targetAt(event, id, { width, height }) {
       for (const section of /** @type {NodeListOf<HTMLElement>} */ (

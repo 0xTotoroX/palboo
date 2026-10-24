@@ -660,15 +660,12 @@ test(
       await termSettings.getByText('没有匹配的术语', { exact: true }).waitFor();
       await page.getByLabel('只看收藏', { exact: true }).uncheck();
       await page.getByRole('button', { name: '词库管理', exact: true }).click();
-      await page.getByLabel('中文术语名', { exact: true }).fill('未保存的术语');
+      await page.getByLabel('术语名称', { exact: true }).fill('未保存的术语');
       await page.getByRole('button', { name: '关闭词库管理', exact: true }).click();
       await category('next');
       await category('terminology');
       await page.getByRole('button', { name: '词库管理', exact: true }).click();
-      assert.equal(
-        await page.getByLabel('中文术语名', { exact: true }).inputValue(),
-        '未保存的术语',
-      );
+      assert.equal(await page.getByLabel('术语名称', { exact: true }).inputValue(), '未保存的术语');
       await page.getByRole('button', { name: '关闭词库管理', exact: true }).click();
       assert.equal(
         await page.getByRole('searchbox', { name: '搜索术语', exact: true }).inputValue(),

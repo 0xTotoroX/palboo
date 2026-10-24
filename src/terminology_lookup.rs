@@ -430,9 +430,9 @@ async fn analyze_inner(app: &Arc<App>, client: &Arc<Client>, input: &Value) -> R
                 matches.push(json!({"quote":quote,"id":old.id}));
             }
         } else {
-            let mut library: Vec<Term> = store::read(root, "terminology-library.json")?;
-            library.push(term.clone());
-            store::save(root, "terminology-library.json", &library)?;
+            let mut library = crate::terminology_import::Store::load(root)?;
+            library.discovered.push(term.clone());
+            library.persist(root)?;
             store::export_files(root)?;
             matches.push(json!({"quote":quote,"id":term.id}));
         }

@@ -72,3 +72,5 @@ Grok Bot 由 grokbotEnabled 独立开启，syncTools 安装/销毁 __palbooBots�
 大纲定位/锚点命令成功只返回 ok=true；仅失败时附带错误文案，避免成功回执误报失败。
 
 state 默认关闭 sidebarNewChat/sidebarDots；presentation 从外观偏好同步，旧快照缺省关闭，通知旧工作台和独立功能外壳重新计算停靠，不改变 dockOpen 意愿。
+
+术语导入由 lifecycle 按只读 terminologyImportsPending 安装/回收主聊天发送衔接，settings-sync 沿既有设置通知更新；不受术语标注显示开关控制，不修改 Agent 或供应商配置。

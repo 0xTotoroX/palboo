@@ -11,7 +11,7 @@ use crate::{
 use anyhow::{Context, Result};
 use axum::{
     Json, Router,
-    body::Body,
+    body::{Body, Bytes},
     extract::{DefaultBodyLimit, Path, Query, Request, State},
     http::{HeaderMap, StatusCode, header},
     middleware::{self, Next},
@@ -93,6 +93,7 @@ pub async fn serve(
     let router = router(state);
     let watcher = app.clone().supervise();
     let task_watcher = app.tasks.start();
+    let term_watcher = tokio::spawn(crate::terminology_import::watch(app.clone()));
     tracing::info!(port, "Palboo 本地服务启动");
     let shutdown_app = app.clone();
     let result = axum::serve(listener, router)
@@ -103,6 +104,7 @@ pub async fn serve(
         .await;
     watcher.abort();
     task_watcher.abort();
+    term_watcher.abort();
     app.stop_features().await;
     app.tasks.stop().await;
     app.disconnect().await;
@@ -124,6 +126,11 @@ fn router(service: Service) -> Router {
     let api = Router::new()
         .route("/features", post(features))
         .route("/terminology", get(terminology_state).post(terminology))
+        .route(
+            "/terminology/file",
+            post(terminology_file)
+                .layer(DefaultBodyLimit::max(crate::terminology_import::MAX_FILE)),
+        )
         .route(
             "/codex-host",
             get(codex_host_status).post(codex_host_command),
@@ -605,6 +612,49 @@ mod tests {
     use super::*;
     use tower::ServiceExt;
     #[tokio::test]
+    async fn terminology_upload_is_authenticated_opaque_and_route_bounded() {
+        let temp = tempfile::tempdir().unwrap();
+        let app = App::new(
+            Paths::new(Some(temp.path().into())).unwrap(),
+            Default::default(),
+            None,
+            false,
+        );
+        let router = router(Service {
+            app: app.clone(),
+            token: "test-token".into(),
+            port: 47831,
+        });
+        for (token, size, status) in [
+            ("wrong", 10, StatusCode::UNAUTHORIZED),
+            ("test-token", 70_000, StatusCode::OK),
+            ("test-token", 8_000_001, StatusCode::PAYLOAD_TOO_LARGE),
+        ] {
+            let response = router
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/api/terminology/file?name=opaque.pdf")
+                        .header("host", "127.0.0.1:47831")
+                        .header("authorization", format!("Bearer {token}"))
+                        .header("content-type", "application/octet-stream")
+                        .body(Body::from(vec![0xff; size]))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.status(), status);
+        }
+        let state = crate::terminology::command(&app, json!({"action":"state"}))
+            .await
+            .unwrap();
+        assert_eq!(state["imports"]["jobs"].as_array().unwrap().len(), 1);
+        assert_eq!(state["imports"]["jobs"][0]["status"], "queued");
+        assert!(state["entries"].as_array().unwrap().is_empty());
+        assert_eq!(app.settings().await["terminologyImportsPending"], true);
+    }
+    #[tokio::test]
     async fn reveal_requires_authentication_and_development_assets() {
         let temp = tempfile::tempdir().unwrap();
         let app = App::new(
@@ -839,6 +889,28 @@ async fn terminology(
 ) -> Result<Json<Value>, ApiError> {
     Ok(Json(
         crate::terminology::command(&service.app, input).await?,
+    ))
+}
+
+#[derive(Deserialize)]
+struct TerminologyFile {
+    name: String,
+}
+async fn terminology_file(
+    State(service): State<Service>,
+    Query(file): Query<TerminologyFile>,
+    bytes: Bytes,
+) -> Result<Json<Value>, ApiError> {
+    {
+        let _guard = service.app.terminology_operation.lock().await;
+        crate::terminology_import::upload(&service.app.paths.root, &file.name, &bytes)?;
+    }
+    service
+        .app
+        .sync_desktop_settings(&json!({"terminologyImportsPending":true}))
+        .await;
+    Ok(Json(
+        crate::terminology::command(&service.app, json!({"action":"state"})).await?,
     ))
 }
 

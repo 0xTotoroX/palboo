@@ -1,6 +1,6 @@
 // [INPUT]: 私有术语文件、认证命令与独立检索结果。
-// [OUTPUT]: 自动分类按术语租约取消；明确分类允许本地添加。 术语库/手动词条、收藏/掌握、当前聊天涉及编号、样式与跳转设置、身份校验定位及中文 Markdown 导出。
-// [POS]: 本机知识服务，不写主聊天；完整词库不随源码或安装包分发。
+// [OUTPUT]: 自动分类按术语租约取消；明确分类允许本地添加。词库、收藏/掌握、语境与外观管理；导出仅包含自定义、收藏、已掌握。
+// [POS]: 本机知识服务；任务文件委托 terminology_import，主聊天发送由宿主适配处理。完整词库不随源码或安装包分发。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 use crate::{config::write_private, state::App};
 use anyhow::{Context, Result, bail, ensure};
@@ -82,9 +82,7 @@ pub(crate) fn save<T: Serialize>(root: &Path, name: &str, value: &T) -> Result<(
     write_private(&root.join(name), &serde_json::to_vec_pretty(value)?)
 }
 pub(crate) fn library(root: &Path) -> Result<Vec<Term>> {
-    let mut terms: Vec<Term> = read(root, "terminology-library.json")?;
-    terms.extend(read::<Vec<Term>>(root, "terminology-manual.json")?);
-    Ok(terms)
+    Ok(crate::terminology_import::Store::load(root)?.terms())
 }
 pub(crate) fn validate(term: &Term) -> Result<()> {
     ensure!(
@@ -177,17 +175,68 @@ pub(crate) fn markdown(terms: &[Term], title: &str) -> String {
     out
 }
 pub(crate) fn export_files(root: &Path) -> Result<()> {
-    for (file, title) in [
-        ("terminology-library.json", "专业术语库"),
-        ("terminology-manual.json", "手动添加术语"),
-    ] {
-        let terms: Vec<Term> = read(root, file)?;
-        write_private(
-            &root.join(format!("{title}.md")),
-            markdown(&terms, title).as_bytes(),
-        )?;
+    let exported = personal_export(root)?;
+    write_private(
+        &root.join("我的术语.md"),
+        exported["markdown"].as_str().unwrap().as_bytes(),
+    )
+}
+fn personal_export(root: &Path) -> Result<Value> {
+    let terms = library(root)?;
+    let prefs: Preferences = read(root, "terminology-settings.json")?;
+    let manual = crate::terminology_import::Store::load(root)?.personal;
+    let groups = [
+        ("自定义添加", manual),
+        (
+            "收藏",
+            terms
+                .iter()
+                .filter(|term| prefs.favorites.contains(&term.id))
+                .cloned()
+                .collect(),
+        ),
+        (
+            "已掌握",
+            terms
+                .iter()
+                .filter(|term| prefs.mastered.contains(&term.id))
+                .cloned()
+                .collect(),
+        ),
+    ];
+    let mut document = String::from("# 我的术语\n\n");
+    let mut selected = BTreeMap::new();
+    for (title, entries) in groups {
+        for line in markdown(&entries, title).lines() {
+            if line.starts_with('#') {
+                document.push('#');
+            }
+            document.push_str(line);
+            document.push('\n');
+        }
+        document.push('\n');
+        if title == "自定义添加" {
+            let jobs = crate::terminology_import::summary(root)?;
+            for job in jobs["jobs"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter(|job| job["kind"] == "name" && job["status"] != "done")
+            {
+                document.push_str(&format!(
+                    "- {}（待补全）\n",
+                    inline(job["name"].as_str().unwrap_or(""))
+                ));
+            }
+            document.push('\n');
+        }
+        for term in entries {
+            selected.insert(term.id.clone(), term);
+        }
     }
-    Ok(())
+    Ok(
+        json!({"filename":"我的术语.md","markdown":document,"entries":selected.into_values().collect::<Vec<_>>()}),
+    )
 }
 pub(crate) fn known<'a>(terms: &'a [Term], query: &str) -> Option<&'a Term> {
     let q = query.trim().to_lowercase();
@@ -250,10 +299,42 @@ pub(crate) async fn command(app: &App, mut input: Value) -> Result<Value> {
     if prefs.card_style == "note" {
         prefs.card_style = "plain".into();
     }
+    crate::terminology_import::collect(root)?;
     let mut terms = library(root)?;
     let action = input["action"].as_str().unwrap_or("state");
     match action {
         "state" | "view" => {}
+        "add-names" | "retry-import" | "remove-import" | "reset-library" => {
+            crate::terminology_import::mutate(root, &input)?;
+            if action == "reset-library" {
+                app.model_requests
+                    .invalidate(crate::model_requests::Scope::Terminology);
+                app.model_requests
+                    .invalidate(crate::model_requests::Scope::Expansion);
+                let remaining = library(root)?;
+                prefs
+                    .favorites
+                    .retain(|id| remaining.iter().any(|term| &term.id == id));
+                prefs
+                    .mastered
+                    .retain(|id| remaining.iter().any(|term| &term.id == id));
+                prefs.revision += 1;
+                save(root, "terminology-settings.json", &prefs)?;
+                save(root, "terminology-seen.json", &Seen::default())?;
+            }
+            terms = library(root)?;
+            export_files(root)?;
+        }
+        "prepare-import" => {
+            let prepared = crate::terminology_import::prepare(root)?;
+            app.terminology_import_changed.notify_one();
+            return Ok(prepared);
+        }
+        "release-import" => {
+            let released = crate::terminology_import::release(root, &input)?;
+            app.terminology_import_changed.notify_one();
+            return Ok(released);
+        }
         "settings" => {
             let previous = prefs.clone();
             ensure!(
@@ -396,12 +477,8 @@ pub(crate) async fn command(app: &App, mut input: Value) -> Result<Value> {
                 !incoming.is_empty() && incoming.len() <= 1000,
                 "一次导入一至一千条术语"
             );
-            let file = if action == "manual" {
-                "terminology-manual.json"
-            } else {
-                "terminology-library.json"
-            };
-            let mut stored: Vec<Term> = read(root, file)?;
+            let mut store = crate::terminology_import::Store::load(root)?;
+            let mut stored = store.personal.clone();
             for mut term in incoming {
                 if action == "manual" {
                     term.id = format!("USER-{}", uuid::Uuid::new_v4().simple());
@@ -430,24 +507,17 @@ pub(crate) async fn command(app: &App, mut input: Value) -> Result<Value> {
                 terms.retain(|t| t.id != term.id);
                 terms.push(term);
             }
-            save(root, file, &stored)?;
+            store.personal = stored;
+            store.persist(root)?;
             export_files(root)?;
         }
         "export" => {
             let manual = input["manual"].as_bool().unwrap_or(false);
-            let selected: Vec<Term> = read(
-                root,
-                if manual {
-                    "terminology-manual.json"
-                } else {
-                    "terminology-library.json"
-                },
-            )?;
-            let title = if manual {
-                "手动添加术语"
-            } else {
-                "专业术语库"
-            };
+            if !manual {
+                return personal_export(root);
+            }
+            let selected = crate::terminology_import::Store::load(root)?.personal;
+            let title = "自定义添加术语";
             return Ok(
                 json!({"filename":format!("{title}.md"),"markdown":markdown(&selected,title),"entries":selected}),
             );
@@ -468,10 +538,22 @@ pub(crate) async fn command(app: &App, mut input: Value) -> Result<Value> {
                 || prefs.mastered.contains(&t.id)
         });
     }
-    let result = json!({"preferences":prefs,"entries":terms,"context":seen.context,"involved":involved,"phase":seen.phase,"message":seen.message});
+    if ["reset-library", "remove-import", "retry-import"].contains(&action) {
+        app.terminology_import_changed.notify_one();
+    }
+    let imports = crate::terminology_import::summary(root)?;
+    let result = json!({"imports":imports,"preferences":prefs,"entries":terms,"context":seen.context,"involved":involved,"phase":seen.phase,"message":seen.message});
     drop(_guard);
-    if action == "settings" {
-        app.sync_desktop_settings(&json!({"terminologyEnabled": prefs.enabled}))
+    if [
+        "settings",
+        "add-names",
+        "retry-import",
+        "remove-import",
+        "reset-library",
+    ]
+    .contains(&action)
+    {
+        app.sync_desktop_settings(&json!({"terminologyEnabled": prefs.enabled, "terminologyImportsPending": crate::terminology_import::pending(root)?}))
             .await;
     }
     Ok(result)
@@ -694,16 +776,11 @@ mod tests {
         let manual=command(&app,json!({"action":"manual","entries":[{"id":"manual","name":"自定义工作流","definition":"用户自定的执行步骤。","category":["工程"]}]})).await.unwrap();
         assert_eq!(manual["entries"].as_array().unwrap().len(), 2);
         assert_eq!(
-            read::<Vec<Term>>(dir.path(), "terminology-library.json")
+            crate::terminology_import::Store::load(dir.path())
                 .unwrap()
+                .personal
                 .len(),
-            1
-        );
-        assert_eq!(
-            read::<Vec<Term>>(dir.path(), "terminology-manual.json")
-                .unwrap()
-                .len(),
-            1
+            2
         );
         command(&app, json!({"action":"favorite","id":"TERM-1"}))
             .await
@@ -749,7 +826,10 @@ mod tests {
                 .unwrap()
                 .contains("自定义工作流")
         );
-        assert!(!exported["markdown"].as_str().unwrap().contains("防抖"));
+        assert!(
+            exported["markdown"].as_str().unwrap().contains("防抖"),
+            "imports are personal entries too"
+        );
     }
     #[tokio::test]
     async fn unverified_history_is_retained_but_not_shown_as_context_confirmed() {
@@ -787,6 +867,11 @@ mod tests {
         command(&app, json!({"action":"import","entries":entries}))
             .await
             .unwrap();
+        for id in ["physical", "interface"] {
+            command(&app, json!({"action":"favorite","id":id}))
+                .await
+                .unwrap();
+        }
         let exported = command(&app, json!({"action":"export"})).await.unwrap();
         assert_eq!(exported["entries"].as_array().unwrap().len(), 2);
         command(
@@ -812,10 +897,15 @@ mod tests {
         };
         validate(&t).unwrap();
         save(dir.path(), "terminology-library.json", &vec![t.clone()]).unwrap();
+        let prefs = Preferences {
+            favorites: BTreeSet::from([t.id.clone()]),
+            ..Default::default()
+        };
+        save(dir.path(), "terminology-settings.json", &prefs).unwrap();
         export_files(dir.path()).unwrap();
         assert_eq!(library(dir.path()).unwrap().len(), 1);
         assert!(
-            std::fs::read_to_string(dir.path().join("专业术语库.md"))
+            std::fs::read_to_string(dir.path().join("我的术语.md"))
                 .unwrap()
                 .contains("防抖（Debouncing）")
         );
@@ -823,5 +913,56 @@ mod tests {
         assert!(known(&[t], "节流").is_none());
         std::fs::write(dir.path().join("terminology-library.json"), "broken").unwrap();
         assert!(library(dir.path()).is_err());
+    }
+
+    #[test]
+    fn personal_export_excludes_unselected_library_and_deduplicates_entries() {
+        let dir = tempfile::tempdir().unwrap();
+        let term = |id: &str| Term {
+            id: id.into(),
+            name: format!("词条-{id}"),
+            english: String::new(),
+            definition: "合成释义".into(),
+            aliases: vec![],
+            category: vec!["测试".into()],
+            example: String::new(),
+            source: String::new(),
+        };
+        save(
+            dir.path(),
+            "terminology-library.json",
+            &vec![term("base"), term("favorite"), term("mastered")],
+        )
+        .unwrap();
+        save(dir.path(), "terminology-manual.json", &vec![term("custom")]).unwrap();
+        let prefs = Preferences {
+            favorites: BTreeSet::from(["favorite".into(), "custom".into(), "missing".into()]),
+            mastered: BTreeSet::from(["mastered".into(), "custom".into()]),
+            ..Default::default()
+        };
+        save(dir.path(), "terminology-settings.json", &prefs).unwrap();
+        let exported = personal_export(dir.path()).unwrap();
+        let ids: Vec<&str> = exported["entries"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|term| term["id"].as_str().unwrap())
+            .collect();
+        assert_eq!(ids, vec!["custom", "favorite", "mastered"]);
+        let document = exported["markdown"].as_str().unwrap();
+        for heading in ["## 自定义添加", "## 收藏", "## 已掌握"] {
+            assert!(document.contains(heading));
+        }
+        assert!(!document.contains("词条-base"));
+        assert!(!document.contains("missing"));
+        export_files(dir.path()).unwrap();
+        assert!(dir.path().join("我的术语.md").exists());
+        assert!(!dir.path().join("专业术语库.md").exists());
+        assert!(!dir.path().join("手动添加术语.md").exists());
+        assert_eq!(
+            library(dir.path()).unwrap().len(),
+            4,
+            "export never deletes source data"
+        );
     }
 }

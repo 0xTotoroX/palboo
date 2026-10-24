@@ -85,7 +85,7 @@ Config.codex_host兼容旧codexHost键，App.codex_host_operation串行管理，
 
 features.task_command承接原server看板命令协调：主界面已接管时，未登记看板的打开/启用进入共享容器；旧窗口草稿仍按原规则保护。restore_unregistered_main_features在feature_operation内只补缺失条目。模型preferences白名单加入modelOrder，继续校验owner、唯一ID及revision。state.handle_refresh_failure保留仍存活客户端上的Elapsed；Connection.status新增unresponsive，下一次正常refresh即恢复connected。
 
-- `terminology.rs`：本机私有术语/手动词库、背景材质/液态变体/自定义色/宽度、默认关闭的 jumpOnClick 偏好及已掌握状态（兼容旧样式字段），认证命令、中文文档与可导入备份导出；通过独立操作锁串行保存，损坏文件拒绝覆盖。
+- `terminology.rs`：本机私有基础/个人词库、背景材质/液态变体/自定义色/宽度、默认关闭的 jumpOnClick 偏好及已掌握状态（兼容旧样式字段），认证命令、中文文档与个人范围导出；通过独立操作锁串行保存，损坏文件拒绝覆盖。
 - `terminology_lookup.rs`：验证宿主检索身份，独立模型识别原句、含义与领域，并批量核对同名词条的定义；术语请求独立保留至少8192 token输出预算，字段约束同时写入提示词及标准schema，缺失结果列表报错而非当作无术语；未命中时仅向固定公共百科发送带领域消歧的短检索词，摘录遵守1200字符限制、HTTP 200内的API错误不当作空结果；先核对原文证据，再生成释义与分类，异义词独立编号保存；已确认词条先通过受身份校验的 progress 送达，联网补充完成后继续追加，不等待整批结束；检索/词义核对/释义生成失败分阶段回传安全提示，单条非法释义不丢弃已确认结果；切换上下文或关闭功能拒绝迟到结果。
 
 settings.Options/Update支持promptEnhancementEnabled，默认true并沿原修订保存；model.same_generation_config忽略这一工具开关。prompt_enhancement在开始和取消校验中检查开关，关闭后拒绝请求并终止在途操作。
@@ -129,3 +129,5 @@ settings 的 grokbotEnabled 默认关闭，不影响 generationRevision。featur
 panel::Ui.sidebar_new_chat/sidebar_dots 默认 false，经 appearance 修订逐字段保存；宿主或旧窗口整份 Ui 回传保留 Web 设置值，不能清除这些开关。旧配置缺省关闭，普通聊天与生成设置不受影响。
 
 settings 的 directionCatalogVersion 仅由后台维护并随常规保存持久化；config.load 在内存补齐新增系统方向，不在读取时改写配置。settings 回读 builtInDirections 与 directionLibraryLimit，前端不提交目录元数据。系统方向通过稳定内置 ID 识别，修改名称和说明仍保留其系统来源，其余 ID 属于用户自定义。
+
+- `terminology_import.rs`：私有版本化词库保存基础、个人和自动补词，旧普通内容保守保留为基础；名称及任意格式文件形成有身份的主聊天任务，原文件仅在私有目录保存。Agent 结果按任务/尝试身份、大小和词条 schema 校验，后台仅在待处理时检查预期结果文件；重试与重置使旧结果失效。server 的认证 /terminology/file 仅对上传开放 8 MB 限制，其他接口维持原限制。
