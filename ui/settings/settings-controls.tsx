@@ -1,5 +1,5 @@
 /* [INPUT]: 现有基础控件、动作反馈和设置保存队列。
- * [OUTPUT]: 统一设置行、功能开关、就近保存反馈及跨页无效字段定位；原表单归属与队列不变。
+ * [OUTPUT]: 统一设置行、功能开关、就近保存反馈及跨页无效字段定位；仅输入控件失焦自动保存，原表单归属与队列不变。
  * [POS]: 设置页组合组件，不持有业务数据或新增保存服务。
  * [PROTOCOL]: 变更时同步 settings/AGENTS.md。 */
 import { useId, useRef, useState, useEffect, type ReactNode } from 'react';
@@ -174,8 +174,14 @@ export function SettingsForm({
         if (event.target === first) revealSettingsField(event.target as HTMLElement);
       }}
       onBlurCapture={(e) => {
-        // Closing a drawer or confirmation can move focus; navigation is not a draft edit.
-        if (e.target instanceof Element && e.target.closest('[data-settings-navigation]')) return;
+        // Action buttons and navigation can lose focus without leaving an edited field.
+        // In particular, leaving Save must not queue its old snapshot a second time.
+        if (
+          !(e.target instanceof Element) ||
+          !e.target.matches('input, textarea, select, [contenteditable="true"]') ||
+          e.target.closest('[data-settings-navigation]')
+        )
+          return;
         if (!(
           e.relatedTarget instanceof Element &&
           e.relatedTarget.closest('button[type="submit"], [data-settings-navigation]')

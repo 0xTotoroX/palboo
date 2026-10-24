@@ -190,6 +190,9 @@ test(
       release();
       const error = page.getByRole('alert').filter({ hasText: '合成保存失败' });
       await error.waitFor();
+      // Allow delayed blur saves to run before inspecting the final feedback anchor.
+      await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 400)));
+      assert.equal(writes.length, 1, 'leaving Save does not resubmit an older snapshot');
       assert.equal(await error.count(), 1);
       assert.equal(
         await error.evaluate((node) =>
