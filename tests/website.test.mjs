@@ -112,7 +112,7 @@ test('portfolio demos preserve drafts, preferences and undo without service requ
     assert.deepEqual(errors, []);
     assert.ok(requests.every((url) => url.startsWith(base) && !url.includes('/api/')));
     assert.equal(
-      await page.getByRole('link', { name: '查看发布版本' }).getAttribute('href'),
+      await page.getByRole('link', { name: '前往 GitHub 下载' }).getAttribute('href'),
       'https://github.com/0xTotoroX/palboo/releases',
     );
     assert.equal(await page.locator('a[download]').count(), 0);
@@ -137,7 +137,6 @@ test(
       assert.equal(await page.locator('#letter-p').getAttribute('opacity'), '1');
       assert.equal(await page.locator('#letter-a').getAttribute('opacity'), '1');
       assert.equal(await page.locator('#letter-l').getAttribute('opacity'), '0');
-      await page.getByRole('button', { name: '跳过品牌开场' }).click();
       await page.getByRole('button', { name: '重播品牌开场' }).click();
       assert.ok(+(await stage.getAttribute('data-time')) < 0.3);
       await page.waitForFunction(
@@ -198,6 +197,60 @@ test(
     }
   },
 );
+
+test('the first wheel movement carries the face and clicking it replays from the top', async () => {
+  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  const face = () =>
+    page.evaluate(() => {
+      const svg = document.querySelector('.original-opening svg');
+      const point = new DOMPoint(600, 307).matrixTransform(svg.getScreenCTM());
+      return { x: point.x, y: point.y, scroll: scrollY };
+    });
+  try {
+    await page.goto(base);
+    const origin = await face();
+    await page.mouse.move(1300, 500);
+    await page.mouse.wheel(0, 80);
+    await page.waitForFunction((x) => {
+      const svg = document.querySelector('.original-opening svg');
+      return new DOMPoint(600, 307).matrixTransform(svg.getScreenCTM()).x < x - 5;
+    }, origin.x);
+    const moving = await face();
+    assert.ok(moving.scroll > 0 && moving.scroll <= 100, JSON.stringify(moving));
+    assert.ok(moving.y > origin.y, 'the face starts descending during the first wheel movement');
+    assert.equal(await page.locator('.original-opening').getAttribute('data-time'), '6.8000');
+    await page.waitForTimeout(160);
+    assert.deepEqual(await face(), moving, 'stopping the wheel holds the face in place');
+    await page.mouse.wheel(0, -80);
+    await page.waitForFunction(() => scrollY === 0);
+    await page.waitForFunction(
+      () =>
+        getComputedStyle(document.querySelector('.brand-flight')).transform ===
+        'matrix(1, 0, 0, 1, 0, 0)',
+    );
+    assert.deepEqual(await face(), origin, 'reverse scrolling returns along the same path');
+
+    for (const input of ['pointer', 'keyboard']) {
+      await scrollScene(page, '.opening-story', input === 'pointer' ? 0.9 : 0.4);
+      const replay = page.getByRole('button', { name: '重播品牌开场' });
+      const box = await replay.boundingBox();
+      assert.ok(box.width >= 44 && box.height >= 44, JSON.stringify(box));
+      if (input === 'pointer') await replay.click();
+      else await replay.press('Space');
+      assert.equal(await page.evaluate(() => scrollY), 0);
+      assert.ok(+(await page.locator('.original-opening').getAttribute('data-time')) < 0.3);
+    }
+    assert.equal(await page.locator('.opening-copy button').count(), 0);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.waitForFunction(
+      () => document.querySelector('.original-opening').dataset.time === '6.8000',
+    );
+    await page.getByRole('button', { name: '重播品牌开场' }).press('Enter');
+    assert.equal(await page.locator('.original-opening').getAttribute('data-time'), '6.8000');
+  } finally {
+    await page.close();
+  }
+});
 
 test('active editing and local state survive chapter changes, responsive modes and reduced motion', async () => {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
@@ -379,7 +432,9 @@ test('opening stays within short desktop viewports and the original eyes clear t
     ]) {
       await page.setViewportSize(viewport);
       await page.goto(base);
-      for (const progress of [0, 0.64, 0.7, 0.74, 0.78, 0.83, 0.9, 1, 0.74, 0.3]) {
+      for (const progress of [
+        0, 0.03, 0.08, 0.12, 0.14, 0.155, 0.16, 0.25, 0.45, 0.6, 0.8, 0.9, 1, 0.4, 0.08,
+      ]) {
         await scrollScene(page, '.opening-story', progress);
         const geometry = await page.evaluate(() => {
           const rect = (selector) =>
@@ -399,10 +454,10 @@ test('opening stays within short desktop viewports and the original eyes clear t
           JSON.stringify({ viewport, progress, geometry }),
         );
         assert.ok(
-          progress >= 0.18 || geometry.copy.bottom + 8 <= geometry.preview.top,
+          progress > 0 || geometry.copy.bottom + 8 <= geometry.preview.top,
           JSON.stringify({ viewport, geometry }),
         );
-        if (progress >= 0.64 && (await page.locator('.opening-copy').isVisible())) {
+        if (progress > 0 && (await page.locator('.opening-copy').isVisible())) {
           for (const eye of geometry.eyes)
             for (const text of geometry.text) {
               assert.ok(

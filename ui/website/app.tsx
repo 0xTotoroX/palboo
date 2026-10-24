@@ -165,7 +165,7 @@ export function App() {
               target="_blank"
               rel="noopener noreferrer"
             >
-              查看发布版本
+              前往 GitHub 下载
               <Icon name="feature-next" />
             </a>
           </div>

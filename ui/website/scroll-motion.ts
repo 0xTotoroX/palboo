@@ -1,8 +1,8 @@
 /* [INPUT]: A story section, native scroll/resize and reduced-motion preferences.
- * [OUTPUT]: Clamped section progress; interpolation for the existing SVG renderers.
+ * [OUTPUT]: Clamped section progress, explicit replay rewind and SVG interpolation.
  * [POS]: Website-only scroll transport. Never captures wheel/touch or runs an idle loop.
  * [PROTOCOL]: Keep website/AGENTS.md and browser acceptance in sync. */
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 export const clamp = (value: number) => Math.max(0, Math.min(1, value));
 export const smooth = (value: number) => {
@@ -19,6 +19,13 @@ export function useScrollScene(anchors?: string) {
       matchMedia('(prefers-reduced-motion: reduce), (max-width: 760px), (max-height: 650px)')
         .matches,
   );
+  const scrollToStart = useCallback(() => {
+    const element = ref.current;
+    if (!element) return;
+    scrollTo({ top: scrollY + element.getBoundingClientRect().top, behavior: 'instant' });
+    // Rewind progress in the same render as replay, before the scroll event arrives.
+    setProgress(0);
+  }, []);
   useEffect(() => {
     const element = ref.current!;
     const media = matchMedia(
@@ -68,5 +75,5 @@ export function useScrollScene(anchors?: string) {
       media.removeEventListener('change', onMedia);
     };
   }, [anchors]);
-  return { ref, progress, staticView, activeIndex };
+  return { ref, progress, staticView, activeIndex, scrollToStart };
 }

@@ -1,4 +1,4 @@
-/* [INPUT]: Original v3 SVG/pose timeline, scroll progress and motion preference.
+/* [INPUT]: Original v3 SVG/pose timeline, replay/transport intent and motion preference.
  * [OUTPUT]: Complete original playback from typing through blush, then scroll handoff.
  * [POS]: Website transport only; original artwork and authored poses stay unchanged.
  * [PROTOCOL]: Keep website/AGENTS.md and media/README.md in sync. */
@@ -6,17 +6,7 @@ import { useLayoutEffect, useRef } from 'react';
 import { createBrandPose } from './brand-poses';
 import artwork from './media/palboo-opening.svg?raw';
 
-export function BrandOpening({
-  progress,
-  replay,
-  skip,
-  onFinished,
-}: {
-  progress: number;
-  replay: number;
-  skip: boolean;
-  onFinished: (value: boolean) => void;
-}) {
+export function BrandOpening({ travelling, replay }: { travelling: boolean; replay: number }) {
   const ref = useRef<HTMLDivElement>(null);
   const finish = useRef<() => void>(() => {});
   useLayoutEffect(() => {
@@ -36,7 +26,6 @@ export function BrandOpening({
       stop();
       elapsed = 6.8;
       timeline.render(6.8);
-      onFinished(true);
     };
     const tick = (now: number) => {
       request = 0;
@@ -44,7 +33,6 @@ export function BrandOpening({
       last = now;
       timeline.render(elapsed);
       if (elapsed < 6.8) request = requestAnimationFrame(tick);
-      else onFinished(true);
     };
     const resume = () => {
       if (media.matches) return finish.current();
@@ -66,11 +54,11 @@ export function BrandOpening({
       media.removeEventListener('change', resume);
       document.removeEventListener('visibilitychange', resume);
     };
-  }, [replay, onFinished]);
+  }, [replay]);
   useLayoutEffect(() => {
     // Scrolling ahead hands off the final original pose; it never flies as letters.
-    if (progress >= 0.62 || skip) finish.current();
-  }, [progress, replay, skip]);
+    if (travelling) finish.current();
+  }, [travelling, replay]);
   return (
     <div className="brand-opening" role="img" aria-label="PALBOO 字标变成双眼">
       <div

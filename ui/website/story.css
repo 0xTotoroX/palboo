@@ -25,6 +25,17 @@
 .brand-flight {
   transform-origin: 50% 49.516%;
 }
+.brand-replay {
+  position: absolute;
+  left: 50%;
+  top: 49.516%;
+  pointer-events: auto;
+  border-radius: 12px;
+  cursor: pointer;
+}
+.brand-replay:hover {
+  background: none;
+}
 .original-opening > svg {
   display: block;
   width: 100%;
@@ -217,15 +228,6 @@ h1 {
   stroke-opacity: 0.33;
   stroke-linecap: round;
 }
-.opening-controls {
-  color: var(--site-muted);
-}
-@media (prefers-reduced-motion: reduce) {
-  .opening-controls {
-    display: none;
-  }
-}
-
 .intro-titlebar {
   grid-column: 1 / -1;
   display: flex;
@@ -280,9 +282,4 @@ h1 {
 }
 .intro-input > div svg:last-child {
   margin-left: auto;
-}
-.opening-replay {
-  margin-left: 14px;
-  vertical-align: middle;
-  color: var(--site-muted);
 }

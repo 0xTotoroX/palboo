@@ -6,16 +6,14 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { Icon } from '../shared/icons/react';
 import { BrandOpening } from './brand-opening';
 import { Eyes, FeatureDemo, type FeatureId } from './demos';
-import { smooth, useScrollScene } from './scroll-motion';
+import { clamp, smooth, useScrollScene } from './scroll-motion';
 
 export function OpeningStory() {
-  const { ref, progress, staticView } = useScrollScene();
+  const { ref, progress, staticView, scrollToStart } = useScrollScene();
   const brand = useRef<HTMLDivElement>(null);
   const entry = useRef<HTMLDivElement>(null);
   const preview = useRef<HTMLDivElement>(null);
   const [replay, setReplay] = useState(0);
-  const [finished, setFinished] = useState(false);
-  const [skip, setSkip] = useState(false);
   const [landing, setLanding] = useState({ x: 0, y: 0, scale: 0.1 });
   const measureLanding = useCallback(() => {
     const source = brand.current!.getBoundingClientRect();
@@ -39,8 +37,11 @@ export function OpeningStory() {
     return () => observer.disconnect();
   }, [ref, measureLanding]);
   useLayoutEffect(measureLanding, [measureLanding, progress]);
-  const travel = staticView ? 0 : smooth((progress - 0.64) / 0.26);
-  const reveal = staticView ? 1 : smooth((progress - 0.87) / 0.11);
+  const travel = staticView ? 0 : clamp(progress / 0.9);
+  const x = landing.x * (1 - (1 - travel) ** 3);
+  const y = landing.y * smooth(travel) ** 1.3;
+  const scale = Math.pow(landing.scale, smooth(travel));
+  const reveal = staticView ? 1 : smooth((progress - 0.78) / 0.16);
   return (
     <section
       ref={ref}
@@ -55,16 +56,25 @@ export function OpeningStory() {
             style={{
               // Turn toward the rail before descending past the headline. Keep
               // the same SVG at the destination, including its blush and spacing.
-              transform: `translate(${landing.x * (1 - (1 - travel) ** 3)}px, ${landing.y * smooth(travel)}px) scale(${Math.pow(landing.scale, smooth(travel))})`,
+              transform: `translate(${x}px, ${y}px) scale(${scale})`,
             }}
           >
-            <BrandOpening
-              progress={progress}
-              replay={replay}
-              skip={skip}
-              onFinished={setFinished}
-            />
+            <BrandOpening travelling={!staticView && progress > 0} replay={replay} />
           </div>
+          <button
+            className="brand-replay"
+            aria-label="重播品牌开场"
+            title="重播开场"
+            style={{
+              transform: `translate(${x}px, ${y}px) translate(-50%, -50%)`,
+              width: `max(44px, ${36 * scale}%)`,
+              height: `max(44px, ${46 * scale}%)`,
+            }}
+            onClick={() => {
+              scrollToStart();
+              setReplay((value) => value + 1);
+            }}
+          />
         </div>
         <div
           className="opening-copy"
@@ -72,8 +82,8 @@ export function OpeningStory() {
             staticView
               ? undefined
               : {
-                  opacity: 1 - smooth((progress - 0.18) / 0.22),
-                  visibility: progress > 0.42 ? 'hidden' : 'visible',
+                  opacity: 1 - smooth(progress / 0.16),
+                  visibility: progress >= 0.16 ? 'hidden' : 'visible',
                 }
           }
         >
@@ -91,28 +101,13 @@ export function OpeningStory() {
             了解安装
             <Icon name="feature-next" />
           </a>
-          <button
-            className="icon-button opening-replay"
-            aria-label={finished ? '重播品牌开场' : '跳过品牌开场'}
-            title={finished ? '重播开场' : '跳过开场'}
-            onClick={() => {
-              if (!finished) return setSkip(true);
-              setSkip(false);
-              setFinished(false);
-              setReplay((value) => value + 1);
-            }}
-          >
-            <Icon name={finished ? 'refresh' : 'chevron-right'} />
-          </button>
         </div>
         <div
           ref={preview}
           className="intro-preview"
           aria-label="Codex 中的 Palboo 外观示例"
           style={
-            staticView
-              ? undefined
-              : { top: `calc(68svh - ${smooth((progress - 0.18) / 0.42) * 58}svh)` }
+            staticView ? undefined : { top: `calc(68svh - ${smooth(progress / 0.6) * 58}svh)` }
           }
         >
           <div className="intro-titlebar">
