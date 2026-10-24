@@ -1,26 +1,76 @@
 /* [INPUT]: Original v3 SVG/pose timeline, scroll progress and motion preference.
- * [OUTPUT]: One reversible clock for the complete O morph, blinks and blush.
+ * [OUTPUT]: Complete original playback from typing through blush, then scroll handoff.
  * [POS]: Website transport only; original artwork and authored poses stay unchanged.
  * [PROTOCOL]: Keep website/AGENTS.md and media/README.md in sync. */
 import { useLayoutEffect, useRef } from 'react';
 import { createBrandPose } from './brand-poses';
-import { clamp } from './scroll-motion';
 import artwork from './media/palboo-opening.svg?raw';
 
-export function BrandOpening({ progress, staticView }: { progress: number; staticView: boolean }) {
+export function BrandOpening({
+  progress,
+  replay,
+  skip,
+  onFinished,
+}: {
+  progress: number;
+  replay: number;
+  skip: boolean;
+  onFinished: (value: boolean) => void;
+}) {
   const ref = useRef<HTMLDivElement>(null);
-  const pose = useRef<ReturnType<typeof createBrandPose> | null>(null);
+  const finish = useRef<() => void>(() => {});
   useLayoutEffect(() => {
-    pose.current = createBrandPose(ref.current!);
-    return () => {
-      pose.current = null;
+    const element = ref.current!;
+    const timeline = createBrandPose(element);
+    const media = matchMedia('(prefers-reduced-motion: reduce)');
+    let request = 0,
+      elapsed = 0,
+      last = 0,
+      visible = true;
+    const stop = () => {
+      cancelAnimationFrame(request);
+      request = 0;
+      last = 0;
     };
-  }, []);
+    finish.current = () => {
+      stop();
+      elapsed = 6.8;
+      timeline.render(6.8);
+      onFinished(true);
+    };
+    const tick = (now: number) => {
+      request = 0;
+      if (last) elapsed = Math.min(6.8, elapsed + (now - last) / 1000);
+      last = now;
+      timeline.render(elapsed);
+      if (elapsed < 6.8) request = requestAnimationFrame(tick);
+      else onFinished(true);
+    };
+    const resume = () => {
+      if (media.matches) return finish.current();
+      if (document.hidden || !visible) return stop();
+      if (!request && elapsed < 6.8) request = requestAnimationFrame(tick);
+    };
+    const observer = new IntersectionObserver(([entry]) => {
+      visible = entry.isIntersecting;
+      resume();
+    });
+    observer.observe(element);
+    timeline.render(media.matches ? 6.8 : 0);
+    media.addEventListener('change', resume);
+    document.addEventListener('visibilitychange', resume);
+    resume();
+    return () => {
+      stop();
+      observer.disconnect();
+      media.removeEventListener('change', resume);
+      document.removeEventListener('visibilitychange', resume);
+    };
+  }, [replay, onFinished]);
   useLayoutEffect(() => {
-    // Finish the original sequence before the separate spatial journey begins.
-    // A single scroll clock also makes a rapid reversal deterministic.
-    pose.current?.render(staticView ? 6.8 : 1.15 + clamp(progress / 0.6) * 5.65);
-  }, [progress, staticView]);
+    // Scrolling ahead hands off the final original pose; it never flies as letters.
+    if (progress >= 0.62 || skip) finish.current();
+  }, [progress, replay, skip]);
   return (
     <div className="brand-opening">
       <div className="original-opening" ref={ref} dangerouslySetInnerHTML={{ __html: artwork }} />

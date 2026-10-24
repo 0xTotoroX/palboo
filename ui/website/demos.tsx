@@ -4,8 +4,9 @@
  * [PROTOCOL]: Keep website/AGENTS.md and browser acceptance in sync. */
 import { useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { Icon } from '../shared/icons/react';
-import { LayoutPreviewScene, type DemoFrame } from '../settings/layout-preview-scene';
-import { useSurfaceJourney } from './surface-motion';
+import { ModelPreview } from '../settings/model-preview';
+import { TokenMeterView } from '../features/token-meter/view';
+import type { ModelState } from '../features/model/catalog';
 
 export const features = [
   { id: 'next', label: '下一步', icon: 'feature-next' },
@@ -16,13 +17,6 @@ export const features = [
   { id: 'bots', label: 'Grok Bot', icon: 'feature-bots' },
 ] as const;
 export type FeatureId = (typeof features)[number]['id'];
-export type SurfaceId = 'sidebar' | 'overlay' | 'desktop' | 'edge';
-export const surfaces: { id: SurfaceId; label: string }[] = [
-  { id: 'sidebar', label: '侧栏' },
-  { id: 'overlay', label: '页面浮层' },
-  { id: 'desktop', label: '桌面与副屏' },
-  { id: 'edge', label: '贴边 / 刘海' },
-];
 export const headings = ['确定作品集内容', '安排页面与布局', '上线前检查'];
 export function tabKeys(event: KeyboardEvent<HTMLDivElement>) {
   const tabs = [...event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
@@ -196,20 +190,91 @@ export function BoardDemo() {
   );
 }
 
+const exampleModels: ModelState = {
+  revision: 0,
+  snapshot: {
+    target: { preview: true },
+    revision: 'website-example',
+    status: 'ready',
+    message: '',
+    current: null,
+    models: [
+      {
+        id: 'gpt-6.1-sol',
+        label: 'GPT-6.1-Sol',
+        reasoning: ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'],
+        fast: true,
+      },
+      {
+        id: 'gpt-6-astra',
+        label: 'GPT-6-Astra',
+        reasoning: ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'],
+        fast: true,
+      },
+    ],
+    usage: [
+      { minutes: 10080, remainingPercent: 72, resetsAt: null },
+      { minutes: 300, remainingPercent: 86, resetsAt: null },
+    ],
+  },
+  preferences: {
+    enabled: true,
+    showUsage: true,
+    pinned: ['gpt-6.1-sol', 'gpt-6-astra'],
+    presets: [],
+  },
+};
 export function ModelDemo() {
-  const [model, setModel] = useState('通用模型');
   return (
-    <div className="demo-models" aria-label="模型选择演示">
-      {['通用模型', '推理模型', '快速模型'].map((name) => (
-        <button key={name} aria-pressed={model === name} onClick={() => setModel(name)}>
-          <Icon name="feature-model" />
-          <span>{name}</span>
-          {model === name && <Icon name="check" />}
-        </button>
-      ))}
-      <p className="model-readback" aria-live="polite">
-        当前选择<strong>{model}</strong>
+    <div className="demo-models" aria-label="Codex 模型快切演示">
+      <ModelPreview model={exampleModels} />
+    </div>
+  );
+}
+export function SpeedDemo() {
+  const [phase, setPhase] = useState('streaming');
+  return (
+    <div className="speed-demo">
+      <div className="choice-row" role="group" aria-label="测速状态演示">
+        {[
+          ['waiting', '等待输出'],
+          ['thinking', '思考中'],
+          ['streaming', '生成中'],
+          ['completed', '已完成'],
+        ].map(([id, title]) => (
+          <button key={id} aria-pressed={phase === id} onClick={() => setPhase(id)}>
+            {title}
+          </button>
+        ))}
+      </div>
+      <p>
+        {phase === 'waiting'
+          ? '已发送：帮我安排作品集的第一版。'
+          : phase === 'thinking'
+            ? '正在梳理作品、页面与时间安排…'
+            : '先整理作品素材，再完成页面布局，最后检查移动端和联系链接。'}
       </p>
+      <div className="speed-readout">
+        <span>示例回复</span>
+        <TokenMeterView
+          snapshot={{
+            threadId: 'website-example',
+            phase,
+            speed: phase === 'streaming' ? 38.4 : null,
+            official:
+              phase === 'completed'
+                ? {
+                    inputTokens: 1120,
+                    cachedInputTokens: 800,
+                    outputTokens: 248,
+                    reasoningOutputTokens: 96,
+                  }
+                : null,
+            scope: 'turn',
+            average: phase === 'completed' ? 21.6 : null,
+          }}
+        />
+      </div>
     </div>
   );
 }
@@ -542,44 +607,6 @@ export function FeatureDemo({
           <ComposerDemo draft={draft} onChange={setDraft} />
         </div>
       </div>
-    </div>
-  );
-}
-
-export function SurfaceDemo({
-  surface,
-  animate = true,
-  scrollFrame,
-  paused = false,
-}: {
-  surface: SurfaceId;
-  animate?: boolean;
-  scrollFrame?: DemoFrame;
-  paused?: boolean;
-}) {
-  const frame = useSurfaceJourney(surface, scrollFrame, animate, paused);
-  const [draft, setDraft] = useState('');
-  return (
-    <div className="surface-model" data-surface={surface}>
-      <LayoutPreviewScene frame={frame} title="个人作品集" hostName="Codex">
-        <div className="modeled-workspace">
-          <div className="modeled-heading">
-            <Icon name="feature-next" />
-            <span>下一步</span>
-          </div>
-          <ol>
-            <li>整理三个代表作品</li>
-            <li>完成首页布局</li>
-            <li>检查移动端</li>
-          </ol>
-          <input
-            aria-label="窗口演示草稿"
-            placeholder="接着聊…"
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-          />
-        </div>
-      </LayoutPreviewScene>
     </div>
   );
 }

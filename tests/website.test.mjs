@@ -69,8 +69,13 @@ test('portfolio demos preserve drafts, preferences and undo without service requ
     assert.match(await demo.locator('.chat-paragraph.is-focused').innerText(), /上线前检查/);
     assert.ok(await demo.locator('.demo-chat article').evaluate((node) => node.scrollTop > 0));
     await choose('模型切换');
-    await demo.getByRole('button', { name: '推理模型', exact: true }).click();
-    assert.match(await demo.locator('.model-readback').innerText(), /推理模型/);
+    await demo.getByRole('button', { name: 'GPT-6-Astra · High', exact: true }).click();
+    assert.equal(
+      await demo
+        .getByRole('button', { name: 'GPT-6-Astra · High', exact: true })
+        .getAttribute('aria-pressed'),
+      'true',
+    );
     await choose('术语释义');
     await demo.getByRole('button', { name: '收藏', exact: true }).click();
     await demo.getByRole('button', { name: '掌握了', exact: true }).click();
@@ -117,7 +122,7 @@ test('portfolio demos preserve drafts, preferences and undo without service requ
 });
 
 test(
-  'scroll reverses original O morph and lands the eyes in the left entry; copy remains readable',
+  'full original playback includes typing before the eyes land in the left entry',
   { timeout: 60000 },
   async () => {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
@@ -125,11 +130,19 @@ test(
       await page.goto(base);
       page.setDefaultTimeout(15000);
       const stage = page.locator('.original-opening');
-      await scrollScene(page, '.opening-story', 0.3);
-      const forward = +(await stage.getAttribute('data-time'));
-      assert.ok(forward > 2 && forward < 4.4);
-      await scrollScene(page, '.opening-story', 0.15);
-      assert.ok(+(await stage.getAttribute('data-time')) < forward);
+      await page.waitForFunction(() => {
+        const t = +document.querySelector('.original-opening').dataset.time;
+        return t > 0.45 && t < 0.65;
+      });
+      assert.equal(await page.locator('#letter-p').getAttribute('opacity'), '1');
+      assert.equal(await page.locator('#letter-a').getAttribute('opacity'), '1');
+      assert.equal(await page.locator('#letter-l').getAttribute('opacity'), '0');
+      await page.getByRole('button', { name: '跳过品牌开场' }).click();
+      await page.getByRole('button', { name: '重播品牌开场' }).click();
+      assert.ok(+(await stage.getAttribute('data-time')) < 0.3);
+      await page.waitForFunction(
+        () => document.querySelector('.original-opening').dataset.time === '6.8000',
+      );
       await scrollScene(page, '.opening-story', 1);
       await page.waitForFunction(
         () => document.querySelector('.original-opening').dataset.time === '6.8000',
@@ -166,7 +179,9 @@ test(
       const box = await demo.boundingBox();
       assert.ok(box.y >= 0 && box.y + box.height <= 1000, JSON.stringify(box));
       assert.equal(
-        await page.locator('header, nav, .eyebrow, .section-index, .feature-picker').count(),
+        await page
+          .locator('main > header, main > nav, .eyebrow, .section-index, .feature-picker')
+          .count(),
         0,
       );
       await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -289,61 +304,66 @@ test('board supports real pointer drag, keyboard actions and creating a local ta
   }
 });
 
-test('shared device geometry follows scroll in both directions, and manual/keyboard switching keeps the draft', async () => {
-  const page = await browser.newPage({ viewport: { width: 1280, height: 1000 } });
+test('original settings journey, layout controls and drafts are reused on the website', async () => {
+  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
   try {
     await page.goto(base);
-    const window = page.locator('.layout-demo-window');
+    const demo = page.locator('.surface-story');
+    const window = demo.locator('.layout-demo-window');
     const x = () => window.evaluate((el) => el.x.baseVal.value);
-    await scrollScene(page, '.surface-story', 0);
-    assert.equal(await x(), 454);
-    await page.getByLabel('窗口演示草稿').fill('保留窗口草稿');
-    await page.getByLabel('窗口演示草稿').blur();
-    await scrollScene(page, '.surface-story', 0.62);
-    assert.ok((await x()) > 414 && (await x()) < 754);
-    const interruptedX = await x();
-    await page.evaluate(() => {
-      window.journeySamples = [];
-      const sample = () => {
-        window.journeySamples.push(document.querySelector('.layout-demo-window').x.baseVal.value);
-        if (window.journeySamples.length < 45) requestAnimationFrame(sample);
-      };
-      requestAnimationFrame(sample);
+    await demo.getByLabel('下一步示例草稿').fill('保留窗口草稿');
+    await demo.getByLabel('下一步示例草稿').blur();
+    await demo.getByRole('button', { name: '演示移到副屏' }).click();
+    const samples = await window.evaluate(async (el) => {
+      const result = [];
+      for (let i = 0; i < 70; i++) {
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+        result.push(el.x.baseVal.value);
+      }
+      return result;
     });
-    await page.locator('#surface-overlay').click();
-    await page.waitForFunction(
-      () => document.querySelector('.layout-demo-window').x.baseVal.value === 402,
+    assert.ok(
+      samples.some((x) => Math.abs(x - 414) < 2),
+      'passes through the original popped position',
     );
     assert.ok(
-      await page.evaluate((limit) => Math.max(...window.journeySamples) <= limit + 2, interruptedX),
-      `manual handoff must begin at the visible intermediate frame ${interruptedX}: ${await page.evaluate(() => window.journeySamples)}`,
+      samples.some((x) => x > 430 && x < 740),
+      'moves continuously to secondary display',
     );
-    await scrollScene(page, '.surface-story', 0.3);
-    await scrollScene(page, '.surface-story', 0.75);
     await page.waitForFunction(
-      () => document.querySelector('.layout-demo-window').x.baseVal.value === 754,
+      () => document.querySelector('.surface-story .layout-demo-window').x.baseVal.value === 754,
     );
-    assert.equal(await x(), 754);
-    await scrollScene(page, '.surface-story', 0.3);
-    assert.equal(await x(), 402);
-    await scrollScene(page, '.surface-story', 1);
-    assert.equal(await x(), 468);
+    assert.equal(await demo.getByLabel('下一步示例草稿').inputValue(), '保留窗口草稿');
+    await demo.getByRole('button', { name: '演示页面浮层' }).click();
+    await page.waitForFunction(
+      () => document.querySelector('.surface-story .layout-demo-window').x.baseVal.value === 402,
+    );
+    await demo.getByRole('button', { name: '左右', exact: true }).click();
+    await page.waitForFunction(
+      () =>
+        document.querySelector('.surface-story .layout-demo-window').width.baseVal.value === 400,
+    );
+    assert.equal(await demo.locator('.csw-feature-panes').getAttribute('data-axis'), 'horizontal');
+    await demo.getByRole('button', { name: '标签', exact: true }).click();
+    assert.equal(await demo.locator('.csw-workbench-pane').count(), 1);
+    await demo.getByRole('tab', { name: '术语', exact: true }).click();
+    assert.equal(await demo.getByLabel('术语示例草稿').isVisible(), true);
+    await demo.getByRole('tab', { name: '下一步', exact: true }).click();
+    assert.equal(await demo.getByLabel('下一步示例草稿').inputValue(), '保留窗口草稿');
+    await demo.getByRole('button', { name: '上下', exact: true }).click();
+    assert.equal(await demo.locator('.csw-feature-panes').getAttribute('data-axis'), 'vertical');
     await page.emulateMedia({ reducedMotion: 'reduce' });
+    await demo.getByRole('button', { name: '贴边 / 刘海', exact: true }).click();
+    await demo.getByRole('button', { name: '顶部 / 刘海', exact: true }).click();
     await page.waitForFunction(
-      () => document.querySelector('.surface-story').dataset.static === 'true',
+      () => document.querySelector('.surface-story .layout-demo-window').y.baseVal.value === 48,
     );
-    for (const id of ['sidebar', 'overlay', 'desktop', 'edge']) {
-      await page.locator(`#surface-${id}`).click();
-      await page.waitForFunction(
-        (value) => document.querySelector('.layout-demo-window').x.baseVal.value === value,
-        { sidebar: 454, overlay: 402, desktop: 754, edge: 468 }[id],
-      );
-    }
-    assert.equal(await page.getByLabel('窗口演示草稿').inputValue(), '保留窗口草稿');
-    await page.locator('#surface-sidebar').focus();
-    await page.keyboard.press('ArrowRight');
-    assert.equal(await page.locator('#surface-overlay').getAttribute('aria-selected'), 'true');
-    assert.equal(await x(), 402);
+    assert.equal(await window.getAttribute('y'), '48');
+    await demo.getByRole('button', { name: '重置预览', exact: true }).click();
+    await page.waitForFunction(
+      () => document.querySelector('.surface-story .layout-demo-window').x.baseVal.value === 454,
+    );
+    assert.equal(await x(), 454);
   } finally {
     await page.close();
   }
@@ -373,14 +393,16 @@ test('opening stays within short desktop viewports and the original eyes clear t
           };
         });
         assert.ok(
-          geometry.preview.bottom <= viewport.height && geometry.entry.bottom <= viewport.height,
+          progress < 0.6 ||
+            (geometry.preview.bottom <= viewport.height &&
+              geometry.entry.bottom <= viewport.height),
           JSON.stringify({ viewport, progress, geometry }),
         );
         assert.ok(
-          geometry.copy.bottom + 8 <= geometry.preview.top,
+          progress >= 0.18 || geometry.copy.bottom + 8 <= geometry.preview.top,
           JSON.stringify({ viewport, geometry }),
         );
-        if (progress >= 0.64) {
+        if (progress >= 0.64 && (await page.locator('.opening-copy').isVisible())) {
           for (const eye of geometry.eyes)
             for (const text of geometry.text) {
               assert.ok(
@@ -448,68 +470,50 @@ test('reading changes with the visible heading, releases pointer actions and res
   }
 });
 
-test('secondary display settles before transfer; reverse, manual interruption and editing preserve the visible window', async () => {
-  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+test('model matrix, quota, presets, material samples and speed states use real product views', async () => {
+  const page = await browser.newPage({
+    viewport: { width: 1440, height: 900 },
+    reducedMotion: 'reduce',
+  });
   try {
     await page.goto(base);
-    const pose = () =>
-      page.locator('.layout-demo-scene').evaluate((svg) => ({
-        camera: svg.getAttribute('viewBox'),
-        x: svg.querySelector('.layout-demo-window').x.baseVal.value,
-        secondary: svg.querySelector('g[opacity]').getAttribute('opacity'),
-      }));
-    await scrollScene(page, '.surface-story', 0.46);
-    const reveal = await pose();
-    assert.equal(reveal.x, 414);
-    assert.ok(+reveal.secondary > 0 && +reveal.secondary < 1);
-    await scrollScene(page, '.surface-story', 0.53);
-    const ready = await pose();
-    assert.equal(ready.x, 414);
-    assert.equal(ready.secondary, '1');
-    await scrollScene(page, '.surface-story', 0.62);
-    const moving = await pose();
-    assert.equal(moving.camera, ready.camera);
-    assert.equal(moving.secondary, '1');
-    assert.ok(moving.x > 414 && moving.x < 754);
-    await scrollScene(page, '.surface-story', 0.82);
-    const returning = await pose();
-    assert.equal(returning.secondary, '1');
-    assert.equal(returning.camera, ready.camera);
-    await page.getByLabel('窗口演示草稿').fill('中途编辑');
-    const held = await pose();
-    await scrollScene(page, '.surface-story', 0.3);
-    assert.deepEqual(await pose(), held);
-    await page.getByLabel('窗口演示草稿').blur();
-    await page.waitForFunction(
-      () => document.querySelector('.layout-demo-window').x.baseVal.value === 402,
+    const model = page.locator('.tools-section .demo-models');
+    await model.getByRole('button', { name: 'GPT-6-Astra · High', exact: true }).click();
+    assert.equal(
+      await model
+        .getByRole('button', { name: 'GPT-6-Astra · High', exact: true })
+        .getAttribute('aria-pressed'),
+      'true',
     );
-    assert.equal(await page.getByLabel('窗口演示草稿').inputValue(), '中途编辑');
-    await page.locator('#surface-desktop').click();
-    await page.locator('#surface-edge').click();
-    await page.waitForFunction(
-      () => document.querySelector('.layout-demo-window').x.baseVal.value === 468,
+    await model.getByRole('button', { name: 'Fast', exact: true }).click();
+    assert.equal(
+      await model.getByRole('button', { name: 'Fast', exact: true }).getAttribute('aria-pressed'),
+      'true',
     );
-    await page.evaluate(() => {
-      window.resumeSamples = [document.querySelector('.layout-demo-window').x.baseVal.value];
-      const sample = () => {
-        window.resumeSamples.push(document.querySelector('.layout-demo-window').x.baseVal.value);
-        if (window.resumeSamples.length < 30) requestAnimationFrame(sample);
-      };
-      requestAnimationFrame(sample);
-    });
-    await scrollScene(page, '.surface-story', 0.62);
-    await page.waitForFunction(
-      () => Math.abs(document.querySelector('.layout-demo-window').x.baseVal.value - 584) < 1,
-    );
-    const resume = await page.evaluate(() => window.resumeSamples);
-    assert.ok(
-      resume.some((x) => x > 469 && x < 583),
-      'resuming scroll traverses visible intermediate frames',
-    );
-    assert.ok(
-      Math.max(...resume.slice(1).map((x, i) => Math.abs(x - resume[i]))) < 100,
-      JSON.stringify(resume),
-    );
+    await model.getByRole('button', { name: '添加预设', exact: true }).click();
+    assert.match(await model.locator('.model-presets').innerText(), /GPT-6-Astra/);
+    assert.match(await model.locator('.model-usage').innerText(), /72/);
+    await model.getByRole('button', { name: '所有模型', exact: true }).click();
+    assert.equal(await model.locator('.model-picker').isVisible(), true);
+    const material = page.locator('.material-story');
+    const sample = material.locator('[data-material]');
+    const backgrounds = new Set();
+    for (const [name, id] of [
+      ['哑光', 'matte'],
+      ['磨砂', 'frosted'],
+      ['液态', 'native-glass'],
+    ]) {
+      await material.getByRole('button', { name, exact: true }).click();
+      assert.equal(await sample.getAttribute('data-material'), id);
+      backgrounds.add(await sample.evaluate((node) => getComputedStyle(node).backgroundColor));
+    }
+    assert.equal(backgrounds.size, 3);
+    await material.getByRole('button', { name: 'Clear', exact: true }).click();
+    assert.equal(await sample.getAttribute('data-variant'), 'clear');
+    await page.locator('.speed-demo').getByRole('button', { name: '思考中', exact: true }).click();
+    assert.match(await page.locator('.speed-readout').innerText(), /思考中/);
+    await page.locator('.speed-demo').getByRole('button', { name: '已完成', exact: true }).click();
+    assert.match(await page.locator('.token-meter-readout').getAttribute('title'), /官方本轮累计/);
   } finally {
     await page.close();
   }
@@ -541,24 +545,14 @@ test('pointer takeover releases keyboard chapter lock; static resizing and manua
     );
     assert.equal(await favorite.evaluate((el) => el === document.activeElement), true);
     await favorite.blur();
-    await scrollScene(page, '.surface-story', 0.1);
-    await page.locator('#surface-desktop').click();
-    await page.getByLabel('窗口演示草稿').focus();
-    const samples = await page.evaluate(async () => {
-      const result = [];
-      for (let i = 0; i < 20; i++) {
-        await new Promise((resolve) => requestAnimationFrame(resolve));
-        result.push(document.querySelector('.layout-demo-window').getAttribute('x'));
-      }
-      return result;
-    });
-    assert.equal(new Set(samples).size, 1, 'manual journey pauses while its input is focused');
-    await page.getByLabel('窗口演示草稿').fill('继续保留');
-    await page.getByLabel('窗口演示草稿').blur();
+    const surface = page.locator('.surface-story');
+    await surface.getByRole('button', { name: '演示移到副屏' }).click();
+    await surface.getByLabel('下一步示例草稿').fill('继续保留');
     await page.waitForFunction(
-      () => document.querySelector('.layout-demo-window').x.baseVal.value === 754,
+      () => document.querySelector('.surface-story .layout-demo-window').x.baseVal.value === 754,
     );
-    assert.equal(await page.locator('#surface-desktop').getAttribute('aria-selected'), 'true');
+    await surface.getByRole('button', { name: '演示侧栏' }).click();
+    assert.equal(await surface.getByLabel('下一步示例草稿').inputValue(), '继续保留');
   } finally {
     await page.close();
   }
@@ -577,6 +571,10 @@ test('light/dark responsive and short screens preserve readable controls without
         const geometry = await page.evaluate(() => ({
           width: innerWidth,
           scrollWidth: document.documentElement.scrollWidth,
+          opening: document.querySelector('.intro-preview').getBoundingClientRect().toJSON(),
+          openingContents: ['.intro-panel', '.intro-entry', '.intro-input'].map((selector) =>
+            document.querySelector(selector).getBoundingClientRect().toJSON(),
+          ),
           overflow: [...document.querySelectorAll('body *')]
             .filter((node) => {
               const r = node.getBoundingClientRect();
@@ -584,7 +582,11 @@ test('light/dark responsive and short screens preserve readable controls without
             })
             .slice(0, 8)
             .map((node) => node.className),
-          buttons: [...document.querySelectorAll('.surface-tabs button,.demo-feature-tabs button')]
+          buttons: [
+            ...document.querySelectorAll(
+              '.preview-selector button,.choice-row button,.demo-feature-tabs button',
+            ),
+          ]
             .filter((node) => node.getBoundingClientRect().width)
             .map((node) => node.getBoundingClientRect().toJSON()),
           ids: [...document.querySelectorAll('[id]')].map((node) => node.id),
@@ -594,6 +596,13 @@ test('light/dark responsive and short screens preserve readable controls without
           `${theme} ${width}: ${JSON.stringify(geometry.overflow)}`,
         );
         assert.equal(new Set(geometry.ids).size, geometry.ids.length);
+        for (const box of geometry.openingContents)
+          assert.ok(
+            box.bottom <= geometry.opening.bottom + 1 &&
+              box.right <= geometry.opening.right + 1 &&
+              box.left >= geometry.opening.left - 1,
+            `${theme} ${width}: opening content clipped ${JSON.stringify({ box, opening: geometry.opening })}`,
+          );
         for (const box of geometry.buttons)
           assert.ok(
             box.width >= 28 && box.height >= 28 && box.left >= 0 && box.right <= width,

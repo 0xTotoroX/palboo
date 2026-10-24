@@ -1,46 +1,44 @@
-/* [INPUT]: Original brand poses, native section progress, shared device model and local demos.
- * [OUTPUT]: Brand-to-entry opening, continuous reading story and reversible surface journey.
+/* [INPUT]: Original brand poses, native section progress and local feature demos.
+ * [OUTPUT]: Complete brand opening, eye-to-entry flight and continuous reading story.
  * [POS]: Website narrative composition; all examples describe one portfolio project.
  * [PROTOCOL]: Keep website/AGENTS.md and DESIGN_SYSTEM.md in sync. */
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Icon } from '../shared/icons/react';
-import { demoFrames, type DemoFrame } from '../settings/layout-preview-scene';
 import { BrandOpening } from './brand-opening';
-import {
-  Eyes,
-  FeatureDemo,
-  SurfaceDemo,
-  surfaces,
-  tabKeys,
-  type FeatureId,
-  type SurfaceId,
-} from './demos';
-import { clamp, smooth, useScrollScene } from './scroll-motion';
+import { Eyes, FeatureDemo, type FeatureId } from './demos';
+import { smooth, useScrollScene } from './scroll-motion';
 
 export function OpeningStory() {
   const { ref, progress, staticView } = useScrollScene();
   const brand = useRef<HTMLDivElement>(null);
   const entry = useRef<HTMLDivElement>(null);
   const preview = useRef<HTMLDivElement>(null);
+  const [replay, setReplay] = useState(0);
+  const [finished, setFinished] = useState(false);
+  const [skip, setSkip] = useState(false);
   const [landing, setLanding] = useState({ x: 0, y: 0, scale: 0.1 });
-  useLayoutEffect(() => {
-    const measure = () => {
-      const source = brand.current!.getBoundingClientRect();
-      const destination = entry.current!.getBoundingClientRect();
-      setLanding({
-        x: destination.x + destination.width / 2 - source.x - source.width / 2,
-        y: destination.y + destination.height / 2 - source.y - (source.height * 307) / 620,
-        scale: 18 / ((source.width * 222) / 1200),
-      });
+  const measureLanding = useCallback(() => {
+    const source = brand.current!.getBoundingClientRect();
+    const destination = entry.current!.getBoundingClientRect();
+    const next = {
+      x: destination.x + destination.width / 2 - source.x - source.width / 2,
+      y: destination.y + destination.height / 2 - source.y - (source.height * 307) / 620,
+      scale: 18 / ((source.width * 222) / 1200),
     };
-    const observer = new ResizeObserver(measure);
+    setLanding((current) =>
+      current.x === next.x && current.y === next.y && current.scale === next.scale ? current : next,
+    );
+  }, []);
+  useLayoutEffect(() => {
+    const observer = new ResizeObserver(measureLanding);
     observer.observe(ref.current!);
     observer.observe(entry.current!);
     observer.observe(brand.current!);
     observer.observe(preview.current!);
-    measure();
+    measureLanding();
     return () => observer.disconnect();
-  }, [ref]);
+  }, [ref, measureLanding]);
+  useLayoutEffect(measureLanding, [measureLanding, progress]);
   const travel = staticView ? 0 : smooth((progress - 0.64) / 0.26);
   const reveal = staticView ? 1 : smooth((progress - 0.87) / 0.11);
   return (
@@ -60,10 +58,25 @@ export function OpeningStory() {
               transform: `translate(${landing.x * (1 - (1 - travel) ** 3)}px, ${landing.y * smooth(travel)}px) scale(${Math.pow(landing.scale, smooth(travel))})`,
             }}
           >
-            <BrandOpening progress={progress} staticView={staticView} />
+            <BrandOpening
+              progress={progress}
+              replay={replay}
+              skip={skip}
+              onFinished={setFinished}
+            />
           </div>
         </div>
-        <div className="opening-copy">
+        <div
+          className="opening-copy"
+          style={
+            staticView
+              ? undefined
+              : {
+                  opacity: 1 - smooth((progress - 0.18) / 0.22),
+                  visibility: progress > 0.42 ? 'hidden' : 'visible',
+                }
+          }
+        >
           <h1 id="page-title">
             让对话，
             <br className="mobile-break" />
@@ -78,13 +91,46 @@ export function OpeningStory() {
             了解安装
             <Icon name="feature-next" />
           </a>
+          <button
+            className="icon-button opening-replay"
+            aria-label={finished ? '重播品牌开场' : '跳过品牌开场'}
+            title={finished ? '重播开场' : '跳过开场'}
+            onClick={() => {
+              if (!finished) return setSkip(true);
+              setSkip(false);
+              setFinished(false);
+              setReplay((value) => value + 1);
+            }}
+          >
+            <Icon name={finished ? 'refresh' : 'chevron-right'} />
+          </button>
         </div>
-        <div ref={preview} className="intro-preview" aria-label="Codex 中的 Palboo 外观示例">
+        <div
+          ref={preview}
+          className="intro-preview"
+          aria-label="Codex 中的 Palboo 外观示例"
+          style={
+            staticView
+              ? undefined
+              : { top: `calc(68svh - ${smooth((progress - 0.18) / 0.42) * 58}svh)` }
+          }
+        >
+          <div className="intro-titlebar">
+            <span className="window-dots" aria-hidden="true">
+              <i />
+              <i />
+              <i />
+            </span>
+            <span>个人作品集</span>
+            <span>Codex</span>
+          </div>
           <div className="intro-rail">
             <span>Codex</span>
             <div className="intro-rail-lines">
               <span>新聊天</span>
               <span>搜索聊天</span>
+              <span>自动化</span>
+              <span>项目</span>
               <span>个人作品集</span>
             </div>
             <div ref={entry} className="intro-entry">
@@ -94,14 +140,29 @@ export function OpeningStory() {
             </div>
           </div>
           <div className="intro-chat">
-            <p>我想用周末做一个个人作品集。</p>
+            <div className="intro-chat-heading">
+              周末做一个个人作品集 <span>GPT-6.1-Sol</span>
+            </div>
+            <p>我想用周末做一个个人作品集，第一版应该怎么安排？</p>
             <h3>从一个完整的小版本开始。</h3>
             <p>
               选好代表作品，写清你的贡献。
               <br />
               先把内容讲清楚，再完善展示。
             </p>
-            <div className="intro-input">接着聊…</div>
+            <ol className="intro-answer">
+              <li>周六整理三个代表作品，写清背景与结果。</li>
+              <li>周日完成首页，让手机和电脑都能顺畅阅读。</li>
+              <li>最后检查图片与联系链接，再邀请朋友试用。</li>
+            </ol>
+            <div className="intro-input">
+              <span>询问后续问题</span>
+              <div>
+                <Icon name="plus" />
+                <span>GPT-6.1-Sol · Low</span>
+                <Icon name="feature-next" />
+              </div>
+            </div>
           </div>
           <div
             className="intro-panel"
@@ -130,22 +191,24 @@ export function OpeningStory() {
 const chapters: { feature: FeatureId; title: string; text: string; detail: string }[] = [
   {
     feature: 'next',
-    title: '想好了方向，\n就接着往下走。',
+    title: '下一步。\n让对话继续推进。',
     text: '根据最近一问一答，给出可以继续的下一步。选一个方向，把建议填进输入框，再按你的想法接着聊。',
     detail:
-      '可以自行选择方向，也可以让 Palboo 探索。常用的“继续”“执行”，始终在手边。生成建议需要配置模型服务。',
+      '自动生成或手动刷新；自选方向、自动探索或智能挑选。内置方向可以编辑，也能添加自己的方向。常用提示词支持自定义，与建议共用填入或发送方式。生成建议需配置模型服务。',
   },
   {
     feature: 'outline',
-    title: '长回答，\n也能一眼找到重点。',
+    title: '大纲。\n长回答也能快速定位。',
     text: '回答里的标题成为可跳转的大纲。方案、步骤、检查清单，想回看哪一段，就直接到哪一段。',
-    detail: '大纲在本机提取，不需要额外调用模型。',
+    detail:
+      '标题在本机提取，不额外调用模型。工作台可以跟随当前聊天，也可以锁定正在阅读的聊天；切换功能时保留阅读位置。',
   },
   {
     feature: 'terms',
-    title: '遇到陌生概念，\n就在这里弄明白。',
+    title: '术语释义。\n读到哪里，理解到哪里。',
     text: '结合词库查看术语释义，把想继续了解的内容收藏起来，已经理解的标为掌握。',
-    detail: '可选用模型按语境识别。新词和导入文件，可以交给当前聊天的 Agent 补全与整理。',
+    detail:
+      '基础词库开箱即用，也可用模型按语境识别。只填名称或导入文件，下次主聊天运行时交给当前 Agent 整理。个人添加、收藏和已掌握的词条可以导出，卡片外观可单独设置。',
   },
 ];
 export function ReadingStory() {
@@ -269,152 +332,6 @@ export function ReadingStory() {
           </div>
         </div>
       ))}
-    </section>
-  );
-}
-
-const poppedWithDisplay = { ...demoFrames.popped, secondary: 1 };
-const frameStops = [
-  { at: 0, frame: demoFrames.sidebar },
-  { at: 0.12, frame: demoFrames.sidebar },
-  { at: 0.25, frame: demoFrames.overlay },
-  { at: 0.34, frame: demoFrames.overlay },
-  { at: 0.42, frame: demoFrames.popped },
-  // Establish the destination and settle the camera before moving the window.
-  { at: 0.5, frame: poppedWithDisplay },
-  { at: 0.54, frame: poppedWithDisplay },
-  { at: 0.7, frame: demoFrames.desktop },
-  { at: 0.78, frame: demoFrames.desktop },
-  { at: 0.88, frame: poppedWithDisplay },
-  { at: 0.94, frame: demoFrames.popped },
-  { at: 0.98, frame: demoFrames.edge },
-  { at: 1, frame: demoFrames.edge },
-];
-function frameAt(progress: number): DemoFrame {
-  const next = frameStops.findIndex((stop) => stop.at > progress);
-  if (next < 0) return demoFrames.edge;
-  if (next === 0) return demoFrames.sidebar;
-  const a = frameStops[next - 1],
-    b = frameStops[next];
-  const t = smooth((progress - a.at) / (b.at - a.at));
-  return Object.fromEntries(
-    Object.keys(a.frame).map((key) => [
-      key,
-      a.frame[key as keyof DemoFrame] +
-        (b.frame[key as keyof DemoFrame] - a.frame[key as keyof DemoFrame]) * t,
-    ]),
-  ) as DemoFrame;
-}
-const places = [
-  {
-    id: 'sidebar',
-    title: '就在对话旁。',
-    text: '一边读回答，一边看大纲与下一步。侧栏里的功能可以分栏、合并，也可以折叠收起。',
-  },
-  {
-    id: 'overlay',
-    title: '需要时，浮到眼前。',
-    text: '把工作台展开在页面上，临时专注于一件事。收起后，聊天重新获得完整空间。',
-  },
-  {
-    id: 'desktop',
-    title: '离开聊天，留在桌面。',
-    text: '弹成独立窗口，再移到副屏。让待办留在眼前，草稿和阅读位置继续保留。',
-  },
-  {
-    id: 'edge',
-    title: '靠在边缘，随手展开。',
-    text: '把常用功能放到屏幕边缘或刘海处。单击图标直达，需要时展开，用完收回。',
-  },
-];
-export function SurfaceStory() {
-  const { ref, progress, staticView } = useScrollScene();
-  const [override, setOverride] = useState<SurfaceId | null>(null);
-  const [animate, setAnimate] = useState(true);
-  const [editing, setEditing] = useState(false);
-  const heldProgress = useRef(progress);
-  const position = editing ? heldProgress.current : progress;
-  const index = position < 0.2 ? 0 : position < 0.38 ? 1 : position < 0.94 ? 2 : 3;
-  const previousChapter = useRef({ index, staticView });
-  useEffect(() => {
-    const changed =
-      previousChapter.current.index !== index || previousChapter.current.staticView !== staticView;
-    previousChapter.current = { index, staticView };
-    if (changed && !staticView && !editing) setOverride(null);
-  }, [index, staticView, editing]);
-  const surface = override ?? (staticView ? 'sidebar' : (places[index].id as SurfaceId));
-  return (
-    <section
-      className="surface-story page-width"
-      ref={ref}
-      data-static={staticView}
-      aria-labelledby="surfaces-title"
-    >
-      <div className="section-intro">
-        <h2 id="surfaces-title">
-          同一个工作台，
-          <br />
-          放到你顺手的位置。
-        </h2>
-        <p>
-          侧栏、页面浮层、桌面窗口之间自由切换。
-          <br />
-          贴边与刘海可以独立使用。
-        </p>
-      </div>
-      <div
-        className="surface-sticky"
-        onFocusCapture={(event) => {
-          if ((event.target as HTMLElement).matches('input, textarea')) {
-            heldProgress.current = progress;
-            setEditing(true);
-          }
-        }}
-        onBlurCapture={(event) => {
-          if (!(event.relatedTarget as HTMLElement | null)?.matches('input, textarea'))
-            setEditing(false);
-        }}
-      >
-        <SurfaceDemo
-          surface={surface}
-          animate={animate}
-          paused={editing}
-          scrollFrame={!staticView && !override ? frameAt(clamp(position)) : undefined}
-        />
-        <div
-          className="surface-tabs"
-          role="tablist"
-          aria-label="窗口形态"
-          onPointerDown={() => setAnimate(true)}
-          onKeyDown={(event) => {
-            setAnimate(false);
-            tabKeys(event);
-          }}
-        >
-          {surfaces.map((item) => (
-            <button
-              key={item.id}
-              id={`surface-${item.id}`}
-              role="tab"
-              aria-selected={surface === item.id}
-              aria-controls="surface-caption"
-              tabIndex={surface === item.id ? 0 : -1}
-              onClick={() => setOverride(item.id)}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-        <div
-          id="surface-caption"
-          className="surface-caption"
-          role="tabpanel"
-          aria-labelledby={`surface-${surface}`}
-        >
-          <h3>{places.find((place) => place.id === surface)!.title}</h3>
-          <p>{places.find((place) => place.id === surface)!.text}</p>
-        </div>
-      </div>
     </section>
   );
 }

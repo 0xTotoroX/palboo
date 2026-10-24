@@ -16,13 +16,16 @@ export function LayoutPreviewScene({
   children,
   title = '布局与位置',
   hostName = 'ChatGPT',
+  placement,
 }: {
   frame: DemoFrame;
   children: ReactNode;
   title?: string;
   hostName?: string;
+  placement?: string;
 }) {
-  const chatWidth = frame.x < 710 ? Math.max(230, frame.x - 190) : 498;
+  const chatWidth =
+    (!placement || placement === 'sidebar') && frame.x < 710 ? Math.max(230, frame.x - 190) : 498;
   return (
     <svg
       className="layout-demo-scene"
@@ -116,6 +119,7 @@ export function LayoutPreviewScene({
         width={frame.w}
         height={frame.h}
         className="layout-demo-window"
+        data-placement={placement}
       >
         <div
           style={{

@@ -3,7 +3,7 @@
  * [POS]: Website story styles; responsive overrides live in styles.css.
  * [PROTOCOL]: Keep website/AGENTS.md in sync. */
 .opening-story {
-  height: 220svh;
+  height: 240svh;
 }
 .opening-pin {
   position: sticky;
@@ -58,13 +58,16 @@ h1 {
 }
 .intro-preview {
   position: absolute;
-  bottom: 28px;
+  top: 68svh;
   left: 50%;
   transform: translateX(-50%);
   width: min(1020px, calc(100% - 96px));
-  height: clamp(276px, 36svh, 360px);
+  aspect-ratio: 16 / 10;
+  height: min(76svh, 637.5px, calc((100vw - 96px) / 1.6));
+  min-height: 420px;
+  grid-template-rows: 40px 1fr;
   display: grid;
-  grid-template-columns: 130px 1fr 320px;
+  grid-template-columns: 150px minmax(0, 1fr) 280px;
   border: 1px solid var(--site-border);
   border-radius: 12px;
   background: var(--site-surface);
@@ -107,10 +110,12 @@ h1 {
   width: 6px;
 }
 .intro-chat {
-  padding: 24px 28px;
+  padding: 24px 28px 130px;
   position: relative;
+  min-width: 0;
+  overflow: hidden;
 }
-.intro-chat > p:first-child {
+.intro-chat > p:nth-child(2) {
   background: var(--site-input);
   padding: 12px;
   border-radius: 10px;
@@ -161,102 +166,6 @@ h1 {
   .opening-copy {
     top: 23svh;
   }
-}
-.surface-story {
-  height: 350svh;
-  padding-top: 80px;
-  --buddy-text: var(--site-text);
-  --buddy-muted: var(--site-muted);
-  --buddy-border: var(--site-border);
-  --buddy-surface: var(--site-surface);
-  --buddy-subtle: var(--site-input);
-}
-.surface-story .section-intro {
-  margin-bottom: 36px;
-}
-.surface-sticky {
-  position: sticky;
-  top: max(20px, calc((100svh - 730px) / 2));
-}
-.surface-model {
-  overflow: hidden;
-}
-.surface-model .layout-demo-scene {
-  width: 100%;
-  max-width: none;
-  max-height: 55svh;
-}
-.modeled-workspace {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  padding: 24px;
-  border-radius: 12px;
-  color: var(--site-text);
-  background: var(--site-input);
-  border: 1px solid var(--site-border);
-  font-size: 17px;
-  line-height: 1.65;
-}
-.modeled-heading {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-.modeled-workspace ol {
-  margin: 28px 0 auto;
-  padding-left: 20px;
-}
-.modeled-workspace li {
-  margin-bottom: 20px;
-}
-.modeled-workspace input {
-  min-width: 0;
-  width: 100%;
-  margin-top: 18px;
-  border: 1px solid var(--site-border);
-  border-radius: 6px;
-  padding: 12px;
-  background: var(--site-surface);
-  color: inherit;
-}
-.surface-tabs {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin: 20px 0;
-}
-.surface-tabs button {
-  font-size: 14px;
-  padding: 10px 18px;
-  min-height: 40px;
-  border-radius: 6px;
-  color: var(--site-muted);
-  transition:
-    background 160ms,
-    color 160ms;
-}
-.surface-tabs button[aria-selected='true'] {
-  color: var(--site-text);
-  background: var(--site-input);
-}
-.surface-caption {
-  text-align: center;
-  max-width: 560px;
-  margin: 26px auto 0;
-  min-height: 130px;
-}
-.surface-caption h3 {
-  font-size: 24px;
-  font-weight: 550;
-  letter-spacing: -0.025em;
-}
-.surface-caption p {
-  margin-top: 16px;
-  font-size: 16px;
-  line-height: 1.85;
-  color: var(--site-muted);
 }
 /* Original v3 palette and fills. Geometry and timing are shared with its source. */
 .brand-opening {
@@ -315,4 +224,65 @@ h1 {
   .opening-controls {
     display: none;
   }
+}
+
+.intro-titlebar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--site-border);
+  font-size: 12px;
+  color: var(--site-muted);
+}
+.intro-titlebar > span:last-child {
+  margin-left: auto;
+}
+.window-dots {
+  display: flex;
+  gap: 7px;
+}
+.window-dots i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--site-border);
+}
+.intro-chat-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 30px;
+  font-size: 13px;
+  font-weight: 550;
+}
+.intro-chat-heading span {
+  font-size: 11px;
+  font-weight: normal;
+  color: var(--site-muted);
+}
+.intro-answer {
+  padding-left: 20px;
+  color: var(--site-muted);
+  font-size: 13px;
+  line-height: 1.8;
+}
+.intro-answer li + li {
+  margin-top: 8px;
+}
+.intro-input > div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 26px;
+  font-size: 11px;
+}
+.intro-input > div svg:last-child {
+  margin-left: auto;
+}
+.opening-replay {
+  margin-left: 14px;
+  vertical-align: middle;
+  color: var(--site-muted);
 }

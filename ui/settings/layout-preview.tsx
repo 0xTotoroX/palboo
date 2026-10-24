@@ -21,6 +21,7 @@ function WorkspaceSample({
   variant,
   onLayout,
   textStyle,
+  examples,
 }: {
   entries: Sample[];
   layout: FeatureLayout;
@@ -29,6 +30,7 @@ function WorkspaceSample({
   variant?: string;
   onLayout: (next: FeatureLayout) => void;
   textStyle?: CSSProperties;
+  examples?: Record<string, string[]>;
 }) {
   const ref = useRef<HTMLDivElement>(null),
     controller = useRef<ReturnType<typeof installFeatureLayout> | null>(null);
@@ -56,13 +58,14 @@ function WorkspaceSample({
         node.dataset.readingKey = `demo-${entry.id}`;
         const list = document.createElement('ol');
         const labels =
-          entry.id === 'outline'
+          examples?.[entry.id] ||
+          (entry.id === 'outline'
             ? ['布局与位置', '显示器与副屏', '独立窗口交接', '内容与状态', '验证与回退']
             : entry.id === 'next'
               ? ['完善窗口交接', '检查多屏边界', '补充验证场景']
               : entry.id === 'board'
                 ? ['待办 · 窗口交接', '进行中 · 样式核对', '完成 · 边界验证']
-                : ['示例内容', '跟随空间自动排列', '保留内容与阅读位置'];
+                : ['示例内容', '跟随空间自动排列', '保留内容与阅读位置']);
         for (const text of labels) {
           const li = document.createElement('li');
           li.textContent = text;
@@ -78,7 +81,7 @@ function WorkspaceSample({
     const ids = new Set(entries.map((entry) => entry.id));
     for (const [id, item] of mounts.current) item.active = ids.has(id);
     controller.current?.update([...mounts.current.values()], placement, layout, null, null);
-  }, [entries, layout, placement]);
+  }, [entries, layout, placement, examples]);
   return (
     <div
       ref={ref}
@@ -97,6 +100,9 @@ export function LayoutPreview({
   appearance = false,
   typography,
   typographyPreferences,
+  hostName,
+  examples,
+  onPlacementChange,
 }: {
   features: FeatureState | null;
   surfaces: SurfaceState | null;
@@ -104,12 +110,17 @@ export function LayoutPreview({
   appearance?: boolean;
   typography?: Typography | null;
   typographyPreferences?: TypographyPreferences;
+  hostName?: string;
+  examples?: Record<string, string[]>;
+  onPlacementChange?: (placement: string) => void;
 }) {
   const [mode, setMode] = useState<string | null>(null),
     [extra, setExtra] = useState<Sample[]>([]),
     [demoLayout, setDemoLayout] = useState<FeatureLayout | null>(null);
+  const [editing, setEditing] = useState(false);
   const source = features?.mainPlacement || 'sidebar',
     location = mode || source;
+  useEffect(() => onPlacementChange?.(location), [location, onPlacementChange]);
   const samples = useMemo(() => {
     const entries = [
       ...(features?.features || [])
@@ -176,7 +187,7 @@ export function LayoutPreview({
     const w = Math.max(400, placementFrame.w);
     return { ...placementFrame, w, x: Math.min(placementFrame.x, 710 - w) };
   }, [placementFrame, demoLayout?.axis, location]);
-  const frame = useDemoJourney(location, target, !appearance),
+  const frame = useDemoJourney(location, target, !appearance && !editing),
     ready = !!features && !!surfaces;
   function arrange(axis: string) {
     // Show two readable panes even if the saved placement has only one feature.
@@ -212,6 +223,7 @@ export function LayoutPreview({
       variant={theme?.liquidVariant}
       onLayout={setDemoLayout}
       textStyle={typographyStyle(typography, typographyPreferences)}
+      examples={examples}
     />
   ) : (
     <p>正在读取布局…</p>
@@ -264,7 +276,17 @@ export function LayoutPreview({
           重置预览
         </button>
       </div>
-      <div className="layout-demo-canvas" data-demo-placement={location} data-ready={ready}>
+      <div
+        className="layout-demo-canvas"
+        data-demo-placement={location}
+        data-ready={ready}
+        onFocusCapture={(event) =>
+          setEditing((event.target as HTMLElement).matches('input, textarea'))
+        }
+        onBlurCapture={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setEditing(false);
+        }}
+      >
         {appearance ? (
           <div className="layout-demo-material-stage">
             <div className="layout-demo-material-backdrop" aria-hidden="true">
@@ -273,7 +295,12 @@ export function LayoutPreview({
             <div className="layout-demo-material-sample">{sample}</div>
           </div>
         ) : (
-          <LayoutPreviewScene frame={frame} title="布局与位置">
+          <LayoutPreviewScene
+            frame={frame}
+            title="布局与位置"
+            hostName={hostName}
+            placement={location}
+          >
             {sample}
           </LayoutPreviewScene>
         )}

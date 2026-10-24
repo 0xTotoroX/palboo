@@ -3,7 +3,10 @@
  * [POS]: Website-only styling; no global product or settings overrides.
  * [PROTOCOL]: Keep website/AGENTS.md and DESIGN_SYSTEM.md in sync. */
 @import '../shared/tokens.css';
-@import '../settings/layout-preview-scene.css';
+@import '../surfaces/workspace/styles.css';
+@import '../settings/layout-preview.css';
+@import '../features/model/styles.css';
+@import './workspace-demo.css';
 @import './demo-content.css';
 @import './story.css';
 :root {
@@ -116,7 +119,7 @@ h2 {
   font-size: clamp(30px, 3.2vw, 46px);
   line-height: 1.35;
   font-weight: 550;
-  letter-spacing: -0.045em;
+  letter-spacing: -0.035em;
 }
 .text-link {
   display: inline-flex;
@@ -608,7 +611,9 @@ h2 {
   left: auto;
   transform: none;
   margin: auto;
-  height: 340px;
+  height: auto;
+  min-height: 480px;
+  aspect-ratio: 16 / 10;
 }
 .static-chapter {
   display: contents;
@@ -646,9 +651,6 @@ h2 {
   height: auto;
   padding-block: 80px;
 }
-.surface-story[data-static='true'] .surface-sticky {
-  position: static;
-}
 @media (max-width: 1100px) {
   .page-width {
     width: calc(100% - 64px);
@@ -665,7 +667,7 @@ h2 {
     padding: 18px 14px;
   }
   .intro-preview {
-    grid-template-columns: 110px 1fr 270px;
+    grid-template-columns: 100px minmax(0, 1fr) 250px;
   }
 }
 @media (max-width: 760px) {
@@ -686,7 +688,29 @@ h2 {
     grid-template-columns: 52px 1fr;
   }
   .intro-chat {
+    display: block;
+    padding: 22px 20px 130px;
+    min-height: 360px;
+  }
+  .intro-preview {
+    grid-template-rows: 36px auto auto;
+  }
+  .opening-story[data-static='true'] .intro-preview {
+    aspect-ratio: auto;
+  }
+  .intro-rail {
+    grid-row: 2 / 4;
+  }
+  .intro-panel {
+    grid-column: 2;
+    border-top: 1px solid var(--site-border);
+  }
+  .intro-answer {
     display: none;
+  }
+  .intro-titlebar {
+    font-size: 11px;
+    gap: 12px;
   }
   .intro-rail {
     padding: 20px 8px;
@@ -697,7 +721,7 @@ h2 {
     display: none;
   }
   .intro-entry {
-    margin-top: 20px;
+    margin-top: auto;
   }
   .intro-panel {
     border-left: 0;
@@ -799,23 +823,6 @@ h2 {
   }
   .surface-story[data-static='true'] {
     padding-block: 64px;
-  }
-  .surface-tabs {
-    gap: 2px;
-  }
-  .surface-tabs button {
-    font-size: 13px;
-    padding: 10px;
-  }
-  .surface-caption {
-    margin-top: 20px;
-    min-height: 150px;
-  }
-  .surface-caption h3 {
-    font-size: 22px;
-  }
-  .surface-caption p {
-    font-size: 15px;
   }
   .tool-row {
     grid-template-columns: 1fr;
