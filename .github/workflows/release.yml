@@ -16,17 +16,38 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      installer: ${{ steps.plan.outputs.installer }}
+      prerelease: ${{ steps.plan.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - id: plan
+        name: Validate version and reviewed release notes
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+        run: node scripts/release-plan.mjs "$RELEASE_TAG"
+
   verify:
+    needs: plan
     uses: ./.github/workflows/verify.yml
     with:
       ref: ${{ inputs.tag || github.ref }}
       full: true
 
   publish:
-    needs: verify
+    needs: [plan, verify]
+    permissions:
+      contents: write
     name: Package and publish
     runs-on: macos-26
     timeout-minutes: 60
@@ -36,15 +57,6 @@ jobs:
         with:
           ref: ${{ inputs.tag || github.ref }}
 
-      - name: Validate tag and release notes
-        env:
-          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
-        run: |
-          set -euo pipefail
-          version="$(node -p "require('./package.json').version")"
-          test "$RELEASE_TAG" = "v$version"
-          test -f ".github/release-notes/$RELEASE_TAG.md"
-
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
@@ -52,34 +64,48 @@ jobs:
           cache: npm
 
       - name: Set up Rust
+        if: needs.plan.outputs.installer == 'true'
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
           components: rustfmt, clippy
 
       - name: Install locked dependencies
+        if: needs.plan.outputs.installer == 'true'
         run: npm ci
 
-      - name: Build CLI archive
+      - name: Build and verify the complete App DMG
+        if: needs.plan.outputs.installer == 'true'
         run: npm run package
 
-      - name: Publish CLI archive with reviewed release notes
+      - name: Publish reviewed notes and the planned assets
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+          INSTALLER: ${{ needs.plan.outputs.installer }}
+          PRERELEASE: ${{ needs.plan.outputs.prerelease }}
         run: |
           set -euo pipefail
           version="${RELEASE_TAG#v}"
           notes=".github/release-notes/$RELEASE_TAG.md"
-          assets=(
-            "dist/palboo-$version-darwin-arm64.tar.gz"
-          )
+          node scripts/release-plan.mjs "$RELEASE_TAG"
+          create=(release create "$RELEASE_TAG" --verify-tag --draft --title "Palboo $RELEASE_TAG" --notes-file "$notes")
+          latest=true
+          if [ "$INSTALLER" = true ]; then
+            asset="dist/palboo-$version-darwin-arm64.dmg"
+            test -s "$asset"
+            create+=("$asset")
+          fi
+          if [ "$PRERELEASE" = true ]; then
+            create+=(--prerelease)
+            latest=false
+          fi
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             echo 'Release already exists; refusing to overwrite published assets.' >&2
             exit 1
           fi
-          gh release create "$RELEASE_TAG" "${assets[@]}" --verify-tag --draft --title "PALBOO $RELEASE_TAG" --notes-file "$notes"
-          gh release edit "$RELEASE_TAG" --draft=false --latest
+          gh "${create[@]}"
+          gh release edit "$RELEASE_TAG" --draft=false --latest="$latest"
 
       - name: Preserve release reports on failure
         if: failure()

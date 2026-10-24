@@ -1,131 +1,91 @@
 /*
- * [INPUT]: release 程序、source-audit 公开检查、项目完整许可包与锁定依赖。
- * [OUTPUT]: macOS arm64 程序包，内含完整性校验；Release 正文独立维护。
- * [POS]: 本地打包入口，校验最低系统版本并携带许可。
+ * [INPUT]: 当前源码、锁定依赖、release 计划、完整许可包与系统打包工具。
+ * [OUTPUT]: patch=0 时生成完整 App 的 DMG；补丁版跳过，证据写入 target/reports。
+ * [POS]: 本地与 CI 共用的打包入口，不上传、不安装、不更改版本。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
-
-import { prepareTestBinary } from './verify.mjs';
-import { spawnSync } from 'node:child_process';
-import {
-  copyFileSync,
-  mkdirSync,
-  readFileSync,
-  rmSync,
-  statSync,
-  writeFileSync,
-  chmodSync,
-} from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync, mkdtempSync, rmSync, renameSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { resolve, join } from 'node:path';
+import { prepareTestBinary } from './verify.mjs';
+import { releasePlan } from './release-plan.mjs';
+import { auditSource } from './source-audit.mjs';
+import { auditArtifact } from './artifact-audit.mjs';
 import { generateNotices } from './third-party-notices.mjs';
-import { PROJECT_LICENSE, copyProjectLicenses } from './project-licenses.mjs';
+import { copyProjectLicenses } from './project-licenses.mjs';
+import { buildApplication, packageDmg } from './package-app.mjs';
 
 const root = resolve(import.meta.dirname, '..');
-if (process.platform !== 'darwin' || process.arch !== 'arm64')
-  throw new Error('当前只发布 macOS 14.0+ Apple Silicon 产物；其他平台尚未适配。');
-const audit = spawnSync(process.execPath, [join(root, 'scripts/source-audit.mjs')], {
-  cwd: root,
-  stdio: 'inherit',
-});
-if (audit.error || audit.status !== 0) throw new Error('源码与公开内容检查失败，停止打包');
-const { version } = JSON.parse(readFileSync(join(root, 'package.json')));
-const cargo = readFileSync(join(root, 'Cargo.toml'), 'utf8');
-if (!cargo.includes(`version = "${version}"`)) throw new Error('Cargo 与网页版本不一致');
-const file = 'palboo';
-const artifact = prepareTestBinary('release');
-const source = artifact.binary;
-const result = spawnSync(source, ['--version'], { encoding: 'utf8' });
-if (result.error || result.status !== 0 || result.stdout.trim() !== `palboo ${version}`)
-  throw new Error('请先构建与当前版本一致的 release 产物');
-const build = spawnSync('xcrun', ['vtool', '-show-build', source], { encoding: 'utf8' });
-if (build.error || build.status !== 0 || !/minos\s+14\.0\b/.test(build.stdout))
-  throw new Error('产物最低 macOS 版本必须为 14.0，请按项目配置重新构建');
-const name = `palboo-${version}-${process.platform}-${process.arch}`;
-const folder = join(root, 'dist', name);
-// Rebuild this generated directory so retired files cannot remain in the archive.
-rmSync(folder, { recursive: true, force: true });
-mkdirSync(folder, { recursive: true });
-const destination = join(folder, file);
-copyFileSync(source, destination);
-chmodSync(destination, 0o755);
-writeFileSync(
-  join(folder, 'README.md'),
-  `# Palboo ${version}
+const { version } = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+const plan = releasePlan(version);
+if (!plan.installer) {
+  console.log(`${version} 为补丁版本，不生成安装文件。`);
+} else {
+  if (process.platform !== 'darwin' || process.arch !== 'arm64')
+    throw new Error('当前只打包 macOS 14.0+ Apple Silicon 产物');
+  auditSource(root);
+  if (!readFileSync(join(root, 'Cargo.toml'), 'utf8').includes(`version = "${version}"`))
+    throw new Error('Cargo 与网页版本不一致');
+  const started = Date.now();
+  const artifact = prepareTestBinary('release');
+  auditArtifact(artifact.binary);
+  const built = Date.now();
+  mkdirSync(join(root, 'target/package'), { recursive: true });
+  mkdirSync(join(root, 'target/reports'), { recursive: true });
+  mkdirSync(join(root, 'dist'), { recursive: true });
+  const staging = mkdtempSync(join(root, 'target/package/dmg-'));
+  try {
+    const resources = join(staging, 'resources');
+    mkdirSync(resources);
+    copyProjectLicenses(root, resources);
+    generateNotices(resources);
+    writeFileSync(
+      join(resources, '安装说明.txt'),
+      `Palboo ${version}
 
-Codex 的本地辅助工具：回答大纲、下一步建议、任务看板、模型切换、术语释义与提示词优化。
-此归档适用于 macOS 14.0+ Apple Silicon，主程序无需 Node.js 或 Rust。可选的 Grok Bot 接入由用户 Agent 根据当前官方文档检查并准备依赖。桌面浮窗需要 macOS 15+；macOS 14 仍可使用 Codex 内嵌面板。
+将 Palboo.app 拖入“应用程序”，再双击打开。主程序无需 Node.js 或 Rust。
+支持 macOS 14+ Apple Silicon；桌面浮窗需要 macOS 15+。
+本 App 使用本地签名，未经过 Apple 公证。首次打开被系统拦截时，在确认下载来源后进入“系统设置 → 隐私与安全性 → 仍要打开”。
 
-## 开始使用
+Codex 桌面应用及可选 Agent 使用你自己的安装、登录与配置；安装包不携带维护者的密钥、聊天或个人词库。
+既有 Codex 无调试连接时，Palboo 沿用启动设置询问是否重开。配置保存在当前用户数据目录，移动 App 不会移动或删除配置。
+更新时替换完整 Palboo.app。App 内的主程序不支持单文件覆盖升级。
+若从旧名 CodexBuddy / Codex Companion 升级，先正常停止旧后台（~/.local/bin/codex-buddy stop 或 ~/.local/bin/codex-companion stop），再打开新 App；旧服务活动或存在独立数据冲突时保留原数据并停止迁移。
 
-在终端进入解压目录，执行：
-
-\`\`\`sh
-./palboo launch --no-open --restart-running
-./palboo popout
-\`\`\`
-
-若 ChatGPT 已打开但没有调试连接，第一条命令按启动设置询问或直接重开；已有可用连接时直接复用。
-打开配置页：\`./palboo start\`。查看诊断：\`./palboo doctor\`。
-停止本工具：\`./palboo stop\`。可用命令见 \`./palboo --help\`。
-
-归档是命令行版本，不包含 .app 双击启动器。
-
-Grok Bot 接入：在设置的 Grok Bot 子页复制接入 Prompt，交给自己的 Agent 按当前官方文档配置 BDK、MCP 与 Skill。接入独立安装和更新，Palboo 不携带安装器或适配器。自动同步可关闭，关闭后点击刷新更新资料；所有咨询与追问仍留在 Codex 主聊天。
-回答大纲在本机解析；下一步建议和提示词优化使用配置的模型，提示词优化只发送当前草稿且不会自动发送。术语词库保存在本机、不随包分发；启用语义识别时会将当前一问一答发送到配置的模型，联网补充限于公共百科。默认只填入建议，已有草稿经确认后追加。Apple 提醒事项设置入口暂时隐藏，已有数据与绑定保留。
-
-## 外观与窗口
-
-macOS 15+ 的弹出窗口始终展开，可拖动、调整尺寸和置顶，默认置顶并记住选择。左侧眼睛入口可收放聊天内工作台，双击或 Alt+Enter 切换桌面；悬停菜单提供“内／外／设置”。桌面右上角横线按钮收回聊天，另有放大／还原和置顶。工作台顶部不再显示眼睛。
-工作台颜色只读跟随 Codex；左侧眼睛入口右键在宿主内置浏览器侧栏打开设置，完整位置、排列和外观选项集中在网页中。
-
-- 哑光：不透明网页表面，不启用原生背景。
-- 磨砂：内嵌为 CSS 模糊；弹出为原生 HUDWindow，保持激活外观，使用圆角浅阴影。
-- 液态：内嵌使用自有 SVG 折射；弹出使用 macOS 26+ Liquid Glass。外观框内星星切换 Regular/Clear，点亮为 Clear；macOS 15–25 的弹出液态回退哑光。弹出液态仍有系统焦点变化。
-
-解压此包不会替换已有安装或配置。此 GPL 版本的分发须按许可提供与程序精确修订对应的完整源码及必要构建、安装材料；GitHub 标签 Source code 归档只有在该修订实际可用且内容满足要求时才能作为源码入口，旧版归档不能代替新增改动的源码。
-
-## 文件
-
-- [palboo](palboo)：可执行程序。
-- [LICENSE](LICENSE)：项目 GPL-3.0-only 完整许可。
-- [LICENSING.md](LICENSING.md)：许可范围、免费商用、对应源码义务及旧 MIT 授权说明。
-- [licenses/LICENSE-MIT-legacy](licenses/LICENSE-MIT-legacy)：变更前 MIT 历史原文。
-- [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)：第三方许可与引用。
-- [dependencies.json](dependencies.json)：第三方依赖清单。
-- [manifest.json](manifest.json)：版本、平台及构建摘要。
-- [SHA256SUMS](SHA256SUMS)：程序校验和，可运行 \`shasum -a 256 -c SHA256SUMS\` 验证。
+源码、使用说明与对应版本： https://github.com/0xTotoroX/palboo
+项目采用 GPL-3.0-only；完整许可与第三方声明在本 Resources 目录中。分发时需提供对应修订的完整源码与必要构建材料。
 `,
-);
-copyProjectLicenses(root, folder);
-generateNotices(folder);
-const hash = createHash('sha256').update(readFileSync(destination)).digest('hex');
-writeFileSync(join(folder, 'SHA256SUMS'), `${hash}  ${file}\n`);
-writeFileSync(
-  join(folder, 'manifest.json'),
-  JSON.stringify(
-    {
-      name: 'palboo',
+    );
+    const app = join(staging, 'Palboo.app');
+    const inspection = buildApplication({
+      binary: artifact.binary,
       version,
-      license: PROJECT_LICENSE,
-      platform: process.platform,
-      arch: process.arch,
-      minimumOSVersion: '14.0',
-      file,
-      sha256: hash,
+      resources,
+      destination: app,
       sourceFingerprint: artifact.source,
-      bytes: statSync(destination).size,
-    },
-    null,
-    2,
-  ) + '\n',
-);
-const archive = join(root, 'dist', `${name}.tar.gz`);
-const packed = spawnSync('tar', ['-czf', archive, '-C', join(root, 'dist'), name], {
-  stdio: 'inherit',
-});
-if (packed.error || packed.status !== 0) throw new Error('tar 打包失败；单文件产物仍在 dist 目录');
-// 清理旧版生成的发布正文，避免继续使用自动追加校验段的旧稿。
-rmSync(join(root, 'dist', 'release-checksums.md'), { force: true });
-rmSync(join(root, 'dist', 'release-notes.md'), { force: true });
-console.log(`产物：${archive}`);
+    });
+    const candidate = join(staging, 'Palboo.dmg');
+    const image = packageDmg({ app, output: candidate, version, temporary: staging });
+    auditArtifact(candidate);
+    const sha256 = createHash('sha256').update(readFileSync(candidate)).digest('hex');
+    const output = join(root, plan.assets[0]);
+    renameSync(candidate, output);
+    const report = {
+      version,
+      artifact: plan.assets[0],
+      sha256,
+      app: inspection,
+      image,
+      buildSeconds: (built - started) / 1000,
+      packageSeconds: (Date.now() - built) / 1000,
+      notarized: false,
+    };
+    writeFileSync(
+      join(root, 'target/reports/package.json'),
+      JSON.stringify(report, null, 2) + '\n',
+    );
+    console.log(`产物：${output}\n${JSON.stringify(report)}`);
+  } finally {
+    rmSync(staging, { recursive: true, force: true });
+  }
+}

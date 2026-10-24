@@ -146,16 +146,22 @@ Collapsing releases sidebar space while preserving the saved placement. New chat
 
 ### 1. Install
 
-You need the ChatGPT / Codex desktop app, Node.js 22.16+, Rust 1.88+, and Xcode Command Line Tools.
+Install the ChatGPT / Codex desktop app first. Palboo supports macOS 14+ on Apple Silicon; desktop popout requires macOS 15+.
 
-Download and extract GitHub’s **Source code (zip)** or **Source code (tar.gz)** from [Releases](https://github.com/0xTotoroX/palboo/releases), then run these commands in the project directory:
+When a [Release](https://github.com/0xTotoroX/palboo/releases) includes `palboo-X.Y.0-darwin-arm64.dmg`, open it, drag **Palboo** into **Applications**, then open the installed app. The DMG contains the complete Palboo app, including its backend and interface; installation and everyday use require no terminal commands, Node.js or Rust. Optional Agents, Codex CLI login and model services use your own installations and accounts.
+
+The app uses ad-hoc signing and is not notarized by Apple. If macOS blocks the first launch, verify the download source, then use **System Settings → Privacy & Security → Open Anyway**. Do not disable system security globally.
+
+New installers are built for versions whose final number is zero, such as `1.0.0` and `1.1.0`. Patch releases such as `1.0.1` contain release notes and source downloads, with no new installer; the preceding DMG does not include those patch changes. Separate app ZIP and CLI archives are not provided.
+
+To build from source instead, install Node.js 22.16+, Rust 1.88+ and Xcode Command Line Tools. Download and extract GitHub’s **Source code (zip)** or **Source code (tar.gz)** for the desired version, then run these commands in the project directory:
 
 ```sh
 npm ci
 npm run install:local
 ```
 
-After installation, open **Palboo** from Applications. Node.js and Rust are not required for everyday use.
+The source installer also creates an entry in Applications. Its local launcher depends on the installed CLI and is not the self-contained app distributed in the DMG.
 
 > If ChatGPT / Codex is already running without a debugging connection, Palboo asks before quitting and reopening it by default. You can select the force-restart option in the launch settings, but this may interrupt tasks or lose unsaved work. An existing debugging connection is reused directly.
 
@@ -188,15 +194,17 @@ Available models and efforts come from the host. You can switch models in a new 
 
 ## Updating and uninstalling
 
-To update, get the latest source and run `npm ci` and `npm run install:local` again. Existing configuration is preserved.
+For a DMG installation, stop Palboo before replacing the whole app with the one from a newer DMG. Existing configuration is stored outside the app and is preserved. Do not replace individual files inside the app: that invalidates its signature. For a source installation, get the desired source version and run `npm ci` and `npm run install:local` again.
+
+When upgrading from CodexBuddy or Codex Companion, first stop the old background service with `~/.local/bin/codex-buddy stop` or `~/.local/bin/codex-companion stop`. The new app then migrates the default data directory, preserving a compatibility link. A running old service or multiple independent data directories blocks migration; no data is merged or overwritten.
 
 To uninstall, first stop the background service:
 
 ```sh
-~/.local/bin/palboo stop
+"/Applications/Palboo.app/Contents/MacOS/palboo" stop
 ```
 
-Then delete `/Applications/Palboo.app` and `~/.local/bin/palboo`. To also remove configuration, delete `~/Library/Application Support/palboo/`.
+For a source installation, use `~/.local/bin/palboo stop` instead. Then delete `/Applications/Palboo.app` and, if installed from source, `~/.local/bin/palboo`. To also remove configuration, delete `~/Library/Application Support/palboo/`.
 
 ## Development
 
@@ -239,7 +247,7 @@ Development mode connects to real Codex. UI changes reload automatically, and Ru
 npm run verify         # Run checks
 npm run verify:web     # Frontend and synthetic browser pilot (also runs on Linux)
 npm run build          # Build the application
-npm run package        # Create the CLI archive
+npm run package        # Build a complete app DMG for X.Y.0; skip patch versions
 npm run install:local  # Install the current code locally
 ```
 

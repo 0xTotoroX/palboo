@@ -145,16 +145,22 @@ Palboo 使用左栏独立眼睛入口，不依赖插件。单击收放工作台�
 
 ### 1. 安装
 
-准备好 ChatGPT / Codex 桌面应用，以及 Node.js 22.16+、Rust 1.88+、Xcode Command Line Tools。
+先安装 ChatGPT / Codex 桌面应用。Palboo 支持 macOS 14+ Apple Silicon；桌面浮窗需要 macOS 15+。
 
-从 [Releases](https://github.com/0xTotoroX/palboo/releases) 下载并解压 GitHub 自动生成的 **Source code (zip)** 或 **Source code (tar.gz)**，在项目目录执行：
+当 [Release](https://github.com/0xTotoroX/palboo/releases) 附有 `palboo-X.Y.0-darwin-arm64.dmg` 时，打开 DMG，将 **Palboo** 拖入「应用程序」，再打开安装后的 App。DMG 包含完整 Palboo，包括后台程序和界面；安装及日常使用无需终端命令、Node.js 或 Rust。可选 Agent、Codex CLI 登录和模型服务仍使用你自己的安装与账号。
+
+App 使用本地签名，未经过 Apple 公证。首次打开被系统拦截时，确认下载来源后，在「系统设置 → 隐私与安全性 → 仍要打开」中放行，无需全局关闭系统安全保护。
+
+末位为 `0` 的版本（如 `1.0.0`、`1.1.0`）生成新安装包。补丁版本（如 `1.0.1`）只提供发行说明和源码下载，不生成安装包；上一份 DMG 不包含这些补丁改动。不另行提供 App ZIP 或 CLI 压缩包。
+
+如需源码安装，准备 Node.js 22.16+、Rust 1.88+ 和 Xcode Command Line Tools，下载目标版本的 **Source code (zip)** 或 **Source code (tar.gz)**，解压后在项目目录执行：
 
 ```sh
 npm ci
 npm run install:local
 ```
 
-安装完成后，在「应用程序」中双击 **Palboo**。日常使用无需 Node.js 或 Rust。
+源码安装同样会在「应用程序」中创建入口；这个本机启动器依赖已安装的 CLI，与 DMG 中的完整 App 不同。
 
 > ChatGPT / Codex 已打开但没有调试连接时，Palboo 默认先询问，再正常退出并重开。可在设置页「启动行为」改为「直接强制重开」，但可能中断任务或丢失未保存内容。已有可用调试连接时直接接入。
 
@@ -183,15 +189,17 @@ npm run install:local
 
 ## 更新与卸载
 
-更新时获取新版源码，重新执行 `npm ci` 和 `npm run install:local`，原配置会保留。
+DMG 安装版更新时，先停止 Palboo，再用新 DMG 中的完整 App 替换旧 App。配置保存在 App 之外，会继续保留；不要单独替换包内文件，否则会破坏签名。源码安装版则获取目标版本源码，重新执行 `npm ci` 和 `npm run install:local`。
+
+从旧名 CodexBuddy / Codex Companion 升级时，先用 `~/.local/bin/codex-buddy stop` 或 `~/.local/bin/codex-companion stop` 正常停止旧后台。新 App 随后迁移默认数据目录并保留兼容链接；旧服务仍在运行或存在多份独立数据时会停止迁移，不合并、不覆盖。
 
 卸载时先执行：
 
 ```sh
-~/.local/bin/palboo stop
+"/Applications/Palboo.app/Contents/MacOS/palboo" stop
 ```
 
-再删除 `/Applications/Palboo.app` 和 `~/.local/bin/palboo`。如需同时清除配置，再删除 `~/Library/Application Support/palboo/`。
+源码安装版改用 `~/.local/bin/palboo stop`。再删除 `/Applications/Palboo.app`；源码安装版还需删除 `~/.local/bin/palboo`。如需同时清除配置，再删除 `~/Library/Application Support/palboo/`。
 
 ## 二次开发
 
@@ -234,7 +242,7 @@ npm run dev
 npm run verify         # 运行检查
 npm run verify:web     # 前端与合成浏览器试点（也可在 Linux 运行）
 npm run build          # 编译程序
-npm run package        # 生成 CLI 程序包
+npm run package        # X.Y.0 生成完整 App 的 DMG，补丁版本跳过
 npm run install:local  # 将当前代码安装到本机
 ```
 

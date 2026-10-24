@@ -5,6 +5,7 @@
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
 import './brand.mjs';
+import { distributionEnvironment } from './artifact-audit.mjs';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -18,7 +19,7 @@ function run(command, args, env = process.env) {
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(`${command} ${args.join(' ')} 失败 (${result.status})`);
 }
-function sourceFingerprint() {
+function sourceFingerprint(env = process.env) {
   const inputs = [
     'Cargo.toml',
     'Cargo.lock',
@@ -27,6 +28,7 @@ function sourceFingerprint() {
     'build.rs',
     'scripts/build-panel.mjs',
     'scripts/verify.mjs',
+    'scripts/artifact-audit.mjs',
   ];
   for (const dir of ['src', 'ui', '.cargo']) {
     for (const file of readdirSync(join(root, dir), { recursive: true, withFileTypes: true })) {
@@ -43,7 +45,7 @@ function sourceFingerprint() {
     'CARGO_BUILD_TARGET',
     'MACOSX_DEPLOYMENT_TARGET',
   ])
-    digest.update(key).update(process.env[key] || '');
+    digest.update(key).update(env[key] || '');
   for (const path of inputs.sort()) digest.update(path).update(readFileSync(join(root, path)));
   return digest.digest('hex');
 }
@@ -62,7 +64,8 @@ export function prepareTestBinary(profile) {
   profile ||= 'debug';
   const binary = join(root, 'target', profile, 'palboo');
   const manifestPath = join(root, 'target', `verified-${profile}.json`);
-  const source = sourceFingerprint();
+  const env = profile === 'release' ? distributionEnvironment(root) : process.env;
+  const source = sourceFingerprint(env);
   let previous;
   try {
     previous = JSON.parse(readFileSync(manifestPath, 'utf8'));
@@ -76,8 +79,9 @@ export function prepareTestBinary(profile) {
     previous?.sha256 !== hash(readFileSync(binary))
   ) {
     run('npm', ['run', 'build:web']);
-    run('cargo', ['build', '--locked', ...(profile === 'release' ? ['--release'] : [])]);
-    if (sourceFingerprint() !== source) throw new Error('构建期间源码发生变化，请重新运行验证。');
+    run('cargo', ['build', '--locked', ...(profile === 'release' ? ['--release'] : [])], env);
+    if (sourceFingerprint(env) !== source)
+      throw new Error('构建期间源码发生变化，请重新运行验证。');
     previous = {
       binary,
       source,

@@ -22,6 +22,8 @@ import {
   existsSync,
   lstatSync,
   realpathSync,
+  copyFileSync,
+  renameSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
@@ -145,6 +147,50 @@ try {
   assert.equal(JSON.parse(cli(['status'])).running, true);
   assert.deepEqual(JSON.parse(readFileSync(join(dataDir, 'config.json'))), config);
   record('重复源码安装保留配置并恢复原端口服务');
+  {
+    let app = join(scratch, 'Portable Palboo.app');
+    mkdirSync(join(app, 'Contents/MacOS'), { recursive: true });
+    writeFileSync(
+      join(app, 'Contents/Info.plist'),
+      '<?xml version="1.0"?><plist version="1.0"><dict><key>CFBundleIdentifier</key><string>local.palboo.fixture</string></dict></plist>',
+    );
+    copyFileSync(source, join(app, 'Contents/MacOS/palboo'));
+    const appCli = (args, expected = 0) =>
+      run(join(app, 'Contents/MacOS/palboo'), ['--data-dir', dataDir, ...args], expected);
+    const oldPid = runtime().pid;
+    appCli(['start', '--port', '0', '--no-open']);
+    assert.notEqual(runtime().pid, oldPid);
+    assert.equal(
+      realpathSync(runtime().executable),
+      realpathSync(join(app, 'Contents/MacOS/palboo')),
+    );
+    const bundlePid = runtime().pid;
+    appCli(['start', '--no-open']);
+    assert.equal(runtime().pid, bundlePid);
+    const bytesBefore = hash(join(app, 'Contents/MacOS/palboo'));
+    appCli(['update', '--from', source, '--sha256', hash(source)], 1);
+    assert.equal(runtime().pid, bundlePid);
+    assert.equal(hash(join(app, 'Contents/MacOS/palboo')), bytesBefore);
+    const moved = join(scratch, "Moved app's folder.app");
+    renameSync(app, moved);
+    app = moved;
+    appCli(['start', '--port', '0', '--no-open']);
+    assert.notEqual(runtime().pid, bundlePid);
+    assert.equal(
+      realpathSync(runtime().executable),
+      realpathSync(join(app, 'Contents/MacOS/palboo')),
+    );
+    assert.deepEqual(JSON.parse(readFileSync(join(dataDir, 'config.json'))), config);
+    const movedPid = runtime().pid;
+    writeFileSync(
+      join(dataDir, 'runtime.json'),
+      JSON.stringify({ ...runtime(), version: '0.0.0-fixture' }),
+    );
+    appCli(['start', '--port', '0', '--no-open']);
+    assert.notEqual(runtime().pid, movedPid);
+    assert.equal(runtime().version, artifact.version.replace('palboo ', ''));
+    record('完整 App 接续外置 CLI、移动与版本升级后切换后台；拒绝单文件覆盖且保留配置');
+  }
   cli(['stop']);
   assert.equal(JSON.parse(cli(['status'])).running, false);
   assert.equal(existsSync(join(dataDir, 'runtime.json')), false);

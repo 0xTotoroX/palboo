@@ -1,5 +1,5 @@
 // [INPUT]: Paths、私有 runtime 信息、系统进程与本地产物。
-// [OUTPUT]: start/stop/status/doctor/launch/update 与 Runtime；暂停的 launch 仅启动设置服务；host-only 仅准备宿主并输出端点，不启后台或写配置；launch 优先复用连接，显式 --restart-running 按 ask/force 策略重开无连接宿主。
+// [OUTPUT]: start/stop/status/doctor/launch/update 与 Runtime；完整 App 核对后台来源并拒绝单文件升级；暂停的 launch 仅启动设置服务；host-only 仅准备宿主；显式 --restart-running 沿用宿主重开策略。
 // [POS]: CLI 进程管理层，负责复用服务和本地更新回滚；Dev 设置入口优先使用监督进程地址。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
@@ -82,9 +82,21 @@ async fn start_binary(
     allow_fixture: bool,
     executable: &Path,
 ) -> Result<()> {
+    if bundled_application(executable).is_some()
+        && let Ok(runtime) = Runtime::read(paths)
+        && runtime.alive().await
+        && !runtime_matches(&runtime, executable)
+    {
+        // 仅正常停止当前数据目录的 Palboo；移动/升级 App 不重开 Codex。
+        stop_runtime(paths, &runtime).await?;
+    }
     if let Ok(runtime) = Runtime::read(paths)
         && runtime.alive().await
     {
+        anyhow::ensure!(
+            bundled_application(executable).is_none() || runtime_matches(&runtime, executable),
+            "另一来源的 Palboo 后台已启动，请先正常退出后重试"
+        );
         if let Some(endpoint) = endpoint {
             runtime
                 .request("connect", Some(json!({"endpoint":endpoint})))
@@ -125,6 +137,10 @@ async fn start_binary(
         if let Ok(runtime) = Runtime::read(paths)
             && runtime.alive().await
         {
+            anyhow::ensure!(
+                bundled_application(executable).is_none() || runtime_matches(&runtime, executable),
+                "另一来源的 Palboo 后台已启动，请先正常退出后重试"
+            );
             if !no_open {
                 webbrowser::open(&runtime.url()).context("服务已启动，但无法自动打开浏览器")?;
             }
@@ -141,6 +157,25 @@ async fn start_binary(
     bail!("后台启动超时，请运行 doctor 检查")
 }
 
+fn bundled_application(executable: &Path) -> Option<PathBuf> {
+    let macos = executable.parent()?;
+    let contents = macos.parent()?;
+    let app = contents.parent()?;
+    (macos.file_name()? == "MacOS"
+        && contents.file_name()? == "Contents"
+        && app.extension()? == "app"
+        && contents.join("Info.plist").is_file())
+    .then(|| app.to_path_buf())
+}
+
+fn runtime_matches(runtime: &Runtime, executable: &Path) -> bool {
+    runtime.version == VERSION
+        && std::fs::canonicalize(&runtime.executable)
+            .ok()
+            .zip(std::fs::canonicalize(executable).ok())
+            .is_some_and(|(running, requested)| running == requested)
+}
+
 pub(crate) fn detach(command: &mut Command) {
     use std::os::unix::process::CommandExt;
     command.process_group(0);
@@ -155,12 +190,22 @@ pub async fn stop(paths: &Paths) -> Result<()> {
         println!("Palboo 未运行（发现旧运行信息）");
         return Ok(());
     }
-    runtime.request("shutdown", Some(json!({}))).await?;
+    stop_runtime(paths, &runtime).await
+}
+
+async fn stop_runtime(paths: &Paths, runtime: &Runtime) -> Result<()> {
+    // 使用已核验实例的地址和 token，不能重读后停止并发启动的新实例。
+    let mut failure = runtime.request("shutdown", Some(json!({}))).await.err();
     for _ in 0..70 {
         tokio::time::sleep(Duration::from_millis(100)).await;
-        if !runtime.alive().await && service_unlocked(paths) {
+        let replaced = Runtime::read(paths).is_ok_and(|current| current.token != runtime.token);
+        if !runtime.alive().await && (service_unlocked(paths) || replaced) {
             println!("Palboo 已停止");
             return Ok(());
+        }
+        // 原实例可能已由另一启动请求停止；仅在它尚未完成退出时保留请求错误。
+        if let Some(error) = failure.take() {
+            return Err(error);
         }
     }
     bail!("服务尚未完全停止，请检查 service.log")
@@ -455,6 +500,11 @@ async fn desktop_ready(endpoint: &str) -> bool {
 }
 
 pub async fn update(paths: &Paths, from: &Path, expected_hash: &str) -> Result<()> {
+    let current = std::env::current_exe()?;
+    anyhow::ensure!(
+        bundled_application(&current).is_none(),
+        "请下载 DMG 并替换完整 Palboo.app；不能单独更新 App 内的主程序"
+    );
     let bytes = std::fs::read(from).context("无法读取升级文件")?;
     let actual = format!("{:x}", Sha256::digest(&bytes));
     if actual != expected_hash.to_lowercase() {
@@ -467,7 +517,6 @@ pub async fn update(paths: &Paths, from: &Path, expected_hash: &str) -> Result<(
     if !result.status.success() || !String::from_utf8_lossy(&result.stdout).starts_with("palboo ") {
         bail!("升级文件不是可运行的 Palboo");
     }
-    let current = std::env::current_exe()?;
     let previous = paths.root.join("previous-binary");
     std::fs::copy(&current, &previous).context("无法保留上一版本")?;
     let runtime = Runtime::read(paths).ok();
@@ -539,6 +588,104 @@ fn replace_binary(path: &Path, bytes: &[u8]) -> Result<()> {
 #[cfg(test)]
 mod restart_tests {
     use super::*;
+
+    #[tokio::test]
+    async fn app_handoff_stops_only_the_observed_instance_when_runtime_changes() {
+        use std::sync::{
+            Arc,
+            atomic::{AtomicBool, Ordering},
+        };
+        for vanished in [false, true] {
+            let dir = tempfile::tempdir().unwrap();
+            let paths = Paths::new(Some(dir.path().to_owned())).unwrap();
+            let executable = dir.path().join("Palboo.app/Contents/MacOS/palboo");
+            std::fs::create_dir_all(executable.parent().unwrap()).unwrap();
+            std::fs::write(&executable, b"fixture").unwrap();
+            std::fs::write(
+                dir.path().join("Palboo.app/Contents/Info.plist"),
+                b"fixture",
+            )
+            .unwrap();
+            let next_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let next = Runtime {
+                pid: 2,
+                port: next_listener.local_addr().unwrap().port(),
+                token: "new-instance".into(),
+                version: VERSION.into(),
+                executable: executable.clone(),
+            };
+            // 新实例没有 shutdown 路由，任何误停都会失败。
+            let next_server = tokio::spawn(async move {
+                axum::serve(
+                    next_listener,
+                    axum::Router::new().route(
+                        "/api/state",
+                        axum::routing::get(|| async { axum::Json(json!({})) }),
+                    ),
+                )
+                .await
+                .unwrap()
+            });
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let old = Runtime {
+                pid: 1,
+                port: listener.local_addr().unwrap().port(),
+                token: "old-instance".into(),
+                version: "0.0.0-fixture".into(),
+                executable: executable.clone(),
+            };
+            std::fs::write(paths.runtime(), serde_json::to_vec(&old).unwrap()).unwrap();
+            let stopped = Arc::new(AtomicBool::new(false));
+            let observed = stopped.clone();
+            let shutdown = stopped.clone();
+            let runtime_path = paths.runtime();
+            let next_bytes = serde_json::to_vec(&next).unwrap();
+            let router = axum::Router::new()
+                .route(
+                    "/api/state",
+                    axum::routing::get(move || {
+                        let stopped = observed.load(Ordering::SeqCst);
+                        if vanished {
+                            observed.store(true, Ordering::SeqCst);
+                        }
+                        std::fs::write(&runtime_path, &next_bytes).unwrap();
+                        async move {
+                            (
+                                if stopped {
+                                    axum::http::StatusCode::SERVICE_UNAVAILABLE
+                                } else {
+                                    axum::http::StatusCode::OK
+                                },
+                                axum::Json(json!({})),
+                            )
+                        }
+                    }),
+                )
+                .route(
+                    "/api/shutdown",
+                    axum::routing::post(move |headers: axum::http::HeaderMap| async move {
+                        assert_eq!(headers["authorization"], "Bearer old-instance");
+                        shutdown.store(true, Ordering::SeqCst);
+                        (
+                            if vanished {
+                                axum::http::StatusCode::UNAUTHORIZED
+                            } else {
+                                axum::http::StatusCode::OK
+                            },
+                            axum::Json(json!({})),
+                        )
+                    }),
+                );
+            let old_server =
+                tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
+            let result = start_binary(&paths, 0, None, true, false, &executable).await;
+            old_server.abort();
+            next_server.abort();
+            assert!(result.is_ok(), "{result:?}");
+            assert!(stopped.load(Ordering::SeqCst));
+            assert_eq!(Runtime::read(&paths).unwrap().token, next.token);
+        }
+    }
 
     #[tokio::test]
     async fn quits_only_the_selected_fixture_app_and_never_escalates_a_refusal() {

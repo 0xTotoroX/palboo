@@ -4,7 +4,7 @@
 
 Dev 后台启动接受 performance.integrationEnabled=false 的暂停状态，不等待宿主注入；重新唤起入口时保留暂停，不自动 connect。日常 App 检测暂停后只打开设置，不请求弹出窗口。暂停的 Dev 只复用现有可调试宿主，缺失时明确停止启动，不委托宿主重开。稳定设置服务继续提供恢复开关，`npm run dev:settings` 可打开。脚本升级后正常重开一次 Dev 会话，保持原 Codex 进程与目标。
 
-npm 命令进入开发、构建、审计、安装和验证编排工具；具体测试实现与辅助文件位于 [tests/](../tests/AGENTS.md)。日常安装器生成的 macOS applet 调用已安装 CLI，运行时不依赖这些脚本或 Node；独立 Dev applet 依赖本地源码和开发工具。默认检查与打包只读取仓库及已安装依赖。
+npm 命令进入开发、构建、审计、安装和验证编排工具；具体测试实现与辅助文件位于 [tests/](../tests/AGENTS.md)。源码安装器生成的 macOS applet 调用已安装 CLI；DMG 内的完整 App 使用 Swift 入口与包内 CLI，二者运行时均不依赖 Node。独立 Dev applet 依赖本地源码和开发工具。默认检查与打包只读取仓库及已安装依赖，不安装或启动用户宿主。
 
 成员清单：
 
@@ -18,13 +18,17 @@ npm 命令进入开发、构建、审计、安装和验证编排工具；具体�
 - [dev-panel.mjs](dev-panel.mjs)：原子发布开发资源快照（含术语目录指纹与监听），CSS 更新保留实例，逻辑更新销毁并恢复胶囊，页面引导变化重载窗口页面；共享 measurePanel 仅采集两端几何、材质能力和实例计数。
 - [dev-sources.mjs](dev-sources.mjs)：Git worktree 清单及启动来源记忆、独占进程/目标租约、串行切换和失败回退状态；通过独占恢复记录串行回收已退出监督进程的租约，检查关联 worktree 与上次会话的后台，损坏记录或状态不明时保留并报错；不自行操作宿主或结束其他进程。
 - [dev-runtime.mjs](dev-runtime.mjs)：受控子进程与稳定鉴权代理，开发来源 API 在后台切换时仍可用，切换中请求暂停、旧设置页写入按来源标识拒绝；可捕获宿主准备命令的端点及具体失败原因；后台重启后设置页会话保持有效；模型超时由后台控制，客户端断开时取消上游代理请求。
-- [verify.mjs](verify.mjs)：统一检查、工作台/模型控制浏览器行为、构建、模型控制 HTTP/CDP 链路、端到端与生命周期验收；先按源码/工具链摘要准备当前网页与程序，再运行读取 target/web 的浏览器用例，排除 Markdown 与 Finder 的 .DS_Store；原生检查显式选择。
+- [verify.mjs](verify.mjs)：统一检查、工作台/模型控制浏览器行为、构建、模型控制 HTTP/CDP 链路、端到端与生命周期验收；先按源码/工具链摘要准备当前网页与程序，release 自动加入路径映射并将最终编译参数与审计器计入缓存身份；再运行读取 target/web 的浏览器用例，排除 Markdown 与 Finder 的 .DS_Store；原生检查显式选择。
 - [verify-web.mjs](verify-web.mjs)：`npm run verify:web` 执行前端构建、格式/源码检查、Node 测试和合成工作台/液态/模型宿主测试，逐项记录失败并返回非零；支持两种现有浏览器路径变量，Linux 优先复用系统 Chromium。结果位于 `target/reports/web-pilot/`，明确排除原生与完整发布验收；Node 许可集成测试仍需 Cargo，不因缺失而跳过。
 
 - [build-panel.mjs](build-panel.mjs)：从 ui/codex/runtime/lifecycle.js 入口解析 ES modules，输出可重复注入的脚本，供 Cargo 内嵌。
 - [install.mjs](install.mjs)：源码安装入口，不修改 shell PATH；本地 CLI / .app 启动器安装、旧默认数据目录迁移、旧程序保留和服务恢复；App 默认位于 /Applications。
 - [launcher.mjs](launcher.mjs)：为安装器生成带本地签名的 Palboo.app；从 ui/icon.png 生成多尺寸 ICNS 并绑定应用图标；双击调用 launch --restart-running 按设置处理缺少连接的宿主，取消不再弹错误；连接后在受支持系统弹出，以后台应用方式运行、不显示运行中的 Dock 图标；macOS 14 遇到浮窗门槛时保留内嵌，其他错误用系统对话框显示。
-- [package.mjs](package.mjs)：本地打包入口，构建并校验当前 release、最低系统版本及许可；归档自带与其文件匹配的使用说明；生成 macOS arm64 分发目录、manifest、包内程序 SHA256SUMS、程序 tar.gz；清理旧版生成的发布校验稿，Release 直接使用已审核的版本说明，不展示摘要或校验命令，不生成独立源码包或归档校验附件；使用 GitHub 标签归档交付 GPL 对应源码前，须核对该精确修订实际可用并包含必要构建、安装材料，旧标签不能替代。
+- [package.mjs](package.mjs)：本地/CI 共用打包入口；补丁版本在编译前退出，X.Y.0 构建并审计 release、收集完整许可，再以临时目录组装 App/DMG，全部检查通过后原子写入 dist。只输出 DMG，证据在 target/reports/package.json，不安装、不发布、不清理历史发行包。GitHub 标签源码必须与发布程序精确修订对应。
+- [release-plan.mjs](release-plan.mjs)：严格解析 SemVer，统一 X.Y.0 的 DMG 计划、补丁无附件和预发布状态；CI 核对标签、Cargo/npm及锁文件版本、已审核说明，不接触远端。
+- [artifact-audit.mjs](artifact-audit.mjs)：release 编译路径映射及成品字节扫描，包含二进制、常见凭据/个人目录、UTF-16主目录与禁止文件；错误只输出文件和问题类型。它是有限检查，不证明不存在所有敏感内容或漏洞。
+- [package-app.mjs](package-app.mjs)：编译最低 macOS 14 arm64 Swift 入口、复制包内 CLI/资源、清理扩展属性与本地签名；校验系统动态库、最低版本和程序摘要，以普通用户权限创建 HFS+ DMG，避免 tar 的属主名称字段和设置 root 引发的授权；挂载读回并复制到新位置验证，成功后卸载镜像。
+- [app-launcher.swift](app-launcher.swift)：通过 Bundle 定位同目录 CLI，不固化主目录或数据目录；双击沿用 launch/popout、暂停、取消和旧系统行为；只读镜像提示先复制，--check 不连接宿主或写配置。LAUNCHER_TEST 为编译期合成测试入口，正式 App 不含该分支。
 - [project-licenses.mjs](project-licenses.mjs)：验证完整 GPL 原文、历史 MIT 原文及授权范围，并为主程序与独立材质工具复制统一许可包。
 - [source-audit.mjs](source-audit.mjs)：Git 与无 Git 源码目录共用文件清单，供审计、打包和测试复用；无 Git 时排除构建目录，拒绝私有文件与符号链接。核对包名、固定 GPL-3.0-only 元数据、完整许可与历史原文，并拒绝历史排除的上游诊断标记、私有文档、运行配置、凭据和个人绝对路径。
 - [license-texts.json](license-texts.json)：依赖包未附带的公开许可、署名原文与固定来源 URL，供许可生成器离线使用。
