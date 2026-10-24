@@ -310,7 +310,7 @@ Bot 侧栏回归覆盖置顶/分组顺序、隐藏项与旧接口兼容、排序
 
 - `settings-menu-motion.test.mjs`：实际组件与构建CSS验证主题/候选/原生选择/搜索/确认/抽屉的进出时长和方向、反向连续操作、关闭立即inert、原生picker逐帧透明度、退出内容与草稿保留、键盘/减少动态效果及零误选/误操作；仅使用合成状态。凭据测试失焦保存定位实际API地址输入，避免依赖已删除的重复页面标题。
 
-- `settings-preview-controls.test.mjs`：合成 localhost 安全上下文中验证模型选择/预设零请求、材质正常尺寸与成功变更跟随、空位置样本、柔和控件的明暗主题和360–1360px无页面溢出；不连接产品服务。
+- `settings-preview-controls.test.mjs`：合成 localhost 安全上下文中验证模型选择/预设零请求、额度开关与快照更新不重置示例、缺测占位及双模型内容高度、材质正常尺寸与成功变更跟随、空位置样本、柔和控件的明暗主题和360–1360px无页面溢出；不连接产品服务。
 
 术语浏览器回归覆盖部分补词失败保留标注、30秒退避、最多三次及恢复后的完成缓存；settings-safety 覆盖系统/自定义分组、恢复内置原文不改变已选位置、目录元数据不写回。directions Rust 用临时配置覆盖新安装十二项和旧配置增量升级、修改/删除/自定义及智能选择兼容；terminology_lookup 提供显式 live_public_definition 公共来源与真实配置模型的合成验证，不写私有词库。
 
@@ -320,4 +320,4 @@ Stepwise 设置的目录层级由 settings-modes.test.mjs 验证：主页面隐�
 
 Stepwise 设置合并回归：settings-modes 检查常用提示词与下一步同页、左侧无独立入口、旧 settings-prompts 定位、冗余草稿说明移除；startup-settings 通过现有目录/选择小面板验证提示词保存重载和 Jev 在途编辑，panel-settings 保留无说明时的点击模式独立保存。
 
-设置整理回归：model-groups 覆盖模型搜索/分类零写入、勾选后显示批量操作、拖动与键盘排序、暂不可用模型偏好保留；settings-safety 验证词库管理分区切换保留草稿且不保存，导入确认/部分失败沿用原流程；bots 覆盖本地名称/简介搜索、空结果与清除恢复分组。direction-picker 与 settings-list-motion 同时回归共用排序及原节点补位。
+设置整理回归：model-groups 覆盖模型搜索/分类零写入、勾选后显示批量操作、拖动与键盘排序、暂不可用模型偏好保留；settings-safety 验证词库管理分区切换保留草稿且不保存，导入确认/部分失败沿用原流程；bots 加载构建后的真实设置 CSS，覆盖本地名称/简介搜索、空结果与清除恢复分组，以及置顶组无标题/底色/外框、仅与下组分隔且不缩进。direction-picker 与 settings-list-motion 同时回归共用排序及原节点补位。

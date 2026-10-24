@@ -421,20 +421,20 @@ export function TerminologySettings({ active }: { active: boolean }) {
                     hidden={management !== 'transfer'}
                   >
                     <Button variant="outline" type="button" onClick={() => void exportFile()}>
-                      导出术语文档
+                      导出词库（Markdown）
                     </Button>
                     <Button variant="outline" type="button" onClick={() => void exportFile(true)}>
-                      导出手动词条
+                      导出手动词条（Markdown）
                     </Button>
                     <Button
                       variant="outline"
                       type="button"
                       onClick={() => void exportFile(false, true)}
                     >
-                      导出可导入备份
+                      导出词库（JSON）
                     </Button>
                     <label className="grid w-full gap-2 text-sm">
-                      导入词库{' '}
+                      导入词库（JSON）{' '}
                       <input
                         type="file"
                         className={

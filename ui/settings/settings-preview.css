@@ -332,9 +332,18 @@
   --hover: var(--buddy-subtle);
   --line: var(--buddy-border);
   min-width: 0;
-  height: 240px;
+  max-height: 360px;
+  overflow: auto;
   color: var(--buddy-text);
 }
 .preview-model-control .feature-model {
-  height: 100%;
+  flex: none;
+}
+.preview-model-control .model-collections,
+.preview-model-control .model-status-row {
+  margin-top: 12px;
+  padding-top: 0;
+}
+.preview-model-control .model-presets:empty + .model-status-row {
+  margin-top: 0;
 }

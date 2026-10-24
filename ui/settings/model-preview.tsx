@@ -1,5 +1,5 @@
-/* [INPUT]: Read-only model catalog metadata and the shared model view.
- * [OUTPUT]: Interactive model/reasoning preview with an isolated in-memory action adapter.
+/* [INPUT]: Read-only model catalog, saved usage visibility/account limits and the shared model view.
+ * [OUTPUT]: Content-sized model preview with linked quota visibility and isolated in-memory actions.
  * [POS]: No host target, transport, credentials or persisted preference changes.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 import { useRef, useState } from 'react';
@@ -14,7 +14,15 @@ const fallback: Model[] = ['A', 'B'].map((id) => ({
   fast: true,
 }));
 
-function Sample({ models }: { models: Model[] }) {
+function Sample({
+  models,
+  showUsage,
+  usage,
+}: {
+  models: Model[];
+  showUsage: boolean;
+  usage: ModelState['snapshot']['usage'];
+}) {
   const reading = useRef<Reading>({});
   const [state, setState] = useState<ModelState>(() => ({
     revision: 0,
@@ -30,15 +38,27 @@ function Sample({ models }: { models: Model[] }) {
         speed: 'standard',
       },
     },
-    preferences: { enabled: true, showUsage: false, pinned: models.map((m) => m.id), presets: [] },
+    preferences: { enabled: true, pinned: models.map((m) => m.id), presets: [] },
   }));
   const current = useRef(state);
   return (
     <div className="preview-model-control" role="group" aria-label="模型切换预览">
       <ModelView
-        state={state}
+        state={{
+          ...state,
+          snapshot: { ...state.snapshot, usage },
+          preferences: { ...state.preferences, showUsage },
+        }}
         reading={reading.current}
         busy={false}
+        footer={
+          showUsage && !usage?.length ? (
+            <span className="model-usage" aria-label="额度暂无数据">
+              <span>周 —</span>
+              <span>5小时 —</span>
+            </span>
+          ) : undefined
+        }
         action={async (data, action) => {
           const payload = data as {
             selection?: Selection;
@@ -67,8 +87,15 @@ export function ModelPreview({ model }: { model: ModelState | null }) {
       Number(model?.preferences.pinned.includes(b.id)) -
       Number(model?.preferences.pinned.includes(a.id)),
   );
-  const models = (ordered.length ? ordered.slice(0, 3) : fallback).map(
+  const models = (ordered.length ? ordered.slice(0, 2) : fallback).map(
     ({ id, label, reasoning, fast }) => ({ id, label, reasoning, fast }),
   );
-  return <Sample key={JSON.stringify(models)} models={models} />;
+  return (
+    <Sample
+      key={JSON.stringify(models)}
+      models={models}
+      showUsage={model?.preferences.showUsage !== false}
+      usage={model?.snapshot?.usage}
+    />
+  );
 }

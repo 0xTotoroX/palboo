@@ -19,6 +19,8 @@ Use the eyes entry in the left rail to open the workbench. Hover for Inside, Des
 
 Terminology annotations are available under settings → Features → Terminology. Import a local glossary to show bold, underlined terms in chat, hover for Chinese definitions, and mark concepts as mastered. Chat hovers and sidebar selections share a compact popover with theme colors, matte, frosted, liquid, black, or custom backgrounds, plus favorites, manual entries, and document export. Optional semantic detection sends the current question and answer to the configured model; online enrichment queries only short term names and does not write to the main chat. Glossaries stay in local data and are not bundled with releases.
 
+Glossary imports use a JSON array. Each entry needs `id`, `name`, `definition`, and `category` (an array of 1–4 category levels); IDs use only ASCII letters, digits, and hyphens. An agent can convert documents into this format before importing through glossary management. The glossary and manually added entries have separate Markdown exports for reading. The glossary also has a JSON export for reimporting, but this excludes manual entries, favorites, and mastered-term records; it is not a complete backup.
+
 The workbench also provides a Terminology tab with concepts encountered in the current chat, favorites, and mastered terms. Semantic spans can cross paragraphs and inline formatting; results are cached and failed analysis is retried a bounded number of times.
 
 Enable **点击术语时跳转到上下文** in settings → Features → Terminology to scroll to the latest confirmed occurrence in the current chat when selecting a term. It is off by default and keeps the definition popover; unavailable or stale positions do not switch chats.

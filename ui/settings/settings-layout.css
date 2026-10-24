@@ -828,12 +828,15 @@ html:root .settings-nav {
 .bot-settings-profiles .settings-drawer-entry {
   margin: 0;
 }
+.bot-settings-profiles {
+  margin-top: 12px;
+}
 .settings-app .bot-settings-profiles .settings-drawer-trigger {
   min-height: 52px;
   padding: 12px 0;
   background: transparent;
   border-radius: 0;
-  border-bottom: 1px solid var(--buddy-border);
+  border-bottom: 0;
 }
 .settings-app .bot-settings-profiles .settings-drawer-trigger:hover {
   background: var(--buddy-subtle);
@@ -846,14 +849,10 @@ html:root .settings-nav {
 .bot-settings-group + .bot-settings-group {
   margin-top: 20px;
 }
-.bot-settings-group[data-pinned='true'] {
-  padding: 14px 16px 4px;
-  border: 1px solid var(--buddy-border);
-  border-radius: 10px;
-  background: var(--buddy-subtle);
-}
-.bot-settings-group[data-pinned='true'] .settings-drawer-entry:last-child .settings-drawer-trigger {
-  border-bottom: 0;
+.bot-settings-group[data-pinned='true'] + .bot-settings-group {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--buddy-border);
 }
 .bot-settings-group > h3 {
   margin: 0 0 8px;

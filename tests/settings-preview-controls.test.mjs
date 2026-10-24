@@ -22,13 +22,17 @@ import{NativeSelect}from'./ui/settings/components/ui/native-select';
 import{FeatureSwitch}from'./ui/settings/settings-controls';
 const features={mainPlacement:'sidebar',features:[{id:'outline',open:true,placement:'sidebar'}],layouts:{}};
 window.requests=[];window.fetch=(...args)=>{window.requests.push(args);throw Error('No service calls in previews')};
-function App(){const[surfaces,setSurfaces]=useState({preferences:{themes:Object.fromEntries(['sidebar','overlay','desktop','edge'].map(id=>[id,{theme:'matte'}])),edge:{edge:'right',position:.5}}});
+function App(){const[model,setModel]=useState(null);const[surfaces,setSurfaces]=useState({preferences:{themes:Object.fromEntries(['sidebar','overlay','desktop','edge'].map(id=>[id,{theme:'matte'}])),edge:{edge:'right',position:.5}}});
 return <div className="settings-app"><LayoutPreview appearance features={features} surfaces={surfaces} live/>
 <button onClick={()=>setSurfaces(s=>({...s,preferences:{...s.preferences,themes:{...s.preferences.themes,desktop:{theme:'frosted'}}}}))}>更改桌面磨砂</button>
 <button onClick={()=>setSurfaces(s=>({...s,preferences:{...s.preferences,themes:{...s.preferences.themes,desktop:{theme:'native-glass',liquidVariant:'regular'}}}}))}>更改桌面液态</button>
 <button onClick={()=>setSurfaces(s=>({...s,preferences:{...s.preferences,themes:{...s.preferences.themes,desktop:{theme:'native-glass',liquidVariant:'clear'}}}}))}>更改桌面Clear</button>
 <button onClick={()=>setSurfaces(s=>({...s,preferences:{...s.preferences,themes:{...s.preferences.themes,edge:{theme:'black'}}}}))}>更改贴边纯黑</button>
-<div className="preview-demo"><ModelPreview model={null}/></div>
+<div className="preview-demo"><ModelPreview model={model}/></div>
+<button onClick={()=>setModel({preferences:{pinned:[],showUsage:true},snapshot:{models:[],usage:[{minutes:300,remainingPercent:83,resetsAt:null},{minutes:10080,remainingPercent:41,resetsAt:null}]}})}>读取额度</button>
+<button onClick={()=>setModel(s=>({...s,preferences:{...s.preferences,showUsage:!s.preferences.showUsage}}))}>切换额度</button>
+<button onClick={()=>setModel(s=>({...s,snapshot:{...s.snapshot,usage:[{minutes:10080,remainingPercent:38,resetsAt:null}]}}))}>更新额度</button>
+<button onClick={()=>setModel(s=>({...s,snapshot:{...s.snapshot,usage:null}}))}>清空额度</button>
 <FeatureSwitch name="大纲" checked disabled onChange={()=>{}}/>
 <label htmlFor="choice">示例选择</label><NativeSelect id="choice" defaultValue="a"><option value="a">选项 A</option><option value="b">选项 B</option></NativeSelect>
 <div className="settings-choice"><button aria-pressed="true">已选</button><button aria-pressed="false">未选</button></div>
@@ -96,6 +100,20 @@ return <div className="settings-app"><LayoutPreview appearance features={feature
     await page.locator('[data-demo-placement="sidebar"]').waitFor();
     assert.equal((await readMaterial()).color, matte.color);
     const preview = page.getByRole('group', { name: '模型切换预览' });
+    assert.equal(await preview.locator('.model-usage').textContent(), '周 —5小时 —');
+    const measurePreview = () =>
+      preview.evaluate((node) => {
+        const rect = (selector) => node.querySelector(selector).getBoundingClientRect();
+        return {
+          height: node.getBoundingClientRect().height,
+          gap: rect('.model-status-row').top - rect('.model-favorites').bottom,
+          bottom: node.getBoundingClientRect().bottom - rect('.model-status-row').bottom,
+        };
+      });
+    const compact = await measurePreview();
+    assert.ok(compact.height < 220, `two-model preview fits content: ${compact.height}`);
+    assert.ok(compact.gap <= 16, `no blank presets spacer: ${compact.gap}`);
+    assert.ok(compact.bottom <= 4, `no fixed-height bottom space: ${compact.bottom}`);
     const choice = preview.getByRole('button', { name: '示例模型 B · High', exact: true });
     await choice.click();
     assert.equal(await choice.getAttribute('aria-pressed'), 'true');
@@ -107,6 +125,17 @@ return <div className="settings-app"><LayoutPreview appearance features={feature
     );
     await preview.getByRole('button', { name: '添加预设', exact: true }).click();
     await preview.getByRole('button', { name: '示例模型 B', exact: true }).waitFor();
+    await page.getByRole('button', { name: '读取额度', exact: true }).click();
+    assert.equal(await preview.locator('.model-usage').textContent(), '周 41%5小时 83%');
+    await page.getByRole('button', { name: '切换额度', exact: true }).click();
+    assert.equal(await preview.locator('.model-usage').count(), 0);
+    await page.getByRole('button', { name: '切换额度', exact: true }).click();
+    await page.getByRole('button', { name: '更新额度', exact: true }).click();
+    assert.equal(await preview.locator('.model-usage').textContent(), '周 38%');
+    assert.equal(await choice.getAttribute('aria-pressed'), 'true');
+    assert.equal(await preview.getByRole('button', { name: '示例模型 B', exact: true }).count(), 1);
+    await page.getByRole('button', { name: '清空额度', exact: true }).click();
+    assert.equal(await preview.locator('.model-usage').textContent(), '周 —5小时 —');
     assert.equal(await page.locator('.settings-row label').textContent(), '大纲');
     for (const theme of ['light', 'dark']) {
       await page.evaluate((t) => (document.documentElement.dataset.settingsTheme = t), theme);

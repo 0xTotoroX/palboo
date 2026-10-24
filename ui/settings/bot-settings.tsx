@@ -147,7 +147,7 @@ export function BotSettings({
               data-pinned={group.kind === 'pinned' && group.bots.length > 0}
               aria-label={group.name || 'Bot 列表'}
             >
-              {group.name && <h3>{group.name}</h3>}
+              {group.kind !== 'pinned' && group.name && <h3>{group.name}</h3>}
               {group.bots.map((bot) => (
                 <SettingsDrawer key={bot.id} title={bot.name} hidden={!active}>
                   <p className="bot-settings-description">{bot.description || '暂无简介'}</p>

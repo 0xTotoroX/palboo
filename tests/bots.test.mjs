@@ -335,6 +335,10 @@ test('saved sidebar groups reorder without losing calls, hide stale actions and 
     format: 'iife',
   });
   const { readFileSync, mkdirSync } = await import('node:fs');
+  const settingsHtml = readFileSync('target/web/index.html', 'utf8');
+  const settingsCss = [...settingsHtml.matchAll(/<link rel="stylesheet"[^>]*href="([^"]+)"/g)]
+    .map(([, href]) => readFileSync(`target/web${href}`, 'utf8'))
+    .join('\n');
   const browser = await chromium.launch({ headless: true });
   const value = structuredClone(catalog);
   value.bots[3].hidden = true;
@@ -354,12 +358,13 @@ test('saved sidebar groups reorder without losing calls, hide stale actions and 
           ? { json: value }
           : {
               contentType: 'text/html; charset=utf-8',
-              body: '<main><textarea>保留草稿</textarea></main><div id="view"></div><div id="settings"></div>',
+              body: '<main><textarea>保留草稿</textarea></main><div id="view"></div><div id="settings" class="settings-app"></div>',
             },
       ),
     );
     await page.goto('http://127.0.0.1:47990/');
     await page.addStyleTag({ content: readFileSync('ui/features/bots/style.css', 'utf8') });
+    await page.addStyleTag({ content: settingsCss });
     await page.addScriptTag({ content: bundle.outputFiles[0].text });
     await page.evaluate((v) => window.render(v), value);
     await page.getByRole('heading', { name: '工作', exact: true }).waitFor();
@@ -418,6 +423,29 @@ test('saved sidebar groups reorder without losing calls, hide stale actions and 
     await page.evaluate(() => window.showSettings());
     await page.locator('#settings').getByRole('button', { name: '通用', exact: true }).waitFor();
     assert.equal(await page.locator('.bot-settings-group[data-pinned="true"]').count(), 1);
+    assert.equal(
+      await page.locator('#settings').getByRole('heading', { name: '置顶', exact: true }).count(),
+      0,
+    );
+    const pinned = page.locator('.bot-settings-group[data-pinned="true"]');
+    const pinnedStyle = await pinned.evaluate((node) => {
+      const style = getComputedStyle(node);
+      const next = getComputedStyle(node.nextElementSibling);
+      return {
+        background: style.backgroundColor,
+        border: style.borderTopWidth,
+        padding: style.paddingLeft,
+        separator: next.borderTopWidth,
+        rowBorders: [...node.querySelectorAll('.settings-drawer-trigger')].map(
+          (row) => getComputedStyle(row).borderBottomWidth,
+        ),
+      };
+    });
+    assert.equal(pinnedStyle.background, 'rgba(0, 0, 0, 0)');
+    assert.equal(pinnedStyle.border, '0px');
+    assert.equal(pinnedStyle.padding, '0px');
+    assert.equal(pinnedStyle.separator, '1px');
+    assert.deepEqual(pinnedStyle.rowBorders, ['0px']);
     assert.deepEqual(
       (await page.locator('#settings .settings-drawer-trigger').allTextContents()).map((text) =>
         text.trim(),
