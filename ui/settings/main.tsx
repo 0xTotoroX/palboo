@@ -1,5 +1,5 @@
 /* [INPUT]: 现有设置表单、认证 API、共用设置控件及 PALBOO 矢量字标。
- * [OUTPUT]: Tom Modern 统一设置、常用开关、分组页面及抽屉入口、主题/字体与联动预览，保留保存与错误反馈。
+ * [OUTPUT]: Tom Modern 统一设置、常用开关、分组页面及抽屉入口、主题/字体与联动预览；布局页锚点包含预览，保留保存与错误反馈。
  * [POS]: 设置展示层，不执行后台业务或读取聊天正文。
  * [PROTOCOL]: 变更时同步 settings/AGENTS.md。 */
 import { useTypography } from './use-typography';
@@ -147,7 +147,12 @@ function App() {
       </header>
       <div className="settings-layout">
         <SettingsOutline page={page} dev={dev} navigate={navigate} />
-        <main className="settings-content min-w-0" aria-label={pageTitles[page]} ref={contentRef}>
+        <main
+          id={surfacesVisible ? 'settings-surfaces' : undefined}
+          className="settings-content min-w-0"
+          aria-label={pageTitles[page]}
+          ref={contentRef}
+        >
           <Feedback text={error} failed />
           {!editor.form && !error && <p role="status">正在读取设置…</p>}
           <Feedback

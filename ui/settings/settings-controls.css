@@ -96,8 +96,12 @@
   min-width: 0;
   max-width: 100%;
   margin-inline-start: auto;
+  --settings-select-compact: max(120px, calc(var(--settings-text-size, 14px) * 5 + 40px));
   --settings-select-short: max(180px, calc(var(--settings-text-size, 14px) * 10 + 40px));
   --settings-select-medium: max(260px, calc(var(--settings-text-size, 14px) * 15 + 40px));
+}
+.settings-native-select[data-control-width='compact'] {
+  width: min(100%, var(--settings-select-compact));
 }
 .settings-native-select[data-control-width='short'] {
   width: min(100%, var(--settings-select-short));

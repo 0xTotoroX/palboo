@@ -27,7 +27,7 @@ function App(){const [material,setMaterial]=useState('black');const [model,setMo
 <Field label="显示器" id="screen"><NativeSelect id="screen" defaultValue="display"><option value="auto">自动选择</option><option value="display">外接显示器 · Studio Display (2560 × 1440)</option></NativeSelect></Field>
 <Field label="服务地址" id="address"><Input id="address" defaultValue="https://example.test/v1"/></Field>
 <Field label="模型" id="model"><SuggestionInput id="model" value={model} onValueChange={setModel} options={['GPT example with a long model name','Claude example']}/></Field>
-<Field label="液态外观" id="theme"><div className="settings-control-pair"><NativeSelect id="theme" controlWidth="short"><option>液态</option><option>磨砂</option></NativeSelect><NativeSelect aria-label="液态变体" controlWidth="short"><option>Regular</option><option>Clear</option></NativeSelect></div></Field>
+<Field label="液态外观" id="theme"><div className="settings-control-pair"><NativeSelect id="theme" controlWidth="short"><option>液态</option><option>磨砂</option></NativeSelect><NativeSelect id="variant" aria-label="液态变体" controlWidth="compact"><option>Regular</option><option>Clear</option></NativeSelect></div></Field>
 <Toggle label="保持展开" checked={false} onChange={()=>{}}/>
 </div></main></div>};createRoot(document.getElementById('root')).render(<App/>);`,
       },
@@ -47,8 +47,8 @@ function App(){const [material,setMaterial]=useState('black');const [model,setMo
       await page.setContent('<div id="root"></div>');
       await page.addStyleTag({ content: css });
       await page.addScriptTag({ content: bundle.outputFiles[0].text });
-      for (const width of [360, 740, 1360])
-        for (const base of [16, 20, 32])
+      for (const width of [360, 390, 641, 740, 1360])
+        for (const base of [16, 17.6, 20, 32])
           for (const theme of ['light', 'dark']) {
             await page.setViewportSize({ width, height: 900 });
             await page.evaluate(
@@ -62,7 +62,7 @@ function App(){const [material,setMaterial]=useState('black');const [model,setMo
             const geometry = await page.evaluate(() => {
               const rect = (s) => {
                 const r = document.querySelector(s).getBoundingClientRect();
-                return { right: r.right, width: r.width, height: r.height };
+                return { right: r.right, top: r.top, width: r.width, height: r.height };
               };
               return {
                 short: rect('#material'),
@@ -70,6 +70,8 @@ function App(){const [material,setMaterial]=useState('black');const [model,setMo
                 full: rect('#screen'),
                 input: rect('#address'),
                 toggle: rect('[role=switch]'),
+                material: rect('#theme'),
+                variant: rect('#variant'),
                 overflow: document.documentElement.scrollWidth > innerWidth,
                 clipped: [...document.querySelectorAll('select')]
                   .filter((e) => e.scrollHeight > e.clientHeight + 2)
@@ -88,7 +90,17 @@ function App(){const [material,setMaterial]=useState('black');const [model,setMo
               assert.ok(geometry.medium.width < geometry.full.width);
             }
             assert.equal(geometry.input.width, geometry.full.width);
-            for (const id of ['material', 'mode', 'screen']) {
+            assert.ok(geometry.variant.width < geometry.short.width, JSON.stringify(geometry));
+            assert.ok(
+              Math.abs(geometry.variant.right - geometry.toggle.right) < 1,
+              JSON.stringify(geometry),
+            );
+            if ((width <= 390 && base <= 17.6) || (width === 390 && base === 20))
+              assert.ok(
+                Math.abs(geometry.material.top - geometry.variant.top) < 1,
+                'compact liquid controls fit on one row: ' + JSON.stringify(geometry),
+              );
+            for (const id of ['material', 'mode', 'screen', 'variant']) {
               const select = page.locator('#' + id);
               await select.click();
               await page.waitForFunction((id) => document.getElementById(id).matches(':open'), id);

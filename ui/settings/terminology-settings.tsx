@@ -286,7 +286,7 @@ export function TerminologySettings({ active }: { active: boolean }) {
               <Field id="term-liquid-variant" label="液态变体">
                 <NativeSelect
                   id="term-liquid-variant"
-                  controlWidth="short"
+                  controlWidth="compact"
                   aria-label="术语卡片液态变体"
                   disabled={busy}
                   value={prefs.cardLiquidVariant || 'regular'}

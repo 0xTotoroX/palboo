@@ -1,6 +1,6 @@
 /*
  * [INPUT]: React select 属性、选项与设置页语义变量。
- * [OUTPUT]: 按用途声明短/中/完整宽度，保留原生选择语义/事件；settings-controls.css 渐进增强菜单，保留不支持浏览器的原生回退。
+ * [OUTPUT]: 按用途声明紧凑/短/中/完整宽度，保留原生选择语义/事件；settings-controls.css 渐进增强菜单，保留不支持浏览器的原生回退。
  * [POS]: Web 设置页基础组件，不用于宿主注入。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -12,7 +12,7 @@ export function NativeSelect({
   className,
   controlWidth = 'full',
   ...props
-}: React.ComponentProps<'select'> & { controlWidth?: 'short' | 'medium' | 'full' }) {
+}: React.ComponentProps<'select'> & { controlWidth?: 'compact' | 'short' | 'medium' | 'full' }) {
   return (
     <div className="settings-native-select relative w-full" data-control-width={controlWidth}>
       <select

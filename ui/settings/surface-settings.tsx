@@ -110,7 +110,6 @@ export function SurfaceSettings({
   const feedback = useFeedbackTarget();
   return (
     <section
-      id="settings-surfaces"
       tabIndex={-1}
       aria-label="呈现形式设置"
       className="settings-section"
@@ -165,7 +164,7 @@ export function SurfaceSettings({
                     </NativeSelect>
                     {theme.theme === 'native-glass' && (
                       <NativeSelect
-                        controlWidth="short"
+                        controlWidth="compact"
                         aria-label={`${label}液态变体`}
                         disabled={disabled}
                         value={theme.liquidVariant}

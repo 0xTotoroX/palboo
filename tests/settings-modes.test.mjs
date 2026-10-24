@@ -369,6 +369,34 @@ test(
       });
       await page.goto(origin + '/#token=fixture');
       await page.getByRole('switch', { name: '启用大纲', exact: true }).waitFor();
+      // 冷打开页面级链接包含预览；随后切页仍保留阅读位置，字段链接仍直接定位。
+      const landing = await context.newPage();
+      try {
+        await landing.setViewportSize({ width: 1360, height: 900 });
+        await landing.goto(origin + '/#settings-surfaces');
+        await landing.getByLabel('侧栏宽度（px）', { exact: true }).waitFor();
+        await landing.evaluate(() => document.fonts.ready);
+        await landing.evaluate(
+          () =>
+            new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+        );
+        const preview = await landing.locator('.settings-preview').boundingBox();
+        assert.ok(preview.y >= -1 && preview.y + preview.height <= 900, JSON.stringify(preview));
+        assert.equal(writes.length, 0, 'opening the layout page does not save settings');
+        await landing.evaluate(() => scrollTo({ top: 450, behavior: 'instant' }));
+        const reading = await landing.evaluate(() => scrollY);
+        assert.ok(reading > 100);
+        await landing.getByRole('link', { name: '外观与字体', exact: true }).click();
+        await landing.getByRole('link', { name: '布局与位置', exact: true }).click();
+        assert.ok(Math.abs((await landing.evaluate(() => scrollY)) - reading) < 3);
+        await landing.goto(origin + '/#settings-surfaces/dock-width');
+        await landing.waitForFunction(() => document.activeElement?.id === 'dock-width');
+        const field = await landing.locator('#dock-width').boundingBox();
+        assert.ok(field.y >= 0 && field.y + field.height <= 900, JSON.stringify(field));
+        assert.equal(writes.length, 0, 'page and field navigation leave preferences unchanged');
+      } finally {
+        await landing.close();
+      }
       assert.deepEqual(await page.locator('.settings-nav-group > h2').allTextContents(), [
         '界面',
         '功能',

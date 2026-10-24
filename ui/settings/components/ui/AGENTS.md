@@ -8,7 +8,7 @@
 - [action-feedback.tsx](action-feedback.tsx)：接收真实请求状态，固定18px的操作/等待/成功图标和等宽文字；成功勾号默认短暂保留，retainSuccess可保留真实结果；标签原位160ms切换，不发请求。键盘保留等待指示，减少动态效果使用静态状态。
 - [input.tsx](input.tsx)：输入框及输入控件的公共样式。
 - [suggestion-input.tsx](suggestion-input.tsx)：可自由输入的候选框；键盘/指针选择只更新原草稿，Esc 取消、输入法确认不选取，普通失焦沿用调用方保存流程；列表沿用共用菜单样式并在底部空间不足时向上显示。可选 dropdown 属性提供展开箭头、读取回调及忙碌/成功/空/错误状态，主动展开显示全部候选、输入时过滤；外部点击和 Esc 关闭，组件不发网络请求。箭头使用共享图标；列表常驻并冻结退出选项，收起立即inert/aria-hidden，共用180ms进入/140ms退出，向上列表从输入框所在的底边展开。
-- [native-select.tsx](native-select.tsx)：保留原生选择语义与事件的下拉框，复用输入样式；controlWidth 按用途声明 short/medium/full（默认full），宽度不随当前选项变化，短/中档随字号增宽且不超出容器，统一右对齐。settings-controls.css 在支持 base-select 的浏览器中统一同色系菜单底色、控件等宽弹出菜单、选中态与键盘焦点，大字号长值可换行增高，不支持时保留原生菜单；settings-motion.css统一进出过渡与箭头旋转，不改变 onChange、禁用选项或保存流程。
+- [native-select.tsx](native-select.tsx)：保留原生选择语义与事件的下拉框，复用输入样式；controlWidth 按用途声明 compact/short/medium/full（默认full），compact 用于 Regular/Clear 附属选项；宽度不随当前选项变化，各档随字号增宽且不超出容器，统一右对齐。settings-controls.css 在支持 base-select 的浏览器中统一同色系菜单底色、控件等宽弹出菜单、选中态与键盘焦点，大字号长值可换行增高，不支持时保留原生菜单；settings-motion.css统一进出过渡与箭头旋转，不改变 onChange、禁用选项或保存流程。
 - [card.tsx](card.tsx)：语义设置分组，沿用共享留白，不重复叠加卡片边框。
 - [switch.tsx](switch.tsx)：Radix 开关负责键盘与受控状态，保留独立挂载时的基础尺寸；settings-controls.css 统一设置页内的轨道、滑块与位移动画。
 - [LICENSE](LICENSE)：shadcn/ui 原始 MIT 许可，分发时并入第三方声明。
