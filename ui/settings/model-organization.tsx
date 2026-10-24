@@ -1,5 +1,5 @@
 /* [INPUT]: 模型状态、带修订校验的保存与刷新操作、共用候选与列表排序控件。
- * [OUTPUT]: 可搜索/分类的模型分组、按选择出现的批量操作与拖动排序；删除和恢复分类统一确认并校验修订。
+ * [OUTPUT]: 可搜索/分类的模型分组、固定搜索、按选择出现的底部批量操作与拖动排序；删除和恢复分类统一确认并校验修订。
  * [POS]: 只管理模型展示偏好，不切换模型或修改预设。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { SettingsDrawer } from './settings-drawer';
@@ -48,6 +48,7 @@ export function ModelOrganization({
   const [destination, setDestination] = useState('');
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('all');
+  const [bulkMode, setBulkMode] = useState('group');
   const [detail, setDetail] = useState<string | null>(null);
   const available = state.snapshot.models;
   const remembered = [
@@ -114,53 +115,167 @@ export function ModelOrganization({
     <SettingsDrawer
       id="model-organization"
       title="模型分组"
+      toolbar={
+        <>
+          <div className="settings-catalog-tools" data-settings-feedback-anchor>
+            <Input
+              type="search"
+              aria-label="搜索模型"
+              placeholder="搜索模型或厂家"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+            <NativeSelect
+              aria-label="筛选模型分组"
+              value={categoryId}
+              onChange={(e) => setCategory(e.target.value)}
+            >
+              <option value="all">全部分组</option>
+              {groups.map((group) => (
+                <option key={group.id} value={group.id}>
+                  {group.name}
+                </option>
+              ))}
+            </NativeSelect>
+            <IconButton
+              variant="outline"
+              aria-label="刷新可用模型"
+              disabled={busy || !prefs.enabled}
+              onClick={async () => {
+                setRefreshState('pending');
+                try {
+                  setRefreshState((await refresh()) ? 'success' : 'idle');
+                } catch {
+                  setRefreshState('idle');
+                }
+              }}
+              aria-busy={refreshState === 'pending'}
+            >
+              <ActionIcon name="refresh" state={refreshState} />
+            </IconButton>
+          </div>
+          <div className="settings-catalog-selection" data-settings-navigation>
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={busy || !visibleModels.length}
+              onClick={() =>
+                setSelected([...new Set([...selected, ...visibleModels.map((m) => m.id)])])
+              }
+            >
+              全选当前列表
+            </Button>
+          </div>
+        </>
+      }
       footer={
-        feedback ? (
-          <p role="alert" className="settings-error text-sm">
-            {feedback}
-          </p>
-        ) : undefined
+        <>
+          <fieldset
+            hidden={!selected.length}
+            disabled={busy}
+            className="settings-catalog-bulk"
+            aria-label="批量调整"
+            data-settings-feedback-anchor
+          >
+            <div className="settings-catalog-selection" data-settings-navigation>
+              <span role="status" className="mr-auto">
+                已选 {selected.length} 个
+              </span>
+              <Button type="button" variant="ghost" onClick={() => setSelected([])}>
+                取消选择
+              </Button>
+            </div>
+            <div className="settings-catalog-bulk-controls">
+              <NativeSelect
+                aria-label="批量操作"
+                value={bulkMode}
+                onChange={(e) => setBulkMode(e.target.value)}
+              >
+                <option value="group">移动分组</option>
+                <option value="maker">指定厂家</option>
+                <option value="reset">恢复自动分类</option>
+              </NativeSelect>
+              <div hidden={bulkMode !== 'maker'} className="settings-catalog-bulk-value">
+                <SuggestionInput
+                  aria-label="批量指定厂家"
+                  options={manufacturerNames}
+                  placeholder="选择或填写厂家"
+                  maxLength={60}
+                  value={maker}
+                  onValueChange={setMaker}
+                />
+                <IconButton
+                  variant="outline"
+                  aria-label="指定厂家"
+                  disabled={blocked || !maker.trim()}
+                  onClick={() =>
+                    void updateSelected((value) => ({ ...value, manufacturer: maker.trim() }))
+                  }
+                >
+                  <Icon name="check" />
+                </IconButton>
+              </div>
+              <div hidden={bulkMode !== 'group'} className="settings-catalog-bulk-value">
+                <NativeSelect
+                  aria-label="批量移动分组"
+                  value={destination}
+                  onChange={(e) => setDestination(e.target.value)}
+                >
+                  <option value="">按厂家归类</option>
+                  {(prefs.groups || []).map((group) => (
+                    <option key={group.id} value={group.id}>
+                      {group.name}
+                    </option>
+                  ))}
+                </NativeSelect>
+                <IconButton
+                  variant="outline"
+                  aria-label="移动模型"
+                  disabled={
+                    blocked || (!!destination && !prefs.groups?.some((g) => g.id === destination))
+                  }
+                  onClick={() =>
+                    void updateSelected((value) => {
+                      delete value.groupId;
+                      return destination ? { ...value, groupId: destination } : value;
+                    })
+                  }
+                >
+                  <Icon name="check" />
+                </IconButton>
+              </div>
+              <div hidden={bulkMode !== 'reset'} className="settings-actions">
+                <ConfirmationButton
+                  type="button"
+                  variant="outline"
+                  disabled={blocked}
+                  revision={state.revision}
+                  title={`恢复 ${selected.length} 个模型的自动分类？`}
+                  description="会移除所选模型的手动厂家与分组归属，保留常用、预设和排序。"
+                  confirmLabel="确认恢复"
+                  onConfirm={() => updateSelected(() => ({}))}
+                >
+                  恢复自动分类
+                </ConfirmationButton>
+              </div>
+            </div>
+          </fieldset>
+          {feedback && (
+            <p role="alert" className="settings-error text-sm">
+              {feedback}
+            </p>
+          )}
+          {!feedback && busy && (
+            <p role="status" className="settings-feedback">
+              {refreshState === 'pending' ? '正在刷新…' : '正在保存…'}
+            </p>
+          )}
+        </>
       }
     >
       <div ref={listRef} data-settings-list="model-groups" className="space-y-5">
-        <div className="settings-catalog-tools">
-          <Input
-            type="search"
-            aria-label="搜索模型"
-            placeholder="搜索模型或厂家"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-          <NativeSelect
-            aria-label="筛选模型分组"
-            value={categoryId}
-            onChange={(e) => setCategory(e.target.value)}
-          >
-            <option value="all">全部分组</option>
-            {groups.map((group) => (
-              <option key={group.id} value={group.id}>
-                {group.name}
-              </option>
-            ))}
-          </NativeSelect>
-          <IconButton
-            variant="outline"
-            aria-label="刷新可用模型"
-            disabled={busy || !prefs.enabled}
-            onClick={async () => {
-              setRefreshState('pending');
-              try {
-                setRefreshState((await refresh()) ? 'success' : 'idle');
-              } catch {
-                setRefreshState('idle');
-              }
-            }}
-            aria-busy={refreshState === 'pending'}
-          >
-            <ActionIcon name="refresh" state={refreshState} />
-          </IconButton>
-        </div>
         <form
+          data-settings-feedback-anchor
           className="flex flex-wrap gap-2"
           onSubmit={(event) => {
             event.preventDefault();
@@ -189,101 +304,6 @@ export function ModelOrganization({
             <Icon name="plus" />
           </IconButton>
         </form>
-        <div className="settings-catalog-selection" data-settings-navigation>
-          <Button
-            type="button"
-            variant="ghost"
-            disabled={busy || !visibleModels.length}
-            onClick={() =>
-              setSelected([...new Set([...selected, ...visibleModels.map((m) => m.id)])])
-            }
-          >
-            全选当前列表
-          </Button>
-          {!!selected.length && (
-            <Button type="button" variant="ghost" disabled={busy} onClick={() => setSelected([])}>
-              取消选择
-            </Button>
-          )}
-        </div>
-        <fieldset
-          hidden={!selected.length}
-          disabled={busy}
-          className="settings-catalog-bulk space-y-3"
-        >
-          <legend className="mb-2">
-            批量调整{selected.length ? ` · 已选 ${selected.length} 个` : ''}
-          </legend>
-          <div className="flex flex-wrap gap-2">
-            <ConfirmationButton
-              type="button"
-              variant="ghost"
-              disabled={blocked}
-              revision={state.revision}
-              title={`恢复 ${selected.length} 个模型的自动分类？`}
-              description="会移除所选模型的手动厂家与分组归属，保留常用、预设和排序。"
-              confirmLabel="确认恢复"
-              onConfirm={() => updateSelected(() => ({}))}
-            >
-              恢复自动分类
-            </ConfirmationButton>
-          </div>
-          <div className="flex flex-wrap items-end gap-2">
-            <label className="min-w-0 flex-1 basis-40 space-y-1">
-              厂家
-              <SuggestionInput
-                aria-label="批量指定厂家"
-                options={manufacturerNames}
-                placeholder="选择或填写厂家"
-                maxLength={60}
-                value={maker}
-                onValueChange={setMaker}
-              />
-            </label>
-            <IconButton
-              variant="outline"
-              aria-label="指定厂家"
-              disabled={blocked || !maker.trim()}
-              onClick={() =>
-                void updateSelected((value) => ({ ...value, manufacturer: maker.trim() }))
-              }
-            >
-              <Icon name="check" />
-            </IconButton>
-          </div>
-          <div className="flex flex-wrap items-end gap-2">
-            <label className="min-w-0 flex-1 basis-40 space-y-1">
-              展示分组
-              <NativeSelect
-                aria-label="批量移动分组"
-                value={destination}
-                onChange={(e) => setDestination(e.target.value)}
-              >
-                <option value="">按厂家归类</option>
-                {(prefs.groups || []).map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.name}
-                  </option>
-                ))}
-              </NativeSelect>
-            </label>
-            <IconButton
-              variant="outline"
-              aria-label="移动模型"
-              disabled={
-                blocked || (!!destination && !prefs.groups?.some((g) => g.id === destination))
-              }
-              onClick={() =>
-                void updateSelected((value) => {
-                  delete value.groupId;
-                  return destination ? { ...value, groupId: destination } : value;
-                })
-              }
-            >
-              <Icon name="check" />
-            </IconButton>
-          </div>
-        </fieldset>
         {!models.length && (
           <p className="text-muted-foreground">暂无模型。开启模型切换后刷新可用列表。</p>
         )}
@@ -319,6 +339,7 @@ export function ModelOrganization({
                   </div>
                   {custom && (
                     <form
+                      data-settings-feedback-anchor
                       className="flex flex-wrap gap-2"
                       onSubmit={(e) => {
                         e.preventDefault();

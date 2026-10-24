@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { request } from './api';
 import { Toggle, Feedback } from './settings-controls';
+import { useFeedbackTarget } from './settings-feedback';
 import { ConfirmationButton } from './settings-confirmation';
 import { Button } from './components/ui/button';
 import type { CodexHostStatus } from '../shared/codex-host';
@@ -23,6 +24,7 @@ export function CodexHostSettings({ live, active }: { live: boolean; active: boo
   const [latest, setLatest] = useState<string | null>(null);
   const writing = useRef(false),
     generation = useRef(0);
+  const feedback = useFeedbackTarget();
   const restarting = ['queued', 'confirming', 'restarting'].includes(state?.restart?.state || '');
   const disabled = !live || busy || restarting;
   useEffect(() => {
@@ -53,6 +55,7 @@ export function CodexHostSettings({ live, active }: { live: boolean; active: boo
   }, [live, active]);
   async function command(op: string, data: Record<string, unknown> = {}) {
     if (writing.current || restarting || !state) return false;
+    feedback.capture();
     writing.current = true;
     generation.current++;
     setBusy(true);
@@ -104,7 +107,11 @@ export function CodexHostSettings({ live, active }: { live: boolean; active: boo
         disabled={disabled || !state}
         onChange={(enabled) => void command('set-enabled', { enabled })}
       />
-      <Feedback text={error || state?.error || ''} failed />
+      <Feedback
+        text={error || state?.error || (busy ? '处理中…' : '')}
+        failed={!!(error || state?.error)}
+        target={feedback.target}
+      />
       {state?.restart && (
         <Feedback text={state.restart.message} failed={state.restart.state === 'failed'} />
       )}

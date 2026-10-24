@@ -51,6 +51,7 @@ function FeaturePreview({ form, tasks, model, view, dirty, page }: PreviewProps)
   const [selected, setSelected] = useState(0);
   const [demoDraft, setDemoDraft] = useState('');
   const [selectedBot, setSelectedBot] = useState('通用');
+  const [boardGroup, setBoardGroup] = useState('');
   const activeScene =
     page === 'bots'
       ? 'bots'
@@ -188,16 +189,43 @@ function FeaturePreview({ form, tasks, model, view, dirty, page }: PreviewProps)
                   </>
                 )}
                 {scene === 'board' && (
-                  <div className="preview-board">
-                    {groups.map((group, index) => (
-                      <div key={group.id}>
-                        <h3>{group.title}</h3>
-                        <div className="preview-task-sample">
-                          <i />
-                          {['梳理目标', '完善细节', '完成验证'][index % 3]}
+                  <div className="preview-board-container">
+                    <div
+                      className="preview-selector preview-board-tabs"
+                      role="group"
+                      aria-label="看板分组预览"
+                    >
+                      {groups.map((group) => (
+                        <button
+                          key={group.id}
+                          type="button"
+                          aria-pressed={
+                            group.id ===
+                            (groups.some((g) => g.id === boardGroup) ? boardGroup : groups[0]?.id)
+                          }
+                          onClick={() => setBoardGroup(group.id)}
+                        >
+                          {group.title}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="preview-board">
+                      {groups.map((group, index) => (
+                        <div
+                          key={group.id}
+                          data-active={
+                            group.id ===
+                            (groups.some((g) => g.id === boardGroup) ? boardGroup : groups[0]?.id)
+                          }
+                        >
+                          <h3>{group.title}</h3>
+                          <div className="preview-task-sample">
+                            <i />
+                            {['梳理目标', '完善细节', '完成验证'][index % 3]}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 )}
                 {scene === 'bots' && (

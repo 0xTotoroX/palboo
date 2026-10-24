@@ -18,7 +18,7 @@ html:root {
   --buddy-subtle: #f1f1f2;
   --buddy-radius-small: 4px;
   --settings-control-radius: var(--buddy-radius-small);
-  --settings-control-height: 38px;
+  --settings-control-height: max(38px, calc(var(--settings-text-size) * 1.65 + 12px));
   --settings-text-size: calc(var(--buddy-type-size, 16px) * 0.875);
   --settings-heading-size: var(--buddy-type-size, 16px);
   --settings-title-size: calc(var(--buddy-type-size, 16px) * 1.125);
@@ -124,6 +124,7 @@ html:root :is(.settings-theme, .settings-choice, .preview-selector) button[aria-
   min-height: 44px;
 }
 .settings-brand {
+  min-width: 0;
   display: inline-flex;
   align-items: center;
   gap: 9px;
@@ -134,6 +135,7 @@ html:root :is(.settings-theme, .settings-choice, .preview-selector) button[aria-
   text-decoration: none;
 }
 .settings-wordmark {
+  max-width: 160px;
   display: block;
   width: 5.6em;
   height: auto;
@@ -334,10 +336,18 @@ html:root .settings-nav {
 }
 .settings-field input[type='number'] {
   width: min(100%, 160px);
+  display: block;
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
 }
-.settings-field > label {
-  padding-top: 8px;
+.settings-field > label,
+.settings-field > span:first-child {
+  display: flex;
+  align-items: center;
+  min-height: var(--settings-control-height);
   font-size: var(--settings-text-size);
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .settings-row {
   display: flex;
@@ -384,6 +394,7 @@ html:root .settings-nav {
   margin: 8px 0 16px;
   color: var(--buddy-muted);
   font-size: var(--settings-text-size);
+  min-height: var(--settings-control-height);
 }
 .settings-feedback-slot {
   min-width: 0;
@@ -576,8 +587,9 @@ html:root .settings-nav {
     grid-template-columns: 1fr;
     gap: 6px;
   }
-  .settings-field > label {
-    padding-top: 0;
+  .settings-field > label,
+  .settings-field > span:first-child {
+    min-height: 0;
   }
 }
 
@@ -905,4 +917,15 @@ html:root .settings-nav {
 
 .settings-status-list > .settings-row + .settings-row {
   border-top: 1px solid var(--buddy-border);
+}
+
+/* Keep header actions within the viewport at large text sizes. */
+@media (max-width: 460px) {
+  .settings-search-trigger {
+    gap: 6px;
+    padding-inline: 4px;
+  }
+  .settings-search-trigger > span[aria-hidden] {
+    display: none;
+  }
 }

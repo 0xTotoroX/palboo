@@ -33,11 +33,13 @@ export function Field({
   );
 }
 export function Toggle({
+  id,
   label,
   checked,
   onChange,
   disabled = false,
 }: {
+  id?: string;
   label: string;
   checked: boolean;
   disabled?: boolean;
@@ -46,7 +48,13 @@ export function Toggle({
   return (
     <label className="settings-row">
       <span>{label}</span>
-      <Switch aria-label={label} checked={checked} disabled={disabled} onCheckedChange={onChange} />
+      <Switch
+        id={id}
+        aria-label={label}
+        checked={checked}
+        disabled={disabled}
+        onCheckedChange={onChange}
+      />
     </label>
   );
 }

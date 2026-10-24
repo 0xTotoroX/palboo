@@ -9,6 +9,8 @@ import { Input } from './components/ui/input';
 import { Switch } from './components/ui/switch';
 import { NativeSelect } from './components/ui/native-select';
 import { Icon } from '../shared/icons/react';
+import { Feedback } from './settings-controls';
+import { useFeedbackTarget } from './settings-feedback';
 import {
   useTasks,
   columns as defaultColumns,
@@ -19,6 +21,7 @@ import {
 const remindersSettingsVisible = false;
 export function TaskSettings({ tasks }: { tasks: ReturnType<typeof useTasks> }) {
   const listRef = useSettingsListMotion();
+  const feedback = useFeedbackTarget();
   const { state, error, busy, command } = tasks;
   const [groupNames, setGroupNames] = useState<Record<string, string>>({});
   const [newGroup, setNewGroup] = useState('');
@@ -51,8 +54,10 @@ export function TaskSettings({ tasks }: { tasks: ReturnType<typeof useTasks> }) 
               key={column.id}
               data-settings-list-item={column.id}
               className="flex items-center gap-3"
+              data-settings-feedback-anchor
               onSubmit={(event) => {
                 event.preventDefault();
+                feedback.capture();
                 void command({
                   op: 'renameColumn',
                   id: column.id,
@@ -90,8 +95,10 @@ export function TaskSettings({ tasks }: { tasks: ReturnType<typeof useTasks> }) 
           <form
             data-settings-list-item="add"
             className="flex items-center gap-3"
+            data-settings-feedback-anchor
             onSubmit={(event) => {
               event.preventDefault();
+              feedback.capture();
               void command({ op: 'createColumn', title: newGroup }).then((result) => {
                 if (result) setNewGroup('');
               });
@@ -218,11 +225,11 @@ export function TaskSettings({ tasks }: { tasks: ReturnType<typeof useTasks> }) 
           )}
         </>
       )}
-      {error && (
-        <p role="alert" className="text-[14px] text-destructive">
-          {error}
-        </p>
-      )}
+      <Feedback
+        text={error || (busy && feedback.target ? '正在保存…' : '')}
+        failed={!!error}
+        target={feedback.target}
+      />
     </section>
   );
 }

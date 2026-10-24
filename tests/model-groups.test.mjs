@@ -323,6 +323,7 @@ test(
         groupOrderBefore,
       );
       await settings.getByLabel('选择 私有别名', { exact: true }).check();
+      await settings.getByLabel('批量操作', { exact: true }).selectOption('maker');
       await settings.getByLabel('批量指定厂家').fill('私人厂家');
       const [manufacturerSaved] = await Promise.all([
         page.waitForResponse((response) => {
@@ -344,6 +345,7 @@ test(
         .getByRole('region', { name: '分组：私人厂家' })
         .getByText('手动', { exact: true })
         .waitFor();
+      await settings.getByLabel('批量操作', { exact: true }).selectOption('group');
       await settings.getByLabel('批量移动分组').selectOption(groupId);
       await settings.getByRole('button', { name: '移动模型' }).click();
       await settings
@@ -382,6 +384,7 @@ test(
       await settings.getByRole('region', { name: '分组：私人厂家' }).waitFor();
       assert.equal(writes, beforeDelete + 1, 'deleting does not submit the rename form');
       assert.equal(state.preferences.modelOverrides.custom.groupId, undefined);
+      await settings.getByLabel('批量操作', { exact: true }).selectOption('reset');
       await settings.getByRole('button', { name: '恢复自动分类' }).click();
       await settings
         .locator('.settings-key-dialog[open]')
@@ -427,24 +430,28 @@ test(
         .waitFor();
       assert.equal(state.preferences.modelOverrides.custom.manufacturer, '保留厂家');
 
-      mkdirSync('target/reports/model-groups', { recursive: true });
-      await page.screenshot({
-        path: 'target/reports/model-groups/settings-wide.png',
-        fullPage: true,
-      });
+      if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
+        mkdirSync('target/reports/model-groups', { recursive: true });
+      if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
+        await page.screenshot({
+          path: 'target/reports/model-groups/settings-wide.png',
+          fullPage: true,
+        });
       await page.setViewportSize({ width: 360, height: 800 });
-      await page.screenshot({
-        path: 'target/reports/model-groups/settings-narrow.png',
-        fullPage: true,
-      });
+      if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
+        await page.screenshot({
+          path: 'target/reports/model-groups/settings-narrow.png',
+          fullPage: true,
+        });
       assert.ok(
         await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
         'narrow layout must not overflow',
       );
-      await page.screenshot({
-        path: 'target/reports/model-groups/settings-narrow.png',
-        fullPage: true,
-      });
+      if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
+        await page.screenshot({
+          path: 'target/reports/model-groups/settings-narrow.png',
+          fullPage: true,
+        });
       await settings.getByRole('button', { name: '关闭模型分组' }).click();
       // Render the real component with a representative dense catalog, not a hand-drawn mockup.
       const favoriteLabels = [
@@ -507,7 +514,8 @@ test(
       const line = await view.locator('.model-column-resize').boundingBox();
       const head = await view.locator('.model-matrix-head').boundingBox();
       assert.ok(line.y >= head.y + head.height, 'divider starts below the Fast button');
-      await view.screenshot({ path: 'target/reports/model-groups/model-compact.png' });
+      if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
+        await view.screenshot({ path: 'target/reports/model-groups/model-compact.png' });
       await chooser.click();
       const list = view.locator('.model-other-list');
       assert.ok(
@@ -540,7 +548,8 @@ test(
         .boundingBox();
       assert.ok(refresh.x + refresh.width <= close.x + 1 && Math.abs(refresh.y - close.y) < 1);
       await page.mouse.move(850, 950);
-      await view.screenshot({ path: 'target/reports/model-groups/model-expanded.png' });
+      if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
+        await view.screenshot({ path: 'target/reports/model-groups/model-expanded.png' });
 
       await view.getByRole('button', { name: '关闭所有模型' }).click();
       const fixedFrame = await view.boundingBox();
@@ -584,7 +593,8 @@ test(
       await lastChoice.click();
       assert.equal((await page.evaluate(() => window.applied)).selection.model, 'favorite-4');
       await page.mouse.move(850, 950);
-      await view.screenshot({ path: 'target/reports/model-groups/model-narrow-column.png' });
+      if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
+        await view.screenshot({ path: 'target/reports/model-groups/model-narrow-column.png' });
       await chooser.click();
       assert.equal(
         await chooser.getAttribute('aria-expanded'),
@@ -997,6 +1007,134 @@ test(
         'unsupported Fast remains hollow even with stale speed data',
       );
       assert.deepEqual(errors, []);
+    } finally {
+      await browser.close();
+    }
+  },
+);
+
+test(
+  'long model catalogs keep search and selected actions visible at large type and narrow widths',
+  { timeout: 30000 },
+  async () => {
+    const state = {
+      revision: 1,
+      preferences: { enabled: true, pinned: [], presets: [] },
+      snapshot: {
+        models: Array.from({ length: 64 }, (_, i) => model(`gpt-fixture-${i}`, `GPT fixture ${i}`)),
+      },
+    };
+    const bundle = await build({
+      stdin: {
+        contents: `import React from 'react'; import {createRoot} from 'react-dom/client'; import {ModelOrganization} from './ui/settings/model-organization';window.writes=0;createRoot(document.getElementById('root')).render(<div className="settings-app"><ModelOrganization state={${JSON.stringify(state)}} busy={false} save={async()=>{window.writes++;return true}} refresh={async()=>true}/></div>);`,
+        resolveDir: process.cwd(),
+        loader: 'tsx',
+      },
+      bundle: true,
+      write: false,
+    });
+    const browser = await chromium.launch({ headless: true });
+    try {
+      const page = await browser.newPage({
+        viewport: { width: 360, height: 800 },
+        reducedMotion: 'reduce',
+      });
+      await page.setContent('<div id="root"></div>');
+      const html = readFileSync('target/web/index.html', 'utf8');
+      for (const [, href] of html.matchAll(/<link rel="stylesheet"[^>]*href="([^"]+)"/g))
+        await page.addStyleTag({ content: readFileSync(`target/web${href}`, 'utf8') });
+      await page.addScriptTag({ content: bundle.outputFiles[0].text });
+      await page.getByRole('button', { name: '模型分组', exact: true }).click();
+      const drawer = page.getByRole('dialog', { name: '模型分组', exact: true });
+      await drawer.getByRole('button', { name: '全选当前列表' }).click();
+      for (const width of [360, 740, 1360])
+        for (const base of [16, 32]) {
+          await page.setViewportSize({ width, height: 800 });
+          await page.evaluate((base) => {
+            document.documentElement.style.fontSize = base + 'px';
+            document.documentElement.style.setProperty('--buddy-type-size', base + 'px');
+          }, base);
+          await drawer
+            .locator('.settings-drawer-content')
+            .evaluate((e) => (e.scrollTop = e.scrollHeight));
+          const bounds = await drawer.evaluate((e) => {
+            const rect = (s) => {
+              const r = e.querySelector(s).getBoundingClientRect();
+              return {
+                top: r.top,
+                bottom: r.bottom,
+                left: r.left,
+                right: r.right,
+                height: r.height,
+              };
+            };
+            return {
+              search: rect('.settings-drawer-toolbar'),
+              list: rect('.settings-drawer-content'),
+              actions: rect('.settings-drawer-footer'),
+              overflow: document.documentElement.scrollWidth > innerWidth,
+              height: innerHeight,
+            };
+          });
+          assert.ok(
+            bounds.search.top >= 0 && bounds.search.bottom <= bounds.list.top + 1,
+            JSON.stringify(bounds),
+          );
+          assert.ok(bounds.list.height >= 100, JSON.stringify(bounds));
+          assert.ok(
+            bounds.actions.top >= bounds.list.bottom - 1 && bounds.actions.bottom <= bounds.height,
+            JSON.stringify(bounds),
+          );
+          assert.equal(
+            bounds.overflow,
+            false,
+            JSON.stringify({
+              width,
+              base,
+              bounds,
+              overflow: await page.evaluate(() =>
+                [...document.querySelectorAll('body *')]
+                  .filter(
+                    (e) =>
+                      e.checkVisibility() && e.getBoundingClientRect().right > innerWidth + 0.5,
+                  )
+                  .map((e) => ({
+                    tag: e.tagName,
+                    c: typeof e.className === 'string' ? e.className : 'svg',
+                    right: e.getBoundingClientRect().right,
+                    text: e.textContent.slice(0, 25),
+                  }))
+                  .slice(0, 10),
+              ),
+            }),
+          );
+          await drawer.getByRole('searchbox', { name: '搜索模型' }).fill('fixture 63');
+          assert.equal(await drawer.getByRole('checkbox').count(), 1);
+          await drawer.getByRole('searchbox', { name: '搜索模型' }).fill('');
+        }
+      await drawer.getByRole('combobox', { name: '批量操作', exact: true }).selectOption('maker');
+      await drawer.getByRole('combobox', { name: '批量指定厂家', exact: true }).fill('未保存厂家');
+      await drawer.getByRole('combobox', { name: '批量操作', exact: true }).selectOption('group');
+      await drawer.getByRole('combobox', { name: '批量操作', exact: true }).selectOption('maker');
+      assert.equal(
+        await drawer.getByRole('combobox', { name: '批量指定厂家', exact: true }).inputValue(),
+        '未保存厂家',
+      );
+      await drawer.getByRole('button', { name: '取消选择' }).click();
+      assert.equal(await drawer.locator('.settings-drawer-footer').isVisible(), false);
+      assert.equal(
+        await page.evaluate(() => window.writes),
+        0,
+        'selection, search and action-mode changes never save preferences',
+      );
+      await page.keyboard.press('Escape');
+      await drawer.waitFor({ state: 'hidden' });
+      assert.equal(
+        await page
+          .getByRole('button', { name: '模型分组', exact: true })
+          .evaluate((e) => e === document.activeElement),
+        true,
+      );
     } finally {
       await browser.close();
     }

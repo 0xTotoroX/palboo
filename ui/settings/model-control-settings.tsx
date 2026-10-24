@@ -3,6 +3,7 @@
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 import { useEffect, useRef, useState } from 'react';
 import { FeatureSwitch, Feedback } from './settings-controls';
+import { useFeedbackTarget } from './settings-feedback';
 import { request } from './api';
 import { ModelOrganization } from './model-organization';
 import type { ModelState, ModelPreferences } from '../features/model/catalog';
@@ -22,6 +23,7 @@ export function ModelControlSettings({
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState('');
   const writing = useRef(false);
+  const feedback = useFeedbackTarget();
   const generation = useRef(0);
   useEffect(() => onSnapshot?.(state), [state, onSnapshot]);
   useEffect(() => {
@@ -51,6 +53,7 @@ export function ModelControlSettings({
   }, [live, active]);
   async function change(open: boolean) {
     if (writing.current) return;
+    feedback.capture();
     writing.current = true;
     generation.current++;
     setBusy(true);
@@ -69,6 +72,7 @@ export function ModelControlSettings({
   }
   async function operate(patch?: Partial<ModelPreferences>) {
     if (writing.current || !state) return false;
+    feedback.capture();
     writing.current = true;
     generation.current++;
     setBusy(true);
@@ -107,6 +111,7 @@ export function ModelControlSettings({
       tabIndex={-1}
       aria-label="模型切换设置"
       className="settings-section"
+      onChangeCapture={feedback.track}
     >
       <FeatureSwitch
         name="模型切换"
@@ -114,7 +119,13 @@ export function ModelControlSettings({
         disabled={!live || busy || enabled === null}
         onChange={(value) => void change(value)}
       />
-      <Feedback text={message} />
+      {!feedback.target?.closest('dialog') && (
+        <Feedback
+          text={message || (busy ? '正在保存…' : '')}
+          failed={!!message}
+          target={feedback.target}
+        />
+      )}
       <div hidden={!detailed}>
         <FeatureSwitch
           name="额度显示"

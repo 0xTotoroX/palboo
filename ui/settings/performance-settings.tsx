@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { request } from './api';
 import { Feedback, Toggle } from './settings-controls';
+import { useFeedbackTarget } from './settings-feedback';
 import { PerformanceMonitor } from './performance-monitor';
 import type { PerformanceSample } from './performance-history';
 
@@ -29,6 +30,7 @@ export function PerformanceSettings({ live, active }: { live: boolean; active: b
   const [state, setState] = useState<State | null>(null);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
+  const feedback = useFeedbackTarget();
   const writing = useRef(false),
     generation = useRef(0);
   const monitoring = state?.preferences.monitoringEnabled === true;
@@ -63,6 +65,7 @@ export function PerformanceSettings({ live, active }: { live: boolean; active: b
   }, [active, live, monitoring]);
   async function save(patch: Partial<Preferences>) {
     if (!state || writing.current) return;
+    feedback.capture();
     writing.current = true;
     generation.current++;
     setBusy(true);
@@ -116,7 +119,11 @@ export function PerformanceSettings({ live, active }: { live: boolean; active: b
           onChange={(monitoringEnabled) => void save({ monitoringEnabled })}
         />
       </div>
-      <Feedback text={message} failed />
+      <Feedback
+        text={message || (busy ? '正在保存…' : '')}
+        failed={!!message}
+        target={feedback.target}
+      />
       <PerformanceMonitor
         sample={sample ?? null}
         enabled={monitoring}

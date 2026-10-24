@@ -1,5 +1,5 @@
 /* [INPUT]: Existing mounted settings content and presentation-only open/close requests.
- * [OUTPUT]: Accessible right-side drawer, retained drafts/scroll and reveal helpers for nested detail navigation.
+ * [OUTPUT]: Accessible right-side drawer with optional stationary toolbar/footer, retained drafts/scroll and reveal helpers.
  * [POS]: Settings presentation; keeps native form ownership and never writes configuration.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 import { useEffect, useLayoutEffect, useId, useRef, useState, type ReactNode } from 'react';
@@ -31,12 +31,14 @@ export function SettingsDrawer({
   id,
   title,
   children,
+  toolbar,
   footer,
   hidden = false,
 }: {
   id?: string;
   title: string;
   children: ReactNode;
+  toolbar?: ReactNode;
   footer?: ReactNode;
   hidden?: boolean;
 }) {
@@ -151,6 +153,7 @@ export function SettingsDrawer({
             <Icon name="close" />
           </IconButton>
         </header>
+        {toolbar && <div className="settings-drawer-toolbar">{toolbar}</div>}
         <div ref={content} className="settings-drawer-content">
           {children}
         </div>

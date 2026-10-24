@@ -3,7 +3,7 @@
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 import { useEffect, useRef, useState } from 'react';
 import { useFeedbackTarget } from './settings-feedback';
-import { Feedback } from './settings-controls';
+import { Feedback, Toggle } from './settings-controls';
 import { FeatureSettings } from './feature-settings';
 import { request } from './api';
 import { NativeSelect } from './components/ui/native-select';
@@ -245,17 +245,13 @@ export function SurfaceSettings({
               onKeyUp={() => void save({ edge: { position: position / 100 } })}
             />
           </label>
-          <label className="settings-field text-sm">
-            <span className="whitespace-nowrap">保持展开</span>
-            <input
-              id="edge-keep-open"
-              aria-label="贴边保持展开"
-              type="checkbox"
-              disabled={disabled}
-              checked={edge?.keepOpen || false}
-              onChange={(event) => void save({ edge: { keepOpen: event.target.checked } })}
-            />
-          </label>
+          <Toggle
+            id="edge-keep-open"
+            label="保持展开"
+            disabled={disabled}
+            checked={edge?.keepOpen || false}
+            onChange={(keepOpen) => void save({ edge: { keepOpen } })}
+          />
         </div>
       </section>
       <Feedback

@@ -347,3 +347,69 @@
 .preview-model-control .model-presets:empty + .model-status-row {
   margin-top: 0;
 }
+
+/* Narrow samples keep the same actions and state, with content arranged for reading. */
+.preview-model-control,
+.preview-board-container {
+  container-type: inline-size;
+}
+.preview-board-tabs {
+  display: none;
+}
+@container (max-width: 30em) {
+  .preview-model-control .model-matrix,
+  .preview-model-control .model-row,
+  .preview-model-control .model-inline-heading {
+    min-width: 0;
+  }
+  .preview-model-control .model-inline-heading {
+    width: 100% !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  .preview-model-control .model-inline-heading > .model-choices,
+  .preview-model-control .model-column-resize,
+  .preview-model-control .model-discharge {
+    display: none;
+  }
+  .preview-model-control .model-inline-heading .model-fast {
+    left: auto;
+    right: 0;
+  }
+  .preview-model-control .model-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+    padding-block: 8px;
+  }
+  .preview-model-control .model-row .model-choices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .preview-model-control .model-row .model-choices button {
+    font-size: 0;
+    padding-inline: 8px;
+  }
+  .preview-model-control .model-row .model-choices button::after {
+    content: attr(data-reasoning);
+    font-size: var(--settings-text-size);
+    text-transform: capitalize;
+  }
+  .preview-model-control .model-row .model-choices button[data-reasoning='']::after {
+    content: '选择';
+  }
+  .preview-model-control .model-row .model-choices button[aria-pressed='true'] {
+    background: var(--buddy-subtle);
+  }
+  .preview-board-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .preview-board > div {
+    flex-basis: 0;
+  }
+  .preview-board > div:not([data-active='true']),
+  .preview-board h3 {
+    display: none;
+  }
+}

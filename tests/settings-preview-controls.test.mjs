@@ -18,6 +18,7 @@ test('settings previews show actionable models and visible materials without ser
 import React,{useState}from'react';import{createRoot}from'react-dom/client';
 import{LayoutPreview}from'./ui/settings/layout-preview';
 import{ModelPreview}from'./ui/settings/model-preview';
+import{SettingsPreview}from'./ui/settings/settings-preview';
 import{NativeSelect}from'./ui/settings/components/ui/native-select';
 import{FeatureSwitch}from'./ui/settings/settings-controls';
 const features={mainPlacement:'sidebar',features:[{id:'outline',open:true,placement:'sidebar'}],layouts:{}};
@@ -33,6 +34,7 @@ return <div className="settings-app"><LayoutPreview appearance features={feature
 <button onClick={()=>setModel(s=>({...s,preferences:{...s.preferences,showUsage:!s.preferences.showUsage}}))}>切换额度</button>
 <button onClick={()=>setModel(s=>({...s,snapshot:{...s.snapshot,usage:[{minutes:10080,remainingPercent:38,resetsAt:null}]}}))}>更新额度</button>
 <button onClick={()=>setModel(s=>({...s,snapshot:{...s.snapshot,usage:null}}))}>清空额度</button>
+<SettingsPreview page="board" form={null} tasks={{store:{boardEnabled:true}}} live/>
 <FeatureSwitch name="大纲" checked disabled onChange={()=>{}}/>
 <label htmlFor="choice">示例选择</label><NativeSelect id="choice" defaultValue="a"><option value="a">选项 A</option><option value="b">选项 B</option></NativeSelect>
 <div className="settings-choice"><button aria-pressed="true">已选</button><button aria-pressed="false">未选</button></div>
@@ -152,6 +154,21 @@ return <div className="settings-app"><LayoutPreview appearance features={feature
       assert.notEqual(colors.selected, colors.unselected);
       for (const width of [360, 550, 904, 1360]) {
         await page.setViewportSize({ width, height: 1041 });
+        const modelWidth = await preview.evaluate((e) => ({
+          client: e.clientWidth,
+          scroll: e.scrollWidth,
+        }));
+        assert.ok(
+          modelWidth.scroll <= modelWidth.client + 1,
+          `${width}px model controls fit the preview`,
+        );
+        if (width === 360) {
+          const tabs = page.getByRole('group', { name: '看板分组预览' });
+          await tabs.getByRole('button', { name: '进行中' }).click();
+          const visible = page.locator('.preview-board > div:visible');
+          assert.equal(await visible.count(), 1);
+          assert.match(await visible.textContent(), /进行中/);
+        }
         assert.equal(
           await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
           false,

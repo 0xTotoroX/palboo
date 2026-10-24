@@ -27,7 +27,7 @@ test(
         contents: `
       import React,{useEffect,useState} from 'react'; import {createRoot} from 'react-dom/client';
       import {useSettingsForm} from './ui/settings/use-settings-form';
-      import {SettingsForm,Field,FeatureSwitch} from './ui/settings/settings-controls';
+      import {SettingsForm,Field,FeatureSwitch,Toggle} from './ui/settings/settings-controls';
       import {Input} from './ui/settings/components/ui/input';
       import {NextSettings} from './ui/settings/next-settings';
       function App(){const [notice,notify]=useState(''); const editor=useSettingsForm(false,undefined,({configurationRevision,generationRevision,...rest})=>rest,notify);
@@ -36,6 +36,8 @@ test(
       <FeatureSwitch name="下一步" checked={!!editor.form?.enabled} onChange={v=>editor.change('enabled',v)}/>
       <SettingsForm editor={editor} notify={notify} active>
       <Field label="模型名称" id="model"><Input id="model" value={editor.form?.model||''} onChange={e=>editor.change('model',e.target.value)}/></Field>
+      <Field label="侧栏宽度（px）" id="dock-width"><Input id="dock-width" type="number" defaultValue="426" /></Field>
+      <Toggle label="桌面窗口置顶" checked={false} onChange={()=>{}}/>
       <NextSettings editor={editor} appearance={{revision:1,ui:{labelOnly:false,promptClickMode:'fill'}}}/></SettingsForm>
       {notice && notice!==editor.saveError && <p role="alert">{notice}</p>}
       </div></main></div>};createRoot(document.getElementById('root')).render(<App/>);`,
@@ -103,12 +105,13 @@ test(
       const prompt = page.getByRole('textbox', { name: '常用提示词 1 内容', exact: true });
       await prompt.waitFor();
       for (const width of [360, 740, 1360])
-        for (const base of [16, 20])
+        for (const base of [16, 20, 32])
           for (const theme of ['light', 'dark']) {
             await page.setViewportSize({ width, height: 900 });
             await page.evaluate(
               ({ base, theme }) => {
                 document.documentElement.style.setProperty('--buddy-type-size', `${base}px`);
+                document.documentElement.style.fontSize = `${base}px`;
                 document.documentElement.dataset.settingsTheme = theme;
               },
               { base, theme },
@@ -124,6 +127,13 @@ test(
                 textarea: size('.settings-entry-content'),
                 heading: size('#quick-prompts-title'),
                 short: row.getBoundingClientRect().height,
+                controlHeight: document.querySelector('#generation-mode').getBoundingClientRect()
+                  .height,
+                numberRight: document.querySelector('#dock-width').getBoundingClientRect().right,
+                switchRight: document
+                  .querySelector('[aria-label=桌面窗口置顶]')
+                  .getBoundingClientRect().right,
+                numberWidth: document.querySelector('#dock-width').getBoundingClientRect().width,
                 long: document.querySelectorAll('.settings-prompt-entry')[1].getBoundingClientRect()
                   .height,
                 cells: [...row.children].map((e) => {
@@ -141,7 +151,7 @@ test(
               );
             assert.equal(geometry.heading, base);
             assert.ok(
-              geometry.short <= 54 && geometry.long > geometry.short + 20,
+              geometry.short <= geometry.controlHeight + 16 && geometry.long > geometry.short + 20,
               JSON.stringify(geometry),
             );
             assert.ok(
@@ -150,9 +160,18 @@ test(
             );
             assert.ok(geometry.cells[1].width > 100);
             assert.equal(geometry.overflow, false);
+            assert.ok(
+              Math.abs(geometry.numberRight - geometry.switchRight) < 1,
+              'numeric fields share the switch right edge',
+            );
+            assert.ok(geometry.numberWidth <= 160, 'numeric fields retain a short width');
           }
       assert.equal(writes.length, 0, 'inspection does not save');
       await page.setViewportSize({ width: 740, height: 900 });
+      await page.evaluate(() => {
+        document.documentElement.style.fontSize = '16px';
+        document.documentElement.style.setProperty('--buddy-type-size', '16px');
+      });
       await prompt.fill('合成提示词草稿');
       const save = page.getByRole('button', { name: '保存设置', exact: true });
       assert.equal(
@@ -231,3 +250,48 @@ test(
     }
   },
 );
+
+test('board group save failures stay beside the submitted row and retain the draft for retry', async () => {
+  const bundle = await build({
+    stdin: {
+      loader: 'jsx',
+      resolveDir: process.cwd(),
+      contents: `import React from 'react';import {createRoot} from 'react-dom/client';import {TaskSettings} from './ui/settings/task-settings';import {useTasks} from './ui/features/board/api';window.reject=true;window.writes=[];let state={store:{revision:1,columns:[{id:'todo',title:'待办'},{id:'done',title:'完成'}],tasks:[],bindings:{calendarId:''}}};const request=async(path,body)=>{if(body){window.writes.push(body);await new Promise(r=>window.release=r);if(window.reject)throw Error('合成分组保存失败');state={...state,store:{...state.store,revision:state.store.revision+1,columns:state.store.columns.map(c=>c.id===body.id?{...c,title:body.title}:c)}}}return state};function App(){const tasks=useTasks(false,request);return <div className="settings-app"><TaskSettings tasks={tasks}/></div>}createRoot(document.getElementById('root')).render(<App/>);`,
+    },
+    bundle: true,
+    write: false,
+    jsx: 'automatic',
+  });
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage();
+    await page.setContent('<div id="root"></div>');
+    await page.addScriptTag({ content: bundle.outputFiles[0].text });
+    const input = page.getByRole('textbox', { name: '分组名称：待办' });
+    await input.fill('测试草稿');
+    await page.getByRole('button', { name: '保存分组：待办' }).click();
+    await page.getByRole('status').filter({ hasText: '正在保存' }).waitFor();
+    await page.evaluate(() => window.release());
+    const error = page.getByRole('alert');
+    await error.waitFor();
+    assert.equal(
+      await error.evaluate(
+        (e) =>
+          !!e
+            .closest('.settings-feedback-slot')
+            ?.previousElementSibling?.querySelector('[aria-label="分组名称：待办"]'),
+      ),
+      true,
+    );
+    assert.equal(await input.inputValue(), '测试草稿');
+    await page.evaluate(() => (window.reject = false));
+    await page.getByRole('button', { name: '保存分组：待办' }).click();
+    await page.getByRole('status').filter({ hasText: '正在保存' }).waitFor();
+    await page.evaluate(() => window.release());
+    await page.getByRole('textbox', { name: '分组名称：测试草稿' }).waitFor();
+    assert.equal(await page.getByRole('alert').count(), 0);
+    assert.equal(await page.evaluate(() => window.writes.length), 2);
+  } finally {
+    await browser.close();
+  }
+});

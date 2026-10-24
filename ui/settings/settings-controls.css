@@ -11,9 +11,15 @@
 .settings-app :is([data-slot='input'], [data-slot='native-select']) {
   height: var(--settings-control-height);
   font-size: var(--settings-text-size);
+  line-height: 1.5;
 }
 .settings-app :is([data-slot='button'], input, textarea) {
   font-size: var(--settings-text-size);
+}
+.settings-app [data-slot='button'] {
+  height: auto;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .settings-app
   :is(
@@ -201,6 +207,7 @@
   border-radius: 0;
 }
 .settings-prompt-entry > button {
+  width: 28px;
   grid-column: 3;
   grid-row: 1;
   margin-top: 5px;
@@ -374,7 +381,7 @@
   grid-column: 1;
 }
 .settings-app .settings-drawer .settings-field > label {
-  padding-top: 0;
+  min-height: 0;
 }
 html:has(.settings-drawer[open]) {
   overflow: hidden;
@@ -397,6 +404,20 @@ html:has(.settings-drawer[open]) {
   padding: 16px 28px 24px;
 }
 .settings-drawer-footer:empty {
+  display: none;
+}
+.settings-drawer-toolbar {
+  flex: none;
+  padding: 0 28px 8px;
+  border-bottom: 1px solid var(--buddy-border);
+}
+.settings-drawer-toolbar .settings-catalog-selection {
+  margin-top: 4px;
+}
+#model-organization .settings-drawer-footer {
+  border-top: 1px solid var(--buddy-border);
+}
+#model-organization .settings-drawer-footer:not(:has(> fieldset:not([hidden]), > p)) {
   display: none;
 }
 
@@ -492,10 +513,38 @@ html:has(.settings-drawer[open]) {
   gap: 8px;
 }
 .settings-catalog-bulk {
-  padding: 12px;
-  border-radius: 8px;
-  background: var(--buddy-subtle);
+  padding: 0;
   min-width: 0;
+  font-size: var(--settings-text-size);
+}
+.settings-catalog-bulk-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 0.65fr) minmax(0, 1fr);
+  gap: 8px;
+  margin-top: 8px;
+}
+.settings-catalog-bulk-value {
+  display: flex;
+  min-width: 0;
+  gap: 8px;
+}
+.settings-catalog-bulk-value > :first-child {
+  min-width: 0;
+  flex: 1;
+}
+.settings-catalog-bulk [hidden] {
+  display: none;
+}
+@media (max-width: 600px) {
+  .settings-drawer-toolbar {
+    padding-inline: 20px;
+  }
+  .settings-drawer-footer {
+    padding: 12px 20px 20px;
+  }
+  .settings-catalog-bulk-controls {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 .model-organization-heading {
   display: flex;
