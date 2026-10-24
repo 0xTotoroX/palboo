@@ -1,62 +1,28 @@
-/* [INPUT]: Shared icons, static examples and visitor interactions.
- * [OUTPUT]: Isolated feature / surface demonstrations with local memory state.
+/* [INPUT]: Shared icons, original settings device scene and motion, static examples and visitor input.
+ * [OUTPUT]: Isolated feature interactions and the original settings window model with local state.
  * [POS]: Website illustration layer; no backend, host or model calls.
  * [PROTOCOL]: Keep website/AGENTS.md and browser acceptance in sync. */
 import { useState, type KeyboardEvent } from 'react';
 import { Icon } from '../shared/icons/react';
+import { LayoutPreviewScene, demoFrames } from '../settings/layout-preview-scene';
+import { useDemoJourney } from '../settings/layout-preview-journey';
 
 export const features = [
-  {
-    id: 'next',
-    label: '下一步',
-    icon: 'feature-next',
-    title: '好问题之后，再向前一步。',
-    description: '从当前对话生成下一步建议。选择方向，把想法接成行动。',
-  },
-  {
-    id: 'outline',
-    label: '大纲',
-    icon: 'feature-outline',
-    title: '长对话，也有清楚的脉络。',
-    description: '沿着大纲回到关键位置，接着读，接着想。',
-  },
-  {
-    id: 'board',
-    label: '任务看板',
-    icon: 'feature-board',
-    title: '聊过的事，有地方接着做。',
-    description: '用待办、进行中和完成整理任务，让推进过程看得见。',
-  },
-  {
-    id: 'model',
-    label: '模型切换',
-    icon: 'feature-model',
-    title: '让合适的模型，接手当前问题。',
-    description: '把常用模型和预设放在手边，按当前宿主支持的能力切换。',
-  },
-  {
-    id: 'terms',
-    label: '术语释义',
-    icon: 'feature-terms',
-    title: '遇到新概念，就在这里弄懂。',
-    description: '在对话里识别术语，随时查看解释、收藏或标记已掌握。',
-  },
-  {
-    id: 'bots',
-    label: 'Grok Bot',
-    icon: 'feature-bots',
-    title: '找到熟悉的助手，继续聊。',
-    description: '接入已有的 Grok Bot，把常用助手带到当前输入流程。',
-  },
+  { id: 'next', label: '下一步', icon: 'feature-next' },
+  { id: 'outline', label: '大纲', icon: 'feature-outline' },
+  { id: 'board', label: '任务看板', icon: 'feature-board' },
+  { id: 'model', label: '模型切换', icon: 'feature-model' },
+  { id: 'terms', label: '术语释义', icon: 'feature-terms' },
+  { id: 'bots', label: 'Grok Bot', icon: 'feature-bots' },
 ] as const;
 
 export type FeatureId = (typeof features)[number]['id'];
 export type SurfaceId = 'sidebar' | 'overlay' | 'desktop' | 'edge';
-export const surfaces: { id: SurfaceId; label: string; description: string }[] = [
-  { id: 'sidebar', label: '侧栏', description: '和对话并排，读到哪里，接着做到哪里。' },
-  { id: 'overlay', label: '页面浮层', description: '需要时展开，收起后把空间还给对话。' },
-  { id: 'desktop', label: '桌面窗口', description: '移到顺手的位置，也可以放到另一块屏幕。' },
-  { id: 'edge', label: '贴边 / 刘海', description: '待在屏幕边缘，用到的时候再展开。' },
+export const surfaces: { id: SurfaceId; label: string }[] = [
+  { id: 'sidebar', label: '侧栏' },
+  { id: 'overlay', label: '页面浮层' },
+  { id: 'desktop', label: '移到副屏' },
+  { id: 'edge', label: '贴边 / 刘海' },
 ];
 
 /** Arrow keys move focus and selection together; no delayed keyboard animation. */
@@ -142,15 +108,6 @@ export function FeatureDemo({
 
   return (
     <div className="product-demo" aria-label="Palboo 交互演示">
-      <div className="demo-window-bar" aria-hidden="true">
-        <span className="window-dots">
-          <i />
-          <i />
-          <i />
-        </span>
-        <span>一个想法的开始</span>
-        <span className="window-bar-end">⌘</span>
-      </div>
       <div className="demo-window-body">
         <Chat heading={active === 'outline' ? heading : -1} />
         <aside className={`demo-panel demo-panel-${active}`}>
@@ -203,9 +160,6 @@ export function FeatureDemo({
           >
             <div className="demo-content-heading">
               <span>{selected.label}</span>
-              <span className="demo-count">
-                {String(features.indexOf(selected) + 1).padStart(2, '0')}
-              </span>
             </div>
             {active === 'next' && (
               <div className="demo-suggestions">
@@ -323,7 +277,9 @@ export function FeatureDemo({
             )}
           </div>
           <div className="demo-composer">
-            <label htmlFor="demo-draft">接着聊</label>
+            <label className="sr-only" htmlFor="demo-draft">
+              接着聊
+            </label>
             <textarea
               id="demo-draft"
               value={draft}
@@ -331,9 +287,6 @@ export function FeatureDemo({
               placeholder="从一个下一步开始…"
               rows={2}
             />
-            <span aria-hidden="true">
-              <Icon name="feature-next" />
-            </span>
           </div>
         </aside>
       </div>
@@ -341,57 +294,37 @@ export function FeatureDemo({
   );
 }
 
-export function SurfaceDemo({ surface }: { surface: SurfaceId }) {
+/** Uses the exact settings device model and its original two-stage screen handoff. */
+export function SurfaceDemo({
+  surface,
+  animate = true,
+}: {
+  surface: SurfaceId;
+  animate?: boolean;
+}) {
+  const frame = useDemoJourney(surface, demoFrames[surface], animate);
+  const [draft, setDraft] = useState('');
   return (
-    <div
-      className="surface-stage"
-      data-surface={surface}
-      role="img"
-      aria-label={`${surfaces.find((item) => item.id === surface)!.label}形态示意`}
-    >
-      <div className="surface-wallpaper">
-        <span>PALB</span>
-        <Eyes />
-      </div>
-      <div className="surface-host">
-        <div className="surface-host-bar">
-          <span className="window-dots">
-            <i />
-            <i />
-            <i />
-          </span>
-          <span>Codex</span>
+    <div className="surface-model" data-surface={surface}>
+      <LayoutPreviewScene frame={frame} title="周末计划" hostName="Codex">
+        <div className="modeled-workspace">
+          <div className="modeled-heading">
+            <Icon name="feature-next" />
+            <span>下一步</span>
+          </div>
+          <ol>
+            <li>明确第一版范围</li>
+            <li>拆解实现步骤</li>
+            <li>检查边界条件</li>
+          </ol>
+          <input
+            aria-label="窗口演示草稿"
+            placeholder="接着聊…"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+          />
         </div>
-        <div className="surface-host-content">
-          <span className="surface-bubble" />
-          <span />
-          <span />
-          <strong />
-          <span />
-          <span />
-          <div className="surface-input" />
-        </div>
-      </div>
-      <div className="surface-workbench">
-        <div className="surface-workbench-head">
-          <Eyes />
-          <Icon name="feature-next" />
-          <Icon name="feature-board" />
-        </div>
-        <strong>把想法接成行动</strong>
-        <div className="surface-row">
-          <span>01</span>明确第一版范围
-          <Icon name="chevron-right" />
-        </div>
-        <div className="surface-row">
-          <span>02</span>拆解实现步骤
-          <Icon name="chevron-right" />
-        </div>
-        <div className="surface-draft">继续</div>
-      </div>
-      <div className="surface-edge-tab">
-        <Eyes />
-      </div>
+      </LayoutPreviewScene>
     </div>
   );
 }

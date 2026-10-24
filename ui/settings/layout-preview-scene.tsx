@@ -1,7 +1,7 @@
-/* [INPUT]: Demonstration children, current window geometry and secondary-screen visibility.
- * [OUTPUT]: Frontal ChatGPT display and secondary display with the approved anatomy-like finish.
+/* [INPUT]: Demonstration children, current window geometry, host label and secondary-screen visibility.
+ * [OUTPUT]: Original frontal host display and secondary display, reused by settings and website.
  * [POS]: Local vector illustration; no screenshots, external assets or product commands.
- * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
+ * [PROTOCOL]: Keep settings/AGENTS.md and website/AGENTS.md in sync. */
 import type { ReactNode } from 'react';
 export type DemoFrame = { x: number; y: number; w: number; h: number; secondary: number };
 export const demoFrames: Record<string, DemoFrame> = {
@@ -15,10 +15,12 @@ export function LayoutPreviewScene({
   frame,
   children,
   title = '布局与位置',
+  hostName = 'ChatGPT',
 }: {
   frame: DemoFrame;
   children: ReactNode;
   title?: string;
+  hostName?: string;
 }) {
   const chatWidth = frame.x < 710 ? Math.max(230, frame.x - 190) : 498;
   return (
@@ -26,7 +28,7 @@ export function LayoutPreviewScene({
       className="layout-demo-scene"
       viewBox={`${-188 * (1 - frame.secondary)} 16 1120 500`}
       role="group"
-      aria-label="ChatGPT 与副屏中的交互示例"
+      aria-label={`${hostName} 与副屏中的交互示例`}
     >
       <path className="demo-desk" d="M8 488H1112" />
       <rect className="demo-device-shadow" x="24" y="47" width="694" height="440" rx="9" />
@@ -36,7 +38,7 @@ export function LayoutPreviewScene({
       <g aria-hidden="true" transform="translate(28 48)">
         <path className="demo-rail" d="M3 0H126V428H3Q0 428 0 425V3Q0 0 3 0Z" />
         <text x="147" y="24" className="demo-title">
-          ChatGPT
+          {hostName}
         </text>
         <text x="147" y="48" className="demo-title">
           {title}

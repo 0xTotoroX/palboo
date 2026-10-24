@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>PALBOO · 品牌动效预览</title>
+    <link rel="icon" href="data:," />
+    <style>:root {
+  color-scheme: light;
+  --page: #f2f1ee;
+  --paper: #fdfcf9;
+  --text: #292a26;
+  --muted: #888981;
+  --line: #dfdfd8;
+  --control: #e9e8e3;
+  --focus: #85887a;
+  --pink: #f39ca2;
+  --pink-edge: #f8a8ad;
+  --ink-top: #30312d;
+  --ink-mid: #252622;
+  --ink-low: #20211e;
+  --edge: #ffffff;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #181917;
+  --paper: #20211e;
+  --text: #e7e8df;
+  --muted: #989a90;
+  --line: #383a33;
+  --control: #31332c;
+  --focus: #b2b6a5;
+  --pink: #f49ba3;
+  --pink-edge: #d9858e;
+  --ink-top: #f6f6ef;
+  --ink-mid: #e3e5da;
+  --ink-low: #ced1c3;
+  --edge: #ffffff;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
+button, input { font: inherit; }
+button { cursor: pointer; color: inherit; -webkit-tap-highlight-color: transparent; }
+button:focus-visible, input:focus-visible, .stage:focus-visible { outline: 2px solid var(--focus); outline-offset: 5px; }
+button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.studio { width: min(1120px, calc(100% - 112px)); margin: 0 auto; padding: clamp(28px, 6vh, 76px) 0 36px; }
+.heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+h1 { margin: 0; font-size: 15px; font-weight: 650; letter-spacing: .065em; }
+h1 span { color: var(--muted); margin-left: 12px; font-size: 13px; letter-spacing: .02em; font-weight: 400; }
+.icon-button { display: grid; place-items: center; padding: 0; width: 36px; height: 36px; background: transparent; border: 1px solid var(--line); border-radius: 50%; }
+.iso-plate { margin: 0; background: var(--paper); border: 1px solid var(--line); border-radius: 22px; overflow: hidden; box-shadow: 0 8px 38px #1b1c1405; }
+.stage { position: relative; overflow: hidden; outline-offset: -8px !important; }
+#art { display: block; width: 100%; height: auto; }
+.ink { fill: url(#ink); }
+.paper { fill: var(--paper); }
+.ink-top { stop-color: var(--ink-top); }
+.ink-mid { stop-color: var(--ink-mid); }
+.ink-low { stop-color: var(--ink-low); }
+.pink-center { stop-color: var(--pink); }
+.pink-edge { stop-color: var(--pink-edge); }
+.eye-edge { stroke: var(--edge); stroke-opacity: .12; stroke-width: .7; }
+.roll-mark { stroke: var(--paper); stroke-width: 3; stroke-opacity: .33; stroke-linecap: round; }
+.transport { border-top: 1px solid var(--line); padding: 20px 26px; display: flex; align-items: center; gap: 28px; }
+.timeline { display: flex; align-items: center; gap: 18px; flex: 1; min-width: 0; }
+.play-button { display: grid; place-items: center; flex-shrink: 0; width: 36px; height: 36px; border: 0; border-radius: 50%; background: var(--text); color: var(--paper); }
+.play-button svg { width: 16px; height: 16px; stroke-width: 2.4; }
+input[type="range"] { --progress: 0%; -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 2px; background: linear-gradient(to right, var(--text) var(--progress), var(--control) var(--progress)); cursor: ew-resize; touch-action: pan-y; min-width: 30px; padding: 0; margin: 16px 0; }
+input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 10px; height: 10px; border-radius: 50%; background: var(--text); border: 0; box-shadow: 0 0 0 4px var(--paper); }
+input[type="range"]::-moz-range-thumb { width: 10px; height: 10px; border-radius: 50%; background: var(--text); border: 0; }
+output { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; width: 78px; flex-shrink: 0; }
+.options { display: flex; gap: 20px; align-items: center; }
+#phase { color: var(--muted); font-size: 12px; min-width: 26px; }
+.text-button { border: 0; background: transparent; padding: 6px 0; font-size: 13px; }
+#speed { min-width: 28px; font-variant-numeric: tabular-nums; }
+.replay { display: flex; align-items: center; gap: 7px; }
+.chapters { display: flex; align-items: center; justify-content: center; gap: 28px; margin-top: 26px; }
+.chapters button { font-size: 12px; padding: 8px 0; background: transparent; border: 0; color: var(--muted); }
+.chapters button span { margin-right: 5px; font-size: 10px; font-variant-numeric: tabular-nums; }
+.chapters button[aria-current] { color: var(--text); }
+.chapters button:hover, .text-button:hover { color: var(--text); opacity: .7; }
+.still-note { color: var(--muted); font-size: 12px; text-align: center; line-height: 1.6; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+@media (max-width: 680px) {
+  .studio { width: calc(100% - 32px); padding-top: 26px; }
+  .heading { margin-bottom: 20px; }
+  h1 span { margin-left: 5px; font-size: 12px; }
+  .iso-plate { border-radius: 16px; }
+  .stage { min-height: 310px; display: flex; align-items: center; }
+  #art { width: 138%; max-width: none; flex-shrink: 0; margin-left: -19%; }
+  .transport { padding: 16px 18px; flex-wrap: wrap; gap: 12px; }
+  .timeline { flex-basis: 100%; gap: 12px; }
+  .options { width: 100%; justify-content: flex-end; gap: 22px; }
+  #phase { margin-right: auto; }
+  .chapters { gap: 17px; margin-top: 20px; }
+  .chapters button { font-size: 12px; }
+  .chapters button span { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; } }
+</style>
+  </head>
+  <body>
+    <main class="studio">
+      <header class="heading">
+        <h1>PALBOO <span>/ 品牌动效</span></h1>
+        <button id="theme" class="icon-button" aria-label="切换深色预览" title="切换明暗">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.2 14.1a7.6 7.6 0 0 1-9.3-9.3 7.7 7.7 0 1 0 9.3 9.3Z"/></svg>
+        </button>
+      </header>
+
+      <figure class="iso-plate" aria-label="PALBOO 品牌动画独立预览">
+        <div class="stage" tabindex="0" role="group" aria-label="动画画布，空格播放或暂停，左右方向键逐步查看">
+          <svg id="art" viewBox="0 0 1200 620" role="img" aria-labelledby="art-title art-desc">
+            <title id="art-title">从 PALBOO 的字母到 Buddy 的眼睛</title>
+            <desc id="art-desc">P、A、L、B 像打字机一样逐字出现。B 的上下圆腔鼓动，一前一后吐出两个 O，像桌球沿底线滚动并停稳，组成 PALBOO，再变成双眼眨两下。眨眼结束后腮红淡入，最终停留在双眼与腮红组成的图标。</desc>
+            <defs>
+              <linearGradient id="ink" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" class="ink-top"/><stop offset="0.5" class="ink-mid"/><stop offset="1" class="ink-low"/>
+              </linearGradient>
+              <radialGradient id="blush"><stop class="pink-center"/><stop offset="1" class="pink-edge"/></radialGradient>
+              <filter id="air-shadow" x="-60%" y="-60%" width="220%" height="220%" color-interpolation-filters="sRGB">
+                <feGaussianBlur stdDeviation="2.5"/>
+              </filter>
+              <mask id="b-counters" maskUnits="userSpaceOnUse" x="570" y="220" width="150" height="200">
+                <rect x="570" y="220" width="150" height="200" fill="white"/>
+                <path id="counter-0" fill="black"/><path id="counter-1" fill="black"/>
+              </mask>
+            </defs>
+            <g id="letters" class="ink">
+              <path id="letter-p" fill-rule="evenodd" d="M224 244H277C312 244 330 262 330 290C330 319 312 337 277 337H256V388H224ZM256 272V309H276C291 309 299 303 299 290C299 278 291 272 276 272Z"/>
+              <path id="letter-a" fill-rule="evenodd" d="M381 244H417L468 388H434L424 358H373L363 388H330ZM398.5 280L382 331H415Z"/>
+              <path id="letter-l" d="M487 244H519V359H574V388H487Z"/>
+              <g id="b-rig">
+                <path id="letter-b" mask="url(#b-counters)" d="M594 244H650C685 244 705 258 705 282C705 297 696 307 685 312C703 317 713 330 713 348C713 373 694 388 655 388H594Z"/>
+              </g>
+            </g>
+            <rect id="cursor" class="ink" x="196" y="244" width="3" height="144" rx="1.5"/>
+            <g id="shadows" filter="url(#air-shadow)" fill="black" opacity="0">
+              <path id="shadow-0"/><path id="shadow-1"/>
+            </g>
+            <g id="cheeks" opacity="0" fill="url(#blush)">
+              <circle id="cheek-0" cx="430" cy="410" r="23.5"/>
+              <circle id="cheek-1" cx="770" cy="410" r="23.5"/>
+            </g>
+            <g id="eyes" class="ink" fill-rule="evenodd">
+              <g id="eye-0"><path id="hole-0" class="paper"/><path id="ring-0"/><path id="edge-0" class="eye-edge" fill="none"/><path id="roll-mark-0" class="roll-mark" fill="none"/></g>
+              <g id="eye-1"><path id="hole-1" class="paper"/><path id="ring-1"/><path id="edge-1" class="eye-edge" fill="none"/><path id="roll-mark-1" class="roll-mark" fill="none"/></g>
+            </g>
+          </svg>
+        </div>
+
+        <figcaption class="transport">
+          <div class="timeline">
+            <button id="play" class="play-button" aria-label="暂停" title="空格播放或暂停">
+              <svg id="play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12"/></svg>
+            </button>
+            <input id="progress" type="range" min="0" max="6800" step="1" value="0" aria-label="动画进度" aria-valuetext="打字" />
+            <output id="time" for="progress">0.0 / 6.8s</output>
+          </div>
+          <div class="options">
+            <span id="phase" data-readout>打字</span>
+            <button id="speed" class="text-button" aria-label="切换至半速">1×</button>
+            <button id="replay" class="text-button replay"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8v5h5M4.4 12a7.5 7.5 0 1 0 1.4-5.1"/></svg>重播</button>
+          </div>
+        </figcaption>
+      </figure>
+      <nav class="chapters" aria-label="动画分镜">
+        <button data-at="0.76" data-chapter="word" aria-current="step"><span>01</span> 打字</button>
+        <button data-at="1.38" data-chapter="gather"><span>02</span> 蓄力</button>
+        <button data-at="2.28" data-chapter="roll"><span>03</span> 吐出</button>
+        <button data-at="3.16" data-chapter="name"><span>04</span> 停稳</button>
+        <button data-at="4.35" data-chapter="eyes"><span>05</span> 双眼</button>
+        <button data-at="4.785" data-chapter="blink"><span>06</span> 眨眼</button>
+      </nav>
+      <p id="still-note" class="still-note" hidden>已跟随系统减少动态效果，拖动进度可查看各帧。</p>
+      <span id="announcement" class="sr-only" aria-live="polite"></span>
+    </main>
+    <script type="module">// Pure time-based SVG poses make playback, scrubbing and reduced-motion inspection agree.
+const $ = (s) => document.querySelector(s);
+const duration = 6.8;
+const clamp = (v, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, v));
+const lerp = (a, b, p) => a + (b - a) * p;
+const ease = (v) => { const p = clamp(v); return p * p * (3 - 2 * p); };
+const smoother = (v) => { const p = clamp(v); return clamp(p * p * p * (p * (p * 6 - 15) + 10)); };
+const span = (t, a, b) => clamp((t - a) / (b - a));
+const n = (v) => Number(v.toFixed(4));
+const at = (el, name, value) => el.setAttribute(name, typeof value === "number" ? n(value) : value);
+const bezier = (p, a, b, c, d) => a.map((v, i) => (1-p)**3*v + 3*(1-p)**2*p*b[i] + 3*(1-p)*p*p*c[i] + p**3*d[i]);
+
+function capsule(w, h, radius = Math.min(w, h) / 2) {
+  const x = -w / 2, y = -h / 2;
+  const r = Math.max(0, Math.min(radius, w / 2, h / 2)), k = .5522847498307936 * r;
+  return `M${n(x+r)} ${n(y)}H${n(x+w-r)}C${n(x+w-r+k)} ${n(y)} ${n(x+w)} ${n(y+r-k)} ${n(x+w)} ${n(y+r)}V${n(y+h-r)}C${n(x+w)} ${n(y+h-r+k)} ${n(x+w-r+k)} ${n(y+h)} ${n(x+w-r)} ${n(y+h)}H${n(x+r)}C${n(x+r-k)} ${n(y+h)} ${n(x)} ${n(y+h-r+k)} ${n(x)} ${n(y+h-r)}V${n(y+r)}C${n(x)} ${n(y+r-k)} ${n(x+r-k)} ${n(y)} ${n(x+r)} ${n(y)}Z`;
+}
+
+const nodes = {
+  letters: $("#letters"), b: $("#b-rig"), shadows: $("#shadows"), cheeks: $("#cheeks"),
+  glyphs: [$("#letter-p"), $("#letter-a"), $("#letter-l"), $("#b-rig")], cursor: $("#cursor"),
+  counter: [$("#counter-0"), $("#counter-1")], eye: [$("#eye-0"), $("#eye-1")], ring: [$("#ring-0"), $("#ring-1")],
+  edge: [$("#edge-0"), $("#edge-1")], shadow: [$("#shadow-0"), $("#shadow-1")], cheek: [$("#cheek-0"), $("#cheek-1")],
+  mark: [$("#roll-mark-0"), $("#roll-mark-1")],
+  hole: [$("#hole-0"), $("#hole-1")],
+};
+// The upper bowl spits first and supplies the farther O; the lower bowl supplies the nearer O.
+// Eye indices follow the final left/right face, so source order is [lower, upper].
+const anchors = [[622, 350], [622, 280]];
+const launch = [2.15, 1.58];
+const landing = [2.53, 1.96];
+const landedX = [744, 748];
+const wordX = [767, 932];
+const rollingEnd = [3.08, 2.90];
+const ends = [[504, 307], [696, 307]];
+const typedAt = [.12, .38, .65, .92];
+const cursorX = [196, 314, 452, 558, 697];
+const pulse = (t, a, b) => Math.sin(Math.PI * span(t,a,b)) ** 2;
+
+function bPose(t) {
+  const load = pulse(t,1.15,1.58) + .65 * pulse(t,1.82,2.15);
+  const recoil = pulse(t,1.58,1.84) + .65 * pulse(t,2.15,2.40);
+  return {x:-4*load+2*recoil, sx:1-.065*load+.035*recoil, sy:1+.05*load-.025*recoil, angle:-1.5*load+1.2*recoil};
+}
+function bowlScale(t, i) {
+  return 1 + .14 * pulse(t, launch[i]-.30, launch[i]);
+}
+
+function blinkAt(t, start, delay = 0) {
+  const age = t - start - delay;
+  if (age < 0 || age > .28) return 0;
+  if (age < .095) return ease(age / .095);
+  if (age < .115) return 1;
+  return 1 - smoother((age - .115) / .165);
+}
+
+function eyePose(t, i) {
+  const flight = span(t,launch[i],landing[i]);
+  const rolling = span(t,landing[i],rollingEnd[i]);
+  const morph = smoother(span(t,3.38,4.24));
+  let xy = [...anchors[i]], w = 64, h = 50, iw = 42, ih = 28, rotation = 0;
+  if (t < launch[i]) {
+    const b = bPose(t), size = bowlScale(t,i), angle = b.angle * Math.PI/180;
+    const dy = (anchors[i][1]-316)*b.sy;
+    xy = [622+b.x-dy*Math.sin(angle),316+dy*Math.cos(angle)];
+    w *= b.sx*size; h *= b.sy*size; iw *= b.sx*size; ih *= b.sy*size;
+    rotation = b.angle;
+  } else {
+    const grow = smoother(flight);
+    w = lerp(64,144,grow); h = lerp(50,144,grow);
+    iw = lerp(42,78,grow); ih = lerp(28,78,grow);
+    const initialRollSpeed = 2*(wordX[i]-landedX[i])/(rollingEnd[i]-landing[i]);
+    const controlX = landedX[i] - initialRollSpeed*(landing[i]-launch[i])/3;
+    xy = bezier(flight,anchors[i],i ? [670,260] : [698,344],[controlX,i ? 288 : 285],[landedX[i],316]);
+    if (t >= landing[i]) {
+      // Constant friction: angular travel follows distance / radius, and speed falls to zero.
+      const travelled = (wordX[i]-landedX[i])*(2*rolling-rolling*rolling);
+      xy[0] = landedX[i]+travelled;
+      const age = t-landing[i];
+      const bounce = 7*Math.abs(Math.sin(Math.PI*age/.20))*Math.exp(-age*9)*(1-smoother(span(age,.28,.48)));
+      xy[1] = 316-bounce;
+    }
+    rotation = (xy[0]-anchors[i][0])/72*180/Math.PI;
+    const restAngle = (wordX[i]-anchors[i][0])/72*180/Math.PI;
+    const aligned = Math.round(restAngle/180)*180;
+    xy = [lerp(xy[0],ends[i][0],morph),lerp(xy[1],ends[i][1],morph)];
+    w = lerp(w,82,morph); h = lerp(h,222,morph);
+    iw *= 1-morph; ih *= 1-morph;
+    rotation = lerp(rotation,aligned,morph);
+  }
+  const blink = Math.max(blinkAt(t,4.68,i*.018),blinkAt(t,5.06,i*.014));
+  h = lerp(h, 14, blink);
+  xy[1] += blink * 18;
+  return {x:xy[0],y:xy[1],w,h,iw,ih,rotation,blink,morph,flight,rolling,opacity:t<typedAt[3]?0:1};
+}
+
+function phaseAt(t) {
+  if (t < 1.15) return ["word", "打字"];
+  if (t < 1.58) return ["gather", "蓄力"];
+  if (t < 3.08) return ["roll", t<2.53?"吐出":"滚动"];
+  if (t < 3.38) return ["name", "停稳"];
+  if (t < 4.64) return ["eyes", "双眼"];
+  if (t < 5.42) return ["blink", "眨眼"];
+  if (t < 5.90) return ["blink", "腮红"];
+  return ["blink", "落定"];
+}
+
+let time = 0, speed = 1, playing = true, frame = 0, last = 0, visible = false;
+let lastPhase = "", hasInteracted = false;
+const still = matchMedia("(prefers-reduced-motion: reduce)");
+const params = new URLSearchParams(location.search);
+const progress = $("#progress"), play = $("#play"), phase = $("#phase");
+if (params.get("theme") === "dark") document.documentElement.dataset.theme = "dark";
+if (params.has("t")) { time = clamp(Number(params.get("t")), 0, duration); playing = false; }
+if (still.matches) { time = duration; playing = false; }
+
+function render(t, announce = false) {
+  t = clamp(t, 0, duration);
+  const fade = 1 - smoother(span(t,3.38,3.98));
+  at(nodes.letters, "opacity", fade);
+  at(nodes.letters, "transform", `translate(${n(-28-12*(1-fade))} 0)`);
+  nodes.glyphs.forEach((el,i) => at(el,"opacity",t>=typedAt[i]?1:0));
+  const typed = typedAt.filter(atTime => t>=atTime).length;
+  const cursorVisible = t<1.28 && (t<.92 || Math.floor(t*5)%2===0);
+  at(nodes.cursor,"x",cursorX[typed]);
+  at(nodes.cursor,"opacity",cursorVisible?1:0);
+  const b = bPose(t);
+  at(nodes.b,"transform",`translate(${n(650+b.x)} 316) rotate(${n(b.angle)}) scale(${n(b.sx)} ${n(b.sy)}) translate(-650 -316)`);
+  nodes.counter.forEach((el, i) => {
+    const close = 1-.65*ease(span(t,launch[i],launch[i]+.16))*(1-ease(span(t,landing[i]+.08,landing[i]+.26)));
+    const size = bowlScale(t,i);
+    at(el,"d",capsule(42*size*close,28*size*close));
+    at(el,"transform",`translate(650 ${anchors[i][1]})`);
+  });
+
+  const poses = [eyePose(t, 0), eyePose(t, 1)];
+  poses.forEach((p, i) => {
+    const transform = `translate(${n(p.x)} ${n(p.y)}) rotate(${n(p.rotation)})`;
+    at(nodes.eye[i], "transform", transform);
+    at(nodes.eye[i], "opacity", p.opacity);
+    const outer = capsule(p.w, p.h);
+    const inner = capsule(p.iw, p.ih);
+    at(nodes.hole[i],"d",inner);
+    at(nodes.ring[i], "d", outer + inner);
+    at(nodes.edge[i], "d", outer);
+    const ground = ease(span(t,launch[i],landing[i]))*(1-smoother(span(t,3.38,3.72)));
+    at(nodes.shadow[i],"d",capsule(92,6));
+    at(nodes.shadow[i],"opacity",ground*.13);
+    at(nodes.shadow[i],"transform",`translate(${n(p.x)} 392)`);
+    const glint = ease(span(t,launch[i]+.08,landing[i]))*(1-smoother(span(t,3.35,3.88)));
+    at(nodes.mark[i],"d","M 33.27 -47.51 A 58 58 0 0 1 56.02 -15.01");
+    at(nodes.mark[i],"opacity",glint);
+  });
+  const blush = smoother(span(t,5.42,5.90));
+  at(nodes.cheeks, "opacity", blush);
+  nodes.cheek.forEach(el => at(el, "r", 23.5 * lerp(.75, 1, blush)));
+  at(nodes.shadows,"opacity",1);
+  progress.value = String(Math.round(t * 1000));
+  progress.style.setProperty("--progress", `${t / duration * 100}%`);
+  $("#time").textContent = `${t.toFixed(1)} / ${duration.toFixed(1)}s`;
+  const [chapter, label] = phaseAt(t);
+  phase.textContent = label;
+  $(".stage").dataset.phase = chapter;
+  $(".stage").dataset.time = t.toFixed(4);
+  $(".stage").dataset.blink = Math.max(...poses.map(p => p.blink)).toFixed(4);
+  if (chapter !== lastPhase) {
+    document.querySelectorAll("[data-chapter]").forEach(el => {
+      if (el.dataset.chapter === chapter) el.setAttribute("aria-current", "step");
+      else el.removeAttribute("aria-current");
+    });
+    lastPhase = chapter;
+    if (hasInteracted) $("#announcement").textContent = label;
+  }
+  if (announce) progress.setAttribute("aria-valuetext", `${t.toFixed(1)} 秒，${label}`);
+}
+
+function updatePlay() {
+  play.setAttribute("aria-label", playing ? "暂停" : time >= duration ? "重新播放" : "播放");
+  $("#play-icon path").setAttribute("d", playing ? "M8 6v12M16 6v12" : "M8 5l11 7-11 7Z");
+  $("#play-icon path").setAttribute("fill", playing ? "none" : "currentColor");
+  $(".stage").dataset.playing = String(playing);
+  progress.setAttribute("aria-valuetext", `${time.toFixed(1)} 秒，${phaseAt(time)[1]}`);
+}
+function stopLoop() { if (frame) cancelAnimationFrame(frame); frame = 0; last = 0; }
+function tick(now) {
+  frame = 0;
+  const dt = last ? Math.min((now-last) / 1000, 1/30) : 0;
+  last = now;
+  time = Math.min(duration, time + dt * speed);
+  render(time);
+  if (time >= duration) { playing = false; updatePlay(); last = 0; }
+  else run();
+}
+function run() {
+  if (!frame && playing && visible && !document.hidden && !still.matches) frame = requestAnimationFrame(tick);
+}
+function pause() { playing = false; stopLoop(); updatePlay(); }
+function seek(t) { hasInteracted = true; pause(); time = clamp(t,0,duration); render(time,true); updatePlay(); }
+function toggle() {
+  hasInteracted = true;
+  if (still.matches) { seek(time < duration ? duration : 0); return; }
+  if (playing) pause();
+  else { if (time >= duration) time = 0; playing = true; render(time,true); updatePlay(); run(); }
+}
+play.addEventListener("click", toggle);
+$("#replay").addEventListener("click", () => {
+  hasInteracted = true; stopLoop(); time = still.matches ? duration : 0;
+  playing = !still.matches; render(time,true); updatePlay(); run();
+});
+progress.addEventListener("input", () => seek(Number(progress.value) / 1000));
+$("#speed").addEventListener("click", () => {
+  speed = speed === 1 ? .5 : 1;
+  $("#speed").textContent = `${speed}×`;
+  $("#speed").setAttribute("aria-label", speed === 1 ? "切换至半速" : "切换至正常速度");
+});
+$("#theme").addEventListener("click", () => {
+  const dark = document.documentElement.dataset.theme !== "dark";
+  document.documentElement.dataset.theme = dark ? "dark" : "light";
+  $("#theme").setAttribute("aria-label", dark ? "切换浅色预览" : "切换深色预览");
+});
+document.querySelectorAll("[data-at]").forEach(el => el.addEventListener("click", () => seek(Number(el.dataset.at))));
+$(".stage").addEventListener("keydown", (e) => {
+  if ([" ","Enter","ArrowLeft","ArrowRight","Home","End"].includes(e.key)) e.preventDefault();
+  if (e.key === " " || e.key === "Enter") toggle();
+  if (e.key === "ArrowLeft") seek(time - (e.shiftKey ? .5 : .1));
+  if (e.key === "ArrowRight") seek(time + (e.shiftKey ? .5 : .1));
+  if (e.key === "Home") seek(0);
+  if (e.key === "End") seek(duration);
+});
+new IntersectionObserver(entries => {
+  visible = entries[entries.length-1].isIntersecting;
+  if (visible) run(); else stopLoop();
+}, {rootMargin:"120px 0px"}).observe($(".stage"));
+document.addEventListener("visibilitychange", () => { stopLoop(); if (!document.hidden) run(); });
+still.addEventListener("change", () => {
+  if (still.matches) { pause(); time = duration; render(time,true); }
+  $("#still-note").hidden = !still.matches;
+});
+$("#still-note").hidden = !still.matches;
+render(time); updatePlay();
+
+// Local, explicit inspection hooks: identical geometry to the visible playback.
+window.palboo = Object.freeze({
+  seek,
+  get state() { return {time, speed, playing, reduced:still.matches, duration}; },
+  sample(t) { return [eyePose(clamp(t,0,duration),0), eyePose(clamp(t,0,duration),1)]; },
+});
+</script>
+  </body>
+</html>

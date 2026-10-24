@@ -1,0 +1,63 @@
+/* [INPUT]: Original modeled device geometry and buddy theme colors.
+ * [OUTPUT]: Shared SVG device, screen, rim and desk finish.
+ * [POS]: Settings and website illustration only; all selectors scoped to the scene.
+ * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
+.layout-demo-scene {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 493px;
+  margin-inline: auto;
+  aspect-ratio: 1120/500;
+}
+.layout-demo-scene text {
+  font-family: inherit;
+  font-size: 10px;
+  fill: var(--buddy-muted);
+}
+.layout-demo-scene .demo-title {
+  font-weight: 600;
+  fill: var(--buddy-text);
+  font-size: 11px;
+}
+.layout-demo-scene .demo-device-shadow {
+  fill: #000;
+  opacity: 0.13;
+}
+.layout-demo-scene .demo-device {
+  fill: #292929;
+  stroke: #515151;
+  stroke-width: 1;
+}
+.layout-demo-scene .demo-screen {
+  fill: var(--buddy-surface);
+}
+.layout-demo-scene .demo-rim {
+  fill: none;
+  stroke: #777;
+  stroke-width: 0.7;
+}
+.layout-demo-scene .demo-desk {
+  fill: none;
+  stroke: var(--buddy-border);
+  stroke-width: 0.7;
+}
+.layout-demo-scene .demo-rail,
+.layout-demo-scene .demo-bubble {
+  fill: var(--buddy-subtle);
+}
+.layout-demo-scene .demo-eyes {
+  fill: var(--buddy-text);
+}
+.layout-demo-scene .demo-line {
+  fill: var(--buddy-muted);
+  opacity: 0.45;
+}
+.layout-demo-scene .demo-composer {
+  fill: var(--buddy-surface);
+  stroke: var(--buddy-border);
+  stroke-width: 1;
+}
+.layout-demo-window {
+  overflow: hidden;
+}

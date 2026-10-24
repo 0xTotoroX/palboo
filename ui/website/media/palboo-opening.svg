@@ -1,0 +1,37 @@
+<svg id="art" viewBox="0 0 1200 620" role="img" aria-labelledby="art-title art-desc">
+            <title id="art-title">从 PALBOO 的字母到 Buddy 的眼睛</title>
+            <desc id="art-desc">P、A、L、B 像打字机一样逐字出现。B 的上下圆腔鼓动，一前一后吐出两个 O，像桌球沿底线滚动并停稳，组成 PALBOO，再变成双眼眨两下。眨眼结束后腮红淡入，最终停留在双眼与腮红组成的图标。</desc>
+            <defs>
+              <linearGradient id="ink" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" class="ink-top"/><stop offset="0.5" class="ink-mid"/><stop offset="1" class="ink-low"/>
+              </linearGradient>
+              <radialGradient id="blush"><stop class="pink-center"/><stop offset="1" class="pink-edge"/></radialGradient>
+              <filter id="air-shadow" x="-60%" y="-60%" width="220%" height="220%" color-interpolation-filters="sRGB">
+                <feGaussianBlur stdDeviation="2.5"/>
+              </filter>
+              <mask id="b-counters" maskUnits="userSpaceOnUse" x="570" y="220" width="150" height="200">
+                <rect x="570" y="220" width="150" height="200" fill="white"/>
+                <path id="counter-0" fill="black"/><path id="counter-1" fill="black"/>
+              </mask>
+            </defs>
+            <g id="letters" class="ink">
+              <path id="letter-p" fill-rule="evenodd" d="M224 244H277C312 244 330 262 330 290C330 319 312 337 277 337H256V388H224ZM256 272V309H276C291 309 299 303 299 290C299 278 291 272 276 272Z"/>
+              <path id="letter-a" fill-rule="evenodd" d="M381 244H417L468 388H434L424 358H373L363 388H330ZM398.5 280L382 331H415Z"/>
+              <path id="letter-l" d="M487 244H519V359H574V388H487Z"/>
+              <g id="b-rig">
+                <path id="letter-b" mask="url(#b-counters)" d="M594 244H650C685 244 705 258 705 282C705 297 696 307 685 312C703 317 713 330 713 348C713 373 694 388 655 388H594Z"/>
+              </g>
+            </g>
+            <rect id="cursor" class="ink" x="196" y="244" width="3" height="144" rx="1.5"/>
+            <g id="shadows" filter="url(#air-shadow)" fill="black" opacity="0">
+              <path id="shadow-0"/><path id="shadow-1"/>
+            </g>
+            <g id="cheeks" opacity="0" fill="url(#blush)">
+              <circle id="cheek-0" cx="430" cy="410" r="23.5"/>
+              <circle id="cheek-1" cx="770" cy="410" r="23.5"/>
+            </g>
+            <g id="eyes" class="ink" fill-rule="evenodd">
+              <g id="eye-0"><path id="hole-0" class="paper"/><path id="ring-0"/><path id="edge-0" class="eye-edge" fill="none"/><path id="roll-mark-0" class="roll-mark" fill="none"/></g>
+              <g id="eye-1"><path id="hole-1" class="paper"/><path id="ring-1"/><path id="edge-1" class="eye-edge" fill="none"/><path id="roll-mark-1" class="roll-mark" fill="none"/></g>
+            </g>
+          </svg>
