@@ -530,6 +530,7 @@ test('reading changes with the visible heading, releases pointer actions and res
     await page.goto(base);
     const demo = page.locator('.product-demo:visible');
     for (const feature of ['next', 'outline', 'terms', 'next']) {
+      await page.mouse.wheel(0, 1);
       await page
         .locator(`[data-chapter="${feature}"] h2`)
         .evaluate((node) => node.scrollIntoView({ block: 'center' }));
@@ -541,6 +542,7 @@ test('reading changes with the visible heading, releases pointer actions and res
       );
       if (feature === 'next') await demo.getByRole('button', { name: /拆解第一版/ }).click();
     }
+    await page.mouse.wheel(0, 1);
     await page
       .locator('[data-chapter="terms"] h2')
       .evaluate((node) => node.scrollIntoView({ block: 'center' }));
@@ -632,6 +634,7 @@ test('pointer takeover releases keyboard chapter lock; static resizing and manua
     await suggestion.focus();
     await page.keyboard.press('Enter');
     await suggestion.click();
+    await page.mouse.wheel(0, 1);
     await page.locator('.story-copy[data-chapter="terms"] h2').evaluate((heading) => {
       scrollTo(0, scrollY + heading.getBoundingClientRect().top - innerHeight * 0.5);
     });
@@ -642,6 +645,15 @@ test('pointer takeover releases keyboard chapter lock; static resizing and manua
     assert.equal(await demo.getAttribute('data-feature'), 'terms');
     await demo.getByRole('button', { name: '收藏', exact: true }).click();
     const favorite = demo.getByRole('button', { name: '已收藏', exact: true });
+    // Focus/reflow scrolling alone must not replace the control being used.
+    await page.locator('.story-copy[data-chapter="outline"] h2').evaluate((heading) => {
+      scrollTo(0, scrollY + heading.getBoundingClientRect().top - innerHeight * 0.5);
+    });
+    await page.evaluate(
+      () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+    );
+    assert.equal(await demo.getAttribute('data-feature'), 'terms');
+    assert.equal(await favorite.evaluate((el) => el === document.activeElement), true);
     await page.setViewportSize({ width: 550, height: 900 });
     await page.waitForFunction(
       () => document.querySelector('.reading-story').dataset.static === 'true',
@@ -653,7 +665,14 @@ test('pointer takeover releases keyboard chapter lock; static resizing and manua
       () => document.querySelector('.reading-story').dataset.static === 'false',
     );
     assert.equal(await favorite.evaluate((el) => el === document.activeElement), true);
-    await favorite.blur();
+    await page.mouse.wheel(0, 1);
+    await page.locator('.story-copy[data-chapter="outline"] h2').evaluate((heading) => {
+      scrollTo(0, scrollY + heading.getBoundingClientRect().top - innerHeight * 0.5);
+    });
+    await demo
+      .getByRole('tab', { name: '大纲', exact: true })
+      .and(page.locator('[aria-selected="true"]'))
+      .waitFor();
     const surface = page.locator('.surface-story');
     await surface.getByRole('button', { name: '演示移到副屏' }).click();
     await surface.getByLabel('下一步示例草稿').fill('继续保留');

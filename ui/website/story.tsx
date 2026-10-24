@@ -227,15 +227,29 @@ export function ReadingStory() {
   }, [staticView, engaged, primary, ref]);
   useEffect(() => {
     const resumeReading = () => {
-      if (!engaged) layoutFocus.current = false;
+      if (engaged || dragging) return;
+      layoutFocus.current = false;
+      // Reflow or focus scrolling may already have measured the next chapter.
+      // Apply it only once the visitor resumes reading, not during the action.
+      if (!staticView && pending.current) {
+        const feature = pending.current;
+        pending.current = null;
+        setActive((current) => current.map((value, i) => (i === primary ? feature : value)));
+      }
+    };
+    const resumeOutside = (event: PointerEvent) => {
+      const stage = (event.target as Element | null)?.closest?.('.reading-stage');
+      if (!stage || !ref.current?.contains(stage)) resumeReading();
     };
     addEventListener('wheel', resumeReading, { passive: true });
     addEventListener('touchmove', resumeReading, { passive: true });
+    addEventListener('pointerdown', resumeOutside, { passive: true });
     return () => {
       removeEventListener('wheel', resumeReading);
       removeEventListener('touchmove', resumeReading);
+      removeEventListener('pointerdown', resumeOutside);
     };
-  }, [engaged]);
+  }, [engaged, dragging, staticView, primary, ref]);
   useLayoutEffect(() => {
     let request = 0;
     const revealEditor = () => {
@@ -293,7 +307,9 @@ export function ReadingStory() {
             hidden={!staticView && primary !== i}
             onPointerDownCapture={(event) => {
               keyboard.current = false;
-              layoutFocus.current = false;
+              // Keep the chosen feature through focus scrolling and reflow;
+              // wheel/touch or interaction outside the demo resumes the story.
+              layoutFocus.current = true;
               setEngaged(
                 !!(event.target as HTMLElement).closest(
                   'input, textarea, select, [contenteditable="true"]',
