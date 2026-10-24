@@ -667,6 +667,58 @@ test('pointer takeover releases keyboard chapter lock; static resizing and manua
   }
 });
 
+test('responsive reflow preserves the focused feature before a delayed media-query notification', async () => {
+  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  try {
+    await page.addInitScript(() => {
+      const match = window.matchMedia.bind(window);
+      window.matchMedia = (query) => {
+        const media = match(query);
+        if (!query.includes('max-width: 760px')) return media;
+        const add = media.addEventListener.bind(media);
+        const remove = media.removeEventListener.bind(media);
+        const listeners = new Map();
+        media.addEventListener = (kind, listener, options) => {
+          if (kind !== 'change') return add(kind, listener, options);
+          const delayed = (event) => setTimeout(() => listener.call(media, event), 120);
+          listeners.set(listener, delayed);
+          add(kind, delayed, options);
+        };
+        media.removeEventListener = (kind, listener, options) => {
+          remove(kind, listeners.get(listener) || listener, options);
+          listeners.delete(listener);
+        };
+        return media;
+      };
+    });
+    await page.goto(base);
+    const demo = page.locator('.product-demo').first();
+    await demo.getByRole('tab', { name: '术语释义', exact: true }).click();
+    await demo.getByRole('button', { name: '收藏', exact: true }).click();
+    const favorite = demo.getByRole('button', { name: '已收藏', exact: true });
+    // A responsive reflow can move another chapter into the reading band before
+    // matchMedia notifies React. Exercise that event order explicitly.
+    await page.evaluate(() => {
+      addEventListener(
+        'resize',
+        () => {
+          const heading = document.querySelector('.story-copy[data-chapter="outline"] h2');
+          scrollTo(0, scrollY + heading.getBoundingClientRect().top - innerHeight * 0.5);
+        },
+        { once: true },
+      );
+    });
+    await page.setViewportSize({ width: 550, height: 900 });
+    await page.waitForFunction(
+      () => document.querySelector('.reading-story').dataset.static === 'true',
+    );
+    assert.equal(await demo.getAttribute('data-feature'), 'terms');
+    assert.equal(await favorite.evaluate((element) => element === document.activeElement), true);
+  } finally {
+    await page.close();
+  }
+});
+
 test('light/dark responsive and short screens preserve readable controls without overflow or duplicate ids', async () => {
   const page = await browser.newPage({ reducedMotion: 'reduce', colorScheme: 'light' });
   const errors = [];

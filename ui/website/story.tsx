@@ -1,5 +1,5 @@
 /* [INPUT]: Original brand poses, native section progress and local feature demos.
- * [OUTPUT]: Complete brand opening, eye-to-entry flight and continuous reading story.
+ * [OUTPUT]: Complete brand opening, eye-to-entry flight and focus-safe responsive reading story.
  * [POS]: Website narrative composition; all examples describe one portfolio project.
  * [PROTOCOL]: Keep website/AGENTS.md and DESIGN_SYSTEM.md in sync. */
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -252,11 +252,17 @@ export function ReadingStory() {
     };
     // Only correct layout changes while editing. Ordinary document scrolling
     // and completed pointer actions are never captured.
+    const preserveOnResize = () => {
+      // Resize/scroll can arrive before the media-query change. Protect focus
+      // before either can replace its feature with the newly measured chapter.
+      layoutFocus.current = !!ref.current?.contains(document.activeElement);
+      revealEditor();
+    };
     revealEditor();
-    addEventListener('resize', revealEditor);
+    addEventListener('resize', preserveOnResize);
     return () => {
       cancelAnimationFrame(request);
-      removeEventListener('resize', revealEditor);
+      removeEventListener('resize', preserveOnResize);
     };
   }, [staticView, engaged, ref]);
   useEffect(() => {
