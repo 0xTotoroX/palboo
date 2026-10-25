@@ -437,7 +437,7 @@ async function chooseLayout(page, action) {
 
 const cases = [
   [
-    'closed independent views release sidebar space without reopening features',
+    'closed independent views release sidebar space and disabled tools stay closed on click',
     async (page) => {
       await mode(page, true);
       await page.evaluate(() => {
@@ -469,6 +469,13 @@ const cases = [
             (n) => n.getBoundingClientRect().width > 0,
           ),
       );
+      assert.equal(await page.locator('[data-palboo-features-root]').count(), 0);
+      await syncSettings(page, {
+        enabled: false,
+        answerOutlineEnabled: false,
+        taskBoardEnabled: false,
+        modelControlEnabled: true,
+      });
       await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
       await settle(page);
       assert.equal(await page.locator('[data-palboo-features-root]').count(), 0);

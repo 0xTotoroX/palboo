@@ -165,22 +165,26 @@ See the [project map](AGENTS.md#架构地图l1) for code organization and the [d
 <details>
 <summary>Agent configuration CLI</summary>
 
-With the local service running:
+Use the CLI bundled with the App you are running. With Palboo open:
 
 ```sh
-palboo config schema
-palboo config get settings
-palboo config set appearance --json '{"settingsTheme":"codex"}' --dry-run
-palboo config set appearance --json '{"settingsTheme":"codex"}'
-palboo config set settings --file - < settings-patch.json
+PALBOO_BIN="/Applications/Palboo.app/Contents/MacOS/palboo"
+"$PALBOO_BIN" config --help
+"$PALBOO_BIN" config schema
+"$PALBOO_BIN" config get settings
+"$PALBOO_BIN" config set appearance --json '{"settingsTheme":"codex"}' --dry-run
+"$PALBOO_BIN" config set appearance --json '{"settingsTheme":"codex"}'
+"$PALBOO_BIN" config set settings --file - < settings-patch.json
 ```
+
+For source installations, set `PALBOO_BIN="$HOME/.local/bin/palboo"`. These examples describe the current source; check `config --help` for commands supported by your installed version.
 
 Use `config schema <scope>` for nested fields, choices, and examples covering Stepwise, appearance, layouts, model switching, tasks, terminology, CodexHost, and performance. `config catalog models|displays|bots` reads the available catalogs; Codex's switchable models are in `config get model-control`.
 
 ```sh
-palboo config set terminology --json '{"action":"add-names","names":["Retrieval-augmented generation"]}'
-palboo config import terminology --file terms.pdf
-palboo config export terminology --format markdown --output my-terms.md
+"$PALBOO_BIN" config set terminology --json '{"action":"add-names","names":["Retrieval-augmented generation"]}'
+"$PALBOO_BIN" config import terminology --file terms.pdf
+"$PALBOO_BIN" config export terminology --format markdown --output my-terms.md
 ```
 
 Names and files (up to 8 MB) wait for the current chat's Agent on your next message. Exports contain only personal additions, favorites, and mastered terms. `config set terminology --json '{"action":"reset-library"}' --confirm` removes personal content and import jobs while keeping the base glossary and its favorites and mastery records.

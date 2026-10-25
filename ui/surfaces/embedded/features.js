@@ -3,7 +3,7 @@ import { setLocale, getLocale } from '../../shared/i18n.js';
 import { measureWork } from '../../shared/performance.js';
 import { errorMessage } from '../../shared/text.js';
 /* [INPUT]: Feature owners, main ownership, saved placements, opt-in sidebar page switches and the existing capsule/dock.
- * [OUTPUT]: Business views inside the original shell, geometry refresh on dock changes, window round trips retaining the departure state, reveal of the existing main window, and cancellation of motion when changing surfaces.
+ * [OUTPUT]: Business views inside the original shell, geometry refresh on dock changes, window round trips retaining the departure state, reopening enabled main views after window closure, and cancellation of motion when changing surfaces.
  * [POS]: Embedded surface adapter. Geometry and gestures remain in shell.
  * [PROTOCOL]: Keep embedded/AGENTS.md in sync. */
 import { mountFeature } from '../workspace/mount';
@@ -27,6 +27,7 @@ let composition = null;
 let dockValue = { status: '', rect: null };
 let primary = 'overlay';
 let selected = '';
+let mainReopen = null;
 let returnState = null;
 let stateFingerprint = '';
 const mounts = new Map();
@@ -46,7 +47,39 @@ export async function revealFeature(id, placement) {
 export function featurePlacement() {
   return primary;
 }
+export async function reopenMainFeatures() {
+  if (mainReopen) return mainReopen;
+  const entries = group(primary);
+  if (entries.some((entry) => entry.open || entry.pending)) return false;
+  const switches = {
+    outline: 'answerOutlineEnabled',
+    next: 'enabled',
+    board: 'taskBoardEnabled',
+    model: 'modelControlEnabled',
+    terms: 'terminologyEnabled',
+    bots: 'grokbotEnabled',
+  };
+  const closed = entries.filter((entry) => runtimeState.settings?.[switches[entry.id]] === true);
+  if (!closed.length) return false;
+  const generation = epoch;
+  mainReopen = (async () => {
+    // Window closure hides views without disabling their features. Reuse the
+    // normal owner/ready handshake; edge assignments and disabled tools stay put.
+    for (const entry of closed) {
+      const result = await request({ op: 'reveal', id: entry.id });
+      if (generation !== epoch) return false;
+      render(result);
+    }
+    return true;
+  })();
+  try {
+    return await mainReopen;
+  } finally {
+    if (generation === epoch) mainReopen = null;
+  }
+}
 export async function revealMainFeature() {
+  if (await reopenMainFeatures()) return;
   const entries = group(primary).filter((entry) => entry.open);
   const id = entries.find((entry) => entry.id === selected)?.id || entries[0]?.id;
   if (!id) return;
@@ -72,6 +105,10 @@ function showError(error) {
     node.textContent = errorMessage(error);
     node.hidden = false;
   }
+  if (!node?.getBoundingClientRect().width) {
+    runtimeState.settingsOpenStatus = errorMessage(error);
+    emitSignal('render', undefined);
+  }
 }
 export async function popoutSelectedFeature() {
   const id = selected || group(primary)[0]?.id;
@@ -83,6 +120,7 @@ export async function popoutSelectedFeature() {
         placement: primary === 'desktop' ? state.returnPlacement || 'sidebar' : 'desktop',
       }),
     );
+    await reopenMainFeatures();
   } catch (e) {
     showError(e);
   }
@@ -320,6 +358,7 @@ export function startFeatureHost() {
 }
 export function stopFeatureHost() {
   epoch++;
+  mainReopen = null;
   clearInterval(timer);
   timer = 0;
   composition?.destroy();

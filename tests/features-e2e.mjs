@@ -842,6 +842,69 @@ try {
   record(
     'Palboo Bot owner/composer guards, main-chat-only input, scoped MCP result and disable cleanup',
   );
+  const recoverySettings = await api('settings');
+  const enabledViews = {
+    outline: recoverySettings.answerOutlineEnabled,
+    next: recoverySettings.enabled,
+    board: recoverySettings.taskBoardEnabled,
+    model: recoverySettings.modelControlEnabled,
+    terms: recoverySettings.terminologyEnabled,
+    bots: recoverySettings.grokbotEnabled,
+  };
+  const recoveryTasks = (await api('tasks/state')).store;
+  const recoveryFeatures = (await state()).features;
+  const edgeBeforeReopen = recoveryFeatures.filter((e) => e.placement === 'edge');
+  const expectedReopened = recoveryFeatures
+    .filter((e) => e.placement !== 'edge' && enabledViews[e.id])
+    .map((e) => e.id)
+    .sort();
+  assert.ok(expectedReopened.length > 1);
+  // Closed desktop views retain their placement after a window exits. Exercise
+  // that saved state without opening a native window or touching a real host.
+  for (const placement of ['overlay', 'sidebar', 'desktop']) {
+    for (const e of (await state()).features.filter((e) => e.open && e.placement !== 'edge'))
+      await api('features', { op: 'close', id: e.id, owner: e.owner, view: e.view });
+    await page.waitForFunction(
+      () => document.querySelectorAll('[data-palboo-features-root]').length === 0,
+    );
+    await api('features', { op: 'main-placement', placement });
+    await page.waitForFunction(
+      (placement) =>
+        window.__companionFloatingPanel.state.layoutMode ===
+        (placement === 'sidebar' ? 'workbench' : 'capsule'),
+      placement,
+    );
+    await page.locator('[data-palboo-launcher] .csw-launcher-face').click();
+    await wait(async () => {
+      const f = await state();
+      return expectedReopened.every((id) =>
+        f.features.some((e) => e.id === id && e.open && !e.pending),
+      );
+    }, `launcher reopens closed ${placement} views`);
+    await page.waitForFunction(() =>
+      [...document.querySelectorAll('[data-palboo-features-root]')].some(
+        (e) => e.getBoundingClientRect().width > 0 && e.getBoundingClientRect().height > 0,
+      ),
+    );
+    const recovered = await state();
+    assert.equal(recovered.mainPlacement, placement === 'desktop' ? 'sidebar' : placement);
+    assert.deepEqual(
+      recovered.features
+        .filter((e) => e.placement !== 'edge' && e.open)
+        .map((e) => e.id)
+        .sort(),
+      expectedReopened,
+    );
+    assert.deepEqual(
+      recovered.features.filter((e) => e.placement === 'edge'),
+      edgeBeforeReopen,
+    );
+    assert.equal(recovered.features.find((e) => e.id === 'bots').open, false);
+  }
+  assert.deepEqual((await api('tasks/state')).store, recoveryTasks);
+  record(
+    'launcher reopens closed sidebar, overlay and desktop views; disabled tools, edge owners and tasks are retained',
+  );
   await page.screenshot({ path: join(output, 'independent-surfaces.png') });
   await api('disconnect', {});
   const current = await entry('board');

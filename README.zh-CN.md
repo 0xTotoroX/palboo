@@ -165,22 +165,26 @@ npm run install:local
 <details>
 <summary>Agent 配置 CLI</summary>
 
-本机服务运行后：
+使用当前运行 App 包内的 CLI。打开 Palboo 后：
 
 ```sh
-palboo config schema
-palboo config get settings
-palboo config set appearance --json '{"settingsTheme":"codex"}' --dry-run
-palboo config set appearance --json '{"settingsTheme":"codex"}'
-palboo config set settings --file - < settings-patch.json
+PALBOO_BIN="/Applications/Palboo.app/Contents/MacOS/palboo"
+"$PALBOO_BIN" config --help
+"$PALBOO_BIN" config schema
+"$PALBOO_BIN" config get settings
+"$PALBOO_BIN" config set appearance --json '{"settingsTheme":"codex"}' --dry-run
+"$PALBOO_BIN" config set appearance --json '{"settingsTheme":"codex"}'
+"$PALBOO_BIN" config set settings --file - < settings-patch.json
 ```
+
+源码安装时，将 `PALBOO_BIN` 设为 `"$HOME/.local/bin/palboo"`。以下示例对应当前源码，已安装版本支持哪些命令，以 `config --help` 为准。
 
 用 `config schema <scope>` 查询嵌套字段、可选值和示例，涵盖下一步、外观、布局、模型切换、任务、术语、CodexHost 和性能。`config catalog models|displays|bots` 查询可用目录；Codex 可切换的实际模型见 `config get model-control`。
 
 ```sh
-palboo config set terminology --json '{"action":"add-names","names":["检索增强生成"]}'
-palboo config import terminology --file terms.pdf
-palboo config export terminology --format markdown --output my-terms.md
+"$PALBOO_BIN" config set terminology --json '{"action":"add-names","names":["检索增强生成"]}'
+"$PALBOO_BIN" config import terminology --file terms.pdf
+"$PALBOO_BIN" config export terminology --format markdown --output my-terms.md
 ```
 
 名称和文件（最多 8 MB）在下次主聊天发送时交给当前 Agent 处理。导出仅包含个人添加、收藏和已掌握词条。`config set terminology --json '{"action":"reset-library"}' --confirm` 删除个人内容及导入任务，保留基础词库及其中的收藏、掌握记录。

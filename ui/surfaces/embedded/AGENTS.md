@@ -17,6 +17,8 @@ Codex 容器识别由 ui/codex/page-context.js 提供，输入与内容读取留
 
 features.js 首次接管遵循后台 mainManaged；只有模型贴边时保留 legacy 工作台。旧后台缺少此字段时兼容原逻辑，已接管的页面不因最后一项移到贴边而恢复旧内容。
 
+主界面窗口关闭后，入口显式打开时通过 reopenMainFeatures 接续已登记、业务仍启用的主功能；仅在整组关闭且无交接时恢复，复用 reveal/owner/ready，不改变贴边归属或重新启用已关闭的业务。并发恢复共用请求，销毁拒绝迟到渲染；无可见内容区时错误显示在现有入口反馈中。
+
 官方按钮识别优先 aria-label 与正文，再兼容 title；设置打开状态仅放 data-buddy-settings-status，不改写宿主标题，避免失去匹配后重复注入备用入口。
 
 Option+右键仅在当前聊天入口可用且已提供 settingsBrowser 回调时拦截；普通右键不拦截。兼容眼睛入口共用快捷动作，停止时清除官方 contextmenu 监听。

@@ -22,6 +22,7 @@ import {
   toggleFeatureDock,
   featurePlacement,
   revealMainFeature,
+  reopenMainFeatures,
 } from '../../surfaces/embedded/features.js';
 import { syncLauncher, stopLauncher } from '../../surfaces/embedded/launcher.js';
 import { panelAppearance } from '../../surfaces/embedded/shell/panel-appearance.js';
@@ -549,9 +550,13 @@ async function launcherAction(action, toggle = false) {
   } else if (shellState.detached) {
     const result = await bridgeCall('/panel/return', {});
     if (result.error) throw Error(result.error);
-  } else if (independentFeatures() && featurePlacement() === 'sidebar')
-    toggleFeatureDock(toggle ? !shellState.dockOpen : true);
-  else setOpen(toggle ? !shellState.open : true);
+  } else if (independentFeatures() && featurePlacement() === 'sidebar') {
+    const reopened = await reopenMainFeatures();
+    toggleFeatureDock(reopened || (toggle ? !shellState.dockOpen : true));
+  } else {
+    const reopened = independentFeatures() && (await reopenMainFeatures());
+    setOpen(reopened || (toggle ? !shellState.open : true));
+  }
 }
 
 let stopNextDrop = null;
@@ -683,8 +688,10 @@ function install() {
           click: (event) =>
             onLauncherClick(event, () => {
               void launcherAction(shellState.launcherAction, true).catch((error) => {
-                if (shellState.launcherAction !== 'settings')
+                if (shellState.launcherAction !== 'settings') {
                   stepwiseState.bridgeError = String(error);
+                  runtimeState.settingsOpenStatus = String(error);
+                }
                 emitSignal('render', undefined);
               });
             }),
