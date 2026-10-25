@@ -1,5 +1,5 @@
 // [INPUT]: 模型配置、受限 Codex CLI 或 HTTP 结构化接口。
-// [OUTPUT]: Model、ModelInfo、Suggestion、保留原 Codex 服务路由的无工具结构化补全与生成/测试/模型查询。
+// [OUTPUT]: Model、ModelInfo、Suggestion；保留原 Codex 服务路由，关闭无关 Skill/插件/Hook/终端初始化的结构化补全与生成/测试/模型查询。
 // [POS]: 模型适配层，三种方向来源共用生成与总超时；智谱请求/最终回答适配，保留方向和数量校验。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
@@ -386,6 +386,18 @@ impl Model {
                 "multi_agent",
             ])
             .args([
+                // 本次调用只做结构化生成，不扫描个人 Skill 或初始化其他工具。
+                // 用配置覆盖兼容尚未提供此能力的 CLI，不改用户配置或 CODEX_HOME。
+                "-c",
+                "features.skip_host_skill_discovery=true",
+                "-c",
+                "features.shell_snapshot=false",
+                "-c",
+                "features.hooks=false",
+                "-c",
+                "features.plugins=false",
+                "-c",
+                "features.apps=false",
                 "-c",
                 "approval_policy=\"never\"",
                 "-c",
@@ -861,16 +873,28 @@ mod tests {
             r#"#!/bin/sh
 route=0
 isolated=0
+skip_skills=0
+disabled=''
+overrides=''
 output=''
 while [ "$#" -gt 0 ]; do
     case "$1" in
         'openai_base_url="http://127.0.0.1:3425/backend-api/codex"') route=1 ;;
         --ignore-user-config) isolated=1 ;;
+        features.skip_host_skill_discovery=true) skip_skills=1 ;;
+        features.*=false) overrides="$overrides $1" ;;
+        --disable) shift; disabled="$disabled $1" ;;
         --output-last-message) shift; output="$1" ;;
     esac
     shift
 done
-[ "$route" = 1 ] && [ "$isolated" = 1 ] && [ -n "$output" ] || exit 45
+[ "$route" = 1 ] && [ "$isolated" = 1 ] && [ "$skip_skills" = 1 ] && [ -n "$output" ] || exit 45
+for feature in shell_tool unified_exec multi_agent; do
+    case " $disabled " in *" $feature "*) ;; *) exit 46 ;; esac
+done
+for feature in shell_snapshot hooks plugins apps; do
+    case " $overrides " in *" features.$feature=false "*) ;; *) exit 47 ;; esac
+done
 cat >/dev/null
 printf '%s' '{"ok":true}' > "$output"
 "#,

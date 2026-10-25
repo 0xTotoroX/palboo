@@ -1,5 +1,5 @@
 // [INPUT]: Paths、私有 runtime 信息、系统进程与本地产物。
-// [OUTPUT]: start/stop/status/doctor/launch/update 与 Runtime；完整 App 核对后台来源并拒绝单文件升级；暂停的 launch 仅启动设置服务；host-only 仅准备宿主；显式 --restart-running 沿用宿主重开策略。
+// [OUTPUT]: start/stop/status/doctor/launch/update 与 Runtime；完整 App 核对后台来源并拒绝单文件升级；宿主 App 经 LaunchServices 启动并保留自身权限归属；host-only 仅准备宿主；显式 --restart-running 沿用宿主重开策略。
 // [POS]: CLI 进程管理层，负责复用服务和本地更新回滚；Dev 设置入口优先使用监督进程地址。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
@@ -340,22 +340,14 @@ pub async fn launch(
     let listener = std::net::TcpListener::bind(("127.0.0.1", 0))?;
     let port = listener.local_addr()?.port();
     drop(listener);
-    let mut command = Command::new(executable);
-    command.args([
-        "--remote-debugging-address=127.0.0.1",
-        &format!("--remote-debugging-port={port}"),
-    ]);
-    if isolated {
+    let profile = if isolated {
         let profile = paths.root.join("desktop-profile");
         std::fs::create_dir_all(&profile)?;
-        command.arg(format!("--user-data-dir={}", profile.display()));
-    }
-    command
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null());
-    detach(&mut command);
-    let _child = command.spawn().context("无法启动桌面 Codex")?;
+        Some(profile)
+    } else {
+        None
+    };
+    launch_desktop(&executable, port, profile.as_deref()).await?;
     let endpoint = format!("http://127.0.0.1:{port}");
     for _ in 0..60 {
         tokio::time::sleep(Duration::from_millis(250)).await;
@@ -366,6 +358,54 @@ pub async fn launch(
     bail!(
         "未能连接新启动的 Codex。请检查应用是否已打开，并稍后再次打开 Palboo；不会继续退出或循环重启。"
     )
+}
+
+async fn launch_desktop(executable: &Path, port: u16, profile: Option<&Path>) -> Result<()> {
+    let executable = executable.canonicalize().context("桌面程序路径无效")?;
+    let application = bundled_application(&executable);
+    let mut command = if let Some(app) = &application {
+        // 直接 spawn App 内部程序会继承启动器的 TCC 身份；由系统启动完整 App。
+        // 普通启动不使用 -n，避免与用户同时打开应用时创建第二个实例。
+        let mut command = Command::new("/usr/bin/open");
+        command.arg("-a").arg(app);
+        if profile.is_some() {
+            command.arg("-n");
+        }
+        command.arg("--args");
+        command
+    } else {
+        // 保留显式 --app 指定独立可执行文件的既有用法。
+        Command::new(&executable)
+    };
+    command.args([
+        "--remote-debugging-address=127.0.0.1",
+        &format!("--remote-debugging-port={port}"),
+    ]);
+    if let Some(profile) = profile {
+        command.arg(format!("--user-data-dir={}", profile.display()));
+    }
+    command.stdin(Stdio::null()).stdout(Stdio::null());
+    if application.is_some() {
+        let output = tokio::time::timeout(
+            Duration::from_secs(10),
+            tokio::process::Command::from(command)
+                .stderr(Stdio::piped())
+                .kill_on_drop(true)
+                .output(),
+        )
+        .await
+        .context("系统启动 Codex 超时；未尝试其他启动方式")??;
+        anyhow::ensure!(
+            output.status.success(),
+            "系统无法打开 Codex：{}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        );
+    } else {
+        command.stderr(Stdio::null());
+        detach(&mut command);
+        command.spawn().context("无法启动桌面 Codex")?;
+    }
+    Ok(())
 }
 
 // Dev uses the same host policy without starting or modifying the installed backend.
@@ -589,6 +629,118 @@ fn replace_binary(path: &Path, bytes: &[u8]) -> Result<()> {
 #[cfg(test)]
 mod restart_tests {
     use super::*;
+
+    #[tokio::test]
+    #[ignore = "requires a macOS graphical login session to launch the fixture App"]
+    async fn app_launch_keeps_its_own_permission_identity_and_reuses_the_running_instance() {
+        use objc2::rc::Retained;
+        use objc2_app_kit::NSRunningApplication;
+
+        struct Cleanup(Vec<Retained<NSRunningApplication>>);
+        impl Drop for Cleanup {
+            fn drop(&mut self) {
+                for app in &self.0 {
+                    app.forceTerminate();
+                }
+            }
+        }
+        let mut cleanup = Cleanup(Vec::new());
+        let dir = tempfile::tempdir().unwrap();
+        let contents = dir.path().join("Launch Fixture.app/Contents");
+        std::fs::create_dir_all(contents.join("MacOS")).unwrap();
+        std::fs::write(contents.join("Info.plist"), format!(r#"<?xml version="1.0"?><plist version="1.0"><dict><key>CFBundleIdentifier</key><string>local.palboo.launch-fixture.{}</string><key>CFBundleExecutable</key><string>fixture</string><key>CFBundlePackageType</key><string>APPL</string><key>LSUIElement</key><true/></dict></plist>"#, uuid::Uuid::new_v4())).unwrap();
+        let source = dir.path().join("fixture.m");
+        std::fs::write(&source, r#"
+#import <Cocoa/Cocoa.h>
+#include <dlfcn.h>
+#include <unistd.h>
+@interface Delegate : NSObject <NSApplicationDelegate>
+@end
+@implementation Delegate
+- (void)applicationDidFinishLaunching:(NSNotification *)note {
+    NSArray *args = NSProcessInfo.processInfo.arguments;
+    NSURL *directory = [NSBundle.mainBundle.bundleURL URLByDeletingLastPathComponent];
+    for (NSString *arg in args) {
+        if ([arg hasPrefix:@"--user-data-dir="]) {
+            directory = [NSURL fileURLWithPath:[arg substringFromIndex:16] isDirectory:YES];
+        }
+    }
+    // 仅测试进程读取自身归属；不访问受保护文件或请求系统权限。
+    pid_t (*responsible)(pid_t) = dlsym(RTLD_DEFAULT, "responsibility_get_pid_responsible_for_pid");
+    NSDictionary *report = @{@"pid": @(getpid()), @"responsiblePid": @(responsible ? responsible(getpid()) : -1), @"args": args};
+    NSData *data = [NSJSONSerialization dataWithJSONObject:report options:0 error:nil];
+    [data writeToURL:[directory URLByAppendingPathComponent:@"launch.json"] atomically:YES];
+    [NSTimer scheduledTimerWithTimeInterval:15 repeats:NO block:^(NSTimer *timer) { [NSApp terminate:nil]; }];
+}
+@end
+int main(void) {
+    @autoreleasepool {
+        NSApplication *app = NSApplication.sharedApplication;
+        Delegate *delegate = [Delegate new];
+        app.delegate = delegate;
+        [app setActivationPolicy:NSApplicationActivationPolicyAccessory];
+        [app run];
+    }
+    return 0;
+}
+"#).unwrap();
+        let executable = contents.join("MacOS/fixture");
+        let build = Command::new("/usr/bin/clang")
+            .args(["-framework", "Cocoa", "-w"])
+            .arg(source)
+            .arg("-o")
+            .arg(&executable)
+            .output()
+            .unwrap();
+        assert!(
+            build.status.success(),
+            "{}",
+            String::from_utf8_lossy(&build.stderr)
+        );
+        let signed = Command::new("/usr/bin/codesign")
+            .args(["--force", "--sign", "-"])
+            .arg(contents.parent().unwrap())
+            .output()
+            .unwrap();
+        assert!(
+            signed.status.success(),
+            "{}",
+            String::from_utf8_lossy(&signed.stderr)
+        );
+        let profile = dir.path().join("Isolated profile with spaces");
+        std::fs::create_dir(&profile).unwrap();
+        for profile in [None, Some(profile.as_path())] {
+            let report = profile.unwrap_or(dir.path()).join("launch.json");
+            launch_desktop(&executable, 49123, profile).await.unwrap();
+            for _ in 0..100 {
+                if report.exists() {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(50)).await;
+            }
+            let value: Value = serde_json::from_slice(&std::fs::read(report).unwrap()).unwrap();
+            let pid = value["pid"].as_i64().unwrap() as i32;
+            cleanup
+                .0
+                .push(NSRunningApplication::runningApplicationWithProcessIdentifier(pid).unwrap());
+            assert_eq!(
+                value["responsiblePid"], value["pid"],
+                "fixture inherited launcher permissions: {value}"
+            );
+            let args = value["args"].as_array().unwrap();
+            assert!(args.contains(&json!("--remote-debugging-address=127.0.0.1")));
+            assert!(args.contains(&json!("--remote-debugging-port=49123")));
+            if let Some(profile) = profile {
+                assert!(args.contains(&json!(format!("--user-data-dir={}", profile.display()))));
+            } else {
+                launch_desktop(&executable, 49124, None).await.unwrap();
+                assert_eq!(desktop_process(&executable).unwrap(), Some(pid));
+            }
+            quit_desktop(&executable, pid, false, Duration::from_secs(3))
+                .await
+                .unwrap();
+        }
+    }
 
     #[tokio::test]
     async fn app_handoff_stops_only_the_observed_instance_when_runtime_changes() {
