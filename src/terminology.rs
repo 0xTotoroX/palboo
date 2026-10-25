@@ -1,5 +1,5 @@
 // [INPUT]: 私有术语文件、认证命令与独立检索结果。
-// [OUTPUT]: 自动分类按术语租约取消；明确分类允许本地添加。词库、收藏/掌握、语境与外观管理；导出仅包含自定义、收藏、已掌握。
+// [OUTPUT]: 自动分类按术语租约取消；词库与偏好分别校验显式修订。词库、收藏/掌握、语境与外观管理；导出仅包含自定义、收藏、已掌握。
 // [POS]: 本机知识服务；任务文件委托 terminology_import，主聊天发送由宿主适配处理。完整词库不随源码或安装包分发。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 use crate::{config::write_private, state::App};
@@ -249,6 +249,17 @@ pub(crate) fn known<'a>(terms: &'a [Term], query: &str) -> Option<&'a Term> {
 pub(crate) fn enabled(root: &Path) -> Result<bool> {
     Ok(read::<Preferences>(root, "terminology-settings.json")?.enabled)
 }
+pub(crate) fn uses_library_revision(action: &str) -> bool {
+    [
+        "add-names",
+        "retry-import",
+        "remove-import",
+        "reset-library",
+        "manual",
+        "import",
+    ]
+    .contains(&action)
+}
 
 pub(crate) async fn command(app: &App, mut input: Value) -> Result<Value> {
     let mut classification_lease = None;
@@ -302,6 +313,25 @@ pub(crate) async fn command(app: &App, mut input: Value) -> Result<Value> {
     crate::terminology_import::collect(root)?;
     let mut terms = library(root)?;
     let action = input["action"].as_str().unwrap_or("state");
+    // Old clients may omit the guard. When supplied, check under the write lock and
+    // after collecting Agent results, including writes arriving after the CLI preview.
+    if let Some(expected) = input.get("revision") {
+        let library_revision = uses_library_revision(action);
+        let revision = if library_revision {
+            crate::terminology_import::Store::load(root)?.revision
+        } else {
+            prefs.revision
+        };
+        ensure!(
+            expected.as_u64() == Some(revision),
+            "{}",
+            if library_revision {
+                "词库已变化，请刷新后重试"
+            } else {
+                "术语设置已变化，请刷新后重试"
+            }
+        );
+    }
     match action {
         "state" | "view" => {}
         "add-names" | "retry-import" | "remove-import" | "reset-library" => {

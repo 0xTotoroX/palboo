@@ -1,5 +1,5 @@
 // [INPUT]: Paths、私有 runtime 信息、系统进程与本地产物。
-// [OUTPUT]: start/stop/status/doctor/launch/update 与 Runtime；完整 App 核对后台来源并拒绝单文件升级；宿主 App 经 LaunchServices 启动并保留自身权限归属；host-only 仅准备宿主；显式 --restart-running 沿用宿主重开策略。
+// [OUTPUT]: start/stop/status/doctor/launch/update 与 Runtime 认证 JSON/原始术语文件请求；完整 App 核对后台来源并拒绝单文件升级；宿主 App 经 LaunchServices 启动并保留自身权限归属；host-only 仅准备宿主；显式 --restart-running 沿用宿主重开策略。
 // [POS]: CLI 进程管理层，负责复用服务和本地更新回滚；Dev 设置入口优先使用监督进程地址。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
@@ -41,6 +41,23 @@ impl Runtime {
             client.get(url)
         };
         let response = request.bearer_auth(&self.token).send().await?;
+        Self::response(response).await
+    }
+    pub async fn upload_terminology(&self, name: &str, bytes: Vec<u8>) -> Result<Value> {
+        let response = config::local_client()
+            .post(format!(
+                "http://127.0.0.1:{}/api/terminology/file",
+                self.port
+            ))
+            .query(&[("name", name)])
+            .header(reqwest::header::CONTENT_TYPE, "application/octet-stream")
+            .bearer_auth(&self.token)
+            .body(bytes)
+            .send()
+            .await?;
+        Self::response(response).await
+    }
+    async fn response(response: reqwest::Response) -> Result<Value> {
         let status = response.status();
         let value: Value = response.json().await?;
         if !status.is_success() {

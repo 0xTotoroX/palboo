@@ -175,7 +175,17 @@ palboo config set appearance --json '{"settingsTheme":"codex"}'
 palboo config set settings --file - < settings-patch.json
 ```
 
-Use `--data-dir` to target another installation. The CLI does not start or restart Codex. Omitted fields and credentials are retained; arrays replace the full list. Reads redact secrets. Pass credentials through a file or stdin.
+Use `config schema <scope>` for nested fields, choices, and examples covering Stepwise, appearance, layouts, model switching, tasks, terminology, CodexHost, and performance. `config catalog models|displays|bots` reads the available catalogs; Codex's switchable models are in `config get model-control`.
+
+```sh
+palboo config set terminology --json '{"action":"add-names","names":["Retrieval-augmented generation"]}'
+palboo config import terminology --file terms.pdf
+palboo config export terminology --format markdown --output my-terms.md
+```
+
+Names and files (up to 8 MB) wait for the current chat's Agent on your next message. Exports contain only personal additions, favorites, and mastered terms. `config set terminology --json '{"action":"reset-library"}' --confirm` removes personal content and import jobs while keeping the base glossary and its favorites and mastery records.
+
+Use `--data-dir` to target another installation. The CLI does not start or restart Codex. Omitted fields and credentials are retained; arrays, maps, and layout trees replace the full collection. Reads redact secrets. Pass credentials through a file or stdin.
 
 `--dry-run` checks client fields and revisions; the backend validates on save. Destructive or authorization operations need `--confirm`; conflicts are not retried automatically.
 

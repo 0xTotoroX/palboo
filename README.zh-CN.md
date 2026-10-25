@@ -175,7 +175,17 @@ palboo config set appearance --json '{"settingsTheme":"codex"}'
 palboo config set settings --file - < settings-patch.json
 ```
 
-用 `--data-dir` 指向其他安装。CLI 不会启动或重启 Codex。未提供的字段和凭据保持不变，数组替换整个列表；读取时隐藏秘密，凭据通过文件或标准输入提供。
+用 `config schema <scope>` 查询嵌套字段、可选值和示例，涵盖下一步、外观、布局、模型切换、任务、术语、CodexHost 和性能。`config catalog models|displays|bots` 查询可用目录；Codex 可切换的实际模型见 `config get model-control`。
+
+```sh
+palboo config set terminology --json '{"action":"add-names","names":["检索增强生成"]}'
+palboo config import terminology --file terms.pdf
+palboo config export terminology --format markdown --output my-terms.md
+```
+
+名称和文件（最多 8 MB）在下次主聊天发送时交给当前 Agent 处理。导出仅包含个人添加、收藏和已掌握词条。`config set terminology --json '{"action":"reset-library"}' --confirm` 删除个人内容及导入任务，保留基础词库及其中的收藏、掌握记录。
+
+用 `--data-dir` 指向其他安装。CLI 不会启动或重启 Codex。未提供的字段和凭据保持不变，数组、字典和布局树整体替换；读取时隐藏秘密，凭据通过文件或标准输入提供。
 
 `--dry-run` 检查客户端字段与修订号，后台在保存时完整校验。破坏性或授权操作需要 `--confirm`，冲突不自动重试。
 

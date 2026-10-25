@@ -104,7 +104,7 @@ panel.Preferences 顶层 typography 单独持久化并验证 follow/custom、bod
 
 术语 locate 命令校验已保存的 jumpOnClick、标注开关、词条编号及聊天身份，再经当前 CDP 调用宿主 locate；features 的术语操作继续先验 owner。设置缺省与旧配置均不自动跳转。
 
-- `config_cli.rs`：schema/get/set 配置命令、字段/操作白名单、JSON/file/stdin 输入、脱敏预览、修订/任务快照保护及危险操作确认；复用 Runtime 认证服务，不直接读写配置或启动宿主。reminders calendars/authorize 提供原列表读取和显式授权，绑定仍需 iCloudConfirmed。
+- `config_cli.rs` 及 [config_cli/](config_cli/AGENTS.md)：schema/get/set、catalog/import/export 命令；JSON/file/stdin 输入、脱敏预览、局部对象保留、修订/任务快照保护及危险操作确认。Runtime 认证请求和原始文件上传复用后台，不直接写配置或启动宿主。术语区分 imports/preferences 修订；旧 reminders 命令隐藏兼容保留。
 
 panel::Preferences.settings_theme 为可空设置页主题偏好，旧配置默认为 None；appearance 校验 codex/light/dark，保持其他外观字段。模型 preferences 修改 enabled 时同步现有功能视图，呈现失败单独回传 presentationError。ReadingState.taskView.editor 继续复用旧 JSON 字段，现承载任务详情草稿与原任务快照，不写入持久化配置。
 
