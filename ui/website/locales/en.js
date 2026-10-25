@@ -219,4 +219,11 @@ export default {
     'Match the chat font, scale it, or set a custom size. Edge panels also offer a black appearance; term cards have their own material and background settings.',
   '网页展示为近似效果。桌面液态由 macOS 绘制，需 macOS 26。':
     'The web preview approximates the effect. Desktop Liquid is rendered by macOS and requires macOS 26.',
+  演示字号模式: 'Demo font sizing',
+  演示字号比例: 'Demo font scale',
+  演示自定字号: 'Demo custom font size',
+  跟随正文: 'Follow chat text',
+  自定字号: 'Custom size',
+  '单击图标切换功能，拖动标题或分隔线调整布局。':
+    'Click an icon to switch tools. Drag a tab or divider to arrange your workspace.',
 };

@@ -1,31 +1,52 @@
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
-/* [INPUT]: Original brand poses, native section progress and local feature demos.
- * [OUTPUT]: Complete brand opening, eye-to-entry flight and focus-safe responsive reading story.
+/* [INPUT]: Original brand poses, native section progress and the shared settings device scene.
+ * [OUTPUT]: Brand-to-device flight, scroll magnification/control reveal and focus-safe reading story.
  * [POS]: Website narrative composition; all examples describe one portfolio project.
  * [PROTOCOL]: Keep website/AGENTS.md and DESIGN_SYSTEM.md in sync. */
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Icon } from '../shared/icons/react';
 import { BrandOpening } from './brand-opening';
 import { GithubLink, type GithubLinkVariant } from './github-link';
-import { Eyes, FeatureDemo, type FeatureId } from './demos';
+import { FeatureDemo, type FeatureId } from './demos';
+import { SurfaceStory } from './workspace-demo';
 import { clamp, smooth, useScrollScene } from './scroll-motion';
 
 export function OpeningStory({ githubVariant }: { githubVariant?: GithubLinkVariant }) {
   useLocale();
   const { ref, progress, staticView, scrollToStart } = useScrollScene();
   const brand = useRef<HTMLDivElement>(null);
-  const entry = useRef<HTMLDivElement>(null);
+  const entry = useRef<SVGGElement>(null);
   const preview = useRef<HTMLDivElement>(null);
   const [replay, setReplay] = useState(0);
+  const [engaged, setEngaged] = useState(false);
+  const sceneProgress = engaged ? 1 : progress;
+  useEffect(() => {
+    const resumeScrolling = () => {
+      // Button focus protects a click from reflow, but does not latch the story
+      // after the visitor returns to the wheel. Active text editing keeps its view.
+      if (
+        preview.current?.contains(document.activeElement) &&
+        document.activeElement?.matches('input, textarea, [contenteditable="true"]')
+      )
+        return;
+      setEngaged(false);
+    };
+    addEventListener('wheel', resumeScrolling, { passive: true });
+    addEventListener('touchmove', resumeScrolling, { passive: true });
+    return () => {
+      removeEventListener('wheel', resumeScrolling);
+      removeEventListener('touchmove', resumeScrolling);
+    };
+  }, []);
   const [landing, setLanding] = useState({ x: 0, y: 0, scale: 0.1 });
   const measureLanding = useCallback(() => {
-    const source = brand.current!.getBoundingClientRect();
-    const destination = entry.current!.getBoundingClientRect();
+    if (!brand.current || !entry.current) return;
+    const source = brand.current.getBoundingClientRect();
+    const destination = entry.current.getBoundingClientRect();
     const next = {
       x: destination.x + destination.width / 2 - source.x - source.width / 2,
       y: destination.y + destination.height / 2 - source.y - (source.height * 307) / 620,
-      scale: 18 / ((source.width * 222) / 1200),
+      scale: destination.width / ((source.width * 222) / 1200),
     };
     setLanding((current) =>
       current.x === next.x && current.y === next.y && current.scale === next.scale ? current : next,
@@ -37,15 +58,25 @@ export function OpeningStory({ githubVariant }: { githubVariant?: GithubLinkVari
     observer.observe(entry.current!);
     observer.observe(brand.current!);
     observer.observe(preview.current!);
+    const camera = new MutationObserver(measureLanding);
+    camera.observe(entry.current!.ownerSVGElement!, {
+      attributes: true,
+      attributeFilter: ['viewBox'],
+    });
     measureLanding();
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      camera.disconnect();
+    };
   }, [ref, measureLanding]);
   useLayoutEffect(measureLanding, [measureLanding, progress]);
-  const travel = staticView ? 0 : clamp(progress / 0.9);
+  const travel = staticView ? 0 : clamp(sceneProgress / 0.55);
   const x = landing.x * (1 - (1 - travel) ** 3);
-  const y = landing.y * smooth(travel) ** 1.3;
+  const y = landing.y * smooth(travel) ** 1.8;
   const scale = Math.pow(landing.scale, smooth(travel));
-  const reveal = staticView ? 1 : smooth((progress - 0.78) / 0.16);
+  const zoom = staticView ? 1 : smooth((sceneProgress - 0.2) / 0.55);
+  const reveal = staticView ? 1 : smooth((sceneProgress - 0.64) / 0.18);
+  const interactive = staticView || sceneProgress > 0.64;
   return (
     <section
       ref={ref}
@@ -63,7 +94,7 @@ export function OpeningStory({ githubVariant }: { githubVariant?: GithubLinkVari
               transform: `translate(${x}px, ${y}px) scale(${scale})`,
             }}
           >
-            <BrandOpening travelling={!staticView && progress > 0} replay={replay} />
+            <BrandOpening travelling={!staticView && sceneProgress > 0} replay={replay} />
           </div>
           <button
             className="brand-replay"
@@ -86,8 +117,8 @@ export function OpeningStory({ githubVariant }: { githubVariant?: GithubLinkVari
             staticView
               ? undefined
               : {
-                  opacity: 1 - smooth(progress / 0.16),
-                  visibility: progress >= 0.16 ? 'hidden' : 'visible',
+                  opacity: 1 - smooth(sceneProgress / 0.16),
+                  visibility: sceneProgress >= 0.16 ? 'hidden' : 'visible',
                 }
           }
         >
@@ -107,78 +138,20 @@ export function OpeningStory({ githubVariant }: { githubVariant?: GithubLinkVari
           ref={preview}
           className="intro-preview"
           aria-label={tr('Codex 中的 Palboo 外观示例')}
+          onFocusCapture={() => setEngaged(true)}
+          onBlurCapture={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget as Node | null))
+              setEngaged(false);
+          }}
           style={
-            staticView ? undefined : { top: `calc(68svh - ${smooth(progress / 0.6) * 58}svh)` }
+            staticView
+              ? undefined
+              : {
+                  transform: `translate(-50%, ${44 * (1 - smooth(sceneProgress / 0.6))}svh)`,
+                }
           }
         >
-          <div className="intro-titlebar">
-            <span className="window-dots" aria-hidden="true">
-              <i />
-              <i />
-              <i />
-            </span>
-            <span>{tr('个人作品集')}</span>
-            <span>Codex</span>
-          </div>
-          <div className="intro-rail">
-            <span>Codex</span>
-            <div className="intro-rail-lines">
-              <span>{tr('新聊天')}</span>
-              <span>{tr('搜索聊天')}</span>
-              <span>{tr('自动化')}</span>
-              <span>{tr('项目')}</span>
-              <span>{tr('个人作品集')}</span>
-            </div>
-            <div ref={entry} className="intro-entry">
-              <span style={{ opacity: staticView ? 1 : 0 }}>
-                <Eyes />
-              </span>
-            </div>
-          </div>
-          <div className="intro-chat">
-            <div className="intro-chat-heading">
-              {tr('周末做一个个人作品集 ')}
-              <span>GPT-6.1-Sol</span>
-            </div>
-            <p>{tr('我想用周末做一个个人作品集，第一版应该怎么安排？')}</p>
-            <h3>{tr('从一个完整的小版本开始。')}</h3>
-            <p>
-              {tr('选好代表作品，写清你的贡献。')}
-              <br />
-              {tr('先把内容讲清楚，再完善展示。')}
-            </p>
-            <ol className="intro-answer">
-              <li>{tr('周六整理三个代表作品，写清背景与结果。')}</li>
-              <li>{tr('周日完成首页，让手机和电脑都能顺畅阅读。')}</li>
-              <li>{tr('最后检查图片与联系链接，再邀请朋友试用。')}</li>
-            </ol>
-            <div className="intro-input">
-              <span>{tr('询问后续问题')}</span>
-              <div>
-                <Icon name="plus" />
-                <span>GPT-6.1-Sol · Low</span>
-                <Icon name="feature-next" />
-              </div>
-            </div>
-          </div>
-          <div
-            className="intro-panel"
-            style={{
-              opacity: 0.12 + reveal * 0.88,
-              transform: `translateX(${18 * (1 - reveal)}px)`,
-            }}
-          >
-            <div className="intro-icons">
-              <Icon name="feature-next" />
-              <Icon name="feature-outline" />
-              <Icon name="feature-board" />
-            </div>
-            <h3>{tr('拆解第一版')}</h3>
-            <p>{tr('把想法分成两天能完成的步骤。')}</p>
-            <h3>{tr('检查移动端')}</h3>
-            <p>{tr('看看小屏阅读还有哪些遗漏。')}</p>
-            <div className="intro-quick">{tr('继续　　执行')}</div>
-          </div>
+          <SurfaceStory zoom={zoom} reveal={reveal} interactive={interactive} entryRef={entry} />
         </div>
       </div>
     </section>

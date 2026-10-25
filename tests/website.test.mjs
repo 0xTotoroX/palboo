@@ -196,11 +196,11 @@ test(
       const landing = await page.evaluate(() => {
         const svg = document.querySelector('.original-opening svg');
         const point = new DOMPoint(600, 307).matrixTransform(svg.getScreenCTM());
-        const target = document.querySelector('.intro-entry').getBoundingClientRect();
+        const target = document.querySelector('.opening-story .demo-entry').getBoundingClientRect();
         return {
           dx: point.x - target.x - target.width / 2,
           dy: point.y - target.y - target.height / 2,
-          entry: getComputedStyle(document.querySelector('.intro-entry > span')).opacity,
+          entry: getComputedStyle(document.querySelector('.opening-story .demo-entry')).opacity,
           artwork: getComputedStyle(document.querySelector('.brand-flight')).opacity,
         };
       });
@@ -426,6 +426,7 @@ test('original settings journey, layout controls and drafts are reused on the we
   });
   try {
     await page.goto(base);
+    await scrollScene(page, '.opening-story', 1);
     const demo = page.locator('.surface-story');
     const window = demo.locator('.layout-demo-window');
     const x = () => window.evaluate((el) => el.x.baseVal.value);
@@ -505,8 +506,9 @@ test('opening stays within short desktop viewports and the original eyes clear t
           const rect = (selector) =>
             document.querySelector(selector).getBoundingClientRect().toJSON();
           return {
-            entry: rect('.intro-entry'),
+            entry: rect('.opening-story .demo-entry'),
             preview: rect('.intro-preview'),
+            device: rect('.opening-story .demo-device'),
             copy: rect('.opening-copy'),
             eyes: [rect('#ring-0'), rect('#ring-1')],
             text: [rect('h1'), rect('.opening-copy p')],
@@ -519,7 +521,7 @@ test('opening stays within short desktop viewports and the original eyes clear t
           JSON.stringify({ viewport, progress, geometry }),
         );
         assert.ok(
-          progress > 0 || geometry.copy.bottom + 8 <= geometry.preview.top,
+          progress > 0 || geometry.copy.bottom + 8 <= geometry.device.top,
           JSON.stringify({ viewport, geometry }),
         );
         if (progress > 0 && (await page.locator('.opening-copy').isVisible())) {
@@ -697,6 +699,7 @@ test('pointer takeover releases keyboard chapter lock; static resizing and manua
       .getByRole('tab', { name: '大纲', exact: true })
       .and(page.locator('[aria-selected="true"]'))
       .waitFor();
+    await scrollScene(page, '.opening-story', 1);
     const surface = page.locator('.surface-story');
     await surface.getByRole('button', { name: '演示移到副屏' }).click();
     await surface.getByLabel('下一步示例草稿').fill('继续保留');
@@ -787,8 +790,8 @@ test('light/dark responsive and short screens preserve readable controls without
           width: innerWidth,
           scrollWidth: document.documentElement.scrollWidth,
           opening: document.querySelector('.intro-preview').getBoundingClientRect().toJSON(),
-          openingContents: ['.intro-panel', '.intro-entry', '.intro-input'].map((selector) =>
-            document.querySelector(selector).getBoundingClientRect().toJSON(),
+          openingContents: ['.opening-story .layout-demo-canvas', '.workspace-type-controls'].map(
+            (selector) => document.querySelector(selector).getBoundingClientRect().toJSON(),
           ),
           overflow: [...document.querySelectorAll('body *')]
             .filter((node) => {
@@ -920,6 +923,95 @@ test('English website retains demo drafts and choices through language switching
     await page.waitForFunction(() => document.documentElement.lang === 'en');
     assert.equal(await page.locator('html').getAttribute('lang'), 'en');
     assert.deepEqual(errors, []);
+  } finally {
+    await page.close();
+  }
+});
+
+test('opening approaches one shared model and reveals working controls without losing local state', async () => {
+  const page = await browser.newPage({ locale: 'zh-CN', viewport: { width: 828, height: 988 } });
+  const requests = [];
+  page.on('request', (request) => requests.push(request.url()));
+  try {
+    await page.goto(`${base}/?lang=zh-CN`);
+    const demo = page.locator('.surface-story');
+    const scene = demo.locator('.layout-demo-scene');
+    const device = demo.locator('.demo-device').first();
+    assert.equal(await page.locator('.surface-story').count(), 1);
+    assert.equal(await page.locator('.opening-story .surface-story').count(), 1);
+    assert.equal(await demo.evaluate((el) => el.inert), true);
+    const overview = await device.boundingBox();
+    await scrollScene(page, '.opening-story', 0.4);
+    const approaching = await device.boundingBox();
+    assert.ok(approaching.width > overview.width);
+    await scrollScene(page, '.opening-story', 1);
+    const close = await device.boundingBox();
+    assert.ok(close.width > overview.width * 1.4);
+    assert.equal(await demo.evaluate((el) => el.inert), false);
+    const windowNode = await demo.locator('.layout-demo-workspace').elementHandle();
+    const draft = demo.getByLabel('下一步示例草稿');
+    await draft.fill('Keep this draft / 保留这份草稿');
+    const originalFont = await windowNode.evaluate((el) =>
+      parseFloat(getComputedStyle(el).fontSize),
+    );
+    await demo.getByLabel('演示字号比例').selectOption('125');
+    assert.equal(
+      await windowNode.evaluate((el) => parseFloat(getComputedStyle(el).fontSize)),
+      originalFont * 1.25,
+    );
+    await demo.getByLabel('演示字号模式').selectOption('custom');
+    await demo.getByLabel('演示自定字号').selectOption('24');
+    assert.equal(await windowNode.evaluate((el) => parseFloat(getComputedStyle(el).fontSize)), 24);
+    await demo.getByRole('button', { name: '标签', exact: true }).click();
+    await demo.getByRole('tab', { name: '下一步', exact: true }).click();
+    await page.mouse.move(10, 400);
+    await page.mouse.wheel(0, -1600);
+    await page.waitForFunction(() => document.querySelector('.surface-story').inert);
+    assert.equal(await demo.evaluate((el) => el.inert), true);
+    await scrollScene(page, '.opening-story', 1);
+    assert.equal(await draft.inputValue(), 'Keep this draft / 保留这份草稿');
+    assert.equal(await windowNode.evaluate((el) => el.isConnected), true);
+    assert.equal(await demo.locator('.csw-workbench-pane').count(), 1);
+    await page.locator('.site-language').click();
+    await page.waitForFunction(() => document.documentElement.lang === 'en');
+    assert.match(
+      await demo.locator('.layout-demo-content:visible ol').innerText(),
+      /Prepare three featured projects/,
+    );
+    assert.doesNotMatch(await demo.locator('.layout-demo-content:visible ol').innerText(), /整理/);
+    assert.equal(
+      await demo.getByLabel('Next steps example draft').inputValue(),
+      'Keep this draft / 保留这份草稿',
+    );
+    await page.setViewportSize({ width: 390, height: 988 });
+    await scene.scrollIntoViewIfNeeded();
+    assert.equal(
+      await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+      true,
+    );
+    const frame = await demo.locator('.layout-demo-window').boundingBox();
+    assert.ok(frame.x >= 0 && frame.x + frame.width <= 390, JSON.stringify(frame));
+    assert.equal(
+      await demo.getByLabel('Next steps example draft').inputValue(),
+      'Keep this draft / 保留这份草稿',
+    );
+    await demo.getByRole('button', { name: 'Reset preview', exact: true }).click();
+    assert.equal(await demo.getByLabel('Demo font sizing').inputValue(), 'follow');
+    assert.equal(await demo.getByLabel('Demo font scale').inputValue(), '100');
+    for (const viewport of [
+      { width: 1280, height: 700 },
+      { width: 900, height: 651 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await scrollScene(page, '.opening-story', 1);
+      await demo.getByRole('button', { name: 'Edge / notch', exact: true }).click();
+      const bounds = await page.locator('.intro-preview').boundingBox();
+      assert.ok(
+        bounds.y >= 0 && bounds.y + bounds.height <= viewport.height,
+        JSON.stringify({ viewport, bounds }),
+      );
+    }
+    assert.ok(requests.every((url) => url.startsWith(base) && !url.includes('/api/')));
   } finally {
     await page.close();
   }

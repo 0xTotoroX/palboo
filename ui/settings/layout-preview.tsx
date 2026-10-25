@@ -1,10 +1,10 @@
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
-/* [INPUT]: Saved feature/surface/typography snapshots, shared preview frame and workspace layout controller.
+/* [INPUT]: Saved feature/surface/typography snapshots, optional website framing and shared workspace controller.
  * [OUTPUT]: Isolated layout and material demonstrations with readable arrangements and reversible screen motion.
  * [POS]: Shared layout/appearance sample content; save callbacks stay in memory and never call an API.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type Ref } from 'react';
 import { PreviewFrame } from './preview-frame';
 import { PalbooWordmark } from '../shared/brand';
 import { typographyStyle, type Typography, type TypographyPreferences } from '../shared/typography';
@@ -60,32 +60,37 @@ function WorkspaceSample({
         node.className = 'layout-demo-content';
         node.dataset.readingKey = `demo-${entry.id}`;
         const list = document.createElement('ol');
-        const labels =
-          examples?.[entry.id] ||
-          (entry.id === 'outline'
-            ? [
-                tr('布局与位置'),
-                tr('显示器与副屏'),
-                tr('独立窗口交接'),
-                tr('内容与状态'),
-                tr('验证与回退'),
-              ]
-            : entry.id === 'next'
-              ? [tr('完善窗口交接'), tr('检查多屏边界'), tr('补充验证场景')]
-              : entry.id === 'board'
-                ? [tr('待办 · 窗口交接'), tr('进行中 · 样式核对'), tr('完成 · 边界验证')]
-                : [tr('示例内容'), tr('跟随空间自动排列'), tr('保留内容与阅读位置')]);
-        for (const text of labels) {
-          const li = document.createElement('li');
-          li.textContent = text;
-          list.append(li);
-        }
         const input = document.createElement('input');
-        input.placeholder = tr('试写一条草稿');
-        input.setAttribute('aria-label', tr('{{value1}}示例草稿', { value1: entry.title }));
         node.append(list, input);
         mounts.current.set(entry.id, { ...entry, node, active: true });
       }
+      const item = mounts.current.get(entry.id)!;
+      item.title = entry.title;
+      const labels =
+        examples?.[entry.id] ||
+        (entry.id === 'outline'
+          ? [
+              tr('布局与位置'),
+              tr('显示器与副屏'),
+              tr('独立窗口交接'),
+              tr('内容与状态'),
+              tr('验证与回退'),
+            ]
+          : entry.id === 'next'
+            ? [tr('完善窗口交接'), tr('检查多屏边界'), tr('补充验证场景')]
+            : entry.id === 'board'
+              ? [tr('待办 · 窗口交接'), tr('进行中 · 样式核对'), tr('完成 · 边界验证')]
+              : [tr('示例内容'), tr('跟随空间自动排列'), tr('保留内容与阅读位置')]);
+      const list = item.node.querySelector('ol')!;
+      labels.forEach((text, index) => {
+        const li = list.children[index] || document.createElement('li');
+        if (li.textContent !== text) li.textContent = text;
+        if (!li.parentNode) list.append(li);
+      });
+      while (list.children.length > labels.length) list.lastElementChild!.remove();
+      const input = item.node.querySelector('input')!;
+      input.placeholder = tr('试写一条草稿');
+      input.setAttribute('aria-label', tr('{{value1}}示例草稿', { value1: entry.title }));
     }
     const ids = new Set(entries.map((entry) => entry.id));
     for (const [id, item] of mounts.current) item.active = ids.has(id);
@@ -112,6 +117,10 @@ export function LayoutPreview({
   hostName,
   examples,
   onPlacementChange,
+  sceneZoom,
+  entryRef,
+  onReset,
+  focusWorkspace,
 }: {
   features: FeatureState | null;
   surfaces: SurfaceState | null;
@@ -122,6 +131,10 @@ export function LayoutPreview({
   hostName?: string;
   examples?: Record<string, string[]>;
   onPlacementChange?: (placement: string) => void;
+  sceneZoom?: number;
+  entryRef?: Ref<SVGGElement>;
+  onReset?: () => void;
+  focusWorkspace?: boolean;
 }) {
   const locale = useLocale();
   const [mode, setMode] = useState<string | null>(null),
@@ -197,7 +210,7 @@ export function LayoutPreview({
     const w = Math.max(400, placementFrame.w);
     return { ...placementFrame, w, x: Math.min(placementFrame.x, 710 - w) };
   }, [placementFrame, demoLayout?.axis, location]);
-  const frame = useDemoJourney(location, target, !appearance && !editing),
+  const frame = useDemoJourney(location, target, !appearance && !editing && !focusWorkspace),
     ready = !!features && !!surfaces;
   function arrange(axis: string) {
     // Show two readable panes even if the saved placement has only one feature.
@@ -284,6 +297,7 @@ export function LayoutPreview({
             setMode(null);
             setExtra([]);
             setDemoLayout(null);
+            onReset?.();
           }}
         >
           {tr('重置预览')}
@@ -313,6 +327,9 @@ export function LayoutPreview({
             title={tr('布局与位置')}
             hostName={hostName}
             placement={location}
+            zoom={sceneZoom}
+            entryRef={entryRef}
+            focusWorkspace={focusWorkspace}
           >
             {sample}
           </LayoutPreviewScene>

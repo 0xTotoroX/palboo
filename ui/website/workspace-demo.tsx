@@ -1,10 +1,15 @@
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: Settings layout/material previews and synthetic feature registration.
- * [OUTPUT]: The original device journey, live layout controls and material comparison.
+ * [OUTPUT]: Opening device journey, local font/layout controls and material comparison.
  * [POS]: Website composition only; previews save to memory, never to product settings.
  * [PROTOCOL]: Keep website/AGENTS.md and DESIGN_SYSTEM.md in sync. */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties, type Ref } from 'react';
+import {
+  defaultTypography,
+  fallbackTypography,
+  type TypographyPreferences,
+} from '../shared/typography';
 import { LayoutPreview } from '../settings/layout-preview';
 import type { FeatureState } from '../shared/features';
 import type { SurfaceState } from '../settings/surface-settings';
@@ -69,11 +74,8 @@ function sampleSurfaces(
     },
   };
 }
-const places: Record<string, { title: string; text: string }> = {
+const places: Record<string, { text: string }> = {
   sidebar: {
-    get title() {
-      return tr('侧栏，与对话并排。');
-    },
     get text() {
       return tr(
         '为大纲、下一步和术语留出位置，正文与输入框一起让位。侧栏宽度可以调整，新聊天与 Dots 是否显示也可单独设置。',
@@ -81,9 +83,6 @@ const places: Record<string, { title: string; text: string }> = {
     },
   },
   overlay: {
-    get title() {
-      return tr('页面浮层，叠在当前页面上。');
-    },
     get text() {
       return tr(
         '保留聊天原来的宽度，需要时展开工作台。收起后回到左栏双眼入口，草稿与阅读位置继续保留。',
@@ -91,9 +90,6 @@ const places: Record<string, { title: string; text: string }> = {
     },
   },
   desktop: {
-    get title() {
-      return tr('桌面窗口，带到另一块屏幕。');
-    },
     get text() {
       return tr(
         '工作台先弹出，再移到副屏；也可以放回聊天。独立窗口可调整尺寸、置顶，切换位置不清空内容。',
@@ -101,9 +97,6 @@ const places: Record<string, { title: string; text: string }> = {
     },
   },
   edge: {
-    get title() {
-      return tr('贴边或刘海，放常用功能。');
-    },
     get text() {
       return tr(
         '例如把模型快切与看板放到屏幕边缘。悬停展开、离开收回，也可保持展开；屏幕、边缘和位置都能调整。',
@@ -111,29 +104,42 @@ const places: Record<string, { title: string; text: string }> = {
     },
   },
 };
-export function SurfaceStory() {
+const demoTypography = { ...fallbackTypography, fontSize: 20, titleSize: 20, lineHeight: 32 };
+export function SurfaceStory({
+  zoom = 1,
+  reveal = 1,
+  interactive = true,
+  entryRef,
+}: {
+  zoom?: number;
+  reveal?: number;
+  interactive?: boolean;
+  entryRef?: Ref<SVGGElement>;
+}) {
   useLocale();
   const [placement, setPlacement] = useState('sidebar');
   const [edge, setEdge] = useState('right');
+  const [typography, setTypography] = useState<TypographyPreferences>(defaultTypography);
+  const [compact, setCompact] = useState(() => matchMedia('(max-width: 600px)').matches);
+  useEffect(() => {
+    const media = matchMedia('(max-width: 600px)');
+    const change = () => setCompact(media.matches);
+    media.addEventListener('change', change);
+    return () => media.removeEventListener('change', change);
+  }, []);
   const surfaces = useMemo(() => sampleSurfaces('matte', 'regular', edge), [edge]);
+  const reset = () => {
+    setEdge('right');
+    setTypography(defaultTypography);
+  };
   return (
     <section
-      className="surface-story page-width"
-      data-static="true"
-      aria-labelledby="surfaces-title"
+      className="surface-story"
+      aria-label={tr('位置与布局')}
+      data-controls={interactive}
+      inert={!interactive}
+      style={{ '--workspace-controls': reveal } as CSSProperties}
     >
-      <div className="section-intro">
-        <h2 id="surfaces-title">
-          {tr('位置与布局。')}
-          <br />
-          {tr('按你的工作方式摆放。')}
-        </h2>
-        <p>
-          {tr(
-            '并排阅读，用侧栏；需要完整聊天宽度，用浮层。也可以把工作台移到副屏，让模型与看板留在屏幕边缘。',
-          )}
-        </p>
-      </div>
       <div className="site-settings-demo">
         <LayoutPreview
           features={sampleFeatures}
@@ -142,35 +148,65 @@ export function SurfaceStory() {
           hostName="Codex"
           examples={examples}
           onPlacementChange={setPlacement}
+          sceneZoom={zoom}
+          entryRef={entryRef}
+          typography={demoTypography}
+          typographyPreferences={typography}
+          focusWorkspace={compact}
+          onReset={reset}
         />
+        <div className="workspace-type-controls">
+          <label>
+            <span>{tr('字号')}</span>
+            <select
+              aria-label={tr('演示字号模式')}
+              value={typography.mode}
+              onChange={(event) =>
+                setTypography({ ...typography, mode: event.target.value as 'follow' | 'custom' })
+              }
+            >
+              <option value="follow">{tr('跟随正文')}</option>
+              <option value="custom">{tr('自定字号')}</option>
+            </select>
+          </label>
+          <select
+            aria-label={typography.mode === 'follow' ? tr('演示字号比例') : tr('演示自定字号')}
+            value={typography.mode === 'follow' ? typography.scale : typography.customSize}
+            onChange={(event) =>
+              setTypography({
+                ...typography,
+                [typography.mode === 'follow' ? 'scale' : 'customSize']: Number(event.target.value),
+              })
+            }
+          >
+            {(typography.mode === 'follow' ? [90, 100, 110, 125] : [14, 16, 18, 20, 24]).map(
+              (value) => (
+                <option key={value} value={value}>
+                  {value}
+                  {typography.mode === 'follow' ? '%' : ' px'}
+                </option>
+              ),
+            )}
+          </select>
+        </div>
       </div>
       <div className="workspace-explanation">
-        <div>
-          <h3>{places[placement].title}</h3>
-          <p>{places[placement].text}</p>
-          {placement === 'edge' && (
-            <div className="choice-row" role="group" aria-label={tr('贴边位置演示')}>
-              {[
-                ['right', tr('右侧')],
-                ['left', tr('左侧')],
-                ['top', tr('顶部 / 刘海')],
-                ['bottom', tr('底部')],
-              ].map(([id, title]) => (
-                <button key={id} aria-pressed={edge === id} onClick={() => setEdge(id)}>
-                  {title}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-        <div>
-          <h3>{tr('单击切功能，拖动排布局。')}</h3>
-          <p>
-            {tr(
-              '单击图标切换功能；上下、左右或合成标签，按需要排列。拖动标题合并、拆分面板，拖动分隔线调整比例。双击标题临时放大，Esc 恢复。',
-            )}
-          </p>
-        </div>
+        <p>{places[placement].text}</p>
+        {placement === 'edge' && (
+          <div className="choice-row" role="group" aria-label={tr('贴边位置演示')}>
+            {[
+              ['right', tr('右侧')],
+              ['left', tr('左侧')],
+              ['top', tr('顶部 / 刘海')],
+              ['bottom', tr('底部')],
+            ].map(([id, title]) => (
+              <button key={id} aria-pressed={edge === id} onClick={() => setEdge(id)}>
+                {title}
+              </button>
+            ))}
+          </div>
+        )}
+        <p>{tr('单击图标切换功能，拖动标题或分隔线调整布局。')}</p>
       </div>
     </section>
   );
