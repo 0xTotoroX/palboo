@@ -105,7 +105,7 @@ Rust + Tokio/Axum + Tao/Wry + JavaScript 共享胶囊 + React/TypeScript/Vite + 
 - `tsconfig.json`：网页、共享类型与 Vite 配置的 TypeScript 检查范围。
 - `.prettierrc.json`：JS/TS/CSS 与验收脚本的统一格式配置。
 - `.cargo/config.toml`：macOS 14.0 最低部署目标。
-- `.github/workflows/ci.yml`：普通推送与 PR 运行 macOS 26 全套检查，手动 full 运行全部兼容组合；不生成发布包。
+- `.github/workflows/ci.yml`：main 推送直接运行全部兼容组合，PR 运行 macOS 26 全套检查，手动 full 可选完整矩阵；按触发事件隔离并发，手动任务不取消提交页的自动检查，不生成发布包。
 - `.github/workflows/site.yml`：手动选择已审核修订，验证交互后只上传 `target/site/`；默认仅构建，明确选择 publish 才部署 GitHub Pages，不绑定自定义域名，不随 push 自动上线。
 - `.github/workflows/verify.yml`：CI/CD 共用验证矩阵；完整模式覆盖 macOS 14 最低工具链、macOS 15 浮窗与 macOS 26，全部通过才允许发布。
 - `.github/workflows/release.yml`：先核对标签、Cargo/npm及锁文件版本和已审核说明，再触发共用完整验证；X.Y.0 打包并只上传 macOS arm64 DMG，补丁版跳过打包与附件；正文直接使用双语说明，自动流程在草稿处停止；获得用户对具体版本、说明与附件的审核后才单独公开，拒绝覆盖已有 Release。

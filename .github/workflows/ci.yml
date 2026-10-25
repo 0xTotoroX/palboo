@@ -12,7 +12,7 @@ on:
         default: true
 
 concurrency:
-  group: verify-${{ github.workflow }}-${{ github.ref }}
+  group: verify-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -23,4 +23,4 @@ jobs:
     uses: ./.github/workflows/verify.yml
     with:
       ref: ${{ github.sha }}
-      full: ${{ inputs.full == true }}
+      full: ${{ github.event_name == 'push' || inputs.full == true }}

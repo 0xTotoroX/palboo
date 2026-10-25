@@ -1,6 +1,6 @@
 /*
  * [INPUT]: e2e.mjs 提供的浏览器、宿主、本机 API 和合成建议。
- * [OUTPUT]: checkPopout 的状态投影、宿主强调色同步、呈现握手、阅读接续、交接反转、受限操作及像素检查。
+ * [OUTPUT]: checkPopout 的状态投影、宿主强调色同步、呈现握手、阅读接续、交接反转、受限操作及像素检查；失败时保留交接响应与提示。
  * [POS]: 端到端测试的弹出窗口子流程。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -72,9 +72,21 @@ export async function checkPopout({
   const native = [];
   let acknowledgeShow = false;
   const commandResults = [];
+  const handoffResponses = [];
   pop.on('response', async (response) => {
     if (response.url().endsWith('/panel/command'))
       commandResults.push(await response.json().catch(() => null));
+    const endpoint = new URL(response.url()).pathname.split('/').at(-1);
+    if (['ready', 'presented', 'anchor', 'preferences', 'dock'].includes(endpoint)) {
+      const result = await response.json().catch(() => null);
+      handoffResponses.push({
+        endpoint,
+        status: response.status(),
+        expectedRevision: response.request().postDataJSON()?.expectedRevision,
+        revision: result?.revision,
+        message: result?.message,
+      });
+    }
   });
   await pop.exposeFunction('__testNative', async (message) => {
     native.push(message);
@@ -1016,6 +1028,14 @@ export async function checkPopout({
     await pop.screenshot({ path: join(output, 'popout-failure.png') }).catch(() => {});
     console.error('POPOUT_STATE', await state().catch(() => null));
     console.error('POPOUT_COMMANDS', JSON.stringify(commandResults));
+    console.error('POPOUT_HANDOFF', JSON.stringify(handoffResponses.slice(-30)));
+    console.error(
+      'POPOUT_NOTICE',
+      await pop
+        .locator('#popout-notice')
+        .textContent()
+        .catch(() => null),
+    );
     throw error;
   } finally {
     await context.close();
