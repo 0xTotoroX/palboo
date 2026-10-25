@@ -1,3 +1,4 @@
+import { tr } from '../../shared/i18n.js';
 /* [INPUT]: Original capsule expression and activePaneCue, supplied by the runtime.
  * [OUTPUT]: Compact shared face, source dot and interruptible action acknowledgement without replacing the runtime expression.
  * [POS]: Presentation adapter; no new context selection, task reads or click handlers.
@@ -115,7 +116,9 @@ export function createLauncherFace(button) {
         ['left', 'right', 'top', 'bottom'].includes(cue.direction) &&
         Number.isFinite(cue.angle);
       const label = valid
-        ? { left: '左侧', right: '右侧', top: '上侧', bottom: '下侧' }[cue.direction] + '聊天'
+        ? { left: tr('左侧'), right: tr('右侧'), top: tr('上侧'), bottom: tr('下侧') }[
+            cue.direction
+          ] + tr('聊天')
         : '';
       button.setAttribute(
         'aria-description',

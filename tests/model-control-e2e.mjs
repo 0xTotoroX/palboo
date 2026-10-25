@@ -113,7 +113,7 @@ try {
     args: [`--remote-debugging-port=${debugPort}`, '--remote-debugging-address=127.0.0.1'],
   });
   browser = await chromium.connect(chromeServer.wsEndpoint(), { timeout: 10000 });
-  const context = await browser.newContext();
+  const context = await browser.newContext({ locale: 'zh-CN' });
   context.setDefaultTimeout(8000);
   context.setDefaultNavigationTimeout(8000);
   // A second eligible page makes selecting the configured target observable, rather than incidental.
@@ -446,7 +446,7 @@ try {
   assert.deepEqual(unexpectedRequests, []);
   assert.deepEqual(pageErrors, []);
   record('decoy target untouched; no model requests or page errors');
-  settingsPage = await browser.newPage({ viewport: { width: 1100, height: 900 } });
+  settingsPage = await browser.newPage({ locale: 'zh-CN', viewport: { width: 1100, height: 900 } });
   settingsPage.on('pageerror', (error) => pageErrors.push(error.message));
   await settingsPage.goto(`${base}/#token=${runtime.token}`);
   {

@@ -1,3 +1,4 @@
+import { tr } from '../shared/i18n.js';
 /*
  * [INPUT]: 回答上下文、独立生成版本、模型桥接与宿主写入接口。
  * [OUTPUT]: 建议生成、按聊天/回答/完整用户问题保留的有限内存缓存与普通/快捷词只补齐必要换行并直接追加草稿且不发送；来源失联时禁止生成和填入。
@@ -118,7 +119,7 @@ function labelForPrompt(prompt) {
   ];
 
   for (const [pattern, label] of rules) {
-    if (pattern.test(text)) return label;
+    if (pattern.test(text)) return tr(label);
   }
 
   return (
@@ -126,7 +127,7 @@ function labelForPrompt(prompt) {
       .replace(/^(帮我|请|把|给我|继续|检查|执行一次|基于刚才的)/, '')
       .replace(/[，。,.].*$/, '')
       .trim()
-      .slice(0, 10) || '继续'
+      .slice(0, 10) || tr('继续')
   );
 }
 
@@ -270,7 +271,7 @@ function forceRefreshStepwise() {
     return;
   }
   if (chatBusy()) {
-    if (!stepwiseState.prompts.length) stepwiseState.bridgeError = '回答生成中，结束后再刷新';
+    if (!stepwiseState.prompts.length) stepwiseState.bridgeError = tr('回答生成中，结束后再刷新');
     setScanStatus('manual-refresh-busy', {});
     emitSignal('render', undefined);
     return;
@@ -278,7 +279,7 @@ function forceRefreshStepwise() {
 
   const message = findLatestAssistantMessage();
   if (!message) {
-    stepwiseState.bridgeError = '未找到可用于生成的回答';
+    stepwiseState.bridgeError = tr('未找到可用于生成的回答');
     stepwiseState.prompts = [];
     stepwiseState.promptContext = null;
     shellState.promptPreviewIndex = 0;
@@ -376,7 +377,7 @@ function fillComposer(prompt, submit = false, options = {}) {
   });
   if (!target) {
     pushDiagnostic('fill:no-main-composer', { candidateCount: candidates.length });
-    if (options.remote) return { ok: false, message: '找不到关联的 Codex 输入框。' };
+    if (options.remote) return { ok: false, message: tr('找不到关联的 Codex 输入框。') };
     window.prompt('Copy Stepwise prompt', prompt);
     return false;
   }

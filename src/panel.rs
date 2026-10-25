@@ -178,6 +178,7 @@ pub struct Preferences {
     pub always_on_top: bool,
     pub settings_target: String,
     pub settings_theme: Option<String>,
+    pub language: String,
     pub launcher_action: String,
     pub position: Option<Position>,
     pub ui: Ui,
@@ -223,6 +224,7 @@ impl Default for Preferences {
             always_on_top: true,
             settings_target: "plugin".into(),
             settings_theme: None,
+            language: "system".into(),
             launcher_action: "inside".into(),
             position: None,
             ui: Ui::default(),
@@ -773,6 +775,13 @@ impl App {
             }
             next.launcher_action = action.into();
         }
+        if let Some(value) = input.get("language") {
+            let language = value.as_str().context("界面语言无效")?;
+            if !["system", "zh-CN", "en"].contains(&language) {
+                bail!("界面语言无效");
+            }
+            next.language = language.into();
+        }
         if let Some(value) = input.get("settingsTheme") {
             let theme = value.as_str().context("设置页主题无效")?;
             if !["codex", "light", "dark"].contains(&theme) {
@@ -813,6 +822,7 @@ impl App {
             panel.prefs = next;
         }
         let saved = panel.prefs.clone();
+        crate::i18n::set_language(&saved.language);
         drop(panel);
         if dock_changed || desktop_changed {
             self.reset_feature_layouts(dock_changed, desktop_changed)
@@ -1173,6 +1183,35 @@ mod tests {
             .is_err()
         );
         assert_eq!(app.appearance().await, resized);
+    }
+
+    #[tokio::test]
+    async fn interface_language_persists_without_changing_layout_or_model_settings() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths::new(Some(dir.path().into())).unwrap();
+        let app = App::new(paths, crate::config::Config::default(), None, true);
+        let initial = app.appearance().await;
+        let settings = app.settings().await;
+        assert_eq!(initial.language, "system");
+        let saved = app
+            .save_appearance(json!({"expectedRevision":initial.revision,"language":"en"}))
+            .await
+            .unwrap();
+        assert_eq!(saved.language, "en");
+        assert_eq!(saved.ui, initial.ui);
+        assert_eq!(Preferences::read(&app.paths).language, "en");
+        assert_eq!(app.settings().await, settings);
+        assert!(
+            app.save_appearance(json!({"expectedRevision":initial.revision,"language":"zh-CN"}))
+                .await
+                .is_err()
+        );
+        assert!(
+            app.save_appearance(json!({"expectedRevision":saved.revision,"language":"invalid"}))
+                .await
+                .is_err()
+        );
+        assert_eq!(app.appearance().await, saved);
     }
 
     #[tokio::test]

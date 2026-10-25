@@ -1,3 +1,6 @@
+import { directionCopy } from './direction-copy';
+import { useLocale } from '../shared/use-locale';
+import { tr } from '../shared/i18n.js';
 /* [INPUT]: Direction catalog, built-in identities, selected IDs and the existing selection callback.
  * [OUTPUT]: Searchable, categorized local picker that follows its trigger while scrolling; selection only adds an existing direction.
  * [POS]: Stepwise selection presentation, independent of library editing and persistence.
@@ -17,10 +20,11 @@ export function DirectionPicker({
   onSelect,
 }: {
   library: Library;
-  builtIns: ReadonlyArray<{ id: string }>;
+  builtIns: ReadonlyArray<Partial<import('../shared/contracts').Direction> & { id: string }>;
   selected: string[];
   onSelect: (id: string) => void;
 }) {
+  useLocale();
   const id = useId();
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -36,7 +40,9 @@ export function DirectionPicker({
   const term = query.trim().toLocaleLowerCase();
   const matches = available.filter((item) =>
     term
-      ? `${item.name} ${item.instruction}`.toLocaleLowerCase().includes(term)
+      ? `${item.name} ${item.instruction} ${directionCopy(item, builtIns)} ${directionCopy(item, builtIns, 'instruction')}`
+          .toLocaleLowerCase()
+          .includes(term)
       : originals.has(item.id) === (group === 'builtin'),
   );
   const activeIndex = matches.findIndex((item) => item.id === active);
@@ -132,7 +138,7 @@ export function DirectionPicker({
         aria-expanded={expanded}
         aria-controls={`${id}-panel`}
         disabled={disabled}
-        title={selected.length >= 6 ? '最多选择 6 个方向' : undefined}
+        title={selected.length >= 6 ? tr('最多选择 6 个方向') : undefined}
         onClick={() => (expanded ? close() : show())}
         onKeyDown={(event) => {
           if (event.key === 'ArrowDown') {
@@ -142,12 +148,12 @@ export function DirectionPicker({
         }}
       >
         <Icon name="plus" />
-        选择方向
+        {tr('选择方向')}
       </Button>
       <div
         id={`${id}-panel`}
         role="dialog"
-        aria-label="选择方向"
+        aria-label={tr('选择方向')}
         className="direction-picker-panel settings-menu-motion"
         hidden={!expanded}
         inert={!expanded}
@@ -160,8 +166,8 @@ export function DirectionPicker({
           <Input
             ref={input}
             role="combobox"
-            aria-label="搜索方向"
-            placeholder="搜索所有方向…"
+            aria-label={tr('搜索方向')}
+            placeholder={tr('搜索所有方向…')}
             autoComplete="off"
             value={query}
             aria-expanded={expanded}
@@ -192,7 +198,7 @@ export function DirectionPicker({
             }}
           />
         </div>
-        <nav className="direction-library-nav" aria-label="选择方向分类" hidden={!!term}>
+        <nav className="direction-library-nav" aria-label={tr('选择方向分类')} hidden={!!term}>
           {(['custom', 'builtin'] as const).map((key) => (
             <Button
               key={key}
@@ -205,7 +211,7 @@ export function DirectionPicker({
                 if (list.current) list.current.scrollTop = 0;
               }}
             >
-              {key === 'custom' ? '我的方向' : '内置方向'}
+              {key === 'custom' ? tr('我的方向') : tr('内置方向')}
             </Button>
           ))}
         </nav>
@@ -214,7 +220,7 @@ export function DirectionPicker({
           id={`${id}-list`}
           className="direction-picker-options"
           role="listbox"
-          aria-label="可选方向"
+          aria-label={tr('可选方向')}
         >
           {matches.map((item, index) => (
             <li
@@ -228,13 +234,13 @@ export function DirectionPicker({
               onPointerDown={(event) => event.preventDefault()}
               onClick={() => choose(item.id)}
             >
-              {item.name || '未命名方向'}
+              {directionCopy(item, builtIns) || tr('未命名方向')}
             </li>
           ))}
         </ul>
         {!matches.length && (
           <p className="direction-picker-empty" role="status">
-            {term ? '没有匹配的方向' : '暂无可选方向'}
+            {term ? tr('没有匹配的方向') : tr('暂无可选方向')}
           </p>
         )}
       </div>

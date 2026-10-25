@@ -7,6 +7,8 @@
 
 (() => {
   'use strict';
+  // The legacy window is loaded as a classic script, before the shared workspace.
+  const tr = (source) => window.__companionFloatingPanel?.translate?.(source) ?? source;
   const params = new URLSearchParams(location.hash.slice(1));
   const token = params.get('token') || sessionStorage.getItem('companion-popout-token');
   const lease = params.get('lease') || sessionStorage.getItem('companion-popout-lease');
@@ -64,7 +66,7 @@
       signal: AbortSignal.timeout(path === 'request' ? 310000 : 8000),
     });
     const result = await response.json();
-    if (!response.ok) throw new Error(result.message || '浮窗连接中断');
+    if (!response.ok) throw new Error(result.message || tr('浮窗连接中断'));
     return result;
   }
   function native(message) {
@@ -308,7 +310,7 @@
   window.__companionPopout = {
     request,
     async taskRequest(path, body) {
-      if (!['tasks/state', 'tasks/command'].includes(path)) throw new Error('不支持的任务请求');
+      if (!['tasks/state', 'tasks/command'].includes(path)) throw new Error(tr('不支持的任务请求'));
       const response = await fetch(`/api/${path}`, {
         method: body === undefined ? 'GET' : 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -316,7 +318,7 @@
         signal: AbortSignal.timeout(15000),
       });
       const result = await response.json();
-      if (!response.ok) throw new Error(result.message || '任务服务不可用');
+      if (!response.ok) throw new Error(result.message || tr('任务服务不可用'));
       return result;
     },
     native,

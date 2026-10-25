@@ -1,3 +1,4 @@
+import { tr } from '../../shared/i18n.js';
 /*
  * [INPUT]: 版本化设置、后台请求与独立功能控制器。
  * [OUTPUT]: 设置保存、同步、低频恢复与功能开关协调；设置打开共享请求、取消及可见结果。
@@ -123,11 +124,11 @@ async function syncSettings(patch = {}) {
 }
 
 function statusLine(settings) {
-  if (!runtimeEnabled(settings)) return '悬浮球已关闭';
-  if (!stepwiseEnabled(settings)) return '仅显示大纲';
-  if (!settings.baseUrlConfigured || !settings.model) return '尚未配置服务地址或模型';
-  if (!settings.apiKeyConfigured) return '尚未配置密钥';
-  return `连接就绪 · ${settings.model || ''}`.replace(/\s+·\s+$/, '');
+  if (!runtimeEnabled(settings)) return tr('悬浮球已关闭');
+  if (!stepwiseEnabled(settings)) return tr('仅显示大纲');
+  if (!settings.baseUrlConfigured || !settings.model) return tr('尚未配置服务地址或模型');
+  if (!settings.apiKeyConfigured) return tr('尚未配置密钥');
+  return tr('连接就绪 · {{model}}', { model: settings.model || '' }).replace(/\s+·\s+$/, '');
 }
 
 async function setGenerationMode(value) {
@@ -157,7 +158,7 @@ async function setGenerationMode(value) {
       applyRuntimeSettings(previousSettings);
       emitSignal('scan', 0);
     }
-    runtimeState.settingsStatus = payload.error || '模式保存失败';
+    runtimeState.settingsStatus = payload.error || tr('模式保存失败');
     emitSignal('render', undefined);
     return;
   }
@@ -210,7 +211,7 @@ async function loadSettings() {
       emitSignal('runtime', false);
     }
   } else {
-    const nextStatus = payload?.error || 'Bridge 未就绪';
+    const nextStatus = payload?.error || tr('Bridge 未就绪');
     shouldRender = nextStatus !== runtimeState.settingsStatus;
     runtimeState.settingsStatus = nextStatus;
   }
@@ -260,7 +261,8 @@ async function testSettings() {
   if (!isCurrentRuntime(generation)) return;
   const count = Array.isArray(payload?.items) ? payload.items.length : 0;
   runtimeState.settingsStatus =
-    payload?.error || (payload?.disabled ? '功能已关闭' : `连接正常 · ${count} 条`);
+    payload?.error ||
+    (payload?.disabled ? tr('功能已关闭') : tr('连接正常 · {{count}} 条', { count }));
   emitSignal('render', undefined);
 }
 
@@ -281,7 +283,7 @@ function openSettings() {
   const current = () => settingsOpening === operation && isCurrentRuntime(generation);
   settingsOpening = operation;
   runtimeState.settingsOpening = true;
-  runtimeState.settingsOpenStatus = '正在打开设置…';
+  runtimeState.settingsOpenStatus = tr('正在打开设置…');
   // 先发布共享 Promise，重入和连续点击都等待同一次操作。
   operation.promise = Promise.resolve().then(async () => {
     try {
@@ -294,7 +296,7 @@ function openSettings() {
         return { ok: false, cancelled: true };
       if (payload?.error) throw Error(payload.error);
       if (payload?.status !== 'ok' || payload.target !== 'web' || !payload.url)
-        throw Error(payload?.message || '当前后台尚未提供内置浏览器设置入口。');
+        throw Error(payload?.message || tr('当前后台尚未提供内置浏览器设置入口。'));
       const result = await openSettingsBrowser(payload.url, {
         signal: operation.controller.signal,
         expectedSession,

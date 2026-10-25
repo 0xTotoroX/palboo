@@ -1,3 +1,5 @@
+import { useLocale } from '../shared/use-locale';
+import { tr } from '../shared/i18n.js';
 /* [INPUT]: Feature identity, business envelope, guarded transport, reading state and optional header slot.
  * [OUTPUT]: The six feature views and guarded business adapters, including revision-checked quick-prompt saves and optional token-meter composition.
  * [POS]: Fixed feature composition; persistence and validation remain in existing services.
@@ -41,6 +43,7 @@ export function FeatureContent({
   operation: FeatureOperation;
   update: (value: FeatureData) => void;
 }) {
+  useLocale();
   const latestValue = useRef(value);
   latestValue.current = value;
   const execute = useRef(operation);
@@ -49,7 +52,7 @@ export function FeatureContent({
     async <T,>(path: string, data?: unknown): Promise<T> => {
       if (path === 'tasks/state') return call<T>('read');
       const result = await execute.current(() => call<T>('action', { data }), true);
-      if (result === null) throw Error('功能正在交接，请稍后重试');
+      if (result === null) throw Error(tr('功能正在交接，请稍后重试'));
       return result;
     },
     [call],
@@ -84,7 +87,7 @@ export function FeatureContent({
         }
       />
     ) : (
-      <p className="feature-placeholder">正在读取术语…</p>
+      <p className="feature-placeholder">{tr('正在读取术语…')}</p>
     );
   if (id === 'board')
     return (
@@ -122,14 +125,14 @@ export function FeatureContent({
       />
     ) : (
       <p className="feature-placeholder" role="status">
-        正在读取模型…
+        {tr('正在读取模型…')}
       </p>
     );
   const snapshot = value?.snapshot as PanelSnapshot | undefined;
   if (!snapshot)
     return (
       <p className="feature-placeholder" role="status">
-        等待 Codex 连接…
+        {tr('等待 Codex 连接…')}
       </p>
     );
   const enabled =
@@ -147,12 +150,12 @@ export function FeatureContent({
     };
     await operation(async () => {
       const result = await call<CommandResult>('action', { data });
-      if (!result.ok) throw Error(result.message || '操作未完成');
+      if (!result.ok) throw Error(result.message || tr('操作未完成'));
     });
   }
   return (
     <>
-      {!enabled && <p role="status">功能已停用，可在设置中重新开启。</p>}
+      {!enabled && <p role="status">{tr('功能已停用，可在设置中重新开启。')}</p>}
       <ProjectedContent
         headerActions={headerActions}
         id={id}
@@ -177,7 +180,7 @@ export function FeatureContent({
                     }),
                   true,
                 );
-                if (!result) throw Error('功能正在交接，请稍后重试');
+                if (!result) throw Error(tr('功能正在交接，请稍后重试'));
                 const current = latestValue.current;
                 const projected = current?.snapshot as PanelSnapshot | undefined;
                 if (

@@ -1,3 +1,4 @@
+import { tr } from '../../shared/i18n.js';
 /* [INPUT]: 宿主模型能力与独立模型偏好；不读取接入凭据或聊天。
  * [OUTPUT]: 共用模型、可选额度及测速投影类型、保守厂家识别、稳定分组及顺序，以及不合并预设身份的名称消歧。
  * [POS]: 快切与设置共用的纯分类逻辑，不执行切换或保存。
@@ -85,6 +86,12 @@ const manufacturers = [
   ['NVIDIA', /^(?:(?:nvidia[-\s])?nemotron|llama[-\d.]*[-\s]nemotron)(?:[-\s]|$)/i],
 ] as const;
 export const manufacturerNames = manufacturers.map(([name]) => name);
+export function manufacturerLabel(name: string): string {
+  return manufacturerNames.includes(name as (typeof manufacturerNames)[number]) ? tr(name) : name;
+}
+export function manufacturerValue(label: string): string {
+  return manufacturerNames.find((name) => tr(name) === label) || label;
+}
 export function automaticManufacturer(model: Model): string {
   // 渠道前缀不代表厂家。只识别末段模型系列，名称冲突时保留未分类。
   const names = [model.id, model.label].map((value) =>
@@ -101,7 +108,10 @@ export function modelGroup(model: Model, prefs: ModelPreferences) {
   const maker = manufacturer(model, prefs);
   return custom
     ? { id: `custom:${custom.id}`, name: custom.name }
-    : { id: maker ? `vendor:${maker}` : 'unknown', name: maker || '未分类' };
+    : {
+        id: maker ? `vendor:${maker}` : 'unknown',
+        name: maker ? manufacturerLabel(maker) : tr('未分类'),
+      };
 }
 export function orderedModelIds(models: Model[], prefs: ModelPreferences) {
   return [...new Set([...(prefs.modelOrder || prefs.pinned), ...models.map((m) => m.id)])];

@@ -1,3 +1,4 @@
+import { tr } from '../../shared/i18n.js';
 /* [INPUT]: Authenticated local task API. [OUTPUT]: Task/group DTOs and a refreshable state hook.
  * [POS]: Shared board/settings task client. [PROTOCOL]: Keep board/AGENTS.md in sync. */
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -56,9 +57,24 @@ export type TaskState = {
   error?: string | null;
 };
 export const columns: BoardColumn[] = [
-  { id: 'todo', title: '待办' },
-  { id: 'doing', title: '进行中' },
-  { id: 'done', title: '完成' },
+  {
+    id: 'todo',
+    get title() {
+      return tr('待办');
+    },
+  },
+  {
+    id: 'doing',
+    get title() {
+      return tr('进行中');
+    },
+  },
+  {
+    id: 'done',
+    get title() {
+      return tr('完成');
+    },
+  },
 ];
 export function taskGroup(task: Task) {
   return task.archived || task.fields.completed
@@ -138,4 +154,10 @@ export function dueText(due: Due | null) {
   return due.hour == null
     ? day
     : `${day} ${String(due.hour).padStart(2, '0')}:${String(due.minute ?? 0).padStart(2, '0')}`;
+}
+
+/** Translate untouched default titles; custom group names are user content. */
+export function columnTitle(column: { id: string; title: string }): string {
+  const defaults: Record<string, string> = { todo: '待办', doing: '进行中', done: '完成' };
+  return defaults[column.id] === column.title ? tr(column.title) : column.title;
 }

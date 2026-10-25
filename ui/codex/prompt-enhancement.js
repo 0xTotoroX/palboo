@@ -1,3 +1,4 @@
+import { tr } from '../shared/i18n.js';
 import { measureWork } from '../shared/performance.js';
 /* [INPUT]: Verified input target from the host adapter, explicit clicks and restricted model bridge.
  * [OUTPUT]: Optimize/cancel/restore controls; compare-before-write draft replacement, never send.
@@ -27,7 +28,7 @@ export function installPromptEnhancer({
   shadow.innerHTML = `<style>
     :host{color:inherit}button{font:inherit;display:inline-flex;align-items:center;justify-content:center;width:var(--buddy-composer-button-size,28px);height:var(--buddy-composer-button-size,28px);padding:0;border:0;border-radius:999px;background:transparent;color:inherit;cursor:pointer;opacity:.75}
     button:hover,button:focus-visible{opacity:1}button:focus-visible{outline:1px solid currentColor;outline-offset:-1px}button:disabled{opacity:.35;cursor:default}svg{width:18px;height:18px;display:block}
-  </style><button type="button" aria-label="优化提示词">${iconSvg('prompt-improve')}</button>`;
+  </style><button type="button" aria-label="${tr('优化提示词')}">${iconSvg('prompt-improve')}</button>`;
   const button = shadow.querySelector('button');
   const message = document.createElement('div');
   message.dataset.palbooPrompt = 'true';
@@ -81,14 +82,17 @@ export function installPromptEnhancer({
           .replace(/\u200b/g, '')
           .trim());
     if (undo && !matches(undo)) undo = null;
-    button.setAttribute('aria-label', pending ? '取消优化' : undo ? '恢复原提示词' : '优化提示词');
+    button.setAttribute(
+      'aria-label',
+      pending ? tr('取消优化') : undo ? tr('恢复原提示词') : tr('优化提示词'),
+    );
     const icon = pending ? 'close' : undo ? 'return' : 'prompt-improve';
     if (button.querySelector('svg')?.dataset.icon !== icon) button.innerHTML = iconSvg(icon);
     button.setAttribute('aria-busy', String(!!pending));
   }
   function write(snapshot, text) {
-    if (!matches(snapshot)) throw Error('草稿或聊天已变化，未覆盖你的输入。');
-    if (complex(snapshot.editor)) throw Error('输入含引用或特殊内容，已保留原文。');
+    if (!matches(snapshot)) throw Error(tr('草稿或聊天已变化，未覆盖你的输入。'));
+    if (complex(snapshot.editor)) throw Error(tr('输入含引用或特殊内容，已保留原文。'));
     applying = true;
     try {
       const editor = snapshot.editor;
@@ -98,7 +102,8 @@ export function installPromptEnhancer({
       editor.dispatchEvent(
         new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }),
       );
-      if (rawComposerText(editor) !== text) throw Error('输入框未完整接收结果，请检查当前草稿。');
+      if (rawComposerText(editor) !== text)
+        throw Error(tr('输入框未完整接收结果，请检查当前草稿。'));
     } finally {
       applying = false;
     }
@@ -123,7 +128,7 @@ export function installPromptEnhancer({
     const target = getTarget();
     if (!target || target.composer !== mounted?.composer || composing) return;
     if (complex(target.composer)) {
-      status('输入含引用或特殊内容，已保留原文。');
+      status(tr('输入含引用或特殊内容，已保留原文。'));
       return;
     }
     const snapshot = {
@@ -147,14 +152,14 @@ export function installPromptEnhancer({
       });
       if (pending !== snapshot) return;
       if (!matches(snapshot)) {
-        cancel('草稿或聊天已变化，未覆盖你的输入。');
+        cancel(tr('草稿或聊天已变化，未覆盖你的输入。'));
         return;
       }
       if (result.error) throw Error(result.error);
       if (typeof result.prompt !== 'string' || !result.prompt.trim())
-        throw Error('未收到有效的优化结果，原文未修改。');
+        throw Error(tr('未收到有效的优化结果，原文未修改。'));
       if (result.prompt === snapshot.text) {
-        status('原文已清晰，未作修改。');
+        status(tr('原文已清晰，未作修改。'));
         return;
       }
       write(snapshot, result.prompt);
@@ -176,7 +181,7 @@ export function installPromptEnhancer({
     if (applying || !mounted || !event.composedPath().includes(mounted.composer)) return;
     if (event.type === 'compositionstart') composing = true;
     if (event.type === 'compositionend') composing = false;
-    if (pending) cancel('输入已变化，优化已取消。');
+    if (pending) cancel(tr('输入已变化，优化已取消。'));
     undo = null;
     refresh();
   }
@@ -198,7 +203,7 @@ export function installPromptEnhancer({
       return;
     }
     const target = getTarget();
-    if (pending && !matches(pending)) cancel('草稿或聊天已变化，优化已取消。');
+    if (pending && !matches(pending)) cancel(tr('草稿或聊天已变化，优化已取消。'));
     if (undo && !matches(undo)) undo = null;
     if (!target || target.id !== mounted?.id || target.composer !== mounted?.composer) {
       host.remove();

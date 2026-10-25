@@ -1,3 +1,5 @@
+import { useLocale } from '../shared/use-locale';
+import { tr } from '../shared/i18n.js';
 /* [INPUT]: Original brand poses, native section progress and local feature demos.
  * [OUTPUT]: Complete brand opening, eye-to-entry flight and focus-safe responsive reading story.
  * [POS]: Website narrative composition; all examples describe one portfolio project.
@@ -10,6 +12,7 @@ import { Eyes, FeatureDemo, type FeatureId } from './demos';
 import { clamp, smooth, useScrollScene } from './scroll-motion';
 
 export function OpeningStory({ githubVariant }: { githubVariant?: GithubLinkVariant }) {
+  useLocale();
   const { ref, progress, staticView, scrollToStart } = useScrollScene();
   const brand = useRef<HTMLDivElement>(null);
   const entry = useRef<HTMLDivElement>(null);
@@ -64,8 +67,8 @@ export function OpeningStory({ githubVariant }: { githubVariant?: GithubLinkVari
           </div>
           <button
             className="brand-replay"
-            aria-label="重播品牌开场"
-            title="重播开场"
+            aria-label={tr('重播品牌开场')}
+            title={tr('重播开场')}
             style={{
               transform: `translate(${x}px, ${y}px) translate(-50%, -50%)`,
               width: `max(44px, ${36 * scale}%)`,
@@ -89,21 +92,21 @@ export function OpeningStory({ githubVariant }: { githubVariant?: GithubLinkVari
           }
         >
           <h1 id="page-title">
-            让对话，
+            {tr('让对话，')}
             <br className="mobile-break" />
-            多一维度
+            {tr('多一维度')}
           </h1>
           <p>
-            Palboo，你的 Codex 桌面搭档。
+            {tr('Palboo，你的 Codex 桌面搭档。')}
             <br />
-            读懂长回答，接着推进，把常用工具放在对话旁。
+            {tr('读懂长回答，接着推进，把常用工具放在对话旁。')}
           </p>
           <GithubLink variant={githubVariant} />
         </div>
         <div
           ref={preview}
           className="intro-preview"
-          aria-label="Codex 中的 Palboo 外观示例"
+          aria-label={tr('Codex 中的 Palboo 外观示例')}
           style={
             staticView ? undefined : { top: `calc(68svh - ${smooth(progress / 0.6) * 58}svh)` }
           }
@@ -114,17 +117,17 @@ export function OpeningStory({ githubVariant }: { githubVariant?: GithubLinkVari
               <i />
               <i />
             </span>
-            <span>个人作品集</span>
+            <span>{tr('个人作品集')}</span>
             <span>Codex</span>
           </div>
           <div className="intro-rail">
             <span>Codex</span>
             <div className="intro-rail-lines">
-              <span>新聊天</span>
-              <span>搜索聊天</span>
-              <span>自动化</span>
-              <span>项目</span>
-              <span>个人作品集</span>
+              <span>{tr('新聊天')}</span>
+              <span>{tr('搜索聊天')}</span>
+              <span>{tr('自动化')}</span>
+              <span>{tr('项目')}</span>
+              <span>{tr('个人作品集')}</span>
             </div>
             <div ref={entry} className="intro-entry">
               <span style={{ opacity: staticView ? 1 : 0 }}>
@@ -134,22 +137,23 @@ export function OpeningStory({ githubVariant }: { githubVariant?: GithubLinkVari
           </div>
           <div className="intro-chat">
             <div className="intro-chat-heading">
-              周末做一个个人作品集 <span>GPT-6.1-Sol</span>
+              {tr('周末做一个个人作品集 ')}
+              <span>GPT-6.1-Sol</span>
             </div>
-            <p>我想用周末做一个个人作品集，第一版应该怎么安排？</p>
-            <h3>从一个完整的小版本开始。</h3>
+            <p>{tr('我想用周末做一个个人作品集，第一版应该怎么安排？')}</p>
+            <h3>{tr('从一个完整的小版本开始。')}</h3>
             <p>
-              选好代表作品，写清你的贡献。
+              {tr('选好代表作品，写清你的贡献。')}
               <br />
-              先把内容讲清楚，再完善展示。
+              {tr('先把内容讲清楚，再完善展示。')}
             </p>
             <ol className="intro-answer">
-              <li>周六整理三个代表作品，写清背景与结果。</li>
-              <li>周日完成首页，让手机和电脑都能顺畅阅读。</li>
-              <li>最后检查图片与联系链接，再邀请朋友试用。</li>
+              <li>{tr('周六整理三个代表作品，写清背景与结果。')}</li>
+              <li>{tr('周日完成首页，让手机和电脑都能顺畅阅读。')}</li>
+              <li>{tr('最后检查图片与联系链接，再邀请朋友试用。')}</li>
             </ol>
             <div className="intro-input">
-              <span>询问后续问题</span>
+              <span>{tr('询问后续问题')}</span>
               <div>
                 <Icon name="plus" />
                 <span>GPT-6.1-Sol · Low</span>
@@ -169,11 +173,11 @@ export function OpeningStory({ githubVariant }: { githubVariant?: GithubLinkVari
               <Icon name="feature-outline" />
               <Icon name="feature-board" />
             </div>
-            <h3>拆解第一版</h3>
-            <p>把想法分成两天能完成的步骤。</p>
-            <h3>检查移动端</h3>
-            <p>看看小屏阅读还有哪些遗漏。</p>
-            <div className="intro-quick">继续　　执行</div>
+            <h3>{tr('拆解第一版')}</h3>
+            <p>{tr('把想法分成两天能完成的步骤。')}</p>
+            <h3>{tr('检查移动端')}</h3>
+            <p>{tr('看看小屏阅读还有哪些遗漏。')}</p>
+            <div className="intro-quick">{tr('继续　　执行')}</div>
           </div>
         </div>
       </div>
@@ -184,27 +188,51 @@ export function OpeningStory({ githubVariant }: { githubVariant?: GithubLinkVari
 const chapters: { feature: FeatureId; title: string; text: string; detail: string }[] = [
   {
     feature: 'next',
-    title: '下一步。\n让对话继续推进。',
-    text: '根据最近一问一答，给出可以继续的下一步。选中建议，填入输入框，接着推进你的想法。',
-    detail:
-      '自动生成或手动刷新。方向可以自选、自动探索或智能挑选；内置方向和常用提示词都能编辑，也能添加自己的内容。填入或直接发送，由你选择。生成建议需配置模型服务。',
+    get title() {
+      return tr('下一步。\n让对话继续推进。');
+    },
+    get text() {
+      return tr('根据最近一问一答，给出可以继续的下一步。选中建议，填入输入框，接着推进你的想法。');
+    },
+    get detail() {
+      return tr(
+        '自动生成或手动刷新。方向可以自选、自动探索或智能挑选；内置方向和常用提示词都能编辑，也能添加自己的内容。填入或直接发送，由你选择。生成建议需配置模型服务。',
+      );
+    },
   },
   {
     feature: 'outline',
-    title: '大纲。\n长回答也能快速定位。',
-    text: '把回答里的标题变成目录。方案、步骤、检查清单，想回看哪一段，就直接跳到哪一段。',
-    detail:
-      '标题在本机提取，不额外调用模型。工作台可以跟随当前聊天，也可以锁定正在阅读的聊天；切换功能时保留阅读位置。',
+    get title() {
+      return tr('大纲。\n长回答也能快速定位。');
+    },
+    get text() {
+      return tr('把回答里的标题变成目录。方案、步骤、检查清单，想回看哪一段，就直接跳到哪一段。');
+    },
+    get detail() {
+      return tr(
+        '标题在本机提取，不额外调用模型。工作台可以跟随当前聊天，也可以锁定正在阅读的聊天；切换功能时保留阅读位置。',
+      );
+    },
   },
   {
     feature: 'terms',
-    title: '术语释义。\n读到哪里，理解到哪里。',
-    text: '遇到不熟悉的词，就在阅读的位置查看释义。想继续了解的收藏起来，已经理解的标为掌握。',
-    detail:
-      '使用本机词库，也可用模型按语境识别。只填名称或导入文件，下次主聊天运行时交给当前 Agent 整理。个人添加、收藏和已掌握的词条可以导出，卡片外观可单独设置。',
+    get title() {
+      return tr('术语释义。\n读到哪里，理解到哪里。');
+    },
+    get text() {
+      return tr(
+        '遇到不熟悉的词，就在阅读的位置查看释义。想继续了解的收藏起来，已经理解的标为掌握。',
+      );
+    },
+    get detail() {
+      return tr(
+        '使用本机词库，也可用模型按语境识别。只填名称或导入文件，下次主聊天运行时交给当前 Agent 整理。个人添加、收藏和已掌握的词条可以导出，卡片外观可单独设置。',
+      );
+    },
   },
 ];
 export function ReadingStory() {
+  useLocale();
   const { ref, activeIndex: index, staticView } = useScrollScene('.story-copy h2');
   const [active, setActive] = useState<FeatureId[]>(chapters.map((chapter) => chapter.feature));
   const [primary, setPrimary] = useState(0);
@@ -293,7 +321,7 @@ export function ReadingStory() {
       ref={ref}
       className="reading-story page-width"
       data-static={staticView}
-      aria-label="下一步、大纲与术语"
+      aria-label={tr('下一步、大纲与术语')}
     >
       {chapters.map((chapter, i) => (
         <div key={chapter.feature} className="static-chapter">

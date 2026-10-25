@@ -1,3 +1,4 @@
+import { tr, getLocale } from '../../shared/i18n.js';
 /* [INPUT]: Suggestion projection, display preferences and guarded action callback.
  * [OUTPUT]: List/preview with native guarded copy-drag, leading turn arrows and hover/focus; quick prompts share suggestion single/double-click rules and guarded inline management.
  * [POS]: Content interaction only; generation and input validation stay in Codex/backend services.
@@ -28,7 +29,7 @@ export function createNextView({
     const match = FRIENDLY_BRIDGE_ERRORS.find((item) => item.pattern.test(text));
     return (
       match || {
-        title: '生成失败，稍后重试',
+        title: tr('生成失败，稍后重试'),
         message: '',
       }
     );
@@ -37,18 +38,18 @@ export function createNextView({
   function nextProgressState() {
     if (read().bridgeStatus === 'pending') {
       return {
-        title: '正在生成建议',
+        title: tr('正在生成建议'),
       };
     }
     if ((read().settings?.generationMode || 'manual') === 'manual') return null;
     if (read().scanStatus === 'assistant-changed' || read().scanStatus === 'assistant-settling') {
       return {
-        title: '正在整理回答',
+        title: tr('正在整理回答'),
       };
     }
     if (read().scanStatus === 'not-ready' && read().scanBusy) {
       return {
-        title: '等待回答完成',
+        title: tr('等待回答完成'),
       };
     }
     return null;
@@ -88,7 +89,7 @@ export function createNextView({
     const previewItem = read().prompts[previewIndex];
     reading.selected = previewIndex;
     return `<div class="csw-next-layout">
-      <div class="csw-list" data-label-only="${read().display?.labelOnly ?? true}" aria-label="下一步">${read()
+      <div class="csw-list" data-label-only="${read().display?.labelOnly ?? true}" aria-label="${tr('下一步')}">${read()
         .prompts.map(
           (item, index) => `
         <button class="csw-row" type="button" data-index="${index}" data-preview-active="${index === previewIndex}" aria-current="${index === previewIndex ? 'true' : 'false'}">
@@ -101,7 +102,7 @@ export function createNextView({
       `,
         )
         .join('')}</div>
-      <section class="csw-prompt-preview" data-preview-index="${previewIndex}" aria-label="建议完整内容">
+      <section class="csw-prompt-preview" data-preview-index="${previewIndex}" aria-label="${tr('建议完整内容')}">
         <div class="csw-prompt-preview-scroll" tabindex="0">
           <div class="csw-prompt-preview-content">
             <span class="csw-prompt-preview-body">${escapeHtml(previewItem.prompt)}</span>
@@ -115,13 +116,13 @@ export function createNextView({
     if (read().bridgeError || read().bridgeStatus === 'failed') return bridgeErrorPresentation();
     if (read().bridgeStatus === 'ok') {
       return {
-        title: '暂无建议',
+        title: tr('暂无建议'),
         message: '',
       };
     }
     if (read().bridgeStatus === 'disabled') {
       return {
-        title: '功能已关闭',
+        title: tr('功能已关闭'),
         message: '',
       };
     }
@@ -133,13 +134,13 @@ export function createNextView({
       read().association?.available !== false
     ) {
       return {
-        title: '点击刷新生成建议',
+        title: tr('点击刷新生成建议'),
         message: '',
         state: 'manual',
       };
     }
     return {
-      title: '等待回答完成',
+      title: tr('等待回答完成'),
       message: '',
     };
   }
@@ -290,6 +291,7 @@ export function createNextView({
   function contentKey() {
     const snapshot = read();
     return JSON.stringify([
+      getLocale(),
       snapshot.prompts,
       snapshot.promptToken,
       snapshot.display,

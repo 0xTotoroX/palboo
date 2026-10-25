@@ -20,7 +20,7 @@ const record = (name) => {
   console.log(`PASS ${name}`);
 };
 try {
-  const page = await browser.newPage({ viewport: { width: 500, height: 700 } }),
+  const page = await browser.newPage({ locale: 'zh-CN', viewport: { width: 500, height: 700 } }),
     errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   const entries = ['board', 'model'].map((id) => ({

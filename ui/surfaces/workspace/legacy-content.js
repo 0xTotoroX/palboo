@@ -1,3 +1,4 @@
+import { tr } from '../../shared/i18n.js';
 /* [INPUT]: Legacy runtime state and shared feature content.
  * [OUTPUT]: Legacy views share feature renderers and revision-checked quick-prompt settings saves.
  * [POS]: Compatibility only; remove after legacy panel leases/configuration are retired.
@@ -43,7 +44,8 @@ const next = createNextView({
     const result = await bridgeCall('/settings/set', { quickPrompts, expectedRevision });
     if (result?.error) throw Error(result.error);
     const settings = result?.settings || result;
-    if (!Number.isFinite(settings?.configurationRevision)) throw Error('未收到保存确认，请重试');
+    if (!Number.isFinite(settings?.configurationRevision))
+      throw Error(tr('未收到保存确认，请重试'));
     await syncSettings(settings);
     return settings;
   },
@@ -70,7 +72,7 @@ export const attachOutlineEvents = (root = shellState.panel) =>
     const ok = kind === 'outline-jump' ? outlineJumpTo(data.id) : outlineJumpToAnchor(data.anchor);
     if (!ok) {
       outlineState.outlineStatus = 'error';
-      outlineState.outlineError = '找不到对应的小节，刷新后再试。';
+      outlineState.outlineError = tr('找不到对应的小节，刷新后再试。');
       emitSignal('render', { preserveMorph: true });
     }
   });

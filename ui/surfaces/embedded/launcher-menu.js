@@ -1,3 +1,4 @@
+import { tr, subscribeLocale, getLocale } from '../../shared/i18n.js';
 /* [INPUT]: The independent eyes anchor and current action/default/capability callbacks.
  * [OUTPUT]: An inline sidebar menu with cancellable hover, keyboard access and errors forwarded to the shared launcher feedback.
  * [POS]: Launcher presentation only; actions remain in the runtime coordinator.
@@ -33,7 +34,7 @@ export function createLauncherMenu(anchor, options) {
     :host([data-open]) button {opacity:1;pointer-events:auto;transform:translateY(0);transition-delay:var(--delay,0ms);}
     :host([data-keyboard]),:host([data-keyboard]) * {transition:none!important;}
     @media(prefers-reduced-motion:reduce) {:host,*{transition:none!important;}}
-  </style><div class="menu-shell"><div class="hit"></div><div role="menu" aria-label="Palboo 快捷菜单">${actions.map(([id, label, title, icon], i) => `<button type="button" role="menuitem" data-action="${id}" aria-label="${title}" style="--top:${6 + i * 57}px;--delay:${(2 - i) * 20}ms" tabindex="-1">${iconSvg(icon)}<span>${label}</span></button>`).join('')}</div></div>`;
+  </style><div class="menu-shell"><div class="hit"></div><div role="menu" aria-label="${tr('Palboo 快捷菜单')}">${actions.map(([id, label, title, icon], i) => `<button type="button" role="menuitem" data-action="${id}" aria-label="${tr(title)}" style="--top:${6 + i * 57}px;--delay:${(2 - i) * 20}ms" tabindex="-1">${iconSvg(icon)}<span>${tr(label)}</span></button>`).join('')}</div></div>`;
   anchor.before(host);
   let open = false,
     enterTimer = 0,
@@ -61,7 +62,12 @@ export function createLauncherMenu(anchor, options) {
   }
   function update() {
     const value = options();
+    host.lang = getLocale();
+    shadow.querySelector('[role=menu]').setAttribute('aria-label', tr('Palboo 快捷菜单'));
     for (const button of shadow.querySelectorAll('button')) {
+      const item = actions.find(([id]) => id === button.dataset.action);
+      button.setAttribute('aria-label', tr(item[2]));
+      button.querySelector('span').textContent = tr(item[1]);
       button.disabled =
         busy || (button.dataset.action === 'outside' && value.outsideAvailable === false);
       button.setAttribute(
@@ -167,12 +173,15 @@ export function createLauncherMenu(anchor, options) {
         if (!destroyed) update();
       }
     });
+  const unsubscribe = subscribeLocale(update);
+  update();
   anchor.setAttribute('aria-haspopup', 'menu');
   return {
     update,
     close,
     destroy() {
       destroyed = true;
+      unsubscribe();
       close();
       events.abort();
       host.remove();

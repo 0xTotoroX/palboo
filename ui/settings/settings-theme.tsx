@@ -1,3 +1,5 @@
+import { useLocale } from '../shared/use-locale';
+import { tr } from '../shared/i18n.js';
 /* [INPUT]: Authenticated Codex theme snapshot, shared icons and this origin's display preference.
  * [OUTPUT]: Light/dark settings theme and a compact animated menu with retained, inert closing options.
  * [POS]: Settings-only preference; revision-checked Palboo persistence, never writes Codex appearance.
@@ -37,6 +39,7 @@ export function SettingsTheme({
   appearance?: AppearanceSettings;
   notify?: (message: string, failed?: boolean) => void;
 }) {
+  useLocale();
   const [saving, setSaving] = useState(false);
   const pending = useRef(false);
   const acceptedRevision = useRef(-1);
@@ -124,14 +127,14 @@ export function SettingsTheme({
       acceptedRevision.current = saved.revision;
       remember(saved.settingsTheme || next);
     } catch (error) {
-      notify?.(error instanceof Error ? error.message : '主题保存失败，请重试。', true);
+      notify?.(error instanceof Error ? error.message : tr('主题保存失败，请重试。'), true);
     } finally {
       pending.current = false;
       setSaving(false);
     }
   }
 
-  const label = options.find(([value]) => value === preference)![1];
+  const label = tr(options.find(([value]) => value === preference)![1]);
   const symbol = (value: Preference) =>
     value === 'codex' ? 'theme-auto' : value === 'light' ? 'sun' : 'moon';
   return (
@@ -155,8 +158,8 @@ export function SettingsTheme({
         ref={trigger}
         type="button"
         className="settings-theme-trigger"
-        aria-label={`设置页主题：${label}`}
-        title={preference === 'codex' ? '自动跟随 Codex' : label}
+        aria-label={tr('设置页主题：{{label}}', { label: label })}
+        title={preference === 'codex' ? tr('自动跟随 Codex') : label}
         disabled={saving}
         aria-expanded={open}
         aria-controls={menuId}
@@ -170,7 +173,7 @@ export function SettingsTheme({
         ref={menu}
         className="settings-theme-menu settings-menu-motion"
         role="group"
-        aria-label="设置页主题"
+        aria-label={tr('设置页主题')}
         hidden={!open}
         inert={!open}
         aria-hidden={!open}
@@ -192,7 +195,7 @@ export function SettingsTheme({
           <button
             key={value}
             type="button"
-            aria-label={name}
+            aria-label={tr(name)}
             aria-pressed={preference === value}
             onClick={() => {
               void select(value);
@@ -201,7 +204,7 @@ export function SettingsTheme({
             }}
           >
             <Icon name={symbol(value)} />
-            <span>{name}</span>
+            <span>{tr(name)}</span>
             <Icon name="check" className="settings-theme-check" />
           </button>
         ))}

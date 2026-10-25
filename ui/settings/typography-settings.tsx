@@ -1,3 +1,5 @@
+import { useLocale } from '../shared/use-locale';
+import { tr } from '../shared/i18n.js';
 /* [INPUT]: 统一字体偏好和原外观修订保存回调。
  * [OUTPUT]: 跟随对象、相对大小与自定义字号；失败保留数字草稿。
  * [POS]: 字体设置唯一入口，不另建保存通道。
@@ -14,6 +16,7 @@ export function TypographySettings({
   value?: TypographyPreferences;
   save: (value: TypographyPreferences) => Promise<unknown>;
 }) {
+  useLocale();
   const p = { ...defaultTypography, ...value };
   const [scale, setScale] = useState(String(p.scale)),
     [size, setSize] = useState(String(p.customSize));
@@ -29,7 +32,7 @@ export function TypographySettings({
       min = key === 'scale' ? 75 : 10,
       max = key === 'scale' ? 150 : 32;
     if (!text.trim() || !Number.isFinite(number) || number < min || number > max) {
-      setError(`请输入 ${min}–${max} 之间的数值`);
+      setError(tr('请输入 {{min}}–{{max}} 之间的数值', { min: min, max: max }));
       return;
     }
     setError('');
@@ -39,7 +42,7 @@ export function TypographySettings({
     target instanceof Element && !!target.closest('[data-settings-navigation]');
   return (
     <>
-      <Field id="typography-mode" label="字体大小">
+      <Field id="typography-mode" label={tr('字体大小')}>
         <NativeSelect
           id="typography-mode"
           controlWidth="short"
@@ -48,12 +51,12 @@ export function TypographySettings({
             void save({ ...p, mode: e.target.value as TypographyPreferences['mode'] })
           }
         >
-          <option value="follow">跟随 Codex</option>
-          <option value="custom">自定义字号</option>
+          <option value="follow">{tr('跟随 Codex')}</option>
+          <option value="custom">{tr('自定义字号')}</option>
         </NativeSelect>
       </Field>
       <div hidden={p.mode !== 'follow'}>
-        <Field id="typography-source" label="跟随对象">
+        <Field id="typography-source" label={tr('跟随对象')}>
           <NativeSelect
             id="typography-source"
             controlWidth="short"
@@ -62,12 +65,12 @@ export function TypographySettings({
               void save({ ...p, source: e.target.value as TypographyPreferences['source'] })
             }
           >
-            <option value="body">聊天正文</option>
-            <option value="session">左侧会话标题</option>
-            <option value="composer">输入框文字</option>
+            <option value="body">{tr('聊天正文')}</option>
+            <option value="session">{tr('左侧会话标题')}</option>
+            <option value="composer">{tr('输入框文字')}</option>
           </NativeSelect>
         </Field>
-        <Field id="typography-scale" label="相对大小（%）">
+        <Field id="typography-scale" label={tr('相对大小（%）')}>
           <Input
             id="typography-scale"
             type="number"
@@ -89,7 +92,7 @@ export function TypographySettings({
         </Field>
       </div>
       <div hidden={p.mode !== 'custom'}>
-        <Field id="typography-size" label="自定义字号（px）">
+        <Field id="typography-size" label={tr('自定义字号（px）')}>
           <Input
             id="typography-size"
             type="number"

@@ -1,3 +1,4 @@
+import { tr } from '../../shared/i18n.js';
 import { measureWork, samplePerformance, stopPerformance } from '../../shared/performance.js';
 import { bridgeCall } from './state.js';
 import { installNextDrop } from '../next-drop.js';
@@ -747,6 +748,7 @@ function install() {
   window[API_KEY] = {
     version: SCRIPT_VERSION,
     instanceId: INSTANCE_ID,
+    translate: tr,
     development: DEVELOPMENT,
     get state() {
       return debugState();

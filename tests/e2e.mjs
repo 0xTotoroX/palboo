@@ -269,6 +269,7 @@ try {
     args: [`--remote-debugging-port=${debugPort}`],
   });
   const context = await browser.newContext({
+    locale: 'zh-CN',
     viewport: { width: 1320, height: 1000 },
     colorScheme: 'light',
     permissions: ['clipboard-read', 'clipboard-write'],

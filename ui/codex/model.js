@@ -33,6 +33,11 @@
  */
 (() => {
   'use strict';
+  // Remains a standalone CDP script; the mounted workspace supplies UI localization.
+  const tr = (source, values = {}) =>
+    window.__companionFloatingPanel?.translate?.(source, values) ??
+    source.replace(/\{\{(\w+)\}\}/g, (match, key) => String(values[key] ?? match));
+
   const KEY = '__palbooModelControl';
   const CAPABILITIES = Symbol.for('palboo.modelCapabilities');
   window[KEY]?.dispose?.();
@@ -296,7 +301,7 @@
         if (!composer?.hasAttribute('data-codex-composer')) return null;
         return {
           id: identity(root, root, [...roots, ...draftRoots], true),
-          title: '新聊天',
+          title: tr('新聊天'),
           root,
           scope: root,
           composer,
@@ -388,7 +393,7 @@
       operation &&
       (event.target.closest(MENU) || event.target === operation.target.trigger)
     )
-      operation.aborted = '用户接管官方菜单';
+      operation.aborted = tr('用户接管官方菜单');
     if (event.isTrusted && !operation && event.target.closest(MENU)) cache = null;
     checkLive();
   }
@@ -397,13 +402,13 @@
   document.addEventListener('keydown', track, { capture: true, signal: life.signal });
   function checkLive() {
     if (!operation || operation.aborted) return;
-    if (disposed) operation.aborted = '适配器已销毁';
-    else if (window.__codexPlusQuickModelPresets) operation.aborted = 'Model Deck 正在运行';
+    if (disposed) operation.aborted = tr('适配器已销毁');
+    else if (window.__codexPlusQuickModelPresets) operation.aborted = tr('Model Deck 正在运行');
     else if (!sameTarget(operation.target, resolveTarget()))
-      operation.aborted = '目标聊天或 DOM 已变化';
+      operation.aborted = tr('目标聊天或 DOM 已变化');
     else if (capabilityVersion !== operation.capabilityVersion) {
       if (operation.refresh) operation.capabilityVersion = capabilityVersion;
-      else operation.aborted = '官方模型能力已变化';
+      else operation.aborted = tr('官方模型能力已变化');
     }
   }
   observer = new MutationObserver((records) => {
@@ -420,7 +425,7 @@
             record.oldValue !== record.target.getAttribute(record.attributeName)),
       )
     )
-      operation.aborted = '目标身份或 DOM 已替换';
+      operation.aborted = tr('目标身份或 DOM 已替换');
     checkLive();
   });
   function observeOperation() {
@@ -466,22 +471,22 @@
       message = '';
     if (disposed) {
       status = 'unavailable';
-      message = '适配器已销毁';
+      message = tr('适配器已销毁');
     } else if (window.__codexPlusQuickModelPresets) {
       status = 'conflict';
-      message = 'Model Deck 正在运行，请显式关闭后重试';
+      message = tr('Model Deck 正在运行，请显式关闭后重试');
     } else if (!target) {
       status = 'unavailable';
-      message = '无法唯一确认聊天身份与输入框，请选择目标聊天';
+      message = tr('无法唯一确认聊天身份与输入框，请选择目标聊天');
     } else if (compatibility?.officialModel === false) {
       status = 'unavailable';
       message = compatibility.message;
     } else if (operation) {
       status = 'busy';
-      message = '模型菜单操作进行中';
+      message = tr('模型菜单操作进行中');
     } else if (!models.length) {
       status = 'waiting';
-      message = '等待关联的官方 model/list 数据；可刷新官方模型菜单后重试，无需重启';
+      message = tr('等待关联的官方 model/list 数据；可刷新官方模型菜单后重试，无需重启');
     } else if (!current) {
       status = 'waiting';
     }
@@ -500,12 +505,12 @@
     const compatibility = window.__palbooHostCompatibility?.capability(op.target?.composer);
     if (compatibility?.officialModel === false) op.aborted ||= compatibility.message;
     if (op.controller.signal.aborted || performance.now() >= op.deadline)
-      op.aborted ||= String(op.controller.signal.reason || '操作超过 11 秒截止时间');
+      op.aborted ||= String(op.controller.signal.reason || tr('操作超过 11 秒截止时间'));
     if (op.aborted) {
       op.controller.abort(op.aborted);
       throw new Error(op.aborted);
     }
-    if (node && (!visible(node) || disabled(node))) throw new Error('官方控件已失效');
+    if (node && (!visible(node) || disabled(node))) throw new Error(tr('官方控件已失效'));
   }
   function pause(op, delay) {
     guard(op);
@@ -562,7 +567,7 @@
       await pause(op, 25);
       guard(op);
     } while (performance.now() < deadline);
-    throw new Error('等待官方菜单或配置回读超时');
+    throw new Error(tr('等待官方菜单或配置回读超时'));
   }
   function activate(op, node, mutation = false) {
     guard(op, node);
@@ -692,7 +697,7 @@
     one(all(main, '[role="menuitemcheckbox"][data-fast-mode-enabled]').filter(visible));
   function readMain(op, main) {
     guard(op, main);
-    phase(op, '读取当前配置');
+    phase(op, tr('读取当前配置'));
     const modelRow = sectionRow(main, 'model');
     const model = modelRow
       ? matchModel(rowValue(modelRow, 'model'))
@@ -704,7 +709,7 @@
     );
     const selected = one(all(main, '[data-model-selected="true"]').filter(visible));
     if (selected && model && matchModel(label(selected))?.id !== model.id)
-      throw new Error('官方模型显示与选中状态不一致');
+      throw new Error(tr('官方模型显示与选中状态不一致'));
     const speedRow = sectionRow(main, 'speed'),
       checkbox = fastCheckbox(main);
     const checked = checkbox?.getAttribute('aria-checked');
@@ -718,7 +723,7 @@
             ? 'standard'
             : null;
     if (!model || !model.reasoning.includes(reasoning) || !speed)
-      throw new Error('官方完整配置无法精确回读');
+      throw new Error(tr('官方完整配置无法精确回读'));
     return { model: model.id, reasoning, speed };
   }
   function remember(op, current) {
@@ -728,12 +733,12 @@
   }
   async function openMain(op) {
     guard(op);
-    phase(op, '打开主菜单');
+    phase(op, tr('打开主菜单'));
     const active = menus();
     const existing = one(active.filter((menu) => linkedMenu(op.target.trigger, menu)));
     if (active.length) {
       if (!existing || active.some((menu) => !menuFamily(existing).includes(menu)))
-        throw new Error('另一个官方菜单仍然打开，请先关闭该菜单再选择模型');
+        throw new Error(tr('另一个官方菜单仍然打开，请先关闭该菜单再选择模型'));
       // Clicking our control explicitly authorizes this target's already-open menu.
       // Do not toggle its trigger: that would close the very menu we need to read.
       op.main = existing;
@@ -775,7 +780,7 @@
   }
   async function closeMenu(op) {
     guard(op);
-    phase(op, '关闭自有菜单');
+    phase(op, tr('关闭自有菜单'));
     if (op.main) menuFamily(op.main).forEach((menu) => op.menus.add(menu));
     // Escape usually closes the deepest menu first. Some hosts listen only on
     // the parent; fall back to that same owned parent, never body or another menu.
@@ -797,9 +802,9 @@
     op.main = null;
   }
   async function submenu(op, main, section) {
-    phase(op, `打开 ${section} 选项`);
+    phase(op, tr('打开 {{section}} 选项', { section }));
     const row = sectionRow(main, section);
-    if (!row) throw new Error(`官方 ${section} 菜单不可用`);
+    if (!row) throw new Error(tr('官方 {{section}} 菜单不可用', { section }));
     const before = new Set(menus());
     const previousItems = new Set(items(main));
     activate(op, row);
@@ -840,8 +845,8 @@
         all(main, '[role="menuitemradio"][aria-checked="true"]').filter(visible),
       );
       if (!selected || disabled(selected) || selected.getAttribute('aria-describedby'))
-        throw new Error('官方模型视图无法安全返回，请先切回简洁视图');
-      phase(op, '返回简洁模型视图');
+        throw new Error(tr('官方模型视图无法安全返回，请先切回简洁视图'));
+      phase(op, tr('返回简洁模型视图'));
       activate(op, selected);
       await waitFor(op, () => one(all(main, '[data-model-picker-view="simple"]').filter(visible)));
     }
@@ -877,32 +882,34 @@
     ];
     const initial = readMain(op, main);
     const model = models.find((m) => m.id === initial.model);
-    if (wanted === 'persistent') throw new Error('官方简洁滑块不提供持续强度，请在官方菜单选择');
+    if (wanted === 'persistent')
+      throw new Error(tr('官方简洁滑块不提供持续强度，请在官方菜单选择'));
     let actual = initial;
     for (let i = 0; i < model.reasoning.length + 1 && actual.reasoning !== wanted; i++) {
       const slider = one(all(main, '[data-reasoning-slider]').filter(visible));
       if (!slider || !order.includes(actual.reasoning) || !order.includes(wanted))
-        throw new Error('官方推理滑块不可用');
+        throw new Error(tr('官方推理滑块不可用'));
       const key =
         order.indexOf(wanted) > order.indexOf(actual.reasoning) ? 'ArrowRight' : 'ArrowLeft';
       const before = actual.reasoning;
-      phase(op, '调整推理滑块');
+      phase(op, tr('调整推理滑块'));
       pressKey(op, slider, key, true);
       actual = await waitFor(op, () => {
         const current = readMain(op, main);
         return current.reasoning !== before || current.model !== initial.model ? current : null;
       });
-      if (actual.model !== initial.model) throw new Error('官方滑块同时改变了模型，请核对当前配置');
+      if (actual.model !== initial.model)
+        throw new Error(tr('官方滑块同时改变了模型，请核对当前配置'));
     }
-    if (actual.reasoning !== wanted) throw new Error('官方推理档位不可达');
+    if (actual.reasoning !== wanted) throw new Error(tr('官方推理档位不可达'));
   }
   async function selectionMenu(op, main, section) {
     if (section === 'model') {
       const toggle = one(all(main, '[data-model-picker-view-toggle]').filter(visible));
       if (toggle) {
         if (disabled(toggle) || toggle.getAttribute('data-interactive') === 'false')
-          throw new Error('官方模型选择已禁用');
-        phase(op, '打开高级模型视图');
+          throw new Error(tr('官方模型选择已禁用'));
+        phase(op, tr('打开高级模型视图'));
         activate(op, toggle);
         await waitFor(op, () =>
           one(all(main, '[data-model-picker-view="advanced"]').filter(visible)),
@@ -940,7 +947,7 @@
       await chooseReasoningSlider(op, main, wanted);
     } else if (checkbox) {
       const current = checkbox.getAttribute('aria-checked');
-      if (!['true', 'false'].includes(current)) throw new Error('官方速度状态未知');
+      if (!['true', 'false'].includes(current)) throw new Error(tr('官方速度状态未知'));
       if ((current === 'true') !== (wanted === 'fast')) activate(op, checkbox, true);
     } else {
       const menu = await selectionMenu(op, main, section);
@@ -956,8 +963,8 @@
         ),
       );
       if (!item || (section === 'model' && item.getAttribute('aria-describedby')))
-        throw new Error(`官方 ${section} 选项不存在、重复、锁定或被禁用`);
-      phase(op, `选择 ${section} 选项`);
+        throw new Error(tr('官方 {{section}} 选项不存在、重复、锁定或被禁用', { section }));
+      phase(op, tr('选择 {{section}} 选项', { section }));
       activate(op, item, true);
       if (section === 'model') op.explicitModel = true;
     }
@@ -982,16 +989,16 @@
       await pause(op, 40);
       guard(op);
     } while (performance.now() < deadline);
-    throw new Error(`官方 ${section} 切换未生效`);
+    throw new Error(tr('官方 {{section}} 切换未生效', { section }));
   }
   function begin(refresh = false) {
     const target = resolveTarget();
-    if (!target) throw new Error('目标不可用');
+    if (!target) throw new Error(tr('目标不可用'));
     operation = {
       target,
       capabilityVersion,
       refresh,
-      phase: '准备',
+      phase: tr('准备'),
       steps: [],
       mutated: false,
       aborted: '',
@@ -1003,7 +1010,7 @@
     };
     observeOperation();
     const active = operation;
-    active.timer = setTimeout(() => active.controller.abort('操作超过 11 秒截止时间'), 11000);
+    active.timer = setTimeout(() => active.controller.abort(tr('操作超过 11 秒截止时间')), 11000);
     try {
       guard(operation);
     } catch (error) {
@@ -1057,12 +1064,12 @@
       const main = await simpleMain(op);
       guard(op, main);
       if (!models.length) {
-        phase(op, '等待可用模型');
+        phase(op, tr('等待可用模型'));
         try {
           await waitFor(op, () => models.length > 0, 3500);
         } catch {
           guard(op);
-          throw new Error('未收到官方模型列表，请稍后重新刷新');
+          throw new Error(tr('未收到官方模型列表，请稍后重新刷新'));
         }
       }
       guard(op, main);
@@ -1097,7 +1104,7 @@
     if (operation || ['busy', 'unavailable', 'conflict'].includes(before.status))
       return result(before.status, before.message);
     if (request?.target?.id !== before.target.id || request?.expectedRevision !== before.revision)
-      return result('conflict', '目标或修订号已过期，请刷新后重试');
+      return result('conflict', tr('目标或修订号已过期，请刷新后重试'));
     const selection = { ...request?.selection };
     const model = models.find((entry) => entry.id === selection?.model);
     if (!models.length) return result('waiting', before.message);
@@ -1107,7 +1114,7 @@
       !['standard', 'fast'].includes(selection?.speed) ||
       (selection.speed === 'fast' && !model.fast)
     )
-      return result('invalid', '完整配置不受官方能力支持，未做任何修改');
+      return result('invalid', tr('完整配置不受官方能力支持，未做任何修改'));
     op = begin();
     let status = 'applied',
       message = '';
@@ -1115,7 +1122,7 @@
       previous = await readOfficial(op);
       guard(op);
       if (before.current && JSON.stringify(previous) !== JSON.stringify(before.current))
-        throw new Error('官方配置已变化，请刷新后重试');
+        throw new Error(tr('官方配置已变化，请刷新后重试'));
       if (request.preserveSpeed === true)
         selection.speed = previous.speed === 'fast' && model.fast ? 'fast' : 'standard';
       let actual = previous;
@@ -1128,7 +1135,7 @@
       actual = await readOfficial(op, true);
       guard(op);
       if (['model', 'reasoning', 'speed'].some((key) => actual[key] !== selection[key]))
-        throw new Error('官方完整配置与请求不一致');
+        throw new Error(tr('官方完整配置与请求不一致'));
     } catch (cause) {
       status = op.mutated ? 'partial' : op.aborted ? 'conflict' : 'unavailable';
       message = failure(op, cause);
@@ -1154,7 +1161,7 @@
   }
   function cancel() {
     if (!operation) return false;
-    operation.aborted = '操作已取消';
+    operation.aborted = tr('操作已取消');
     operation.controller.abort(operation.aborted);
     return true;
   }

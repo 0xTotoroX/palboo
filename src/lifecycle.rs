@@ -402,21 +402,10 @@ fn restart_approved(
 }
 
 fn confirm_desktop_restart() -> Result<bool> {
-    let output = Command::new("/usr/bin/osascript").args(["-e", r#"
-        tell current application
-            activate
-            set choice to display dialog "ChatGPT / Codex 已打开，但没有调试连接。是否正常退出后重开，以启用 Palboo？正在执行的任务可能中断。" with title "Palboo" buttons {"取消", "退出并重开"} default button "取消"
-            return button returned of choice
-        end tell
-    "#]).output()?;
-    if !output.status.success() {
-        // A cancelled dialog or an unavailable GUI must never authorize restart.
-        if String::from_utf8_lossy(&output.stderr).contains("(-128)") {
-            return Ok(false);
-        }
-        bail!("无法显示重开确认；ChatGPT 保持运行。")
-    }
-    Ok(String::from_utf8_lossy(&output.stdout).trim() == "退出并重开")
+    confirm_restart(crate::i18n::text(
+        "ChatGPT / Codex 已打开，但没有调试连接。是否正常退出后重开，以启用 Palboo？正在执行的任务可能中断。",
+        "ChatGPT / Codex is open without a debugging connection. Quit and reopen it to connect Palboo? Running tasks may be interrupted.",
+    ))
 }
 
 pub(crate) fn approve_codex_host_disable(policy: config::HostRestartPolicy) -> Result<bool> {
@@ -425,15 +414,27 @@ pub(crate) fn approve_codex_host_disable(policy: config::HostRestartPolicy) -> R
 
 fn confirm_codex_host_restart(enabled: bool) -> Result<bool> {
     let message = if enabled {
-        "启用 CodexHost 需要退出并重开 Codex。请先结束正在执行的任务。"
+        crate::i18n::text(
+            "启用 CodexHost 需要退出并重开 Codex。请先结束正在执行的任务。",
+            "Enabling CodexHost requires quitting and reopening Codex. Finish running tasks first.",
+        )
     } else {
-        "停用 CodexHost 需要退出并重开 Codex。正在执行的任务可能中断。"
+        crate::i18n::text(
+            "停用 CodexHost 需要退出并重开 Codex。正在执行的任务可能中断。",
+            "Disabling CodexHost requires quitting and reopening Codex. Running tasks may be interrupted.",
+        )
     };
+    confirm_restart(message)
+}
+
+fn confirm_restart(message: &str) -> Result<bool> {
+    let cancel = crate::i18n::text("取消", "Cancel");
+    let restart = crate::i18n::text("退出并重开", "Quit and reopen");
     let script = format!(
         r#"
         tell current application
             activate
-            set choice to display dialog "{message}" with title "Palboo" buttons {{"取消", "退出并重开"}} default button "取消"
+            set choice to display dialog "{message}" with title "Palboo" buttons {{"{cancel}", "{restart}"}} default button "{cancel}"
             return button returned of choice
         end tell
     "#
@@ -447,7 +448,7 @@ fn confirm_codex_host_restart(enabled: bool) -> Result<bool> {
         }
         bail!("无法显示重开确认，Codex 保持运行");
     }
-    Ok(String::from_utf8_lossy(&output.stdout).trim() == "退出并重开")
+    Ok(String::from_utf8_lossy(&output.stdout).trim() == restart)
 }
 
 pub(crate) async fn quit_desktop(

@@ -1,6 +1,6 @@
 /* [INPUT]: Production website build, local HTTP server and synthetic browser input.
  * [OUTPUT]: Feature/state, surface geometry, theme, motion and responsive acceptance.
- * [POS]: Isolated public-page tests; no host, model, real configuration or screenshots.
+ * [POS]: Isolated public-page tests and synthetic browser captures; no host, model or real configuration.
  * [PROTOCOL]: Keep tests/AGENTS.md and website/AGENTS.md in sync. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -43,6 +43,7 @@ async function scrollScene(page, selector, progress) {
 
 test('portfolio demos preserve drafts, preferences and undo without service requests', async () => {
   const page = await browser.newPage({
+    locale: 'zh-CN',
     viewport: { width: 1440, height: 1000 },
     reducedMotion: 'reduce',
   });
@@ -60,7 +61,7 @@ test('portfolio demos preserve drafts, preferences and undo without service requ
       await demo.getByLabel('接着聊', { exact: true }).inputValue(),
       /^我的草稿\n请把作品集第一版/,
     );
-    await demo.getByLabel('演示建议方向').selectOption('探索拓展');
+    await demo.getByLabel('演示建议方向').selectOption('explore');
     await demo.getByRole('button', { name: /比较展示方式/ }).click();
     await choose('大纲');
     await demo
@@ -123,7 +124,10 @@ test('portfolio demos preserve drafts, preferences and undo without service requ
 });
 
 test('footer returns to the opening with keyboard focus and keeps demonstration drafts', async () => {
-  const page = await browser.newPage({ viewport: { width: 847, height: 988 } });
+  const page = await browser.newPage({
+    locale: 'zh-CN',
+    viewport: { width: 847, height: 988 },
+  });
   try {
     await page.goto(base);
     const draft = page.getByLabel('提示词优化演示', { exact: true });
@@ -164,7 +168,10 @@ test(
   'full original playback includes typing before the eyes land in the left entry',
   { timeout: 60000 },
   async () => {
-    const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+    const page = await browser.newPage({
+      locale: 'zh-CN',
+      viewport: { width: 1440, height: 1000 },
+    });
     try {
       await page.goto(base);
       page.setDefaultTimeout(15000);
@@ -239,7 +246,10 @@ test(
 );
 
 test('the first wheel movement carries the face and clicking it replays from the top', async () => {
-  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  const page = await browser.newPage({
+    locale: 'zh-CN',
+    viewport: { width: 1440, height: 1000 },
+  });
   const face = () =>
     page.evaluate(() => {
       const svg = document.querySelector('.original-opening svg');
@@ -293,7 +303,10 @@ test('the first wheel movement carries the face and clicking it replays from the
 });
 
 test('active editing and local state survive chapter changes, responsive modes and reduced motion', async () => {
-  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  const page = await browser.newPage({
+    locale: 'zh-CN',
+    viewport: { width: 1440, height: 1000 },
+  });
   try {
     await page.goto(base);
     await scrollScene(page, '.reading-story', 0.1);
@@ -362,6 +375,7 @@ test('active editing and local state survive chapter changes, responsive modes a
 
 test('board supports real pointer drag, keyboard actions and creating a local task', async () => {
   const page = await browser.newPage({
+    locale: 'zh-CN',
     viewport: { width: 1280, height: 900 },
     reducedMotion: 'reduce',
   });
@@ -406,7 +420,10 @@ test('board supports real pointer drag, keyboard actions and creating a local ta
 });
 
 test('original settings journey, layout controls and drafts are reused on the website', async () => {
-  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  const page = await browser.newPage({
+    locale: 'zh-CN',
+    viewport: { width: 1440, height: 1000 },
+  });
   try {
     await page.goto(base);
     const demo = page.locator('.surface-story');
@@ -525,7 +542,10 @@ test('opening stays within short desktop viewports and the original eyes clear t
 });
 
 test('reading changes with the visible heading, releases pointer actions and restores static chapter correspondence', async () => {
-  const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+  const page = await browser.newPage({
+    locale: 'zh-CN',
+    viewport: { width: 1280, height: 720 },
+  });
   try {
     await page.goto(base);
     const demo = page.locator('.product-demo:visible');
@@ -577,6 +597,7 @@ test('reading changes with the visible heading, releases pointer actions and res
 
 test('model matrix, quota, presets, material samples and speed states use real product views', async () => {
   const page = await browser.newPage({
+    locale: 'zh-CN',
     viewport: { width: 1440, height: 900 },
     reducedMotion: 'reduce',
   });
@@ -625,7 +646,10 @@ test('model matrix, quota, presets, material samples and speed states use real p
 });
 
 test('pointer takeover releases keyboard chapter lock; static resizing and manual window editing retain focus', async () => {
-  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  const page = await browser.newPage({
+    locale: 'zh-CN',
+    viewport: { width: 1440, height: 900 },
+  });
   try {
     await page.goto(base);
     await scrollScene(page, '.reading-story', 0.1);
@@ -687,7 +711,10 @@ test('pointer takeover releases keyboard chapter lock; static resizing and manua
 });
 
 test('responsive reflow preserves the focused feature before a delayed media-query notification', async () => {
-  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  const page = await browser.newPage({
+    locale: 'zh-CN',
+    viewport: { width: 1440, height: 900 },
+  });
   try {
     await page.addInitScript(() => {
       const match = window.matchMedia.bind(window);
@@ -739,7 +766,11 @@ test('responsive reflow preserves the focused feature before a delayed media-que
 });
 
 test('light/dark responsive and short screens preserve readable controls without overflow or duplicate ids', async () => {
-  const page = await browser.newPage({ reducedMotion: 'reduce', colorScheme: 'light' });
+  const page = await browser.newPage({
+    locale: 'zh-CN',
+    reducedMotion: 'reduce',
+    colorScheme: 'light',
+  });
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
   try {
@@ -809,7 +840,10 @@ test('light/dark responsive and short screens preserve readable controls without
   }
 });
 test('embedded SVG geometry and poses match the approved original at each phase', async () => {
-  const original = await browser.newPage({ reducedMotion: 'reduce' });
+  const original = await browser.newPage({
+    locale: 'zh-CN',
+    reducedMotion: 'reduce',
+  });
   const embedded = await browser.newPage();
   try {
     const source = await readFile('ui/website/media/palboo-opening.source.html', 'utf8');
@@ -841,5 +875,52 @@ test('embedded SVG geometry and poses match the approved original at each phase'
   } finally {
     await original.close();
     await embedded.close();
+  }
+});
+
+test('English website retains demo drafts and choices through language switching and reload', async () => {
+  const page = await browser.newPage({
+    locale: 'en-US',
+    viewport: { width: 1280, height: 960 },
+    reducedMotion: 'reduce',
+  });
+  const errors = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  try {
+    await page.goto(base);
+    await page.waitForFunction(() => document.documentElement.lang === 'en');
+    assert.match(
+      await page.locator('h1').innerText(),
+      /Give your conversations\s+another dimension/,
+    );
+    const demo = page.locator('.product-demo').first();
+    await demo.locator('textarea').fill('保留我的输入 / keep my draft');
+    const direction = demo.locator('.next-demo-actions select');
+    await direction.selectOption('explore');
+    await demo.getByRole('button', { name: /Compare presentation/ }).waitFor();
+    const draft = await demo.locator('textarea').inputValue();
+    for (const locale of ['zh-CN', 'en']) {
+      await page.locator('.site-language').click();
+      await page.waitForFunction((expected) => document.documentElement.lang === expected, locale);
+      assert.equal(await demo.locator('textarea').inputValue(), draft);
+      assert.equal(await direction.inputValue(), 'explore');
+    }
+    for (const width of [390, 742, 1280]) {
+      await page.setViewportSize({ width, height: 960 });
+      await page.locator('h1').scrollIntoViewIfNeeded();
+      assert.equal(
+        await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
+        false,
+      );
+      await page.screenshot({ path: `target/reports/localization/site-opening-en-${width}.png` });
+      await page.locator('#install').scrollIntoViewIfNeeded();
+      await page.screenshot({ path: `target/reports/localization/site-install-en-${width}.png` });
+    }
+    await page.reload();
+    await page.waitForFunction(() => document.documentElement.lang === 'en');
+    assert.equal(await page.locator('html').getAttribute('lang'), 'en');
+    assert.deepEqual(errors, []);
+  } finally {
+    await page.close();
   }
 });

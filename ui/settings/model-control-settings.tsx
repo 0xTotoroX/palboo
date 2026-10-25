@@ -1,3 +1,5 @@
+import { useLocale } from '../shared/use-locale';
+import { tr } from '../shared/i18n.js';
 /* [INPUT]: Model state, revision-checked API. [OUTPUT]: Feature/usage switches, serialized organization settings and read-only preview snapshot.
  * [POS]: Business enablement only; all placement and themes belong to shared settings.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
@@ -18,6 +20,7 @@ export function ModelControlSettings({
   detailed?: boolean;
   onSnapshot?: (state: ModelState | null) => void;
 }) {
+  useLocale();
   const [state, setState] = useState<ModelState | null>(null);
   const [enabled, setEnabled] = useState<boolean | null>(null),
     [busy, setBusy] = useState(false),
@@ -88,7 +91,7 @@ export function ModelControlSettings({
     } catch (error) {
       setMessage(
         String(error).includes('model_control_conflict')
-          ? '模型设置已在其他窗口更新，已重新读取。请检查后再保存。'
+          ? tr('模型设置已在其他窗口更新，已重新读取。请检查后再保存。')
           : String(error),
       );
       try {
@@ -109,26 +112,26 @@ export function ModelControlSettings({
     <section
       id="settings-model-control"
       tabIndex={-1}
-      aria-label="模型切换设置"
+      aria-label={tr('模型切换设置')}
       className="settings-section"
       onChangeCapture={feedback.track}
     >
       <FeatureSwitch
-        name="模型切换"
+        name={tr('模型切换')}
         checked={enabled ?? false}
         disabled={!live || busy || enabled === null}
         onChange={(value) => void change(value)}
       />
       {!feedback.target?.closest('dialog') && (
         <Feedback
-          text={message || (busy ? '正在保存…' : '')}
+          text={message || (busy ? tr('正在保存…') : '')}
           failed={!!message}
           target={feedback.target}
         />
       )}
       <div hidden={!detailed}>
         <FeatureSwitch
-          name="额度显示"
+          name={tr('额度显示')}
           checked={state?.preferences.showUsage !== false}
           disabled={!live || busy || !state}
           onChange={(value) => void operate({ showUsage: value })}

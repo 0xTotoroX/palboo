@@ -63,6 +63,7 @@ export async function checkPopout({
     'hidden',
   );
   const context = await browser.newContext({
+    locale: 'zh-CN',
     viewport: { width: preferences.width + 24, height: popoutHeight + 24 },
     colorScheme: 'light',
   });

@@ -1,3 +1,5 @@
+import { useLocale } from '../../shared/use-locale';
+import { tr } from '../../shared/i18n.js';
 /* [INPUT]: Metadata-only host projection and guarded main-composer actions.
  * [OUTPUT]: Dynamic Bot selectors with chat-scoped status, follow-up and stop requests.
  * [POS]: Palboo feature content, shared by existing surfaces; no second chat input.
@@ -33,15 +35,33 @@ export type BotState = {
   } | null;
 };
 const status: Record<string, string> = {
-  calling: '正在调用',
-  running: '处理中',
-  finished: '已回复',
-  busy: '忙碌',
-  interrupted: '已停止',
-  error: '调用失败',
-  unknown: '状态待确认',
-  unexpected: 'Bot 身份异常，请在主聊天核查',
-  disconnected: '连接已变化，请在主聊天核查',
+  get calling() {
+    return tr('正在调用');
+  },
+  get running() {
+    return tr('处理中');
+  },
+  get finished() {
+    return tr('已回复');
+  },
+  get busy() {
+    return tr('忙碌');
+  },
+  get interrupted() {
+    return tr('已停止');
+  },
+  get error() {
+    return tr('调用失败');
+  },
+  get unknown() {
+    return tr('状态待确认');
+  },
+  get unexpected() {
+    return tr('Bot 身份异常，请在主聊天核查');
+  },
+  get disconnected() {
+    return tr('连接已变化，请在主聊天核查');
+  },
 };
 export function BotsView({
   state,
@@ -54,8 +74,9 @@ export function BotsView({
   disabled: boolean;
   action: (data: Record<string, unknown>) => void;
 }) {
+  useLocale();
   const snapshot = state.snapshot;
-  if (!snapshot) return <p className="feature-placeholder">等待 Codex 连接…</p>;
+  if (!snapshot) return <p className="feature-placeholder">{tr('等待 Codex 连接…')}</p>;
   const blocked = disabled || !snapshot.target || snapshot.catalog?.stale;
   const groups = botGroups(snapshot.bots, snapshot.catalog?.sidebar);
   const hasBots = groups.some((group) => group.bots.length);
@@ -63,18 +84,18 @@ export function BotsView({
     snapshot.catalog?.error ||
     snapshot.catalog?.sidebarError ||
     (snapshot.catalog?.stale
-      ? '请打开 Grok Bot 更新资料。'
+      ? tr('请打开 Grok Bot 更新资料。')
       : !hasBots
-        ? '暂无 Bot'
+        ? tr('暂无 Bot')
         : !snapshot.target
-          ? '请先打开可输入的聊天'
+          ? tr('请先打开可输入的聊天')
           : '');
   const refresh =
     state.autoSync === false ? (
       <button
         type="button"
         data-refresh="bots"
-        aria-label="刷新 Bot 资料"
+        aria-label={tr('刷新 Bot 资料')}
         disabled={disabled}
         onClick={() => action({ action: 'refresh' })}
       >
@@ -84,9 +105,13 @@ export function BotsView({
   return (
     <section className="palboo-bots" aria-label="Grok Bot">
       {headerActions ? createPortal(refresh, headerActions) : refresh}
-      {notice && <p role="status">{notice}</p>}
+      {notice && <p role="status">{tr(notice)}</p>}
       {groups.map((group) => (
-        <section className="palboo-bot-group" key={group.id} aria-label={group.name || 'Bot 列表'}>
+        <section
+          className="palboo-bot-group"
+          key={group.id}
+          aria-label={group.name || tr('Bot 列表')}
+        >
           {group.kind !== 'pinned' && group.name && (
             <h3 className="palboo-bot-group-title">{group.name}</h3>
           )}
@@ -120,13 +145,15 @@ export function BotsView({
                   </span>
                 </button>
                 {bot.available === false && (
-                  <span className="palboo-bot-status">Bot 重名，请在 Grok Bot 中改名。</span>
+                  <span className="palboo-bot-status">
+                    {tr('Bot 重名，请在 Grok Bot 中改名。')}
+                  </span>
                 )}
                 {(bot.current || bot.occupied) && (
                   <span className="palboo-bot-status" role="status">
                     {bot.occupied
-                      ? '其他聊天正在调用'
-                      : status[bot.current!.status] || '状态待确认'}
+                      ? tr('其他聊天正在调用')
+                      : status[bot.current!.status] || tr('状态待确认')}
                   </span>
                 )}
                 {bot.current && (
@@ -142,7 +169,9 @@ export function BotsView({
                         )
                       }
                     >
-                      {['calling', 'running'].includes(bot.current.status) ? '查看进度' : '追问'}
+                      {['calling', 'running'].includes(bot.current.status)
+                        ? tr('查看进度')
+                        : tr('追问')}
                     </button>
                     {['calling', 'running'].includes(bot.current.status) && (
                       <button
@@ -150,7 +179,7 @@ export function BotsView({
                         disabled={blocked || bot.occupied || bot.available === false}
                         onClick={() => send('stop')}
                       >
-                        填入停止请求
+                        {tr('填入停止请求')}
                       </button>
                     )}
                   </div>

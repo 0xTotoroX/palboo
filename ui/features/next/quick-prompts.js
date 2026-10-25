@@ -1,3 +1,4 @@
+import { tr } from '../../shared/i18n.js';
 /* [INPUT]: Projected quick prompts, transient reading state and revision-checked settings save.
  * [OUTPUT]: Underlined shortcuts with inline add/edit, confirmed removal and retained failure drafts.
  * [POS]: Next-step content only; adapters own transport and settings own persistence.
@@ -21,10 +22,10 @@ export function createQuickPrompts({ read, reading, save, beforeEdit, rendered }
     `<button type="button" class="csw-quick-action" data-quick-action="${action}" aria-label="${label}" title="${label}" ${extra}>${iconSvg(icon)}</button>`;
   function editorHtml(draft) {
     if (!draft) return '';
-    const cancel = '<button type="button" data-quick-action="cancel">取消</button>';
+    const cancel = `<button type="button" data-quick-action="cancel">${tr('取消')}</button>`;
     if (draft.remove)
-      return `<div class="csw-quick-editor" role="group" aria-label="确认删除快捷指令"><p>删除“${escapeHtml(draft.label)}”？</p><div class="csw-quick-editor-actions">${cancel}<button type="button" data-quick-action="confirm-delete">确认删除</button></div></div>`;
-    return `<form class="csw-quick-editor" aria-label="${draft.index === null ? '添加' : '编辑'}快捷指令"><label>名称<input name="label" aria-label="快捷指令名称" maxlength="20" required value="${escapeAttr(draft.label)}"></label><label>指令内容<textarea name="prompt" aria-label="快捷指令内容" maxlength="4000" rows="3" required>${escapeHtml(draft.prompt)}</textarea></label><div class="csw-quick-editor-actions">${cancel}<button type="submit">保存</button></div></form>`;
+      return `<div class="csw-quick-editor" role="group" aria-label="${tr('确认删除快捷指令')}"><p>${escapeHtml(tr('删除“{{name}}”？', { name: draft.label }))}</p><div class="csw-quick-editor-actions">${cancel}<button type="button" data-quick-action="confirm-delete">${tr('确认删除')}</button></div></div>`;
+    return `<form class="csw-quick-editor" aria-label="${draft.index === null ? tr('添加快捷指令') : tr('编辑快捷指令')}"><label>${tr('名称')}<input name="label" aria-label="${tr('快捷指令名称')}" maxlength="20" required value="${escapeAttr(draft.label)}"></label><label>${tr('指令内容')}<textarea name="prompt" aria-label="${tr('快捷指令内容')}" maxlength="4000" rows="3" required>${escapeHtml(draft.prompt)}</textarea></label><div class="csw-quick-editor-actions">${cancel}<button type="submit">${tr('保存')}</button></div></form>`;
   }
   function html() {
     const { items } = state();
@@ -32,16 +33,16 @@ export function createQuickPrompts({ read, reading, save, beforeEdit, rendered }
     const tags = items
       .map((item, index) => {
         const remove = editing
-          ? iconButton('delete:' + index, 'close', '删除快捷指令 ' + escapeAttr(item.label))
+          ? iconButton('delete:' + index, 'close', tr('删除快捷指令 ') + escapeAttr(item.label))
           : '';
-        return `<div class="csw-quick-tag"><button type="button" class="csw-quick-prompt" data-quick-prompt="${index}" ${editing ? 'aria-description="点击编辑快捷指令"' : ''}>${escapeHtml(item.label)}</button>${remove}</div>`;
+        return `<div class="csw-quick-tag"><button type="button" class="csw-quick-prompt" data-quick-prompt="${index}" ${editing ? tr('aria-description="点击编辑快捷指令"') : ''}>${escapeHtml(item.label)}</button>${remove}</div>`;
       })
       .join('');
     const actions = save
-      ? `<div class="csw-quick-actions">${iconButton('edit', 'pencil', editing ? '完成编辑快捷指令' : '编辑快捷指令', `aria-pressed="${!!editing}"`)}${iconButton('add', 'plus', '添加快捷指令')}</div>`
+      ? `<div class="csw-quick-actions">${iconButton('edit', 'pencil', editing ? tr('完成编辑快捷指令') : tr('编辑快捷指令'), `aria-pressed="${!!editing}"`)}${iconButton('add', 'plus', tr('添加快捷指令'))}</div>`
       : '';
-    const feedback = error || (busy ? '正在保存…' : '');
-    return `<div class="csw-quick-area"><div class="csw-quick-prompts" aria-label="常用提示词" data-editing="${!!editing}">${tags}${actions}</div>${editorHtml(reading.quickPromptDraft)}<div class="csw-quick-feedback" role="status" ${feedback ? '' : 'hidden'}>${escapeHtml(feedback)}</div></div>`;
+    const feedback = error || (busy ? tr('正在保存…') : '');
+    return `<div class="csw-quick-area"><div class="csw-quick-prompts" aria-label="${tr('常用提示词')}" data-editing="${!!editing}">${tags}${actions}</div>${editorHtml(reading.quickPromptDraft)}<div class="csw-quick-feedback" role="status" ${feedback ? '' : 'hidden'}>${escapeHtml(feedback)}</div></div>`;
   }
   function repaint(focus) {
     if (!root?.isConnected) return;
@@ -99,14 +100,14 @@ export function createQuickPrompts({ read, reading, save, beforeEdit, rendered }
         !Array.isArray(result.quickPrompts) ||
         !Number.isFinite(result.configurationRevision)
       )
-        throw Error('未收到保存确认，请重试');
+        throw Error(tr('未收到保存确认，请重试'));
       reading.quickPromptSaved = {
         items: result.quickPrompts,
         revision: result.configurationRevision,
       };
       delete reading.quickPromptDraft;
     } catch (e) {
-      error = e.message || '保存失败，请重试';
+      error = e.message || tr('保存失败，请重试');
     } finally {
       busy = false;
       repaint(error ? 'input, [data-quick-action="cancel"]' : '[data-quick-action="add"]');

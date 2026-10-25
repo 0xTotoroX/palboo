@@ -1,3 +1,5 @@
+import { useLocale } from '../shared/use-locale';
+import { tr } from '../shared/i18n.js';
 /* [INPUT]: Button presentation preset and the project's public release URL.
  * [OUTPUT]: Accessible GitHub entry shared by the hero and local comparison.
  * [POS]: Website-only call to action; no release lookup or download side effects.
@@ -8,6 +10,7 @@ import githubMark from './media/github-mark.svg?raw';
 export type GithubLinkVariant = 'text' | 'outline' | 'solid' | 'download';
 
 export function GithubLink({ variant = 'download' }: { variant?: GithubLinkVariant }) {
+  useLocale();
   const download = variant === 'download';
   return (
     <a
@@ -15,7 +18,7 @@ export function GithubLink({ variant = 'download' }: { variant?: GithubLinkVaria
       href="https://github.com/0xTotoroX/palboo/releases"
       target="_blank"
       rel="noopener noreferrer"
-      aria-label={download ? '下载，前往 GitHub 发布页面' : '前往 GitHub 发布页面'}
+      aria-label={download ? tr('下载，前往 GitHub 发布页面') : tr('前往 GitHub 发布页面')}
     >
       {download ? (
         <>
@@ -24,7 +27,7 @@ export function GithubLink({ variant = 'download' }: { variant?: GithubLinkVaria
             aria-hidden="true"
             dangerouslySetInnerHTML={{ __html: githubMark }}
           />
-          下载
+          {tr('下载')}
         </>
       ) : (
         <>

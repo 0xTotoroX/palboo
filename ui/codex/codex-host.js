@@ -3,6 +3,11 @@
  * [POS]: 上游只读适配；缺失或未知协议拒绝模型写入，不覆盖上游实现。
  * [PROTOCOL]: 变更时同步 codex/AGENTS.md。 */
 (() => {
+  // Remains a standalone CDP script; the mounted workspace supplies UI localization.
+  const tr = (source, values = {}) =>
+    window['__companionFloatingPanel']?.translate?.(source, values) ??
+    source.replace(/\{\{(\w+)\}\}/g, (match, key) => String(values[key] ?? match));
+
   /** @param {Element | null | undefined} composer */
   function capability(composer) {
     const probe = window.__codexhostRendererBindingProbeV1;
@@ -11,29 +16,29 @@
       const controls = scope.querySelectorAll('[data-codexhost-agent-control]');
       if (controls.length) {
         if (controls.length !== 1)
-          return { officialModel: false, message: '无法确认当前 CodexHost Agent' };
+          return { officialModel: false, message: tr('无法确认当前 CodexHost Agent') };
         const control = controls[0];
         const id = control.getAttribute('data-codexhost-agent-control');
-        if (!probe) return { officialModel: false, message: 'CodexHost 状态接口尚未就绪' };
+        if (!probe) return { officialModel: false, message: tr('CodexHost 状态接口尚未就绪') };
         let agent;
         try {
           const status = probe.status();
           if (status?.version !== 2)
-            return { officialModel: false, message: '当前 CodexHost 版本尚未适配模型切换' };
+            return { officialModel: false, message: tr('当前 CodexHost 版本尚未适配模型切换') };
           const selections = status.selections?.filter((item) => item.composerId === id);
           if (!id || selections?.length !== 1)
-            return { officialModel: false, message: '无法确认当前 CodexHost Agent' };
+            return { officialModel: false, message: tr('无法确认当前 CodexHost Agent') };
           agent = selections[0].agent;
         } catch {
-          return { officialModel: false, message: '无法读取 CodexHost Agent 状态' };
+          return { officialModel: false, message: tr('无法读取 CodexHost Agent 状态') };
         }
         return agent === 'codex'
           ? { officialModel: true, message: '' }
           : {
               officialModel: false,
               message: agent
-                ? `当前使用 ${agent}，请通过 CodexHost 切换模型`
-                : '无法确认当前 CodexHost Agent',
+                ? tr('当前使用 {{agent}}，请通过 CodexHost 切换模型', { agent })
+                : tr('无法确认当前 CodexHost Agent'),
             };
       }
       // Do not borrow controls from another composer's ancestor.
@@ -42,7 +47,7 @@
       scope = scope.parentElement;
     }
     return probe || document.querySelector('[data-codexhost-agent-control]')
-      ? { officialModel: false, message: 'CodexHost 输入框尚未就绪' }
+      ? { officialModel: false, message: tr('CodexHost 输入框尚未就绪') }
       : { officialModel: true, message: '' };
   }
   window.__palbooHostCompatibility = { capability };

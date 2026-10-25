@@ -1,5 +1,6 @@
 /* [INPUT]: Text and numeric values. [OUTPUT]: Escaping, normalization, concise error presentation and bounds shared by views and adapters.
  * [POS]: Pure helpers. [PROTOCOL]: Keep shared/AGENTS.md in sync. */
+import { tr } from './i18n.js';
 export function normalizeText(value) {
   return String(value || '')
     .replace(/\u00a0/g, ' ')
@@ -31,6 +32,6 @@ export function errorMessage(error) {
   const message = error && typeof error === 'object' && 'message' in error ? error.message : error;
   const text = typeof message === 'string' ? message.replace(/^Error:\s*/, '').trim() : '';
   if (text === '当前聊天中未找到该术语的位置，聊天可能已切换或内容已更新')
-    return '未找到原文，请刷新术语。';
-  return text || '操作失败，请重试。';
+    return tr('未找到原文，请刷新术语。');
+  return tr(text || '操作失败，请重试。');
 }

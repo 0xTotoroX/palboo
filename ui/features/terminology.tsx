@@ -1,3 +1,5 @@
+import { useLocale } from '../shared/use-locale';
+import { tr } from '../shared/i18n.js';
 /* [INPUT]: 术语状态、当前聊天涉及编号、窗口阅读状态与受限操作。
  * [OUTPUT]: 术语积木、详情、收藏及已掌握；可选的点击定位通过受限操作回到宿主执行。
  * [POS]: 仅消费后台投影，不采集或改写宿主聊天。
@@ -45,6 +47,7 @@ export function TerminologyView({
   locked: boolean;
   action: (value: Record<string, unknown>) => Promise<unknown>;
 }) {
+  useLocale();
   const [filter, setFilter] = useState(reading.termsFilter || 'current');
   const [selected, setSelected] = useState(reading.termsSelected || '');
   const [reveal, setReveal] = useState(0);
@@ -73,7 +76,7 @@ export function TerminologyView({
     }
     const perform = async (action: string, id: string) => {
       const result = await latest.current.action({ action, id });
-      if (result === null) throw Error('操作未完成，请重试');
+      if (result === null) throw Error(tr('操作未完成，请重试'));
     };
     const options = {
       preferences: state.preferences,
@@ -104,11 +107,11 @@ export function TerminologyView({
   return (
     <div className="term-module" ref={module}>
       <style>{`.term-module{padding:12px 14px;min-width:0;color:var(--ink);font-size:inherit;line-height:inherit}.term-module nav{display:flex;gap:18px;margin-bottom:16px;flex-wrap:wrap}.term-module nav button{border:0;background:none;color:var(--muted);padding:4px 0;font:inherit;cursor:pointer}.term-module nav button[aria-pressed=true]{color:var(--ink);font-weight:600}.term-bricks{display:flex;flex-wrap:wrap;gap:8px;align-content:flex-start}.term-brick{border:1px solid var(--line);border-radius:8px;padding:6px 10px;color:var(--ink);background:var(--surface);font:inherit;line-height:1.4;cursor:pointer;max-width:100%;overflow-wrap:anywhere;transition:background 120ms,transform 120ms}.term-brick:active{transform:scale(.97)}.term-brick[aria-pressed=true]{background:var(--hover);border-color:var(--muted)}.term-brick[data-mastered=true]{color:var(--muted)}.term-module .term-status{font-size:var(--feature-status-font,.875em);line-height:1.5;color:var(--feature-status-color,var(--muted));margin:12px 0;overflow-wrap:anywhere}.term-module button:focus-visible{outline:2px solid currentColor;outline-offset:3px}@media(prefers-reduced-motion:reduce){.term-brick{transition:none}}`}</style>
-      <nav aria-label="术语范围">
+      <nav aria-label={tr('术语范围')}>
         {[
-          ['current', '当前聊天'],
-          ['favorites', '收藏'],
-          ['mastered', '已掌握'],
+          ['current', tr('当前聊天')],
+          ['favorites', tr('收藏')],
+          ['mastered', tr('已掌握')],
         ].map(([id, label]) => (
           <button
             type="button"
@@ -153,21 +156,21 @@ export function TerminologyView({
         <p className="term-status">
           {filter === 'current'
             ? state.context
-              ? '当前聊天暂无术语'
-              : '请先打开聊天'
+              ? tr('当前聊天暂无术语')
+              : tr('请先打开聊天')
             : filter === 'favorites'
-              ? '暂无收藏'
-              : '暂无已掌握术语'}
+              ? tr('暂无收藏')
+              : tr('暂无已掌握术语')}
         </p>
       )}
       {filter === 'current' && state.phase === 'analyzing' && (
         <p className="term-status" role="status">
-          正在核对词义…
+          {tr('正在核对词义…')}
         </p>
       )}
       {filter === 'current' && state.phase === 'error' && (
         <p className="term-status" role="status">
-          {state.message || '词义核对失败，保留已有结果。'}
+          {tr(state.message) || tr('词义核对失败，保留已有结果。')}
         </p>
       )}
     </div>

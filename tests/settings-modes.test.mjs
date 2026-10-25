@@ -10,10 +10,11 @@ import { join } from 'node:path';
 import { chromium } from 'playwright';
 import { emulateMedia } from './browser-motion.mjs';
 import { fixtureSettings } from './fixtures.mjs';
+import { build } from 'esbuild';
 
 test(
   'unified settings retain grouped pages, legacy links, drafts, drawers and reading without navigation writes',
-  { timeout: 120000 },
+  { timeout: 180000 },
   async (testContext) => {
     let settings = structuredClone(fixtureSettings),
       rejectNext = false,
@@ -1496,7 +1497,13 @@ test(
         'drawer motion and navigation never save configuration',
       );
       await category('connection');
-      await page.addScriptTag({ content: await readFile('ui/settings/dev-sources.js', 'utf8') });
+      const sourceBundle = await build({
+        entryPoints: ['ui/settings/dev-sources.js'],
+        bundle: true,
+        format: 'iife',
+        write: false,
+      });
+      await page.addScriptTag({ content: sourceBundle.outputFiles[0].text });
       await category('dev');
       const sourceWidget = page.locator('#buddy-dev-sources');
       await sourceWidget.getByText('main', { exact: true }).waitFor();
@@ -1774,6 +1781,71 @@ test(
       await menuTrigger.click();
       assert.equal(await menu.isVisible(), false, 'reduced motion closes immediately');
       assert.equal(writes.filter((w) => w.path !== '/api/appearance').length, headerWrites);
+      const userSettings = structuredClone(settings);
+      const userTerms = structuredClone(terminology);
+      const userLayouts = structuredClone(features.layouts);
+      const languageWrites = writes.length;
+      await category('appearance');
+      await page.locator('#interface-language').selectOption('en');
+      await page.waitForFunction(() => document.documentElement.lang === 'en');
+      await page.getByRole('link', { name: 'Palboo Settings', exact: true }).waitFor();
+      assert.equal(appearance.language, 'en');
+      await mkdir('target/reports/localization', { recursive: true });
+      const viewReports = [];
+      for (const width of [390, 742, 1280]) {
+        await page.setViewportSize({ width, height: 920 });
+        for (const id of [
+          'features',
+          'surfaces',
+          'appearance',
+          'next',
+          'terminology',
+          'board',
+          'model-control',
+          'bots',
+          'model',
+          'connection',
+          'performance',
+          'codex-host',
+        ]) {
+          await category(id);
+          await page.evaluate(() => scrollTo(0, 0));
+          const result = await page.evaluate(() => ({
+            width: innerWidth,
+            overflow: document.documentElement.scrollWidth > innerWidth,
+            text: document.querySelector('.settings-content').innerText,
+          }));
+          assert.equal(result.overflow, false, `English ${id} fits ${width}px`);
+          viewReports.push({ page: id, ...result });
+        }
+        await category('appearance');
+        await page.screenshot({ path: `target/reports/localization/settings-en-${width}.png` });
+      }
+      assert.deepEqual(settings, userSettings, 'language switches never save translated settings');
+      assert.deepEqual(terminology, userTerms, 'user terms stay unchanged');
+      assert.deepEqual(features.layouts, userLayouts, 'layout identities stay unchanged');
+      assert.ok(
+        writes
+          .slice(languageWrites)
+          .every(
+            (write) =>
+              write.path === '/api/appearance' ||
+              (write.path === '/api/features' &&
+                write.body.op === 'bots-catalog' &&
+                !write.body.refresh),
+          ),
+        JSON.stringify(writes.slice(languageWrites)),
+      );
+      await writeFile(
+        'target/reports/localization/settings-english.json',
+        JSON.stringify(viewReports, null, 2),
+      );
+      await page.reload();
+      await page.waitForFunction(() => document.documentElement.lang === 'en');
+      await category('appearance');
+      await page.locator('#interface-language').selectOption('zh-CN');
+      await page.waitForFunction(() => document.documentElement.lang === 'zh-CN');
+      await page.getByRole('link', { name: 'Palboo 设置', exact: true }).waitFor();
       assert.deepEqual(errors, []);
     } finally {
       await cleanup();

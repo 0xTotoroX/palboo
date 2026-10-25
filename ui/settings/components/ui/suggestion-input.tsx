@@ -1,3 +1,5 @@
+import { useLocale } from '../../../shared/use-locale';
+import { tr } from '../../../shared/i18n.js';
 /* [INPUT]: Editable text, suggestions, optional dropdown loading/status and the caller's draft callback.
  * [OUTPUT]: Accessible free-text combobox with an animated, retained suggestion list; closing content is inert.
  * [POS]: Settings UI only; selection updates the same draft without submitting a form.
@@ -30,6 +32,7 @@ export function SuggestionInput({
   onKeyDown,
   ...props
 }: Props) {
+  useLocale();
   const id = useId();
   const root = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
@@ -169,7 +172,7 @@ export function SuggestionInput({
         ref={list}
         id={id}
         role="listbox"
-        aria-label={dropdown?.label || '可选建议'}
+        aria-label={dropdown?.label || tr('可选建议')}
         aria-busy={dropdown?.loading || undefined}
         className="settings-suggestion-list settings-menu-motion"
         hidden={!expanded}
@@ -181,8 +184,8 @@ export function SuggestionInput({
           <li role="presentation" className="settings-suggestion-status">
             <span role="status">
               {dropdown.loading
-                ? '正在读取模型…'
-                : dropdown.message || '没有匹配的模型，可直接输入模型 ID。'}
+                ? tr('正在读取模型…')
+                : dropdown.message || tr('没有匹配的模型，可直接输入模型 ID。')}
             </span>
           </li>
         )}

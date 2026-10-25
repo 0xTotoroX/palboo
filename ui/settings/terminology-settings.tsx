@@ -1,3 +1,5 @@
+import { useLocale } from '../shared/use-locale';
+import { tr } from '../shared/i18n.js';
 /* [INPUT]: 认证术语 API、可唤起状态、共用卡片/动作图标与用户导入/输入。
  * [OUTPUT]: 独立外观预览、词条原位展开与词库检索；管理抽屉按新增/导入导出分区，保留草稿与深链接，名称/文件排队交给下次主聊天，个人导出与确认重置。
  * [POS]: 详细设置的功能区，不访问主聊天内容。
@@ -38,12 +40,12 @@ type ImportJob = {
 };
 const jobStatus = (job: ImportJob) =>
   job.status === 'done'
-    ? `已添加 ${job.count} 条`
+    ? tr('已添加 {{value1}} 条', { value1: job.count })
     : job.status === 'error'
-      ? '未完成'
+      ? tr('未完成')
       : job.status === 'prepared'
-        ? '等待聊天处理'
-        : '待下次聊天处理';
+        ? tr('等待聊天处理')
+        : tr('待下次聊天处理');
 type Library = {
   entries: Term[];
   imports?: { revision: number; jobs: ImportJob[] };
@@ -64,15 +66,22 @@ type Library = {
 };
 const sample: Term = {
   id: 'sample',
-  name: '竞态条件',
+  get name() {
+    return tr('竞态条件');
+  },
   english: 'Race Condition',
-  definition: '多个操作的执行先后不可预测，最终结果随完成顺序变化。',
+  get definition() {
+    return tr('多个操作的执行先后不可预测，最终结果随完成顺序变化。');
+  },
   aliases: [],
-  category: ['程序基础与执行机制', '管理运行与并发'],
+  get category() {
+    return [tr('程序基础与执行机制'), tr('管理运行与并发')];
+  },
   example: '',
   source: '',
 };
 function Preview({ term, preferences }: { term: Term; preferences: Library['preferences'] }) {
+  const locale = useLocale();
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const node = ref.current!;
@@ -86,7 +95,7 @@ function Preview({ term, preferences }: { term: Term; preferences: Library['pref
       card.dispose();
       node.replaceChildren();
     };
-  }, [term, preferences]);
+  }, [term, preferences, locale]);
   return <div ref={ref} className="term-preview" />;
 }
 
@@ -99,6 +108,7 @@ function download(text: string, name: string, type = 'text/markdown;charset=utf-
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 export function TerminologySettings({ active }: { active: boolean }) {
+  useLocale();
   const feedback = useFeedbackTarget();
   const [data, setData] = useState<Library | null>(null),
     [error, setError] = useState(''),
@@ -199,7 +209,7 @@ export function TerminologySettings({ active }: { active: boolean }) {
     <section
       className="settings-section"
       id="settings-terminology"
-      aria-label="术语释义设置"
+      aria-label={tr('术语释义设置')}
       onBlurCapture={feedback.track}
       onChangeCapture={feedback.track}
       onPointerDownCapture={feedback.track}
@@ -212,17 +222,17 @@ export function TerminologySettings({ active }: { active: boolean }) {
         target={feedback.target?.closest('dialog') ? null : feedback.target}
       />
       {!prefs ? (
-        <p>正在读取术语库…</p>
+        <p>{tr('正在读取术语库…')}</p>
       ) : (
         <>
-          <div className="settings-local-preview" aria-label="联动预览">
-            <PreviewFrame title="术语卡片预览">
+          <div className="settings-local-preview" aria-label={tr('联动预览')}>
+            <PreviewFrame title={tr('术语卡片预览')}>
               <Preview term={sample} preferences={prefs} />
             </PreviewFrame>
           </div>
-          <div className="term-behavior" role="group" aria-label="识别与操作">
+          <div className="term-behavior" role="group" aria-label={tr('识别与操作')}>
             <Toggle
-              label="在聊天中标注术语"
+              label={tr('在聊天中标注术语')}
               checked={prefs.enabled}
               disabled={busy}
               onChange={(enabled) =>
@@ -230,7 +240,7 @@ export function TerminologySettings({ active }: { active: boolean }) {
               }
             />
             <Toggle
-              label="结合问答核对词义与识别概念"
+              label={tr('结合问答核对词义与识别概念')}
               checked={prefs.semantic}
               disabled={busy}
               onChange={(semantic) =>
@@ -238,16 +248,18 @@ export function TerminologySettings({ active }: { active: boolean }) {
               }
             />
             <Toggle
-              label="联网核对并补充缺失术语"
+              label={tr('联网核对并补充缺失术语')}
               checked={prefs.autoExpand}
               disabled={busy}
               onChange={(autoExpand) =>
                 void command({ action: 'settings', revision: prefs.revision, autoExpand })
               }
             />
-            <p className="settings-hint">语义识别使用已配置模型处理当前问答；联网仅查询术语名。</p>
+            <p className="settings-hint">
+              {tr('语义识别使用已配置模型处理当前问答；联网仅查询术语名。')}
+            </p>
             <div className="settings-row">
-              <label htmlFor="terms-jump-on-click">点击术语时跳转到上下文</label>
+              <label htmlFor="terms-jump-on-click">{tr('点击术语时跳转到上下文')}</label>
               <Switch
                 id="terms-jump-on-click"
                 checked={prefs.jumpOnClick ?? false}
@@ -259,12 +271,12 @@ export function TerminologySettings({ active }: { active: boolean }) {
             </div>
           </div>
           <section className="term-section" aria-labelledby="term-appearance-title">
-            <h2 id="term-appearance-title">卡片外观</h2>
-            <Field id="term-material" label="背景材质">
+            <h2 id="term-appearance-title">{tr('卡片外观')}</h2>
+            <Field id="term-material" label={tr('背景材质')}>
               <NativeSelect
                 id="term-material"
                 controlWidth="short"
-                aria-label="术语卡片背景"
+                aria-label={tr('术语卡片背景')}
                 disabled={busy}
                 value={prefs.cardMaterial || (prefs.cardStyle === 'frost' ? 'frosted' : 'matte')}
                 onChange={(e) =>
@@ -275,19 +287,19 @@ export function TerminologySettings({ active }: { active: boolean }) {
                   })
                 }
               >
-                <option value="matte">哑光</option>
-                <option value="frosted">磨砂</option>
-                <option value="native-glass">液态</option>
-                <option value="black">纯黑</option>
-                <option value="custom">自定义</option>
+                <option value="matte">{tr('哑光')}</option>
+                <option value="frosted">{tr('磨砂')}</option>
+                <option value="native-glass">{tr('液态')}</option>
+                <option value="black">{tr('纯黑')}</option>
+                <option value="custom">{tr('自定义')}</option>
               </NativeSelect>
             </Field>
             {prefs.cardMaterial === 'native-glass' && (
-              <Field id="term-liquid-variant" label="液态变体">
+              <Field id="term-liquid-variant" label={tr('液态变体')}>
                 <NativeSelect
                   id="term-liquid-variant"
                   controlWidth="compact"
-                  aria-label="术语卡片液态变体"
+                  aria-label={tr('术语卡片液态变体')}
                   disabled={busy}
                   value={prefs.cardLiquidVariant || 'regular'}
                   onChange={(e) =>
@@ -304,11 +316,11 @@ export function TerminologySettings({ active }: { active: boolean }) {
               </Field>
             )}
             {prefs.cardMaterial === 'custom' && (
-              <Field id="term-custom-color" label="背景颜色">
+              <Field id="term-custom-color" label={tr('背景颜色')}>
                 <Input
                   id="term-custom-color"
                   type="color"
-                  aria-label="术语卡片自定义颜色"
+                  aria-label={tr('术语卡片自定义颜色')}
                   disabled={busy}
                   value={prefs.cardCustomColor || '#33333a'}
                   onChange={(e) =>
@@ -324,22 +336,25 @@ export function TerminologySettings({ active }: { active: boolean }) {
           </section>
           <section className="term-section" aria-labelledby="term-library-title">
             <div className="term-library-heading">
-              <h2 id="term-library-title">术语库</h2>
+              <h2 id="term-library-title">{tr('术语库')}</h2>
               <span className="term-library-count">
-                {data.entries.length} 条 · 已掌握 {prefs.mastered.length} 条
+                {tr('{{total}} 条 · 已掌握 {{mastered}} 条', {
+                  total: data.entries.length,
+                  mastered: prefs.mastered.length,
+                })}
               </span>
             </div>
             <div className="term-library-tools">
               <Input
                 type="search"
-                aria-label="搜索术语"
-                placeholder="搜索名称、别名或分类"
+                aria-label={tr('搜索术语')}
+                placeholder={tr('搜索名称、别名或分类')}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
               <SettingsDrawer
                 id="settings-library"
-                title="词库管理"
+                title={tr('词库管理')}
                 footer={
                   error ? (
                     <p role="alert" className="settings-error text-sm">
@@ -351,7 +366,7 @@ export function TerminologySettings({ active }: { active: boolean }) {
                 <div ref={managementRoot}>
                   <nav
                     className="settings-section-tabs"
-                    aria-label="词库管理操作"
+                    aria-label={tr('词库管理操作')}
                     data-settings-navigation
                   >
                     <Button
@@ -360,7 +375,7 @@ export function TerminologySettings({ active }: { active: boolean }) {
                       aria-pressed={management === 'add'}
                       onClick={() => setManagement('add')}
                     >
-                      新增词条
+                      {tr('新增词条')}
                     </Button>
                     <Button
                       type="button"
@@ -368,7 +383,7 @@ export function TerminologySettings({ active }: { active: boolean }) {
                       aria-pressed={management === 'transfer'}
                       onClick={() => setManagement('transfer')}
                     >
-                      导入与导出
+                      {tr('导入与导出')}
                     </Button>
                   </nav>
                   <div
@@ -376,12 +391,12 @@ export function TerminologySettings({ active }: { active: boolean }) {
                     data-term-management="add"
                     hidden={management !== 'add'}
                   >
-                    <Field id="term-name" label="术语名称">
+                    <Field id="term-name" label={tr('术语名称')}>
                       <textarea
                         id="term-name"
-                        aria-label="术语名称"
+                        aria-label={tr('术语名称')}
                         className={inputStyles + ' min-h-24 resize-y py-2'}
-                        placeholder="每行一个名称"
+                        placeholder={tr('每行一个名称')}
                         value={name}
                         onChange={(e) => setName(e.target.value)}
                       />
@@ -403,11 +418,11 @@ export function TerminologySettings({ active }: { active: boolean }) {
                             setName('');
                         }}
                       >
-                        添加
+                        {tr('添加')}
                       </Button>
                     </div>
                     <p className="settings-hint">
-                      名称立即加入；下次主聊天运行时，由当前 Agent 联网补全。
+                      {tr('名称立即加入；下次主聊天运行时，由当前 Agent 联网补全。')}
                     </p>
                   </div>
 
@@ -418,10 +433,10 @@ export function TerminologySettings({ active }: { active: boolean }) {
                     hidden={management !== 'transfer'}
                   >
                     <label className="grid w-full gap-2 text-sm">
-                      导入文件
+                      {tr('导入文件')}
                       <input
                         type="file"
-                        aria-label="导入术语文件"
+                        aria-label={tr('导入术语文件')}
                         className={
                           inputStyles +
                           ' h-auto py-2 file:mr-3 file:border-0 file:bg-transparent file:text-foreground'
@@ -435,7 +450,7 @@ export function TerminologySettings({ active }: { active: boolean }) {
                           setBusy(true);
                           try {
                             if (!file.size || file.size > 8_000_000)
-                              throw Error('文件需为 1 字节至 8 MB');
+                              throw Error(tr('文件需为 1 字节至 8 MB'));
                             setData(await uploadTerminology<Library>(file));
                           } catch (e) {
                             setError((e as Error).message);
@@ -446,7 +461,9 @@ export function TerminologySettings({ active }: { active: boolean }) {
                       />
                     </label>
                     <p className="settings-hint">
-                      不限格式，最多 8 MB；下次主聊天由当前 Agent 解析，支持范围取决于其文件能力。
+                      {tr(
+                        '不限格式，最多 8 MB；下次主聊天由当前 Agent 解析，支持范围取决于其文件能力。',
+                      )}
                     </p>
                     <div className="settings-actions">
                       <Button
@@ -455,7 +472,7 @@ export function TerminologySettings({ active }: { active: boolean }) {
                         disabled={busy}
                         onClick={() => void exportFile()}
                       >
-                        导出我的术语
+                        {tr('导出我的术语')}
                       </Button>
                       <Button
                         variant="ghost"
@@ -463,10 +480,11 @@ export function TerminologySettings({ active }: { active: boolean }) {
                         disabled={busy}
                         onClick={() =>
                           confirm({
-                            title: '重置词库？',
-                            description:
+                            title: tr('重置词库？'),
+                            description: tr(
                               '删除个人添加、导入内容、导入文件及待处理任务，保留基础词库和其中的收藏、掌握记录。',
-                            confirmLabel: '重置词库',
+                            ),
+                            confirmLabel: tr('重置词库'),
                             action: () =>
                               command({
                                 action: 'reset-library',
@@ -475,18 +493,18 @@ export function TerminologySettings({ active }: { active: boolean }) {
                           })
                         }
                       >
-                        重置词库
+                        {tr('重置词库')}
                       </Button>
                     </div>
                   </div>
                   {!!data.imports?.jobs.length && (
-                    <section className="term-import-jobs" aria-label="术语处理记录">
+                    <section className="term-import-jobs" aria-label={tr('术语处理记录')}>
                       {data.imports.jobs.map((job) => (
                         <div className="term-import-job" key={job.id}>
                           <div>
                             <strong>{job.name}</strong>
                             <span>{jobStatus(job)}</span>
-                            {job.error && <p role="alert">{job.error}</p>}
+                            {job.error && <p role="alert">{tr(job.error)}</p>}
                           </div>
                           <div className="settings-actions">
                             {['prepared', 'error'].includes(job.status) && (
@@ -496,11 +514,11 @@ export function TerminologySettings({ active }: { active: boolean }) {
                                 disabled={busy}
                                 onClick={() => void command({ action: 'retry-import', id: job.id })}
                               >
-                                重试
+                                {tr('重试')}
                               </Button>
                             )}
                             <IconButton
-                              aria-label={`移除记录：${job.name}`}
+                              aria-label={tr('移除记录：{{value1}}', { value1: job.name })}
                               disabled={busy}
                               onClick={() => void command({ action: 'remove-import', id: job.id })}
                             >
@@ -514,14 +532,14 @@ export function TerminologySettings({ active }: { active: boolean }) {
                 </div>
               </SettingsDrawer>
             </div>
-            <div className="term-filters" role="group" aria-label="词库筛选">
+            <div className="term-filters" role="group" aria-label={tr('词库筛选')}>
               <label>
                 <input
                   type="checkbox"
                   checked={masteredOnly}
                   onChange={(e) => setMasteredOnly(e.target.checked)}
                 />
-                只看已掌握
+                {tr('只看已掌握')}
               </label>
               <label>
                 <input
@@ -529,7 +547,7 @@ export function TerminologySettings({ active }: { active: boolean }) {
                   checked={favoritesOnly}
                   onChange={(e) => setFavoritesOnly(e.target.checked)}
                 />
-                只看收藏
+                {tr('只看收藏')}
               </label>
             </div>
             <div className="term-results" ref={resultsRoot}>
@@ -570,7 +588,10 @@ export function TerminologySettings({ active }: { active: boolean }) {
                       <Icon name="chevron-down" />
                     </button>
                     <IconButton
-                      aria-label={`${prefs.mastered.includes(t.id) ? '恢复提示' : '已掌握'}：${t.name}`}
+                      aria-label={tr('{{value1}}：{{value2}}', {
+                        value1: prefs.mastered.includes(t.id) ? tr('恢复提示') : tr('已掌握'),
+                        value2: t.name,
+                      })}
                       disabled={busy}
                       onClick={() =>
                         void command({
@@ -586,7 +607,7 @@ export function TerminologySettings({ active }: { active: boolean }) {
                     id={`${detailId}-${t.id}`}
                     className="term-result-detail"
                     role="region"
-                    aria-label={`${t.name}释义`}
+                    aria-label={tr('{{value1}}释义', { value1: t.name })}
                     hidden={expandedTerm !== t.id}
                   >
                     <p>{t.definition}</p>
@@ -597,7 +618,7 @@ export function TerminologySettings({ active }: { active: boolean }) {
                 </div>
               ))}
               {!results.length && (favoritesOnly || masteredOnly || !pendingJobs.length) && (
-                <p className="settings-hint">没有匹配的术语</p>
+                <p className="settings-hint">{tr('没有匹配的术语')}</p>
               )}
             </div>
             {results.length > resultLimit && (
@@ -607,7 +628,7 @@ export function TerminologySettings({ active }: { active: boolean }) {
                   variant="ghost"
                   onClick={() => setResultLimit((count) => count + 80)}
                 >
-                  显示更多
+                  {tr('显示更多')}
                 </Button>
               </div>
             )}

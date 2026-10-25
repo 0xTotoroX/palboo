@@ -1,3 +1,5 @@
+import { useLocale } from '../shared/use-locale';
+import { tr } from '../shared/i18n.js';
 /* [INPUT]: Independent surface preferences and display inventory. [OUTPUT]: Separate layout and appearance pages retaining their mounted controls and shared preview snapshots.
  * [POS]: Presentation settings, no feature enable/disable or business state.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
@@ -11,7 +13,20 @@ import { PanelSettings } from './panel-settings';
 import type { AppearanceSettings } from '../shared/contracts';
 import type { SurfaceTheme } from '../surfaces/theme/appearance';
 import type { FeatureState } from '../shared/features';
-const labels = { sidebar: '侧栏', overlay: '页面浮层', desktop: '桌面窗口', edge: '贴边 / 刘海' };
+const labels = {
+  get sidebar() {
+    return tr('侧栏');
+  },
+  get overlay() {
+    return tr('页面浮层');
+  },
+  get desktop() {
+    return tr('桌面窗口');
+  },
+  get edge() {
+    return tr('贴边 / 刘海');
+  },
+};
 type Edge = { edge: string; screen: string; position: number; keepOpen: boolean };
 export type SurfaceState = {
   revision: number;
@@ -40,6 +55,7 @@ export function SurfaceSettings({
   onFeatures?: (state: FeatureState | null) => void;
   onSnapshot?: (state: SurfaceState | null) => void;
 }) {
+  useLocale();
   const [state, setState] = useState<SurfaceState | null>(null),
     [displays, setDisplays] = useState<Displays>({ screens: [], nativeGlassAvailable: false }),
     [busy, setBusy] = useState(false),
@@ -111,7 +127,7 @@ export function SurfaceSettings({
   return (
     <section
       tabIndex={-1}
-      aria-label="呈现形式设置"
+      aria-label={tr('呈现形式设置')}
       className="settings-section"
       onBlurCapture={feedback.track}
       onChangeCapture={feedback.track}
@@ -132,7 +148,7 @@ export function SurfaceSettings({
         data-settings-page="appearance"
         hidden={!simple && page === 'surfaces'}
       >
-        <h2 hidden={simple}>各形式外观</h2>
+        <h2 hidden={simple}>{tr('各形式外观')}</h2>
         <div className="space-y-3">
           {Object.entries(labels).map(([placement, label]) => {
             const theme = state?.preferences.themes[placement] || {
@@ -146,26 +162,26 @@ export function SurfaceSettings({
                 hidden={simple && placement !== primary}
               >
                 <div className="settings-field">
-                  <span className="text-sm">{simple ? '主界面材质' : label}</span>
+                  <span className="text-sm">{simple ? tr('主界面材质') : label}</span>
                   <div className="settings-control-pair">
                     <NativeSelect
                       controlWidth="short"
-                      aria-label={`${label}主题`}
+                      aria-label={tr('{{label}}主题', { label: label })}
                       disabled={disabled}
                       value={theme.theme}
                       onChange={(event) =>
                         void save({ placement, theme: { ...theme, theme: event.target.value } })
                       }
                     >
-                      <option value="black">纯黑</option>
-                      <option value="matte">哑光</option>
-                      <option value="frosted">磨砂</option>
-                      <option value="native-glass">液态</option>
+                      <option value="black">{tr('纯黑')}</option>
+                      <option value="matte">{tr('哑光')}</option>
+                      <option value="frosted">{tr('磨砂')}</option>
+                      <option value="native-glass">{tr('液态')}</option>
                     </NativeSelect>
                     {theme.theme === 'native-glass' && (
                       <NativeSelect
                         controlWidth="compact"
-                        aria-label={`${label}液态变体`}
+                        aria-label={tr('{{label}}液态变体', { label: label })}
                         disabled={disabled}
                         value={theme.liquidVariant}
                         onChange={(event) =>
@@ -195,19 +211,19 @@ export function SurfaceSettings({
         className="settings-section settings-surface-group"
         hidden={simple || page === 'appearance'}
       >
-        <h2>贴边 / 刘海位置</h2>
+        <h2>{tr('贴边 / 刘海位置')}</h2>
         <div className="settings-surface-rows">
           <div className="settings-surface-item">
             <label className="settings-field text-sm">
-              <span className="whitespace-nowrap">屏幕</span>
+              <span className="whitespace-nowrap">{tr('屏幕')}</span>
               <NativeSelect
-                aria-label="贴边屏幕"
+                aria-label={tr('贴边屏幕')}
                 disabled={disabled}
                 value={edge?.screen || ''}
                 onChange={(event) => void save({ edge: { screen: event.target.value } })}
               >
-                <option value="">自动选择</option>
-                <option value="codex">跟随 Codex</option>
+                <option value="">{tr('自动选择')}</option>
+                <option value="codex">{tr('跟随 Codex')}</option>
                 {displays.screens.map((screen) => (
                   <option key={screen.id} value={screen.id}>
                     {screen.label}
@@ -216,32 +232,35 @@ export function SurfaceSettings({
                 {edge?.screen &&
                   edge.screen !== 'codex' &&
                   !displays.screens.some((screen) => screen.id === edge.screen) && (
-                    <option value={edge.screen}>已断开的屏幕（保留选择）</option>
+                    <option value={edge.screen}>{tr('已断开的屏幕（保留选择）')}</option>
                   )}
               </NativeSelect>
             </label>
           </div>
           <div className="settings-surface-item">
             <label className="settings-field text-sm">
-              <span className="whitespace-nowrap">边缘</span>
+              <span className="whitespace-nowrap">{tr('边缘')}</span>
               <NativeSelect
                 controlWidth="short"
-                aria-label="贴边边缘"
+                aria-label={tr('贴边边缘')}
                 disabled={disabled}
                 value={edge?.edge || 'right'}
                 onChange={(event) => void save({ edge: { edge: event.target.value } })}
               >
-                <option value="right">右侧</option>
-                <option value="left">左侧</option>
-                <option value="top">顶部 / 刘海</option>
+                <option value="right">{tr('右侧')}</option>
+                <option value="left">{tr('左侧')}</option>
+                <option value="top">{tr('顶部 / 刘海')}</option>
               </NativeSelect>
             </label>
           </div>
           <div className="settings-surface-item">
             <label className="settings-field text-sm">
-              <span className="whitespace-nowrap">位置 {Math.round(position)}%</span>
+              <span className="whitespace-nowrap">
+                {tr('位置 ')}
+                {Math.round(position)}%
+              </span>
               <input
-                aria-label="贴边位置"
+                aria-label={tr('贴边位置')}
                 type="range"
                 min="0"
                 max="100"
@@ -256,7 +275,7 @@ export function SurfaceSettings({
           <div className="settings-surface-item">
             <Toggle
               id="edge-keep-open"
-              label="保持展开"
+              label={tr('保持展开')}
               disabled={disabled}
               checked={edge?.keepOpen || false}
               onChange={(keepOpen) => void save({ edge: { keepOpen } })}
@@ -265,7 +284,7 @@ export function SurfaceSettings({
         </div>
       </section>
       <Feedback
-        text={message || state?.error || (busy ? '正在保存…' : '')}
+        text={message || state?.error || (busy ? tr('正在保存…') : '')}
         failed={!!(message || state?.error)}
         target={feedback.target}
       />

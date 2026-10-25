@@ -1,3 +1,4 @@
+import { tr } from '../shared/i18n.js';
 /* [INPUT]: Local MCP notifications and the unique current Codex composer.
  * [OUTPUT]: Palboo Bot projection and identity-checked append-only composer actions.
  * [POS]: Host adapter; no remote requests, reply consumption, submission or timers.
@@ -13,7 +14,7 @@ export function installBots({
   window.__palbooBots?.destroy();
   const tracker = createBotTracker();
   const life = new AbortController();
-  let catalog = { bots: [], revision: '', stale: true, error: '正在同步 Grok Bot…' };
+  let catalog = { bots: [], revision: '', stale: true, error: tr('正在同步 Grok Bot…') };
   const nonempty = (value) => typeof value === 'string' && value.trim().length > 0;
   let target = null,
     token = '',
@@ -52,7 +53,7 @@ export function installBots({
   function fill(input) {
     const next = current();
     if (!next || input.token !== token || input.threadId !== next.id)
-      return { ok: false, message: '聊天或输入框已变化，请重新选择 Bot。' };
+      return { ok: false, message: tr('聊天或输入框已变化，请重新选择 Bot。') };
     if (
       !nonempty(catalog.account) ||
       !nonempty(catalog.revision) ||
@@ -69,25 +70,25 @@ export function installBots({
       input.revision !== catalog.revision ||
       !['ask', 'followup', 'check', 'stop'].includes(input.action)
     )
-      return { ok: false, message: 'Bot 操作无效。' };
+      return { ok: false, message: tr('Bot 操作无效。') };
     const state = tracker.snapshot(next.id).find((b) => b.name === input.agent);
     if (state.occupied)
-      return { ok: false, message: '另一条聊天正在调用此 Bot，请先在原聊天确认进度。' };
+      return { ok: false, message: tr('另一条聊天正在调用此 Bot，请先在原聊天确认进度。') };
     if (input.action !== 'ask' && (!state.current || input.key !== state.current.key))
-      return { ok: false, message: '调用记录已变化，请刷新后重试。' };
+      return { ok: false, message: tr('调用记录已变化，请刷新后重试。') };
     if (input.action === 'stop' && !['calling', 'running'].includes(state.current.status))
-      return { ok: false, message: '此调用当前没有可停止的任务。' };
+      return { ok: false, message: tr('此调用当前没有可停止的任务。') };
     const prompt =
       input.action === 'stop'
-        ? `停止「${input.agent}」在本聊天中的任务。`
+        ? tr('停止「{{agent}}」在本聊天中的任务。', { agent: input.agent })
         : input.action === 'check'
-          ? `查看「${input.agent}」的进度。`
+          ? tr('查看「{{agent}}」的进度。', { agent: input.agent })
           : input.action === 'followup'
-            ? `追问「${input.agent}」：`
-            : `请问「${input.agent}」：`;
+            ? tr('追问「{{agent}}」：', { agent: input.agent })
+            : tr('请问「{{agent}}」：', { agent: input.agent });
     const editor = next.composer;
     if (editor.matches(':disabled,[readonly],[aria-disabled="true"]'))
-      return { ok: false, message: 'Codex 输入框暂时不可编辑。' };
+      return { ok: false, message: tr('Codex 输入框暂时不可编辑。') };
     const existing = rawComposerText(editor);
     // Repeated clicks do not duplicate the routing sentence or change a draft.
     if (!existing.includes(prompt)) {
@@ -104,7 +105,7 @@ export function installBots({
         editor.dispatchEvent(
           new InputEvent('input', { bubbles: true, inputType: 'insertText', data: addition }),
         );
-      } else return { ok: false, message: '无法确认可编辑的 Codex 输入框。' };
+      } else return { ok: false, message: tr('无法确认可编辑的 Codex 输入框。') };
     }
     editor.focus();
     return { ok: true };
@@ -120,7 +121,7 @@ export function installBots({
           (b) => !b || !nonempty(b.id) || !nonempty(b.name) || typeof b.available !== 'boolean',
         )
       ) {
-        next = { version: 1, bots: [], stale: true, error: 'Bot 资料不完整，请检查接入。' };
+        next = { version: 1, bots: [], stale: true, error: tr('Bot 资料不完整，请检查接入。') };
       }
       if (catalog.account !== next.account) tracker.clear();
       catalog = next;

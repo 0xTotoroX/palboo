@@ -1,3 +1,4 @@
+import { tr, subscribeLocale, getLocale } from '../shared/i18n.js';
 /* [INPUT]: 术语、主题/材质偏好、收藏与掌握动作。
  * [OUTPUT]: 已定稿贴字浮层的唯一卡片，两个入口和设置预览共用。
  * [POS]: 呈现名称、释义与分类路径；静态共享图标，不插入不受信任 HTML。
@@ -41,7 +42,7 @@ export function createCard(term, options = {}) {
     actions = document.createElement('div'),
     error = document.createElement('div');
   category.className = 'term-category';
-  category.setAttribute('aria-label', '分类路径');
+  category.setAttribute('aria-label', tr('分类路径'));
   actions.className = 'term-actions';
   footer.append(category, actions);
   error.className = 'term-error';
@@ -86,7 +87,7 @@ export function createCard(term, options = {}) {
           anim.finished.finally(() => animations.delete(anim)).catch(() => {});
         }
       } catch (e) {
-        if (alive) error.textContent = e.message || '保存失败，请重试';
+        if (alive) error.textContent = e.message || tr('保存失败，请重试');
       } finally {
         busy = false;
         if (alive) render();
@@ -96,7 +97,9 @@ export function createCard(term, options = {}) {
   card.append(header, definition, footer, error);
   const appearance = attachCardAppearance(card);
   function render() {
-    card.setAttribute('aria-label', `${term.name}释义`);
+    card.lang = getLocale();
+    category.setAttribute('aria-label', tr('分类路径'));
+    card.setAttribute('aria-label', tr('{{value1}}释义', { value1: term.name }));
     name.textContent = term.name;
     english.textContent = term.english === term.name ? '' : term.english || '';
     definition.textContent = term.definition;
@@ -111,11 +114,11 @@ export function createCard(term, options = {}) {
         label =
           action === 'favorite'
             ? chosen
-              ? '取消收藏'
-              : '收藏术语'
+              ? tr('取消收藏')
+              : tr('收藏术语')
             : chosen
-              ? '恢复提示'
-              : '已掌握，不再提示';
+              ? tr('恢复提示')
+              : tr('已掌握，不再提示');
       button.setAttribute('aria-label', label);
       button.setAttribute('aria-pressed', String(chosen));
       tip.textContent = label;
@@ -127,6 +130,7 @@ export function createCard(term, options = {}) {
       }
     }
   }
+  const unsubscribe = subscribeLocale(render);
   render();
   appearance.update(opts.preferences, opts.appearance);
   return Object.assign(card, {
@@ -138,6 +142,7 @@ export function createCard(term, options = {}) {
     },
     dispose() {
       alive = false;
+      unsubscribe();
       appearance.destroy();
       animations.forEach((a) => a.cancel());
       animations.clear();

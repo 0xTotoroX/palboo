@@ -144,6 +144,7 @@ impl Scope {
                 "expectedRevision",
                 "typography",
                 "settingsTheme",
+                "language",
                 "alwaysOnTop",
                 "launcherAction",
                 "settingsTarget",

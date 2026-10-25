@@ -1,3 +1,5 @@
+import { useLocale } from '../shared/use-locale';
+import { tr } from '../shared/i18n.js';
 /* [INPUT]: Saved feature/surface/typography snapshots, shared preview frame and workspace layout controller.
  * [OUTPUT]: Isolated layout and material demonstrations with readable arrangements and reversible screen motion.
  * [POS]: Shared layout/appearance sample content; save callbacks stay in memory and never call an API.
@@ -32,6 +34,7 @@ function WorkspaceSample({
   textStyle?: CSSProperties;
   examples?: Record<string, string[]>;
 }) {
+  useLocale();
   const ref = useRef<HTMLDivElement>(null),
     controller = useRef<ReturnType<typeof installFeatureLayout> | null>(null);
   const mounts = useRef(
@@ -60,20 +63,26 @@ function WorkspaceSample({
         const labels =
           examples?.[entry.id] ||
           (entry.id === 'outline'
-            ? ['布局与位置', '显示器与副屏', '独立窗口交接', '内容与状态', '验证与回退']
+            ? [
+                tr('布局与位置'),
+                tr('显示器与副屏'),
+                tr('独立窗口交接'),
+                tr('内容与状态'),
+                tr('验证与回退'),
+              ]
             : entry.id === 'next'
-              ? ['完善窗口交接', '检查多屏边界', '补充验证场景']
+              ? [tr('完善窗口交接'), tr('检查多屏边界'), tr('补充验证场景')]
               : entry.id === 'board'
-                ? ['待办 · 窗口交接', '进行中 · 样式核对', '完成 · 边界验证']
-                : ['示例内容', '跟随空间自动排列', '保留内容与阅读位置']);
+                ? [tr('待办 · 窗口交接'), tr('进行中 · 样式核对'), tr('完成 · 边界验证')]
+                : [tr('示例内容'), tr('跟随空间自动排列'), tr('保留内容与阅读位置')]);
         for (const text of labels) {
           const li = document.createElement('li');
           li.textContent = text;
           list.append(li);
         }
         const input = document.createElement('input');
-        input.placeholder = '试写一条草稿';
-        input.setAttribute('aria-label', `${entry.title}示例草稿`);
+        input.placeholder = tr('试写一条草稿');
+        input.setAttribute('aria-label', tr('{{value1}}示例草稿', { value1: entry.title }));
         node.append(list, input);
         mounts.current.set(entry.id, { ...entry, node, active: true });
       }
@@ -114,6 +123,7 @@ export function LayoutPreview({
   examples?: Record<string, string[]>;
   onPlacementChange?: (placement: string) => void;
 }) {
+  const locale = useLocale();
   const [mode, setMode] = useState<string | null>(null),
     [extra, setExtra] = useState<Sample[]>([]),
     [demoLayout, setDemoLayout] = useState<FeatureLayout | null>(null);
@@ -133,7 +143,7 @@ export function LayoutPreview({
       ...extra,
     ];
     return appearance && !entries.length ? [{ id: 'outline', title: titles.outline }] : entries;
-  }, [features, location, source, extra, appearance]);
+  }, [features, location, source, extra, appearance, locale]);
   const signature = JSON.stringify([
     source,
     features?.features.map(({ id, open, placement }) => [id, open, placement]),
@@ -193,7 +203,10 @@ export function LayoutPreview({
     // Show two readable panes even if the saved placement has only one feature.
     const additions = Array.from({ length: Math.max(0, 2 - samples.length) }, (_, index) => ({
       id: `demo-${extra.length + index + 1}`,
-      title: extra.length + index ? `示例功能 ${extra.length + index + 1}` : '笔记',
+      title:
+        extra.length + index
+          ? tr('示例功能 {{value1}}', { value1: extra.length + index + 1 })
+          : tr('笔记'),
     }));
     const entries = [...samples, ...additions];
     if (additions.length) setExtra([...extra, ...additions]);
@@ -226,42 +239,42 @@ export function LayoutPreview({
       examples={examples}
     />
   ) : (
-    <p>正在读取布局…</p>
+    <p>{tr('正在读取布局…')}</p>
   );
   return (
     <PreviewFrame
       className={`layout-demo${appearance ? ' layout-demo-appearance' : ''}`}
-      title={appearance ? '外观效果' : '你的工作空间'}
-      status={!live ? '连接中断 · 末次状态' : undefined}
+      title={appearance ? tr('外观效果') : tr('你的工作空间')}
+      status={!live ? tr('连接中断 · 末次状态') : undefined}
     >
       <div className="layout-demo-toolbar" data-settings-navigation>
-        <div className="preview-selector" role="group" aria-label="演示位置">
+        <div className="preview-selector" role="group" aria-label={tr('演示位置')}>
           <button
             type="button"
-            aria-label="演示侧栏"
+            aria-label={tr('演示侧栏')}
             aria-pressed={location === 'sidebar'}
             onClick={() => setMode('sidebar')}
           >
-            侧栏
+            {tr('侧栏')}
           </button>
           <button
             type="button"
-            aria-label="演示页面浮层"
+            aria-label={tr('演示页面浮层')}
             aria-pressed={location === 'overlay'}
             onClick={() => setMode('overlay')}
           >
-            页面浮层
+            {tr('页面浮层')}
           </button>
           <button
             type="button"
-            aria-label={appearance ? '演示桌面窗口' : '演示移到副屏'}
+            aria-label={appearance ? tr('演示桌面窗口') : tr('演示移到副屏')}
             aria-pressed={location === 'desktop'}
             onClick={() => setMode('desktop')}
           >
-            {appearance ? '桌面窗口' : '移到副屏'}
+            {appearance ? tr('桌面窗口') : tr('移到副屏')}
           </button>
           <button type="button" aria-pressed={location === 'edge'} onClick={() => setMode('edge')}>
-            贴边 / 刘海
+            {tr('贴边 / 刘海')}
           </button>
         </div>
         <button
@@ -273,7 +286,7 @@ export function LayoutPreview({
             setDemoLayout(null);
           }}
         >
-          重置预览
+          {tr('重置预览')}
         </button>
       </div>
       <div
@@ -297,7 +310,7 @@ export function LayoutPreview({
         ) : (
           <LayoutPreviewScene
             frame={frame}
-            title="布局与位置"
+            title={tr('布局与位置')}
             hostName={hostName}
             placement={location}
           >
@@ -306,27 +319,27 @@ export function LayoutPreview({
         )}
       </div>
       <div className="layout-demo-toolbar" data-settings-navigation hidden={appearance}>
-        <div className="preview-selector" role="group" aria-label="演示排列">
+        <div className="preview-selector" role="group" aria-label={tr('演示排列')}>
           <button
             type="button"
             aria-pressed={arrangement === 'vertical'}
             onClick={() => arrange('vertical')}
           >
-            上下
+            {tr('上下')}
           </button>
           <button
             type="button"
             aria-pressed={arrangement === 'horizontal'}
             onClick={() => arrange('horizontal')}
           >
-            左右
+            {tr('左右')}
           </button>
           <button
             type="button"
             aria-pressed={arrangement === 'tabs'}
             onClick={() => arrange('tabs')}
           >
-            标签
+            {tr('标签')}
           </button>
         </div>
         <button
@@ -335,7 +348,7 @@ export function LayoutPreview({
           onClick={() => {
             const item = {
               id: `demo-${extra.length + 1}`,
-              title: extra.length ? '示例功能 ' + (extra.length + 1) : '笔记',
+              title: extra.length ? tr('示例功能 ') + (extra.length + 1) : tr('笔记'),
             };
             setExtra([...extra, item]);
             setDemoLayout({
@@ -348,7 +361,7 @@ export function LayoutPreview({
             });
           }}
         >
-          ＋ 添加示例功能
+          {tr('＋ 添加示例功能')}
         </button>
       </div>
     </PreviewFrame>

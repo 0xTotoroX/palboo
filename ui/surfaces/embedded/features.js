@@ -1,3 +1,5 @@
+import { tr } from '../../shared/i18n.js';
+import { setLocale, getLocale } from '../../shared/i18n.js';
 import { measureWork } from '../../shared/performance.js';
 import { errorMessage } from '../../shared/text.js';
 /* [INPUT]: Feature owners, main ownership, saved placements, opt-in sidebar page switches and the existing capsule/dock.
@@ -95,7 +97,7 @@ function frame(container, faceClick) {
   if (root) return root;
   root = document.createElement('div');
   root.className = 'csw-workbench';
-  root.innerHTML = `${workbenchHeadHtml()}<p data-feature-error role="alert" hidden></p><div class="csw-workbench-resize" role="separator" tabindex="0" aria-label="调整工作台宽度" aria-orientation="vertical"></div>`;
+  root.innerHTML = `${workbenchHeadHtml()}<p data-feature-error role="alert" hidden></p><div class="csw-workbench-resize" role="separator" tabindex="0" aria-label="${tr('调整工作台宽度')}" aria-orientation="vertical"></div>`;
   root.querySelector('.csw-workbench-face').addEventListener('click', faceClick);
   composition?.destroy();
   composition = installFeatureLayout(root, {
@@ -222,6 +224,7 @@ function renderState(next) {
     returnState = { placement: primary, open: shellState.open, dockOpen: shellState.dockOpen };
   const returning = primary === 'desktop' && next.mainPlacement !== 'desktop';
   state = { ...previous, ...next };
+  setLocale(state.appearance?.language || 'zh-CN');
   if (!independent) {
     stopWorkbench();
     independent = true;

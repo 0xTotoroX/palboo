@@ -1,3 +1,4 @@
+import { tr } from '../../../shared/i18n.js';
 /*
  * [INPUT]: 胶囊状态、DOM 尺寸、滚动容器与原生窗口偏好。
  * [OUTPUT]: 内嵌几何、浮层向入口的整面曲面收放及完成后的外壳切换；保留胶囊位置与原生尺寸同步，停靠开合交由通知协调。
@@ -464,7 +465,7 @@ function settleMorph(progress, focusTarget = '') {
   shellState.fab.setAttribute('aria-expanded', String(expanded));
   if (!expanded) {
     shellState.fab.removeAttribute('title');
-    shellState.fab.setAttribute('aria-label', '展开胶囊');
+    shellState.fab.setAttribute('aria-label', tr('展开胶囊'));
   }
   applyMorphProgress(expanded ? 1 : 0);
   resetGlassPointer();

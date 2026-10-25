@@ -1,3 +1,5 @@
+import { useLocale } from '../shared/use-locale';
+import { tr } from '../shared/i18n.js';
 /* [INPUT]: URL anchors, saved page preference (legacy mode ignored), shared icons and the Dev source widget.
  * [OUTPUT]: Shared sidebar/compact grouped disclosure with inert closing content, keyboard navigation, legacy/search/invalid-field routing and reading restoration without remounting forms.
  * [POS]: Presentation state only; never changes backend configuration or remounts forms.
@@ -10,28 +12,62 @@ import {
   revealSettingsDetail,
 } from './settings-drawer';
 export const pageTitles = {
-  performance: '性能与开关',
-  features: '常用开关',
-  next: '下一步',
-  terminology: '术语释义',
-  board: '任务看板',
+  get performance() {
+    return tr('性能与开关');
+  },
+  get features() {
+    return tr('常用开关');
+  },
+  get next() {
+    return tr('下一步');
+  },
+  get terminology() {
+    return tr('术语释义');
+  },
+  get board() {
+    return tr('任务看板');
+  },
   bots: 'Grok Bot',
-  'model-control': '模型切换',
-  model: '模型服务',
-  surfaces: '布局与位置',
-  appearance: '外观与字体',
-  connection: '启动与连接',
+  get 'model-control'() {
+    return tr('模型切换');
+  },
+  get model() {
+    return tr('模型服务');
+  },
+  get surfaces() {
+    return tr('布局与位置');
+  },
+  get appearance() {
+    return tr('外观与字体');
+  },
+  get connection() {
+    return tr('启动与连接');
+  },
   'codex-host': 'CodexHost',
-  dev: '开发来源',
+  get dev() {
+    return tr('开发来源');
+  },
 };
 export type SettingsPage = keyof typeof pageTitles;
 export const pageGroups: { title: string; pages: SettingsPage[] }[] = [
-  { title: '界面', pages: ['features', 'surfaces', 'appearance'] },
   {
-    title: '功能',
+    get title() {
+      return tr('界面');
+    },
+    pages: ['features', 'surfaces', 'appearance'],
+  },
+  {
+    get title() {
+      return tr('功能');
+    },
     pages: ['next', 'terminology', 'board', 'model-control', 'bots'],
   },
-  { title: '系统', pages: ['model', 'connection', 'performance', 'codex-host', 'dev'] },
+  {
+    get title() {
+      return tr('系统');
+    },
+    pages: ['model', 'connection', 'performance', 'codex-host', 'dev'],
+  },
 ];
 export const pageGroup = (page: SettingsPage) =>
   pageGroups.find((group) => group.pages.includes(page))!;
@@ -278,6 +314,7 @@ export function SettingsOutline({
   dev?: boolean;
   navigate: (page: SettingsPage, hash: string) => void;
 }) {
+  useLocale();
   const group = pageGroup(page);
   const [open, setOpen] = useState(false);
   const menuId = useId();
@@ -342,7 +379,7 @@ export function SettingsOutline({
   return (
     <nav
       ref={root}
-      aria-label="设置分类"
+      aria-label={tr('设置分类')}
       className="settings-nav"
       data-open={open}
       data-settings-navigation

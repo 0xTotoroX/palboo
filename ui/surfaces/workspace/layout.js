@@ -1,3 +1,4 @@
+import { tr, getLocale } from '../../shared/i18n.js';
 /* [INPUT]: Shared feature icons, live mounts with header actions, per-surface layout and authenticated save callback.
  * [OUTPUT]: Flat/nested layout interpretation, icon tabs, local split/merge, focus, persistent title folding and resizing with checked saves; views stay mounted.
  * [POS]: Presentation-only composition; reuses the workbench gestures and styles.
@@ -57,7 +58,7 @@ export function installFeatureLayout(root, { save, error }) {
     items = [],
     shape = null,
     selected = '';
-  const title = (id) => items.find((item) => item.id === id)?.title || titles[id] || id;
+  const title = (id) => titles[id] || items.find((item) => item.id === id)?.title || id;
   const containers = new WeakMap();
   let dirty = false,
     saving = false,
@@ -198,7 +199,7 @@ export function installFeatureLayout(root, { save, error }) {
     tabs.className = 'csw-workbench-tabs';
     tabs.dataset.iconTabs = '';
     tabs.setAttribute('role', 'tablist');
-    tabs.setAttribute('aria-label', '工作台面板');
+    tabs.setAttribute('aria-label', tr('工作台面板'));
     for (const id of group.ids) {
       const tab = document.createElement('button');
       tab.type = 'button';
@@ -224,7 +225,7 @@ export function installFeatureLayout(root, { save, error }) {
     separator.className = 'csw-workbench-split';
     separator.setAttribute('role', 'separator');
     separator.tabIndex = 0;
-    separator.setAttribute('aria-label', '调整分栏比例');
+    separator.setAttribute('aria-label', tr('调整分栏比例'));
     bindSeparator(
       separator,
       () => (container.dataset.axis === 'horizontal' ? 'x' : 'y'),
@@ -300,6 +301,8 @@ export function installFeatureLayout(root, { save, error }) {
     container.replaceChildren(...fragments);
   }
   function updateSection(section, group, focused) {
+    root.lang = getLocale();
+    section.querySelector('[role=tablist]')?.setAttribute('aria-label', tr('工作台面板'));
     const active = group.ids.includes(group.active) ? group.active : group.ids[0];
     section.dataset.pane = active;
     section.setAttribute('aria-label', title(active));

@@ -81,7 +81,7 @@ try {
       : { channel: 'chrome' }),
     headless: true,
   });
-  const page = await browser.newPage({ viewport: { width: 1200, height: 820 } });
+  const page = await browser.newPage({ locale: 'zh-CN', viewport: { width: 1200, height: 820 } });
   const failures = [];
   page.on('pageerror', (e) => {
     failures.push(e.message);
@@ -225,7 +225,10 @@ try {
   assert.equal(legacy.archived, false);
   // Group personalization belongs to settings; the board keeps stable IDs and live tasks.
   assert.equal(await page.getByRole('button', { name: '新增分组', exact: true }).count(), 0);
-  const settings = await browser.newPage({ viewport: { width: 980, height: 900 } });
+  const settings = await browser.newPage({
+    locale: 'zh-CN',
+    viewport: { width: 980, height: 900 },
+  });
   await settings.goto(`http://127.0.0.1:${runtime.port}/#token=${runtime.token}`);
   await settings.getByRole('link', { name: '任务看板', exact: true }).click();
   await settings.getByLabel('分组名称：待办', { exact: true }).fill('准备做');

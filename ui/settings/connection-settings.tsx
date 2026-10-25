@@ -1,3 +1,5 @@
+import { useLocale } from '../shared/use-locale';
+import { tr } from '../shared/i18n.js';
 /* [INPUT]: 现有设置表单、认证 API 与共用设置控件。
  * [OUTPUT]: 启动策略、本机连接与显式重连/断开；Dev 保留固定目标。
  * [POS]: 设置展示层，不执行后台业务或读取聊天正文。
@@ -23,6 +25,7 @@ export function ConnectionSettings({
   live: boolean;
   notify: (text: string, failed?: boolean) => void;
 }) {
+  useLocale();
   const { form, change } = editor;
   const { confirm, confirmation } = useConfirmation(
     editor.saved?.configurationRevision,
@@ -55,20 +58,20 @@ export function ConnectionSettings({
   async function connect() {
     await request('connect', { endpoint, targetId: targetId || null });
     setConnectionEdited(false);
-    notify('已连接 Codex');
+    notify(tr('已连接 Codex'));
   }
   return (
     <>
       {confirmation}
       <Card tabIndex={-1} id="settings-connection" aria-labelledby="connection-title">
-        <h2 id="connection-title">桌面连接</h2>
+        <h2 id="connection-title">{tr('桌面连接')}</h2>
         {!connected && view?.connection.message && (
           <p role="status" className="settings-hint">
-            {view.connection.message}
+            {tr(view.connection.message)}
           </p>
         )}
         <div className="settings-details">
-          <Field id="cdp-endpoint" label="本机调试端口">
+          <Field id="cdp-endpoint" label={tr('本机调试端口')}>
             <Input
               id="cdp-endpoint"
               readOnly={import.meta.env.DEV}
@@ -78,12 +81,12 @@ export function ConnectionSettings({
                 setTargetId('');
                 setConnectionEdited(true);
               }}
-              placeholder="9229 或 http://127.0.0.1:9229"
+              placeholder={tr('9229 或 http://127.0.0.1:9229')}
               spellCheck={false}
             />
           </Field>
           {(view?.connection.targets.length || 0) > 1 && (
-            <Field id="target" label="Codex 窗口">
+            <Field id="target" label={tr('Codex 窗口')}>
               <NativeSelect
                 id="target"
                 disabled={import.meta.env.DEV}
@@ -93,7 +96,7 @@ export function ConnectionSettings({
                   setConnectionEdited(true);
                 }}
               >
-                <option value="">自动选择</option>
+                <option value="">{tr('自动选择')}</option>
                 {view?.connection.targets.map((target) => (
                   <option key={target.id} value={target.id}>
                     {target.title}
@@ -115,7 +118,7 @@ export function ConnectionSettings({
             ) : (
               <Icon name="connection" />
             )}
-            {connected ? '重新连接' : '连接 Codex'}
+            {connected ? tr('重新连接') : tr('连接 Codex')}
           </Button>
           {connected && (
             <ConfirmationButton
@@ -123,31 +126,33 @@ export function ConnectionSettings({
               variant="ghost"
               className="min-h-0 p-2"
               disabled={!!busy}
-              title="断开与 Codex 的连接？"
-              description="Palboo 将暂时停止跟随当前聊天，并移除桌面浮窗。已有配置保持不变，可随时重新连接。"
-              confirmLabel="确认断开"
+              title={tr('断开与 Codex 的连接？')}
+              description={tr(
+                'Palboo 将暂时停止跟随当前聊天，并移除桌面浮窗。已有配置保持不变，可随时重新连接。',
+              )}
+              confirmLabel={tr('确认断开')}
               onConfirm={() =>
                 run('disconnect', async () => {
                   await request('disconnect', {});
-                  notify('连接已断开，桌面浮窗已移除。');
+                  notify(tr('连接已断开，桌面浮窗已移除。'));
                 })
               }
             >
-              断开
+              {tr('断开')}
             </ConfirmationButton>
           )}
         </div>
         {!import.meta.env.DEV && !connected && (
           <div className="mt-6 text-sm text-muted-foreground [&>button]:mt-3 [&>button]:w-full [&>button]:justify-between [&_code]:font-mono [&_code]:text-sm">
-            <span>首次接入：等待任务结束并完整退出 ChatGPT，再在终端运行</span>
+            <span>{tr('首次接入：等待任务结束并完整退出 ChatGPT，再在终端运行')}</span>
             <Button
               type="button"
               variant="outline"
-              aria-label="复制启动命令"
+              aria-label={tr('复制启动命令')}
               onClick={() =>
                 void run('copy', async () => {
                   await navigator.clipboard.writeText('palboo launch --restart-running');
-                  notify('已复制启动命令；将按启动行为设置处理已打开的 ChatGPT。');
+                  notify(tr('已复制启动命令；将按启动行为设置处理已打开的 ChatGPT。'));
                 }).catch(() => {})
               }
             >
@@ -160,13 +165,13 @@ export function ConnectionSettings({
       {form && (
         <>
           <Card tabIndex={-1} id="settings-startup" aria-labelledby="startup-title">
-            <h2 id="startup-title">启动行为</h2>
+            <h2 id="startup-title">{tr('启动行为')}</h2>
             <Field
               id="host-restart-policy"
-              label="ChatGPT 已打开，但没有调试连接时"
+              label={tr('ChatGPT 已打开，但没有调试连接时')}
               hint={
                 form.hostRestartPolicy === 'force'
-                  ? '强制重开可能中断任务或丢失未保存内容。'
+                  ? tr('强制重开可能中断任务或丢失未保存内容。')
                   : undefined
               }
             >
@@ -178,10 +183,11 @@ export function ConnectionSettings({
                   if (e.target.value === 'force') {
                     e.stopPropagation();
                     confirm({
-                      title: '允许直接强制重开？',
-                      description:
+                      title: tr('允许直接强制重开？'),
+                      description: tr(
                         '以后无法连接已打开的 Codex 时，将不再询问而直接强制退出，可能中断任务或丢失未保存内容。',
-                      confirmLabel: '确认启用',
+                      ),
+                      confirmLabel: tr('确认启用'),
                       action: () => {
                         change('hostRestartPolicy', 'force');
                         return editor.save();
@@ -190,8 +196,8 @@ export function ConnectionSettings({
                   } else change('hostRestartPolicy', 'ask');
                 }}
               >
-                <option value="ask">询问后正常重开</option>
-                <option value="force">直接强制重开</option>
+                <option value="ask">{tr('询问后正常重开')}</option>
+                <option value="force">{tr('直接强制重开')}</option>
               </NativeSelect>
             </Field>
           </Card>

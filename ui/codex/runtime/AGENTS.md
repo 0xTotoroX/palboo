@@ -74,3 +74,5 @@ Grok Bot 由 grokbotEnabled 独立开启，syncTools 安装/销毁 __palbooBots�
 state 默认关闭 sidebarNewChat/sidebarDots；presentation 从外观偏好同步，旧快照缺省关闭，通知旧工作台和独立功能外壳重新计算停靠，不改变 dockOpen 意愿。
 
 术语导入由 lifecycle 按只读 terminologyImportsPending 安装/回收主聊天发送衔接，settings-sync 沿既有设置通知更新；不受术语标注显示开关控制，不修改 Agent 或供应商配置。
+
+lifecycle 的现有公开运行接口增加只读 translate，用于独立 CDP 脚本文案。presentation 接收带 language/action 的外观投影并兼容旧动作字符串；桌面旧入口读取 language，内容身份加入语言以刷新产品文案，保持草稿和阅读状态。宿主 document.lang 不由 Palboo 修改。

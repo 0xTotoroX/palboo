@@ -14,6 +14,7 @@ mod edge_window;
 mod feature_window;
 mod features;
 mod host;
+mod i18n;
 mod jev;
 mod lifecycle;
 mod model;
@@ -161,6 +162,7 @@ enum Commands {
 async fn main() -> Result<()> {
     let cli = Cli::parse();
     let paths = config::Paths::new(cli.data_dir)?;
+    i18n::set_language(&panel::Preferences::read(&paths).language);
     match cli.command.unwrap_or(Commands::Start {
         port: config::DEFAULT_PORT,
         cdp: None,

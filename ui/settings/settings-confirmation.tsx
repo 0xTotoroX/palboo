@@ -1,3 +1,5 @@
+import { useLocale } from '../shared/use-locale';
+import { tr } from '../shared/i18n.js';
 /* [INPUT]: Explicit action, consequence text and optional configuration revision.
  * [OUTPUT]: Shared confirmation dialog with safe initial focus, retained inert exit content, cancellation and failure feedback.
  * [POS]: Settings-only presentation; opening/cancelling never executes the supplied action.
@@ -38,7 +40,7 @@ export function useConfirmation(revision?: number | string, blocked = false) {
   async function run() {
     if (!pending || flight.current || latest.current.blocked) return;
     if (latest.current.revision !== pending.revision) {
-      setError('设置已变化，请关闭后重新确认。');
+      setError(tr('设置已变化，请关闭后重新确认。'));
       return;
     }
     flight.current = true;
@@ -46,7 +48,7 @@ export function useConfirmation(revision?: number | string, blocked = false) {
     setError('');
     try {
       const result = await pending.action();
-      if (result === false) throw Error('操作未完成，请检查页面中的错误提示后重试。');
+      if (result === false) throw Error(tr('操作未完成，请检查页面中的错误提示后重试。'));
       setPending(null);
     } catch (error) {
       setError((error as Error).message);
@@ -86,7 +88,7 @@ export function useConfirmation(revision?: number | string, blocked = false) {
           disabled={busy}
           onClick={() => setPending(null)}
         >
-          取消
+          {tr('取消')}
         </Button>
         <Button
           type="button"
@@ -95,7 +97,7 @@ export function useConfirmation(revision?: number | string, blocked = false) {
           aria-busy={busy}
           onClick={() => void run()}
         >
-          {busy ? '处理中…' : lastContent.current?.confirmLabel || '确认'}
+          {busy ? tr('处理中…') : lastContent.current?.confirmLabel || tr('确认')}
         </Button>
       </div>
     </dialog>
@@ -118,6 +120,7 @@ export function ConfirmationButton({
   revision?: number | string;
   confirmDisabled?: boolean;
 }) {
+  useLocale();
   const { confirm, confirmation } = useConfirmation(revision, confirmDisabled || props.disabled);
   return (
     <>

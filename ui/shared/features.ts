@@ -1,13 +1,24 @@
+import { tr } from './i18n.js';
 /* [INPUT]: Authenticated feature transport and shared business DTOs.
  * [OUTPUT]: Persisted edge navigation, six-feature icon mapping and placement, main ownership, default fonts, recursive split geometry with optional row collapse flags and transient view, preset and quick-prompt draft contracts.
  * [POS]: Presentation boundary. [PROTOCOL]: Keep AGENTS.md in this module in sync. */
 import type { BoardView } from '../features/board/app';
 export const titles = {
-  outline: '大纲',
-  board: '看板',
-  next: '下一步',
-  model: '模型切换',
-  terms: '术语',
+  get outline() {
+    return tr('大纲');
+  },
+  get board() {
+    return tr('看板');
+  },
+  get next() {
+    return tr('下一步');
+  },
+  get model() {
+    return tr('模型切换');
+  },
+  get terms() {
+    return tr('术语');
+  },
   bots: 'Grok Bot',
 };
 export type FeatureId = keyof typeof titles;
@@ -97,6 +108,7 @@ export type FeatureState = {
   mainWindow?: { lease: string; pid?: number | null; size: [number, number] };
   features: Entry[];
   appearance?: {
+    language?: 'system' | 'zh-CN' | 'en';
     typography?: import('./typography').Typography | null;
     typographyPreferences?: import('./typography').TypographyPreferences;
     theme?: string | null;

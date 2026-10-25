@@ -1,3 +1,5 @@
+import { useLocale } from '../shared/use-locale';
+import { tr } from '../shared/i18n.js';
 /* [INPUT]: 现有基础控件、动作反馈和设置保存队列。
  * [OUTPUT]: 统一设置行、功能开关、就近保存反馈及跨页无效字段定位；仅输入控件失焦自动保存，原表单归属与队列不变。
  * [POS]: 设置页组合组件，不持有业务数据或新增保存服务。
@@ -22,6 +24,7 @@ export function Field({
   hint?: string;
   children: ReactNode;
 }) {
+  useLocale();
   return (
     <div className="settings-field">
       <label htmlFor={id}>{label}</label>
@@ -45,6 +48,7 @@ export function Toggle({
   disabled?: boolean;
   onChange: (value: boolean) => void;
 }) {
+  useLocale();
   return (
     <label className="settings-row">
       <span>{label}</span>
@@ -71,6 +75,7 @@ export function FeatureSwitch({
   disabled?: boolean;
   onChange: (value: boolean) => void;
 }) {
+  useLocale();
   const id = useId();
   return (
     <div className="settings-row settings-feature-switch">
@@ -79,7 +84,7 @@ export function FeatureSwitch({
         {actions}
         <Switch
           id={id}
-          aria-label={`启用${name}`}
+          aria-label={tr('启用{{name}}', { name: name })}
           checked={checked}
           disabled={disabled}
           onCheckedChange={onChange}
@@ -97,13 +102,14 @@ export function Feedback({
   failed?: boolean;
   target?: HTMLElement | null;
 }) {
+  useLocale();
   return text ? (
     <NearbyFeedback target={target}>
       <p
         className={failed ? 'settings-feedback settings-error' : 'settings-feedback'}
         role={failed ? 'alert' : 'status'}
       >
-        {text}
+        {tr(text)}
       </p>
     </NearbyFeedback>
   ) : null;
@@ -119,6 +125,7 @@ export function SettingsForm({
   children: ReactNode;
   active: boolean;
 }) {
+  useLocale();
   const { dirty, saving, remoteChanged, save, schedule, load } = editor;
   const formId = useId();
   const [manualState, setManualState] = useState<ActionState>('idle');
@@ -214,16 +221,18 @@ export function SettingsForm({
           {!remoteChanged && <Feedback text={editor.saveError} failed />}
           {remoteChanged && (
             <div className="settings-feedback settings-error" role="alert">
-              设置已在其他窗口更新，当前编辑已保留。
+              {tr('设置已在其他窗口更新，当前编辑已保留。')}
               <ConfirmationButton
                 type="button"
                 variant="ghost"
-                title="放弃当前草稿并重新载入？"
-                description="尚未保存的编辑和新输入密钥会被丢弃，重新读取其他窗口已保存的设置。"
-                confirmLabel="确认重新载入"
+                title={tr('放弃当前草稿并重新载入？')}
+                description={tr(
+                  '尚未保存的编辑和新输入密钥会被丢弃，重新读取其他窗口已保存的设置。',
+                )}
+                confirmLabel={tr('确认重新载入')}
                 onConfirm={() => request<Settings>('settings').then(load)}
               >
-                重新载入设置
+                {tr('重新载入设置')}
               </ConfirmationButton>
             </div>
           )}
@@ -234,9 +243,9 @@ export function SettingsForm({
           >
             <span role="status">
               {saving
-                ? '正在保存…'
+                ? tr('正在保存…')
                 : !dirty && !editor.saveError && (savedBriefly || actionState === 'success')
-                  ? '已保存'
+                  ? tr('已保存')
                   : ''}
             </span>
             {(dirty || manualState !== 'idle') && (
@@ -248,7 +257,7 @@ export function SettingsForm({
                 disabled={saving || manualFlight.current || remoteChanged || !dirty}
               >
                 <ActionIcon name="bookmark" state={actionState} />
-                保存设置
+                {tr('保存设置')}
               </Button>
             )}
           </div>

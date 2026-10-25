@@ -1,3 +1,4 @@
+import { tr } from '../shared/i18n.js';
 /*
  * [INPUT]: 宿主关联状态或只读浮窗投影、现有受限命令通道。
  * [OUTPUT]: 隐藏的来源文字与跟随/锁定菜单及统一关联操作；保留已有状态。
@@ -15,7 +16,7 @@ export function installAssociation(header) {
   holder.hidden = true;
   holder.insertAdjacentHTML(
     'afterend',
-    `<details class="csw-association-menu" hidden><summary role="button" aria-label="聊天关联" aria-describedby="csw-association-source">聊天关联${iconSvg('chevron-down')}</summary><div class="csw-layout-options" role="group" aria-label="聊天关联模式"><button type="button" data-association="follow">跟随当前聊天</button><button type="button" data-association="lock">锁定到此聊天</button><button type="button" data-association="current">改为锁定当前选中的聊天</button><span class="csw-association-hint" role="status"></span></div></details>`,
+    `<details class="csw-association-menu" hidden><summary role="button" aria-label="${tr('聊天关联')}" aria-describedby="csw-association-source">${tr('聊天关联')}${iconSvg('chevron-down')}</summary><div class="csw-layout-options" role="group" aria-label="${tr('聊天关联模式')}"><button type="button" data-association="follow">${tr('跟随当前聊天')}</button><button type="button" data-association="lock">${tr('锁定到此聊天')}</button><button type="button" data-association="current">${tr('改为锁定当前选中的聊天')}</button><span class="csw-association-hint" role="status"></span></div></details>`,
   );
   const menu = header.querySelector('.csw-association-menu');
   menu.addEventListener('click', (event) => {
@@ -39,7 +40,7 @@ export function updateAssociation(header, source) {
   const status = source?.association;
   const menu = header.querySelector('.csw-association-menu');
   const label = header.querySelector('.csw-workbench-source');
-  label.textContent = source?.sourceLabel || 'Codex · 等待聊天';
+  label.textContent = source?.sourceLabel || tr('Codex · 等待聊天');
   label.removeAttribute('title');
   const locked = status?.mode === 'locked';
   const available = status?.available !== false;
@@ -59,8 +60,8 @@ export function updateAssociation(header, source) {
       action === 'current' ? status?.selectedSessionId || '' : source?.context?.sessionId || '';
   }
   menu.querySelector('.csw-association-hint').textContent = !available
-    ? '来源暂不可用，恢复前仅供查看。'
+    ? tr('来源暂不可用，恢复前仅供查看。')
     : !status?.canLock
-      ? '当前聊天尚无可确认的身份。'
+      ? tr('当前聊天尚无可确认的身份。')
       : '';
 }

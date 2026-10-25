@@ -1,3 +1,5 @@
+import { useLocale } from '../../shared/use-locale';
+import { tr } from '../../shared/i18n.js';
 /* [INPUT]: Task API, native window events, drag/drop components and optional surface header slot.
  * [OUTPUT]: Task groups, inline creation/removal and compact tabs or wide columns.
  * [POS]: Task-only application entry; no Codex/model dependencies.
@@ -7,6 +9,7 @@ import { Icon } from '../../shared/icons/react';
 import { createPortal } from 'react-dom';
 import {
   columns as defaults,
+  columnTitle,
   emptyFields,
   taskGroup,
   useTasks,
@@ -36,6 +39,7 @@ export function Board({
   locked?: boolean;
   view?: BoardView;
 }) {
+  useLocale();
   const { state, error, busy: taskBusy, command } = useTasks(true, request);
   const busy = taskBusy || locked;
   const element = useRef<HTMLDivElement>(null);
@@ -60,7 +64,10 @@ export function Board({
     setDraft(next);
   }
   const [dropTab, setDropTab] = useState('');
-  const columns = state?.store.columns ?? defaults;
+  const columns = (state?.store.columns ?? defaults).map((column) => ({
+    ...column,
+    title: columnTitle(column),
+  }));
   useEffect(() => {
     if (!columns.some((c) => c.id === stage)) setStage('todo');
   }, [columns, stage]);
@@ -96,12 +103,12 @@ export function Board({
   if (!state)
     return (
       <main className="loading">
-        <h1>任务看板</h1>
-        <p role="status">{error || '正在读取本地任务…'}</p>
+        <h1>{tr('任务看板')}</h1>
+        <p role="status">{error || tr('正在读取本地任务…')}</p>
       </main>
     );
   if (!state.store.boardEnabled)
-    return <div className="loading">任务看板已停用，请在设置页开启。</div>;
+    return <div className="loading">{tr('任务看板已停用，请在设置页开启。')}</div>;
   const tasks = state.store.tasks;
   const visible = tasks.filter((t) =>
     `${t.fields.title}\n${t.fields.notes}`.toLowerCase().includes(search.toLowerCase()),
@@ -115,7 +122,7 @@ export function Board({
         if (
           draft &&
           JSON.stringify(draft.fields) !== JSON.stringify(draft.task.fields) &&
-          !confirm('放弃之前未保存的任务修改？')
+          !confirm(tr('放弃之前未保存的任务修改？'))
         )
           return;
         updateDraft({
@@ -131,7 +138,7 @@ export function Board({
   );
   const searchButton = (
     <button
-      aria-label="搜索任务"
+      aria-label={tr('搜索任务')}
       aria-expanded={searchOpen}
       onClick={() => {
         setSearchOpen(!searchOpen);
@@ -162,8 +169,8 @@ export function Board({
       >
         <input
           autoFocus
-          aria-label="新任务标题"
-          placeholder="任务标题"
+          aria-label={tr('新任务标题')}
+          placeholder={tr('任务标题')}
           maxLength={1000}
           value={quickAdd.title}
           disabled={busy}
@@ -174,10 +181,10 @@ export function Board({
         />
         <div>
           <button disabled={busy || !quickAdd.title.trim()} type="submit">
-            添加
+            {tr('添加')}
           </button>
           <button disabled={busy} type="button" onClick={() => setQuickAdd(null)}>
-            取消
+            {tr('取消')}
           </button>
         </div>
       </form>
@@ -188,7 +195,7 @@ export function Board({
         onClick={() => setQuickAdd({ column, title: '' })}
       >
         <Icon name="plus" />
-        新建任务
+        {tr('新建任务')}
       </button>
     );
   return (
@@ -203,7 +210,7 @@ export function Board({
     >
       {!embedded && (
         <header className="board-header">
-          <h1>我的任务看板</h1>
+          <h1>{tr('我的任务看板')}</h1>
         </header>
       )}
       {draft && (
@@ -217,7 +224,7 @@ export function Board({
           close={() => updateDraft({ ...draft, open: false })}
           reload={() => {
             const task = state.store.tasks.find((t) => t.id === draft.task.id);
-            if (task && confirm('丢弃未保存修改并载入最新任务？'))
+            if (task && confirm(tr('丢弃未保存修改并载入最新任务？')))
               updateDraft({
                 task: structuredClone(task),
                 fields: structuredClone(task.fields),
@@ -239,7 +246,7 @@ export function Board({
       <main className="board-main">
         {narrow && (
           <div className="board-toolbar">
-            <nav className="stage-tabs" aria-label="任务阶段">
+            <nav className="stage-tabs" aria-label={tr('任务阶段')}>
               {columns.map((column) => (
                 <button
                   key={column.id}
@@ -272,16 +279,18 @@ export function Board({
         )}
         {state.store.inflight?.action === 'create' && (
           <div className="recovery">
-            <strong>创建结果待确认</strong>
-            <p>请先在 Apple 提醒事项中检查。同步会尝试找到此前创建的任务，不会盲目重建。</p>
+            <strong>{tr('创建结果待确认')}</strong>
+            <p>{tr('请先在 Apple 提醒事项中检查。同步会尝试找到此前创建的任务，不会盲目重建。')}</p>
             <button
               disabled={busy}
               onClick={() => {
-                if (confirm('确认已核对 Apple 提醒事项？此次操作将保留并归档本地记录，停止重试。'))
+                if (
+                  confirm(tr('确认已核对 Apple 提醒事项？此次操作将保留并归档本地记录，停止重试。'))
+                )
                   void command({ op: 'uncertain', confirmChecked: true });
               }}
             >
-              已核对，归档并停止重试
+              {tr('已核对，归档并停止重试')}
             </button>
           </div>
         )}
@@ -322,8 +331,8 @@ export function Board({
                 className="board-search"
                 autoFocus
                 type="search"
-                aria-label="搜索任务"
-                placeholder="搜索任务…"
+                aria-label={tr('搜索任务')}
+                placeholder={tr('搜索任务…')}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />

@@ -1,3 +1,5 @@
+import { useLocale } from '../shared/use-locale';
+import { tr } from '../shared/i18n.js';
 /* [INPUT]: A Codex projection, transient reading state, guarded actions and a surface header slot.
  * [OUTPUT]: Shared outline/next content inside an isolated mount, preserving DOM, quick-prompt drafts and preview reading.
  * [POS]: Mount adapter; feature modules own content and gestures, containers own arrangement.
@@ -30,6 +32,7 @@ export function ProjectedContent({
   disabled: boolean;
   command: (kind: PanelCommand['kind'], data?: Partial<PanelCommand>) => Promise<void>;
 }) {
+  useLocale();
   const root = useRef<HTMLDivElement>(null);
   const releaseScroll = useRef<() => void>(() => {});
   const rendered = useRef<string | null>(null);
@@ -111,7 +114,11 @@ export function ProjectedContent({
     <button
       data-refresh={id}
       aria-label={
-        id === 'outline' ? '刷新大纲' : snapshot.prompts.length ? '重新生成建议' : '生成建议'
+        id === 'outline'
+          ? tr('刷新大纲')
+          : snapshot.prompts.length
+            ? tr('重新生成建议')
+            : tr('生成建议')
       }
       disabled={
         disabled || snapshot.scanBusy || (id === 'next' && snapshot.bridgeStatus === 'pending')
@@ -131,7 +138,7 @@ export function ProjectedContent({
       <div
         className="feature-projection"
         role={id === 'outline' ? 'navigation' : undefined}
-        aria-label={id === 'outline' ? '大纲' : undefined}
+        aria-label={id === 'outline' ? tr('大纲') : undefined}
         ref={root}
       />
     </>

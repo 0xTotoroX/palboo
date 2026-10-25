@@ -1,3 +1,5 @@
+import { useLocale } from '../shared/use-locale';
+import { tr } from '../shared/i18n.js';
 /* [INPUT]: Original v3 SVG/pose timeline, replay/transport intent and motion preference.
  * [OUTPUT]: Complete original playback from typing through blush, then scroll handoff.
  * [POS]: Website transport only; original artwork and authored poses stay unchanged.
@@ -7,6 +9,7 @@ import { createBrandPose } from './brand-poses';
 import artwork from './media/palboo-opening.svg?raw';
 
 export function BrandOpening({ travelling, replay }: { travelling: boolean; replay: number }) {
+  useLocale();
   const ref = useRef<HTMLDivElement>(null);
   const finish = useRef<() => void>(() => {});
   useLayoutEffect(() => {
@@ -60,7 +63,7 @@ export function BrandOpening({ travelling, replay }: { travelling: boolean; repl
     if (travelling) finish.current();
   }, [travelling, replay]);
   return (
-    <div className="brand-opening" role="img" aria-label="PALBOO 字标变成双眼">
+    <div className="brand-opening" role="img" aria-label={tr('PALBOO 字标变成双眼')}>
       <div
         className="original-opening"
         ref={ref}

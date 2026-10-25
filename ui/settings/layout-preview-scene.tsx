@@ -1,3 +1,5 @@
+import { useLocale } from '../shared/use-locale';
+import { tr } from '../shared/i18n.js';
 /* [INPUT]: Demonstration children, current window geometry, host label and secondary-screen visibility.
  * [OUTPUT]: Original frontal host display and secondary display, reused by settings and website.
  * [POS]: Local vector illustration; no screenshots, external assets or product commands.
@@ -14,7 +16,7 @@ export const demoFrames: Record<string, DemoFrame> = {
 export function LayoutPreviewScene({
   frame,
   children,
-  title = '布局与位置',
+  title = tr('布局与位置'),
   hostName = 'ChatGPT',
   placement,
 }: {
@@ -24,6 +26,7 @@ export function LayoutPreviewScene({
   hostName?: string;
   placement?: string;
 }) {
+  useLocale();
   const chatWidth =
     (!placement || placement === 'sidebar') && frame.x < 710 ? Math.max(230, frame.x - 190) : 498;
   return (
@@ -31,7 +34,7 @@ export function LayoutPreviewScene({
       className="layout-demo-scene"
       viewBox={`${-188 * (1 - frame.secondary)} 16 1120 500`}
       role="group"
-      aria-label={`${hostName} 与副屏中的交互示例`}
+      aria-label={tr('{{hostName}} 与副屏中的交互示例', { hostName: hostName })}
     >
       <path className="demo-desk" d="M8 488H1112" />
       <rect className="demo-device-shadow" x="24" y="47" width="694" height="440" rx="9" />
@@ -46,7 +49,7 @@ export function LayoutPreviewScene({
         <text x="147" y="48" className="demo-title">
           {title}
         </text>
-        {['新聊天', '搜索聊天', '项目', 'Palboo', title].map((text, i) => (
+        {[tr('新聊天'), tr('搜索聊天'), tr('项目'), 'Palboo', title].map((text, i) => (
           <text key={text} x="14" y={45 + i * 28}>
             {text}
           </text>
@@ -67,16 +70,16 @@ export function LayoutPreviewScene({
           rx="10"
         />
         <text x="177" y="104">
-          保留内容与阅读位置，
+          {tr('保留内容与阅读位置，')}
         </text>
         <text x="177" y="119">
-          把工作台移到另一块屏幕。
+          {tr('把工作台移到另一块屏幕。')}
         </text>
         <text x="151" y="163">
-          先弹出，再移到副屏。
+          {tr('先弹出，再移到副屏。')}
         </text>
         <text className="demo-title" x="151" y="201">
-          保留当前内容
+          {tr('保留当前内容')}
         </text>
         {[218, 230, 274, 286].map((y, i) => (
           <rect
@@ -90,7 +93,7 @@ export function LayoutPreviewScene({
           />
         ))}
         <text className="demo-title" x="151" y="257">
-          切换承载位置
+          {tr('切换承载位置')}
         </text>
         <rect
           className="demo-composer"
@@ -101,10 +104,10 @@ export function LayoutPreviewScene({
           rx="15"
         />
         <text x="155" y="370">
-          询问任何问题
+          {tr('询问任何问题')}
         </text>
         <text x="155" y="397">
-          ＋　工具
+          {tr('＋　工具')}
         </text>
       </g>
       <g opacity={frame.secondary} aria-hidden={frame.secondary < 0.01}>

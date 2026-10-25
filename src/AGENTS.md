@@ -131,3 +131,5 @@ panel::Ui.sidebar_new_chat/sidebar_dots 默认 false，经 appearance 修订逐�
 settings 的 directionCatalogVersion 仅由后台维护并随常规保存持久化；config.load 在内存补齐新增系统方向，不在读取时改写配置。settings 回读 builtInDirections 与 directionLibraryLimit，前端不提交目录元数据。系统方向通过稳定内置 ID 识别，修改名称和说明仍保留其系统来源，其余 ID 属于用户自定义。
 
 - `terminology_import.rs`：私有版本化词库保存基础、个人和自动补词，旧普通内容保守保留为基础；名称及任意格式文件形成有身份的主聊天任务，原文件仅在私有目录保存。Agent 结果按任务/尝试身份、大小和词条 schema 校验，后台仅在待处理时检查预期结果文件；重试与重置使旧结果失效。server 的认证 /terminology/file 仅对上传开放 8 MB 限制，其他接口维持原限制。
+
+- `i18n.rs`：只读系统首选语言并结合保存的 language，为原生提示和标题选择中英文。panel Preferences 默认 system，通过 appearance 修订校验与保存；只刷新显示，不改变模型或生成配置。features/surfaces 和宿主 syncPanelPreferences 投影共享语言；旧字符串 launcherAction 仍兼容。

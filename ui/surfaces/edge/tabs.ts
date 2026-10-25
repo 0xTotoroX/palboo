@@ -1,3 +1,4 @@
+import { tr, getLocale } from '../../shared/i18n.js';
 /* [INPUT]: Available feature IDs, persisted edge tabs and guarded feature requests.
  * [OUTPUT]: Accessible icon tabs with serialized saves, keyboard movement and cold-start selection.
  * [POS]: Edge navigation only; never edits feature content or remounts views.
@@ -47,14 +48,14 @@ export function createEdgeTabs(
           expected: confirmed,
         });
         if (!result.edgeTabs || !Number.isFinite(result.edgeTabsRevision))
-          throw Error('未收到标签保存确认');
+          throw Error(tr('未收到标签保存确认'));
         confirmed = result.edgeTabs;
         revision = result.edgeTabsRevision!;
       }
     } catch (e) {
       dirty = false;
       value = structuredClone(confirmed);
-      error(`标签未保存：${e instanceof Error ? e.message : String(e)}`);
+      error(tr('标签未保存：{{value1}}', { value1: e instanceof Error ? e.message : String(e) }));
       render();
       changed();
     } finally {
@@ -91,7 +92,7 @@ export function createEdgeTabs(
   function render() {
     const order = visible(),
       current = selected(),
-      key = order.join(':') + '|' + current;
+      key = getLocale() + '|' + order.join(':') + '|' + current;
     if (nav.dataset.key === key) return;
     const focused = nav.contains(document.activeElement)
       ? (document.activeElement as HTMLElement).dataset.edgeTab

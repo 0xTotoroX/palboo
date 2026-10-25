@@ -1,3 +1,5 @@
+import { useLocale } from '../shared/use-locale';
+import { tr } from '../shared/i18n.js';
 /* [INPUT]: 模型状态、带修订校验的保存与刷新操作、共用候选与列表排序控件。
  * [OUTPUT]: 可搜索/分类的模型分组、固定搜索、按选择出现的底部批量操作与拖动排序；删除和恢复分类统一确认并校验修订。
  * [POS]: 只管理模型展示偏好，不切换模型或修改预设。
@@ -17,6 +19,8 @@ import {
   automaticManufacturer,
   manufacturer,
   manufacturerNames,
+  manufacturerLabel,
+  manufacturerValue,
   groupedModels,
   orderedModelIds,
   type Model,
@@ -38,6 +42,7 @@ export function ModelOrganization({
   refresh: () => Promise<boolean>;
   feedback?: string;
 }) {
+  useLocale();
   const listRef = useSettingsListMotion();
   const [refreshState, setRefreshState] = useState<ActionState>('idle');
   const prefs = state.preferences;
@@ -114,23 +119,23 @@ export function ModelOrganization({
   return (
     <SettingsDrawer
       id="model-organization"
-      title="模型分组"
+      title={tr('模型分组')}
       toolbar={
         <>
           <div className="settings-catalog-tools" data-settings-feedback-anchor>
             <Input
               type="search"
-              aria-label="搜索模型"
-              placeholder="搜索模型或厂家"
+              aria-label={tr('搜索模型')}
+              placeholder={tr('搜索模型或厂家')}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
             <NativeSelect
-              aria-label="筛选模型分组"
+              aria-label={tr('筛选模型分组')}
               value={categoryId}
               onChange={(e) => setCategory(e.target.value)}
             >
-              <option value="all">全部分组</option>
+              <option value="all">{tr('全部分组')}</option>
               {groups.map((group) => (
                 <option key={group.id} value={group.id}>
                   {group.name}
@@ -139,7 +144,7 @@ export function ModelOrganization({
             </NativeSelect>
             <IconButton
               variant="outline"
-              aria-label="刷新可用模型"
+              aria-label={tr('刷新可用模型')}
               disabled={busy || !prefs.enabled}
               onClick={async () => {
                 setRefreshState('pending');
@@ -163,7 +168,7 @@ export function ModelOrganization({
                 setSelected([...new Set([...selected, ...visibleModels.map((m) => m.id)])])
               }
             >
-              全选当前列表
+              {tr('全选当前列表')}
             </Button>
           </div>
         </>
@@ -174,39 +179,39 @@ export function ModelOrganization({
             hidden={!selected.length}
             disabled={busy}
             className="settings-catalog-bulk"
-            aria-label="批量调整"
+            aria-label={tr('批量调整')}
             data-settings-feedback-anchor
           >
             <div className="settings-catalog-selection" data-settings-navigation>
               <span role="status" className="mr-auto">
-                已选 {selected.length} 个
+                {tr('已选 {{count}} 项', { count: selected.length })}
               </span>
               <Button type="button" variant="ghost" onClick={() => setSelected([])}>
-                取消选择
+                {tr('取消选择')}
               </Button>
             </div>
             <div className="settings-catalog-bulk-controls">
               <NativeSelect
-                aria-label="批量操作"
+                aria-label={tr('批量操作')}
                 value={bulkMode}
                 onChange={(e) => setBulkMode(e.target.value)}
               >
-                <option value="group">移动分组</option>
-                <option value="maker">指定厂家</option>
-                <option value="reset">恢复自动分类</option>
+                <option value="group">{tr('移动分组')}</option>
+                <option value="maker">{tr('指定厂家')}</option>
+                <option value="reset">{tr('恢复自动分类')}</option>
               </NativeSelect>
               <div hidden={bulkMode !== 'maker'} className="settings-catalog-bulk-value">
                 <SuggestionInput
-                  aria-label="批量指定厂家"
-                  options={manufacturerNames}
-                  placeholder="选择或填写厂家"
+                  aria-label={tr('批量指定厂家')}
+                  options={manufacturerNames.map(manufacturerLabel)}
+                  placeholder={tr('选择或填写厂家')}
                   maxLength={60}
-                  value={maker}
-                  onValueChange={setMaker}
+                  value={manufacturerLabel(maker)}
+                  onValueChange={(name) => setMaker(manufacturerValue(name))}
                 />
                 <IconButton
                   variant="outline"
-                  aria-label="指定厂家"
+                  aria-label={tr('指定厂家')}
                   disabled={blocked || !maker.trim()}
                   onClick={() =>
                     void updateSelected((value) => ({ ...value, manufacturer: maker.trim() }))
@@ -217,11 +222,11 @@ export function ModelOrganization({
               </div>
               <div hidden={bulkMode !== 'group'} className="settings-catalog-bulk-value">
                 <NativeSelect
-                  aria-label="批量移动分组"
+                  aria-label={tr('批量移动分组')}
                   value={destination}
                   onChange={(e) => setDestination(e.target.value)}
                 >
-                  <option value="">按厂家归类</option>
+                  <option value="">{tr('按厂家归类')}</option>
                   {(prefs.groups || []).map((group) => (
                     <option key={group.id} value={group.id}>
                       {group.name}
@@ -230,7 +235,7 @@ export function ModelOrganization({
                 </NativeSelect>
                 <IconButton
                   variant="outline"
-                  aria-label="移动模型"
+                  aria-label={tr('移动模型')}
                   disabled={
                     blocked || (!!destination && !prefs.groups?.some((g) => g.id === destination))
                   }
@@ -250,12 +255,12 @@ export function ModelOrganization({
                   variant="outline"
                   disabled={blocked}
                   revision={state.revision}
-                  title={`恢复 ${selected.length} 个模型的自动分类？`}
-                  description="会移除所选模型的手动厂家与分组归属，保留常用、预设和排序。"
-                  confirmLabel="确认恢复"
+                  title={tr('恢复 {{value1}} 个模型的自动分类？', { value1: selected.length })}
+                  description={tr('会移除所选模型的手动厂家与分组归属，保留常用、预设和排序。')}
+                  confirmLabel={tr('确认恢复')}
                   onConfirm={() => updateSelected(() => ({}))}
                 >
-                  恢复自动分类
+                  {tr('恢复自动分类')}
                 </ConfirmationButton>
               </div>
             </div>
@@ -267,7 +272,7 @@ export function ModelOrganization({
           )}
           {!feedback && busy && (
             <p role="status" className="settings-feedback">
-              {refreshState === 'pending' ? '正在刷新…' : '正在保存…'}
+              {refreshState === 'pending' ? tr('正在刷新…') : tr('正在保存…')}
             </p>
           )}
         </>
@@ -288,8 +293,8 @@ export function ModelOrganization({
         >
           <Input
             className="min-w-0 flex-1 basis-40"
-            aria-label="新模型分组名称"
-            placeholder="新分组名称"
+            aria-label={tr('新模型分组名称')}
+            placeholder={tr('新分组名称')}
             maxLength={60}
             disabled={busy}
             value={newName}
@@ -298,18 +303,18 @@ export function ModelOrganization({
           <IconButton
             type="submit"
             variant="outline"
-            aria-label="新增分组"
+            aria-label={tr('新增分组')}
             disabled={busy || !newName.trim()}
           >
             <Icon name="plus" />
           </IconButton>
         </form>
         {!models.length && (
-          <p className="text-muted-foreground">暂无模型。开启模型切换后刷新可用列表。</p>
+          <p className="text-muted-foreground">{tr('暂无模型。开启模型切换后刷新可用列表。')}</p>
         )}
         {term && !visibleGroups.length && (
           <p role="status" className="settings-feedback">
-            没有匹配的模型
+            {tr('没有匹配的模型')}
           </p>
         )}
         <SettingsSortableList
@@ -326,11 +331,11 @@ export function ModelOrganization({
                   data-settings-list-item={group.id}
                   data-settings-list={group.id}
                   className="space-y-2"
-                  aria-label={`分组：${group.name}`}
+                  aria-label={tr('分组：{{value1}}', { value1: group.name })}
                 >
                   <div
                     {...groupProps(group.id)}
-                    aria-label={`排序分组 ${group.name}`}
+                    aria-label={tr('排序分组 {{value1}}', { value1: group.name })}
                     className="model-organization-heading"
                   >
                     <h3 className="mr-auto font-medium">
@@ -359,7 +364,7 @@ export function ModelOrganization({
                     >
                       <Input
                         className="min-w-0 flex-1 basis-32"
-                        aria-label={`分组名称 ${custom.name}`}
+                        aria-label={tr('分组名称 {{value1}}', { value1: custom.name })}
                         maxLength={60}
                         disabled={busy}
                         value={names[custom.id] ?? custom.name}
@@ -367,7 +372,7 @@ export function ModelOrganization({
                       />
                       <IconButton
                         type="submit"
-                        aria-label={`保存分组名称 ${custom.name}`}
+                        aria-label={tr('保存分组名称 {{value1}}', { value1: custom.name })}
                         disabled={
                           busy ||
                           !(names[custom.id] || '').trim() ||
@@ -381,12 +386,12 @@ export function ModelOrganization({
                         variant="ghost"
                         disabled={busy}
                         revision={state.revision}
-                        title={`删除分组“${custom.name}”？`}
-                        description="组内模型会回到厂家分类，常用、预设和模型本身保持不变。"
-                        confirmLabel="确认删除"
+                        title={tr('删除分组“{{value1}}”？', { value1: custom.name })}
+                        description={tr('组内模型会回到厂家分类，常用、预设和模型本身保持不变。')}
+                        confirmLabel={tr('确认删除')}
                         onConfirm={() => deleteGroup(custom.id)}
                         size="icon"
-                        aria-label={`删除分组 ${custom.name}`}
+                        aria-label={tr('删除分组 {{value1}}', { value1: custom.name })}
                       >
                         <Icon name="trash" />
                       </ConfirmationButton>
@@ -404,10 +409,12 @@ export function ModelOrganization({
                         const manual = prefs.modelOverrides?.[model.id];
                         const offline = !available.some((m) => m.id === model.id);
                         const annotations = [
-                          custom ? manufacturer(model, prefs) || '未分类' : '',
-                          manual?.manufacturer || manual?.groupId ? '手动' : '',
-                          prefs.pinned.includes(model.id) ? '常用' : '',
-                          offline ? '暂不可用' : '',
+                          custom
+                            ? manufacturerLabel(manufacturer(model, prefs)) || tr('未分类')
+                            : '',
+                          manual?.manufacturer || manual?.groupId ? tr('手动') : '',
+                          prefs.pinned.includes(model.id) ? tr('常用') : '',
+                          offline ? tr('暂不可用') : '',
                         ].filter(Boolean);
                         return (
                           <div
@@ -416,13 +423,13 @@ export function ModelOrganization({
                             className="model-organization-row"
                             data-model-id={model.id}
                             {...modelProps(model.id)}
-                            aria-label={`排序模型 ${model.label}`}
+                            aria-label={tr('排序模型 {{value1}}', { value1: model.label })}
                           >
                             <label className="flex min-w-0 flex-1 items-start gap-3">
                               <input
                                 type="checkbox"
                                 className="mt-1 shrink-0"
-                                aria-label={`选择 ${model.label}`}
+                                aria-label={tr('选择 {{value1}}', { value1: model.label })}
                                 checked={selected.includes(model.id)}
                                 disabled={busy}
                                 onChange={(e) =>
@@ -452,7 +459,7 @@ export function ModelOrganization({
                             <div className="flex flex-wrap gap-1">
                               <IconButton
                                 aria-expanded={detail === model.id}
-                                aria-label={`详情 ${model.label}`}
+                                aria-label={tr('详情 {{value1}}', { value1: model.label })}
                                 onClick={() => setDetail(detail === model.id ? null : model.id)}
                               >
                                 <Icon name="more" />
@@ -461,23 +468,30 @@ export function ModelOrganization({
                             {detail === model.id && (
                               <div className="basis-full space-y-2 break-all text-muted-foreground">
                                 <div>{model.id}</div>
-                                <div>自动识别：{automaticManufacturer(model) || '未分类'}</div>
+                                <div>
+                                  {tr('自动识别：')}
+                                  {automaticManufacturer(model) || tr('未分类')}
+                                </div>
                                 {(manual?.manufacturer || manual?.groupId) && (
                                   <ConfirmationButton
                                     type="button"
                                     variant="ghost"
                                     disabled={busy}
                                     revision={state.revision}
-                                    title={`恢复“${model.label}”的自动分类？`}
-                                    description="会移除这个模型的手动厂家与分组归属，保留常用和预设。"
-                                    confirmLabel="确认恢复"
+                                    title={tr('恢复“{{value1}}”的自动分类？', {
+                                      value1: model.label,
+                                    })}
+                                    description={tr(
+                                      '会移除这个模型的手动厂家与分组归属，保留常用和预设。',
+                                    )}
+                                    confirmLabel={tr('确认恢复')}
                                     onConfirm={() => {
                                       const overrides = { ...prefs.modelOverrides };
                                       delete overrides[model.id];
                                       return save({ modelOverrides: overrides });
                                     }}
                                   >
-                                    恢复自动
+                                    {tr('恢复自动')}
                                   </ConfirmationButton>
                                 )}
                               </div>

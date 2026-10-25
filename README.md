@@ -1,280 +1,169 @@
 <div align="center">
-  <img src="ui/icon.png" alt="Palboo logo" width="140" />
-  <h1>PALBOO</h1>
-  <p><strong>Your desktop companion for Codex: navigate answers and find your next question.</strong></p>
-  <p>Answer outlines and next-step suggestions, inside Codex or in a desktop panel.</p>
-  <p>
-    <img alt="Rust 2024 edition" src="https://img.shields.io/badge/Rust-2024-000000?logo=rust&amp;logoColor=white" />
-    <img alt="TypeScript 5" src="https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&amp;logoColor=white" />
-    <img alt="React 19" src="https://img.shields.io/badge/React-19-61DAFB?logo=react&amp;logoColor=white" />
-    <img alt="macOS 14+ Apple Silicon" src="https://img.shields.io/badge/macOS-14%2B%20Apple%20Silicon-333333?logo=apple&amp;logoColor=white" />
-  </p>
+  <img src="ui/icon.png" alt="Palboo logo" width="120" />
+  <h1>Palboo</h1>
+  <p><strong>Give your conversations another dimension.</strong></p>
+  <p>A desktop companion for Codex: read, plan, and keep your tools close.</p>
 </div>
 
-**English** · [简体中文](README.zh-CN.md)
+**English** · [Simplified Chinese](README.zh-CN.md)
 
-[Website](https://palboo.0xtotoro.com) · [Download](https://github.com/0xTotoroX/palboo/releases)
+[Download](https://github.com/0xTotoroX/palboo/releases) · [Report an issue](https://github.com/0xTotoroX/palboo/issues)
 
-Palboo adds a companion panel to Codex / ChatGPT. Navigate long answers, generate follow-up questions, and keep your tools inside the conversation or in a desktop window.
+Palboo puts next-step suggestions, answer outlines, a glossary, tasks, and model controls beside your Codex conversation. Keep them in a sidebar, float them over the page, move them to the desktop, or use an edge/notch panel.
 
-Use the eyes entry in the left rail to open the workbench. Hover for Inside, Desktop, and Settings; the default single-click action is configurable. Double-click or Alt+Enter moves the main interface between the chat and desktop. Right-click opens settings in ChatGPT’s built-in browser side panel. The desktop window has return-to-chat, maximize/restore, and pin controls; it stays on top by default and remembers your choice.
+## Installation
 
-Terminology annotations are available under settings → Features → Terminology. Import a local glossary to show bold, underlined terms in chat, hover for Chinese definitions, and mark concepts as mastered. Chat hovers and sidebar selections share a compact popover with theme colors, matte, frosted, liquid, black, or custom backgrounds, plus favorites, manual entries, and document export. Optional semantic detection sends the current question and answer to the configured model; online enrichment queries only short term names and does not write to the main chat. Glossaries stay in local data and are not bundled with releases.
+**Requires an Apple Silicon Mac running macOS 14 or later, and the Codex / ChatGPT desktop app.** Desktop windows require macOS 15 or later; native Liquid Glass requires macOS 26. Windows and Intel Macs are not currently supported.
 
-In glossary management, enter term names to queue them immediately, or upload a file in any format (up to 8 MB). On your next deliberate main-chat send, Palboo appends a terminology task for that chat's selected Agent to research names or parse files. Supported formats, web access, and local file access depend on that Agent; failures can be reviewed and retried. Palboo does not start a separate model request or change external configuration. “Export my terms” includes only personal additions (including new imports), favorites, and mastered terms. Confirmed reset removes personal content, uploaded files, and pending jobs while retaining the foundation and its favorites/mastery records. Older imports have no provenance metadata: existing ordinary glossary entries are retained as the local foundation, with subsequent additions and imports tracked separately.
+1. Download the DMG from [GitHub Releases](https://github.com/0xTotoroX/palboo/releases).
+2. Open it and drag **Palboo** into **Applications**.
+3. Open Palboo. If Codex needs to restart to establish a connection, Palboo asks first.
 
-The workbench also provides a Terminology tab with concepts encountered in the current chat, favorites, and mastered terms. Semantic spans can cross paragraphs and inline formatting; results are cached and failed analysis is retried a bounded number of times.
+The DMG contains the complete App. Installation and everyday use do not require terminal commands, Node.js, or Rust. Optional Agents and model services use your existing installations and accounts.
 
-Enable **点击术语时跳转到上下文** in settings → Features → Terminology to scroll to the latest confirmed occurrence in the current chat when selecting a term. It is off by default and keeps the definition popover; unavailable or stale positions do not switch chats.
+<details>
+<summary>Help with the first launch</summary>
 
-Grok Bot is optional. In **Settings → Grok Bot → Connect Grok Bot**, copy the setup prompt and give it to your own Agent or Codex. The Agent should follow current official documentation to install and maintain BDK, MCP and the Skill independently. Palboo does not bundle installers, adapters or Skills, and does not pin a BDK version. Existing connections remain usable. The prompt includes the local catalog contract and account/roster checks; the Agent must verify compatibility and use official sign-in when needed.
+If macOS blocks the App, verify that you downloaded it from this repository, then go to **System Settings → Privacy & Security → Open Anyway**. Do not disable system security globally.
 
-Enable **Features → Common switches → Grok Bot** (off by default). Metadata sync is automatic by default. Turn off automatic Bot metadata sync in **Settings → Grok Bot** to release the file watcher and stop background catalog requests; use the panel header refresh button to update. The initial read and identity validation before actions still occur. Automatic mode keeps a 60-second health check; closing the feature or disconnecting releases its resources. The setup entry sits beside the enable switch; select a name in Bot profiles to read its full description. In manual mode, chat replies and task status still update, but returning to the panel alone does not refresh the roster, descriptions or previews.
+If Codex is already running without a usable connection, the default launch policy asks before quitting and reopening it. Cancel to leave it running. The optional force-restart policy can interrupt tasks or lose unsaved work.
 
-With a compatible independent bridge, Palboo mirrors saved pins, sidebar sections, hidden Bots and their order in both the panel and profiles. Temporary search, unread filters, drag state and section folding are not mirrored. Older bridges retain the basic roster order; unavailable saved layout shows a warning.
+</details>
 
-The main panel shows avatars, names, single-line message previews and relevant task status. Descriptions live in settings. Selecting a Bot only appends “请问「Bot名」：” to the main Codex composer; all questions and follow-ups stay there and are never sent automatically. Avatars use uniform static circles with tilted eyes and synchronized Bot colors, without official animation. The independent bridge must supply real data and reject account/roster mismatches; its Agent must verify and explain any upstream name-based get-or-create race limitation.
+Versions ending in `.0`, such as `1.0.0` and `1.1.0`, include a new DMG. Patch releases include release notes and source archives only; an older DMG does not contain newer patch changes.
 
-Remote Bot conversations and memory remain shared across Codex chats. Observed calls from another chat show as occupied; unseen calls and pre-reload state require checking in the main chat. Closing the view or disabling the feature does not stop remote work; disabling clears temporary local records. This first version does not provide background chat wakeups or jumps to historical replies.
+## What you can do
 
-Palboo was previously named CodexBuddy. Upgrading stops the old backend normally and retains configuration, tasks, terminology and layouts. The default data directory is now `~/Library/Application Support/palboo`, the command is `palboo`, and the launcher is `Palboo.app`. Old data and command paths remain compatibility links. `PALBOO_*` environment variables take precedence over legacy `CODEX_BUDDY_*` names. Migration refuses to merge two independent data directories; explicitly selected data locations stay unchanged. Historical releases and original license notices retain their original names.
-
-## Features
-
-| Feature | What it does |
+| Tool | Use it to |
 | --- | --- |
-| Answer outline | Jump to a heading and highlight its location in the answer |
-| Next-step suggestions | Generate follow-up questions from the current answer, then copy them or insert them into the composer |
-| Docked workbench | Show the outline and suggestions together without covering the chat; use automatic, vertical, or horizontal layouts, drag panels, group tabs, or focus one panel; remember docked and desktop layouts separately |
-| Desktop window | On macOS 15+, pop out and return to the embedded panel, move and resize the window, or keep it on top |
-| Model quick switch | Use the shared main interface or edge panel to select the official chat model, reasoning effort, and speed, and save complete presets; this does not change the model used for next-step suggestions |
-| Task board | To do, In progress and Done; editable groups, inline creation and drag-and-drop in wide columns or narrow tabs |
-| Apple Reminders integration | Implementation and existing data retained; settings entry temporarily hidden |
-| Terminology | Local glossary, contextual definitions, favorites and mastered terms |
-| Prompt enhancement | Optimize the current draft, cancel or restore it without sending |
-| Chat speed | Estimated live reply speed and host-reported token usage for the current chat, with an independent switch |
-| Reading and appearance | Follow Codex typography or set a fixed size; choose materials and summary visibility |
-| Your choice of model | Use an existing Codex login or connect your own model API |
+| **Next steps (Stepwise)** | Generate relevant follow-ups, choose directions, and reuse quick prompts. |
+| **Outline** | Navigate long answers by heading and jump to the original text. |
+| **Terminology** | Read contextual definitions, build a personal glossary, and save favorites or mastered terms. |
+| **Task board** | Keep tasks in To do, In progress, and Done; create groups and move tasks by dragging. |
+| **Model switching** | Choose actual Codex models, reasoning levels, and Fast mode; save presets and view available usage limits. |
+| **Prompt enhancement** | Refine a draft before sending it, then edit further or restore the original. |
+| **Chat speed** | See estimated visible reply speed and token usage when the host provides it. |
+| **Grok Bot** | Browse your Bots and bring a consultation into the current chat. |
 
-The model quick switch shows remaining Codex account usage to the left of the preset edit button: five-hour and weekly limits when available, or just the weekly limit. Turn it off under **Features → Model quick switch → Usage display**. Missing limits are not shown as full allowances.
+### Open and arrange your workspace
 
-**Chat speed** is enabled by default under **Features → Common switches → 聊天测速**. An optional module at the bottom of the model quick switch shows `≈ tok/s` or the current response status; hover or focus the readout for reported output, input, cached and reasoning counts. Speed is a lightweight estimate of visible text received over three seconds, not server generation speed. When enabled mid-turn, usage is labeled as the latest model call. It makes no additional model requests; disabling removes its listeners and temporary statistics.
-
-Outlines are parsed locally and do not require a model. Next-step suggestions require model configuration. You can disable either feature independently.
-
-Under **System → Performance & switches** (系统 → 性能与开关), turn off **Connect to Codex** to remove Palboo's host interface and listeners. Settings, task data, drafts and independent Reminders sync are retained; turning it back on reconnects without restarting Codex. Optional monitoring runs while this settings page is visible and separates Palboo backend CPU/physical memory, instrumented Palboo work, and whole-host page metrics. Whole-page memory is not Palboo's exclusive usage. A visual monitor shows CPU/memory trends, a CPU gauge and long-task activity, keeping at most five minutes of local, temporary history.
-
-In Web settings, choose **设置 → 系统 → 模型服务 → 高级设置 → 输入上下文 → 最近一次聊天（完整）** to send the complete latest question and answer without local character truncation. New configurations use this mode by default; existing character limits are preserved and remain configurable. The selected model’s context window still applies. Suggestions preserve the complete goal and authorization boundaries instead of splitting related tasks into competing buttons. Results are self-contained Chinese follow-up prompts; technical names may stay in their original language.
-
-**Suggestion directions** are independent of when generation starts:
-
-- **自动探索 (Explore):** one generation request discovers directions freely, up to the configured count.
-- **我来选择 (Choose):** select and reorder direction slots; one request generates up to one suggestion per slot. Inapplicable directions are skipped.
-- **智能挑选 (Smart, experimental):** Jev serves only as an applicability evaluator for candidate directions, assessing enabled directions against the current context in one batch. It does not discover open-ended directions, generate suggestions or prompts, or execute actions. The user-configured generation model selects complementary directions and writes the follow-up prompts. Requires separate TypeSafe credentials and explicit consent to send the latest question and answer to that service. Other modes make no Jev calls; failures do not silently switch modes.
-
-The direction library in Web settings includes twelve editable built-in directions. Open its drawer, choose **内置方向 (Built-in)** or **我的方向 (My directions)**, then select an entry to edit its name and instructions. Display and action controls appear first on the main page, followed by generation settings. Choose existing directions from a searchable picker organized into My directions and Built-in; selection does not create or delete library entries. Drag selected rows to reorder them; Alt+Up/Down provides a keyboard alternative. New installations include all twelve. Upgrades add new presets without replacing local edits, restoring removed older presets, or changing selected positions; new presets are initially unchecked for existing smart-selection configurations. Edited built-in directions can be restored to their original wording. Custom directions and edits stay on the current device. Counts are maximums, not quotas; empty results are valid. New configurations default to three suggestions; existing counts and generation timing are preserved. With an explicit input limit, the question takes priority and truncated context is marked. Jev and the generation model receive the same context snapshot. Jev's applicability cutoff is experimental and has not been calibrated for suggestion quality.
-
-Palboo uses its own eyes entry in the left rail and does not require the plugin. Click to toggle the workbench; double-click or Alt+Enter keeps the existing window handoff. Right-click or Option-right-click opens settings in ChatGPT’s built-in browser side panel.
-
-Hover over the independent eyes entry to choose inside, outside, or settings; configure its default click action under **界面 → 外观与字体**. Workbench headers no longer repeat the face. The desktop window has a horizontal-line return-to-chat button, maximize/restore, and pin controls at the top right. Maximize uses the available screen area; restore returns to the original position and size.
-
-Drag a panel heading or tab to another panel's edge to split the layout, or to its center to group them as tabs. Double-click a heading or tab to temporarily enlarge that panel; double-click its heading again or press Esc to restore the layout. Keyboard users can focus a heading and press Enter or Space. Choose tabs, vertical, horizontal or automatic splits under **界面 → 布局与位置 → 主界面布局** in Web settings. Press Esc during a drag to cancel it.
-
-Vertically stacked panes in the sidebar, page overlay and desktop window can fold to one title row each. Click the selected icon to fold or reopen a pane, including the last open pane. Dividers can collapse consecutive rows; folded rows remain draggable. Folding is saved per surface and retains content, drafts and reading position. Short layouts compact automatically.
-
-The outline and next-step suggestions share the same chat source. The source label and follow/lock menu are temporarily hidden; existing associations are preserved. If the source becomes unavailable, previous results remain available for reading until it reconnects.
-
-## CodexHost management
-
-Open **设置 → 系统 → 宿主管理** for installed/running versions, enablement, updates, version restore, and explicit restart to disable. The switch saves the next-launch preference; restarts follow the existing host policy. Management does not require Palboo’s MCP plugin.
-
-## Prompt enhancement
-
-Toggle prompt enhancement under **功能 → 常用开关** in settings. The settings search finds controls across categories and opens their original location; press `⌘K` or `Ctrl+K` to open its animated search dialog.
-
-Write a draft in the chat composer and click the pencil-and-sparkle icon. The result replaces the draft without sending it. Cancel while it runs, or restore the original afterward. Typing, switching chats, or replacing the editor invalidates old results; special reference nodes are left untouched. This uses Palboo’s existing model and credentials under **设置 → 系统 → 模型服务**, and sends only the draft, without chat history.
-
-## Settings navigation
-
-Settings use one grouped interface, with no Simple/Detailed switch: Interface, Features and System. Common switches, next-step suggestions, terminology, task board and model control each have their own page; quick prompts are part of Next step. Layout and appearance are separate. Wide windows show grouped links in the left sidebar; medium widths keep a narrow sidebar. At 640px and below, a single-line category/page menu opens grouped links. Switching retains unfinished edits and reading position. Advanced settings, terminology management and model groups use right-side drawers that retain inputs and scroll position when closed. Existing configuration, credentials and old settings links remain compatible. Shared model services live under System and serve enabled next-step, prompt enhancement and terminology features. Disabling a feature cancels its local requests and prevents follow-up calls while retaining connection settings.
-
-The Tom Modern settings design includes linked workspace, feature, generation and connection previews. Saved placement, nested layout and materials update the workspace diagram; generation previews identify unsaved edits. Sample interactions stay inside the preview. The Auto option follows Codex's light/dark appearance; the compact theme control in the page header also offers a saved light or dark override, while the brand icon retains its original appearance. Reduced-motion preferences and existing shared font settings remain in effect.
-
-The **界面 → 布局与位置** page includes an interactive display and secondary-screen demonstration. Drag dividers, expand headings, rearrange samples or watch the window move between screens. It follows saved features and layouts and lets you add temporary sample features. These interactions never change actual settings; **恢复已保存配置** resets the demonstration.
-
-## Task board
-
-The edge panel requests enough width for a multi-column board. Task details stay within its visible area, with scrolling to reach every field and the save button on shorter displays.
-
-Open **看板** in Web settings, enable it; the existing feature placement is retained, or run `palboo board`. The default groups are To do, In progress and Done; rename or add groups in settings. Narrow views use group tabs, while wide windows show columns.
-
-Apple Reminders authorization, list selection and sync controls are temporarily hidden. This release primarily uses the local board; integration code, existing bindings and task data are retained. Hiding the entry neither deletes Apple reminders nor automatically resets an existing sync configuration. Legacy Waiting tasks appear under To do while retaining their original stored stage.
-
-Settings credentials are shared by browser tabs using the same backend address. New tabs, reloads and reopened pages reuse the connection. If credentials expire or the backend address changes, reopen settings once from the eyes menu; other tabs at that address recover automatically without remounting unfinished forms or replaying save operations.
-
-### Feature display locations
-
-In Web settings, use **界面 → 布局与位置 → 主界面** to choose a sidebar, in-page overlay or resizable desktop window. Only one main interface exists. Each feature joins either this shared tabbed interface or the independent edge/notch panel, which can coexist with it. Drag edge tabs to reorder them, or use Alt+Left/Right. Their order is saved, and reopening restores the last selected feature. Each form saves its own black, matte, frosted or liquid (Regular/Clear) theme. Use the eyes entry to toggle the main interface or move it to and from the desktop. Revealing it from settings reuses its window. Moving preserves drafts, closed features and task data. The in-page overlay shrinks toward the eyes entry with a curved zoom effect and expands back along the same path; it never turns into a capsule.
-
-Under **设置 → 界面 → 外观与字体**, Palboo follows Codex chat text by default across terminology cards, the workbench and settings. Choose chat text, sidebar conversation titles or composer text as the reference; adjust the relative size (75–150%) or use a fixed custom size (10–32px). While a conversation is switching or the reference is unavailable, Palboo keeps the last valid font. Legacy per-feature size values remain stored.
-The board starts with To do, In progress and Done. Rename groups or add your own. Cards show titles; create tasks at the bottom of each group. Drag to another column, or onto a group tab in narrow views. Hover over a card to reveal its trash button and remove it from Palboo immediately. The Apple reminder stays intact and is not imported again. Click a title to open task details for notes, priority and a due date. Closing retains the draft; external changes require review before saving. Priority and due dates stay local to Palboo. Expand search when needed. Custom groups stay local, while moving to Done syncs completion.
-
-Return an existing desktop workbench before entering independent mode. Moving preserves reading state and inline creation drafts for the current service session without leaving the form. Closing a view does not disable its service or reminder sync. Desktop views require macOS 15+.
-
-Before first moving a legacy standalone board into independent mode, save its draft and close that window. Otherwise the move is refused and the original window is kept open.
-
-Hover over the eyes entry to reveal a background-free menu that expands upward within the sidebar: **Inside**, **Desktop**, and **Settings**. The **界面 → 外观与字体** lets you choose the default single-click action; existing configurations default to toggling the in-chat workbench. Arrow keys open and navigate the menu, and Esc closes it. Alt+Enter retains window handoff. Motion follows the reduced-motion preference.
-
-The eyes entry reflects the original capsule states, including blinking at idle, generation, completion and errors. With multiple visible chats, a small edge dot indicates the linked chat’s direction; it is hidden for a single chat or an unavailable source. This does not add another capsule or change the entry’s click/menu actions.
-
-The sidebar workbench and desktop window no longer duplicate the capsule eyes in their headers. Use the independent eyes entry for actions; the desktop retains its drag strip, pin control and Alt+Enter return shortcut.
-
-## Operations and state transitions
-
-The eyes entry stays in the host’s left rail. The workbench and desktop headers do not repeat it.
+The eyes button lives in Codex's left rail. Click to open or close the workbench. Hover for chat, desktop, and settings actions; right-click opens settings. Configure the default click action in **Interface → Appearance & fonts**.
 
 | Action | Result |
 | --- | --- |
-| Click the eyes | Run the saved action; by default, toggle the in-chat workbench |
-| Hover, then choose Inside / Desktop | Open the saved in-chat placement or the existing desktop window |
-| Double-click the eyes or press Alt+Enter | Move the main interface between the chat and desktop |
-| Click the desktop’s horizontal-line button | Return the main interface to the chat |
-| Right-click the eyes or choose Settings | Open settings in the built-in browser side panel |
-| Drag headings/tabs; double-click a heading or tab | Split or group panels; temporarily focus a panel, then press Esc to restore |
+| Double-click the eyes or press `Alt+Enter` | Move the workbench between the chat and desktop. |
+| Drag a feature heading or tab to another panel's edge | Split the layout. |
+| Drag it to the center of another panel | Group the features as tabs. |
+| Click the active icon in a stacked panel | Fold or reopen that panel. |
+| Double-click a heading or tab | Temporarily focus the panel; press `Esc` to restore. |
+| Drag an edge or divider | Resize the workspace or its panels. |
 
-Collapsing releases sidebar space while preserving the saved placement. New chats and Dots have separate sidebar switches under Interface → Layout and placement → Sidebar visibility; both are off by default. Enabling a switch allows that page to use the saved open/closed state. Switching chats preserves the current open/closed state and desktop placement. Dragging the sidebar edge stops at its minimum width without collapsing it. Dragging the divider between chats keeps the Palboo boundary in place until its minimum width is reached. Only space too small to hold the sidebar temporarily hides it; it returns when space is available, while a manually closed sidebar stays closed. Floating and docked placements are selected in settings; desktop maximize/restore preserves the normal window geometry.
+Choose placement and layout in **Interface → Layout & position**. The main workspace has one location at a time; an edge/notch panel can coexist with it. Sidebar and desktop layouts are saved separately, and switching positions preserves drafts and reading position. New-chat and Dots sidebars are optional and off by default.
 
-## Installation and use
+Choose matte, frosted, or liquid materials in **Interface → Appearance & fonts**. Palboo follows Codex's appearance without changing it. Edge panels can follow the display containing Codex or stay on a chosen display; hover to expand or use `Command+Shift+M`.
 
-### 1. Install
+Choose **Language** on the same page: English, Simplified Chinese, or the system default. The choice applies to all App surfaces without rewriting conversations or personal content. The website has its own language choice.
 
-Install the ChatGPT / Codex desktop app first. Palboo supports macOS 14+ on Apple Silicon; desktop popout requires macOS 15+.
+### Configure next steps
 
-When a [Release](https://github.com/0xTotoroX/palboo/releases) includes `palboo-X.Y.0-darwin-arm64.dmg`, open it, drag **Palboo** into **Applications**, then open the installed app. The DMG contains the complete Palboo app, including its backend and interface; installation and everyday use require no terminal commands, Node.js or Rust. Optional Agents, Codex CLI login and model services use your own installations and accounts.
+Open **System → Model service** and use an existing Codex CLI login or your own model API. Changes save when you leave a field or select an option; **Save settings** and **Test connection** are also available. A connection test sends a fixed short request, not your conversation.
 
-The app uses ad-hoc signing and is not notarized by Apple. If macOS blocks the first launch, verify the download source, then use **System Settings → Privacy & Security → Open Anyway**. Do not disable system security globally.
+Under **Features → Next steps**, choose manual or automatic generation and one direction source:
 
-New installers are built for versions whose final number is zero, such as `1.0.0` and `1.1.0`. Patch releases such as `1.0.1` contain release notes and source downloads, with no new installer; the preceding DMG does not include those patch changes. Separate app ZIP and CLI archives are not provided.
+- **Explore:** discover directions from the current exchange.
+- **Choose directions:** select from twelve built-in directions or your own, search the library, and drag selected directions to reorder them. `Alt+Up/Down` is the keyboard alternative.
+- **Smart selection:** optionally use Jev to assess candidate directions before your generation model writes the suggestions. This experimental mode requires separate credentials and explicit consent.
 
-To build from source instead, install Node.js 22.16+, Rust 1.88+ and Xcode Command Line Tools. Download and extract GitHub’s **Source code (zip)** or **Source code (tar.gz)** for the desired version, then run these commands in the project directory:
+Counts are limits, not targets: irrelevant suggestions may be omitted. New configurations use the complete latest question and answer and allow up to three suggestions. Existing limits and edits are preserved.
 
-```sh
-npm ci
-npm run install:local
-```
+Clicking a suggestion or quick prompt fills the composer by default. Sending behavior is configurable. **An existing draft is always preserved and appended to, without automatic sending.** You can also drag a suggestion into its linked composer. Changing the chat or suggestion invalidates an old drag.
 
-The source installer also creates an entry in Applications. Its local launcher depends on the installed CLI and is not the self-contained app distributed in the DMG.
+Quick prompt labels and contents are editable on the same page. The direction library distinguishes **Built-in** from **My directions**; editing a built-in direction affects only your installation, and its original wording can be restored.
 
-> If ChatGPT / Codex is already running without a debugging connection, Palboo asks before quitting and reopening it by default. You can select the force-restart option in the launch settings, but this may interrupt tasks or lose unsaved work. An existing debugging connection is reused directly.
+### Manage terminology
 
-### 2. Configure the suggestions model
+Enable **Features → Terminology** for chat annotations and definition popovers. The terminology panel lists concepts from the current chat, favorites, and mastered terms. **Jump to context on click** optionally locates a term's latest confirmed occurrence.
 
-Open settings from the eyes entry. Choose your existing Codex login or enter your model API settings, then test the connection. Text fields save when focus leaves them; selections save automatically. The Save button remains available for immediate saving. Using an existing login requires a working local Codex CLI installation and login session.
+In glossary management, enter a name or upload a file up to 8 MB. The next time you deliberately send a main-chat message, Palboo attaches the task for **that chat's current Agent** to research the name or parse the file. Supported formats, web access, and local-file access depend on the Agent. Failed tasks can be reviewed and retried.
 
-For Zhipu BigModel, select **Chat Completions** and use `https://open.bigmodel.cn/api/paas/v4` with your API key and model name. `glm-4.5-air`, `glm-4.7`, `glm-4.6v`, and `glm-4.1v-thinking-flashx` have passed the fixed-example connection test, including suggestion-format validation. Palboo adapts requests to the official endpoint while retaining direction and output validation; model access and quota still depend on your account. The connection test sends a short fixed request without reading your chat or invoking Stepwise or Jev.
+Export includes personal additions, favorites, and mastered terms. Reset removes personal additions, uploaded files, and pending import tasks while preserving the base glossary and its saved favorites/mastery. Existing entries without provenance remain part of the base glossary. Your personal glossary is not included in release downloads.
 
-Choose one shared main interface: a sidebar, an in-page overlay, or a desktop window. The edge/notch panel can coexist with it. Splits, tabs, and temporary focus only arrange the contents; they do not create additional main windows. Panel refresh controls appear on hover or keyboard focus and remain visible on touch devices.
+### Models, Bots, and connections
 
-### 3. Use the workbench
+**Model switching** controls the current Codex input target, independently of the model configured for Stepwise. The model list and reasoning levels come from Codex. Manage favorites, presets, groups, and ordering in its settings; unavailable capabilities are not guessed. Usage limits appear only when the host supplies them.
 
-- **Navigate an answer:** open the outline and click a heading to jump to the source text.
-- **Quick prompts:** the next-step panel starts with “继续” and “执行”. Clicking fills the composer without sending. Edit labels and text, add, or remove buttons in Web settings under “下一步 → 常用提示词”; they use no model requests and do not count toward generated suggestions.
-- **Ask a follow-up:** refresh the next-step panel to generate suggestions, or enable automatic generation. Automatic mode waits for the current response to finish and its text to settle, then reuses cached suggestions for unchanged context; local readiness checks do not call the model. Clicking a suggestion inserts it without sending by default. Existing drafts are appended directly without confirmation or automatic sending.
-- **Drag a recommendation:** drag a next-step recommendation into its linked chat composer to copy the full prompt. The original recommendation stays in the list. Existing drafts are preserved and appended without confirmation or automatic sending. Drop elsewhere or press Esc to cancel; stale chat or suggestion identities are rejected.
-- **Arrange features:** choose the main placement and each feature’s main/edge location in display settings. Drag headings to split or group panels, and drag sidebar edges or internal dividers to resize them. Closing a view preserves its service and saved placement.
-- **Adjust the window:** use the eyes menu or Alt+Enter for window handoff. Drag the desktop header to move and a lower corner to resize. The horizontal-line button returns to chat; maximize/restore and pin preserve their respective preferences. Palboo follows Codex appearance without changing its colors.
+**Grok Bot** is optional and off by default. In **Features → Grok Bot → Connect Grok Bot**, copy the setup prompt for your Agent. BDK, MCP, and the Skill remain independently installed. Palboo mirrors the compatible Bot roster, groups, and pins; consultations are appended to the main composer without automatic sending. Closing the panel does not stop remote Bot work.
 
-### Model quick switch
+**System → CodexHost** shows its status and installed/running versions, with update and restore actions. External hosts, Agents, and model services retain their own configuration.
 
-Enable the model feature in settings or run `palboo model-control`. It initially opens in the shared edge form and subsequently uses its saved placement. Favorites, reasoning, speed and presets are available in every form; next-step generation settings remain independent. The catalog icon after the trailing plus switches the same panel to a manufacturer catalog containing every model, including favorites. Closing it restores the matrix and preset shortcuts. Click a neutral tile to add or remove it from favorites; refresh sits beside the catalog close button. The edge panel grows to fit the actual favorite model rows. Click the lightning button to toggle Fast with a brief downward electric pulse. Drag the separate thin divider below it to resize model names; dragging never toggles Fast. Reduced motion keeps only a brief brightness response. Presets are individual recessed tags without an outer box; only Fast presets show a lightning icon. The trailing plus immediately saves the current selection under the model name, without a confirmation form. Duplicate names receive a numeric suffix while presets for the same model remain independent. The pencil toggles editing: every tag gains a delete control, and clicking its name edits the text instead of applying the preset. Tags wrap automatically. In Web settings, open **功能 → 模型切换 → 模型分组** to correct manufacturers, create custom groups, move models in bulk, drag to reorder groups/models, or restore automatic classification. Search by model or manufacturer, or filter by group; bulk actions appear after selecting models. Refreshing preserves manual choices and preferences for temporarily unavailable models. Different model IDs remain separate even when their names match. Only reasoning levels supported by favorite models occupy columns. The wider name-column budget and its divider support pointer and keyboard resizing and stop before reasoning labels become crowded. The outer frame stays stable during dragging, then adjusts its height to fit wrapped names on release. The full content scrolls only when it exceeds the available screen space.
+**System → Performance & switches** can pause Codex integration without deleting settings, tasks, or drafts. Optional monitoring runs only while that page is visible and distinguishes Palboo backend metrics from whole-host page metrics.
 
-The edge/notch form is shared by the enabled features. Use **界面 → 布局与位置** for its display, edge, position and keep-open preference, and **界面 → 外观与字体** for its theme. Hover to expand, leave for roughly half a second to collapse, or press `⌘⇧M` to toggle. Editing and business operations suppress automatic collapse; collapsing or switching tabs preserves drafts. Choose **跟随 Codex** to follow the display containing the connected Codex window, or select a fixed display. The panel remains available across Spaces and full-screen apps without following other apps’ focus. Stopping Palboo closes it.
+## Update or uninstall
 
-Legacy model visual preferences migrate once to `surfaces.json`; model pins and presets remain in `model-control.json`.
+To update a DMG installation, stop Palboo and replace the **whole App** with the new one. Configuration is stored outside the App and is retained.
 
-Available models and efforts come from the host. You can switch models in a new chat before sending its first message. The first selection reads and applies the configuration in one operation, without a separate refresh, then verifies the actual result. You can adjust subsequent configuration while an answer is being generated, provided the official controls allow it. Switching stops if the controls are disabled, the target is ambiguous, or capabilities have not loaded. If the official model list has not yet been observed after connecting, the control waits; there is no need to restart a working host just to load the list.
+When upgrading from CodexBuddy or Codex Companion, stop the old background service first with `~/.local/bin/codex-buddy stop` or `~/.local/bin/codex-companion stop`. Palboo migrates the default data directory and retains compatibility links. Multiple independent data directories are never merged automatically. Historical package filenames and original license notices retain their original names.
 
-## Updating and uninstalling
-
-For a DMG installation, stop Palboo before replacing the whole app with the one from a newer DMG. Existing configuration is stored outside the app and is preserved. Do not replace individual files inside the app: that invalidates its signature. For a source installation, get the desired source version and run `npm ci` and `npm run install:local` again.
-
-When upgrading from CodexBuddy or Codex Companion, first stop the old background service with `~/.local/bin/codex-buddy stop` or `~/.local/bin/codex-companion stop`. The new app then migrates the default data directory, preserving a compatibility link. A running old service or multiple independent data directories blocks migration; no data is merged or overwritten.
-
-To uninstall, first stop the background service:
+To uninstall, stop the background service:
 
 ```sh
 "/Applications/Palboo.app/Contents/MacOS/palboo" stop
 ```
 
-For a source installation, use `~/.local/bin/palboo stop` instead. Then delete `/Applications/Palboo.app` and, if installed from source, `~/.local/bin/palboo`. To also remove configuration, delete `~/Library/Application Support/palboo/`.
+Then delete `/Applications/Palboo.app`. Source installations use `~/.local/bin/palboo stop` and also remove that executable. Only delete `~/Library/Application Support/palboo/` if you want to remove your saved data.
 
-## Development
+## Build and develop
 
-New Dev App sessions clean up after the ChatGPT process exits, using its PID, start time, and executable identity. A temporary page disconnection keeps the session alive. After a script upgrade, run `npm run dev:stop` and reopen the Dev App; ChatGPT can stay open.
-
-Built with **Rust, JavaScript / TypeScript, and React**.
-
-Frontend changes follow the [Palboo design system](DESIGN_SYSTEM.md), reusing the local shadcn/ui and Radix settings controls, shared icons, and theme tokens. See the relevant `AGENTS.md` maps before adding a component or dependency; preserve existing form state and save behavior.
-
-
-```text
-src/               Backend, CLI, and native windows
-ui/features/       Board, outline, next-step, model, and terminology content
-ui/terminology/    Chat annotations and definition popovers
-ui/surfaces/       Shared workspace, embedded, desktop, edge, and themes
-ui/codex/          Codex page reading, navigation, and input adapters
-ui/shared/         Shared contracts, communication, icons, and tokens
-ui/settings/       Settings web app
-ui/website/        Standalone product introduction and interactive demos
-tests/             Automated tests
-scripts/           Development, build, and installation tools
-```
-
-The standalone introduction page follows a portfolio project through next steps, reading tools, tasks and workspace surfaces. Original brand and device models follow scrolling, with inline interactions on narrow screens. Run `npm run dev:site` to preview it at `http://127.0.0.1:52152`; `npm run build:site` creates portable static files in `target/site/`, and `npm run preview:site` serves that build locally. `npm run test:site` checks its isolated interactions and responsive layouts. It does not connect to Codex or read personal configuration. Building the page does not publish it or add it to the App.
-
-In the development preview, add `?preview=github-buttons` to compare the GitHub button styles in place. This comparison control is excluded from the production build.
-
-After installing dependencies, open the host through Palboo, then run:
+Requires **Node.js 22.16+**, **Rust 1.88+**, and **Xcode Command Line Tools** on a supported Mac.
 
 ```sh
-npm run dev
+npm ci
+npm run install:local  # Build and install from source
 ```
 
-Alternatively, run `npm run install:dev` once to install **Palboo Dev.app**. Opening it starts development in the background, updates saved source automatically, and does not open a terminal. Opening it again brings up the existing workbench. Without a debugging connection, it follows the development launch setting, initially inherited from the everyday installation. Stop background development with `npm run dev:stop`; logs are written to `target/dev/launcher.log`. After an abnormal exit, stale ownership records are recovered only when the supervisor and its associated backends have exited; otherwise startup reports the reason and preserves the records. This launcher depends on the local source tree and development tools. Stop and reopen it after changing development scripts or dependencies; regenerate it after moving the source tree or changing the Node.js path.
+The source installer creates a lightweight launcher that depends on the installed CLI. It is different from the self-contained App in the DMG.
 
-Installing the Dev launcher also updates an existing Dev Dock shortcut to the current app, preserving its position. It does not add a shortcut if none is pinned.
-
-The official plugin-tab link remains available as a disabled experiment. Both everyday and Dev builds use the original workbench entry and do not automatically expand the official panel when switching chats.
-
-For multiple Git worktrees, run `npm run dev:settings` (or right-click the fallback eyes entry), then select **开发** on the same settings page (older worktrees keep their top-of-page source selector). `npm run dev:settings` opens this same page with its session credentials. After upgrading the development scripts, stop and reopen Dev once. Older worktrees without the unified-entry fix still use their original gear destination; use the existing Dev settings tab to switch back. Select a worktree to switch its backend, settings UI, and hot reload together without restarting Codex. The settings address stays the same, and the last successful source is remembered. Each worktree keeps its own configuration. Compilation failure leaves the current source running; connection failure attempts to restore it. Use one Dev supervisor for the target window; stop older standalone Dev sessions before adopting this workflow. An explicit startup override is available with `npm run dev -- --source /path/to/worktree`.
-
-Development mode connects to real Codex. UI changes reload automatically, and Rust changes trigger a rebuild. For command-line development, press Ctrl+C to stop. Development configuration is separate from the everyday installation. Embedded liquid material uses the same SVG renderer in development and release builds.
+After opening Codex through Palboo:
 
 ```sh
-npm run verify         # Run checks
-npm run verify:web     # Frontend and synthetic browser pilot (also runs on Linux)
-npm run build          # Build the application
-npm run package        # Build a complete app DMG for X.Y.0; skip patch versions
-npm run install:local  # Install the current code locally
+npm run dev           # Develop against a real Codex connection
+npm run install:dev   # Create the separate Palboo Dev.app launcher
+npm run dev:settings  # Open settings and select a development worktree
+npm run dev:stop      # Stop background development
 ```
 
-For the frontend pilot, run `npm ci` first and provide an installed Chromium through `CHROME_PATH` if needed; Linux automatically uses `/usr/bin/chromium` when available. Logs and results go to `target/reports/web-pilot/`. The Node license integration test still requires Cargo and its dependencies; missing prerequisites remain failures. This pilot excludes native checks and does not replace full verification or establish Linux application support.
+Development configuration is separate from the everyday installation. UI changes reload automatically; Rust changes rebuild the backend. Reopen Dev after changing its launch scripts, and recreate the launcher after moving the source or Node.js. Worktree switching preserves each source's configuration and does not restart Codex.
 
-Building or packaging does not update an installed application. When reporting an issue or contributing a change, include the version, OS, and reproduction steps, and remove credentials and private chat content.
+```sh
+npm run verify        # Full verification; prepares required build outputs
+npm run verify:web    # Frontend and synthetic-browser checks
+npm run build         # Build the App
+npm run package       # Build a full-App DMG for X.Y.0; skip patch versions
+npm run dev:site       # Preview the standalone introduction website
+npm run build:site     # Write static website files to target/site/
+npm run test:site      # Check website interactions and responsive layouts
+```
 
-The default README is English. Keep [README.zh-CN.md](README.zh-CN.md) in sync when updating user-facing documentation.
+The frontend checks can also run on Linux, but exclude native verification and do not establish Linux App support. They need Chromium and Cargo for applicable integration checks. Building or packaging does not publish a release or update an installed App.
 
-Open settings from the independent eyes menu or its right-click shortcut. The workbench header has no separate settings gear. Settings use the complete local page in ChatGPT’s built-in browser; the plugin remains optional.
+| Directory | Responsibility |
+| --- | --- |
+| `src/` | Backend, CLI, and native windows |
+| `ui/features/` | Shared feature content |
+| `ui/surfaces/` | Sidebar, overlay, desktop, edge, and materials |
+| `ui/codex/` | Host reading, navigation, and input adapters |
+| `ui/terminology/` | Chat annotations and definition popovers |
+| `ui/shared/` | Contracts, icons, and shared resources |
+| `ui/settings/` | Settings web app |
+| `ui/website/` | Standalone introduction and isolated demos |
+| `tests/`, `scripts/` | Verification, development, and packaging |
 
-## Privacy and license
+Follow the [design system](DESIGN_SYSTEM.md) and the relevant module's `AGENTS.md` before changing the UI. Keep both README editions in sync. Issue reports should include the version, OS, and reproduction steps, without credentials or private conversations.
 
-Configuration is stored locally. When generating suggestions, the latest question and answer are sent to your chosen model service, subject to your input-context setting. Smart mode also sends that exchange to the configured Jev service after explicit consent. Palboo does not persist chat bodies or modify the official application bundle. Host updates may affect compatibility.
+<details>
+<summary>Agent configuration CLI</summary>
 
-Project-owned source code is licensed under the [GNU GPL version 3 only](LICENSE) (`GPL-3.0-only`). Commercial use is permitted without a separate license fee; conveying covered software requires compliance with GPLv3, including applicable Corresponding Source obligations. Earlier MIT grants remain valid. Third-party notices retain their original terms; see [LICENSING.md](LICENSING.md) for the scope and historical license.
-
-## Agent configuration CLI
-
-Use the running local service to inspect and patch settings. `config schema` lists domains, fields and operations. `--data-dir` selects the service data directory; it defaults to the daily installation. For Dev, select the active worktree’s `target/dev/real`. The CLI never starts or restarts the host automatically.
+The running local service exposes a configuration CLI. It never starts or restarts Codex automatically. Use `--data-dir` for another installation, such as a worktree's `target/dev/real`.
 
 ```sh
 palboo config schema
@@ -284,4 +173,12 @@ palboo config set appearance --json '{"settingsTheme":"codex"}'
 palboo config set settings --file - < settings-patch.json
 ```
 
-Unmentioned fields and stored keys are retained; arrays replace the full list. Reads and previews redact keys. Supply credentials through a file or stdin. `--dry-run` checks client fields and revisions only; the backend performs full validation on save. Destructive or authorization operations require `--confirm`; conflicts are never retried automatically. Task `fields` patches preserve unmentioned notes, dates and other values. `config reminders calendars` reads available lists; `config reminders authorize --confirm` requests system authorization without bypassing it. No MCP server is included.
+Unmentioned fields and stored credentials are retained; arrays replace the full list. Reads redact secrets. Supply credentials through a file or stdin. `--dry-run` validates client fields and revisions; the backend performs full validation when saving. Destructive or authorization operations require `--confirm`, and conflicts are not retried automatically.
+
+</details>
+
+## Privacy and license
+
+Configuration stays local. Next-step suggestions and optional semantic terminology detection send relevant conversation context to your chosen model service. Smart direction selection sends the latest exchange to Jev only after consent. Name/file import tasks go to the current chat's Agent on your next deliberate send. Palboo does not persist chat bodies or modify the official application bundle; host updates can affect compatibility.
+
+Project-owned source is licensed under [GNU GPL version 3 only](LICENSE). Third-party notices and earlier MIT grants retain their original terms. See [LICENSING.md](LICENSING.md) for details.

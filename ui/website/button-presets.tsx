@@ -1,3 +1,5 @@
+import { useLocale } from '../shared/use-locale';
+import { tr } from '../shared/i18n.js';
 /* [INPUT]: The real website and local GitHub button variants.
  * [OUTPUT]: In-context comparison with native radio and keyboard selection.
  * [POS]: Development-only preview; excluded from the static production build.
@@ -8,19 +10,40 @@ import type { GithubLinkVariant } from './github-link';
 import './button-presets.css';
 
 const presets = [
-  { value: 'text', label: '文字' },
-  { value: 'outline', label: '描边' },
-  { value: 'solid', label: '实心' },
-  { value: 'download', label: '图标＋下载' },
+  {
+    value: 'text',
+    get label() {
+      return tr('文字');
+    },
+  },
+  {
+    value: 'outline',
+    get label() {
+      return tr('描边');
+    },
+  },
+  {
+    value: 'solid',
+    get label() {
+      return tr('实心');
+    },
+  },
+  {
+    value: 'download',
+    get label() {
+      return tr('图标＋下载');
+    },
+  },
 ] as const;
 
 export function ButtonPresets() {
+  useLocale();
   const [variant, setVariant] = useState<GithubLinkVariant>('download');
   return (
     <>
       <App githubVariant={variant} />
       <fieldset className="button-presets">
-        <legend className="sr-only">GitHub 按钮预设</legend>
+        <legend className="sr-only">{tr('GitHub 按钮预设')}</legend>
         {presets.map((preset) => (
           <label key={preset.value}>
             <input

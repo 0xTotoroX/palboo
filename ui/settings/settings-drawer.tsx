@@ -1,3 +1,5 @@
+import { useLocale } from '../shared/use-locale';
+import { tr } from '../shared/i18n.js';
 /* [INPUT]: Existing mounted settings content and presentation-only open/close requests.
  * [OUTPUT]: Accessible right-side drawer with optional stationary toolbar/footer, retained drafts/scroll and reveal helpers.
  * [POS]: Settings presentation; keeps native form ownership and never writes configuration.
@@ -42,6 +44,7 @@ export function SettingsDrawer({
   footer?: ReactNode;
   hidden?: boolean;
 }) {
+  useLocale();
   const generated = useId();
   const dialogId = `${id || generated}-drawer`;
   const wrapper = useRef<HTMLElement>(null);
@@ -147,7 +150,7 @@ export function SettingsDrawer({
             ref={closeButton}
             data-drawer-close
             data-settings-navigation
-            aria-label={`关闭${title}`}
+            aria-label={tr('关闭{{title}}', { title: title })}
             onClick={close}
           >
             <Icon name="close" />
@@ -164,6 +167,7 @@ export function SettingsDrawer({
 }
 
 export function DrawerSaveControls({ editor }: { editor: SettingsEditor }) {
+  useLocale();
   if (!editor.dirty && !editor.saving && !editor.saveError && !editor.remoteChanged) return null;
   return (
     <>
@@ -174,15 +178,15 @@ export function DrawerSaveControls({ editor }: { editor: SettingsEditor }) {
       )}
       {editor.remoteChanged ? (
         <p role="alert" className="settings-error text-sm">
-          设置已在其他窗口更新，草稿已保留。关闭抽屉后可重新载入。
+          {tr('设置已在其他窗口更新，草稿已保留。关闭抽屉后可重新载入。')}
         </p>
       ) : (
         <div className="settings-actions">
           <span role="status" className="text-muted-foreground">
-            {editor.saving ? '正在保存…' : ''}
+            {editor.saving ? tr('正在保存…') : ''}
           </span>
           <Button type="submit" variant="outline" disabled={editor.saving || !editor.dirty}>
-            保存设置
+            {tr('保存设置')}
           </Button>
         </div>
       )}

@@ -124,10 +124,10 @@ test('patch packaging exits before compilation and does not use a stale installe
   assert.equal(existsSync(join(dir, 'target')), false);
 });
 
-test('the actual publish shell attaches only the planned DMG, refuses overwrites and marks prereleases', (t) => {
+test('the release shell creates only a draft, attaches the planned DMG and refuses overwrites', (t) => {
   const workflow = readFileSync(join(root, '.github/workflows/release.yml'), 'utf8');
   const shell = workflow
-    .split('      - name: Publish reviewed notes and the planned assets\n')[1]
+    .split('      - name: Create a release draft for review\n')[1]
     .split('        run: |\n')[1]
     .split('\n      - name:')[0]
     .split('\n')
@@ -168,7 +168,9 @@ test('the actual publish shell attaches only the planned DMG, refuses overwrites
     );
     assert.ok(!args.some((s) => /\.(zip|gz)$/.test(s)));
     assert.equal(args.includes('--prerelease'), plan.prerelease);
-    assert.ok(args.includes(`--latest=${!plan.prerelease}`));
+    assert.ok(args.includes('--draft'));
+    assert.ok(!args.includes('edit'));
+    assert.ok(!args.some((arg) => arg.startsWith('--latest') || arg === '--draft=false'));
     rmSync(calls);
     result = run({ EXISTING: '1' });
     assert.notEqual(result.status, 0);

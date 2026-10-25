@@ -920,3 +920,38 @@ h2 {
     scroll-behavior: auto !important;
   }
 }
+
+.site-language {
+  position: absolute;
+  z-index: 5;
+  top: 24px;
+  right: max(24px, calc((100vw - 1280px) / 2));
+  min-height: 36px;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--buddy-muted);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+.site-language:hover {
+  color: var(--buddy-text);
+  background: var(--buddy-hover);
+}
+.site-language:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
+:lang(en) .opening-copy {
+  max-width: 750px;
+}
+:lang(en) .opening-copy h1 {
+  font-size: clamp(30px, 4.6vw, 58px);
+  text-wrap: balance;
+}
+:lang(en) .opening-copy p {
+  max-width: 650px;
+  margin-inline: auto;
+}

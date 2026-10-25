@@ -1,3 +1,5 @@
+import { useLocale } from '../shared/use-locale';
+import { tr } from '../shared/i18n.js';
 /* [INPUT]: Shared credential draft, saved-key metadata and revision-checked deletion queue.
  * [OUTPUT]: Shared API/Jev configured/replacement fields and explicitly confirmed, revision-checked deletion.
  * [POS]: Settings presentation; never reads stored secret values or stages deletion in autosave drafts.
@@ -12,6 +14,7 @@ import type { SettingsEditor } from './use-settings-form';
 
 type KeyProps = { editor: SettingsEditor; busy: boolean; kind?: 'api' | 'jev' };
 export function ModelApiKey({ editor, busy, kind = 'api' }: KeyProps) {
+  useLocale();
   const { saved } = editor;
   const jev = kind === 'jev';
   const apiKey = jev ? editor.jevApiKey : editor.apiKey;
@@ -39,24 +42,24 @@ export function ModelApiKey({ editor, busy, kind = 'api' }: KeyProps) {
   return (
     <Field
       id={id}
-      label={jev ? 'Jev API 密钥' : 'API 密钥'}
+      label={jev ? tr('Jev API 密钥') : tr('API 密钥')}
       hint={
-        !stored && configured ? '当前使用后台环境变量中的密钥；此处填写仅作为备用。' : undefined
+        !stored && configured ? tr('当前使用后台环境变量中的密钥；此处填写仅作为备用。') : undefined
       }
     >
       {!showInput ? (
         <div className="flex min-h-[38px] items-center justify-between gap-3">
-          <span role="status">密钥已配置</span>
+          <span role="status">{tr('密钥已配置')}</span>
           <Button
             id={id}
-            aria-label={jev ? '更换 Jev 密钥' : '更换密钥'}
+            aria-label={jev ? tr('更换 Jev 密钥') : tr('更换密钥')}
             type="button"
             variant="outline"
             data-settings-navigation
             disabled={busy || editor.saving || editor.remoteChanged}
             onClick={() => setEditing(true)}
           >
-            更换密钥
+            {tr('更换密钥')}
           </Button>
         </div>
       ) : (
@@ -72,7 +75,7 @@ export function ModelApiKey({ editor, busy, kind = 'api' }: KeyProps) {
                 setApiKey(event.target.value);
                 setClearKey(false, false);
               }}
-              placeholder={stored ? '输入新密钥，留空保留原密钥' : '输入 API 密钥'}
+              placeholder={stored ? tr('输入新密钥，留空保留原密钥') : tr('输入 API 密钥')}
               disabled={busy}
               autoComplete="off"
               spellCheck={false}
@@ -81,7 +84,7 @@ export function ModelApiKey({ editor, busy, kind = 'api' }: KeyProps) {
               <IconButton
                 className="absolute right-1"
                 data-settings-navigation
-                aria-label={visible ? '隐藏新密钥' : '显示新密钥'}
+                aria-label={visible ? tr('隐藏新密钥') : tr('显示新密钥')}
                 onClick={() => setVisible(!visible)}
               >
                 <Icon name={visible ? 'eye-off' : 'eye'} />
@@ -101,7 +104,7 @@ export function ModelApiKey({ editor, busy, kind = 'api' }: KeyProps) {
                 setEditing(false);
               }}
             >
-              取消更换
+              {tr('取消更换')}
             </Button>
           )}
         </div>
@@ -111,6 +114,7 @@ export function ModelApiKey({ editor, busy, kind = 'api' }: KeyProps) {
 }
 
 export function DeleteModelApiKey({ editor, busy, kind = 'api' }: KeyProps) {
+  useLocale();
   const jev = kind === 'jev';
   const stored = jev ? editor.saved?.storedJevApiKey : editor.saved?.storedApiKey;
   const draft = jev ? editor.jevApiKey : editor.apiKey;
@@ -122,16 +126,18 @@ export function DeleteModelApiKey({ editor, busy, kind = 'api' }: KeyProps) {
       disabled={busy || editor.saving || editor.remoteChanged}
       confirmDisabled={!!draft}
       revision={revision}
-      title={jev ? '删除已保存的 Jev 密钥？' : '删除已保存的 API 密钥？'}
+      title={jev ? tr('删除已保存的 Jev 密钥？') : tr('删除已保存的 API 密钥？')}
       description={
         draft
-          ? '请先保存或取消新密钥，再删除已保存的密钥。'
-          : `删除后可能无法${jev ? '使用智能挑选' : '调用模型'}，需要重新填写密钥。此操作不会修改环境变量。`
+          ? tr('请先保存或取消新密钥，再删除已保存的密钥。')
+          : tr('删除后可能无法{{value1}}，需要重新填写密钥。此操作不会修改环境变量。', {
+              value1: jev ? tr('使用智能挑选') : tr('调用模型'),
+            })
       }
-      confirmLabel="确认删除"
+      confirmLabel={tr('确认删除')}
       onConfirm={() => editor.removeApiKey(revision, kind)}
     >
-      {jev ? '删除已保存的 Jev 密钥' : '删除已保存的密钥'}
+      {jev ? tr('删除已保存的 Jev 密钥') : tr('删除已保存的密钥')}
     </ConfirmationButton>
   );
 }

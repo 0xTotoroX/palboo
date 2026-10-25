@@ -1,3 +1,4 @@
+import { tr } from '../../shared/i18n.js';
 /* [INPUT]: 主界面开合状态及共用表情手势。
  * [OUTPUT]: 默认使用独立眼睛入口；官方按钮适配代码仅供显式试验；单击保留旧手势、普通右键保留官方菜单、Option+右键打开内置浏览器设置；官方插件页签联动仅供显式启用的 Dev 试验；导航重建后恢复，不回退胶囊；设置处理中与失败在入口旁可见。
  * [POS]: 嵌入式入口适配，不创建功能窗口、不修改业务数据。
@@ -222,7 +223,7 @@ export function syncLauncher(options) {
     </style><div class="entry">
       <button type="button" class="csw-launcher-face csw-fab" aria-label="Palboo" aria-keyshortcuts="Alt+Enter">
         ${launcherFaceHtml()}
-      </button></div><div class="settings-feedback" popover="manual"><span role="status"></span><button type="button" aria-label="关闭设置提示">关闭</button></div>`;
+      </button></div><div class="settings-feedback" popover="manual"><span role="status"></span><button type="button" aria-label="${tr('关闭设置提示')}">${tr('关闭')}</button></div>`;
     shadow.querySelector('.settings-feedback button').addEventListener('click', (event) => {
       event.stopPropagation();
       actionStatus = '';
@@ -278,7 +279,7 @@ export function syncLauncher(options) {
   if (!face) face = createLauncherFace(entry.shadowRoot.querySelector('button'));
   face.update(options);
   const feedback = entry.shadowRoot.querySelector('.settings-feedback');
-  const message = options.settingsStatus || actionStatus;
+  const message = tr(options.settingsStatus || actionStatus);
   const status = feedback.querySelector('[role="status"]');
   if (status.textContent !== message) status.textContent = message;
   entry.shadowRoot

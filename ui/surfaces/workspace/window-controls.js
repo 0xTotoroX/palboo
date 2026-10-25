@@ -1,12 +1,13 @@
+import { tr, subscribeLocale } from '../../shared/i18n.js';
 /* [INPUT]: Existing desktop return callback and restricted native window messages.
  * [OUTPUT]: Return/maximize controls and native-confirmed state, without remounting content.
  * [POS]: Shared desktop header adapter; never owns task data or window leases.
  * [PROTOCOL]: Keep workspace/AGENTS.md in sync. */
 import { iconSvg } from '../../shared/icons/index.js';
 export function windowControlsHtml() {
-  return `<div class="csw-window-controls" role="group" aria-label="窗口操作">${[
-    ['dock', '收回聊天', 'minus'],
-    ['maximize', '放大', 'window-expand'],
+  return `<div class="csw-window-controls" role="group" aria-label="${tr('窗口操作')}">${[
+    ['dock', tr('收回聊天'), 'minus'],
+    ['maximize', tr('放大'), 'window-expand'],
   ]
     .map(
       ([action, label, icon]) =>
@@ -25,11 +26,13 @@ export function installWindowControls(
     settlingUntil = 0;
   let timer = 0;
   const refresh = () => {
+    root.querySelector('.csw-window-controls')?.setAttribute('aria-label', tr('窗口操作'));
+    root.querySelector('[data-window-control=dock]')?.setAttribute('aria-label', tr('收回聊天'));
     for (const button of root.querySelectorAll('[data-window-control]'))
       button.disabled = pending || isBusy();
     const zoom = root.querySelector('[data-window-control="maximize"]');
     if (zoom) {
-      const label = state.maximized ? '还原' : '放大';
+      const label = state.maximized ? tr('还原') : tr('放大');
       zoom.setAttribute('aria-label', label);
       zoom.removeAttribute('title');
       zoom.setAttribute('aria-pressed', String(state.maximized));
@@ -38,9 +41,11 @@ export function installWindowControls(
     root.toggleAttribute('data-window-maximized', state.maximized);
     document.documentElement.toggleAttribute('data-buddy-maximized', state.maximized);
   };
+  const unsubscribe = subscribeLocale(refresh);
   const controller = {
     refresh,
     destroy() {
+      unsubscribe();
       events.abort();
       clearTimeout(timer);
     },
@@ -73,7 +78,7 @@ export function installWindowControls(
           timer = window.setTimeout(() => {
             pending = false;
             refresh();
-            error(Error('窗口操作未确认，请重试。'));
+            error(Error(tr('窗口操作未确认，请重试。')));
           }, 2000);
           post({ kind: 'toggle-maximize' });
         }

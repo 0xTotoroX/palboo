@@ -2,6 +2,7 @@
  * [OUTPUT]: Product introduction; development optionally loads the preset comparison.
  * [POS]: Website entry, separate from settings and native application builds.
  * [PROTOCOL]: Keep website/AGENTS.md in sync. */
+import './locale';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './app';

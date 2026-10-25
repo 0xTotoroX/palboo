@@ -1,3 +1,5 @@
+import { useLocale } from '../shared/use-locale';
+import { tr } from '../shared/i18n.js';
 /* [INPUT]: Ordered IDs and the owning settings module's save callback.
  * [OUTPUT]: Shared row drag/keyboard ordering with insertion feedback and cancellation.
  * [POS]: Settings presentation only; callers retain their revision checks and persistence.
@@ -24,6 +26,7 @@ export function SettingsSortableList({
   disabled?: boolean;
   children: (props: ReturnType<typeof useRows>) => ReactNode;
 }) {
+  useLocale();
   const rows = useRows(ids, onReorder, disabled);
   return <>{children(rows)}</>;
 }
@@ -76,7 +79,7 @@ function useRows(ids: string[], onReorder: (ids: string[]) => void, disabled: bo
     'data-settings-sort-owner': owner,
     'data-settings-navigation': true,
     'aria-keyshortcuts': disabled ? undefined : 'Alt+ArrowUp Alt+ArrowDown',
-    'aria-description': disabled ? undefined : '拖动排序，或按 Alt+上下方向键调整',
+    'aria-description': disabled ? undefined : tr('拖动排序，或按 Alt+上下方向键调整'),
     draggable: !disabled && ids.length > 1,
     'data-dragging': dragging === id,
     'data-drop-edge': target?.id === id ? (target.after ? 'after' : 'before') : undefined,

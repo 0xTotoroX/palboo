@@ -1,3 +1,5 @@
+import { tr } from '../../shared/i18n.js';
+import { setLocale, getLocale } from '../../shared/i18n.js';
 /* [INPUT]: Native edge geometry/events and feature owners. [OUTPUT]: Persisted reorderable icon tabs with stable measured wrapping, bounded dialogs and per-view header slots.
  * [POS]: Keeps mounted views alive while collapsed or in another tab; no business state.
  * [PROTOCOL]: Keep AGENTS.md in this module in sync. */
@@ -12,7 +14,7 @@ export function startEdge(request: Request) {
   style.textContent = styles;
   document.head.append(style);
   const root = document.getElementById('root')!;
-  root.innerHTML = `<button id="edge-handle" aria-label="展开功能面板"></button><section id="edge-panel"><header><nav aria-label="功能"></nav></header><p id="edge-error" role="alert" hidden></p><div id="edge-views"></div></section>`;
+  root.innerHTML = `<button id="edge-handle" aria-label="${tr('展开功能面板')}"></button><section id="edge-panel"><header><nav aria-label="${tr('功能')}"></nav></header><p id="edge-error" role="alert" hidden></p><div id="edge-views"></div></section>`;
   const panel = document.getElementById('edge-panel')!,
     handle = document.getElementById('edge-handle')!,
     tabs = panel.querySelector('nav')!,
@@ -149,6 +151,10 @@ export function startEdge(request: Request) {
         wanted = new Set<string>(),
         ids: string[] = [];
       let revealed = '';
+      setLocale(state.appearance?.language || 'zh-CN');
+      root.lang = getLocale();
+      root.querySelector('#edge-handle')?.setAttribute('aria-label', tr('展开功能面板'));
+      tabs.setAttribute('aria-label', tr('功能'));
       if (state.appearance?.typographyPreferences)
         Object.assign(
           panel.style,

@@ -566,7 +566,6 @@ for (const signal of ['SIGINT', 'SIGTERM'])
   process.once(signal, () => cleanup().then(() => process.exit(0)));
 try {
   releaseController = claimLease(lock, { root: controllerRoot });
-  injectedSettings = readFileSync(join(controllerRoot, 'ui/settings/dev-sources.js'), 'utf8');
   const remembered = args.source
     ? resolve(args.source)
     : readRecord(preference)?.path || controllerRoot;
@@ -608,6 +607,17 @@ try {
     },
     hostSettingsDirectory(source, data),
   );
+  const { build: bundleSourceWidget } = await import('esbuild');
+  injectedSettings = (
+    await bundleSourceWidget({
+      absWorkingDir: controllerRoot,
+      entryPoints: ['ui/settings/dev-sources.js'],
+      bundle: true,
+      format: 'iife',
+      write: false,
+      target: 'safari17',
+    })
+  ).outputFiles[0].text;
   releaseTarget = claimTarget(host, controllerRoot);
   if (args['exit-with-host']) {
     hostProcess = await findHostProcess(host.endpoint);

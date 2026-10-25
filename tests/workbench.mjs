@@ -3364,7 +3364,11 @@ try {
     try {
       await deadline(
         (async () => {
-          context = await browser.newContext({ viewport: wide, reducedMotion: 'reduce' });
+          context = await browser.newContext({
+            locale: 'zh-CN',
+            viewport: wide,
+            reducedMotion: 'reduce',
+          });
           stage = 'host: newPage';
           const page = await context.newPage();
           page.setDefaultTimeout(6000);

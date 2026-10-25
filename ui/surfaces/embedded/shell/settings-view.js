@@ -1,3 +1,4 @@
+import { tr } from '../../../shared/i18n.js';
 /*
  * [INPUT]: 只读设置、窗口偏好与 codex/runtime/settings-sync 操作。
  * [OUTPUT]: 胶囊设置页模板与控件绑定，显式选项菜单、统一图标及内嵌与弹出端的 Clear 星星切换。
@@ -53,10 +54,10 @@ import {
 
 function settingsModelLabel(settings) {
   if (settings && !stepwiseEnabled(settings)) {
-    return outlineEnabled(settings) ? '回答大纲' : '未启用';
+    return outlineEnabled(settings) ? tr('回答大纲') : tr('未启用');
   }
   const raw = normalizeText(settings?.model);
-  if (!raw) return settings ? '未配置' : '读取中';
+  if (!raw) return settings ? tr('未配置') : tr('读取中');
   const leaf = raw.split('/').pop() || raw;
   return leaf
     .replace(/^gpt[-_:]?/i, '')
@@ -67,13 +68,13 @@ function settingsModelLabel(settings) {
 }
 
 function settingsRuntimePresentation(settings) {
-  if (!settings) return { label: '正在读取设置', tone: 'busy' };
-  if (!runtimeEnabled(settings)) return { label: '已关闭', tone: 'idle' };
+  if (!settings) return { label: tr('正在读取设置'), tone: 'busy' };
+  if (!runtimeEnabled(settings)) return { label: tr('已关闭'), tone: 'idle' };
   if (
     stepwiseEnabled(settings) &&
     (!settings.baseUrlConfigured || !settings.model || !settings.apiKeyConfigured)
   ) {
-    return { label: '等待配置', tone: 'error' };
+    return { label: tr('等待配置'), tone: 'error' };
   }
   const expressionNow = Date.now();
   const outlineExpression = usesOutlineExpression(expressionNow);
@@ -81,27 +82,27 @@ function settingsRuntimePresentation(settings) {
   const detail =
     (outlineExpression
       ? {
-          idle: '等待回答',
-          answering: '回答中',
-          surprise: '正在整理回答',
-          generating: '正在整理大纲',
-          ready: `${outlineState.outlineItems.length} 个章节已准备`,
-          empty: '暂无大纲',
-          error: '生成失败',
-          hidden: '已关闭',
+          idle: tr('等待回答'),
+          answering: tr('回答中'),
+          surprise: tr('正在整理回答'),
+          generating: tr('正在整理大纲'),
+          ready: tr('{{value1}} 个章节已准备', { value1: outlineState.outlineItems.length }),
+          empty: tr('暂无大纲'),
+          error: tr('生成失败'),
+          hidden: tr('已关闭'),
         }
       : {
-          idle: '等待回答',
-          answering: '回答中',
-          surprise: '正在整理回答',
-          generating: '正在生成建议',
-          ready: `${stepwiseState.prompts.length} 条建议已准备`,
-          empty: '暂无建议',
-          error: '生成失败',
-          hidden: '已关闭',
-        })[expression] || '等待回答';
+          idle: tr('等待回答'),
+          answering: tr('回答中'),
+          surprise: tr('正在整理回答'),
+          generating: tr('正在生成建议'),
+          ready: tr('{{value1}} 条建议已准备', { value1: stepwiseState.prompts.length }),
+          empty: tr('暂无建议'),
+          error: tr('生成失败'),
+          hidden: tr('已关闭'),
+        })[expression] || tr('等待回答');
   if (!outlineExpression && stepwiseWaitingForManualRefresh(settings)) {
-    return { label: '当前为手动模式', tone: 'idle' };
+    return { label: tr('当前为手动模式'), tone: 'idle' };
   }
   return { label: detail, tone: statusTone(expression) };
 }
@@ -117,48 +118,48 @@ function settingsCommandHtml(action, icon, label, title, options = {}) {
 
 function promptClickModeLabel(value = shellState.promptClickMode) {
   return {
-    direct: '直接发送',
-    hybrid: '单击填入 · 双击发送',
-    fill: '仅填入',
+    direct: tr('直接发送'),
+    hybrid: tr('单击填入 · 双击发送'),
+    fill: tr('仅填入'),
   }[normalizePromptClickMode(value)];
 }
 
 function generationModeLabel(value = stepwiseGenerationMode()) {
-  return normalizeGenerationMode(value) === 'manual' ? '手动刷新' : '自动生成';
+  return normalizeGenerationMode(value) === 'manual' ? tr('手动刷新') : tr('自动生成');
 }
 
 function appearanceSettingsHtml() {
   const appearance = currentAppearance();
   return `
-      <div class="csw-control-deck" aria-label="外观、字号与显示">
+      <div class="csw-control-deck" aria-label="${tr('外观、字号与显示')}">
         <div class="csw-control-group">
-          <span class="csw-control-label">外观</span>
+          <span class="csw-control-label">${tr('外观')}</span>
           <span class="csw-control-row">
-            <select class="csw-control-button" data-action="material" aria-label="外观">${[
-              ['matte', '哑光'],
-              ['frosted', '磨砂'],
-              ['native-glass', '液态'],
+            <select class="csw-control-button" data-action="material" aria-label="${tr('外观')}">${[
+              ['matte', tr('哑光')],
+              ['frosted', tr('磨砂')],
+              ['native-glass', tr('液态')],
             ]
               .map(
                 ([value, label]) =>
                   `<option value="${value}" ${appearance.material === value ? 'selected' : ''}>${label}</option>`,
               )
               .join('')}</select>
-            <button class="csw-control-button csw-liquid-star" type="button" data-action="liquid-variant" aria-label="通透液态（Clear）" aria-pressed="${appearance.liquidVariant === 'clear'}" ${appearance.material === 'native-glass' ? '' : 'hidden'}>${iconSvg(appearance.liquidVariant === 'clear' ? 'star-filled' : 'star')}</button>
+            <button class="csw-control-button csw-liquid-star" type="button" data-action="liquid-variant" aria-label="${tr('通透液态（Clear）')}" aria-pressed="${appearance.liquidVariant === 'clear'}" ${appearance.material === 'native-glass' ? '' : 'hidden'}>${iconSvg(appearance.liquidVariant === 'clear' ? 'star-filled' : 'star')}</button>
           </span>
         </div>
         <div class="csw-control-group">
-          <span class="csw-control-label">字号</span>
-          <span class="csw-stepper" aria-label="下一步与大纲内容字号">
-            <button class="csw-step-button" type="button" data-action="font-dec" aria-label="减小字体" ${effectiveFontSize() <= MIN_FONT ? 'disabled' : ''}>${iconSvg('minus')}</button>
+          <span class="csw-control-label">${tr('字号')}</span>
+          <span class="csw-stepper" aria-label="${tr('下一步与大纲内容字号')}">
+            <button class="csw-step-button" type="button" data-action="font-dec" aria-label="${tr('减小字体')}" ${effectiveFontSize() <= MIN_FONT ? 'disabled' : ''}>${iconSvg('minus')}</button>
             <span class="csw-step-value" aria-live="polite">${fontSizeLabel()}</span>
-            <button class="csw-step-button" type="button" data-action="font-inc" aria-label="增大字体" ${effectiveFontSize() >= MAX_FONT ? 'disabled' : ''}>${iconSvg('plus')}</button>
+            <button class="csw-step-button" type="button" data-action="font-inc" aria-label="${tr('增大字体')}" ${effectiveFontSize() >= MAX_FONT ? 'disabled' : ''}>${iconSvg('plus')}</button>
           </span>
         </div>
         <div class="csw-control-group">
-          <span class="csw-control-label">显示</span>
+          <span class="csw-control-label">${tr('显示')}</span>
           <span class="csw-control-row">
-            <select class="csw-control-button" data-action="label-only" aria-label="显示方式"><option value="false" ${!shellState.labelOnly ? 'selected' : ''}>标题 + 摘要</option><option value="true" ${shellState.labelOnly ? 'selected' : ''}>仅标题</option></select>
+            <select class="csw-control-button" data-action="label-only" aria-label="${tr('显示方式')}"><option value="false" ${!shellState.labelOnly ? 'selected' : ''}>${tr('标题 + 摘要')}</option><option value="true" ${shellState.labelOnly ? 'selected' : ''}>${tr('仅标题')}</option></select>
           </span>
         </div>
       </div>
@@ -174,7 +175,7 @@ function settingsHtml() {
   const testing = runtimeState.settingsStatus === '正在检查连接';
   return `
       <div class="csw-settings">
-        <section class="csw-settings-surface" data-loading="${!settings}" aria-label="悬浮球设置" aria-busy="${!settings}">
+        <section class="csw-settings-surface" data-loading="${!settings}" aria-label="${tr('悬浮球设置')}" aria-busy="${!settings}">
           <div class="csw-settings-hero">
             <div class="csw-model-pane">
               <strong class="csw-model-value">${escapeHtml(model)}</strong>
@@ -185,20 +186,20 @@ function settingsHtml() {
             </div>
             ${appearanceSettingsHtml()}
           </div>
-          <div class="csw-settings-footer" aria-label="配置摘要与设置操作">
-            <div class="csw-runtime-grid" aria-label="配置摘要">
+          <div class="csw-settings-footer" aria-label="${tr('配置摘要与设置操作')}">
+            <div class="csw-runtime-grid" aria-label="${tr('配置摘要')}">
               <div class="csw-generation-mode" data-generation-mode-control>
-                <span class="csw-metric-label">模式</span>
-                <select class="csw-metric-action" data-action="generation-mode" aria-label="生成模式">${GENERATION_MODES.map((mode) => `<option value="${mode}" ${stepwiseGenerationMode() === mode ? 'selected' : ''}>${generationModeLabel(mode)}</option>`).join('')}</select>
+                <span class="csw-metric-label">${tr('模式')}</span>
+                <select class="csw-metric-action" data-action="generation-mode" aria-label="${tr('生成模式')}">${GENERATION_MODES.map((mode) => `<option value="${mode}" ${stepwiseGenerationMode() === mode ? 'selected' : ''}>${generationModeLabel(mode)}</option>`).join('')}</select>
               </div>
               <div class="csw-click-mode" data-prompt-click-control>
-                <span class="csw-metric-label">点击</span>
-                <select class="csw-metric-action" data-action="prompt-click-mode" aria-label="建议点击行为">${PROMPT_CLICK_MODES.map((mode) => `<option value="${mode}" ${shellState.promptClickMode === mode ? 'selected' : ''}>${promptClickModeLabel(mode)}</option>`).join('')}</select>
+                <span class="csw-metric-label">${tr('点击')}</span>
+                <select class="csw-metric-action" data-action="prompt-click-mode" aria-label="${tr('建议点击行为')}">${PROMPT_CLICK_MODES.map((mode) => `<option value="${mode}" ${shellState.promptClickMode === mode ? 'selected' : ''}>${promptClickModeLabel(mode)}</option>`).join('')}</select>
               </div>
             </div>
-            <div class="csw-command-deck" aria-label="设置操作">
-              ${settingsCommandHtml('open-settings', 'open-config', '配置', '在浏览器中配置')}
-              ${settingsCommandHtml('test-settings', testing ? 'refresh' : 'connection', '检查', '检查连接', { disabled: settings?.enabled !== true, busy: testing })}
+            <div class="csw-command-deck" aria-label="${tr('设置操作')}">
+              ${settingsCommandHtml('open-settings', 'open-config', tr('配置'), tr('在浏览器中配置'))}
+              ${settingsCommandHtml('test-settings', testing ? 'refresh' : 'connection', tr('检查'), tr('检查连接'), { disabled: settings?.enabled !== true, busy: testing })}
             </div>
             ${notice ? `<div class="csw-settings-notice" data-tone="${noticeTone}" aria-live="polite">${escapeHtml(notice)}</div>` : ''}
           </div>
@@ -264,7 +265,7 @@ function writePromptClickMode(value) {
   shellState.promptClickMode = normalizePromptClickMode(value);
   storage.set(PROMPT_CLICK_MODE_KEY, shellState.promptClickMode);
   const trigger = shellState.panel?.querySelector("[data-action='prompt-click-mode']");
-  const label = '建议点击行为';
+  const label = tr('建议点击行为');
   if (trigger) {
     trigger.value = shellState.promptClickMode;
     trigger.removeAttribute('title');
@@ -276,7 +277,7 @@ function writePromptClickMode(value) {
 function updateGenerationModeControl(value = stepwiseGenerationMode(), busy = false) {
   const mode = normalizeGenerationMode(value);
   const trigger = shellState.panel?.querySelector("[data-action='generation-mode']");
-  const label = '生成模式';
+  const label = tr('生成模式');
   if (trigger) {
     trigger.value = mode;
     trigger.removeAttribute('title');

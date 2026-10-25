@@ -1,3 +1,5 @@
+import { useLocale } from '../shared/use-locale';
+import { tr } from '../shared/i18n.js';
 /* [INPUT]: Shared preview frame, existing form snapshots, saved surfaces and feature layout.
  * [OUTPUT]: Compact linked diagrams and floating feature samples without instructional footnotes; only the common switcher reserves inactive geometry.
  * [POS]: Settings presentation only; no requests, credentials, task bodies or host commands.
@@ -11,7 +13,7 @@ import type { SurfaceState } from './surface-settings';
 import { titles, type FeatureState } from '../shared/features';
 import type { ModelState } from '../features/model/catalog';
 import type { TaskState } from '../features/board/api';
-import { columns as defaultColumns } from '../features/board/api';
+import { columns as defaultColumns, columnTitle } from '../features/board/api';
 import { Icon } from '../shared/icons/react';
 import { PreviewFrame as Frame } from './preview-frame';
 import { usePreviewTransition } from './settings-motion';
@@ -34,6 +36,7 @@ type PreviewProps = {
 };
 
 function Facts({ items }: { items: [string, ReactNode][] }) {
+  useLocale();
   return (
     <dl className="preview-facts">
       {items.map(([label, value]) => (
@@ -47,10 +50,11 @@ function Facts({ items }: { items: [string, ReactNode][] }) {
 }
 
 function FeaturePreview({ form, tasks, model, view, dirty, page }: PreviewProps) {
+  useLocale();
   const [tab, setTab] = useState<'outline' | 'next' | 'board' | 'model' | 'bots'>('next');
   const [selected, setSelected] = useState(0);
   const [demoDraft, setDemoDraft] = useState('');
-  const [selectedBot, setSelectedBot] = useState('通用');
+  const [selectedBot, setSelectedBot] = useState('general');
   const [boardGroup, setBoardGroup] = useState('');
   const activeScene =
     page === 'bots'
@@ -70,14 +74,17 @@ function FeaturePreview({ form, tasks, model, view, dirty, page }: PreviewProps)
     model: model?.preferences.enabled,
     bots: form?.grokbotEnabled,
   };
-  const groups = tasks?.store.columns || defaultColumns;
-  const examples = ['完善实现方案', '检查边界条件', '补充验证步骤'];
+  const groups = (tasks?.store.columns || defaultColumns).map((column) => ({
+    ...column,
+    title: columnTitle(column),
+  }));
+  const examples = [tr('完善实现方案'), tr('检查边界条件'), tr('补充验证步骤')];
   return (
-    <Frame title="功能如何呈现" status={dirty ? '包含未保存的编辑' : undefined}>
+    <Frame title={tr('功能如何呈现')} status={dirty ? tr('包含未保存的编辑') : undefined}>
       <div
         className="preview-selector"
         role="group"
-        aria-label="功能预览"
+        aria-label={tr('功能预览')}
         hidden={page !== 'features'}
         data-settings-navigation
       >
@@ -110,10 +117,10 @@ function FeaturePreview({ form, tasks, model, view, dirty, page }: PreviewProps)
                     <div
                       className="preview-outline"
                       role="group"
-                      aria-label="大纲定位示例"
+                      aria-label={tr('大纲定位示例')}
                       data-settings-navigation
                     >
-                      {['整体思路', '具体实现', '验证与交付'].map((label, index) => (
+                      {[tr('整体思路'), tr('具体实现'), tr('验证与交付')].map((label, index) => (
                         <button
                           key={label}
                           type="button"
@@ -127,7 +134,9 @@ function FeaturePreview({ form, tasks, model, view, dirty, page }: PreviewProps)
                       ))}
                     </div>
                     <div className="preview-answer">
-                      <strong>{['整体思路', '具体实现', '验证与交付'][selected]}</strong>
+                      <strong>
+                        {[tr('整体思路'), tr('具体实现'), tr('验证与交付')][selected]}
+                      </strong>
                       <i />
                       <i />
                       <i />
@@ -153,9 +162,9 @@ function FeaturePreview({ form, tasks, model, view, dirty, page }: PreviewProps)
                                 <small>
                                   {
                                     [
-                                      '把已选方案分解成可执行的步骤。',
-                                      '检查输入、异常和兼容情况。',
-                                      '用具体场景核对预期行为。',
+                                      tr('把已选方案分解成可执行的步骤。'),
+                                      tr('检查输入、异常和兼容情况。'),
+                                      tr('用具体场景核对预期行为。'),
                                     ][index]
                                   }
                                 </small>
@@ -173,17 +182,17 @@ function FeaturePreview({ form, tasks, model, view, dirty, page }: PreviewProps)
                             key={index}
                             onClick={() => setDemoDraft(item.prompt)}
                           >
-                            {item.label || '未命名'}
+                            {item.label || tr('未命名')}
                           </button>
                         ))}
                       </div>
                       <div
                         className="preview-draft"
                         role="status"
-                        aria-label="示例输入框"
+                        aria-label={tr('示例输入框')}
                         data-empty={!demoDraft}
                       >
-                        {demoDraft || '发消息…'}
+                        {demoDraft || tr('发消息…')}
                       </div>
                     </div>
                   </>
@@ -193,7 +202,7 @@ function FeaturePreview({ form, tasks, model, view, dirty, page }: PreviewProps)
                     <div
                       className="preview-selector preview-board-tabs"
                       role="group"
-                      aria-label="看板分组预览"
+                      aria-label={tr('看板分组预览')}
                     >
                       {groups.map((group) => (
                         <button
@@ -221,7 +230,7 @@ function FeaturePreview({ form, tasks, model, view, dirty, page }: PreviewProps)
                           <h3>{group.title}</h3>
                           <div className="preview-task-sample">
                             <i />
-                            {['梳理目标', '完善细节', '完成验证'][index % 3]}
+                            {[tr('梳理目标'), tr('完善细节'), tr('完成验证')][index % 3]}
                           </div>
                         </div>
                       ))}
@@ -233,25 +242,36 @@ function FeaturePreview({ form, tasks, model, view, dirty, page }: PreviewProps)
                     <div
                       className="preview-outline"
                       role="group"
-                      aria-label="Bot 选择示例"
+                      aria-label={tr('Bot 选择示例')}
                       data-settings-navigation
                     >
-                      {['通用', '代码审查', '资料整理'].map((name) => (
+                      {[
+                        ['general', tr('通用')],
+                        ['review', tr('代码审查')],
+                        ['research', tr('资料整理')],
+                      ].map(([id, name]) => (
                         <button
                           type="button"
                           key={name}
-                          aria-pressed={selectedBot === name}
-                          onClick={() => setSelectedBot(name)}
+                          aria-pressed={selectedBot === id}
+                          onClick={() => setSelectedBot(id)}
                         >
                           {name}
                           <Icon name="chevron-right" />
                         </button>
                       ))}
                     </div>
-                    <div
-                      className="preview-draft"
-                      role="status"
-                    >{`请问「${selectedBot}」：帮我检查这个方案。`}</div>
+                    <div className="preview-draft" role="status">
+                      {tr('请问「{{selectedBot}}」：帮我检查这个方案。', {
+                        selectedBot: tr(
+                          selectedBot === 'general'
+                            ? '通用'
+                            : selectedBot === 'review'
+                              ? '代码审查'
+                              : '资料整理',
+                        ),
+                      })}
+                    </div>
                   </>
                 )}
                 {scene === 'model' && <ModelPreview model={model} />}
@@ -265,17 +285,18 @@ function FeaturePreview({ form, tasks, model, view, dirty, page }: PreviewProps)
 }
 
 function GenerationPreview({ form, dirty }: PreviewProps) {
+  useLocale();
   return (
-    <Frame title="共享模型连接" status={dirty ? '包含未保存的编辑' : undefined}>
+    <Frame title={tr('共享模型连接')} status={dirty ? tr('包含未保存的编辑') : undefined}>
       <div className="preview-demo">
         <div className="preview-model-name">
-          <strong>{form?.model || '尚未配置模型'}</strong>
-          <span>{form?.provider === 'codex' ? 'Codex 登录' : form?.protocol || '—'}</span>
+          <strong>{form?.model || tr('尚未配置模型')}</strong>
+          <span>{form?.provider === 'codex' ? tr('Codex 登录') : form?.protocol || '—'}</span>
         </div>
         <Facts
           items={[
-            ['输出上限', `${form?.maxOutputTokens ?? '—'} tokens`],
-            ['请求超时', `${form ? form.timeoutMs / 1000 : '—'} 秒`],
+            [tr('输出上限'), `${form?.maxOutputTokens ?? '—'} tokens`],
+            [tr('请求超时'), tr('{{value1}} 秒', { value1: form ? form.timeoutMs / 1000 : '—' })],
           ]}
         />
       </div>
@@ -283,29 +304,36 @@ function GenerationPreview({ form, dirty }: PreviewProps) {
   );
 }
 function ConnectionPreview({ view, live, form }: PreviewProps) {
+  useLocale();
   const status = view?.connection.status;
   const connected = live && status === 'connected';
   return (
-    <Frame title="连接状态">
+    <Frame title={tr('连接状态')}>
       <div className="preview-demo">
         <div className="preview-connection" data-connected={connected}>
           <Icon name="connection" />
           <strong>
             {connected
-              ? '连接已就绪'
+              ? tr('连接已就绪')
               : !live
-                ? '本地服务未连接'
+                ? tr('本地服务未连接')
                 : status === 'unresponsive'
-                  ? '页面暂未响应'
-                  : '等待桌面连接'}
+                  ? tr('页面暂未响应')
+                  : tr('等待桌面连接')}
           </strong>
         </div>
         <Facts
           items={[
-            ['本地服务', live ? '可用' : '未连接'],
-            ['桌面页面', connected ? '已连接' : status === 'unresponsive' ? '暂未响应' : '未连接'],
-            ['启动行为', form?.hostRestartPolicy === 'force' ? '直接强制重开' : '询问后正常重开'],
-            ['版本', view?.version || '—'],
+            [tr('本地服务'), live ? tr('可用') : tr('未连接')],
+            [
+              tr('桌面页面'),
+              connected ? tr('已连接') : status === 'unresponsive' ? tr('暂未响应') : tr('未连接'),
+            ],
+            [
+              tr('启动行为'),
+              form?.hostRestartPolicy === 'force' ? tr('直接强制重开') : tr('询问后正常重开'),
+            ],
+            [tr('版本'), view?.version || '—'],
           ]}
         />
       </div>
@@ -314,11 +342,12 @@ function ConnectionPreview({ view, live, form }: PreviewProps) {
 }
 
 export function SettingsPreview(props: PreviewProps) {
+  useLocale();
   const workspace = props.page === 'surfaces' || props.page === 'appearance';
   return (
     <aside
       className="settings-preview"
-      aria-label="联动预览"
+      aria-label={tr('联动预览')}
       hidden={['performance', 'terminology', 'codex-host', 'dev'].includes(props.page)}
       data-preview-kind={workspace ? 'workspace' : props.page}
     >

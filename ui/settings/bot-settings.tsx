@@ -1,3 +1,5 @@
+import { useLocale } from '../shared/use-locale';
+import { tr } from '../shared/i18n.js';
 /* [INPUT]: Saved sync preference, shared settings queue and read-only local Bot catalog.
  * [OUTPUT]: Grouped sync controls, an on-demand local search and profile entries, and Agent setup instructions.
  * [POS]: Settings only; no Bot conversations or dependency installation.
@@ -9,7 +11,7 @@ import { Input } from './components/ui/input';
 import { SettingsDrawer } from './settings-drawer';
 import { Button, IconButton } from './components/ui/button';
 import type { SettingsEditor } from './use-settings-form';
-import { botSetupPrompt } from './bot-setup-prompt';
+import { localizedBotSetupPrompt } from './bot-setup-prompt';
 import { ActionIcon } from './components/ui/action-feedback';
 import { Icon } from '../shared/icons/react';
 import { botGroups, type BotSidebar } from '../shared/bot-catalog';
@@ -30,6 +32,7 @@ export function BotSettings({
   live: boolean;
   editor: SettingsEditor;
 }) {
+  useLocale();
   const [query, setQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const searchId = useId();
@@ -114,14 +117,14 @@ export function BotSettings({
   return (
     <section data-settings-page="bots" hidden={!active} className="settings-section bot-settings">
       <Toggle
-        label="自动同步 Bot 资料"
+        label={tr('自动同步 Bot 资料')}
         checked={auto}
         disabled={!live || !editor.form}
         onChange={(value) => editor.change('grokbotAutoSync', value)}
       />
       <div className="bot-settings-catalog" aria-busy={busy}>
         <div className="bot-settings-heading">
-          <h2>Bot 资料</h2>
+          <h2>{tr('Bot 资料')}</h2>
           <div className="bot-settings-actions">
             {!!catalog?.bots.length && (
               <div className="bot-settings-search" data-open={searchOpen}>
@@ -130,8 +133,8 @@ export function BotSettings({
                     ref={searchInput}
                     id={searchId}
                     type="search"
-                    aria-label="搜索 Bot"
-                    placeholder="搜索 Bot"
+                    aria-label={tr('搜索 Bot')}
+                    placeholder={tr('搜索 Bot')}
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     onKeyDown={(e) => {
@@ -145,7 +148,7 @@ export function BotSettings({
                 )}
                 <IconButton
                   ref={searchButton}
-                  aria-label={searchOpen ? '关闭 Bot 搜索' : '搜索 Bot'}
+                  aria-label={searchOpen ? tr('关闭 Bot 搜索') : tr('搜索 Bot')}
                   aria-expanded={searchOpen}
                   aria-controls={searchOpen ? searchId : undefined}
                   onClick={() => (searchOpen ? closeSearch() : setSearchOpen(true))}
@@ -156,7 +159,7 @@ export function BotSettings({
             )}
             {!auto && (
               <IconButton
-                aria-label="刷新 Bot 资料"
+                aria-label={tr('刷新 Bot 资料')}
                 disabled={!live || busy}
                 onClick={() => void load(true)}
               >
@@ -170,24 +173,26 @@ export function BotSettings({
         </div>
         <Feedback text={error || catalog?.error} failed />
         <Feedback text={catalog?.sidebarError} failed />
-        {!catalog?.error && catalog?.stale && <Feedback text="请打开 Grok Bot 更新资料。" />}
-        {!catalog && busy && <Feedback text="正在读取 Bot 资料…" />}
+        {!catalog?.error && catalog?.stale && <Feedback text={tr('请打开 Grok Bot 更新资料。')} />}
+        {!catalog && busy && <Feedback text={tr('正在读取 Bot 资料…')} />}
         {catalog && !catalog.stale && !catalog.error && catalog.bots.length === 0 && (
-          <Feedback text="暂无 Bot" />
+          <Feedback text={tr('暂无 Bot')} />
         )}
-        {!!catalog?.bots.length && term && !groups.length && <Feedback text="没有匹配的 Bot" />}
+        {!!catalog?.bots.length && term && !groups.length && (
+          <Feedback text={tr('没有匹配的 Bot')} />
+        )}
         <div className="bot-settings-profiles">
           {groups.map((group) => (
             <section
               key={group.id}
               className="bot-settings-group"
               data-pinned={group.kind === 'pinned' && group.bots.length > 0}
-              aria-label={group.name || 'Bot 列表'}
+              aria-label={group.name || tr('Bot 列表')}
             >
               {group.kind !== 'pinned' && group.name && <h3>{group.name}</h3>}
               {group.bots.map((bot) => (
                 <SettingsDrawer key={bot.id} title={bot.name} hidden={!active}>
-                  <p className="bot-settings-description">{bot.description || '暂无简介'}</p>
+                  <p className="bot-settings-description">{bot.description || tr('暂无简介')}</p>
                 </SettingsDrawer>
               ))}
             </section>
@@ -199,28 +204,29 @@ export function BotSettings({
 }
 
 export function BotSetupInstructions({ hidden }: { hidden: boolean }) {
+  useLocale();
   const [copied, setCopied] = useState('');
   return (
     <div className="bot-settings-setup" hidden={hidden}>
-      <SettingsDrawer title="接入 Grok Bot" hidden={hidden}>
-        <p>把这段 Prompt 交给你的 Agent 或 Codex，按当前官方文档完成接入和后续更新。</p>
+      <SettingsDrawer title={tr('接入 Grok Bot')} hidden={hidden}>
+        <p>{tr('把这段 Prompt 交给你的 Agent 或 Codex，按当前官方文档完成接入和后续更新。')}</p>
         <textarea
-          aria-label="Grok Bot 接入 Prompt"
+          aria-label={tr('Grok Bot 接入 Prompt')}
           className="mt-4 min-h-80 w-full resize-y rounded border bg-transparent p-3 text-sm"
           readOnly
-          value={botSetupPrompt}
+          value={localizedBotSetupPrompt()}
         />
         <div className="settings-actions">
           <Button
             type="button"
             onClick={() =>
-              void navigator.clipboard.writeText(botSetupPrompt).then(
-                () => setCopied('已复制'),
-                () => setCopied('无法自动复制，请选中上方文本复制。'),
+              void navigator.clipboard.writeText(localizedBotSetupPrompt()).then(
+                () => setCopied(tr('已复制')),
+                () => setCopied(tr('无法自动复制，请选中上方文本复制。')),
               )
             }
           >
-            复制接入 Prompt
+            {tr('复制接入 Prompt')}
           </Button>
         </div>
         <Feedback text={copied} />

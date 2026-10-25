@@ -1,3 +1,4 @@
+import { tr } from '../shared/i18n.js';
 /*
  * [INPUT]: 版本化设置 API、连接状态与服务端修订。
  * [OUTPUT]: 生成/Jev 独立密钥及表单的失焦/选择自动保存与手动保存共用队列，功能开关及确认后的密钥/方向/提示词删除单独保存，保留在途编辑和失败草稿，并在请求期间固定反馈来源。
@@ -5,7 +6,7 @@
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
 import { useEffect, useRef, useState } from 'react';
-import { request, type EditableSettings, type Settings } from './api';
+import { ApiError, request, type EditableSettings, type Settings } from './api';
 import { feedbackTarget } from './settings-feedback';
 
 type ControlPatch = {
@@ -146,7 +147,7 @@ export function useSettingsForm(
     } else queued.current = snapshot;
     if (flight.current) return flight.current;
     if (conflict.current)
-      return Promise.reject(new Error('设置已在其他窗口更新，请重新载入后再保存'));
+      return Promise.reject(new Error(tr('设置已在其他窗口更新，请重新载入后再保存')));
     setSaveError('');
     setSaving(true);
     const operation = async () => {
@@ -226,7 +227,11 @@ export function useSettingsForm(
       } catch (error) {
         setSaveError((error as Error).message);
         queued.current = null;
-        if ((error as Error).message.includes('其他窗口')) {
+        if (
+          (error instanceof ApiError ? error.data.message : (error as Error).message).includes(
+            '其他窗口',
+          )
+        ) {
           controls.current = null;
           conflict.current = true;
           setRemoteChanged(true);
@@ -257,9 +262,9 @@ export function useSettingsForm(
     const snapshot = current.current;
     timer.current = setTimeout(() => {
       if (formElement && !formElement.checkValidity()) {
-        setSaveError('有未完成或无效的输入，请修正后保存。');
+        setSaveError(tr('有未完成或无效的输入，请修正后保存。'));
         setFeedbackAt(feedbackTarget(formElement.querySelector(':invalid')));
-        notifyRef.current('有未完成或无效的输入，请修正后保存。', true);
+        notifyRef.current(tr('有未完成或无效的输入，请修正后保存。'), true);
         return;
       }
       void saveRef.current(snapshot).catch((error) => notifyRef.current(error.message, true));
@@ -304,11 +309,11 @@ export function useSettingsForm(
     update({ ...current.current, apiKey: value });
   }
   function removeApiKey(expectedRevision: number, kind: 'api' | 'jev' = 'api') {
-    if (flight.current) return Promise.reject(new Error('正在保存配置，请稍后重试。'));
+    if (flight.current) return Promise.reject(new Error(tr('正在保存配置，请稍后重试。')));
     if (baseline.current?.configurationRevision !== expectedRevision)
-      return Promise.reject(new Error('设置已变化，请关闭后重新确认删除。'));
+      return Promise.reject(new Error(tr('设置已变化，请关闭后重新确认删除。')));
     if (kind === 'jev' ? current.current.jevApiKey : current.current.apiKey)
-      return Promise.reject(new Error('请先保存或取消新密钥，再删除已保存的密钥。'));
+      return Promise.reject(new Error(tr('请先保存或取消新密钥，再删除已保存的密钥。')));
     return save(current.current, kind === 'jev' ? { clearJevApiKey: true } : { clearApiKey: true });
   }
   function removeEntry(
@@ -316,9 +321,9 @@ export function useSettingsForm(
     id: string | number,
     expectedRevision: number,
   ) {
-    if (flight.current) return Promise.reject(new Error('正在保存配置，请稍后重试。'));
+    if (flight.current) return Promise.reject(new Error(tr('正在保存配置，请稍后重试。')));
     if (baseline.current?.configurationRevision !== expectedRevision || !current.current.form)
-      return Promise.reject(new Error('设置已变化，请关闭后重新确认。'));
+      return Promise.reject(new Error(tr('设置已变化，请关闭后重新确认。')));
     const form = current.current.form;
     return save(
       current.current,

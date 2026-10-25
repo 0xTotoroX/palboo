@@ -1,3 +1,4 @@
+import { tr } from '../../shared/i18n.js';
 /*
  * [INPUT]: 已识别的 Codex 主内容、标签页、前景聊天及 Dots 官方输入区布局、期望侧栏宽度、开合状态和默认关闭的新聊天/Dots 独立许可。
  * [OUTPUT]: CSS 像素宽度上限、独立调节的聊天/侧栏边界、可撤销占位和屏幕几何；缩窄优先保留最小侧栏，手动收起占位归零。
@@ -204,7 +205,7 @@ export function createDock(onChange, beforeMove = () => {}) {
       }
       slot = document.createElement('aside');
       slot.setAttribute(SLOT, 'true');
-      slot.setAttribute('aria-label', 'Palboo 工作台入口');
+      slot.setAttribute('aria-label', tr('Palboo 工作台入口'));
       slot.style.cssText =
         'order:1;flex:0 0 auto;min-width:0;position:relative;align-self:stretch;overflow:visible;padding:0;border:0;margin:0;box-sizing:border-box;';
       host.row.append(slot);

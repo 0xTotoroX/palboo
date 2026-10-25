@@ -280,6 +280,7 @@ declare global {
 }
 
 export interface AppearanceSettings {
+  language?: 'system' | 'zh-CN' | 'en';
   settingsTheme?: 'codex' | 'light' | 'dark' | null;
   typography?: import('./typography').TypographyPreferences;
   launcherAction?: 'inside' | 'outside' | 'settings';

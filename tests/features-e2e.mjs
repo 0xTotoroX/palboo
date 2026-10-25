@@ -82,6 +82,7 @@ try {
   browser = await chromium.connect(chrome.wsEndpoint());
   report.browser = browser.version();
   const context = await browser.newContext({
+    locale: 'zh-CN',
     viewport: { width: 1440, height: 960 },
     reducedMotion: 'reduce',
   });

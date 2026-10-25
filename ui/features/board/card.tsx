@@ -1,3 +1,5 @@
+import { useLocale } from '../../shared/use-locale';
+import { tr } from '../../shared/i18n.js';
 /* [INPUT]: Task DTO and command/move handlers. [OUTPUT]: Draggable cards with hover removal and recovery.
  * [POS]: Native drag events stay inside the board Shadow DOM; no document-level retargeting.
  * [PROTOCOL]: Keep board/AGENTS.md in sync. */
@@ -32,6 +34,7 @@ export function TaskCard({
   command: (data: Record<string, unknown>) => Promise<unknown>;
   before: (id: string) => void;
 }) {
+  useLocale();
   const [dragging, setDragging] = useState(false);
   const [over, setOver] = useState(false);
   const readonly =
@@ -69,7 +72,7 @@ export function TaskCard({
       <button
         type="button"
         className="card-title card-open"
-        aria-label={`任务详情：${task.fields.title}`}
+        aria-label={tr('任务详情：{{value1}}', { value1: task.fields.title })}
         onClick={edit}
       >
         {task.fields.title}
@@ -77,8 +80,10 @@ export function TaskCard({
       {(task.fields.priority > 0 || task.fields.due) && (
         <div className="card-meta card-details-meta">
           {task.fields.priority > 0 && (
-            <span aria-label={`优先级：${priorityLabel(task.fields.priority)}`}>
-              {priorityLabel(task.fields.priority)}优先级
+            <span
+              aria-label={tr('优先级：{{value1}}', { value1: priorityLabel(task.fields.priority) })}
+            >
+              {tr('{{level}}优先级', { level: priorityLabel(task.fields.priority) })}
             </span>
           )}
           {task.fields.due && <time>{dueText(task.fields.due)}</time>}
@@ -87,7 +92,7 @@ export function TaskCard({
       <button
         type="button"
         className="card-delete"
-        aria-label={`删除任务：${task.fields.title}`}
+        aria-label={tr('删除任务：{{value1}}', { value1: task.fields.title })}
         disabled={disabled}
         draggable={false}
         onPointerDown={(event) => event.stopPropagation()}
@@ -102,7 +107,7 @@ export function TaskCard({
       >
         <Icon name="trash" />
       </button>
-      {task.remote?.recurring && <div className="card-meta">重复 · 只读</div>}
+      {task.remote?.recurring && <div className="card-meta">{tr('重复 · 只读')}</div>}
       {(task.conflict || task.remoteMissing) && (
         <Recovery task={task} busy={disabled} command={command} />
       )}
@@ -124,6 +129,7 @@ export function Column({
   move: (taskId: string, column: string) => void;
   disabled: boolean;
 }) {
+  useLocale();
   const [over, setOver] = useState(false);
   return (
     <section

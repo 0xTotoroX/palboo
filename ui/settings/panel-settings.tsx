@@ -1,3 +1,5 @@
+import { useLocale } from '../shared/use-locale';
+import { tr } from '../shared/i18n.js';
 /* [INPUT]: 版本化外观偏好与认证 API。
  * [OUTPUT]: 下一步的显示/点击设置，及按布局/外观页面显示的全局字体、侧栏页面开关、整数宽度和置顶设置，草稿持续挂载。
  * [POS]: 保留有效旧字段的设置适配；不再编辑旧两功能布局、主题或窗口归属。
@@ -23,6 +25,7 @@ export function PanelSettings({
   section?: 'next' | 'surfaces';
   page?: 'surfaces' | 'appearance';
 }) {
+  useLocale();
   const feedback = useFeedbackTarget();
   const [prefs, setPrefs] = useState(value),
     [busy, setBusy] = useState(false),
@@ -111,7 +114,9 @@ export function PanelSettings({
                 feedback.capture();
                 e.currentTarget.value = String(value);
                 setError(
-                  Number.isFinite(max) ? `${label}范围为 ${min}–${max}` : `${label}不能小于 ${min}`,
+                  Number.isFinite(max)
+                    ? tr('{{label}}范围为 {{min}}–{{max}}', { label: label, min: min, max: max })
+                    : tr('{{label}}不能小于 {{min}}', { label: label, min: min }),
                 );
               }
             }}
@@ -121,7 +126,7 @@ export function PanelSettings({
               <button
                 type="button"
                 key={delta}
-                aria-label={`${delta < 0 ? '减小' : '增大'}${label}`}
+                aria-label={`${delta < 0 ? tr('减小') : tr('增大')}${label}`}
                 onPointerDown={(e) => e.preventDefault()}
                 onClick={(e) => {
                   const input = e.currentTarget.parentElement!.querySelector('input')!;
@@ -146,27 +151,27 @@ export function PanelSettings({
     >
       {section === 'next' ? (
         <>
-          <Field id="suggestion-labels" label="内容显示">
+          <Field id="suggestion-labels" label={tr('内容显示')}>
             <NativeSelect
               id="suggestion-labels"
               controlWidth="short"
               value={String(ui.labelOnly)}
               onChange={(e) => change('labelOnly', e.target.value === 'true')}
             >
-              <option value="false">标题 + 摘要</option>
-              <option value="true">仅标题</option>
+              <option value="false">{tr('标题 + 摘要')}</option>
+              <option value="true">{tr('仅标题')}</option>
             </NativeSelect>
           </Field>
-          <Field id="suggestion-click" label="指令执行模式">
+          <Field id="suggestion-click" label={tr('指令执行模式')}>
             <NativeSelect
               id="suggestion-click"
               controlWidth="medium"
               value={ui.promptClickMode}
               onChange={(e) => change('promptClickMode', e.target.value)}
             >
-              <option value="fill">仅填入</option>
-              <option value="direct">直接发送</option>
-              <option value="hybrid">单击填入 · 双击发送</option>
+              <option value="fill">{tr('仅填入')}</option>
+              <option value="direct">{tr('直接发送')}</option>
+              <option value="hybrid">{tr('单击填入 · 双击发送')}</option>
             </NativeSelect>
           </Field>
         </>
@@ -178,7 +183,7 @@ export function PanelSettings({
             data-settings-page="appearance"
             hidden={page === 'surfaces'}
           >
-            <h2>字体</h2>
+            <h2>{tr('字体')}</h2>
             <TypographySettings
               value={prefs.typography}
               save={(typography) => update({ typography })}
@@ -190,18 +195,18 @@ export function PanelSettings({
             data-settings-page="surfaces"
             hidden={page === 'appearance'}
           >
-            <h2>侧栏显示范围</h2>
+            <h2>{tr('侧栏显示范围')}</h2>
             <div className="settings-surface-rows">
               <div id="sidebar-new-chat" className="settings-surface-item">
                 <Toggle
-                  label="新聊天中显示侧栏"
+                  label={tr('新聊天中显示侧栏')}
                   checked={ui.sidebarNewChat === true}
                   onChange={(v) => change('sidebarNewChat', v)}
                 />
               </div>
               <div id="sidebar-dots" className="settings-surface-item">
                 <Toggle
-                  label="Dots 中显示侧栏"
+                  label={tr('Dots 中显示侧栏')}
                   checked={ui.sidebarDots === true}
                   onChange={(v) => change('sidebarDots', v)}
                 />
@@ -214,12 +219,12 @@ export function PanelSettings({
             data-settings-page="surfaces"
             hidden={page === 'appearance'}
           >
-            <h2>尺寸与窗口</h2>
+            <h2>{tr('尺寸与窗口')}</h2>
             <div className="settings-surface-rows">
               <div className="settings-surface-item">
                 {number(
                   'dock-width',
-                  '侧栏宽度（px）',
+                  tr('侧栏宽度（px）'),
                   Math.round(ui.dockWidth),
                   DOCK_MIN_WIDTH,
                   Infinity,
@@ -228,7 +233,7 @@ export function PanelSettings({
               </div>
               <div id="window-pinning" className="settings-surface-item">
                 <Toggle
-                  label="桌面窗口置顶"
+                  label={tr('桌面窗口置顶')}
                   checked={prefs.alwaysOnTop}
                   onChange={(v) => void update({ alwaysOnTop: v })}
                 />
@@ -238,7 +243,7 @@ export function PanelSettings({
         </>
       )}
       <Feedback
-        text={error || (busy ? '正在保存…' : '')}
+        text={error || (busy ? tr('正在保存…') : '')}
         failed={!!error}
         target={feedback.target}
       />

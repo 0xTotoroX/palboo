@@ -1,3 +1,4 @@
+import { tr } from '../../../shared/i18n.js';
 import {
   nextHtml,
   attachNextEvents,
@@ -114,7 +115,7 @@ import { renderWorkbench } from '../../workspace/legacy.js';
 function viewTabHtml(view) {
   const isNext = view === 'next';
   const active = shellState.activeTab === view;
-  return `<button class="csw-icon" type="button" data-view="${view}" data-reorderable="true" data-active="${active}" role="tab" aria-selected="${active}" aria-label="${isNext ? '下一步' : '回答大纲'}">${iconSvg(isNext ? 'next' : 'outline')}</button>`;
+  return `<button class="csw-icon" type="button" data-view="${view}" data-reorderable="true" data-active="${active}" role="tab" aria-selected="${active}" aria-label="${isNext ? tr('下一步') : tr('回答大纲')}">${iconSvg(isNext ? 'next' : 'outline')}</button>`;
 }
 
 function sourceTrackHtml(
@@ -217,14 +218,14 @@ function statusToneForView(expression) {
 
 function refreshControlState() {
   if (shellState.activeTab === 'settings') {
-    return { blocked: false, title: '重新读取设置' };
+    return { blocked: false, title: tr('重新读取设置') };
   }
   if (shellState.activeTab === 'outline') {
     const blocked = outlineState.outlineStatus === 'pending';
-    return { blocked, title: blocked ? '等待回答完成' : '刷新大纲' };
+    return { blocked, title: blocked ? tr('等待回答完成') : tr('刷新大纲') };
   }
   const blocked = stepwiseState.bridgeStatus === 'pending' || chatBusy();
-  return { blocked, title: blocked ? '等待回答完成' : '刷新建议' };
+  return { blocked, title: blocked ? tr('等待回答完成') : tr('刷新建议') };
 }
 
 function refreshCurrentView() {
@@ -335,7 +336,11 @@ function renderFloat(options = {}) {
     : stepwiseState.prompts.length;
   const expressionLabel = fabExpressionLabel(expression, outlineExpression);
   const featureLabel =
-    stepwiseEnabled() && outlineEnabled() ? '悬浮球' : stepwiseEnabled() ? '下一步' : '回答大纲';
+    stepwiseEnabled() && outlineEnabled()
+      ? tr('悬浮球')
+      : stepwiseEnabled()
+        ? tr('下一步')
+        : tr('回答大纲');
   const hidden = expression === 'hidden' && !IS_POPOUT;
   if (hidden) {
     settleMorph(0);
@@ -347,9 +352,14 @@ function renderFloat(options = {}) {
   shellState.fab.setAttribute(
     'aria-label',
     shellState.open
-      ? '收起'
+      ? tr('收起')
       : expressionCount > 0 && expression === 'ready'
-        ? `${featureLabel} · ${expressionLabel} · ${expressionCount} ${outlineExpression ? '个章节' : '条'}`
+        ? tr('{{featureLabel}} · {{expressionLabel}} · {{expressionCount}} {{value4}}', {
+            featureLabel: featureLabel,
+            expressionLabel: expressionLabel,
+            expressionCount: expressionCount,
+            value4: outlineExpression ? tr('个章节') : tr('条'),
+          })
         : `${featureLabel} · ${expressionLabel}`,
   );
   shellState.fab.setAttribute('aria-expanded', String(shellState.open));
@@ -370,15 +380,15 @@ function renderFloat(options = {}) {
   shellState.panel.innerHTML = `
       <div class="csw-head">
         <div class="csw-head-side csw-head-left">
-          <div class="csw-tabs csw-view-tabs" role="tablist" aria-label="悬浮球视图">
+          <div class="csw-tabs csw-view-tabs" role="tablist" aria-label="${tr('悬浮球视图')}">
             <span class="csw-view-indicator" aria-hidden="true"></span>
             ${viewTabs}
           </div>
         </div>
-        <button class="csw-head-face" type="button" data-action="${IS_POPOUT ? 'panel-face' : 'collapse'}" data-expression="${escapeAttr(headExpression)}" data-tone="${tone}" aria-label="${IS_POPOUT ? '拖动窗口' : '收起'}">${statusStageHtml()}${sourceTrackHtml(paneCue, 32)}</button>
+        <button class="csw-head-face" type="button" data-action="${IS_POPOUT ? 'panel-face' : 'collapse'}" data-expression="${escapeAttr(headExpression)}" data-tone="${tone}" aria-label="${IS_POPOUT ? tr('拖动窗口') : tr('收起')}">${statusStageHtml()}${sourceTrackHtml(paneCue, 32)}</button>
         <div class="csw-head-side csw-head-right">
           ${panelWindowControls()}
-          ${IS_POPOUT ? '' : `<button class="csw-icon" data-action="workbench" aria-label="停靠工作台">${iconSvg('dock')}</button>`}
+          ${IS_POPOUT ? '' : `<button class="csw-icon" data-action="workbench" aria-label="${tr('停靠工作台')}">${iconSvg('dock')}</button>`}
           <button class="csw-icon" type="button" data-action="refresh" aria-label="${escapeAttr(refreshTitle)}" ${refreshBlocked ? 'disabled' : ''}>${iconSvg('refresh')}</button>
         </div>
       </div>
@@ -480,7 +490,7 @@ function installFloat() {
   shellState.panel.id = POPOVER_ID;
   shellState.panel.className = 'csw-panel';
   shellState.panel.setAttribute('role', 'dialog');
-  shellState.panel.setAttribute('aria-label', '下一步与回答大纲');
+  shellState.panel.setAttribute('aria-label', tr('下一步与回答大纲'));
   shellState.panel.setAttribute('aria-hidden', 'true');
   shellState.panel.inert = true;
 

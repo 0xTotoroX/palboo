@@ -1,3 +1,4 @@
+import { tr } from '../../../shared/i18n.js';
 /*
  * [INPUT]: 原生窗口桥接、窗口偏好与新聊天/Dots 侧栏许可、远端命令身份。
  * [OUTPUT]: 强制展开的偏好和窗口尺寸、受限远端操作；浮窗统一工作台最低高度，保留返回形态。
@@ -35,7 +36,7 @@ function panelPreferences() {
 
 async function remotePanelAction(kind, fields = {}) {
   if (!shellState.remoteSource) {
-    POPOUT.notice('Codex 尚未连接。');
+    POPOUT.notice(tr('Codex 尚未连接。'));
     return false;
   }
   const command = {
@@ -49,7 +50,7 @@ async function remotePanelAction(kind, fields = {}) {
   };
   try {
     const result = await POPOUT.request('command', { command });
-    if (!result.ok) POPOUT.notice(result.message || '操作失败，请重试。');
+    if (!result.ok) POPOUT.notice(result.message || tr('操作失败，请重试。'));
     return result.ok === true;
   } catch (error) {
     POPOUT.notice(error.message);

@@ -1,3 +1,6 @@
+import { useLocale } from '../../shared/use-locale';
+import { tr } from '../../shared/i18n.js';
+import { setLocale, getLocale } from '../../shared/i18n.js';
 /* [INPUT]: Owner lease, business projection, request function and optional surface header slot.
  * [OUTPUT]: Business content with shared host typography and legacy font fallback, guarded actions and draft/reading handoff with close acknowledgement; the surface owns chrome.
  * [POS]: Shared by native windows and host Shadow DOM surfaces; no host parsing.
@@ -38,6 +41,7 @@ export function FeatureView({
   beforeHandoff?: () => Promise<unknown>;
   onHandoffError?: (pendingOwner: string) => void;
 }) {
+  useLocale();
   const reading = useRef<Reading>(structuredClone(entry.view || {}));
   const body = useRef<HTMLDivElement>(null);
   const gate = useRef(false);
@@ -87,7 +91,7 @@ export function FeatureView({
   useEffect(() => {
     if (wasMoving.current && !entry.pending && entry.owner === owner) {
       onHandoffError?.(wasMoving.current);
-      setError('未能切换位置，请重试。');
+      setError(tr('未能切换位置，请重试。'));
     }
     wasMoving.current = entry.owner === owner ? entry.pending?.owner || '' : '';
   }, [entry.pending, entry.owner, owner]);
@@ -145,7 +149,10 @@ export function FeatureView({
           return;
         }
         fingerprint = nextFingerprint;
-        if (value.appearance) setAppearance(value.appearance);
+        if (value.appearance) {
+          if (value.appearance.language) setLocale(value.appearance.language);
+          setAppearance(value.appearance);
+        }
         const token = contentToken(entry.id, value);
         if (token && reading.current.token !== token) {
           reading.current.top = 0;
@@ -223,7 +230,7 @@ export function FeatureView({
   }, []);
   async function operation<T>(fn: () => Promise<T>, propagate = false) {
     if (gate.current || !active || document.documentElement.dataset.buddyReloading === 'true') {
-      if (propagate) throw Error('功能正在交接，请稍后重试');
+      if (propagate) throw Error(tr('功能正在交接，请稍后重试'));
       return null;
     }
     gate.current = true;
@@ -310,10 +317,10 @@ export function FeatureView({
         } as CSSProperties
       }
     >
-      {entry.pending && <p role="status">正在移到新位置…</p>}
+      {entry.pending && <p role="status">{tr('正在移到新位置…')}</p>}
       {error && <p role="alert">{error}</p>}
       {!connected && value && entry.id !== 'board' && (
-        <p role="status">连接已断开，保留上次内容。</p>
+        <p role="status">{tr('连接已断开，保留上次内容。')}</p>
       )}
       <div
         className="feature-body"

@@ -5,6 +5,15 @@
 import AppKit
 import Foundation
 
+func localized(_ chinese: String, _ english: String) -> String {
+    let root = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+    let file = root?.appendingPathComponent("palboo/panel.json")
+    let prefs = file.flatMap { try? Data(contentsOf: $0) }.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+    let preference = prefs?["language"] as? String ?? "system"
+    let language = preference == "system" ? (Locale.preferredLanguages.first ?? "en") : preference
+    return language.lowercased().hasPrefix("zh") ? chinese : english
+}
+
 struct LaunchFailure: LocalizedError {
     let message: String
     var errorDescription: String? { message }
@@ -12,11 +21,11 @@ struct LaunchFailure: LocalizedError {
 
 func bundledCLI() throws -> URL {
     guard let executable = Bundle.main.executableURL else {
-        throw LaunchFailure(message: "无法定位 Palboo 应用。")
+        throw LaunchFailure(message: localized("无法定位 Palboo 应用。", "Could not locate the Palboo App."))
     }
     let cli = executable.deletingLastPathComponent().appendingPathComponent("palboo")
     guard FileManager.default.isExecutableFile(atPath: cli.path) else {
-        throw LaunchFailure(message: "应用缺少主程序，请重新下载完整安装包。")
+        throw LaunchFailure(message: localized("应用缺少主程序，请重新下载完整安装包。", "The App is missing its executable. Download the complete installer again."))
     }
     return cli
 }
@@ -36,7 +45,7 @@ func command(_ cli: URL, _ arguments: [String]) throws -> String {
     process.waitUntilExit()
     let output = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
     guard process.terminationStatus == 0 else {
-        throw LaunchFailure(message: output.isEmpty ? "Palboo 启动失败（\(process.terminationStatus)）。" : output)
+        throw LaunchFailure(message: output.isEmpty ? localized("Palboo 启动失败（\(process.terminationStatus)）。", "Palboo could not start (\(process.terminationStatus)).") : output)
     }
     return output
 }
@@ -45,7 +54,7 @@ func launch() throws {
     let cli = try bundledCLI()
     let volume = try Bundle.main.bundleURL.resourceValues(forKeys: [.volumeIsReadOnlyKey])
     if volume.volumeIsReadOnly == true {
-        throw LaunchFailure(message: "请先将 Palboo 拖入“应用程序”文件夹，再打开。")
+        throw LaunchFailure(message: localized("请先将 Palboo 拖入“应用程序”文件夹，再打开。", "Drag Palboo into Applications before opening it."))
     }
     let result = try command(cli, ["launch", "--no-open", "--restart-running"])
     if result.contains("Codex 集成已暂停") {
@@ -100,7 +109,7 @@ final class Launcher: NSObject, NSApplicationDelegate {
                     let alert = NSAlert()
                     alert.messageText = "Palboo"
                     alert.informativeText = message
-                    alert.addButton(withTitle: "好")
+                    alert.addButton(withTitle: localized("好", "OK"))
                     alert.runModal()
                 }
                 NSApp.terminate(nil)

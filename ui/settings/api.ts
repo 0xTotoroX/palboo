@@ -1,3 +1,4 @@
+import { tr } from '../shared/i18n.js';
 /*
  * [INPUT]: 启动令牌、React 与本机认证 API/SSE。
  * [OUTPUT]: 公开数据类型、request、原样术语文件上传与 useCompanion 状态订阅。
@@ -73,7 +74,7 @@ function readToken() {
 
 export class ApiError extends Error {
   constructor(public data: Failure) {
-    super(data.message);
+    super(tr(data.message));
   }
 }
 
@@ -91,7 +92,7 @@ export async function request<T = { ok: boolean }>(path: string, body?: unknown)
   const value = await response.json().catch(() => ({
     ok: false,
     code: 'invalid_response',
-    message: '服务暂时没有响应，请检查 Palboo 是否正在运行。',
+    message: tr('服务暂时没有响应，请检查 Palboo 是否正在运行。'),
   }));
   if (!response.ok || value.ok === false) throw new ApiError(value);
   return value as T;
@@ -106,7 +107,7 @@ export async function uploadTerminology<T>(file: File): Promise<T> {
   const value = await response.json().catch(() => ({
     ok: false,
     code: 'upload_failed',
-    message: '文件上传失败，请检查文件大小和连接。',
+    message: tr('文件上传失败，请检查文件大小和连接。'),
   }));
   if (!response.ok || value.ok === false) throw new ApiError(value);
   return value as T;
@@ -133,7 +134,7 @@ export function useCompanion() {
   }, []);
   useEffect(() => {
     if (!credential) {
-      setError('此标签页尚未连接 Palboo。请从眼睛菜单打开一次设置，其他标签页会自动恢复。');
+      setError(tr('此标签页尚未连接 Palboo。请从眼睛菜单打开一次设置，其他标签页会自动恢复。'));
       return;
     }
     const controller = new AbortController();
@@ -148,10 +149,10 @@ export function useCompanion() {
           });
           if (response.status === 401) {
             setLive(false);
-            setError('设置连接已过期。请从眼睛菜单重新打开设置，其他标签页会自动恢复。');
+            setError(tr('设置连接已过期。请从眼睛菜单重新打开设置，其他标签页会自动恢复。'));
             return;
           }
-          if (!response.ok || !response.body) throw new Error('服务连接暂时中断');
+          if (!response.ok || !response.body) throw new Error(tr('服务连接暂时中断'));
           setLive(true);
           setError('');
           delay = 750;
@@ -161,7 +162,7 @@ export function useCompanion() {
           try {
             while (!disposed) {
               const { value, done } = await reader.read();
-              if (done) throw new Error('本地服务已停止');
+              if (done) throw new Error(tr('本地服务已停止'));
               buffer += decoder.decode(value, { stream: true });
               let boundary: number;
               while ((boundary = buffer.indexOf('\n\n')) >= 0) {
@@ -188,7 +189,7 @@ export function useCompanion() {
         } catch {
           if (disposed) return;
           setLive(false);
-          setError('与本地服务的连接中断，正在重试…');
+          setError(tr('与本地服务的连接中断，正在重试…'));
           await new Promise((resolve) => setTimeout(resolve, delay));
           delay = Math.min(delay * 2, 6000);
         }

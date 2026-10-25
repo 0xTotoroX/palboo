@@ -1,3 +1,6 @@
+import { directionCopy } from './direction-copy';
+import { useLocale } from '../shared/use-locale';
+import { tr } from '../shared/i18n.js';
 /* [INPUT]: Shared direction drafts, built-in catalog and revision-aware save/delete queue.
  * [OUTPUT]: One drawer with categorized directory, single-item editing and retained navigation/drafts.
  * [POS]: Stepwise library presentation; never copies settings or creates a second save queue.
@@ -13,6 +16,7 @@ import { SettingsDrawer, DrawerSaveControls } from './settings-drawer';
 import type { SettingsEditor } from './use-settings-form';
 
 export function DirectionLibrary({ editor }: { editor: SettingsEditor }) {
+  useLocale();
   const { form, saved, change, schedule } = editor;
   const root = useRef<HTMLDivElement>(null);
   const [group, setGroup] = useState<'builtin' | 'custom'>('builtin');
@@ -22,7 +26,7 @@ export function DirectionLibrary({ editor }: { editor: SettingsEditor }) {
   const focusPending = useRef(false);
   const library = form!.directionLibrary;
   const originals = new Map(saved!.builtInDirections.map((item) => [item.id, item]));
-  const groupName = group === 'builtin' ? '内置方向' : '我的方向';
+  const groupName = group === 'builtin' ? tr('内置方向') : tr('我的方向');
   const active = library.find((item) => item.id === selected);
   const items = library.filter((item) => originals.has(item.id) === (group === 'builtin'));
 
@@ -73,12 +77,16 @@ export function DirectionLibrary({ editor }: { editor: SettingsEditor }) {
   return (
     <SettingsDrawer
       id="settings-direction-library"
-      title="方向库"
+      title={tr('方向库')}
       footer={<DrawerSaveControls editor={editor} />}
     >
       <div ref={root} className="direction-library" data-settings-search-ignore>
         <div hidden={!!active}>
-          <nav className="direction-library-nav" aria-label="方向分类" data-settings-navigation>
+          <nav
+            className="direction-library-nav"
+            aria-label={tr('方向分类')}
+            data-settings-navigation
+          >
             {(['builtin', 'custom'] as const).map((key) => (
               <Button
                 type="button"
@@ -93,7 +101,7 @@ export function DirectionLibrary({ editor }: { editor: SettingsEditor }) {
                   returning.current = null;
                 }}
               >
-                {key === 'builtin' ? '内置方向' : '我的方向'}
+                {key === 'builtin' ? tr('内置方向') : tr('我的方向')}
               </Button>
             ))}
           </nav>
@@ -103,7 +111,7 @@ export function DirectionLibrary({ editor }: { editor: SettingsEditor }) {
                 {form!.directionSource === 'smart' && (
                   <input
                     type="checkbox"
-                    aria-label={`启用方向 ${item.name}`}
+                    aria-label={tr('启用方向 {{value1}}', { value1: item.name })}
                     checked={item.enabled}
                     onChange={(event) => {
                       change(
@@ -123,7 +131,7 @@ export function DirectionLibrary({ editor }: { editor: SettingsEditor }) {
                   data-direction-open={item.id}
                   onClick={() => openItem(item.id)}
                 >
-                  <span>{item.name || '未命名方向'}</span>
+                  <span>{directionCopy(item, saved!.builtInDirections) || tr('未命名方向')}</span>
                   <Icon name="chevron-right" />
                 </Button>
               </div>
@@ -145,7 +153,7 @@ export function DirectionLibrary({ editor }: { editor: SettingsEditor }) {
                 }}
               >
                 <Icon name="plus" />
-                添加方向
+                {tr('添加方向')}
               </Button>
             )}
           </div>
@@ -159,7 +167,7 @@ export function DirectionLibrary({ editor }: { editor: SettingsEditor }) {
             onClick={back}
           >
             <Icon name="chevron-right" className="direction-back-icon" />
-            {`返回${groupName}`}
+            {tr('返回{{groupName}}', { groupName: groupName })}
           </Button>
           {library.map((item, index) => {
             const original = originals.get(item.id);
@@ -168,13 +176,13 @@ export function DirectionLibrary({ editor }: { editor: SettingsEditor }) {
               (original.name !== item.name || original.instruction !== item.instruction);
             return (
               <div key={item.id} data-direction-detail={item.id} hidden={item.id !== selected}>
-                <Field id={`direction-${item.id}-name`} label="名称">
+                <Field id={`direction-${item.id}-name`} label={tr('名称')}>
                   <Input
                     id={`direction-${item.id}-name`}
-                    aria-label={`方向名称 ${index + 1}`}
+                    aria-label={tr('方向名称 {{value1}}', { value1: index + 1 })}
                     required
                     maxLength={40}
-                    value={item.name}
+                    value={directionCopy(item, saved!.builtInDirections)}
                     onChange={(event) =>
                       change(
                         'directionLibrary',
@@ -185,14 +193,14 @@ export function DirectionLibrary({ editor }: { editor: SettingsEditor }) {
                     }
                   />
                 </Field>
-                <Field id={`direction-${item.id}-instruction`} label="方向说明">
+                <Field id={`direction-${item.id}-instruction`} label={tr('方向说明')}>
                   <textarea
                     id={`direction-${item.id}-instruction`}
-                    aria-label={`倾向说明 ${index + 1}`}
+                    aria-label={tr('倾向说明 {{value1}}', { value1: index + 1 })}
                     required
                     maxLength={4000}
                     rows={6}
-                    value={item.instruction}
+                    value={directionCopy(item, saved!.builtInDirections, 'instruction')}
                     onChange={(event) =>
                       change(
                         'directionLibrary',
@@ -208,7 +216,7 @@ export function DirectionLibrary({ editor }: { editor: SettingsEditor }) {
                     <Button
                       type="button"
                       variant="ghost"
-                      aria-label={`恢复方向 ${item.name} 的默认内容`}
+                      aria-label={tr('恢复方向 {{value1}} 的默认内容', { value1: item.name })}
                       onClick={() => {
                         change(
                           'directionLibrary',
@@ -222,19 +230,19 @@ export function DirectionLibrary({ editor }: { editor: SettingsEditor }) {
                       }}
                     >
                       <Icon name="refresh" />
-                      恢复默认
+                      {tr('恢复默认')}
                     </Button>
                   )}
                   <ConfirmationButton
                     type="button"
                     variant="ghost"
                     size="icon"
-                    aria-label={`删除方向 ${item.name}`}
+                    aria-label={tr('删除方向 {{value1}}', { value1: item.name })}
                     revision={saved!.configurationRevision}
                     disabled={editor.saving || editor.remoteChanged}
-                    title={`删除方向“${item.name || '未命名'}”？`}
-                    description="会删除名称和说明，并从已选方向中移除；不会删除已生成的建议。"
-                    confirmLabel="确认删除"
+                    title={tr('删除方向“{{value1}}”？', { value1: item.name || tr('未命名') })}
+                    description={tr('会删除名称和说明，并从已选方向中移除；不会删除已生成的建议。')}
+                    confirmLabel={tr('确认删除')}
                     onConfirm={() =>
                       editor.removeEntry('direction', item.id, saved!.configurationRevision)
                     }

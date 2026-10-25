@@ -1058,7 +1058,7 @@ pub fn display_options() -> Result<Value> {
             if uuid.is_empty() { return None; }
             let bounds = unsafe { CGDisplayBounds(id) };
             let builtin = unsafe { CGDisplayIsBuiltin(id) } != 0;
-            Some(json!({"id":uuid,"label":format!("{} · {} × {}", if builtin { "内建显示器".into() } else { format!("显示器 {}",index+1) }, bounds.size.width as u32, bounds.size.height as u32)}))
+            Some(json!({"id":uuid,"label":format!("{} · {} × {}", if builtin { crate::i18n::text("内建显示器", "Built-in display").into() } else { format!("{} {}", crate::i18n::text("显示器", "Display"),index+1) }, bounds.size.width as u32, bounds.size.height as u32)}))
         }).collect();
     Ok(json!({"screens":displays,"nativeGlassAvailable":crate::native_backdrop::glass_available()}))
 }

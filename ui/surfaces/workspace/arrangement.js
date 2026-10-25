@@ -1,3 +1,4 @@
+import { tr } from '../../shared/i18n.js';
 /*
  * [INPUT]: 工作台 DOM、当前布局与统一提交回调、功能可用状态及定位父级的页面缩放。
  * [OUTPUT]: 标题/标签拖动、双击及键盘放大、隐藏编排命令、可取消落位预览与标签导航。
@@ -272,8 +273,8 @@ export function installArrangement(
       preview.textContent = ['before', 'after'].includes(action)
         ? ''
         : action === 'merge'
-          ? '合并为标签'
-          : '分栏';
+          ? tr('合并为标签')
+          : tr('分栏');
     },
     { signal: events.signal },
   );
@@ -343,7 +344,10 @@ export function installArrangement(
         const expanded = focused === title.dataset.paneFocus;
         title.setAttribute(
           'aria-label',
-          `${title.getAttribute('title') || title.textContent}：${expanded ? '恢复原布局' : '放大查看'}`,
+          tr('{{value1}}：{{value2}}', {
+            value1: title.getAttribute('title') || title.textContent,
+            value2: expanded ? tr('恢复原布局') : tr('放大查看'),
+          }),
         );
         title.setAttribute('aria-pressed', String(expanded));
       }

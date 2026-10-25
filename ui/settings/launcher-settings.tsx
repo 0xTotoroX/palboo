@@ -1,3 +1,5 @@
+import { useLocale } from '../shared/use-locale';
+import { tr } from '../shared/i18n.js';
 /* [INPUT]: Existing appearance preferences and revision-checked settings API.
  * [OUTPUT]: Persisted default click action for the eyes launcher.
  * [POS]: Shared web/plugin settings control; no navigation on preference change.
@@ -14,6 +16,7 @@ export function LauncherSettings({
   value?: AppearanceSettings;
   outsideAvailable: boolean;
 }) {
+  useLocale();
   const [prefs, setPrefs] = useState(value);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -43,20 +46,20 @@ export function LauncherSettings({
   }
   return (
     <div className="settings-section">
-      <Field id="launcher-click-action" label="眼睛单击">
+      <Field id="launcher-click-action" label={tr('眼睛单击')}>
         <NativeSelect
           id="launcher-click-action"
           controlWidth="medium"
-          aria-label="眼睛单击默认动作"
+          aria-label={tr('眼睛单击默认动作')}
           disabled={!prefs || busy}
           value={prefs?.launcherAction ?? 'inside'}
           onChange={(e) => void change(e.target.value)}
         >
-          <option value="inside">内 · 聊天内工作台</option>
+          <option value="inside">{tr('内 · 聊天内工作台')}</option>
           <option value="outside" disabled={!outsideAvailable}>
-            外 · 桌面浮窗
+            {tr('外 · 桌面浮窗')}
           </option>
-          <option value="settings">设置</option>
+          <option value="settings">{tr('设置')}</option>
         </NativeSelect>
       </Field>
       <Feedback text={error} failed />

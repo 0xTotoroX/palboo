@@ -4,6 +4,7 @@
  * [POS]: 内嵌与系统窗口的显示边界，宿主保留业务权威状态，在不可见宿主中仍提供临时屏幕区域与交接眨眼，配合原生窗口位置接续。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
+import { setLocale, getLocale, tr } from '../../shared/i18n.js';
 import { DOCK_MIN_WIDTH } from '../../surfaces/embedded/width.js';
 import { panelAppearance, syncTheme } from '../../surfaces/embedded/shell/panel-appearance.js';
 import { launcherButton } from '../../surfaces/embedded/launcher.js';
@@ -177,10 +178,18 @@ function applyPanelPreferences(ui) {
   emitSignal('render', undefined);
 }
 
+/** @param {string | {language?: string, action?: string} | null} launcherAction */
 function syncPanelPreferences(ui, revision, detached, launcherAction = 'inside') {
-  const nextAction = ['inside', 'outside', 'settings'].includes(launcherAction)
-    ? launcherAction
-    : 'inside';
+  const previousLocale = getLocale();
+  if (launcherAction && typeof launcherAction === 'object') {
+    setLocale(launcherAction.language || 'zh-CN');
+    launcherAction = launcherAction.action;
+  }
+  if (getLocale() !== previousLocale) emitSignal('render', undefined);
+  const nextAction =
+    typeof launcherAction === 'string' && ['inside', 'outside', 'settings'].includes(launcherAction)
+      ? launcherAction
+      : 'inside';
   if (shellState.launcherAction !== nextAction) {
     shellState.launcherAction = nextAction;
     emitSignal('render', undefined);
@@ -469,12 +478,15 @@ function exportPanelState() {
     association,
     sourceLabel:
       association.mode === 'locked'
-        ? `已锁定：${association.label || association.sessionId}${association.available ? '' : ' · 来源暂不可用'}`
+        ? tr('已锁定：{{label}}{{status}}', {
+            label: association.label || association.sessionId,
+            status: association.available ? '' : tr(' · 来源暂不可用'),
+          })
         : chatTitle
-          ? `聊天 · ${chatTitle}`
+          ? tr('聊天 · {{title}}', { title: chatTitle })
           : context.sessionId
-            ? `Codex · 任务 ${context.sessionId.slice(-8)}`
-            : 'Codex · 未选择任务',
+            ? tr('Codex · 任务 {{id}}', { id: context.sessionId.slice(-8) })
+            : tr('Codex · 未选择任务'),
   };
 }
 
@@ -491,21 +503,21 @@ function panelCommand(command) {
       'outline-anchor',
     ].includes(command?.kind)
   )
-    return { ok: false, message: '不支持的浮窗操作。' };
+    return { ok: false, message: tr('不支持的浮窗操作。') };
   emitSignal('verify', undefined);
   const current = exportPanelState();
   if (!current || command.instanceId !== INSTANCE_ID || command.viewToken !== current.viewToken)
-    return { ok: false, message: '回答或任务已经变化，请刷新后重试。' };
+    return { ok: false, message: tr('回答或任务已经变化，请刷新后重试。') };
   if (command.kind === 'association') return changeChatBinding(command.action, command.sessionId);
   if (!bindingSourceReady() || !contextMatches(command.context))
-    return { ok: false, message: '聊天来源暂不可用或已变化，请重新确认。' };
+    return { ok: false, message: tr('聊天来源暂不可用或已变化，请重新确认。') };
   if (
     ['fill', 'quick-fill', 'generate'].includes(command.kind) &&
     command.promptToken !== current.promptToken
   )
-    return { ok: false, message: '建议或生成配置已经更新，请刷新后重试。' };
+    return { ok: false, message: tr('建议或生成配置已经更新，请刷新后重试。') };
   if (chatBusy() && (command.kind !== 'quick-fill' || command.submit === true))
-    return { ok: false, message: '回答正在生成，请等待完成。' };
+    return { ok: false, message: tr('回答正在生成，请等待完成。') };
   if (command.kind === 'generate') {
     forceRefreshStepwise();
     return { ok: true };
@@ -515,23 +527,23 @@ function panelCommand(command) {
     return { ok: true };
   }
   if (command.kind.startsWith('outline-') && command.outlineToken !== current.outlineToken)
-    return { ok: false, message: '大纲已经更新，请重新选择小节。' };
+    return { ok: false, message: tr('大纲已经更新，请重新选择小节。') };
   if (command.kind === 'outline-jump')
     return outlineJumpTo(command.id)
       ? { ok: true }
-      : { ok: false, message: '找不到对应小节，请刷新后重试。' };
+      : { ok: false, message: tr('找不到对应小节，请刷新后重试。') };
   if (command.kind === 'outline-anchor')
     return outlineJumpToAnchor(command.anchor)
       ? { ok: true }
-      : { ok: false, message: '找不到当前回答位置。' };
+      : { ok: false, message: tr('找不到当前回答位置。') };
   if (command.kind === 'fill' || command.kind === 'quick-fill') {
     if (command.promptToken !== current.promptToken)
-      return { ok: false, message: '建议已经更新，请重新选择。' };
+      return { ok: false, message: tr('建议已经更新，请重新选择。') };
     const index = Number(command.index);
     const items =
       command.kind === 'quick-fill' ? runtimeState.settings?.quickPrompts : stepwiseState.prompts;
     const prompt = Number.isInteger(index) ? items?.[index]?.prompt : null;
-    if (!prompt) return { ok: false, message: '这条建议已经失效。' };
+    if (!prompt) return { ok: false, message: tr('这条建议已经失效。') };
     const result = fillComposer(prompt, command.submit === true, {
       remote: true,
       quick: command.kind === 'quick-fill',
@@ -542,12 +554,14 @@ function panelCommand(command) {
       ? result
       : result === true
         ? { ok: true }
-        : { ok: false, message: '无法填入关联的 Codex 输入框。' };
+        : { ok: false, message: tr('无法填入关联的 Codex 输入框。') };
   }
-  return { ok: false, message: '不支持的浮窗操作。' };
+  return { ok: false, message: tr('不支持的浮窗操作。') };
 }
 
 async function receivePanelState(result, initial) {
+  setLocale(result.preferences?.language || 'system');
+  document.documentElement.lang = getLocale();
   if (result.snapshot?.typography) shellState.sharedTypography = result.snapshot.typography;
   if (result.snapshot?.hostTypography) shellState.hostTypography = result.snapshot.hostTypography;
   if (initial || result.preferences.webRevision !== preferencesRevision) {
@@ -559,10 +573,10 @@ async function receivePanelState(result, initial) {
   }
   const source = result.snapshot;
   if (!source) {
-    panelDisconnected('Codex 尚未连接；连接恢复后会自动更新。');
+    panelDisconnected(tr('Codex 尚未连接；连接恢复后会自动更新。'));
     return;
   }
-  const fingerprint = JSON.stringify(source);
+  const fingerprint = JSON.stringify([getLocale(), source]);
   shellState.remoteSource = source;
   if (fingerprint === shellState.remoteFingerprint && !initial) return;
   shellState.remoteFingerprint = fingerprint;
@@ -606,7 +620,10 @@ async function receivePanelState(result, initial) {
 function panelDisconnected(message) {
   if (shellState.remoteSource?.association?.mode === 'locked') {
     shellState.remoteSource.association.available = false;
-    shellState.remoteSource.sourceLabel = `已锁定：${shellState.remoteSource.association.label} · 来源暂不可用`;
+    shellState.remoteSource.sourceLabel = tr('已锁定：{{label}}{{status}}', {
+      label: shellState.remoteSource.association.label,
+      status: tr(' · 来源暂不可用'),
+    });
     shellState.remoteFingerprint = '';
     emitSignal('render', undefined);
     return;
@@ -626,14 +643,14 @@ function panelDisconnected(message) {
 function panelWindowControls({ includePin = true, includeToggle = true } = {}) {
   const unsupported = !IS_POPOUT && runtimeState.settings?.popoutSupported !== true;
   const label = IS_POPOUT
-    ? '放回聊天'
+    ? tr('放回聊天')
     : unsupported
-      ? '桌面浮窗仅支持 macOS 15 及以上的 Apple Silicon 设备'
+      ? tr('桌面浮窗仅支持 macOS 15 及以上的 Apple Silicon 设备')
       : shellState.detachPending
-        ? '正在弹出…'
-        : '移到独立窗口';
+        ? tr('正在弹出…')
+        : tr('移到独立窗口');
   const popIcon = iconSvg(IS_POPOUT ? 'return' : 'detach');
-  const pinTitle = shellState.pinnedOnTop ? '取消窗口置顶' : '窗口置顶';
+  const pinTitle = shellState.pinnedOnTop ? tr('取消窗口置顶') : tr('窗口置顶');
   const pin =
     IS_POPOUT && includePin
       ? `<button class="csw-icon csw-desktop-pin" type="button" data-action="pin" aria-pressed="${shellState.pinnedOnTop}" aria-label="${pinTitle}">${iconSvg('pin')}</button>`

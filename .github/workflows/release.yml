@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing version tag to rebuild and publish
+        description: Existing version tag to build for review
         required: true
         type: string
 
@@ -44,11 +44,11 @@ jobs:
       ref: ${{ inputs.tag || github.ref }}
       full: true
 
-  publish:
+  prepare:
     needs: [plan, verify]
     permissions:
       contents: write
-    name: Package and publish
+    name: Package for review
     runs-on: macos-26
     timeout-minutes: 60
     steps:
@@ -78,7 +78,7 @@ jobs:
         if: needs.plan.outputs.installer == 'true'
         run: npm run package
 
-      - name: Publish reviewed notes and the planned assets
+      - name: Create a release draft for review
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
@@ -90,7 +90,6 @@ jobs:
           notes=".github/release-notes/$RELEASE_TAG.md"
           node scripts/release-plan.mjs "$RELEASE_TAG"
           create=(release create "$RELEASE_TAG" --verify-tag --draft --title "Palboo $RELEASE_TAG" --notes-file "$notes")
-          latest=true
           if [ "$INSTALLER" = true ]; then
             asset="dist/palboo-$version-darwin-arm64.dmg"
             test -s "$asset"
@@ -98,14 +97,13 @@ jobs:
           fi
           if [ "$PRERELEASE" = true ]; then
             create+=(--prerelease)
-            latest=false
           fi
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             echo 'Release already exists; refusing to overwrite published assets.' >&2
             exit 1
           fi
           gh "${create[@]}"
-          gh release edit "$RELEASE_TAG" --draft=false --latest="$latest"
+          echo "Release draft is ready for maintainer review. Publish only after explicit approval."
 
       - name: Preserve release reports on failure
         if: failure()

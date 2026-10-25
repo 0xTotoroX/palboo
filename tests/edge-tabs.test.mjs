@@ -1,5 +1,5 @@
 /* [INPUT]: Actual edge shell, feature mounts and synthetic guarded task/tab transport.
- * [OUTPUT]: Persisted reorder/selection, draft retention and bounded, opaque board detail checks.
+ * [OUTPUT]: Persisted reorder/selection, bilingual draft retention and bounded, opaque board detail checks.
  * [POS]: Browser-only fixtures; no real settings, chats or tasks. [PROTOCOL]: Keep tests/AGENTS.md in sync. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -20,15 +20,15 @@ window.features=['board','model'].map(id=>({id,placement:'edge',owner:id,open:tr
 const task={id:'task',fields:{title:'测试任务',notes:'原备注',priority:0,due:null,column:'todo',completed:false},archived:false,remote:null,conflict:null};
 window.tasks={store:{revision:1,boardEnabled:true,syncEnabled:false,bindings:{calendarId:''},tasks:[task],inflight:null},status:'本地看板'};
 window.model={revision:1,preferences:{enabled:true,pinned:[],presets:[]},snapshot:{target:{id:'fixture'},revision:'1',status:'ready',message:'',current:{model:'a',reasoning:'high',speed:'standard'},models:[{id:'a',label:'测试模型',reasoning:['high'],fast:false}]}};
-window.theme='native-glass';window.dark=false;window.expanded=true;let size={width:744,height:500};
+window.language='zh-CN';window.theme='native-glass';window.dark=false;window.expanded=true;let size={width:744,height:500};
 window.geometry=()=>window.dispatchEvent(new CustomEvent('edge-native',{detail:{expanded,unfold:expanded?1:0,layoutX:20,layoutY:40,layoutWidth:size.width,layoutHeight:size.height,compactWidth:10,compactHeight:80,sceneRevision:1,theme,liquidVariant:'clear',nativeGlassAvailable:true,appearance:{hostTheme:{theme:dark?'dark':'light'}}}}));
 window.ipc={postMessage:raw=>{const m=JSON.parse(raw);messages.push(m);if(m.action==='content-size')size={width:Math.min(innerWidth-40,m.width),height:Math.min(innerHeight-80,m.height)};if(m.action==='collapse')expanded=false;if(['expand','focus'].includes(m.action))expanded=true;if(['ready','content-size','expand','collapse','focus'].includes(m.action))geometry();}};
 window.request=async input=>{
- if(input.op==='state')return structuredClone({...prefs,features,appearance:{themes:{edge:{theme,liquidVariant:'clear'}}}});
+ if(input.op==='state')return structuredClone({...prefs,features,appearance:{language,themes:{edge:{theme,liquidVariant:'clear'}}}});
  if(input.op==='edge-tabs') {writes.push(input);if(pause)await new Promise(r=>window.finish=r);if(fail)throw Error('模拟保存失败');if(JSON.stringify(input.expected)!==JSON.stringify(prefs.edgeTabs))throw Error('标签冲突');prefs={edgeTabs:input.tabs,edgeTabsRevision:prefs.edgeTabsRevision+1};localStorage.setItem('test-tabs',JSON.stringify(prefs));return structuredClone(prefs);}
  const entry=features.find(e=>e.id===input.id);
  if(input.op==='read'&&!['board','model'].includes(input.id))throw Error('未连接的测试功能');
- if(input.op==='read')return structuredClone({...input.id==='board'?tasks:model,appearance:{theme:dark?'dark':'light',surface:{theme,liquidVariant:'clear'}}});
+ if(input.op==='read')return structuredClone({...input.id==='board'?tasks:model,appearance:{language,theme:dark?'dark':'light',surface:{theme,liquidVariant:'clear'}}});
  if(input.op==='save'){entry.view=input.view;return {};}
  if(input.op==='action'&&input.id==='board'){writes.push(input);task.fields=input.data.fields;tasks.store.revision++;return structuredClone(tasks);}
  return {};
@@ -344,4 +344,46 @@ test('six icon tabs remain reachable beside model headings and catalog controls 
   }
   assert.equal(await page.evaluate(() => writes.some((write) => write.op === 'action')), false);
   assert.deepEqual(errors, []);
+});
+
+test('edge and notch views switch language without changing tasks, draft or tab identities', async (t) => {
+  const page = await fixture(t);
+  await page.getByRole('button', { name: '新建任务', exact: true }).first().click();
+  await page.getByLabel('新任务标题', { exact: true }).fill('Do not translate my draft');
+  const saved = await page.evaluate(() => ({
+    prefs: structuredClone(prefs),
+    tasks: structuredClone(tasks),
+    writes: writes.length,
+  }));
+  await page.evaluate(() => {
+    language = 'en';
+  });
+  await page.getByLabel('New task title', { exact: true }).waitFor();
+  assert.deepEqual(await labels(page), ['Board', 'Model switching']);
+  assert.equal(
+    await page.getByLabel('New task title', { exact: true }).inputValue(),
+    'Do not translate my draft',
+  );
+  assert.equal(await page.locator('#root').getAttribute('lang'), 'en');
+  for (const viewport of [
+    { width: 760, height: 900 },
+    { width: 1050, height: 600 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.evaluate(() => geometry());
+    assert.equal(
+      await page.getByLabel('New task title', { exact: true }).inputValue(),
+      'Do not translate my draft',
+    );
+  }
+  const actual = await page.evaluate(() => ({ prefs, tasks, writes: writes.length }));
+  assert.deepEqual(actual, saved);
+  await page.evaluate(() => {
+    language = 'zh-CN';
+  });
+  await page.getByLabel('新任务标题', { exact: true }).waitFor();
+  assert.equal(
+    await page.getByLabel('新任务标题', { exact: true }).inputValue(),
+    'Do not translate my draft',
+  );
 });

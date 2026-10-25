@@ -1,3 +1,6 @@
+import { directionCopy } from './direction-copy';
+import { useLocale } from '../shared/use-locale';
+import { tr } from '../shared/i18n.js';
 /*
  * [INPUT]: 共用设置草稿、版本化保存队列和判断服务凭据状态。
  * [OUTPUT]: 生成时机、方向来源、可拖动排序的方向与条件显示的 Jev 配置；选择小面板和方向库抽屉分离。
@@ -19,6 +22,7 @@ import type { SettingsEditor } from './use-settings-form';
 import type { EditableSettings } from '../shared/contracts';
 
 export function DirectionSettings({ editor }: { editor: SettingsEditor }) {
+  useLocale();
   const { form: draft, saved: baseline, change, schedule } = editor;
   const form = draft!,
     saved = baseline!;
@@ -32,21 +36,21 @@ export function DirectionSettings({ editor }: { editor: SettingsEditor }) {
     <>
       <Card ref={listRef} tabIndex={-1} id="settings-directions" aria-labelledby="direction-title">
         <div className="settings-section-heading direction-section-heading">
-          <h2 id="direction-title">建议生成</h2>
+          <h2 id="direction-title">{tr('建议生成')}</h2>
           <DirectionLibrary editor={editor} />
         </div>
-        <Field id="generation-mode" label="生成方式">
+        <Field id="generation-mode" label={tr('生成方式')}>
           <NativeSelect
             id="generation-mode"
             controlWidth="short"
             value={form.generationMode}
             onChange={(event) => change('generationMode', event.target.value as 'auto' | 'manual')}
           >
-            <option value="manual">手动刷新</option>
-            <option value="auto">自动生成</option>
+            <option value="manual">{tr('手动刷新')}</option>
+            <option value="auto">{tr('自动生成')}</option>
           </NativeSelect>
         </Field>
-        <Field id="direction-source" label="方向来源">
+        <Field id="direction-source" label={tr('方向来源')}>
           <NativeSelect
             id="direction-source"
             controlWidth="short"
@@ -55,13 +59,13 @@ export function DirectionSettings({ editor }: { editor: SettingsEditor }) {
               change('directionSource', e.target.value as EditableSettings['directionSource'])
             }
           >
-            <option value="auto">自动探索</option>
-            <option value="manual">我来选择</option>
-            <option value="smart">智能挑选（实验）</option>
+            <option value="auto">{tr('自动探索')}</option>
+            <option value="manual">{tr('我来选择')}</option>
+            <option value="smart">{tr('智能挑选（实验）')}</option>
           </NativeSelect>
         </Field>
         {form.directionSource !== 'manual' ? (
-          <Field id="max-items" label="最多建议数量">
+          <Field id="max-items" label={tr('最多建议数量')}>
             <Input
               id="max-items"
               type="number"
@@ -74,7 +78,7 @@ export function DirectionSettings({ editor }: { editor: SettingsEditor }) {
         ) : (
           <div className="settings-field direction-selection">
             <span id="selected-directions-label" className="direction-selection-label">
-              已选方向
+              {tr('已选方向')}
             </span>
             <div
               role="group"
@@ -90,14 +94,24 @@ export function DirectionSettings({ editor }: { editor: SettingsEditor }) {
                       data-settings-list-item={id}
                       className="direction-slot"
                       {...rowProps(id)}
-                      aria-label={`方向 ${index + 1}：${library.find((item) => item.id === id)?.name || '未命名方向'}`}
+                      aria-label={tr('方向 {{value1}}：{{value2}}', {
+                        value1: index + 1,
+                        value2:
+                          directionCopy(
+                            library.find((item) => item.id === id),
+                            saved.builtInDirections,
+                          ) || tr('未命名方向'),
+                      })}
                     >
                       <span className="direction-slot-number">{index + 1}</span>
                       <span className="direction-slot-name" id={`direction-slot-${index}`}>
-                        {library.find((item) => item.id === id)?.name || '未命名方向'}
+                        {directionCopy(
+                          library.find((item) => item.id === id),
+                          saved.builtInDirections,
+                        ) || tr('未命名方向')}
                       </span>
                       <IconButton
-                        aria-label={`移除方向位置 ${index + 1}`}
+                        aria-label={tr('移除方向位置 {{value1}}', { value1: index + 1 })}
                         onClick={() => slots(form.selectedDirections.filter((_, i) => i !== index))}
                       >
                         <Icon name="trash" />
@@ -115,7 +129,9 @@ export function DirectionSettings({ editor }: { editor: SettingsEditor }) {
                 />
               </div>
               {!form.selectedDirections.length && (
-                <p className="text-[14px] text-muted-foreground">请选择至少一个方向后再生成。</p>
+                <p className="text-[14px] text-muted-foreground">
+                  {tr('请选择至少一个方向后再生成。')}
+                </p>
               )}
             </div>
           </div>
@@ -123,7 +139,7 @@ export function DirectionSettings({ editor }: { editor: SettingsEditor }) {
       </Card>
       {form.directionSource === 'smart' && (
         <Card id="settings-jev-advanced" aria-labelledby="jev-service-title">
-          <h2 id="jev-service-title">智能挑选服务</h2>
+          <h2 id="jev-service-title">{tr('智能挑选服务')}</h2>
           <div className="space-y-5">
             <label className="flex gap-2 text-[14px] leading-relaxed">
               <input
@@ -135,10 +151,11 @@ export function DirectionSettings({ editor }: { editor: SettingsEditor }) {
                   schedule();
                 }}
               />
-              我同意将最近一问一答发送到下方 Jev
-              判断服务。它使用独立密钥和额度；切回其他模式后不再请求。
+              {tr(
+                '我同意将最近一问一答发送到下方 Jev 判断服务。它使用独立密钥和额度；切回其他模式后不再请求。',
+              )}
             </label>
-            <Field id="jev-endpoint" label="Jev 请求地址">
+            <Field id="jev-endpoint" label={tr('Jev 请求地址')}>
               <Input
                 id="jev-endpoint"
                 type="url"
@@ -149,7 +166,7 @@ export function DirectionSettings({ editor }: { editor: SettingsEditor }) {
                 }
               />
             </Field>
-            <Field id="jev-model" label="Jev 模型">
+            <Field id="jev-model" label={tr('Jev 模型')}>
               <Input
                 id="jev-model"
                 required
@@ -163,7 +180,7 @@ export function DirectionSettings({ editor }: { editor: SettingsEditor }) {
             )}
             {saved.directionSource === 'smart' && saved.jev.consent && !saved.jevKeyConfigured && (
               <p role="status" className="settings-hint">
-                尚未连接：可保存密钥，或在后台环境设置 TYPESAFE_API_KEY。
+                {tr('尚未连接：可保存密钥，或在后台环境设置 TYPESAFE_API_KEY。')}
               </p>
             )}
           </div>

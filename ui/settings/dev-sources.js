@@ -1,9 +1,11 @@
+import { tr, getLocale, setLocale } from '../shared/i18n.js';
 /*
  * [INPUT]: 开发网关注入的脚本、同源认证 API 与共享外观变量。
  * [OUTPUT]: 仅 Dev 设置页的目录单选列表、右侧切换操作与跨重载资源回读确认；不显示提交或资源哈希。
  * [POS]: 由开发监督进程提供，旧 worktree 无需合并此模块；不进入正式构建或聊天界面。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
+setLocale(document.documentElement.lang || 'zh-CN');
 const incoming = new URLSearchParams(location.hash.slice(1)).get('token');
 if (incoming) {
   sessionStorage.setItem('companion-token', incoming);
@@ -52,8 +54,8 @@ button[data-busy="true"]::before{content:"";width:14px;height:14px;box-sizing:bo
 @media(max-width:650px){:host{padding:0 18px!important}.source-row{padding:18px;gap:14px;grid-template-columns:18px minmax(0,1fr)}.source-name{font-size:20px}.source-badges{grid-column:2;justify-content:flex-start}.source-badges:empty{display:none}.source-actions{flex-wrap:wrap;gap:16px}[data-state]:not(:empty){flex-basis:100%}}
 @media(prefers-reduced-motion:reduce){*,*::before{animation:none!important;transition:none!important}}
 </style><form class="source-content">
-<fieldset class="source-list" aria-label="开发来源"><p data-loading>正在读取工作目录…</p></fieldset>
-<div class="source-actions"><p data-state role="status" aria-live="polite"></p><button type="submit" disabled>切换来源</button></div>
+<fieldset class="source-list" aria-label="${tr('开发来源')}"><p data-loading>${tr('正在读取工作目录…')}</p></fieldset>
+<div class="source-actions"><p data-state role="status" aria-live="polite"></p><button type="submit" disabled>${tr('切换来源')}</button></div>
 </form>`;
 document.body.prepend(host);
 const list = view.querySelector('.source-list');
@@ -75,31 +77,35 @@ try {
 function updateControls(busy) {
   button.dataset.busy = String(busy);
   button.setAttribute('aria-busy', String(busy));
-  button.textContent = busy ? '切换中…' : '切换来源';
+  button.textContent = busy ? tr('切换中…') : tr('切换来源');
   for (const radio of list.querySelectorAll('input')) radio.disabled = busy;
   button.disabled = busy || !chosen || chosen === active;
 }
 async function api(body) {
   const token = credential();
-  if (!token) throw new Error('请从眼睛菜单打开一次设置，当前标签页会自动恢复连接。');
+  if (!token) throw new Error(tr('请从眼睛菜单打开一次设置，当前标签页会自动恢复连接。'));
   const response = await fetch('/api/dev/sources', {
     method: body === undefined ? 'GET' : 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (response.status === 401)
-    throw new Error('连接凭据已过期，请从工作台齿轮或 npm run dev:settings 重新打开。');
+    throw new Error(tr('连接凭据已过期，请从工作台齿轮或 npm run dev:settings 重新打开。'));
   const result = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(result.message || '开发来源暂时不可用');
+  if (!response.ok) throw new Error(result.message || tr('开发来源暂时不可用'));
   return result;
 }
 function render(result) {
+  setLocale(document.documentElement.lang || 'zh-CN');
+  host.lang = getLocale();
+  list.setAttribute('aria-label', tr('开发来源'));
   const source = result.sources.find((item) => item.path === result.active);
   const changed = active !== result.active;
   if (changed || !result.sources.some((item) => item.path === chosen)) chosen = result.active;
   active = result.active;
   // 普通轮询保留节点与键盘焦点；资源指纹不参与视觉列表。
   const signature = JSON.stringify([
+    getLocale(),
     active,
     result.sources.map(({ path, branch, dirty }) => ({ path, branch, dirty })),
   ]);
@@ -115,11 +121,17 @@ function render(result) {
         radio.name = 'source';
         radio.value = item.path;
         radio.checked = item.path === chosen;
-        radio.setAttribute('aria-label', `${item.branch || '未命名分支'} · ${item.path}`);
+        radio.setAttribute(
+          'aria-label',
+          tr('{{value1}} · {{value2}}', {
+            value1: item.branch || tr('未命名分支'),
+            value2: item.path,
+          }),
+        );
         const info = document.createElement('span');
         const name = document.createElement('span');
         name.className = 'source-name';
-        name.textContent = item.branch || '未命名分支';
+        name.textContent = item.branch || tr('未命名分支');
         const path = document.createElement('span');
         path.className = 'source-path';
         path.textContent = item.path;
@@ -129,13 +141,13 @@ function render(result) {
         if (item.dirty) {
           const dirty = document.createElement('span');
           dirty.className = 'source-dirty';
-          dirty.textContent = '未提交修改';
+          dirty.textContent = tr('未提交修改');
           badges.append(dirty);
         }
         if (item.path === active) {
           const badge = document.createElement('span');
           badge.className = 'source-badge';
-          badge.textContent = '使用中';
+          badge.textContent = tr('使用中');
           badges.append(badge);
         }
         row.append(radio, info, badges);
@@ -144,10 +156,10 @@ function render(result) {
     );
   }
   const phases = {
-    preparing: '正在编译目标来源，原工作台保持运行…',
-    connecting: '正在交接开发连接…',
-    restoring: '切换失败，正在恢复原来源…',
-    failed: '连接恢复失败，请查看开发日志。',
+    preparing: tr('正在编译目标来源，原工作台保持运行…'),
+    connecting: tr('正在交接开发连接…'),
+    restoring: tr('切换失败，正在恢复原来源…'),
+    failed: tr('连接恢复失败，请查看开发日志。'),
   };
   serverBusy = Boolean(result.busy);
   const error = switchError || result.error || result.buildError || result.phase === 'failed';
@@ -157,17 +169,18 @@ function render(result) {
   state.textContent =
     switchError ||
     result.error ||
-    (result.buildError && `热更新失败，保留上次资源：${result.buildError}`) ||
+    (result.buildError &&
+      tr('热更新失败，保留上次资源：{{value1}}', { value1: result.buildError })) ||
     phases[result.phase] ||
     (pending
-      ? '正在准备目标来源…'
+      ? tr('正在准备目标来源…')
       : complete
-        ? `已切换至 ${source?.branch || '所选来源'}`
+        ? tr('已切换至 {{value1}}', { value1: source?.branch || tr('所选来源') })
         : result.loaded
           ? ''
           : result.connected
-            ? '已连接，等待界面资源确认'
-            : '尚未连接');
+            ? tr('已连接，等待界面资源确认')
+            : tr('尚未连接'));
   updateControls(pending || serverBusy || (!error && active === switchTarget && !result.loaded));
 }
 async function refresh() {
@@ -210,13 +223,13 @@ view.querySelector('form').addEventListener('submit', async (event) => {
   state.dataset.complete = 'false';
   state.dataset.error = 'false';
   updateControls(true);
-  state.textContent = '正在准备目标来源…';
+  state.textContent = tr('正在准备目标来源…');
   try {
     await api({ path: target });
     try {
       sessionStorage.setItem(switchKey, target);
     } catch {}
-    state.textContent = '来源已交接，正在刷新界面…';
+    state.textContent = tr('来源已交接，正在刷新界面…');
     location.reload();
   } catch (error) {
     requestEpoch += 1;

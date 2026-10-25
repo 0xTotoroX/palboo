@@ -1,3 +1,4 @@
+import { tr } from '../../shared/i18n.js';
 /*
  * [INPUT]: 共享功能图标、大纲与 Stepwise 视图、当前聊天身份、工作台布局偏好。
  * [OUTPUT]: 唯一展开外壳、居中共享表情、来源及布局位置菜单、快捷词配置同步、双面板图标编排和表情单击收放/双击窗口往返、桌面置顶及外部网页设置入口；保留无公开入口的旧设置模板。
@@ -69,12 +70,12 @@ const paneContent = new WeakMap();
 const layoutKey = IS_POPOUT ? 'popoutLayout' : 'dockLayout';
 const layoutPreference = () => shellState[layoutKey];
 function layoutMenu() {
-  return `<details class="csw-layout-menu" hidden><summary class="csw-icon" role="button" aria-label="${IS_POPOUT ? '窗口选项' : '显示位置'}">${iconSvg('layout')}</summary><div class="csw-layout-options" role="group" aria-label="工作台布局">
+  return `<details class="csw-layout-menu" hidden><summary class="csw-icon" role="button" aria-label="${IS_POPOUT ? tr('窗口选项') : tr('显示位置')}">${iconSvg('layout')}</summary><div class="csw-layout-options" role="group" aria-label="${tr('工作台布局')}">
     <div hidden>
-    <button data-layout-mode="auto">自动</button><button data-layout-mode="vertical">上下</button><button data-layout-mode="horizontal">左右</button>
-    <span class="csw-layout-hint" hidden>空间不足，暂以上下排列</span>
-    <button data-layout-action="merge">合并为标签</button><button data-layout-action="split">拆回分栏</button><button data-layout-action="swap">交换位置</button><button data-layout-action="reset">恢复默认布局</button></div>
-    ${IS_POPOUT ? '' : `<button data-placement="dock" aria-pressed="${shellState.layoutMode === 'workbench'}">固定在聊天右侧</button><button data-placement="floating" aria-pressed="${shellState.layoutMode !== 'workbench'}">在聊天内自由移动</button>`}
+    <button data-layout-mode="auto">${tr('自动')}</button><button data-layout-mode="vertical">${tr('上下')}</button><button data-layout-mode="horizontal">${tr('左右')}</button>
+    <span class="csw-layout-hint" hidden>${tr('空间不足，暂以上下排列')}</span>
+    <button data-layout-action="merge">${tr('合并为标签')}</button><button data-layout-action="split">${tr('拆回分栏')}</button><button data-layout-action="swap">${tr('交换位置')}</button><button data-layout-action="reset">${tr('恢复默认布局')}</button></div>
+    ${IS_POPOUT ? '' : `<button data-placement="dock" aria-pressed="${shellState.layoutMode === 'workbench'}">${tr('固定在聊天右侧')}</button><button data-placement="floating" aria-pressed="${shellState.layoutMode !== 'workbench'}">${tr('在聊天内自由移动')}</button>`}
   </div></details>`;
 }
 
@@ -129,11 +130,11 @@ export function renderWorkbench(nextHtml, attachNextEvents, clearPromptTimers) {
     panel.innerHTML = `<div class="csw-workbench">
       ${workbenchHeadHtml(IS_POPOUT)}
       <div class="csw-workbench-panes">
-        <div class="csw-workbench-tabs" role="tablist" aria-label="工作台面板" data-icon-tabs hidden>${registry.map((pane) => `<button type="button" role="tab" id="csw-tab-${pane.id}" data-pane-tab="${pane.id}" aria-controls="csw-pane-${pane.id}" aria-label="${pane.title}" title="${pane.title}">${iconSvg(featureIcons[pane.id])}</button>`).join('')}</div>
-        ${registry.map((pane, index) => `${index ? '<div class="csw-workbench-split" role="separator" tabindex="0" aria-label="调整大纲与下一步比例" aria-orientation="horizontal" aria-valuemin="20" aria-valuemax="80"></div>' : ''}<section class="csw-workbench-pane" id="csw-pane-${pane.id}" data-pane="${pane.id}" aria-label="${pane.title}"><header><strong data-pane-focus="${pane.id}" role="button" tabindex="0" title="${pane.title}">${iconSvg(featureIcons[pane.id])}</strong><button class="csw-icon" data-refresh="${pane.id}" aria-label="${pane.id === 'outline' ? '刷新大纲（本地）' : '重新生成建议'}">${iconSvg('refresh')}</button><span class="csw-pane-menu" hidden>${iconSvg('more')}<select class="csw-pane-arrange" data-pane-arrange="${pane.id}" aria-label="编排${pane.title}"><option value="">编排</option><option value="left">移到左侧</option><option value="right">移到右侧</option><option value="top">移到上方</option><option value="bottom">移到下方</option><option value="merge">合并为标签</option><option value="split">拆回分栏</option><option value="reorder">调整标签顺序</option></select></span></header><div class="csw-body" data-view-body="${pane.id}" tabindex="0"></div></section>`).join('')}
+        <div class="csw-workbench-tabs" role="tablist" aria-label="${tr('工作台面板')}" data-icon-tabs hidden>${registry.map((pane) => `<button type="button" role="tab" id="csw-tab-${pane.id}" data-pane-tab="${pane.id}" aria-controls="csw-pane-${pane.id}" aria-label="${pane.title}" title="${pane.title}">${iconSvg(featureIcons[pane.id])}</button>`).join('')}</div>
+        ${registry.map((pane, index) => `${index ? `<div class="csw-workbench-split" role="separator" tabindex="0" aria-label="${tr('调整大纲与下一步比例')}" aria-orientation="horizontal" aria-valuemin="20" aria-valuemax="80"></div>` : ''}<section class="csw-workbench-pane" id="csw-pane-${pane.id}" data-pane="${pane.id}" aria-label="${pane.title}"><header><strong data-pane-focus="${pane.id}" role="button" tabindex="0" title="${pane.title}">${iconSvg(featureIcons[pane.id])}</strong><button class="csw-icon" data-refresh="${pane.id}" aria-label="${pane.id === 'outline' ? tr('刷新大纲（本地）') : tr('重新生成建议')}">${iconSvg('refresh')}</button><span class="csw-pane-menu" hidden>${iconSvg('more')}<select class="csw-pane-arrange" data-pane-arrange="${pane.id}" aria-label="${tr('编排{{name}}', { name: pane.title })}"><option value="">${tr('编排')}</option><option value="left">${tr('移到左侧')}</option><option value="right">${tr('移到右侧')}</option><option value="top">${tr('移到上方')}</option><option value="bottom">${tr('移到下方')}</option><option value="merge">${tr('合并为标签')}</option><option value="split">${tr('拆回分栏')}</option><option value="reorder">${tr('调整标签顺序')}</option></select></span></header><div class="csw-body" data-view-body="${pane.id}" tabindex="0"></div></section>`).join('')}
       </div>
-      <section class="csw-workbench-settings" aria-label="工作台设置" hidden></section><button hidden data-legacy-settings aria-label="旧版内置设置"></button>
-      <div class="csw-workbench-resize" role="separator" tabindex="0" aria-label="调整工作台宽度" aria-orientation="vertical"></div>
+      <section class="csw-workbench-settings" aria-label="${tr('工作台设置')}" hidden></section><button hidden data-legacy-settings aria-label="${tr('旧版内置设置')}"></button>
+      <div class="csw-workbench-resize" role="separator" tabindex="0" aria-label="${tr('调整工作台宽度')}" aria-orientation="vertical"></div>
     </div>`;
     if (IS_POPOUT)
       installWindowControls(panel.querySelector('.csw-workbench'), {
@@ -247,7 +248,7 @@ export function renderWorkbench(nextHtml, attachNextEvents, clearPromptTimers) {
   if (windowGesture) face.setAttribute('aria-keyshortcuts', 'Alt+Enter');
   else face.removeAttribute('aria-keyshortcuts');
   const controls = panel.querySelector('.csw-workbench-controls');
-  const controlsHtml = `${layoutMenu()}${panelWindowControls({ includeToggle: false })}<span hidden>${panelWindowControls({ includePin: false })}${IS_POPOUT ? '' : `<button class="csw-icon" data-workbench-close aria-label="收起工作台">${iconSvg('minus')}</button>`}</span>`;
+  const controlsHtml = `${layoutMenu()}${panelWindowControls({ includeToggle: false })}<span hidden>${panelWindowControls({ includePin: false })}${IS_POPOUT ? '' : `<button class="csw-icon" data-workbench-close aria-label="${tr('收起工作台')}">${iconSvg('minus')}</button>`}</span>`;
   if (paneContent.get(controls) !== controlsHtml) {
     controls.innerHTML = controlsHtml;
     paneContent.set(controls, controlsHtml);
@@ -299,7 +300,10 @@ export function renderWorkbench(nextHtml, attachNextEvents, clearPromptTimers) {
     if (kind === 'next')
       pane
         .querySelector('[data-refresh]')
-        .setAttribute('aria-label', stepwiseState.prompts.length ? '重新生成建议' : '生成建议');
+        .setAttribute(
+          'aria-label',
+          stepwiseState.prompts.length ? tr('重新生成建议') : tr('生成建议'),
+        );
     pane.querySelector('[data-refresh]').disabled =
       !enabled ||
       source?.association?.available === false ||
@@ -320,7 +324,7 @@ export function renderWorkbench(nextHtml, attachNextEvents, clearPromptTimers) {
     const restored = changed || moved ? workbenchReading(readingKey) : null;
     if (changed && kind === 'next' && !shellState.restoringWorkbench)
       shellState.promptPreviewIndex = restored?.previewIndex || 0;
-    const content = enabled ? html() : '<div class="csw-empty">功能已关闭</div>';
+    const content = enabled ? html() : `<div class="csw-empty">${tr('功能已关闭')}</div>`;
     const contentKey =
       kind === 'next'
         ? JSON.stringify([

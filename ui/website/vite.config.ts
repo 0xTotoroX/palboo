@@ -21,6 +21,7 @@ export default defineConfig({
           ['Palboo licensing scope', '../../LICENSING.md'],
           ['OpenAI apps-sdk-ui control icons — MIT', '../shared/icons/LICENSE'],
           ['GitHub Octicons — MIT; GitHub mark is a GitHub trademark', './media/LICENSE-octicons'],
+          ['i18next — MIT', '../../node_modules/i18next/LICENSE'],
           ['React — MIT', '../../node_modules/react/LICENSE'],
           ['React DOM — MIT', '../../node_modules/react-dom/LICENSE'],
           ['Scheduler — MIT', '../../node_modules/scheduler/LICENSE'],

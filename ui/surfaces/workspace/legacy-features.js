@@ -1,3 +1,4 @@
+import { tr } from '../../shared/i18n.js';
 /* [INPUT]: Feature metadata, task transport, existing shell placement commands.
  * [OUTPUT]: Pilot feature selector and container-independent board mount.
  * [POS]: Presentation composition; no task mutations or chat parsing.
@@ -9,9 +10,27 @@ import { shellState, runtimeState, bridgeCall } from '../../codex/runtime/state.
 import { emitSignal } from '../../codex/runtime/signals.js';
 import { setWorkbench, saveWorkbench } from '../embedded/legacy.js';
 export const featureViews = [
-  { id: 'workbench', title: '工作台', context: 'chat' },
-  { id: 'outline', title: '大纲', context: 'chat' },
-  { id: 'board', title: '看板', context: 'tasks' },
+  {
+    id: 'workbench',
+    get title() {
+      return tr('工作台');
+    },
+    context: 'chat',
+  },
+  {
+    id: 'outline',
+    get title() {
+      return tr('大纲');
+    },
+    context: 'chat',
+  },
+  {
+    id: 'board',
+    get title() {
+      return tr('看板');
+    },
+    context: 'tasks',
+  },
 ];
 /** @type {import("../../features/board/api").TaskRequest} */
 const taskRequest = async (path, body) => {
@@ -24,13 +43,12 @@ const taskRequest = async (path, body) => {
 export function installFeatureControls(root) {
   const toolbar = document.createElement('div');
   toolbar.className = 'csw-feature-controls';
-  toolbar.innerHTML = `<label>功能 <select aria-label="显示功能">${featureViews.map((f) => `<option value="${f.id}">${f.title}</option>`).join('')}</select></label><label>显示于 <select aria-label="功能显示位置"><option value="sidebar">侧栏</option><option value="overlay">页面浮层</option><option value="desktop">桌面窗口</option></select></label>`;
+  toolbar.innerHTML = `<label>${tr('功能 ')}<select data-feature-picker aria-label="${tr('显示功能')}">${featureViews.map((f) => `<option value="${f.id}">${f.title}</option>`).join('')}</select></label><label>${tr('显示于 ')}<select data-placement-picker aria-label="${tr('功能显示位置')}"><option value="sidebar">${tr('侧栏')}</option><option value="overlay">${tr('页面浮层')}</option><option value="desktop">${tr('桌面窗口')}</option></select></label>`;
   root.querySelector('.csw-workbench-head').after(toolbar);
   if (!IS_POPOUT) {
     const launch = document.createElement('select');
-    launch.setAttribute('aria-label', '独立打开功能');
-    launch.innerHTML =
-      '<option value="">独立打开…</option><option value="outline">大纲</option><option value="board">看板</option><option value="next">下一步</option><option value="model">模型切换</option>';
+    launch.setAttribute('aria-label', tr('独立打开功能'));
+    launch.innerHTML = `<option value="">${tr('独立打开…')}</option><option value="outline">${tr('大纲')}</option><option value="board">${tr('看板')}</option><option value="next">${tr('下一步')}</option><option value="model">${tr('模型切换')}</option>`;
     launch.onchange = () => {
       const id = launch.value;
       launch.value = '';
@@ -38,17 +56,17 @@ export function installFeatureControls(root) {
     };
     toolbar.append(launch);
   }
-  /** @type {HTMLSelectElement} */ (
-    toolbar.querySelector('select[aria-label="显示功能"]')
-  ).onchange = (event) => {
+  /** @type {HTMLSelectElement} */ (toolbar.querySelector('[data-feature-picker]')).onchange = (
+    event,
+  ) => {
     const value = /** @type {HTMLSelectElement} */ (event.target).value;
     shellState.feature = value === 'outline' || value === 'board' ? value : 'workbench';
     emitSignal('render', undefined);
     saveWorkbench();
   };
-  /** @type {HTMLSelectElement} */ (
-    toolbar.querySelector('select[aria-label="功能显示位置"]')
-  ).onchange = (event) => {
+  /** @type {HTMLSelectElement} */ (toolbar.querySelector('[data-placement-picker]')).onchange = (
+    event,
+  ) => {
     const value = /** @type {HTMLSelectElement} */ (event.target).value;
     if (IS_POPOUT) {
       if (value !== 'desktop') {
@@ -63,8 +81,8 @@ export function installFeatureControls(root) {
 }
 export function updateFeatureControls(root) {
   root.dataset.feature = shellState.feature;
-  root.querySelector('[aria-label="显示功能"]').value = shellState.feature;
-  const placement = root.querySelector('[aria-label="功能显示位置"]');
+  root.querySelector('[data-feature-picker]').value = shellState.feature;
+  const placement = root.querySelector('[data-placement-picker]');
   placement.value = IS_POPOUT
     ? 'desktop'
     : shellState.layoutMode === 'workbench'

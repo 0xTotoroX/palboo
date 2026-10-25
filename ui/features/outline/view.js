@@ -1,3 +1,4 @@
+import { tr } from '../../shared/i18n.js';
 /* [INPUT]: Outline projection and guarded navigation callback.
  * [OUTPUT]: Borderless dotted outline rows, hanging numbering and turn navigation shared by all surfaces.
  * [POS]: Content only; Codex parsing and scrolling stay in the adapter.
@@ -35,9 +36,9 @@ export function alignOutlineNestedText(root) {
 
 export function outlineHtml(snapshot) {
   if (snapshot.outlineStatus === 'pending' && !snapshot.outlineItems.length) {
-    return `<div class="csw-progress" data-kind="outline" role="status" aria-label="等待回答完成">
+    return `<div class="csw-progress" data-kind="outline" role="status" aria-label="${tr('等待回答完成')}">
         <span class="csw-progress-ring" aria-hidden="true"></span>
-        <span class="csw-progress-copy"><span class="csw-progress-title">等待回答完成</span></span>
+        <span class="csw-progress-copy"><span class="csw-progress-title">${tr('等待回答完成')}</span></span>
       </div>`;
   }
   if (snapshot.outlineStatus === 'error') {
@@ -47,7 +48,7 @@ export function outlineHtml(snapshot) {
   }
   if (!snapshot.outlineItems.length) {
     return `<div class="csw-empty" data-kind="outline">
-        <div class="csw-empty-title">暂无大纲</div>
+        <div class="csw-empty-title">${tr('暂无大纲')}</div>
       </div>`;
   }
   return `<div class="csw-outline-view">
@@ -66,19 +67,19 @@ export function outlineHtml(snapshot) {
         })
         .join('')}
       </div>
-      <div class="csw-outline-toolbar" role="toolbar" aria-label="本轮导航">
-        <button class="csw-outline-nav-button" type="button" data-outline-anchor="start" aria-label="定位到本轮开头">${iconSvg('turn-start')}</button>
-        <button class="csw-outline-nav-button" type="button" data-outline-anchor="end" aria-label="定位到本轮结尾">${iconSvg('turn-end')}</button>
+      <div class="csw-outline-toolbar" role="toolbar" aria-label="${tr('本轮导航')}">
+        <button class="csw-outline-nav-button" type="button" data-outline-anchor="start" aria-label="${tr('定位到本轮开头')}">${iconSvg('turn-start')}</button>
+        <button class="csw-outline-nav-button" type="button" data-outline-anchor="end" aria-label="${tr('定位到本轮结尾')}">${iconSvg('turn-end')}</button>
       </div>
     </div>`;
 }
 
 function outlineErrorTitle(error = '') {
   const text = normalizeText(error);
-  if (/找不到对应的小节/i.test(text)) return '找不到对应内容，刷新后再试';
+  if (/找不到对应的小节/i.test(text)) return tr('找不到对应内容，刷新后再试');
   return (
     FRIENDLY_BRIDGE_ERRORS.find((item) => item.pattern.test(text))?.title ||
-    '大纲暂不可用，稍后重试'
+    tr('大纲暂不可用，稍后重试')
   );
 }
 

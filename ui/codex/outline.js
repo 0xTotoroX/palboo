@@ -1,3 +1,4 @@
+import { tr } from '../shared/i18n.js';
 /*
  * [INPUT]: 当前回答 DOM、上下文、窗口投影与大纲状态。
  * [OUTPUT]: 大纲解析、刷新和定位；来源失联、锁定回答变化或无法滚动时拒绝导航。
@@ -713,7 +714,7 @@ async function refreshOutline(options = {}) {
       const message = options.message || findLatestAssistantMessage();
       const sourceHash = options.assistantHash || hashText(message?.text || '');
       if (chatBusy()) {
-        outlineState.outlineError = '回答尚未完成，完成后再试';
+        outlineState.outlineError = tr('回答尚未完成，完成后再试');
         outlineState.outlineStatus = 'pending';
         emitSignal('scan', STREAM_IDLE_MS);
         return;
@@ -732,7 +733,7 @@ async function refreshOutline(options = {}) {
       outlineClearMarks();
       outlineState.outlineItems = [];
       outlineState.outlineStatus = 'error';
-      outlineState.outlineError = error?.message || '大纲暂不可用';
+      outlineState.outlineError = error?.message || tr('大纲暂不可用');
     })
     .finally(() => {
       if (!requestCurrent()) return;

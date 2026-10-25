@@ -1,3 +1,5 @@
+import { useLocale } from '../shared/use-locale';
+import { tr } from '../shared/i18n.js';
 /* [INPUT]: Independent task API, shared settings controls and action icons.
  * [OUTPUT]: Direct group personalization with accessible save/add actions; retained sync authorization and single-list binding UI.
  * [POS]: Task settings do not modify model-control or workbench preferences.
@@ -13,6 +15,7 @@ import { Feedback } from './settings-controls';
 import { useFeedbackTarget } from './settings-feedback';
 import {
   useTasks,
+  columnTitle,
   columns as defaultColumns,
   type Bindings,
   type Calendar,
@@ -20,6 +23,7 @@ import {
 // Retain the integration UI for later; no authorization/list controls are mounted today.
 const remindersSettingsVisible = false;
 export function TaskSettings({ tasks }: { tasks: ReturnType<typeof useTasks> }) {
+  useLocale();
   const listRef = useSettingsListMotion();
   const feedback = useFeedbackTarget();
   const { state, error, busy, command } = tasks;
@@ -47,7 +51,7 @@ export function TaskSettings({ tasks }: { tasks: ReturnType<typeof useTasks> }) 
   return (
     <section id="settings-tasks" className="settings-section space-y-5">
       <section id="board-groups">
-        <h2>看板分组</h2>
+        <h2>{tr('看板分组')}</h2>
         <div ref={listRef} data-settings-list="board-groups" className="space-y-3">
           {(state?.store.columns ?? defaultColumns).map((column) => (
             <form
@@ -73,17 +77,17 @@ export function TaskSettings({ tasks }: { tasks: ReturnType<typeof useTasks> }) 
               }}
             >
               <Input
-                aria-label={`分组名称：${column.title}`}
+                aria-label={tr('分组名称：{{value1}}', { value1: columnTitle(column) })}
                 maxLength={40}
                 disabled={busy || !state}
-                value={groupNames[column.id] ?? column.title}
+                value={groupNames[column.id] ?? columnTitle(column)}
                 onChange={(event) =>
                   setGroupNames({ ...groupNames, [column.id]: event.target.value })
                 }
               />
               <IconButton
                 type="submit"
-                aria-label={`保存分组：${column.title}`}
+                aria-label={tr('保存分组：{{value1}}', { value1: columnTitle(column) })}
                 disabled={
                   busy || !groupNames[column.id]?.trim() || groupNames[column.id] === column.title
                 }
@@ -105,8 +109,8 @@ export function TaskSettings({ tasks }: { tasks: ReturnType<typeof useTasks> }) 
             }}
           >
             <Input
-              aria-label="新分组名称"
-              placeholder="新分组名称"
+              aria-label={tr('新分组名称')}
+              placeholder={tr('新分组名称')}
               maxLength={40}
               disabled={busy || !state}
               value={newGroup}
@@ -114,7 +118,7 @@ export function TaskSettings({ tasks }: { tasks: ReturnType<typeof useTasks> }) 
             />
             <IconButton
               type="submit"
-              aria-label="新增分组"
+              aria-label={tr('新增分组')}
               disabled={busy || !state || !newGroup.trim()}
             >
               <Icon name="plus" />
@@ -126,7 +130,7 @@ export function TaskSettings({ tasks }: { tasks: ReturnType<typeof useTasks> }) 
         <>
           <div className="flex items-center justify-between gap-4">
             <label htmlFor="reminders-enabled" className="text-sm">
-              Apple 提醒事项同步
+              {tr('Apple 提醒事项同步')}
             </label>
             <Switch
               id="reminders-enabled"
@@ -136,7 +140,7 @@ export function TaskSettings({ tasks }: { tasks: ReturnType<typeof useTasks> }) 
             />
           </div>
           <p role="status" className="text-[14px] text-muted-foreground">
-            {state?.status ?? '正在读取任务设置…'}
+            {state?.status ?? tr('正在读取任务设置…')}
           </p>
           <div className="flex flex-wrap gap-2">
             <Button
@@ -145,7 +149,7 @@ export function TaskSettings({ tasks }: { tasks: ReturnType<typeof useTasks> }) 
               disabled={busy}
               onClick={() => void load('authorize')}
             >
-              {busy ? '处理中…' : '授权并选择列表'}
+              {busy ? tr('处理中…') : tr('授权并选择列表')}
             </Button>
             <Button
               variant="ghost"
@@ -153,30 +157,32 @@ export function TaskSettings({ tasks }: { tasks: ReturnType<typeof useTasks> }) 
               disabled={busy}
               onClick={() => void load('calendars')}
             >
-              刷新列表
+              {tr('刷新列表')}
             </Button>
           </div>
           <p className="text-[14px] text-muted-foreground">
-            一个列表，只同步标题、备注和完成状态。待办、进行中和归档仅在 Palboo
-            内管理；归档不会删除提醒事项。
+            {tr(
+              '一个列表，只同步标题、备注和完成状态。待办、进行中和归档仅在 Palboo 内管理；归档不会删除提醒事项。',
+            )}
           </p>
           {!currentId && hasLinks && (
             <p className="text-[14px] text-muted-foreground">
-              旧同步已暂停，所有任务和关联已保留。请先在 Apple
-              提醒事项中将原列表的任务移入一个列表，再在这里选择它。未找到的任务保留本地，不会自动重建。
+              {tr(
+                '旧同步已暂停，所有任务和关联已保留。请先在 Apple 提醒事项中将原列表的任务移入一个列表，再在这里选择它。未找到的任务保留本地，不会自动重建。',
+              )}
             </p>
           )}
           {state?.store.inflight?.action === 'create' && (
             <p className="text-[14px] text-muted-foreground">
-              此前创建结果尚未确认，请先在看板中核对恢复记录。
+              {tr('此前创建结果尚未确认，请先在看板中核对恢复记录。')}
             </p>
           )}
           {calendars.length > 0 && (
             <div className="space-y-3">
               <label className="flex items-center justify-between gap-4 text-sm">
-                同步列表
+                {tr('同步列表')}
                 <NativeSelect
-                  aria-label="同步列表"
+                  aria-label={tr('同步列表')}
                   disabled={busy || locked}
                   value={chosen.calendarId}
                   onChange={(e) => {
@@ -184,7 +190,7 @@ export function TaskSettings({ tasks }: { tasks: ReturnType<typeof useTasks> }) 
                     setConfirmed(false);
                   }}
                 >
-                  <option value="">选择提醒事项列表</option>
+                  <option value="">{tr('选择提醒事项列表')}</option>
                   {calendars
                     .filter((c) => c.writable)
                     .map((list) => (
@@ -202,7 +208,9 @@ export function TaskSettings({ tasks }: { tasks: ReturnType<typeof useTasks> }) 
                       checked={confirmed}
                       onChange={(e) => setConfirmed(e.target.checked)}
                     />
-                    我确认这是要同步的 iCloud 列表；启用后会导入其中的任务，并同步本地未归档任务。
+                    {tr(
+                      '我确认这是要同步的 iCloud 列表；启用后会导入其中的任务，并同步本地未归档任务。',
+                    )}
                   </label>
                   <Button
                     variant="outline"
@@ -217,7 +225,7 @@ export function TaskSettings({ tasks }: { tasks: ReturnType<typeof useTasks> }) 
                       })
                     }
                   >
-                    {needsRepair ? '保存替代列表' : '保存列表'}
+                    {needsRepair ? tr('保存替代列表') : tr('保存列表')}
                   </Button>
                 </>
               )}
@@ -226,7 +234,7 @@ export function TaskSettings({ tasks }: { tasks: ReturnType<typeof useTasks> }) 
         </>
       )}
       <Feedback
-        text={error || (busy && feedback.target ? '正在保存…' : '')}
+        text={error || (busy && feedback.target ? tr('正在保存…') : '')}
         failed={!!error}
         target={feedback.target}
       />

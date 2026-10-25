@@ -1,3 +1,4 @@
+import { tr } from '../../../shared/i18n.js';
 /*
  * [INPUT]: 外壳与功能状态、窗口尺寸通信。
  * [OUTPUT]: 共享表情模板、表情状态派生、完成光效与视图过渡。
@@ -126,30 +127,30 @@ function fabExpressionLabel(expression, outlineExpression = usesOutlineExpressio
   if (outlineExpression) {
     return (
       {
-        idle: '空闲',
-        answering: '回答中',
-        surprise: '正在整理回答',
-        generating: '正在整理大纲',
-        ready: '大纲已准备',
-        empty: '暂无大纲',
-        error: '生成失败',
-        curious: '查看设置',
-        hidden: '已关闭',
-      }[expression] || '空闲'
+        idle: tr('空闲'),
+        answering: tr('回答中'),
+        surprise: tr('正在整理回答'),
+        generating: tr('正在整理大纲'),
+        ready: tr('大纲已准备'),
+        empty: tr('暂无大纲'),
+        error: tr('生成失败'),
+        curious: tr('查看设置'),
+        hidden: tr('已关闭'),
+      }[expression] || tr('空闲')
     );
   }
   return (
     {
-      idle: '空闲',
-      answering: '回答中',
-      surprise: '正在整理回答',
-      generating: '正在生成建议',
-      ready: '建议已准备',
-      empty: '暂无建议',
-      error: '生成失败',
-      curious: '查看设置',
-      hidden: '已关闭',
-    }[expression] || '空闲'
+      idle: tr('空闲'),
+      answering: tr('回答中'),
+      surprise: tr('正在整理回答'),
+      generating: tr('正在生成建议'),
+      ready: tr('建议已准备'),
+      empty: tr('暂无建议'),
+      error: tr('生成失败'),
+      curious: tr('查看设置'),
+      hidden: tr('已关闭'),
+    }[expression] || tr('空闲')
   );
 }
 

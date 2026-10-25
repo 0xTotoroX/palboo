@@ -1,3 +1,5 @@
+import { useLocale } from '../shared/use-locale';
+import { getLocale, tr } from '../shared/i18n.js';
 /* [INPUT]: 性能设置传入的样本、采样与连接状态，performance-history 的有界历史。
  * [OUTPUT]: CPU/内存走势、宿主工作明细和整页长任务轨迹；关闭时清空历史。
  * [POS]: 设置页内的纯展示监视窗，无独立计时器、请求或动画循环。
@@ -13,16 +15,28 @@ import {
 import './performance-monitor.css';
 
 const labels: Record<string, string> = {
-  scan: '聊天检查',
-  render: '工作台绘制',
-  features: '功能状态',
-  composer: '提示词入口',
-  'terms-check': '术语检查',
-  'terms-scan': '术语扫描',
+  get scan() {
+    return tr('聊天检查');
+  },
+  get render() {
+    return tr('工作台绘制');
+  },
+  get features() {
+    return tr('功能状态');
+  },
+  get composer() {
+    return tr('提示词入口');
+  },
+  get 'terms-check'() {
+    return tr('术语检查');
+  },
+  get 'terms-scan'() {
+    return tr('术语扫描');
+  },
 };
 const memory = (bytes: number | null | undefined) =>
   bytes == null ? '—' : (bytes / 1024 / 1024).toFixed(1);
-const clock = (at: number) => new Date(at).toLocaleTimeString('zh-CN', { hour12: false });
+const clock = (at: number) => new Date(at).toLocaleTimeString(getLocale(), { hour12: false });
 
 function Trend({
   history,
@@ -35,6 +49,7 @@ function Trend({
   ceiling: number;
   unit: string;
 }) {
+  useLocale();
   const id = useId();
   const { segments, minutes } = chartGeometry(history, metric, ceiling);
   const end = segments.at(-1)?.at(-1);
@@ -48,7 +63,11 @@ function Trend({
         viewBox="0 0 304 92"
         preserveAspectRatio="none"
         role="img"
-        aria-label={`${metric === 'cpu' ? 'Palboo 后台 CPU' : 'Palboo 后台物理内存'}最近${minutes}分钟走势，${history.filter((p) => p[metric] !== null).length}个采样点`}
+        aria-label={tr('{{value1}}最近{{minutes}}分钟走势，{{value3}}个采样点', {
+          value1: metric === 'cpu' ? tr('Palboo 后台 CPU') : tr('Palboo 后台物理内存'),
+          minutes: minutes,
+          value3: history.filter((p) => p[metric] !== null).length,
+        })}
       >
         <defs>
           <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
@@ -87,7 +106,11 @@ function Trend({
           </g>
         )}
       </svg>
-      <div className="performance-chart-foot">最近 {minutes} 分钟</div>
+      <div className="performance-chart-foot">
+        {tr('最近 ')}
+        {minutes}
+        {tr(' 分钟')}
+      </div>
     </div>
   );
 }
@@ -105,6 +128,7 @@ export function PerformanceMonitor({
   connected: boolean;
   failed: boolean;
 }) {
+  useLocale();
   const [history, setHistory] = useState<PerformancePoint[]>([]);
   useEffect(() => {
     if (!enabled) {
@@ -128,27 +152,31 @@ export function PerformanceMonitor({
   const work = Object.entries(labels).map(([name, label]) => ({ label, ...host?.work[name] }));
   const maximumWork = Math.max(1, ...work.map((item) => item.totalMs ?? 0));
   const status = !enabled
-    ? '监测已暂停'
+    ? tr('监测已暂停')
     : failed
-      ? '采样暂不可用'
+      ? tr('采样暂不可用')
       : !active
-        ? '采样已暂停'
+        ? tr('采样已暂停')
         : !current
-          ? '等待首个样本'
-          : '正在采样';
+          ? tr('等待首个样本')
+          : tr('正在采样');
   const ticks = points.slice(-36);
   const maxTasks = Math.max(1, ...ticks.map((point) => point.longTasks ?? 0));
   return (
-    <div className="performance-dashboard" data-paused={!enabled} aria-label="运行监视器">
+    <div className="performance-dashboard" data-paused={!enabled} aria-label={tr('运行监视器')}>
       {(!enabled || failed || !active || !current) && (
         <p className="performance-status" role="status">
           {status}
         </p>
       )}
-      <div className="performance-primary" aria-label="性能读数">
-        <section className="performance-instrument" data-metric="cpu" aria-label="Palboo 后台 CPU">
+      <div className="performance-primary" aria-label={tr('性能读数')}>
+        <section
+          className="performance-instrument"
+          data-metric="cpu"
+          aria-label={tr('Palboo 后台 CPU')}
+        >
           <div className="performance-instrument-title">
-            <h3 title="Palboo 后台进程；100% 表示占用一个核心">Palboo CPU</h3>
+            <h3 title={tr('Palboo 后台进程；100% 表示占用一个核心')}>Palboo CPU</h3>
           </div>
           <div className="performance-value-row">
             <p className="performance-value">
@@ -178,10 +206,10 @@ export function PerformanceMonitor({
         <section
           className="performance-instrument"
           data-metric="memory"
-          aria-label="Palboo 后台物理内存"
+          aria-label={tr('Palboo 后台物理内存')}
         >
           <div className="performance-instrument-title">
-            <h3 title="Palboo 后台物理内存，不含独立窗口">Palboo 内存</h3>
+            <h3 title={tr('Palboo 后台物理内存，不含独立窗口')}>{tr('Palboo 内存')}</h3>
           </div>
           <div className="performance-value-row">
             <p className="performance-value">
@@ -194,11 +222,16 @@ export function PerformanceMonitor({
       </div>
       <div className="performance-host-work">
         <div>
-          <h3 title="仅统计 Palboo 在 Codex 页面内已计时的同步工作">Palboo 页面耗时</h3>
+          <h3 title={tr('仅统计 Palboo 在 Codex 页面内已计时的同步工作')}>
+            {tr('Palboo 页面耗时')}
+          </h3>
         </div>
         <p className="performance-work-value">
           {host ? host.busyMs.toFixed(1) : '—'}
-          <span> ms{host ? ` / ${(host.intervalMs / 1000).toFixed(1)} 秒` : ''}</span>
+          <span>
+            {' '}
+            ms{host ? tr(' / {{value1}} 秒', { value1: (host.intervalMs / 1000).toFixed(1) }) : ''}
+          </span>
         </p>
         <div className="performance-work-track" aria-hidden="true">
           <div
@@ -208,34 +241,34 @@ export function PerformanceMonitor({
           />
         </div>
       </div>
-      <section className="performance-host" aria-label="Codex 整页指标">
+      <section className="performance-host" aria-label={tr('Codex 整页指标')}>
         <div className="performance-host-heading">
-          <h3 title="包含 Codex 自身，不能视为 Palboo 独占">Codex 整页</h3>
+          <h3 title={tr('包含 Codex 自身，不能视为 Palboo 独占')}>{tr('Codex 整页')}</h3>
         </div>
         <div className="performance-host-metrics">
           <div>
-            <span>JS 内存</span>
+            <span>{tr('JS 内存')}</span>
             <strong>
               {memory(host?.hostJsHeapBytes)}
               <small> MB</small>
             </strong>
           </div>
           <div>
-            <span title="执行超过 50 ms 的页面任务">长任务</span>
+            <span title={tr('执行超过 50 ms 的页面任务')}>{tr('长任务')}</span>
             <strong data-alert={!!host?.hostLongTasks}>
               {host ? host.hostLongTasks : '—'}
-              <small> 次</small>
+              <small>{tr(' 次')}</small>
             </strong>
           </div>
           <div>
-            <span>最长任务</span>
+            <span>{tr('最长任务')}</span>
             <strong>
               {host ? host.hostLongestTaskMs.toFixed(0) : '—'}
               <small> ms</small>
             </strong>
           </div>
         </div>
-        <div className="performance-events" aria-label="最近采样中的整页长任务次数">
+        <div className="performance-events" aria-label={tr('最近采样中的整页长任务次数')}>
           {Array.from({ length: 36 }, (_, index) => {
             const point = ticks[index - (36 - ticks.length)];
             const count = point?.longTasks;
@@ -252,8 +285,14 @@ export function PerformanceMonitor({
                 }}
                 title={
                   point
-                    ? `${clock(point.at)} · ${count == null ? '未采到宿主数据' : `${count} 次长任务`}`
-                    : '尚无样本'
+                    ? tr('{{value1}} · {{value2}}', {
+                        value1: clock(point.at),
+                        value2:
+                          count == null
+                            ? tr('未采到宿主数据')
+                            : tr('{{count}} 次长任务', { count }),
+                      })
+                    : tr('尚无样本')
                 }
               />
             );
@@ -263,14 +302,18 @@ export function PerformanceMonitor({
 
       {host && (
         <details className="performance-details">
-          <summary>工作明细</summary>
+          <summary>{tr('工作明细')}</summary>
           <div className="performance-work-list">
             {work.map((item) => (
               <div className="performance-work-item" key={item.label}>
                 <div>
                   <span>{item.label}</span>
                   <span>
-                    {(item.totalMs ?? 0).toFixed(1)} ms <small>· {item.count ?? 0} 次</small>
+                    {(item.totalMs ?? 0).toFixed(1)} ms{' '}
+                    <small>
+                      · {item.count ?? 0}
+                      {tr(' 次')}
+                    </small>
                   </span>
                 </div>
                 <div className="performance-mini-track">

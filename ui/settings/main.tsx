@@ -1,8 +1,12 @@
+import { tr } from '../shared/i18n.js';
 /* [INPUT]: 现有设置表单、认证 API、共用设置控件及 PALBOO 矢量字标。
  * [OUTPUT]: Tom Modern 统一设置、常用开关、分组页面及抽屉入口、主题/字体与联动预览；布局页锚点包含预览，保留保存与错误反馈。
  * [POS]: 设置展示层，不执行后台业务或读取聊天正文。
  * [PROTOCOL]: 变更时同步 settings/AGENTS.md。 */
 import { useTypography } from './use-typography';
+import { LanguageSettings } from './language-settings';
+import { setLocale, getLocale } from '../shared/i18n.js';
+import { useLocale } from '../shared/use-locale';
 import { StrictMode, useEffect, useState } from 'react';
 import { BotSettings, BotSetupInstructions } from './bot-settings';
 import { TerminologySettings } from './terminology-settings';
@@ -91,7 +95,15 @@ function editable(value: Settings): EditableSettings {
 }
 
 function App() {
+  const locale = useLocale();
   const { view, live, error } = useCompanion();
+  useEffect(() => {
+    if (view?.panelPreferences) setLocale(view.panelPreferences.language || 'zh-CN');
+  }, [view?.panelPreferences.language]);
+  useEffect(() => {
+    document.documentElement.lang = getLocale();
+    document.title = locale === 'en' ? 'Palboo Settings' : tr('Palboo 设置');
+  }, [locale]);
   useTypography(view?.panelTypography, view?.panelPreferences.typography);
   const [notice, setNotice] = useState({ text: '', failed: false });
   const notify = (text: string, failed = false) => setNotice({ text, failed });
@@ -116,11 +128,15 @@ function App() {
           <a
             href="#settings-features"
             className="settings-brand"
-            aria-label={`Palboo ${import.meta.env.DEV ? '开发版' : '设置'}`}
+            aria-label={tr('Palboo {{value1}}', {
+              value1: import.meta.env.DEV ? tr('开发版') : tr('设置'),
+            })}
             data-settings-navigation
           >
             <PalbooWordmark className="settings-wordmark" />
-            <span className="settings-edition">{import.meta.env.DEV ? '开发版' : '设置'}</span>
+            <span className="settings-edition">
+              {import.meta.env.DEV ? tr('开发版') : tr('设置')}
+            </span>
           </a>
           <SettingsSearch navigate={navigate} />
           <div className="settings-header-actions">
@@ -133,14 +149,14 @@ function App() {
               className="settings-connection-status"
               data-connected={connected}
               role="status"
-              aria-label={connected ? '已连接' : undefined}
+              aria-label={connected ? tr('已连接') : undefined}
             >
               {!connected &&
                 (view?.connection.status === 'unresponsive'
-                  ? '页面暂未响应'
+                  ? tr('页面暂未响应')
                   : live
-                    ? '等待连接'
-                    : '未连接')}
+                    ? tr('等待连接')
+                    : tr('未连接'))}
             </span>
           </div>
         </div>
@@ -154,7 +170,7 @@ function App() {
           ref={contentRef}
         >
           <Feedback text={error} failed />
-          {!editor.form && !error && <p role="status">正在读取设置…</p>}
+          {!editor.form && !error && <p role="status">{tr('正在读取设置…')}</p>}
           <Feedback
             text={notice.text === editor.saveError ? '' : notice.text}
             failed={notice.failed}
@@ -178,11 +194,11 @@ function App() {
                 hidden={!featuresVisible}
                 data-settings-page="features"
                 className="settings-section settings-feature-list"
-                aria-label="常用功能"
+                aria-label={tr('常用功能')}
               >
                 <div id="settings-outline" hidden={!common}>
                   <FeatureSwitch
-                    name="大纲"
+                    name={tr('大纲')}
                     checked={editor.form?.answerOutlineEnabled ?? false}
                     disabled={!live || !editor.form}
                     onChange={(v) => editor.change('answerOutlineEnabled', v)}
@@ -190,7 +206,7 @@ function App() {
                 </div>
                 <div data-settings-page="next" hidden={!common && page !== 'next'}>
                   <FeatureSwitch
-                    name="下一步"
+                    name={tr('下一步')}
                     checked={editor.form?.enabled ?? false}
                     disabled={!live || !editor.form}
                     onChange={(v) => editor.change('enabled', v)}
@@ -198,7 +214,7 @@ function App() {
                 </div>
                 <div data-settings-page="board" hidden={!common && page !== 'board'}>
                   <FeatureSwitch
-                    name="看板"
+                    name={tr('看板')}
                     checked={tasks.state?.store.boardEnabled ?? false}
                     disabled={tasks.busy || !tasks.state || !!tasks.state.error}
                     onChange={(boardEnabled) => void tasks.command({ op: 'modules', boardEnabled })}
@@ -226,7 +242,7 @@ function App() {
                 </div>
                 <div id="settings-token-meter" hidden={!common}>
                   <FeatureSwitch
-                    name="聊天测速"
+                    name={tr('聊天测速')}
                     checked={editor.form?.tokenMeterEnabled ?? false}
                     disabled={!live || !editor.form}
                     onChange={(value) => editor.change('tokenMeterEnabled', value)}
@@ -234,7 +250,7 @@ function App() {
                 </div>
                 <div id="settings-prompt-enhancement" hidden={!common}>
                   <FeatureSwitch
-                    name="提示词优化"
+                    name={tr('提示词优化')}
                     checked={editor.form?.promptEnhancementEnabled ?? true}
                     disabled={!live || !editor.form}
                     onChange={(value) => editor.change('promptEnhancementEnabled', value)}
@@ -247,6 +263,9 @@ function App() {
                 hidden={!surfacesVisible}
                 className="settings-section settings-common-surface"
               >
+                <div hidden={page !== 'appearance'}>
+                  <LanguageSettings value={view?.panelPreferences} />
+                </div>
                 <SurfaceSettings
                   live={live}
                   active={surfacesVisible}

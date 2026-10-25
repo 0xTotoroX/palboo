@@ -1,3 +1,4 @@
+import { tr } from '../shared/i18n.js';
 /* [INPUT]: 宿主公开 DOM 的右侧标签、插件菜单及当前聊天标识。
  * [OUTPUT]: Palboo 插件页签联动；设置入口只手动打开，Dev 试验可选择切换聊天后恢复。
  * [POS]: 最小宿主适配，不调用私有 IPC、不读取正文、不改变插件线程绑定。
@@ -30,7 +31,12 @@ function unique(selector, names) {
     (node) => visible(node) && !node.closest(OWN) && names.includes(label(node)),
   );
   if (nodes.length > 1)
-    throw Error(`发现多个同名入口（${names.join(' / ')}，${nodes.length}个），未自动选择。`);
+    throw Error(
+      tr('发现多个同名入口（{{names}}，{{count}}个），未自动选择。', {
+        names: names.join(' / '),
+        count: nodes.length,
+      }),
+    );
   return /** @type {HTMLElement|null} */ (nodes[0] || null);
 }
 function tab() {
@@ -42,7 +48,7 @@ function tab() {
 const sessionKey = () => mainChatSessionId();
 class SourceChanged extends Error {
   constructor() {
-    super('聊天正在切换，旧操作已取消。');
+    super(tr('聊天正在切换，旧操作已取消。'));
   }
 }
 
@@ -55,11 +61,11 @@ export function createPluginTabLink({ onOpened, onStatus, follow = true }) {
     candidate = last,
     candidateAt = 0;
   let interval = 0;
-  let stage = '识别聊天';
+  let stage = tr('识别聊天');
   const attempts = new Map();
   const check = (key) => {
     if (stopped || sessionKey() !== key) throw new SourceChanged();
-    if (document.visibilityState !== 'visible') throw Error('当前窗口不可见，未切换页签。');
+    if (document.visibilityState !== 'visible') throw Error(tr('当前窗口不可见，未切换页签。'));
   };
   const wait = async (key, read, recoverSplit = false) => {
     let splitRequested = false;
@@ -87,12 +93,12 @@ export function createPluginTabLink({ onOpened, onStatus, follow = true }) {
       if (value) return value;
       await new Promise((resolve) => setTimeout(resolve, 80));
     }
-    throw Error('未找到官方 Palboo 页签，请确认插件已启用；可再次点击重试。');
+    throw Error(tr('未找到官方 Palboo 页签，请确认插件已启用；可再次点击重试。'));
   };
   const click = (node, key) => {
     check(key);
     if (!visible(node) || node.matches(':disabled,[aria-disabled="true"]'))
-      throw Error('官方入口当前不可用。');
+      throw Error(tr('官方入口当前不可用。'));
     if (node.getAttribute('aria-haspopup') === 'menu') {
       const handled = !node.dispatchEvent(
         new KeyboardEvent('keydown', {
@@ -110,25 +116,25 @@ export function createPluginTabLink({ onOpened, onStatus, follow = true }) {
     node.click();
   };
   async function open(expectedKey) {
-    stage = '恢复分屏';
+    stage = tr('恢复分屏');
     if (expectedKey && sessionKey() && sessionKey() !== expectedKey) throw new SourceChanged();
-    if (document.visibilityState !== 'visible') throw Error('当前窗口不可见，未切换页签。');
+    if (document.visibilityState !== 'visible') throw Error(tr('当前窗口不可见，未切换页签。'));
     const split = unique('button', ['进入分屏视图', 'Enter split view']);
     if (split && split.getAttribute('aria-pressed') !== 'true') {
       if (split.matches(':disabled,[aria-disabled="true"]'))
-        throw Error('官方分屏入口当前不可用。');
+        throw Error(tr('官方分屏入口当前不可用。'));
       split.click();
       await new Promise((resolve) => setTimeout(resolve, 200));
       if (stopped) return;
     }
-    stage = '识别聊天';
+    stage = tr('识别聊天');
     const key = sessionKey();
-    if (!key) throw Error('无法唯一识别当前聊天，未打开插件。');
+    if (!key) throw Error(tr('无法唯一识别当前聊天，未打开插件。'));
     if (expectedKey && key !== expectedKey) throw new SourceChanged();
     check(key);
     if ([...document.querySelectorAll('[role="dialog"][aria-modal="true"]')].some(visible))
-      throw Error('请先关闭当前对话框，再打开 Palboo。');
-    stage = '寻找右侧入口';
+      throw Error(tr('请先关闭当前对话框，再打开 Palboo。'));
+    stage = tr('寻找右侧入口');
     let existing = tab();
     if (!existing) {
       const toggle = unique('button', [
@@ -156,18 +162,19 @@ export function createPluginTabLink({ onOpened, onStatus, follow = true }) {
       );
       if (next.getAttribute('role') !== 'tab') {
         if ([...document.querySelectorAll('[role="menu"]')].some(visible))
-          throw Error('请先关闭当前菜单，再打开 Palboo。');
-        stage = '打开插件菜单';
+          throw Error(tr('请先关闭当前菜单，再打开 Palboo。'));
+        stage = tr('打开插件菜单');
         if (['新标签页', 'New tab'].includes(label(next))) {
           // 新版左击会创建浏览器页；右键才打开包含官方插件的标签菜单。
           check(key);
-          if (next.matches(':disabled,[aria-disabled="true"]')) throw Error('官方入口当前不可用。');
+          if (next.matches(':disabled,[aria-disabled="true"]'))
+            throw Error(tr('官方入口当前不可用。'));
           next.dispatchEvent(
             new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2 }),
           );
         } else click(next, key);
         if (!NAMES.includes(label(next))) {
-          stage = '选择 Palboo 插件';
+          stage = tr('选择 Palboo 插件');
           const item = await wait(
             key,
             () =>
@@ -180,7 +187,7 @@ export function createPluginTabLink({ onOpened, onStatus, follow = true }) {
             click(await wait(key, () => unique('[role="menuitem"]', NAMES)), key);
         }
       }
-      stage = '确认官方插件页签';
+      stage = tr('确认官方插件页签');
       existing = await wait(key, tab, true);
     }
     if (existing.getAttribute('aria-selected') !== 'true') click(existing, key);
@@ -206,7 +213,9 @@ export function createPluginTabLink({ onOpened, onStatus, follow = true }) {
     last = candidate = key;
     attempts.delete(key);
     onStatus(
-      follow ? '官方 Palboo 页签已选中；切换聊天时自动恢复。' : '设置已在官方侧边页签打开。',
+      follow
+        ? tr('官方 Palboo 页签已选中；切换聊天时自动恢复。')
+        : tr('设置已在官方侧边页签打开。'),
     );
   }
   function request(expectedKey = sessionKey(), automatic = false) {
@@ -216,7 +225,7 @@ export function createPluginTabLink({ onOpened, onStatus, follow = true }) {
     const attempt = (attempts.get(expectedKey) || 0) + 1;
     attempts.set(expectedKey, attempt);
     if (attempts.size > 32) attempts.delete(attempts.keys().next().value);
-    onStatus('正在打开官方 Palboo 插件页签…');
+    onStatus(tr('正在打开官方 Palboo 插件页签…'));
     running = open(expectedKey)
       .catch((error) => {
         if (stopped) return;
@@ -269,7 +278,7 @@ export async function openSettingsBrowser(
   try {
     target = new URL(url);
   } catch {
-    throw Error('设置地址无效。');
+    throw Error(tr('设置地址无效。'));
   }
   if (
     target.protocol !== 'http:' ||
@@ -277,21 +286,21 @@ export async function openSettingsBrowser(
     target.username ||
     target.password
   )
-    throw Error('设置地址必须是本机服务。');
+    throw Error(tr('设置地址必须是本机服务。'));
   let key = expectedSession || sessionKey();
   const deadline = Date.now() + 10000;
   const check = () => {
     signal?.throwIfAborted();
-    if (!isCurrent()) throw Error('设置打开已取消。');
+    if (!isCurrent()) throw Error(tr('设置打开已取消。'));
     const current = sessionKey();
     if (key && current && current !== key) throw new SourceChanged();
-    if (document.visibilityState !== 'visible') throw Error('当前窗口不可见，请返回后重试。');
+    if (document.visibilityState !== 'visible') throw Error(tr('当前窗口不可见，请返回后重试。'));
   };
   const pause = () =>
     new Promise((resolve, reject) => {
       const abort = () => {
         clearTimeout(timer);
-        reject(Error('设置打开已取消。'));
+        reject(Error(tr('设置打开已取消。')));
       };
       const timer = setTimeout(() => {
         signal?.removeEventListener('abort', abort);
@@ -302,9 +311,9 @@ export async function openSettingsBrowser(
     });
   const activate = (node, recovering = false) => {
     check();
-    if (!recovering && !sessionKey()) throw Error('聊天正在切换，请稍后重试。');
+    if (!recovering && !sessionKey()) throw Error(tr('聊天正在切换，请稍后重试。'));
     if (!visible(node) || node.matches(':disabled,[aria-disabled="true"]'))
-      throw Error('宿主浏览器入口不可用。');
+      throw Error(tr('宿主浏览器入口不可用。'));
     node.click();
   };
   const restoreSplit = () => {
@@ -325,7 +334,7 @@ export async function openSettingsBrowser(
   };
   check();
   restoreSplit();
-  key = await wait(sessionKey, '请从可识别的当前聊天打开设置。', false);
+  key = await wait(sessionKey, tr('请从可识别的当前聊天打开设置。'), false);
   const showTabs = unique('button', ['显示标签页', 'Show tabs']);
   if (showTabs) activate(showTabs);
   const selector =
@@ -333,7 +342,7 @@ export async function openSettingsBrowser(
   const panelId = (input) => input.closest('[data-tab-id]')?.getAttribute('data-tab-id') || '';
   const next = await wait(
     () => unique('button:not([role="tab"])', ['新标签页', 'New tab', '新建标签页']),
-    '未找到宿主的新标签页入口，请展开标签栏后重试。',
+    tr('未找到宿主的新标签页入口，请展开标签栏后重试。'),
   );
   // 记录已有地址栏和标签，防止创建尚未完成时覆盖旧网页。
   const oldInputs = new Set(document.querySelectorAll(selector));
@@ -351,7 +360,7 @@ export async function openSettingsBrowser(
           ? !oldPanels.has(panelId(node))
           : oldInputs.size === 0 && oldPanels.size === 0),
     );
-    if (inputs.length > 1) throw Error('无法唯一识别新标签页的地址栏。');
+    if (inputs.length > 1) throw Error(tr('无法唯一识别新标签页的地址栏。'));
     if (inputs[0]) return inputs[0];
     // 只接受明确的浏览器菜单项，不把重建的 New tab 按钮当成第二步。
     if (!browserRequested) {
@@ -362,17 +371,17 @@ export async function openSettingsBrowser(
       }
     }
     return null;
-  }, '未确认新浏览器标签的地址栏，请重试。');
+  }, tr('未确认新浏览器标签的地址栏，请重试。'));
   const owner = panelId(input);
   const address = () => {
     const inputs = [...document.querySelectorAll(selector)].filter(
       (node) => visible(node) && (owner ? panelId(node) === owner : node === input),
     );
-    if (inputs.length > 1) throw Error('无法唯一识别浏览器地址栏。');
+    if (inputs.length > 1) throw Error(tr('无法唯一识别浏览器地址栏。'));
     return /** @type {HTMLInputElement|null} */ (inputs[0] || null);
   };
   check();
-  if (!sessionKey() || address() !== input) throw Error('浏览器地址栏已变化，请重试。');
+  if (!sessionKey() || address() !== input) throw Error(tr('浏览器地址栏已变化，请重试。'));
   input.focus();
   Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, url);
   input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -381,7 +390,7 @@ export async function openSettingsBrowser(
   await pause();
   check();
   if (!sessionKey() || !input.isConnected || address() !== input || input.value !== url)
-    throw Error('浏览器地址栏已变化，未提交设置地址，请重试。');
+    throw Error(tr('浏览器地址栏已变化，未提交设置地址，请重试。'));
   const enter = new KeyboardEvent('keydown', {
     key: 'Enter',
     code: 'Enter',
@@ -390,7 +399,7 @@ export async function openSettingsBrowser(
   });
   input.dispatchEvent(enter);
   input.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', bubbles: true }));
-  if (!enter.defaultPrevented) throw Error('宿主未确认设置地址提交，请在地址栏检查或重试。');
+  if (!enter.defaultPrevented) throw Error(tr('宿主未确认设置地址提交，请在地址栏检查或重试。'));
   await wait(() => {
     const committed = address();
     if (!committed || document.activeElement === committed) return false;
@@ -407,12 +416,12 @@ export async function openSettingsBrowser(
     } catch {
       return false;
     }
-  }, '宿主未确认设置地址提交，请在浏览器地址栏检查或重试。');
+  }, tr('宿主未确认设置地址提交，请在浏览器地址栏检查或重试。'));
   restoreSplit();
   await wait(() => {
     const split = unique('button', ['进入分屏视图', 'Enter split view']);
     return address() && (!split || split.getAttribute('aria-pressed') === 'true');
-  }, '设置地址已提交，但未确认浏览器侧栏可见，请检查分屏。');
+  }, tr('设置地址已提交，但未确认浏览器侧栏可见，请检查分屏。'));
   check();
   return { status: 'submitted' };
 }

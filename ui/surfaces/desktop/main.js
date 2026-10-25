@@ -1,3 +1,5 @@
+import { tr } from '../../shared/i18n.js';
+import { setLocale, getLocale } from '../../shared/i18n.js';
 /* [INPUT]: Shared main-window lease, feature owners, checked layout saves and the original native window IPC.
  * [OUTPUT]: Existing desktop chrome/material and spatial enter/return transitions.
  * [POS]: Desktop surface adapter; feature content and actions stay in features/content.
@@ -18,9 +20,9 @@ export function startDesktop(request, lease) {
   root.dataset.workbench = 'true';
   root.style.cssText =
     '--csw-default-chip-width:84px;--csw-default-chip-height:36px;--csw-default-panel-radius:24px;position:fixed;inset:12px;width:auto;height:auto;pointer-events:auto;';
-  root.innerHTML = `<div class="csw-popover" data-open="true" data-morphing="false" style="position:absolute;inset:0;width:100%;height:100%"><div class="csw-glass" style="inset:0;width:100%;height:100%;border-radius:24px"></div><section class="csw-panel" style="inset:0;width:100%;height:100%;border-radius:24px"><div class="csw-workbench">${workbenchHeadHtml(true)}</div></section><div class="csw-resize-handle" data-corner="bl" style="position:absolute;left:0;bottom:0;width:20px;height:20px;pointer-events:auto" aria-label="从左下角调整窗口大小"></div><div class="csw-resize-handle" data-corner="br" style="position:absolute;right:0;bottom:0;width:20px;height:20px;pointer-events:auto" aria-label="从右下角调整窗口大小"></div></div>`;
+  root.innerHTML = `<div class="csw-popover" data-open="true" data-morphing="false" style="position:absolute;inset:0;width:100%;height:100%"><div class="csw-glass" style="inset:0;width:100%;height:100%;border-radius:24px"></div><section class="csw-panel" style="inset:0;width:100%;height:100%;border-radius:24px"><div class="csw-workbench">${workbenchHeadHtml(true)}</div></section><div class="csw-resize-handle" data-corner="bl" style="position:absolute;left:0;bottom:0;width:20px;height:20px;pointer-events:auto" aria-label="${tr('从左下角调整窗口大小')}"></div><div class="csw-resize-handle" data-corner="br" style="position:absolute;right:0;bottom:0;width:20px;height:20px;pointer-events:auto" aria-label="${tr('从右下角调整窗口大小')}"></div></div>`;
   root.querySelector('.csw-workbench-controls').innerHTML =
-    `<button class="csw-icon" data-pin aria-label="取消窗口置顶" aria-pressed="true">${iconSvg('pin')}</button>`;
+    `<button class="csw-icon" data-pin aria-label="${tr('取消窗口置顶')}" aria-pressed="true">${iconSvg('pin')}</button>`;
   const mounts = new Map();
   let state,
     selected = '',
@@ -75,7 +77,7 @@ export function startDesktop(request, lease) {
     moving = true;
     let finish;
     const promise = new Promise((resolve, reject) => {
-      finish = (ok) => (ok ? resolve() : reject(Error('窗口返回未完成，保留原位置')));
+      finish = (ok) => (ok ? resolve() : reject(Error(tr('窗口返回未完成，保留原位置'))));
     });
     const timeout = setTimeout(() => {
       native({ kind: 'cancel-return' });
@@ -178,7 +180,7 @@ export function startDesktop(request, lease) {
         button.disabled = false;
       });
     button.setAttribute('aria-pressed', String(value));
-    button.setAttribute('aria-label', value ? '取消窗口置顶' : '窗口置顶');
+    button.setAttribute('aria-label', value ? tr('取消窗口置顶') : tr('窗口置顶'));
   });
   function appearance(value) {
     if (value.typographyPreferences) {
@@ -253,6 +255,14 @@ export function startDesktop(request, lease) {
       if (next.activeFeature && next.activeFeature !== state?.activeFeature)
         selected = next.activeFeature;
       state = next;
+      setLocale(state.appearance?.language || 'zh-CN');
+      root.lang = getLocale();
+      root
+        .querySelector('[data-corner=bl]')
+        ?.setAttribute('aria-label', tr('从左下角调整窗口大小'));
+      root
+        .querySelector('[data-corner=br]')
+        ?.setAttribute('aria-label', tr('从右下角调整窗口大小'));
       if (!windowState.valid) {
         stopped = true;
         composition.destroy();
@@ -275,7 +285,7 @@ export function startDesktop(request, lease) {
       pin.setAttribute('aria-pressed', String(windowState.alwaysOnTop !== false));
       pin.setAttribute(
         'aria-label',
-        windowState.alwaysOnTop !== false ? '取消窗口置顶' : '窗口置顶',
+        windowState.alwaysOnTop !== false ? tr('取消窗口置顶') : tr('窗口置顶'),
       );
       if (!sized) {
         const size = state.mainWindow?.size || [840, 620];

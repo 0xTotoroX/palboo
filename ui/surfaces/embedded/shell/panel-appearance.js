@@ -1,3 +1,4 @@
+import { tr } from '../../../shared/i18n.js';
 /*
  * [INPUT]: runtime/state.js、宿主主题及 presentation.js 的主题投影。
  * [OUTPUT]: panelAppearance 提供只读明暗/语义色快照； 弹出跟随宿主明暗； 三材质、停靠场景独立偏好及液态分支迁移与实际效果映射、字体、主题、图标与尺寸归一化辅助函数（浮窗无固定上限，内嵌按渲染空间约束）。
@@ -269,9 +270,9 @@ function currentAppearance() {
 
 function materialLabel(value = currentAppearance().material) {
   return {
-    frosted: '磨砂',
-    'native-glass': '液态',
-    matte: '哑光',
+    frosted: tr('磨砂'),
+    'native-glass': tr('液态'),
+    matte: tr('哑光'),
   }[normalizeMaterial(value)];
 }
 
@@ -310,7 +311,7 @@ function readMaterial() {
 }
 
 function materialButtonLabel() {
-  return `外观：${materialLabel()}；选择外观`;
+  return tr('外观：{{value1}}；选择外观', { value1: materialLabel() });
 }
 
 function materialValueLabel() {
@@ -366,14 +367,19 @@ function applyMaterial(options = {}) {
     const fallback = IS_POPOUT && mode !== effective && !effective.startsWith('native-');
     if (button instanceof HTMLSelectElement) {
       for (const option of button.options) option.textContent = materialLabel(option.value);
-      if (fallback) button.selectedOptions[0].textContent = `${materialLabel()}（当前哑光）`;
+      if (fallback)
+        button.selectedOptions[0].textContent = tr('{{value1}}（当前哑光）', {
+          value1: materialLabel(),
+        });
     }
     if (value)
-      value.textContent = fallback ? `${materialLabel()}（当前哑光）` : materialValueLabel();
+      value.textContent = fallback
+        ? tr('{{value1}}（当前哑光）', { value1: materialLabel() })
+        : materialValueLabel();
     if (fallback)
       button.setAttribute(
         'aria-description',
-        '当前系统不支持液态玻璃，暂用哑光；液态需 macOS 26+，磨砂仍可使用。',
+        tr('当前系统不支持液态玻璃，暂用哑光；液态需 macOS 26+，磨砂仍可使用。'),
       );
     else button.removeAttribute('aria-description');
   }

@@ -414,7 +414,7 @@ pub fn run_surface(
     let size = (prefs.ui.width + 24., prefs.ui.height + 24.);
     let window = WindowBuilder::new()
         .with_title(if crate::assets::development().is_some() {
-            "Palboo · 开发版"
+            crate::i18n::text("Palboo · 开发版", "Palboo · Dev")
         } else {
             "Palboo"
         })

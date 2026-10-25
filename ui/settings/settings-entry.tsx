@@ -1,3 +1,5 @@
+import { useLocale } from '../shared/use-locale';
+import { tr } from '../shared/i18n.js';
 /* [INPUT]: Existing appearance preferences and revision-checked settings API.
  * [OUTPUT]: Persisted destination for the workbench settings button.
  * [POS]: Shared web/plugin settings control; no navigation on preference change.
@@ -8,6 +10,7 @@ import { Field, Feedback } from './settings-controls';
 import { NativeSelect } from './components/ui/native-select';
 import type { AppearanceSettings } from '../shared/contracts';
 export function SettingsEntry({ value }: { value?: AppearanceSettings }) {
+  useLocale();
   const [prefs, setPrefs] = useState(value);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -37,7 +40,7 @@ export function SettingsEntry({ value }: { value?: AppearanceSettings }) {
   }
   return (
     <div className="settings-section">
-      <Field id="settings-open-target" label="设置按钮打开方式">
+      <Field id="settings-open-target" label={tr('设置按钮打开方式')}>
         <NativeSelect
           id="settings-open-target"
           controlWidth="medium"
@@ -45,8 +48,8 @@ export function SettingsEntry({ value }: { value?: AppearanceSettings }) {
           value={prefs?.settingsTarget ?? 'plugin'}
           onChange={(e) => void change(e.target.value)}
         >
-          <option value="plugin">插件侧栏</option>
-          <option value="web">网页（内置浏览器）</option>
+          <option value="plugin">{tr('插件侧栏')}</option>
+          <option value="web">{tr('网页（内置浏览器）')}</option>
         </NativeSelect>
       </Field>
       <Feedback text={error} failed />

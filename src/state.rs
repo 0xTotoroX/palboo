@@ -460,8 +460,10 @@ impl App {
     async fn refresh(&self) -> Result<()> {
         let client = self.desktop_client().await.context("尚未连接 Codex")?;
         let (detached, ui, revision, web_revision) = self.panel_host_state().await;
-        let launcher_action = json!(self.panel.lock().await.prefs.launcher_action);
-        let typography = json!(self.panel.lock().await.prefs.typography);
+        let preferences = self.panel.lock().await.prefs.clone();
+        let launcher_action =
+            json!({"action":preferences.launcher_action,"language":preferences.language});
+        let typography = json!(preferences.typography);
         let result = client
             .desktop_status(detached, ui, web_revision, launcher_action, typography)
             .await?;

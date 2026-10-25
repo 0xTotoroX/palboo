@@ -1,3 +1,5 @@
+import { useLocale } from '../shared/use-locale';
+import { tr } from '../shared/i18n.js';
 /* [INPUT]: 认证 CodexHost API。 [OUTPUT]: CodexHost 独立开关、运行状态、版本更新及显式重启停用。
  * [POS]: 设置展示，不管理进程或复制其他功能配置；只在此分类可见时轮询。
  * [PROTOCOL]: 变更时同步 settings/AGENTS.md。 */
@@ -9,15 +11,30 @@ import { ConfirmationButton } from './settings-confirmation';
 import { Button } from './components/ui/button';
 import type { CodexHostStatus } from '../shared/codex-host';
 const labels: Record<CodexHostStatus['state'], string> = {
-  disabled: '已关闭',
-  notInstalled: '尚未安装',
-  pendingEnable: '待启动启用',
-  pendingDisable: '待重启停用',
-  pendingUpdate: '所选安装待重启生效',
-  running: '运行中',
-  error: '状态异常',
+  get disabled() {
+    return tr('已关闭');
+  },
+  get notInstalled() {
+    return tr('尚未安装');
+  },
+  get pendingEnable() {
+    return tr('待启动启用');
+  },
+  get pendingDisable() {
+    return tr('待重启停用');
+  },
+  get pendingUpdate() {
+    return tr('所选安装待重启生效');
+  },
+  get running() {
+    return tr('运行中');
+  },
+  get error() {
+    return tr('状态异常');
+  },
 };
 export function CodexHostSettings({ live, active }: { live: boolean; active: boolean }) {
+  useLocale();
   const [state, setState] = useState<CodexHostStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -98,17 +115,17 @@ export function CodexHostSettings({ live, active }: { live: boolean; active: boo
   return (
     <section
       className="settings-section space-y-6"
-      aria-label="CodexHost 设置"
+      aria-label={tr('CodexHost 设置')}
       id="settings-codex-host"
     >
       <Toggle
-        label="启用 CodexHost"
+        label={tr('启用 CodexHost')}
         checked={state?.enabled ?? false}
         disabled={disabled || !state}
         onChange={(enabled) => void command('set-enabled', { enabled })}
       />
       <Feedback
-        text={error || state?.error || (busy ? '处理中…' : '')}
+        text={error || state?.error || (busy ? tr('处理中…') : '')}
         failed={!!(error || state?.error)}
         target={feedback.target}
       />
@@ -119,28 +136,28 @@ export function CodexHostSettings({ live, active }: { live: boolean; active: boo
         <>
           <dl className="settings-status-list">
             <div className="settings-row">
-              <dt>状态</dt>
+              <dt>{tr('状态')}</dt>
               <dd>{labels[state.state]}</dd>
             </div>
             <div className="settings-row">
-              <dt>已安装版本</dt>
-              <dd>{state.version || '未安装'}</dd>
+              <dt>{tr('已安装版本')}</dt>
+              <dd>{state.version || tr('未安装')}</dd>
             </div>
             {state.runningVersion && (
               <div className="settings-row">
-                <dt>实际运行版本</dt>
+                <dt>{tr('实际运行版本')}</dt>
                 <dd>{state.runningVersion}</dd>
               </div>
             )}
             {state.executable && (
               <div className="settings-row items-start">
-                <dt className="shrink-0">程序路径</dt>
+                <dt className="shrink-0">{tr('程序路径')}</dt>
                 <dd className="min-w-0 break-all text-right select-text">{state.executable}</dd>
               </div>
             )}
             {state.runningExecutable && state.runningExecutable !== state.executable && (
               <div className="settings-row items-start">
-                <dt className="shrink-0">运行路径</dt>
+                <dt className="shrink-0">{tr('运行路径')}</dt>
                 <dd className="min-w-0 break-all text-right select-text">
                   {state.runningExecutable}
                 </dd>
@@ -148,19 +165,21 @@ export function CodexHostSettings({ live, active }: { live: boolean; active: boo
             )}
           </dl>
           {state.state === 'pendingEnable' && (
-            <p>需要重开 Codex 才能启用时，请先结束任务，再打开 Palboo。</p>
+            <p>{tr('需要重开 Codex 才能启用时，请先结束任务，再打开 Palboo。')}</p>
           )}
           <div className="settings-actions">
             {state.state === 'pendingDisable' && (
               <ConfirmationButton
                 disabled={disabled}
                 revision={state.revision}
-                title="重启 Codex 并停用 CodexHost？"
-                description="Codex 将退出并重新打开，正在运行的任务可能中断。请先保存内容并结束任务。"
-                confirmLabel="确认重启"
+                title={tr('重启 Codex 并停用 CodexHost？')}
+                description={tr(
+                  'Codex 将退出并重新打开，正在运行的任务可能中断。请先保存内容并结束任务。',
+                )}
+                confirmLabel={tr('确认重启')}
                 onConfirm={() => command('restart-disabled')}
               >
-                {restarting ? '正在重启…' : '重启 Codex 并停用'}
+                {restarting ? tr('正在重启…') : tr('重启 Codex 并停用')}
               </ConfirmationButton>
             )}
             <Button
@@ -168,19 +187,24 @@ export function CodexHostSettings({ live, active }: { live: boolean; active: boo
               disabled={disabled}
               onClick={() => void command('check-update')}
             >
-              检查更新
+              {tr('检查更新')}
             </Button>
             {target && newer && (
               <Button
                 disabled={disabled}
                 onClick={() => void command('install', { version: target })}
               >
-                {busy ? '处理中…' : `${state.version ? '更新到' : '安装'} ${target}`}
+                {busy
+                  ? tr('处理中…')
+                  : tr('{{value1}} {{target}}', {
+                      value1: state.version ? tr('更新到') : tr('安装'),
+                      target: target,
+                    })}
               </Button>
             )}
             {state.enabled && ['pendingEnable'].includes(state.state) && (
               <Button variant="outline" disabled={disabled} onClick={() => void command('start')}>
-                启动
+                {tr('启动')}
               </Button>
             )}
             {state.canRestore && (
@@ -188,16 +212,18 @@ export function CodexHostSettings({ live, active }: { live: boolean; active: boo
                 variant="ghost"
                 disabled={disabled}
                 revision={state.revision}
-                title="恢复 CodexHost 上一版本？"
-                description="将切换回先前安装的版本，当前会话可能需要重新启动才能使用。已有配置保持不变。"
-                confirmLabel="确认恢复"
+                title={tr('恢复 CodexHost 上一版本？')}
+                description={tr(
+                  '将切换回先前安装的版本，当前会话可能需要重新启动才能使用。已有配置保持不变。',
+                )}
+                confirmLabel={tr('确认恢复')}
                 onConfirm={() => command('restore')}
               >
-                恢复上一版本
+                {tr('恢复上一版本')}
               </ConfirmationButton>
             )}
           </div>
-          {latest === state.version && <p role="status">已是最新版本</p>}
+          {latest === state.version && <p role="status">{tr('已是最新版本')}</p>}
         </>
       )}
     </section>

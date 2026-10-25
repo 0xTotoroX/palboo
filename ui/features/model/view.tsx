@@ -1,3 +1,5 @@
+import { useLocale } from '../../shared/use-locale';
+import { tr } from '../../shared/i18n.js';
 /* [INPUT]: Existing model control envelope and serialized actions.
  * [OUTPUT]: Title-aligned reasoning headings, content-sized favorites matrix, independent Fast charge/strike and divider controls, preset tags, a shared bottom row with lower-edge-aligned account usage, icons and an independent footer slot, in-panel catalog and wrapping presets with synchronous draft handoff, measured horizontal reading restoration and capability-driven selection.
  * [POS]: Reusable business view; surfaces own placement and theme.
@@ -42,6 +44,7 @@ export function ModelView({
   action: (data: unknown, action: string) => Promise<unknown>;
   busy: boolean;
 }) {
+  useLocale();
   const [tools, setTools] = useState(reading.modelTools || false),
     [others, setOthers] = useState(false),
     [catalogGroup, setCatalogGroup] = useState(''),
@@ -292,7 +295,10 @@ export function ModelView({
               <button
                 key={reasoning}
                 disabled={busy || !allowed || !supported}
-                aria-label={`${label(m.label)} · ${label(reasoning) || '选择'}`}
+                aria-label={tr('{{value1}} · {{value2}}', {
+                  value1: label(m.label),
+                  value2: label(reasoning) || tr('选择'),
+                })}
                 data-model={m.id}
                 data-reasoning={reasoning}
                 aria-pressed={
@@ -311,7 +317,7 @@ export function ModelView({
     <form
       key={presetDraft.id}
       className="model-preset-editor"
-      aria-label={presetDraft.creating ? '保存模型预设' : '重命名模型预设'}
+      aria-label={presetDraft.creating ? tr('保存模型预设') : tr('重命名模型预设')}
       onSubmit={async (event) => {
         event.preventDefault();
         const requestedName = presetDraft.name.trim();
@@ -340,8 +346,8 @@ export function ModelView({
       }}
     >
       <input
-        aria-label="预设名称"
-        placeholder="预设名称"
+        aria-label={tr('预设名称')}
+        placeholder={tr('预设名称')}
         autoFocus
         maxLength={256}
         value={presetDraft.name}
@@ -350,12 +356,17 @@ export function ModelView({
       />
       <button
         type="submit"
-        aria-label="保存"
+        aria-label={tr('保存')}
         disabled={busy || !prefs.enabled || !presetDraft.name.trim()}
       >
         {icon('check')}
       </button>
-      <button type="button" aria-label="取消" disabled={busy} onClick={() => setPresetDraft(null)}>
+      <button
+        type="button"
+        aria-label={tr('取消')}
+        disabled={busy}
+        onClick={() => setPresetDraft(null)}
+      >
         {icon('close')}
       </button>
     </form>
@@ -365,8 +376,8 @@ export function ModelView({
       ref={pickerToggle}
       className="model-icon-button model-picker-toggle"
       data-model-picker
-      aria-label="所有模型"
-      title="所有模型"
+      aria-label={tr('所有模型')}
+      title={tr('所有模型')}
       aria-expanded={others}
       onClick={() => {
         if (!others) {
@@ -390,7 +401,7 @@ export function ModelView({
       <button
         className="model-icon-button"
         data-refresh="model"
-        aria-label="刷新可用模型"
+        aria-label={tr('刷新可用模型')}
         disabled={busy || !prefs.enabled}
         onClick={() => void action({}, 'refresh')}
       >
@@ -398,7 +409,7 @@ export function ModelView({
       </button>
       <button
         className="model-icon-button"
-        aria-label="关闭所有模型"
+        aria-label={tr('关闭所有模型')}
         onClick={() => {
           restorePickerFocus.current = true;
           setOthers(false);
@@ -491,7 +502,7 @@ export function ModelView({
                 >
                   {columns.map((c) => (
                     <span key={c}>
-                      <span data-reasoning-label>{label(c) || '选择'}</span>
+                      <span data-reasoning-label>{label(c) || tr('选择')}</span>
                     </span>
                   ))}
                 </div>
@@ -500,8 +511,10 @@ export function ModelView({
                 <button
                   type="button"
                   className="model-column-resize"
-                  aria-label="调整模型名称宽度"
-                  aria-description={`左右拖动或方向键调整，当前 ${nameWidth}px`}
+                  aria-label={tr('调整模型名称宽度')}
+                  aria-description={tr('左右拖动或方向键调整，当前 {{nameWidth}}px', {
+                    nameWidth: nameWidth,
+                  })}
                   data-column-min={100}
                   data-column-max={maxNameWidth}
                   data-column-width={nameWidth}
@@ -599,16 +612,16 @@ export function ModelView({
                   </svg>
                 </div>
                 {!!models.length && !visible.length && (
-                  <p className="model-empty-favorites">暂无模型</p>
+                  <p className="model-empty-favorites">{tr('暂无模型')}</p>
                 )}
                 {rows(visible)}
-                {!models.length && <p>暂无可用模型</p>}
+                {!models.length && <p>{tr('暂无可用模型')}</p>}
               </div>
             </div>
           </div>
           <section
             className="model-collections"
-            aria-label="收藏"
+            aria-label={tr('收藏')}
             onKeyDown={(event) => {
               if (event.key === 'Escape' && !event.nativeEvent.isComposing && tools) {
                 event.stopPropagation();
@@ -628,7 +641,7 @@ export function ModelView({
                       aria-disabled={!tools && (!allowed || !valid(p.selection))}
                       aria-label={p.name}
                       aria-description={
-                        tools ? '点击重命名' : p.selection.speed === 'fast' ? 'Fast' : undefined
+                        tools ? tr('点击重命名') : p.selection.speed === 'fast' ? 'Fast' : undefined
                       }
                       aria-pressed={
                         !tools &&
@@ -648,7 +661,7 @@ export function ModelView({
                   {tools && (
                     <button
                       className="model-preset-delete"
-                      aria-label={`删除预设 ${p.name}`}
+                      aria-label={tr('删除预设 {{value1}}', { value1: p.name })}
                       disabled={busy}
                       onClick={async () => {
                         const result = await save({
@@ -667,12 +680,17 @@ export function ModelView({
             <div className="model-status-row">
               <div className="model-metrics">
                 {prefs.showUsage !== false && !!s.usage?.length && (
-                  <span className="model-usage" aria-label="Codex 剩余额度" title="Codex 剩余额度">
+                  <span
+                    className="model-usage"
+                    aria-label={tr('Codex 剩余额度')}
+                    title={tr('Codex 剩余额度')}
+                  >
                     {[...s.usage]
                       .sort((a, b) => b.minutes - a.minutes)
                       .map((window) => (
                         <span key={window.minutes}>
-                          {window.minutes === 300 ? '5小时' : '周'} {window.remainingPercent}%
+                          {window.minutes === 300 ? tr('5小时') : tr('周')}{' '}
+                          {window.remainingPercent}%
                         </span>
                       ))}
                   </span>
@@ -682,8 +700,8 @@ export function ModelView({
               <div className="model-preset-actions">
                 <button
                   className="model-icon-button model-preset-edit"
-                  aria-label="编辑预设"
-                  title="编辑预设"
+                  aria-label={tr('编辑预设')}
+                  title={tr('编辑预设')}
                   aria-pressed={tools}
                   disabled={busy || !prefs.presets.length}
                   onClick={() => {
@@ -695,8 +713,8 @@ export function ModelView({
                 </button>
                 <button
                   className="model-icon-button model-preset-add"
-                  aria-label="添加预设"
-                  title="添加预设"
+                  aria-label={tr('添加预设')}
+                  title={tr('添加预设')}
                   disabled={busy || !allowed || !s.current}
                   onClick={addPreset}
                 >
@@ -708,7 +726,7 @@ export function ModelView({
           </section>
         </div>
         {others && (
-          <div className="model-picker" ref={picker} role="region" aria-label="所有模型">
+          <div className="model-picker" ref={picker} role="region" aria-label={tr('所有模型')}>
             {!headerActions && catalogControls}
             <div
               className="model-other-list"
@@ -759,7 +777,7 @@ export function ModelView({
                   </div>
                 </section>
               ))}
-              {!models.length && <p>暂无可用模型</p>}
+              {!models.length && <p>{tr('暂无可用模型')}</p>}
             </div>
           </div>
         )}
@@ -767,7 +785,7 @@ export function ModelView({
       {(!prefs.enabled || s.message) && (
         <footer className="model-footer">
           <span role="status">
-            {!prefs.enabled ? '模型切换已停用，请在设置页开启。' : s.message}
+            {!prefs.enabled ? tr('模型切换已停用，请在设置页开启。') : tr(s.message)}
           </span>
         </footer>
       )}

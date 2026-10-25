@@ -1,3 +1,4 @@
+import { tr } from '../../shared/i18n.js';
 /*
  * [INPUT]: 当前容器内容尺寸、面板尺寸声明与按呈现方式保存的布局偏好。
  * [OUTPUT]: 内置面板元数据、偏好迁移、纯分栏计算与统一编排命令。
@@ -5,8 +6,22 @@
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
 export const workbenchPanels = [
-  { id: 'outline', title: '大纲', minWidth: 220, minHeight: 180 },
-  { id: 'next', title: '下一步', minWidth: 260, minHeight: 180 },
+  {
+    id: 'outline',
+    get title() {
+      return tr('大纲');
+    },
+    minWidth: 220,
+    minHeight: 180,
+  },
+  {
+    id: 'next',
+    get title() {
+      return tr('下一步');
+    },
+    minWidth: 260,
+    minHeight: 180,
+  },
 ];
 // 注册表与已打开面板分开；新增注册项不会自动启用功能或多占一栏。
 export function activeWorkbenchPanels(registry = workbenchPanels) {

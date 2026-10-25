@@ -1,5 +1,5 @@
 /* [INPUT]: Shared header template, workspace CSS and synthetic source/state updates.
- * [OUTPUT]: Initial and refreshed headers keep legacy text hidden and icon actions accessible.
+ * [OUTPUT]: Headers keep legacy text hidden; icon actions and drafts survive language and surface changes.
  * [POS]: Isolated browser DOM/geometry checks; no screenshots, host data or native commands.
  * [PROTOCOL]: Keep tests/AGENTS.md in sync. */
 import test from 'node:test';
@@ -55,6 +55,8 @@ test('workspace icons share names and hit areas across surfaces, model catalog a
     import React from 'react'; import {createRoot} from 'react-dom/client';
     import {installFeatureLayout} from './ui/surfaces/workspace/layout';
     import {ModelView} from './ui/features/model/view';
+    import {setLocale} from './ui/shared/i18n';
+    window.changeLocale=setLocale;
     const root=document.getElementById('workbench'); window.saves=[]; window.actions=[];
     const ids=['outline','next','board','model','terms','bots'];
     window.items=ids.map(id=>{const node=document.createElement('div');node.style.height='100%';node.innerHTML='<input aria-label="'+id+'草稿" value="保留草稿">';return {id,node,active:true}});
@@ -181,6 +183,29 @@ test('workspace icons share names and hit areas across surfaces, model catalog a
     await page.mouse.up();
     await page.waitForFunction(() => document.querySelectorAll('.csw-workbench-pane').length === 1);
     assert.equal(await page.getByLabel('next草稿', { exact: true }).inputValue(), '图标切换后保留');
+    const savedLayout = await page.evaluate(() => structuredClone(layout));
+    await page.evaluate(() => changeLocale('en'));
+    for (const surface of ['sidebar', 'overlay', 'desktop']) {
+      await page.evaluate((surface) => show(surface), surface);
+      assert.deepEqual(
+        await page
+          .locator('[data-pane-tab]')
+          .evaluateAll((nodes) => nodes.map((n) => n.getAttribute('aria-label')).sort()),
+        ['Outline', 'Next steps', 'Board', 'Model switching', 'Terms', 'Grok Bot'].sort(),
+      );
+      await tab('Next steps').click();
+      assert.equal(
+        await page.getByLabel('next草稿', { exact: true }).inputValue(),
+        '图标切换后保留',
+      );
+      await tab('Model switching').click();
+      await page.getByRole('button', { name: 'All models', exact: true }).waitFor();
+      assert.equal(await page.locator('#workbench').getAttribute('lang'), 'en');
+    }
+    assert.deepEqual(
+      await page.evaluate(() => layout.groups.map((group) => group.ids)),
+      savedLayout.groups.map((group) => group.ids),
+    );
     assert.deepEqual(await page.evaluate(() => actions), []);
     assert.deepEqual(errors, []);
   } finally {

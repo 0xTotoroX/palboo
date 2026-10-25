@@ -50,7 +50,7 @@ async function newChat(page) {
 const targetBeta = { model: 'beta', reasoning: 'high', speed: 'standard' };
 let count = 0;
 async function check(name, test, options) {
-  const page = await browser.newPage();
+  const page = await browser.newPage({ locale: 'zh-CN' });
   try {
     await fixture(page, options);
     await test(page);

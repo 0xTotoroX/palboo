@@ -1,3 +1,5 @@
+import { useLocale } from '../shared/use-locale';
+import { tr } from '../shared/i18n.js';
 /* [INPUT]: Mounted settings labels, explicit page catalog and lazy drawer entries.
  * [OUTPUT]: Local label search with Cmd/Ctrl+K and original-control navigation; library editors opt out of indexing private names.
  * [POS]: Presentation only; never indexes input values, credentials or chat content.
@@ -15,14 +17,30 @@ type Entry = {
 };
 const normalize = (text: string) => text.toLocaleLowerCase().replace(/\s+/g, ' ').trim();
 const aliases: Record<string, string> = {
-  'model-organization': '模型 厂家 分类 分组 常用 手动 自动',
-  'settings-grokbot': 'Grok Bot BDK 机器人 名单 同步',
-  'settings-token-meter': 'token tok/s 速度 用量 输出 思考 统计 开关',
-  'settings-prompt-enhancement': 'prompt 优化 改写 增强 开关',
-  'settings-codex-host': 'CodexHost agent 代理 启动 安装 更新 回退 重启',
-  'api-key': 'API key 密钥',
-  'base-url': 'URL API 地址 接口',
-  'host-restart-policy': '启动 重启 强制 询问',
+  get 'model-organization'() {
+    return tr('模型 厂家 分类 分组 常用 手动 自动');
+  },
+  get 'settings-grokbot'() {
+    return tr('Grok Bot BDK 机器人 名单 同步');
+  },
+  get 'settings-token-meter'() {
+    return tr('token tok/s 速度 用量 输出 思考 统计 开关');
+  },
+  get 'settings-prompt-enhancement'() {
+    return tr('prompt 优化 改写 增强 开关');
+  },
+  get 'settings-codex-host'() {
+    return tr('CodexHost agent 代理 启动 安装 更新 回退 重启');
+  },
+  get 'api-key'() {
+    return tr('API key 密钥');
+  },
+  get 'base-url'() {
+    return tr('URL API 地址 接口');
+  },
+  get 'host-restart-policy'() {
+    return tr('启动 重启 强制 询问');
+  },
 };
 function indexSettings(): Entry[] {
   const content = document.querySelector('.settings-content');
@@ -85,17 +103,17 @@ function indexSettings(): Entry[] {
   const drawers: Entry[] = [
     {
       id: 'settings-library',
-      label: '词库管理',
+      label: tr('词库管理'),
       category: 'terminology',
-      context: '术语释义',
-      keywords: '词库管理 导入 导出',
+      context: tr('术语释义'),
+      keywords: tr('词库管理 导入 导出'),
     },
     {
       id: 'model-organization',
-      label: '模型分组',
+      label: tr('模型分组'),
       category: 'model-control',
-      context: '模型切换',
-      keywords: '模型分组 厂家 分类',
+      context: tr('模型切换'),
+      keywords: tr('模型分组 厂家 分类'),
     },
   ];
   return [...fields, ...pages, ...drawers].filter(
@@ -122,6 +140,7 @@ export function SettingsSearch({
 }: {
   navigate: (page: SettingsPage, hash: string) => void;
 }) {
+  useLocale();
   const [query, setQuery] = useState('');
   const [entries, setEntries] = useState<Entry[]>([]);
   const [open, setOpen] = useState(false);
@@ -205,7 +224,7 @@ export function SettingsSearch({
         ref={triggerRef}
         type="button"
         className="settings-search-trigger"
-        aria-label="搜索设置"
+        aria-label={tr('搜索设置')}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={dialogId}
@@ -218,7 +237,7 @@ export function SettingsSearch({
         ref={dialogRef}
         id={dialogId}
         className="settings-search-dialog"
-        aria-label="搜索设置"
+        aria-label={tr('搜索设置')}
         onTransitionEnd={(event) => {
           if (
             event.target === event.currentTarget &&
@@ -250,8 +269,8 @@ export function SettingsSearch({
             ref={inputRef}
             type="search"
             aria-keyshortcuts="Meta+K Control+K"
-            aria-label="搜索设置"
-            placeholder="搜索设置"
+            aria-label={tr('搜索设置')}
+            placeholder={tr('搜索设置')}
             value={query}
             aria-controls="settings-search-results"
             onChange={(event) => setQuery(event.target.value)}
@@ -276,14 +295,14 @@ export function SettingsSearch({
               }
             }}
           />
-          <button type="button" aria-label="关闭搜索" onClick={close}>
+          <button type="button" aria-label={tr('关闭搜索')} onClick={close}>
             <Icon name="close" />
           </button>
         </div>
         {
           <ul
             id="settings-search-results"
-            aria-label="设置搜索结果"
+            aria-label={tr('设置搜索结果')}
             ref={resultsRef}
             onKeyDown={(event) => {
               if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
@@ -318,7 +337,7 @@ export function SettingsSearch({
             ))}
             {!results.length && (
               <li className="settings-search-empty" role="status">
-                没有找到设置
+                {tr('没有找到设置')}
               </li>
             )}
           </ul>

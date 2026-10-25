@@ -1,3 +1,4 @@
+import { tr } from '../shared/i18n.js';
 /*
  * [INPUT]: 宿主 DOM、上下文状态和基础可见性工具。
  * [OUTPUT]: 宿主交互目标记录、工作台跟随/锁定策略、稳定聊天身份重绑与来源可用性、唯一可见主聊天身份；限定容器内的输入目标、包含关联输入区的忙碌状态、完整相邻问答及上下文变更通知。
@@ -251,7 +252,9 @@ function sourceLabel(root) {
     foreground?.thread === root
       ? foreground.dialog.querySelector('header')?.textContent?.trim().slice(0, 90)
       : '';
-  return title ? `聊天 · ${title}` : `Codex · 任务 ${sessionIdForRoot(root).slice(-8)}`;
+  return title
+    ? tr('聊天 · {{title}}', { title })
+    : tr('Codex · 任务 {{id}}', { id: sessionIdForRoot(root).slice(-8) });
 }
 
 function selectedThreadRoot() {
@@ -279,13 +282,13 @@ function chatBindingStatus() {
 
 function changeChatBinding(action, expectedSessionId = '') {
   if (!['follow', 'lock', 'current'].includes(action))
-    return { ok: false, message: '不支持的聊天关联操作。' };
+    return { ok: false, message: tr('不支持的聊天关联操作。') };
   const root = action === 'lock' ? resolveActiveThreadRoot() : selectedThreadRoot();
   if (
     action !== 'follow' &&
     (!lockableRoot(root) || (expectedSessionId && sessionIdForRoot(root) !== expectedSessionId))
   )
-    return { ok: false, message: '聊天来源已经变化或无法确认身份，请重新选择。' };
+    return { ok: false, message: tr('聊天来源已经变化或无法确认身份，请重新选择。') };
   contextState.chatBinding =
     action === 'follow'
       ? { mode: 'follow', sessionId: '', label: '' }
