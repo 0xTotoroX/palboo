@@ -229,10 +229,13 @@ test(
       await demo.getByLabel('接着聊', { exact: true }).blur();
 
       await scrollScene(page, '.reading-story', 0.48);
+      await page.locator('.product-demo:visible[data-feature="outline"]').waitFor();
       assert.equal(await demo.getAttribute('data-feature'), 'outline');
       await scrollScene(page, '.reading-story', 0.9);
+      await page.locator('.product-demo:visible[data-feature="terms"]').waitFor();
       assert.equal(await demo.getAttribute('data-feature'), 'terms');
       await scrollScene(page, '.reading-story', 0.1);
+      await page.locator('.product-demo:visible[data-feature="next"]').waitFor();
       assert.equal(
         await demo.getByLabel('接着聊', { exact: true }).inputValue(),
         '滚动时保留的草稿',
