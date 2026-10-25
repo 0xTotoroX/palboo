@@ -183,17 +183,22 @@ test(
       viewport: { width: 1440, height: 1000 },
     });
     try {
+      await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') });
+      await page.clock.pauseAt(new Date('2026-01-01T00:00:10Z'));
       await page.goto(base);
       page.setDefaultTimeout(15000);
       const stage = page.locator('.original-opening');
-      const typing = await page.waitForFunction(() => {
-        const t = +document.querySelector('.original-opening').dataset.time;
-        if (t <= 0.45 || t >= 0.65) return false;
-        return ['p', 'a', 'l'].map((letter) =>
-          document.querySelector(`#letter-${letter}`).getAttribute('opacity'),
-        );
-      });
-      assert.deepEqual(await typing.jsonValue(), ['1', '1', '0']);
+      // Advance the actual animation frames instead of racing a 200ms CI window.
+      await page.clock.runFor(560);
+      const typing = await stage.evaluate((element) => ({
+        time: +element.dataset.time,
+        letters: ['p', 'a', 'l'].map((letter) =>
+          element.querySelector(`#letter-${letter}`).getAttribute('opacity'),
+        ),
+      }));
+      assert.ok(typing.time > 0.45 && typing.time < 0.65, JSON.stringify(typing));
+      assert.deepEqual(typing.letters, ['1', '1', '0']);
+      await page.clock.resume();
       await page.getByRole('button', { name: '重播品牌开场' }).click();
       assert.ok(+(await stage.getAttribute('data-time')) < 0.3);
       await page.waitForFunction(
@@ -498,60 +503,61 @@ test('original settings journey, layout controls and drafts are reused on the we
   }
 });
 
-test('opening stays within short desktop viewports and the original eyes clear the copy throughout the flight', async () => {
-  const page = await browser.newPage();
-  try {
-    for (const viewport of [
-      { width: 1440, height: 900 },
-      { width: 900, height: 700 },
-      { width: 1280, height: 651 },
-    ]) {
-      await page.setViewportSize(viewport);
-      await page.goto(base);
-      for (const progress of [
-        0, 0.03, 0.08, 0.12, 0.14, 0.155, 0.16, 0.25, 0.45, 0.6, 0.8, 0.9, 1, 0.4, 0.08,
+for (const locale of ['zh-CN', 'en-US'])
+  test(`opening stays within short desktop viewports and the original eyes clear the copy throughout the flight (${locale})`, async () => {
+    const page = await browser.newPage({ locale });
+    try {
+      for (const viewport of [
+        { width: 1440, height: 900 },
+        { width: 900, height: 700 },
+        { width: 1280, height: 651 },
       ]) {
-        await scrollOpening(page, progress);
-        const geometry = await page.evaluate(() => {
-          const rect = (selector) =>
-            document.querySelector(selector).getBoundingClientRect().toJSON();
-          return {
-            entry: rect('.opening-story .demo-entry'),
-            preview: rect('.intro-preview'),
-            device: rect('.opening-story .demo-device'),
-            copy: rect('.opening-copy'),
-            eyes: [rect('#ring-0'), rect('#ring-1')],
-            text: [rect('h1'), rect('.opening-copy p')],
-          };
-        });
-        assert.ok(
-          progress < 0.6 ||
-            (geometry.preview.bottom <= viewport.height &&
-              geometry.entry.bottom <= viewport.height),
-          JSON.stringify({ viewport, progress, geometry }),
-        );
-        assert.ok(
-          progress > 0 || geometry.copy.bottom + 8 <= geometry.device.top,
-          JSON.stringify({ viewport, geometry }),
-        );
-        if (progress > 0 && (await page.locator('.opening-copy').isVisible())) {
-          for (const eye of geometry.eyes)
-            for (const text of geometry.text) {
-              assert.ok(
-                eye.right <= text.left ||
-                  eye.left >= text.right ||
-                  eye.bottom <= text.top ||
-                  eye.top >= text.bottom,
-                JSON.stringify({ viewport, progress, eye, text }),
-              );
-            }
+        await page.setViewportSize(viewport);
+        await page.goto(base);
+        for (const progress of [
+          0, 0.03, 0.08, 0.12, 0.14, 0.155, 0.16, 0.25, 0.45, 0.6, 0.8, 0.9, 1, 0.4, 0.08,
+        ]) {
+          await scrollOpening(page, progress);
+          const geometry = await page.evaluate(() => {
+            const rect = (selector) =>
+              document.querySelector(selector).getBoundingClientRect().toJSON();
+            return {
+              entry: rect('.opening-story .demo-entry'),
+              preview: rect('.intro-preview'),
+              device: rect('.opening-story .demo-device'),
+              copy: rect('.opening-copy'),
+              eyes: [rect('#ring-0'), rect('#ring-1')],
+              text: [rect('h1'), rect('.opening-copy p')],
+            };
+          });
+          assert.ok(
+            progress < 0.6 ||
+              (geometry.preview.bottom <= viewport.height &&
+                geometry.entry.bottom <= viewport.height),
+            JSON.stringify({ viewport, progress, geometry }),
+          );
+          assert.ok(
+            progress > 0 || geometry.copy.bottom + 8 <= geometry.device.top,
+            JSON.stringify({ viewport, geometry }),
+          );
+          if (progress > 0 && (await page.locator('.opening-copy').isVisible())) {
+            for (const eye of geometry.eyes)
+              for (const text of geometry.text) {
+                assert.ok(
+                  eye.right <= text.left ||
+                    eye.left >= text.right ||
+                    eye.bottom <= text.top ||
+                    eye.top >= text.bottom,
+                  JSON.stringify({ viewport, progress, eye, text }),
+                );
+              }
+          }
         }
       }
+    } finally {
+      await page.close();
     }
-  } finally {
-    await page.close();
-  }
-});
+  });
 
 test('reading changes with the visible heading, releases pointer actions and restores static chapter correspondence', async () => {
   const page = await browser.newPage({

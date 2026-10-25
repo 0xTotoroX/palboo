@@ -206,6 +206,7 @@ return <div className="settings-app" ref={ref}>
     const search = page.locator('.settings-search-dialog');
     await page.getByRole('button', { name: '搜索设置', exact: true }).click();
     await page.getByRole('searchbox', { name: '搜索设置' }).fill('草稿');
+    await finishAnimations(search);
     await page.getByRole('button', { name: '关闭搜索', exact: true }).click();
     assert.equal(
       await search.locator('input').inputValue(),

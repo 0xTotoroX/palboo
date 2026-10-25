@@ -911,8 +911,11 @@ h2 {
   max-width: 750px;
   margin-inline: auto;
 }
+:lang(en) .opening-story[data-static='false'] .opening-copy {
+  top: 23svh;
+}
 :lang(en) .opening-copy h1 {
-  font-size: clamp(30px, 4.6vw, 58px);
+  font-size: clamp(30px, min(4.6vw, 6.5svh), 58px);
   text-wrap: balance;
 }
 :lang(en) .opening-copy p {
