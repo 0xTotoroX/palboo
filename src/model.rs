@@ -1,5 +1,5 @@
 // [INPUT]: 模型配置、受限 Codex CLI 或 HTTP 结构化接口。
-// [OUTPUT]: Model、ModelInfo、Suggestion、带分域请求租约的无工具结构化补全与生成/测试/模型查询。
+// [OUTPUT]: Model、ModelInfo、Suggestion、保留原 Codex 服务路由的无工具结构化补全与生成/测试/模型查询。
 // [POS]: 模型适配层，三种方向来源共用生成与总超时；智谱请求/最终回答适配，保留方向和数量校验。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
@@ -25,6 +25,7 @@ pub struct Model {
     api_key: Option<String>,
     jev_key: Option<String>,
     codex_provider: Option<(String, toml::Value)>,
+    codex_openai_base_url: Option<String>,
     pub options: crate::settings::Options,
 }
 
@@ -98,6 +99,11 @@ impl Model {
             provider,
             name: model,
             codex_provider,
+            codex_openai_base_url: native
+                .get("openai_base_url")
+                .and_then(toml::Value::as_str)
+                .filter(|url| !url.trim().is_empty())
+                .map(str::to_owned),
             binary: config.codex_bin.clone().or_else(crate::config::find_codex),
             base_url: crate::brand::env("PALBOO_BASE_URL")
                 .ok()
@@ -123,6 +129,7 @@ impl Model {
             api_key: Some("fixture".into()),
             jev_key: Some("fixture".into()),
             codex_provider: None,
+            codex_openai_base_url: None,
             options: Default::default(),
             request_lease: None,
         }
@@ -154,6 +161,7 @@ impl Model {
             && self.base_url == other.base_url
             && self.api_key == other.api_key
             && self.codex_provider == other.codex_provider
+            && self.codex_openai_base_url == other.codex_openai_base_url
             && self.options.protocol == other.options.protocol
             && self.options.timeout_ms == other.options.timeout_ms
             && self.options.max_output_tokens == other.options.max_output_tokens
@@ -185,6 +193,7 @@ impl Model {
             && self.base_url == other.base_url
             && self.api_key == other.api_key
             && self.codex_provider == other.codex_provider
+            && self.codex_openai_base_url == other.codex_openai_base_url
             && (self.options.direction_source != crate::directions::DirectionSource::Smart
                 && other.options.direction_source != crate::directions::DirectionSource::Smart
                 || self.jev_key == other.jev_key)
@@ -405,6 +414,11 @@ impl Model {
             command.args(["--model", &self.name]);
         }
         // Only forward model routing, never the user's MCP, hooks or other agent settings.
+        if let Some(base_url) = &self.codex_openai_base_url {
+            command
+                .arg("-c")
+                .arg(format!("openai_base_url={}", toml_string(base_url)));
+        }
         if let Some((name, config)) = &self.codex_provider {
             let safe_keys = [
                 "name",
@@ -834,6 +848,53 @@ pub fn parse_suggestions(text: &str) -> Result<Vec<Suggestion>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn codex_completion_preserves_the_existing_openai_route() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let root = tempfile::tempdir().unwrap();
+        let binary = root.path().join("codex");
+        std::fs::write(
+            &binary,
+            r#"#!/bin/sh
+route=0
+isolated=0
+output=''
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        'openai_base_url="http://127.0.0.1:3425/backend-api/codex"') route=1 ;;
+        --ignore-user-config) isolated=1 ;;
+        --output-last-message) shift; output="$1" ;;
+    esac
+    shift
+done
+[ "$route" = 1 ] && [ "$isolated" = 1 ] && [ -n "$output" ] || exit 45
+cat >/dev/null
+printf '%s' '{"ok":true}' > "$output"
+"#,
+        )
+        .unwrap();
+        std::fs::set_permissions(&binary, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let mut model = Model::synthetic("http://localhost/unused".into());
+        model.provider = "codex".into();
+        model.binary = Some(binary);
+        model.options.timeout_ms = 2000;
+        let previous = model.clone();
+        model.codex_openai_base_url = Some("http://127.0.0.1:3425/backend-api/codex".into());
+        assert!(!model.same_service_config(&previous));
+        assert!(!model.same_generation_config(&previous));
+        let response = model
+            .complete_json("connection test", "return JSON", &json!({"type":"object"}))
+            .await
+            .unwrap();
+        assert_eq!(
+            serde_json::from_str::<Value>(&response).unwrap(),
+            json!({"ok":true})
+        );
+    }
+
     #[tokio::test]
     async fn invalidated_request_cannot_fallback_to_another_protocol() {
         use std::sync::{

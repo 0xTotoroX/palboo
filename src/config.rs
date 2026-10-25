@@ -1,5 +1,5 @@
 // [INPUT]: 环境变量、命令参数与独立私有数据目录。
-// [OUTPUT]: Config、旧建议数量/方向目录增量升级、Paths 及生成/Jev 独立私有密钥读写。
+// [OUTPUT]: Config、旧建议数量/方向目录增量升级、Paths、包内 Codex CLI 发现及生成/Jev 独立私有密钥读写。
 // [POS]: Rust 配置基础层，管理独立的应用数据目录。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
@@ -167,12 +167,12 @@ pub fn find_codex() -> Option<PathBuf> {
     if let Some(path) = crate::brand::env_os("PALBOO_CODEX_BIN") {
         return Some(PathBuf::from(path));
     }
-    for path in [
-        "/Applications/ChatGPT.app/Contents/Resources/codex",
-        "/Applications/Codex.app/Contents/Resources/codex",
+    for resources in [
+        "/Applications/ChatGPT.app/Contents/Resources",
+        "/Applications/Codex.app/Contents/Resources",
     ] {
-        if Path::new(path).is_file() {
-            return Some(PathBuf::from(path));
+        if let Some(path) = bundled_codex(Path::new(resources)) {
+            return Some(path);
         }
     }
     std::env::split_paths(&std::env::var_os("PATH")?)
@@ -180,9 +180,37 @@ pub fn find_codex() -> Option<PathBuf> {
         .find(|path| path.is_file())
 }
 
+fn bundled_codex(resources: &Path) -> Option<PathBuf> {
+    // Finder 启动不继承终端 PATH；新版宿主将 CLI 放在独立的 App 包内。
+    ["codex-cli/CodexCLI.app/Contents/MacOS/codex", "codex"]
+        .into_iter()
+        .map(|relative| resources.join(relative))
+        .find(|path| path.is_file())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn discovers_bundled_codex_without_a_shell_path() {
+        let root = tempfile::tempdir().unwrap();
+        let resources = root.path().join("Host App.app/Contents/Resources");
+        std::fs::create_dir_all(&resources).unwrap();
+        assert!(bundled_codex(&resources).is_none());
+
+        let legacy = resources.join("codex");
+        std::fs::write(&legacy, "legacy CLI").unwrap();
+        assert_eq!(bundled_codex(&resources), Some(legacy.clone()));
+
+        let current = resources.join("codex-cli/CodexCLI.app/Contents/MacOS/codex");
+        std::fs::create_dir_all(current.parent().unwrap()).unwrap();
+        std::fs::write(&current, "current CLI").unwrap();
+        assert_eq!(bundled_codex(&resources), Some(current.clone()));
+        std::fs::remove_file(&legacy).unwrap();
+        assert_eq!(bundled_codex(&resources), Some(current));
+    }
+
     #[test]
     fn only_accepts_local_debug_endpoints() {
         assert_eq!(local_endpoint("9229").unwrap(), "http://127.0.0.1:9229");
