@@ -351,14 +351,33 @@ test(
         await sourceWidget.locator('[data-state]').getAttribute('data-complete'),
         'false',
       );
+      assert.equal(
+        await page.evaluate(() => sessionStorage.getItem('palboo-dev-source-switch')),
+        null,
+        'failed switches must clear their pending target',
+      );
       await Promise.all(responseChecks);
       rejectSourceForTest = false;
       await page.unroute('**/api/dev/sources');
       let releaseSwitch;
       const switchGate = new Promise((resolve) => (releaseSwitch = resolve));
+      let switchedReload;
+      const reloadedDuringSwitch = new Promise((resolve, reject) => {
+        switchedReload = { resolve, reject };
+      });
       await page.route('**/api/dev/sources', async (route) => {
-        if (route.request().method() === 'POST') await switchGate;
-        await route.continue();
+        if (route.request().method() !== 'POST') return route.continue();
+        try {
+          await switchGate;
+          const response = await route.fetch();
+          // Vite can replace the document before the switching request resolves.
+          // Force that ordering, so completion cannot depend on its old callback.
+          await page.reload();
+          switchedReload.resolve();
+          await route.fulfill({ response });
+        } catch (error) {
+          switchedReload.reject(error);
+        }
       });
       switchingSource = true;
       switchStarted = true;
@@ -379,10 +398,8 @@ test(
         'none',
       );
       await page.emulateMedia({ reducedMotion: 'no-preference' });
-      await Promise.all([
-        page.waitForEvent('domcontentloaded', { timeout: 30000 }),
-        Promise.resolve().then(() => releaseSwitch()),
-      ]);
+      releaseSwitch();
+      await reloadedDuringSwitch;
       await page.unroute('**/api/dev/sources');
       stage = 'wait for switched source widget';
       await sourceWidget
@@ -489,6 +506,21 @@ test(
       assert.equal(existsSync(join(other, 'target/dev/owner.json')), false);
     } catch (error) {
       context.diagnostic(`Failed during ${stage}: ${error.message}`);
+      const currentPage = browser?.contexts()[0]?.pages()[0];
+      if (currentPage && !currentPage.isClosed()) {
+        context.diagnostic(
+          JSON.stringify(
+            await currentPage
+              .evaluate(() => ({
+                switchTarget: sessionStorage.getItem('palboo-dev-source-switch'),
+                state: document
+                  .querySelector('#buddy-dev-sources')
+                  ?.shadowRoot?.querySelector('[data-state]')?.outerHTML,
+              }))
+              .catch(() => null),
+          ),
+        );
+      }
       throw new Error(
         `Stage: ${stage}\nBrowser errors: ${errors.join('\n')}\nSupervisor log:\n${logs}`,
         {

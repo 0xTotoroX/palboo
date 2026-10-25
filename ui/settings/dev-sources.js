@@ -69,6 +69,7 @@ let active = '',
   serverBusy = false,
   switchError = '',
   switchTarget = '',
+  leaving = false,
   requestEpoch = 0;
 const switchKey = 'palboo-dev-source-switch';
 try {
@@ -215,10 +216,10 @@ view.querySelector('form').addEventListener('submit', async (event) => {
   requestEpoch += 1;
   pending = true;
   switchError = switchTarget = '';
-  // Vite can reload again while preparing the new source. Keep the last
-  // requested target until another switch begins, and always recheck loaded.
+  // Vite can reload before the POST response arrives. Persist the intent first;
+  // completion still requires the target to be active with verified resources.
   try {
-    sessionStorage.removeItem(switchKey);
+    sessionStorage.setItem(switchKey, target);
   } catch {}
   state.dataset.complete = 'false';
   state.dataset.error = 'false';
@@ -226,12 +227,14 @@ view.querySelector('form').addEventListener('submit', async (event) => {
   state.textContent = tr('正在准备目标来源…');
   try {
     await api({ path: target });
-    try {
-      sessionStorage.setItem(switchKey, target);
-    } catch {}
     state.textContent = tr('来源已交接，正在刷新界面…');
     location.reload();
   } catch (error) {
+    // A reload aborts the old document's fetch, not the server-side handoff.
+    if (leaving) return;
+    try {
+      sessionStorage.removeItem(switchKey);
+    } catch {}
     requestEpoch += 1;
     switchError = error.message;
     state.textContent = switchError;
@@ -242,4 +245,5 @@ view.querySelector('form').addEventListener('submit', async (event) => {
 });
 void refresh();
 const timer = setInterval(refresh, 5000);
+window.addEventListener('beforeunload', () => (leaving = true), { once: true });
 window.addEventListener('pagehide', () => clearInterval(timer), { once: true });
