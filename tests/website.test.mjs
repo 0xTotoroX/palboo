@@ -1368,6 +1368,7 @@ test('scroll-led tool demonstrations show task progress, models, speed, optimiza
       assert.match(await page.getByLabel('Bot 咨询草稿').inputValue(), new RegExp(name));
     }
     await scrollScene(page, '.model-tour', 0.05);
+    await model.locator('button[aria-label="GPT-6.1-Sol · Low"][aria-pressed="true"]').waitFor();
     assert.equal(
       await model
         .getByRole('button', { name: 'GPT-6.1-Sol · Low', exact: true })
