@@ -1,6 +1,6 @@
 // [INPUT]: App、宿主投影、窗口租约与私有 panel 偏好（新聊天/Dots 侧栏开关仅由外观设置修改）。
 // [OUTPUT]: macOS 15+ arm64 弹出能力与入口校验、Panel、独立胶囊/工作台尺寸、统一字体跟随偏好、兼容分功能字号及分呈现方式的排列/比例偏好、带分栏阅读位置与新建任务草稿接续的弹出/收回/受限命令（含常用提示词填入），以及保留原实例的开发唤起目标。
-// [POS]: 后台系统浮窗管理层，窗口在来源位置原生呈现后隐藏内嵌胶囊；受租约保护的临时坐标不持久化，收回偏好按版本校验并保存。
+// [POS]: 后台系统浮窗管理层，从准备租约起保护窗口快照，原生呈现后隐藏内嵌胶囊；临时坐标不持久化，收回偏好按版本校验并保存。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
 use crate::{
@@ -859,7 +859,11 @@ impl App {
 
     pub(crate) async fn observe_panel_ui(&self, revision: u64, ui: Value) -> Result<()> {
         let mut panel = self.panel.lock().await;
-        if panel.ready || panel.prefs.detached || panel.prefs.revision != revision {
+        if !panel.lease.is_empty()
+            || panel.ready
+            || panel.prefs.detached
+            || panel.prefs.revision != revision
+        {
             return Ok(());
         }
         let mut ui: Ui = serde_json::from_value(ui)?;
@@ -933,6 +937,18 @@ mod tests {
         let lease = app.panel.lock().await.lease.clone();
         let mut input = panel_input(lease);
         assert!(!app.panel_host_state().await.0);
+        let preparing = app.appearance().await;
+        let mut stale_host_ui = preparing.ui.clone();
+        stale_host_ui.open = false;
+        stale_host_ui.width += 40.;
+        app.observe_panel_ui(preparing.revision, json!(stale_host_ui))
+            .await
+            .unwrap();
+        assert_eq!(
+            app.appearance().await,
+            preparing,
+            "a late host observation cannot change the preparing window snapshot"
+        );
         app.ready_panel(&input).await.unwrap();
         assert!(app.panel.lock().await.ready);
         assert!(!app.panel_host_state().await.0);
