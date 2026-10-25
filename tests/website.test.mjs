@@ -779,7 +779,8 @@ test('light/dark responsive and short screens preserve readable controls without
   try {
     await page.goto(base);
     for (const theme of ['light', 'dark']) {
-      await page.emulateMedia({ colorScheme: theme });
+      if ((await page.locator('html').getAttribute('data-site-theme')) !== theme)
+        await page.locator('.site-theme').click();
       await page.waitForFunction(
         (value) => document.documentElement.dataset.siteTheme === value,
         theme,
@@ -1020,7 +1021,7 @@ test('opening approaches one shared model and reveals working controls without l
   }
 });
 
-test('website theme remembers overrides and resumes system changes without clearing demos', async () => {
+test('website theme toggles directly and remembers the choice without following system changes', async () => {
   const context = await browser.newContext({
     locale: 'zh-CN',
     colorScheme: 'light',
@@ -1038,14 +1039,14 @@ test('website theme remembers overrides and resumes system changes without clear
     );
   try {
     await page.goto(`${base}/?lang=zh-CN`);
-    const picker = page.getByRole('combobox', { name: '主题', exact: true });
-    assert.equal(await picker.inputValue(), 'system');
+    const toggle = page.locator('.site-theme');
+    assert.equal(await toggle.getAttribute('aria-label'), '切换为深色');
     await expectTheme(page, 'light');
     await scrollScene(page, '.opening-story', 1);
     const draft = page.locator('.surface-story').getByLabel('下一步示例草稿');
     await draft.fill('主题切换保留草稿');
     await draft.blur();
-    await picker.selectOption('dark');
+    await page.getByRole('button', { name: '切换为深色', exact: true }).click();
     await expectTheme(page, 'dark');
     assert.equal(await draft.inputValue(), '主题切换保留草稿');
     await page.emulateMedia({ colorScheme: 'dark' });
@@ -1053,21 +1054,21 @@ test('website theme remembers overrides and resumes system changes without clear
     await expectTheme(page, 'dark');
     await page.reload();
     await expectTheme(page, 'dark');
-    assert.equal(await picker.inputValue(), 'dark');
-    await picker.selectOption('system');
-    await expectTheme(page, 'light');
+    await page.getByRole('button', { name: '切换为浅色', exact: true }).focus();
+    await page.keyboard.press('Enter');
     await page.emulateMedia({ colorScheme: 'dark' });
-    await expectTheme(page, 'dark');
-    await picker.selectOption('light');
     await expectTheme(page, 'light');
     const other = await context.newPage();
     await other.goto(`${base}/?lang=en`);
     await expectTheme(other, 'light');
-    const otherPicker = other.getByRole('combobox', { name: 'Theme', exact: true });
-    assert.equal(await otherPicker.inputValue(), 'light');
-    await picker.selectOption('dark');
+    const otherToggle = other.getByRole('button', { name: 'Switch to dark mode', exact: true });
+    assert.equal(await otherToggle.isVisible(), true);
+    await page.getByRole('button', { name: '切换为深色', exact: true }).click();
     await expectTheme(other, 'dark');
-    assert.equal(await otherPicker.inputValue(), 'dark');
+    assert.equal(
+      await other.getByRole('button', { name: 'Switch to light mode', exact: true }).isVisible(),
+      true,
+    );
     await other.close();
     await page.addInitScript(() => {
       Storage.prototype.getItem = () => {
@@ -1078,10 +1079,9 @@ test('website theme remembers overrides and resumes system changes without clear
       };
     });
     await page.reload();
-    await expectTheme(page, 'dark');
-    assert.equal(await picker.inputValue(), 'system');
-    await picker.selectOption('light');
     await expectTheme(page, 'light');
+    await page.getByRole('button', { name: '切换为深色', exact: true }).click();
+    await expectTheme(page, 'dark');
     assert.deepEqual(errors, []);
   } finally {
     await context.close();

@@ -94,6 +94,7 @@ export function App({ githubVariant }: { githubVariant?: GithubLinkVariant }) {
       </a>
       <main id="main" tabIndex={-1}>
         <OpeningStory githubVariant={githubVariant} />
+        <MaterialStory />
         <ReadingStory />
         <section className="board-story page-width" aria-labelledby="board-title">
           <div className="section-intro">
@@ -117,7 +118,6 @@ export function App({ githubVariant }: { githubVariant?: GithubLinkVariant }) {
           </div>
         </section>
         <ToolDetails />
-        <MaterialStory />
         <section className="connection-story page-width" aria-labelledby="connection-title">
           <div className="section-intro">
             <h2 id="connection-title">

@@ -84,7 +84,7 @@ Rust + Tokio/Axum + Tao/Wry + JavaScript 共享胶囊 + React/TypeScript/Vite + 
 - [ui/shared/AGENTS.md](ui/shared/AGENTS.md)：跨模块类型、受限通信、图标及纯资源。
 - `components.json`：shadcn/ui 的设置页路径与组件别名配置；保留 new-york/Radix 基础，上游生成的图标统一适配到 shared/icons。
 - [ui/settings/AGENTS.md](ui/settings/AGENTS.md)：React 配置页、基础组件与 Vite 入口，构建输出到 `target/web/`。
-- [ui/website/AGENTS.md](ui/website/AGENTS.md)：独立产品介绍页，无顶部导航或装饰性标签；完整播放已确认的 6.8 秒 v3 原 SVG 品牌动画，原生滚动接续双眼落入设置页复用的 Codex/副屏模型左栏，放大同一场景并显现位置、排列和字号控制；随后介绍各功能、材质、连接和安装。位置/副屏/编排/材质直接复用设置页预览，模型快切复用真实 ModelView，窄屏与减少动态效果使用逐段交互；所有演示仅使用本地示例数据。`dev:site` / `build:site` / `preview:site` 独立启动与输出 `target/site/`，不进入 App、设置页或自动发布流程。
+- [ui/website/AGENTS.md](ui/website/AGENTS.md)：独立产品介绍页，无顶部导航或装饰性标签；完整播放已确认的 6.8 秒 v3 原 SVG 品牌动画，原生滚动接续双眼落入设置页复用的 Codex/副屏模型左栏，放大同一场景并显现位置、排列和字号控制；随后紧接材质与外观，再介绍各功能、连接和安装。位置/副屏/编排/材质直接复用设置页预览，模型快切复用真实 ModelView，窄屏与减少动态效果使用逐段交互；所有演示仅使用本地示例数据。`dev:site` / `build:site` / `preview:site` 独立启动与输出 `target/site/`，不进入 App、设置页或自动发布流程。
 - `ui/shared/contracts.ts`：设置、字体、上下文与投影命令的共享类型；保存版本和生成版本各司其职。
 - `ui/shared/tokens.css`：设置页与胶囊共享的颜色、间距、圆角和控件尺寸变量，动作图标与点击区统一使用18px/28px变量。
 - `ui/icon.png`：启动器图标唯一源图；安装时由系统工具生成多尺寸 ICNS，不修改原始构图。

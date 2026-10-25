@@ -223,6 +223,8 @@ export default {
   演示字号比例: 'Demo font scale',
   演示自定字号: 'Demo custom font size',
   跟随正文: 'Follow chat text',
+  切换为浅色: 'Switch to light mode',
+  切换为深色: 'Switch to dark mode',
   自定字号: 'Custom size',
   '单击图标切换功能，拖动标题或分隔线调整布局。':
     'Click an icon to switch tools. Drag a tab or divider to arrange your workspace.',
