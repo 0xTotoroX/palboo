@@ -1,5 +1,5 @@
 /* [INPUT]: Matching test binary, isolated Chrome fixture and optional AppKit window probe.
- * [OUTPUT]: Real HTTP/CDP feature ownership, draft handoff, native readiness and task independence.
+ * [OUTPUT]: Real HTTP/CDP ownership, capability-gated recovery, draft handoff and task independence.
  * [POS]: Isolated end-to-end acceptance; no real chat, model requests or EventKit writes.
  * [PROTOCOL]: Keep tests/AGENTS.md in sync. */
 import assert from 'node:assert/strict';
@@ -864,8 +864,10 @@ try {
     .sort();
   assert.ok(expectedReopened.length > 1);
   // Closed desktop views retain their placement after a window exits. Exercise
-  // that saved state without opening a native window or touching a real host.
-  for (const placement of ['overlay', 'sidebar', 'desktop']) {
+  // that saved state only where desktop is supported, without opening a window.
+  const recoveryPlacements = ['overlay', 'sidebar'];
+  if (recoverySettings.popoutSupported) recoveryPlacements.push('desktop');
+  for (const placement of recoveryPlacements) {
     for (const e of (await state()).features.filter((e) => e.open && e.placement !== 'edge'))
       await api('features', { op: 'close', id: e.id, owner: e.owner, view: e.view });
     await page.waitForFunction(
@@ -907,8 +909,22 @@ try {
   }
   assert.deepEqual((await api('tasks/state')).store, recoveryTasks);
   record(
-    'launcher reopens closed sidebar, overlay and desktop views; disabled tools, edge owners and tasks are retained',
+    `launcher reopens closed ${recoveryPlacements.join(', ')} views; disabled tools, edge owners and tasks are retained`,
   );
+  if (!recoverySettings.popoutSupported) {
+    const before = await state();
+    await assert.rejects(
+      () => api('features', { op: 'main-placement', placement: 'desktop' }),
+      /当前系统不支持桌面窗口/,
+    );
+    const after = await state();
+    assert.equal(after.mainPlacement, before.mainPlacement);
+    assert.deepEqual(after.mainWindow, before.mainWindow);
+    const owners = (snapshot) =>
+      snapshot.features.map(({ id, owner, placement, open }) => ({ id, owner, placement, open }));
+    assert.deepEqual(owners(after), owners(before));
+    record('unsupported desktop placement is rejected without changing restored sidebar views');
+  }
   await page.screenshot({ path: join(output, 'independent-surfaces.png') });
   await api('disconnect', {});
   const current = await entry('board');
