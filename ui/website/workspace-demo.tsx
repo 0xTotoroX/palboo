@@ -15,6 +15,7 @@ import type { FeatureState } from '../shared/features';
 import type { SurfaceState } from '../settings/surface-settings';
 import type { SurfaceTheme } from '../surfaces/theme/appearance';
 import { features } from './demos';
+import { Icon } from '../shared/icons/react';
 
 const examples = {
   get next() {
@@ -74,36 +75,6 @@ function sampleSurfaces(
     },
   };
 }
-const places: Record<string, { text: string }> = {
-  sidebar: {
-    get text() {
-      return tr(
-        '为大纲、下一步和术语留出位置，正文与输入框一起让位。侧栏宽度可以调整，新聊天与 Dots 是否显示也可单独设置。',
-      );
-    },
-  },
-  overlay: {
-    get text() {
-      return tr(
-        '保留聊天原来的宽度，需要时展开工作台。收起后回到左栏双眼入口，草稿与阅读位置继续保留。',
-      );
-    },
-  },
-  desktop: {
-    get text() {
-      return tr(
-        '工作台先弹出，再移到副屏；也可以放回聊天。独立窗口可调整尺寸、置顶，切换位置不清空内容。',
-      );
-    },
-  },
-  edge: {
-    get text() {
-      return tr(
-        '例如把模型快切与看板放到屏幕边缘。悬停展开、离开收回，也可保持展开；屏幕、边缘和位置都能调整。',
-      );
-    },
-  },
-};
 const demoTypography = { ...fallbackTypography, fontSize: 20, titleSize: 20, lineHeight: 32 };
 export function SurfaceStory({
   zoom = 1,
@@ -117,7 +88,6 @@ export function SurfaceStory({
   entryRef?: Ref<SVGGElement>;
 }) {
   useLocale();
-  const [placement, setPlacement] = useState('sidebar');
   const [edge, setEdge] = useState('right');
   const [typography, setTypography] = useState<TypographyPreferences>(defaultTypography);
   const [compact, setCompact] = useState(() => matchMedia('(max-width: 600px)').matches);
@@ -147,66 +117,104 @@ export function SurfaceStory({
           live
           hostName="Codex"
           examples={examples}
-          onPlacementChange={setPlacement}
           sceneZoom={zoom}
           entryRef={entryRef}
           typography={demoTypography}
           typographyPreferences={typography}
           focusWorkspace={compact}
           onReset={reset}
+          renderControls={({
+            placement,
+            arrangement,
+            location,
+            setPlacement,
+            reset: resetPreview,
+          }) => (
+            <div className="workspace-controls">
+              <div className="workspace-position-controls">
+                <div className="workspace-placement-options">{placement}</div>
+                <select
+                  className="workspace-placement-select"
+                  aria-label={tr('演示位置')}
+                  value={location}
+                  onChange={(event) => setPlacement(event.target.value)}
+                >
+                  <option value="sidebar">{tr('侧栏')}</option>
+                  <option value="overlay">{tr('页面浮层')}</option>
+                  <option value="desktop">{tr('移到副屏')}</option>
+                  <option value="edge">{tr('贴边 / 刘海')}</option>
+                </select>
+                {location === 'edge' && (
+                  <select
+                    className="workspace-edge-select"
+                    aria-label={tr('贴边位置演示')}
+                    value={edge}
+                    onChange={(event) => setEdge(event.target.value)}
+                  >
+                    <option value="right">{tr('右侧')}</option>
+                    <option value="left">{tr('左侧')}</option>
+                    <option value="top">{tr('顶部 / 刘海')}</option>
+                    <option value="bottom">{tr('底部')}</option>
+                  </select>
+                )}
+                <button
+                  type="button"
+                  className="workspace-reset"
+                  aria-label={tr('重置预览')}
+                  title={tr('重置预览')}
+                  onClick={resetPreview}
+                >
+                  <Icon name="refresh" />
+                </button>
+              </div>
+              <div className="workspace-detail-controls">
+                {arrangement}
+                <div className="workspace-type-controls">
+                  <label>
+                    <span>{tr('字号')}</span>
+                    <select
+                      aria-label={tr('演示字号模式')}
+                      value={typography.mode}
+                      onChange={(event) =>
+                        setTypography({
+                          ...typography,
+                          mode: event.target.value as 'follow' | 'custom',
+                        })
+                      }
+                    >
+                      <option value="follow">{tr('跟随正文')}</option>
+                      <option value="custom">{tr('自定字号')}</option>
+                    </select>
+                  </label>
+                  <select
+                    aria-label={
+                      typography.mode === 'follow' ? tr('演示字号比例') : tr('演示自定字号')
+                    }
+                    value={typography.mode === 'follow' ? typography.scale : typography.customSize}
+                    onChange={(event) =>
+                      setTypography({
+                        ...typography,
+                        [typography.mode === 'follow' ? 'scale' : 'customSize']: Number(
+                          event.target.value,
+                        ),
+                      })
+                    }
+                  >
+                    {(typography.mode === 'follow'
+                      ? [90, 100, 110, 125]
+                      : [14, 16, 18, 20, 24]
+                    ).map((value) => (
+                      <option key={value} value={value}>
+                        {value}
+                        {typography.mode === 'follow' ? '%' : ' px'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
         />
-        <div className="workspace-type-controls">
-          <label>
-            <span>{tr('字号')}</span>
-            <select
-              aria-label={tr('演示字号模式')}
-              value={typography.mode}
-              onChange={(event) =>
-                setTypography({ ...typography, mode: event.target.value as 'follow' | 'custom' })
-              }
-            >
-              <option value="follow">{tr('跟随正文')}</option>
-              <option value="custom">{tr('自定字号')}</option>
-            </select>
-          </label>
-          <select
-            aria-label={typography.mode === 'follow' ? tr('演示字号比例') : tr('演示自定字号')}
-            value={typography.mode === 'follow' ? typography.scale : typography.customSize}
-            onChange={(event) =>
-              setTypography({
-                ...typography,
-                [typography.mode === 'follow' ? 'scale' : 'customSize']: Number(event.target.value),
-              })
-            }
-          >
-            {(typography.mode === 'follow' ? [90, 100, 110, 125] : [14, 16, 18, 20, 24]).map(
-              (value) => (
-                <option key={value} value={value}>
-                  {value}
-                  {typography.mode === 'follow' ? '%' : ' px'}
-                </option>
-              ),
-            )}
-          </select>
-        </div>
-      </div>
-      <div className="workspace-explanation">
-        <p>{places[placement].text}</p>
-        {placement === 'edge' && (
-          <div className="choice-row" role="group" aria-label={tr('贴边位置演示')}>
-            {[
-              ['right', tr('右侧')],
-              ['left', tr('左侧')],
-              ['top', tr('顶部 / 刘海')],
-              ['bottom', tr('底部')],
-            ].map(([id, title]) => (
-              <button key={id} aria-pressed={edge === id} onClick={() => setEdge(id)}>
-                {title}
-              </button>
-            ))}
-          </div>
-        )}
-        <p>{tr('单击图标切换功能，拖动标题或分隔线调整布局。')}</p>
       </div>
     </section>
   );

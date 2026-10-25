@@ -1,10 +1,18 @@
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
-/* [INPUT]: Saved feature/surface/typography snapshots, optional website framing and shared workspace controller.
+/* [INPUT]: Saved feature/surface/typography snapshots, optional website framing/control composition and shared workspace controller.
  * [OUTPUT]: Isolated layout and material demonstrations with readable arrangements and reversible screen motion.
  * [POS]: Shared layout/appearance sample content; save callbacks stay in memory and never call an API.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type Ref } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+  type Ref,
+} from 'react';
 import { PreviewFrame } from './preview-frame';
 import { PalbooWordmark } from '../shared/brand';
 import { typographyStyle, type Typography, type TypographyPreferences } from '../shared/typography';
@@ -15,6 +23,13 @@ import { LayoutPreviewScene, demoFrames } from './layout-preview-scene';
 import { useDemoJourney } from './layout-preview-journey';
 
 type Sample = { id: string; title: string };
+type PreviewControls = {
+  placement: ReactNode;
+  arrangement: ReactNode;
+  location: string;
+  setPlacement: (placement: string) => void;
+  reset: () => void;
+};
 function WorkspaceSample({
   entries,
   layout,
@@ -121,6 +136,7 @@ export function LayoutPreview({
   entryRef,
   onReset,
   focusWorkspace,
+  renderControls,
 }: {
   features: FeatureState | null;
   surfaces: SurfaceState | null;
@@ -135,6 +151,7 @@ export function LayoutPreview({
   entryRef?: Ref<SVGGElement>;
   onReset?: () => void;
   focusWorkspace?: boolean;
+  renderControls?: (controls: PreviewControls) => ReactNode;
 }) {
   const locale = useLocale();
   const [mode, setMode] = useState<string | null>(null),
@@ -254,55 +271,78 @@ export function LayoutPreview({
   ) : (
     <p>{tr('正在读取布局…')}</p>
   );
+  const reset = () => {
+    setMode(null);
+    setExtra([]);
+    setDemoLayout(null);
+    onReset?.();
+  };
+  const placementControls = (
+    <div className="preview-selector" role="group" aria-label={tr('演示位置')}>
+      <button
+        type="button"
+        aria-label={tr('演示侧栏')}
+        aria-pressed={location === 'sidebar'}
+        onClick={() => setMode('sidebar')}
+      >
+        {tr('侧栏')}
+      </button>
+      <button
+        type="button"
+        aria-label={tr('演示页面浮层')}
+        aria-pressed={location === 'overlay'}
+        onClick={() => setMode('overlay')}
+      >
+        {tr('页面浮层')}
+      </button>
+      <button
+        type="button"
+        aria-label={appearance ? tr('演示桌面窗口') : tr('演示移到副屏')}
+        aria-pressed={location === 'desktop'}
+        onClick={() => setMode('desktop')}
+      >
+        {appearance ? tr('桌面窗口') : tr('移到副屏')}
+      </button>
+      <button type="button" aria-pressed={location === 'edge'} onClick={() => setMode('edge')}>
+        {tr('贴边 / 刘海')}
+      </button>
+    </div>
+  );
+  const arrangementControls = (
+    <div className="preview-selector" role="group" aria-label={tr('演示排列')}>
+      <button
+        type="button"
+        aria-pressed={arrangement === 'vertical'}
+        onClick={() => arrange('vertical')}
+      >
+        {tr('上下')}
+      </button>
+      <button
+        type="button"
+        aria-pressed={arrangement === 'horizontal'}
+        onClick={() => arrange('horizontal')}
+      >
+        {tr('左右')}
+      </button>
+      <button type="button" aria-pressed={arrangement === 'tabs'} onClick={() => arrange('tabs')}>
+        {tr('标签')}
+      </button>
+    </div>
+  );
   return (
     <PreviewFrame
       className={`layout-demo${appearance ? ' layout-demo-appearance' : ''}`}
       title={appearance ? tr('外观效果') : tr('你的工作空间')}
       status={!live ? tr('连接中断 · 末次状态') : undefined}
     >
-      <div className="layout-demo-toolbar" data-settings-navigation>
-        <div className="preview-selector" role="group" aria-label={tr('演示位置')}>
-          <button
-            type="button"
-            aria-label={tr('演示侧栏')}
-            aria-pressed={location === 'sidebar'}
-            onClick={() => setMode('sidebar')}
-          >
-            {tr('侧栏')}
-          </button>
-          <button
-            type="button"
-            aria-label={tr('演示页面浮层')}
-            aria-pressed={location === 'overlay'}
-            onClick={() => setMode('overlay')}
-          >
-            {tr('页面浮层')}
-          </button>
-          <button
-            type="button"
-            aria-label={appearance ? tr('演示桌面窗口') : tr('演示移到副屏')}
-            aria-pressed={location === 'desktop'}
-            onClick={() => setMode('desktop')}
-          >
-            {appearance ? tr('桌面窗口') : tr('移到副屏')}
-          </button>
-          <button type="button" aria-pressed={location === 'edge'} onClick={() => setMode('edge')}>
-            {tr('贴边 / 刘海')}
+      {!renderControls && (
+        <div className="layout-demo-toolbar" data-settings-navigation>
+          {placementControls}
+          <button type="button" className="layout-demo-reset" onClick={reset}>
+            {tr('重置预览')}
           </button>
         </div>
-        <button
-          type="button"
-          className="layout-demo-reset"
-          onClick={() => {
-            setMode(null);
-            setExtra([]);
-            setDemoLayout(null);
-            onReset?.();
-          }}
-        >
-          {tr('重置预览')}
-        </button>
-      </div>
+      )}
       <div
         className="layout-demo-canvas"
         data-demo-placement={location}
@@ -335,52 +375,40 @@ export function LayoutPreview({
           </LayoutPreviewScene>
         )}
       </div>
-      <div className="layout-demo-toolbar" data-settings-navigation hidden={appearance}>
-        <div className="preview-selector" role="group" aria-label={tr('演示排列')}>
+      {renderControls ? (
+        renderControls({
+          placement: placementControls,
+          arrangement: arrangementControls,
+          location,
+          setPlacement: setMode,
+          reset,
+        })
+      ) : (
+        <div className="layout-demo-toolbar" data-settings-navigation hidden={appearance}>
+          {arrangementControls}
           <button
             type="button"
-            aria-pressed={arrangement === 'vertical'}
-            onClick={() => arrange('vertical')}
+            className="layout-demo-reset"
+            onClick={() => {
+              const item = {
+                id: `demo-${extra.length + 1}`,
+                title: extra.length ? tr('示例功能 ') + (extra.length + 1) : tr('笔记'),
+              };
+              setExtra([...extra, item]);
+              setDemoLayout({
+                axis: 'vertical',
+                groups: [...samples, item].map((entry) => ({
+                  ids: [entry.id],
+                  active: entry.id,
+                  weight: 1,
+                })),
+              });
+            }}
           >
-            {tr('上下')}
-          </button>
-          <button
-            type="button"
-            aria-pressed={arrangement === 'horizontal'}
-            onClick={() => arrange('horizontal')}
-          >
-            {tr('左右')}
-          </button>
-          <button
-            type="button"
-            aria-pressed={arrangement === 'tabs'}
-            onClick={() => arrange('tabs')}
-          >
-            {tr('标签')}
+            {tr('＋ 添加示例功能')}
           </button>
         </div>
-        <button
-          type="button"
-          className="layout-demo-reset"
-          onClick={() => {
-            const item = {
-              id: `demo-${extra.length + 1}`,
-              title: extra.length ? tr('示例功能 ') + (extra.length + 1) : tr('笔记'),
-            };
-            setExtra([...extra, item]);
-            setDemoLayout({
-              axis: 'vertical',
-              groups: [...samples, item].map((entry) => ({
-                ids: [entry.id],
-                active: entry.id,
-                weight: 1,
-              })),
-            });
-          }}
-        >
-          {tr('＋ 添加示例功能')}
-        </button>
-      </div>
+      )}
     </PreviewFrame>
   );
 }

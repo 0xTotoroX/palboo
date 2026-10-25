@@ -473,7 +473,7 @@ test('original settings journey, layout controls and drafts are reused on the we
     assert.equal(await demo.locator('.csw-feature-panes').getAttribute('data-axis'), 'vertical');
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await demo.getByRole('button', { name: '贴边 / 刘海', exact: true }).click();
-    await demo.getByRole('button', { name: '顶部 / 刘海', exact: true }).click();
+    await demo.getByLabel('贴边位置演示').selectOption('top');
     await page.waitForFunction(
       () => document.querySelector('.surface-story .layout-demo-window').y.baseVal.value === 48,
     );
@@ -985,6 +985,9 @@ test('opening approaches one shared model and reveals working controls without l
     );
     await page.setViewportSize({ width: 390, height: 988 });
     await scene.scrollIntoViewIfNeeded();
+    await demo
+      .getByRole('combobox', { name: 'Preview position', exact: true })
+      .selectOption('overlay');
     assert.equal(
       await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
       true,
@@ -1014,5 +1017,73 @@ test('opening approaches one shared model and reveals working controls without l
     assert.ok(requests.every((url) => url.startsWith(base) && !url.includes('/api/')));
   } finally {
     await page.close();
+  }
+});
+
+test('website theme remembers overrides and resumes system changes without clearing demos', async () => {
+  const context = await browser.newContext({
+    locale: 'zh-CN',
+    colorScheme: 'light',
+    viewport: { width: 828, height: 988 },
+  });
+  const page = await context.newPage();
+  const errors = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  const expectTheme = (page, theme) =>
+    page.waitForFunction(
+      (value) =>
+        document.documentElement.dataset.siteTheme === value &&
+        document.documentElement.style.colorScheme === value,
+      theme,
+    );
+  try {
+    await page.goto(`${base}/?lang=zh-CN`);
+    const picker = page.getByRole('combobox', { name: '主题', exact: true });
+    assert.equal(await picker.inputValue(), 'system');
+    await expectTheme(page, 'light');
+    await scrollScene(page, '.opening-story', 1);
+    const draft = page.locator('.surface-story').getByLabel('下一步示例草稿');
+    await draft.fill('主题切换保留草稿');
+    await draft.blur();
+    await picker.selectOption('dark');
+    await expectTheme(page, 'dark');
+    assert.equal(await draft.inputValue(), '主题切换保留草稿');
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await page.emulateMedia({ colorScheme: 'light' });
+    await expectTheme(page, 'dark');
+    await page.reload();
+    await expectTheme(page, 'dark');
+    assert.equal(await picker.inputValue(), 'dark');
+    await picker.selectOption('system');
+    await expectTheme(page, 'light');
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await expectTheme(page, 'dark');
+    await picker.selectOption('light');
+    await expectTheme(page, 'light');
+    const other = await context.newPage();
+    await other.goto(`${base}/?lang=en`);
+    await expectTheme(other, 'light');
+    const otherPicker = other.getByRole('combobox', { name: 'Theme', exact: true });
+    assert.equal(await otherPicker.inputValue(), 'light');
+    await picker.selectOption('dark');
+    await expectTheme(other, 'dark');
+    assert.equal(await otherPicker.inputValue(), 'dark');
+    await other.close();
+    await page.addInitScript(() => {
+      Storage.prototype.getItem = () => {
+        throw new Error('Storage unavailable');
+      };
+      Storage.prototype.setItem = () => {
+        throw new Error('Storage unavailable');
+      };
+    });
+    await page.reload();
+    await expectTheme(page, 'dark');
+    assert.equal(await picker.inputValue(), 'system');
+    await picker.selectOption('light');
+    await expectTheme(page, 'light');
+    assert.deepEqual(errors, []);
+  } finally {
+    await context.close();
   }
 });

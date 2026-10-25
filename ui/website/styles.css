@@ -868,28 +868,51 @@ h2 {
   }
 }
 
-.site-language {
+.site-utilities {
   position: absolute;
   z-index: 5;
   top: 24px;
   right: max(24px, calc((100vw - 1280px) / 2));
-  min-height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.site-language,
+.site-theme {
+  min-height: 40px;
   padding: 6px 12px;
   border: 0;
   border-radius: 6px;
   background: transparent;
-  color: var(--buddy-muted);
+  color: var(--site-muted);
   font: inherit;
   font-size: 14px;
   cursor: pointer;
 }
-.site-language:hover {
-  color: var(--buddy-text);
-  background: var(--buddy-hover);
+.site-language:hover,
+.site-theme:hover {
+  color: var(--site-text);
+  background: var(--site-input);
 }
-.site-language:focus-visible {
+.site-language:focus-visible,
+.site-theme:has(select:focus-visible) {
   outline: 2px solid currentColor;
   outline-offset: 3px;
+}
+.site-theme {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  padding: 0;
+}
+.site-theme select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
 }
 :lang(en) .opening-copy {
   max-width: 750px;

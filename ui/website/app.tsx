@@ -1,11 +1,12 @@
 import { SiteLanguage } from './language';
+import { SiteTheme } from './theme';
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: Scroll stories, shared brand/icons and isolated portfolio demonstrations.
  * [OUTPUT]: Feature overview, installation conditions and an accessible return to the opening.
- * [POS]: Independent website; follows system appearance, no business data or services.
+ * [POS]: Independent website; local language/appearance, no business data or services.
  * [PROTOCOL]: Keep website/AGENTS.md and DESIGN_SYSTEM.md in sync. */
-import { useLayoutEffect, useState } from 'react';
+import { useState } from 'react';
 import { Icon } from '../shared/icons/react';
 import { PalbooWordmark } from '../shared/brand';
 import { BoardDemo, BotDemo, ComposerDemo, ModelDemo, SpeedDemo } from './demos';
@@ -82,23 +83,12 @@ function ToolDetails() {
 }
 export function App({ githubVariant }: { githubVariant?: GithubLinkVariant }) {
   useLocale();
-  useLayoutEffect(() => {
-    const media = matchMedia('(prefers-color-scheme: dark)');
-    const apply = () => {
-      const theme = media.matches ? 'dark' : 'light';
-      document.documentElement.dataset.siteTheme = theme;
-      document.documentElement.style.colorScheme = theme;
-      document
-        .querySelector('meta[name="theme-color"]')
-        ?.setAttribute('content', theme === 'dark' ? '#19191b' : '#fdfcf9');
-    };
-    apply();
-    media.addEventListener('change', apply);
-    return () => media.removeEventListener('change', apply);
-  }, []);
   return (
     <>
-      <SiteLanguage />
+      <div className="site-utilities">
+        <SiteLanguage />
+        <SiteTheme />
+      </div>
       <a className="skip-link" href="#main">
         {tr('跳到正文')}
       </a>

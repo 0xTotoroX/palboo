@@ -80,16 +80,12 @@
   min-height: 40px;
   font-size: 14px;
 }
-.workspace-explanation p,
 .material-controls p,
 .connection-details p {
   margin-top: 16px;
   color: var(--site-muted);
   font-size: 16px;
   line-height: 1.9;
-}
-.workspace-explanation .choice-row {
-  margin-top: 16px;
 }
 .material-comparison {
   display: grid;
