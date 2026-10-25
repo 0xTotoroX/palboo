@@ -1,9 +1,9 @@
 /* [INPUT]: Scroll scene composition and original SVG/device geometry.
- * [OUTPUT]: Pinned opening, brand flight, window journey and original palette.
+ * [OUTPUT]: Continuous brand/layout/material framing, staged controls and original palette.
  * [POS]: Website story styles; responsive overrides live in styles.css.
  * [PROTOCOL]: Keep website/AGENTS.md in sync. */
 .opening-story {
-  height: 280svh;
+  height: 460svh;
 }
 .opening-pin {
   position: sticky;
@@ -73,6 +73,9 @@ h1 {
   left: 50%;
   transform: translate(-50%, 44svh);
   width: min(1100px, calc(100% - 80px));
+  /* The SVG moves content inside a stable frame. Keep scroll anchoring from
+     following that content and shifting a control between press and release. */
+  overflow-anchor: none;
 }
 .opening-story[data-static='false'] .demo-entry {
   opacity: 0;
@@ -83,20 +86,116 @@ h1 {
 }
 .intro-preview .layout-demo-scene {
   aspect-ratio: 8 / 5;
-  height: min(58svh, calc(100svh - 260px), calc((100vw - 80px) / 1.6));
+  height: min(58svh, calc(100svh - 360px), calc((100vw - 80px) / 1.6));
   min-width: 0;
 }
 .intro-preview .layout-demo-canvas {
   margin: 16px 0;
 }
-.workspace-controls {
+.workspace-control-stage {
+  display: grid;
   width: min(100%, 800px);
   margin: 20px auto 0;
   opacity: var(--workspace-controls, 1);
   transform: translateY(calc((1 - var(--workspace-controls, 1)) * 12px));
 }
-.surface-story[data-controls='false'] .workspace-controls {
+.workspace-controls,
+.workspace-control-stage .material-story {
+  grid-area: 1 / 1;
+  align-self: start;
+  min-width: 0;
+}
+.workspace-controls {
+  opacity: var(--layout-controls, 1);
+}
+.workspace-control-stage .material-story {
+  padding: 0;
+  opacity: var(--material-controls, 0);
+  transform: translateY(calc((1 - var(--material-controls, 0)) * 12px));
+}
+.surface-story[data-controls='false'] .workspace-control-stage,
+.surface-story[data-material-stage='true'] .workspace-controls,
+.surface-story[data-material-stage='false'] .material-story {
   pointer-events: none;
+}
+.material-story h2 {
+  margin: 0 0 12px;
+  font-size: clamp(22px, 2.3vw, 28px);
+  line-height: 1.3;
+  text-wrap: pretty;
+}
+.material-choice-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.workspace-control-stage .material-controls p {
+  margin-top: 8px;
+  font-size: 15px;
+  line-height: 1.6;
+}
+.workspace-control-stage .material-controls .material-boundary {
+  font-size: 13px;
+}
+.workspace-control-stage .material-controls .choice-row {
+  margin: 0;
+}
+.opening-story[data-static='true'] .workspace-control-stage {
+  display: block;
+}
+.opening-story[data-static='true'] .workspace-controls,
+.opening-story[data-static='true'] .material-story {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+.opening-story[data-static='true'] .material-story {
+  margin-top: 36px;
+}
+.surface-story .layout-demo-workspace {
+  border-radius: calc(6px + 6px * var(--material-progress));
+}
+.surface-story .layout-demo-material-backdrop svg {
+  opacity: 0.6;
+}
+.surface-story .layout-demo-workspace[data-material='frosted'] {
+  background: color-mix(
+    in srgb,
+    var(--buddy-surface) calc(100% - 35% * var(--material-progress)),
+    transparent
+  );
+  backdrop-filter: blur(calc(18px * var(--material-progress))) saturate(0.6);
+}
+.surface-story .layout-demo-workspace[data-material='native-glass'] {
+  background: color-mix(
+    in srgb,
+    var(--buddy-surface) calc(100% - 52% * var(--material-progress)),
+    transparent
+  );
+  backdrop-filter: blur(calc(7px * var(--material-progress))) saturate(1.25);
+  border-color: color-mix(
+    in srgb,
+    var(--settings-glass-highlight) calc(100% * var(--material-progress)),
+    var(--buddy-border)
+  );
+  box-shadow:
+    inset 0 1px 0
+      color-mix(
+        in srgb,
+        var(--settings-glass-highlight) calc(100% * var(--material-progress)),
+        transparent
+      ),
+    0 3px 12px #0001;
+}
+.surface-story .layout-demo-workspace[data-material='native-glass'][data-variant='clear'] {
+  background: color-mix(
+    in srgb,
+    var(--buddy-surface) calc(100% - 78% * var(--material-progress)),
+    transparent
+  );
+  backdrop-filter: blur(calc(3px * var(--material-progress))) saturate(1.3);
 }
 .workspace-position-controls,
 .workspace-detail-controls {

@@ -11,7 +11,6 @@ import { Icon } from '../shared/icons/react';
 import { PalbooWordmark } from '../shared/brand';
 import { BoardDemo, BotDemo, ComposerDemo, ModelDemo, SpeedDemo } from './demos';
 import { OpeningStory, ReadingStory } from './story';
-import { MaterialStory } from './workspace-demo';
 import type { GithubLinkVariant } from './github-link';
 
 function ToolDetails() {
@@ -94,7 +93,6 @@ export function App({ githubVariant }: { githubVariant?: GithubLinkVariant }) {
       </a>
       <main id="main" tabIndex={-1}>
         <OpeningStory githubVariant={githubVariant} />
-        <MaterialStory />
         <ReadingStory />
         <section className="board-story page-width" aria-labelledby="board-title">
           <div className="section-intro">

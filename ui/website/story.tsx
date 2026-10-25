@@ -1,7 +1,7 @@
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
-/* [INPUT]: Original brand poses, native section progress and the shared settings device scene.
- * [OUTPUT]: Brand-to-device flight, scroll magnification/control reveal and focus-safe reading story.
+/* [INPUT]: Original brand poses, native section progress and the shared settings device/material scene.
+ * [OUTPUT]: One brand/layout/material scroll journey and a focus-safe reading story.
  * [POS]: Website narrative composition; all examples describe one portfolio project.
  * [PROTOCOL]: Keep website/AGENTS.md and DESIGN_SYSTEM.md in sync. */
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -19,7 +19,13 @@ export function OpeningStory({ githubVariant }: { githubVariant?: GithubLinkVari
   const preview = useRef<HTMLDivElement>(null);
   const [replay, setReplay] = useState(0);
   const [engaged, setEngaged] = useState(false);
-  const sceneProgress = engaged ? 1 : progress;
+  const [heldMaterial, setHeldMaterial] = useState<number | null>(null);
+  const [staticMaterial, setStaticMaterial] = useState(0);
+  // The first half retains the original 180svh flight and layout interaction.
+  // Continue the same scene into a material close-up, with a pause on either side.
+  const sceneProgress = engaged ? 1 : clamp(progress / 0.5);
+  const materialProgress =
+    heldMaterial ?? (staticView ? staticMaterial : smooth((progress - 0.58) / 0.3));
   useEffect(() => {
     const resumeScrolling = () => {
       // Button focus protects a click from reflow, but does not latch the story
@@ -30,6 +36,7 @@ export function OpeningStory({ githubVariant }: { githubVariant?: GithubLinkVari
       )
         return;
       setEngaged(false);
+      setHeldMaterial(null);
     };
     addEventListener('wheel', resumeScrolling, { passive: true });
     addEventListener('touchmove', resumeScrolling, { passive: true });
@@ -85,7 +92,12 @@ export function OpeningStory({ githubVariant }: { githubVariant?: GithubLinkVari
       aria-labelledby="page-title"
     >
       <div className="opening-pin">
-        <div ref={brand} className="brand-origin">
+        <div
+          ref={brand}
+          className="brand-origin"
+          style={staticView ? undefined : { opacity: 1 - smooth(materialProgress / 0.4) }}
+          inert={!staticView && materialProgress > 0.4}
+        >
           <div
             className="brand-flight"
             style={{
@@ -138,10 +150,22 @@ export function OpeningStory({ githubVariant }: { githubVariant?: GithubLinkVari
           ref={preview}
           className="intro-preview"
           aria-label={tr('Codex 中的 Palboo 外观示例')}
-          onFocusCapture={() => setEngaged(true)}
+          onFocusCapture={(event) => {
+            setEngaged(true);
+            const target = event.target as HTMLElement;
+            const next = target.closest('.material-story')
+              ? 1
+              : target.closest('.workspace-controls')
+                ? 0
+                : materialProgress;
+            setHeldMaterial(next);
+            setStaticMaterial(next);
+          }}
           onBlurCapture={(event) => {
-            if (!event.currentTarget.contains(event.relatedTarget as Node | null))
+            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
               setEngaged(false);
+              setHeldMaterial(null);
+            }
           }}
           style={
             staticView
@@ -151,7 +175,13 @@ export function OpeningStory({ githubVariant }: { githubVariant?: GithubLinkVari
                 }
           }
         >
-          <SurfaceStory zoom={zoom} reveal={reveal} interactive={interactive} entryRef={entry} />
+          <SurfaceStory
+            zoom={zoom}
+            reveal={reveal}
+            interactive={interactive}
+            entryRef={entry}
+            materialProgress={materialProgress}
+          />
         </div>
       </div>
     </section>

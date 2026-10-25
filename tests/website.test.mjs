@@ -41,6 +41,11 @@ async function scrollScene(page, selector, progress) {
   );
 }
 
+// Layout occupies the first half of the continuous opening/material story.
+async function scrollOpening(page, progress) {
+  await scrollScene(page, '.opening-story', progress * 0.5);
+}
+
 test('portfolio demos preserve drafts, preferences and undo without service requests', async () => {
   const page = await browser.newPage({
     locale: 'zh-CN',
@@ -189,7 +194,7 @@ test(
       await page.waitForFunction(
         () => document.querySelector('.original-opening').dataset.time === '6.8000',
       );
-      await scrollScene(page, '.opening-story', 1);
+      await scrollOpening(page, 1);
       await page.waitForFunction(
         () => document.querySelector('.original-opening').dataset.time === '6.8000',
       );
@@ -281,7 +286,7 @@ test('the first wheel movement carries the face and clicking it replays from the
     assert.deepEqual(await face(), origin, 'reverse scrolling returns along the same path');
 
     for (const input of ['pointer', 'keyboard']) {
-      await scrollScene(page, '.opening-story', input === 'pointer' ? 0.9 : 0.4);
+      await scrollOpening(page, input === 'pointer' ? 0.9 : 0.4);
       const replay = page.getByRole('button', { name: '重播品牌开场' });
       const box = await replay.boundingBox();
       assert.ok(box.width >= 44 && box.height >= 44, JSON.stringify(box));
@@ -426,7 +431,7 @@ test('original settings journey, layout controls and drafts are reused on the we
   });
   try {
     await page.goto(base);
-    await scrollScene(page, '.opening-story', 1);
+    await scrollOpening(page, 1);
     const demo = page.locator('.surface-story');
     const window = demo.locator('.layout-demo-window');
     const x = () => window.evaluate((el) => el.x.baseVal.value);
@@ -501,7 +506,7 @@ test('opening stays within short desktop viewports and the original eyes clear t
       for (const progress of [
         0, 0.03, 0.08, 0.12, 0.14, 0.155, 0.16, 0.25, 0.45, 0.6, 0.8, 0.9, 1, 0.4, 0.08,
       ]) {
-        await scrollScene(page, '.opening-story', progress);
+        await scrollOpening(page, progress);
         const geometry = await page.evaluate(() => {
           const rect = (selector) =>
             document.querySelector(selector).getBoundingClientRect().toJSON();
@@ -624,7 +629,7 @@ test('model matrix, quota, presets, material samples and speed states use real p
     await model.getByRole('button', { name: '所有模型', exact: true }).click();
     assert.equal(await model.locator('.model-picker').isVisible(), true);
     const material = page.locator('.material-story');
-    const sample = material.locator('[data-material]');
+    const sample = page.locator('.surface-story [data-material]');
     const backgrounds = new Set();
     for (const [name, id] of [
       ['哑光', 'matte'],
@@ -699,7 +704,7 @@ test('pointer takeover releases keyboard chapter lock; static resizing and manua
       .getByRole('tab', { name: '大纲', exact: true })
       .and(page.locator('[aria-selected="true"]'))
       .waitFor();
-    await scrollScene(page, '.opening-story', 1);
+    await scrollOpening(page, 1);
     const surface = page.locator('.surface-story');
     await surface.getByRole('button', { name: '演示移到副屏' }).click();
     await surface.getByLabel('下一步示例草稿').fill('继续保留');
@@ -942,10 +947,10 @@ test('opening approaches one shared model and reveals working controls without l
     assert.equal(await page.locator('.opening-story .surface-story').count(), 1);
     assert.equal(await demo.evaluate((el) => el.inert), true);
     const overview = await device.boundingBox();
-    await scrollScene(page, '.opening-story', 0.4);
+    await scrollOpening(page, 0.4);
     const approaching = await device.boundingBox();
     assert.ok(approaching.width > overview.width);
-    await scrollScene(page, '.opening-story', 1);
+    await scrollOpening(page, 1);
     const close = await device.boundingBox();
     assert.ok(close.width > overview.width * 1.4);
     assert.equal(await demo.evaluate((el) => el.inert), false);
@@ -969,7 +974,7 @@ test('opening approaches one shared model and reveals working controls without l
     await page.mouse.wheel(0, -1600);
     await page.waitForFunction(() => document.querySelector('.surface-story').inert);
     assert.equal(await demo.evaluate((el) => el.inert), true);
-    await scrollScene(page, '.opening-story', 1);
+    await scrollOpening(page, 1);
     assert.equal(await draft.inputValue(), 'Keep this draft / 保留这份草稿');
     assert.equal(await windowNode.evaluate((el) => el.isConnected), true);
     assert.equal(await demo.locator('.csw-workbench-pane').count(), 1);
@@ -1007,7 +1012,7 @@ test('opening approaches one shared model and reveals working controls without l
       { width: 900, height: 651 },
     ]) {
       await page.setViewportSize(viewport);
-      await scrollScene(page, '.opening-story', 1);
+      await scrollOpening(page, 1);
       await demo.getByRole('button', { name: 'Edge / notch', exact: true }).click();
       const bounds = await page.locator('.intro-preview').boundingBox();
       assert.ok(
@@ -1042,7 +1047,7 @@ test('website theme toggles directly and remembers the choice without following 
     const toggle = page.locator('.site-theme');
     assert.equal(await toggle.getAttribute('aria-label'), '切换为深色');
     await expectTheme(page, 'light');
-    await scrollScene(page, '.opening-story', 1);
+    await scrollOpening(page, 1);
     const draft = page.locator('.surface-story').getByLabel('下一步示例草稿');
     await draft.fill('主题切换保留草稿');
     await draft.blur();
@@ -1085,5 +1090,105 @@ test('website theme toggles directly and remembers the choice without following 
     assert.deepEqual(errors, []);
   } finally {
     await context.close();
+  }
+});
+
+test('layout flows into materials through one reversible workspace and keeps edits and focus', async () => {
+  const page = await browser.newPage({ locale: 'zh-CN', viewport: { width: 1280, height: 900 } });
+  const errors = [],
+    requests = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  page.on('request', (request) => requests.push(request.url()));
+  try {
+    await page.goto(base);
+    await scrollOpening(page, 1);
+    const demo = page.locator('.surface-story');
+    const workspace = await demo.locator('.layout-demo-workspace').elementHandle();
+    const draft = demo.getByLabel('下一步示例草稿');
+    const input = await draft.elementHandle();
+    await demo.getByRole('button', { name: '标签', exact: true }).click();
+    await demo.getByRole('tab', { name: '下一步', exact: true }).click();
+    await draft.fill('同一份草稿 / One workspace');
+    await draft.blur();
+    const frame = demo.locator('.layout-demo-window');
+    const original = await frame.boundingBox();
+    const widths = [];
+    for (const progress of [0.58, 0.64, 0.72, 0.8, 0.9]) {
+      await scrollScene(page, '.opening-story', progress);
+      widths.push((await frame.boundingBox()).width);
+      assert.equal(await demo.locator('.layout-demo-workspace').count(), 1);
+      assert.equal(
+        await workspace.evaluate(
+          (el) => el === document.querySelector('.surface-story .layout-demo-workspace'),
+        ),
+        true,
+      );
+      assert.equal(await input.evaluate((el) => el.isConnected), true);
+      assert.equal(await draft.inputValue(), '同一份草稿 / One workspace');
+      assert.equal(await demo.locator('.csw-workbench-pane').count(), 1);
+    }
+    assert.ok(widths.at(-1) > original.width * 1.5, JSON.stringify(widths));
+    assert.ok(widths.every((width, index) => !index || width >= widths[index - 1] - 1));
+    const materials = demo.locator('.material-story');
+    assert.equal(await materials.evaluate((el) => getComputedStyle(el).opacity), '1');
+    await materials.getByRole('button', { name: '磨砂', exact: true }).click();
+    assert.equal(await workspace.getAttribute('data-material'), 'frosted');
+    await materials.getByRole('button', { name: '液态', exact: true }).click();
+    await materials.getByRole('button', { name: 'Clear', exact: true }).click();
+    assert.equal(await workspace.getAttribute('data-variant'), 'clear');
+    await page.evaluate(() => document.activeElement.blur());
+    await scrollOpening(page, 1);
+    const returned = await frame.boundingBox();
+    assert.ok(
+      Math.abs(original.x - returned.x) < 1 && Math.abs(original.width - returned.width) < 1,
+    );
+    assert.equal(await draft.inputValue(), '同一份草稿 / One workspace');
+    await demo.getByLabel('演示字号比例').focus();
+    await page.keyboard.press('Tab');
+    assert.equal(await page.evaluate(() => document.activeElement.textContent), '哑光');
+    assert.equal(await materials.evaluate((el) => getComputedStyle(el).opacity), '1');
+    await page.keyboard.press('Shift+Tab');
+    assert.equal(
+      await page.evaluate(() => document.activeElement.getAttribute('aria-label')),
+      '演示字号比例',
+    );
+    assert.equal(
+      await demo.locator('.workspace-controls').evaluate((el) => getComputedStyle(el).opacity),
+      '1',
+    );
+    await page.evaluate(() => document.activeElement.blur());
+    await page.locator('.site-language').click();
+    for (const viewport of [
+      { width: 900, height: 651 },
+      { width: 1280, height: 700 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await scrollScene(page, '.opening-story', 0.9);
+      const box = await page.locator('.intro-preview').boundingBox();
+      assert.ok(
+        box.y >= 0 && box.y + box.height <= viewport.height + 1,
+        JSON.stringify({ viewport, box }),
+      );
+    }
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.waitForFunction(
+      () => document.querySelector('.opening-story').dataset.static === 'true',
+    );
+    await materials.getByRole('button', { name: 'Frosted', exact: true }).click();
+    assert.equal(await demo.locator('.layout-demo-workspace').count(), 1);
+    assert.equal(await input.evaluate((el) => el.isConnected), true);
+    assert.equal(
+      await demo.getByLabel('Next steps example draft').inputValue(),
+      '同一份草稿 / One workspace',
+    );
+    assert.equal(
+      await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+      true,
+    );
+    assert.deepEqual(errors, []);
+    assert.ok(requests.every((url) => url.startsWith(base) && !url.includes('/api/')));
+  } finally {
+    await page.close();
   }
 });

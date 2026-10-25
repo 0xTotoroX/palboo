@@ -1,7 +1,7 @@
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
-/* [INPUT]: Saved feature/surface/typography snapshots, optional website framing/control composition and shared workspace controller.
- * [OUTPUT]: Isolated layout and material demonstrations with readable arrangements and reversible screen motion.
+/* [INPUT]: Saved feature/surface/typography snapshots, optional website framing/material progress and shared workspace controller.
+ * [OUTPUT]: Isolated previews with readable arrangements and reversible device-to-material motion.
  * [POS]: Shared layout/appearance sample content; save callbacks stay in memory and never call an API.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 import {
@@ -137,6 +137,7 @@ export function LayoutPreview({
   onReset,
   focusWorkspace,
   renderControls,
+  materialProgress,
 }: {
   features: FeatureState | null;
   surfaces: SurfaceState | null;
@@ -152,6 +153,7 @@ export function LayoutPreview({
   onReset?: () => void;
   focusWorkspace?: boolean;
   renderControls?: (controls: PreviewControls) => ReactNode;
+  materialProgress?: number;
 }) {
   const locale = useLocale();
   const [mode, setMode] = useState<string | null>(null),
@@ -370,6 +372,7 @@ export function LayoutPreview({
             zoom={sceneZoom}
             entryRef={entryRef}
             focusWorkspace={focusWorkspace}
+            materialProgress={materialProgress}
           >
             {sample}
           </LayoutPreviewScene>
