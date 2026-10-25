@@ -361,6 +361,20 @@ test(
       await page.unroute('**/api/dev/sources');
       let releaseSwitch;
       const switchGate = new Promise((resolve) => (releaseSwitch = resolve));
+      const sourceDocumentOrigin = await page.evaluate(() => performance.timeOrigin);
+      const reloadSettingsDocument = async (previousOrigin) => {
+        try {
+          await page.reload({ waitUntil: 'domcontentloaded' });
+        } catch (error) {
+          // Vite may replace our navigation with its own reload. Require a new,
+          // loaded document below rather than treating the aborted request as success.
+          if (!String(error).includes('net::ERR_ABORTED')) throw error;
+        }
+        await page.waitForFunction(
+          (previous) => performance.timeOrigin !== previous && document.readyState !== 'loading',
+          previousOrigin,
+        );
+      };
       let switchedReload;
       const reloadedDuringSwitch = new Promise((resolve, reject) => {
         switchedReload = { resolve, reject };
@@ -372,7 +386,7 @@ test(
           const response = await route.fetch();
           // Vite can replace the document before the switching request resolves.
           // Force that ordering, so completion cannot depend on its old callback.
-          await page.reload();
+          await reloadSettingsDocument(sourceDocumentOrigin);
           switchedReload.resolve();
           await route.fulfill({ response });
         } catch (error) {
@@ -419,7 +433,7 @@ test(
       switchingSource = false;
       assert.notEqual(readRecord(join(main, 'target/dev/session.json')).sourceEpoch, previousEpoch);
       stage = 'retain resource confirmation across an additional Vite reload';
-      await page.reload();
+      await reloadSettingsDocument(await page.evaluate(() => performance.timeOrigin));
       await sourceWidget
         .getByRole('status')
         .filter({ hasText: /已切换至 main/ })
