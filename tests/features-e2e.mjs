@@ -839,6 +839,10 @@ try {
   await api('settings', { grokbotEnabled: false });
   await page.waitForFunction(() => !window.__palbooBots);
   await assert.rejects(botRead());
+  await wait(async () => {
+    const bot = await entry('bots');
+    return !bot.open && !bot.closing && !bot.pending;
+  }, 'disabled Bot finishes its view close handshake');
   record(
     'Palboo Bot owner/composer guards, main-chat-only input, scoped MCP result and disable cleanup',
   );
