@@ -205,9 +205,16 @@ test(
         () => document.querySelector('.original-opening').dataset.time === '6.8000',
       );
       await scrollOpening(page, 1);
-      await page.waitForFunction(
-        () => document.querySelector('.original-opening').dataset.time === '6.8000',
-      );
+      // Scroll events and React commits can follow the animation frame on a busy runner.
+      await page.waitForFunction(() => {
+        const svg = document.querySelector('.original-opening svg');
+        const point = new DOMPoint(600, 307).matrixTransform(svg.getScreenCTM());
+        const target = document.querySelector('.opening-story .demo-entry').getBoundingClientRect();
+        return (
+          Math.abs(point.x - target.x - target.width / 2) < 2 &&
+          Math.abs(point.y - target.y - target.height / 2) < 2
+        );
+      });
       const landing = await page.evaluate(() => {
         const svg = document.querySelector('.original-opening svg');
         const point = new DOMPoint(600, 307).matrixTransform(svg.getScreenCTM());
@@ -224,6 +231,7 @@ test(
       assert.equal(landing.artwork, '1', 'the original eyes stay present at the destination');
       await scrollScene(page, '.reading-story', 0.1);
       const demo = page.locator('.product-demo:visible');
+      await page.locator('.product-demo:visible[data-feature="next"]').waitFor();
       assert.equal(await demo.getAttribute('data-feature'), 'next');
       await demo.getByLabel('接着聊', { exact: true }).fill('滚动时保留的草稿');
       await demo.getByLabel('接着聊', { exact: true }).blur();
