@@ -40,8 +40,24 @@ if (!plan.installer) {
     copyProjectLicenses(root, resources);
     generateNotices(resources);
     writeFileSync(
-      join(resources, '安装说明.txt'),
+      join(resources, 'INSTALL.txt'),
       `Palboo ${version}
+
+English
+
+Drag Palboo.app to Applications, then double-click it. The App does not require Node.js or Rust.
+Requires macOS 14 or later on Apple Silicon. Desktop windows require macOS 15 or later.
+If macOS blocks the first launch, verify the download source, then open System Settings → Privacy & Security → Open Anyway. The App is locally signed and is not notarized by Apple.
+
+Codex and optional Agents use your existing installations, accounts, and settings. No maintainer credentials, chats, or personal glossary are included.
+If Codex is already running without a debugging connection, Palboo follows your launch preference and asks before reopening it. Settings remain in your user data directory when you move the App.
+To update, replace the complete Palboo.app. Do not replace individual files inside the App.
+When upgrading from CodexBuddy or Codex Companion, first stop the old background service with ~/.local/bin/codex-buddy stop or ~/.local/bin/codex-companion stop. If the old service is still running or separate data directories conflict, migration stops and preserves the existing data.
+
+Source, usage, and releases: https://github.com/0xTotoroX/palboo
+Licensed under GPL-3.0-only. Full licenses and third-party notices are in this Resources directory. Redistribution must include access to the complete corresponding source and required build materials.
+
+简体中文
 
 将 Palboo.app 拖入“应用程序”，再双击打开。主程序无需 Node.js 或 Rust。
 支持 macOS 14+ Apple Silicon；桌面浮窗需要 macOS 15+。

@@ -24,7 +24,7 @@ npm 命令进入开发、构建、审计、安装和验证编排工具；具体�
 - [build-panel.mjs](build-panel.mjs)：从 ui/codex/runtime/lifecycle.js 入口解析 ES modules，输出可重复注入的脚本，供 Cargo 内嵌。
 - [install.mjs](install.mjs)：源码安装入口，不修改 shell PATH；本地 CLI / .app 启动器安装、旧默认数据目录迁移、旧程序保留和服务恢复；App 默认位于 /Applications。
 - [launcher.mjs](launcher.mjs)：为安装器生成带本地签名的 Palboo.app；从 ui/icon.png 生成多尺寸 ICNS 并绑定应用图标；双击调用 launch --restart-running 按设置处理缺少连接的宿主，取消不再弹错误；连接后在受支持系统弹出，以后台应用方式运行、不显示运行中的 Dock 图标；macOS 14 遇到浮窗门槛时保留内嵌，其他错误用系统对话框显示。
-- [package.mjs](package.mjs)：本地/CI 共用打包入口；补丁版本在编译前退出，X.Y.0 构建并审计 release、收集完整许可，再以临时目录组装 App/DMG，全部检查通过后原子写入 dist。只输出 DMG，证据在 target/reports/package.json，不安装、不发布、不清理历史发行包。GitHub 标签源码必须与发布程序精确修订对应。
+- [package.mjs](package.mjs)：本地/CI 共用打包入口；补丁版本在编译前退出，X.Y.0 构建并审计 release、收集完整许可与中英文 `INSTALL.txt`，再以临时目录组装 App/DMG，全部检查通过后原子写入 dist。只输出 DMG，证据在 target/reports/package.json，不安装、不发布、不清理历史发行包。GitHub 标签源码必须与发布程序精确修订对应。
 - [release-plan.mjs](release-plan.mjs)：严格解析 SemVer，统一 X.Y.0 的 DMG 计划、补丁无附件和预发布状态；CI 核对标签、Cargo/npm及锁文件版本、已审核说明，不接触远端。
 - [artifact-audit.mjs](artifact-audit.mjs)：release 编译路径映射及成品字节扫描，包含二进制、常见凭据/个人目录、UTF-16主目录与禁止文件；错误只输出文件和问题类型。它是有限检查，不证明不存在所有敏感内容或漏洞。
 - [package-app.mjs](package-app.mjs)：编译最低 macOS 14 arm64 Swift 入口、复制包内 CLI/资源、清理扩展属性与本地签名；校验系统动态库、最低版本和程序摘要，以普通用户权限创建 HFS+ DMG，避免 tar 的属主名称字段和设置 root 引发的授权；挂载读回并复制到新位置验证，成功后卸载镜像。

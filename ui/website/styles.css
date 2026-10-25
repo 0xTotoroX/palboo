@@ -594,7 +594,7 @@ h2 {
 }
 .install-facts > div {
   display: grid;
-  grid-template-columns: 72px minmax(0, 1fr);
+  grid-template-columns: 7.5em minmax(0, 1fr);
   gap: 24px;
   font-size: 15px;
   line-height: 1.85;
@@ -661,7 +661,8 @@ h2 {
   top: auto;
   left: auto;
   right: auto;
-  margin: 24px 20px 48px;
+  width: calc(100% - 40px);
+  margin: 24px auto 48px;
 }
 .opening-story[data-static='true'] .intro-preview {
   position: relative;
@@ -908,6 +909,7 @@ h2 {
 }
 :lang(en) .opening-copy {
   max-width: 750px;
+  margin-inline: auto;
 }
 :lang(en) .opening-copy h1 {
   font-size: clamp(30px, 4.6vw, 58px);
@@ -916,4 +918,18 @@ h2 {
 :lang(en) .opening-copy p {
   max-width: 650px;
   margin-inline: auto;
+}
+@media (pointer: coarse) {
+  .site-language,
+  .site-theme,
+  .workspace-controls select,
+  .workspace-controls .preview-selector button,
+  .material-controls .choice-row button {
+    min-height: 44px;
+  }
+  .site-theme,
+  .workspace-reset {
+    min-width: 44px;
+    min-height: 44px;
+  }
 }
