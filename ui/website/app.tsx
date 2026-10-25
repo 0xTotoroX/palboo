@@ -9,13 +9,14 @@ import { tr } from '../shared/i18n.js';
 import { useState } from 'react';
 import { Icon } from '../shared/icons/react';
 import { PalbooWordmark } from '../shared/brand';
-import { BoardDemo, BotDemo, ComposerDemo, ModelDemo, SpeedDemo } from './demos';
+import { BoardDemo, BotDemo, ComposerDemo, ModelDemo, SpeedDemo, botSampleNames } from './demos';
 import { OpeningStory, ReadingStory } from './story';
+import { ScrollDemo } from './scroll-tour';
 import type { GithubLinkVariant } from './github-link';
 
 function ToolDetails() {
   useLocale();
-  const [botDraft, setBotDraft] = useState('');
+  const [botDraft, setBotDraft] = useState<string | null>(null);
   const [prompt, setPrompt] = useState<string | null>(null);
   return (
     <section className="tools-section page-width" aria-labelledby="tools-title">
@@ -24,59 +25,97 @@ function ToolDetails() {
         <br />
         {tr('不必离开对话。')}
       </h2>
-      <div className="tool-row">
-        <div>
-          <h3>{tr('模型快切')}</h3>
-          <p>
-            {tr(
-              'Codex 模型、推理强度和 Fast，在同一处切换。把常用组合存成预设，随时查看剩余额度。',
-            )}
-          </p>
-          <p>{tr('模型与额度为示例，实际选项以你的 Codex 为准。')}</p>
-        </div>
-        <ModelDemo />
-      </div>
-      <div className="tool-row">
-        <div>
-          <h3>{tr('聊天测速')}</h3>
-          <p>
-            {tr(
-              '分清等待、思考、工具执行与生成状态。生成时显示最近 3 秒的估算速度；官方用量可用时，还能查看本轮 token 消耗。',
-            )}
-          </p>
-          <p>{tr('显示在模型快切底部。速度只统计可见回复，不含隐藏思考和工具输出。')}</p>
-        </div>
-        <SpeedDemo />
-      </div>
-      <div className="tool-row">
-        <div>
-          <h3>{tr('提示词优化')}</h3>
-          <p>{tr('发送之前，把草稿表达得更清楚。改写后可以继续编辑，也可以还原。')}</p>
-        </div>
-        <ComposerDemo
-          draft={prompt ?? tr('帮我把这个作品集方案安排一下')}
-          onChange={setPrompt}
-          label={tr('提示词优化演示')}
-          optimize
-        />
-      </div>
-      <div className="tool-row">
-        <div>
-          <h3>Grok Bot</h3>
-          <p>
-            {tr(
-              '找到合适的 Bot，把咨询带进当前聊天。资料自动同步，支持搜索与置顶，常用的放在前面。',
-            )}
-          </p>
-          <p>{tr('沿用你的 BDK、MCP 与 Skill 配置，由当前聊天里的 Agent 发起咨询。')}</p>
-        </div>
-        <div>
-          <BotDemo
-            onInsert={(value) => setBotDraft((draft) => (draft ? `${draft}\n${value}` : value))}
-          />
-          <ComposerDemo draft={botDraft} onChange={setBotDraft} label={tr('Bot 咨询草稿')} />
-        </div>
-      </div>
+      <ScrollDemo steps={3} className="model-tour">
+        {(step) => (
+          <div className="tool-row">
+            <div>
+              <h3>{tr('模型快切')}</h3>
+              <p>
+                {tr(
+                  'Codex 模型、推理强度和 Fast，在同一处切换。把常用组合存成预设，随时查看剩余额度。',
+                )}
+              </p>
+              <p>{tr('模型与额度为示例，实际选项以你的 Codex 为准。')}</p>
+            </div>
+            <ModelDemo tourStep={step} />
+          </div>
+        )}
+      </ScrollDemo>
+      <ScrollDemo steps={4} className="speed-tour">
+        {(step) => (
+          <div className="tool-row">
+            <div>
+              <h3>{tr('聊天测速')}</h3>
+              <p>
+                {tr(
+                  '分清等待、思考、工具执行与生成状态。生成时显示最近 3 秒的估算速度；官方用量可用时，还能查看本轮 token 消耗。',
+                )}
+              </p>
+              <p>{tr('显示在模型快切底部。速度只统计可见回复，不含隐藏思考和工具输出。')}</p>
+            </div>
+            <SpeedDemo tourStep={step} />
+          </div>
+        )}
+      </ScrollDemo>
+      <ScrollDemo steps={2} className="prompt-tour">
+        {(step) => (
+          <div className="tool-row">
+            <div>
+              <h3>{tr('提示词优化')}</h3>
+              <p>{tr('发送之前，把草稿表达得更清楚。改写后可以继续编辑，也可以还原。')}</p>
+            </div>
+            <ComposerDemo
+              draft={
+                prompt ??
+                tr(
+                  step === 1
+                    ? '请把这个个人作品集方案整理成两天内可完成的步骤，列出每一步的交付内容与检查方法。'
+                    : '帮我把这个作品集方案安排一下',
+                )
+              }
+              onChange={setPrompt}
+              demoOriginal={
+                step === 1 && prompt === null ? tr('帮我把这个作品集方案安排一下') : undefined
+              }
+              label={tr('提示词优化演示')}
+              optimize
+            />
+          </div>
+        )}
+      </ScrollDemo>
+      <ScrollDemo steps={3} className="bot-tour">
+        {(step) => (
+          <div className="tool-row">
+            <div>
+              <h3>Grok Bot</h3>
+              <p>
+                {tr(
+                  '找到合适的 Bot，把咨询带进当前聊天。资料自动同步，支持搜索与置顶，常用的放在前面。',
+                )}
+              </p>
+              <p>{tr('沿用你的 BDK、MCP 与 Skill 配置，由当前聊天里的 Agent 发起咨询。')}</p>
+            </div>
+            <div>
+              <BotDemo
+                tourStep={step}
+                onInsert={(value) => setBotDraft((draft) => (draft ? `${draft}\n${value}` : value))}
+              />
+              <ComposerDemo
+                draft={
+                  botDraft ??
+                  (step === undefined
+                    ? ''
+                    : tr('请问「{{name}}」：帮我检查作品集方案。', {
+                        name: botSampleNames()[step],
+                      }))
+                }
+                onChange={setBotDraft}
+                label={tr('Bot 咨询草稿')}
+              />
+            </div>
+          </div>
+        )}
+      </ScrollDemo>
     </section>
   );
 }
@@ -94,27 +133,31 @@ export function App({ githubVariant }: { githubVariant?: GithubLinkVariant }) {
       <main id="main" tabIndex={-1}>
         <OpeningStory githubVariant={githubVariant} />
         <ReadingStory />
-        <section className="board-story page-width" aria-labelledby="board-title">
-          <div className="section-intro">
-            <h2 id="board-title">
-              {tr('任务看板。')}
-              <br />
-              {tr('把聊过的事一件件做完。')}
-            </h2>
-            <p>
-              {tr(
-                '把聊到的事情留在手边。添加任务，拖动到进行中，再逐项完成。分组按需自定义，窄侧栏与贴边也能清楚查看。',
-              )}
-            </p>
-          </div>
-          <div className="board-stage">
-            <div className="board-project">
-              <Icon name="feature-board" />
-              <span>{tr('个人作品集')}</span>
-            </div>
-            <BoardDemo />
-          </div>
-        </section>
+        <ScrollDemo steps={3} className="board-story page-width" labelledBy="board-title">
+          {(step) => (
+            <>
+              <div className="section-intro">
+                <h2 id="board-title">
+                  {tr('任务看板。')}
+                  <br />
+                  {tr('把聊过的事一件件做完。')}
+                </h2>
+                <p>
+                  {tr(
+                    '把聊到的事情留在手边。添加任务，拖动到进行中，再逐项完成。分组按需自定义，窄侧栏与贴边也能清楚查看。',
+                  )}
+                </p>
+              </div>
+              <div className="board-stage">
+                <div className="board-project">
+                  <Icon name="feature-board" />
+                  <span>{tr('个人作品集')}</span>
+                </div>
+                <BoardDemo tourStatus={step} />
+              </div>
+            </>
+          )}
+        </ScrollDemo>
         <ToolDetails />
         <section className="connection-story page-width" aria-labelledby="connection-title">
           <div className="section-intro">

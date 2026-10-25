@@ -4,7 +4,7 @@ import { tr } from '../shared/i18n.js';
  * [OUTPUT]: Local six-feature demo, draggable board, composer helpers and shared window model.
  * [POS]: Website illustration layer; no backend, host or model calls.
  * [PROTOCOL]: Keep website/AGENTS.md and browser acceptance in sync. */
-import { useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { Icon } from '../shared/icons/react';
 import { ModelPreview } from '../settings/model-preview';
 import { TokenMeterView } from '../features/token-meter/view';
@@ -76,7 +76,7 @@ export function Eyes() {
 }
 
 const statusKeys = ['待办', '进行中', '完成'];
-export function BoardDemo() {
+export function BoardDemo({ tourStatus }: { tourStatus?: number } = {}) {
   useLocale();
   const statuses = statusKeys.map((key) => tr(key));
   const [tasks, setTasks] = useState<
@@ -88,6 +88,12 @@ export function BoardDemo() {
   ]);
   const [adding, setAdding] = useState<number | null>(null);
   const [draft, setDraft] = useState('');
+  useEffect(() => {
+    if (tourStatus === undefined) return;
+    setTasks((items) =>
+      items.map((item) => (item.id === 0 ? { ...item, status: tourStatus } : item)),
+    );
+  }, [tourStatus]);
   const [over, setOver] = useState<number | null>(null);
   const dragging = useRef<number | null>(null);
   const nextId = useRef(3);
@@ -267,17 +273,29 @@ const exampleModels: ModelState = {
     presets: [],
   },
 };
-export function ModelDemo() {
+const modelStops = [
+  { model: 'gpt-6.1-sol', reasoning: 'low', speed: 'standard' },
+  { model: 'gpt-6-astra', reasoning: 'high', speed: 'standard' },
+  { model: 'gpt-6-astra', reasoning: 'high', speed: 'fast' },
+] as const;
+export function ModelDemo({ tourStep }: { tourStep?: number } = {}) {
   useLocale();
   return (
     <div className="demo-models" aria-label={tr('Codex 模型快切演示')}>
-      <ModelPreview model={exampleModels} />
+      <ModelPreview
+        model={exampleModels}
+        demoSelection={tourStep === undefined ? undefined : modelStops[tourStep]}
+      />
     </div>
   );
 }
-export function SpeedDemo() {
+export function SpeedDemo({ tourStep }: { tourStep?: number } = {}) {
   useLocale();
   const [phase, setPhase] = useState('streaming');
+  useEffect(() => {
+    if (tourStep !== undefined)
+      setPhase(['waiting', 'thinking', 'streaming', 'completed'][tourStep]);
+  }, [tourStep]);
   return (
     <div className="speed-demo">
       <div className="choice-row" role="group" aria-label={tr('测速状态演示')}>
@@ -323,9 +341,19 @@ export function SpeedDemo() {
     </div>
   );
 }
-export function BotDemo({ onInsert }: { onInsert: (value: string) => void }) {
+export const botSampleNames = () => [tr('工程主管'), tr('资料助手'), tr('随口一问')];
+export function BotDemo({
+  onInsert,
+  tourStep,
+}: {
+  onInsert: (value: string) => void;
+  tourStep?: number;
+}) {
   useLocale();
   const [bot, setBot] = useState('engineering');
+  useEffect(() => {
+    if (tourStep !== undefined) setBot(['engineering', 'research', 'casual'][tourStep]);
+  }, [tourStep]);
   return (
     <div className="demo-bots">
       {[
@@ -376,11 +404,13 @@ export function ComposerDemo({
   onChange,
   label = tr('接着聊'),
   optimize = false,
+  demoOriginal,
 }: {
   draft: string;
   onChange: (value: string) => void;
   label?: string;
   optimize?: boolean;
+  demoOriginal?: string;
 }) {
   useLocale();
   const id = useId();
@@ -399,10 +429,10 @@ export function ComposerDemo({
       />
       {optimize && (
         <div className="composer-actions">
-          {previous !== null && (
+          {(previous !== null || demoOriginal !== undefined) && (
             <button
               onClick={() => {
-                onChange(previous);
+                onChange(previous ?? demoOriginal!);
                 setPrevious(null);
               }}
             >

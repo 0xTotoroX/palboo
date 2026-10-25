@@ -10,7 +10,7 @@ import {
   fallbackTypography,
   type TypographyPreferences,
 } from '../shared/typography';
-import { LayoutPreview } from '../settings/layout-preview';
+import { LayoutPreview, type LayoutDemoStop } from '../settings/layout-preview';
 import type { FeatureState } from '../shared/features';
 import type { SurfaceState } from '../settings/surface-settings';
 import type { SurfaceTheme } from '../surfaces/theme/appearance';
@@ -83,12 +83,16 @@ export function SurfaceStory({
   interactive = true,
   entryRef,
   materialProgress = 0,
+  layoutStop,
+  materialStop,
 }: {
   zoom?: number;
   reveal?: number;
   interactive?: boolean;
   entryRef?: Ref<SVGGElement>;
   materialProgress?: number;
+  layoutStop?: LayoutDemoStop & { edge?: string };
+  materialStop?: { theme: SurfaceTheme['theme']; variant: 'regular' | 'clear' };
 }) {
   useLocale();
   const [edge, setEdge] = useState('right');
@@ -102,6 +106,14 @@ export function SurfaceStory({
   }, []);
   const [material, setMaterial] = useState<SurfaceTheme['theme']>('native-glass');
   const [variant, setVariant] = useState<'regular' | 'clear'>('regular');
+  useEffect(() => {
+    if (layoutStop?.edge) setEdge(layoutStop.edge);
+  }, [layoutStop]);
+  useEffect(() => {
+    if (!materialStop) return;
+    setMaterial(materialStop.theme);
+    setVariant(materialStop.variant);
+  }, [materialStop]);
   const surfaces = useMemo(
     () => sampleSurfaces(material, variant, edge),
     [material, variant, edge],
@@ -139,6 +151,7 @@ export function SurfaceStory({
           typographyPreferences={typography}
           focusWorkspace={compact}
           materialProgress={materialProgress}
+          demoStop={layoutStop}
           onReset={reset}
           renderControls={({
             placement,
@@ -272,6 +285,15 @@ const materials: { id: SurfaceTheme['theme']; title: string; text: string }[] = 
     },
     get text() {
       return tr('反光与透光形成边缘层次；Regular 更凝实，Clear 更通透。');
+    },
+  },
+  {
+    id: 'black',
+    get title() {
+      return tr('纯黑');
+    },
+    get text() {
+      return tr('不透明的纯黑底色，内容保持清晰。');
     },
   },
 ];

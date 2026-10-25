@@ -1,10 +1,10 @@
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
-/* [INPUT]: Read-only model catalog, saved usage visibility/account limits and the shared model view.
+/* [INPUT]: Read-only model catalog, saved quota visibility, optional synthetic tour selection and the shared model view.
  * [OUTPUT]: Content-sized model preview with linked quota visibility and isolated in-memory actions.
  * [POS]: No host target, transport, credentials or persisted preference changes.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ModelView } from '../features/model/view';
 import type { Model, ModelState, Selection } from '../features/model/catalog';
 import type { Reading } from '../shared/features';
@@ -21,10 +21,12 @@ function Sample({
   models,
   showUsage,
   usage,
+  demoSelection,
 }: {
   models: Model[];
   showUsage: boolean;
   usage: ModelState['snapshot']['usage'];
+  demoSelection?: Selection;
 }) {
   useLocale();
   const reading = useRef<Reading>({});
@@ -45,6 +47,15 @@ function Sample({
     preferences: { enabled: true, pinned: models.map((m) => m.id), presets: [] },
   }));
   const current = useRef(state);
+  useEffect(() => {
+    if (!demoSelection) return;
+    const next = {
+      ...current.current,
+      snapshot: { ...current.current.snapshot, current: demoSelection },
+    };
+    current.current = next;
+    setState(next);
+  }, [demoSelection]);
   return (
     <div className="preview-model-control" role="group" aria-label={tr('模型切换预览')}>
       <ModelView
@@ -83,7 +94,13 @@ function Sample({
   );
 }
 
-export function ModelPreview({ model }: { model: ModelState | null }) {
+export function ModelPreview({
+  model,
+  demoSelection,
+}: {
+  model: ModelState | null;
+  demoSelection?: Selection;
+}) {
   useLocale();
   // Catalog capabilities are safe to reuse. Live targets and current selections never enter the demo.
   const catalog = model?.snapshot?.models || [];
@@ -101,6 +118,7 @@ export function ModelPreview({ model }: { model: ModelState | null }) {
       models={models}
       showUsage={model?.preferences.showUsage !== false}
       usage={model?.snapshot?.usage}
+      demoSelection={demoSelection}
     />
   );
 }

@@ -1,6 +1,6 @@
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
-/* [INPUT]: Saved feature/surface/typography snapshots, optional website framing/material progress and shared workspace controller.
+/* [INPUT]: Saved feature/surface/typography snapshots, optional website stops/framing/material progress and shared workspace controller.
  * [OUTPUT]: Isolated previews with readable arrangements and reversible device-to-material motion.
  * [POS]: Shared layout/appearance sample content; save callbacks stay in memory and never call an API.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
@@ -23,6 +23,11 @@ import { LayoutPreviewScene, demoFrames } from './layout-preview-scene';
 import { useDemoJourney } from './layout-preview-journey';
 
 type Sample = { id: string; title: string };
+export type LayoutDemoStop = {
+  placement: string;
+  arrangement: 'vertical' | 'horizontal' | 'tabs';
+  active: string;
+};
 type PreviewControls = {
   placement: ReactNode;
   arrangement: ReactNode;
@@ -30,6 +35,25 @@ type PreviewControls = {
   setPlacement: (placement: string) => void;
   reset: () => void;
 };
+function sampleArrangement(entries: Sample[], axis: string, active?: string): FeatureLayout {
+  const groups =
+    axis === 'tabs'
+      ? [entries]
+      : [
+          entries.slice(0, Math.ceil(entries.length / 2)),
+          entries.slice(Math.ceil(entries.length / 2)),
+        ];
+  return {
+    axis: axis === 'tabs' ? 'auto' : axis,
+    groups: groups
+      .filter((items) => items.length)
+      .map((items) => ({
+        ids: items.map((item) => item.id),
+        active: items.some((item) => item.id === active) ? active! : items[0].id,
+        weight: 1,
+      })),
+  };
+}
 function WorkspaceSample({
   entries,
   layout,
@@ -138,6 +162,7 @@ export function LayoutPreview({
   focusWorkspace,
   renderControls,
   materialProgress,
+  demoStop,
 }: {
   features: FeatureState | null;
   surfaces: SurfaceState | null;
@@ -154,6 +179,7 @@ export function LayoutPreview({
   focusWorkspace?: boolean;
   renderControls?: (controls: PreviewControls) => ReactNode;
   materialProgress?: number;
+  demoStop?: LayoutDemoStop;
 }) {
   const locale = useLocale();
   const [mode, setMode] = useState<string | null>(null),
@@ -187,6 +213,18 @@ export function LayoutPreview({
     setExtra([]);
     setDemoLayout(null);
   }, [signature]);
+  useEffect(() => {
+    if (!demoStop || !features) return;
+    const entries = features.features
+      .filter(
+        (entry) =>
+          entry.open &&
+          (demoStop.placement === 'edge' ? entry.placement === 'edge' : entry.placement === source),
+      )
+      .map(({ id }) => ({ id, title: titles[id] }));
+    setMode(demoStop.placement);
+    setDemoLayout(sampleArrangement(entries, demoStop.arrangement, demoStop.active));
+  }, [demoStop, features, source]);
   const saved = useMemo(
     () =>
       resolveFeatureLayout(
@@ -242,21 +280,7 @@ export function LayoutPreview({
     }));
     const entries = [...samples, ...additions];
     if (additions.length) setExtra([...extra, ...additions]);
-    const groups =
-      axis === 'tabs'
-        ? [entries]
-        : [
-            entries.slice(0, Math.ceil(entries.length / 2)),
-            entries.slice(Math.ceil(entries.length / 2)),
-          ];
-    setDemoLayout({
-      axis: axis === 'tabs' ? 'auto' : axis,
-      groups: groups.map((items) => ({
-        ids: items.map((item) => item.id),
-        active: items[0].id,
-        weight: 1,
-      })),
-    });
+    setDemoLayout(sampleArrangement(entries, axis));
   }
   const arrangement = layout.groups.length === 1 ? 'tabs' : layout.axis;
   const sample = ready ? (

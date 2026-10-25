@@ -41,9 +41,14 @@ async function scrollScene(page, selector, progress) {
   );
 }
 
-// Layout occupies the first half of the continuous opening/material story.
+// The original brand approach keeps its 180svh distance before the guided tour.
 async function scrollOpening(page, progress) {
-  await scrollScene(page, '.opening-story', progress * 0.5);
+  await page.locator('.opening-story').evaluate((element, value) => {
+    scrollTo(0, scrollY + element.getBoundingClientRect().top + innerHeight * 1.8 * value);
+  }, progress);
+  await page.evaluate(
+    () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+  );
 }
 
 test('portfolio demos preserve drafts, preferences and undo without service requests', async () => {
@@ -1113,7 +1118,7 @@ test('layout flows into materials through one reversible workspace and keeps edi
     const frame = demo.locator('.layout-demo-window');
     const original = await frame.boundingBox();
     const widths = [];
-    for (const progress of [0.58, 0.64, 0.72, 0.8, 0.9]) {
+    for (const progress of [0.64, 0.66, 0.68, 0.7, 0.75]) {
       await scrollScene(page, '.opening-story', progress);
       widths.push((await frame.boundingBox()).width);
       assert.equal(await demo.locator('.layout-demo-workspace').count(), 1);
@@ -1188,6 +1193,259 @@ test('layout flows into materials through one reversible workspace and keeps edi
     );
     assert.deepEqual(errors, []);
     assert.ok(requests.every((url) => url.startsWith(base) && !url.includes('/api/')));
+  } finally {
+    await page.close();
+  }
+});
+
+test('native scrolling visits every feature, arrangement, placement and material in one workspace', async () => {
+  const page = await browser.newPage({ locale: 'zh-CN', viewport: { width: 1280, height: 900 } });
+  const errors = [],
+    requests = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  page.on('request', (request) => requests.push(request.url()));
+  try {
+    await page.goto(base);
+    const workspace = await page.locator('.surface-story .layout-demo-workspace').elementHandle();
+    const visited = {
+      placements: new Set(),
+      arrangements: new Set(),
+      features: new Set(),
+      edges: new Set(),
+      materials: new Set(),
+    };
+    for (let progress = 0.14; progress < 1; progress += 0.02) {
+      await scrollScene(page, '.opening-story', progress);
+      const state = await page.locator('.surface-story').evaluate((el) => {
+        const workspace = el.querySelector('.layout-demo-workspace');
+        return {
+          placement: el.querySelector('[data-demo-placement]').dataset.demoPlacement,
+          arrangement: el.querySelector('[aria-label="演示排列"] [aria-pressed="true"]')
+            .textContent,
+          features: [...el.querySelectorAll('[role="tab"][aria-selected="true"]')].map((tab) =>
+            tab.getAttribute('aria-label'),
+          ),
+          edge: el.querySelector('.workspace-edge-select')?.value,
+          material:
+            el.dataset.materialStage === 'true'
+              ? `${workspace.dataset.material}/${workspace.dataset.variant}`
+              : null,
+        };
+      });
+      visited.placements.add(state.placement);
+      visited.arrangements.add(state.arrangement);
+      state.features.forEach((name) => visited.features.add(name));
+      if (state.edge) visited.edges.add(state.edge);
+      if (state.material) visited.materials.add(state.material);
+      assert.equal(
+        await workspace.evaluate(
+          (node) => node === document.querySelector('.surface-story .layout-demo-workspace'),
+        ),
+        true,
+      );
+    }
+    assert.deepEqual(visited.placements, new Set(['sidebar', 'overlay', 'desktop', 'edge']));
+    assert.deepEqual(visited.arrangements, new Set(['上下', '左右', '标签']));
+    assert.deepEqual(
+      visited.features,
+      new Set(['下一步', '大纲', '术语', 'Grok Bot', '模型切换', '看板']),
+    );
+    assert.deepEqual(visited.edges, new Set(['right', 'left', 'top', 'bottom']));
+    assert.deepEqual(
+      visited.materials,
+      new Set([
+        'matte/regular',
+        'frosted/regular',
+        'native-glass/regular',
+        'native-glass/clear',
+        'black/regular',
+      ]),
+    );
+    await scrollScene(page, '.opening-story', 0.22);
+    await page.waitForFunction(
+      () =>
+        document.querySelector('[aria-label="演示排列"] [aria-pressed="true"]').textContent ===
+        '左右',
+    );
+    assert.equal(await page.locator('.surface-story').getAttribute('data-material-stage'), 'false');
+    assert.equal(await page.locator('.surface-story .csw-workbench-pane').count(), 2);
+    assert.equal(await page.locator('html').getAttribute('data-site-theme'), 'light');
+    assert.deepEqual(errors, []);
+    assert.ok(requests.every((url) => url.startsWith(base) && !url.includes('/api/')));
+  } finally {
+    await page.close();
+  }
+});
+
+test('scroll-led tool demonstrations show task progress, models, speed, optimization and Bot consultation', async () => {
+  const page = await browser.newPage({ locale: 'zh-CN', viewport: { width: 1280, height: 900 } });
+  try {
+    await page.goto(base);
+    for (const [index, progress] of [0.05, 0.4, 0.85].entries()) {
+      await scrollScene(page, '.board-story', progress);
+      await page.waitForFunction(
+        (index) =>
+          document
+            .querySelectorAll('.board-story .board-lane')
+            [index].textContent.includes('整理三个代表作品'),
+        index,
+      );
+    }
+    const model = page.locator('.model-tour');
+    for (const [progress, name, fast] of [
+      [0.05, 'GPT-6.1-Sol · Low', false],
+      [0.4, 'GPT-6-Astra · High', false],
+      [0.85, 'GPT-6-Astra · High', true],
+    ]) {
+      await scrollScene(page, '.model-tour', progress);
+      await page.waitForFunction(
+        ({ name, fast }) => {
+          const el = document.querySelector('.model-tour');
+          return (
+            el.querySelector(`button[aria-label="${name}"]`)?.getAttribute('aria-pressed') ===
+              'true' &&
+            el.querySelector('.model-fast')?.getAttribute('aria-pressed') === String(fast)
+          );
+        },
+        { name, fast },
+      );
+    }
+    assert.match(await model.innerText(), /72%/);
+    for (const [progress, name] of [
+      [0.05, '等待输出'],
+      [0.35, '思考中'],
+      [0.6, '生成中'],
+      [0.9, '已完成'],
+    ]) {
+      await scrollScene(page, '.speed-tour', progress);
+      await page.waitForFunction(
+        (name) => document.querySelector('.speed-tour [aria-pressed="true"]').textContent === name,
+        name,
+      );
+    }
+    const prompt = page.getByLabel('提示词优化演示', { exact: true });
+    await scrollScene(page, '.prompt-tour', 0.05);
+    assert.equal(await prompt.inputValue(), '帮我把这个作品集方案安排一下');
+    await scrollScene(page, '.prompt-tour', 0.85);
+    await page.waitForFunction(() =>
+      document.querySelector('.prompt-tour textarea').value.includes('交付内容与检查方法'),
+    );
+    assert.equal(
+      await page
+        .locator('.prompt-tour')
+        .getByRole('button', { name: '撤销', exact: true })
+        .isVisible(),
+      true,
+    );
+    for (const [progress, name] of [
+      [0.05, '工程主管'],
+      [0.4, '资料助手'],
+      [0.85, '随口一问'],
+    ]) {
+      await scrollScene(page, '.bot-tour', progress);
+      await page.waitForFunction(
+        (name) =>
+          document.querySelector('.bot-tour [aria-pressed="true"]').textContent.trim() === name,
+        name,
+      );
+      assert.match(await page.getByLabel('Bot 咨询草稿').inputValue(), new RegExp(name));
+    }
+    await scrollScene(page, '.model-tour', 0.05);
+    assert.equal(
+      await model
+        .getByRole('button', { name: 'GPT-6.1-Sol · Low', exact: true })
+        .getAttribute('aria-pressed'),
+      'true',
+    );
+  } finally {
+    await page.close();
+  }
+});
+
+test('scroll tours yield to editing and manual choices, preserve drafts and release short screens', async () => {
+  const page = await browser.newPage({ locale: 'zh-CN', viewport: { width: 1280, height: 900 } });
+  try {
+    await page.goto(base);
+    await scrollOpening(page, 1);
+    const demo = page.locator('.surface-story');
+    const draft = demo.getByLabel('下一步示例草稿');
+    await draft.fill('保留这份布局草稿');
+    await page.mouse.wheel(0, 400);
+    await scrollScene(page, '.opening-story', 0.45);
+    assert.equal(
+      await demo.locator('[data-demo-placement]').getAttribute('data-demo-placement'),
+      'sidebar',
+    );
+    assert.equal(await draft.inputValue(), '保留这份布局草稿');
+    assert.equal(await draft.evaluate((el) => el === document.activeElement), true);
+    await draft.blur();
+    await page.mouse.move(20, 20);
+    await page.mouse.wheel(0, 1);
+    await page.waitForFunction(
+      () =>
+        document.querySelector('.surface-story [data-demo-placement]').dataset.demoPlacement ===
+        'edge',
+    );
+    await scrollOpening(page, 1);
+    assert.equal(await draft.inputValue(), '保留这份布局草稿');
+
+    const speed = page.locator('.speed-tour');
+    await scrollScene(page, '.speed-tour', 0.05);
+    await speed.getByRole('button', { name: '思考中', exact: true }).click();
+    await scrollScene(page, '.speed-tour', 0.9);
+    assert.equal(await speed.locator('[aria-pressed="true"]').innerText(), '思考中');
+    await page.mouse.move(20, 20);
+    await page.mouse.wheel(0, 1);
+    await page.waitForFunction(
+      () => document.querySelector('.speed-tour [aria-pressed="true"]').textContent === '已完成',
+    );
+
+    await scrollScene(page, '.bot-tour', 0.4);
+    const botDraft = page.getByLabel('Bot 咨询草稿');
+    const original = await botDraft.inputValue();
+    await botDraft.focus();
+    assert.equal(await botDraft.inputValue(), original);
+    await botDraft.fill('我自己的咨询');
+    await scrollScene(page, '.bot-tour', 0.85);
+    assert.equal(await botDraft.inputValue(), '我自己的咨询');
+    await botDraft.blur();
+    await page.mouse.move(20, 20);
+    await page.mouse.wheel(0, 1);
+    await page.waitForFunction(
+      () =>
+        document.querySelector('.bot-tour [aria-pressed="true"]').textContent.trim() === '随口一问',
+    );
+    assert.equal(await botDraft.inputValue(), '我自己的咨询');
+
+    for (const viewport of [
+      { width: 780, height: 620 },
+      { width: 390, height: 844 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await page.locator('.board-story').scrollIntoViewIfNeeded();
+      await page.waitForFunction(
+        () => document.querySelector('.board-story').dataset.static === 'true',
+      );
+      assert.equal(
+        await page
+          .locator('.board-story .scroll-demo-pin')
+          .evaluate((el) => getComputedStyle(el).position),
+        'static',
+      );
+      assert.equal(
+        await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+        true,
+      );
+    }
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.waitForFunction(() =>
+      [...document.querySelectorAll('.scroll-demo')].every((el) => el.dataset.static === 'true'),
+    );
+    await speed.getByRole('button', { name: '生成中', exact: true }).click();
+    await page.mouse.wheel(0, 300);
+    assert.equal(await speed.locator('[aria-pressed="true"]').innerText(), '生成中');
+    assert.equal(await botDraft.inputValue(), '我自己的咨询');
   } finally {
     await page.close();
   }

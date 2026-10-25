@@ -4,12 +4,27 @@ import { tr } from '../shared/i18n.js';
  * [OUTPUT]: One brand/layout/material scroll journey and a focus-safe reading story.
  * [POS]: Website narrative composition; all examples describe one portfolio project.
  * [PROTOCOL]: Keep website/AGENTS.md and DESIGN_SYSTEM.md in sync. */
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react';
 import { BrandOpening } from './brand-opening';
 import { GithubLink, type GithubLinkVariant } from './github-link';
 import { FeatureDemo, type FeatureId } from './demos';
 import { SurfaceStory } from './workspace-demo';
 import { clamp, smooth, useScrollScene } from './scroll-motion';
+import {
+  layoutStops,
+  materialStops,
+  openingTiming,
+  openingDistance,
+  materialStart,
+  stopAt,
+} from './scroll-tour';
 
 export function OpeningStory({ githubVariant }: { githubVariant?: GithubLinkVariant }) {
   useLocale();
@@ -19,23 +34,55 @@ export function OpeningStory({ githubVariant }: { githubVariant?: GithubLinkVari
   const preview = useRef<HTMLDivElement>(null);
   const [replay, setReplay] = useState(0);
   const [engaged, setEngaged] = useState(false);
+  const [tourPaused, setTourPaused] = useState(false);
+  const dragging = useRef(false);
   const [heldMaterial, setHeldMaterial] = useState<number | null>(null);
   const [staticMaterial, setStaticMaterial] = useState(0);
-  // The first half retains the original 180svh flight and layout interaction.
-  // Continue the same scene into a material close-up, with a pause on either side.
-  const sceneProgress = engaged ? 1 : clamp(progress / 0.5);
+  const distance = progress * openingDistance;
+  // Keep the original brand flight; give each layout/material its own reading distance.
+  const sceneProgress = engaged ? 1 : clamp(distance / openingTiming.intro);
   const materialProgress =
-    heldMaterial ?? (staticView ? staticMaterial : smooth((progress - 0.58) / 0.3));
+    heldMaterial ??
+    (staticView ? staticMaterial : smooth((distance - materialStart) / openingTiming.transition));
+  const playing = !staticView && !tourPaused;
+  const layoutStop =
+    layoutStops[
+      stopAt(
+        (distance - openingTiming.intro) / (layoutStops.length * openingTiming.layoutStep),
+        layoutStops.length,
+      )
+    ];
+  const materialStop =
+    materialStops[
+      stopAt(
+        (distance - materialStart - openingTiming.transition) /
+          (materialStops.length * openingTiming.materialStep),
+        materialStops.length,
+      )
+    ];
+  const [shownLayout, setShownLayout] = useState<typeof layoutStop | undefined>(() =>
+    staticView ? undefined : layoutStop,
+  );
+  const [shownMaterial, setShownMaterial] = useState<typeof materialStop | undefined>(() =>
+    staticView ? undefined : materialStop,
+  );
+  useEffect(() => {
+    if (!playing) return;
+    setShownLayout(layoutStop);
+    setShownMaterial(materialStop);
+  }, [playing, layoutStop, materialStop]);
   useEffect(() => {
     const resumeScrolling = () => {
       // Button focus protects a click from reflow, but does not latch the story
       // after the visitor returns to the wheel. Active text editing keeps its view.
       if (
-        preview.current?.contains(document.activeElement) &&
-        document.activeElement?.matches('input, textarea, [contenteditable="true"]')
+        dragging.current ||
+        (preview.current?.contains(document.activeElement) &&
+          document.activeElement?.matches('input, textarea, select, [contenteditable="true"]'))
       )
         return;
       setEngaged(false);
+      setTourPaused(false);
       setHeldMaterial(null);
     };
     addEventListener('wheel', resumeScrolling, { passive: true });
@@ -89,6 +136,7 @@ export function OpeningStory({ githubVariant }: { githubVariant?: GithubLinkVari
       ref={ref}
       className="opening-story"
       data-static={staticView}
+      style={{ '--opening-distance': openingDistance } as CSSProperties}
       aria-labelledby="page-title"
     >
       <div className="opening-pin">
@@ -150,8 +198,20 @@ export function OpeningStory({ githubVariant }: { githubVariant?: GithubLinkVari
           ref={preview}
           className="intro-preview"
           aria-label={tr('Codex 中的 Palboo 外观示例')}
+          onPointerDownCapture={() => {
+            setEngaged(true);
+            setTourPaused(true);
+          }}
+          onDragStartCapture={() => {
+            dragging.current = true;
+            setTourPaused(true);
+          }}
+          onDragEndCapture={() => {
+            dragging.current = false;
+          }}
           onFocusCapture={(event) => {
             setEngaged(true);
+            setTourPaused(true);
             const target = event.target as HTMLElement;
             const next = target.closest('.material-story')
               ? 1
@@ -181,6 +241,8 @@ export function OpeningStory({ githubVariant }: { githubVariant?: GithubLinkVari
             interactive={interactive}
             entryRef={entry}
             materialProgress={materialProgress}
+            layoutStop={shownLayout}
+            materialStop={shownMaterial}
           />
         </div>
       </div>

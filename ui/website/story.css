@@ -3,7 +3,19 @@
  * [POS]: Website story styles; responsive overrides live in styles.css.
  * [PROTOCOL]: Keep website/AGENTS.md in sync. */
 .opening-story {
-  height: 460svh;
+  height: calc((var(--opening-distance, 3.6) + 1) * 100svh);
+}
+.scroll-demo[data-static='false'] {
+  min-height: calc((1 + (var(--tour-steps) - 1) * 0.45) * 100svh);
+  position: relative;
+}
+.scroll-demo[data-static='false'] > .scroll-demo-pin {
+  position: sticky;
+  top: max(24px, calc((100svh - var(--tour-height, 620px)) / 2));
+  padding-top: 1px;
+}
+.scroll-demo-pin {
+  overflow-anchor: none;
 }
 .opening-pin {
   position: sticky;

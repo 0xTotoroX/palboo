@@ -1,5 +1,6 @@
 // English interface copy. User-authored content is not translated.
 export default {
+  '不透明的纯黑底色，内容保持清晰。': 'Solid black with bright, readable content.',
   帮我把这个作品集方案安排一下: 'Help me plan this portfolio project',
   '常用操作，': 'Everyday tools,',
   '不必离开对话。': 'right beside your chat.',

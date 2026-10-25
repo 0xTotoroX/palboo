@@ -36,7 +36,11 @@ export function useScrollScene(anchors?: string) {
       frame = 0;
       const box = element.getBoundingClientRect();
       const value = clamp(-box.top / Math.max(1, box.height - innerHeight));
-      setProgress((old) => (Math.abs(old - value) < 0.0001 ? old : value));
+      // Preserve exact endpoints even when a long tour makes the last scroll
+      // increment smaller than the frame tolerance.
+      setProgress((old) =>
+        value > 0 && value < 1 && Math.abs(old - value) < 0.0001 ? old : value,
+      );
       if (anchors) {
         // Follow the actual copy entering the reading band, not equal fractions
         // of a section whose sticky and padding geometry can change.
