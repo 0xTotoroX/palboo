@@ -442,7 +442,7 @@ test('board supports real pointer drag, keyboard actions and creating a local ta
     const lanes = board.locator('.board-column');
     const card = board.locator('.task-card').filter({ hasText: '整理三个代表作品' });
     await card.dragTo(lanes.nth(1));
-    assert.equal(await lanes.nth(1).locator('.task-card').count(), 2);
+    assert.equal(await lanes.nth(1).locator('.task-card').count(), 3);
     await board.getByRole('button', { name: '任务详情：整理三个代表作品', exact: true }).focus();
     await page.keyboard.press('Enter');
     await board.getByRole('textbox', { name: '标题', exact: true }).fill('整理三个代表作品与截图');
@@ -672,11 +672,32 @@ test('model matrix, quota, presets, material samples and speed states use real p
       await model.getByRole('button', { name: 'Fast', exact: true }).getAttribute('aria-pressed'),
       'true',
     );
+    await model.getByRole('button', { name: 'GPT-6-Astra · Medium', exact: true }).click();
+    assert.equal(
+      await model.getByRole('button', { name: 'Fast', exact: true }).getAttribute('aria-pressed'),
+      'true',
+    );
+    assert.equal(await model.getByRole('button', { name: 'GPT-6-Astra', exact: true }).count(), 2);
     await model.getByRole('button', { name: '添加预设', exact: true }).click();
     assert.match(await model.locator('.model-presets').innerText(), /GPT-6-Astra/);
     assert.match(await model.locator('.model-usage').innerText(), /72/);
     await model.getByRole('button', { name: '所有模型', exact: true }).click();
     assert.equal(await model.locator('.model-picker').isVisible(), true);
+    assert.equal(await model.locator('.model-tile').count(), 9);
+    assert.equal(await model.locator('.model-group').count(), 5);
+    await model.getByRole('button', { name: '关闭所有模型', exact: true }).click();
+    assert.match(
+      await model.locator('.token-meter-readout').innerText(),
+      /38\.4 tok\/s[\s\S]*上次测速/,
+    );
+    const ranges = page.locator('.model-tour').getByRole('group', { name: '模型示例范围' });
+    await ranges.getByRole('button', { name: '国内模型', exact: true }).click();
+    assert.equal(await model.locator('.model-row').count(), 4);
+    await model.getByRole('button', { name: 'Qwen3 Coder Plus · 选择', exact: true }).click();
+    assert.equal(await model.getByRole('button', { name: 'Fast', exact: true }).isEnabled(), false);
+    await ranges.getByRole('button', { name: '国外模型', exact: true }).click();
+    assert.equal(await model.locator('.model-row').count(), 5);
+    assert.equal((await model.locator('.model-presets button').count()) >= 5, true);
     const material = page.locator('.material-story');
     const sample = page.locator('.surface-story [data-material]');
     const backgrounds = new Set();
@@ -692,10 +713,7 @@ test('model matrix, quota, presets, material samples and speed states use real p
     assert.equal(backgrounds.size, 3);
     await material.getByRole('button', { name: 'Clear', exact: true }).click();
     assert.equal(await sample.getAttribute('data-variant'), 'clear');
-    await page.locator('.speed-demo').getByRole('button', { name: '思考中', exact: true }).click();
-    assert.match(await page.locator('.speed-readout').innerText(), /思考中/);
-    await page.locator('.speed-demo').getByRole('button', { name: '已完成', exact: true }).click();
-    assert.match(await page.locator('.token-meter-readout').getAttribute('title'), /官方本轮累计/);
+    assert.equal(await page.locator('.speed-tour').count(), 0);
   } finally {
     await page.close();
   }
@@ -1374,7 +1392,8 @@ test('scroll-led tool demonstrations show task progress, models, speed, optimiza
     const model = page.locator('.model-tour');
     for (const [progress, name, fast] of [
       [0.05, 'GPT-6.1-Sol · Low', false],
-      [0.4, 'GPT-6-Astra · High', false],
+      [0.3, 'Claude Sonnet 5 · 选择', false],
+      [0.6, 'DeepSeek V4 Pro · 选择', false],
       [0.85, 'GPT-6-Astra · High', true],
     ]) {
       await scrollScene(page, '.model-tour', progress);
@@ -1391,19 +1410,8 @@ test('scroll-led tool demonstrations show task progress, models, speed, optimiza
       );
     }
     assert.match(await model.innerText(), /72%/);
-    for (const [progress, name] of [
-      [0.05, '等待输出'],
-      [0.25, '思考中'],
-      [0.45, '工具执行中'],
-      [0.65, '生成中'],
-      [0.9, '已完成'],
-    ]) {
-      await scrollScene(page, '.speed-tour', progress);
-      await page.waitForFunction(
-        (name) => document.querySelector('.speed-tour [aria-pressed="true"]').textContent === name,
-        name,
-      );
-    }
+    assert.match(await model.locator('.token-meter-readout').innerText(), /38\.4 tok\/s/);
+    assert.equal(await page.locator('.speed-tour').count(), 0);
     const prompt = page.getByLabel('提示词优化演示', { exact: true });
     await scrollScene(page, '.prompt-tour', 0.05);
     assert.equal(await prompt.inputValue(), '帮我把这个作品集方案安排一下');
@@ -1481,16 +1489,18 @@ test('scroll tours yield to editing and manual choices, preserve drafts and rele
     await scrollOpening(page, 1);
     assert.equal(await draft.inputValue(), '保留这份布局草稿');
 
-    const speed = page.locator('.speed-tour');
-    await scrollScene(page, '.speed-tour', 0.05);
-    await speed.getByRole('button', { name: '思考中', exact: true }).click();
-    await scrollScene(page, '.speed-tour', 0.9);
-    assert.equal(await speed.locator('[aria-pressed="true"]').innerText(), '思考中');
+    const models = page.locator('.model-tour');
+    const ranges = models.getByRole('group', { name: '模型示例范围' });
+    await scrollScene(page, '.model-tour', 0.05);
+    await ranges.getByRole('button', { name: '国内模型', exact: true }).click();
+    await scrollScene(page, '.model-tour', 0.9);
+    assert.equal(await ranges.locator('[aria-pressed="true"]').innerText(), '国内模型');
     await page.mouse.move(20, 20);
     await page.mouse.wheel(0, 1);
-    await page.waitForFunction(
-      () => document.querySelector('.speed-tour [aria-pressed="true"]').textContent === '已完成',
-    );
+    await ranges
+      .getByRole('button', { name: '常用组合' })
+      .and(page.locator('[aria-pressed="true"]'))
+      .waitFor();
 
     await scrollScene(page, '.bot-tour', 0.4);
     const botDraft = page.getByLabel('Bot 咨询草稿');
@@ -1536,9 +1546,9 @@ test('scroll tours yield to editing and manual choices, preserve drafts and rele
     await page.waitForFunction(() =>
       [...document.querySelectorAll('.scroll-demo')].every((el) => el.dataset.static === 'true'),
     );
-    await speed.getByRole('button', { name: '生成中', exact: true }).click();
+    await ranges.getByRole('button', { name: '国外模型', exact: true }).click();
     await page.mouse.wheel(0, 300);
-    assert.equal(await speed.locator('[aria-pressed="true"]').innerText(), '生成中');
+    assert.equal(await ranges.locator('[aria-pressed="true"]').innerText(), '国外模型');
     assert.equal(await botDraft.inputValue(), '我自己的咨询');
   } finally {
     await page.close();
@@ -1559,7 +1569,22 @@ test('real Bot avatars, hover actions and recent messages use local example data
     const bot = demo.getByRole('group', { name: '工程主管', exact: true });
     await bot.scrollIntoViewIfNeeded();
     assert.equal(await demo.locator('.palboo-bot-messages').count(), 0);
-    assert.equal(await demo.locator('.palboo-bot-badge').count(), 1);
+    assert.deepEqual(
+      new Set(
+        await demo
+          .locator('.palboo-bot-badge')
+          .evaluateAll((nodes) => nodes.map((node) => node.dataset.badge)),
+      ),
+      new Set(['unread', 'occupied', 'stopped', 'error']),
+    );
+    assert.equal(
+      await demo
+        .locator('.palboo-bot-avatar')
+        .evaluateAll((nodes) =>
+          nodes.every((node) => node.querySelectorAll('.palboo-bot-badge').length <= 1),
+        ),
+      true,
+    );
     assert.equal(await bot.locator('.palboo-bot-avatar').getAttribute('data-activity'), 'working');
     await page.mouse.move(10, 10);
     assert.equal(
@@ -1573,13 +1598,124 @@ test('real Bot avatars, hover actions and recent messages use local example data
     assert.match(await demo.locator('.palboo-bot-messages').innerText(), /三个代表作品/);
     await demo.getByRole('button', { name: '返回 Bot 列表', exact: true }).click();
     assert.equal(await demo.locator('.palboo-bot-messages').count(), 0);
-    const speed = page.locator('.speed-demo');
-    for (const phase of ['等待输出', '思考中', '工具执行中', '已完成']) {
-      await speed.getByRole('button', { name: phase, exact: true }).click();
-      assert.match(await speed.locator('.token-meter-readout').innerText(), /38\.4 tok\/s/);
-      assert.match(await speed.locator('.token-meter-readout').innerText(), /上次测速/);
+    const draft = await demo.getByLabel('Bot 咨询草稿').inputValue();
+    const layouts = demo.getByRole('group', { name: 'Bot 排布演示' });
+    for (const [name, expectedColumns] of [
+      ['侧栏', 1],
+      ['双列', 2],
+      ['自适应', 3],
+    ]) {
+      await layouts.getByRole('button', { name, exact: true }).click();
+      const columns = await demo
+        .locator('.palboo-bot-avatar')
+        .evaluateAll(
+          (nodes) => new Set(nodes.map((node) => Math.round(node.getBoundingClientRect().x))).size,
+        );
+      assert.equal(columns, expectedColumns, name);
     }
+    await demo.getByRole('button', { name: '分组', exact: true }).click();
+    await demo.getByText('创作与灵感', { exact: true }).waitFor();
+    await demo.getByText('项目协作', { exact: true }).waitFor();
+    assert.equal(await demo.getByLabel('Bot 咨询草稿').inputValue(), draft);
+    await demo.getByRole('button', { name: '重播 Bot 状态', exact: true }).click();
+    assert.equal(await bot.locator('.palboo-bot-avatar').getAttribute('data-activity'), 'finished');
+    assert.match(
+      await page.locator('.model-tour .token-meter-readout').innerText(),
+      /38\.4 tok\/s[\s\S]*上次测速/,
+    );
     assert.ok(requests.every((url) => url.startsWith(base) && !url.includes('/api/')));
+  } finally {
+    await page.close();
+  }
+});
+
+test('completed brand follows the mouse without changing poses, replay or scroll handoff', async () => {
+  const page = await browser.newPage({ locale: 'zh-CN', viewport: { width: 1440, height: 1000 } });
+  try {
+    await page.goto(base);
+    const stage = page.locator('.original-opening');
+    await page.mouse.move(1300, 400);
+    assert.equal(await stage.getAttribute('data-gaze'), null);
+    await page.waitForFunction(
+      () => document.querySelector('.original-opening').dataset.time === '6.8000',
+    );
+    const authoredEyes = () =>
+      stage
+        .locator('#eyes > *')
+        .evaluateAll((nodes) => nodes.map((node) => node.getAttribute('transform')));
+    const poses = await authoredEyes();
+    await page.mouse.move(1400, 950);
+    await page.waitForFunction(() => {
+      const gaze = document.querySelector('.original-opening').dataset.gaze?.split(',').map(Number);
+      return gaze?.[0] > 20 && gaze?.[1] > 10;
+    });
+    await page.mouse.move(10, 10);
+    await page.waitForFunction(
+      () => Number(document.querySelector('.original-opening').dataset.gaze?.split(',')[0]) < -20,
+    );
+    const gaze = (await stage.getAttribute('data-gaze')).split(',').map(Number);
+    assert.ok(Math.abs(gaze[0]) <= 28 && Math.abs(gaze[1]) <= 18);
+    assert.deepEqual(await authoredEyes(), poses);
+    await page.getByRole('button', { name: '重播品牌开场' }).click();
+    assert.equal(await stage.getAttribute('data-gaze'), null);
+    assert.ok(Number(await stage.getAttribute('data-time')) < 0.3);
+    await page.mouse.move(1400, 950);
+    assert.equal(await stage.getAttribute('data-gaze'), null);
+    await page.mouse.wheel(0, 100);
+    await page.waitForFunction(
+      () => scrollY > 0 && document.querySelector('.original-opening').dataset.time === '6.8000',
+    );
+    await page.mouse.move(5, 5);
+    assert.equal(await stage.getAttribute('data-gaze'), null);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.getByRole('button', { name: '重播品牌开场' }).click();
+    await page.mouse.move(1400, 950);
+    assert.equal(await stage.getAttribute('data-gaze'), null);
+    assert.equal(await stage.getAttribute('data-time'), '6.8000');
+  } finally {
+    await page.close();
+  }
+});
+
+test('Bot replay uses synchronized original eye motion and ends after one cycle', async () => {
+  const page = await browser.newPage({ locale: 'zh-CN', viewport: { width: 1440, height: 1000 } });
+  try {
+    await page.goto(base);
+    const demo = page.locator('.bot-tour');
+    await scrollScene(page, '.bot-tour', 0.85);
+    const avatar = demo
+      .getByRole('group', { name: '工程主管', exact: true })
+      .locator('.palboo-bot-avatar');
+    await demo.getByRole('button', { name: '重播 Bot 状态', exact: true }).click();
+    await avatar.and(page.locator('[data-activity="working"][data-moving="true"]')).waitFor();
+    const animations = await avatar.locator('.palboo-bot-eye').evaluateAll((eyes) =>
+      eyes.map((eye) => {
+        const animation = eye.getAnimations()[0];
+        return {
+          name: getComputedStyle(eye).animationName,
+          duration: animation?.effect.getTiming().duration,
+          start: animation?.startTime,
+        };
+      }),
+    );
+    assert.equal(animations.length, 2);
+    assert.equal(animations[0].name, 'palboo-bot-think');
+    assert.deepEqual(animations[0], animations[1]);
+    await avatar.and(page.locator('[data-activity="finished"]')).waitFor();
+    assert.equal(
+      await demo
+        .getByRole('button', { name: '重播 Bot 状态', exact: true })
+        .getAttribute('aria-busy'),
+      'false',
+    );
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    assert.equal(
+      await avatar
+        .locator('.palboo-bot-eye')
+        .first()
+        .evaluate((eye) => getComputedStyle(eye).animationName),
+      'none',
+    );
   } finally {
     await page.close();
   }

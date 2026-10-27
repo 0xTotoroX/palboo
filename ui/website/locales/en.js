@@ -1,5 +1,57 @@
 // English interface copy. User-authored content is not translated.
 export default {
+  常用组合: 'Everyday presets',
+  国内模型: 'Chinese models',
+  国外模型: 'International models',
+  模型示例范围: 'Example model collection',
+  编码: 'Coding',
+  深入分析: 'Deep analysis',
+  写作: 'Writing',
+  '常用模型放在手边，模型与推理档位一键切换。把写作、编码和深入分析存成预设，也能展开目录按厂家挑选。':
+    'Keep favorite models close. Switch models and reasoning levels, save writing, coding and analysis presets, or browse the catalog by provider.',
+  '底部保留最近测速，思考或调用工具时也能看到。':
+    'The latest speed stays in the footer while the model thinks or uses tools.',
+  '模型、档位和额度均为示例，实际选项以接入的宿主与服务为准。':
+    'Models, levels and quotas are examples. Actual options depend on your connected host and services.',
+  设计搭档: 'Design partner',
+  写作助手: 'Writing assistant',
+  代码审查: 'Code review',
+  项目管家: 'Project manager',
+  灵感收集: 'Idea collector',
+  创作与灵感: 'Create and explore',
+  项目协作: 'Project team',
+  'Bot 排布演示': 'Bot layout demo',
+  自适应: 'Adaptive',
+  双列: 'Two columns',
+  '重播 Bot 状态': 'Replay Bot activity',
+  '第一版范围已整理好，任务已按素材、布局和检查分组。':
+    'The first version is scoped. Tasks are grouped into assets, layout, and review.',
+  '让一组 Bot 各司其职。思考和完成直接体现在眼睛上；未读、占用、停止与异常用一枚徽章表示。':
+    'Give each Bot a role. Eyes show work and completion; a single badge marks unread messages, activity elsewhere, a stop, or an error.',
+  '试着改变容器宽度和分组，移到头像上查看进度、追问或停止。最近消息统一从顶部打开。沿用已有 BDK、MCP 与 Skill，由当前聊天的 Agent 发起咨询。':
+    'Try different widths and groups. Hover over an avatar to check progress, follow up, or stop; open recent messages from the top. Your current chat’s Agent uses your existing BDK, MCP, and Skill setup.',
+  断点: 'Breakpoint',
+  '布局切换的宽度条件。比如空间不足时，两列作品变成一列，文字保持原本的可读大小。':
+    'A width condition that changes the layout. Two columns become one when space is tight, keeping text comfortably readable.',
+  '访客第一次看到页面内容所需的加载过程。先呈现标题和核心作品，其余图片按需要加载。':
+    'The loading process before visitors first see the page. Show the heading and key projects first, then load other images as needed.',
+  '让不同操作方式都能完成任务。键盘可到达按钮，焦点清楚，减少动态效果时仍能阅读和操作。':
+    'Make tasks possible with different input methods: reachable buttons, visible keyboard focus, and full usability with reduced motion.',
+  找出取舍: 'Choose priorities',
+  '先把第一版范围定下来。': 'Set the scope of the first version.',
+  '如果只能保留三个重点，我该怎样取舍作品集内容？':
+    'If I can keep only three priorities, how should I choose the portfolio content?',
+  准备验收: 'Prepare the review',
+  '给每一步一个清楚的完成标准。': 'Give each step a clear completion check.',
+  '请把上线前的检查项整理成一份可逐项勾选的清单。':
+    'Turn the prelaunch checks into a checklist I can work through.',
+  桌面与手机: 'Desktop and mobile',
+  素材与加载: 'Assets and loading',
+  准备封面与截图: 'Prepare covers and screenshots',
+  检查移动端阅读: 'Check mobile reading',
+  补全联系方式: 'Complete contact details',
+  '每个作品保留背景、个人贡献、最终结果和两张关键截图。':
+    'Keep the context, personal contribution, outcome, and two key screenshots for each project.',
   '请按目标、步骤和检查方法组织回答。': 'Organize the answer by goals, steps, and checks.',
   '内容已更新，请重试': 'The content has changed. Please try again.',
   '直接试用 Palboo 界面，所有操作仅使用本页示例数据。':

@@ -1,0 +1,113 @@
+/* [INPUT]: Real feature components inside website-only example frames.
+ * [OUTPUT]: Readable model catalogs, responsive Bot layouts and restrained state transitions.
+ * [POS]: Presentation framing only; no replacement product controls.
+ * [PROTOCOL]: Keep website/AGENTS.md and DESIGN_SYSTEM.md in sync. */
+.model-showcase,
+.bot-showcase {
+  min-width: 0;
+}
+.demo-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 20px;
+}
+.demo-controls button {
+  min-height: 36px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  color: var(--site-muted);
+}
+.demo-controls button:hover,
+.demo-controls button[aria-pressed='true'] {
+  color: var(--site-text);
+  background: var(--site-input);
+}
+.bot-demo-controls {
+  justify-content: space-between;
+  gap: 12px;
+}
+.bot-demo-controls > div {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.demo-controls .demo-replay {
+  display: grid;
+  place-items: center;
+  min-width: 36px;
+  padding: 6px;
+}
+.demo-replay svg {
+  width: 18px;
+  height: 18px;
+}
+.bot-demo-frame {
+  width: 100%;
+  max-width: 680px;
+  margin-inline: auto;
+  border: 1px solid var(--site-border);
+  border-radius: 12px;
+  background: var(--site-surface);
+  transition: max-width 280ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.bot-showcase[data-layout='medium'] .bot-demo-frame {
+  max-width: 440px;
+}
+.bot-showcase[data-layout='sidebar'] .bot-demo-frame {
+  max-width: 270px;
+}
+.site-workspace-feature .bot-demo-frame,
+.demo-panel .bot-demo-frame {
+  border: 0;
+  background: transparent;
+}
+.model-showcase.is-detailed .model-row {
+  min-height: 44px;
+  animation: model-example-enter 240ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.model-showcase.is-detailed .model-presets {
+  padding-top: 20px;
+}
+.model-showcase .model-status-left {
+  row-gap: 10px;
+}
+.model-showcase .token-meter-readout {
+  font-variant-numeric: tabular-nums;
+}
+.demo-chat h4 {
+  font: inherit;
+  font-weight: 550;
+  margin: 10px 0 4px;
+}
+@keyframes model-example-enter {
+  from {
+    opacity: 0.55;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (max-width: 600px) {
+  .demo-controls {
+    margin-bottom: 14px;
+  }
+  .demo-controls button {
+    padding-inline: 10px;
+  }
+  .model-showcase.is-detailed .demo-models {
+    padding: 20px 14px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bot-demo-frame {
+    transition: none;
+  }
+  .model-showcase.is-detailed .model-row {
+    animation: none;
+  }
+}

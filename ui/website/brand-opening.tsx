@@ -1,17 +1,20 @@
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: Original v3 SVG/pose timeline, replay/transport intent and motion preference.
- * [OUTPUT]: Complete original playback from typing through blush, then scroll handoff.
+ * [OUTPUT]: Complete original playback, idle mouse gaze and a clean scroll handoff.
  * [POS]: Website transport only; original artwork and authored poses stay unchanged.
  * [PROTOCOL]: Keep website/AGENTS.md and media/README.md in sync. */
 import { useLayoutEffect, useRef } from 'react';
 import { createBrandPose } from './brand-poses';
+import { installBrandGaze } from './brand-gaze';
 import artwork from './media/palboo-opening.svg?raw';
 
 export function BrandOpening({ travelling, replay }: { travelling: boolean; replay: number }) {
   useLocale();
   const ref = useRef<HTMLDivElement>(null);
   const finish = useRef<() => void>(() => {});
+  const inTransit = useRef(travelling);
+  inTransit.current = travelling;
   useLayoutEffect(() => {
     const element = ref.current!;
     const timeline = createBrandPose(element);
@@ -20,10 +23,15 @@ export function BrandOpening({ travelling, replay }: { travelling: boolean; repl
       elapsed = 0,
       last = 0,
       visible = true;
+    const gaze = installBrandGaze(
+      element,
+      () => elapsed >= 6.8 && !inTransit.current && visible && !document.hidden && !media.matches,
+    );
     const stop = () => {
       cancelAnimationFrame(request);
       request = 0;
       last = 0;
+      gaze.reset();
     };
     finish.current = () => {
       stop();
@@ -54,6 +62,7 @@ export function BrandOpening({ travelling, replay }: { travelling: boolean; repl
     return () => {
       stop();
       observer.disconnect();
+      gaze.destroy();
       media.removeEventListener('change', resume);
       document.removeEventListener('visibilitychange', resume);
     };

@@ -27,6 +27,7 @@ export function sampleProjection(explore = false): PanelSnapshot {
             '让每个作品更突出你的贡献。',
             '这些作品还可以从哪些角度展示我的个人贡献？',
           ],
+          ['找出取舍', '先把第一版范围定下来。', '如果只能保留三个重点，我该怎样取舍作品集内容？'],
         ]
       : [
           [
@@ -38,6 +39,11 @@ export function sampleProjection(explore = false): PanelSnapshot {
             '检查移动端',
             '看看小屏阅读和图片加载还有哪些遗漏。',
             '帮我检查作品集在手机上阅读和加载图片时可能遗漏的问题。',
+          ],
+          [
+            '准备验收',
+            '给每一步一个清楚的完成标准。',
+            '请把上线前的检查项整理成一份可逐项勾选的清单。',
           ],
         ]
   ).map(([label, summary, prompt]) => ({
@@ -67,13 +73,26 @@ export function sampleProjection(explore = false): PanelSnapshot {
       promptScrollTop: 0,
     },
     prompts,
-    outlineItems: headings().map((text, i) => ({
-      id: String(i),
-      text,
-      labelText: text,
-      displayLevel: 0,
-      numberPrefix: '',
-    })),
+    outlineItems: headings().flatMap((text, i) => [
+      {
+        id: String(i),
+        text,
+        labelText: text,
+        displayLevel: 0,
+        numberPrefix: '',
+      },
+      ...(i > 0
+        ? [
+            {
+              id: `${i}:detail`,
+              text: tr(i === 1 ? '桌面与手机' : '素材与加载'),
+              labelText: tr(i === 1 ? '桌面与手机' : '素材与加载'),
+              displayLevel: 1,
+              numberPrefix: '',
+            },
+          ]
+        : []),
+    ]),
     outlineStatus: 'ready',
     outlineError: '',
     bridgeStatus: 'ok',
@@ -133,7 +152,15 @@ export function sampleProjection(explore = false): PanelSnapshot {
   };
 }
 
-const taskNames = ['整理三个代表作品', '完成首页布局', '确定第一版范围'];
+const taskNotes = '每个作品保留背景、个人贡献、最终结果和两张关键截图。';
+const taskNames = [
+  '整理三个代表作品',
+  '完成首页布局',
+  '确定第一版范围',
+  '准备封面与截图',
+  '检查移动端阅读',
+  '补全联系方式',
+];
 function task(id: string, fields: Fields): Task {
   return {
     id,
@@ -146,7 +173,7 @@ function task(id: string, fields: Fields): Task {
   };
 }
 export function createDemoTasks() {
-  let serial = 3;
+  let serial = 6;
   const state: TaskState = {
     status: 'ready',
     store: {
@@ -159,8 +186,10 @@ export function createDemoTasks() {
         task(`sample-${i}`, {
           ...emptyFields(),
           title,
-          column: i === 1 ? 'doing' : 'todo',
-          completed: i === 2,
+          column: i === 1 || i === 4 ? 'doing' : 'todo',
+          completed: i === 2 || i === 5,
+          priority: i === 0 ? 1 : i === 4 ? 5 : 0,
+          notes: i === 0 ? taskNotes : '',
         }),
       ),
     },
@@ -170,6 +199,8 @@ export function createDemoTasks() {
     result.store.tasks.forEach((item) => {
       const index = Number(item.id.replace('sample-', ''));
       if (item.fields.title === taskNames[index]) item.fields.title = tr(item.fields.title);
+      if (item.id === 'sample-0' && item.fields.notes === taskNotes)
+        item.fields.notes = tr(taskNotes);
     });
     return result;
   };

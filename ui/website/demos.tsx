@@ -1,14 +1,13 @@
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
-/* [INPUT]: Product feature adapters, model preview, synthetic portfolio content and visitor input.
+/* [INPUT]: Product feature adapters, synthetic portfolio content and visitor input.
  * [OUTPUT]: One example chat with actual feature components, model/meter demonstrations and local draft helpers.
  * [POS]: Website illustration layer; no backend, host or model calls.
  * [PROTOCOL]: Keep website/AGENTS.md and browser acceptance in sync. */
-import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { Icon } from '../shared/icons/react';
-import { ModelPreview } from '../settings/model-preview';
-import { TokenMeterView } from '../features/token-meter/view';
-import type { ModelState } from '../features/model/catalog';
+import { ModelDemo } from './model-demo';
+export { ModelDemo } from './model-demo';
 import { NextDemo, OutlineDemo, BoardDemo, TermDemo, BotDemo } from './product-demos';
 import { headings } from './demo-state';
 export { BoardDemo, BotDemo, TermDemo, botSampleNames } from './product-demos';
@@ -78,112 +77,6 @@ export function Eyes() {
   );
 }
 
-const exampleModels: ModelState = {
-  revision: 0,
-  snapshot: {
-    target: { preview: true },
-    revision: 'website-example',
-    status: 'ready',
-    message: '',
-    current: null,
-    models: [
-      {
-        id: 'gpt-6.1-sol',
-        label: 'GPT-6.1-Sol',
-        reasoning: ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'],
-        fast: true,
-      },
-      {
-        id: 'gpt-6-astra',
-        label: 'GPT-6-Astra',
-        reasoning: ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'],
-        fast: true,
-      },
-    ],
-    usage: [
-      { minutes: 10080, remainingPercent: 72, resetsAt: null },
-      { minutes: 300, remainingPercent: 86, resetsAt: null },
-    ],
-  },
-  preferences: {
-    enabled: true,
-    showUsage: true,
-    pinned: ['gpt-6.1-sol', 'gpt-6-astra'],
-    presets: [],
-  },
-};
-const modelStops = [
-  { model: 'gpt-6.1-sol', reasoning: 'low', speed: 'standard' },
-  { model: 'gpt-6-astra', reasoning: 'high', speed: 'standard' },
-  { model: 'gpt-6-astra', reasoning: 'high', speed: 'fast' },
-] as const;
-export function ModelDemo({ tourStep }: { tourStep?: number } = {}) {
-  useLocale();
-  return (
-    <div className="demo-models" aria-label={tr('Codex 模型快切演示')}>
-      <ModelPreview
-        model={exampleModels}
-        demoSelection={tourStep === undefined ? undefined : modelStops[tourStep]}
-      />
-    </div>
-  );
-}
-export function SpeedDemo({ tourStep }: { tourStep?: number } = {}) {
-  useLocale();
-  const [phase, setPhase] = useState('streaming');
-  useEffect(() => {
-    if (tourStep !== undefined)
-      setPhase(['waiting', 'thinking', 'tool', 'streaming', 'completed'][tourStep]);
-  }, [tourStep]);
-  return (
-    <div className="speed-demo">
-      <div className="choice-row" role="group" aria-label={tr('测速状态演示')}>
-        {[
-          ['waiting', tr('等待输出')],
-          ['thinking', tr('思考中')],
-          ['tool', tr('工具执行中')],
-          ['streaming', tr('生成中')],
-          ['completed', tr('已完成')],
-        ].map(([id, title]) => (
-          <button key={id} aria-pressed={phase === id} onClick={() => setPhase(id)}>
-            {title}
-          </button>
-        ))}
-      </div>
-      <p>
-        {phase === 'waiting'
-          ? tr('已发送：帮我安排作品集的第一版。')
-          : phase === 'thinking'
-            ? tr('正在梳理作品、页面与时间安排…')
-            : tr('先整理作品素材，再完成页面布局，最后检查移动端和联系链接。')}
-      </p>
-      <div className="speed-readout">
-        <span>{tr('示例回复')}</span>
-        <TokenMeterView
-          snapshot={{
-            threadId: 'website-example',
-            phase,
-            speed: phase === 'streaming' ? 38.4 : null,
-            lastSpeed: 38.4,
-            model: 'GPT-6-Astra',
-            fast: false,
-            official:
-              phase === 'completed'
-                ? {
-                    inputTokens: 1120,
-                    cachedInputTokens: 800,
-                    outputTokens: 248,
-                    reasoningOutputTokens: 96,
-                  }
-                : null,
-            scope: 'turn',
-            average: phase === 'completed' ? 21.6 : null,
-          }}
-        />
-      </div>
-    </div>
-  );
-}
 export function ComposerDemo({
   draft,
   onChange,
@@ -362,6 +255,7 @@ export function FeatureDemo({
                     tr('检查小屏阅读、图片加载和联系链接，再请朋友试用。')
                   )}
                 </p>
+                {index > 0 && <h4>{tr(index === 1 ? '桌面与手机' : '素材与加载')}</h4>}
                 <p>
                   {
                     [

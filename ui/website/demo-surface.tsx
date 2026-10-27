@@ -19,6 +19,7 @@ const theme = `:host {
   --feature-status-font:max(14px,.875em); --board-font-size:1em;
 }
 .site-product-body{min-width:0;color:var(--ink);font:inherit;line-height:1.5}
+.site-product-body :is(input,textarea,select,[contenteditable="true"]){scroll-margin-block:16px}
 .feature-projection{min-width:0}
 .site-product-body > .feature-pane-head{height:28px}
 .site-product-body .csw-next-layout{min-height:0;grid-template-rows:max-content minmax(120px,auto)}

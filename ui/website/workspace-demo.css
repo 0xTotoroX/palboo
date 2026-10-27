@@ -123,25 +123,6 @@
 .demo-panel .demo-models .model-row {
   min-height: 44px;
 }
-.speed-demo {
-  padding: 24px;
-  background: var(--site-stage);
-  border-radius: 12px;
-}
-.speed-readout {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-top: 28px;
-  color: var(--site-muted);
-  font-size: 14px;
-  font-variant-numeric: tabular-nums;
-}
-.speed-demo > p {
-  min-height: 88px;
-  max-width: none;
-}
 .connection-details {
   min-width: 0;
 }

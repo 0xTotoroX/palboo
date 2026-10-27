@@ -8,6 +8,7 @@
 @import '../features/model/styles.css';
 @import './workspace-demo.css';
 @import './demo-content.css';
+@import './showcases.css';
 @import './story.css';
 :root {
   --site-page: #fdfcf9;

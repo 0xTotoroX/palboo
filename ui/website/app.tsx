@@ -9,7 +9,7 @@ import { tr } from '../shared/i18n.js';
 import { useState } from 'react';
 import { Icon } from '../shared/icons/react';
 import { PalbooWordmark } from '../shared/brand';
-import { BoardDemo, BotDemo, ComposerDemo, ModelDemo, SpeedDemo, botSampleNames } from './demos';
+import { BoardDemo, BotDemo, ComposerDemo, ModelDemo, botSampleNames } from './demos';
 import { OpeningStory, ReadingStory } from './story';
 import { ScrollDemo } from './scroll-tour';
 import type { GithubLinkVariant } from './github-link';
@@ -25,35 +25,20 @@ function ToolDetails() {
         <br />
         {tr('不必离开对话。')}
       </h2>
-      <ScrollDemo steps={3} className="model-tour">
+      <ScrollDemo steps={4} className="model-tour">
         {(step) => (
           <div className="tool-row">
             <div>
               <h3>{tr('模型快切')}</h3>
               <p>
                 {tr(
-                  'Codex 模型、推理强度和 Fast，在同一处切换。把常用组合存成预设，随时查看剩余额度。',
+                  '常用模型放在手边，模型与推理档位一键切换。把写作、编码和深入分析存成预设，也能展开目录按厂家挑选。',
                 )}
               </p>
-              <p>{tr('模型与额度为示例，实际选项以你的 Codex 为准。')}</p>
+              <p>{tr('底部保留最近测速，思考或调用工具时也能看到。')}</p>
+              <p>{tr('模型、档位和额度均为示例，实际选项以接入的宿主与服务为准。')}</p>
             </div>
-            <ModelDemo tourStep={step} />
-          </div>
-        )}
-      </ScrollDemo>
-      <ScrollDemo steps={5} className="speed-tour">
-        {(step) => (
-          <div className="tool-row">
-            <div>
-              <h3>{tr('聊天测速')}</h3>
-              <p>
-                {tr(
-                  '保留当前模型最近一次测速，在思考、调用工具或切换聊天时仍能查看。状态放在括号里，测到新速度再更新。',
-                )}
-              </p>
-              <p>{tr('显示在模型快切底部。速度只统计可见回复，不含隐藏思考和工具输出。')}</p>
-            </div>
-            <SpeedDemo tourStep={step} />
+            <ModelDemo tourStep={step} detailed />
           </div>
         )}
       </ScrollDemo>
@@ -75,13 +60,18 @@ function ToolDetails() {
               <h3>Grok Bot</h3>
               <p>
                 {tr(
-                  '找到合适的 Bot，把咨询带进当前聊天。头像与徽章展示状态，移入鼠标后查看进度、追问或停止，最近消息按需打开。',
+                  '让一组 Bot 各司其职。思考和完成直接体现在眼睛上；未读、占用、停止与异常用一枚徽章表示。',
                 )}
               </p>
-              <p>{tr('沿用你的 BDK、MCP 与 Skill 配置，由当前聊天里的 Agent 发起咨询。')}</p>
+              <p>
+                {tr(
+                  '试着改变容器宽度和分组，移到头像上查看进度、追问或停止。最近消息统一从顶部打开。沿用已有 BDK、MCP 与 Skill，由当前聊天的 Agent 发起咨询。',
+                )}
+              </p>
             </div>
             <div>
               <BotDemo
+                detailed
                 tourStep={step}
                 onInsert={(value) => setBotDraft((draft) => (draft ? `${draft}\n${value}` : value))}
               />

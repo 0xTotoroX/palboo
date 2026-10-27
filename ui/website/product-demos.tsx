@@ -9,10 +9,8 @@ import type { Reading } from '../shared/features';
 import { ProjectedContent } from '../features/projected';
 import { TerminologyView, type TermData } from '../features/terminology';
 import { Board } from '../features/board/app';
-import { BotsView, type BotState } from '../features/bots/view';
 import contentStyles from '../features/content.css?inline';
 import boardStyles from '../features/board/styles.css?inline';
-import botStyles from '../features/bots/style.css?inline';
 import { DemoSurface } from './demo-surface';
 import { createDemoTasks, sampleProjection } from './demo-state';
 import { useSiteTheme } from './theme';
@@ -67,7 +65,7 @@ export function OutlineDemo({ onJump }: { onJump: (index: number) => void }) {
         reading={reading.current}
         disabled={false}
         command={async (kind, data) => {
-          if (kind === 'outline-jump') onJump(Number(data?.id));
+          if (kind === 'outline-jump') onJump(Number.parseInt(String(data?.id), 10));
           if (kind === 'outline-anchor') onJump(data?.anchor === 'end' ? 2 : 0);
         }}
       />
@@ -97,8 +95,8 @@ export function TermDemo() {
   useLocale();
   useSiteTheme();
   const reading = useRef<Reading>({});
-  const [favorites, setFavorites] = useState<string[]>([]);
-  const [mastered, setMastered] = useState<string[]>([]);
+  const [favorites, setFavorites] = useState<string[]>(['breakpoint']);
+  const [mastered, setMastered] = useState<string[]>(['accessibility']);
   const state: TermData = {
     entries: [
       {
@@ -108,9 +106,36 @@ export function TermDemo() {
         definition: tr('让页面随屏幕宽度调整排列。例如电脑上并排展示作品，手机上改为纵向阅读。'),
         category: [tr('页面与布局')],
       },
+      {
+        id: 'breakpoint',
+        name: tr('断点'),
+        english: 'Breakpoint',
+        category: [tr('页面与布局')],
+        definition: tr(
+          '布局切换的宽度条件。比如空间不足时，两列作品变成一列，文字保持原本的可读大小。',
+        ),
+      },
+      {
+        id: 'loading',
+        name: tr('首屏加载'),
+        english: 'Initial load',
+        category: [tr('性能')],
+        definition: tr(
+          '访客第一次看到页面内容所需的加载过程。先呈现标题和核心作品，其余图片按需要加载。',
+        ),
+      },
+      {
+        id: 'accessibility',
+        name: tr('可访问性'),
+        english: 'Accessibility',
+        category: [tr('交互')],
+        definition: tr(
+          '让不同操作方式都能完成任务。键盘可到达按钮，焦点清楚，减少动态效果时仍能阅读和操作。',
+        ),
+      },
     ],
     preferences: { favorites, mastered, cardMaterial: 'matte' },
-    involved: ['responsive'],
+    involved: ['responsive', 'breakpoint', 'loading', 'accessibility'],
     context: 'website',
     phase: 'ready',
     message: '',
@@ -136,59 +161,4 @@ export function TermDemo() {
     </DemoSurface>
   );
 }
-export const botSampleNames = () => [tr('工程主管'), tr('资料助手'), tr('随口一问')];
-export function BotDemo({
-  onInsert,
-  tourStep,
-}: {
-  onInsert: (text: string) => void;
-  tourStep?: number;
-}) {
-  useLocale();
-  const [phase, setPhase] = useState(1);
-  useEffect(() => {
-    if (tourStep !== undefined) setPhase(tourStep);
-  }, [tourStep]);
-  const names = botSampleNames();
-  const state: BotState = {
-    autoSync: true,
-    snapshot: {
-      target: { threadId: 'website', token: 'sample' },
-      catalog: { revision: 'website', stale: false },
-      bots: names.map((name, i) => ({
-        id: String(i),
-        name,
-        occupied: false,
-        avatar: { shape: 'circle', color: ['black', 'violet', 'green'][i] },
-        current:
-          i === 0
-            ? { key: 'sample', status: ['calling', 'running', 'finished'][phase] }
-            : i === 1
-              ? { key: 'research', status: 'finished' }
-              : null,
-        unread: i === 1,
-        ...(i === 1 ? { preview: tr('先整理三个代表作品，再检查手机上的阅读与加载。') } : {}),
-      })),
-    },
-  };
-  return (
-    <DemoSurface kind="bots" styles={botStyles}>
-      <BotsView
-        state={state}
-        disabled={false}
-        action={(data) => {
-          const name = String(data.agent);
-          const text =
-            data.action === 'check'
-              ? tr('查看「{{name}}」的进度。', { name })
-              : data.action === 'followup'
-                ? tr('追问「{{name}}」：', { name })
-                : data.action === 'stop'
-                  ? tr('停止「{{name}}」在本聊天中的任务。', { name })
-                  : tr('请问「{{name}}」：帮我检查作品集方案。', { name });
-          onInsert(text);
-        }}
-      />
-    </DemoSurface>
-  );
-}
+export { BotDemo, botSampleNames } from './bot-demo';
