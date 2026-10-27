@@ -157,8 +157,8 @@ test('token module plugs into model footer and unplugs without changing model co
             .textContent.includes(label),
         label,
       );
-      assert.equal(await meter.textContent(), `≈ 42.1 tok/s(${label})`);
-      assert.match(await meter.getAttribute('title'), /最近一次有效测速/);
+      assert.equal(await meter.textContent(), `≈ 42.1 tok/s(上次测速 · ${label})`);
+      assert.match(await meter.getAttribute('title'), /当前模型最近一次有效测速/);
       for (const width of [700, 420, 320, 260]) {
         await page.setViewportSize({ width, height: 700 });
         assert.equal(
@@ -173,6 +173,38 @@ test('token module plugs into model footer and unplugs without changing model co
         );
       }
     }
+    await page.evaluate(() => {
+      Object.assign(window.state.snapshot.tokenMeter, {
+        threadId: 'new-chat',
+        phase: 'idle',
+        speed: null,
+        lastSpeed: 42.1,
+        model: 'gpt-test',
+        fast: true,
+        official: null,
+      });
+      window.render();
+    });
+    await page.waitForFunction(
+      () =>
+        document.getElementById('root').shadowRoot.querySelector('.token-meter-readout')
+          .textContent === '≈ 42.1 tok/s(上次测速)',
+    );
+    assert.match(await meter.getAttribute('title'), /可能来自其他聊天/);
+    assert.match(await meter.getAttribute('title'), /gpt-test · Fast/);
+    await page.evaluate(() => {
+      Object.assign(window.state.snapshot.tokenMeter, {
+        phase: 'streaming',
+        speed: 55.5,
+        lastSpeed: 55.5,
+      });
+      window.render();
+    });
+    await page.waitForFunction(
+      () =>
+        document.getElementById('root').shadowRoot.querySelector('.token-meter-readout')
+          .textContent === '≈ 55.5 tok/s',
+    );
     assert.equal(await page.locator('.token-meter-readout').count(), 1);
     await page.evaluate(() => {
       window.connected = false;

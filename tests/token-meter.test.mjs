@@ -139,9 +139,9 @@ const bundle = (
       resolveDir: process.cwd(),
       contents: `
 import {installTokenMeter} from './ui/codex/token-meter.js';
-window.session='a';window.enabled=true;window.reads=0;window.requests=0;
+window.session='a';window.selection={model:'alpha',speed:'standard'};window.enabled=true;window.reads=0;window.requests=0;
 window.electronBridge={sendMessageFromView:()=>window.requests++};
-window.setup=()=>installTokenMeter({isEnabled:()=>window.enabled,getTarget:()=>{window.reads++;const scope=document.querySelector('main[data-current]');return scope?{id:window.session,scope,root:scope,composer:scope.querySelector('textarea')}:null}});
+window.setup=()=>installTokenMeter({isEnabled:()=>window.enabled,getTarget:()=>{window.reads++;const scope=document.querySelector('main[data-current]');return scope?{id:window.session,selection:window.selection,scope,root:scope,composer:scope.querySelector('textarea')}:null}});
 window.notify=(method,params={},hostId='local')=>window.dispatchEvent(new MessageEvent('message',{source:window,data:{type:'mcp-notification',hostId,method,params:{threadId:window.session,turnId:'t1',...params}}}));
 window.setup();`,
     },
@@ -221,7 +221,10 @@ test('collector projects only matching chat, never mounts UI or polls, and relea
     });
     assert.equal(await page.evaluate(() => window.__palbooTokenMeter.read('a')), null);
     assert.equal(await page.evaluate(() => window.__palbooTokenMeter.read('b').official), null);
-    assert.equal(await page.evaluate(() => window.__palbooTokenMeter.read('b').lastSpeed), null);
+    assert.equal(
+      await page.evaluate(() => window.__palbooTokenMeter.read('b').lastSpeed),
+      state.speed,
+    );
     await page.evaluate(() => {
       document.querySelector('main').removeAttribute('data-current');
       document.dispatchEvent(new Event('pointerup'));
@@ -244,6 +247,107 @@ test('collector projects only matching chat, never mounts UI or polls, and relea
     await page.clock.runFor(10000);
     assert.equal(await page.evaluate(() => window.reads), stopped);
     assert.equal(await page.evaluate(() => !!window.__palbooTokenMeter), false);
+    assert.equal(await page.evaluate(() => window.requests), 0);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('model speed follows chats, separates Fast and never attributes an old turn to a newly selected model', async () => {
+  const browser = await chromium.launch({ headless: true });
+  const page = await browser.newPage();
+  try {
+    await page.clock.install();
+    await page.setContent('<main data-current><textarea></textarea></main>');
+    await page.addScriptTag({ content: bundle });
+    const choose = async (thread, model, speed = 'standard') => {
+      await page.evaluate(
+        ({ thread, model, speed }) => {
+          window.session = thread;
+          window.selection = model ? { model, speed } : null;
+          document.dispatchEvent(new Event('pointerup'));
+        },
+        { thread, model, speed },
+      );
+    };
+    const reply = async (turnId, text) => {
+      await page.evaluate(
+        ({ turnId, text }) => {
+          window.notify('turn/started', { turnId });
+          window.notify('item/agentMessage/delta', { turnId, itemId: turnId, delta: text });
+          window.notify('item/started', {
+            turnId,
+            item: { id: 'tool-' + turnId, type: 'commandExecution' },
+          });
+        },
+        { turnId, text },
+      );
+      await page.clock.runFor(501);
+    };
+    await reply('t1', 'alpha reply');
+    const alpha = await page.evaluate(() => window.__palbooTokenMeter.read('a'));
+    assert.ok(alpha.lastSpeed > 0);
+    assert.equal(alpha.phase, 'tool');
+    await choose('b', 'alpha');
+    let view = await page.evaluate(() => window.__palbooTokenMeter.read('b'));
+    assert.equal(view.lastSpeed, alpha.lastSpeed);
+    assert.equal(view.speed, null);
+    assert.equal(view.phase, 'idle');
+    assert.equal(view.official, null);
+    await choose('b', 'beta');
+    assert.equal(await page.evaluate(() => window.__palbooTokenMeter.read('b').lastSpeed), null);
+    await reply('t2', 'beta reply with a different length');
+    const beta = await page.evaluate(() => window.__palbooTokenMeter.read('b').lastSpeed);
+    assert.ok(beta > 0);
+    await choose('b', 'alpha', 'fast');
+    await page.evaluate(() => {
+      window.notify('item/agentMessage/delta', {
+        turnId: 't2',
+        itemId: 'old-beta',
+        delta: 'still from beta',
+      });
+      window.notify('item/completed', {
+        turnId: 't2',
+        item: { id: 'old-beta', type: 'agentMessage' },
+      });
+    });
+    await page.clock.runFor(501);
+    assert.equal(await page.evaluate(() => window.__palbooTokenMeter.read('b').lastSpeed), null);
+    await reply('t3', 'fast alpha reply');
+    const fast = await page.evaluate(() => window.__palbooTokenMeter.read('b').lastSpeed);
+    assert.ok(fast > 0);
+    await choose('draft:new', 'alpha');
+    assert.equal(
+      await page.evaluate(() => window.__palbooTokenMeter.read('draft:new').lastSpeed),
+      alpha.lastSpeed,
+    );
+    await choose('c', 'alpha', 'fast');
+    assert.equal(await page.evaluate(() => window.__palbooTokenMeter.read('c').lastSpeed), fast);
+    await choose('d', 'beta');
+    await page.evaluate(() => {
+      window.notify('turn/started', { turnId: 'unread' });
+      window.notify('item/agentMessage/delta', {
+        turnId: 'unread',
+        itemId: 'unread',
+        delta: 'unread beta stream',
+      });
+    });
+    await choose('d', 'gamma');
+    await page.evaluate(() => window.notify('turn/started', { turnId: 'fresh' }));
+    assert.equal(
+      await page.evaluate(() => window.__palbooTokenMeter.read('d').lastSpeed),
+      null,
+      'finishing an unread old stream cannot seed a new model',
+    );
+    await choose('c', null);
+    assert.equal(await page.evaluate(() => window.__palbooTokenMeter.read('c').lastSpeed), null);
+    await choose('c', 'alpha');
+    assert.equal(
+      await page.evaluate(() => window.__palbooTokenMeter.read('c').lastSpeed),
+      alpha.lastSpeed,
+    );
+    await page.evaluate(() => window.setup());
+    assert.equal(await page.evaluate(() => window.__palbooTokenMeter.read('c').lastSpeed), null);
     assert.equal(await page.evaluate(() => window.requests), 0);
   } finally {
     await browser.close();

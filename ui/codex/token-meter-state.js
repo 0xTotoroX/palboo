@@ -60,6 +60,8 @@ export function createTokenMeter() {
     characters = 0,
     lastDelta = null,
     lastSpeed = null,
+    measuredRevision = 0,
+    streamRevision = 0,
     overflowUntil = 0,
     item = '';
   const retiredTurns = new Set(),
@@ -98,6 +100,7 @@ export function createTokenMeter() {
     retiredTurns.clear();
     begin('', false);
     lastSpeed = null;
+    measuredRevision = streamRevision = 0;
     phase = 'idle';
     return true;
   }
@@ -113,6 +116,7 @@ export function createTokenMeter() {
     lastSpeed =
       estimateVisibleTokens(buckets.map((b) => b.text).join('')) /
       (Math.max(1000, Math.min(WINDOW_MS, lastDelta - buckets[0].first)) / 1000);
+    measuredRevision = streamRevision;
   }
   function receive(method, params, now) {
     if (!thread || params?.threadId !== thread) return false;
@@ -195,6 +199,7 @@ export function createTokenMeter() {
     }
     phase = 'streaming';
     lastDelta = now;
+    streamRevision++;
     expire(now);
     // 超大批量输出不截断后给出虚假的低速；短窗口内直接缺测。
     if (params.delta.length > MAX_TEXT || characters + params.delta.length > MAX_TEXT) {
@@ -229,5 +234,11 @@ export function createTokenMeter() {
       buckets: buckets.length,
     };
   }
-  return { follow, receive, snapshot, clearStream };
+  return {
+    follow,
+    receive,
+    snapshot,
+    clearStream,
+    measurement: () => ({ speed: lastSpeed, revision: measuredRevision }),
+  };
 }

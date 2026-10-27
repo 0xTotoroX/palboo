@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 官方 DOM 菜单、稳定聊天标记/新聊天输入区和关联的 model/list 消息；不依赖工作台锁定。
- * [OUTPUT]: window.__palbooModelControl 的异步 snapshot/apply 和同步 presence/cancel/dispose/inputTarget，dispose同时回收独立额度读取；inputTarget只读当前唯一输入目标。
+ * [OUTPUT]: window.__palbooModelControl 的异步 snapshot/apply 和同步 presence/cancel/dispose/inputTarget，dispose同时回收独立额度读取；inputTarget只读当前唯一输入目标及已校验的模型选择。
  * [POS]: include_str / Page.addScriptToEvaluateOnNewDocument 可独立安装的宿主边界。
  * [PROTOCOL]: 父任务维护集成和地图；本文件不写 React、持久存储或发送模型请求。
  * snapshot(false) 不操作 DOM；refresh=true 显式探测菜单，限时等待能力后完整回读。target 无法确认时 id/title 为空。
@@ -396,6 +396,8 @@
     target
       ? JSON.stringify([
           text(target.trigger),
+          target.trigger.querySelector('[class*="_ModelPickerTriggerInlineModeIcon_"]')
+            ?.outerHTML || '',
           ...[...target.trigger.attributes]
             .map((a) => [a.name, a.value])
             .filter(([name]) => name.startsWith('data-selected-')),
@@ -460,17 +462,19 @@
       characterData: true,
     });
   }
+  function currentSelection(target) {
+    return cache &&
+      sameTarget(cache.target, target) &&
+      cache.stamp === triggerStamp(target) &&
+      cache.capabilityVersion === capabilityVersion
+      ? cache.current
+      : null;
+  }
   function passive() {
     const target = resolveTarget(),
       busy = generating(target);
     const compatibility = window.__palbooHostCompatibility?.capability(target?.composer);
-    const current =
-      cache &&
-      sameTarget(cache.target, target) &&
-      cache.stamp === triggerStamp(target) &&
-      cache.capabilityVersion === capabilityVersion
-        ? cache.current
-        : null;
+    const current = currentSelection(target);
     const stateKey = JSON.stringify([
       target?.id,
       nodeKey(target?.root),
@@ -715,6 +719,35 @@
         }
     }
     return matches.size === 1 ? [...matches][0] : null;
+  }
+  // 只为测速读取已呈现的选择；不探测菜单，也不把它当作可写配置。
+  function meterSelection(target) {
+    const cached = currentSelection(target);
+    if (cached) return cached;
+    const trigger = target?.trigger;
+    const group = trigger?.querySelector('[class*="_ModelPickerTriggerModelGroup_"]');
+    const label = group?.querySelector('[class*="_ModelPickerTriggerModelText_"]');
+    if (!group || !label || !visible(group) || !visible(label)) return null;
+    const model = matchModel(text(label));
+    if (!model) return null;
+    const icons = all(group, '[class*="_ModelPickerTriggerInlineModeIcon_"]');
+    let speed = 'standard';
+    if (icons.length) {
+      // 当前宿主的 Fast 闪电；其他模式图标不猜成 Fast 或普通。
+      if (
+        icons.length !== 1 ||
+        !icons[0].matches('svg') ||
+        !icons[0].querySelector('path')?.getAttribute('d')?.startsWith('M11.9125 21.4125')
+      )
+        return null;
+      speed = 'fast';
+    }
+    if (speed === 'fast' && !model.fast) return null;
+    return {
+      model: model.id,
+      speed,
+      reasoning: canonical(trigger.getAttribute('data-selected-reasoning-effort')),
+    };
   }
   const fastCheckbox = (main) =>
     one(all(main, '[role="menuitemcheckbox"][data-fast-mode-enabled]').filter(visible));
@@ -1213,7 +1246,11 @@
     inputTarget: () => {
       const target = resolveTarget(false);
       return target
-        ? { ...target, token: `${target.id}:${nodeKey(target.root)}:${nodeKey(target.composer)}` }
+        ? {
+            ...target,
+            token: `${target.id}:${nodeKey(target.root)}:${nodeKey(target.composer)}`,
+            selection: operation ? null : clone(meterSelection(target)),
+          }
         : null;
     },
   };

@@ -220,6 +220,7 @@ declare global {
       inputTarget(): {
         id: string;
         token?: string;
+        selection?: { model: string; reasoning: string; speed: string } | null;
         root: HTMLElement;
         scope: HTMLElement;
         composer: HTMLElement;

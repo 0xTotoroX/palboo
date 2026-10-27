@@ -54,7 +54,7 @@ next.js追加草稿只补齐一处换行，复用已有末尾换行；保留用�
 context.chatBusy 在当前聊天及其唯一关联输入区识别停止控件（中英文名称与已知图标），覆盖正文旁的输入区，不跨聊天取忙碌状态；next 在实际发起生成前再次检查。
 
 - `token-meter-state.js`：当前聊天的流式测速状态机；tokenx 轻量多语言估算，3秒/8192个UTF-16单元/31桶上限，按轮次隔离官方累计与最近调用；片段结束或隐藏时结算最近有效速度，跨本聊天的思考/工具/轮次保留数值，换聊天时清空，不读取历史正文。
-- `token-meter.js`：独立的无UI采集器，按宿主与聊天过滤通知；read(expectedThreadId)校验目标并以最多2Hz缓存数值投影，复用宿主状态回读及交互跟随目标，无独立计时器；隐藏不收集文字，关闭/断连/销毁清空。
+- `token-meter.js`：独立的无UI采集器，按宿主与聊天过滤通知；read(expectedThreadId)校验目标并以最多2Hz缓存数值投影，复用宿主状态回读及交互跟随目标，无独立计时器；隐藏不收集文字；按已校验模型ID与Fast状态在内存保留最多32份最近有效速度，切换聊天或新聊天继续显示，官方计数与阶段仍按聊天重置。旧轮次只更新原模型，未知选择不归属；关闭/断连/销毁清空。
 
 - `bots-state.js`：只接收本机 grokbot.call_tool 的 MCP 事件，按 host/thread/turn/item 保存最多128条元数据；忽略正文和 earlierReplies，完成事件必须匹配已观察的开始身份并去重，名单或账号切换后的迟到结果不能认领新 Bot；兼容 turnId/turn.id，检查失败和 busy 不解除已确认任务占用，终态校验会话身份。
 - `bots.js`：Palboo 的 Grok Bot 宿主适配；复用唯一输入目标，以临时 token 和真实 DOM 身份校验后追加草稿、聚焦但不发送。通过setCatalog接收后台动态名单与已验证侧栏投影；保留隐藏 Bot 的调用关联，填入前拒绝隐藏项；动作校验Bot ID、名称和名单修订，追问/查进度/停止请求也只填入主聊天。关闭后清理监听和记录，无独立轮询，不调用 BDK。
@@ -65,4 +65,4 @@ context.chatBusy 在当前聊天及其唯一关联输入区识别停止控件（
 
 独立注入的 codex-host.js 与 model.js 保持经典脚本，无 ESM 导入；显示文案通过已挂载 `__companionFloatingPanel.translate` 读取共享语言，尚未挂载时回退中文并保留插值。该只读接口不改变 Agent 身份、模型ID、探针协议或外部环境。
 
-page-context 共用 contentKind/hostPageKind/hostPageAllowed，区分官方单标记的新聊天/Dots，不读取正文。model 支持编辑器或外层任一官方标记，继续拒绝多个输入框、身份冲突和过期操作；inputTarget 附带节点身份 token。next 的空聊天快捷词复用此目标，已有草稿只追加；延迟发送校验同一节点且不重绑定。普通推荐仍校验回答上下文。
+page-context 共用 contentKind/hostPageKind/hostPageAllowed，区分官方单标记的新聊天/Dots，不读取正文。model 支持编辑器或外层任一官方标记，继续拒绝多个输入框、身份冲突和过期操作；inputTarget 附带节点身份 token 与可选 selection；测速优先使用已核对选择，未核对时只读当前官方触发器中的模型及已识别 Fast 图标（未知图标不猜测），不打开菜单或升级为可写配置。next 的空聊天快捷词复用此目标，已有草稿只追加；延迟发送校验同一节点且不重绑定。普通推荐仍校验回答上下文。

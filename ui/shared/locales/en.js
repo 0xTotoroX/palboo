@@ -848,8 +848,9 @@ export default {
   '正在核对词义…': 'Verifying meanings…',
   '词义核对失败，保留已有结果。': 'Could not verify meanings. Previous results are preserved.',
   等待输出: 'Waiting for output',
-  '保留当前聊天最近一次有效测速，括号内为当前状态。':
-    'Keeps the latest valid measurement from this chat; parentheses show the current status.',
+  上次测速: 'Last measured',
+  '保留当前模型最近一次有效测速，可能来自其他聊天；新测速到达后更新。':
+    'Keeps the latest valid measurement for this model, possibly from another chat, until a new measurement arrives.',
   思考中: 'Thinking',
   工具执行中: 'Running tools',
   已完成: 'Completed',

@@ -35,12 +35,17 @@ export function TokenMeterView({ snapshot }: { snapshot?: TokenMeterSnapshot | n
   if (!snapshot) return null;
   const speed = snapshot.speed ?? snapshot.lastSpeed ?? null;
   const rate = speed === null ? '— tok/s' : `≈ ${speed.toFixed(1)} tok/s`;
-  const status =
-    snapshot.phase !== 'idle' && snapshot.phase !== 'streaming' ? LABELS[snapshot.phase] : null;
+  const retained = snapshot.speed === null && speed !== null;
+  const phase =
+    snapshot.phase !== 'idle' && (snapshot.phase !== 'streaming' || retained)
+      ? LABELS[snapshot.phase]
+      : null;
+  const status = [retained ? tr('上次测速') : null, phase].filter(Boolean).join(' · ');
   const u = snapshot.official;
   const lines = [tr('速度为最近3秒可见回复的文本估算，不含隐藏思考和工具输出。')];
-  if (snapshot.speed === null && speed !== null)
-    lines.push(tr('保留当前聊天最近一次有效测速，括号内为当前状态。'));
+  if (retained)
+    lines.push(tr('保留当前模型最近一次有效测速，可能来自其他聊天；新测速到达后更新。'));
+  if (snapshot.model) lines.push(`${snapshot.model}${snapshot.fast ? ' · Fast' : ''}`);
   if (u) {
     lines.push(
       tr(

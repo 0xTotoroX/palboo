@@ -358,4 +358,4 @@ Bot 同步回归覆盖结构有效的 stale 目录保留名单、设置与前端
 
 Dev 接管回归验证恢复记录先于关闭、仅关闭已打开 edge 成员、原连接确认 ready 后恢复及不同连接不重开，在途交接拒绝和恢复失败保留记录。panel-settings/Rust 验证三种入口动作逐项保存与旧默认，workbench 验证自定义双击/右键不额外触发旧动作，以及慢双击不提交设置/桌面单击副作用。model-control-host 覆盖单官方标记的新聊天/Dots、范围关闭及临时目标失效；workbench 覆盖空聊天快捷词追加不发送、节点替换拒绝。features-e2e --native 用窗口几何验证新聊天/Dots 隐藏和恢复同一桌面及贴边窗口，native-check --features-only 覆盖旧窗口 scope IPC，不截图。
 
-Fast/普通预设按闪电标记独立消歧：model-groups 覆盖同组编号及保留既有编号，model-preset-draft 验证实际新增/改名。token-meter 覆盖未打开面板时结算、思考/工具/跨轮次/隐藏恢复保留最近测速及换聊天清空；token-meter-view 验证括号状态与窄屏不重叠。
+Fast/普通预设按闪电标记独立消歧：model-groups 覆盖同组编号及保留既有编号，model-preset-draft 验证实际新增/改名。token-meter 覆盖未打开面板时结算、思考/工具/跨轮次/隐藏恢复保留最近测速、同模型跨聊天和新聊天沿用、Fast隔离及旧轮次不归入新模型；官方计数仍随聊天清空。model-control-host 覆盖无需打开菜单读取当前模型/Fast，未知图标或隐藏模型标签拒绝猜测；token-meter-view 验证上次测速标记、括号状态、新读数替换与窄屏不重叠。

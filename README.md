@@ -13,16 +13,16 @@
 
 Keep Palboo in a sidebar, float it over the page, move it to the desktop, or tuck it into an edge/notch panel. Drag to arrange your workspace and choose matte, frosted, or liquid materials.
 
-| Tool                      | What it does                                                                                       |
-| ------------------------- | -------------------------------------------------------------------------------------------------- |
-| **Next steps · Stepwise** | Suggest relevant follow-ups, choose directions, and reuse quick prompts.                           |
-| **Outline**               | Navigate long answers and jump to the original text.                                               |
-| **Terminology**           | Explain terms in context; collect favorites and mark terms as mastered.                            |
-| **Task board**            | Organize tasks into To do, In progress, and Done, with groups and drag-and-drop.                   |
-| **Model switching**       | Switch Codex models, reasoning levels, and Fast mode; save presets and see available usage limits. |
-| **Prompt enhancement**    | Refine a draft before sending, with the option to restore the original.                            |
-| **Chat speed**            | Keep the latest estimated reply speed through thinking and tool use; inspect token usage when Codex provides it.                                  |
-| **Grok Bot**              | Find your Bots and start a consultation in the current chat.                                       |
+| Tool                      | What it does                                                                                                                            |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| **Next steps · Stepwise** | Suggest relevant follow-ups, choose directions, and reuse quick prompts.                                                                |
+| **Outline**               | Navigate long answers and jump to the original text.                                                                                    |
+| **Terminology**           | Explain terms in context; collect favorites and mark terms as mastered.                                                                 |
+| **Task board**            | Organize tasks into To do, In progress, and Done, with groups and drag-and-drop.                                                        |
+| **Model switching**       | Switch Codex models, reasoning levels, and Fast mode; save presets and see available usage limits.                                      |
+| **Prompt enhancement**    | Refine a draft before sending, with the option to restore the original.                                                                 |
+| **Chat speed**            | Keep each model’s latest estimated speed across chats, labeled until a new reading arrives; inspect token usage when Codex provides it. |
+| **Grok Bot**              | Find your Bots and start a consultation in the current chat.                                                                            |
 
 ## Installation
 
