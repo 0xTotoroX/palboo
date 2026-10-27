@@ -38,7 +38,8 @@
   min-width: 0;
 }
 .palboo-bot-select {
-  flex: 0 1 auto;
+  flex: 1;
+  min-height: 44px;
   min-width: 0;
   display: flex;
   align-items: center;
@@ -53,6 +54,7 @@
   cursor: pointer;
 }
 .palboo-bot-avatar {
+  position: relative;
   display: grid;
   place-items: center;
   width: 32px;
@@ -61,12 +63,44 @@
   background: color-mix(in srgb, currentColor 8%, transparent);
   flex: none;
 }
-.palboo-bot-tools {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding-left: 42px;
+.palboo-bot-avatar-status {
+  flex: none;
+}
+.palboo-bot[data-actions='one'] .palboo-bot-select {
+  padding-right: 32px;
+}
+.palboo-bot[data-actions='two'] .palboo-bot-select {
+  padding-right: 64px;
+}
+.palboo-bot-badge {
+  --buddy-action-icon-size: 10px;
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  box-sizing: border-box;
+  border: 1.5px solid var(--paper, Canvas);
+  border-radius: 50%;
+  background: var(--ink, CanvasText);
+  color: var(--paper, Canvas);
+}
+.palboo-bot-stop-mark {
+  width: 5px;
+  height: 5px;
+  border-radius: 1px;
+  background: currentColor;
+}
+.palboo-bot-badge[data-badge='unread'] {
+  width: 10px;
+  height: 10px;
+  background: var(--accent, #087ce8);
+}
+.palboo-bot-badge[data-badge='error'] {
+  background: var(--paper, Canvas);
+  color: var(--error, #c33);
 }
 .palboo-bot-status,
 .palboo-bot-actions button {
@@ -86,9 +120,29 @@
   cursor: help;
 }
 .palboo-bot-actions {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
   display: flex;
   gap: 4px;
-  flex-wrap: wrap;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 120ms ease-out;
+}
+.palboo-bot:hover .palboo-bot-actions,
+.palboo-bot:focus-within .palboo-bot-actions {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+@media (hover: none) {
+  .palboo-bot-actions {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+  }
 }
 .palboo-bot-actions button {
   cursor: pointer;
@@ -121,6 +175,16 @@
 .palboo-bot-hint:focus > .palboo-bot-hint-text {
   visibility: visible;
 }
+.palboo-bot-select:hover ~ .palboo-bot-state-description,
+.palboo-bot-select:focus-visible ~ .palboo-bot-state-description,
+.palboo-bot:focus-visible .palboo-bot-state-description {
+  visibility: visible;
+}
+.palboo-bot-actions .palboo-bot-hint-text {
+  left: auto;
+  right: 0;
+  max-width: min(11em, calc(100vw - 48px));
+}
 .palboo-bot-notice {
   position: relative;
 }
@@ -133,7 +197,8 @@
   cursor: default;
 }
 .palboo-bots button:focus-visible,
-.palboo-bot-status:focus-visible {
+.palboo-bot-status:focus-visible,
+.palboo-bot:focus-visible {
   outline: 2px solid currentColor;
   outline-offset: 3px;
   border-radius: 4px;
@@ -142,16 +207,25 @@
 .palboo-bot-avatar-shaped {
   background: none;
 }
-.palboo-bot-avatar svg {
+.palboo-bot-avatar > svg {
   width: 32px;
   height: 32px;
   overflow: visible;
 }
 .palboo-bot-copy {
-  display: grid;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
   min-width: 0;
-  gap: 4px;
   overflow-wrap: anywhere;
+}
+.palboo-bots .palboo-bot-select:disabled {
+  opacity: 1;
+}
+.palboo-bot-select:disabled .palboo-bot-copy,
+.palboo-bot-select:disabled .palboo-bot-avatar > svg {
+  opacity: 0.45;
 }
 .palboo-bot-toolbar {
   display: flex;
@@ -237,6 +311,9 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
+  .palboo-bot-actions {
+    transition: none;
+  }
   .palboo-bot-avatar[data-activity] .palboo-bot-eye,
   .palboo-bot-messages {
     animation: none;

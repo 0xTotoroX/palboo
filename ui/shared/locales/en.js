@@ -1,5 +1,6 @@
 // English interface copy. User-authored content is not translated.
 export default {
+  有未读消息: 'Unread message',
   最近消息: 'Recent messages',
   '返回 Bot 列表': 'Back to Bots',
   暂无最近消息: 'No recent messages',

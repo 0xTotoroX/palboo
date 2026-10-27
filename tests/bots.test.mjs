@@ -399,6 +399,7 @@ test('saved sidebar groups reorder without losing calls, hide stale actions and 
     ];
     // Pure presentation changes must not drop the observed call or alter the main draft.
     await page.evaluate((v) => window.render(v), reordered);
+    await page.getByRole('button', { name: '通用', exact: true }).hover();
     await page.getByRole('button', { name: '查看进度', exact: true }).waitFor();
     assert.deepEqual(await page.locator('.palboo-bot-select').allTextContents(), [
       '通用',
@@ -435,6 +436,7 @@ test('saved sidebar groups reorder without losing calls, hide stale actions and 
       }),
     );
     assert.equal(rejected.ok, false);
+    await page.getByRole('button', { name: '通用', exact: true }).hover();
     await page.getByRole('button', { name: '查看进度', exact: true }).click();
     assert.equal(await page.locator('textarea').inputValue(), '保留草稿\n查看「通用」的进度。');
     assert.equal(await page.locator('#view input,#view textarea').count(), 0);

@@ -1,7 +1,9 @@
 /* [INPUT]: Real Grok Bot color metadata; shape metadata is intentionally ignored.
- * [OUTPUT]: Circular avatars with tilted eyes, optional activity motion and visibility cleanup.
+ * [OUTPUT]: Circular avatars with tilted eyes, one optional corner badge, activity motion and visibility cleanup.
  * [POS]: Pure Bot content. [PROTOCOL]: Keep ui/features/AGENTS.md in sync. */
 import { useEffect, useRef, useState } from 'react';
+import { Icon } from '../../shared/icons/react';
+export type BotBadge = 'error' | 'occupied' | 'unread' | 'stopped';
 const colors: Record<string, string> = {
   black: '#000',
   brown: '#936439',
@@ -18,7 +20,9 @@ const colors: Record<string, string> = {
 export function BotAvatar({
   avatar,
   activity,
+  badge,
 }: {
+  badge?: BotBadge;
   activity?: 'working' | 'finished';
   avatar?: { shape: string; color: string; photoAvailable?: boolean };
 }) {
@@ -73,6 +77,15 @@ export function BotAvatar({
           </g>
         </g>
       </svg>
+      {badge && (
+        <span className="palboo-bot-badge" data-badge={badge}>
+          {badge === 'stopped' ? (
+            <span className="palboo-bot-stop-mark" />
+          ) : (
+            badge !== 'unread' && <Icon name={badge === 'error' ? 'warning' : 'connection'} />
+          )}
+        </span>
+      )}
     </span>
   );
 }

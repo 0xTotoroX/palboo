@@ -1,13 +1,13 @@
 import { useLocale } from '../../shared/use-locale';
 import { tr } from '../../shared/i18n.js';
 /* [INPUT]: Metadata-only host projection and guarded main-composer actions.
- * [OUTPUT]: Compact Bot selectors, animated activity and one shared latest-message view.
+ * [OUTPUT]: Avatar-based status and one corner badge, hover actions and a shared latest-message view.
  * [POS]: Palboo feature content, shared by existing surfaces; no second chat input.
  * [PROTOCOL]: Keep ui/features/AGENTS.md in sync. */
 import { useId, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '../../shared/icons/react';
-import { BotAvatar } from './avatar';
+import { BotAvatar, type BotBadge } from './avatar';
 import { botGroups, type BotSidebar } from '../../shared/bot-catalog';
 export type BotState = {
   autoSync?: boolean;
@@ -63,17 +63,6 @@ const status: Record<string, string> = {
   get disconnected() {
     return tr('连接已变化，请在主聊天核查');
   },
-};
-const statusIcons: Record<string, string> = {
-  calling: 'more',
-  running: 'more',
-  finished: 'check',
-  busy: 'more',
-  interrupted: 'minus',
-  error: 'warning',
-  unknown: 'warning',
-  unexpected: 'warning',
-  disconnected: 'warning',
 };
 function BotStatus({
   label,
@@ -194,20 +183,30 @@ export function BotsView({
               const id = bot.id || bot.name;
               const working =
                 bot.occupied || ['calling', 'running'].includes(bot.current?.status || '');
-              const label =
-                bot.available === false
-                  ? tr('Bot 重名，请在 Grok Bot 中改名。')
-                  : bot.occupied
-                    ? tr('其他聊天正在调用')
-                    : bot.current
-                      ? status[bot.current.status] || tr('状态待确认')
-                      : '';
-              const symbol =
-                bot.available === false
-                  ? 'warning'
-                  : bot.occupied
-                    ? 'connection'
-                    : statusIcons[bot.current?.status || ''] || 'warning';
+              const abnormal =
+                bot.available === false ||
+                ['error', 'unknown', 'unexpected', 'disconnected'].includes(
+                  bot.current?.status || '',
+                );
+              const badge: BotBadge | undefined = abnormal
+                ? 'error'
+                : bot.occupied
+                  ? 'occupied'
+                  : bot.unread
+                    ? 'unread'
+                    : bot.current?.status === 'interrupted'
+                      ? 'stopped'
+                      : undefined;
+              const label = [
+                bot.available === false ? tr('Bot 重名，请在 Grok Bot 中改名。') : '',
+                bot.current ? status[bot.current.status] || tr('状态待确认') : '',
+                bot.occupied ? tr('其他聊天正在调用') : '',
+                bot.unread ? tr('有未读消息') : '',
+              ]
+                .filter(Boolean)
+                .join(' · ');
+              const unavailable = Boolean(blocked || bot.occupied || bot.available === false);
+              const descriptionId = `${previewId}-${encodeURIComponent(id)}`;
               const pending = ['calling', 'running'].includes(bot.current?.status || '');
               const primaryAction = pending ? tr('查看进度') : tr('追问');
               const send = (intent: string) =>
@@ -220,67 +219,85 @@ export function BotsView({
                   key: bot.current?.key,
                 });
               return (
-                <div className="palboo-bot" key={id}>
+                <div
+                  className="palboo-bot"
+                  key={id}
+                  role="group"
+                  aria-label={bot.name}
+                  tabIndex={unavailable ? 0 : undefined}
+                  aria-describedby={label ? descriptionId : undefined}
+                  data-actions={bot.current ? (pending ? 'two' : 'one') : 'none'}
+                >
                   <div className="palboo-bot-row">
                     <button
                       type="button"
                       className="palboo-bot-select"
                       aria-label={bot.name}
-                      disabled={blocked || bot.occupied || bot.available === false}
+                      aria-describedby={label ? descriptionId : undefined}
+                      disabled={unavailable}
                       onClick={() => send('ask')}
                     >
-                      <BotAvatar
-                        avatar={bot.avatar}
-                        activity={
-                          snapshot.catalog?.stale
-                            ? undefined
-                            : working
-                              ? 'working'
-                              : bot.current?.status === 'finished'
-                                ? 'finished'
-                                : undefined
-                        }
-                      />
-                      <span className="palboo-bot-copy">
-                        <span>{bot.name}</span>
+                      <span
+                        className="palboo-bot-avatar-status"
+                        role={label ? 'status' : undefined}
+                        aria-label={label || undefined}
+                      >
+                        <BotAvatar
+                          avatar={bot.avatar}
+                          badge={badge}
+                          activity={
+                            snapshot.catalog?.stale
+                              ? undefined
+                              : working
+                                ? 'working'
+                                : bot.current?.status === 'finished'
+                                  ? 'finished'
+                                  : undefined
+                          }
+                        />
                       </span>
+                      <span className="palboo-bot-copy">{bot.name}</span>
                     </button>
-                  </div>
-                  {(label || bot.current) && (
-                    <div className="palboo-bot-tools">
-                      {label && <BotStatus label={label} icon={symbol} />}
-                      {bot.current && (
-                        <div className="palboo-bot-actions">
+                    {label && (
+                      <span
+                        className="palboo-bot-hint-text palboo-bot-state-description"
+                        id={descriptionId}
+                        aria-hidden="true"
+                      >
+                        {label}
+                      </span>
+                    )}
+                    {bot.current && (
+                      <div className="palboo-bot-actions">
+                        <button
+                          type="button"
+                          className="palboo-bot-hint"
+                          aria-label={primaryAction}
+                          disabled={unavailable}
+                          onClick={() => send(pending ? 'check' : 'followup')}
+                        >
+                          <Icon name={pending ? 'eye' : 'feature-bots'} />
+                          <span className="palboo-bot-hint-text" aria-hidden="true">
+                            {primaryAction}
+                          </span>
+                        </button>
+                        {pending && (
                           <button
                             type="button"
                             className="palboo-bot-hint"
-                            aria-label={primaryAction}
-                            disabled={blocked || bot.occupied || bot.available === false}
-                            onClick={() => send(pending ? 'check' : 'followup')}
+                            aria-label={tr('填入停止请求')}
+                            disabled={unavailable}
+                            onClick={() => send('stop')}
                           >
-                            <Icon name={pending ? 'eye' : 'feature-bots'} />
+                            <Icon name="close" />
                             <span className="palboo-bot-hint-text" aria-hidden="true">
-                              {primaryAction}
+                              {tr('填入停止请求')}
                             </span>
                           </button>
-                          {pending && (
-                            <button
-                              type="button"
-                              className="palboo-bot-hint"
-                              aria-label={tr('填入停止请求')}
-                              disabled={blocked || bot.occupied || bot.available === false}
-                              onClick={() => send('stop')}
-                            >
-                              <Icon name="close" />
-                              <span className="palboo-bot-hint-text" aria-hidden="true">
-                                {tr('填入停止请求')}
-                              </span>
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             })}

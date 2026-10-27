@@ -600,20 +600,25 @@ try {
   const botGeometry = await page.locator('[data-feature="bots"] .palboo-bot').evaluateAll((rows) =>
     rows.map((row) => {
       const label = row.querySelector('.palboo-bot-select > span:last-child');
-      const status = row.querySelector('.palboo-bot-status');
+      const status = row.querySelector('.palboo-bot-avatar-status[role="status"]');
       const action = row.querySelector('.palboo-bot-actions button');
       return {
         label: label.getBoundingClientRect().left,
         inset: label.getBoundingClientRect().left - row.getBoundingClientRect().left,
         status: status ? status.getBoundingClientRect().left : null,
         action: action?.getBoundingClientRect().left,
+        hidden: !action || getComputedStyle(action.parentElement).visibility === 'hidden',
       };
     }),
   );
   assert.ok(botGeometry.every((row) => Math.abs(row.inset - 42) < 1));
   assert.equal(botGeometry.filter((row) => row.status !== null).length, 1);
-  assert.ok(Math.abs(botGeometry[2].label - botGeometry[2].status) < 1);
-  assert.ok(botGeometry[2].action >= botGeometry[2].status + 28);
+  assert.ok(Math.abs(botGeometry[2].label - botGeometry[2].status - 42) < 1);
+  assert.ok(botGeometry.every((row) => row.hidden));
+  assert.equal(await page.locator('.palboo-bot-tools').count(), 0);
+  await page.getByRole('button', { name: '通用', exact: true }).hover();
+  await page.getByRole('button', { name: '追问', exact: true }).waitFor();
+  await page.mouse.move(0, 0);
   assert.doesNotMatch(await page.locator('[data-feature="bots"]').innerText(), /已回复|追问/);
   await page.locator('[data-feature="bots"]').screenshot({ path: join(output, 'palboo-bots.png') });
   assert.equal(await page.locator('[data-feature="bots"] details').count(), 0);

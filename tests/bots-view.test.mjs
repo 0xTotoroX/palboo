@@ -17,7 +17,7 @@ test('Bot list keeps messages opt-in and animates only visible active avatars', 
       import {BotsView} from './ui/features/bots/view';
       window.calls=[];window.state={autoSync:true,snapshot:{target:{threadId:'test',token:'safe'},catalog:{revision:'r1',stale:false},bots:[
       {id:'a',name:'大总管',occupied:false,avatar:{shape:'circle',color:'black'},preview:'这是一段仅供测试的最近消息。默认收起，点击后才展开。',current:{key:'run',status:'running'}},
-      {id:'b',name:'优惠雷达',occupied:false,avatar:{shape:'circle',color:'yellow'},preview:'较长的最近消息。'.repeat(16),current:{key:'done',status:'finished'}},
+      {id:'b',name:'优惠雷达',unread:true,occupied:false,avatar:{shape:'circle',color:'yellow'},preview:'较长的最近消息。'.repeat(16),current:{key:'done',status:'finished'}},
       {id:'c',name:'名称很长的资料整理助手',occupied:false,avatar:{shape:'circle',color:'violet'},preview:'另一条消息',current:null},
       {id:'d',name:'工程主管',occupied:false,avatar:{shape:'circle',color:'blue'},current:{key:'error',status:'error'}}]}};
       const root=createRoot(document.getElementById('root'));
@@ -32,7 +32,7 @@ test('Bot list keeps messages opt-in and animates only visible active avatars', 
   try {
     const page = await browser.newPage({ viewport: { width: 440, height: 700 } });
     await page.setContent(
-      '<style>body{margin:0;background:#fff;color:#24262a;font:16px system-ui;--muted:#62666b;--hover:#eee;--ink:#24262a}#root{width:100%}</style><div id="root"></div>',
+      '<style>body{margin:0;background:#fff;color:#24262a;font:16px system-ui;--muted:#62666b;--hover:#eee;--ink:#24262a;--paper:#fff}#root{width:100%}</style><div id="root"></div>',
     );
     await page.addStyleTag({ content: readFileSync('ui/features/bots/style.css', 'utf8') });
     await page.addScriptTag({ content: bundle.outputFiles[0].text });
@@ -41,11 +41,10 @@ test('Bot list keeps messages opt-in and animates only visible active avatars', 
     assert.equal(await page.locator('.palboo-bot-preview').count(), 0);
     assert.equal(await page.getByRole('status', { name: '调用失败', exact: true }).count(), 1);
     assert.doesNotMatch(await rows.first().innerText(), /处理中|查看进度|停止请求/);
-    const failure = page.getByRole('status', { name: '调用失败', exact: true });
-    await failure.focus();
-    assert.equal(await failure.locator('.palboo-bot-hint-text').isVisible(), true);
-    await failure.blur();
-    assert.equal(await failure.locator('.palboo-bot-hint-text').isVisible(), false);
+    await rows.nth(3).getByRole('button', { name: '工程主管', exact: true }).focus();
+    assert.equal(await rows.nth(3).locator('.palboo-bot-state-description').isVisible(), true);
+    await rows.nth(3).getByRole('button', { name: '工程主管', exact: true }).blur();
+    assert.equal(await rows.nth(3).locator('.palboo-bot-state-description').isVisible(), false);
     await page.evaluate(() => {
       window.state.snapshot.bots[2].occupied = true;
       window.render();
@@ -55,9 +54,44 @@ test('Bot list keeps messages opt-in and animates only visible active avatars', 
     assert.equal(await occupied.locator('[data-icon="connection"]').count(), 1);
     assert.equal(await rows.nth(2).getByRole('button').isDisabled(), true);
     assert.doesNotMatch(await rows.nth(2).innerText(), /其他聊天/);
-    await occupied.focus();
-    assert.equal(await occupied.locator('.palboo-bot-hint-text').isVisible(), true);
-    await occupied.blur();
+    await rows.nth(2).focus();
+    assert.equal(await rows.nth(2).locator('.palboo-bot-state-description').isVisible(), true);
+    await rows.nth(2).blur();
+    assert.equal(await page.locator('.palboo-bot-tools').count(), 0);
+    assert.equal(await rows.first().locator('.palboo-bot-badge').count(), 0);
+    assert.equal(await rows.nth(1).locator('[data-badge="unread"]').count(), 1);
+    for (const [status, occupied, unread, badge] of [
+      ['error', true, true, 'error'],
+      ['finished', true, true, 'occupied'],
+      ['interrupted', false, true, 'unread'],
+      ['interrupted', false, false, 'stopped'],
+      ['finished', false, false, null],
+    ]) {
+      await page.evaluate(
+        ({ status, occupied, unread }) => {
+          Object.assign(window.state.snapshot.bots[3], {
+            occupied,
+            unread,
+            current: { key: 'sample', status },
+          });
+          window.render();
+        },
+        { status, occupied, unread },
+      );
+      await page.waitForFunction(
+        (badge) =>
+          document
+            .querySelectorAll('.palboo-bot')[3]
+            .querySelector('.palboo-bot-badge')
+            ?.getAttribute('data-badge') === (badge ?? undefined),
+        badge,
+      );
+      assert.equal(await rows.nth(3).locator('.palboo-bot-badge').count(), badge ? 1 : 0);
+    }
+    await page.evaluate(() => {
+      window.state.snapshot.bots[3].current.status = 'error';
+      window.render();
+    });
     const history = page.locator('.palboo-bot-history');
     assert.equal(await history.count(), 1);
     assert.equal(await rows.locator('[data-icon="chevron-right"]').count(), 0);
@@ -92,16 +126,45 @@ test('Bot list keeps messages opt-in and animates only visible active avatars', 
       const geometry = await rows.evaluateAll((nodes) =>
         nodes.map((n) => {
           const label = n.querySelector('.palboo-bot-copy').getBoundingClientRect();
-          const status = n.querySelector('.palboo-bot-status');
+          const avatar = n.querySelector('.palboo-bot-avatar').getBoundingClientRect();
+          const badge = n.querySelector('.palboo-bot-badge')?.getBoundingClientRect();
           return {
             fits: n.scrollWidth <= n.clientWidth,
             label: label.left,
-            status: status ? status.getBoundingClientRect().left : label.left,
+            inset: label.left - n.getBoundingClientRect().left,
+            badgeFits:
+              !badge ||
+              (Math.abs(badge.right - avatar.right - 2) < 1 &&
+                Math.abs(badge.bottom - avatar.bottom - 2) < 1),
           };
         }),
       );
-      assert.ok(geometry.every((g) => g.fits && Math.abs(g.label - g.status) < 1));
+      assert.ok(geometry.every((g) => g.fits && g.badgeFits && Math.abs(g.inset - 42) < 1));
     }
+    await history.focus();
+    await page.mouse.move(750, 650);
+    const actions = rows.first().locator('.palboo-bot-actions');
+    assert.equal(await actions.evaluate((n) => getComputedStyle(n).visibility), 'hidden');
+    const before = await rows.first().boundingBox();
+    await rows.first().hover();
+    assert.equal(await actions.evaluate((n) => getComputedStyle(n).visibility), 'visible');
+    assert.deepEqual(
+      await rows.first().boundingBox(),
+      before,
+      'hover does not move or resize the row',
+    );
+    const actionBox = await actions.boundingBox();
+    assert.ok(
+      actionBox.y >= before.y && actionBox.y + actionBox.height <= before.y + before.height,
+    );
+    await page.mouse.move(750, 650);
+    await rows.first().getByRole('button', { name: '大总管', exact: true }).focus();
+    assert.equal(
+      await actions.evaluate((n) => getComputedStyle(n).visibility),
+      'visible',
+      'keyboard reveals actions',
+    );
+    await history.focus();
     const eye = rows.first().locator('.palboo-bot-eye').first();
     await page.waitForFunction(
       () => document.querySelector('[data-activity="working"]').dataset.moving === 'true',
@@ -143,11 +206,16 @@ test('Bot list keeps messages opt-in and animates only visible active avatars', 
     await page.setViewportSize({ width: 440, height: 700 });
     mkdirSync('target/reports/bots-view', { recursive: true });
     await page.screenshot({ path: 'target/reports/bots-view/light.png' });
+    await rows.first().hover();
+    await actions.evaluate((n) => Promise.all(n.getAnimations().map((a) => a.finished)));
+    await page.screenshot({ path: 'target/reports/bots-view/hover.png' });
+    await page.mouse.move(430, 650);
     await page.evaluate(() => {
       document.body.style.background = '#171719';
       document.body.style.color = '#eee';
       document.body.style.setProperty('--muted', '#b1b1b6');
       document.body.style.setProperty('--ink', '#eee');
+      document.body.style.setProperty('--paper', '#171719');
       document.body.style.setProperty('--hover', '#333');
     });
     await page.screenshot({ path: 'target/reports/bots-view/dark.png' });
