@@ -604,6 +604,7 @@ try {
       const action = row.querySelector('.palboo-bot-actions button');
       return {
         label: label.getBoundingClientRect().left,
+        inset: label.getBoundingClientRect().left - row.getBoundingClientRect().left,
         status: status
           ? status.getBoundingClientRect().left + parseFloat(getComputedStyle(status).paddingLeft)
           : null,
@@ -611,20 +612,18 @@ try {
       };
     }),
   );
-  assert.ok(botGeometry.every((row) => Math.abs(row.label - botGeometry[0].label) < 1));
+  assert.ok(botGeometry.every((row) => Math.abs(row.inset - 42) < 1));
   assert.equal(botGeometry.filter((row) => row.status !== null).length, 1);
   assert.ok(Math.abs(botGeometry[2].label - botGeometry[2].status) < 1);
   assert.ok(Math.abs(botGeometry[2].label - botGeometry[2].action) < 1);
   await page.locator('[data-feature="bots"]').screenshot({ path: join(output, 'palboo-bots.png') });
   assert.equal(await page.locator('[data-feature="bots"] details').count(), 0);
   assert.equal(await page.locator('[data-refresh="bots"]').count(), 0);
-  assert.equal(
-    await page
-      .locator('.palboo-bot-preview')
-      .first()
-      .evaluate((el) => getComputedStyle(el).webkitLineClamp),
-    '1',
-  );
+  assert.equal(await page.locator('.palboo-bot-preview').count(), 0);
+  await page.locator('.palboo-bot-history').first().click();
+  assert.equal(await page.locator('.palboo-bot-preview').textContent(), '合成资料摘要');
+  await page.locator('.palboo-bot-history').first().click();
+  assert.equal(await page.locator('.palboo-bot-preview').count(), 0);
   const quietCalls = botListCalls;
   await delay(6500);
   assert.equal(botListCalls, quietCalls, 'unchanged roster does not poll BDK every five seconds');
@@ -873,10 +872,10 @@ try {
     'finished',
   );
   assert.deepEqual(await page.locator('.palboo-bot-select').allTextContents(), [
-    '通用合成资料摘要',
-    'X 资讯合成资料摘要',
-    '随口一问合成资料摘要',
-    '新测试 Bot更新后的合成摘要',
+    '通用',
+    'X 资讯',
+    '随口一问',
+    '新测试 Bot',
     '手动新增 Bot',
     '自动同步新增',
   ]);

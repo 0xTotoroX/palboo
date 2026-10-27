@@ -9,23 +9,36 @@
 .palboo-bot {
   display: grid;
   gap: 4px;
+  align-content: start;
+  min-width: 0;
 }
 .palboo-bot-group {
   display: grid;
-  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11em), 1fr));
+  align-items: start;
+  gap: 12px 16px;
   min-width: 0;
 }
 .palboo-bot-group + .palboo-bot-group {
   margin-top: 8px;
 }
 .palboo-bot-group-title {
+  grid-column: 1 / -1;
   margin: 0;
   font: inherit;
   font-weight: 600;
   color: var(--muted, inherit);
   overflow-wrap: anywhere;
 }
+.palboo-bot-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
 .palboo-bot-select {
+  flex: 0 1 auto;
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -57,6 +70,7 @@
 .palboo-bot-actions {
   display: flex;
   gap: 12px;
+  flex-wrap: wrap;
   padding-left: 42px;
 }
 .palboo-bot-actions button {
@@ -90,13 +104,86 @@
   display: grid;
   min-width: 0;
   gap: 4px;
+  overflow-wrap: anywhere;
+}
+.palboo-bot-history {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: var(--buddy-action-hit-size, 28px);
+  height: var(--buddy-action-hit-size, 28px);
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted, inherit);
+  cursor: pointer;
+}
+.palboo-bot-history:hover {
+  background: var(--hover);
+  color: var(--ink, inherit);
+}
+.palboo-bot-history .buddy-icon {
+  transition: transform 160ms ease-out;
+}
+.palboo-bot-history[aria-expanded='true'] .buddy-icon {
+  transform: rotate(90deg);
 }
 .palboo-bot-preview {
-  margin: 0;
-  opacity: 0.7;
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  margin: 0 0 6px 42px;
+  color: var(--muted, inherit);
+  line-height: 1.5;
+  white-space: pre-wrap;
   overflow-wrap: anywhere;
+  animation: palboo-bot-reveal 160ms ease-out;
+}
+.palboo-bot-eye {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.palboo-bot-avatar[data-activity='working'] .palboo-bot-eye {
+  animation: palboo-bot-think 1800ms ease-in-out infinite;
+}
+.palboo-bot-avatar[data-activity='finished'] .palboo-bot-eye {
+  animation: palboo-bot-answer 320ms ease-out both;
+}
+.palboo-bot-avatar[data-moving='false'] .palboo-bot-eye {
+  animation-play-state: paused;
+}
+@keyframes palboo-bot-think {
+  0%,
+  32%,
+  64%,
+  100% {
+    transform: scaleY(1);
+  }
+  45% {
+    transform: scaleY(0.25);
+  }
+}
+@keyframes palboo-bot-answer {
+  0%,
+  100% {
+    transform: scaleY(1);
+  }
+  45% {
+    transform: scaleY(0.15);
+  }
+}
+@keyframes palboo-bot-reveal {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .palboo-bot-avatar[data-activity] .palboo-bot-eye,
+  .palboo-bot-preview {
+    animation: none;
+  }
+  .palboo-bot-history .buddy-icon {
+    transition: none;
+  }
 }

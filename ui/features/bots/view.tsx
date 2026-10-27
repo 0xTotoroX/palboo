@@ -1,9 +1,10 @@
 import { useLocale } from '../../shared/use-locale';
 import { tr } from '../../shared/i18n.js';
 /* [INPUT]: Metadata-only host projection and guarded main-composer actions.
- * [OUTPUT]: Dynamic Bot selectors with chat-scoped status, follow-up and stop requests.
+ * [OUTPUT]: Compact Bot selectors, animated activity and opt-in latest-message disclosure.
  * [POS]: Palboo feature content, shared by existing surfaces; no second chat input.
  * [PROTOCOL]: Keep ui/features/AGENTS.md in sync. */
+import { useId, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '../../shared/icons/react';
 import { BotAvatar } from './avatar';
@@ -75,6 +76,8 @@ export function BotsView({
   action: (data: Record<string, unknown>) => void;
 }) {
   useLocale();
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const previewId = useId();
   const snapshot = state.snapshot;
   if (!snapshot) return <p className="feature-placeholder">{tr('等待 Codex 连接…')}</p>;
   const blocked = disabled || !snapshot.target || snapshot.catalog?.stale;
@@ -116,6 +119,10 @@ export function BotsView({
             <h3 className="palboo-bot-group-title">{group.name}</h3>
           )}
           {group.bots.map((bot) => {
+            const id = bot.id || bot.name;
+            const open = expanded === id;
+            const working =
+              bot.occupied || ['calling', 'running'].includes(bot.current?.status || '');
             const send = (intent: string) =>
               action({
                 ...snapshot.target,
@@ -126,24 +133,50 @@ export function BotsView({
                 key: bot.current?.key,
               });
             return (
-              <div className="palboo-bot" key={bot.id || bot.name}>
-                <button
-                  type="button"
-                  className="palboo-bot-select"
-                  aria-label={bot.name}
-                  disabled={blocked || bot.occupied || bot.available === false}
-                  onClick={() => send('ask')}
-                >
-                  <BotAvatar avatar={bot.avatar} />
-                  <span className="palboo-bot-copy">
-                    <span>{bot.name}</span>
-                    {bot.preview && (
-                      <span className="palboo-bot-preview" title={bot.preview}>
-                        {bot.preview}
-                      </span>
-                    )}
-                  </span>
-                </button>
+              <div className="palboo-bot" key={id}>
+                <div className="palboo-bot-row">
+                  <button
+                    type="button"
+                    className="palboo-bot-select"
+                    aria-label={bot.name}
+                    disabled={blocked || bot.occupied || bot.available === false}
+                    onClick={() => send('ask')}
+                  >
+                    <BotAvatar
+                      avatar={bot.avatar}
+                      activity={
+                        snapshot.catalog?.stale
+                          ? undefined
+                          : working
+                            ? 'working'
+                            : bot.current?.status === 'finished'
+                              ? 'finished'
+                              : undefined
+                      }
+                    />
+                    <span className="palboo-bot-copy">
+                      <span>{bot.name}</span>
+                    </span>
+                  </button>
+                  {bot.preview && (
+                    <button
+                      type="button"
+                      className="palboo-bot-history"
+                      aria-label={tr('最近消息：{{name}}', { name: bot.name })}
+                      title={tr('最近消息')}
+                      aria-expanded={open}
+                      aria-controls={open ? `${previewId}-${encodeURIComponent(id)}` : undefined}
+                      onClick={() => setExpanded(open ? null : id)}
+                    >
+                      <Icon name="chevron-right" />
+                    </button>
+                  )}
+                </div>
+                {open && bot.preview && (
+                  <p className="palboo-bot-preview" id={`${previewId}-${encodeURIComponent(id)}`}>
+                    {bot.preview}
+                  </p>
+                )}
                 {bot.available === false && (
                   <span className="palboo-bot-status">
                     {tr('Bot 重名，请在 Grok Bot 中改名。')}

@@ -1,6 +1,7 @@
 /* [INPUT]: Real Grok Bot color metadata; shape metadata is intentionally ignored.
- * [OUTPUT]: Uniform circular avatars with tilted eyes and synchronized Bot colors; neutral gray if unknown.
+ * [OUTPUT]: Circular avatars with tilted eyes, optional activity motion and visibility cleanup.
  * [POS]: Pure Bot content. [PROTOCOL]: Keep ui/features/AGENTS.md in sync. */
+import { useEffect, useRef, useState } from 'react';
 const colors: Record<string, string> = {
   black: '#000',
   brown: '#936439',
@@ -16,24 +17,60 @@ const colors: Record<string, string> = {
 };
 export function BotAvatar({
   avatar,
+  activity,
 }: {
+  activity?: 'working' | 'finished';
   avatar?: { shape: string; color: string; photoAvailable?: boolean };
 }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [moving, setMoving] = useState(false);
+  useEffect(() => {
+    if (!activity || !ref.current) return;
+    let visible = false;
+    const sync = () => setMoving(visible && !document.hidden);
+    const observer = new IntersectionObserver(([entry]) => {
+      visible = entry.isIntersecting;
+      sync();
+    });
+    observer.observe(ref.current);
+    document.addEventListener('visibilitychange', sync);
+    return () => {
+      observer.disconnect();
+      document.removeEventListener('visibilitychange', sync);
+    };
+  }, [activity]);
   const color = colors[avatar?.color || ''] || colors.gray;
   return (
-    <span className="palboo-bot-avatar palboo-bot-avatar-shaped" aria-hidden="true">
+    <span
+      ref={ref}
+      className="palboo-bot-avatar palboo-bot-avatar-shaped"
+      data-activity={activity}
+      data-moving={moving}
+      aria-hidden="true"
+    >
       <svg viewBox="0 0 32 32" fill={color} data-shape="circle">
         <circle cx="16" cy="16" r="15" />
         <g fill="white">
-          <rect
-            x="15"
-            y="6.5"
-            width="3.5"
-            height="8"
-            rx="1.75"
-            transform="rotate(-35 16.75 10.5)"
-          />
-          <rect x="22" y="3.5" width="3" height="7.5" rx="1.5" transform="rotate(-35 23.5 7.25)" />
+          <g className="palboo-bot-eye">
+            <rect
+              x="15"
+              y="6.5"
+              width="3.5"
+              height="8"
+              rx="1.75"
+              transform="rotate(-35 16.75 10.5)"
+            />
+          </g>
+          <g className="palboo-bot-eye">
+            <rect
+              x="22"
+              y="3.5"
+              width="3"
+              height="7.5"
+              rx="1.5"
+              transform="rotate(-35 23.5 7.25)"
+            />
+          </g>
         </g>
       </svg>
     </span>
