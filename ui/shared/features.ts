@@ -96,6 +96,7 @@ export type LayoutNode = LayoutGroup | (FeatureLayout & { weight: number });
 export type FeatureLayout = { axis: string; groups: LayoutNode[] };
 export type EdgeTabs = { order: string[]; selected: string };
 export type FeatureState = {
+  scopeAllowed?: boolean;
   edgeTabs?: EdgeTabs;
   edgeTabsRevision?: number;
   mainManaged?: boolean;

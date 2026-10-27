@@ -1,3 +1,4 @@
+import { hostPageAllowed } from '../../../codex/page-context.js';
 import { tr } from '../../../shared/i18n.js';
 import {
   nextHtml,
@@ -237,6 +238,12 @@ function refreshCurrentView() {
 
 function renderFloat(options = {}) {
   if (!isCurrentRuntime()) return;
+  if (!IS_POPOUT && !hostPageAllowed(shellState)) {
+    if (!independentFeatures()) syncWorkbench();
+    if (shellState.root) shellState.root.style.display = 'none';
+    return;
+  }
+  shellState.root?.style.removeProperty('display');
   if (
     !options.allowDuringTransition &&
     (shellState.viewTransitioning || shellState.morphAnimation)

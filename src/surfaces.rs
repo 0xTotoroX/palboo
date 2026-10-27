@@ -290,6 +290,7 @@ impl App {
         let op = input["op"].as_str().unwrap_or("state");
         if op == "window" {
             let active = self.edge_features_active().await;
+            let scope_allowed = self.host_page_allowed().await;
             let appearance = self.surface_appearance("edge").await;
             let follows_host = self.surfaces.lock().await.preferences.edge.screen == "codex";
             let host_bounds = if follows_host {
@@ -310,7 +311,7 @@ impl App {
                     .clone(),
             );
             return Ok(
-                json!({"valid":active && !s.lease.is_empty() && input["lease"]==s.lease,"preferences":preferences,"hostBounds":host_bounds,"reveal":s.reveal,"pid":s.child.as_ref().map(|c|c.id()),"appearance":{"hostTheme":{"theme":appearance["theme"],"colors":appearance["colors"]},"fontOffset":appearance["fontSize"].as_f64().unwrap_or(13.)-13.}}),
+                json!({"scopeAllowed":scope_allowed,"valid":active && !s.lease.is_empty() && input["lease"]==s.lease,"preferences":preferences,"hostBounds":host_bounds,"reveal":s.reveal,"pid":s.child.as_ref().map(|c|c.id()),"appearance":{"hostTheme":{"theme":appearance["theme"],"colors":appearance["colors"]},"fontOffset":appearance["fontSize"].as_f64().unwrap_or(13.)-13.}}),
             );
         }
         let mut s = self.surfaces.lock().await;

@@ -250,6 +250,48 @@ try {
       lease.pid,
     );
     record('reveal reuses the native process');
+    for (const kind of ['new-chat', 'dots']) {
+      await page.evaluate((kind) => {
+        window.scopeThread = document.querySelector('.thread-scroll-container');
+        window.scopeThreadParent = window.scopeThread.parentElement;
+        window.scopeThreadNext = window.scopeThread.nextSibling;
+        window.scopeThread.remove();
+        const form = document.querySelector('#composer-form');
+        form.setAttribute('data-codex-composer-root', '');
+        if (kind === 'dots') form.classList.add('messaging-root', 'messaging-embedded');
+      }, kind);
+      await wait(
+        async () => (await api('features', { op: 'state' })).scopeAllowed === false,
+        'disabled scope reported',
+      );
+      await wait(
+        () =>
+          !JSON.parse(
+            execFileSync(helper, ['windows', String(lease.pid)], { encoding: 'utf8' }),
+          ).some((w) => w.kCGWindowBounds.Width >= 320),
+        'desktop hidden outside scope',
+      );
+      const prefs = await api('appearance');
+      await api('appearance', {
+        expectedRevision: prefs.revision,
+        ui: { [kind === 'dots' ? 'sidebarDots' : 'sidebarNewChat']: true },
+      });
+      await wait(
+        () =>
+          JSON.parse(
+            execFileSync(helper, ['windows', String(lease.pid)], { encoding: 'utf8' }),
+          ).some((w) => w.kCGWindowBounds.Width >= 320),
+        'desktop restored in enabled scope',
+      );
+      assert.equal((await entry('board')).owner, moved.owner);
+      await page.evaluate(() => {
+        window.scopeThreadParent.insertBefore(window.scopeThread, window.scopeThreadNext);
+        document
+          .querySelector('#composer-form')
+          .classList.remove('messaging-root', 'messaging-embedded');
+      });
+    }
+    record('new-chat and Dots scope temporarily hides and restores the same native workspace');
   }
   await api('features', { op: 'move', id: 'board', placement: 'overlay' });
   await wait(async () => {
@@ -272,6 +314,14 @@ try {
   if (native) {
     const helper = join(directory, 'native-probe');
     for (const id of ['outline', 'next', 'model']) {
+      if (id === 'next') {
+        const settings = await api('settings');
+        await api('settings', {
+          expectedRevision: settings.configurationRevision,
+          enabled: true,
+          generationMode: 'manual',
+        });
+      }
       if (id === 'model') {
         const model = await api('model-control/state');
         await api('model-control/preferences', {
@@ -279,6 +329,7 @@ try {
           patch: { enabled: true },
         });
       }
+      await wait(async () => !(await entry(id))?.pending, `${id} enabled and ready`);
       await api('features', { op: 'move', id, placement: 'desktop' });
       const feature = await wait(async () => {
         const e = await entry(id);
@@ -313,9 +364,42 @@ try {
         return e?.placement === 'edge' && !e.pending;
       }, `${id} edge ready`);
     }
+    const edgePid = (await api('surfaces', { op: 'window' })).pid;
+    assert.ok(edgePid);
+    const edgeVisible = () =>
+      JSON.parse(
+        execFileSync(join(directory, 'native-probe'), ['windows', String(edgePid)], {
+          encoding: 'utf8',
+        }),
+      ).some((w) => w.kCGWindowBounds.Width > 0);
+    await wait(edgeVisible, 'edge initially visible');
+    for (const kind of ['new-chat', 'dots']) {
+      const key = kind === 'dots' ? 'sidebarDots' : 'sidebarNewChat';
+      const prefs = await api('appearance');
+      await api('appearance', { expectedRevision: prefs.revision, ui: { [key]: false } });
+      await page.evaluate((kind) => {
+        window.scopeThread.remove();
+        if (kind === 'dots')
+          document
+            .querySelector('#composer-form')
+            .classList.add('messaging-root', 'messaging-embedded');
+      }, kind);
+      await wait(() => !edgeVisible(), `${kind} edge hidden`);
+      const current = await api('appearance');
+      await api('appearance', { expectedRevision: current.revision, ui: { [key]: true } });
+      await wait(edgeVisible, `${kind} edge restored`);
+      assert.equal((await api('surfaces', { op: 'window' })).pid, edgePid);
+      await page.evaluate(() => {
+        window.scopeThreadParent.insertBefore(window.scopeThread, window.scopeThreadNext);
+        document
+          .querySelector('#composer-form')
+          .classList.remove('messaging-root', 'messaging-embedded');
+      });
+    }
+    record('new-chat and Dots scope hides and restores the same native edge window');
     assert.equal((await entry('board')).view.board.quickAdd.title, '仍未保存的草稿');
     await api('model-control/close', {});
-    assert.equal((await entry('model')).open, false);
+    await wait(async () => !(await entry('model')).open, 'model close acknowledged');
     const boardOwner = (await entry('board')).owner;
     assert.equal((await entry('board')).open, true);
     assert.equal(

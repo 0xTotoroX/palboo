@@ -1,7 +1,7 @@
 import { tr } from '../shared/i18n.js';
 /*
  * [INPUT]: 回答上下文、独立生成版本、模型桥接与宿主写入接口。
- * [OUTPUT]: 建议生成、按聊天/回答/完整用户问题保留的有限内存缓存与普通/快捷词只补齐必要换行并直接追加草稿且不发送；来源失联时禁止生成和填入。
+ * [OUTPUT]: 建议生成、按聊天/回答/完整用户问题保留的有限内存缓存与普通/快捷词只补齐必要换行并直接追加草稿且不发送；来源失联时禁止生成和填入；空聊天快捷词使用唯一官方编辑器临时身份。
  * [POS]: 下一步的 Codex 业务协调；不依赖大纲，通过通知请求外壳反馈。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -339,6 +339,12 @@ function clearPromptsForNewAssistant(hash) {
   emitSignal('render', undefined);
 }
 
+export function quickInputTarget() {
+  if (IS_POPOUT || contextState.chatBinding.mode === 'locked') return null;
+  const target = window.__palbooModelControl?.inputTarget();
+  return target?.token && !target.scope.querySelector('.thread-scroll-container') ? target : null;
+}
+
 function fillComposer(prompt, submit = false, options = {}) {
   if (!bindingSourceReady() || !stepwiseEnabled()) return false;
   if (IS_POPOUT) {
@@ -350,6 +356,9 @@ function fillComposer(prompt, submit = false, options = {}) {
     });
     return true;
   }
+  const quickTarget = options.quick ? quickInputTarget() : null;
+  const matches = () =>
+    quickTarget ? quickInputTarget()?.token === quickTarget.token : contextMatches(context);
   const context = options.quick
     ? contextState.activeContext
     : stepwiseState.promptContext || contextState.activeContext;
@@ -357,12 +366,17 @@ function fillComposer(prompt, submit = false, options = {}) {
   const generation = runtimeState.runtimeGeneration;
   const intent = {
     context,
+    resolveTarget: quickTarget ? () => (matches() ? quickTarget.composer : null) : undefined,
     isCurrent: () =>
-      isCurrentRuntime(generation) && stepwiseEnabled() && stepwiseState.stepwiseEpoch === epoch,
+      isCurrentRuntime(generation) &&
+      stepwiseEnabled() &&
+      stepwiseState.stepwiseEpoch === epoch &&
+      matches(),
   };
-  const targetRoot = composerRootForContext(context);
+  const targetRoot = quickTarget?.scope || composerRootForContext(context);
   const candidates = targetRoot ? composerCandidates(targetRoot) : [];
-  const target = targetRoot ? mainComposerCandidate(candidates, targetRoot) : null;
+  const target =
+    quickTarget?.composer || (targetRoot ? mainComposerCandidate(candidates, targetRoot) : null);
   pushDiagnostic('fill:start', {
     submit,
     candidateCount: candidates.length,
@@ -382,14 +396,14 @@ function fillComposer(prompt, submit = false, options = {}) {
     return false;
   }
 
-  if (!contextMatches(context)) return false;
+  if (!matches()) return false;
   const existing = rawComposerText(target);
   let append = false;
   if (existing.trim()) {
     // 草稿无论是否与建议相同都不发送；相同内容不重复追加。
     submit = false;
     if (normalizeText(existing) === normalizeText(prompt)) return true;
-    if (!contextMatches(context)) return false;
+    if (!matches()) return false;
     // 只补齐一处换行；保留用户已有的末尾换行，不人为插入空段。
     prompt = `${/[\r\n]$/.test(existing) ? '' : '\n'}${prompt}`;
     append = true;

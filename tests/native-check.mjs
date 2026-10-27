@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 编译后的系统窗口、合成投影；默认免截图；显式 --screenshots 才启动像素采样验收。
- * [OUTPUT]: --features-only 验证真实 Wry 的大纲/看板切换与响应式任务视图；target/reports/native 中的背景验收；--genie-only 加验开发版网格接口及复位（--cross-screen/--reverse-screens 验实际双屏）；--motion-only 单测三材质空间交接与取消；--appearance-only 将免截图的窗口透明度轨迹、呈现确认、强调色/材质和尺寸检查写入 native-appearance。
+ * [OUTPUT]: --features-only 验证旧浮窗范围隐藏/恢复和真实 Wry 的大纲/看板切换与响应式任务视图；target/reports/native 中的背景验收；--genie-only 加验开发版网格接口及复位（--cross-screen/--reverse-screens 验实际双屏）；--motion-only 单测三材质空间交接与取消；--appearance-only 将免截图的窗口透明度轨迹、呈现确认、强调色/材质和尺寸检查写入 native-appearance。
  * [POS]: --header-only 免鼠标权限验证三材质透明头部、无可见文字/title 和实际置顶层级；--workbench-only 预检事件权限，验证 Wry 双栏布局、真实鼠标合并与两底角缩放、独立滚动、保留设置页及退出，报告写入 native-workbench；仅启动自有测试窗口，临时数据不使用真实宿主或模型。
  * 设置验收要求头部入口保持隐藏，通过保留的旧处理器验证设置区与阅读恢复，不依赖旧 activeTab。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
@@ -595,6 +595,21 @@ try {
     'no native panel',
   );
   if (featuresOnly) {
+    await waitFor(
+      () => windows().some((w) => w.kCGWindowBounds.Width > 300),
+      'legacy window visible',
+    );
+    state.scopeAllowed = false;
+    await waitFor(
+      () => !windows().some((w) => w.kCGWindowBounds.Width > 300),
+      'legacy window hidden outside scope',
+    );
+    state.scopeAllowed = true;
+    await waitFor(
+      () => windows().some((w) => w.kCGWindowBounds.Width > 300),
+      'legacy window restored in enabled scope',
+    );
+    console.log('PASS legacy window scope hides and restores without ending its lease');
     let commandId = 0;
     const command = async (value) => {
       commands.push({ ...value, id: ++commandId });

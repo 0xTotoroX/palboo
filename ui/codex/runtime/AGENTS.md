@@ -78,3 +78,5 @@ state 默认关闭 sidebarNewChat/sidebarDots；presentation 从外观偏好同�
 术语导入由 lifecycle 按只读 terminologyImportsPending 安装/回收主聊天发送衔接，settings-sync 沿既有设置通知更新；不受术语标注显示开关控制，不修改 Agent 或供应商配置。
 
 lifecycle 的现有公开运行接口增加只读 translate，用于独立 CDP 脚本文案。presentation 接收带 language/action 的外观投影并兼容旧动作字符串；桌面旧入口读取 language，内容身份加入语言以刷新产品文案，保持草稿和阅读状态。宿主 document.lang 不由 Palboo 修改。
+
+presentation 同步三种入口动作；exportPanelState 的 viewToken 包含空聊天唯一输入目标 token，quick-fill 仅在有效临时输入目标下放行空上下文。lifecycle 暴露只读 hostPageAllowed 与 DesktopStatus.pageKind，入口遵守范围；runtimeEnabled 包含仅术语开启的情况。

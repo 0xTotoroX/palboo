@@ -801,6 +801,65 @@ const cases = [
           count + 1,
         settingsCount,
       );
+      await page.evaluate(() => {
+        const api = window.__companionFloatingPanel;
+        api.syncPanelPreferences(api.panelPreferences(), 42, false, {
+          action: 'inside',
+          doubleAction: 'settings',
+          contextAction: 'inside',
+          language: 'zh-CN',
+        });
+      });
+      await icon.dblclick({ delay: 40 });
+      await page.waitForFunction(
+        (count) =>
+          window.workbenchFixture.requests.filter((r) => r.path === '/settings/open').length ===
+          count + 2,
+        settingsCount,
+      );
+      assert.equal(
+        await page.evaluate(() => window.workbenchFixture.detaches.length),
+        3,
+        'custom double click does not also detach',
+      );
+      await icon.click({ button: 'right' });
+      assert.equal(
+        await page.evaluate(
+          () => window.workbenchFixture.requests.filter((r) => r.path === '/settings/open').length,
+        ),
+        settingsCount + 2,
+        'custom right click does not open settings',
+      );
+      for (const action of ['settings', 'outside']) {
+        await page.evaluate((action) => {
+          const api = window.__companionFloatingPanel;
+          api.syncPanelPreferences(api.panelPreferences(), 43, false, {
+            action,
+            doubleAction: 'inside',
+            contextAction: 'settings',
+            language: 'zh-CN',
+          });
+        }, action);
+        await icon.dblclick({ delay: 180 });
+        await page.waitForTimeout(550);
+        assert.equal(
+          await page.evaluate(() => window.workbenchFixture.detaches.length),
+          3,
+          'slow custom double does not commit single outside',
+        );
+        assert.equal(
+          await page.evaluate(
+            () =>
+              window.workbenchFixture.requests.filter((r) => r.path === '/settings/open').length,
+          ),
+          settingsCount + 2,
+          'slow custom double does not commit single settings',
+        );
+      }
+      await page.evaluate(() => {
+        const api = window.__companionFloatingPanel;
+        api.syncPanelPreferences(api.panelPreferences(), 44, false, { action: 'inside' });
+      });
       await page.evaluate(() => window.__companionFloatingPanel.setOpen(false));
       await page.evaluate(() => {
         window.workbenchFixture.rail = document.querySelector('nav');
@@ -919,6 +978,47 @@ const cases = [
         true,
         'opening keeps the host editor node',
       );
+      await page.addScriptTag({ path: resolve(root, 'ui/codex/model.js') });
+      assert.equal(
+        await page.evaluate(() => window.__companionFloatingPanel.hostPageAllowed()),
+        true,
+      );
+      const quick = await page.evaluate(() => {
+        const api = window.__companionFloatingPanel,
+          snapshot = api.exportPanelState();
+        return api.panelCommand({
+          kind: 'quick-fill',
+          instanceId: snapshot.instanceId,
+          viewToken: snapshot.viewToken,
+          context: snapshot.context,
+          promptToken: snapshot.promptToken,
+          index: 0,
+          submit: true,
+        });
+      });
+      assert.equal(quick.ok, true);
+      assert.ok((await composer.innerText()).startsWith('尚未发送的合成草稿\n'));
+      const stale = await page.evaluate(() => {
+        const api = window.__companionFloatingPanel,
+          snapshot = api.exportPanelState();
+        const editor = document.querySelector('#composer-form .ProseMirror');
+        editor.replaceWith(editor.cloneNode(true));
+        return api.panelCommand({
+          kind: 'quick-fill',
+          instanceId: snapshot.instanceId,
+          viewToken: snapshot.viewToken,
+          context: snapshot.context,
+          promptToken: snapshot.promptToken,
+          index: 0,
+          submit: false,
+        });
+      });
+      assert.equal(stale.ok, false, 'replaced editor rejects the old quick prompt');
+      await page.evaluate(() => {
+        const current = document.querySelector('#composer-form .ProseMirror');
+        current.replaceWith(window.workbenchFixture.composer);
+        window.workbenchFixture.composer.textContent = '尚未发送的合成草稿';
+      });
       const actual = await page.evaluate(() => window.__companionFloatingPanel.panelPreferences());
       assert.equal(actual.layoutMode, saved.layoutMode);
       assert.equal(actual.dockWidth, saved.dockWidth);

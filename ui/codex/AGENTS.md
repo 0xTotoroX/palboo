@@ -64,3 +64,5 @@ context.chatBusy 在当前聊天及其唯一关联输入区识别停止控件（
 - `terminology-import.js`：仅在有术语任务时接住用户主动发送，核对唯一当前输入框、聊天、草稿及连接身份后追加本机任务路径，并继续原发送；不替换引用节点、不单独启动 Agent。编辑、换聊天及销毁释放未追加任务；已追加的可见草稿重试不重复附加。
 
 独立注入的 codex-host.js 与 model.js 保持经典脚本，无 ESM 导入；显示文案通过已挂载 `__companionFloatingPanel.translate` 读取共享语言，尚未挂载时回退中文并保留插值。该只读接口不改变 Agent 身份、模型ID、探针协议或外部环境。
+
+page-context 共用 contentKind/hostPageKind/hostPageAllowed，区分官方单标记的新聊天/Dots，不读取正文。model 支持编辑器或外层任一官方标记，继续拒绝多个输入框、身份冲突和过期操作；inputTarget 附带节点身份 token。next 的空聊天快捷词复用此目标，已有草稿只追加；延迟发送校验同一节点且不重绑定。普通推荐仍校验回答上下文。

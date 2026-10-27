@@ -45,6 +45,8 @@ impl Scope {
                 "language",
                 "alwaysOnTop",
                 "launcherAction",
+                "launcherDoubleAction",
+                "launcherContextAction",
                 "settingsTarget",
                 "position",
                 "ui",
@@ -242,12 +244,12 @@ pub(super) fn schema(scope: Scope) -> Value {
             "choices":{
                 "language":["system","en","zh-CN"],"settingsTheme":["codex","light","dark"],
                 "typography.mode":["follow","custom"],"typography.source":["body","session","composer"],
-                "ui.promptClickMode":["fill","direct","hybrid"],"launcherAction":["inside","outside","settings"],
+                "ui.promptClickMode":["fill","direct","hybrid"],"launcherAction":["inside","outside","settings"],"launcherDoubleAction":["inside","outside","settings","toggle"],"launcherContextAction":["inside","outside","settings","toggle"],
                 "settingsTarget":["plugin","web"]
             },
             "notes":{
                 "typography":"支持局部更新；scale 为 75–150%，customSize 为 10–32px",
-                "ui":"下一步显示/操作：labelOnly、promptClickMode；侧栏：dockWidth、sidebarNewChat、sidebarDots",
+                "ui":"下一步显示/操作：labelOnly、promptClickMode；侧栏宽度：dockWidth；Palboo启用范围：sidebarNewChat、sidebarDots",
                 "legacy":"ui.dockLayout/popoutLayout 为旧两功能布局；新布局使用 config set layout，分形式材质使用 surfaces"
             },
             "examples":[{"language":"en","ui":{"labelOnly":true,"promptClickMode":"hybrid"}},{"typography":{"scale":110}},{"ui":{"dockWidth":360,"sidebarNewChat":true,"sidebarDots":false}}],

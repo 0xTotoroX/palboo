@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 已安装配置、真实 Codex CDP 元数据与本机 API。
- * [OUTPUT]: 暂停时禁止准备或重开宿主；窗口选择、显式启用时使用开发配置（首次回退日常配置）委托共享宿主准备、开发配置初始化、安装版连接暂停与恢复；新宿主已确认时归档失效旧目标，保留 API 错误原因；按调试端口定位宿主主进程，以 PID/启动时间/路径观察退出，不以断连代替进程退出。
+ * [OUTPUT]: 暂停时禁止准备或重开宿主；窗口选择、显式启用时使用开发配置（首次回退日常配置）委托共享宿主准备、开发配置初始化、安装版连接与贴边窗口暂停、按原位置恢复；新宿主已确认时归档失效旧目标，保留 API 错误原因；按调试端口定位宿主主进程，以 PID/启动时间/路径观察退出，不以断连代替进程退出。
  * [POS]: 真实宿主开发边界；不启动浏览器、不记录聊天、不修改官方应用。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -347,6 +347,23 @@ export async function restoreInstallation(journal, replacement) {
     });
     console.log('已恢复安装版的原窗口连接。');
   }
+  const originalTarget =
+    state.connection.status === 'disconnected' ||
+    (state.connection.endpoint === saved.endpoint && state.connection.targetId === saved.targetId);
+  if (originalTarget) {
+    for (const id of saved.edgeFeatures || []) {
+      await requestRuntime(saved.runtime, 'features', { op: 'reveal', id });
+      const deadline = Date.now() + 20000;
+      while (true) {
+        const features = await requestRuntime(saved.runtime, 'features', { op: 'state' });
+        const entry = features.features?.find((entry) => entry.id === id);
+        if (entry?.open && !entry.pending && !entry.closing) break;
+        if (!entry?.pending || Date.now() >= deadline)
+          throw new Error(`安装版贴边功能 ${id} 未能恢复，恢复记录已保留。`);
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+    }
+  }
   if (
     saved.detached &&
     (state.connection.status === 'disconnected' ||
@@ -373,9 +390,21 @@ export async function pauseInstallation(host, journal) {
       throw new Error('目标窗口已有其他胶囊实例，请先关闭对应后台；未覆盖现有胶囊。');
     return;
   }
+  const features = await requestRuntime(host.installation, 'features', { op: 'state' });
+  const entries = features.features || [];
+  if (
+    entries.some(
+      (entry) =>
+        (entry.placement === 'edge' || entry.pending?.placement === 'edge') &&
+        (entry.pending || entry.closing),
+    )
+  )
+    throw new Error('安装版贴边功能正在交接，请稍后重试。');
+  const edgeFeatures = entries.filter((entry) => entry.open && entry.placement === 'edge');
   writeFileSync(
     journal,
     JSON.stringify({
+      edgeFeatures: edgeFeatures.map((entry) => entry.id),
       runtime: host.installation,
       endpoint: host.endpoint,
       targetId: host.target.id,
@@ -385,6 +414,12 @@ export async function pauseInstallation(host, journal) {
   );
   console.log('暂停安装版的此窗口连接；退出开发后恢复。ChatGPT 保持运行。');
   await requestRuntime(host.installation, 'panel/close', {});
+  for (const entry of edgeFeatures)
+    await requestRuntime(host.installation, 'features', {
+      op: 'close',
+      id: entry.id,
+      owner: entry.owner,
+    });
   await requestRuntime(host.installation, 'disconnect', {});
   if ((await inspectHost(host.target))?.occupied)
     throw new Error('原胶囊尚未退出，暂不注入开发版。');

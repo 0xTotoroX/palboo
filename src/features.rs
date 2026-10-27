@@ -196,6 +196,7 @@ impl App {
     }
     pub async fn feature_state(&self) -> Value {
         let mut state = self.features.lock().await.snapshot();
+        state["scopeAllowed"] = json!(self.host_page_allowed().await);
         let view = self.view();
         state["legacyLayouts"] = json!({"sidebar":view.panel_preferences.ui.dock_layout,"overlay":view.panel_preferences.ui.dock_layout,"desktop":view.panel_preferences.ui.popout_layout});
         let surfaces = self.surfaces.lock().await;

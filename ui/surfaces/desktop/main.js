@@ -1,6 +1,6 @@
 import { tr } from '../../shared/i18n.js';
 import { setLocale, getLocale } from '../../shared/i18n.js';
-/* [INPUT]: Shared main-window lease, feature owners, checked layout saves and the original native window IPC.
+/* [INPUT]: Shared page scope, main-window lease, feature owners, checked layout saves and the original native window IPC.
  * [OUTPUT]: Existing desktop chrome/material and spatial enter/return transitions.
  * [POS]: Desktop surface adapter; feature content and actions stay in features/content.
  * [PROTOCOL]: Keep AGENTS.md in this module in sync. */
@@ -255,6 +255,7 @@ export function startDesktop(request, lease) {
       if (next.activeFeature && next.activeFeature !== state?.activeFeature)
         selected = next.activeFeature;
       state = next;
+      native({ kind: 'scope-visible', value: next.scopeAllowed !== false });
       setLocale(state.appearance?.language || 'zh-CN');
       root.lang = getLocale();
       root

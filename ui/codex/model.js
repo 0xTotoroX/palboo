@@ -289,8 +289,25 @@
         return { id, title: title.slice(0, 100), root, scope, composer, trigger };
       })
       .filter(Boolean);
-    const draftRoots = all(document, '[data-codex-composer-root]').filter((root) => {
-      if (!visible(root) || owned(root) || chats.some((chat) => chat.scope.contains(root)))
+    const draftRoots = [
+      ...new Set(
+        all(document, EDITOR)
+          .filter(
+            (editor) =>
+              visible(editor) &&
+              !owned(editor) &&
+              (editor.hasAttribute('data-codex-composer') ||
+                editor.closest('[data-codex-composer-root]')),
+          )
+          .map(
+            (editor) =>
+              editor.closest('[data-codex-composer-root]') ||
+              editor.closest('form') ||
+              editor.parentElement,
+          ),
+      ),
+    ].filter((root) => {
+      if (!root || !visible(root) || owned(root) || chats.some((chat) => chat.scope.contains(root)))
         return false;
       const pane = root.closest('.thread-pane,main,[role="dialog"],dialog');
       return !roots.some((thread) => (pane || root).contains(thread));
@@ -298,7 +315,12 @@
     const drafts = draftRoots
       .map((root) => {
         const composer = one(all(root, EDITOR).filter((node) => visible(node) && !owned(node)));
-        if (!composer?.hasAttribute('data-codex-composer')) return null;
+        if (
+          !composer ||
+          (!composer.hasAttribute('data-codex-composer') &&
+            !composer.closest('[data-codex-composer-root]'))
+        )
+          return null;
         return {
           id: identity(root, root, [...roots, ...draftRoots], true),
           title: tr('新聊天'),
@@ -312,6 +334,7 @@
     return [...chats, ...drafts];
   }
   function resolveTarget(requireTrigger = true) {
+    if (window.__companionFloatingPanel?.hostPageAllowed?.() === false) return null;
     let choices = candidates();
     const dialogs = all(document, '[role="dialog"],dialog[open]').filter(
       (node) => visible(node) && !owned(node),
@@ -1187,7 +1210,12 @@
     cancel,
     dispose,
     presence,
-    inputTarget: () => resolveTarget(false),
+    inputTarget: () => {
+      const target = resolveTarget(false);
+      return target
+        ? { ...target, token: `${target.id}:${nodeKey(target.root)}:${nodeKey(target.composer)}` }
+        : null;
+    },
   };
   window[KEY] = api;
 })();

@@ -20,3 +20,5 @@
 - `tabs.ts`：从shared/features读取六功能图标与名称，单击直接切换，支持拖动及 Alt+左右方向键排序；串行保存顺序与最后选中项，失败提示并恢复确认状态，外部冲突不覆盖；暂时不可用的功能保留顺序和选择偏好，新功能追加。自动热重载在保存期间等待，换标签不重建业务视图。
 
 main 从 feature state 的 edgeTabs/edgeTabsRevision 读取偏好，经 features/edge-tabs 以 expected 原值保存到 surfaces.json；原生几何更新同步可见内容矩形，任务详情以该矩形限定位置与滚动范围，不再使用整个透明 WebView 视口。
+
+原生贴边从 surfaces/window 接收 scopeAllowed，范围不允许时释放键盘并隐藏；恢复使用相同窗口、节点与开合状态，快捷键不能绕过范围。

@@ -5,7 +5,7 @@ import { tr } from '../../shared/i18n.js';
  * [POS]: 宿主布局适配；不移动聊天节点，不读取正文，不包含功能视图。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
-import { foregroundSurface } from '../../codex/page-context.js';
+import { foregroundSurface, contentKind as dockContentKind } from '../../codex/page-context.js';
 import { DOCK_MIN_WIDTH, CHAT_PREFERRED_WIDTH } from './width.js';
 import { elementScale } from '../workspace/separator.js';
 const SLOT = 'data-palboo-dock';
@@ -15,22 +15,6 @@ const visible = (node) =>
   node.getBoundingClientRect().width > 0 &&
   node.getBoundingClientRect().height > 0 &&
   getComputedStyle(node).visibility === 'visible';
-
-function dockContentKind(content) {
-  const thread = [...content.querySelectorAll('.thread-scroll-container')].some(visible);
-  const editor = [...content.querySelectorAll('.ProseMirror,[contenteditable="true"]')].find(
-    (editor) =>
-      visible(editor) &&
-      !editor.closest(OWN_UI) &&
-      // 新聊天可只有编辑器标记；Dots 只有官方外层标记，两者不要求同时存在。
-      (thread ||
-        editor.matches('[data-codex-composer]') ||
-        content.contains(editor.closest('[data-codex-composer-root]'))),
-  );
-  if (!editor) return null;
-  if (editor.closest('.messaging-root.messaging-embedded')) return 'dots';
-  return thread ? 'chat' : 'new-chat';
-}
 
 export function findDockHost() {
   const surface = foregroundSurface();

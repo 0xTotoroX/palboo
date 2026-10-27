@@ -505,6 +505,7 @@ pub fn run_surface(
     let mut next_motion_frame = std::time::Instant::now();
     let mut normal_window_pose: Option<Pose> = None;
     let mut window_hidden = true;
+    let mut scope_hidden = false;
     event_loop.run(move |event, _, control| {
         *control = ControlFlow::Wait;
         match event {
@@ -518,6 +519,13 @@ pub fn run_surface(
                             "window.__companionNativeGlassStyle = {};",
                             json!(style)
                         ));
+                    }
+                }
+                "scope-visible" => {
+                    let hidden = message["value"] == false;
+                    if scope_hidden != hidden {
+                        scope_hidden = hidden;
+                        window.set_visible(!scope_hidden && !window_hidden);
                     }
                 }
                 "window-state" => publish_window_controls(&webview, normal_window_pose, window_hidden),
@@ -542,8 +550,8 @@ pub fn run_surface(
                 }
                 "reveal" => {
                     window.set_minimized(false);
-                    window.set_visible(true);
-                    window.set_focus();
+                    window.set_visible(!scope_hidden);
+                    if !scope_hidden { window.set_focus(); }
                     window_hidden = false;
                     publish_window_controls(&webview, normal_window_pose, window_hidden);
                 }
@@ -568,10 +576,10 @@ pub fn run_surface(
                         }
                     }
                     if !genie_entry { macos::apply_pose(&window, from, &backdrop); }
-                    window.set_visible(true);
+                    window.set_visible(!scope_hidden);
                     window_hidden = false;
                     publish_window_controls(&webview, normal_window_pose, window_hidden);
-                    if activate { window.set_focus(); }
+                    if activate && !scope_hidden { window.set_focus(); }
                     if macos::reduce_motion() {
                         presentation_reported = true;
                         let _ = webview.evaluate_script("window.__companionPopout?.presented(); window.__companionPopout?.motionFinished();");

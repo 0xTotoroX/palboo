@@ -15,8 +15,9 @@ test('workbench settings save only their own preference fields', { timeout: 3000
       contents: `import React from 'react';
         import { createRoot } from 'react-dom/client';
         import { PanelSettings } from './ui/settings/panel-settings';
+        import { LauncherSettings } from './ui/settings/launcher-settings';
         const root = createRoot(document.getElementById('root')); window.renderSettings = (value) => root.render(
-          <><PanelSettings value={value} /><PanelSettings value={value} section="next" /></>);`,
+          <><LauncherSettings value={value} outsideAvailable={true} /><PanelSettings value={value} /><PanelSettings value={value} section="next" /></>);`,
       resolveDir: new URL('..', import.meta.url).pathname,
       loader: 'tsx',
     },
@@ -78,10 +79,22 @@ test('workbench settings save only their own preference fields', { timeout: 3000
       window.notices = [];
       window.renderSettings(value);
     }, prefs);
+    for (const [label, key, fallback, next] of [
+      ['眼睛单击', 'launcherAction', 'inside', 'outside'],
+      ['眼睛双击', 'launcherDoubleAction', 'toggle', 'settings'],
+      ['眼睛右键', 'launcherContextAction', 'settings', 'inside'],
+    ]) {
+      const control = page.getByLabel(label, { exact: true });
+      assert.equal(await control.inputValue(), fallback);
+      await control.selectOption(next);
+      await page.waitForFunction(() => !document.querySelector('#launcher-click-action').disabled);
+      assert.deepEqual(Object.keys(saves.at(-1)).sort(), ['expectedRevision', key].sort());
+      assert.equal(saves.at(-1)[key], next);
+    }
     assert.equal(await page.getByLabel('字体大小', { exact: true }).inputValue(), 'follow');
     assert.equal(await page.getByLabel('跟随对象', { exact: true }).inputValue(), 'body');
-    const newChat = page.getByRole('switch', { name: '新聊天中显示侧栏', exact: true });
-    const dots = page.getByRole('switch', { name: 'Dots 中显示侧栏', exact: true });
+    const newChat = page.getByRole('switch', { name: '在新聊天中启用 Palboo', exact: true });
+    const dots = page.getByRole('switch', { name: '在 Dots 中启用 Palboo', exact: true });
     assert.equal(await newChat.getAttribute('aria-checked'), 'false');
     assert.equal(await dots.getAttribute('aria-checked'), 'false');
     await newChat.click();

@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 带令牌和租约的启动链接、本机 panel API 与 Wry IPC。
- * [OUTPUT]: 宿主主题随背景 IPC 同步；窗口交接及结束后的控件可用状态；位置、置顶、外观写入共用串行队列与修订号，收回偏好携带动画前捕获的修订号，保留外部并发冲突保护。
+ * [OUTPUT]: scopeAllowed 临时隐藏/恢复原生窗口；宿主主题随背景 IPC 同步；窗口交接及结束后的控件可用状态；位置、置顶、外观写入共用串行队列与修订号，收回偏好携带动画前捕获的修订号，保留外部并发冲突保护。
  * [POS]: 系统窗口页面引导层，复用共享胶囊而不采集聊天正文。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -256,6 +256,7 @@
       }
       const result = await request('state');
       if (stopped) return;
+      native({ kind: 'scope-visible', value: result.scopeAllowed !== false });
       if (revision !== undefined && result.preferences.revision < revision) {
         setTimeout(poll, 400);
         return;

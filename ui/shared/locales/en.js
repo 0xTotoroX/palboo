@@ -1,5 +1,11 @@
 // English interface copy. User-authored content is not translated.
 export default {
+  启用范围: 'Where Palboo is enabled',
+  '在新聊天中启用 Palboo': 'Enable Palboo in new chats',
+  '在 Dots 中启用 Palboo': 'Enable Palboo in Dots',
+  眼睛双击: 'Eyes double-click',
+  眼睛右键: 'Eyes right-click',
+  聊天与桌面之间切换: 'Switch between chat and desktop',
   '服务暂时没有响应，请检查 Palboo 是否正在运行。':
     'The service is not responding. Check that Palboo is running.',
   '文件上传失败，请检查文件大小和连接。': 'Upload failed. Check the file size and connection.',

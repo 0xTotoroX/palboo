@@ -78,6 +78,32 @@ try {
     },
     { modern: true, openPlaceholder: true, speedFlyout: true },
   );
+  for (const kind of ['editor-only', 'dots-root-only']) {
+    await check(
+      `single official marker supports ${kind} input and model switching`,
+      async (page) => {
+        await newChat(page);
+        await page.evaluate((kind) => {
+          const editor = document.querySelector('.ProseMirror'),
+            form = document.querySelector('form');
+          if (kind === 'editor-only') form.removeAttribute('data-codex-composer-root');
+          else {
+            editor.removeAttribute('data-codex-composer');
+            form.classList.add('messaging-root', 'messaging-embedded');
+          }
+        }, kind);
+        const before = await snapshot(page, true);
+        assert.ok(before.target?.id.startsWith('draft:'));
+        assert.ok(await page.evaluate(() => window.__palbooModelControl.inputTarget()?.token));
+        assert.equal((await apply(page, targetBeta)).status, 'success');
+        await page.evaluate(() => {
+          window.__companionFloatingPanel = { hostPageAllowed: () => false };
+        });
+        assert.equal(await page.evaluate(() => window.__palbooModelControl.inputTarget()), null);
+        assert.equal((await snapshot(page, true)).status, 'unavailable');
+      },
+    );
+  }
   await check(
     'replacing a new-chat composer invalidates cached selection and old requests',
     async (page) => {
@@ -126,6 +152,7 @@ try {
         document.querySelector('section').removeAttribute('data-thread-id');
         document.querySelector('form').removeAttribute('data-above-composer-conversation-id');
         document.querySelector('.ProseMirror').removeAttribute('data-codex-composer');
+        document.querySelector('form').removeAttribute('data-codex-composer-root');
       });
       assert.equal((await snapshot(page)).status, 'unavailable');
       await page.evaluate(() => {

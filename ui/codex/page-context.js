@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 宿主可见对话框、聊天滚动区和输入框结构。
- * [OUTPUT]: 最近操作的聊天记录、模态窗口及独立聊天容器识别；普通注释/编辑浮层不改变停靠目标。
+ * [OUTPUT]: 最近操作的聊天记录、模态窗口、独立聊天容器与全功能页面范围识别；普通注释/编辑浮层不改变停靠目标。
  * [POS]: 布局和聊天关联共用的只读宿主识别，不读取正文。
  * [PROTOCOL]: 变更时检查 codex/AGENTS.md。
  */
@@ -72,4 +72,35 @@ export function foregroundSurface() {
     getComputedStyle(row).display === 'flex' &&
     getComputedStyle(content).flexGrow !== '0';
   return { dialog, thread, row: supported ? row : null, content: supported ? content : null };
+}
+
+// 官方编辑器与外层标记分别足以识别空聊天；不把 Palboo 自身编辑区算作宿主。
+export function contentKind(content) {
+  const thread = [...content.querySelectorAll('.thread-scroll-container')].some(visibleSurface);
+  const editors = [...content.querySelectorAll('.ProseMirror,[contenteditable="true"]')].filter(
+    (editor) =>
+      visibleSurface(editor) &&
+      !editor.closest(OWN) &&
+      (thread ||
+        editor.matches('[data-codex-composer]') ||
+        content.contains(editor.closest('[data-codex-composer-root]'))),
+  );
+  if (!editors.length) return null;
+  if (editors.every((editor) => editor.closest('.messaging-root.messaging-embedded')))
+    return 'dots';
+  return thread ? 'chat' : 'new-chat';
+}
+export function hostPageKind() {
+  const foreground = foregroundSurface();
+  if (foreground) return contentKind(foreground.content || foreground.dialog);
+  const selected =
+    selectedSurface?.isConnected && visibleSurface(selectedSurface) ? selectedSurface : null;
+  return contentKind(selected || document);
+}
+export function hostPageAllowed(preferences) {
+  const kind = hostPageKind();
+  return (
+    (kind !== 'new-chat' || preferences.sidebarNewChat === true) &&
+    (kind !== 'dots' || preferences.sidebarDots === true)
+  );
 }

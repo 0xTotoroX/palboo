@@ -20,6 +20,8 @@ use tokio::sync::{Mutex, Notify, RwLock, watch};
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct DesktopStatus {
+    #[serde(default)]
+    pub page_kind: Option<String>,
     pub has_answer: bool,
     pub headings: usize,
 }
@@ -365,6 +367,16 @@ impl App {
         });
     }
 
+    pub async fn host_page_allowed(&self) -> bool {
+        let kind = self.view().desktop.page_kind;
+        let ui = self.appearance().await.ui;
+        match kind.as_deref() {
+            Some("new-chat") => ui.sidebar_new_chat,
+            Some("dots") => ui.sidebar_dots,
+            _ => true,
+        }
+    }
+
     pub async fn disconnect(&self) {
         let _guard = self.transition.lock().await;
         self.desired.write().await.enabled = false;
@@ -461,8 +473,7 @@ impl App {
         let client = self.desktop_client().await.context("尚未连接 Codex")?;
         let (detached, ui, revision, web_revision) = self.panel_host_state().await;
         let preferences = self.panel.lock().await.prefs.clone();
-        let launcher_action =
-            json!({"action":preferences.launcher_action,"language":preferences.language});
+        let launcher_action = json!({"action":preferences.launcher_action,"doubleAction":preferences.launcher_double_action,"contextAction":preferences.launcher_context_action,"language":preferences.language});
         let typography = json!(preferences.typography);
         let result = client
             .desktop_status(detached, ui, web_revision, launcher_action, typography)
@@ -625,6 +636,7 @@ mod connection_tests {
             view.connection.status = "connected".into();
             view.connection.target_id = Some("synthetic-target".into());
             view.desktop = DesktopStatus {
+                page_kind: None,
                 has_answer: true,
                 headings: 4,
             };

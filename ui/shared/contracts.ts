@@ -219,6 +219,7 @@ declare global {
     __palbooModelControl?: {
       inputTarget(): {
         id: string;
+        token?: string;
         root: HTMLElement;
         scope: HTMLElement;
         composer: HTMLElement;
@@ -284,6 +285,8 @@ export interface AppearanceSettings {
   settingsTheme?: 'codex' | 'light' | 'dark' | null;
   typography?: import('./typography').TypographyPreferences;
   launcherAction?: 'inside' | 'outside' | 'settings';
+  launcherDoubleAction?: 'inside' | 'outside' | 'settings' | 'toggle';
+  launcherContextAction?: 'inside' | 'outside' | 'settings' | 'toggle';
   settingsTarget?: 'plugin' | 'web';
   revision: number;
   webRevision: number;

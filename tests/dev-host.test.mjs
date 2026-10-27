@@ -33,6 +33,7 @@ import {
   findDevelopmentHost,
   initializeData,
   restoreInstallation,
+  pauseInstallation,
   requestRuntime,
 } from '../scripts/dev-host.mjs';
 
@@ -454,4 +455,98 @@ test('an orphan development backend blocks startup before touching installation 
   assert.deepEqual(requests, []);
   assert.equal(existsSync(journal), true);
   assert.equal(existsSync(join(root, 'target/dev/owner.json')), false);
+});
+
+test('Dev closes installed edge views and restores them only on their original connection', async (t) => {
+  const journal = join(temporary(t), 'paused.json'),
+    requests = [];
+  t.mock.method(globalThis, 'WebSocket', function () {
+    const socket = {
+      send() {
+        queueMicrotask(() =>
+          socket.onmessage({
+            data: JSON.stringify({ id: 1, result: { result: { value: { occupied: false } } } }),
+          }),
+        );
+      },
+      close() {},
+    };
+    queueMicrotask(() => socket.onopen());
+    return socket;
+  });
+  const endpoint = 'http://127.0.0.1:9229';
+  let connection = { status: 'connected', endpoint, targetId: 'original' };
+  const entries = [
+    { id: 'model', owner: 'model-owner', placement: 'edge', open: true },
+    { id: 'board', owner: 'board-owner', placement: 'edge', open: false },
+    { id: 'next', owner: 'next-owner', placement: 'sidebar', open: true },
+  ];
+  let recovery = 'ready';
+  let recoveryReads = 0;
+  const api = await server(t, async (req, res) => {
+    let raw = '';
+    for await (const part of req) raw += part;
+    const body = raw ? JSON.parse(raw) : null;
+    requests.push([req.url, body]);
+    if (req.url === '/api/state') return res.end(JSON.stringify({ connection }));
+    if (req.url === '/api/features') {
+      if (body.op === 'close') {
+        assert.equal(
+          JSON.parse(readFileSync(journal)).edgeFeatures[0],
+          'model',
+          'recovery saved before close',
+        );
+        assert.equal(body.owner, 'model-owner');
+        entries[0].open = false;
+      }
+      if (body.op === 'reveal') {
+        entries[0].pending = { placement: 'edge' };
+        recoveryReads = 0;
+      }
+      if (body.op === 'state' && entries[0].pending && ++recoveryReads > 1) {
+        assert.equal(existsSync(journal), true, 'journal retained until ready');
+        entries[0].pending = null;
+        entries[0].open = recovery === 'ready';
+      }
+      return res.end(JSON.stringify({ features: entries }));
+    }
+    if (req.url === '/api/disconnect') connection = { ...connection, status: 'disconnected' };
+    if (req.url === '/api/connect')
+      connection = { status: 'connected', endpoint: body.endpoint, targetId: body.targetId };
+    res.end('{}');
+  });
+  const host = {
+    endpoint,
+    target: { id: 'original', webSocketDebuggerUrl: 'ws://127.0.0.1:9229' },
+    installation: { port: api.port, token: 'synthetic' },
+  };
+  for (const entry of [
+    { placement: 'sidebar', open: true, pending: { placement: 'edge' } },
+    { placement: 'edge', open: false, pending: { placement: 'edge' } },
+  ]) {
+    entries.push({ id: 'moving', ...entry });
+    await assert.rejects(pauseInstallation(host, journal), /正在交接/);
+    assert.equal(existsSync(journal), false);
+    entries.pop();
+  }
+  await pauseInstallation(host, journal);
+  assert.equal(entries[0].open, false);
+  assert.equal(entries[2].open, true);
+  assert.equal(connection.status, 'disconnected');
+  await restoreInstallation(journal);
+  assert.equal(entries[0].open, true);
+  assert.equal(existsSync(journal), false);
+  assert.deepEqual(
+    requests
+      .filter(([path, b]) => path === '/api/features' && b.op === 'reveal')
+      .map(([, b]) => b.id),
+    ['model'],
+  );
+  await pauseInstallation(host, journal);
+  recovery = 'failed';
+  await assert.rejects(restoreInstallation(journal), /未能恢复/);
+  assert.equal(existsSync(journal), true);
+  connection = { status: 'connected', endpoint, targetId: 'other' };
+  await restoreInstallation(journal);
+  assert.equal(entries[0].open, false, 'do not reopen on another chat');
 });

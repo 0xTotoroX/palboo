@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 胶囊 DOM、几何、外观与指针/键盘事件。
- * [OUTPUT]: 内嵌表情单击收放、双击切换窗口；拖动、缩放与键盘操作。
+ * [OUTPUT]: 内嵌表情单击收放、双击切换窗口，左栏入口支持分别配置的单/双击；拖动、缩放与键盘操作。
  * [POS]: 外壳交互层；效果在 effects，原生手势经 desktop/legacy/transport 转发。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -483,18 +483,19 @@ function consumeFaceDoubleClick(event) {
     performance.now() - previous.time <= 500 &&
     Math.hypot(event.clientX - previous.x, event.clientY - previous.y) <= 6;
   cancelFaceClick();
-  if (!matched || !canSwitchWindow) return false;
+  if (!matched || (!previous.doubleActivate && !canSwitchWindow)) return false;
   if (!IS_POPOUT) {
     if (previous.docked) {
       shellState.dockOpen = previous.dockOpen;
       emitSignal('render', undefined);
     } else settleMorph(previous.open ? 1 : 0);
   }
-  emitSignal('windowToggle', undefined);
+  if (previous.doubleActivate) previous.doubleActivate();
+  else emitSignal('windowToggle', undefined);
   return true;
 }
 
-function onFaceClick(event, source, activate = null) {
+function onFaceClick(event, source, activate = null, doubleActivate = null, singleDelay = 100) {
   const suppressed = source === 'fab' ? 'suppressFabClick' : 'suppressHeadFaceClick';
   if (shellState[suppressed] || shellState.drag?.moved) {
     cancelFaceClick();
@@ -506,6 +507,7 @@ function onFaceClick(event, source, activate = null) {
   if (event.detail > 2) return;
   if (event.detail !== 0) {
     shellState.lastFaceClick = {
+      doubleActivate,
       time: performance.now(),
       x: event.clientX,
       y: event.clientY,
@@ -536,8 +538,9 @@ function onFaceClick(event, source, activate = null) {
       } else setOpen(expanded, expanded ? (event.detail === 0 ? 'panel' : '') : 'chip');
     }
   };
-  if (event.detail === 0 || runtimeState.settings?.popoutSupported !== true) singleClick();
-  else if (!IS_POPOUT) shellState.faceClickTimer = window.setTimeout(singleClick, 100);
+  if (event.detail === 0 || (!doubleActivate && runtimeState.settings?.popoutSupported !== true))
+    singleClick();
+  else if (!IS_POPOUT) shellState.faceClickTimer = window.setTimeout(singleClick, singleDelay);
 }
 
 function onDockFaceSecondClick(event) {
@@ -571,12 +574,10 @@ function onFabClick(event) {
   onFaceClick(event, 'fab');
 }
 
-export function onLauncherClick(event, activate) {
-  if (shellState.launcherAction !== 'inside') {
-    if (event.detail <= 1) activate(true);
-    return;
-  }
-  onFaceClick(event, 'launcher', activate);
+export function onLauncherClick(event, activate, doubleActivate) {
+  // 打开设置/桌面会产生不可撤销的外部副作用，等待完整双击窗口再提交。
+  const singleDelay = shellState.launcherAction === 'inside' ? 100 : 500;
+  onFaceClick(event, 'launcher', activate, doubleActivate, singleDelay);
 }
 
 export function onLauncherPointerDown(event) {
@@ -584,7 +585,7 @@ export function onLauncherPointerDown(event) {
   shellState.suppressFabClick = shellState.suppressHeadFaceClick = false;
   event.currentTarget.blur();
   event.preventDefault();
-  if (shellState.launcherAction === 'inside') onFaceSecondPress(event);
+  onFaceSecondPress(event);
 }
 
 export function onLauncherKeyDown(event) {

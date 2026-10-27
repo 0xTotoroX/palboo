@@ -7,7 +7,7 @@ use crate::{
     config::{Paths, write_private},
     state::App,
 };
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result, bail, ensure};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::{
@@ -180,6 +180,8 @@ pub struct Preferences {
     pub settings_theme: Option<String>,
     pub language: String,
     pub launcher_action: String,
+    pub launcher_double_action: String,
+    pub launcher_context_action: String,
     pub position: Option<Position>,
     pub ui: Ui,
 }
@@ -226,6 +228,8 @@ impl Default for Preferences {
             settings_theme: None,
             language: "system".into(),
             launcher_action: "inside".into(),
+            launcher_double_action: "toggle".into(),
+            launcher_context_action: "settings".into(),
             position: None,
             ui: Ui::default(),
         }
@@ -549,6 +553,7 @@ impl App {
         };
         Ok(
             json!({"preferences":prefs,"ready":ready,"presented":presented,"snapshot":snapshot,
+            "scopeAllowed":self.host_page_allowed().await,
             "connection":self.view().connection.status}),
         )
     }
@@ -768,12 +773,20 @@ impl App {
             next.typography = serde_json::from_value(value.clone())?;
             next.typography.validate()?;
         }
-        if let Some(value) = input.get("launcherAction") {
-            let action = value.as_str().context("默认入口动作无效")?;
-            if !["inside", "outside", "settings"].contains(&action) {
-                bail!("默认入口动作无效");
+        for (key, destination) in [
+            ("launcherAction", &mut next.launcher_action),
+            ("launcherDoubleAction", &mut next.launcher_double_action),
+            ("launcherContextAction", &mut next.launcher_context_action),
+        ] {
+            if let Some(value) = input.get(key) {
+                let action = value.as_str().context("入口动作无效")?;
+                ensure!(
+                    ["inside", "outside", "settings"].contains(&action)
+                        || (key != "launcherAction" && action == "toggle"),
+                    "入口动作无效"
+                );
+                *destination = action.into();
             }
-            next.launcher_action = action.into();
         }
         if let Some(value) = input.get("language") {
             let language = value.as_str().context("界面语言无效")?;
@@ -1538,7 +1551,7 @@ mod tests {
         let changed = app
             .save_appearance(json!({"expectedRevision":before.revision,
             "ui":{"material":"native-glass","fontOffset":2.,"fontSizes":{"outline":18.2,"board":17.4},"promptClickMode":"hybrid"},
-            "alwaysOnTop":true,"settingsTarget":"web","launcherAction":"settings"}))
+            "alwaysOnTop":true,"settingsTarget":"web","launcherAction":"settings","launcherDoubleAction":"inside","launcherContextAction":"outside"}))
             .await
             .unwrap();
         assert_eq!(changed.ui.width, before.ui.width);
@@ -1547,6 +1560,11 @@ mod tests {
         assert_eq!(before.settings_target, "plugin");
         assert_eq!(changed.settings_target, "web");
         assert_eq!(before.launcher_action, "inside");
+        assert_eq!(before.launcher_double_action, "toggle");
+        assert_eq!(before.launcher_context_action, "settings");
+        let restored = Preferences::read(&app.paths);
+        assert_eq!(restored.launcher_double_action, "inside");
+        assert_eq!(restored.launcher_context_action, "outside");
         assert_eq!(changed.launcher_action, "settings");
         assert_eq!(Preferences::read(&app.paths).launcher_action, "settings");
         assert!(

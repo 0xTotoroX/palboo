@@ -1,3 +1,4 @@
+import { hostPageKind, hostPageAllowed } from '../page-context.js';
 import { tr } from '../../shared/i18n.js';
 import { measureWork, samplePerformance, stopPerformance } from '../../shared/performance.js';
 import { bridgeCall } from './state.js';
@@ -530,7 +531,12 @@ async function start() {
 }
 
 async function launcherAction(action, toggle = false) {
+  if (!hostPageAllowed(shellState) && action !== 'settings') return;
   if (!toggle) cancelFaceClick();
+  if (action === 'toggle') {
+    if (runtimeState.settings?.popoutSupported === true) emitSignal('windowToggle', undefined);
+    return;
+  }
   if (action === 'settings') {
     const result = await openSettings();
     if (!result.ok && !result.cancelled) throw Error(result.message);
@@ -685,22 +691,31 @@ function install() {
           theme: shellState.theme,
           outsideAvailable: runtimeState.settings?.popoutSupported === true,
           action: (action) => launcherAction(action),
-          click: (event) =>
-            onLauncherClick(event, () => {
-              void launcherAction(shellState.launcherAction, true).catch((error) => {
-                if (shellState.launcherAction !== 'settings') {
+          click: (event) => {
+            const run = (action) => {
+              void launcherAction(action, true).catch((error) => {
+                if (action !== 'settings') {
                   stepwiseState.bridgeError = String(error);
                   runtimeState.settingsOpenStatus = String(error);
                 }
                 emitSignal('render', undefined);
               });
-            }),
+            };
+            onLauncherClick(
+              event,
+              () => run(shellState.launcherAction),
+              () => run(shellState.launcherDoubleAction),
+            );
+          },
           pointerDown: onLauncherPointerDown,
           keyDown: onLauncherKeyDown,
           settingsBrowser: () => emitSignal('openSettings', 'web'),
           settings: () => {
             cancelFaceClick();
-            void openSettings();
+            void launcherAction(shellState.launcherContextAction).catch((error) => {
+              runtimeState.settingsOpenStatus = String(error);
+              emitSignal('render', undefined);
+            });
           },
         });
       }),
@@ -792,10 +807,12 @@ function install() {
     receivePanelState,
     panelDisconnected,
     nativeGestureEnded,
+    hostPageAllowed: () => hostPageAllowed(shellState),
     desktopStatus: () => {
       if (!IS_POPOUT) window.__palbooTokenMeter?.refresh();
       if (runtimeState.runtimeActive && !shellState.root?.isConnected) scheduleScan(0);
       return {
+        pageKind: hostPageKind(),
         hasAnswer: Boolean(contextState.lastAssistantHash),
         headings:
           contextState.lastAssistantHash &&

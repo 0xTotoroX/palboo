@@ -61,7 +61,12 @@ import {
 } from '../../surfaces/embedded/shell/panel-appearance.js';
 import { defaultPosition, shellLayout } from '../../surfaces/embedded/shell/geometry.js';
 import { emitSignal } from './signals.js';
-import { fillComposer, forceRefreshStepwise, normalizePromptState } from '../next.js';
+import {
+  fillComposer,
+  forceRefreshStepwise,
+  normalizePromptState,
+  quickInputTarget,
+} from '../next.js';
 import { outlineJumpTo, outlineJumpToAnchor, refreshOutline } from '../outline.js';
 import { panelPreferences, sizeNativePanel } from '../../surfaces/desktop/legacy/transport.js';
 
@@ -178,9 +183,18 @@ function applyPanelPreferences(ui) {
   emitSignal('render', undefined);
 }
 
-/** @param {string | {language?: string, action?: string} | null} launcherAction */
+/** @param {string | {language?: string, action?: string, doubleAction?: string, contextAction?: string} | null} launcherAction */
 function syncPanelPreferences(ui, revision, detached, launcherAction = 'inside') {
   const previousLocale = getLocale();
+  const gestures = typeof launcherAction === 'object' ? launcherAction : null;
+  for (const [key, value, fallback] of [
+    ['launcherDoubleAction', gestures?.doubleAction, 'toggle'],
+    ['launcherContextAction', gestures?.contextAction, 'settings'],
+  ]) {
+    shellState[key] = ['inside', 'outside', 'settings', 'toggle'].includes(value)
+      ? value
+      : fallback;
+  }
   if (launcherAction && typeof launcherAction === 'object') {
     setLocale(launcherAction.language || 'zh-CN');
     launcherAction = launcherAction.action;
@@ -432,6 +446,7 @@ function exportPanelState() {
   const association = chatBindingStatus();
   const viewToken = hashText(
     JSON.stringify([
+      quickInputTarget()?.token,
       context.runtimeGeneration,
       context.generation,
       context.sessionId || context.paneKey,
@@ -509,7 +524,10 @@ function panelCommand(command) {
   if (!current || command.instanceId !== INSTANCE_ID || command.viewToken !== current.viewToken)
     return { ok: false, message: tr('回答或任务已经变化，请刷新后重试。') };
   if (command.kind === 'association') return changeChatBinding(command.action, command.sessionId);
-  if (!bindingSourceReady() || !contextMatches(command.context))
+  if (
+    !bindingSourceReady() ||
+    (!contextMatches(command.context) && !(command.kind === 'quick-fill' && quickInputTarget()))
+  )
     return { ok: false, message: tr('聊天来源暂不可用或已变化，请重新确认。') };
   if (
     ['fill', 'quick-fill', 'generate'].includes(command.kind) &&

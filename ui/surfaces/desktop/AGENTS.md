@@ -15,3 +15,5 @@
 桌面工作台不再显示胶囊眼睛；顶部右侧显示横线收回聊天、放大/还原和置顶，Alt+Enter 仍可收回。共用 workspace/window-controls；隐藏后reveal显示同一窗口，放大期间不保存普通尺寸。
 
 main 的公共标签/标题与 FeatureView 正文读取同一全局字体快照，原生窗口几何/交接不改动。
+
+main 将 feature state 的 scopeAllowed 经 scope-visible IPC 投影给原生窗口，范围切换只临时隐藏/恢复，不销毁内容或改变手动隐藏偏好。

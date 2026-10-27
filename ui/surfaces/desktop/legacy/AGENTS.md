@@ -24,3 +24,5 @@ boot与共用窗口控件同步临时放大状态；放大及几何交接不保�
 原生动画结束及收回请求结束时刷新窗口控件可用状态，避免进入动画时的禁用状态滞留；取消和失败恢复同样重新计算 moving/docking。
 
 transport 的完整偏好投影包含 sidebarNewChat/sidebarDots；窗口往返保持这两个 Web 设置，不因旧窗口整份 Ui 回传而清除。
+
+boot 将 panel/state 的 scopeAllowed 经 scope-visible IPC 同步原生窗口；新聊天/Dots 范围切换只临时隐藏，保留租约、草稿与窗口开合偏好。

@@ -64,7 +64,7 @@
 
 当前 main 设置固定在 ChatGPT 内置浏览器打开；main.tsx 不再显示目标选择器。settings-entry.tsx 与后端 settingsTarget 兼容字段保留，供插件分支/旧配置使用，不删除用户偏好。
 
-- `launcher-settings.tsx`：外观与字体分类中的眼睛默认单击动作（内/外/设置），保存 appearance.launcherAction 并保留修订冲突校验；不支持桌面浮窗时禁用外选项，切换默认值本身不移动工作台。
+- `launcher-settings.tsx`：外观与字体分类中的眼睛单击、双击与右键动作（内/外/设置），保存 appearance.launcherAction 并保留修订冲突校验；不支持桌面浮窗时禁用外选项，切换默认值本身不移动工作台。
 
 所有动作图标通过shared/icons/react读取同一公开SVG目录及18px共享变量。普通图标按钮复用components/ui/button的IconButton，确认操作继续由ConfirmationButton处理；原提交类型、焦点和保存通道不变。设置页内控件高度、圆角及开关几何统一由settings-controls.css管理，基础组件保留独立挂载所需的默认样式。页面保留桌面16px、窄屏12px额外顶部留白及底部边距。
 
@@ -134,7 +134,7 @@ model-control-settings提供“启用额度显示”，复用模型快切独立�
 
 独立操作区使用 settings-actions 靠右排列，模型测试反馈与按钮右对齐；CodexHost的程序路径和不同的运行路径直接展示为可选中文本，不再使用单字段抽屉。
 
-panel-settings 在“布局与位置 → 侧栏显示范围”提供新聊天与 Dots 两个默认关闭的独立开关，复用 appearance 的 expectedRevision 逐字段保存及失败反馈；settings-outline 支持对应搜索/锚点定位。
+panel-settings 在“布局与位置 → 启用范围”提供新聊天与 Dots 两个默认关闭的 Palboo 全功能范围开关，复用 appearance 的 expectedRevision 逐字段保存及失败反馈；settings-outline 支持对应搜索/锚点定位。
 
 设置弹层关闭时保留最后可见内容完成退出，不延迟原生关闭与焦点恢复：settings-search 的查询在动画结束后清空，下次打开重置；settings-confirmation 只保留标题/描述，不保留可执行确认动作；settings-drawer 保留原草稿与滚动。动效统一在settings-motion.css，布局与控件CSS只管理几何和配色。
 
@@ -147,3 +147,5 @@ Bot 资料的置顶组仅在与后续分组之间显示一条分隔线，不显�
 模型额度、性能开关及 CodexHost 管理操作复用 settings-feedback 的就近锚点；模型分组中的反馈留在固定底部操作区，不改变修订校验或外部环境。
 
 语言位于“外观与字体”表单首行。`language-settings.tsx` 仅按 appearance 修订保存 language，失败保留原选择；main 接收后台快照后同步语言和文档 lang/title。`direction-copy.ts` 只翻译与内置原文完全一致的字段，用户修改保留原文。所有页面共享语言订阅，导航、抽屉和表单不因语言切换重挂载；预览使用稳定ID，示例标题跟随语言但编辑内容和选择保留。`bot-setup-prompt.ts` 提供语义相同的中英文接入说明。Dev 来源脚本使用自身打包后的同一文案目录，并读取设置页语言。
+
+launcher-settings 将单击、双击、右键并列为同宽设置行，各次仅保存一个字段和 expectedRevision；旧偏好缺省不变，失败回读与提示沿用。

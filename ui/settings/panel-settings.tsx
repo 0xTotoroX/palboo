@@ -195,18 +195,18 @@ export function PanelSettings({
             data-settings-page="surfaces"
             hidden={page === 'appearance'}
           >
-            <h2>{tr('侧栏显示范围')}</h2>
+            <h2>{tr('启用范围')}</h2>
             <div className="settings-surface-rows">
               <div id="sidebar-new-chat" className="settings-surface-item">
                 <Toggle
-                  label={tr('新聊天中显示侧栏')}
+                  label={tr('在新聊天中启用 Palboo')}
                   checked={ui.sidebarNewChat === true}
                   onChange={(v) => change('sidebarNewChat', v)}
                 />
               </div>
               <div id="sidebar-dots" className="settings-surface-item">
                 <Toggle
-                  label={tr('Dots 中显示侧栏')}
+                  label={tr('在 Dots 中启用 Palboo')}
                   checked={ui.sidebarDots === true}
                   onChange={(v) => change('sidebarDots', v)}
                 />

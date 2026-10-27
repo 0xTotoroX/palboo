@@ -133,3 +133,5 @@ settings 的 directionCatalogVersion 仅由后台维护并随常规保存持久�
 - `terminology_import.rs`：私有版本化词库保存基础、个人和自动补词，旧普通内容保守保留为基础；名称及任意格式文件形成有身份的主聊天任务，原文件仅在私有目录保存。Agent 结果按任务/尝试身份、大小和词条 schema 校验，后台仅在待处理时检查预期结果文件；重试与重置使旧结果失效。server 的认证 /terminology/file 仅对上传开放 8 MB 限制，其他接口维持原限制。
 
 - `i18n.rs`：只读系统首选语言并结合保存的 language，为原生提示和标题选择中英文。panel Preferences 默认 system，通过 appearance 修订校验与保存；只刷新显示，不改变模型或生成配置。features/surfaces 和宿主 syncPanelPreferences 投影共享语言；旧字符串 launcherAction 仍兼容。
+
+DesktopStatus.pageKind 接收共享宿主分类；host_page_allowed 读取旧 sidebarNewChat/sidebarDots 开关。features.scopeAllowed 与 surfaces/window 投影临时范围，桌面 scope-visible IPC 和贴边 scope_hidden 只控制可见性，不终止窗口或写回开合偏好。appearance 新增 launcherDoubleAction/launcherContextAction，默认 toggle/settings，沿原修订校验保存并与 launcherAction 一同投影宿主；config CLI 暴露同一白名单。

@@ -209,6 +209,8 @@ function createShellState(preferences) {
     nativeSizeChanging: false,
     pinnedOnTop: true,
     launcherAction: 'inside',
+    launcherDoubleAction: 'toggle',
+    launcherContextAction: 'settings',
     detachPending: false,
     detachedRecoveryTimer: 0,
     handoffAnimation: null,
@@ -347,6 +349,7 @@ function runtimeEnabled(settings = runtimeState.settings) {
   return (
     IS_POPOUT ||
     settings?.grokbotEnabled === true ||
+    settings?.terminologyEnabled === true ||
     settings?.modelControlEnabled === true ||
     settings?.taskBoardEnabled === true ||
     stepwiseEnabled(settings) ||

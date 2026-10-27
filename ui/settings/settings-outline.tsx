@@ -105,7 +105,7 @@ function targetPage(field: string): SettingsPage | undefined {
     )
   )
     return 'model';
-  if (/^(font-|theme-|launcher-click-action)/.test(field)) return 'appearance';
+  if (/^(font-|theme-|launcher-(click|double|context)-action)/.test(field)) return 'appearance';
   if (
     /^(edge-|placement-|main-|dock-width|sidebar-|window-pinning|settings-window|settings-sidebar)/.test(
       field,

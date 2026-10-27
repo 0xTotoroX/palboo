@@ -63,9 +63,9 @@ Suggestions fill the composer by default. If you already have a draft, Palboo ap
 | Double-click a heading or tab                          | Focus the panel; press `Esc` to restore.   |
 | Drag an edge or divider                                | Resize the workspace or its panels.        |
 
-Hover over the left-rail eyes for chat, desktop, and settings actions. The default click action is configurable in **Appearance & fonts**.
+Hover over the left-rail eyes for chat, desktop, and settings actions. Single-click, double-click, and right-click actions are configurable in **Appearance & fonts**.
 
-Sidebar and desktop layouts are saved separately; switching positions preserves drafts and reading position. An edge/notch panel can coexist with the main workspace, follow Codex's display, or stay on a chosen display. Hover or press `Command+Shift+M` to expand it. Sidebars in new chats and Dots are optional and off by default.
+Sidebar and desktop layouts are saved separately; switching positions preserves drafts and reading position. An edge/notch panel can coexist with the main workspace, follow Codex's display, or stay on a chosen display. Hover or press `Command+Shift+M` to expand it. Palboo can be enabled separately in new chats and Dots under **Layout & position → Where Palboo is enabled** (off by default). This applies to all placements and features; actions that need a response remain unavailable until one exists.
 
 Palboo follows Codex's appearance. English, Simplified Chinese, and system-default language choices apply across the App without changing personal content. The website keeps its own language choice.
 

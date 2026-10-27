@@ -315,6 +315,7 @@ struct Surface {
     last_scene: Option<Value>,
     shell: Rect,
     valid: bool,
+    scope_hidden: bool,
     reveal: Option<u64>,
     pending_keyboard: bool,
     revision: u64,
@@ -543,7 +544,8 @@ impl Surface {
             content_top,
             (notch.width > 0.).then_some((notch.x - local.x, notch.width, notch.height)),
         );
-        if self.valid && self.ready && !self.hidden && !self.panel.isVisible() {
+        if self.valid && self.ready && !self.hidden && !self.scope_hidden && !self.panel.isVisible()
+        {
             self.panel.orderFrontRegardless();
         }
         self.dispatch();
@@ -613,6 +615,9 @@ impl Surface {
     }
 
     fn expand(&mut self, keyboard: bool, mtm: MainThreadMarker) -> Result<()> {
+        if self.scope_hidden {
+            return Ok(());
+        }
         self.hidden = false;
         if !self.unfold.active(self.expanded) {
             self.motion_tick = Instant::now();
@@ -752,6 +757,11 @@ impl Surface {
 
     fn snapshot(&mut self, value: Value, revision: u64, mtm: MainThreadMarker) -> Result<()> {
         self.valid = true;
+        self.scope_hidden = value["scopeAllowed"] == false;
+        if self.scope_hidden {
+            self.release_keyboard();
+            self.panel.orderOut(None);
+        }
         let mut appearance = Appearance::read(&value["appearance"]);
         if !matches!(
             appearance.host_theme["theme"].as_str(),
@@ -889,6 +899,7 @@ pub fn run(paths: &Paths, lease: &str) -> Result<()> {
         last_scene: None,
         shell: Rect::default(),
         valid: false,
+        scope_hidden: false,
         reveal: None,
         pending_keyboard: false,
         revision: 0,
