@@ -1,7 +1,7 @@
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
-/* [INPUT]: Shared icons, settings device geometry, synthetic portfolio content and visitor input.
- * [OUTPUT]: Local six-feature demo, draggable board, composer helpers and shared window model.
+/* [INPUT]: Product feature adapters, model preview, synthetic portfolio content and visitor input.
+ * [OUTPUT]: One example chat with actual feature components, model/meter demonstrations and local draft helpers.
  * [POS]: Website illustration layer; no backend, host or model calls.
  * [PROTOCOL]: Keep website/AGENTS.md and browser acceptance in sync. */
 import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
@@ -9,6 +9,10 @@ import { Icon } from '../shared/icons/react';
 import { ModelPreview } from '../settings/model-preview';
 import { TokenMeterView } from '../features/token-meter/view';
 import type { ModelState } from '../features/model/catalog';
+import { NextDemo, OutlineDemo, BoardDemo, TermDemo, BotDemo } from './product-demos';
+import { headings } from './demo-state';
+export { BoardDemo, BotDemo, TermDemo, botSampleNames } from './product-demos';
+export { headings } from './demo-state';
 
 export const features = [
   {
@@ -49,7 +53,6 @@ export const features = [
   { id: 'bots', label: 'Grok Bot', icon: 'feature-bots' },
 ] as const;
 export type FeatureId = (typeof features)[number]['id'];
-export const headings = () => [tr('确定作品集内容'), tr('安排页面与布局'), tr('上线前检查')];
 export function tabKeys(event: KeyboardEvent<HTMLDivElement>) {
   const tabs = [...event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
   const index = tabs.indexOf(event.target as HTMLButtonElement);
@@ -72,170 +75,6 @@ export function Eyes() {
       <i />
       <i />
     </span>
-  );
-}
-
-const statusKeys = ['待办', '进行中', '完成'];
-export function BoardDemo({ tourStatus }: { tourStatus?: number } = {}) {
-  useLocale();
-  const statuses = statusKeys.map((key) => tr(key));
-  const [tasks, setTasks] = useState<
-    { id: number; text: string; status: number; sample?: boolean }[]
-  >([
-    { id: 0, text: '整理三个代表作品', sample: true, status: 0 },
-    { id: 1, text: '完成首页布局', sample: true, status: 1 },
-    { id: 2, text: '确定第一版范围', sample: true, status: 2 },
-  ]);
-  const [adding, setAdding] = useState<number | null>(null);
-  const [draft, setDraft] = useState('');
-  useEffect(() => {
-    if (tourStatus === undefined) return;
-    setTasks((items) =>
-      items.map((item) => (item.id === 0 ? { ...item, status: tourStatus } : item)),
-    );
-  }, [tourStatus]);
-  const [over, setOver] = useState<number | null>(null);
-  const dragging = useRef<number | null>(null);
-  const nextId = useRef(3);
-  const taskButtons = useRef(new Map<number, HTMLButtonElement>());
-  const movedFocus = useRef<number | null>(null);
-  useLayoutEffect(() => {
-    if (movedFocus.current !== null) {
-      taskButtons.current.get(movedFocus.current)?.focus({ preventScroll: true });
-      movedFocus.current = null;
-    }
-  }, [tasks]);
-  const addButtons = useRef<(HTMLButtonElement | null)[]>([]);
-  const restoreFocus = useRef<number | null>(null);
-  useLayoutEffect(() => {
-    if (adding === null && restoreFocus.current !== null) {
-      addButtons.current[restoreFocus.current]?.focus({ preventScroll: true });
-      restoreFocus.current = null;
-    }
-  }, [adding]);
-  const closeForm = (index: number) => {
-    restoreFocus.current = index;
-    setAdding(null);
-    setDraft('');
-  };
-  const move = (id: number, status: number) =>
-    setTasks((items) => items.map((item) => (item.id === id ? { ...item, status } : item)));
-  return (
-    <div className="demo-board" aria-label={tr('作品集任务看板')}>
-      {statuses.map((status, index) => (
-        <div
-          key={status}
-          className={over === index ? 'board-lane is-over' : 'board-lane'}
-          onDragOver={(event) => {
-            if (dragging.current !== null) {
-              event.preventDefault();
-              setOver(index);
-            }
-          }}
-          onDragLeave={(event) => {
-            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOver(null);
-          }}
-          onDrop={(event) => {
-            event.preventDefault();
-            if (dragging.current !== null) move(dragging.current, index);
-            dragging.current = null;
-            setOver(null);
-          }}
-        >
-          <h4>
-            {status}
-            <span>{tasks.filter((task) => task.status === index).length}</span>
-          </h4>
-          <div className="board-cards">
-            {tasks
-              .filter((task) => task.status === index)
-              .map((task) => (
-                <div
-                  key={task.id}
-                  className="demo-task"
-                  draggable
-                  onDragStart={(event) => {
-                    dragging.current = task.id;
-                    event.dataTransfer.effectAllowed = 'move';
-                    event.dataTransfer.setData(
-                      'text/plain',
-                      task.sample ? tr(task.text) : task.text,
-                    );
-                  }}
-                  onDragEnd={() => {
-                    dragging.current = null;
-                    setOver(null);
-                  }}
-                >
-                  <span>{task.sample ? tr(task.text) : task.text}</span>
-                  <button
-                    className="icon-button"
-                    aria-label={tr('{{value1}}，移到{{value2}}', {
-                      value1: task.sample ? tr(task.text) : task.text,
-                      value2: statuses[(index + 1) % 3],
-                    })}
-                    ref={(node) => {
-                      if (node) taskButtons.current.set(task.id, node);
-                      else taskButtons.current.delete(task.id);
-                    }}
-                    onClick={() => {
-                      movedFocus.current = task.id;
-                      move(task.id, (index + 1) % 3);
-                    }}
-                  >
-                    <Icon name={index === 1 ? 'check' : 'feature-next'} />
-                  </button>
-                </div>
-              ))}
-          </div>
-          {adding === index ? (
-            <form
-              className="board-add"
-              onSubmit={(event) => {
-                event.preventDefault();
-                if (!draft.trim()) return;
-                setTasks((items) => [
-                  ...items,
-                  { id: nextId.current++, text: draft.trim(), status: index },
-                ]);
-                closeForm(index);
-              }}
-            >
-              <input
-                autoFocus
-                aria-label={tr('{{status}}任务名称', { status: status })}
-                value={draft}
-                onChange={(event) => setDraft(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Escape') {
-                    event.preventDefault();
-                    closeForm(index);
-                  }
-                }}
-              />
-              <button type="submit" className="icon-button" aria-label={tr('添加任务')}>
-                <Icon name="check" />
-              </button>
-            </form>
-          ) : (
-            <button
-              className="board-new"
-              ref={(node) => {
-                addButtons.current[index] = node;
-              }}
-              aria-label={tr('在{{status}}中新建任务', { status: status })}
-              onClick={() => {
-                setAdding(index);
-                setDraft('');
-              }}
-            >
-              <Icon name="plus" />
-              {tr('新建任务')}
-            </button>
-          )}
-        </div>
-      ))}
-    </div>
   );
 }
 
@@ -294,7 +133,7 @@ export function SpeedDemo({ tourStep }: { tourStep?: number } = {}) {
   const [phase, setPhase] = useState('streaming');
   useEffect(() => {
     if (tourStep !== undefined)
-      setPhase(['waiting', 'thinking', 'streaming', 'completed'][tourStep]);
+      setPhase(['waiting', 'thinking', 'tool', 'streaming', 'completed'][tourStep]);
   }, [tourStep]);
   return (
     <div className="speed-demo">
@@ -302,6 +141,7 @@ export function SpeedDemo({ tourStep }: { tourStep?: number } = {}) {
         {[
           ['waiting', tr('等待输出')],
           ['thinking', tr('思考中')],
+          ['tool', tr('工具执行中')],
           ['streaming', tr('生成中')],
           ['completed', tr('已完成')],
         ].map(([id, title]) => (
@@ -324,6 +164,9 @@ export function SpeedDemo({ tourStep }: { tourStep?: number } = {}) {
             threadId: 'website-example',
             phase,
             speed: phase === 'streaming' ? 38.4 : null,
+            lastSpeed: 38.4,
+            model: 'GPT-6-Astra',
+            fast: false,
             official:
               phase === 'completed'
                 ? {
@@ -341,80 +184,17 @@ export function SpeedDemo({ tourStep }: { tourStep?: number } = {}) {
     </div>
   );
 }
-export const botSampleNames = () => [tr('工程主管'), tr('资料助手'), tr('随口一问')];
-export function BotDemo({
-  onInsert,
-  tourStep,
-}: {
-  onInsert: (value: string) => void;
-  tourStep?: number;
-}) {
-  useLocale();
-  const [bot, setBot] = useState('engineering');
-  useEffect(() => {
-    if (tourStep !== undefined) setBot(['engineering', 'research', 'casual'][tourStep]);
-  }, [tourStep]);
-  return (
-    <div className="demo-bots">
-      {[
-        ['engineering', tr('工程主管')],
-        ['research', tr('资料助手')],
-        ['casual', tr('随口一问')],
-      ].map(([id, name]) => (
-        <button
-          key={name}
-          aria-pressed={bot === id}
-          onClick={() => {
-            setBot(id);
-            onInsert(tr('请问「{{name}}」：帮我检查作品集方案。', { name: name }));
-          }}
-        >
-          <Icon name="feature-bots" />
-          {name}
-          <Icon name="chevron-right" />
-        </button>
-      ))}
-    </div>
-  );
-}
-export function TermDemo() {
-  useLocale();
-  const [saved, setSaved] = useState(false);
-  const [known, setKnown] = useState(false);
-  return (
-    <div className="demo-term">
-      <span className="term-en">Responsive layout</span>
-      <h4>{tr('响应式布局')}</h4>
-      <p>{tr('让页面随屏幕宽度调整排列。例如电脑上并排展示作品，手机上改为纵向阅读。')}</p>
-      <div className="term-actions">
-        <button aria-pressed={saved} onClick={() => setSaved(!saved)}>
-          <Icon name={saved ? 'bookmark-filled' : 'bookmark'} />
-          {saved ? tr('已收藏') : tr('收藏')}
-        </button>
-        <button aria-pressed={known} onClick={() => setKnown(!known)}>
-          <Icon name="check" />
-          {known ? tr('已掌握') : tr('掌握了')}
-        </button>
-      </div>
-    </div>
-  );
-}
 export function ComposerDemo({
   draft,
   onChange,
   label = tr('接着聊'),
-  optimize = false,
-  demoOriginal,
 }: {
   draft: string;
   onChange: (value: string) => void;
   label?: string;
-  optimize?: boolean;
-  demoOriginal?: string;
 }) {
   useLocale();
   const id = useId();
-  const [previous, setPrevious] = useState<string | null>(null);
   return (
     <div className="demo-composer">
       <label className="sr-only" htmlFor={id}>
@@ -427,33 +207,6 @@ export function ComposerDemo({
         placeholder={tr('接着聊…')}
         rows={2}
       />
-      {optimize && (
-        <div className="composer-actions">
-          {(previous !== null || demoOriginal !== undefined) && (
-            <button
-              onClick={() => {
-                onChange(previous ?? demoOriginal!);
-                setPrevious(null);
-              }}
-            >
-              {tr('撤销')}
-            </button>
-          )}
-          <button
-            onClick={() => {
-              setPrevious(draft);
-              onChange(
-                tr(
-                  '请把这个个人作品集方案整理成两天内可完成的步骤，列出每一步的交付内容与检查方法。',
-                ),
-              );
-            }}
-          >
-            {tr('优化提示词')}
-            <Icon name="feature-next" />
-          </button>
-        </div>
-      )}
     </div>
   );
 }
@@ -469,7 +222,6 @@ export function FeatureDemo({
   const uid = useId();
   const [draft, setDraft] = useState('');
   const [heading, setHeading] = useState(0);
-  const [direction, setDirection] = useState('advance');
   const [reset, setReset] = useState(0);
   const article = useRef<HTMLElement>(null);
   const content = useRef<HTMLDivElement>(null);
@@ -500,7 +252,6 @@ export function FeatureDemo({
               onClick={() => {
                 setDraft('');
                 setHeading(0);
-                setDirection('advance');
                 setReset((value) => value + 1);
               }}
             >
@@ -539,92 +290,26 @@ export function FeatureDemo({
             <div className="demo-content-heading">
               <span>{selected.label}</span>
             </div>
-            {active === 'next' && (
-              <>
-                <div className="demo-suggestions">
-                  {(direction === 'advance'
-                    ? [
-                        [
-                          tr('拆解第一版'),
-                          tr('把作品集方案分成两天可完成的步骤。'),
-                          tr('请把作品集第一版拆解成两天内可完成的具体步骤。'),
-                        ],
-                        [
-                          tr('检查移动端'),
-                          tr('看看小屏阅读和图片加载还有哪些遗漏。'),
-                          tr('帮我检查作品集在手机上阅读和加载图片时可能遗漏的问题。'),
-                        ],
-                      ]
-                    : [
-                        [
-                          tr('比较展示方式'),
-                          tr('比较长页面与独立项目页。'),
-                          tr('比较长页面和独立项目页，哪个更适合这三个作品？'),
-                        ],
-                        [
-                          tr('探索呈现角度'),
-                          tr('让每个作品更突出你的贡献。'),
-                          tr('这些作品还可以从哪些角度展示我的个人贡献？'),
-                        ],
-                      ]
-                  ).map(([title, description, value], index) => (
-                    <button className="suggestion" key={title} onClick={() => insert(value)}>
-                      <span className="suggestion-number">0{index + 1}</span>
-                      <span>
-                        <strong>{title}</strong>
-                        <small>{description}</small>
-                      </span>
-                      <Icon name="chevron-right" />
-                    </button>
-                  ))}
-                </div>
-                <div className="next-demo-actions">
-                  <select
-                    aria-label={tr('演示建议方向')}
-                    value={direction}
-                    onChange={(event) => setDirection(event.target.value)}
-                  >
-                    <option value="advance">{tr('整体推进')}</option>
-                    <option value="explore">{tr('探索拓展')}</option>
-                  </select>
-                  <div className="quick-prompts">
-                    {[tr('继续'), tr('执行')].map((word) => (
-                      <button key={word} onClick={() => insert(word)}>
-                        {word}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
-            {active === 'outline' && (
-              <div className="demo-outline">
-                {headings().map((title, index) => (
-                  <button
-                    key={title}
-                    className={heading === index ? 'is-current' : ''}
-                    aria-pressed={heading === index}
-                    onClick={() => {
-                      setHeading(index);
-                      const container = article.current!;
-                      const target = container.querySelectorAll('section')[index];
-                      container.scrollTo({
-                        top:
-                          target.getBoundingClientRect().top -
-                          container.getBoundingClientRect().top +
-                          container.scrollTop -
-                          6,
-                      });
-                    }}
-                  >
-                    <span>0{index + 1}</span>
-                    {title}
-                    <Icon name="chevron-right" />
-                  </button>
-                ))}
-              </div>
-            )}
             <div key={reset}>
+              <div hidden={active !== 'next'}>
+                <NextDemo onInsert={insert} />
+              </div>
+              <div hidden={active !== 'outline'}>
+                <OutlineDemo
+                  onJump={(index) => {
+                    setHeading(index);
+                    const container = article.current!;
+                    const target = container.querySelectorAll('section')[index];
+                    container.scrollTo({
+                      top:
+                        target.getBoundingClientRect().top -
+                        container.getBoundingClientRect().top +
+                        container.scrollTop -
+                        6,
+                    });
+                  }}
+                />
+              </div>
               <div hidden={active !== 'board'}>
                 <BoardDemo />
               </div>

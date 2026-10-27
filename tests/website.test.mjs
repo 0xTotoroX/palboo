@@ -67,17 +67,21 @@ test('portfolio demos preserve drafts, preferences and undo without service requ
     const choose = (name) => demo.getByRole('tab', { name, exact: true }).click();
     await demo.getByLabel('接着聊', { exact: true }).fill('我的草稿');
     await demo.getByRole('button', { name: /拆解第一版/ }).click();
+    await page.waitForFunction(() =>
+      document.querySelector('.product-demo textarea').value.includes('请把作品集第一版'),
+    );
     assert.match(
       await demo.getByLabel('接着聊', { exact: true }).inputValue(),
       /^我的草稿\n请把作品集第一版/,
     );
-    await demo.getByLabel('演示建议方向').selectOption('explore');
+    await page.waitForFunction(() =>
+      document.querySelector('.product-demo textarea').value.includes('请把作品集第一版'),
+    );
+    await demo.getByRole('button', { name: '重新生成建议', exact: true }).click();
     await demo.getByRole('button', { name: /比较展示方式/ }).click();
     await choose('大纲');
-    await demo
-      .locator('.demo-outline')
-      .getByRole('button', { name: /上线前检查/ })
-      .click();
+    await demo.locator('.csw-outline-row').filter({ hasText: '上线前检查' }).click();
+    await demo.locator('.chat-paragraph.is-focused').filter({ hasText: '上线前检查' }).waitFor();
     assert.match(await demo.locator('.chat-paragraph.is-focused').innerText(), /上线前检查/);
     assert.ok(await demo.locator('.demo-chat article').evaluate((node) => node.scrollTop > 0));
     await choose('模型切换');
@@ -89,8 +93,9 @@ test('portfolio demos preserve drafts, preferences and undo without service requ
       'true',
     );
     await choose('术语释义');
-    await demo.getByRole('button', { name: '收藏', exact: true }).click();
-    await demo.getByRole('button', { name: '掌握了', exact: true }).click();
+    await demo.locator('.term-brick').first().click();
+    await page.getByRole('button', { name: '收藏术语', exact: true }).click();
+    await page.getByRole('button', { name: '已掌握，不再提示', exact: true }).click();
     await choose('Grok Bot');
     await demo.getByRole('button', { name: '资料助手', exact: true }).click();
     assert.match(
@@ -98,12 +103,17 @@ test('portfolio demos preserve drafts, preferences and undo without service requ
       /我的草稿[\s\S]*请问「资料助手」/,
     );
     await choose('术语释义');
+    await demo.locator('.term-brick').first().click();
     assert.equal(
-      await demo.getByRole('button', { name: '已收藏', exact: true }).getAttribute('aria-pressed'),
+      await page
+        .getByRole('button', { name: '取消收藏', exact: true })
+        .getAttribute('aria-pressed'),
       'true',
     );
     assert.equal(
-      await demo.getByRole('button', { name: '已掌握', exact: true }).getAttribute('aria-pressed'),
+      await page
+        .getByRole('button', { name: '恢复提示', exact: true })
+        .getAttribute('aria-pressed'),
       'true',
     );
     await demo.getByRole('button', { name: '重置功能演示' }).click();
@@ -118,8 +128,9 @@ test('portfolio demos preserve drafts, preferences and undo without service requ
     const prompt = page.getByLabel('提示词优化演示', { exact: true });
     const original = await prompt.inputValue();
     await page.getByRole('button', { name: '优化提示词', exact: true }).click();
+    await page.getByRole('button', { name: '恢复原提示词', exact: true }).waitFor();
     assert.match(await prompt.inputValue(), /交付内容与检查方法/);
-    await page.getByRole('button', { name: '撤销', exact: true }).click();
+    await page.getByRole('button', { name: '恢复原提示词', exact: true }).click();
     assert.equal(await prompt.inputValue(), original);
     assert.deepEqual(errors, []);
     assert.ok(requests.every((url) => url.startsWith(base) && !url.includes('/api/')));
@@ -339,14 +350,22 @@ test('active editing and local state survive chapter changes, responsive modes a
     const demo = page.locator('.product-demo').first();
     await demo.getByLabel('接着聊', { exact: true }).fill('窗口变化后保留');
     await demo.getByRole('tab', { name: '术语释义', exact: true }).click();
-    await demo.getByRole('button', { name: '收藏', exact: true }).click();
+    await demo.locator('.term-brick').first().click();
+    await page.getByRole('button', { name: '收藏术语', exact: true }).click();
     await demo.getByRole('tab', { name: '任务看板', exact: true }).click();
-    await demo.getByRole('button', { name: '在待办中新建任务' }).click();
-    const input = demo.getByLabel('待办任务名称');
+    await demo.getByRole('button', { name: '新建任务', exact: true }).first().click();
+    const input = demo.getByLabel('新任务标题');
     await input.fill('仍在编辑的任务');
     await scrollScene(page, '.reading-story', 0.8);
     assert.equal(await demo.getAttribute('data-feature'), 'board');
-    assert.equal(await input.evaluate((el) => el === document.activeElement), true);
+    assert.equal(
+      await input.evaluate((el) => {
+        let active = document.activeElement;
+        while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
+        return el === active;
+      }),
+      true,
+    );
     for (const viewport of [
       { width: 550, height: 1000 },
       { width: 1280, height: 600 },
@@ -357,7 +376,14 @@ test('active editing and local state survive chapter changes, responsive modes a
         () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
       );
       assert.equal(await input.inputValue(), '仍在编辑的任务');
-      assert.equal(await input.evaluate((el) => el === document.activeElement), true);
+      assert.equal(
+        await input.evaluate((el) => {
+          let active = document.activeElement;
+          while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
+          return el === active;
+        }),
+        true,
+      );
       const box = await input.boundingBox();
       assert.ok(box.y >= 0 && box.y + box.height <= viewport.height, JSON.stringify(box));
     }
@@ -365,11 +391,14 @@ test('active editing and local state survive chapter changes, responsive modes a
     await page.locator('.reading-story[data-static="true"]').waitFor();
     assert.equal(await input.inputValue(), '仍在编辑的任务');
     await page.keyboard.press('Enter');
-    assert.match(await demo.innerText(), /仍在编辑的任务/);
+    await demo.getByRole('button', { name: '任务详情：仍在编辑的任务', exact: true }).waitFor();
     assert.equal(await demo.getByLabel('接着聊', { exact: true }).inputValue(), '窗口变化后保留');
     await demo.getByRole('tab', { name: '术语释义', exact: true }).click();
+    await demo.locator('.term-brick').first().click();
     assert.equal(
-      await demo.getByRole('button', { name: '已收藏', exact: true }).getAttribute('aria-pressed'),
+      await page
+        .getByRole('button', { name: '取消收藏', exact: true })
+        .getAttribute('aria-pressed'),
       'true',
     );
     // A static chapter that has focus becomes the persistent animated stage on return.
@@ -380,9 +409,11 @@ test('active editing and local state survive chapter changes, responsive modes a
     assert.equal(await third.isVisible(), true);
     assert.equal(await third.getByLabel('接着聊', { exact: true }).inputValue(), '术语章节草稿');
     assert.equal(
-      await third
-        .getByLabel('接着聊', { exact: true })
-        .evaluate((el) => el === document.activeElement),
+      await third.getByLabel('接着聊', { exact: true }).evaluate((el) => {
+        let active = document.activeElement;
+        while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
+        return el === active;
+      }),
       true,
     );
     await third.getByLabel('接着聊', { exact: true }).blur();
@@ -408,38 +439,34 @@ test('board supports real pointer drag, keyboard actions and creating a local ta
   try {
     await page.goto(base);
     const board = page.locator('.board-stage');
-    const lanes = board.locator('.board-lane');
-    const card = board.locator('.demo-task').filter({ hasText: '整理三个代表作品' });
+    const lanes = board.locator('.board-column');
+    const card = board.locator('.task-card').filter({ hasText: '整理三个代表作品' });
     await card.dragTo(lanes.nth(1));
-    assert.equal(await lanes.nth(1).locator('.demo-task').count(), 2);
-    await board.getByRole('button', { name: '整理三个代表作品，移到完成' }).focus();
+    assert.equal(await lanes.nth(1).locator('.task-card').count(), 2);
+    await board.getByRole('button', { name: '任务详情：整理三个代表作品', exact: true }).focus();
     await page.keyboard.press('Enter');
-    assert.equal(await lanes.nth(2).locator('.demo-task').count(), 2);
-    assert.equal(
-      await board
-        .getByRole('button', { name: '整理三个代表作品，移到待办' })
-        .evaluate((el) => el === document.activeElement),
-      true,
-    );
-    await board.getByRole('button', { name: '在待办中新建任务' }).click();
-    await board.getByLabel('待办任务名称').fill('给作品配上介绍');
+    await board.getByRole('textbox', { name: '标题', exact: true }).fill('整理三个代表作品与截图');
+    await board.getByRole('button', { name: '保存', exact: true }).click();
+    await board
+      .getByRole('button', { name: '任务详情：整理三个代表作品与截图', exact: true })
+      .waitFor();
+    await lanes.nth(0).getByRole('button', { name: '新建任务', exact: true }).click();
+    await board.getByLabel('新任务标题').fill('给作品配上介绍');
     await page.keyboard.press('Enter');
-    assert.match(await lanes.nth(0).innerText(), /给作品配上介绍/);
-    assert.equal(
-      await board
-        .getByRole('button', { name: '在待办中新建任务' })
-        .evaluate((el) => el === document.activeElement),
-      true,
-    );
-    await board.getByRole('button', { name: '在待办中新建任务' }).click();
+    await lanes
+      .nth(0)
+      .getByRole('button', { name: '任务详情：给作品配上介绍', exact: true })
+      .waitFor();
+    await lanes.nth(0).getByRole('button', { name: '新建任务', exact: true }).click();
     await page.keyboard.press('Escape');
-    assert.equal(await board.getByLabel('待办任务名称').count(), 0);
-    assert.equal(
-      await board
-        .getByRole('button', { name: '在待办中新建任务' })
-        .evaluate((el) => el === document.activeElement),
-      true,
-    );
+    assert.equal(await board.getByLabel('新任务标题').count(), 0);
+    const remove = board.getByRole('button', { name: '删除任务：给作品配上介绍', exact: true });
+    await board.locator('.task-card').filter({ hasText: '给作品配上介绍' }).hover();
+    await remove.click();
+    await page.waitForFunction(() => {
+      const root = document.querySelector('.board-stage [data-real-feature="board"]').shadowRoot;
+      return !root.textContent.includes('给作品配上介绍');
+    });
   } finally {
     await page.close();
   }
@@ -492,7 +519,7 @@ test('original settings journey, layout controls and drafts are reused on the we
     await demo.getByRole('button', { name: '标签', exact: true }).click();
     assert.equal(await demo.locator('.csw-workbench-pane').count(), 1);
     await demo.getByRole('tab', { name: '术语', exact: true }).click();
-    assert.equal(await demo.getByLabel('术语示例草稿').isVisible(), true);
+    assert.equal(await demo.locator('.term-brick').first().isVisible(), true);
     await demo.getByRole('tab', { name: '下一步', exact: true }).click();
     assert.equal(await demo.getByLabel('下一步示例草稿').inputValue(), '保留窗口草稿');
     await demo.getByRole('button', { name: '上下', exact: true }).click();
@@ -696,8 +723,9 @@ test('pointer takeover releases keyboard chapter lock; static resizing and manua
       .and(page.locator('[aria-selected="true"]'))
       .waitFor();
     assert.equal(await demo.getAttribute('data-feature'), 'terms');
-    await demo.getByRole('button', { name: '收藏', exact: true }).click();
-    const favorite = demo.getByRole('button', { name: '已收藏', exact: true });
+    await demo.locator('.term-brick').first().click();
+    await page.getByRole('button', { name: '收藏术语', exact: true }).click();
+    const favorite = page.getByRole('button', { name: '取消收藏', exact: true });
     // Focus/reflow scrolling alone must not replace the control being used.
     await page.locator('.story-copy[data-chapter="outline"] h2').evaluate((heading) => {
       scrollTo(0, scrollY + heading.getBoundingClientRect().top - innerHeight * 0.5);
@@ -706,18 +734,40 @@ test('pointer takeover releases keyboard chapter lock; static resizing and manua
       () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
     );
     assert.equal(await demo.getAttribute('data-feature'), 'terms');
-    assert.equal(await favorite.evaluate((el) => el === document.activeElement), true);
+    assert.equal(
+      await favorite.evaluate((el) => {
+        let active = document.activeElement;
+        while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
+        return el === active;
+      }),
+      true,
+    );
     await page.setViewportSize({ width: 550, height: 900 });
     await page.waitForFunction(
       () => document.querySelector('.reading-story').dataset.static === 'true',
     );
     assert.equal(await demo.getAttribute('data-feature'), 'terms');
-    assert.equal(await favorite.evaluate((el) => el === document.activeElement), true);
+    assert.equal(
+      await favorite.evaluate((el) => {
+        let active = document.activeElement;
+        while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
+        return el === active;
+      }),
+      true,
+    );
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.waitForFunction(
       () => document.querySelector('.reading-story').dataset.static === 'false',
     );
-    assert.equal(await favorite.evaluate((el) => el === document.activeElement), true);
+    assert.equal(
+      await favorite.evaluate((el) => {
+        let active = document.activeElement;
+        while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
+        return el === active;
+      }),
+      true,
+    );
+    await page.keyboard.press('Escape');
     await page.mouse.wheel(0, 1);
     await page.locator('.story-copy[data-chapter="outline"] h2').evaluate((heading) => {
       scrollTo(0, scrollY + heading.getBoundingClientRect().top - innerHeight * 0.5);
@@ -770,8 +820,9 @@ test('responsive reflow preserves the focused feature before a delayed media-que
     await page.goto(base);
     const demo = page.locator('.product-demo').first();
     await demo.getByRole('tab', { name: '术语释义', exact: true }).click();
-    await demo.getByRole('button', { name: '收藏', exact: true }).click();
-    const favorite = demo.getByRole('button', { name: '已收藏', exact: true });
+    await demo.locator('.term-brick').first().click();
+    await page.getByRole('button', { name: '收藏术语', exact: true }).click();
+    const favorite = page.getByRole('button', { name: '取消收藏', exact: true });
     // A responsive reflow can move another chapter into the reading band before
     // matchMedia notifies React. Exercise that event order explicitly.
     await page.evaluate(() => {
@@ -789,7 +840,14 @@ test('responsive reflow preserves the focused feature before a delayed media-que
       () => document.querySelector('.reading-story').dataset.static === 'true',
     );
     assert.equal(await demo.getAttribute('data-feature'), 'terms');
-    assert.equal(await favorite.evaluate((element) => element === document.activeElement), true);
+    assert.equal(
+      await favorite.evaluate((element) => {
+        let active = document.activeElement;
+        while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
+        return element === active;
+      }),
+      true,
+    );
   } finally {
     await page.close();
   }
@@ -926,15 +984,16 @@ test('English website retains demo drafts and choices through language switching
     );
     const demo = page.locator('.product-demo').first();
     await demo.locator('textarea').fill('保留我的输入 / keep my draft');
-    const direction = demo.locator('.next-demo-actions select');
-    await direction.selectOption('explore');
+    await demo.getByRole('button', { name: 'Regenerate suggestions', exact: true }).click();
     await demo.getByRole('button', { name: /Compare presentation/ }).waitFor();
     const draft = await demo.locator('textarea').inputValue();
     for (const locale of ['zh-CN', 'en']) {
       await page.locator('.site-language').click();
       await page.waitForFunction((expected) => document.documentElement.lang === expected, locale);
       assert.equal(await demo.locator('textarea').inputValue(), draft);
-      assert.equal(await direction.inputValue(), 'explore');
+      await demo
+        .getByRole('button', { name: locale === 'en' ? /Compare presentation/ : /比较展示方式/ })
+        .waitFor();
     }
     for (const width of [390, 742, 1280]) {
       await page.setViewportSize({ width, height: 960 });
@@ -1003,10 +1062,13 @@ test('opening approaches one shared model and reveals working controls without l
     await page.locator('.site-language').click();
     await page.waitForFunction(() => document.documentElement.lang === 'en');
     assert.match(
-      await demo.locator('.layout-demo-content:visible ol').innerText(),
-      /Prepare three featured projects/,
+      await demo.locator('.layout-demo-content:visible .csw-list').innerText(),
+      /Break down the first version/,
     );
-    assert.doesNotMatch(await demo.locator('.layout-demo-content:visible ol').innerText(), /整理/);
+    assert.doesNotMatch(
+      await demo.locator('.layout-demo-content:visible .csw-list').innerText(),
+      /整理/,
+    );
     assert.equal(
       await demo.getByLabel('Next steps example draft').inputValue(),
       'Keep this draft / 保留这份草稿',
@@ -1303,7 +1365,8 @@ test('scroll-led tool demonstrations show task progress, models, speed, optimiza
       await page.waitForFunction(
         (index) =>
           document
-            .querySelectorAll('.board-story .board-lane')
+            .querySelector('.board-story [data-real-feature=board]')
+            .shadowRoot.querySelectorAll('.board-column')
             [index].textContent.includes('整理三个代表作品'),
         index,
       );
@@ -1330,8 +1393,9 @@ test('scroll-led tool demonstrations show task progress, models, speed, optimiza
     assert.match(await model.innerText(), /72%/);
     for (const [progress, name] of [
       [0.05, '等待输出'],
-      [0.35, '思考中'],
-      [0.6, '生成中'],
+      [0.25, '思考中'],
+      [0.45, '工具执行中'],
+      [0.65, '生成中'],
       [0.9, '已完成'],
     ]) {
       await scrollScene(page, '.speed-tour', progress);
@@ -1350,7 +1414,7 @@ test('scroll-led tool demonstrations show task progress, models, speed, optimiza
     assert.equal(
       await page
         .locator('.prompt-tour')
-        .getByRole('button', { name: '撤销', exact: true })
+        .getByRole('button', { name: '恢复原提示词', exact: true })
         .isVisible(),
       true,
     );
@@ -1362,7 +1426,10 @@ test('scroll-led tool demonstrations show task progress, models, speed, optimiza
       await scrollScene(page, '.bot-tour', progress);
       await page.waitForFunction(
         (name) =>
-          document.querySelector('.bot-tour [aria-pressed="true"]').textContent.trim() === name,
+          document
+            .querySelector('.bot-tour [data-real-feature=bots]')
+            .shadowRoot.querySelector('.palboo-bot-avatar').dataset.activity ===
+          (name === '随口一问' ? 'finished' : 'working'),
         name,
       );
       assert.match(await page.getByLabel('Bot 咨询草稿').inputValue(), new RegExp(name));
@@ -1395,7 +1462,14 @@ test('scroll tours yield to editing and manual choices, preserve drafts and rele
       'sidebar',
     );
     assert.equal(await draft.inputValue(), '保留这份布局草稿');
-    assert.equal(await draft.evaluate((el) => el === document.activeElement), true);
+    assert.equal(
+      await draft.evaluate((el) => {
+        let active = document.activeElement;
+        while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
+        return el === active;
+      }),
+      true,
+    );
     await draft.blur();
     await page.mouse.move(20, 20);
     await page.mouse.wheel(0, 1);
@@ -1431,7 +1505,9 @@ test('scroll tours yield to editing and manual choices, preserve drafts and rele
     await page.mouse.wheel(0, 1);
     await page.waitForFunction(
       () =>
-        document.querySelector('.bot-tour [aria-pressed="true"]').textContent.trim() === '随口一问',
+        document
+          .querySelector('.bot-tour [data-real-feature=bots]')
+          .shadowRoot.querySelector('.palboo-bot-avatar').dataset.activity === 'finished',
     );
     assert.equal(await botDraft.inputValue(), '我自己的咨询');
 
@@ -1464,6 +1540,46 @@ test('scroll tours yield to editing and manual choices, preserve drafts and rele
     await page.mouse.wheel(0, 300);
     assert.equal(await speed.locator('[aria-pressed="true"]').innerText(), '生成中');
     assert.equal(await botDraft.inputValue(), '我自己的咨询');
+  } finally {
+    await page.close();
+  }
+});
+
+test('real Bot avatars, hover actions and recent messages use local example data', async () => {
+  const page = await browser.newPage({
+    locale: 'zh-CN',
+    viewport: { width: 1280, height: 900 },
+    reducedMotion: 'reduce',
+  });
+  const requests = [];
+  page.on('request', (request) => requests.push(request.url()));
+  try {
+    await page.goto(base);
+    const demo = page.locator('.bot-tour');
+    const bot = demo.getByRole('group', { name: '工程主管', exact: true });
+    await bot.scrollIntoViewIfNeeded();
+    assert.equal(await demo.locator('.palboo-bot-messages').count(), 0);
+    assert.equal(await demo.locator('.palboo-bot-badge').count(), 1);
+    assert.equal(await bot.locator('.palboo-bot-avatar').getAttribute('data-activity'), 'working');
+    await page.mouse.move(10, 10);
+    assert.equal(
+      await bot.getByRole('button', { name: '查看进度', exact: true }).isVisible(),
+      false,
+    );
+    await bot.hover();
+    await bot.getByRole('button', { name: '查看进度', exact: true }).click();
+    assert.match(await demo.getByLabel('Bot 咨询草稿').inputValue(), /查看「工程主管」的进度/);
+    await demo.getByRole('button', { name: '最近消息', exact: true }).click();
+    assert.match(await demo.locator('.palboo-bot-messages').innerText(), /三个代表作品/);
+    await demo.getByRole('button', { name: '返回 Bot 列表', exact: true }).click();
+    assert.equal(await demo.locator('.palboo-bot-messages').count(), 0);
+    const speed = page.locator('.speed-demo');
+    for (const phase of ['等待输出', '思考中', '工具执行中', '已完成']) {
+      await speed.getByRole('button', { name: phase, exact: true }).click();
+      assert.match(await speed.locator('.token-meter-readout').innerText(), /38\.4 tok\/s/);
+      assert.match(await speed.locator('.token-meter-readout').innerText(), /上次测速/);
+    }
+    assert.ok(requests.every((url) => url.startsWith(base) && !url.includes('/api/')));
   } finally {
     await page.close();
   }

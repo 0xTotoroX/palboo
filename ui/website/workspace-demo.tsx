@@ -14,7 +14,8 @@ import { LayoutPreview, type LayoutDemoStop } from '../settings/layout-preview';
 import type { FeatureState } from '../shared/features';
 import type { SurfaceState } from '../settings/surface-settings';
 import type { SurfaceTheme } from '../surfaces/theme/appearance';
-import { features } from './demos';
+import { features, ModelDemo, ComposerDemo } from './demos';
+import { NextDemo, OutlineDemo, BoardDemo, TermDemo, BotDemo } from './product-demos';
 import { Icon } from '../shared/icons/react';
 import { smooth } from './scroll-motion';
 
@@ -77,6 +78,43 @@ function sampleSurfaces(
   };
 }
 const demoTypography = { ...fallbackTypography, fontSize: 20, titleSize: 20, lineHeight: 32 };
+function WorkspaceFeature({ id }: { id: string }) {
+  const [draft, setDraft] = useState('');
+  const insert = (value: string) =>
+    setDraft((current) => (current ? `${current}\n${value}` : value));
+  return (
+    <div className="site-workspace-feature">
+      {id === 'next' ? (
+        <NextDemo onInsert={insert} />
+      ) : id === 'outline' ? (
+        <OutlineDemo onJump={(index) => setDraft(examples.outline[index])} />
+      ) : id === 'board' ? (
+        <BoardDemo />
+      ) : id === 'model' ? (
+        <ModelDemo />
+      ) : id === 'terms' ? (
+        <TermDemo />
+      ) : id === 'bots' ? (
+        <BotDemo onInsert={insert} />
+      ) : null}
+      {['next', 'bots'].includes(id) && (
+        <ComposerDemo
+          draft={draft}
+          onChange={setDraft}
+          label={tr('{{value1}}示例草稿', {
+            value1: features.find((feature) => feature.id === id)?.label || id,
+          })}
+        />
+      )}
+      {id === 'outline' && draft && (
+        <p className="workspace-outline-result" role="status">
+          {draft}
+        </p>
+      )}
+    </div>
+  );
+}
+const renderWorkspaceFeature = (id: string) => <WorkspaceFeature id={id} />;
 export function SurfaceStory({
   zoom = 1,
   reveal = 1,
@@ -145,6 +183,7 @@ export function SurfaceStory({
           live
           hostName="Codex"
           examples={examples}
+          renderFeature={renderWorkspaceFeature}
           sceneZoom={zoom}
           entryRef={entryRef}
           typography={demoTypography}

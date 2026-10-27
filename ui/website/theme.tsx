@@ -2,7 +2,7 @@
  * [OUTPUT]: One-click theme toggle; colors update without remounting demos.
  * [POS]: Local website utility; never reads or changes App or host preferences.
  * [PROTOCOL]: Keep website/AGENTS.md and DESIGN_SYSTEM.md in sync. */
-import { useEffect, useLayoutEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState, useSyncExternalStore } from 'react';
 import { tr } from '../shared/i18n.js';
 import { useLocale } from '../shared/use-locale';
 import { Icon } from '../shared/icons/react';
@@ -10,6 +10,16 @@ import { Icon } from '../shared/icons/react';
 type Theme = 'light' | 'dark';
 const preferenceKey = 'palboo-site-theme';
 const normalize = (value: string | null): Theme => (value === 'dark' ? 'dark' : 'light');
+const readTheme = () => normalize(document.documentElement.dataset.siteTheme || null);
+const subscribeTheme = (change: () => void) => {
+  const observer = new MutationObserver(change);
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['data-site-theme'],
+  });
+  return () => observer.disconnect();
+};
+export const useSiteTheme = () => useSyncExternalStore(subscribeTheme, readTheme);
 
 export function SiteTheme() {
   useLocale();

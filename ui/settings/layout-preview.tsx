@@ -1,6 +1,6 @@
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
-/* [INPUT]: Saved feature/surface/typography snapshots, optional website stops/framing/material progress and shared workspace controller.
+/* [INPUT]: Saved feature/surface/typography snapshots, optional website feature renderer/stops/framing/material progress and shared workspace controller.
  * [OUTPUT]: Isolated previews with readable arrangements and reversible device-to-material motion.
  * [POS]: Shared layout/appearance sample content; save callbacks stay in memory and never call an API.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
@@ -21,6 +21,7 @@ import type { SurfaceState } from './surface-settings';
 import { installFeatureLayout, resolveFeatureLayout } from '../surfaces/workspace/layout';
 import { LayoutPreviewScene, demoFrames } from './layout-preview-scene';
 import { useDemoJourney } from './layout-preview-journey';
+import { createPortal } from 'react-dom';
 
 type Sample = { id: string; title: string };
 export type LayoutDemoStop = {
@@ -63,6 +64,7 @@ function WorkspaceSample({
   onLayout,
   textStyle,
   examples,
+  renderFeature,
 }: {
   entries: Sample[];
   layout: FeatureLayout;
@@ -72,6 +74,7 @@ function WorkspaceSample({
   onLayout: (next: FeatureLayout) => void;
   textStyle?: CSSProperties;
   examples?: Record<string, string[]>;
+  renderFeature?: (id: string) => ReactNode;
 }) {
   useLocale();
   const ref = useRef<HTMLDivElement>(null),
@@ -80,6 +83,7 @@ function WorkspaceSample({
     new Map<string, { id: string; title: string; node: HTMLDivElement; active: boolean }>(),
   );
   const change = useRef(onLayout);
+  const [slots, setSlots] = useState<{ id: string; node: HTMLDivElement }[]>([]);
   change.current = onLayout;
   useEffect(() => {
     controller.current = installFeatureLayout(ref.current!, {
@@ -98,13 +102,13 @@ function WorkspaceSample({
         const node = document.createElement('div');
         node.className = 'layout-demo-content';
         node.dataset.readingKey = `demo-${entry.id}`;
-        const list = document.createElement('ol');
-        const input = document.createElement('input');
-        node.append(list, input);
+        if (!renderFeature)
+          node.append(document.createElement('ol'), document.createElement('input'));
         mounts.current.set(entry.id, { ...entry, node, active: true });
       }
       const item = mounts.current.get(entry.id)!;
       item.title = entry.title;
+      if (renderFeature) continue;
       const labels =
         examples?.[entry.id] ||
         (entry.id === 'outline'
@@ -134,16 +138,20 @@ function WorkspaceSample({
     const ids = new Set(entries.map((entry) => entry.id));
     for (const [id, item] of mounts.current) item.active = ids.has(id);
     controller.current?.update([...mounts.current.values()], placement, layout, null, null);
-  }, [entries, layout, placement, examples]);
+    if (renderFeature) setSlots([...mounts.current.values()]);
+  }, [entries, layout, placement, examples, renderFeature]);
   return (
-    <div
-      ref={ref}
-      className="csw-workbench layout-demo-workspace"
-      data-preview-workspace
-      style={textStyle}
-      data-material={material}
-      data-variant={variant}
-    />
+    <>
+      <div
+        ref={ref}
+        className="csw-workbench layout-demo-workspace"
+        data-preview-workspace
+        style={textStyle}
+        data-material={material}
+        data-variant={variant}
+      />
+      {renderFeature && slots.map(({ id, node }) => createPortal(renderFeature(id), node, id))}
+    </>
   );
 }
 export function LayoutPreview({
@@ -163,6 +171,7 @@ export function LayoutPreview({
   renderControls,
   materialProgress,
   demoStop,
+  renderFeature,
 }: {
   features: FeatureState | null;
   surfaces: SurfaceState | null;
@@ -172,6 +181,7 @@ export function LayoutPreview({
   typographyPreferences?: TypographyPreferences;
   hostName?: string;
   examples?: Record<string, string[]>;
+  renderFeature?: (id: string) => ReactNode;
   onPlacementChange?: (placement: string) => void;
   sceneZoom?: number;
   entryRef?: Ref<SVGGElement>;
@@ -293,6 +303,7 @@ export function LayoutPreview({
       onLayout={setDemoLayout}
       textStyle={typographyStyle(typography, typographyPreferences)}
       examples={examples}
+      renderFeature={renderFeature}
     />
   ) : (
     <p>{tr('正在读取布局…')}</p>
@@ -373,9 +384,12 @@ export function LayoutPreview({
         className="layout-demo-canvas"
         data-demo-placement={location}
         data-ready={ready}
-        onFocusCapture={(event) =>
-          setEditing((event.target as HTMLElement).matches('input, textarea'))
-        }
+        onFocusCapture={(event) => {
+          const target = event.nativeEvent
+            .composedPath()
+            .find((node) => node instanceof HTMLElement);
+          setEditing(!!target?.matches('input, textarea, [contenteditable="true"]'));
+        }}
         onBlurCapture={(event) => {
           if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setEditing(false);
         }}

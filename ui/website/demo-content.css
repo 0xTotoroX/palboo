@@ -1,6 +1,6 @@
-/* [INPUT]: Website-only synthetic feature interactions and theme tokens.
- * [OUTPUT]: Readable chat and six-feature demo; no product surface overrides.
- * [POS]: Website detail demo styles, independent of the shared modeled scene.
+/* [INPUT]: Shared product content and the website's example chat and theme.
+ * [OUTPUT]: Chat/composer framing; product controls keep their own isolated CSS.
+ * [POS]: Website framing only; no parallel feature artwork or controls.
  * [PROTOCOL]: Keep website/AGENTS.md in sync. */
 .product-demo {
   max-width: 1000px;
@@ -10,6 +10,36 @@
   background: var(--site-page);
   box-shadow: var(--site-shadow);
   border: 1px solid color-mix(in srgb, var(--site-border) 80%, transparent);
+}
+.site-real-feature {
+  min-width: 0;
+  font-size: 15px;
+  line-height: 1.5;
+}
+.site-workspace-feature {
+  --demo-paper: var(--buddy-surface);
+  --demo-ink: var(--buddy-text);
+  --demo-muted: var(--buddy-muted);
+  --demo-line: var(--buddy-border);
+  --demo-hover: color-mix(in srgb, var(--buddy-text) 8%, transparent);
+  padding: 4px;
+  min-width: 0;
+}
+.site-workspace-feature .site-real-feature {
+  font-size: inherit;
+}
+.site-workspace-feature .demo-composer {
+  margin-top: 12px;
+  padding: 8px;
+}
+.site-workspace-feature .demo-composer textarea {
+  font-size: inherit;
+  min-height: 44px;
+}
+.workspace-outline-result {
+  margin-top: 12px;
+  color: var(--site-muted);
+  font-size: inherit;
 }
 .demo-window-body {
   display: grid;
@@ -133,39 +163,6 @@
   font-weight: 550;
   margin-bottom: 16px;
 }
-.suggestion {
-  display: flex;
-  text-align: left;
-  align-items: flex-start;
-  gap: 12px;
-  width: 100%;
-  padding: 14px 0;
-}
-.suggestion-number {
-  color: var(--site-muted);
-  font-size: 10px;
-  padding-top: 3px;
-  font-variant-numeric: tabular-nums;
-}
-.suggestion > span:nth-child(2) {
-  flex: 1;
-}
-.suggestion strong {
-  font-size: 13px;
-  font-weight: 550;
-  display: block;
-  line-height: 1.5;
-}
-.suggestion small {
-  font-size: 11px;
-  color: var(--site-muted);
-  margin-top: 6px;
-  display: block;
-  line-height: 1.7;
-}
-.suggestion > .buddy-icon {
-  color: var(--site-muted);
-}
 .demo-composer {
   position: relative;
   background: var(--site-input);
@@ -200,106 +197,4 @@
   right: 10px;
   bottom: 12px;
   color: var(--site-muted);
-}
-.demo-outline button,
-.demo-bots button {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 12px 8px;
-  font-size: 12px;
-  text-align: left;
-  border-radius: 5px;
-}
-.demo-outline button > span:first-child {
-  color: var(--site-muted);
-  font-size: 10px;
-}
-.demo-outline button > .buddy-icon {
-  margin-left: auto;
-  opacity: 0;
-  transform: rotate(180deg);
-}
-.demo-outline button.is-current {
-  background: var(--site-input);
-}
-.demo-outline button.is-current > .buddy-icon {
-  opacity: 1;
-}
-.demo-board {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 9px;
-}
-.demo-board h4 {
-  font-size: 11px;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 14px;
-  gap: 4px;
-}
-.demo-board h4 span {
-  color: var(--site-muted);
-  font-size: 10px;
-  font-weight: 400;
-}
-.demo-task {
-  padding: 12px 9px;
-  background: var(--site-input);
-  border-radius: 5px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  font-size: 12px;
-  width: 100%;
-  text-align: left;
-  line-height: 1.7;
-}
-.demo-task > .buddy-icon {
-  align-self: end;
-  color: var(--site-muted);
-}
-.empty-lane {
-  display: block;
-  border-bottom: 1px solid var(--site-border);
-}
-.demo-bots > button[aria-pressed='true'] {
-  background: var(--site-input);
-}
-.term-en {
-  font-size: 9px;
-  letter-spacing: 0.08em;
-  color: var(--site-muted);
-}
-.demo-term h4 {
-  font-size: 20px;
-  font-weight: 500;
-  margin: 8px 0 14px;
-}
-.demo-term p {
-  font-size: 12px;
-  line-height: 1.9;
-  color: var(--site-muted);
-}
-.term-actions {
-  display: flex;
-  gap: 18px;
-  margin-top: 18px;
-}
-.term-actions button {
-  display: inline-flex;
-  min-height: 36px;
-  align-items: center;
-  gap: 7px;
-  font-size: 11px;
-  color: var(--site-muted);
-}
-.term-actions button[aria-pressed='true'] {
-  color: var(--site-text);
-}
-.demo-bots button > .buddy-icon:last-child {
-  margin-left: auto;
 }

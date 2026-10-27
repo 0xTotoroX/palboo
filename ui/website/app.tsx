@@ -13,11 +13,11 @@ import { BoardDemo, BotDemo, ComposerDemo, ModelDemo, SpeedDemo, botSampleNames 
 import { OpeningStory, ReadingStory } from './story';
 import { ScrollDemo } from './scroll-tour';
 import type { GithubLinkVariant } from './github-link';
+import { PromptDemo } from './prompt-demo';
 
 function ToolDetails() {
   useLocale();
   const [botDraft, setBotDraft] = useState<string | null>(null);
-  const [prompt, setPrompt] = useState<string | null>(null);
   return (
     <section className="tools-section page-width" aria-labelledby="tools-title">
       <h2 id="tools-title">
@@ -41,14 +41,14 @@ function ToolDetails() {
           </div>
         )}
       </ScrollDemo>
-      <ScrollDemo steps={4} className="speed-tour">
+      <ScrollDemo steps={5} className="speed-tour">
         {(step) => (
           <div className="tool-row">
             <div>
               <h3>{tr('聊天测速')}</h3>
               <p>
                 {tr(
-                  '分清等待、思考、工具执行与生成状态。生成时显示最近 3 秒的估算速度；官方用量可用时，还能查看本轮 token 消耗。',
+                  '保留当前模型最近一次测速，在思考、调用工具或切换聊天时仍能查看。状态放在括号里，测到新速度再更新。',
                 )}
               </p>
               <p>{tr('显示在模型快切底部。速度只统计可见回复，不含隐藏思考和工具输出。')}</p>
@@ -64,22 +64,7 @@ function ToolDetails() {
               <h3>{tr('提示词优化')}</h3>
               <p>{tr('发送之前，把草稿表达得更清楚。改写后可以继续编辑，也可以还原。')}</p>
             </div>
-            <ComposerDemo
-              draft={
-                prompt ??
-                tr(
-                  step === 1
-                    ? '请把这个个人作品集方案整理成两天内可完成的步骤，列出每一步的交付内容与检查方法。'
-                    : '帮我把这个作品集方案安排一下',
-                )
-              }
-              onChange={setPrompt}
-              demoOriginal={
-                step === 1 && prompt === null ? tr('帮我把这个作品集方案安排一下') : undefined
-              }
-              label={tr('提示词优化演示')}
-              optimize
-            />
+            <PromptDemo tourStep={step} />
           </div>
         )}
       </ScrollDemo>
@@ -90,7 +75,7 @@ function ToolDetails() {
               <h3>Grok Bot</h3>
               <p>
                 {tr(
-                  '找到合适的 Bot，把咨询带进当前聊天。资料自动同步，支持搜索与置顶，常用的放在前面。',
+                  '找到合适的 Bot，把咨询带进当前聊天。头像与徽章展示状态，移入鼠标后查看进度、追问或停止，最近消息按需打开。',
                 )}
               </p>
               <p>{tr('沿用你的 BDK、MCP 与 Skill 配置，由当前聊天里的 Agent 发起咨询。')}</p>

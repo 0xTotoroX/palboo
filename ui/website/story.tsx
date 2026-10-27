@@ -1,3 +1,4 @@
+import { demoFocus, demoEventTarget, isDemoPopover } from './demo-focus';
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: Original brand poses, native section progress and the shared settings device/material scene.
@@ -77,8 +78,7 @@ export function OpeningStory({ githubVariant }: { githubVariant?: GithubLinkVari
       // after the visitor returns to the wheel. Active text editing keeps its view.
       if (
         dragging.current ||
-        (preview.current?.contains(document.activeElement) &&
-          document.activeElement?.matches('input, textarea, select, [contenteditable="true"]'))
+        demoFocus(preview.current)?.matches('input, textarea, select, [contenteditable="true"]')
       )
         return;
       setEngaged(false);
@@ -222,7 +222,10 @@ export function OpeningStory({ githubVariant }: { githubVariant?: GithubLinkVari
             setStaticMaterial(next);
           }}
           onBlurCapture={(event) => {
-            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+            if (
+              !event.currentTarget.contains(event.relatedTarget as Node | null) &&
+              !isDemoPopover(event.relatedTarget)
+            ) {
               setEngaged(false);
               setHeldMaterial(null);
             }
@@ -310,7 +313,7 @@ export function ReadingStory() {
   useLayoutEffect(() => {
     if (previousStatic.current === staticView) return;
     previousStatic.current = staticView;
-    const hasFocus = ref.current?.contains(document.activeElement);
+    const hasFocus = demoFocus(ref.current);
     layoutFocus.current = !!hasFocus;
     if (staticView) {
       setActive((current) =>
@@ -320,7 +323,7 @@ export function ReadingStory() {
   }, [staticView, engaged, primary, ref]);
   useEffect(() => {
     const resumeReading = () => {
-      if (engaged || dragging) return;
+      if (engaged || dragging || isDemoPopover(document.activeElement)) return;
       layoutFocus.current = false;
       // Reflow or focus scrolling may already have measured the next chapter.
       // Apply it only once the visitor resumes reading, not during the action.
@@ -331,6 +334,7 @@ export function ReadingStory() {
       }
     };
     const resumeOutside = (event: PointerEvent) => {
+      if (isDemoPopover(event.target)) return;
       const stage = (event.target as Element | null)?.closest?.('.reading-stage');
       if (!stage || !ref.current?.contains(stage)) resumeReading();
     };
@@ -349,8 +353,8 @@ export function ReadingStory() {
       cancelAnimationFrame(request);
       request = requestAnimationFrame(() => {
         if (!engaged && !layoutFocus.current) return;
-        const focused = document.activeElement as HTMLElement | null;
-        if (!focused || !ref.current?.contains(focused)) return;
+        const focused = demoFocus(ref.current);
+        if (!focused) return;
         const box = focused.getBoundingClientRect();
         if (box.top < 16 || box.bottom > innerHeight - 16) {
           focused.scrollIntoView({ block: 'nearest', behavior: 'instant' });
@@ -362,7 +366,7 @@ export function ReadingStory() {
     const preserveOnResize = () => {
       // Resize/scroll can arrive before the media-query change. Protect focus
       // before either can replace its feature with the newly measured chapter.
-      layoutFocus.current = !!ref.current?.contains(document.activeElement);
+      layoutFocus.current = !!demoFocus(ref.current);
       revealEditor();
     };
     revealEditor();
@@ -394,6 +398,7 @@ export function ReadingStory() {
             <h2>{chapter.title}</h2>
             <p>{chapter.text}</p>
             <p>{chapter.detail}</p>
+            {i === 0 && <p>{tr('直接试用 Palboo 界面，所有操作仅使用本页示例数据。')}</p>}
           </article>
           <div
             className="reading-stage"
@@ -404,7 +409,7 @@ export function ReadingStory() {
               // wheel/touch or interaction outside the demo resumes the story.
               layoutFocus.current = true;
               setEngaged(
-                !!(event.target as HTMLElement).closest(
+                !!demoEventTarget(event.nativeEvent)?.closest(
                   'input, textarea, select, [contenteditable="true"]',
                 ),
               );
@@ -417,13 +422,16 @@ export function ReadingStory() {
               setPrimary(i);
               setEngaged(
                 keyboard.current ||
-                  (event.target as HTMLElement).matches(
+                  !!demoEventTarget(event.nativeEvent)?.matches(
                     'input, textarea, select, [contenteditable="true"]',
                   ),
               );
             }}
             onBlurCapture={(event) => {
-              if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+              if (
+                !event.currentTarget.contains(event.relatedTarget as Node | null) &&
+                !isDemoPopover(event.relatedTarget)
+              ) {
                 layoutFocus.current = false;
                 setEngaged(false);
               }

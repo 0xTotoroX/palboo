@@ -1,4 +1,4 @@
-/* [INPUT]: 共用卡片、文字/积木锚点和主题选项。
+/* [INPUT]: 共用卡片、文字/积木锚点、主题选项与可选滚动跟随。
  * [OUTPUT]: 可中断开合、视口定位、键盘关闭及资源回收；侧栏释义不因独立正文滚动关闭。
  * [POS]: 正文与侧栏共用浮层；不拥有词库业务状态。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
@@ -8,6 +8,7 @@ export function createTermPopover({
   onEnter = () => {},
   onLeave = () => {},
   onClose = () => {},
+  followScroll = false,
 } = {}) {
   let card = null,
     term = null,
@@ -107,6 +108,13 @@ export function createTermPopover({
   }
   function scroll(e) {
     if (e.composedPath().includes(layer)) return;
+    if (followScroll) {
+      const bounds = anchor?.();
+      if (bounds && ((bounds.bottom >= 0 && bounds.top <= innerHeight) || shadow.activeElement))
+        place();
+      else void hide(true);
+      return;
+    }
     // 侧栏锚点不随聊天滚动；点击定位正文时保留释义。
     if (!returnFocus || e.target === document || e.target.contains?.(returnFocus)) void hide(true);
   }

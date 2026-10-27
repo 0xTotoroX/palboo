@@ -67,7 +67,7 @@ Hover over the left-rail eyes for chat, desktop, and settings actions. Single-cl
 
 Sidebar and desktop layouts are saved separately; switching positions preserves drafts and reading position. An edge/notch panel can coexist with the main workspace, follow Codex's display, or stay on a chosen display. Hover or press `Command+Shift+M` to expand it. Palboo can be enabled separately in new chats and Dots under **Layout & position → Where Palboo is enabled** (off by default). This applies to all placements and features; actions that need a response remain unavailable until one exists.
 
-Palboo follows Codex's appearance. English, Simplified Chinese, and system-default language choices apply across the App without changing personal content. The website keeps its own language choice.
+Palboo follows Codex's appearance. English, Simplified Chinese, and system-default language choices apply across the App without changing personal content. The website keeps its own language choice. Its interactive demos use the same Palboo components with local example data: try suggestions, outlines, terms, tasks, model controls, speed readings, prompt editing, and Bot actions without connecting an account.
 
 </details>
 

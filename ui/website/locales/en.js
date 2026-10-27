@@ -1,5 +1,20 @@
 // English interface copy. User-authored content is not translated.
 export default {
+  '请按目标、步骤和检查方法组织回答。': 'Organize the answer by goals, steps, and checks.',
+  '内容已更新，请重试': 'The content has changed. Please try again.',
+  '直接试用 Palboo 界面，所有操作仅使用本页示例数据。':
+    'Try the Palboo interface. All actions use example data on this page.',
+  '保留当前模型最近一次测速，在思考、调用工具或切换聊天时仍能查看。状态放在括号里，测到新速度再更新。':
+    'Keep the latest speed for the current model while it thinks, uses tools, or you switch chats. Status appears in parentheses until a new measurement arrives.',
+  '找到合适的 Bot，把咨询带进当前聊天。头像与徽章展示状态，移入鼠标后查看进度、追问或停止，最近消息按需打开。':
+    'Bring the right Bot into your current chat. Avatars and badges show its status; hover to check progress, follow up, or stop. Open recent messages when you need them.',
+  '先整理三个代表作品，再检查手机上的阅读与加载。':
+    'Organize three representative projects, then check reading and loading on a phone.',
+  '查看「{{name}}」的进度。': 'Check the progress of “{{name}}”.',
+  '追问「{{name}}」：': 'Follow up with “{{name}}”: ',
+  '停止「{{name}}」在本聊天中的任务。': 'Stop “{{name}}” in this chat.',
+  页面与布局: 'Pages and layout',
+
   '不透明的纯黑底色，内容保持清晰。': 'Solid black with bright, readable content.',
   帮我把这个作品集方案安排一下: 'Help me plan this portfolio project',
   '常用操作，': 'Everyday tools,',

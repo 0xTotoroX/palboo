@@ -1,3 +1,4 @@
+import { demoFocus } from './demo-focus';
 /* [INPUT]: Native section progress and explicit visitor interaction.
  * [OUTPUT]: Ordered website-only demo stops and focus-safe scroll playback.
  * [POS]: Presentation state only; no timers, scroll interception or product writes.
@@ -57,8 +58,7 @@ export function useScrollTour(count: number, tooTall = false) {
     const resume = () => {
       if (
         dragging.current ||
-        (ref.current?.contains(document.activeElement) &&
-          document.activeElement?.matches('input, textarea, select, [contenteditable="true"]'))
+        demoFocus(ref.current)?.matches('input, textarea, select, [contenteditable="true"]')
       )
         return;
       setPaused(false);
