@@ -592,7 +592,7 @@ try {
   assert.doesNotMatch(JSON.stringify(returned), /DO_NOT_PROJECT/);
   await page.locator('.csw-feature-panes [data-pane-tab="bots"]').click();
   await page.getByRole('button', { name: '通用', exact: true }).waitFor();
-  await page.getByText('已回复', { exact: true }).waitFor();
+  await page.getByRole('status', { name: '已回复', exact: true }).waitFor();
   assert.equal(
     await page.locator('[data-feature="bots"] textarea,[data-feature="bots"] input').count(),
     0,
@@ -605,9 +605,7 @@ try {
       return {
         label: label.getBoundingClientRect().left,
         inset: label.getBoundingClientRect().left - row.getBoundingClientRect().left,
-        status: status
-          ? status.getBoundingClientRect().left + parseFloat(getComputedStyle(status).paddingLeft)
-          : null,
+        status: status ? status.getBoundingClientRect().left : null,
         action: action?.getBoundingClientRect().left,
       };
     }),
@@ -615,7 +613,8 @@ try {
   assert.ok(botGeometry.every((row) => Math.abs(row.inset - 42) < 1));
   assert.equal(botGeometry.filter((row) => row.status !== null).length, 1);
   assert.ok(Math.abs(botGeometry[2].label - botGeometry[2].status) < 1);
-  assert.ok(Math.abs(botGeometry[2].label - botGeometry[2].action) < 1);
+  assert.ok(botGeometry[2].action >= botGeometry[2].status + 28);
+  assert.doesNotMatch(await page.locator('[data-feature="bots"]').innerText(), /已回复|追问/);
   await page.locator('[data-feature="bots"]').screenshot({ path: join(output, 'palboo-bots.png') });
   assert.equal(await page.locator('[data-feature="bots"] details').count(), 0);
   assert.equal(await page.locator('[data-refresh="bots"]').count(), 0);

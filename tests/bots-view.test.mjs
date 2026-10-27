@@ -39,7 +39,25 @@ test('Bot list keeps messages opt-in and animates only visible active avatars', 
     const rows = page.locator('.palboo-bot');
     await rows.first().waitFor();
     assert.equal(await page.locator('.palboo-bot-preview').count(), 0);
-    assert.equal(await page.getByText('调用失败', { exact: true }).count(), 1);
+    assert.equal(await page.getByRole('status', { name: '调用失败', exact: true }).count(), 1);
+    assert.doesNotMatch(await rows.first().innerText(), /处理中|查看进度|停止请求/);
+    const failure = page.getByRole('status', { name: '调用失败', exact: true });
+    await failure.focus();
+    assert.equal(await failure.locator('.palboo-bot-hint-text').isVisible(), true);
+    await failure.blur();
+    assert.equal(await failure.locator('.palboo-bot-hint-text').isVisible(), false);
+    await page.evaluate(() => {
+      window.state.snapshot.bots[2].occupied = true;
+      window.render();
+    });
+    const occupied = page.getByRole('status', { name: '其他聊天正在调用', exact: true });
+    await occupied.waitFor();
+    assert.equal(await occupied.locator('[data-icon="connection"]').count(), 1);
+    assert.equal(await rows.nth(2).getByRole('button').isDisabled(), true);
+    assert.doesNotMatch(await rows.nth(2).innerText(), /其他聊天/);
+    await occupied.focus();
+    assert.equal(await occupied.locator('.palboo-bot-hint-text').isVisible(), true);
+    await occupied.blur();
     const history = page.locator('.palboo-bot-history');
     assert.equal(await history.count(), 1);
     assert.equal(await rows.locator('[data-icon="chevron-right"]').count(), 0);
@@ -78,10 +96,7 @@ test('Bot list keeps messages opt-in and animates only visible active avatars', 
           return {
             fits: n.scrollWidth <= n.clientWidth,
             label: label.left,
-            status: status
-              ? status.getBoundingClientRect().left +
-                parseFloat(getComputedStyle(status).paddingLeft)
-              : label.left,
+            status: status ? status.getBoundingClientRect().left : label.left,
           };
         }),
       );
@@ -106,7 +121,7 @@ test('Bot list keeps messages opt-in and animates only visible active avatars', 
     assert.equal(eyes[0], eyes[1], 'both eyes blink together');
     await page.emulateMedia({ reducedMotion: 'reduce' });
     assert.equal(await eye.evaluate((n) => getComputedStyle(n).animationName), 'none');
-    assert.equal(await page.getByText('处理中', { exact: true }).count(), 1);
+    assert.equal(await page.getByRole('status', { name: '处理中', exact: true }).count(), 1);
     await page.emulateMedia({ reducedMotion: 'no-preference' });
     await page.evaluate(() => (document.getElementById('root').style.marginTop = '1000px'));
     await page.waitForFunction(
@@ -123,6 +138,8 @@ test('Bot list keeps messages opt-in and animates only visible active avatars', 
       'stop',
     ]);
     assert.equal(await page.locator('textarea,input').count(), 0);
+    await history.focus();
+    await page.mouse.move(430, 650);
     await page.setViewportSize({ width: 440, height: 700 });
     mkdirSync('target/reports/bots-view', { recursive: true });
     await page.screenshot({ path: 'target/reports/bots-view/light.png' });
@@ -149,7 +166,7 @@ test('Bot list keeps messages opt-in and animates only visible active avatars', 
       window.state.snapshot.bots[3].hidden = false;
       window.render();
     });
-    await page.getByText('暂无最近消息', { exact: true }).waitFor();
+    await page.getByRole('status', { name: '暂无最近消息', exact: true }).waitFor();
     assert.equal(await page.locator('.palboo-bot-preview').count(), 0);
   } finally {
     await browser.close();

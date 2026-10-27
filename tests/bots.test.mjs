@@ -181,7 +181,7 @@ test('Bot view uses the sole main composer, preserves drafts, rejects stale targ
       event(),
     );
     await page.evaluate(() => window.render());
-    await page.getByText('其他聊天正在调用').waitFor();
+    await page.getByRole('status', { name: '其他聊天正在调用', exact: true }).waitFor();
     assert.equal(await page.getByRole('button', { name: '通用', exact: true }).isDisabled(), true);
     await page.evaluate(() => {
       window.api.destroy();
@@ -408,7 +408,7 @@ test('saved sidebar groups reorder without losing calls, hide stale actions and 
     assert.equal(await page.locator('textarea').inputValue(), '保留草稿');
     const staleCatalog = { ...reordered, stale: true };
     await page.evaluate((v) => window.render(v), staleCatalog);
-    await page.getByText('请打开 Grok Bot 更新资料。', { exact: true }).waitFor();
+    await page.getByRole('status', { name: '请打开 Grok Bot 更新资料。', exact: true }).waitFor();
     assert.equal(await page.locator('.palboo-bot-select').count(), 3);
     assert.equal(await page.locator('.palboo-bot-select:disabled').count(), 3);
     const staleDraft = await page.locator('textarea').inputValue();

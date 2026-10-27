@@ -64,6 +64,40 @@ const status: Record<string, string> = {
     return tr('连接已变化，请在主聊天核查');
   },
 };
+const statusIcons: Record<string, string> = {
+  calling: 'more',
+  running: 'more',
+  finished: 'check',
+  busy: 'more',
+  interrupted: 'minus',
+  error: 'warning',
+  unknown: 'warning',
+  unexpected: 'warning',
+  disconnected: 'warning',
+};
+function BotStatus({
+  label,
+  icon,
+  className = '',
+}: {
+  label: string;
+  icon: string;
+  className?: string;
+}) {
+  return (
+    <span
+      className={`palboo-bot-status palboo-bot-hint ${className}`}
+      role="status"
+      tabIndex={0}
+      aria-label={label}
+    >
+      <Icon name={icon} />
+      <span className="palboo-bot-hint-text" aria-hidden="true">
+        {label}
+      </span>
+    </span>
+  );
+}
 export function BotsView({
   state,
   disabled,
@@ -79,7 +113,12 @@ export function BotsView({
   const [expanded, setExpanded] = useState(false);
   const previewId = useId();
   const snapshot = state.snapshot;
-  if (!snapshot) return <p className="feature-placeholder">{tr('等待 Codex 连接…')}</p>;
+  if (!snapshot)
+    return (
+      <section className="palboo-bots">
+        <BotStatus className="palboo-bot-notice" label={tr('等待 Codex 连接…')} icon="connection" />
+      </section>
+    );
   const blocked = disabled || !snapshot.target || snapshot.catalog?.stale;
   const groups = botGroups(snapshot.bots, snapshot.catalog?.sidebar);
   const hasBots = groups.some((group) => group.bots.length);
@@ -109,7 +148,7 @@ export function BotsView({
   return (
     <section className="palboo-bots" aria-label="Grok Bot">
       {headerActions ? createPortal(refresh, headerActions) : refresh}
-      {notice && <p role="status">{tr(notice)}</p>}
+      {notice && <BotStatus className="palboo-bot-notice" label={tr(notice)} icon="warning" />}
       {hasBots && (
         <div className="palboo-bot-toolbar">
           <button
@@ -133,7 +172,11 @@ export function BotsView({
               </article>
             ))
           ) : (
-            <p className="feature-placeholder">{tr('暂无最近消息')}</p>
+            <BotStatus
+              className="palboo-bot-notice"
+              label={tr('暂无最近消息')}
+              icon="feature-bots"
+            />
           )}
         </section>
       )}
@@ -151,6 +194,22 @@ export function BotsView({
               const id = bot.id || bot.name;
               const working =
                 bot.occupied || ['calling', 'running'].includes(bot.current?.status || '');
+              const label =
+                bot.available === false
+                  ? tr('Bot 重名，请在 Grok Bot 中改名。')
+                  : bot.occupied
+                    ? tr('其他聊天正在调用')
+                    : bot.current
+                      ? status[bot.current.status] || tr('状态待确认')
+                      : '';
+              const symbol =
+                bot.available === false
+                  ? 'warning'
+                  : bot.occupied
+                    ? 'connection'
+                    : statusIcons[bot.current?.status || ''] || 'warning';
+              const pending = ['calling', 'running'].includes(bot.current?.status || '');
+              const primaryAction = pending ? tr('查看进度') : tr('追问');
               const send = (intent: string) =>
                 action({
                   ...snapshot.target,
@@ -187,43 +246,38 @@ export function BotsView({
                       </span>
                     </button>
                   </div>
-                  {bot.available === false && (
-                    <span className="palboo-bot-status">
-                      {tr('Bot 重名，请在 Grok Bot 中改名。')}
-                    </span>
-                  )}
-                  {(bot.current || bot.occupied) && (
-                    <span className="palboo-bot-status" role="status">
-                      {bot.occupied
-                        ? tr('其他聊天正在调用')
-                        : status[bot.current!.status] || tr('状态待确认')}
-                    </span>
-                  )}
-                  {bot.current && (
-                    <div className="palboo-bot-actions">
-                      <button
-                        type="button"
-                        disabled={blocked || bot.occupied || bot.available === false}
-                        onClick={() =>
-                          send(
-                            ['calling', 'running'].includes(bot.current!.status)
-                              ? 'check'
-                              : 'followup',
-                          )
-                        }
-                      >
-                        {['calling', 'running'].includes(bot.current.status)
-                          ? tr('查看进度')
-                          : tr('追问')}
-                      </button>
-                      {['calling', 'running'].includes(bot.current.status) && (
-                        <button
-                          type="button"
-                          disabled={blocked || bot.occupied || bot.available === false}
-                          onClick={() => send('stop')}
-                        >
-                          {tr('填入停止请求')}
-                        </button>
+                  {(label || bot.current) && (
+                    <div className="palboo-bot-tools">
+                      {label && <BotStatus label={label} icon={symbol} />}
+                      {bot.current && (
+                        <div className="palboo-bot-actions">
+                          <button
+                            type="button"
+                            className="palboo-bot-hint"
+                            aria-label={primaryAction}
+                            disabled={blocked || bot.occupied || bot.available === false}
+                            onClick={() => send(pending ? 'check' : 'followup')}
+                          >
+                            <Icon name={pending ? 'eye' : 'feature-bots'} />
+                            <span className="palboo-bot-hint-text" aria-hidden="true">
+                              {primaryAction}
+                            </span>
+                          </button>
+                          {pending && (
+                            <button
+                              type="button"
+                              className="palboo-bot-hint"
+                              aria-label={tr('填入停止请求')}
+                              disabled={blocked || bot.occupied || bot.available === false}
+                              onClick={() => send('stop')}
+                            >
+                              <Icon name="close" />
+                              <span className="palboo-bot-hint-text" aria-hidden="true">
+                                {tr('填入停止请求')}
+                              </span>
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
                   )}

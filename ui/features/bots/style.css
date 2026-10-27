@@ -7,6 +7,7 @@
   padding: 16px;
 }
 .palboo-bot {
+  position: relative;
   display: grid;
   gap: 4px;
   align-content: start;
@@ -60,33 +61,79 @@
   background: color-mix(in srgb, currentColor 8%, transparent);
   flex: none;
 }
-.palboo-bot-status {
-  color: var(--feature-status-color, var(--muted));
-  font-size: var(--feature-status-font, 0.875em);
-  line-height: 1.5;
-  overflow-wrap: anywhere;
+.palboo-bot-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
   padding-left: 42px;
+}
+.palboo-bot-status,
+.palboo-bot-actions button {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: var(--buddy-action-hit-size, 28px);
+  height: var(--buddy-action-hit-size, 28px);
+  padding: 0;
+  color: var(--muted, inherit);
+  font: inherit;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+}
+.palboo-bot-status {
+  cursor: help;
 }
 .palboo-bot-actions {
   display: flex;
-  gap: 12px;
+  gap: 4px;
   flex-wrap: wrap;
-  padding-left: 42px;
 }
 .palboo-bot-actions button {
-  min-height: 28px;
-  font: inherit;
-  color: inherit;
-  border: 0;
-  background: none;
-  padding: 4px 0;
   cursor: pointer;
+}
+.palboo-bot-hint:hover,
+.palboo-bot-hint:focus-visible {
+  color: var(--ink, inherit);
+}
+.palboo-bot-hint-text {
+  position: absolute;
+  z-index: 5;
+  top: 100%;
+  left: 0;
+  right: 0;
+  width: max-content;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border: 1px solid var(--border, currentColor);
+  border-radius: 4px;
+  background: var(--paper, Canvas);
+  color: var(--ink, CanvasText);
+  font-size: var(--feature-status-font, 0.875em);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  visibility: hidden;
+  pointer-events: none;
+}
+.palboo-bot-hint:hover > .palboo-bot-hint-text,
+.palboo-bot-hint:focus > .palboo-bot-hint-text {
+  visibility: visible;
+}
+.palboo-bot-notice {
+  position: relative;
+}
+.palboo-bot-notice > .palboo-bot-hint-text {
+  width: 14em;
+  max-width: min(14em, calc(100vw - 48px));
 }
 .palboo-bots button:disabled {
   opacity: 0.4;
   cursor: default;
 }
-.palboo-bots button:focus-visible {
+.palboo-bots button:focus-visible,
+.palboo-bot-status:focus-visible {
   outline: 2px solid currentColor;
   outline-offset: 3px;
   border-radius: 4px;
