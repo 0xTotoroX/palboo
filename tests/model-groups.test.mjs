@@ -669,6 +669,27 @@ test('preset names stay unique without merging repeated model selections', () =>
   assert.ok(suffixed.endsWith(' 2'));
 });
 
+test('Fast and standard names are numbered independently without rewriting saved suffixes', () => {
+  const presets = ['standard', 'fast', 'standard', 'fast'].map((speed, i) => ({
+    id: String(i),
+    name: 'GPT',
+    selection: { model: 'gpt', reasoning: 'high', speed },
+  }));
+  const normalized = uniquePresetNames(presets);
+  assert.deepEqual(
+    normalized.map((p) => p.name),
+    ['GPT', 'GPT', 'GPT 2', 'GPT 2'],
+  );
+  assert.deepEqual(uniquePresetNames(normalized), normalized);
+  assert.equal(uniquePresetName('GPT', normalized, 'fast'), 'GPT 3');
+  assert.equal(uniquePresetName('GPT', presets.slice(0, 1), 'fast'), 'GPT');
+  assert.deepEqual(
+    normalized.map((p) => p.selection),
+    presets.map((p) => p.selection),
+  );
+  assert.equal(uniquePresetNames([{ ...presets[1], name: 'GPT 2' }])[0].name, 'GPT 2');
+});
+
 test(
   'Fast click animates independently of divider drag and preserves model preferences',
   { timeout: 30000 },

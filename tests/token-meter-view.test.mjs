@@ -140,6 +140,39 @@ test('token module plugs into model footer and unplugs without changing model co
         a = await page.locator('.model-preset-actions').boundingBox();
       assert.ok(m.x + m.width <= a.x || m.y + m.height <= a.y, 'footer groups never overlap');
     }
+    for (const [phase, label] of [
+      ['thinking', '思考中'],
+      ['tool', '工具执行中'],
+      ['completed', '已完成'],
+    ]) {
+      await page.evaluate((phase) => {
+        Object.assign(window.state.snapshot.tokenMeter, { phase, speed: null, lastSpeed: 42.1 });
+        window.render();
+      }, phase);
+      await page.waitForFunction(
+        (label) =>
+          document
+            .getElementById('root')
+            .shadowRoot.querySelector('.token-meter-readout')
+            .textContent.includes(label),
+        label,
+      );
+      assert.equal(await meter.textContent(), `≈ 42.1 tok/s(${label})`);
+      assert.match(await meter.getAttribute('title'), /最近一次有效测速/);
+      for (const width of [700, 420, 320, 260]) {
+        await page.setViewportSize({ width, height: 700 });
+        assert.equal(
+          await page.locator('.model-status-row').evaluate((n) => n.scrollWidth <= n.clientWidth),
+          true,
+        );
+        const m = await meter.boundingBox(),
+          a = await page.locator('.model-preset-actions').boundingBox();
+        assert.ok(
+          m.x + m.width <= a.x || m.y + m.height <= a.y,
+          'retained speed and status never overlap actions',
+        );
+      }
+    }
     assert.equal(await page.locator('.token-meter-readout').count(), 1);
     await page.evaluate(() => {
       window.connected = false;

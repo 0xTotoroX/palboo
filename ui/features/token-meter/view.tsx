@@ -1,7 +1,7 @@
 import { useLocale } from '../../shared/use-locale';
 import { tr } from '../../shared/i18n.js';
 /* [INPUT]: 可选测速数值快照；不依赖模型选择、承载形式或宿主DOM。
- * [OUTPUT]: 单行估算速度或状态，官方用量仅按需查看，无快照时完全移除。
+ * [OUTPUT]: 最新有效测速与括号内当前状态；官方用量仅按需查看，无快照时完全移除。
  * [POS]: 可插拔内容组件；由组合层放入模型快切的可选footer。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import type { TokenMeterSnapshot } from '../../shared/token-meter';
@@ -33,12 +33,14 @@ const LABELS: Record<string, string> = {
 export function TokenMeterView({ snapshot }: { snapshot?: TokenMeterSnapshot | null }) {
   useLocale();
   if (!snapshot) return null;
-  const rate =
-    snapshot.speed === null
-      ? LABELS[snapshot.phase] || '— tok/s'
-      : `≈ ${snapshot.speed.toFixed(1)} tok/s`;
+  const speed = snapshot.speed ?? snapshot.lastSpeed ?? null;
+  const rate = speed === null ? '— tok/s' : `≈ ${speed.toFixed(1)} tok/s`;
+  const status =
+    snapshot.phase !== 'idle' && snapshot.phase !== 'streaming' ? LABELS[snapshot.phase] : null;
   const u = snapshot.official;
   const lines = [tr('速度为最近3秒可见回复的文本估算，不含隐藏思考和工具输出。')];
+  if (snapshot.speed === null && speed !== null)
+    lines.push(tr('保留当前聊天最近一次有效测速，括号内为当前状态。'));
   if (u) {
     lines.push(
       tr(
@@ -69,9 +71,10 @@ export function TokenMeterView({ snapshot }: { snapshot?: TokenMeterSnapshot | n
         aria-live="off"
         tabIndex={0}
         title={title}
-        aria-label={`${rate}。${title}`}
+        aria-label={`${rate}${status ? ` (${status})` : ''}。${title}`}
       >
         <span>{rate}</span>
+        {status && <span>({status})</span>}
       </output>
     </>
   );

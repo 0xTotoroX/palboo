@@ -104,6 +104,35 @@ test('visible estimation joins stream chunks, ignores tool/reasoning output and 
   assert.equal(f.meter.snapshot(15000).bufferedCharacters, 0);
 });
 
+test('last speed survives tools, thinking, silence and turns even when the panel was closed', () => {
+  const f = fixture();
+  f.event('turn/started');
+  f.event('item/agentMessage/delta', { itemId: 'm', delta: 'hello world ' }, 100);
+  f.event('item/agentMessage/delta', { itemId: 'm', delta: 'another reply' }, 1100);
+  // 没有读取过快照，结束时仍结算一次；不把后续工具等待算进分母。
+  f.event('item/completed', { item: { id: 'm', type: 'agentMessage' } }, 5000);
+  const rate = estimateVisibleTokens('hello world another reply');
+  assert.equal(f.meter.snapshot(6000).lastSpeed, rate);
+  for (const [type, phase] of [
+    ['reasoning', 'thinking'],
+    ['commandExecution', 'tool'],
+  ]) {
+    f.event('item/started', { item: { id: type, type } }, 7000);
+    assert.equal(f.meter.snapshot(8000).phase, phase);
+    assert.equal(f.meter.snapshot(8000).speed, null);
+    assert.equal(f.meter.snapshot(8000).lastSpeed, rate);
+  }
+  f.event('turn/completed', { turn: { status: 'completed', durationMs: 20000 } }, 20100);
+  assert.equal(f.meter.snapshot(30000).lastSpeed, rate);
+  f.event('turn/started', { turnId: 't2', turn: { id: 't2' } }, 31000);
+  assert.equal(f.meter.snapshot(31000).lastSpeed, rate);
+  f.event('item/agentMessage/delta', { turnId: 't2', itemId: 'next', delta: 'new reply' }, 32000);
+  f.meter.clearStream();
+  assert.equal(f.meter.snapshot(40000).lastSpeed, estimateVisibleTokens('new reply'));
+  f.meter.follow('b');
+  assert.equal(f.meter.snapshot(40000).lastSpeed, null);
+});
+
 const bundle = (
   await build({
     stdin: {
@@ -181,11 +210,18 @@ test('collector projects only matching chat, never mounts UI or polls, and relea
     );
     await page.evaluate(() => {
       Object.defineProperty(document, 'hidden', { configurable: true, value: false });
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    const reopened = await page.evaluate(() => window.__palbooTokenMeter.read('a'));
+    assert.equal(reopened.speed, null);
+    assert.equal(reopened.lastSpeed, state.speed);
+    await page.evaluate(() => {
       window.session = 'b';
       document.dispatchEvent(new Event('visibilitychange'));
     });
     assert.equal(await page.evaluate(() => window.__palbooTokenMeter.read('a')), null);
     assert.equal(await page.evaluate(() => window.__palbooTokenMeter.read('b').official), null);
+    assert.equal(await page.evaluate(() => window.__palbooTokenMeter.read('b').lastSpeed), null);
     await page.evaluate(() => {
       document.querySelector('main').removeAttribute('data-current');
       document.dispatchEvent(new Event('pointerup'));

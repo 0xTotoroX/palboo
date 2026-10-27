@@ -79,6 +79,7 @@ export function installTokenMeter({
         threadId: target.id,
         phase: view.phase,
         speed: view.speed,
+        lastSpeed: view.lastSpeed,
         official: view.official,
         scope: view.scope,
         average: view.average,

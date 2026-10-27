@@ -144,6 +144,7 @@ export function ModelView({
       name: uniquePresetName(
         s.models.find((m) => m.id === s.current?.model)?.label || s.current.model,
         prefs.presets,
+        s.current.speed,
       ),
       selection: { ...s.current },
     };
@@ -325,6 +326,7 @@ export function ModelView({
         const name = uniquePresetName(
           requestedName,
           prefs.presets.filter((p) => p.id !== presetDraft.id),
+          presetDraft.selection.speed,
         );
         const preset = { id: presetDraft.id, name, selection: presetDraft.selection };
         const result = await save({

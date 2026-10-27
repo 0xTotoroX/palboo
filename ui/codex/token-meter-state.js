@@ -1,5 +1,5 @@
 /* [INPUT]: 当前聊天的 App Server 事件、单调时钟与 tokenx 轻量文本估算。
- * [OUTPUT]: 有界滑动速度、官方用量和轮次状态；不保存全文或发送请求。
+ * [OUTPUT]: 有界滑动速度、当前聊天最近有效测速、官方用量和轮次状态；不保存全文或发送请求。
  * [POS]: 测速纯状态机；页面适配负责来源校验、时间调度和呈现。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { estimateTokenCount } from 'tokenx';
@@ -59,6 +59,7 @@ export function createTokenMeter() {
   let buckets = [],
     characters = 0,
     lastDelta = null,
+    lastSpeed = null,
     overflowUntil = 0,
     item = '';
   const retiredTurns = new Set(),
@@ -69,6 +70,7 @@ export function createTokenMeter() {
     if (set.size > 32) set.delete(set.values().next().value);
   }
   function clearStream() {
+    captureSpeed();
     buckets = [];
     characters = 0;
     lastDelta = null;
@@ -95,12 +97,22 @@ export function createTokenMeter() {
     total = null;
     retiredTurns.clear();
     begin('', false);
+    lastSpeed = null;
     phase = 'idle';
     return true;
   }
   function expire(now) {
     while (buckets.length && buckets[0].at <= now - WINDOW_MS)
       characters -= buckets.shift().text.length;
+  }
+  function captureSpeed() {
+    if (lastDelta === null || lastDelta < overflowUntil) return;
+    expire(lastDelta);
+    if (!buckets.length) return;
+    // 用最后一段文字到达的时间结算，后续思考/工具/隐藏时间不稀释读数。
+    lastSpeed =
+      estimateVisibleTokens(buckets.map((b) => b.text).join('')) /
+      (Math.max(1000, Math.min(WINDOW_MS, lastDelta - buckets[0].first)) / 1000);
   }
   function receive(method, params, now) {
     if (!thread || params?.threadId !== thread) return false;
@@ -198,16 +210,14 @@ export function createTokenMeter() {
     return true;
   }
   function snapshot(now) {
+    captureSpeed();
     expire(now);
     const streaming = phase === 'streaming' && lastDelta !== null && now - lastDelta < WINDOW_MS;
-    const speed =
-      streaming && now >= overflowUntil && buckets.length
-        ? estimateVisibleTokens(buckets.map((b) => b.text).join('')) /
-          (Math.max(1000, Math.min(WINDOW_MS, now - buckets[0].first)) / 1000)
-        : null;
+    const speed = streaming && lastDelta >= overflowUntil && buckets.length ? lastSpeed : null;
     return {
       phase: phase === 'streaming' && !streaming ? 'waiting' : phase,
       speed,
+      lastSpeed,
       official,
       scope,
       average:

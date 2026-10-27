@@ -21,7 +21,7 @@ Keep Palboo in a sidebar, float it over the page, move it to the desktop, or tuc
 | **Task board**            | Organize tasks into To do, In progress, and Done, with groups and drag-and-drop.                   |
 | **Model switching**       | Switch Codex models, reasoning levels, and Fast mode; save presets and see available usage limits. |
 | **Prompt enhancement**    | Refine a draft before sending, with the option to restore the original.                            |
-| **Chat speed**            | See estimated reply speed and token usage when Codex provides it.                                  |
+| **Chat speed**            | Keep the latest estimated reply speed through thinking and tool use; inspect token usage when Codex provides it.                                  |
 | **Grok Bot**              | Find your Bots and start a consultation in the current chat.                                       |
 
 ## Installation

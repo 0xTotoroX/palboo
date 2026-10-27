@@ -357,3 +357,5 @@ Bot 同步回归覆盖结构有效的 stale 目录保留名单、设置与前端
 - 工作台、贴边／刘海的语言回归核对已编辑草稿、任务和标签 ID 不变；含中文界面断言的宿主/端到端夹具明确使用 zh-CN，英文切换由独立用例覆盖，不依赖测试机器的默认浏览器语言。
 
 Dev 接管回归验证恢复记录先于关闭、仅关闭已打开 edge 成员、原连接确认 ready 后恢复及不同连接不重开，在途交接拒绝和恢复失败保留记录。panel-settings/Rust 验证三种入口动作逐项保存与旧默认，workbench 验证自定义双击/右键不额外触发旧动作，以及慢双击不提交设置/桌面单击副作用。model-control-host 覆盖单官方标记的新聊天/Dots、范围关闭及临时目标失效；workbench 覆盖空聊天快捷词追加不发送、节点替换拒绝。features-e2e --native 用窗口几何验证新聊天/Dots 隐藏和恢复同一桌面及贴边窗口，native-check --features-only 覆盖旧窗口 scope IPC，不截图。
+
+Fast/普通预设按闪电标记独立消歧：model-groups 覆盖同组编号及保留既有编号，model-preset-draft 验证实际新增/改名。token-meter 覆盖未打开面板时结算、思考/工具/跨轮次/隐藏恢复保留最近测速及换聊天清空；token-meter-view 验证括号状态与窄屏不重叠。

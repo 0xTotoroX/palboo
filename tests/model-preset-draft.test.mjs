@@ -198,3 +198,36 @@ test('add preset captures the current selection immediately and failed saves do 
     await browser.close();
   }
 });
+
+test('preset rename and add distinguish the Fast marker from a standard preset', async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await fixture(browser);
+    await page.evaluate(() => {
+      window.model.preferences.presets.push({
+        id: 'standard',
+        name: 'Alpha',
+        selection: { ...window.alpha, speed: 'standard' },
+      });
+    });
+    await page.getByRole('button', { name: 'Alpha', exact: true }).waitFor();
+    await page.getByRole('button', { name: '编辑预设', exact: true }).click();
+    await page.getByRole('button', { name: '原名称', exact: true }).click();
+    await page.getByRole('textbox', { name: '预设名称' }).fill('Alpha');
+    await page.getByRole('button', { name: '保存', exact: true }).click();
+    await page.getByRole('textbox', { name: '预设名称' }).waitFor({ state: 'detached' });
+    assert.deepEqual(
+      await page.evaluate(() => window.model.preferences.presets.map((p) => p.name)),
+      ['Alpha', 'Alpha'],
+    );
+    await page.getByRole('button', { name: '编辑预设', exact: true }).click();
+    await page.getByRole('button', { name: '添加预设', exact: true }).click();
+    await page.getByRole('button', { name: 'Alpha 2', exact: true }).waitFor();
+    assert.equal(
+      await page.evaluate(() => window.model.preferences.presets.at(-1).selection.speed),
+      'fast',
+    );
+  } finally {
+    await browser.close();
+  }
+});

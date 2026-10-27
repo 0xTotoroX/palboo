@@ -6,6 +6,8 @@ export interface TokenMeterSnapshot {
   threadId: string;
   phase: string;
   speed: number | null;
+  /** 当前聊天最近一次有效的可见回复测速；不是当前阶段的实时速度。 */
+  lastSpeed?: number | null;
   official: {
     inputTokens: number;
     cachedInputTokens: number;

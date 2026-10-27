@@ -33,16 +33,25 @@ export type ModelState = {
   };
   preferences: ModelPreferences;
 };
-// 预设身份和选择独立；只对名称消歧，不合并同模型或同配置的收藏。
+// 闪电已区分 Fast 与普通预设；只在相同标记内对名称消歧，不合并收藏。
 const presetNameKey = (name: string) => name.trim().normalize('NFC').toLowerCase();
+const presetSpeedKey = (speed?: string) => speed === 'fast';
 const presetNameLimit = (name: string, suffix = '') => {
   const chars = [...name.trim()];
   const encoder = new TextEncoder();
   while (encoder.encode(chars.join('') + suffix).length > 256) chars.pop();
   return chars.join('').trimEnd() + suffix;
 };
-export function uniquePresetName(name: string, existing: readonly { name: string }[]): string {
-  const used = new Set(existing.map((p) => presetNameKey(p.name)));
+export function uniquePresetName(
+  name: string,
+  existing: readonly { name: string; selection?: Pick<Selection, 'speed'> }[],
+  speed = 'standard',
+): string {
+  const used = new Set(
+    existing
+      .filter((p) => presetSpeedKey(p.selection?.speed) === presetSpeedKey(speed))
+      .map((p) => presetNameKey(p.name)),
+  );
   const base = presetNameLimit(name);
   let candidate = base;
   for (let n = 2; used.has(presetNameKey(candidate)); n++)
@@ -55,10 +64,12 @@ export function uniquePresetNames(
   const seen = new Set<string>();
   const result: ModelPreferences['presets'] = [];
   for (const preset of presets) {
-    const name = seen.has(presetNameKey(preset.name))
-      ? uniquePresetName(preset.name, [...presets, ...result])
+    const key = (name: string) =>
+      `${presetSpeedKey(preset.selection.speed)}:${presetNameKey(name)}`;
+    const name = seen.has(key(preset.name))
+      ? uniquePresetName(preset.name, [...presets, ...result], preset.selection.speed)
       : preset.name;
-    seen.add(presetNameKey(name));
+    seen.add(key(name));
     result.push(name === preset.name ? preset : { ...preset, name });
   }
   return result;
