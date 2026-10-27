@@ -106,36 +106,47 @@
   gap: 4px;
   overflow-wrap: anywhere;
 }
+.palboo-bot-toolbar {
+  display: flex;
+  justify-content: flex-end;
+}
 .palboo-bot-history {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: var(--buddy-action-hit-size, 28px);
-  height: var(--buddy-action-hit-size, 28px);
-  padding: 0;
+  min-height: var(--buddy-action-hit-size, 28px);
+  padding: 4px 8px;
   border: 0;
   border-radius: 4px;
   background: transparent;
   color: var(--muted, inherit);
+  font: inherit;
   cursor: pointer;
 }
 .palboo-bot-history:hover {
   background: var(--hover);
   color: var(--ink, inherit);
 }
-.palboo-bot-history .buddy-icon {
-  transition: transform 160ms ease-out;
+.palboo-bot-messages {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+  animation: palboo-bot-reveal 160ms ease-out;
 }
-.palboo-bot-history[aria-expanded='true'] .buddy-icon {
-  transform: rotate(90deg);
+.palboo-bot-message {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.palboo-bot-message h3 {
+  margin: 0;
+  font: inherit;
+  font-weight: 600;
+  overflow-wrap: anywhere;
 }
 .palboo-bot-preview {
-  margin: 0 0 6px 42px;
+  margin: 0;
   color: var(--muted, inherit);
   line-height: 1.5;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  animation: palboo-bot-reveal 160ms ease-out;
 }
 .palboo-bot-eye {
   transform-box: fill-box;
@@ -180,10 +191,7 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .palboo-bot-avatar[data-activity] .palboo-bot-eye,
-  .palboo-bot-preview {
+  .palboo-bot-messages {
     animation: none;
-  }
-  .palboo-bot-history .buddy-icon {
-    transition: none;
   }
 }

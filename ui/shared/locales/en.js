@@ -1,7 +1,8 @@
 // English interface copy. User-authored content is not translated.
 export default {
-  最近消息: 'Latest message',
-  '最近消息：{{name}}': 'Latest message: {{name}}',
+  最近消息: 'Recent messages',
+  '返回 Bot 列表': 'Back to Bots',
+  暂无最近消息: 'No recent messages',
   启用范围: 'Where Palboo is enabled',
   '在新聊天中启用 Palboo': 'Enable Palboo in new chats',
   '在 Dots 中启用 Palboo': 'Enable Palboo in Dots',

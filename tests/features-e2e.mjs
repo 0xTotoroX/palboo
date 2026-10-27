@@ -620,9 +620,16 @@ try {
   assert.equal(await page.locator('[data-feature="bots"] details').count(), 0);
   assert.equal(await page.locator('[data-refresh="bots"]').count(), 0);
   assert.equal(await page.locator('.palboo-bot-preview').count(), 0);
-  await page.locator('.palboo-bot-history').first().click();
-  assert.equal(await page.locator('.palboo-bot-preview').textContent(), '合成资料摘要');
-  await page.locator('.palboo-bot-history').first().click();
+  assert.equal(await page.locator('.palboo-bot-history').count(), 1);
+  await page.getByRole('button', { name: '最近消息', exact: true }).click();
+  assert.equal(await page.locator('.palboo-bot-select').count(), 0);
+  assert.equal(await page.locator('.palboo-bot-preview').count(), 4);
+  assert.ok(
+    (await page.locator('.palboo-bot-preview').allTextContents()).every(
+      (text) => text === '合成资料摘要',
+    ),
+  );
+  await page.getByRole('button', { name: '返回 Bot 列表', exact: true }).click();
   assert.equal(await page.locator('.palboo-bot-preview').count(), 0);
   const quietCalls = botListCalls;
   await delay(6500);
@@ -822,6 +829,11 @@ try {
   record(
     'visible automatic settings recover from invalid identities and update file-driven catalog changes',
   );
+  // Settings can finish rendering before the host tracker receives the recovered catalog.
+  await wait(async () => {
+    const catalog = (await botRead()).snapshot.catalog;
+    return catalog.revision === 'r4' && catalog.stale === false;
+  }, 'recovered Bot catalog reaches the host before a new call');
   // The invalid-identity recovery retired the old item; seed a genuinely new call.
   await reportBotFinished('saved-sidebar-call');
   assert.equal(

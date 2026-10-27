@@ -40,11 +40,15 @@ test('Bot list keeps messages opt-in and animates only visible active avatars', 
     await rows.first().waitFor();
     assert.equal(await page.locator('.palboo-bot-preview').count(), 0);
     assert.equal(await page.getByText('调用失败', { exact: true }).count(), 1);
-    const history = page.getByRole('button', { name: '最近消息：大总管', exact: true });
+    const history = page.locator('.palboo-bot-history');
+    assert.equal(await history.count(), 1);
+    assert.equal(await rows.locator('[data-icon="chevron-right"]').count(), 0);
     await history.focus();
     await page.keyboard.press('Enter');
     assert.equal(await history.getAttribute('aria-expanded'), 'true');
-    assert.match(await page.locator('.palboo-bot-preview').textContent(), /默认收起/);
+    assert.equal(await rows.count(), 0);
+    assert.equal(await page.locator('.palboo-bot-preview').count(), 3);
+    assert.match(await page.locator('.palboo-bot-preview').first().textContent(), /默认收起/);
     assert.deepEqual(await page.evaluate(() => window.calls), []);
     await page.evaluate(() => window.render());
     assert.equal(
@@ -52,9 +56,9 @@ test('Bot list keeps messages opt-in and animates only visible active avatars', 
       'true',
       'refresh preserves intentional disclosure',
     );
-    await page.getByRole('button', { name: '最近消息：优惠雷达', exact: true }).click();
+    await page.getByRole('button', { name: '返回 Bot 列表', exact: true }).click();
     assert.equal(await history.getAttribute('aria-expanded'), 'false');
-    assert.equal(await page.locator('.palboo-bot-preview').count(), 1);
+    assert.equal(await page.locator('.palboo-bot-preview').count(), 0);
     for (const [width, columns] of [
       [260, 1],
       [440, 2],
@@ -70,11 +74,9 @@ test('Bot list keeps messages opt-in and animates only visible active avatars', 
       const geometry = await rows.evaluateAll((nodes) =>
         nodes.map((n) => {
           const label = n.querySelector('.palboo-bot-copy').getBoundingClientRect();
-          const toggle = n.querySelector('.palboo-bot-history')?.getBoundingClientRect();
           const status = n.querySelector('.palboo-bot-status');
           return {
             fits: n.scrollWidth <= n.clientWidth,
-            clear: !toggle || (label.right <= toggle.left && toggle.left - label.right <= 5),
             label: label.left,
             status: status
               ? status.getBoundingClientRect().left +
@@ -83,7 +85,7 @@ test('Bot list keeps messages opt-in and animates only visible active avatars', 
           };
         }),
       );
-      assert.ok(geometry.every((g) => g.fits && g.clear && Math.abs(g.label - g.status) < 1));
+      assert.ok(geometry.every((g) => g.fits && Math.abs(g.label - g.status) < 1));
     }
     const eye = rows.first().locator('.palboo-bot-eye').first();
     await page.waitForFunction(
@@ -112,7 +114,6 @@ test('Bot list keeps messages opt-in and animates only visible active avatars', 
     );
     assert.equal(await eye.evaluate((n) => getComputedStyle(n).animationPlayState), 'paused');
     await page.evaluate(() => (document.getElementById('root').style.marginTop = '0'));
-    await page.getByRole('button', { name: '最近消息：优惠雷达', exact: true }).click();
     await page.getByRole('button', { name: '大总管', exact: true }).click();
     await rows.first().getByRole('button', { name: '查看进度', exact: true }).click();
     await rows.first().getByRole('button', { name: '填入停止请求', exact: true }).click();
@@ -129,9 +130,27 @@ test('Bot list keeps messages opt-in and animates only visible active avatars', 
       document.body.style.background = '#171719';
       document.body.style.color = '#eee';
       document.body.style.setProperty('--muted', '#b1b1b6');
+      document.body.style.setProperty('--ink', '#eee');
       document.body.style.setProperty('--hover', '#333');
     });
     await page.screenshot({ path: 'target/reports/bots-view/dark.png' });
+    await history.click();
+    await page
+      .locator('.palboo-bot-messages')
+      .evaluate((n) => Promise.all(n.getAnimations().map((a) => a.finished)));
+    await page.screenshot({ path: 'target/reports/bots-view/messages.png' });
+    await page.setViewportSize({ width: 260, height: 700 });
+    assert.equal(
+      await page.locator('.palboo-bot-messages').evaluate((n) => n.scrollWidth <= n.clientWidth),
+      true,
+    );
+    await page.evaluate(() => {
+      window.state.snapshot.bots.forEach((b) => (b.hidden = true));
+      window.state.snapshot.bots[3].hidden = false;
+      window.render();
+    });
+    await page.getByText('暂无最近消息', { exact: true }).waitFor();
+    assert.equal(await page.locator('.palboo-bot-preview').count(), 0);
   } finally {
     await browser.close();
   }
