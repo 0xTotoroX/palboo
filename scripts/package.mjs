@@ -45,7 +45,8 @@ if (!plan.installer) {
 
 English
 
-Drag Palboo.app to Applications, then double-click it. The App does not require Node.js or Rust.
+Drag Palboo.app to Applications, then double-click it. Release mode does not require Node.js or Rust.
+Switch modes in Settings → Startup & Connection. Development mode requires a local Palboo source checkout and its Node.js/Rust toolchain; register it with npm run install:dev. Existing settings and data stay in their original locations.
 Requires macOS 14 or later on Apple Silicon. Desktop windows require macOS 15 or later.
 If macOS blocks the first launch, verify the download source, then open System Settings → Privacy & Security → Open Anyway. The App is locally signed and is not notarized by Apple.
 
@@ -59,7 +60,8 @@ Licensed under GPL-3.0-only. Full licenses and third-party notices are in this R
 
 简体中文
 
-将 Palboo.app 拖入“应用程序”，再双击打开。主程序无需 Node.js 或 Rust。
+将 Palboo.app 拖入“应用程序”，再双击打开。正式模式无需 Node.js 或 Rust。
+在“设置 → 启动与连接”中切换模式。开发模式需要本地 Palboo 源码及其 Node.js/Rust 工具链，通过 npm run install:dev 登记；原有配置和数据保留原位。
 支持 macOS 14+ Apple Silicon；桌面浮窗需要 macOS 15+。
 本 App 使用本地签名，未经过 Apple 公证。首次打开被系统拦截时，在确认下载来源后进入“系统设置 → 隐私与安全性 → 仍要打开”。
 
