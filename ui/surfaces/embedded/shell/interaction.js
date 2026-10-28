@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 胶囊 DOM、几何、外观与指针/键盘事件。
- * [OUTPUT]: 内嵌表情单击收放、双击切换窗口，左栏入口支持分别配置的单/双击；拖动、缩放与键盘操作。
+ * [OUTPUT]: 内嵌表情单击收放、双击切换窗口，左栏只为可执行的双击动作延迟单击；拖动、缩放与键盘操作。
  * [POS]: 外壳交互层；效果在 effects，原生手势经 desktop/legacy/transport 转发。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -575,9 +575,11 @@ function onFabClick(event) {
 }
 
 export function onLauncherClick(event, activate, doubleActivate) {
+  const needsWindow = ['outside', 'toggle'].includes(shellState.launcherDoubleAction);
+  const doubleAvailable = !needsWindow || runtimeState.settings?.popoutSupported === true;
   // 打开设置/桌面会产生不可撤销的外部副作用，等待完整双击窗口再提交。
   const singleDelay = shellState.launcherAction === 'inside' ? 100 : 500;
-  onFaceClick(event, 'launcher', activate, doubleActivate, singleDelay);
+  onFaceClick(event, 'launcher', activate, doubleAvailable ? doubleActivate : null, singleDelay);
 }
 
 export function onLauncherPointerDown(event) {

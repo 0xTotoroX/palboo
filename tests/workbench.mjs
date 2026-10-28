@@ -1,6 +1,6 @@
 /*
  * [INPUT]: Playwright Chromium、buildPanel、合成宿主与设置 fixture。
- * [OUTPUT]: 工作台真实布局、新聊天/Dots 独立开关、键盘操作、设置隔离与宿主生命周期行为回归；分阶段限时、失败留证及测试浏览器清理。
+ * [OUTPUT]: 工作台真实布局、新聊天/Dots 范围、入口按能力处理双击等待、键盘与宿主生命周期回归；分阶段限时、失败留证及浏览器清理。
  * [POS]: 独立浏览器验收；只模拟后台桥，不请求模型、不读取真实聊天。
  * [PROTOCOL]: 变更时核对 tests/AGENTS.md；入口与地图由主任务维护。
  */
@@ -805,6 +805,80 @@ const cases = [
       assert.equal(
         await page.evaluate(() => window.__companionFloatingPanel.state.launcherAction),
         'settings',
+      );
+    },
+  ],
+  [
+    'rail launcher waits only for available double-click actions',
+    async (page) => {
+      await mode(page, false);
+      await page.clock.install();
+      await page.clock.pauseAt(new Date());
+      let revision = 50;
+      for (const supported of [false, null, true]) {
+        for (const doubleAction of ['toggle', 'outside', 'settings', 'inside']) {
+          await page.evaluate(
+            ({ supported, doubleAction, revision }) => {
+              const p = window.__companionFloatingPanel;
+              if (supported === null) delete p.state.settings.popoutSupported;
+              else p.state.settings.popoutSupported = supported;
+              p.syncPanelPreferences(p.panelPreferences(), revision, false, {
+                action: 'inside',
+                doubleAction,
+              });
+              p.setOpen(false);
+            },
+            { supported, doubleAction, revision: revision++ },
+          );
+          await page.clock.runFor(600);
+          const immediate = await page.evaluate(() => {
+            document
+              .querySelector('[data-palboo-launcher]')
+              .shadowRoot.querySelector('button')
+              .dispatchEvent(new MouseEvent('click', { detail: 1 }));
+            return window.__companionFloatingPanel.state.open;
+          });
+          const delayed = supported === true || ['settings', 'inside'].includes(doubleAction);
+          const label = `${supported}/${doubleAction}`;
+          assert.equal(immediate, !delayed, `first click: ${label}`);
+          await page.clock.runFor(60);
+          assert.equal(
+            await page.evaluate(() => window.__companionFloatingPanel.state.open),
+            !delayed,
+            `before double-click delay: ${label}`,
+          );
+          await page.clock.runFor(40);
+          assert.equal(await page.evaluate(() => window.__companionFloatingPanel.state.open), true);
+        }
+      }
+      await page.evaluate(() => {
+        const p = window.__companionFloatingPanel;
+        p.state.settings.popoutSupported = false;
+        p.syncPanelPreferences(p.panelPreferences(), 100, false, {
+          action: 'inside',
+          doubleAction: 'settings',
+        });
+        p.setOpen(false);
+      });
+      await page.clock.runFor(600);
+      const click = (detail) =>
+        page.evaluate((detail) => {
+          document
+            .querySelector('[data-palboo-launcher]')
+            .shadowRoot.querySelector('button')
+            .dispatchEvent(new MouseEvent('click', { detail }));
+        }, detail);
+      await click(1);
+      await page.clock.runFor(40);
+      await click(2);
+      await page.clock.runFor(600);
+      assert.equal(await page.evaluate(() => window.__companionFloatingPanel.state.open), false);
+      assert.equal(
+        await page.evaluate(
+          () => window.workbenchFixture.requests.filter((r) => r.path === '/settings/open').length,
+        ),
+        1,
+        'custom double click remains available without native window support',
       );
     },
   ],
