@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 大纲和建议 DOM、状态属性与共享变量。
- * [OUTPUT]: 空闲等亮且悬停弱化其他条目的无框建议列表与预览、下划线快捷标签、大纲和内容状态的布局与外观，定位按钮透明无底块，鼠标离开后仅键盘聚焦保留导航。
+ * [OUTPUT]: 无框建议列表、紧凑快捷标签与舒展的独立常用语列表、大纲和内容状态的布局与外观，定位按钮透明无底块，鼠标离开后仅键盘聚焦保留导航。
  * [POS]: 功能内容样式，由 workspace/mount 与 shell/install-styles 共用。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -814,4 +814,73 @@
   color: var(--csw-text);
   font-size: 0.9em;
   overflow-wrap: anywhere;
+}
+
+/* 独立常用语利用整栏空间；旧下一步中的快捷标签保留原密度。 */
+.csw-quick-area[data-expanded='true'] {
+  container: quick-phrases / inline-size;
+}
+.csw-quick-area[data-expanded='true'] .csw-quick-prompts {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  gap: 12px;
+  padding-bottom: 16px;
+}
+.csw-quick-area[data-expanded='true'] .csw-quick-prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  min-height: max(72px, 4.5em);
+  padding: 16px;
+  border-radius: 12px;
+  line-height: 1.5;
+  text-decoration: none;
+}
+.csw-quick-area[data-expanded='true'] .csw-quick-prompt:hover:not(:disabled) {
+  background: var(--csw-hover);
+}
+.csw-quick-label {
+  font-size: 1.125em;
+  font-weight: var(--csw-label-weight, 600);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--csw-text) 40%, transparent);
+  text-underline-offset: 4px;
+  text-decoration-thickness: 1px;
+}
+.csw-quick-preview {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  width: 100%;
+  font-size: max(14px, 0.875em);
+  color: color-mix(in srgb, var(--csw-text) 70%, var(--csw-muted));
+  white-space: pre-line;
+}
+.csw-quick-area[data-expanded='true'] .csw-quick-actions {
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.csw-quick-area[data-expanded='true'] [data-editing='true'] .csw-quick-tag {
+  padding-top: 0;
+}
+.csw-quick-area[data-expanded='true'] [data-editing='true'] .csw-quick-prompt {
+  padding-right: 44px;
+}
+.csw-quick-area[data-expanded='true'] .csw-quick-tag > .csw-quick-action {
+  top: 8px;
+  right: 8px;
+  left: auto;
+  background: transparent;
+}
+@container quick-phrases (min-width: 42em) {
+  .csw-quick-area[data-expanded='true'] .csw-quick-prompts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }

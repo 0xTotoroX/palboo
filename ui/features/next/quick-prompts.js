@@ -1,12 +1,19 @@
 import { tr } from '../../shared/i18n.js';
 /* [INPUT]: Projected quick prompts, transient reading state and revision-checked settings save.
- * [OUTPUT]: Underlined shortcuts with inline add/edit, confirmed removal and retained failure drafts.
+ * [OUTPUT]: Compact shortcuts or expanded standalone phrases with previews, inline editing, confirmed removal and retained failure drafts.
  * [POS]: Shared quick-prompt editor; adapters own transport and settings own persistence.
  * [PROTOCOL]: Keep next/AGENTS.md in sync. */
 import { escapeAttr, escapeHtml } from '../../shared/text.js';
 import { iconSvg } from '../../shared/icons/index.js';
 
-export function createQuickPrompts({ read, reading, save, beforeEdit, rendered }) {
+export function createQuickPrompts({
+  read,
+  reading,
+  save,
+  beforeEdit,
+  rendered,
+  expanded = false,
+}) {
   let root,
     busy = false,
     disabled = false,
@@ -35,14 +42,23 @@ export function createQuickPrompts({ read, reading, save, beforeEdit, rendered }
         const remove = editing
           ? iconButton('delete:' + index, 'close', tr('删除快捷指令 ') + escapeAttr(item.label))
           : '';
-        return `<div class="csw-quick-tag"><button type="button" class="csw-quick-prompt" data-quick-prompt="${index}" ${editing ? tr('aria-description="点击编辑快捷指令"') : ''}>${escapeHtml(item.label)}</button>${remove}</div>`;
+        const preview = expanded && item.prompt.trim() !== item.label.trim() ? item.prompt : '';
+        const description = editing
+          ? tr('aria-description="点击编辑快捷指令"')
+          : preview
+            ? `aria-description="${escapeAttr(preview)}"`
+            : '';
+        const content = expanded
+          ? `<span class="csw-quick-label">${escapeHtml(item.label)}</span>${preview ? `<span class="csw-quick-preview" aria-hidden="true">${escapeHtml(preview)}</span>` : ''}`
+          : escapeHtml(item.label);
+        return `<div class="csw-quick-tag"><button type="button" class="csw-quick-prompt" data-quick-prompt="${index}" aria-label="${escapeAttr(item.label)}" ${description}>${content}</button>${remove}</div>`;
       })
       .join('');
     const actions = save
       ? `<div class="csw-quick-actions">${iconButton('edit', 'pencil', editing ? tr('完成编辑快捷指令') : tr('编辑快捷指令'), `aria-pressed="${!!editing}"`)}${iconButton('add', 'plus', tr('添加快捷指令'))}</div>`
       : '';
     const feedback = error || (busy ? tr('正在保存…') : '');
-    return `<div class="csw-quick-area"><div class="csw-quick-prompts" aria-label="${tr('常用提示词')}" data-editing="${!!editing}">${tags}${actions}</div>${editorHtml(reading.quickPromptDraft)}<div class="csw-quick-feedback" role="status" ${feedback ? '' : 'hidden'}>${escapeHtml(feedback)}</div></div>`;
+    return `<div class="csw-quick-area" data-expanded="${expanded}"><div class="csw-quick-prompts" aria-label="${tr('常用提示词')}" data-editing="${!!editing}">${tags}${actions}</div>${editorHtml(reading.quickPromptDraft)}<div class="csw-quick-feedback" role="status" ${feedback ? '' : 'hidden'}>${escapeHtml(feedback)}</div></div>`;
   }
   function repaint(focus) {
     if (!root?.isConnected) return;

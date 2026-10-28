@@ -1,6 +1,6 @@
 import { getLocale } from '../shared/i18n.js';
 /* [INPUT]: 独立常用语投影、临时编辑草稿、受保护的填入与保存回调。
- * [OUTPUT]: 不依赖建议生成状态的常用语视图，保留单击/双击规则和失败草稿。
+ * [OUTPUT]: 不依赖建议生成状态的舒展常用语列表，显示名称与正文预览，保留单击/双击规则和失败草稿。
  * [POS]: 复用既有预设编辑器；聊天身份和写入验证留在 codex。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { createQuickPrompts } from './next/quick-prompts.js';
@@ -31,6 +31,7 @@ export function createQuickPromptsView({
     ]);
   };
   const editor = createQuickPrompts({
+    expanded: true,
     read,
     reading,
     save: saveQuickPrompts,
