@@ -1,10 +1,11 @@
 import { tr, subscribeLocale } from '../../shared/i18n.js';
 /* [INPUT]: Existing desktop return callback and restricted native window messages.
- * [OUTPUT]: Return/maximize controls and native-confirmed state, without remounting content.
+ * [OUTPUT]: Native-confirmed geometry state and fallback controls for older window runtimes.
  * [POS]: Shared desktop header adapter; never owns task data or window leases.
  * [PROTOCOL]: Keep workspace/AGENTS.md in sync. */
 import { iconSvg } from '../../shared/icons/index.js';
 export function windowControlsHtml() {
+  if (typeof window !== 'undefined' && window.__buddyNativeChrome) return '';
   return `<div class="csw-window-controls" role="group" aria-label="${tr('窗口操作')}">${[
     ['dock', tr('收回聊天'), 'minus'],
     ['maximize', tr('放大'), 'window-expand'],
@@ -21,7 +22,13 @@ export function installWindowControls(
 ) {
   window.__buddyWindowControls?.destroy?.();
   const events = new AbortController();
-  let state = { maximized: false, hidden: false, normalFrame: null },
+  let state = {
+      maximized: false,
+      minimized: false,
+      fullscreen: false,
+      hidden: false,
+      normalFrame: null,
+    },
     pending = false,
     settlingUntil = 0;
   let timer = 0;
@@ -49,7 +56,12 @@ export function installWindowControls(
       events.abort();
       clearTimeout(timer);
     },
-    geometryTransient: () => pending || state.maximized || performance.now() < settlingUntil,
+    geometryTransient: () =>
+      pending ||
+      state.maximized ||
+      state.minimized ||
+      state.fullscreen ||
+      performance.now() < settlingUntil,
     normalSize: () =>
       state.normalFrame ? [state.normalFrame.width - 24, state.normalFrame.height - 24] : null,
     update(next) {

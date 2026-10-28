@@ -36,6 +36,10 @@ async function poll() {
         row.click();
       }
       if (command.kind === 'dock') {
+        if (window.__buddyNativeChrome) {
+          window.__companionPopout.dock();
+          continue;
+        }
         const button = document.querySelector('[data-window-control="dock"]');
         if (!button || !button.getBoundingClientRect().height) throw Error('native dock control missing');
         if (button.disabled) throw Error('native dock control stayed disabled after entry');

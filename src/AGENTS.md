@@ -76,7 +76,7 @@ panel::Preferences.settings_target 默认 plugin，兼容旧配置缺省；appea
 
 panel::Preferences.launcher_action 默认 inside，可选 outside/settings；旧配置缺省兼容，appearance 显式校验并保存。state/cdp 在现有只读宿主同步中传递该默认动作，不混入 Ui 全量回写；/panel/return 验证当前宿主后复用原 dock 流程，以展开态返回旧浮窗。
 
-panel_window受限IPC新增window-state/hide/toggle-maximize：隐藏仅切换可见性；放大保存普通frame后使用当前NSScreen.visibleFrame，还原恢复普通frame；回读至__buddyWindowControls。放大期间拒绝网页position/size及拖动/缩放，旧reveal复用隐藏窗口。
+panel_window 使用透明原生标题栏与标准红黄绿按钮，Regular 应用身份和包内 ui/icon.png 供 Dock/应用切换复用；标题栏仅在左侧按钮区域接收点击，右侧网页置顶仍可达。Managed 与 FullScreenPrimary 保留单桌面及系统全屏能力。红色 CloseRequested 沿用 dock，最小化由 AppKit 管理；全屏先退出再收回。window-state 回读实际最小化/放大/全屏、普通 frame、按钮几何和应用图标，普通几何在稳定后更新；旧 hide/reveal/toggle-maximize 继续兼容。放大/全屏期间拒绝网页 position/size 及自定义拖动/缩放；debug 原生测试动作仅操作本窗口，不请求屏幕或鼠标权限。
 
 - `prompt_enhancement.rs`：受限/prompt/enhance请求；验证当前CDP连接及前端请求身份、配置版本，以单次结构化模型调用改写草稿，轮询取消并在返回前再校验，不写宿主、不经Stepwise方向/Jev。模型调用共用model.complete_json及原CLI/三协议实现；完整输入超过200KB报错，不截断。
 

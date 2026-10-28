@@ -283,11 +283,7 @@ function probePage() {
             pin: workbench.querySelector('[data-action=pin]')?.getAttribute('aria-pressed'),
             headerText: workbench.querySelector('.csw-head')?.innerText.trim(),
             headerTitles: workbench.querySelectorAll('.csw-head [title]').length,
-            headerSurfaces: [
-              '[data-window-control=dock]',
-              '[data-window-control=maximize]',
-              '[data-action=pin]',
-            ].map((selector) => {
+            headerSurfaces: ['[data-action=pin]'].map((selector) => {
               const node = workbench.querySelector(selector);
               if (!node) return null;
               const style = getComputedStyle(node);
@@ -768,6 +764,16 @@ try {
         throw Error(
           `Desktop must participate in Mission Control on one movable Space: ${behavior}`,
         );
+      const chrome = telemetry.windowState.nativeChrome;
+      if (
+        chrome?.buttons?.length !== 3 ||
+        !chrome.buttons.every((button) => button.visible && button.reachable) ||
+        !chrome.headerContentReachable ||
+        !chrome.hasAppIcon ||
+        chrome.activationPolicy !== 0 ||
+        telemetry.windowControls.length
+      )
+        throw Error('Desktop must use three native controls and the Palboo app icon');
       spaces.push({ pinned, collectionBehavior: behavior, level: level() });
     };
     if (!(pinnedLevel > 0) || telemetry.workbench.pin !== 'true')
@@ -1279,7 +1285,7 @@ try {
       telemetry.headHeight !== 44 ||
       telemetry.headerBox !== 'border-box' ||
       telemetry.headerFaceVisible ||
-      telemetry.windowControls.join(',') !== 'dock,maximize'
+      telemetry.windowControls.length !== 0
     )
       throw Error('WebKit workbench header differs from the shared desktop controls');
     if (telemetry.errors.length) throw Error(telemetry.errors.join('\n'));

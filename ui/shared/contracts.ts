@@ -265,6 +265,7 @@ declare global {
       snapshot(): unknown;
       destroy(): void;
     };
+    __buddyNativeChrome?: boolean;
     __buddyWindowControls?: {
       destroy?(): void;
       refresh(): void;
@@ -272,6 +273,8 @@ declare global {
       normalSize(): number[] | null;
       update(state: {
         maximized?: boolean;
+        minimized?: boolean;
+        fullscreen?: boolean;
         hidden?: boolean;
         normalFrame?: { width: number; height: number } | null;
       }): void;

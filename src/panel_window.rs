@@ -1,6 +1,6 @@
-// [INPUT]: Tao/Wry、Runtime、Preferences、共享 native_backdrop 与 AppKit 手势。
-// [OUTPUT]: 保留置顶且参与调度中心/Spaces的桌面窗口、开发版曲面效果与空间动画回退、跨屏提起/落回、原生 resize 同步、实时背景和 macOS 手势。
-// [POS]: 窗口子进程实现，被 main.rs 调用；hide保留实例，toggle-maximize临时保存/恢复普通frame并回读网页。
+// [INPUT]: Tao/Wry、Runtime、Preferences、ui/icon.png、共享 native_backdrop 与 AppKit 手势。
+// [OUTPUT]: 原生红黄绿窗口与 Palboo 应用图标、置顶及调度中心/Spaces、跨屏往返和实时材质。
+// [POS]: 窗口子进程实现；系统管理最小化/放大/全屏，关闭沿用收回，普通几何独立于临时窗口状态。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
 #[path = "window_warp.rs"]
@@ -10,9 +10,10 @@ use crate::{config::Paths, lifecycle::Runtime, panel::Preferences};
 use anyhow::Result;
 use serde_json::{Value, json};
 use tao::{
-    dpi::{LogicalSize, PhysicalPosition},
+    dpi::{LogicalPosition, LogicalSize, PhysicalPosition},
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoopBuilder},
+    platform::macos::WindowBuilderExtMacOS,
     window::{Window, WindowBuilder},
 };
 use wry::WebViewBuilder;
@@ -155,9 +156,11 @@ impl WindowTransition {
 }
 
 mod macos {
-    use objc2::MainThreadMarker;
-    use objc2_app_kit::{NSEvent, NSScreen, NSWindow, NSWorkspace};
-    use objc2_foundation::{NSPoint, NSRect, NSSize};
+    use objc2::{AnyThread, MainThreadMarker};
+    use objc2_app_kit::{
+        NSApplication, NSEvent, NSImage, NSScreen, NSWindow, NSWindowButton, NSWorkspace,
+    };
+    use objc2_foundation::{NSData, NSPoint, NSRect, NSSize};
     use objc2_quartz_core::{CATransaction, CATransform3D};
     use serde_json::Value;
     use tao::{platform::macos::WindowExtMacOS, window::Window};
@@ -168,6 +171,107 @@ mod macos {
 
     pub fn reduce_motion() -> bool {
         NSWorkspace::sharedWorkspace().accessibilityDisplayShouldReduceMotion()
+    }
+
+    pub fn install_app_icon() -> anyhow::Result<()> {
+        let mtm = MainThreadMarker::new().expect("window main thread");
+        let data = NSData::with_bytes(include_bytes!("../ui/icon.png"));
+        let image = NSImage::initWithData(NSImage::alloc(), &data)
+            .ok_or_else(|| anyhow::anyhow!("Could not load the Palboo app icon"))?;
+        // 图像来自包内固定 PNG，AppKit 在主线程持有它。
+        unsafe {
+            NSApplication::sharedApplication(mtm).setApplicationIconImage(Some(&image));
+        }
+        Ok(())
+    }
+
+    pub fn maximized(window: &Window) -> bool {
+        window.is_maximized() || window.fullscreen().is_some()
+    }
+
+    pub fn native_controls(window: &Window) -> Value {
+        let native = native_window(window);
+        let buttons: Vec<_> = [NSWindowButton::CloseButton, NSWindowButton::MiniaturizeButton, NSWindowButton::ZoomButton]
+            .into_iter().filter_map(|kind| native.standardWindowButton(kind)).map(|button| {
+                let frame = button.convertRect_toView(button.bounds(), None);
+                let reachable = native.contentView().and_then(|root| unsafe { root.superview() })
+                    .and_then(|parent| parent.hitTest(NSPoint::new(frame.origin.x + frame.size.width / 2., frame.origin.y + frame.size.height / 2.)))
+                    .is_some_and(|hit| hit.isDescendantOf(&button));
+                serde_json::json!({"visible":!button.isHidden(),"enabled":button.isEnabled(),
+                    "reachable":reachable,
+                    "x":frame.origin.x,"y":native.frame().size.height-frame.origin.y-frame.size.height,
+                    "width":frame.size.width,"height":frame.size.height})
+            }).collect();
+        let app =
+            NSApplication::sharedApplication(MainThreadMarker::new().expect("window main thread"));
+        let header_reachable = native.contentView().is_some_and(|root| {
+            unsafe { root.superview() }
+                .and_then(|parent| {
+                    parent.hitTest(NSPoint::new(
+                        native.frame().size.width - 38.,
+                        native.frame().size.height - 34.,
+                    ))
+                })
+                .is_some_and(|hit| hit.isDescendantOf(&root))
+        });
+        serde_json::json!({"buttons":buttons,"activationPolicy":app.activationPolicy().0,
+            "hasAppIcon":app.applicationIconImage().is_some(),"headerContentReachable":header_reachable})
+    }
+
+    pub fn enable_window_controls(window: &Window, enabled: bool) {
+        for kind in [
+            NSWindowButton::CloseButton,
+            NSWindowButton::MiniaturizeButton,
+            NSWindowButton::ZoomButton,
+        ] {
+            if let Some(button) = native_window(window).standardWindowButton(kind) {
+                button.setEnabled(enabled);
+            }
+        }
+    }
+
+    pub fn position_window_controls(window: &Window) {
+        if window.fullscreen().is_some() {
+            return;
+        }
+        let native = native_window(window);
+        if let Some(button) = native.standardWindowButton(NSWindowButton::CloseButton) {
+            let frame = button.convertRect_toView(button.bounds(), None);
+            let top = native.frame().size.height - frame.origin.y - frame.size.height;
+            // Wry 替换 Tao 的 contentView 后不再触发其 drawRect 布局；沿用标准按钮与动作。
+            if (frame.origin.x - 26.).abs() > 0.5 || (top - 27.).abs() > 0.5 {
+                let Some(parent) = (unsafe { button.superview() }) else {
+                    return;
+                };
+                let Some(container) = (unsafe { parent.superview() }) else {
+                    return;
+                };
+                // 仅原生按钮区域接收标题栏点击，右侧网页置顶和拖动条保持可达。
+                container.setFrame(NSRect::new(
+                    NSPoint::new(0., native.frame().size.height - 56.),
+                    NSSize::new(100., 56.),
+                ));
+                for (index, kind) in [
+                    NSWindowButton::CloseButton,
+                    NSWindowButton::MiniaturizeButton,
+                    NSWindowButton::ZoomButton,
+                ]
+                .into_iter()
+                .enumerate()
+                {
+                    if let Some(button) = native.standardWindowButton(kind) {
+                        let origin = parent.convertPoint_fromView(
+                            NSPoint::new(
+                                26. + index as f64 * 20.,
+                                native.frame().size.height - 27. - button.frame().size.height,
+                            ),
+                            None,
+                        );
+                        button.setFrameOrigin(origin);
+                    }
+                }
+            }
+        }
     }
 
     pub fn set_window_alpha(window: &Window, value: f64) {
@@ -190,18 +294,6 @@ mod macos {
             height: frame.size.height,
             alpha: native.alphaValue(),
         }
-    }
-
-    pub fn maximized_pose(window: &Window) -> Option<super::Pose> {
-        let frame = native_window(window).screen()?.visibleFrame();
-        Some(super::Pose {
-            x: frame.origin.x,
-            y: frame.origin.y,
-            width: frame.size.width,
-            height: frame.size.height,
-            scale: 1.,
-            alpha: 1.,
-        })
     }
 
     pub fn apply_pose(window: &Window, pose: super::Pose, backdrop: &Backdrop) {
@@ -393,7 +485,11 @@ fn publish_window_controls(
     normal: Option<Pose>,
     hidden: bool,
 ) {
-    let state = json!({"maximized":normal.is_some(),"hidden":hidden,"collectionBehavior":macos::native_window(window).collectionBehavior().bits(),"normalFrame":normal.map(|p|json!({"x":p.x,"y":p.y,"width":p.width,"height":p.height}))});
+    let frame = macos::pose(window);
+    let state = json!({"maximized":macos::maximized(window),"minimized":window.is_minimized(),"fullscreen":window.fullscreen().is_some(),"hidden":hidden,"nativeChrome":macos::native_controls(window),"collectionBehavior":macos::native_window(window).collectionBehavior().bits(),"normalFrame":normal.map(|p|json!({"x":p.x,"y":p.y,"width":p.width,"height":p.height}))});
+    let mut state = state;
+    state["visible"] = json!(window.is_visible());
+    state["frame"] = json!({"X":frame.x,"Y":frame.y,"Width":frame.width,"Height":frame.height});
     let _ = webview.evaluate_script(&format!("window.__buddyWindowControls?.update({state});"));
 }
 
@@ -414,8 +510,9 @@ pub fn run_surface(
     let mut event_loop = EventLoopBuilder::<Value>::with_user_event().build();
     {
         use tao::platform::macos::{ActivationPolicy, EventLoopExtMacOS};
-        event_loop.set_activation_policy(ActivationPolicy::Accessory);
+        event_loop.set_activation_policy(ActivationPolicy::Regular);
     }
+    macos::install_app_icon()?;
     let size = (prefs.ui.width + 24., prefs.ui.height + 24.);
     let window = WindowBuilder::new()
         .with_title(if crate::assets::development().is_some() {
@@ -423,7 +520,12 @@ pub fn run_surface(
         } else {
             "Palboo"
         })
-        .with_decorations(false)
+        .with_decorations(true)
+        .with_titlebar_transparent(true)
+        .with_title_hidden(true)
+        .with_fullsize_content_view(true)
+        .with_traffic_light_inset(LogicalPosition::new(26., 30.))
+        .with_automatic_window_tabbing(false)
         .with_transparent(true)
         .with_focused(false)
         .with_visible(false)
@@ -444,7 +546,11 @@ pub fn run_surface(
                 | NSWindowCollectionBehavior::Stationary
                 | NSWindowCollectionBehavior::CanJoinAllSpaces
                 | NSWindowCollectionBehavior::MoveToActiveSpace);
-        native.setCollectionBehavior(behavior | NSWindowCollectionBehavior::Managed);
+        native.setCollectionBehavior(
+            behavior
+                | NSWindowCollectionBehavior::Managed
+                | NSWindowCollectionBehavior::FullScreenPrimary,
+        );
     }
     if let Some(position) = prefs.position {
         window.set_outer_position(PhysicalPosition::new(position.x as i32, position.y as i32));
@@ -496,13 +602,14 @@ pub fn run_surface(
         // 浮窗不抢占焦点，也可能暂时被遮挡；投影与租约不能随 WebKit 后台页面一起暂停。
         .with_background_throttling(wry::BackgroundThrottlingPolicy::Disabled)
         .with_initialization_script(format!(
-            "window.__buddyNativeSurface = true; window.__companionNativeMotion = true; window.__companionNativeBackdrop = true; window.__companionNativeGlass = {};",
+            "window.__buddyNativeSurface = true; window.__buddyNativeChrome = true; window.__companionNativeMotion = true; window.__companionNativeBackdrop = true; window.__companionNativeGlass = {};",
             macos::glass_available()
         ));
     let webview = builder.build(&window)?;
 
     let mut gesture: Option<macos::Gesture> = None;
     let backdrop = macos::Backdrop::new(&window);
+    macos::position_window_controls(&window);
     let mut reported_glass_style = None;
     let mut window_transition: Option<WindowTransition> = None;
     let mut return_origin: Option<Pose> = None;
@@ -518,11 +625,18 @@ pub fn run_surface(
     let mut motion_pose: Option<Pose> = None;
     let mut warp_source = macos::native_window(&window).frame().size;
     let mut next_motion_frame = std::time::Instant::now();
-    let mut normal_window_pose: Option<Pose> = None;
+    let mut normal_window_pose = Some(macos::pose(&window));
+    let mut normal_pose_update: Option<std::time::Instant> = None;
+    let mut controls_enabled = true;
+    let mut last_window_state = (false, false, false);
+    let mut return_after_fullscreen = false;
+    let mut deferred_return: Option<Value> = None;
+    let event_loop_proxy = event_loop.create_proxy();
     let mut window_hidden = true;
     let mut scope_hidden = false;
     event_loop.run(move |event, _, control| {
         *control = ControlFlow::Wait;
+        macos::position_window_controls(&window);
         match event {
             Event::UserEvent(message) => match message["kind"].as_str().unwrap_or_default() {
                 "backdrop" => {
@@ -553,15 +667,38 @@ pub fn run_surface(
                 }
                 "toggle-maximize" => {
                     if window_transition.is_none() && gesture.is_none() {
-                        if let Some(normal) = normal_window_pose.take() {
-                            macos::apply_pose(&window, normal, &backdrop);
-                            keep_on_screen(&window);
-                        } else if let Some(target) = macos::maximized_pose(&window) {
-                            normal_window_pose = Some(macos::pose(&window));
-                            macos::apply_pose(&window, target, &backdrop);
+                        if window.fullscreen().is_some() {
+                            window.set_fullscreen(None);
+                        } else if window.is_maximized() {
+                            if let Some(normal) = normal_window_pose {
+                                macos::apply_pose(&window, normal, &backdrop);
+                                keep_on_screen(&window);
+                            }
+                        } else {
+                            window.set_maximized(true);
                         }
                     }
                     publish_window_controls(&webview, &window, normal_window_pose, window_hidden);
+                }
+                "minimize" if window_transition.is_none() && gesture.is_none() => window.set_minimized(true),
+                // 合成原生验收通过真实系统按钮发送动作，不申请鼠标/屏幕权限。
+                #[cfg(debug_assertions)]
+                "native-fullscreen" if window_transition.is_none() && gesture.is_none() => {
+                    window.set_fullscreen(if window.fullscreen().is_some() { None } else { Some(tao::window::Fullscreen::Borderless(None)) });
+                }
+                #[cfg(debug_assertions)]
+                "native-window-button" if window_transition.is_none() && gesture.is_none() => {
+                    use objc2_app_kit::NSWindowButton;
+                    let button = match message["button"].as_str() {
+                        Some("close") => Some(NSWindowButton::CloseButton),
+                        Some("minimize") => Some(NSWindowButton::MiniaturizeButton),
+                        Some("zoom") => Some(NSWindowButton::ZoomButton),
+                        _ => None,
+                    };
+                    if let Some(button) = button.and_then(|kind| macos::native_window(&window).standardWindowButton(kind)) {
+                        // 只调用本窗口已安装的三个标准系统按钮。
+                        unsafe { button.performClick(None); }
+                    }
                 }
                 "reveal" => {
                     window.set_minimized(false);
@@ -605,6 +742,13 @@ pub fn run_surface(
                     }
                 }
                 "return" => {
+                    if window.fullscreen().is_some() {
+                        // 收回命令在系统退出全屏后重放，避免移动全屏 Space 中的窗口。
+                        window.set_fullscreen(None);
+                        deferred_return = Some(message);
+                        *control = ControlFlow::Wait;
+                        return;
+                    }
                     warp_source = macos::native_window(&window).frame().size;
                     let from = motion_pose.unwrap_or_else(|| macos::pose(&window));
                     return_origin = Some(Pose { scale: 1., alpha: 1., ..from });
@@ -618,6 +762,7 @@ pub fn run_surface(
                     }
                 }
                 "cancel-return" => {
+                    deferred_return = None;
                     if motion_pose.is_none() { warp_source = macos::native_window(&window).frame().size; }
                     if let Some(target) = return_origin.take() {
                         let from = motion_pose.unwrap_or_else(|| macos::pose(&window));
@@ -646,7 +791,7 @@ pub fn run_surface(
                         window_transition = Some(WindowTransition::new(from, Pose { alpha: 0., ..from }, Motion::Close, false));
                     }
                 }
-                "drag" | "resize" if normal_window_pose.is_some() => {}
+                "drag" | "resize" if macos::maximized(&window) => {}
                 "drag" | "resize" => {
                     if let Some(warp) = &mut warp { warp.reset(); }
                     current_bend = [0., 0.];
@@ -668,13 +813,13 @@ pub fn run_surface(
                     }
                 }
                 "pin" => window.set_always_on_top(message["value"] == true),
-                "position" if normal_window_pose.is_some() => {}
+                "position" if macos::maximized(&window) => {}
                 "position" => {
                     if let (Some(x), Some(y)) = (message["x"].as_f64(), message["y"].as_f64()) {
                         window.set_outer_position(PhysicalPosition::new(x as i32, y as i32));
                     }
                 }
-                "size" if window_transition.is_some() || normal_window_pose.is_some() => {
+                "size" if window_transition.is_some() || macos::maximized(&window) => {
                     let _ = webview.evaluate_script(&format!("window.__companionPopout?.resized({});", message["id"]));
                 }
                 "size" => {
@@ -702,26 +847,46 @@ pub fn run_surface(
             Event::WindowEvent {
                 event: WindowEvent::Resized(_),
                 ..
-            } => backdrop.resize_viewport(
-                &window,
-                gesture.as_ref().is_some_and(macos::Gesture::is_resize),
-            ),
+            } => {
+                backdrop.resize_viewport(&window, true);
+                normal_pose_update = Some(std::time::Instant::now() + std::time::Duration::from_millis(200));
+                publish_window_controls(&webview, &window, normal_window_pose, window_hidden);
+            }
             Event::WindowEvent {
                 event: WindowEvent::Moved(position),
                 ..
             } => {
+                normal_pose_update = Some(std::time::Instant::now() + std::time::Duration::from_millis(200));
                 let _ = webview.evaluate_script(&format!(
                     "window.__companionPopout?.moved({});",
                     json!({"x":position.x,"y":position.y})
                 ));
+                publish_window_controls(&webview, &window, normal_window_pose, window_hidden);
             }
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
                 ..
             } => {
-                let _ = webview.evaluate_script("window.__companionPopout?.dock();");
+                if window.fullscreen().is_some() {
+                    return_after_fullscreen = true;
+                    window.set_fullscreen(None);
+                } else {
+                    let _ = webview.evaluate_script("window.__companionPopout?.dock();");
+                }
             }
             _ => {}
+        }
+        let current_window_state = (macos::maximized(&window), window.is_minimized(), window.fullscreen().is_some());
+        if current_window_state != last_window_state {
+            last_window_state = current_window_state;
+            publish_window_controls(&webview, &window, normal_window_pose, window_hidden);
+        }
+        if return_after_fullscreen && window.fullscreen().is_none() {
+            return_after_fullscreen = false;
+            let _ = webview.evaluate_script("window.__companionPopout?.dock();");
+        }
+        if window.fullscreen().is_none() && let Some(message) = deferred_return.take() {
+            let _ = event_loop_proxy.send_event(message);
         }
         if !matches!(*control, ControlFlow::Exit)
             && let Some(active) = &gesture
@@ -783,6 +948,23 @@ pub fn run_surface(
                 *control = ControlFlow::WaitUntil(
                     std::time::Instant::now() + std::time::Duration::from_millis(16),
                 );
+            }
+        }
+        let enabled = window_transition.is_none() && return_origin.is_none() && gesture.is_none();
+        if controls_enabled != enabled {
+            controls_enabled = enabled;
+            macos::enable_window_controls(&window, enabled);
+        }
+        if let Some(deadline) = normal_pose_update {
+            if std::time::Instant::now() >= deadline {
+                normal_pose_update = None;
+                // 系统 zoom 会逐步改变 frame；只在几何稳定后接纳普通尺寸。
+                if enabled && !macos::maximized(&window) && !window.is_minimized() {
+                    normal_window_pose = Some(macos::pose(&window));
+                }
+            } else if !matches!(*control, ControlFlow::Exit) {
+                let next = match *control { ControlFlow::WaitUntil(next) => next.min(deadline), _ => deadline };
+                *control = ControlFlow::WaitUntil(next);
             }
         }
     })

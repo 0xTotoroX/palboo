@@ -12,7 +12,7 @@
 
 [PROTOCOL]: 结构、职责或接口变化时更新本文；父级描述受影响时同步父级地图。
 
-桌面工作台不再显示胶囊眼睛；顶部右侧显示横线收回聊天、放大/还原和置顶，Alt+Enter 仍可收回。共用 workspace/window-controls；隐藏后reveal显示同一窗口，放大期间不保存普通尺寸。
+桌面工作台不显示胶囊眼睛；顶部左侧为 AppKit 原生红黄绿按钮，右侧保留置顶，Alt+Enter 仍可收回。workspace/window-controls 读取 __buddyNativeChrome 后省略重复网页按钮；旧窗口运行时保留原控件。最小化/放大/全屏不保存临时尺寸，恢复复用同一窗口和功能节点；Dock/应用切换图标由 Rust 复用产品源图。
 
 main 的公共标签/标题与 FeatureView 正文读取同一全局字体快照，原生窗口几何/交接不改动。
 
