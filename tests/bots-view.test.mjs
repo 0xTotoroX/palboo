@@ -47,6 +47,7 @@ test('Bot list keeps messages opt-in and animates only visible active avatars', 
       window.state.snapshot.catalog.stale = true;
       window.render();
     });
+    await page.waitForFunction(() => document.querySelector('.palboo-bot-select')?.disabled);
     assert.equal(
       await rows.first().getByRole('button', { name: '大总管', exact: true }).isDisabled(),
       true,

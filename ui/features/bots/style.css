@@ -1,5 +1,5 @@
 /* [INPUT]: Existing surface semantic colors and font size.
- * [OUTPUT]: Compact Bot selectors with status and existing composer actions.
+ * [OUTPUT]: Compact Bot selectors, panel-bounded toolbar hints and existing composer actions.
  * [POS]: Feature styles only. [PROTOCOL]: Keep ui/features/AGENTS.md in sync. */
 .palboo-bots {
   display: grid;
@@ -228,14 +228,17 @@
   opacity: 0.45;
 }
 .palboo-bot-toolbar {
+  position: relative;
   display: flex;
+  flex-wrap: wrap;
+  min-width: 0;
   justify-content: flex-end;
   align-items: center;
   gap: 4px;
 }
 .palboo-bot-open {
-  position: relative;
   display: inline-flex;
+  flex: none;
   align-items: center;
   justify-content: center;
   min-width: var(--buddy-action-hit-size, 28px);
@@ -245,6 +248,7 @@
   border-radius: 4px;
   background: transparent;
   color: var(--muted, inherit);
+  font: inherit;
   cursor: pointer;
 }
 .palboo-bot-open:hover {
@@ -254,6 +258,7 @@
 .palboo-bot-open .palboo-bot-hint-text {
   left: auto;
   right: 0;
+  overflow-wrap: normal;
 }
 .palboo-bot-history {
   min-height: var(--buddy-action-hit-size, 28px);
