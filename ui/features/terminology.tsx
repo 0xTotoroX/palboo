@@ -1,10 +1,12 @@
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: 术语状态、当前聊天涉及编号、窗口阅读状态、受限操作与可选卡片滚动跟随。
- * [OUTPUT]: 术语积木、详情、收藏及已掌握；可选的点击定位通过受限操作回到宿主执行。
+ * [OUTPUT]: 术语积木、标题栏图标筛选、详情、收藏及已掌握；可选的点击定位通过受限操作回到宿主执行。
  * [POS]: 仅消费后台投影，不采集或改写宿主聊天。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { useState, useRef, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { Icon } from '../shared/icons/react';
 import { createTermPopover } from '../terminology/popover.js';
 import { resolveTypography } from '../shared/typography';
 import { sessionTypography } from '../codex/typography.js';
@@ -42,7 +44,9 @@ export function TerminologyView({
   locked,
   action,
   followScroll = false,
+  headerActions,
 }: {
+  headerActions?: HTMLElement;
   state: TermData;
   reading: Reading;
   locked: boolean;
@@ -106,31 +110,45 @@ export function TerminologyView({
     }
   }, [term, state.preferences, state.appearance, state.context, locked, reveal]);
 
+  const filters = (
+    <nav className="palboo-term-filters" aria-label={tr('术语范围')}>
+      <style>{`
+        .palboo-term-filters{display:flex;align-items:center;gap:4px}
+        .palboo-term-filters button{display:grid;place-items:center;flex:none;width:28px;height:28px;min-height:28px;padding:5px;border:0;border-radius:5px;background:transparent;color:inherit;opacity:.6;cursor:pointer}
+        .palboo-term-filters button[aria-pressed=true]{opacity:1;background:transparent}
+        .palboo-term-filters button:hover{background:color-mix(in srgb,currentColor 8%,transparent)}
+        .palboo-term-filters button:focus-visible{outline:1px solid currentColor;outline-offset:1px;opacity:1}
+        .palboo-term-filters svg{display:block;width:18px;height:18px}
+      `}</style>
+      {[
+        ['current', tr('当前聊天'), 'connection'],
+        ['favorites', tr('收藏'), 'bookmark'],
+        ['mastered', tr('已掌握'), 'check'],
+      ].map(([id, label, icon]) => (
+        <button
+          type="button"
+          key={id}
+          title={label}
+          aria-label={label}
+          aria-pressed={filter === id}
+          onClick={() => {
+            const f = id as typeof filter;
+            setFilter(f);
+            reading.termsFilter = f;
+            setSelected('');
+            reading.termsSelected = '';
+          }}
+        >
+          <Icon name={icon} />
+        </button>
+      ))}
+    </nav>
+  );
   return (
     <div className="term-module" ref={module}>
-      <style>{`.term-module{padding:12px 14px;min-width:0;color:var(--ink);font-size:inherit;line-height:inherit}.term-module nav{display:flex;gap:18px;margin-bottom:16px;flex-wrap:wrap}.term-module nav button{border:0;background:none;color:var(--muted);padding:4px 0;font:inherit;cursor:pointer}.term-module nav button[aria-pressed=true]{color:var(--ink);font-weight:600}.term-bricks{display:flex;flex-wrap:wrap;gap:8px;align-content:flex-start}.term-brick{border:1px solid var(--line);border-radius:8px;padding:6px 10px;color:var(--ink);background:var(--surface);font:inherit;line-height:1.4;cursor:pointer;max-width:100%;overflow-wrap:anywhere;transition:background 120ms,transform 120ms}.term-brick:active{transform:scale(.97)}.term-brick[aria-pressed=true]{background:var(--hover);border-color:var(--muted)}.term-brick[data-mastered=true]{color:var(--muted)}.term-module .term-status{font-size:var(--feature-status-font,.875em);line-height:1.5;color:var(--feature-status-color,var(--muted));margin:12px 0;overflow-wrap:anywhere}.term-module button:focus-visible{outline:2px solid currentColor;outline-offset:3px}@media(prefers-reduced-motion:reduce){.term-brick{transition:none}}`}</style>
-      <nav aria-label={tr('术语范围')}>
-        {[
-          ['current', tr('当前聊天')],
-          ['favorites', tr('收藏')],
-          ['mastered', tr('已掌握')],
-        ].map(([id, label]) => (
-          <button
-            type="button"
-            key={id}
-            aria-pressed={filter === id}
-            onClick={() => {
-              const f = id as typeof filter;
-              setFilter(f);
-              reading.termsFilter = f;
-              setSelected('');
-              reading.termsSelected = '';
-            }}
-          >
-            {label}
-          </button>
-        ))}
-      </nav>
+      <style>{`.term-module{padding:12px 14px;min-width:0;color:var(--ink);font-size:inherit;line-height:inherit}.term-bricks{display:flex;flex-wrap:wrap;gap:8px;align-content:flex-start}.term-brick{border:1px solid var(--line);border-radius:8px;padding:6px 10px;color:var(--ink);background:var(--surface);font:inherit;line-height:1.4;cursor:pointer;max-width:100%;overflow-wrap:anywhere;transition:background 120ms,transform 120ms}.term-brick:active{transform:scale(.97)}.term-brick[aria-pressed=true]{background:var(--hover);border-color:var(--muted)}.term-brick[data-mastered=true]{color:var(--muted)}.term-module .term-status{font-size:var(--feature-status-font,.875em);line-height:1.5;color:var(--feature-status-color,var(--muted));margin:12px 0;overflow-wrap:anywhere}.term-module button:focus-visible{outline:2px solid currentColor;outline-offset:3px}@media(prefers-reduced-motion:reduce){.term-brick{transition:none}}`}</style>
+      <style>{`.feature-body > .term-module{padding:0}.term-module > .palboo-term-filters{margin-bottom:12px}`}</style>
+      {headerActions ? createPortal(filters, headerActions) : filters}
       <div className="term-bricks">
         {terms.map((t) => (
           <button

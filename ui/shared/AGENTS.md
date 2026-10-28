@@ -2,6 +2,8 @@
 
 > L2 | 父级：[AGENTS.md](../../AGENTS.md)
 
+- `demo-state.ts`：设置与网站共用的完整合成投影和带修订校验的内存任务适配器；只包含示例数据及本页编辑，不读取真实聊天、配置凭据或调用模型。未知动作拒绝，不回落到业务服务；示例原文随语言切换，访客编辑保留。
+
 - `features.ts`：按语言读取的功能名称及共享图标映射、默认字号与旧偏移回退、owner、递归分栏与标签组布局（叶子可选 collapsed，缺省展开）、传输与临时阅读状态类型，closing/disable-ready 用于关闭前捕获；Reading.modelPresetDraft 保存预设新增/改名的 ID、名称、原始选择及 creating，仅用于内存交接。
 - `contracts.ts`：设置、字体、上下文、投影和受限命令类型；presentationError 区分保存成功后的窗口失败。
 - `constants.js`：注入实例 DOM 标识、尺寸、时间和开发存储键。

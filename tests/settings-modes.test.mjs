@@ -1126,8 +1126,11 @@ test(
 
       await page.getByRole('link', { name: '下一步', exact: true }).click();
       const demoWrites = writes.length;
-      await preview.getByRole('button', { name: /完善实现方案/ }).click();
-      assert.equal(await preview.getByRole('status').textContent(), '完善实现方案');
+      await preview.getByRole('button', { name: /拆解第一版/ }).click();
+      assert.equal(
+        await preview.getByRole('status').textContent(),
+        '请把作品集第一版拆解成两天内可完成的具体步骤。',
+      );
       assert.equal(writes.length, demoWrites, 'sample interactions do not write or send');
       await page.getByRole('link', { name: '模型服务', exact: true }).click();
       await model.fill('新的预览模型草稿');
@@ -1283,6 +1286,20 @@ test(
               previewOrder.height <= budget,
               `${colorScheme} ${width} ${id}: preview ${previewOrder.height}px exceeds ${budget}px`,
             );
+            const escapedContent = await preview
+              .locator('[data-settings-feature]:visible')
+              .evaluateAll((nodes) =>
+                nodes
+                  .filter((node) => {
+                    const frame = node.getBoundingClientRect();
+                    const content = node.shadowRoot
+                      .querySelector('.feature-view')
+                      .getBoundingClientRect();
+                    return content.bottom > frame.bottom + 1 || content.right > frame.right + 1;
+                  })
+                  .map((node) => node.dataset.settingsFeature),
+              );
+            assert.deepEqual(escapedContent, [], `${id}: real content stays inside the preview`);
             previewGeometry.push({
               theme: colorScheme,
               width,
@@ -1386,11 +1403,11 @@ test(
         JSON.stringify(previewGeometry, null, 2),
       );
       const botWrites = writes.length;
-      await page
-        .getByRole('group', { name: 'Bot 选择示例' })
+      await preview
+        .locator('[data-settings-feature=bots]')
         .getByRole('button', { name: '代码审查', exact: true })
         .click();
-      assert.ok((await preview.getByRole('status').textContent()).includes('「代码审查」'));
+      assert.ok((await preview.locator('.preview-draft').textContent()).includes('「代码审查」'));
       assert.equal(writes.length, botWrites, 'Bot preview never calls a Bot or saves settings');
       await category('appearance');
       await preview.getByRole('region', { name: '外观效果', exact: true }).waitFor();

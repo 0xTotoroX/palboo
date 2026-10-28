@@ -38,7 +38,7 @@
   min-height: 0;
 }
 .model-favorites {
-  flex: 1;
+  flex: 0 1 auto;
   min-height: 0;
   overflow: auto;
 }
@@ -305,6 +305,7 @@
   color: var(--muted);
 }
 .model-status-row {
+  flex: none;
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
@@ -333,6 +334,7 @@
 }
 .model-usage {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-end;
   gap: 8px;
   color: inherit;

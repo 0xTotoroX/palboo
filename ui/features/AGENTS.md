@@ -18,6 +18,8 @@
 
 terminology 内容字号继承共享 feature-session；独立窗口中的点击浮卡直接消费后台 appearance 字体快照，不能用独立窗口默认字体代替宿主。
 
+术语当前聊天、收藏、已掌握筛选使用共享连接/书签/勾号图标，18px 图形、至少28px点击区，名称放在悬停与无障碍标签；通过 headerActions 复用既有标题栏，不在正文前增加筛选行。真实 feature-body 已提供内边距时，term-module 不再重复留白；没有标题槽的独立示例才保留紧凑图标行与自身边距。筛选与词条阅读状态保持原逻辑，词条名称和释义仍是正文。
+
 独立常用语由 quick-prompts.js 管理点击与投影，复用 next/quick-prompts 编辑器与临时草稿；content通过owner保护的quick-prompts action保存列表及expectedRevision，projected只适配回调与禁用状态。保存回读同步当前投影的设置和 quickPromptToken，立即可用；不恢复旧聊天快照。
 
 - [token-meter/AGENTS.md](token-meter/AGENTS.md)：独立可插拔测速读数；组合层通过ModelView可选footer接入，不参与模型操作或持久化。

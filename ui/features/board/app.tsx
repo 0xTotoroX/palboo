@@ -1,6 +1,6 @@
 import { useLocale } from '../../shared/use-locale';
 import { tr } from '../../shared/i18n.js';
-/* [INPUT]: Task API, native window events, drag/drop components and optional surface header slot.
+/* [INPUT]: Task API, native window events, drag/drop components, optional surface header slot and polling policy.
  * [OUTPUT]: Task groups, inline creation/removal and compact tabs or wide columns.
  * [POS]: Task-only application entry; no Codex/model dependencies.
  * [PROTOCOL]: Keep board/AGENTS.md in sync. */
@@ -32,7 +32,9 @@ export function Board({
   locked = false,
   view,
   headerActions,
+  poll = true,
 }: {
+  poll?: boolean;
   headerActions?: HTMLElement;
   request: TaskRequest;
   embedded?: boolean;
@@ -40,7 +42,7 @@ export function Board({
   view?: BoardView;
 }) {
   useLocale();
-  const { state, error, busy: taskBusy, command } = useTasks(true, request);
+  const { state, error, busy: taskBusy, command } = useTasks(poll, request);
   const busy = taskBusy || locked;
   const element = useRef<HTMLDivElement>(null);
   const [narrow, setNarrow] = useState(false);

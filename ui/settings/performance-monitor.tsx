@@ -1,7 +1,7 @@
 import { useLocale } from '../shared/use-locale';
 import { getLocale, tr } from '../shared/i18n.js';
 /* [INPUT]: 性能设置传入的样本、采样与连接状态，performance-history 的有界历史。
- * [OUTPUT]: CPU/内存走势、宿主工作明细和整页长任务轨迹；关闭时清空历史。
+ * [OUTPUT]: CPU/内存走势、宿主工作明细和整页长任务轨迹；关闭时清空历史并移除仪表。
  * [POS]: 设置页内的纯展示监视窗，无独立计时器、请求或动画循环。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { useEffect, useId, useState } from 'react';
@@ -137,6 +137,7 @@ export function PerformanceMonitor({
     }
     if (sample) setHistory((previous) => appendPerformancePoint(previous, sample));
   }, [enabled, sample]);
+  if (!enabled) return null;
   // 保存失败或断连时不把上次成功读数伪装成当前数据；历史只留作参考。
   const current = enabled && !failed ? sample : null;
   const cpu = numberOrNull(current?.backend.cpuPercent);

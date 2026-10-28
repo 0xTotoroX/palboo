@@ -6,6 +6,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 import { readFile } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
 import { chromium } from 'playwright';
 
 test('settings previews show actionable models and visible materials without service writes', async () => {
@@ -35,6 +37,8 @@ return <div className="settings-app"><LayoutPreview appearance features={feature
 <button onClick={()=>setModel(s=>({...s,snapshot:{...s.snapshot,usage:[{minutes:10080,remainingPercent:38,resetsAt:null}]}}))}>更新额度</button>
 <button onClick={()=>setModel(s=>({...s,snapshot:{...s.snapshot,usage:null}}))}>清空额度</button>
 <SettingsPreview page="board" form={null} tasks={{store:{boardEnabled:true}}} live/>
+<SettingsPreview page="bots" form={{grokbotEnabled:true}} live/>
+<SettingsPreview page="next" form={{maxItems:2}} live/>
 <FeatureSwitch name="大纲" checked disabled onChange={()=>{}}/>
 <label htmlFor="choice">示例选择</label><NativeSelect id="choice" defaultValue="a"><option value="a">选项 A</option><option value="b">选项 B</option></NativeSelect>
 <div className="settings-choice"><button aria-pressed="true">已选</button><button aria-pressed="false">未选</button></div>
@@ -43,6 +47,21 @@ return <div className="settings-app"><LayoutPreview appearance features={feature
       bundle: true,
       write: false,
       jsx: 'automatic',
+      plugins: [
+        {
+          name: 'inline-css',
+          setup(b) {
+            b.onResolve({ filter: /\.css\?inline$/ }, (a) => ({
+              path: resolve(dirname(a.importer), a.path.split('?')[0]),
+              namespace: 'inline-css',
+            }));
+            b.onLoad({ filter: /.*/, namespace: 'inline-css' }, (a) => ({
+              contents: readFileSync(a.path, 'utf8'),
+              loader: 'text',
+            }));
+          },
+        },
+      ],
       define: { 'process.env.NODE_ENV': '"production"' },
     })
   ).outputFiles[0].text;
@@ -163,11 +182,15 @@ return <div className="settings-app"><LayoutPreview appearance features={feature
           `${width}px model controls fit the preview`,
         );
         if (width === 360) {
-          const tabs = page.getByRole('group', { name: '看板分组预览' });
+          const tabs = page.locator('[data-settings-feature=board] .stage-tabs');
           await tabs.getByRole('button', { name: '进行中' }).click();
-          const visible = page.locator('.preview-board > div:visible');
+          const visible = page.locator('[data-settings-feature=board] .board-column:visible');
           assert.equal(await visible.count(), 1);
-          assert.match(await visible.textContent(), /进行中/);
+          assert.equal(
+            await tabs.getByRole('button', { name: '进行中' }).getAttribute('aria-pressed'),
+            'true',
+          );
+          assert.match(await visible.textContent(), /完成首页布局/);
         }
         assert.equal(
           await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
@@ -176,6 +199,22 @@ return <div className="settings-app"><LayoutPreview appearance features={feature
         );
       }
     }
+    const bots = page.locator('[data-preview-kind=bots] [data-settings-feature=bots]');
+    assert.equal(await bots.locator('.palboo-bot').count(), 3);
+    assert.equal(await bots.locator('.palboo-bot-toolbar').count(), 0);
+    const history = bots.getByRole('button', { name: '最近消息', exact: true });
+    assert.equal((await history.textContent()).trim(), '');
+    await history.click();
+    await bots.locator('.palboo-bot-message').first().waitFor();
+    await bots.getByRole('button', { name: '返回 Bot 列表', exact: true }).click();
+    const reviewer = bots.getByRole('group', { name: '代码审查', exact: true });
+    await reviewer.hover();
+    await reviewer.getByRole('button', { name: '填入停止请求' }).click();
+    assert.equal(await reviewer.getByRole('button', { name: '追问', exact: true }).count(), 1);
+    const next = page.locator('[data-preview-kind=next] [data-settings-feature=next]');
+    assert.equal(await next.locator('.csw-row').count(), 2);
+    await next.locator('.csw-row').first().click();
+    await page.locator('[data-preview-kind=next] .preview-draft').waitFor();
     assert.deepEqual(await page.evaluate(() => window.requests), []);
     assert.deepEqual(errors, []);
   } finally {

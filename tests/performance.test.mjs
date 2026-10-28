@@ -193,6 +193,11 @@ function App(){const[active,setActive]=useState(true);window.setActive=setActive
     await page.waitForFunction(() => !document.querySelector('[role=switch]').disabled);
     await page.clock.runFor(10000);
     assert.equal(samples, 0);
+    assert.equal(
+      await page.locator('.performance-dashboard').count(),
+      0,
+      'disabled monitoring does not render empty instruments',
+    );
     await monitor.click();
     await page.waitForFunction(
       () => document.querySelectorAll('[role=switch]')[1].getAttribute('aria-checked') === 'true',
@@ -260,7 +265,11 @@ function App(){const[active,setActive]=useState(true);window.setActive=setActive
       () => document.querySelectorAll('[role=switch]')[1].getAttribute('aria-checked') === 'false',
     );
     const end = samples;
-    await page.getByRole('img', { name: /Palboo 后台 CPU.*0个采样点/ }).waitFor();
+    assert.equal(
+      await page.locator('.performance-dashboard').count(),
+      0,
+      'turning off monitoring removes instruments',
+    );
     await page.clock.runFor(15000);
     assert.equal(samples, end);
   } finally {

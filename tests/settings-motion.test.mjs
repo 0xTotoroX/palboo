@@ -6,6 +6,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 import { readFile, mkdir } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
 import { chromium } from 'playwright';
 import { emulateMedia, finishAnimations } from './browser-motion.mjs';
 import { fixtureSettings } from './fixtures.mjs';
@@ -37,6 +39,21 @@ return <div className="settings-app" ref={ref}><div style={{width:430}}><Setting
         bundle: true,
         write: false,
         jsx: 'automatic',
+        plugins: [
+          {
+            name: 'inline-css',
+            setup(b) {
+              b.onResolve({ filter: /\.css\?inline$/ }, (a) => ({
+                path: resolve(dirname(a.importer), a.path.split('?')[0]),
+                namespace: 'inline-css',
+              }));
+              b.onLoad({ filter: /.*/, namespace: 'inline-css' }, (a) => ({
+                contents: readFileSync(a.path, 'utf8'),
+                loader: 'text',
+              }));
+            },
+          },
+        ],
         define: { 'process.env.NODE_ENV': '"production"' },
       })
     ).outputFiles[0].text;
@@ -95,9 +112,11 @@ return <div className="settings-app" ref={ref}><div style={{width:430}}><Setting
       await page.addScriptTag({ content: script });
       const preview = page.locator('.preview-frame');
       await preview.waitFor();
-      const rect = await preview.boundingBox();
+
       const tabs = page.getByRole('group', { name: '功能预览' });
-      await preview.getByRole('button', { name: /完善实现方案/ }).click();
+      await preview.getByRole('button', { name: /拆解第一版/ }).click();
+      await preview.locator('.preview-draft').waitFor();
+      const rect = await preview.boundingBox();
       // Record the real WAAPI animation when it starts. Under parallel browser load,
       // the click acknowledgement can arrive after a 200ms animation has finished.
       await page.evaluate(() => {
@@ -145,7 +164,7 @@ return <div className="settings-app" ref={ref}><div style={{width:430}}><Setting
       }
       assert.equal(
         await preview.getByRole('status').textContent(),
-        '完善实现方案',
+        '请把作品集第一版拆解成两天内可完成的具体步骤。',
         'sample draft survives tabs',
       );
       assert.equal(writes, 0, 'preview changes never write settings');
@@ -155,7 +174,7 @@ return <div className="settings-app" ref={ref}><div style={{width:430}}><Setting
       });
       await page.waitForTimeout(35);
       await tabs.evaluate((el) => {
-        [...el.querySelectorAll('button')].find((button) => button.textContent === '看板').click();
+        [...el.querySelectorAll('button')].find((b) => b.textContent === '看板').click();
       });
       await finishAnimations(page.locator('.preview-scenes'));
       assert.equal(

@@ -1,11 +1,12 @@
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: Shared preview frame, existing form snapshots, saved surfaces and feature layout.
- * [OUTPUT]: Compact linked diagrams and floating feature samples without instructional footnotes; only the common switcher reserves inactive geometry.
+ * [OUTPUT]: Linked diagrams and actual interactive feature components without instructional footnotes; only the common switcher reserves inactive geometry.
  * [POS]: Settings presentation only; no requests, credentials, task bodies or host commands.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 import { LayoutPreview } from './layout-preview';
 import { ModelPreview } from './model-preview';
+import { FeaturePreviewContent } from './feature-preview';
 import { useState, type ReactNode } from 'react';
 import type { SettingsPage } from './settings-outline';
 import type { EditableSettings, View } from './api';
@@ -13,16 +14,10 @@ import type { SurfaceState } from './surface-settings';
 import { titles, type FeatureState } from '../shared/features';
 import type { ModelState } from '../features/model/catalog';
 import type { TaskState } from '../features/board/api';
-import { columns as defaultColumns, columnTitle } from '../features/board/api';
 import { Icon } from '../shared/icons/react';
 import { PreviewFrame as Frame } from './preview-frame';
 import { usePreviewTransition } from './settings-motion';
 
-function suggestionLimit(form: EditableSettings | null) {
-  return form?.directionSource === 'manual'
-    ? form.selectedDirections.length
-    : (form?.maxItems ?? 3);
-}
 type PreviewProps = {
   page: SettingsPage;
   form: EditableSettings | null;
@@ -54,10 +49,6 @@ function FeaturePreview({ form, tasks, model, view, dirty, page }: PreviewProps)
   const [tab, setTab] = useState<'outline' | 'next' | 'prompts' | 'board' | 'model' | 'bots'>(
     'next',
   );
-  const [selected, setSelected] = useState(0);
-  const [demoDraft, setDemoDraft] = useState('');
-  const [selectedBot, setSelectedBot] = useState('general');
-  const [boardGroup, setBoardGroup] = useState('');
   const activeScene =
     page === 'prompts'
       ? 'prompts'
@@ -79,11 +70,6 @@ function FeaturePreview({ form, tasks, model, view, dirty, page }: PreviewProps)
     model: model?.preferences.enabled,
     bots: form?.grokbotEnabled,
   };
-  const groups = (tasks?.store.columns || defaultColumns).map((column) => ({
-    ...column,
-    title: columnTitle(column),
-  }));
-  const examples = [tr('完善实现方案'), tr('检查边界条件'), tr('补充验证步骤')];
   return (
     <Frame title={tr('功能如何呈现')} status={dirty ? tr('包含未保存的编辑') : undefined}>
       <div
@@ -116,178 +102,12 @@ function FeaturePreview({ form, tasks, model, view, dirty, page }: PreviewProps)
               aria-hidden={activeScene !== scene}
               inert={activeScene !== scene}
             >
-              <div className="preview-demo" data-enabled={active !== false}>
-                {scene === 'outline' && (
-                  <>
-                    <div
-                      className="preview-outline"
-                      role="group"
-                      aria-label={tr('大纲定位示例')}
-                      data-settings-navigation
-                    >
-                      {[tr('整体思路'), tr('具体实现'), tr('验证与交付')].map((label, index) => (
-                        <button
-                          key={label}
-                          type="button"
-                          aria-pressed={selected === index}
-                          onClick={() => setSelected(index)}
-                        >
-                          <span>0{index + 1}</span>
-                          {label}
-                          <Icon name="chevron-right" />
-                        </button>
-                      ))}
-                    </div>
-                    <div className="preview-answer">
-                      <strong>
-                        {[tr('整体思路'), tr('具体实现'), tr('验证与交付')][selected]}
-                      </strong>
-                      <i />
-                      <i />
-                      <i />
-                    </div>
-                  </>
+              <div className="preview-demo preview-product" data-enabled={active !== false}>
+                {scene === 'model' ? (
+                  <ModelPreview model={model} />
+                ) : (
+                  <FeaturePreviewContent id={scene} form={form} view={view} tasks={tasks} />
                 )}
-                {(scene === 'next' || scene === 'prompts') && (
-                  <>
-                    <div
-                      className="preview-suggestions"
-                      data-settings-navigation
-                      hidden={scene !== 'next'}
-                    >
-                      {examples
-                        .slice(0, Math.max(0, Math.min(3, suggestionLimit(form))))
-                        .map((text, index) => (
-                          <button
-                            type="button"
-                            key={text}
-                            aria-pressed={demoDraft === text}
-                            onClick={() => setDemoDraft(text)}
-                          >
-                            <span>0{index + 1}</span>
-                            <div>
-                              <strong>{text}</strong>
-                              {!view?.panelPreferences.ui.labelOnly && (
-                                <small>
-                                  {
-                                    [
-                                      tr('把已选方案分解成可执行的步骤。'),
-                                      tr('检查输入、异常和兼容情况。'),
-                                      tr('用具体场景核对预期行为。'),
-                                    ][index]
-                                  }
-                                </small>
-                              )}
-                            </div>
-                            <Icon name="chevron-right" />
-                          </button>
-                        ))}
-                    </div>
-                    <div className="preview-composer">
-                      <div
-                        className="preview-quick-prompts"
-                        data-settings-navigation
-                        hidden={scene !== 'prompts'}
-                      >
-                        {form?.quickPrompts.map((item, index) => (
-                          <button
-                            type="button"
-                            key={index}
-                            onClick={() => setDemoDraft(item.prompt)}
-                          >
-                            {item.label || tr('未命名')}
-                          </button>
-                        ))}
-                      </div>
-                      <div
-                        className="preview-draft"
-                        role="status"
-                        aria-label={tr('示例输入框')}
-                        data-empty={!demoDraft}
-                      >
-                        {demoDraft || tr('发消息…')}
-                      </div>
-                    </div>
-                  </>
-                )}
-                {scene === 'board' && (
-                  <div className="preview-board-container">
-                    <div
-                      className="preview-selector preview-board-tabs"
-                      role="group"
-                      aria-label={tr('看板分组预览')}
-                    >
-                      {groups.map((group) => (
-                        <button
-                          key={group.id}
-                          type="button"
-                          aria-pressed={
-                            group.id ===
-                            (groups.some((g) => g.id === boardGroup) ? boardGroup : groups[0]?.id)
-                          }
-                          onClick={() => setBoardGroup(group.id)}
-                        >
-                          {group.title}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="preview-board">
-                      {groups.map((group, index) => (
-                        <div
-                          key={group.id}
-                          data-active={
-                            group.id ===
-                            (groups.some((g) => g.id === boardGroup) ? boardGroup : groups[0]?.id)
-                          }
-                        >
-                          <h3>{group.title}</h3>
-                          <div className="preview-task-sample">
-                            <i />
-                            {[tr('梳理目标'), tr('完善细节'), tr('完成验证')][index % 3]}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {scene === 'bots' && (
-                  <>
-                    <div
-                      className="preview-outline"
-                      role="group"
-                      aria-label={tr('Bot 选择示例')}
-                      data-settings-navigation
-                    >
-                      {[
-                        ['general', tr('通用')],
-                        ['review', tr('代码审查')],
-                        ['research', tr('资料整理')],
-                      ].map(([id, name]) => (
-                        <button
-                          type="button"
-                          key={name}
-                          aria-pressed={selectedBot === id}
-                          onClick={() => setSelectedBot(id)}
-                        >
-                          {name}
-                          <Icon name="chevron-right" />
-                        </button>
-                      ))}
-                    </div>
-                    <div className="preview-draft" role="status">
-                      {tr('请问「{{selectedBot}}」：帮我检查这个方案。', {
-                        selectedBot: tr(
-                          selectedBot === 'general'
-                            ? '通用'
-                            : selectedBot === 'review'
-                              ? '代码审查'
-                              : '资料整理',
-                        ),
-                      })}
-                    </div>
-                  </>
-                )}
-                {scene === 'model' && <ModelPreview model={model} />}
               </div>
             </div>
           );

@@ -80,6 +80,7 @@ export function FeatureContent({
   if (id === 'terms')
     return value ? (
       <TerminologyView
+        headerActions={headerActions}
         state={value as unknown as TermData}
         reading={reading}
         locked={locked}

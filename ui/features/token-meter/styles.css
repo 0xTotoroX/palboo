@@ -16,6 +16,12 @@
 .token-meter-readout > span {
   white-space: nowrap;
 }
+.token-meter-readout > span + span {
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
 .token-meter-readout:focus-visible {
   outline: 1px solid currentColor;
   outline-offset: 2px;

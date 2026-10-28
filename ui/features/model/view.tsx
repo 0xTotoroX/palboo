@@ -425,6 +425,12 @@ export function ModelView({
     <section
       ref={root}
       className="feature-model"
+      onKeyDown={(event) => {
+        if (event.key === 'Escape' && !event.nativeEvent.isComposing && tools) {
+          event.stopPropagation();
+          closeTools();
+        }
+      }}
       style={
         {
           '--name-width': `${nameWidth}px`,
@@ -621,16 +627,7 @@ export function ModelView({
               </div>
             </div>
           </div>
-          <section
-            className="model-collections"
-            aria-label={tr('收藏')}
-            onKeyDown={(event) => {
-              if (event.key === 'Escape' && !event.nativeEvent.isComposing && tools) {
-                event.stopPropagation();
-                closeTools();
-              }
-            }}
-          >
+          <section className="model-collections" aria-label={tr('收藏')}>
             <div className="model-presets" data-editing={tools}>
               {prefs.presets.map((p) => (
                 <div className="model-preset-tag" key={p.id}>
@@ -679,53 +676,52 @@ export function ModelView({
               ))}
               {presetDraft?.creating && presetEditor}
             </div>
-            <div className="model-status-row">
-              <div className="model-metrics">
-                {prefs.showUsage !== false && !!s.usage?.length && (
-                  <span
-                    className="model-usage"
-                    aria-label={tr('Codex 剩余额度')}
-                    title={tr('Codex 剩余额度')}
-                  >
-                    {[...s.usage]
-                      .sort((a, b) => b.minutes - a.minutes)
-                      .map((window) => (
-                        <span key={window.minutes}>
-                          {window.minutes === 300 ? tr('5小时') : tr('周')}{' '}
-                          {window.remainingPercent}%
-                        </span>
-                      ))}
-                  </span>
-                )}
-                {footer}
-              </div>
-              <div className="model-preset-actions">
-                <button
-                  className="model-icon-button model-preset-edit"
-                  aria-label={tr('编辑预设')}
-                  title={tr('编辑预设')}
-                  aria-pressed={tools}
-                  disabled={busy || !prefs.presets.length}
-                  onClick={() => {
-                    setTools((reading.modelTools = !tools));
-                    if (tools) setPresetDraft(null);
-                  }}
-                >
-                  {icon('pencil')}
-                </button>
-                <button
-                  className="model-icon-button model-preset-add"
-                  aria-label={tr('添加预设')}
-                  title={tr('添加预设')}
-                  disabled={busy || !allowed || !s.current}
-                  onClick={addPreset}
-                >
-                  {icon('bookmark')}
-                </button>
-                {allButton}
-              </div>
-            </div>
           </section>
+        </div>
+        <div className="model-status-row">
+          <div className="model-metrics">
+            {prefs.showUsage !== false && !!s.usage?.length && (
+              <span
+                className="model-usage"
+                aria-label={tr('Codex 剩余额度')}
+                title={tr('Codex 剩余额度')}
+              >
+                {[...s.usage]
+                  .sort((a, b) => b.minutes - a.minutes)
+                  .map((window) => (
+                    <span key={window.minutes}>
+                      {window.minutes === 300 ? tr('5小时') : tr('周')} {window.remainingPercent}%
+                    </span>
+                  ))}
+              </span>
+            )}
+            {footer}
+          </div>
+          <div className="model-preset-actions">
+            <button
+              className="model-icon-button model-preset-edit"
+              aria-label={tr('编辑预设')}
+              title={tr('编辑预设')}
+              aria-pressed={tools}
+              disabled={busy || !prefs.presets.length}
+              onClick={() => {
+                setTools((reading.modelTools = !tools));
+                if (tools) setPresetDraft(null);
+              }}
+            >
+              {icon('pencil')}
+            </button>
+            <button
+              className="model-icon-button model-preset-add"
+              aria-label={tr('添加预设')}
+              title={tr('添加预设')}
+              disabled={busy || !allowed || !s.current}
+              onClick={addPreset}
+            >
+              {icon('bookmark')}
+            </button>
+            {allButton}
+          </div>
         </div>
         {others && (
           <div className="model-picker" ref={picker} role="region" aria-label={tr('所有模型')}>
