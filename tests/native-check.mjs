@@ -1,7 +1,7 @@
 /*
  * [INPUT]: 编译后的系统窗口、合成投影；默认免截图；显式 --screenshots 才启动像素采样验收。
  * [OUTPUT]: --features-only 验证旧浮窗范围隐藏/恢复和真实 Wry 的大纲/看板切换与响应式任务视图；target/reports/native 中的背景验收；--genie-only 加验开发版网格接口及复位（--cross-screen/--reverse-screens 验实际双屏）；--motion-only 单测三材质空间交接与取消；--appearance-only 将免截图的窗口透明度轨迹、呈现确认、强调色/材质和尺寸检查写入 native-appearance。
- * [POS]: --header-only 免鼠标权限验证三材质透明头部、无可见文字/title 和实际置顶层级；--workbench-only 预检事件权限，验证 Wry 双栏布局、真实鼠标合并与两底角缩放、独立滚动、保留设置页及退出，报告写入 native-workbench；仅启动自有测试窗口，临时数据不使用真实宿主或模型。
+ * [POS]: --header-only 免鼠标权限验证三材质透明头部、无可见文字/title、实际置顶层级及调度中心/Spaces属性；--workbench-only 验证双栏布局、鼠标合并与缩放、独立滚动及退出。仅启动合成测试窗口，不使用真实宿主或模型。
  * 设置验收要求头部入口保持隐藏，通过保留的旧处理器验证设置区与阅读恢复，不依赖旧 activeTab。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -328,12 +328,23 @@ function probePage() {
           windowControlsDisabled: [...document.querySelectorAll('[data-window-control]')].some(
             (node) => node.disabled,
           ),
+          windowState: window.probeWindowState,
           rect: current?.glass?.getBoundingClientRect(),
           animations: current?.glass?.getAnimations().filter((a) => a.playState === 'running')
             .length,
         }),
       });
       for (const cmd of await response.json()) {
+        if (cmd.kind === 'window-state') {
+          const controls = window.__buddyWindowControls;
+          const update = controls.update;
+          controls.update = (state) => {
+            controls.update = update;
+            window.probeWindowState = { ...state, requestId: cmd.id };
+            update(state);
+          };
+          window.ipc.postMessage(JSON.stringify({ kind: 'window-state' }));
+        }
         if (cmd.kind === 'feature') {
           const select = document.querySelector('[aria-label="显示功能"]');
           select.value = cmd.value;
@@ -743,22 +754,41 @@ try {
           a.kCGWindowBounds.Width * a.kCGWindowBounds.Height,
       )[0]?.kCGWindowLayer;
     const pinnedLevel = level();
+    const spaces = [];
+    const assertSpaces = async (pinned) => {
+      const previous = telemetry.windowState?.requestId;
+      await command({ kind: 'window-state' });
+      await waitFor(
+        () => telemetry.windowState && telemetry.windowState.requestId !== previous,
+        'Native window collection behavior not returned',
+      );
+      // AppKit NSWindowCollectionBehavior: Managed=4; all-spaces/move/transient/stationary=1/2/8/16.
+      const behavior = telemetry.windowState.collectionBehavior;
+      if (!Number.isInteger(behavior) || !(behavior & 4) || behavior & (1 | 2 | 8 | 16))
+        throw Error(
+          `Desktop must participate in Mission Control on one movable Space: ${behavior}`,
+        );
+      spaces.push({ pinned, collectionBehavior: behavior, level: level() });
+    };
     if (!(pinnedLevel > 0) || telemetry.workbench.pin !== 'true')
       throw Error('Default pin did not reach the native window');
+    await assertSpaces(true);
     await command({ kind: 'pin' });
     await waitFor(
       () => telemetry.workbench.pin === 'false' && level() === 0,
       'Unpin did not lower the native window',
     );
     if (state.preferences.alwaysOnTop !== false) throw Error('Unpin preference not saved');
+    await assertSpaces(false);
     await command({ kind: 'pin' });
     await waitFor(
       () => telemetry.workbench.pin === 'true' && level() === pinnedLevel,
       'Pin did not restore the native window level',
     );
     if (state.preferences.alwaysOnTop !== true) throw Error('Pin preference not saved');
+    await assertSpaces(true);
     const workbenchChecks = [
-      { pin: { defaultLevel: pinnedLevel, unpinnedLevel: 0, restored: true } },
+      { pin: { defaultLevel: pinnedLevel, unpinnedLevel: 0, restored: true }, spaces },
     ];
     for (const material of ['matte', 'frosted', 'native-glass']) {
       await command({ kind: 'material', value: material });

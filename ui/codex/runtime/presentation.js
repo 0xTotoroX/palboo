@@ -421,6 +421,8 @@ async function setDetached(value, ui = null, presentation = null) {
     }
     await shellState.handoffPromise;
   }
+  // 浮层先完成原有淡化交接，再刷新入口；提前 render 会写 data-detached 并跳过动画。
+  if (changed && shellState.layoutMode !== 'workbench') emitSignal('render', undefined);
   if (changed || preferencesChanged) window.dispatchEvent(new Event('palboo:appearance'));
 }
 

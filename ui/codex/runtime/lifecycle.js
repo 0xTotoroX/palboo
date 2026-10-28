@@ -680,7 +680,11 @@ function install() {
           expression,
           expressionLabel: fabExpressionLabel(expression),
           sourceCue: activePaneCue(),
-          defaultAction: shellState.launcherAction,
+          currentLocation: (
+            independentFeatures() ? featurePlacement() === 'desktop' : shellState.detached
+          )
+            ? 'outside'
+            : 'inside',
           settingsStatus: runtimeState.settingsOpenStatus,
           settingsBusy: runtimeState.settingsOpening,
           dismissSettingsStatus: () => {

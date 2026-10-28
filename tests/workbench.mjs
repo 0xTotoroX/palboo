@@ -731,6 +731,84 @@ const cases = [
     },
   ],
   [
+    'launcher location follows committed surfaces instead of the default click action',
+    async (page) => {
+      const menu = page.locator('[data-palboo-launcher-menu]');
+      const assertLocation = async (location) => {
+        await page.waitForFunction((location) => {
+          const launcher = document.querySelector('[data-palboo-launcher]')?.shadowRoot;
+          const menu = launcher?.querySelector('[data-palboo-launcher-menu]')?.shadowRoot;
+          return menu?.querySelector('[aria-current="true"]')?.dataset.action === location;
+        }, location);
+        assert.equal(await menu.locator('[aria-current="true"]').count(), 1);
+        assert.equal(
+          await menu.locator('[data-action=settings]').getAttribute('aria-current'),
+          'false',
+        );
+      };
+      await page.evaluate(() => {
+        const api = window.__companionFloatingPanel;
+        api.syncPanelPreferences(api.panelPreferences(), 81, false, { action: 'settings' });
+      });
+      await assertLocation('inside');
+      // Legacy window round trips must also update the mark without rewriting the gesture.
+      for (const detached of [true, false]) {
+        await page.evaluate(
+          (detached) => window.__companionFloatingPanel.setDetached(detached),
+          detached,
+        );
+        await assertLocation(detached ? 'outside' : 'inside');
+      }
+      await page.evaluate(() => {
+        const original = window.__companionHostRequest;
+        window.workbenchFixture.location = { mainPlacement: 'sidebar', pendingPlacement: null };
+        window.__companionHostRequest = (raw) => {
+          const { id, path, payload } = JSON.parse(raw);
+          if (path !== '/features' || payload.op !== 'state') return original(raw);
+          const location = window.workbenchFixture.location;
+          queueMicrotask(() =>
+            window.__companionDesktop.complete(id, {
+              mainManaged: true,
+              ...location,
+              features: [
+                {
+                  id: 'outline',
+                  placement: location.mainPlacement,
+                  open: false,
+                  owner: 'fixture',
+                  pending: null,
+                },
+              ],
+              appearance: { themes: {} },
+            }),
+          );
+        };
+      });
+      for (const [mainPlacement, pendingPlacement] of [
+        ['sidebar', 'desktop'],
+        ['sidebar', null], // failed/cancelled move retains the source
+        ['desktop', null],
+        ['desktop', 'sidebar'],
+        ['overlay', null],
+        ['sidebar', null],
+      ]) {
+        await page.evaluate(
+          (location) => {
+            window.workbenchFixture.location = location;
+          },
+          { mainPlacement, pendingPlacement },
+        );
+        // The real feature adapter polls every 700ms; let unchanged source states reach it too.
+        await page.waitForTimeout(850);
+        await assertLocation(mainPlacement === 'desktop' ? 'outside' : 'inside');
+      }
+      assert.equal(
+        await page.evaluate(() => window.__companionFloatingPanel.state.launcherAction),
+        'settings',
+      );
+    },
+  ],
+  [
     'rail launcher replaces capsule and survives navigation without duplicating the workspace',
     async (page) => {
       await mode(page, true);

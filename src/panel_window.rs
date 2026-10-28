@@ -1,5 +1,5 @@
 // [INPUT]: Tao/Wry、Runtime、Preferences、共享 native_backdrop 与 AppKit 手势。
-// [OUTPUT]: 开发版整窗曲面神奇效果与空间动画回退、尊重减少动态效果的跨屏提起/落回、位置与尺寸接续、可取消原生动效和呈现确认、原生 resize 同步 WebView、实时背景和 macOS 原生手势。
+// [OUTPUT]: 保留置顶且参与调度中心/Spaces的桌面窗口、开发版曲面效果与空间动画回退、跨屏提起/落回、原生 resize 同步、实时背景和 macOS 手势。
 // [POS]: 窗口子进程实现，被 main.rs 调用；hide保留实例，toggle-maximize临时保存/恢复普通frame并回读网页。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
@@ -387,8 +387,13 @@ mod macos {
     }
 }
 
-fn publish_window_controls(webview: &wry::WebView, normal: Option<Pose>, hidden: bool) {
-    let state = json!({"maximized":normal.is_some(),"hidden":hidden,"normalFrame":normal.map(|p|json!({"x":p.x,"y":p.y,"width":p.width,"height":p.height}))});
+fn publish_window_controls(
+    webview: &wry::WebView,
+    window: &Window,
+    normal: Option<Pose>,
+    hidden: bool,
+) {
+    let state = json!({"maximized":normal.is_some(),"hidden":hidden,"collectionBehavior":macos::native_window(window).collectionBehavior().bits(),"normalFrame":normal.map(|p|json!({"x":p.x,"y":p.y,"width":p.width,"height":p.height}))});
     let _ = webview.evaluate_script(&format!("window.__buddyWindowControls?.update({state});"));
 }
 
@@ -427,9 +432,19 @@ pub fn run_surface(
         .with_min_inner_size(LogicalSize::new(324., 364.))
         .build(&event_loop)?;
     {
+        use objc2_app_kit::NSWindowCollectionBehavior;
         use tao::platform::macos::WindowExtMacOS;
         // 半透明网页的逐像素系统阴影会让字形出现重影。
         window.set_has_shadow(false);
+        // 置顶只改变层级；主窗口仍归属单个桌面，并可在调度中心拖到其他桌面。
+        // 不沿用非普通层级默认的 Transient，也不使用贴边窗口的跨桌面策略。
+        let native = macos::native_window(&window);
+        let behavior = native.collectionBehavior()
+            & !(NSWindowCollectionBehavior::Transient
+                | NSWindowCollectionBehavior::Stationary
+                | NSWindowCollectionBehavior::CanJoinAllSpaces
+                | NSWindowCollectionBehavior::MoveToActiveSpace);
+        native.setCollectionBehavior(behavior | NSWindowCollectionBehavior::Managed);
     }
     if let Some(position) = prefs.position {
         window.set_outer_position(PhysicalPosition::new(position.x as i32, position.y as i32));
@@ -528,13 +543,13 @@ pub fn run_surface(
                         window.set_visible(!scope_hidden && !window_hidden);
                     }
                 }
-                "window-state" => publish_window_controls(&webview, normal_window_pose, window_hidden),
+                "window-state" => publish_window_controls(&webview, &window, normal_window_pose, window_hidden),
                 "hide" => {
                     if window_transition.is_none() && gesture.is_none() {
                         window.set_visible(false);
                         window_hidden = true;
                     }
-                    publish_window_controls(&webview, normal_window_pose, window_hidden);
+                    publish_window_controls(&webview, &window, normal_window_pose, window_hidden);
                 }
                 "toggle-maximize" => {
                     if window_transition.is_none() && gesture.is_none() {
@@ -546,14 +561,14 @@ pub fn run_surface(
                             macos::apply_pose(&window, target, &backdrop);
                         }
                     }
-                    publish_window_controls(&webview, normal_window_pose, window_hidden);
+                    publish_window_controls(&webview, &window, normal_window_pose, window_hidden);
                 }
                 "reveal" => {
                     window.set_minimized(false);
                     window.set_visible(!scope_hidden);
                     if !scope_hidden { window.set_focus(); }
                     window_hidden = false;
-                    publish_window_controls(&webview, normal_window_pose, window_hidden);
+                    publish_window_controls(&webview, &window, normal_window_pose, window_hidden);
                 }
                 "show" => {
                     let mut target = macos::pose(&window);
@@ -578,7 +593,7 @@ pub fn run_surface(
                     if !genie_entry { macos::apply_pose(&window, from, &backdrop); }
                     window.set_visible(!scope_hidden);
                     window_hidden = false;
-                    publish_window_controls(&webview, normal_window_pose, window_hidden);
+                    publish_window_controls(&webview, &window, normal_window_pose, window_hidden);
                     if activate && !scope_hidden { window.set_focus(); }
                     if macos::reduce_motion() {
                         presentation_reported = true;

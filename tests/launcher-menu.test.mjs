@@ -1,5 +1,5 @@
 /* [INPUT]: Vertical launcher UI in a synthetic browser with no host or native window.
- * [OUTPUT]: Hover travel, quick-click hit area, action identity, focus and cleanup checks.
+ * [OUTPUT]: Current-location indicator independent of default actions, hover travel, action identity, focus and cleanup checks.
  * [POS]: Isolated interaction/render verification; only synthetic screenshots.
  * [PROTOCOL]: Keep tests/AGENTS.md in sync. */
 import test from 'node:test';
@@ -9,7 +9,7 @@ import { chromium } from 'playwright';
 import { mkdir } from 'node:fs/promises';
 const compiled = await build({
   stdin: {
-    contents: `import {createLauncherMenu} from './ui/surfaces/embedded/launcher-menu.js';window.options={defaultAction:'inside',outsideAvailable:true,colors:{text:'#272727','surface-opaque':'#fafafa'},action:async action=>window.actions.push(action)};window.actions=[];window.menu=createLauncherMenu(document.querySelector('#eyes'),()=>window.options);`,
+    contents: `import {createLauncherMenu} from './ui/surfaces/embedded/launcher-menu.js';window.options={currentLocation:'inside',defaultAction:'settings',outsideAvailable:true,colors:{text:'#272727','surface-opaque':'#fafafa'},action:async action=>window.actions.push(action)};window.actions=[];window.menu=createLauncherMenu(document.querySelector('#eyes'),()=>window.options);`,
     resolveDir: process.cwd(),
   },
   bundle: true,
@@ -54,6 +54,23 @@ test('inline expanding menu preserves eyes hit target and has stable hover, keyb
     await host.getByRole('menuitem', { name: '在桌面打开' }).hover();
     await page.waitForTimeout(220);
     assert.equal(await host.getAttribute('data-open'), '');
+    for (const location of ['inside', 'outside', 'inside']) {
+      await page.evaluate((location) => {
+        window.options.currentLocation = location;
+        window.menu.update();
+      }, location);
+      const marked = host.locator('button[aria-current="true"]');
+      assert.equal(await marked.count(), 1);
+      assert.equal(await marked.getAttribute('data-action'), location);
+      assert.notEqual(
+        await marked.evaluate((node) => getComputedStyle(node, '::after').content),
+        'none',
+      );
+      assert.equal(
+        await host.locator('[data-action=settings]').getAttribute('aria-current'),
+        'false',
+      );
+    }
     assert.equal(await host.locator('.glass,.rim,[data-csw-optics]').count(), 0);
     assert.equal(
       await host.evaluate((node) => getComputedStyle(node).backgroundColor),

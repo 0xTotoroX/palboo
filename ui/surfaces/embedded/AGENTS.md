@@ -23,7 +23,7 @@ features.js 首次接管遵循后台 mainManaged；只有模型贴边时保留 l
 
 Option+右键仅在当前聊天入口可用且已提供 settingsBrowser 回调时拦截；普通右键不拦截。兼容眼睛入口共用快捷动作，停止时清除官方 contextmenu 监听。
 
-- `launcher-menu.js`：独立眼睛的栏内快捷菜单，内/外/设置竖排；节点放在眼睛同一 Shadow DOM 内并参与侧栏布局，不使用 body portal 或 fixed 定位。110ms 悬停打开、180ms 离开缓冲，220ms 高度伸缩配合按钮错峰显现；菜单居中位于眼睛上方，栏内自动让位，按钮仍44×50；键盘/Esc、inert、减少动态效果、动作单飞及销毁清理沿用。默认单击动作来自后台 launcherAction。
+- `launcher-menu.js`：独立眼睛的栏内快捷菜单，内/外/设置竖排；节点放在眼睛同一 Shadow DOM 内并参与侧栏布局，不使用 body portal 或 fixed 定位。110ms 悬停打开、180ms 离开缓冲，220ms 高度伸缩配合按钮错峰显现；菜单居中位于眼睛上方，栏内自动让位，按钮仍44×50；键盘/Esc、inert、减少动态效果、动作单飞及销毁清理沿用。强调点只读取运行层的 currentLocation：聊天内为 inside，桌面为 outside；不标记默认单击动作或设置按钮。默认单击动作仍来自后台 launcherAction。
 
 菜单不再绘制独立背景、玻璃、边框或阴影，直接沿用宿主侧栏底色；保留按钮 hover、按下、焦点反馈与栏内伸缩动画。其他容器的材质偏好不受影响。
 
