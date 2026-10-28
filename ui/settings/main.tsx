@@ -31,6 +31,7 @@ import { TaskSettings } from './task-settings';
 import { ModelControlSettings } from './model-control-settings';
 import { SurfaceSettings } from './surface-settings';
 import { NextSettings } from './next-settings';
+import { QuickPromptSettings } from './quick-prompt-settings';
 import { LauncherSettings } from './launcher-settings';
 import { ModelSettings } from './model-settings';
 import { useTasks } from '../features/board/api';
@@ -50,6 +51,8 @@ function editable(value: Settings): EditableSettings {
     answerOutlineEnabled,
     promptEnhancementEnabled,
     tokenMeterEnabled,
+    quickPromptsEnabled,
+    quickPromptClickMode,
     grokbotEnabled,
     grokbotAutoSync,
     generationMode,
@@ -74,6 +77,8 @@ function editable(value: Settings): EditableSettings {
     answerOutlineEnabled,
     promptEnhancementEnabled,
     tokenMeterEnabled,
+    quickPromptsEnabled,
+    quickPromptClickMode,
     grokbotEnabled,
     grokbotAutoSync,
     generationMode,
@@ -116,7 +121,8 @@ function App() {
   const contentRef = useSettingsMotion(page);
   const tasks = useTasks(live);
   const common = page === 'features';
-  const featuresVisible = common || ['next', 'board', 'model-control', 'bots'].includes(page);
+  const featuresVisible =
+    common || ['next', 'prompts', 'board', 'model-control', 'bots'].includes(page);
   const surfacesVisible = page === 'surfaces' || page === 'appearance';
   useEffect(() => {
     setNotice((current) => (current.failed ? current : { text: '', failed: false }));
@@ -213,6 +219,14 @@ function App() {
                     onChange={(v) => editor.change('enabled', v)}
                   />
                 </div>
+                <div data-settings-page="prompts" hidden={!common && page !== 'prompts'}>
+                  <FeatureSwitch
+                    name={tr('常用语')}
+                    checked={editor.form?.quickPromptsEnabled ?? false}
+                    disabled={!live || !editor.form}
+                    onChange={(v) => editor.change('quickPromptsEnabled', v)}
+                  />
+                </div>
                 <div data-settings-page="board" hidden={!common && page !== 'board'}>
                   <FeatureSwitch
                     name={tr('看板')}
@@ -290,10 +304,13 @@ function App() {
               <SettingsForm
                 editor={editor}
                 notify={notify}
-                active={['model', 'next', 'features', 'connection'].includes(page)}
+                active={['model', 'next', 'prompts', 'features', 'connection'].includes(page)}
               >
                 <div hidden={page !== 'next'}>
                   <NextSettings editor={editor} appearance={view?.panelPreferences} />
+                </div>
+                <div hidden={page !== 'prompts'}>
+                  <QuickPromptSettings editor={editor} appearance={view?.panelPreferences} />
                 </div>
                 <div data-settings-page="model" hidden={page !== 'model'}>
                   <ModelSettings editor={editor} />

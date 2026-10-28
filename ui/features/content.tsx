@@ -1,7 +1,7 @@
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: Feature identity, business envelope, guarded transport, reading state and optional header slot.
- * [OUTPUT]: Six feature views and guarded business adapters, including the Bot App shortcut independent of composer availability.
+ * [OUTPUT]: Seven feature views and guarded business adapters, including the Bot App shortcut independent of composer availability.
  * [POS]: Fixed feature composition; persistence and validation remain in existing services.
  * [PROTOCOL]: Keep AGENTS.md in this module in sync. */
 import { useCallback, useRef } from 'react';
@@ -14,6 +14,7 @@ import { TokenMeterView } from './token-meter/view';
 import { ProjectedContent } from './projected';
 import type { PanelSnapshot, PanelCommand, CommandResult } from '../shared/contracts';
 import type { FeatureId, Reading } from '../shared/features';
+import { quickPromptToken } from '../shared/quick-prompts.js';
 export type FeatureData = { snapshot?: unknown; [key: string]: unknown };
 export type FeatureCall = <T>(op: string, data?: Record<string, unknown>) => Promise<T>;
 export type FeatureOperation = <T>(fn: () => Promise<T>, propagate?: boolean) => Promise<T | null>;
@@ -140,7 +141,11 @@ export function FeatureContent({
       </p>
     );
   const enabled =
-    id === 'outline' ? snapshot.settings.answerOutlineEnabled : snapshot.settings.enabled;
+    id === 'outline'
+      ? snapshot.settings.answerOutlineEnabled
+      : id === 'prompts'
+        ? snapshot.settings.quickPromptsEnabled
+        : snapshot.settings.enabled;
   async function command(kind: PanelCommand['kind'], extra: Partial<PanelCommand> = {}) {
     if (!connected || !snapshot) return;
     const data = {
@@ -149,6 +154,7 @@ export function FeatureContent({
       viewToken: snapshot.viewToken,
       context: snapshot.context,
       promptToken: snapshot.promptToken,
+      quickPromptToken: snapshot.quickPromptToken,
       outlineToken: snapshot.outlineToken,
       ...extra,
     };
@@ -169,12 +175,12 @@ export function FeatureContent({
           locked ||
           !connected ||
           !enabled ||
-          snapshot.scanBusy ||
+          (id !== 'prompts' && snapshot.scanBusy) ||
           snapshot.association?.available === false
         }
         command={command}
         saveQuickPrompts={
-          id === 'next'
+          id === 'prompts'
             ? async (quickPrompts, expectedRevision) => {
                 const result = await operation(
                   () =>
@@ -191,7 +197,14 @@ export function FeatureContent({
                   projected &&
                   projected.settings.configurationRevision <= result.configurationRevision
                 )
-                  update({ ...current, snapshot: { ...projected, settings: result } });
+                  update({
+                    ...current,
+                    snapshot: {
+                      ...projected,
+                      settings: result,
+                      quickPromptToken: quickPromptToken(result),
+                    },
+                  });
                 return result;
               }
             : undefined

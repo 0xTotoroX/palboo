@@ -1,7 +1,7 @@
 import { tr } from '../../shared/i18n.js';
 /*
  * [INPUT]: 版本化设置、后台请求与独立功能控制器。
- * [OUTPUT]: 设置保存、同步、低频恢复与功能开关协调；设置打开共享请求、取消及可见结果。
+ * [OUTPUT]: 设置保存、同步、低频恢复与含常用语在内的独立功能开关协调；设置打开共享请求、取消及可见结果。
  * [POS]: 设置协调层；通过通知请求渲染和运行启停。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -69,6 +69,7 @@ async function syncSettings(patch = {}) {
   }
   const hasRuntimePatch =
     typeof normalizedPatch.enabled === 'boolean' ||
+    typeof normalizedPatch.quickPromptsEnabled === 'boolean' ||
     typeof normalizedPatch.answerOutlineEnabled === 'boolean' ||
     typeof normalizedPatch.promptEnhancementEnabled === 'boolean' ||
     typeof normalizedPatch.grokbotEnabled === 'boolean' ||

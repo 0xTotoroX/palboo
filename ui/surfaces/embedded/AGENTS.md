@@ -40,3 +40,5 @@ launcher接收settingsStatus/settingsBusy，只在设置处理中或动作失败
 官方入口兼容 `Palboo` 与旧 `PALBOO` 显示名；自有入口使用 `Palboo`，保留唯一匹配与旧状态标题清理。
 
 dock 复用 codex/page-context 的普通聊天、新聊天和 Dots 分类；后两者由 sidebarNewChat/sidebarDots 控制所有 Palboo 承载的启用范围。关闭时撤销占位、临时隐藏内容但保留开合意愿与草稿；入口不能绕过设置，普通聊天不受影响。
+
+功能重开按 prompts 的独立开关处理。旧工作台迁入独立浮层时保留已有展开状态，侧栏继续使用原 dockOpen；不影响已保存位置和窗口草稿交接。

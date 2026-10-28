@@ -192,6 +192,8 @@ try {
       },
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: AbortSignal.timeout(23000),
+    }).catch((error) => {
+      throw new Error(`${path}: ${error.message}`, { cause: error });
     });
     return { status: response.status, body: await response.json() };
   }
@@ -253,6 +255,26 @@ try {
   );
   assert.equal(await page.evaluate(() => host.triggerEvents), 0);
   record('authenticated passive state observes correlated capabilities without opening menus');
+  const catalogSettings = await request('settings', { provider: 'codex', model: 'alpha' });
+  assert.equal(catalogSettings.status, 200);
+  const menusBefore = await page.evaluate(() => host.triggerEvents);
+  const catalog = await request('settings/models');
+  assert.equal(catalog.status, 200);
+  assert.deepEqual(
+    catalog.body.models,
+    passive.snapshot.models.map((model) => model.id),
+  );
+  assert.equal(await page.evaluate(() => host.triggerEvents), menusBefore);
+  const disabledCatalog = await api('preferences', {
+    revision: passive.revision,
+    patch: { enabled: false },
+  });
+  assert.deepEqual((await request('settings/models')).body.models, ['alpha', 'beta']);
+  await api('preferences', { revision: disabledCatalog.revision, patch: { enabled: true } });
+  await request('settings', { provider: 'api' });
+  record(
+    'settings list matches quick switch catalog even when switching is disabled, without selecting a model',
+  );
 
   const refreshed = await api('refresh', {});
   assert.equal(refreshed.snapshot.status, 'ready');

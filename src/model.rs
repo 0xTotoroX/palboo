@@ -176,6 +176,8 @@ impl Model {
         options.grokbot_enabled = other.options.grokbot_enabled;
         options.grokbot_auto_sync = other.options.grokbot_auto_sync;
         options.quick_prompts = other.options.quick_prompts.clone();
+        options.quick_prompts_enabled = other.options.quick_prompts_enabled;
+        options.quick_prompt_click_mode = other.options.quick_prompt_click_mode.clone();
         if options.direction_source == crate::directions::DirectionSource::Auto
             && other.options.direction_source == options.direction_source
         {
@@ -647,13 +649,10 @@ impl Model {
     }
 
     pub async fn list_models(&self) -> Result<Vec<String>> {
-        if self.provider == "codex" {
-            return Ok(if self.name.is_empty() {
-                vec![]
-            } else {
-                vec![self.name.clone()]
-            });
-        }
+        anyhow::ensure!(
+            self.provider != "codex",
+            "Codex 模型目录需要从已连接的宿主读取"
+        );
         let client = self.client()?;
         let request = client.get(endpoint(&self.base_url, "models")?);
         let request = self.authenticate(request, self.protocols()[0])?;

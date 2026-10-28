@@ -1,7 +1,7 @@
-import { normalizeText, clamp, escapeHtml, escapeAttr } from '../../shared/text.js';
+import { normalizeText, clamp, escapeHtml, escapeAttr, hashText } from '../../shared/text.js';
 /*
  * [INPUT]: 工作台纯布局模型的默认偏好及默认关闭的新聊天/Dots 侧栏开关；稳定常量、初始化偏好与页面桥接。
- * [OUTPUT]: 五组状态与宿主本地聊天锁定元数据（弹出初始化展开）、窗口交接动画与表情点击记录与单击计时状态、兼容调试投影、完整输入采集、自选位置数量和能力判断（字符预算仅在后台应用）。
+ * [OUTPUT]: 常用语独立运行开关、五组状态与宿主本地聊天锁定元数据（弹出初始化展开）、窗口交接动画与表情点击记录与单击计时状态、兼容调试投影、完整输入采集、自选位置数量和能力判断（字符预算仅在后台应用）。
  * [POS]: 无上层依赖的状态基础层，初始化由 lifecycle 显式调用。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -333,6 +333,10 @@ function stepwiseEnabled(settings = runtimeState.settings) {
   return settings?.enabled === true;
 }
 
+function quickPromptsEnabled(settings = runtimeState.settings) {
+  return settings?.quickPromptsEnabled ?? stepwiseEnabled(settings);
+}
+
 function normalizeGenerationMode(value) {
   return value === 'manual' ? 'manual' : 'auto';
 }
@@ -353,6 +357,7 @@ function runtimeEnabled(settings = runtimeState.settings) {
     settings?.modelControlEnabled === true ||
     settings?.taskBoardEnabled === true ||
     stepwiseEnabled(settings) ||
+    quickPromptsEnabled(settings) ||
     outlineEnabled(settings)
   );
 }
@@ -408,13 +413,6 @@ function settingsFingerprint(settings) {
 function shortText(value, limit = MAX_TEXT_LENGTH) {
   const text = normalizeText(value);
   return text.length > limit ? text.slice(text.length - limit) : text;
-}
-
-function hashText(value) {
-  const source = String(value ?? '');
-  let digest = 0;
-  for (const character of source) digest = (digest * 31 + character.codePointAt(0)) | 0;
-  return `${source.length.toString(36)}-${(digest >>> 0).toString(36)}`;
 }
 
 function stripOwnUi(clone) {
@@ -503,6 +501,7 @@ export {
   shellState,
   shortText,
   stepwiseEnabled,
+  quickPromptsEnabled,
   stepwiseGenerationMode,
   stepwiseInputText,
   stepwiseState,

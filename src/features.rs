@@ -23,7 +23,9 @@ pub async fn pause_bot_sync() {
 mod main_surface;
 use main_surface::{FeatureLayout, MainSurface, SavedFeatures};
 
-pub const IDS: [&str; 6] = ["outline", "board", "next", "model", "terms", "bots"];
+pub const IDS: [&str; 7] = [
+    "outline", "board", "next", "prompts", "model", "terms", "bots",
+];
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 pub struct Preference {
@@ -79,6 +81,12 @@ impl Features {
             if pref.placement != "edge" {
                 pref.placement = main.placement.clone();
             }
+        }
+        // 原常用语跟随下一步的位置与开合意愿；已有独立偏好优先。
+        if !prefs.contains_key("prompts")
+            && let Some(next) = prefs.get("next").cloned()
+        {
+            prefs.insert("prompts".into(), next);
         }
         if !prefs.contains_key("model")
             && std::fs::read(paths.root.join("model-control.json"))
@@ -244,6 +252,7 @@ impl App {
     pub async fn set_feature_enabled(&self, id: &str, enabled: bool) -> Result<()> {
         if enabled
             && (id == "bots"
+                || id == "prompts"
                 || self.feature_managed(id).await
                 || self.main_features_managed().await)
         {
@@ -472,10 +481,12 @@ impl App {
             if placement == "desktop" {
                 ensure!(crate::panel::popout_supported(), "当前系统不支持桌面窗口");
             }
-            if id == "outline" || id == "next" {
+            if ["outline", "next", "prompts"].contains(&id) {
                 let model = self.model.read().await;
                 let enabled = if id == "outline" {
                     model.options.answer_outline_enabled
+                } else if id == "prompts" {
+                    model.options.quick_prompts_enabled
                 } else {
                     model.options.enabled
                 };
@@ -700,18 +711,26 @@ impl App {
                     let model = self.model.read().await;
                     if id == "outline" {
                         model.options.answer_outline_enabled
+                    } else if id == "prompts" {
+                        model.options.quick_prompts_enabled
                     } else {
                         model.options.enabled
                     }
                 };
                 ensure!(enabled, "功能已停用，请先在设置中开启");
-                if id == "next" && input["action"] == "quick-prompts" {
+                if ["next", "prompts"].contains(&id) && input["action"] == "quick-prompts" {
+                    ensure!(
+                        self.model.read().await.options.quick_prompts_enabled,
+                        "常用语已停用"
+                    );
                     return Box::pin(self.save_quick_prompts(data)).await;
                 }
                 let kind = data["kind"].as_str().unwrap_or("");
                 ensure!(
                     if id == "outline" {
                         kind.starts_with("outline-")
+                    } else if id == "prompts" {
+                        kind == "quick-fill"
                     } else {
                         ["generate", "fill", "quick-fill"].contains(&kind)
                     },
@@ -806,17 +825,23 @@ impl App {
     // Called under feature_operation. Only fill missing registrations: explicit closed
     // views, edge assignments and live legacy windows retain their existing ownership.
     async fn restore_unregistered_main_features(&self) -> Result<()> {
-        if !self.main_features_managed().await || self.appearance().await.detached {
+        let appearance = self.appearance().await;
+        if appearance.detached {
             return Ok(());
         }
-        let (outline, next, bots) = {
+        let (outline, next, prompts, bots) = {
             let model = self.model.read().await;
             (
                 model.options.answer_outline_enabled,
                 model.options.enabled,
+                model.options.quick_prompts_enabled,
                 model.options.grokbot_enabled,
             )
         };
+        let legacy = !self.main_features_managed().await;
+        if legacy && (next || !prompts) {
+            return Ok(());
+        }
         let board = self.tasks.board_enabled().await && !self.tasks.window_open().await;
         let mut f = self.features.lock().await;
         if f.main.target.is_some()
@@ -829,6 +854,7 @@ impl App {
         let missing: Vec<_> = [
             ("outline", outline),
             ("next", next),
+            ("prompts", prompts),
             ("board", board),
             ("terms", terminology),
             ("bots", bots),
@@ -840,6 +866,19 @@ impl App {
         if missing.is_empty() {
             return Ok(());
         }
+        let previous_main = f.main.pref.clone();
+        let open = if legacy {
+            let sidebar = appearance.ui.layout_mode == "workbench";
+            f.main.pref.placement = if sidebar { "sidebar" } else { "overlay" }.into();
+            f.main.pref.return_placement = f.main.pref.placement.clone();
+            if sidebar {
+                appearance.ui.dock_open
+            } else {
+                appearance.ui.open
+            }
+        } else {
+            true
+        };
         for id in &missing {
             let placement = f.main.pref.placement.clone();
             f.entries.insert(
@@ -847,7 +886,7 @@ impl App {
                 Entry {
                     pref: Preference {
                         placement,
-                        open: true,
+                        open,
                         ..Default::default()
                     },
                     owner: uuid::Uuid::new_v4().to_string(),
@@ -859,6 +898,7 @@ impl App {
             );
         }
         if let Err(error) = f.save(&self.paths) {
+            f.main.pref = previous_main;
             for id in missing {
                 f.entries.remove(id);
             }
@@ -1089,7 +1129,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn all_six_feature_rows_can_persist_collapsed_and_reopen() {
+    async fn all_feature_rows_can_persist_collapsed_and_reopen() {
         let (_dir, app) = app().await;
         let rows: Vec<Value> = IDS
             .iter()
@@ -1365,6 +1405,56 @@ mod tests {
         );
         app.model.write().await.options.enabled = false;
         assert!(app.feature_request(json!({"op":"action","id":"next","owner":owner,"action":"quick-prompts","data":{"quickPrompts":[],"expectedRevision":saved["configurationRevision"]}})).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn legacy_quick_prompts_keep_placement_and_closed_state_without_stepwise() {
+        for (mode, placement, open) in [
+            ("capsule", "overlay", true),
+            ("workbench", "sidebar", false),
+        ] {
+            let (_dir, app) = app().await;
+            app.save_settings(serde_json::from_value(json!({"enabled": false})).unwrap())
+                .await
+                .unwrap();
+            {
+                let mut panel = app.panel.lock().await;
+                panel.prefs.ui.layout_mode = mode.into();
+                panel.prefs.ui.open = open;
+                panel.prefs.ui.dock_open = open;
+            }
+            assert!(!app.main_features_managed().await);
+            app.restore_unregistered_main_features().await.unwrap();
+            let restored = Features::load(&app.paths);
+            assert_eq!(restored.entries["prompts"].pref.placement, placement);
+            assert_eq!(restored.entries["prompts"].pref.open, open);
+            assert!(!restored.entries.contains_key("next"));
+            assert_eq!(restored.entries["outline"].pref.open, open);
+        }
+    }
+
+    #[tokio::test]
+    async fn independent_prompts_edit_without_stepwise_and_reject_generation() {
+        let (_dir, app) = app().await;
+        app.save_settings(serde_json::from_value(json!({"enabled": false})).unwrap())
+            .await
+            .unwrap();
+        let owner = open(&app, "prompts").await;
+        let before = app.settings().await;
+        let saved = app.feature_request(json!({"op":"action","id":"prompts","owner":owner,"action":"quick-prompts","data":{"quickPrompts":[{"label":"继续","prompt":"继续处理"}],"expectedRevision":before["configurationRevision"]}})).await.unwrap();
+        assert_eq!(saved["generationRevision"], before["generationRevision"]);
+        assert_eq!(saved["enabled"], false);
+        assert!(
+            app.feature_request(
+                json!({"op":"action","id":"prompts","owner":owner,"data":{"kind":"generate"}})
+            )
+            .await
+            .unwrap_err()
+            .to_string()
+            .contains("不属于")
+        );
+        app.model.write().await.options.quick_prompts_enabled = false;
+        assert!(app.feature_request(json!({"op":"action","id":"prompts","owner":owner,"action":"quick-prompts","data":{"quickPrompts":[],"expectedRevision":saved["configurationRevision"]}})).await.is_err());
     }
 
     #[tokio::test]

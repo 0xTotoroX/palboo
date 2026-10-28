@@ -29,7 +29,7 @@ test(
       import {useSettingsForm} from './ui/settings/use-settings-form';
       import {SettingsForm,Field,FeatureSwitch,Toggle} from './ui/settings/settings-controls';
       import {Input} from './ui/settings/components/ui/input';
-      import {NextSettings} from './ui/settings/next-settings';
+      import {NextSettings} from './ui/settings/next-settings';import {QuickPromptSettings} from './ui/settings/quick-prompt-settings';
       function App(){const [notice,notify]=useState(''); const editor=useSettingsForm(false,undefined,({configurationRevision,generationRevision,...rest})=>rest,notify);
       useEffect(()=>editor.load(${JSON.stringify(initial)}),[]);
       return <div className="settings-app"><main className="settings-content"><div className="settings-form-column">
@@ -38,7 +38,7 @@ test(
       <Field label="模型名称" id="model"><Input id="model" value={editor.form?.model||''} onChange={e=>editor.change('model',e.target.value)}/></Field>
       <Field label="侧栏宽度（px）" id="dock-width"><Input id="dock-width" type="number" defaultValue="426" /></Field>
       <Toggle label="桌面窗口置顶" checked={false} onChange={()=>{}}/>
-      <NextSettings editor={editor} appearance={{revision:1,ui:{labelOnly:false,promptClickMode:'fill'}}}/></SettingsForm>
+      <NextSettings editor={editor} appearance={{revision:1,ui:{labelOnly:false,promptClickMode:'fill'}}}/><QuickPromptSettings editor={editor}/></SettingsForm>
       {notice && notice!==editor.saveError && <p role="alert">{notice}</p>}
       </div></main></div>};createRoot(document.getElementById('root')).render(<App/>);`,
       },

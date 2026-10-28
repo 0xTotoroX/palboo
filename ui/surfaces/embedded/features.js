@@ -54,6 +54,7 @@ export async function reopenMainFeatures() {
   const switches = {
     outline: 'answerOutlineEnabled',
     next: 'enabled',
+    prompts: 'quickPromptsEnabled',
     board: 'taskBoardEnabled',
     model: 'modelControlEnabled',
     terms: 'terminologyEnabled',
@@ -266,7 +267,7 @@ function renderState(next) {
   if (!independent) {
     stopWorkbench();
     independent = true;
-    shellState.open = false;
+    if (next.mainPlacement !== 'overlay') shellState.open = false;
   }
   const nextPrimary =
     next.mainPlacement || next.features.find((e) => e.placement !== 'edge')?.placement || 'sidebar';

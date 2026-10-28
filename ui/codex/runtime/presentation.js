@@ -1,10 +1,11 @@
 /*
  * [INPUT]: 工作台纯布局模型的旧比例迁移及新聊天/Dots 侧栏许可；后台 popoutSupported 能力、共享胶囊状态、宿主上下文与弹出页通信对象。
- * [OUTPUT]: 宿主明暗/语义色投影及原生外观同步； 共享关联及双面板阅读投影、关联/快捷词填入或发送命令及配置/身份校验，大纲成功回执不携带失败文案；阅读状态与自定义任务分组按实际渲染外壳接续，窗口往返优先使用左栏图标锚点，桌面置顶按钮串行保存目标值。
+ * [OUTPUT]: 宿主明暗/语义色投影及原生外观同步； 共享关联及双面板阅读投影、关联/快捷词填入或发送命令及独立 quickPromptToken/聊天身份校验，大纲成功回执不携带失败文案；阅读状态与自定义任务分组按实际渲染外壳接续，窗口往返优先使用左栏图标锚点，桌面置顶按钮串行保存目标值。
  * [POS]: 内嵌与系统窗口的显示边界，宿主保留业务权威状态，在不可见宿主中仍提供临时屏幕区域与交接眨眼，配合原生窗口位置接续。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
 import { setLocale, getLocale, tr } from '../../shared/i18n.js';
+import { quickPromptToken } from '../../shared/quick-prompts.js';
 import { DOCK_MIN_WIDTH } from '../../surfaces/embedded/width.js';
 import { panelAppearance, syncTheme } from '../../surfaces/embedded/shell/panel-appearance.js';
 import { launcherButton } from '../../surfaces/embedded/launcher.js';
@@ -467,6 +468,7 @@ function exportPanelState() {
   const panelReading = readingState(viewToken);
   return {
     instanceId: INSTANCE_ID,
+    quickPromptToken: quickPromptToken(runtimeState.settings),
     display: {
       labelOnly: shellState.labelOnly,
       promptClickMode: shellState.promptClickMode,
@@ -528,13 +530,11 @@ function panelCommand(command) {
   if (command.kind === 'association') return changeChatBinding(command.action, command.sessionId);
   if (
     !bindingSourceReady() ||
-    (!contextMatches(command.context) && !(command.kind === 'quick-fill' && quickInputTarget()))
+    (!contextMatches(command.context, { answer: command.kind !== 'quick-fill' }) &&
+      !(command.kind === 'quick-fill' && quickInputTarget()))
   )
     return { ok: false, message: tr('聊天来源暂不可用或已变化，请重新确认。') };
-  if (
-    ['fill', 'quick-fill', 'generate'].includes(command.kind) &&
-    command.promptToken !== current.promptToken
-  )
+  if (['fill', 'generate'].includes(command.kind) && command.promptToken !== current.promptToken)
     return { ok: false, message: tr('建议或生成配置已经更新，请刷新后重试。') };
   if (chatBusy() && (command.kind !== 'quick-fill' || command.submit === true))
     return { ok: false, message: tr('回答正在生成，请等待完成。') };
@@ -557,7 +557,11 @@ function panelCommand(command) {
       ? { ok: true }
       : { ok: false, message: tr('找不到当前回答位置。') };
   if (command.kind === 'fill' || command.kind === 'quick-fill') {
-    if (command.promptToken !== current.promptToken)
+    if (
+      command.kind === 'quick-fill' && command.quickPromptToken
+        ? command.quickPromptToken !== current.quickPromptToken
+        : command.promptToken !== current.promptToken
+    )
       return { ok: false, message: tr('建议已经更新，请重新选择。') };
     const index = Number(command.index);
     const items =

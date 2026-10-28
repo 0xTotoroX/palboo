@@ -12,6 +12,8 @@ impl Scope {
                 "expectedRevision",
                 "hostRestartPolicy",
                 "enabled",
+                "quickPromptsEnabled",
+                "quickPromptClickMode",
                 "answerOutlineEnabled",
                 "promptEnhancementEnabled",
                 "tokenMeterEnabled",
@@ -82,6 +84,8 @@ impl Scope {
                 "action",
                 "revision",
                 "enabled",
+                "quickPromptsEnabled",
+                "quickPromptClickMode",
                 "semantic",
                 "autoExpand",
                 "jumpOnClick",
@@ -222,6 +226,7 @@ pub(super) fn schema(scope: Scope) -> Value {
             },
             "choices":{
                 "hostRestartPolicy":["ask","force"], "generationMode":["auto","manual"],
+                "quickPromptClickMode":["fill","direct","hybrid"],
                 "directionSource":["auto","manual","smart"], "provider":["codex","api"],
                 "protocol":["responses","chat_completions","anthropic_messages","auto"]
             },
@@ -230,6 +235,7 @@ pub(super) fn schema(scope: Scope) -> Value {
                 "directions":"get 返回 builtInDirections 和 directionLibrary；内置与个人条目通过 id 区分，selectedDirections 数组即顺序",
                 "jev":"对象支持局部更新；首次同意须 --confirm，密钥由 jevApiKey 独立设置",
                 "generation":"只修改生成配置，不触发生成或发送聊天",
+                "quickPrompts":"独立开关与点击模式；模式未设置时沿用原 ui.promptClickMode，编辑不取消建议生成",
                 "maxInputChars":"0 表示完整上下文，正数为字符上限"
             },
             "examples":[{"tokenMeterEnabled":false,"grokbotAutoSync":false},{"directionSource":"manual","selectedDirections":["advance","explore"]}],

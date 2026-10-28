@@ -16,15 +16,15 @@
 - [settings-disclosure.tsx](settings-disclosure.tsx)：保留的原生details展示兼容组件，当前常规配置已改为直接显示；支持强制展开与用户折叠状态接续；在布局阶段暂存/还原DOM开合，不用异步toggle事件覆盖用户状态，不卸载子内容。
 - [settings-controls.tsx](settings-controls.tsx)：共用设置行、功能开关、反馈及自动/手动保存表单；只有输入控件失焦触发自动保存，操作按钮与导航失焦不重交旧快照；保存反馈跟随触发编辑的设置项，自动保存成功短暂显示，失败/冲突就近保留并可重试；抽屉继续使用已有底部操作区，手动保存沿用原表单及队列，在途新编辑不误报成功。
 - `settings-feedback.tsx`：反馈锚点与临时展示槽；将反馈放到设置行后，不移动输入或改变表单归属，目标被移除时回到原位置；只管理呈现，不持有保存服务。
-- [next-settings.tsx](next-settings.tsx)：下一步依次显示操作设置、生成/方向与常用提示词；名称、内容和删除并列为紧凑行，长内容自然增高；仅页面外层隐藏原节点保留草稿；共享模型配置移入model-settings，不复制表单。
+- [next-settings.tsx](next-settings.tsx)：下一步依次显示操作设置与生成/方向；常用语由 quick-prompt-settings.tsx 独立管理；名称、内容和删除并列为紧凑行，长内容自然增高；仅页面外层隐藏原节点保留草稿；共享模型配置移入model-settings，不复制表单。
 - [model-settings.tsx](model-settings.tsx)：系统中的唯一共享模型服务/凭据表单，直接显示常规参数及协议；环境变量名与高级生成参数统一在“高级设置”抽屉中编辑；局部模型列表、密钥显示与草稿保留，调用共用SettingsEditor。模型候选使用共用 SuggestionInput，箭头/方向键主动读取已保存连接的列表，展开显示全部候选、输入过滤；读取失败或空列表仍可手填。未保存连接不读旧候选，修订号及请求序号隔离迟到结果；展开不提交草稿，保留原失焦保存。连接测试的保存中/等待耗时/成功/失败结果直接显示在按钮下方，不依赖页顶通知；保存失败不测试旧配置，编辑或修订变化清除旧结果，在途配置变更不显示为当前连接成功。
 - [model-credentials.tsx](model-credentials.tsx)：已存 API 密钥显示配置状态与更换入口，不回读原值；新草稿非空才提供眼睛，取消保留旧密钥。删除仅在高级连接设置显示，原生 dialog 默认聚焦取消，确认后走独立清除补丁；失败保留状态，确认修订过期时拒绝删除。
 - [direction-settings.tsx](direction-settings.tsx)：主页面统一展示生成时机、方向来源和有序名称列表；整行原生拖动排序显示插入线，落点确认才保存，取消或未改变顺序不写入，保留 Alt+上下方向键及移动后的焦点，行内只显示移除按钮；方向库为标题右侧的轻入口，选择方向使用独立小面板，Jev 同意及凭据只在智能模式下直接显示，仍共用模型保存队列。
 - [direction-picker.tsx](direction-picker.tsx)：排除已选项的小型分类选择面板，优先可选自定义方向，搜索跨内置和自定义名称/说明；点选只追加已有 ID，编辑留在方向库。支持键盘选择、Esc 返回、外点/移出焦点关闭、上下避让与内部滚动；页面滚动时重新计算避让，入口离开视口后关闭，避免点击入口后的滚动事件误关面板；导航和搜索不触发表单保存。
 - [direction-library.tsx](direction-library.tsx)：单个右侧抽屉中的“内置方向 / 我的方向”目录，选择条目后进入名称/说明编辑，返回恢复目录焦点与滚动；字段持续挂载，关闭与分级导航不触发保存。后台只读目录确定来源，修改过的内置文案可恢复默认并保留勾选及顺序。无效字段及深链接通过 detail-reveal 事件同步打开对应条目；私有条目名称不进入全局设置搜索。
 - [connection-settings.tsx](connection-settings.tsx)：启动策略及本机连接详情；Dev 固定启动时的目标，重连和断开不提交模型表单。
-- [use-settings-form.ts](use-settings-form.ts)：模型及两套独立密钥的草稿、修订校验、保存队列及在途编辑合并；记录编辑来源并在请求期间固定反馈位置；大纲与下一步开关单独提交，不携带其他字段或密钥草稿；删除 API 密钥复用串行队列，仅发送 clearApiKey 与修订号，不携带其他草稿或将删除意图留在自动保存中；导出 SettingsEditor 供展示模块组合。
-- [panel-settings.tsx](panel-settings.tsx)：有效旧字段的分区适配；下一步显示及常用提示词/推荐指令共用的点击行为、统一字体跟随来源、相对比例及自定义字号、侧栏宽度以整数显示和提交，仅读取/聚焦不改写已有小数几何；桌面置顶逐项保存；旧 fontOffset 作为大纲与下一步的兼容回退。不再编辑旧 dockLayout/popoutLayout、位置或主题。
+- [use-settings-form.ts](use-settings-form.ts)：模型及两套独立密钥的草稿、修订校验、保存队列及在途编辑合并；记录编辑来源并在请求期间固定反馈位置；大纲、下一步与常用语开关单独提交，不携带其他字段或密钥草稿；删除 API 密钥复用串行队列，仅发送 clearApiKey 与修订号，不携带其他草稿或将删除意图留在自动保存中；导出 SettingsEditor 供展示模块组合。
+- [panel-settings.tsx](panel-settings.tsx)：有效旧字段的分区适配；下一步显示及推荐指令点击行为，常用语未独立选择模式时兼容继承、统一字体跟随来源、相对比例及自定义字号、侧栏宽度以整数显示和提交，仅读取/聚焦不改写已有小数几何；桌面置顶逐项保存；旧 fontOffset 作为大纲与下一步的兼容回退。不再编辑旧 dockLayout/popoutLayout、位置或主题。
 - [feature-settings.tsx](feature-settings.tsx)：唯一主界面形式、每个功能加入主界面或贴边、四功能布局；与工作台共用 resolveFeatureLayout 读取旧布局，嵌套布局显示为自定义分栏、预设重排保留全部叶子功能，通过 main-layout 校验原快照后保存，未读取配置前禁用操作。
 - [surface-settings.tsx](surface-settings.tsx)：功能位置与布局、主题、字体、尺寸与窗口、贴边位置直接分组显示；管理四种形式各自主题及贴边屏幕/位置；屏幕可显式跟随 Codex，保留自动选择与固定屏幕及断开屏幕的选择，写入带 revision 校验。
 - [model-control-settings.tsx](model-control-settings.tsx)：模型快切开关、分类状态与串行修订保存，聚焦及轮询回读外部变更，写入期间不被旧读取覆盖；冲突重新读取但不自动重放，失败保留编辑草稿；不持有位置或主题。
@@ -68,7 +68,7 @@
 
 所有动作图标通过shared/icons/react读取同一公开SVG目录及18px共享变量。普通图标按钮复用components/ui/button的IconButton，确认操作继续由ConfirmationButton处理；原提交类型、焦点和保存通道不变。设置页内控件高度、圆角及开关几何统一由settings-controls.css管理，基础组件保留独立挂载所需的默认样式。页面保留桌面16px、窄屏12px额外顶部留白及底部边距。
 
-大纲保留在常用开关；下一步、术语释义、任务看板和模型快切各有独立子页，常用提示词并入下一步；旧 settings-prompts 与 settings-quick-prompts 均定位到同页提示词区块。旧锚点可进入对应详细分类并展开目标；Apple提醒事项继续隐藏。原settings-overview组件保留代码，但不作为当前页面入口。
+大纲保留在常用开关；下一步、常用语、术语释义、任务看板和模型快切各有独立子页；旧 settings-prompts 与 settings-quick-prompts 均定位到常用语页。旧锚点可进入对应详细分类并展开目标；Apple提醒事项继续隐藏。原settings-overview组件保留代码，但不作为当前页面入口。
 
 设置凭据以同源localStorage共享并兼容迁移旧sessionStorage；入口hash令牌优先，读取后移出URL。storage/hashchange/focus触发SSE重连，不卸载表单或重放写入；新地址首次仍须通过眼睛菜单授权入口进入。开发来源请求实时读取共享凭据，不再固定旧令牌。
 
@@ -151,3 +151,5 @@ Bot 资料的置顶组仅在与后续分组之间显示一条分隔线，不显�
 launcher-settings 将单击、双击、右键并列为同宽设置行，各次仅保存一个字段和 expectedRevision；旧偏好缺省不变，失败回读与提示沿用。
 
 - `app-mode-settings.tsx`：“启动与连接”的正式/开发模式及源码路径，未保存主表单阻止切换，提交模式修订并进入独立进度页；错误保留输入；实际模式与下次启动偏好不一致时允许提交当前模式以纠正偏好，仍受草稿与修订保护。页脚复用共享单色网站/GitHub图标，新标签打开宣传页与仓库，键盘名称和中英文共用。
+
+- `quick-prompt-settings.tsx`：常用语独立页面的点击模式与预设编辑，复用原串行保存、删除确认与草稿保护；旧锚点转至本页，下一步仅保留建议配置。模型服务的 Codex 目录来自与快切相同的宿主能力接口，保留手动刷新及错误反馈。

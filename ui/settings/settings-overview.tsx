@@ -132,6 +132,7 @@ export function SettingsOverview({
     bots: settings.grokbotEnabled,
     outline: settings.answerOutlineEnabled,
     next: settings.enabled,
+    prompts: settings.quickPromptsEnabled,
     board: tasks.store.boardEnabled,
     model: models.preferences.enabled,
     terms: features.features.some((entry) => entry.id === 'terms' && entry.open),

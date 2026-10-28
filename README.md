@@ -17,7 +17,8 @@ Desktop windows use native macOS traffic-light controls and the Palboo icon in t
 
 | Tool                      | What it does                                                                                                                            |
 | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| **Next steps · Stepwise** | Suggest relevant follow-ups, choose directions, and reuse quick prompts.                                                                |
+| **Next steps · Stepwise** | Suggest relevant follow-ups and choose directions.                                                                |
+| **Quick phrases** | Manage reusable prompts independently; choose fill, send, or click-to-fill/double-click-to-send. |
 | **Outline**               | Navigate long answers and jump to the original text.                                                                                    |
 | **Terminology**           | Explain terms in context; collect favorites and mark terms as mastered.                                                                 |
 | **Task board**            | Organize tasks into To do, In progress, and Done, with groups and drag-and-drop.                                                        |
@@ -84,7 +85,9 @@ Palboo follows Codex's appearance. English, Simplified Chinese, and system-defau
 
 New configurations use the complete latest question and answer, with up to three suggestions. Fewer or no suggestions may be returned when appropriate. Existing limits are retained.
 
-Edit quick prompts and manage the direction library on the same page. Built-in edits and custom directions stay local; built-in wording can be restored. Choose whether a click fills or sends, or drag a suggestion into its linked composer. Existing drafts are always preserved and never sent automatically.
+Manage directions in **Next steps**. Built-in edits and custom directions stay local; built-in wording can be restored. Choose whether a click fills or sends, or drag a suggestion into its linked composer.
+
+**Features → Quick phrases** manages up to eight presets and its own click mode. Add, edit, and confirm deletions directly in the phrase panel too. It works with Stepwise disabled and preserves existing phrases and click behavior. Existing drafts are always preserved and appended to, never sent automatically.
 
 </details>
 
@@ -103,6 +106,7 @@ Export includes personal additions, favorites, and mastered terms. Reset deletes
 <summary>Models, Bots, and connections</summary>
 
 - **Model switching** controls the current Codex input target, independently of Stepwise's model. Models, reasoning levels, and usage limits come from Codex; only available capabilities are shown.
+- With the existing Codex login selected, **System → Model service** uses the same available model catalog as quick switching. Reading the catalog leaves the chat’s model unchanged and works with quick switching disabled. Connection or catalog failures are shown and can be retried.
 - **Grok Bot** is optional and off by default. Copy the setup prompt from **Features → Grok Bot → Connect Grok Bot** to your Agent. BDK, MCP, and the Skill remain separately installed. The panel shortcut opens the Grok Bot app, including when profiles are stale. Consultations append to the composer without sending; closing the panel does not stop remote Bot work.
 - **System → CodexHost** shows status and versions, with update and restore actions. External hosts and Agents keep their own configuration.
 - **System → Performance & switches** can pause the Codex connection while retaining settings, tasks, and drafts. Optional monitoring runs only while that page is visible.

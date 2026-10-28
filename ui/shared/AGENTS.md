@@ -65,3 +65,7 @@ Settings.terminologyImportsPending 为只读待处理状态；__palbooTerminolog
 
 - `i18n.js` / `locales/en.js`：本地 i18next 单实例、中文源文案与英文目录，支持 system/zh-CN/en、同步订阅及数字格式；无联网翻译。只在显示层处理产品文案，不改变数据标识或用户内容。`use-locale.ts` 为 React 外部订阅，切换不重挂载表单；网站注册自己的文案，网站内容不进入 App 包。
 - AppearanceSettings/FeatureState.appearance.language 为可选共享外观偏好，旧快照兼容；默认值由后台提供。内置方向只有稳定ID及字段均与原始目录一致时才翻译，模型厂家分类的保存ID始终使用原值。
+
+- `quick-prompts.js`：独立常用语内容身份的纯函数；宿主投影与保存成功后的设置合并共用，避免新条目立即点击时带旧版本。text.js 提供共享 hashText，runtime 保留原导出。
+
+EditableSettings.quickPromptsEnabled/quickPromptClickMode 声明独立开关与可空点击模式；PanelSnapshot/PanelCommand.quickPromptToken 独立于建议生成版本，旧命令仍兼容 promptToken。features.ts 的 prompts 与 feature-prompts 使用同一位置、字号和草稿交接协议。

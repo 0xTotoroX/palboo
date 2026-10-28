@@ -431,8 +431,16 @@ test(
       assert.equal(await page.getByRole('link', { name: '常用提示词', exact: true }).count(), 0);
       assert.equal(
         await page.getByRole('heading', { name: '常用提示词', exact: true }).isVisible(),
+        false,
+      );
+      await category('prompts');
+      assert.equal(
+        await page.getByRole('heading', { name: '常用提示词', exact: true }).isVisible(),
         true,
       );
+      assert.equal(await page.locator('#quick-prompt-click').inputValue(), 'fill');
+      assert.equal(await page.locator('#settings-directions').isVisible(), false);
+      await category('next');
       assert.equal(await page.getByText('已有草稿时只追加。', { exact: true }).count(), 0);
       const originalInstruction = fixtureSettings.directionLibrary[0].instruction;
       const firstId = fixtureSettings.directionLibrary[0].id;
@@ -509,7 +517,7 @@ test(
       await page.locator('#settings-quick-prompts').waitFor();
       assert.equal(
         await page.locator('.settings-app').getAttribute('data-settings-category'),
-        'next',
+        'prompts',
       );
       assert.equal(await page.evaluate(() => document.activeElement.id), 'settings-quick-prompts');
       assert.equal(await page.getByRole('link', { name: '常用提示词', exact: true }).count(), 0);
@@ -557,7 +565,7 @@ test(
       await category('features');
       assert.equal(await page.locator('.settings-mode').count(), 0);
       assert.equal(await page.getByRole('navigation', { name: '设置分类' }).isVisible(), true);
-      assert.equal(await page.getByRole('switch').count(), 7);
+      assert.equal(await page.getByRole('switch').count(), 8);
       assert.equal(await page.getByRole('button', { name: /^打开/ }).count(), 0);
       await category('model');
       await category('features');
@@ -628,7 +636,7 @@ test(
           assert.equal(await page.locator('.preview-scene[data-active="true"]').count(), 1);
         if (id === 'features') {
           assert.equal(await page.locator('.settings-preview').count(), 0);
-          assert.equal(await page.getByRole('switch').count(), 7);
+          assert.equal(await page.getByRole('switch').count(), 8);
           assert.equal(
             await page.getByRole('button', { name: '模型分组', exact: true }).isVisible(),
             false,
@@ -1052,7 +1060,7 @@ test(
         await page
           .locator('#feature-placements > .settings-feature-grid > .settings-feature-cell')
           .count(),
-        6,
+        7,
       );
       const neighborOffset = await page
         .locator('#placement-board')
@@ -1214,7 +1222,7 @@ test(
                 0,
                 'common switches have no preview',
               );
-              assert.equal(await page.getByRole('switch').count(), 7);
+              assert.equal(await page.getByRole('switch').count(), 8);
               const top = await page.locator('.settings-body').evaluate((node) => ({
                 body: node.getBoundingClientRect().top,
                 controls: node.querySelector('.settings-form-column').getBoundingClientRect().top,

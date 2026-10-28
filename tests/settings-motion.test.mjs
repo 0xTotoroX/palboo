@@ -155,7 +155,7 @@ return <div className="settings-app" ref={ref}><div style={{width:430}}><Setting
       });
       await page.waitForTimeout(35);
       await tabs.evaluate((el) => {
-        el.querySelectorAll('button')[2].click();
+        [...el.querySelectorAll('button')].find((button) => button.textContent === '看板').click();
       });
       await finishAnimations(page.locator('.preview-scenes'));
       assert.equal(

@@ -51,25 +51,30 @@ function Facts({ items }: { items: [string, ReactNode][] }) {
 
 function FeaturePreview({ form, tasks, model, view, dirty, page }: PreviewProps) {
   useLocale();
-  const [tab, setTab] = useState<'outline' | 'next' | 'board' | 'model' | 'bots'>('next');
+  const [tab, setTab] = useState<'outline' | 'next' | 'prompts' | 'board' | 'model' | 'bots'>(
+    'next',
+  );
   const [selected, setSelected] = useState(0);
   const [demoDraft, setDemoDraft] = useState('');
   const [selectedBot, setSelectedBot] = useState('general');
   const [boardGroup, setBoardGroup] = useState('');
   const activeScene =
-    page === 'bots'
-      ? 'bots'
-      : page === 'board'
-        ? 'board'
-        : page === 'model-control'
-          ? 'model'
-          : page === 'next'
-            ? 'next'
-            : tab;
+    page === 'prompts'
+      ? 'prompts'
+      : page === 'bots'
+        ? 'bots'
+        : page === 'board'
+          ? 'board'
+          : page === 'model-control'
+            ? 'model'
+            : page === 'next'
+              ? 'next'
+              : tab;
   const transition = usePreviewTransition(activeScene);
   const enabled = {
     outline: form?.answerOutlineEnabled,
     next: form?.enabled,
+    prompts: form?.quickPromptsEnabled,
     board: tasks?.store.boardEnabled,
     model: model?.preferences.enabled,
     bots: form?.grokbotEnabled,
@@ -88,7 +93,7 @@ function FeaturePreview({ form, tasks, model, view, dirty, page }: PreviewProps)
         hidden={page !== 'features'}
         data-settings-navigation
       >
-        {(['outline', 'next', 'board', 'model', 'bots'] as const).map((id) => (
+        {(['outline', 'next', 'prompts', 'board', 'model', 'bots'] as const).map((id) => (
           <button
             key={id}
             type="button"
@@ -100,7 +105,7 @@ function FeaturePreview({ form, tasks, model, view, dirty, page }: PreviewProps)
         ))}
       </div>
       <div className="preview-scenes" data-single-scene={page !== 'features'} ref={transition}>
-        {(['outline', 'next', 'board', 'model', 'bots'] as const).map((scene) => {
+        {(['outline', 'next', 'prompts', 'board', 'model', 'bots'] as const).map((scene) => {
           const active = enabled[scene];
           return (
             <div
@@ -143,9 +148,13 @@ function FeaturePreview({ form, tasks, model, view, dirty, page }: PreviewProps)
                     </div>
                   </>
                 )}
-                {scene === 'next' && (
+                {(scene === 'next' || scene === 'prompts') && (
                   <>
-                    <div className="preview-suggestions" data-settings-navigation>
+                    <div
+                      className="preview-suggestions"
+                      data-settings-navigation
+                      hidden={scene !== 'next'}
+                    >
                       {examples
                         .slice(0, Math.max(0, Math.min(3, suggestionLimit(form))))
                         .map((text, index) => (
@@ -175,7 +184,11 @@ function FeaturePreview({ form, tasks, model, view, dirty, page }: PreviewProps)
                         ))}
                     </div>
                     <div className="preview-composer">
-                      <div className="preview-quick-prompts" data-settings-navigation>
+                      <div
+                        className="preview-quick-prompts"
+                        data-settings-navigation
+                        hidden={scene !== 'prompts'}
+                      >
                         {form?.quickPrompts.map((item, index) => (
                           <button
                             type="button"
@@ -360,7 +373,7 @@ export function SettingsPreview(props: PreviewProps) {
           typography={props.view?.panelTypography}
           typographyPreferences={props.view?.panelPreferences.typography}
         />
-      ) : ['features', 'next', 'board', 'model-control', 'bots'].includes(props.page) ? (
+      ) : ['features', 'next', 'prompts', 'board', 'model-control', 'bots'].includes(props.page) ? (
         <FeaturePreview {...props} />
       ) : props.page === 'model' ? (
         <GenerationPreview {...props} />

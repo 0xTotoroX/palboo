@@ -1,6 +1,6 @@
 import { tr } from './i18n.js';
 /* [INPUT]: Authenticated feature transport and shared business DTOs.
- * [OUTPUT]: Persisted edge navigation, six-feature icon mapping and placement, main ownership, default fonts, recursive split geometry with optional row collapse flags and transient view, preset and quick-prompt draft contracts.
+ * [OUTPUT]: Persisted edge navigation, seven-feature icon mapping and placement, main ownership, default fonts, recursive split geometry with optional row collapse flags and transient view, preset and quick-prompt draft contracts.
  * [POS]: Presentation boundary. [PROTOCOL]: Keep AGENTS.md in this module in sync. */
 import type { BoardView } from '../features/board/app';
 export const titles = {
@@ -12,6 +12,9 @@ export const titles = {
   },
   get next() {
     return tr('下一步');
+  },
+  get prompts() {
+    return tr('常用语');
   },
   get model() {
     return tr('模型切换');
@@ -26,6 +29,7 @@ export const featureIcons: Record<FeatureId, string> = {
   outline: 'feature-outline',
   board: 'feature-board',
   next: 'feature-next',
+  prompts: 'feature-prompts',
   model: 'feature-model',
   terms: 'feature-terms',
   bots: 'feature-bots',
@@ -34,6 +38,7 @@ export type FontSizes = Partial<Record<FeatureId, number>>;
 export const defaultFontSizes: Record<FeatureId, number> = {
   outline: 16,
   next: 16,
+  prompts: 16,
   board: 15,
   model: 14,
   terms: 14,

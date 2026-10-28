@@ -1,7 +1,7 @@
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: A Codex projection, transient reading state, guarded actions and a surface header slot.
- * [OUTPUT]: Shared outline/next content inside an isolated mount, preserving DOM, quick-prompt drafts and preview reading.
+ * [OUTPUT]: Shared outline/next/quick-phrase content inside an isolated mount, preserving DOM, quick-prompt drafts and preview reading.
  * [POS]: Mount adapter; feature modules own content and gestures, containers own arrangement.
  * [PROTOCOL]: Keep AGENTS.md in this module in sync. */
 import { useLayoutEffect, useRef } from 'react';
@@ -10,6 +10,7 @@ import type { PanelSnapshot, PanelCommand } from '../shared/contracts';
 import type { Reading } from '../shared/features';
 import { outlineHtml, alignOutlineNestedText, attachOutlineEvents } from './outline/view.js';
 import { createNextView } from './next/view.js';
+import { createQuickPromptsView } from './quick-prompts.js';
 import { readWorkbenchScroll, writeWorkbenchScroll } from '../shared/scroll.js';
 import { iconSvg } from '../shared/icons/index.js';
 export function ProjectedContent({
@@ -26,7 +27,7 @@ export function ProjectedContent({
     items: { label: string; prompt: string }[],
     revision: number,
   ) => Promise<PanelSnapshot['settings']>;
-  id: 'outline' | 'next';
+  id: 'outline' | 'next' | 'prompts';
   snapshot: PanelSnapshot;
   reading: Reading;
   disabled: boolean;
@@ -38,9 +39,12 @@ export function ProjectedContent({
   const rendered = useRef<string | null>(null);
   const latest = useRef({ snapshot, disabled, command, saveQuickPrompts });
   latest.current = { snapshot, disabled, command, saveQuickPrompts };
-  const next = useRef<ReturnType<typeof createNextView> | null>(null);
+  const next = useRef<
+    ReturnType<typeof createNextView> | ReturnType<typeof createQuickPromptsView> | null
+  >(null);
   if (!next.current)
-    next.current = createNextView({
+    next.current = (id === 'prompts' ? createQuickPromptsView : createNextView)({
+      includeQuickPrompts: false,
       read: () => latest.current.snapshot,
       reading,
       saveQuickPrompts: saveQuickPrompts
@@ -100,7 +104,7 @@ export function ProjectedContent({
     node
       .querySelectorAll<HTMLButtonElement>('button')
       .forEach((button) => (button.disabled = disabled));
-    if (id === 'next') next.current?.setDisabled(disabled);
+    if (id !== 'outline') next.current?.setDisabled(disabled);
     if (id === 'outline') alignOutlineNestedText(node);
   }, [contentKey, html, disabled, id, reading]);
   useLayoutEffect(
@@ -130,7 +134,7 @@ export function ProjectedContent({
   );
   return (
     <>
-      {headerActions ? (
+      {id === 'prompts' ? null : headerActions ? (
         createPortal(refresh, headerActions)
       ) : (
         <header className="feature-pane-head">{refresh}</header>

@@ -162,7 +162,8 @@ export function FeatureView({
           reading.current.token = token;
           if (body.current) writeWorkbenchScroll(body.current, 0);
         }
-        if (['outline', 'next'].includes(entry.id) && !value.snapshot) setConnected(false);
+        if (['outline', 'next', 'prompts'].includes(entry.id) && !value.snapshot)
+          setConnected(false);
         else setValue(value);
         await onReady?.();
         ready = true;

@@ -80,3 +80,5 @@ state 默认关闭 sidebarNewChat/sidebarDots；presentation 从外观偏好同�
 lifecycle 的现有公开运行接口增加只读 translate，用于独立 CDP 脚本文案。presentation 接收带 language/action 的外观投影并兼容旧动作字符串；桌面旧入口读取 language，内容身份加入语言以刷新产品文案，保持草稿和阅读状态。宿主 document.lang 不由 Palboo 修改。
 
 presentation 同步三种入口动作；exportPanelState 的 viewToken 包含空聊天唯一输入目标 token，quick-fill 仅在有效临时输入目标下放行空上下文。lifecycle 暴露只读 hostPageAllowed 与 DesktopStatus.pageKind，入口遵守范围；runtimeEnabled 包含仅术语开启的情况。
+
+常用语独立开关参与 runtimeEnabled 与 settings-sync 的即时启停；投影使用共享 quickPromptToken，预设动作不依赖 generationRevision。只开常用语时不为填入启动回答扫描，锁定聊天仍使用真实来源身份，旧建议命令校验不变。

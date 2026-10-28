@@ -1,4 +1,4 @@
-/* [INPUT]: Text and numeric values. [OUTPUT]: Escaping, normalization, concise error presentation and bounds shared by views and adapters.
+/* [INPUT]: Text and numeric values. [OUTPUT]: Escaping, normalization, content hashes, concise error presentation and bounds shared by views and adapters.
  * [POS]: Pure helpers. [PROTOCOL]: Keep shared/AGENTS.md in sync. */
 import { tr } from './i18n.js';
 export function normalizeText(value) {
@@ -12,6 +12,13 @@ export function normalizeText(value) {
 
 export function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
+}
+
+export function hashText(value) {
+  const source = String(value ?? '');
+  let digest = 0;
+  for (const character of source) digest = (digest * 31 + character.codePointAt(0)) | 0;
+  return `${source.length.toString(36)}-${(digest >>> 0).toString(36)}`;
 }
 
 export function escapeHtml(value) {

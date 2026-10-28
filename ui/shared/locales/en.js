@@ -1,5 +1,7 @@
 // English interface copy. User-authored content is not translated.
 export default {
+  常用语: 'Quick phrases',
+  常用语已停用: 'Quick phrases are disabled.',
   运行模式: 'Run mode',
   正式模式: 'Release',
   开发模式: 'Development',

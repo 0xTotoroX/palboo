@@ -10,10 +10,10 @@ const script = (
   await build({
     stdin: {
       resolveDir: process.cwd(),
-      contents: `import {createNextView} from './ui/features/next/view.js';
+      contents: `import {createQuickPromptsView} from './ui/features/quick-prompts.js';
 window.reading={};window.calls=[];window.saves=[];window.fail=false;window.pending=false;
-window.snapshot={settings:{configurationRevision:1,generationMode:'manual',quickPrompts:[{label:'继续',prompt:'继续'},{label:'执行',prompt:'执行'}]},display:{promptClickMode:'fill'},prompts:[],promptToken:'same',bridgeStatus:'ready'};
-let view;window.mount=()=>{view?.clear();view=createNextView({read:()=>snapshot,reading,command:(...args)=>calls.push(args),saveQuickPrompts:async(items,revision)=>{saves.push({items,revision});if(pending)await new Promise(resolve=>window.finish=resolve);if(fail)throw Error('保存失败');if(revision!==snapshot.settings.configurationRevision)throw Error('设置已在其他窗口更新');snapshot.settings={...snapshot.settings,quickPrompts:items,configurationRevision:revision+1};return snapshot.settings;}});document.querySelector('#root').innerHTML=view.html();view.bind(document.querySelector('#root'));};mount();`,
+window.snapshot={settings:{enabled:false,quickPromptsEnabled:true,quickPromptClickMode:null,configurationRevision:1,generationMode:'manual',quickPrompts:[{label:'继续',prompt:'继续'},{label:'执行',prompt:'执行'}]},display:{promptClickMode:'fill'},prompts:[],promptToken:'same',bridgeStatus:'ready'};
+let view;window.mount=()=>{view?.clear();view=createQuickPromptsView({read:()=>snapshot,reading,command:(...args)=>calls.push(args),saveQuickPrompts:async(items,revision)=>{saves.push({items,revision});if(pending)await new Promise(resolve=>window.finish=resolve);if(fail)throw Error('保存失败');if(revision!==snapshot.settings.configurationRevision)throw Error('设置已在其他窗口更新');snapshot.settings={...snapshot.settings,quickPrompts:items,configurationRevision:revision+1};return snapshot.settings;}});document.querySelector('#root').innerHTML=view.html();view.bind(document.querySelector('#root'));};mount();`,
     },
     bundle: true,
     write: false,
@@ -30,6 +30,45 @@ async function fixture(t) {
   await page.addScriptTag({ content: script });
   return page;
 }
+test('standalone quick phrases keep click modes and ignore suggestion refreshes', async (t) => {
+  const page = await fixture(t);
+  assert.equal(await page.locator('.csw-next-layout, .csw-empty, .csw-progress').count(), 0);
+  for (const mode of ['fill', 'direct', 'hybrid']) {
+    await page.evaluate((value) => {
+      snapshot.settings.quickPromptClickMode = value;
+      calls.length = 0;
+      mount();
+    }, mode);
+    await page.getByRole('button', { name: '继续', exact: true }).click();
+    await page.evaluate(() => {
+      snapshot.promptToken = 'another-generation';
+      snapshot.bridgeStatus = 'failed';
+    });
+    await page.waitForFunction(() => calls.length === 1);
+    assert.deepEqual(await page.evaluate(() => calls[0]), [
+      'quick-fill',
+      { index: 0, submit: mode === 'direct' },
+    ]);
+    await page.evaluate(() => {
+      calls.length = 0;
+    });
+    await page.getByRole('button', { name: '执行', exact: true }).dblclick();
+    await page.waitForFunction(() => calls.length === 1);
+    assert.deepEqual(await page.evaluate(() => calls[0]), [
+      'quick-fill',
+      { index: 1, submit: mode !== 'fill' },
+    ]);
+  }
+  await page.evaluate(() => {
+    calls.length = 0;
+  });
+  await page.getByRole('button', { name: '继续', exact: true }).click();
+  await page.evaluate(() => {
+    snapshot.settings.quickPrompts[0].prompt = 'changed';
+  });
+  await page.waitForTimeout(350);
+  assert.equal(await page.evaluate(() => calls.length), 0);
+});
 test('quick prompt editor adds, edits, confirms deletion and keeps unfinished input', async (t) => {
   const page = await fixture(t);
   assert.equal(

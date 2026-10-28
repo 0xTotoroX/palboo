@@ -1,6 +1,6 @@
 // [INPUT]: App、Runtime、本机认证令牌、target/web 与 ui/panel/popout 资源。
 // [OUTPUT]: serve、认证任务 API、HTTP/SSE API、设置页、看板和弹出页资源；含原生呈现确认的窗口协议及受鉴权的无正文开发状态与仅开发模式开放的工作台唤起接口。
-// [POS]: 仅监听 loopback 的服务入口，公开状态剔除聊天正文；认证状态携带 Dev 设置地址供旧入口跳转；独立模型控制 API、页面与窗口租约共用鉴权。
+// [POS]: 仅监听 loopback 的服务入口，公开状态剔除聊天正文；认证状态携带 Dev 设置地址供旧入口跳转；独立模型控制 API、页面与窗口租约共用鉴权；偏好服务自行管理操作锁。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
 use crate::{
@@ -530,7 +530,6 @@ async fn model_control_preferences(
     headers: HeaderMap,
     Json(patch): Json<Value>,
 ) -> Response {
-    let _guard = service.app.feature_operation.lock().await;
     if let Some(lease) = headers.get("x-model-control-lease")
         && let Err(error) = service
             .app

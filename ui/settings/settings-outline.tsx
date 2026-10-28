@@ -18,6 +18,9 @@ export const pageTitles = {
   get features() {
     return tr('常用开关');
   },
+  get prompts() {
+    return tr('常用语');
+  },
   get next() {
     return tr('下一步');
   },
@@ -60,7 +63,7 @@ export const pageGroups: { title: string; pages: SettingsPage[] }[] = [
     get title() {
       return tr('功能');
     },
-    pages: ['next', 'terminology', 'board', 'model-control', 'bots'],
+    pages: ['next', 'prompts', 'terminology', 'board', 'model-control', 'bots'],
   },
   {
     get title() {
@@ -84,8 +87,8 @@ const aliases: Record<string, SettingsPage> = {
   'settings-directions': 'next',
   'settings-direction-library': 'next',
   'settings-next-display': 'next',
-  'settings-prompts': 'next',
-  'settings-quick-prompts': 'next',
+  'settings-prompts': 'prompts',
+  'settings-quick-prompts': 'prompts',
   'settings-terminology': 'terminology',
   'settings-library': 'terminology',
   'settings-jev-advanced': 'next',
@@ -112,6 +115,7 @@ function targetPage(field: string): SettingsPage | undefined {
     )
   )
     return 'surfaces';
+  if (/^quick-prompt/.test(field)) return 'prompts';
   if (/^(generation-mode|direction-|jev-|suggestion-)/.test(field)) return 'next';
   return undefined;
 }

@@ -19,11 +19,11 @@ test(
           loader: 'jsx',
           contents: `
 import React,{useEffect}from'react';import{createRoot}from'react-dom/client';
-import{NextSettings}from'./ui/settings/next-settings';import{ConnectionSettings}from'./ui/settings/connection-settings';
+import{NextSettings}from'./ui/settings/next-settings';import{QuickPromptSettings}from'./ui/settings/quick-prompt-settings';import{ConnectionSettings}from'./ui/settings/connection-settings';
 import{SettingsForm}from'./ui/settings/settings-controls';import{useSettingsForm}from'./ui/settings/use-settings-form';
 import{TerminologySettings}from'./ui/settings/terminology-settings';import{CodexHostSettings}from'./ui/settings/codex-host-settings';
-function App(){const e=useSettingsForm(false,undefined,v=>Object.fromEntries(["enabled", "answerOutlineEnabled", "promptEnhancementEnabled", "generationMode", "hostRestartPolicy", "provider", "protocol", "model", "baseUrl", "apiKeyEnv", "maxItems", "directionSource", "directionLibrary", "selectedDirections", "jev", "quickPrompts", "maxInputChars", "maxOutputTokens", "timeoutMs"].map(key=>[key,v[key]])),()=>{});useEffect(()=>{e.load(window.fixture);window.loadSettings=e.load},[]);
-return <div><SettingsForm editor={e} notify={()=>{}} active><NextSettings editor={e}/><ConnectionSettings editor={e} live view={{connection:{status:'connected',endpoint:'9229',targets:[]}}} notify={()=>{}}/></SettingsForm><CodexHostSettings live active/><TerminologySettings active/></div>}
+function App(){const e=useSettingsForm(false,undefined,v=>Object.fromEntries(["enabled", "quickPromptsEnabled", "quickPromptClickMode", "answerOutlineEnabled", "promptEnhancementEnabled", "generationMode", "hostRestartPolicy", "provider", "protocol", "model", "baseUrl", "apiKeyEnv", "maxItems", "directionSource", "directionLibrary", "selectedDirections", "jev", "quickPrompts", "maxInputChars", "maxOutputTokens", "timeoutMs"].map(key=>[key,v[key]])),()=>{});useEffect(()=>{e.load(window.fixture);window.loadSettings=e.load},[]);
+return <div><SettingsForm editor={e} notify={()=>{}} active><NextSettings editor={e}/><QuickPromptSettings editor={e}/><ConnectionSettings editor={e} live view={{connection:{status:'connected',endpoint:'9229',targets:[]}}} notify={()=>{}}/></SettingsForm><CodexHostSettings live active/><TerminologySettings active/></div>}
 createRoot(document.getElementById('root')).render(<App/>);`,
         },
         bundle: true,

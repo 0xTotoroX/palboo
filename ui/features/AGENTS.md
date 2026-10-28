@@ -2,14 +2,14 @@
 
 > L2 | 父级：[AGENTS.md](../../AGENTS.md)
 
-六种功能共用内容实现，只消费业务投影和受限操作。任务拖放、建议预览及模型选择属于功能；外层窗口、位置、分栏、主题与交接由 surfaces 管理。任务保存和提醒事项同步保留在 Rust，必须读取或操作 Codex DOM 的逻辑保留在 codex。
+七种功能共用内容实现，只消费业务投影和受限操作。任务拖放、建议预览及模型选择属于功能；外层窗口、位置、分栏、主题与交接由 surfaces 管理。任务保存和提醒事项同步保留在 Rust，必须读取或操作 Codex DOM 的逻辑保留在 codex。
 
 - [board/AGENTS.md](board/AGENTS.md)：卡片、组内创建、悬停删除、同步异常处理与跨组拖动。
 - [outline/AGENTS.md](outline/AGENTS.md)：大纲列表、编号对齐及定位操作。
 - [next/AGENTS.md](next/AGENTS.md)：建议列表、预览与点击规则。
 - [model/AGENTS.md](model/AGENTS.md)：模型矩阵、预设和选择操作。
-- `content.tsx`：固定六种功能的内容组合与业务命令适配；接收受限传输和可选顶栏操作位置，保持身份校验，草稿直接追加且不发送。
-- `projected.tsx`：大纲/下一步的 React 投影适配，复用各自 view.js，保留预览及滚动状态；不解析宿主 DOM；空状态撑满剩余内容区并居中；名称由容器标签显示，内容区不重复绘制小标题；刷新操作通过 portal 放入容器顶部槽，业务校验仍归功能。
+- `content.tsx`：固定七种功能的内容组合与业务命令适配；接收受限传输和可选顶栏操作位置，保持身份校验，草稿直接追加且不发送。
+- `projected.tsx`：大纲/下一步/常用语的 React 投影适配，复用各自 view.js，保留预览及滚动状态；不解析宿主 DOM；空状态撑满剩余内容区并居中；名称由容器标签显示，内容区不重复绘制小标题；刷新操作通过 portal 放入容器顶部槽，业务校验仍归功能。
 - `content.css`：大纲、建议与快捷词的共用内容样式、焦点及内容动效；状态提示共用正文0.875倍（最小14px）/500字重及中性颜色，加载共用18px圆环和文字动效，减少动态效果时停止；不绘制容器材质。
 
 [PROTOCOL]: 结构、职责或接口变化时更新本文；父级描述受影响时同步父级地图。
@@ -18,7 +18,7 @@
 
 terminology 内容字号继承共享 feature-session；独立窗口中的点击浮卡直接消费后台 appearance 字体快照，不能用独立窗口默认字体代替宿主。
 
-下一步的快捷指令由next/quick-prompts管理展示和临时草稿；content通过owner保护的quick-prompts action保存列表及expectedRevision，projected只适配回调与禁用状态。更新回读只合并当前投影的设置，不恢复旧聊天快照。
+独立常用语由 quick-prompts.js 管理点击与投影，复用 next/quick-prompts 编辑器与临时草稿；content通过owner保护的quick-prompts action保存列表及expectedRevision，projected只适配回调与禁用状态。保存回读同步当前投影的设置和 quickPromptToken，立即可用；不恢复旧聊天快照。
 
 - [token-meter/AGENTS.md](token-meter/AGENTS.md)：独立可插拔测速读数；组合层通过ModelView可选footer接入，不参与模型操作或持久化。
 
@@ -36,3 +36,5 @@ Bot 目录异常、过期、空名单或缺少可输入聊天按优先级只显�
 Bot 快捷打开通过可选 openApp 能力回调调用固定应用；独立于 composer、目录过期与连接状态，只受当前功能交接/在途操作限制。content 不将打开回执覆盖现有投影；缺少原生能力的设置/网站示例不显示入口。
 
 Bot 内容顶对齐，宿主已有内容内边距时不重复叠加；有标题操作槽时正文直接从 Bot/状态开始，长高容器不拉伸顶部留白。验收必须包含实际挂载外壳、窄分栏、长高容器和标题行，不能仅凭孤立按钮或裸组件截图通过。
+
+- `quick-prompts.js`：独立常用语视图，复用 next/quick-prompts 编辑器；单击/双击使用独立模式并兼容旧模式，延迟点击固定 viewToken、聊天和预设身份，目标变化即取消。下一步投影不再显示预设区。

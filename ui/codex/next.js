@@ -1,8 +1,8 @@
 import { tr } from '../shared/i18n.js';
 /*
  * [INPUT]: 回答上下文、独立生成版本、模型桥接与宿主写入接口。
- * [OUTPUT]: 建议生成、按聊天/回答/完整用户问题保留的有限内存缓存与普通/快捷词只补齐必要换行并直接追加草稿且不发送；来源失联时禁止生成和填入；空聊天快捷词使用唯一官方编辑器临时身份。
- * [POS]: 下一步的 Codex 业务协调；不依赖大纲，通过通知请求外壳反馈。
+ * [OUTPUT]: 独立常用语填入、建议生成、按聊天/回答/完整用户问题保留的有限内存缓存与普通/快捷词只补齐必要换行并直接追加草稿且不发送；来源失联时禁止生成和填入；空聊天快捷词使用唯一官方编辑器临时身份。
+ * [POS]: 下一步与常用语的 Codex 业务协调；不依赖大纲，通过通知请求外壳反馈。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
 
@@ -36,6 +36,7 @@ import {
   runtimeState,
   shellState,
   stepwiseEnabled,
+  quickPromptsEnabled,
   stepwiseGenerationMode,
   stepwiseInputText,
   stepwiseState,
@@ -346,7 +347,8 @@ export function quickInputTarget() {
 }
 
 function fillComposer(prompt, submit = false, options = {}) {
-  if (!bindingSourceReady() || !stepwiseEnabled()) return false;
+  const enabled = () => (options.quick ? quickPromptsEnabled() : stepwiseEnabled());
+  if (!bindingSourceReady() || !enabled()) return false;
   if (IS_POPOUT) {
     void remotePanelAction(options.quick ? 'quick-fill' : 'fill', {
       index: options.quick
@@ -358,19 +360,25 @@ function fillComposer(prompt, submit = false, options = {}) {
   }
   const quickTarget = options.quick ? quickInputTarget() : null;
   const matches = () =>
-    quickTarget ? quickInputTarget()?.token === quickTarget.token : contextMatches(context);
+    quickTarget
+      ? quickInputTarget()?.token === quickTarget.token
+      : contextMatches(context, { answer: !options.quick });
   const context = options.quick
     ? contextState.activeContext
     : stepwiseState.promptContext || contextState.activeContext;
   const epoch = stepwiseState.stepwiseEpoch;
   const generation = runtimeState.runtimeGeneration;
+  const quickVersion = JSON.stringify(runtimeState.settings.quickPrompts);
   const intent = {
     context,
-    resolveTarget: quickTarget ? () => (matches() ? quickTarget.composer : null) : undefined,
+    resolveTarget: options.quick
+      ? () => (matches() ? quickTarget?.composer || target : null)
+      : undefined,
     isCurrent: () =>
       isCurrentRuntime(generation) &&
-      stepwiseEnabled() &&
-      stepwiseState.stepwiseEpoch === epoch &&
+      enabled() &&
+      (options.quick || stepwiseState.stepwiseEpoch === epoch) &&
+      (!options.quick || JSON.stringify(runtimeState.settings.quickPrompts) === quickVersion) &&
       matches(),
   };
   const targetRoot = quickTarget?.scope || composerRootForContext(context);

@@ -18,6 +18,7 @@ export function createNextView({
   command,
   dragSnapshot = read,
   saveQuickPrompts,
+  includeQuickPrompts = true,
   changed = () => {},
 }) {
   let dragCleanups = [];
@@ -66,7 +67,7 @@ export function createNextView({
     },
   });
   function nextHtml() {
-    return `<div class="csw-next-content">${quickPrompts.html()}${nextSuggestionsHtml()}</div>`;
+    return `<div class="csw-next-content">${includeQuickPrompts && read().settings?.quickPromptsEnabled !== false ? quickPrompts.html() : ''}${nextSuggestionsHtml()}</div>`;
   }
 
   function nextSuggestionsHtml() {

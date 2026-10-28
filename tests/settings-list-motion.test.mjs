@@ -21,14 +21,14 @@ test(
           loader: 'jsx',
           contents: `
 import React,{useEffect,useState}from'react';import{createRoot}from'react-dom/client';
-import{NextSettings}from'./ui/settings/next-settings';import{ModelSettings}from'./ui/settings/model-settings';
+import{NextSettings}from'./ui/settings/next-settings';import {QuickPromptSettings} from './ui/settings/quick-prompt-settings';import{ModelSettings}from'./ui/settings/model-settings';
 import{SettingsForm}from'./ui/settings/settings-controls';import{useSettingsForm}from'./ui/settings/use-settings-form';
 import{useSettingsMotion}from'./ui/settings/settings-motion';
 import{TaskSettings}from'./ui/settings/task-settings';import{ModelOrganization}from'./ui/settings/model-organization';
 function App(){const editor=useSettingsForm(false,undefined,({configurationRevision,generationRevision,...v})=>v,()=>{});useEffect(()=>editor.load(window.fixture),[]);const root=useSettingsMotion('test');
 const [columns,setColumns]=useState([{id:'first',title:'首组'},{id:'second',title:'次组'}]);
 const [prefs,setPrefs]=useState({groups:[],pinned:[],presets:[]});
-return <div className="settings-app" ref={root}><SettingsForm editor={editor} notify={()=>{}} active><ModelSettings editor={editor} simple={false}/><NextSettings editor={editor}/></SettingsForm>
+return <div className="settings-app" ref={root}><SettingsForm editor={editor} notify={()=>{}} active><ModelSettings editor={editor} simple={false}/><NextSettings editor={editor}/><QuickPromptSettings editor={editor}/></SettingsForm>
 <TaskSettings tasks={{state:{store:{columns,bindings:{calendarId:''},tasks:[]}},command:async({op,title})=>{if(op==='createColumn')setColumns(v=>[...v,{id:'new',title}]);return true}}}/>
 <ModelOrganization state={{preferences:prefs, snapshot:{models:[]}}} busy={false} save={async patch=>{setPrefs(v=>({...v,...patch}));return true}} refresh={async()=>true}/></div>}
 createRoot(document.getElementById('root')).render(<App/>);`,

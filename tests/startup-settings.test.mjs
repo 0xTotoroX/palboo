@@ -289,7 +289,7 @@ test(
       await input.waitFor();
       assert.equal(await input.inputValue(), '13000');
       await page.getByRole('button', { name: '关闭高级设置', exact: true }).click();
-      await page.getByRole('link', { name: '下一步', exact: true }).click();
+      await page.getByRole('link', { name: '常用语', exact: true }).click();
       const quick = page.getByLabel('常用提示词 1 内容', { exact: true });
       await quick.fill('请继续推进整体目标');
       // Blur onto the preview padding; preview buttons intentionally preserve unsaved drafts.

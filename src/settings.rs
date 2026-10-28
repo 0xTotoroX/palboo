@@ -1,5 +1,5 @@
 // [INPUT]: App、有效模型配置与私有配置/密钥文件。
-// [OUTPUT]: 三种方向来源/库/位置/Jev 设置、只读内置目录及独立密钥保存、并发保存版本与有效生成版本；快捷指令编辑只接受列表和必填修订号。
+// [OUTPUT]: 三种方向来源/库/位置/Jev 设置、只读内置目录及独立密钥保存、并发保存版本与有效生成版本；常用语独立开关/点击模式，快捷指令编辑只接受列表和必填修订号；Codex模型目录复用宿主快切。
 // [POS]: 设置事务边界；共享连接和各功能请求分域取消；无关大纲开关与常用提示词修改不取消生成；maxInputChars=0 表示完整最近一问一答，旧正数上限保留。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
@@ -19,6 +19,8 @@ pub struct QuickPrompt {
 #[serde(default, rename_all = "camelCase")]
 pub struct Options {
     pub enabled: bool,
+    pub quick_prompts_enabled: bool,
+    pub quick_prompt_click_mode: Option<String>,
     pub answer_outline_enabled: bool,
     pub prompt_enhancement_enabled: bool,
     pub token_meter_enabled: bool,
@@ -168,6 +170,67 @@ mod tests {
             .await
             .unwrap();
         assert!(paths.load().unwrap().stepwise.quick_prompts.is_empty());
+    }
+
+    #[tokio::test]
+    async fn quick_prompts_toggle_and_click_mode_are_independent() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths::new(Some(dir.path().into())).unwrap();
+        let app = App::new(paths.clone(), Config::default(), None, false);
+        let step = app
+            .model_requests
+            .lease(crate::model_requests::Scope::Stepwise);
+        let before = app.settings().await;
+        let saved = app.save_settings(serde_json::from_value(json!({"quickPromptsEnabled":false,"quickPromptClickMode":"hybrid","expectedRevision":before["configurationRevision"]})).unwrap()).await.unwrap();
+        assert_eq!(saved["enabled"], true);
+        assert_eq!(saved["quickPromptsEnabled"], false);
+        assert_eq!(saved["generationRevision"], before["generationRevision"]);
+        assert!(step.check().is_ok());
+        let config = paths.load().unwrap();
+        assert!(!config.stepwise.quick_prompts_enabled);
+        assert_eq!(
+            config.stepwise.quick_prompt_click_mode.as_deref(),
+            Some("hybrid")
+        );
+        assert!(
+            app.save_settings(
+                serde_json::from_value(json!({"quickPromptClickMode":"other"})).unwrap()
+            )
+            .await
+            .is_err()
+        );
+        let disabled = app
+            .save_settings(
+                serde_json::from_value(json!({"enabled":false,"quickPromptsEnabled":true}))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(disabled["enabled"], false);
+        assert_eq!(disabled["quickPromptsEnabled"], true);
+        assert_eq!(disabled["quickPrompts"], before["quickPrompts"]);
+    }
+
+    #[test]
+    fn legacy_quick_prompts_preserve_disabled_state_and_contents() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths::new(Some(dir.path().into())).unwrap();
+        std::fs::write(
+            paths.config(),
+            r#"{"stepwise":{"enabled":false,"quickPrompts":[{"label":"保留","prompt":"原文"}]}}"#,
+        )
+        .unwrap();
+        let config = paths.load().unwrap();
+        assert!(!config.stepwise.quick_prompts_enabled);
+        assert_eq!(config.stepwise.quick_prompts[0].prompt, "原文");
+        std::fs::write(
+            paths.config(),
+            r#"{"stepwise":{"enabled":false,"quickPromptsEnabled":true,"quickPrompts":[]}}"#,
+        )
+        .unwrap();
+        let config = paths.load().unwrap();
+        assert!(config.stepwise.quick_prompts_enabled);
+        assert!(config.stepwise.quick_prompts.is_empty());
     }
 
     #[tokio::test]
@@ -354,6 +417,8 @@ impl Default for Options {
     fn default() -> Self {
         Self {
             enabled: true,
+            quick_prompts_enabled: true,
+            quick_prompt_click_mode: None,
             answer_outline_enabled: true,
             prompt_enhancement_enabled: true,
             token_meter_enabled: true,
@@ -388,6 +453,8 @@ pub struct Update {
     pub host_restart_policy: Option<crate::config::HostRestartPolicy>,
     pub expected_revision: Option<u64>,
     pub enabled: Option<bool>,
+    pub quick_prompts_enabled: Option<bool>,
+    pub quick_prompt_click_mode: Option<String>,
     pub answer_outline_enabled: Option<bool>,
     pub prompt_enhancement_enabled: Option<bool>,
     pub token_meter_enabled: Option<bool>,
@@ -474,6 +541,12 @@ impl App {
         }
         let toggles = [
             (
+                "prompts",
+                patch
+                    .quick_prompts_enabled
+                    .filter(|v| *v != config.stepwise.quick_prompts_enabled),
+            ),
+            (
                 "bots",
                 patch
                     .grokbot_enabled
@@ -513,6 +586,16 @@ impl App {
         let options = &mut next.stepwise;
         if let Some(value) = patch.enabled {
             options.enabled = value;
+        }
+        if let Some(value) = patch.quick_prompts_enabled {
+            options.quick_prompts_enabled = value;
+        }
+        if let Some(value) = patch.quick_prompt_click_mode {
+            anyhow::ensure!(
+                ["fill", "direct", "hybrid"].contains(&value.as_str()),
+                "常用语执行模式无效"
+            );
+            options.quick_prompt_click_mode = Some(value);
         }
         if let Some(value) = patch.answer_outline_enabled {
             options.answer_outline_enabled = value;
@@ -721,6 +804,13 @@ impl App {
             self.model_requests
                 .lease(crate::model_requests::Scope::Shared),
         );
-        Ok(json!({"models":self.until_shutdown(model.run_request(model.list_models())).await?}))
+        let models = if model.provider == "codex" {
+            self.until_shutdown(model.run_request(self.codex_model_catalog()))
+                .await?
+        } else {
+            self.until_shutdown(model.run_request(model.list_models()))
+                .await?
+        };
+        Ok(json!({"models":models}))
     }
 }

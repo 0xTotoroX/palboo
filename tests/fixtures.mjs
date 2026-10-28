@@ -9,6 +9,8 @@ export const fixtureSettings = {
   hostRestartPolicy: 'ask',
   popoutSupported: true,
   enabled: true,
+  quickPromptsEnabled: true,
+  quickPromptClickMode: null,
   answerOutlineEnabled: true,
   promptEnhancementEnabled: true,
   tokenMeterEnabled: true,

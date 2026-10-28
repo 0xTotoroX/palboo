@@ -1,7 +1,7 @@
 import { tr } from '../shared/i18n.js';
 /*
  * [INPUT]: 宿主 DOM、上下文状态和基础可见性工具。
- * [OUTPUT]: 宿主交互目标记录、工作台跟随/锁定策略、稳定聊天身份重绑与来源可用性、唯一可见主聊天身份；限定容器内的输入目标、包含关联输入区的忙碌状态、完整相邻问答及上下文变更通知。
+ * [OUTPUT]: 宿主交互目标记录、工作台跟随/锁定策略、稳定聊天身份重绑与来源可用性、唯一可见主聊天身份；限定容器内的输入目标、包含关联输入区的忙碌状态、完整相邻问答及上下文变更通知；常用语可仅核验聊天身份而不依赖回答扫描。
  * [POS]: 宿主读取边界，不修改 Stepwise 或大纲的内部状态。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -394,12 +394,12 @@ function contextSnapshot() {
   };
 }
 
-function contextMatches(snapshot) {
+function contextMatches(snapshot, { answer = true } = {}) {
   if (!snapshot) return false;
   if (!isCurrentRuntime(snapshot.runtimeGeneration)) return false;
   if (!bindingSourceReady() || (!IS_POPOUT && !resolveActiveThreadRoot())) return false;
   const current = contextState.activeContext;
-  if (contextState.chatBinding.mode === 'locked') {
+  if (answer && contextState.chatBinding.mode === 'locked') {
     const message = findLatestAssistantMessage();
     if (hashText(normalizeText(message?.text || '')) !== contextState.lastAssistantHash)
       return false;
@@ -407,7 +407,7 @@ function contextMatches(snapshot) {
   return (
     snapshot.generation === current.generation &&
     snapshot.sessionId === current.sessionId &&
-    snapshot.assistantMessageId === current.assistantMessageId
+    (!answer || snapshot.assistantMessageId === current.assistantMessageId)
   );
 }
 

@@ -1,5 +1,5 @@
 // [INPUT]: 环境变量、命令参数与独立私有数据目录。
-// [OUTPUT]: Config、旧建议数量/方向目录增量升级、Paths、包内 Codex CLI 发现及生成/Jev 独立私有密钥读写。
+// [OUTPUT]: Config、旧建议数量/方向目录与常用语独立开关兼容升级、Paths、包内 Codex CLI 发现及生成/Jev 独立私有密钥读写。
 // [POS]: Rust 配置基础层，管理独立的应用数据目录。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
@@ -82,6 +82,11 @@ impl Paths {
                 .entry("stepwise")
                 .or_insert_with(|| serde_json::json!({}));
             if let Some(options) = stepwise.as_object_mut() {
+                let enabled = options
+                    .get("enabled")
+                    .cloned()
+                    .unwrap_or(serde_json::json!(true));
+                options.entry("quickPromptsEnabled").or_insert(enabled);
                 if options.get("apiKeyEnv").and_then(serde_json::Value::as_str)
                     == Some("CODEX_BUDDY_API_KEY")
                 {

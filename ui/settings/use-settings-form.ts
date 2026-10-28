@@ -13,6 +13,7 @@ type ControlPatch = {
   directionSource?: EditableSettings['directionSource'];
   jevConsent?: boolean;
   enabled?: boolean;
+  quickPromptsEnabled?: boolean;
   answerOutlineEnabled?: boolean;
   promptEnhancementEnabled?: boolean;
   tokenMeterEnabled?: boolean;
@@ -192,6 +193,7 @@ export function useSettingsForm(
           } else {
             for (const key of [
               'enabled',
+              'quickPromptsEnabled',
               'answerOutlineEnabled',
               'promptEnhancementEnabled',
               'tokenMeterEnabled',
@@ -279,6 +281,7 @@ export function useSettingsForm(
     notifyRef.current('');
     const control: ControlPatch | null =
       key === 'enabled' ||
+      key === 'quickPromptsEnabled' ||
       key === 'answerOutlineEnabled' ||
       key === 'promptEnhancementEnabled' ||
       key === 'tokenMeterEnabled' ||

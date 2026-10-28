@@ -1,7 +1,7 @@
 import { tr } from '../../shared/i18n.js';
 /* [INPUT]: Projected quick prompts, transient reading state and revision-checked settings save.
  * [OUTPUT]: Underlined shortcuts with inline add/edit, confirmed removal and retained failure drafts.
- * [POS]: Next-step content only; adapters own transport and settings own persistence.
+ * [POS]: Shared quick-prompt editor; adapters own transport and settings own persistence.
  * [PROTOCOL]: Keep next/AGENTS.md in sync. */
 import { escapeAttr, escapeHtml } from '../../shared/text.js';
 import { iconSvg } from '../../shared/icons/index.js';
@@ -19,7 +19,7 @@ export function createQuickPrompts({ read, reading, save, beforeEdit, rendered }
       : { items: settings.quickPrompts || [], revision: settings.configurationRevision };
   };
   const iconButton = (action, icon, label, extra = '') =>
-    `<button type="button" class="csw-quick-action" data-quick-action="${action}" aria-label="${label}" title="${label}" ${extra}>${iconSvg(icon)}</button>`;
+    `<button type="button" class="csw-quick-action" data-quick-action="${action}" aria-label="${label}" ${extra}>${iconSvg(icon)}</button>`;
   function editorHtml(draft) {
     if (!draft) return '';
     const cancel = `<button type="button" data-quick-action="cancel">${tr('取消')}</button>`;

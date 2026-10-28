@@ -115,6 +115,8 @@ export function sampleProjection(explore = false): PanelSnapshot {
     settings: {
       hostRestartPolicy: 'ask',
       enabled: true,
+      quickPromptsEnabled: true,
+      quickPromptClickMode: null,
       answerOutlineEnabled: true,
       promptEnhancementEnabled: true,
       tokenMeterEnabled: true,

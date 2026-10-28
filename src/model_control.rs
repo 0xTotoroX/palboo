@@ -1,5 +1,5 @@
 // [INPUT]: 已连接的 CDP Client、宿主模型适配器及独立业务偏好。
-// [OUTPUT]: 模型状态、可关闭的账号额度投影、串行切换、常用、顺序、分类与预设保存与私有末次操作诊断；呈现交给 features。
+// [OUTPUT]: 设置页共用的宿主可选模型目录、模型状态、可关闭的账号额度投影、串行切换、常用、顺序、分类与预设保存与私有末次操作诊断；呈现交给 features。
 // [POS]: 宿主模型控制服务；不读写建议生成配置或工作台的来源/布局。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
@@ -222,6 +222,29 @@ fn unavailable(message: &str) -> Value {
 }
 
 impl App {
+    // 与快切共用已核验的宿主能力目录；不更改当前模型或快切开关。
+    pub async fn codex_model_catalog(&self) -> Result<Vec<String>> {
+        let operation = self.model_control.lock().await.operation.clone();
+        let _guard = operation
+            .try_lock()
+            .map_err(|_| anyhow::anyhow!("正在切换模型，请稍后重试"))?;
+        let client = self
+            .desktop_client()
+            .await
+            .context("尚未连接 Codex；请先在设置中连接宿主")?;
+        let snapshot = client.evaluate_with_timeout(
+            "(async () => { const control = window.__palbooModelControl; let value = await control?.snapshot(false); if (value && !value.models?.length) value = await control.snapshot(true); return value ?? null; })()".into(),
+            Duration::from_secs(20),
+        ).await?;
+        anyhow::ensure!(
+            self.desktop_client()
+                .await
+                .is_some_and(|now| std::sync::Arc::ptr_eq(&client, &now)),
+            "连接已变化，请重新读取模型列表"
+        );
+        catalog_model_ids(&snapshot)
+    }
+
     // Last explicit user operation only: no chat text, identifiers, DOM dump or credentials.
     fn record_model_control_diagnostic(&self, kind: &str, value: &Value) {
         let record = json!({"kind":kind,"time":std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs()),
@@ -435,9 +458,53 @@ impl App {
     }
 }
 
+fn catalog_model_ids(snapshot: &Value) -> Result<Vec<String>> {
+    let mut models = Vec::new();
+    if let Some(entries) = snapshot["models"].as_array() {
+        for entry in entries {
+            if let Some(id) = entry["id"]
+                .as_str()
+                .map(str::trim)
+                .filter(|id| !id.is_empty())
+                && !models.iter().any(|value| value == id)
+            {
+                models.push(id.to_owned());
+            }
+        }
+    }
+    anyhow::ensure!(
+        !models.is_empty(),
+        "{}",
+        snapshot["message"]
+            .as_str()
+            .filter(|text| !text.is_empty())
+            .unwrap_or("尚未读取到 Codex 可选模型，请打开宿主模型菜单后重试")
+    );
+    Ok(models)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn settings_catalog_preserves_host_ids_and_order_without_current_fallback() {
+        assert_eq!(
+            catalog_model_ids(
+                &json!({"models":[{"id":"beta"},{"id":"alpha"},{"id":"beta"},{"id":""},{}]})
+            )
+            .unwrap(),
+            vec!["beta", "alpha"]
+        );
+        assert!(
+            catalog_model_ids(&json!({"current":{"model":"current-only"},"models":[]})).is_err()
+        );
+        assert_eq!(
+            catalog_model_ids(&json!({"message":"连接已断开"}))
+                .unwrap_err()
+                .to_string(),
+            "连接已断开"
+        );
+    }
     #[test]
     fn preference_patches_preserve_unrelated_fields_and_validate() {
         let prefs = Preferences {

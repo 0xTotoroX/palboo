@@ -99,6 +99,7 @@ try {
     content.style.cssText = 'flex:1;min-width:0;display:flex;flex-direction:column;height:100%';
     content.append(...workspace.childNodes);
     content.append(content.querySelector('.composer'));
+    content.querySelector('.composer').style.width = 'min(760px, 100%)';
     row.append(content);
     workspace.append(row);
   });
@@ -449,18 +450,23 @@ try {
     quickSettings,
   );
   assert.ok(staleQuick.error);
-  quickSettings = await api('settings', { enabled: true, generationMode: 'manual' });
+  quickSettings = await api('settings', {
+    enabled: false,
+    answerOutlineEnabled: false,
+    quickPromptsEnabled: true,
+    generationMode: 'manual',
+  });
   await wait(async () => {
-    const e = await entry('next');
+    const e = await entry('prompts');
     return e.open && !e.pending;
   }, 'next enabled before moving');
-  await api('features', { op: 'move', id: 'next', placement: 'sidebar' });
+  await api('features', { op: 'move', id: 'prompts', placement: 'sidebar' });
   await wait(async () => {
-    const e = await entry('next');
+    const e = await entry('prompts');
     return e.open && !e.pending && e.placement === 'sidebar';
   }, 'next editor ready');
-  await page.locator('.csw-feature-panes [data-pane-tab="next"]').click();
-  const nextView = page.locator('[data-feature="next"]');
+  await page.locator('.csw-feature-panes [data-pane-tab="prompts"]').click();
+  const nextView = page.locator('[data-feature="prompts"]');
   await nextView.getByRole('button', { name: '添加快捷指令', exact: true }).click();
   await nextView.getByLabel('快捷指令名称', { exact: true }).fill('检查');
   await nextView.getByLabel('快捷指令内容', { exact: true }).fill('检查当前方案');
@@ -476,6 +482,28 @@ try {
   record(
     'quick prompt editor and legacy bridge persist guarded changes without invalidating suggestions',
   );
+  const quickComposer = page.getByRole('textbox', { name: '测试草稿' });
+  await quickComposer.fill('保留草稿');
+  const quickSends = await page.evaluate(() => window.submitCount);
+  await nextView.getByRole('button', { name: '检查', exact: true }).click();
+  await wait(
+    async () => (await quickComposer.innerText()).includes('检查当前方案'),
+    'standalone quick fill while next and outline disabled',
+  ).catch(async (error) => {
+    report.quickFillFailure = await page.evaluate(() => ({
+      snapshot: window.__companionFloatingPanel?.exportPanelState(),
+      diagnostics: window.__companionFloatingPanel?.diagnostics(),
+    }));
+    report.quickFillFailure.text = await nextView.innerText();
+    throw error;
+  });
+  assert.match(await quickComposer.innerText(), /^保留草稿\n检查当前方案$/);
+  assert.equal(await page.evaluate(() => window.submitCount), quickSends);
+  await quickComposer.fill('');
+  record(
+    'standalone quick phrases fill with Stepwise and outline disabled and preserve existing drafts',
+  );
+  await api('settings', { enabled: true });
   const botSettings = await api('settings');
   assert.equal(botSettings.grokbotEnabled, false);
   const botEnabled = await api('settings', {
@@ -973,6 +1001,7 @@ try {
   const enabledViews = {
     outline: recoverySettings.answerOutlineEnabled,
     next: recoverySettings.enabled,
+    prompts: recoverySettings.quickPromptsEnabled,
     board: recoverySettings.taskBoardEnabled,
     model: recoverySettings.modelControlEnabled,
     terms: recoverySettings.terminologyEnabled,
