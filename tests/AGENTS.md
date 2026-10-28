@@ -366,3 +366,5 @@ Fast/普通预设按闪电标记独立消歧：model-groups 覆盖同组编号�
 
 - `app-mode.test.mjs`：临时完整 App 与合成开发适配；验证进度页接手、修订冲突、准备失败、开发启动失败回滚及继承 Dev 环境时正式数据隔离。需先由 verify 准备当前 debug 产物。
 - `app-mode-settings.test.mjs`：真实 React 模式控件的草稿保护、源码输入、失败保留与切换页面交接，不连接用户后台。
+
+模式恢复回归覆盖 HTTP 已就绪但宿主延迟连接、端点/窗口不匹配和有界超时，真实 CLI 在确认连接后才改写模式；实际正式/偏好开发的纠正与旧修订拒绝继续保留。app-mode-environment.test.mjs 用合成 Homebrew/CARGO_HOME 可执行文件验证 Finder 路径、继承优先级和工具缺失预检。Bot 浏览器回归验证过期/断连可打开应用、交接禁用且零填入，Rust 验证打开失败；功能端到端拒绝旧 owner 的打开请求，不在合成测试中启动真实 Grok Bot。

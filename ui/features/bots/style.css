@@ -230,6 +230,30 @@
 .palboo-bot-toolbar {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: 4px;
+}
+.palboo-bot-open {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--buddy-action-hit-size, 28px);
+  min-height: var(--buddy-action-hit-size, 28px);
+  padding: 4px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted, inherit);
+  cursor: pointer;
+}
+.palboo-bot-open:hover {
+  background: var(--hover);
+  color: var(--ink, inherit);
+}
+.palboo-bot-open .palboo-bot-hint-text {
+  left: auto;
+  right: 0;
 }
 .palboo-bot-history {
   min-height: var(--buddy-action-hit-size, 28px);

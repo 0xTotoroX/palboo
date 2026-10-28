@@ -17,6 +17,7 @@ import { spawn, execFileSync } from 'node:child_process';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { setTimeout as delay } from 'node:timers/promises';
+import { createServer } from 'node:http';
 
 const binary = resolve('target/debug/palboo');
 function fixture(t) {
@@ -164,4 +165,70 @@ test('failed Dev startup restores release using release data despite an inherite
   assert.ok(existsSync(join(f.data, 'runtime.json')));
   assert.equal(existsSync(join(f.source, 'target/dev/real/runtime.json')), false);
   assert.match(result.url, /#token=/);
+});
+
+test('an active release can correct a leftover development preference without losing data', async (t) => {
+  const f = fixture(t);
+  writeFileSync(f.prefsFile, JSON.stringify({ ...f.prefs, mode: 'development' }));
+  const w = await worker(f, { mode: 'release' });
+  await fetch(w.url + '/state/start', { method: 'POST' });
+  assert.equal((await complete(w.url)).phase, 'done');
+  const saved = JSON.parse(readFileSync(f.prefsFile));
+  assert.equal(saved.mode, 'release');
+  assert.equal(saved.revision, 5);
+  assert.equal(readFileSync(join(f.data, 'keep.txt'), 'utf8'), 'release data');
+  assert.equal(readFileSync(join(f.source, 'target/dev/real/keep.txt'), 'utf8'), 'dev data');
+  assert.equal(existsSync(f.env.MODE_CALLS), false);
+});
+
+test('cold recovery keeps the preference until the newly started backend connects', async (t) => {
+  const f = fixture(t);
+  writeFileSync(f.prefsFile, JSON.stringify({ ...f.prefs, mode: 'development' }));
+  writeFileSync(
+    join(f.data, 'config.json'),
+    JSON.stringify({ performance: { integrationEnabled: true } }),
+  );
+  // The launch command confirms HTTP availability; the synthetic host completes later.
+  writeFileSync(f.executable, '#!/bin/sh\nexit 0\n', { mode: 0o700 });
+  let connected = false,
+    observed;
+  const firstRead = new Promise((resolve) => {
+    observed = resolve;
+  });
+  const server = createServer((_req, res) => {
+    res
+      .setHeader('Content-Type', 'application/json')
+      .end(JSON.stringify({ connection: { status: connected ? 'connected' : 'connecting' } }));
+    observed();
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+  writeFileSync(
+    join(f.data, 'runtime.json'),
+    JSON.stringify({
+      pid: process.pid,
+      port: server.address().port,
+      token: 'fixture',
+      version: 'fixture',
+      executable: f.executable,
+    }),
+  );
+  const child = spawn(binary, ['--data-dir', f.data, 'app-mode', 'recover'], {
+    env: f.env,
+    stdio: ['ignore', 'ignore', 'pipe'],
+  });
+  f.children.push(child);
+  let error = '';
+  child.stderr.on('data', (chunk) => {
+    error += chunk;
+  });
+  const done = new Promise((resolve) => child.on('exit', resolve));
+  await firstRead;
+  await delay(80);
+  assert.equal(child.exitCode, null);
+  assert.equal(JSON.parse(readFileSync(f.prefsFile)).mode, 'development');
+  connected = true;
+  assert.equal(await done, 0, error);
+  assert.equal(JSON.parse(readFileSync(f.prefsFile)).mode, 'release');
+  assert.equal(readFileSync(join(f.source, 'target/dev/real/keep.txt'), 'utf8'), 'dev data');
 });

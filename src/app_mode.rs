@@ -1,5 +1,5 @@
 // [INPUT]: Private mode preferences, bundled release CLI and registered Dev supervisor.
-// [OUTPUT]: Unified App launch, authenticated mode settings and transactional handover.
+// [OUTPUT]: Unified App launch, connection-confirmed mode handover and revision-checked preference recovery.
 // [POS]: One-shot mode worker; keeps release and per-source Dev data in their original places.
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 use crate::{
@@ -311,22 +311,38 @@ async fn release(
         }
     }
     let runtime = Runtime::read(paths)?;
-    let state = runtime.request("state", None).await?;
     if paths.load()?.performance.integration_enabled {
-        ensure!(
-            state["connection"]["status"] == "connected",
-            "正式模式尚未连接，原模式将恢复"
-        );
-        if let Some(connection) = connection {
-            ensure!(
-                state["connection"]["targetId"] == connection["targetId"],
-                "正式模式连接目标不一致"
-            );
-        }
+        wait_for_release(&runtime, connection, Duration::from_secs(20)).await?;
     }
     Ok(
         json!({"url":format!("http://127.0.0.1:{}/#token={}", runtime.port,runtime.token), "paused":!paths.load()?.performance.integration_enabled}),
     )
+}
+
+async fn wait_for_release(
+    runtime: &Runtime,
+    connection: Option<&Value>,
+    timeout: Duration,
+) -> Result<()> {
+    let connected = async {
+        loop {
+            let state = runtime.request("state", None).await?;
+            if state["connection"]["status"] == "connected" {
+                if let Some(expected) = connection {
+                    ensure!(
+                        state["connection"]["targetId"] == expected["targetId"]
+                            && state["connection"]["endpoint"] == expected["endpoint"],
+                        "正式模式连接目标不一致"
+                    );
+                }
+                return Ok(());
+            }
+            tokio::time::sleep(Duration::from_millis(200)).await;
+        }
+    };
+    tokio::time::timeout(timeout, connected)
+        .await
+        .context("正式模式连接超时，请检查 Codex 是否就绪；运行模式设置未更改")?
 }
 
 async fn development_running(prefs: &Preferences) -> Result<bool> {
@@ -345,8 +361,10 @@ async fn development_running(prefs: &Preferences) -> Result<bool> {
 }
 async fn switch(paths: &Paths, request: &Handover, progress: &Arc<RwLock<Value>>) -> Result<Value> {
     let old = read(paths)?;
+    // The request records the actual serving mode. A failed cold recovery can leave
+    // the saved preference different; revision remains the concurrent-write guard.
     ensure!(
-        old.revision == request.update.expected_revision && old.mode == request.previous,
+        old.revision == request.update.expected_revision,
         "运行模式已被其他操作更改，请重新打开设置"
     );
     let mut next = old.clone();
@@ -665,3 +683,77 @@ pub async fn run(data_paths: &Paths, command: Command) -> Result<()> {
 }
 
 const TRANSITION_PAGE: &str = r#"<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Palboo</title><style>:root{color-scheme:light dark}body{font:16px system-ui;margin:0;min-height:100vh;display:grid;place-items:center}main{max-width:34em;padding:32px}h1{font-size:24px}p{line-height:1.7}a{color:inherit}</style><main><h1>Palboo</h1><p role="status">正在切换运行模式…</p><a hidden>返回设置</a></main><script>const p=document.querySelector('p'),a=document.querySelector('a');async function poll(){try{const r=await fetch('__STATE__',{cache:'no-store'}),s=await r.json();if(s.phase==='done'){location.replace(s.url);return}p.textContent=s.message;if(s.phase==='failed'){a.href=s.url;a.hidden=false;return}setTimeout(poll,700)}catch{p.textContent='切换状态暂时不可达，请重新打开 Palboo。'}}fetch('__STATE__/start',{method:'POST'}).then(poll).catch(()=>{p.textContent='未开始切换，请重新打开设置。'})</script></html>"#;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn release_waits_for_connection_and_rejects_other_targets_and_timeout() {
+        let state = Arc::new(RwLock::new(json!({"connection":{"status":"connecting"}})));
+        let observed = Arc::new(Notify::new());
+        let view = state.clone();
+        let signal = observed.clone();
+        let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
+            .await
+            .unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let router = Router::new().route(
+            "/api/state",
+            get(move || {
+                let view = view.clone();
+                let signal = signal.clone();
+                async move {
+                    let result = view.read().await.clone();
+                    signal.notify_one();
+                    Json(result)
+                }
+            }),
+        );
+        let server = tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
+        let runtime = Arc::new(Runtime {
+            pid: 0,
+            port,
+            token: "test".into(),
+            version: "test".into(),
+            executable: PathBuf::new(),
+        });
+        let waiting = {
+            let runtime = runtime.clone();
+            tokio::spawn(
+                async move { wait_for_release(&runtime, None, Duration::from_secs(3)).await },
+            )
+        };
+        observed.notified().await;
+        assert!(
+            !waiting.is_finished(),
+            "HTTP availability must not finish the connection handoff"
+        );
+        *state.write().await = json!({"connection":{"status":"connected","endpoint":"http://127.0.0.1:1","targetId":"expected"}});
+        waiting.await.unwrap().unwrap();
+        let expected = json!({"endpoint":"http://127.0.0.1:1","targetId":"expected"});
+        wait_for_release(&runtime, Some(&expected), Duration::from_secs(1))
+            .await
+            .unwrap();
+        for wrong in [
+            json!({"endpoint":"http://127.0.0.1:2","targetId":"expected"}),
+            json!({"endpoint":"http://127.0.0.1:1","targetId":"other"}),
+        ] {
+            assert!(
+                wait_for_release(&runtime, Some(&wrong), Duration::from_secs(1))
+                    .await
+                    .unwrap_err()
+                    .to_string()
+                    .contains("目标不一致")
+            );
+        }
+        *state.write().await = json!({"connection":{"status":"connecting"}});
+        let error = wait_for_release(&runtime, None, Duration::from_millis(80))
+            .await
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("连接超时"));
+        assert!(!error.contains("恢复"));
+        server.abort();
+    }
+}

@@ -14,6 +14,7 @@ export default {
   'GitHub 仓库': 'GitHub repository',
   有未读消息: 'Unread message',
   最近消息: 'Recent messages',
+  '打开 Grok Bot': 'Open Grok Bot',
   '返回 Bot 列表': 'Back to Bots',
   暂无最近消息: 'No recent messages',
   启用范围: 'Where Palboo is enabled',

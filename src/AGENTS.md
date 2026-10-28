@@ -138,4 +138,4 @@ settings 的 directionCatalogVersion 仅由后台维护并随常规保存持久�
 
 DesktopStatus.pageKind 接收共享宿主分类；host_page_allowed 读取旧 sidebarNewChat/sidebarDots 开关。features.scopeAllowed 与 surfaces/window 投影临时范围，桌面 scope-visible IPC 和贴边 scope_hidden 只控制可见性，不终止窗口或写回开合偏好。appearance 新增 launcherDoubleAction/launcherContextAction，默认 toggle/settings，沿原修订校验保存并与 launcherAction 一同投影宿主；config CLI 暴露同一白名单。
 
-- [app_mode.rs](app_mode.rs)：正式/开发模式私有记录、修订及跨安装/启动/切换互斥；临时 loopback 进度页在浏览器确认后交接，编译/启动失败回滚，保留两套业务数据；注册来源、完整 App 绑定与无活动 Dev 时的正式恢复。
+- [app_mode.rs](app_mode.rs)：正式/开发模式私有记录、修订及跨安装/启动/切换互斥；临时 loopback 进度页在浏览器确认后交接，编译/启动失败回滚，保留两套业务数据；注册来源、完整 App 绑定与无活动 Dev 时的正式恢复。正式后台 HTTP 可用后仍等待 Codex connected（最多20秒），固定交接同时核对端点和窗口；成功才保存模式。实际模式和保存偏好不一致时允许按当前修订纠正，失败提示不预先声称已恢复。

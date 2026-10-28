@@ -726,6 +726,13 @@ impl App {
             self.model.read().await.options.grokbot_enabled,
             "Grok Bot 已关闭"
         );
+        if action
+            .as_ref()
+            .is_some_and(|value| value["action"] == "open-app")
+        {
+            bots::open_app().await?;
+            return Ok(json!({"opened":true}));
+        }
         let Some(client) = self.desktop_client().await else {
             ensure!(action.is_none(), "Codex 已断开");
             return Ok(json!({"snapshot":null}));

@@ -13,3 +13,5 @@ terms 使用同一主窗口与功能owner，业务读取/操作转 terminology�
 bots 使用现有主界面与 owner，独立 grokbotEnabled 开关控制；已有设置可恢复缺失成员但不重开已关闭条目。业务读取和填入由 features.rs::bot_view 委托当前 CDP 的 __palbooBots，连接变化拒绝投影，所有动作保持主聊天输入。
 
 - `bots.rs`：本机 BDK 名单传输与 OS 文件监听；过滤账号槽/roster/侧栏分组/ui-agent-refs 事件，以原有可见读取节奏消费变化，60秒健康兜底；手动模式回收 watcher，首次/显式刷新/动作时读取；停止时回收缓存；校验账号、修订、stale布尔值及 Bot 身份字段，保留有效的过期目录供展示，过期资料仍禁止填入操作，异常目录显示同步失败；可选 sidebar 校验版本、组 ID、置顶位置与可见身份的唯一完整覆盖，兼容旧目录；不消费回复游标。
+
+Bot 的 open-app 动作沿用功能 owner 和开关校验，通过 LaunchServices 按固定 bundle ID 打开 Grok Bot，不接受任意路径或 URL；不依赖 Codex 连接或有效目录，不调用咨询、不改变 stale 状态、不消费回复。

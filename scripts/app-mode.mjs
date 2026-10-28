@@ -1,11 +1,11 @@
 /* [INPUT]: Unified App's private request file and the registered local development source.
- * [OUTPUT]: Prepare/open/stop the existing Dev supervisor, with a private JSON result.
+ * [OUTPUT]: Resolve and check Finder/Homebrew development tools, then prepare/open/stop the existing Dev supervisor with a private JSON result.
  * [POS]: One-shot adapter for app_mode.rs; no new persistent manager or copied user data.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { homedir } from 'node:os';
 import {
   openDevelopment,
@@ -16,27 +16,60 @@ import {
 import { readJson, requestRuntime } from './dev-host.mjs';
 import { sourcePreference, selectSource } from './dev-sources.mjs';
 
+export function developmentEnvironment(inherited = process.env) {
+  const prefixes = [inherited.HOMEBREW_PREFIX, '/opt/homebrew', '/usr/local'].filter(Boolean);
+  const env = { ...inherited };
+  delete env.PALBOO_START_DISCONNECTED;
+  env.PATH = [
+    ...new Set(
+      [
+        dirname(process.execPath),
+        ...(inherited.CARGO_HOME ? [join(inherited.CARGO_HOME, 'bin')] : []),
+        ...(inherited.PATH || '').split(':'),
+        ...(inherited.HOMEBREW_PREFIX
+          ? [
+              join(inherited.HOMEBREW_PREFIX, 'opt/rustup/bin'),
+              join(inherited.HOMEBREW_PREFIX, 'opt/rust/bin'),
+            ]
+          : []),
+        join(homedir(), '.cargo/bin'),
+        ...prefixes.flatMap((prefix) => [
+          join(prefix, 'bin'),
+          join(prefix, 'opt/rustup/bin'),
+          join(prefix, 'opt/rust/bin'),
+        ]),
+        '/usr/bin',
+        '/bin',
+        '/usr/sbin',
+        '/sbin',
+      ].filter(Boolean),
+    ),
+  ].join(':');
+  return env;
+}
+
+export function checkDevelopmentTools(env) {
+  for (const [file, label] of [
+    ['npm', 'npm'],
+    ['cargo', 'Cargo（Rust）'],
+    ['rustc', 'Rust 编译器'],
+  ]) {
+    const result = spawnSync(file, ['--version'], { env, encoding: 'utf8', timeout: 10000 });
+    if (result.error || result.status !== 0)
+      throw new Error(`开发环境找不到可用的 ${label}，请检查安装与工具路径。`);
+  }
+}
+
 export async function developmentAction(root, action, connection) {
+  const env = developmentEnvironment();
   // The release backend uses this only for its own initial connection handoff.
   delete process.env.PALBOO_START_DISCONNECTED;
   if (JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).name !== 'palboo')
     throw new Error('请选择 Palboo 源码目录。');
-  const env = {
-    ...process.env,
-    PATH: [
-      dirname(process.execPath),
-      join(homedir(), '.cargo/bin'),
-      process.env.PATH,
-      '/opt/homebrew/bin',
-      '/usr/local/bin',
-      '/usr/bin',
-      '/bin',
-    ]
-      .filter(Boolean)
-      .join(':'),
-  };
   // Finder has no login-shell PATH. Preserve the environment for the supervisor as well.
   process.env.PATH = env.PATH;
+  if (action === 'prepare' || (action === 'open' && !hasDevelopmentOwner(root)))
+    checkDevelopmentTools(env);
   if (action === 'prepare') {
     const deadline = Date.now() + 900000;
     const remembered = readJson(sourcePreference(root))?.path || root;

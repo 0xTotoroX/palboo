@@ -21,6 +21,7 @@ test('release settings can select development, retain edits on failure and hand 
     })
   ).outputFiles[0].text;
   let fail = true;
+  let preferredMode = 'release';
   const writes = [];
   const server = createServer((req, res) => {
     if (req.url === '/api/app-mode') {
@@ -28,7 +29,7 @@ test('release settings can select development, retain edits on failure and hand 
         return res.setHeader('content-type', 'application/json').end(
           JSON.stringify({
             mode: 'release',
-            preferredMode: 'release',
+            preferredMode,
             revision: 8,
             source: null,
             node: null,
@@ -81,6 +82,12 @@ test('release settings can select development, retain edits on failure and hand 
     await page.getByRole('button', { name: '切换模式', exact: true }).click();
     await page.waitForURL('**/progress');
     assert.equal(writes.length, 2);
+    preferredMode = 'development';
+    await page.goto(`http://127.0.0.1:${server.address().port}/#token=synthetic`);
+    await page.getByText('Save fixture').click();
+    await page.getByRole('button', { name: '切换模式', exact: true }).click();
+    await page.waitForURL('**/progress');
+    assert.equal(writes.at(-1).mode, 'release');
   } finally {
     await browser.close();
     await new Promise((r) => server.close(r));

@@ -1,5 +1,5 @@
 /* [INPUT]: Authenticated App mode API, shared settings controls and existing form save state.
- * [OUTPUT]: Release/Dev selection, local source registration and handover progress navigation.
+ * [OUTPUT]: Release/Dev selection, stale preferred-mode correction, source registration and handover progress navigation.
  * [POS]: Startup settings; saves no business data and does not duplicate Dev source management.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { useEffect, useState } from 'react';
@@ -127,7 +127,10 @@ export function AppModeSettings({ live, editor }: { live: boolean; editor: Setti
             editor.dirty ||
             editor.saving ||
             editor.remoteChanged ||
-            (mode === state.mode && source === (state.source || '') && node === (state.node || ''))
+            (mode === state.mode &&
+              mode === state.preferredMode &&
+              source === (state.source || '') &&
+              node === (state.node || ''))
           }
         >
           {tr(busy ? '正在准备…' : '切换模式')}

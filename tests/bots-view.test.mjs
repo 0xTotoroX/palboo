@@ -21,7 +21,8 @@ test('Bot list keeps messages opt-in and animates only visible active avatars', 
       {id:'c',name:'名称很长的资料整理助手',occupied:false,avatar:{shape:'circle',color:'violet'},preview:'另一条消息',current:null},
       {id:'d',name:'工程主管',occupied:false,avatar:{shape:'circle',color:'blue'},current:{key:'error',status:'error'}}]}};
       const root=createRoot(document.getElementById('root'));
-      window.render=()=>root.render(<BotsView state={window.state} disabled={false} action={v=>window.calls.push(v)}/>);window.render();`,
+      window.opens=0;window.locked=false;window.disabled=false;
+      window.render=()=>root.render(<BotsView state={window.state} disabled={window.disabled} openDisabled={window.locked} openApp={()=>window.opens++} action={v=>window.calls.push(v)}/>);window.render();`,
     },
     bundle: true,
     write: false,
@@ -37,6 +38,42 @@ test('Bot list keeps messages opt-in and animates only visible active avatars', 
     await page.addStyleTag({ content: readFileSync('ui/features/bots/style.css', 'utf8') });
     await page.addScriptTag({ content: bundle.outputFiles[0].text });
     const rows = page.locator('.palboo-bot');
+    await rows.first().waitFor();
+    const opener = page.getByRole('button', { name: '打开 Grok Bot', exact: true });
+    await opener.click();
+    assert.equal(await page.evaluate(() => window.opens), 1);
+    assert.deepEqual(await page.evaluate(() => window.calls), []);
+    await page.evaluate(() => {
+      window.state.snapshot.catalog.stale = true;
+      window.render();
+    });
+    assert.equal(
+      await rows.first().getByRole('button', { name: '大总管', exact: true }).isDisabled(),
+      true,
+    );
+    await opener.click();
+    await page.evaluate(() => {
+      window.savedSnapshot = window.state.snapshot;
+      window.state.snapshot = null;
+      window.disabled = true;
+      window.render();
+    });
+    await opener.focus();
+    await page.keyboard.press('Enter');
+    assert.equal(await page.evaluate(() => window.opens), 3);
+    await page.evaluate(() => {
+      window.locked = true;
+      window.render();
+    });
+    await page.waitForFunction(() => document.querySelector('.palboo-bot-open')?.disabled);
+    assert.equal(await opener.isDisabled(), true);
+    await page.evaluate(() => {
+      window.state.snapshot = window.savedSnapshot;
+      window.state.snapshot.catalog.stale = false;
+      window.disabled = false;
+      window.locked = false;
+      window.render();
+    });
     await rows.first().waitFor();
     assert.equal(await page.locator('.palboo-bot-preview').count(), 0);
     assert.equal(await page.getByRole('status', { name: '调用失败', exact: true }).count(), 1);

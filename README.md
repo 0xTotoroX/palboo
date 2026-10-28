@@ -101,7 +101,7 @@ Export includes personal additions, favorites, and mastered terms. Reset deletes
 <summary>Models, Bots, and connections</summary>
 
 - **Model switching** controls the current Codex input target, independently of Stepwise's model. Models, reasoning levels, and usage limits come from Codex; only available capabilities are shown.
-- **Grok Bot** is optional and off by default. Copy the setup prompt from **Features → Grok Bot → Connect Grok Bot** to your Agent. BDK, MCP, and the Skill remain separately installed. Consultations append to the composer without sending; closing the panel does not stop remote Bot work.
+- **Grok Bot** is optional and off by default. Copy the setup prompt from **Features → Grok Bot → Connect Grok Bot** to your Agent. BDK, MCP, and the Skill remain separately installed. The panel shortcut opens the Grok Bot app, including when profiles are stale. Consultations append to the composer without sending; closing the panel does not stop remote Bot work.
 - **System → CodexHost** shows status and versions, with update and restore actions. External hosts and Agents keep their own configuration.
 - **System → Performance & switches** can pause the Codex connection while retaining settings, tasks, and drafts. Optional monitoring runs only while that page is visible.
 

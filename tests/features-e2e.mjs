@@ -530,6 +530,14 @@ try {
     api('features', {
       op: 'action',
       id: 'bots',
+      owner: 'stale-owner',
+      data: { action: 'open-app' },
+    }),
+  );
+  await assert.rejects(
+    api('features', {
+      op: 'action',
+      id: 'bots',
       owner: botEntry.owner,
       data: { ...botView.snapshot.target, token: 'stale-composer', agent: '通用', action: 'ask' },
     }),

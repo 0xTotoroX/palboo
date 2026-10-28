@@ -1,7 +1,7 @@
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: Feature identity, business envelope, guarded transport, reading state and optional header slot.
- * [OUTPUT]: The six feature views and guarded business adapters, including revision-checked quick-prompt saves and optional token-meter composition.
+ * [OUTPUT]: Six feature views and guarded business adapters, including the Bot App shortcut independent of composer availability.
  * [POS]: Fixed feature composition; persistence and validation remain in existing services.
  * [PROTOCOL]: Keep AGENTS.md in this module in sync. */
 import { useCallback, useRef } from 'react';
@@ -63,6 +63,10 @@ export function FeatureContent({
         headerActions={headerActions}
         state={(value as unknown as BotState) ?? { snapshot: null }}
         disabled={locked || !connected}
+        openDisabled={locked}
+        openApp={() => {
+          void operation(() => call('action', { data: { action: 'open-app' } }));
+        }}
         action={(data) => {
           void operation(async () => {
             const result = await call<FeatureData>('action', { data });

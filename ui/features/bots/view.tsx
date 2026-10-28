@@ -1,7 +1,7 @@
 import { useLocale } from '../../shared/use-locale';
 import { tr } from '../../shared/i18n.js';
 /* [INPUT]: Metadata-only host projection and guarded main-composer actions.
- * [OUTPUT]: Avatar-based status and one corner badge, hover actions and a shared latest-message view.
+ * [OUTPUT]: Avatar status, one badge, hover actions, latest-message view and an optional independent App shortcut.
  * [POS]: Palboo feature content, shared by existing surfaces; no second chat input.
  * [PROTOCOL]: Keep ui/features/AGENTS.md in sync. */
 import { useId, useState } from 'react';
@@ -92,19 +92,38 @@ export function BotsView({
   disabled,
   action,
   headerActions,
+  openApp,
+  openDisabled = false,
 }: {
   headerActions?: HTMLElement;
   state: BotState;
   disabled: boolean;
   action: (data: Record<string, unknown>) => void;
+  openApp?: () => void;
+  openDisabled?: boolean;
 }) {
   useLocale();
   const [expanded, setExpanded] = useState(false);
   const previewId = useId();
   const snapshot = state.snapshot;
+  const opener = openApp ? (
+    <button
+      type="button"
+      className="palboo-bot-open palboo-bot-hint"
+      aria-label={tr('打开 Grok Bot')}
+      disabled={openDisabled}
+      onClick={openApp}
+    >
+      <Icon name="detach" />
+      <span className="palboo-bot-hint-text" aria-hidden="true">
+        {tr('打开 Grok Bot')}
+      </span>
+    </button>
+  ) : null;
   if (!snapshot)
     return (
       <section className="palboo-bots">
+        {opener && <div className="palboo-bot-toolbar">{opener}</div>}
         <BotStatus className="palboo-bot-notice" label={tr('等待 Codex 连接…')} icon="connection" />
       </section>
     );
@@ -138,17 +157,20 @@ export function BotsView({
     <section className="palboo-bots" aria-label="Grok Bot">
       {headerActions ? createPortal(refresh, headerActions) : refresh}
       {notice && <BotStatus className="palboo-bot-notice" label={tr(notice)} icon="warning" />}
-      {hasBots && (
+      {(hasBots || opener) && (
         <div className="palboo-bot-toolbar">
-          <button
-            type="button"
-            className="palboo-bot-history"
-            aria-expanded={expanded}
-            aria-controls={expanded ? previewId : undefined}
-            onClick={() => setExpanded(!expanded)}
-          >
-            {expanded ? tr('返回 Bot 列表') : tr('最近消息')}
-          </button>
+          {opener}
+          {hasBots && (
+            <button
+              type="button"
+              className="palboo-bot-history"
+              aria-expanded={expanded}
+              aria-controls={expanded ? previewId : undefined}
+              onClick={() => setExpanded(!expanded)}
+            >
+              {expanded ? tr('返回 Bot 列表') : tr('最近消息')}
+            </button>
+          )}
         </div>
       )}
       {expanded && (

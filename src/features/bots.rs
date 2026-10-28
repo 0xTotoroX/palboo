@@ -1,5 +1,5 @@
 // [INPUT]: OS roster/account/sidebar/UI-reference events, local BDK catalog and lifecycle.
-// [OUTPUT]: Validated fresh or stale metadata with 60s health fallback; no reply cursor reads.
+// [OUTPUT]: Validated fresh/stale metadata and a fixed LaunchServices App opener; no reply cursor reads.
 // [POS]: Palboo metadata transport. [PROTOCOL]: Keep src/AGENTS.md in sync.
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use serde_json::{Value, json};
@@ -12,6 +12,27 @@ use std::{
     time::{Duration, Instant},
 };
 use tokio::sync::Mutex;
+
+pub async fn open_app() -> anyhow::Result<()> {
+    // Fixed application identity: never accept an executable, URL or shell command from the view.
+    let mut command = tokio::process::Command::new("/usr/bin/open");
+    command.args(["-b", "com.anysphere.sand"]);
+    open_application(command).await
+}
+
+async fn open_application(mut command: tokio::process::Command) -> anyhow::Result<()> {
+    use anyhow::Context;
+    let message = crate::i18n::text(
+        "无法打开 Grok Bot，请确认已安装该应用后重试。",
+        "Could not open Grok Bot. Make sure the app is installed and try again.",
+    );
+    let output = tokio::time::timeout(Duration::from_secs(8), command.kill_on_drop(true).output())
+        .await
+        .context(message)?
+        .context(message)?;
+    anyhow::ensure!(output.status.success(), "{message}");
+    Ok(())
+}
 
 // Only account, roster, saved sections and UI-reference events invalidate metadata.
 // No per-file content reads in the event handler, and no chat cache files are read.
@@ -297,6 +318,21 @@ fn valid_sidebar(catalog: &Value, bots: &[Value]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn open_reports_launch_failure_without_claiming_catalog_refresh() {
+        let mut success = tokio::process::Command::new("/bin/sh");
+        success.args(["-c", "exit 0"]);
+        open_application(success).await.unwrap();
+        let mut failed = tokio::process::Command::new("/bin/sh");
+        failed.args(["-c", "exit 1"]);
+        assert!(open_application(failed).await.is_err());
+        assert!(
+            open_application(tokio::process::Command::new("/no-such-palboo-fixture"))
+                .await
+                .is_err()
+        );
+    }
     #[test]
     fn sidebar_must_partition_visible_bots_without_forged_or_duplicate_ids() {
         let good = json!({"version":1,"account":"fixture","revision":"r1","stale":false,

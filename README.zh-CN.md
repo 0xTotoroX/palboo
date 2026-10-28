@@ -101,7 +101,7 @@ Palboo 跟随 Codex 的外观。语言支持简体中文、英文和跟随系统
 <summary>模型、Bot 与连接</summary>
 
 - **模型切换**控制 Codex 当前输入目标，与 Stepwise 使用的模型独立。模型、推理档位和额度来自 Codex，只显示可用能力。
-- **Grok Bot** 默认关闭。在「**功能 → Grok Bot → 接入 Grok Bot**」复制接入提示词给 Agent，BDK、MCP 和 Skill 仍独立安装。咨询追加到输入框，不自动发送；关闭面板不会停止远端 Bot 任务。
+- **Grok Bot** 默认关闭。在「**功能 → Grok Bot → 接入 Grok Bot**」复制接入提示词给 Agent，BDK、MCP 和 Skill 仍独立安装。面板顶部可快捷打开 Grok Bot 应用，资料过期时仍可使用。咨询追加到输入框，不自动发送；关闭面板不会停止远端 Bot 任务。
 - 「**系统 → CodexHost**」显示状态与版本，提供更新和恢复操作。外部宿主与 Agent 保留自己的配置。
 - 「**系统 → 性能与开关**」可以暂停 Codex 连接，保留设置、任务和草稿。可选监测仅在该页可见时运行。
 
