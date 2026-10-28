@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 临时配置、合成本机 CDP/API 与开发常量构建。
- * [OUTPUT]: 真实目标选择、配置/存储隔离、安装版恢复及无宿主启动的错误/清理契约。
+ * [OUTPUT]: 真实目标选择、配置/存储隔离、安装版恢复、已退出后台的恢复记录归档及无宿主启动的错误/清理契约。
  * [POS]: 开发宿主边界回归；不连接用户应用或读取真实聊天。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -390,6 +390,59 @@ test('restoration reconnects the original window and retains recovery on failure
   unavailable = true;
   await assert.rejects(restoreInstallation(journal), /恢复记录已保留/);
   assert.equal(existsSync(journal), true);
+});
+test('a selected host can start after the paused installation exited, retaining its exact recovery record', async (t) => {
+  const root = temporary(t),
+    journal = join(root, 'paused.json');
+  const { stdout } = await promisify(execFile)(process.execPath, [
+    '-e',
+    'console.log(process.pid)',
+  ]);
+  const pid = Number(stdout.trim());
+  assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' });
+  const api = await server(t, (_, res) => res.writeHead(503).end('{}'));
+  const saved = JSON.stringify({
+    runtime: { pid, port: api.port, token: 'synthetic' },
+    endpoint: 'http://127.0.0.1:9229',
+    targetId: 'original',
+    detached: true,
+    edgeFeatures: ['model'],
+  });
+  writeFileSync(journal, saved, { mode: 0o600 });
+  // Exiting Dev must preserve pending restoration even if the backend has exited.
+  await assert.rejects(restoreInstallation(journal), /恢复记录已保留/);
+  assert.equal(readFileSync(journal, 'utf8'), saved);
+  await restoreInstallation(journal, {
+    endpoint: 'http://127.0.0.1:9231',
+    target: { id: 'current' },
+  });
+  assert.equal(existsSync(journal), false);
+  const archived = readdirSync(root).find((name) => name.startsWith('paused.json.stale-'));
+  assert.equal(readFileSync(join(root, archived), 'utf8'), saved);
+  assert.equal(statSync(join(root, archived)).mode & 0o777, 0o600);
+});
+test('an unreachable but live or unknown installation cannot lose its recovery record on startup', async (t) => {
+  const root = temporary(t),
+    journal = join(root, 'paused.json');
+  const api = await server(t, (_, res) => res.writeHead(503).end('{}'));
+  for (const pid of [process.pid, undefined, null, 0, -1, '123', 1.5]) {
+    const saved = JSON.stringify({
+      runtime: { pid, port: api.port, token: 'synthetic' },
+      endpoint: 'http://127.0.0.1:9229',
+      targetId: 'original',
+      edgeFeatures: ['model'],
+    });
+    writeFileSync(journal, saved, { mode: 0o600 });
+    await assert.rejects(
+      restoreInstallation(journal, {
+        endpoint: 'http://127.0.0.1:9231',
+        target: { id: 'current' },
+      }),
+      /恢复记录已保留/,
+    );
+    assert.equal(readFileSync(journal, 'utf8'), saved);
+    assert.equal(readdirSync(root).filter((name) => name.includes('.stale-')).length, 0);
+  }
 });
 test('development storage never reads or migrates installation preferences', async () => {
   for (const development of [false, true]) {

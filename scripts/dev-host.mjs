@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 已安装配置、真实 Codex CDP 元数据与本机 API。
- * [OUTPUT]: 暂停时禁止准备或重开宿主；窗口选择、显式启用时使用开发配置（首次回退日常配置）委托共享宿主准备、开发配置初始化、安装版连接与贴边窗口暂停、按原位置恢复；新宿主已确认时归档失效旧目标，保留 API 错误原因；按调试端口定位宿主主进程，以 PID/启动时间/路径观察退出，不以断连代替进程退出。
+ * [OUTPUT]: 暂停时禁止准备或重开宿主；窗口选择、显式启用时使用开发配置（首次回退日常配置）委托共享宿主准备、开发配置初始化、安装版连接与贴边窗口暂停、按原位置恢复；新宿主已确认时归档失效旧目标或确认退出的安装版后台恢复记录，保留 API 错误原因；按调试端口定位宿主主进程，以 PID/启动时间/路径观察退出，不以断连代替进程退出。
  * [POS]: 真实宿主开发边界；不启动浏览器、不记录聊天、不修改官方应用。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -309,6 +309,22 @@ export async function restoreInstallation(journal, replacement) {
   try {
     state = await requestRuntime(saved.runtime, 'state');
   } catch {
+    // API failure alone does not prove exit. Only retire a dead backend's record
+    // during startup, after a real replacement host has already been selected.
+    const pid = saved.runtime?.pid;
+    let exited = false;
+    if (replacement && Number.isSafeInteger(pid) && pid > 0) {
+      try {
+        process.kill(pid, 0);
+      } catch (error) {
+        exited = error.code === 'ESRCH';
+      }
+    }
+    if (exited) {
+      renameSync(journal, `${journal}.stale-${randomUUID()}`);
+      console.log('上次暂停的安装版后台已退出，恢复记录已保留归档；继续启动开发版。');
+      return;
+    }
     throw new Error('安装版后台不可达，恢复记录已保留；请重新启动安装版。');
   }
   if (state.connection.status === 'disconnected') {

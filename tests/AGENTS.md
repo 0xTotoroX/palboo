@@ -63,7 +63,7 @@ model-control-host 覆盖能力延迟到达、空列表刷新超时及重试、�
 - [native-check.mjs](native-check.mjs)：macOS 原生背景验收；--header-only 仅验证三材质透明头部与真实置顶开关层级、偏好保存和退出，写入 native-header，不发送鼠标事件；--genie-only 额外启用开发版私有网格，在哑光、磨砂和液态 Regular/Clear 中确认接口实际成功、形变完成后复位及收回取消，结果写入 target/reports/native-genie，追加 --chip-anchor 验证 84×36 胶囊锚点并写入 native-genie-chip；--motion-only 免截图单测提起、三材质回程取消、不同高度与中间偏好隔离，报告写入 target/reports/native-motion；验证闲置后的投影持续更新、窗口/WebView 与宿主主题一致及语义色同步、明暗材质与展开尺寸；`--workbench-only` 免截图检查原生工作台双轴布局、交换/重置与双面板、设置返回、独立滚动及三材质缩放，先只读预检事件投递权限，无权限时在打开测试窗口前退出且不请求授权；使用系统鼠标事件验证面板拖拽合并/专注/拆分且原生窗口不移动，并验证左右下角真实拖动缩放、固定对角和可信指针输入；默认走免截图的 appearance-only，只有显式 --screenshots 才运行像素采样；`--appearance-only` 可免截图检查主题、材质能力、通过保留的设置测试入口切换三材质后的 传统磨砂 HUDWindow/Active 状态/液态星星的 Regular/Clear 切换和拒绝收起及 AppKit 回读、跨材质保持展开与原生尺寸同步；同时验证 WebKit 的共同标题栏与盒模型，不证明原生折射像素。
 - [native-backdrop.test.mjs](native-backdrop.test.mjs)：暂停动画帧时仍发送原生材质与收放状态通知，背景按宿主明暗设置自有窗口；不提供系统切换 IPC，且不重复发送未变状态；并发尺寸请求保留最后展开尺寸；旧样式迁入新材质后不覆盖后续选择。
 
-- [dev-host.test.mjs](dev-host.test.mjs)：真实目标筛选、安装版连接恢复与配置/存储隔离；覆盖开发配置优先与首次继承日常策略、Dev 无连接准备/取消/复用及显式目标保护、无宿主启动不触发旧恢复、错误透传和失效旧目标保留归档；只使用合成本机服务。
+- [dev-host.test.mjs](dev-host.test.mjs)：真实目标筛选、安装版连接恢复与配置/存储隔离；覆盖开发配置优先与首次继承日常策略、Dev 无连接准备/取消/复用及显式目标保护、无宿主启动不触发旧恢复、错误透传和失效旧目标保留归档；确认安装版进程退出且已选新宿主时保留原文及私有权限归档，存活/未知 PID 或退出清理仍保留恢复记录；只使用合成本机服务。
 - [dev-proxy.test.mjs](dev-proxy.test.mjs)：真实 Vite/开发网关的本机来源、鉴权、前端 api.ts 路由及后台重启后的会话稳定性；子进程捕获端点与取消错误；旧示例/模型入口返回 404；冷缓存请求后能退出，慢模型请求不被截断，客户端离开取消代理。
 - [dev-panel.test.mjs](dev-panel.test.mjs)：隔离源码副本验证 CSS/逻辑版本分离，以及构建失败不覆盖最后可用快照。
 - [fixtures.mjs](fixtures.mjs)：符合共享设置/字体契约的合成投影数据。
