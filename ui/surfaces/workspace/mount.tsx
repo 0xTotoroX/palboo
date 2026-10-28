@@ -1,4 +1,4 @@
-/* [INPUT]: Surface element, owner, transport and optional header slot. [OUTPUT]: Isolated view lifecycle, stable edge board reading size and bounded detail measurement.
+/* [INPUT]: Surface element, owner, transport and optional header slot. [OUTPUT]: Isolated views, shared Bot header actions, stable edge board size and bounded detail measurement.
  * [POS]: React adapter shared by host and native pages. [PROTOCOL]: Keep AGENTS.md in this module in sync. */
 import { createRoot } from 'react-dom/client';
 import { FeatureView } from './feature-session';
@@ -52,7 +52,7 @@ export function mountFeature(
     handoff: () => Promise<unknown>;
     failed?: (pendingOwner: string) => void;
   },
-  headerActions: HTMLElement | undefined = ['outline', 'next', 'board', 'model'].includes(
+  headerActions: HTMLElement | undefined = ['outline', 'next', 'board', 'model', 'bots'].includes(
     initial.id,
   )
     ? document.createElement('span')

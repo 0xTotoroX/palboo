@@ -1,7 +1,7 @@
 import { useLocale } from '../../shared/use-locale';
 import { tr } from '../../shared/i18n.js';
 /* [INPUT]: Metadata-only host projection and guarded main-composer actions.
- * [OUTPUT]: Avatar status, one badge, hover actions, latest-message view and an optional independent App shortcut.
+ * [OUTPUT]: Avatar status, one badge and icon-only header actions for messages and the independent App shortcut.
  * [POS]: Palboo feature content, shared by existing surfaces; no second chat input.
  * [PROTOCOL]: Keep ui/features/AGENTS.md in sync. */
 import { useId, useState } from 'react';
@@ -109,21 +109,21 @@ export function BotsView({
   const opener = openApp ? (
     <button
       type="button"
-      className="palboo-bot-open palboo-bot-hint"
+      className="palboo-bot-open"
       aria-label={tr('打开 Grok Bot')}
+      title={tr('打开 Grok Bot')}
       disabled={openDisabled}
       onClick={openApp}
     >
       <Icon name="detach" />
-      <span className="palboo-bot-hint-text" aria-hidden="true">
-        {tr('打开 Grok Bot')}
-      </span>
     </button>
   ) : null;
   if (!snapshot)
     return (
       <section className="palboo-bots">
-        {opener && <div className="palboo-bot-toolbar">{opener}</div>}
+        {headerActions
+          ? createPortal(opener, headerActions)
+          : opener && <div className="palboo-bot-toolbar">{opener}</div>}
         <BotStatus className="palboo-bot-notice" label={tr('等待 Codex 连接…')} icon="connection" />
       </section>
     );
@@ -153,26 +153,32 @@ export function BotsView({
         <Icon name="refresh" />
       </button>
     ) : null;
+  const historyLabel = expanded ? tr('返回 Bot 列表') : tr('最近消息');
+  const controls = (
+    <>
+      {refresh}
+      {hasBots && (
+        <button
+          type="button"
+          className="palboo-bot-history"
+          aria-label={historyLabel}
+          title={historyLabel}
+          aria-expanded={expanded}
+          aria-controls={expanded ? previewId : undefined}
+          onClick={() => setExpanded(!expanded)}
+        >
+          <Icon name={expanded ? 'catalog' : 'outline'} />
+        </button>
+      )}
+      {opener}
+    </>
+  );
   return (
     <section className="palboo-bots" aria-label="Grok Bot">
-      {headerActions ? createPortal(refresh, headerActions) : refresh}
+      {headerActions
+        ? createPortal(controls, headerActions)
+        : (hasBots || opener || refresh) && <div className="palboo-bot-toolbar">{controls}</div>}
       {notice && <BotStatus className="palboo-bot-notice" label={tr(notice)} icon="warning" />}
-      {(hasBots || opener) && (
-        <div className="palboo-bot-toolbar">
-          {opener}
-          {hasBots && (
-            <button
-              type="button"
-              className="palboo-bot-history"
-              aria-expanded={expanded}
-              aria-controls={expanded ? previewId : undefined}
-              onClick={() => setExpanded(!expanded)}
-            >
-              {expanded ? tr('返回 Bot 列表') : tr('最近消息')}
-            </button>
-          )}
-        </div>
-      )}
       {expanded && (
         <section className="palboo-bot-messages" id={previewId} aria-label={tr('最近消息')}>
           {messages.length ? (

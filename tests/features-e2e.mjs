@@ -633,6 +633,22 @@ try {
   assert.equal(await page.locator('[data-refresh="bots"]').count(), 0);
   assert.equal(await page.locator('.palboo-bot-preview').count(), 0);
   assert.equal(await page.locator('.palboo-bot-history').count(), 1);
+  const botHeader = page.locator('.csw-feature-header-actions').filter({
+    has: page.locator('.palboo-bot-history'),
+  });
+  assert.equal(await botHeader.locator('.palboo-bot-open').count(), 1);
+  assert.equal(
+    (await botHeader.innerText()).trim(),
+    '',
+    'Bot header actions have no visible captions',
+  );
+  assert.equal(await page.locator('.palboo-bots .palboo-bot-toolbar').count(), 0);
+  const botTop = await page.locator('.palboo-bot').first().boundingBox();
+  const botHead = await botHeader.boundingBox();
+  assert.ok(
+    botTop.y >= botHead.y && botTop.y - (botHead.y + botHead.height) <= 24,
+    'Bot content begins directly below the existing header without a second toolbar or padding',
+  );
   await page.getByRole('button', { name: '最近消息', exact: true }).click();
   assert.equal(await page.locator('.palboo-bot-select').count(), 0);
   assert.equal(await page.locator('.palboo-bot-preview').count(), 4);

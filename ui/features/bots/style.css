@@ -1,10 +1,14 @@
 /* [INPUT]: Existing surface semantic colors and font size.
- * [OUTPUT]: Compact Bot selectors, panel-bounded toolbar hints and existing composer actions.
+ * [OUTPUT]: Compact top-aligned Bot selectors and icon-only fallback actions; surface headers own hosted actions.
  * [POS]: Feature styles only. [PROTOCOL]: Keep ui/features/AGENTS.md in sync. */
 .palboo-bots {
   display: grid;
+  align-content: start;
   gap: 10px;
   padding: 16px;
+}
+.feature-body > .palboo-bots {
+  padding: 0;
 }
 .palboo-bot {
   position: relative;
@@ -236,13 +240,15 @@
   align-items: center;
   gap: 4px;
 }
-.palboo-bot-open {
+.palboo-bot-toolbar button {
   display: inline-flex;
   flex: none;
   align-items: center;
   justify-content: center;
   min-width: var(--buddy-action-hit-size, 28px);
   min-height: var(--buddy-action-hit-size, 28px);
+  width: var(--buddy-action-hit-size, 28px);
+  height: var(--buddy-action-hit-size, 28px);
   padding: 4px;
   border: 0;
   border-radius: 4px;
@@ -251,26 +257,7 @@
   font: inherit;
   cursor: pointer;
 }
-.palboo-bot-open:hover {
-  background: var(--hover);
-  color: var(--ink, inherit);
-}
-.palboo-bot-open .palboo-bot-hint-text {
-  left: auto;
-  right: 0;
-  overflow-wrap: normal;
-}
-.palboo-bot-history {
-  min-height: var(--buddy-action-hit-size, 28px);
-  padding: 4px 8px;
-  border: 0;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--muted, inherit);
-  font: inherit;
-  cursor: pointer;
-}
-.palboo-bot-history:hover {
+.palboo-bot-toolbar button:hover {
   background: var(--hover);
   color: var(--ink, inherit);
 }
