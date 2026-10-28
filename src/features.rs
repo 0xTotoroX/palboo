@@ -11,9 +11,13 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::{
     collections::BTreeMap,
-    process::{Child, Command, Stdio},
+    process::Stdio,
     time::{Duration, Instant},
 };
+
+use crate::window_process::WindowProcess;
+#[cfg(test)]
+use std::process::Command;
 
 mod bots;
 pub async fn pause_bot_sync() {
@@ -177,17 +181,22 @@ impl Features {
 fn valid_placement(_id: &str, p: &str) -> bool {
     crate::surfaces::PLACEMENTS.contains(&p)
 }
-fn spawn(paths: &Paths, id: &str, owner: &str) -> Result<Child> {
-    Command::new(std::env::current_exe()?)
-        .arg("--data-dir")
-        .arg(&paths.root)
-        .args(["feature-window", "--feature", id, "--lease", owner])
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn()
-        .context("无法打开功能窗口")
+fn spawn(paths: &Paths, id: &str, owner: &str) -> Result<WindowProcess> {
+    crate::window_process::spawn(
+        &[
+            "--data-dir".into(),
+            paths.root.as_os_str().to_owned(),
+            "feature-window".into(),
+            "--feature".into(),
+            id.into(),
+            "--lease".into(),
+            owner.into(),
+        ],
+        Stdio::null(),
+    )
+    .context("无法打开功能窗口")
 }
+
 impl App {
     pub(crate) async fn reset_feature_layouts(&self, dock: bool, desktop: bool) -> Result<()> {
         let mut f = self.features.lock().await;
@@ -1605,7 +1614,9 @@ mod tests {
         {
             let mut f = app.features.lock().await;
             f.entries.get_mut("outline").unwrap().pref.placement = "desktop".into();
-            f.main.child = Some(Command::new("/bin/sleep").arg("60").spawn().unwrap());
+            f.main.child = Some(WindowProcess::Standalone(
+                Command::new("/bin/sleep").arg("60").spawn().unwrap(),
+            ));
         }
         app.save_settings(serde_json::from_value(json!({"answerOutlineEnabled":false})).unwrap())
             .await

@@ -81,6 +81,7 @@ export function buildApplication({ binary, version, resources, destination, sour
 <key>CFBundleIconFile</key><string>palboo.icns</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>LSUIElement</key><true/>
+<key>PalbooWindowHostVersion</key><integer>1</integer>
 <key>NSHighResolutionCapable</key><true/>
 </dict></plist>
 `,

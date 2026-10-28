@@ -10,7 +10,7 @@ npm 命令进入开发、构建、审计、安装和验证编排工具；具体�
 
 - [dev-dock.mjs](dev-dock.mjs)：可选统一目标，将已固定的旧 Dev/Palboo 图标原位指向 Palboo.app，丢弃书签并去重；未固定不新增，其余项目不变。私有备份、并发回读及刷新沿用。
 
-- [dev-launcher.mjs](dev-launcher.mjs)：install:dev 登记源码及 Node 到统一 App，必要时安装完整 App，迁移 Dock 后归档旧 Dev App；保留 open/stop/settings/run 兼容及真实宿主策略、进程身份/租约与焦点目标回读。固定连接不重开宿主，失败仅清理本次在 launcher 锁内创建的会话。
+- [dev-launcher.mjs](dev-launcher.mjs)：install:dev 登记源码及 Node 到统一 App，入口能力不足时更新完整 App，迁移 Dock 后归档旧 Dev App；保留 open/stop/settings/run 兼容及真实宿主策略、进程身份/租约与焦点目标回读。固定连接不重开宿主，失败仅清理本次在 launcher 锁内创建的会话。
 - [dev.mjs](dev.mjs)：真实 Codex 开发入口，管理独立后台、源码监听和编译失败回退，独立模型控制资源变化随原生后台重建；持有宿主目标与所选 worktree 租约，先绑定统一设置服务地址再传给开发后台齿轮，每个来源独立 Vite 缓存并去重 React；先编译后交接来源、失败回退，切换 Vite/监听/后台而不重启宿主；启动前先发现可调试宿主；显式 --restart-running 时先构建当前 CLI，再通过 host-only 模式准备宿主，仅在接管安装版后启用退出恢复，含占用获取和初始化在内的失败原因与进程 ID 写入私有 launcher-error.json，退出只清理本次会话记录；Ctrl+C 清理自身进程并恢复安装版连接。
 - [material-preview.mjs](material-preview.mjs)：`dev:materials` 入口，将 Swift 对照工具编译到 target/material-preview 后打开；`--check` 验证同步控制，`--package` 在 dist/material-preview 生成自带程序和 GPL-3.0-only 完整许可包的独立 App，并输出 ZIP；source/ 同时导出源码、独立构建入口和说明，可脱离主仓库二次开发；不修改安装版或产品偏好。
 - [material-preview.swift](material-preview.swift)：14 种 NSVisualEffectView 材质的原生并排对照；独立背景窗口提供重复图案，统一切换外观、焦点状态与背景，支持真实桌面采样；标题栏固定不透明底色并跟随预览明暗。
@@ -28,7 +28,7 @@ npm 命令进入开发、构建、审计、安装和验证编排工具；具体�
 - [release-plan.mjs](release-plan.mjs)：严格解析 SemVer，统一 X.Y.0 的 DMG 计划、补丁无附件和预发布状态；CI 核对标签、Cargo/npm及锁文件版本、已审核说明，不接触远端。
 - [artifact-audit.mjs](artifact-audit.mjs)：release 编译路径映射及成品字节扫描，包含二进制、常见凭据/个人目录、UTF-16主目录与禁止文件；错误只输出文件和问题类型。它是有限检查，不证明不存在所有敏感内容或漏洞。
 - [package-app.mjs](package-app.mjs)：编译最低 macOS 14 arm64 Swift 入口、复制包内 CLI/资源、清理扩展属性与本地签名；校验系统动态库、最低版本和程序摘要，以普通用户权限创建 HFS+ DMG，避免 tar 的属主名称字段和设置 root 引发的授权；挂载读回并复制到新位置验证，成功后卸载镜像。
-- [app-launcher.swift](app-launcher.swift)：从 Bundle 定位 CLI，按用户模式记录启动正式或开发，读取正式数据目录关联；开发前台沿 AppKit 交接，失败提供安全回正式入口；只读镜像提示复制，--check 只检查包内版本。
+- [app-launcher.swift](app-launcher.swift)：从 Bundle 定位 CLI，按用户模式记录启动正式或开发，读取正式数据目录关联；开发前台沿 AppKit 交接，失败提供安全回正式入口；只读镜像提示复制，--check 只检查包内版本；--open-window 经 LaunchServices 启动同一个 App，--palboo-window 用原 PID 进入当前模式窗口程序，以私有短期回执返回真实窗口 PID，保持原 Dock 身份。
 - [project-licenses.mjs](project-licenses.mjs)：验证完整 GPL 原文、历史 MIT 原文及授权范围，并为主程序与独立材质工具复制统一许可包。
 - [source-audit.mjs](source-audit.mjs)：Git 与无 Git 源码目录共用文件清单，供审计、打包和测试复用；无 Git 时排除构建目录，拒绝私有文件与符号链接。核对包名、固定 GPL-3.0-only 元数据、完整许可与历史原文，并拒绝历史排除的上游诊断标记、私有文档、运行配置、凭据和个人绝对路径。
 - [license-texts.json](license-texts.json)：依赖包未附带的公开许可、署名原文与固定来源 URL，供许可生成器离线使用。

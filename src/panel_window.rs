@@ -1,4 +1,4 @@
-// [INPUT]: Tao/Wry、Runtime、Preferences、ui/icon.png、共享 native_backdrop 与 AppKit 手势。
+// [INPUT]: Tao/Wry、Runtime、Preferences、Palboo.app 身份、共享 native_backdrop 与 AppKit 手势。
 // [OUTPUT]: 原生红黄绿窗口与 Palboo 应用图标、置顶及调度中心/Spaces、跨屏往返和实时材质。
 // [POS]: 窗口子进程实现；系统管理最小化/放大/全屏，关闭沿用收回，普通几何独立于临时窗口状态。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
@@ -156,11 +156,12 @@ impl WindowTransition {
 }
 
 mod macos {
-    use objc2::{AnyThread, MainThreadMarker};
+    use objc2::MainThreadMarker;
     use objc2_app_kit::{
-        NSApplication, NSEvent, NSImage, NSScreen, NSWindow, NSWindowButton, NSWorkspace,
+        NSApplication, NSEvent, NSRunningApplication, NSScreen, NSWindow, NSWindowButton,
+        NSWorkspace,
     };
-    use objc2_foundation::{NSData, NSPoint, NSRect, NSSize};
+    use objc2_foundation::{NSPoint, NSRect, NSSize};
     use objc2_quartz_core::{CATransaction, CATransform3D};
     use serde_json::Value;
     use tao::{platform::macos::WindowExtMacOS, window::Window};
@@ -173,16 +174,10 @@ mod macos {
         NSWorkspace::sharedWorkspace().accessibilityDisplayShouldReduceMotion()
     }
 
-    pub fn install_app_icon() -> anyhow::Result<()> {
-        let mtm = MainThreadMarker::new().expect("window main thread");
-        let data = NSData::with_bytes(include_bytes!("../ui/icon.png"));
-        let image = NSImage::initWithData(NSImage::alloc(), &data)
-            .ok_or_else(|| anyhow::anyhow!("Could not load the Palboo app icon"))?;
-        // 图像来自包内固定 PNG，AppKit 在主线程持有它。
-        unsafe {
-            NSApplication::sharedApplication(mtm).setApplicationIconImage(Some(&image));
-        }
-        Ok(())
+    pub fn bundled_application() -> bool {
+        NSRunningApplication::currentApplication()
+            .bundleIdentifier()
+            .is_some_and(|id| id.to_string() == "local.palboo.launcher")
     }
 
     pub fn maximized(window: &Window) -> bool {
@@ -204,6 +199,7 @@ mod macos {
             }).collect();
         let app =
             NSApplication::sharedApplication(MainThreadMarker::new().expect("window main thread"));
+        let identity = NSRunningApplication::currentApplication();
         let header_reachable = native.contentView().is_some_and(|root| {
             unsafe { root.superview() }
                 .and_then(|parent| {
@@ -215,7 +211,9 @@ mod macos {
                 .is_some_and(|hit| hit.isDescendantOf(&root))
         });
         serde_json::json!({"buttons":buttons,"activationPolicy":app.activationPolicy().0,
-            "hasAppIcon":app.applicationIconImage().is_some(),"headerContentReachable":header_reachable})
+            "hasAppIcon":app.applicationIconImage().is_some(),"headerContentReachable":header_reachable,
+            "processId":std::process::id(),"bundleIdentifier":identity.bundleIdentifier().map(|s|s.to_string()),
+            "bundlePath":identity.bundleURL().and_then(|url|url.path()).map(|s|s.to_string())})
     }
 
     pub fn enable_window_controls(window: &Window, enabled: bool) {
@@ -510,9 +508,13 @@ pub fn run_surface(
     let mut event_loop = EventLoopBuilder::<Value>::with_user_event().build();
     {
         use tao::platform::macos::{ActivationPolicy, EventLoopExtMacOS};
-        event_loop.set_activation_policy(ActivationPolicy::Regular);
+        event_loop.set_activation_policy(if macos::bundled_application() {
+            ActivationPolicy::Regular
+        } else {
+            ActivationPolicy::Accessory
+        });
     }
-    macos::install_app_icon()?;
+    crate::window_process::ready()?;
     let size = (prefs.ui.width + 24., prefs.ui.height + 24.);
     let window = WindowBuilder::new()
         .with_title(if crate::assets::development().is_some() {
@@ -638,6 +640,9 @@ pub fn run_surface(
         *control = ControlFlow::Wait;
         macos::position_window_controls(&window);
         match event {
+            Event::Reopen { .. } => {
+                let _ = event_loop_proxy.send_event(json!({"kind":"reveal"}));
+            }
             Event::UserEvent(message) => match message["kind"].as_str().unwrap_or_default() {
                 "backdrop" => {
                     backdrop.update(&window, &message);

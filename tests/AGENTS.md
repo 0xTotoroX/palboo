@@ -374,3 +374,5 @@ Fast/普通预设按闪电标记独立消歧：model-groups 覆盖同组编号�
 常用语拆分回归：quick-prompts-editor 使用独立视图覆盖增删改、冲突草稿、三种点击模式及建议刷新隔离；quick-prompts-runtime 覆盖延迟点击换目标和只开常用语的锁定来源。features-e2e 验证保存后立即填入、Stepwise/大纲关闭时独立工作、已有草稿不发送；合成 composer 保持真实输入框宽度。settings-modes/startup-settings 验独立设置页与旧锚点、开关和保存队列。model-control-e2e 验设置目录与快切一致、快切停用时可读、读取不改选择，并覆盖开关保存不重复加锁。
 
 `compact-feature-layout.test.mjs` 通过实际 mountFeature 与完整标题/正文外壳验证 240px 窄栏、280px 矮面板、长列表、中英文及20px大字号：术语图标筛选在标题槽、正文只有一层12px边距、按钮至少28px且键盘可用；模型额度/测速/操作初始可见，滚动模型不移动底栏，Esc 退出预设编辑。settings-preview-controls 以真实 Bot/下一步/看板组件验证徽章、按需消息、停止及填入仅更新示例内存；settings-modes 同时检查外框高度和 Shadow DOM 正文边界，防止实际内容遮挡下方表单；performance 检查关闭前后均无空仪表、无新增采样。
+
+- `native-app.mjs`：用正式 Swift 入口、原始图标和隔离目录组装合成 App，不安装或修改 Dock 固定项。`window-controls-native.mjs` 核对真实 bundle 路径/标识、Dock reopen 的同 PID/草稿保留；裸 CLI 的 `native-check --header-only` 则必须是 accessory。`window_process` 的忽略原生用例显式验证 LaunchServices→exec 的身份、真实 PID、自然退出和主动回收。

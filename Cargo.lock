@@ -341,42 +341,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c8d4a3bb8b1e0c1050499d1815f5ab16d04f0959b233085fb31653fbfc9d98f9"
 
 [[package]]
-name = "palboo"
-version = "1.1.0"
-dependencies = [
- "anyhow",
- "axum",
- "block2",
- "clap",
- "dirs 6.0.0",
- "fs2",
- "futures-util",
- "notify",
- "objc2",
- "objc2-app-kit",
- "objc2-event-kit",
- "objc2-foundation",
- "objc2-quartz-core",
- "reqwest",
- "rust-embed",
- "serde",
- "serde_json",
- "sha2 0.10.9",
- "tao",
- "tempfile",
- "tokio",
- "tokio-stream",
- "tokio-tungstenite",
- "toml",
- "tower",
- "tracing",
- "tracing-subscriber",
- "uuid",
- "webbrowser",
- "wry",
-]
-
-[[package]]
 name = "colorchoice"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2045,6 +2009,43 @@ name = "option-ext"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
+
+[[package]]
+name = "palboo"
+version = "1.1.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "block2",
+ "clap",
+ "dirs 6.0.0",
+ "fs2",
+ "futures-util",
+ "libc",
+ "notify",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-event-kit",
+ "objc2-foundation",
+ "objc2-quartz-core",
+ "reqwest",
+ "rust-embed",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tao",
+ "tempfile",
+ "tokio",
+ "tokio-stream",
+ "tokio-tungstenite",
+ "toml",
+ "tower",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+ "webbrowser",
+ "wry",
+]
 
 [[package]]
 name = "pango"

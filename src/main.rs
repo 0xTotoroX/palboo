@@ -37,6 +37,7 @@ mod tasks;
 mod terminology;
 mod terminology_import;
 mod terminology_lookup;
+mod window_process;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};

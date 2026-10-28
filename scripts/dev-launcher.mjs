@@ -326,7 +326,13 @@ async function install() {
   const destination = '/Applications/Palboo.app';
   const cli = join(destination, 'Contents/MacOS/palboo');
   const supported =
-    existsSync(cli) && spawnSync(cli, ['app-mode', '--help'], { encoding: 'utf8' }).status === 0;
+    existsSync(cli) &&
+    spawnSync(cli, ['app-mode', '--help'], { encoding: 'utf8' }).status === 0 &&
+    spawnSync(
+      '/usr/libexec/PlistBuddy',
+      ['-c', 'Print :PalbooWindowHostVersion', join(destination, 'Contents/Info.plist')],
+      { encoding: 'utf8' },
+    ).stdout?.trim() === '1';
   if (!supported) command(process.execPath, [join(root, 'scripts/install.mjs')]);
   const active = hasDevelopmentOwner(root);
   const preferences = JSON.parse(command(cli, ['app-mode', 'status']));

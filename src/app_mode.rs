@@ -144,6 +144,19 @@ fn release_executable(prefs: &Preferences) -> Result<PathBuf> {
     );
     Ok(path)
 }
+// 使用保存的安装位置，移动后的完整 App 则优先使用自身位置。
+pub fn window_application() -> Result<Option<PathBuf>> {
+    let current = std::env::current_exe()?;
+    let executable = if current.ends_with("Contents/MacOS/palboo") {
+        Some(current)
+    } else {
+        read(&shared_paths()?)?.executable
+    };
+    Ok(executable
+        .filter(|path| path.ends_with("Contents/MacOS/palboo"))
+        .and_then(|path| path.ancestors().nth(3).map(Path::to_path_buf)))
+}
+
 fn validate_development(prefs: &mut Preferences) -> Result<()> {
     let source = prefs
         .source

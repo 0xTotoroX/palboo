@@ -769,11 +769,12 @@ try {
         chrome?.buttons?.length !== 3 ||
         !chrome.buttons.every((button) => button.visible && button.reachable) ||
         !chrome.headerContentReachable ||
-        !chrome.hasAppIcon ||
-        chrome.activationPolicy !== 0 ||
+        chrome.activationPolicy !== 1 ||
         telemetry.windowControls.length
       )
-        throw Error('Desktop must use three native controls and the Palboo app icon');
+        throw Error(
+          'Standalone native fixture must use three system controls without an exec Dock entry',
+        );
       spaces.push({ pinned, collectionBehavior: behavior, level: level() });
     };
     if (!(pinnedLevel > 0) || telemetry.workbench.pin !== 'true')

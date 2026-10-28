@@ -1,9 +1,10 @@
 // [INPUT]: 包内 CLI、共享模式记录、各模式既有配置与 AppKit。
-// [OUTPUT]: 按模式启动工作台或暂停设置；开发窗口注册后交接焦点；--check 只检查包内程序。
+// [OUTPUT]: 按模式启动工作台/设置；经本 App 登记桌面窗口、回执真实 PID；--check 只检查包内程序。
 // [POS]: 统一的可移动 App 入口；正式模式独立运行，开发模式使用已登记的源码与 Node。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 import AppKit
 import Foundation
+import Darwin
 
 func localized(_ chinese: String, _ english: String) -> String {
     let root = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
@@ -84,6 +85,67 @@ func launch() throws {
             if !error.localizedDescription.contains("桌面浮窗仅支持 macOS 15") { throw error }
         }
     }
+}
+
+// 后台没有 AppKit 主循环。由同一启动器完成系统启动并回传真实 PID，随后退出。
+if CommandLine.arguments.dropFirst().first == "--open-window" {
+    let configuration = NSWorkspace.OpenConfiguration()
+    configuration.createsNewApplicationInstance = true
+    configuration.allowsRunningApplicationSubstitution = false
+    configuration.activates = false
+    configuration.addsToRecentItems = false
+    configuration.arguments = ["--palboo-window"] + Array(CommandLine.arguments.dropFirst(2))
+    configuration.environment = ProcessInfo.processInfo.environment.filter {
+        !["__CFBundleIdentifier", "XPC_SERVICE_NAME", "XPC_FLAGS"].contains($0.key)
+    }
+    let responseDirectory = FileManager.default.temporaryDirectory.appendingPathComponent("palboo-window-" + UUID().uuidString)
+    do {
+        try FileManager.default.createDirectory(at: responseDirectory, withIntermediateDirectories: false,
+                                               attributes: [.posixPermissions: 0o700])
+    } catch { fputs("Could not prepare Palboo window receipt\n", stderr); exit(1) }
+    let response = responseDirectory.appendingPathComponent("ready")
+    configuration.environment["PALBOO_WINDOW_READY_FILE"] = response.path
+    func finish(_ status: Int32, _ message: String) -> Never {
+        try? FileManager.default.removeItem(at: responseDirectory)
+        if status == 0 { print(message) } else { fputs("\(message)\n", stderr) }
+        exit(status)
+    }
+    var launched: NSRunningApplication?
+    NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: configuration) { application, error in
+        DispatchQueue.main.async {
+            guard let application else { finish(1, error?.localizedDescription ?? "Could not open Palboo") }
+            launched = application
+        }
+    }
+    // exec 后 LaunchServices 的初始对象可能暂时没有 PID；窗口在 AppKit 就绪后亲自回执。
+    Timer.scheduledTimer(withTimeInterval: 0.02, repeats: true) { _ in
+        if let data = try? String(contentsOf: response, encoding: .utf8), let pid = Int32(data), pid > 0 {
+            finish(0, String(pid))
+        }
+    }
+    DispatchQueue.main.asyncAfter(deadline: .now() + 15) {
+        launched?.forceTerminate()
+        finish(1, "Palboo window launch timed out")
+    }
+    RunLoop.main.run()
+    exit(1)
+}
+
+// LaunchServices 先登记本 App，再由同一 PID 进入当前正式/开发窗口程序。
+// 不初始化第二个 NSApplication，也不另开终端或子应用。
+if CommandLine.arguments.dropFirst().first == "--palboo-window" {
+    let args = Array(CommandLine.arguments.dropFirst(2))
+    guard args.count >= 6,
+          ["panel-window", "feature-window"].contains(args[3]),
+          args[1] == "--data-dir", args.contains("--lease"),
+          FileManager.default.isExecutableFile(atPath: args[0]) else {
+        fputs("Invalid Palboo window request\n", stderr)
+        exit(1)
+    }
+    let pointers = args.map { strdup($0) } + [nil]
+    execv(args[0], pointers)
+    fputs("Could not start Palboo window: \(String(cString: strerror(errno)))\n", stderr)
+    exit(1)
 }
 
 // 无连接、无配置写入的成品验收入口，也可从移动后的 App 直接调用。

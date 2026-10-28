@@ -127,7 +127,7 @@ impl SavedFeatures {
 pub(super) struct MainSurface {
     pub pref: MainPreference,
     pub target: Option<String>,
-    pub child: Option<Child>,
+    pub child: Option<WindowProcess>,
     pub lease: String,
     pub active: String,
 }

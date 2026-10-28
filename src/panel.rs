@@ -3,6 +3,7 @@
 // [POS]: 后台系统浮窗管理层，从准备租约起保护窗口快照，原生呈现后隐藏内嵌胶囊；临时坐标不持久化，收回偏好按版本校验并保存。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
+use crate::window_process::WindowProcess;
 use crate::{
     config::{Paths, write_private},
     state::App,
@@ -12,10 +13,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::{
     collections::BTreeMap,
-    process::Stdio,
     time::{Duration, Instant},
 };
-use tokio::process::{Child, Command};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase", deny_unknown_fields)]
@@ -295,7 +294,7 @@ pub struct Panel {
     pub ready: bool,
     pub presented: bool,
     docking: bool,
-    child: Option<Child>,
+    child: Option<WindowProcess>,
     restore_attempted: bool,
     heartbeat: Instant,
     test_window: bool,
@@ -439,7 +438,7 @@ impl App {
             let pid = panel
                 .child
                 .as_ref()
-                .and_then(|child| child.id())
+                .map(|child| child.id())
                 .context("开发浮窗正在准备，请稍后重试")?;
             if !panel.presented || panel.docking {
                 bail!("开发浮窗正在切换，请稍后重试");
@@ -485,7 +484,7 @@ impl App {
         }
         panel.prefs.ui.open = true;
         if let Some(child) = panel.child.as_mut() {
-            let _ = child.kill().await;
+            let _ = child.kill();
         }
         panel.child = None;
         panel.ready = false;
@@ -499,22 +498,18 @@ impl App {
                 .create(true)
                 .append(true)
                 .open(self.paths.root.join("panel.log"))?;
-            let mut command = Command::new(std::env::current_exe()?);
-            command.args(["--data-dir"]).arg(&self.paths.root).args([
-                "panel-window",
-                "--lease",
-                &panel.lease,
-            ]);
+            let mut arguments = vec![
+                "--data-dir".into(),
+                self.paths.root.as_os_str().to_owned(),
+                "panel-window".into(),
+                "--lease".into(),
+                panel.lease.clone().into(),
+            ];
             if activate {
-                command.arg("--activate");
+                arguments.push("--activate".into());
             }
-            let child = command
-                .stdin(Stdio::null())
-                .stdout(Stdio::null())
-                .stderr(log)
-                .kill_on_drop(true)
-                .spawn()
-                .context("无法启动桌面浮窗")?;
+            let child =
+                crate::window_process::spawn(&arguments, log.into()).context("无法启动桌面浮窗")?;
             panel.child = Some(child);
         }
         // 网页 ready 只表示内容可用；原生窗口已呈现并确认 presented 后才隐藏宿主。
@@ -724,7 +719,7 @@ impl App {
                 !panel.lease.is_empty() && panel.heartbeat.elapsed() > Duration::from_secs(12);
             if exited || expired {
                 if let Some(mut child) = panel.child.take() {
-                    let _ = child.kill().await;
+                    let _ = child.kill();
                 }
                 panel.ready = false;
                 panel.presented = false;

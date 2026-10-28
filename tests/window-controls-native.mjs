@@ -1,5 +1,5 @@
-/* [INPUT]: Current debug native window and a synthetic local page/controller.
- * [OUTPUT]: System traffic lights, Palboo icon, minimize/reveal and zoom/restore with unchanged draft/PID.
+/* [INPUT]: Current debug native window, production App entry and a synthetic local page/controller.
+ * [OUTPUT]: System traffic lights, actual App bundle identity and Dock reopen, minimize/reveal and zoom/restore with unchanged draft/PID.
  * [POS]: Isolated temporary data and self-owned window, no screenshots or real host data.
  * [PROTOCOL]: Keep tests/AGENTS.md in sync. */
 import assert from 'node:assert/strict';
@@ -7,15 +7,18 @@ import { createServer } from 'node:http';
 import { mkdtemp, writeFile, rm, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { spawn } from 'node:child_process';
+import { spawn, execFileSync } from 'node:child_process';
 import { build } from 'esbuild';
 import { prepareTestBinary } from '../scripts/verify.mjs';
+import { nativeApp } from './native-app.mjs';
 const root = resolve(import.meta.dirname, '..'),
   dir = await mkdtemp(join(tmpdir(), 'buddy-window-controls-'));
 const binary = prepareTestBinary('debug').binary;
+const app = nativeApp(dir);
 let latest,
   commands = [],
-  child;
+  child,
+  nativePid;
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 const js = (
   await build({
@@ -110,16 +113,40 @@ try {
       position: { x: 240, y: 260 },
     }),
   );
-  child = spawn(binary, ['--data-dir', dir, 'panel-window', '--lease', 'fixture'], {
-    stdio: 'pipe',
-    env: { ...process.env, PALBOO_DEV_GENIE: '0' },
-  });
+  child = spawn(
+    '/usr/bin/open',
+    [
+      '-n',
+      '-W',
+      '--env',
+      'PALBOO_DEV_GENIE=0',
+      app,
+      '--args',
+      '--palboo-window',
+      binary,
+      '--data-dir',
+      dir,
+      'panel-window',
+      '--lease',
+      'fixture',
+    ],
+    {
+      stdio: 'pipe',
+      env: { ...process.env, PALBOO_DEV_GENIE: '0' },
+    },
+  );
   await wait(
     () => latest?.ready && latest?.state && !latest.state.hidden && bounds(),
     'initial visible',
   );
   const original = bounds(),
-    pid = child.pid;
+    pid = latest.state.nativeChrome.processId;
+  nativePid = pid;
+  assert.equal(latest.state.nativeChrome.bundleIdentifier, 'local.palboo.launcher');
+  assert.equal(
+    latest.state.nativeChrome.bundlePath.replace(/^\/private/, ''),
+    app.replace(/^\/private/, ''),
+  );
   commands.push('window-state');
   await wait(
     () => latest?.state?.nativeChrome?.buttons.every((button) => button.enabled),
@@ -148,7 +175,7 @@ try {
   commands.push('minimize');
   await wait(() => latest?.state?.minimized && !bounds(), 'native yellow button minimizes');
   assert.equal(latest.transient, true, 'minimized geometry cannot overwrite normal size');
-  commands.push('reveal');
+  execFileSync('/usr/bin/open', [app]);
   await wait(
     () => latest?.state && !latest.state.minimized && bounds(),
     'restore minimized window',
@@ -157,8 +184,11 @@ try {
   commands.push('hide');
   await wait(() => latest?.state?.hidden && !bounds(), 'hidden');
   assert.equal(latest.draft, '未保存的合成草稿');
-  commands.push('reveal');
-  await wait(() => latest?.state && !latest.state.hidden && bounds(), 'revealed');
+  execFileSync('/usr/bin/open', [app]);
+  await wait(
+    () => latest?.state && !latest.state.hidden && bounds(),
+    'Dock reopen reveals existing window',
+  );
   near(bounds(), original);
   commands.push('maximize');
   await wait(() => latest?.state?.maximized && bounds()?.Width > original.Width, 'maximized');
@@ -174,7 +204,7 @@ try {
   await wait(() => latest?.state && !latest.state.maximized && restored(original), 'restored');
   near(bounds(), original);
   assert.equal(latest.draft, '未保存的合成草稿');
-  assert.equal(child.pid, pid);
+  assert.equal(latest.state.nativeChrome.processId, pid);
   commands.push('zoom');
   await wait(() => latest?.state?.maximized, 'native green button');
   await delay(800);
@@ -201,7 +231,8 @@ try {
     nativeMinimize: true,
     nativeGreen: true,
     fullscreenReturn: true,
-    originalAppIcon: true,
+    registeredAppBundle: true,
+    dockReopen: true,
     maximizeRestore: true,
     maximizedHideReveal: true,
     samePid: true,
@@ -218,6 +249,13 @@ try {
   console.log(JSON.stringify(result));
 } finally {
   if (child && child.exitCode === null) {
+    if (nativePid) {
+      try {
+        process.kill(nativePid, 'SIGTERM');
+      } catch (error) {
+        if (error.code !== 'ESRCH') throw error;
+      }
+    }
     child.kill('SIGTERM');
     await new Promise((r) => {
       child.once('exit', r);
