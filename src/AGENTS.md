@@ -137,3 +137,5 @@ settings 的 directionCatalogVersion 仅由后台维护并随常规保存持久�
 - `i18n.rs`：只读系统首选语言并结合保存的 language，为原生提示和标题选择中英文。panel Preferences 默认 system，通过 appearance 修订校验与保存；只刷新显示，不改变模型或生成配置。features/surfaces 和宿主 syncPanelPreferences 投影共享语言；旧字符串 launcherAction 仍兼容。
 
 DesktopStatus.pageKind 接收共享宿主分类；host_page_allowed 读取旧 sidebarNewChat/sidebarDots 开关。features.scopeAllowed 与 surfaces/window 投影临时范围，桌面 scope-visible IPC 和贴边 scope_hidden 只控制可见性，不终止窗口或写回开合偏好。appearance 新增 launcherDoubleAction/launcherContextAction，默认 toggle/settings，沿原修订校验保存并与 launcherAction 一同投影宿主；config CLI 暴露同一白名单。
+
+- [app_mode.rs](app_mode.rs)：正式/开发模式私有记录、修订及跨安装/启动/切换互斥；临时 loopback 进度页在浏览器确认后交接，编译/启动失败回滚，保留两套业务数据；注册来源、完整 App 绑定与无活动 Dev 时的正式恢复。

@@ -1,3 +1,4 @@
+import { AppModeSettings } from './app-mode-settings';
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: 现有设置表单、认证 API 与共用设置控件。
@@ -63,6 +64,7 @@ export function ConnectionSettings({
   return (
     <>
       {confirmation}
+      <AppModeSettings live={live} editor={editor} />
       <Card tabIndex={-1} id="settings-connection" aria-labelledby="connection-title">
         <h2 id="connection-title">{tr('桌面连接')}</h2>
         {!connected && view?.connection.message && (

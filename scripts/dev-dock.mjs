@@ -11,6 +11,8 @@ import { join } from 'node:path';
 
 export function repairDevelopmentDock({
   domain = 'com.apple.dock',
+  unified = false,
+  destination = unified ? '/Applications/Palboo.app' : '/Applications/Palboo Dev.app',
   backupDirectory = join(
     homedir(),
     'Documents/Codex-Archive/backups/palboo-dev-dock',
@@ -25,6 +27,8 @@ export function repairDevelopmentDock({
     input: `ObjC.import('Foundation');
 const domain = ${JSON.stringify(domain)};
 const backup = ${JSON.stringify(backup)};
+const unified = ${JSON.stringify(unified)};
+const destination = ${JSON.stringify(destination)};
 const defaults = $.NSUserDefaults.alloc.initWithSuiteName(domain);
 const current = defaults.persistentDomainForName(domain);
 const apps = current.isNil() ? $() : current.objectForKey('persistent-apps');
@@ -36,7 +40,7 @@ if (!apps.isNil()) {
     const entry = apps.objectAtIndex(i);
     const data = entry.objectForKey('tile-data');
     const id = data.isNil() ? $() : data.objectForKey('bundle-identifier');
-    const owned = !id.isNil() && ['local.codex-buddy.dev-launcher', 'local.palboo.dev-launcher'].includes(ObjC.unwrap(id));
+    const owned = !id.isNil() && ['local.codex-buddy.dev-launcher', 'local.palboo.dev-launcher', ...(unified ? ['local.palboo.launcher'] : [])].includes(ObjC.unwrap(id));
     if (!owned) { next.addObject(entry); continue; }
     if (found) { changed++; continue; }
     found = true;
@@ -44,9 +48,9 @@ if (!apps.isNil()) {
     const replacement = $({
       'tile-type': 'file-tile',
       'tile-data': {
-        'file-data': {'_CFURLString': 'file:///Applications/Palboo%20Dev.app/', '_CFURLStringType': 15},
-        'file-label': 'Palboo Dev',
-        'bundle-identifier': 'local.palboo.dev-launcher',
+        'file-data': {'_CFURLString': 'file://' + encodeURI(destination) + '/', '_CFURLStringType': 15},
+        'file-label': unified ? 'Palboo' : 'Palboo Dev',
+        'bundle-identifier': unified ? 'local.palboo.launcher' : 'local.palboo.dev-launcher',
         'file-type': 41
       }
     });

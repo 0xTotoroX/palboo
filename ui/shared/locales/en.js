@@ -1,5 +1,17 @@
 // English interface copy. User-authored content is not translated.
 export default {
+  运行模式: 'Run mode',
+  正式模式: 'Release',
+  开发模式: 'Development',
+  源码目录: 'Source folder',
+  开发环境: 'Development environment',
+  自动查找: 'Find automatically',
+  '请先保存当前设置，再切换模式。': 'Save your settings before switching modes.',
+  切换模式: 'Switch mode',
+  '正在准备…': 'Preparing…',
+  'Palboo 链接': 'Palboo links',
+  'Palboo 宣传页': 'Palboo website',
+  'GitHub 仓库': 'GitHub repository',
   有未读消息: 'Unread message',
   最近消息: 'Recent messages',
   '返回 Bot 列表': 'Back to Bots',

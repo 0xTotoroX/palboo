@@ -501,6 +501,14 @@ test('background launch survives the launcher, logs privately, reuses its owner 
   for (let i = 0; i < 100 && !hasDevelopmentOwner(root); i++) await delay(20);
   await stopBackgroundDevelopment(root);
   assert.equal(hasDevelopmentOwner(root), false);
+  const connection = { endpoint: 'http://127.0.0.1:12345', targetId: 'fixture-starting' };
+  pid = await startBackgroundDevelopment(root, { connection });
+  for (let i = 0; i < 100 && !hasDevelopmentOwner(root); i++) await delay(20);
+  rmSync(join(root, 'target/dev/session.json'));
+  // Startup can fail before publishing the session. Only its own launch request may clean up.
+  await assert.rejects(stopBackgroundDevelopment(root), /未结束其他进程/);
+  await stopBackgroundDevelopment(root, { connection, expectedPid: pid });
+  assert.equal(hasDevelopmentOwner(root), false);
   pid = undefined;
 });
 

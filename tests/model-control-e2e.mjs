@@ -138,10 +138,10 @@ try {
   writeFileSync(join(directory, 'model-control.json'), JSON.stringify({ enabled: true }), {
     mode: 0o600,
   });
-  // Start with the current layout so legacy migration cannot race the theme-isolation baseline.
+  // Use the current layout and opt into the new-chat scope exercised below.
   writeFileSync(
     join(directory, 'panel.json'),
-    JSON.stringify({ ui: { layoutMode: 'workbench' } }),
+    JSON.stringify({ ui: { layoutMode: 'workbench', sidebarNewChat: true } }),
     { mode: 0o600 },
   );
   writeFileSync(
@@ -338,6 +338,7 @@ try {
     pane.querySelector('form').setAttribute('data-above-composer-conversation-id', '');
     pane.querySelector('.ProseMirror').focus();
   });
+  await page.waitForFunction(() => window.__companionFloatingPanel?.hostPageAllowed?.() === true);
   const draft = await api('state');
   assert.match(draft.snapshot.target.id, /^draft:/);
   assert.equal(draft.snapshot.current, null);

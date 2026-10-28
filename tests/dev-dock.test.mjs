@@ -23,6 +23,46 @@ function run(source) {
 }
 
 test(
+  'unified App replaces the first owned Dock item and removes release/Dev duplicates',
+  { skip: process.platform !== 'darwin' },
+  (t) => {
+    const domain = `local.palboo.dock-test.${randomUUID()}`;
+    const root = mkdtempSync(join(tmpdir(), 'palboo-unified-dock-'));
+    const defaults = `const d = $.NSUserDefaults.alloc.initWithSuiteName(${JSON.stringify(domain)});`;
+    t.after(() => {
+      run(`${defaults} d.removePersistentDomainForName(${JSON.stringify(domain)}); d.synchronize;`);
+      rmSync(root, { recursive: true, force: true });
+    });
+    const item = (id) => ({
+      'tile-type': 'file-tile',
+      'tile-data': { 'bundle-identifier': id, book: 'old-bookmark' },
+    });
+    const other = item('other.app');
+    run(
+      `${defaults} d.setPersistentDomainForName($({'persistent-apps':${JSON.stringify([other, item('local.palboo.dev-launcher'), other, item('local.palboo.launcher')])}}),${JSON.stringify(domain)});d.synchronize;`,
+    );
+    repairDevelopmentDock({ domain, unified: true, backupDirectory: join(root, 'backup') });
+    const saved = run(
+      `${defaults} JSON.stringify(ObjC.deepUnwrap(d.persistentDomainForName(${JSON.stringify(domain)}))['persistent-apps']);`,
+    );
+    assert.equal(saved.length, 3);
+    assert.deepEqual(saved[0], other);
+    assert.deepEqual(saved[2], other);
+    assert.equal(saved[1]['tile-data']['bundle-identifier'], 'local.palboo.launcher');
+    assert.equal(
+      saved[1]['tile-data']['file-data']._CFURLString,
+      'file:///Applications/Palboo.app/',
+    );
+    assert.equal(saved[1]['tile-data'].book, undefined);
+    assert.equal(
+      repairDevelopmentDock({ domain, unified: true, backupDirectory: join(root, 'again') })
+        .changed,
+      0,
+    );
+  },
+);
+
+test(
   'Dev Dock migration preserves position and unrelated preferences, removes old aliases and duplicates',
   {
     skip: process.platform !== 'darwin',

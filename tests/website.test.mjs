@@ -890,6 +890,11 @@ test('light/dark responsive and short screens preserve readable controls without
       );
       for (const width of [360, 550, 900, 1440]) {
         await page.setViewportSize({ width, height: 1000 });
+        // Responsive scene state is applied on the next animation frame after resize.
+        await page.evaluate(
+          () =>
+            new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+        );
         const geometry = await page.evaluate(() => ({
           width: innerWidth,
           scrollWidth: document.documentElement.scrollWidth,
@@ -903,7 +908,7 @@ test('light/dark responsive and short screens preserve readable controls without
               return r.width && r.right > innerWidth + 1 && !node.closest('.surface-model');
             })
             .slice(0, 8)
-            .map((node) => node.className),
+            .map((node) => `${node.tagName}.${node.getAttribute('class') || ''}`),
           buttons: [
             ...document.querySelectorAll(
               '.preview-selector button,.choice-row button,.demo-feature-tabs button',

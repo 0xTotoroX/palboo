@@ -3,6 +3,7 @@
 // [POS]: 独立可执行文件入口，区分后台和窗口子进程。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
+mod app_mode;
 mod assets;
 mod brand;
 mod cdp;
@@ -52,6 +53,11 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    #[command(about = "统一 App 的运行模式与开发来源")]
+    AppMode {
+        #[command(subcommand)]
+        command: app_mode::Command,
+    },
     #[command(about = "查询、预览和修改本机配置（JSON），不自动启动后台")]
     Config {
         #[command(subcommand)]
@@ -169,6 +175,7 @@ async fn main() -> Result<()> {
         no_open: false,
         allow_fixture: false,
     }) {
+        Commands::AppMode { command } => app_mode::run(&paths, command).await,
         Commands::Config { command } => config_cli::run(&paths, command).await,
         Commands::CodexHostRestart { lease } => codex_host::restart::run(&paths, &lease).await,
         Commands::RemindersWorker {

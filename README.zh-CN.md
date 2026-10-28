@@ -135,17 +135,19 @@ Palboo 跟随 Codex 的外观。语言支持简体中文、英文和跟随系统
 git clone https://github.com/0xTotoroX/palboo.git
 cd palboo
 npm ci
-npm run install:local
+npm run install:dev
 ```
 
-源码安装器创建依赖已安装 CLI 的轻量启动器，DMG 中则是完整 App。
+`install:dev` 登记本机开发环境，必要时安装完整 Palboo.app。平时只打开 Palboo，在「系统 → 启动与连接 → 运行模式」切换正式版与开发版。正式配置与各源码的开发配置、任务和数据分别保留。
+
+`npm run install:local` 将当前源码构建成完整 App，与 DMG 使用相同结构，并保留兼容 CLI；更新不清空数据。旧 Dev Dock 入口会统一到 Palboo，旧 Dev App 保留归档。
 
 通过 Palboo 打开 Codex 后：
 
 | 命令                                                            | 用途                                      |
 | --------------------------------------------------------------- | ----------------------------------------- |
 | `npm run dev`                                                   | 连接真实 Codex 开发。                     |
-| `npm run install:dev`                                           | 创建独立 Palboo Dev.app 入口。            |
+| `npm run install:dev`                                           | 登记开发环境并准备统一 Palboo.app。       |
 | `npm run dev:settings`                                          | 打开开发设置并选择 worktree。             |
 | `npm run dev:stop`                                              | 停止后台开发会话。                        |
 | `npm run verify`                                                | 完整验证，自动准备必要构建产物。          |
@@ -154,7 +156,7 @@ npm run install:local
 | `npm run package`                                               | 为 X.Y.0 打包完整 App DMG，补丁版本跳过。 |
 | `npm run dev:site` / `npm run build:site` / `npm run test:site` | 预览、构建或检查独立介绍网站。            |
 
-开发配置与日常安装隔离。界面修改自动更新，Rust 修改重新构建；启动脚本变化后重开 Dev，源码或 Node.js 移动后重新生成入口。切换 worktree 保留各自配置，不重启 Codex。
+开发配置与日常安装隔离。界面修改自动更新，Rust 修改重新构建；启动脚本变化后重开 Dev，源码或 Node.js 移动后重新登记开发环境。切换 worktree 保留各自配置，不重启 Codex。
 
 前端检查可在配有 Chromium 与 Cargo 的 Linux 环境运行，但不含原生验收，不代表 App 支持 Linux。构建和打包不会发布或更新已安装 App。
 

@@ -224,9 +224,10 @@ test(
 printf '%s\\n' "$*" >> "$CALLS"
 case "$1" in
 --version) echo 'palboo 1.0.0';;
-launch)
+app-mode)
   case "$SCENARIO" in
-  pause) echo 'Codex 集成已暂停';;
+  pause) echo '{"mode":"release","paused":true}';;
+  development) echo '{"mode":"development"}';;
   cancel) echo '已取消重开' >&2; exit 1;;
   failure) echo 'synthetic launch failure' >&2; exit 2;;
   esac;;
@@ -242,7 +243,12 @@ esac
     const run = (scenario, args = []) => {
       rmSync(log, { force: true });
       return spawnSync(join(app, 'Contents/MacOS/PalbooLauncher'), args, {
-        env: { ...process.env, CALLS: log, SCENARIO: scenario },
+        env: {
+          ...process.env,
+          PALBOO_LAUNCHER_HOME: join(dir, 'launcher'),
+          CALLS: log,
+          SCENARIO: scenario,
+        },
         encoding: 'utf8',
       });
     };
@@ -254,13 +260,17 @@ esac
       JSON.stringify({ checked, calls: existsSync(log) ? readFileSync(log, 'utf8') : 'missing' }),
     );
     assert.equal(readFileSync(log, 'utf8').trim(), '--version');
-    for (const scenario of ['', 'pause', 'cancel', 'unsupported']) {
+    for (const scenario of ['', 'pause', 'cancel', 'unsupported', 'development']) {
       assert.equal(run(scenario).status, 0);
       const commands = readFileSync(log, 'utf8').trim().split('\n');
-      assert.equal(commands[0], 'launch --no-open --restart-running');
+      assert.equal(commands[0], 'app-mode launch');
       assert.deepEqual(
         commands.slice(1),
-        scenario === 'pause' ? ['start'] : scenario === 'cancel' ? [] : ['popout'],
+        scenario === 'pause'
+          ? ['start']
+          : ['cancel', 'development'].includes(scenario)
+            ? []
+            : ['popout'],
       );
     }
     for (const scenario of ['failure', 'broken-window']) assert.equal(run(scenario).status, 1);

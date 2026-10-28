@@ -1,6 +1,6 @@
-// [INPUT]: App 包内 palboo 可执行程序、当前用户的既有配置与 AppKit。
-// [OUTPUT]: 双击连接并显示工作台；--check 仅检查包内程序；升级时正常停止旧后台。
-// [POS]: 可移动的分发 App 入口，不依赖源码、Node 或维护者的绝对路径。
+// [INPUT]: 包内 CLI、共享模式记录、各模式既有配置与 AppKit。
+// [OUTPUT]: 按模式启动工作台或暂停设置；开发窗口注册后交接焦点；--check 只检查包内程序。
+// [POS]: 统一的可移动 App 入口；正式模式独立运行，开发模式使用已登记的源码与 Node。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 import AppKit
 import Foundation
@@ -34,7 +34,11 @@ func command(_ cli: URL, _ arguments: [String]) throws -> String {
     let process = Process()
     let pipe = Pipe()
     process.executableURL = cli
-    process.arguments = arguments
+    let controlRoot = ProcessInfo.processInfo.environment["PALBOO_LAUNCHER_HOME"].map { URL(fileURLWithPath: $0) }
+        ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?.appendingPathComponent("palboo-launcher")
+    let config = controlRoot.flatMap { try? Data(contentsOf: $0.appendingPathComponent("app-mode.json")) }.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+    let dataDir = config?["releaseData"] as? String
+    process.arguments = (dataDir.map { ["--data-dir", $0] } ?? []) + arguments
     process.currentDirectoryURL = FileManager.default.homeDirectoryForCurrentUser
     process.standardInput = FileHandle.nullDevice
     process.standardOutput = pipe
@@ -50,14 +54,27 @@ func command(_ cli: URL, _ arguments: [String]) throws -> String {
     return output
 }
 
+var developmentTarget: pid_t?
+var launchedDevelopment = false
+var pausedSettings: URL?
+
 func launch() throws {
     let cli = try bundledCLI()
     let volume = try Bundle.main.bundleURL.resourceValues(forKeys: [.volumeIsReadOnlyKey])
     if volume.volumeIsReadOnly == true {
         throw LaunchFailure(message: localized("请先将 Palboo 拖入“应用程序”文件夹，再打开。", "Drag Palboo into Applications before opening it."))
     }
-    let result = try command(cli, ["launch", "--no-open", "--restart-running"])
-    if result.contains("Codex 集成已暂停") {
+    let result = try command(cli, ["app-mode", "launch"])
+    let outcome = result.data(using: .utf8).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+    if outcome?["mode"] as? String == "development" {
+        launchedDevelopment = true
+        developmentTarget = (outcome?["pid"] as? NSNumber)?.int32Value
+        if outcome?["paused"] as? Bool == true, let url = outcome?["url"] as? String {
+            pausedSettings = URL(string: url)
+        }
+        return
+    }
+    if outcome?["paused"] as? Bool == true {
         _ = try command(cli, ["start"])
     } else {
         do {
@@ -92,6 +109,35 @@ do {
 }
 #else
 final class Launcher: NSObject, NSApplicationDelegate {
+    private func finishDevelopment(attempt: Int = 0, requested: Bool = false) {
+        let targets = NSRunningApplication.runningApplications(withBundleIdentifier: "com.openai.codex")
+        let target = developmentTarget.flatMap { NSRunningApplication(processIdentifier: $0) }
+            ?? (developmentTarget == nil && targets.count == 1 ? targets.first : nil)
+        if let target, target.isActive {
+            NSApp.terminate(nil)
+            return
+        }
+        var didRequest = requested
+        if let target, !requested {
+            target.unhide()
+            NSApp.yieldActivation(to: target)
+            _ = target.activate(from: NSRunningApplication.current, options: [.activateAllWindows])
+            didRequest = true
+        }
+        if attempt < 40 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                self.finishDevelopment(attempt: attempt + 1, requested: didRequest)
+            }
+            return
+        }
+        // Non-blocking feedback if macOS declines focus; never request Automation permission.
+        let source = localized(
+            "display notification \"工作台已就绪，请手动切换到 Palboo 或 Codex。\" with title \"Palboo\"",
+            "display notification \"The workspace is ready. Switch to Palboo or Codex to continue.\" with title \"Palboo\"")
+        NSAppleScript(source: source)?.executeAndReturnError(nil)
+        NSApp.terminate(nil)
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         DispatchQueue.global(qos: .userInitiated).async {
             var failure: String?
@@ -110,7 +156,31 @@ final class Launcher: NSObject, NSApplicationDelegate {
                     alert.messageText = "Palboo"
                     alert.informativeText = message
                     alert.addButton(withTitle: localized("好", "OK"))
-                    alert.runModal()
+                    alert.addButton(withTitle: localized("使用正式模式", "Use release mode"))
+                    if alert.runModal() == .alertSecondButtonReturn {
+                        DispatchQueue.global(qos: .userInitiated).async {
+                            do {
+                                let cli = try bundledCLI()
+                                _ = try command(cli, ["app-mode", "recover"])
+                                _ = try command(cli, ["start"])
+                            } catch {
+                                DispatchQueue.main.sync {
+                                    let failed = NSAlert(); failed.messageText = "Palboo"
+                                    failed.informativeText = error.localizedDescription; failed.runModal()
+                                }
+                            }
+                            DispatchQueue.main.async { NSApp.terminate(nil) }
+                        }
+                        return
+                    }
+                }
+                if message == nil && launchedDevelopment {
+                    if let pausedSettings {
+                        NSWorkspace.shared.open(pausedSettings)
+                    } else {
+                        self.finishDevelopment()
+                        return
+                    }
                 }
                 NSApp.terminate(nil)
             }

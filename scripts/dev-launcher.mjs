@@ -1,7 +1,7 @@
 /*
  * [INPUT]: 当前源码目录、Node/Rust 工具路径、现有开发进程锁与 dev-dock 的旧固定入口迁移。
- * [OUTPUT]: --settings 打开当前稳定开发设置地址，唤起跟随已选来源；install:dev 生成带 Dock 启动反馈的 App，等待前台目标注册，切换失败仅发通知；--open 后台启动并唤起，--stop 正常退出后台会话，--run 保留前台兼容入口；启动请求串行，确认原宿主退出后清理旧 Dev 再启动；日志追加到 launcher.log，唤起错误也保留；新会话按监督进程身份就绪，重试失效窗口 PID，不复用旧记录；允许固定已有连接以无宿主重启方式接续Dev。
- * [POS]: 仅为现有开发流程提供 Finder 入口，不更新安装版；冷启动按共享策略准备宿主。
+ * [OUTPUT]: install:dev 登记源码和 Node、必要时安装统一 App，迁移 Dock 并归档旧 Dev App；保留 settings/open/stop/run 兼容入口，串行启动与宿主/窗口身份回读，固定连接交接失败只清理本次会话。
+ * [POS]: 统一 App 的开发来源适配；复用现有监督进程和数据，冷启动沿用宿主准备策略。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
 import {
@@ -125,10 +125,11 @@ export async function startBackgroundDevelopment(directory, { connection } = {})
   return child.pid;
 }
 
-export async function stopBackgroundDevelopment(directory) {
+export async function stopBackgroundDevelopment(directory, { connection, expectedPid } = {}) {
   if (!hasDevelopmentOwner(directory)) return;
   const owner = readJson(join(directory, 'target/dev/owner.json'));
   if (!owner) return;
+  if (expectedPid && owner.pid !== expectedPid) return;
   const controller = owner.controller || directory;
   const expected = [
     process.execPath,
@@ -144,7 +145,7 @@ export async function stopBackgroundDevelopment(directory) {
     throw error;
   }
   const session = readJson(join(controller, 'target/dev/session.json'));
-  const pin = session?.launchConnection;
+  const pin = session?.launchConnection || (expectedPid === owner.pid ? connection : undefined);
   const allowed = [expected, `${expected} --exit-with-host`];
   if (pin && /^[A-Za-z0-9_-]{1,256}$/.test(pin.targetId || ''))
     allowed.push(
@@ -176,7 +177,10 @@ async function hostHasExited(session) {
 }
 
 // Hold one request lease through cleanup/start/reveal, so repeated clicks share the session.
-export async function openDevelopment(directory, { timeout = 120000, interval = 100 } = {}) {
+export async function openDevelopment(
+  directory,
+  { timeout = 120000, interval = 100, connection, cleanupOnFailure = false } = {},
+) {
   const lock = join(directory, 'target/dev/launcher-owner.json');
   const deadline = Date.now() + timeout;
   let release;
@@ -203,7 +207,9 @@ export async function openDevelopment(directory, { timeout = 120000, interval = 
       await stopBackgroundDevelopment(directory);
       running = false;
     }
-    const startedPid = !running ? await startBackgroundDevelopment(directory) : undefined;
+    const startedPid = !running
+      ? await startBackgroundDevelopment(directory, { connection })
+      : undefined;
     if (running) logLaunch(directory, '复用已有 Dev 会话并唤起原工作台。');
     try {
       const result = await revealDevelopment(directory, {
@@ -213,12 +219,35 @@ export async function openDevelopment(directory, { timeout = 120000, interval = 
         supervisorPid: startedPid,
         requireOwner: running,
       });
+      if (connection && !result.paused) {
+        const active = readJson(join(directory, 'target/dev/session.json'));
+        const state = await requestRuntime(readJson(join(active.runtime, 'runtime.json')), 'state');
+        if (
+          state.connection.endpoint !== connection.endpoint ||
+          state.connection.targetId !== connection.targetId
+        )
+          throw new Error('开发模式连接目标不一致。');
+      }
       logLaunch(
         directory,
         result.paused ? 'Codex 集成已暂停，开发设置仍可用。' : '开发工作台已就绪。',
       );
       return result;
     } catch (error) {
+      if (
+        cleanupOnFailure &&
+        startedPid &&
+        readJson(join(directory, 'target/dev/owner.json'))?.pid === startedPid
+      ) {
+        try {
+          await stopBackgroundDevelopment(directory, { connection, expectedPid: startedPid });
+        } catch (cleanup) {
+          throw new Error(`${error.message}；清理开发会话失败：${cleanup.message}`, {
+            cause: error,
+          });
+        }
+      }
+      if (connection) throw error;
       // The old host may exit between the initial identity check and reveal.
       if (!running || !['HOST_EXITED', 'SESSION_ENDED'].includes(error.code)) throw error;
       await stopBackgroundDevelopment(directory);
@@ -293,63 +322,44 @@ on openWorkbench()
 end openWorkbench`;
 }
 
-function install() {
-  const destination = '/Applications/Palboo Dev.app';
+async function install() {
+  const destination = '/Applications/Palboo.app';
+  const cli = join(destination, 'Contents/MacOS/palboo');
+  const supported =
+    existsSync(cli) && spawnSync(cli, ['app-mode', '--help'], { encoding: 'utf8' }).status === 0;
+  if (!supported) command(process.execPath, [join(root, 'scripts/install.mjs')]);
+  const active = hasDevelopmentOwner(root);
+  const preferences = JSON.parse(command(cli, ['app-mode', 'status']));
+  command(cli, [
+    ...(preferences.releaseData ? ['--data-dir', preferences.releaseData] : []),
+    'app-mode',
+    'register',
+    '--source',
+    root,
+    '--node',
+    process.execPath,
+    ...(active ? ['--active'] : []),
+  ]);
+  const dock = repairDevelopmentDock({ unified: true, destination });
+  if (dock.changed) console.log(`Dock 入口已统一；恢复副本：${dock.backup}`);
+  const legacy = '/Applications/Palboo Dev.app';
   if (
-    existsSync(destination) &&
+    existsSync(legacy) &&
     command('/usr/libexec/PlistBuddy', [
       '-c',
       'Print :CFBundleIdentifier',
-      join(destination, 'Contents/Info.plist'),
-    ]) !== identifier
-  )
-    throw new Error('目标位置已有其他应用，未覆盖。');
-  const staging = mkdtempSync(join(dirname(destination), '.palboo-dev-'));
-  const staged = join(staging, 'Palboo Dev.app');
-  const directory = join(root, 'target/dev');
-  const path = [dirname(process.execPath), process.env.PATH, '/usr/bin', '/bin']
-    .filter(Boolean)
-    .join(':');
-  mkdirSync(directory, { recursive: true });
-  writeFileSync(
-    join(directory, 'Start Palboo Dev.command'),
-    terminalScript(root, process.execPath, path),
-    { mode: 0o700 },
-  );
-  const launch = `/usr/bin/env PATH=${quote(path)} ${quote(process.execPath)} ${quote(join(root, 'scripts/dev-launcher.mjs'))} --open`;
-  try {
-    command('/usr/bin/osacompile', ['-o', staged, '-'], launcherSource(launch));
-    installIcon(staged, staging);
-    const plist = join(staged, 'Contents/Info.plist');
-    const info = JSON.parse(command('/usr/bin/plutil', ['-convert', 'json', '-o', '-', plist]));
-    if ('CFBundleIconName' in info)
-      command('/usr/bin/plutil', ['-remove', 'CFBundleIconName', plist]);
-    for (const [key, type, value] of [
-      ['CFBundleIdentifier', '-string', identifier],
-      ['CFBundleName', '-string', 'Palboo Dev'],
-      ['CFBundleDisplayName', '-string', 'Palboo Dev'],
-      ['CFBundleIconFile', '-string', 'palboo.icns'],
-      ['LSUIElement', '-bool', 'false'],
-      ['LSMinimumSystemVersion', '-string', '14.0'],
-    ])
-      command('/usr/bin/plutil', ['-replace', key, type, value, plist]);
-    command('/usr/bin/codesign', ['--force', '--sign', '-', staged]);
-    const previous = join(staging, 'previous.app');
-    if (existsSync(destination)) renameSync(destination, previous);
-    try {
-      renameSync(staged, destination);
-    } catch (error) {
-      if (existsSync(previous)) renameSync(previous, destination);
-      throw error;
-    }
-  } finally {
-    rmSync(staging, { recursive: true, force: true });
+      join(legacy, 'Contents/Info.plist'),
+    ]) === identifier
+  ) {
+    const { homedir } = await import('node:os');
+    const archive = join(
+      homedir(),
+      'Library/Application Support/palboo-launcher/installation-backups',
+    );
+    mkdirSync(archive, { recursive: true, mode: 0o700 });
+    renameSync(legacy, join(archive, `Palboo Dev-${Date.now()}.app`));
   }
-  const dock = repairDevelopmentDock();
-  if (dock.changed) console.log(`Dock 开发入口已更新；恢复副本：${dock.backup}`);
-  console.log(
-    `开发入口已安装：${destination}\n源码目录或 Node 路径改变后，重新运行 npm run install:dev。`,
-  );
+  console.log('开发环境已登记。打开 Palboo.app，在设置 → 启动与连接中切换模式。');
 }
 
 export async function revealDevelopment(
@@ -434,7 +444,7 @@ export async function revealDevelopment(
 export function developmentSettingsUrl(directory) {
   const session = readJson(join(directory, 'target/dev/session.json'));
   if (!session?.url || !session.token || !hasDevelopmentOwner(directory))
-    throw new Error('开发会话尚未运行，请先打开 Palboo Dev.app。');
+    throw new Error('开发会话尚未运行，请先打开 Palboo.app 并切换到开发模式。');
   const url = new URL(session.url);
   if (
     url.protocol !== 'http:' ||

@@ -1,3 +1,4 @@
+import { Icon } from '../shared/icons/react';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: 现有设置表单、认证 API、共用设置控件及 PALBOO 矢量字标。
  * [OUTPUT]: Tom Modern 统一设置、常用开关、分组页面及抽屉入口、主题/字体与联动预览；布局页锚点包含预览，保留保存与错误反馈。
@@ -323,6 +324,26 @@ function App() {
       </div>
       <footer className="settings-footer">
         <span>Palboo {view?.version || '—'}</span>
+        <nav className="settings-external-links" aria-label={tr('Palboo 链接')}>
+          <a
+            href="https://palboo.0xtotorox.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            title={tr('Palboo 宣传页')}
+            aria-label={tr('Palboo 宣传页')}
+          >
+            <Icon name="website" />
+          </a>
+          <a
+            href="https://github.com/0xTotoroX/palboo"
+            target="_blank"
+            rel="noopener noreferrer"
+            title={tr('GitHub 仓库')}
+            aria-label={tr('GitHub 仓库')}
+          >
+            <Icon name="github" />
+          </a>
+        </nav>
       </footer>
     </div>
   );

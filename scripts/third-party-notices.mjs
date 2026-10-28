@@ -106,6 +106,14 @@ export function generateNotices(directory = join(root, 'dist/licenses')) {
     source: 'https://github.com/0xTotoroX/model-deck',
     directory: join(root, 'ui/codex'),
   });
+  components.push({
+    ecosystem: 'source',
+    name: 'GitHub Octicons',
+    version: 'vendored',
+    license: 'MIT',
+    source: 'https://github.com/primer/octicons',
+    directory: join(root, 'ui/shared/icons/octicons'),
+  });
   components.sort(
     (a, b) =>
       a.ecosystem.localeCompare(b.ecosystem) ||

@@ -973,3 +973,34 @@ html:root .settings-nav {
     display: none;
   }
 }
+
+.settings-external-links,
+.settings-mode-options {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.settings-external-links a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  min-height: 28px;
+  color: inherit;
+  border-radius: 6px;
+}
+.settings-external-links a:hover {
+  color: var(--buddy-text);
+  background: var(--buddy-hover);
+}
+.settings-external-links a:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+.settings-mode-options button[aria-pressed='true'] {
+  background: var(--buddy-hover);
+  color: var(--buddy-text);
+}
+.settings-footer {
+  align-items: center;
+}

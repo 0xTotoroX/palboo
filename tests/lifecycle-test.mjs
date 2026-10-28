@@ -25,17 +25,23 @@ import {
   copyFileSync,
   renameSync,
 } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { tmpdir, homedir } from 'node:os';
 import { resolve, join } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
 const scratch = mkdtempSync(join(tmpdir(), 'companion-lifecycle-'));
+process.env.PALBOO_LAUNCHER_HOME = join(scratch, 'launcher');
 const binDir = join(scratch, 'bin');
 const dataDir = join(scratch, 'data');
 const appDir = join(scratch, 'Applications');
 const binary = join(binDir, 'palboo');
 // 所有测试子进程仅能发现临时程序，不能自动连接用户正在运行的 Codex。
-const lifecycleEnv = { ...process.env, PALBOO_DESKTOP_BIN: binary };
+const lifecycleEnv = {
+  ...process.env,
+  PALBOO_DESKTOP_BIN: binary,
+  CARGO_HOME: process.env.CARGO_HOME || join(homedir(), '.cargo'),
+  RUSTUP_HOME: process.env.RUSTUP_HOME || join(homedir(), '.rustup'),
+};
 const artifact = prepareTestBinary('release');
 const source = artifact.binary;
 const hash = (path) => createHash('sha256').update(readFileSync(path)).digest('hex');
@@ -49,7 +55,7 @@ function run(program, args, expected = 0) {
     cwd: tmpdir(),
     env: lifecycleEnv,
     encoding: 'utf8',
-    timeout: 25000,
+    timeout: args.includes(join(root, 'scripts/install.mjs')) ? 90000 : 25000,
   });
   if (result.error) throw result.error;
   assert.equal(result.status, expected, result.stderr || result.stdout);
@@ -82,16 +88,13 @@ try {
     ]),
   );
   assert.equal(appInfo.LSUIElement, true);
-  const appScript = run('/usr/bin/osadecompile', [
-    join(appDir, 'Palboo.app/Contents/Resources/Scripts/main.scpt'),
-  ]);
-  assert.match(appScript, /launch --no-open --restart-running/);
-  assert.match(appScript, /launchResult contains "Codex 集成已暂停"/);
-  assert.match(appScript, /does not contain "已取消重开"/);
-  assert.match(appScript, /popout/);
-  assert.match(appScript, /macOS 15/);
-  assert.match(appScript, /does not contain/);
-  record('双击启动器编译与签名有效；低于浮窗门槛时保留内嵌，其他弹出错误仍提示');
+  assert.equal(appInfo.CFBundleExecutable, 'PalbooLauncher');
+  assert.equal(
+    run(join(appDir, 'Palboo.app/Contents/MacOS/PalbooLauncher'), ['--check']).trim(),
+    run(source, ['--version']).trim(),
+  );
+  assert.ok(existsSync(join(appDir, 'Palboo.app/Contents/Resources/manifest.json')));
+  record('完整 App 启动器、签名和包内主程序有效');
   const config = {
     cdpEndpoint: 'http://127.0.0.1:9',
     model: 'lifecycle-do-not-call',
@@ -297,7 +300,7 @@ try {
     const migrated = spawnSync(
       process.execPath,
       [join(root, 'scripts/install.mjs'), '--skip-build', '--bin-dir', binDir, '--app-dir', appDir],
-      { cwd: root, env: migrationEnv, encoding: 'utf8', timeout: 30000 },
+      { cwd: root, env: migrationEnv, encoding: 'utf8', timeout: 90000 },
     );
     assert.equal(migrated.status, 0, migrated.stderr || migrated.stdout);
     assert.ok(lstatSync(legacyData).isSymbolicLink());
@@ -310,7 +313,7 @@ try {
     const repeated = spawnSync(
       process.execPath,
       [join(root, 'scripts/install.mjs'), '--skip-build', '--bin-dir', binDir, '--app-dir', appDir],
-      { cwd: root, env: migrationEnv, encoding: 'utf8', timeout: 30000 },
+      { cwd: root, env: migrationEnv, encoding: 'utf8', timeout: 90000 },
     );
     assert.equal(repeated.status, 0, repeated.stderr || repeated.stdout);
     assert.equal(realpathSync(legacyData), realpathSync(migratedData));
@@ -329,7 +332,7 @@ try {
     const refused = spawnSync(
       process.execPath,
       [join(root, 'scripts/install.mjs'), '--skip-build', '--bin-dir', binDir, '--app-dir', appDir],
-      { cwd: root, env: migrationEnv, encoding: 'utf8', timeout: 30000 },
+      { cwd: root, env: migrationEnv, encoding: 'utf8', timeout: 90000 },
     );
     assert.notEqual(refused.status, 0);
     assert.match(refused.stderr, /多份独立应用数据/);

@@ -135,17 +135,19 @@ Use a supported Mac with **Node.js 22.16+**, **Rust 1.88+**, and **Xcode Command
 git clone https://github.com/0xTotoroX/palboo.git
 cd palboo
 npm ci
-npm run install:local
+npm run install:dev
 ```
 
-The source installer creates a lightweight launcher that depends on the installed CLI. The DMG contains a self-contained App.
+`install:dev` registers the local development environment and installs the complete Palboo.app if needed. Open Palboo and choose Release or Development under System → Launch & connection → Run mode. Release settings and each source’s development settings, tasks, and data remain separate.
+
+`npm run install:local` builds a complete App using the same structure as the DMG and retains the compatible CLI. Updates preserve data. Existing Dev Dock entries move to Palboo; the old Dev App is archived.
 
 After opening Codex through Palboo:
 
 | Command                                                         | Purpose                                                  |
 | --------------------------------------------------------------- | -------------------------------------------------------- |
 | `npm run dev`                                                   | Develop against the real Codex connection.               |
-| `npm run install:dev`                                           | Create a separate Palboo Dev.app launcher.               |
+| `npm run install:dev`                                           | Register development in the unified Palboo.app.          |
 | `npm run dev:settings`                                          | Open development settings and choose a worktree.         |
 | `npm run dev:stop`                                              | Stop background development.                             |
 | `npm run verify`                                                | Run full verification, preparing required build outputs. |

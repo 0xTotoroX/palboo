@@ -8,4 +8,4 @@
 
 以上自有品牌画面及其可编辑来源不包含原导出工具、本机绝对路径、会话记录或验收材料。随项目按 GPL-3.0-only 提供；原图形来源边界与 `ui/icon.png` 一致。
 
-`github-mark.svg` 为 GitHub 官方 [Octicons mark-github-24](https://github.com/primer/octicons/blob/main/icons/mark-github-24.svg)，2026-10-25 获取，保持原几何；仅用于介绍页跳转 GitHub 发布页面的“安装”按钮。随附原始 `LICENSE-octicons`，静态构建收录到 `LICENSES.txt`。GitHub 标记属于 GitHub 商标，遵循其[标志使用指南](https://github.com/logos)；不作为 Palboo 标识，不暗示合作或认可。没有安装 Octicons 图标库依赖。
+`github-mark.svg` 为 GitHub 官方 [Octicons mark-github-24](https://github.com/primer/octicons/blob/main/icons/mark-github-24.svg)，2026-10-25 获取，保持原几何；用于介绍页跳转 GitHub 发布页面及设置页跳转仓库的入口。随附原始 `LICENSE-octicons`，静态构建收录到 `LICENSES.txt`。GitHub 标记属于 GitHub 商标，遵循其[标志使用指南](https://github.com/logos)；不作为 Palboo 标识，不暗示合作或认可。没有安装 Octicons 图标库依赖。

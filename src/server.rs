@@ -91,6 +91,9 @@ pub async fn serve(
         port,
     };
     let router = router(state);
+    if std::env::var_os("PALBOO_START_DISCONNECTED").is_some() {
+        app.disconnect().await;
+    }
     let watcher = app.clone().supervise();
     let task_watcher = app.tasks.start();
     let term_watcher = tokio::spawn(crate::terminology_import::watch(app.clone()));
@@ -139,6 +142,7 @@ fn router(service: Service) -> Router {
         .route("/tasks/state", get(tasks_state))
         .route("/tasks/command", post(tasks_command))
         .route("/state", get(state))
+        .route("/app-mode", get(app_mode_status).post(app_mode_switch))
         .route(
             "/performance",
             get(performance_state).post(performance_update),
@@ -238,6 +242,39 @@ async fn authorize(State(service): State<Service>, request: Request, next: Next)
         return (StatusCode::UNAUTHORIZED, Json(json!({"ok":false,"code":"unauthorized","message":"连接凭据已过期，请运行 palboo start 重新打开面板。"}))).into_response();
     }
     next.run(request).await
+}
+
+async fn app_mode_status() -> Result<Json<Value>, ApiError> {
+    Ok(Json(crate::app_mode::status(
+        crate::assets::development().is_some(),
+    )?))
+}
+async fn app_mode_switch(
+    State(service): State<Service>,
+    Json(update): Json<crate::app_mode::Update>,
+) -> Result<Json<Value>, ApiError> {
+    let view = service.app.view();
+    let development = crate::assets::development().is_some();
+    let connection = if view.connection.status == "connected" {
+        Some(json!({"endpoint":view.connection.endpoint,"targetId":view.connection.target_id}))
+    } else {
+        None
+    };
+    let return_url = crate::assets::settings_url()
+        .unwrap_or_else(|| format!("http://127.0.0.1:{}/#token={}", service.port, service.token));
+    Ok(Json(
+        crate::app_mode::begin(
+            update,
+            if development {
+                crate::app_mode::Mode::Development
+            } else {
+                crate::app_mode::Mode::Release
+            },
+            connection,
+            return_url,
+        )
+        .await?,
+    ))
 }
 
 async fn state(State(service): State<Service>) -> impl IntoResponse {
