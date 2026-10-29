@@ -6,6 +6,7 @@ import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { chromium } from 'playwright';
 import { prepareTestBinary } from '../scripts/verify.mjs';
+import { desktopResizeCases } from './desktop-resize.mjs';
 const root = resolve(import.meta.dirname, '..');
 prepareTestBinary();
 const output = join(root, 'target/reports/feature-views');
@@ -839,8 +840,11 @@ try {
   await board.getByText('隔离任务', { exact: true }).waitFor();
   await page.screenshot({ path: join(output, 'desktop-board-aligned.png') });
   await page.getByRole('tab', { name: '模型切换', exact: true }).click();
-  await page.getByLabel('窗口置顶', { exact: true }).click();
-  await page.getByLabel('取消窗口置顶', { exact: true }).waitFor();
+  await page.getByRole('button', { name: '窗口操作', exact: true }).click();
+  await page.getByRole('menuitemcheckbox', { name: '窗口置顶', exact: true }).click();
+  await page.waitForFunction(
+    () => document.querySelector('[data-menu-pin]').getAttribute('aria-checked') === 'true',
+  );
   assert.equal(pinned, true);
   record('shared layout restores drag split/merge, ratio, focus, persistence and header search');
   surfaceTheme = 'black';
@@ -865,7 +869,7 @@ try {
       getComputedStyle(document.querySelector('#root')).getPropertyValue('--csw-text').trim() ===
       'rgb(30, 35, 40)',
   );
-  await page.locator('[data-pin]').press('Alt+Enter');
+  await page.locator('[data-window-menu]').press('Alt+Enter');
   await page.waitForFunction(() => window.nativeMessages.some((m) => m.kind === 'cancel-return'));
   await page.waitForFunction(
     () =>
@@ -876,7 +880,7 @@ try {
   const failedHandoffs = handoffs;
   assert.ok(failedHandoffs >= 1);
   rejectHandoff = false;
-  await page.locator('[data-pin]').press('Alt+Enter');
+  await page.locator('[data-window-menu]').press('Alt+Enter');
   await page.waitForFunction(
     () => window.nativeMessages.filter((m) => m.kind === 'return').length === 2,
   );
@@ -942,6 +946,10 @@ try {
   ];
   const outlineView = page.locator('[data-feature="outline"]');
   await outlineView.locator('[data-outline-id="outline-child"]').waitFor();
+  await desktopResizeCases(page);
+  record(
+    'native corner gestures block text selection, preserve content and release all input guards',
+  );
   await page.setViewportSize({ width: 1200, height: 900 });
   for (const zoom of [1, 1.2]) {
     await page.locator('#root').evaluate((node, value) => {

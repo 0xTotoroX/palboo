@@ -26,6 +26,12 @@ html[data-native-backdrop='true'] .csw-glass {
   transition: none;
 }
 
+html[data-native-backdrop='true'] .csw-popover[data-resizing='true'],
+html[data-native-backdrop='true'] .csw-popover[data-resizing='true'] * {
+  -webkit-user-select: none !important;
+  user-select: none !important;
+}
+
 html[data-native-backdrop='true']
   [data-companion-stepwise-root]
   :is(

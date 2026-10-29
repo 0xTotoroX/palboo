@@ -124,6 +124,13 @@ input:focus-visible {
   display: none !important;
 }
 
+/* The native corner gesture must also suppress selection inside isolated feature views. */
+:host([data-window-resizing='true']),
+:host([data-window-resizing='true']) * {
+  -webkit-user-select: none !important;
+  user-select: none !important;
+}
+
 .feature-material {
   position: absolute;
   inset: 0;

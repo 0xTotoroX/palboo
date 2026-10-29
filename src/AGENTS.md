@@ -27,6 +27,8 @@ ui/codex 是宿主识别和写入的唯一实现，经受限请求桥请求模�
 
 - [native_backdrop.rs](native_backdrop.rs)：NSWindow/NSPanel 共用的原生磨砂、液态 Regular/Clear、圆角/可选贴边凹角及刘海两翼裁切与网页承载；控制条单独在根视图同步裁切背景与网页；根据宿主 theme 设置自有窗口 NSAppearance，不写系统偏好，不持有业务或窗口生命周期。
 
+自定义角落缩放通过 native_backdrop::LiveResize 为 WebKit 配对发送 viewWillStartLiveResize / viewDidEndLiveResize；由 panel_window::Gesture 持有，松手、cancel-gesture、关闭或新手势接管时释放，纯移动不进入连续缩放状态。系统拖边已有 live resize 时不重复通知。
+
 - [model_control.rs](model_control.rs)：模型能力、串行切换、实际回读、开关/常用/模型排序/预设及末次私有诊断；旧打开入口转到 features，不管理窗口。
 - [edge_window.rs](edge_window.rs)：非激活 NSPanel/WebView，显式键盘焦点、原生鼠标精确点击边界、稳定悬停区域及8pt退出容错与冻结区域、按活动内容调整宽高，保留收放期间稳定视口、整点承载包围盒与原生轮廓、scene-ready 首帧/键盘交接、边缘/刘海几何、屏幕恢复、线程安全显示器枚举、独立材质、统一原生开合进度（0.42s响应、掉帧按实际时间推进、减少动态效果时立即完成；16ms更新间隔与屏幕检查解耦）、快捷键和租约退出。
 - [edge_geometry.rs](edge_geometry.rs)：逻辑点布局、精确凹角点击与稳定悬停区域、安全区、固定屏幕选择与 CDP 顶部坐标转换后的宿主最大相交屏幕选择及可反向连续阻尼开合的纯计算及测试。
@@ -77,7 +79,7 @@ panel::Preferences.settings_target 默认 plugin，兼容旧配置缺省；appea
 
 panel::Preferences.launcher_action 默认 inside，可选 outside/settings；旧配置缺省兼容，appearance 显式校验并保存。state/cdp 在现有只读宿主同步中传递该默认动作，不混入 Ui 全量回写；/panel/return 验证当前宿主后复用原 dock 流程，以展开态返回旧浮窗。
 
-panel_window 使用透明原生标题栏与标准红黄绿按钮，由统一 Palboo.app 登记 Regular 应用身份，复用现有 Dock 位置和 App 图标；标题栏仅在左侧按钮区域接收点击，右上角网页菜单仍可达。Tao 与接管 contentView 的 Wry 使用相同 traffic-light inset，按钮位置随原生 drawRect 同步，不在事件轮询中重写标题栏高度或按钮坐标。Managed 与 FullScreenPrimary 保留单桌面及系统全屏能力。红色 CloseRequested 沿用 dock，最小化由 AppKit 管理；全屏先退出再收回。window-state 回读实际最小化/放大/全屏、普通 frame、按钮几何和应用图标，普通几何在稳定后更新；旧 hide/reveal/toggle-maximize 继续兼容。放大/全屏期间拒绝网页 position/size 及自定义拖动/缩放；debug 原生测试动作仅操作本窗口，连续 frame 探针在绘制事务提交后回读按钮，不请求屏幕或鼠标权限。
+panel_window 使用透明原生标题栏与标准红黄绿按钮，由统一 Palboo.app 登记 Regular 应用身份，复用现有 Dock 位置和 App 图标；标题栏仅在左侧按钮区域接收点击，右上角网页菜单仍可达。私有 [window_chrome.rs](window_chrome.rs) 观察本窗口的 AppKit 几何通知，完成待处理布局后在无动画事务内定位系统按钮；不从 Tao/Wry drawRect 或普通事件轮询反向修改布局。手势先同步原生窗口、WebView 和材质尺寸，再提交同一帧；相同视口不重复布局。Managed 与 FullScreenPrimary 保留单桌面及系统全屏能力。红色 CloseRequested 沿用 dock，最小化由 AppKit 管理；全屏先退出再收回。window-state 回读实际最小化/放大/全屏、普通 frame、按钮几何和应用图标，普通几何在稳定后更新；旧 hide/reveal/toggle-maximize 继续兼容。放大/全屏期间拒绝网页 position/size 及自定义拖动/缩放；debug 原生测试动作仅操作本窗口，连续 frame 探针在绘制事务提交后回读按钮和完整内容层，不请求屏幕或鼠标权限。
 
 - `prompt_enhancement.rs`：受限/prompt/enhance请求；验证当前CDP连接及前端请求身份、配置版本，以单次结构化模型调用改写草稿，轮询取消并在返回前再校验，不写宿主、不经Stepwise方向/Jev。模型调用共用model.complete_json及原CLI/三协议实现；完整输入超过200KB报错，不截断。
 

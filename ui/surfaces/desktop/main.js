@@ -11,6 +11,7 @@ import { installStyle } from '../embedded/shell/install-styles.js';
 import { installWindowControls } from '../workspace/window-controls.js';
 import { installWindowMenu } from '../workspace/window-menu.js';
 import { workbenchHeadHtml } from '../workspace/chrome.js';
+import { installNativeResize } from './resize.js';
 /** @param {import('../../shared/features').Request} request */
 export function startDesktop(request, lease) {
   installStyle();
@@ -118,7 +119,7 @@ export function startDesktop(request, lease) {
       moved: () => {},
       dock,
     },
-    __companionFloatingPanel: { nativeGestureEnded: () => {} },
+    __companionFloatingPanel: { nativeGestureEnded: () => nativeResize.finish() },
   });
   const head = root.querySelector('.csw-workbench-head');
   const windowMenu = installWindowMenu(head.querySelector('.csw-workbench-controls'), {
@@ -176,13 +177,11 @@ export function startDesktop(request, lease) {
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', cleanup, { once: true });
   });
-  root
-    .querySelectorAll('.csw-resize-handle')
-    .forEach((handle) =>
-      handle.addEventListener('pointerdown', () =>
-        native({ kind: 'resize', corner: handle.dataset.corner }),
-      ),
-    );
+  const nativeResize = installNativeResize(root, {
+    post: native,
+    enabled: () => !stopped && !moving && !windowControls.geometryTransient(),
+    finished: scheduleResize,
+  });
   function appearance(value) {
     if (value.typographyPreferences) {
       const font = typographyStyle(value.typography, value.typographyPreferences, layoutZoom(root));
@@ -267,6 +266,7 @@ export function startDesktop(request, lease) {
         ?.setAttribute('aria-label', tr('从右下角调整窗口大小'));
       if (!windowState.valid) {
         stopped = true;
+        nativeResize.destroy();
         windowMenu.destroy();
         composition.destroy();
         for (const item of mounts.values()) item.mount.dispose();
@@ -337,20 +337,22 @@ export function startDesktop(request, lease) {
       error(e);
       if (++failures >= 3) {
         stopped = true;
+        nativeResize.destroy();
         native({ kind: 'close' });
       }
     } finally {
       polling = false;
     }
   }
-  window.addEventListener('resize', () => {
+  function scheduleResize() {
     clearTimeout(resizeTimer);
     resizeTimer = window.setTimeout(() => {
       if (state && !moving && !state.pendingPlacement && !windowControls.geometryTransient())
         void call('size', { size: [innerWidth - 24, innerHeight - 24] }).catch(error);
       void poll();
     }, 350);
-  });
+  }
+  window.addEventListener('resize', scheduleResize);
   void poll();
   const timer = setInterval(() => {
     if (stopped) clearInterval(timer);

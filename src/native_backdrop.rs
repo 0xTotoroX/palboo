@@ -1,5 +1,5 @@
 // [INPUT]: Wry 所属 NSWindow、原生背景几何与共享材质偏好。
-// [OUTPUT]: 根据宿主 theme 设置自有 NSWindow 外观； 哑光关闭背景、HUDWindow 磨砂及 macOS 26+ Regular/Clear 液态。
+// [OUTPUT]: 宿主主题、三种原生材质与同帧视口尺寸；相同尺寸不重复提交内容层布局。
 // [POS]: panel_window、feature_window 与 edge_window 共用的 AppKit 背景层。
 // [PROTOCOL]: 共享材质保持窗口无关；控制条在根视图统一裁切背景与网页，更新内容边缘和刘海两翼，工作台仍用圆角矩形。
 
@@ -29,7 +29,25 @@ pub struct Backdrop {
     edge_mask: std::cell::OnceCell<Retained<CALayer>>,
 }
 
+// 程序驱动的角落缩放不经过 AppKit 的拖边循环，需为 WebKit 配对发送连续缩放通知。
+// RAII 确保松手、取消/关闭以及新手势接管时都结束该状态。
+pub struct LiveResize(Retained<NSView>);
+
+impl Drop for LiveResize {
+    fn drop(&mut self) {
+        self.0.viewDidEndLiveResize();
+    }
+}
+
 impl Backdrop {
+    pub fn begin_live_resize(&self) -> Option<LiveResize> {
+        if self.web.inLiveResize() {
+            return None;
+        }
+        self.web.viewWillStartLiveResize();
+        Some(LiveResize(self.web.clone()))
+    }
+
     pub fn new(window: &NSWindow) -> Self {
         let mtm = MainThreadMarker::new().expect("window main thread");
         let root = window.contentView().expect("Wry content view");
@@ -184,6 +202,9 @@ impl Backdrop {
         let root = window.contentView().expect("Wry content view");
         let mut frame = self.web.frame();
         let size = root.bounds().size;
+        if frame.size == size {
+            return;
+        }
         CATransaction::begin();
         CATransaction::setDisableActions(true);
         if interactive {
@@ -201,6 +222,24 @@ impl Backdrop {
         frame.size = size;
         self.web.setFrame(frame);
         CATransaction::commit();
+    }
+
+    #[cfg(debug_assertions)]
+    pub fn geometry(&self, window: &NSWindow) -> Value {
+        let root = window.contentView().expect("Wry content view");
+        let rect = |frame: NSRect| serde_json::json!({"x":frame.origin.x,"y":frame.origin.y,"width":frame.size.width,"height":frame.size.height});
+        let animations: Vec<_> = [&*root, &*self.web, &*self.boundary]
+            .into_iter()
+            .map(|view| {
+                view.layer()
+                    .and_then(|layer| layer.animationKeys())
+                    .map_or(0, |keys| keys.count())
+            })
+            .collect();
+        serde_json::json!({"viewport":rect(root.bounds()),"web":rect(self.web.frame()),
+            "boundary":rect(self.boundary.frame()),"visible":!self.web.isHiddenOrHasHiddenAncestor(),
+            "alpha":self.web.alphaValue(),"animations":animations,
+            "frosted":!self.frosted.isHidden(),"glass":self.glass.as_ref().is_some_and(|glass|!glass.isHidden())})
     }
 
     pub fn update(&self, window: &NSWindow, message: &Value) {

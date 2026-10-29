@@ -1,8 +1,10 @@
 // [INPUT]: Tao/Wry、Runtime、Preferences、Palboo.app 身份、共享 native_backdrop 与 AppKit 手势。
-// [OUTPUT]: 同步随窗口绘制的原生红黄绿、Palboo 应用身份、置顶/Spaces、跨屏往返和实时材质。
+// [OUTPUT]: 原生红黄绿、Palboo 应用身份、置顶/Spaces、跨屏往返及窗口/网页/材质同帧缩放。
 // [POS]: 窗口子进程实现；系统管理最小化/放大/全屏，关闭沿用收回，普通几何独立于临时窗口状态。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
+#[path = "window_chrome.rs"]
+mod window_chrome;
 #[path = "window_warp.rs"]
 mod window_warp;
 
@@ -10,13 +12,13 @@ use crate::{config::Paths, lifecycle::Runtime, panel::Preferences};
 use anyhow::Result;
 use serde_json::{Value, json};
 use tao::{
-    dpi::{LogicalPosition, LogicalSize, PhysicalPosition},
+    dpi::{LogicalSize, PhysicalPosition},
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoopBuilder},
     platform::macos::WindowBuilderExtMacOS,
     window::{Window, WindowBuilder},
 };
-use wry::{WebViewBuilder, WebViewBuilderExtDarwin};
+use wry::WebViewBuilder;
 
 #[derive(Clone, Copy, Debug)]
 struct Pose {
@@ -229,12 +231,16 @@ mod macos {
     }
 
     #[cfg(debug_assertions)]
-    pub fn probe_window_controls(window: &Window) -> Value {
+    pub fn probe_window_controls(window: &Window, backdrop: &Backdrop) -> Value {
         let native = native_window(window);
         let original = native.frame();
         let mut samples = Vec::new();
+        let mut live_resize = None;
         // 和拖动/缩放共用 AppKit frame 更新，逐次绘制后取样，不发送系统鼠标事件。
         for step in 0..24 {
+            if step == 8 {
+                live_resize = backdrop.0.begin_live_resize();
+            }
             let phase = step % 8;
             let offset = f64::from(phase.min(7 - phase)) * 8.;
             let mut frame = original;
@@ -249,39 +255,22 @@ mod macos {
                     frame.origin.x -= offset;
                 }
             }
-            native.setFrame_display(frame, step < 8);
+            set_interactive_frame(window, frame, backdrop);
             native.displayIfNeeded();
-            // layer-backed view 的 drawRect 在事务提交时执行；取样必须包含这次绘制。
+            // 提交 layer-backed view 的绘制后，同时检查标题栏与完整内容层。
             CATransaction::flush();
-            samples.push(native_controls(window));
+            let mut sample = native_controls(window);
+            sample["surface"] = backdrop.0.geometry(native);
+            samples.push(sample);
         }
-        native.setFrame_display(original, true);
+        set_interactive_frame(window, original, backdrop);
+        drop(live_resize);
         native.displayIfNeeded();
         CATransaction::flush();
-        samples.push(native_controls(window));
+        let mut sample = native_controls(window);
+        sample["surface"] = backdrop.0.geometry(native);
+        samples.push(sample);
         serde_json::json!(samples)
-    }
-
-    pub fn limit_titlebar_hit_area(window: &Window) {
-        if window.fullscreen().is_some() {
-            return;
-        }
-        let native = native_window(window);
-        if let Some(button) = native.standardWindowButton(NSWindowButton::CloseButton) {
-            let Some(parent) = (unsafe { button.superview() }) else {
-                return;
-            };
-            let Some(container) = (unsafe { parent.superview() }) else {
-                return;
-            };
-            // 按钮位置由 Wry 在 AppKit 绘制内同步布局；这里只限制点击区域，
-            // 不再重写标题栏高度和按钮坐标，避免与系统缩放布局来回覆盖。
-            let mut frame = container.frame();
-            if (frame.size.width - 100.).abs() > 0.5 {
-                frame.size.width = 100.;
-                container.setFrame(frame);
-            }
-        }
     }
 
     pub fn set_window_alpha(window: &Window, value: f64) {
@@ -445,6 +434,7 @@ mod macos {
         mouse: NSPoint,
         frame: NSRect,
         resize_left: Option<bool>,
+        _live_resize: Option<crate::native_backdrop::LiveResize>,
     }
 
     pub(super) fn native_window(window: &Window) -> &NSWindow {
@@ -453,19 +443,20 @@ mod macos {
     }
 
     impl Gesture {
-        pub fn start(window: &Window, resize_left: Option<bool>) -> Option<Self> {
+        pub fn start(
+            window: &Window,
+            resize_left: Option<bool>,
+            backdrop: &Backdrop,
+        ) -> Option<Self> {
             (NSEvent::pressedMouseButtons() & 1 != 0).then(|| Self {
                 mouse: NSEvent::mouseLocation(),
                 frame: native_window(window).frame(),
                 resize_left,
+                _live_resize: resize_left.and_then(|_| backdrop.0.begin_live_resize()),
             })
         }
 
-        pub fn is_resize(&self) -> bool {
-            self.resize_left.is_some()
-        }
-
-        pub fn update(&self, window: &Window) -> bool {
+        pub fn update(&self, window: &Window, backdrop: &Backdrop) -> bool {
             let mouse = NSEvent::mouseLocation();
             let (dx, dy) = (mouse.x - self.mouse.x, mouse.y - self.mouse.y);
             let mut frame = self.frame;
@@ -480,12 +471,25 @@ mod macos {
                 frame.origin.x += dx;
                 frame.origin.y += dy;
             }
-            let native = native_window(window);
-            if native.frame() != frame {
-                native.setFrame_display(frame, !self.is_resize());
-            }
+            set_interactive_frame(window, frame, backdrop);
             NSEvent::pressedMouseButtons() & 1 != 0
         }
+    }
+
+    fn set_interactive_frame(window: &Window, frame: NSRect, backdrop: &Backdrop) {
+        let native = native_window(window);
+        if native.frame() == frame {
+            return;
+        }
+        let resized = native.frame().size != frame.size;
+        CATransaction::begin();
+        CATransaction::setDisableActions(true);
+        // 不在 setFrame 中提前显示旧网页尺寸；材质和 WebView 同步后再提交这一帧。
+        native.setFrame_display(frame, false);
+        if resized {
+            backdrop.resize_viewport(window, true);
+        }
+        CATransaction::commit();
     }
 }
 
@@ -538,7 +542,6 @@ pub fn run_surface(
         .with_titlebar_transparent(true)
         .with_title_hidden(true)
         .with_fullsize_content_view(true)
-        .with_traffic_light_inset(LogicalPosition::new(26., 30.))
         .with_automatic_window_tabbing(false)
         .with_transparent(true)
         .with_focused(false)
@@ -597,8 +600,6 @@ pub fn run_surface(
     let proxy = event_loop.create_proxy();
     let allowed = page.clone();
     let builder = WebViewBuilder::new()
-        // build() 替换 Tao 的 contentView，红绿灯 inset 必须同时交给 Wry。
-        .with_traffic_light_inset(LogicalPosition::new(26., 30.))
         .with_incognito(crate::assets::development().is_some())
         .with_url(url)
         .with_transparent(true)
@@ -625,7 +626,7 @@ pub fn run_surface(
 
     let mut gesture: Option<macos::Gesture> = None;
     let backdrop = macos::Backdrop::new(&window);
-    macos::limit_titlebar_hit_area(&window);
+    let window_chrome = window_chrome::WindowChrome::install(macos::native_window(&window));
     let mut reported_glass_style = None;
     let mut window_transition: Option<WindowTransition> = None;
     let mut return_origin: Option<Pose> = None;
@@ -652,7 +653,8 @@ pub fn run_surface(
     let mut scope_hidden = false;
     event_loop.run(move |event, _, control| {
         *control = ControlFlow::Wait;
-        macos::limit_titlebar_hit_area(&window);
+        // 通知观察者与原生窗口同寿命，不在普通事件或 drawRect 中布局标题栏。
+        let _ = &window_chrome;
         match event {
             Event::Reopen { .. } => {
                 let _ = event_loop_proxy.send_event(json!({"kind":"reveal"}));
@@ -679,7 +681,7 @@ pub fn run_surface(
                 "window-state" => publish_window_controls(&webview, &window, normal_window_pose, window_hidden),
                 #[cfg(debug_assertions)]
                 "native-chrome-probe" if window_transition.is_none() && gesture.is_none() => {
-                    let samples = macos::probe_window_controls(&window);
+                    let samples = macos::probe_window_controls(&window, &backdrop);
                     let _ = webview.evaluate_script(&format!("window.__companionNativeChromeProbe = {samples};"));
                 }
                 "hide" => {
@@ -815,8 +817,16 @@ pub fn run_surface(
                         window_transition = Some(WindowTransition::new(from, Pose { alpha: 0., ..from }, Motion::Close, false));
                     }
                 }
-                "drag" | "resize" if macos::maximized(&window) => {}
+                "cancel-gesture" => {
+                    gesture = None;
+                    let _ = webview.evaluate_script("window.__companionFloatingPanel?.nativeGestureEnded();");
+                }
+                "drag" | "resize" if macos::maximized(&window) => {
+                    let _ = webview.evaluate_script("window.__companionFloatingPanel?.nativeGestureEnded();");
+                }
                 "drag" | "resize" => {
+                    // 先结束旧手势，防止两个 WebKit live-resize 生命周期交叉。
+                    gesture = None;
                     if let Some(warp) = &mut warp { warp.reset(); }
                     current_bend = [0., 0.];
                     if window_transition.is_some() || return_origin.is_some() {
@@ -831,7 +841,7 @@ pub fn run_surface(
                         }
                     }
                     let resize = (message["kind"] == "resize").then_some(message["corner"] == "bl");
-                    gesture = macos::Gesture::start(&window, resize);
+                    gesture = macos::Gesture::start(&window, resize, &backdrop);
                     if gesture.is_none() {
                         let _ = webview.evaluate_script("window.__companionFloatingPanel?.nativeGestureEnded();");
                     }
@@ -915,7 +925,7 @@ pub fn run_surface(
         if !matches!(*control, ControlFlow::Exit)
             && let Some(active) = &gesture
         {
-            if active.update(&window) {
+            if active.update(&window, &backdrop) {
                 *control = ControlFlow::WaitUntil(
                     std::time::Instant::now() + std::time::Duration::from_millis(16),
                 );

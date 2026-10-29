@@ -35,7 +35,7 @@ notify = "8.2.0"
 [target.'cfg(target_os = "macos")'.dependencies]
 libc = "0.2"
 objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSApplication", "NSImage", "NSButton", "NSEvent", "NSScreen", "NSWindow", "NSView", "NSPanel", "NSColor", "NSResponder", "NSGlassEffectView", "NSVisualEffectView", "NSGraphics", "NSAppearance", "NSAccessibility", "NSWorkspace", "NSRunningApplication", "libc", "objc2-quartz-core"] }
-objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSBundle", "NSValue", "NSGeometry", "NSProcessInfo"] }
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSBundle", "NSValue", "NSGeometry", "NSProcessInfo", "NSNotification"] }
 
 objc2 = "0.6"
 objc2-quartz-core = { version = "0.3", default-features = false, features = ["std", "CALayer", "CATransform3D", "CATransaction", "objc2-core-foundation"] }

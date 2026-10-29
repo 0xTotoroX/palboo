@@ -1,5 +1,5 @@
 /* [INPUT]: Current debug native window, production App entry and a synthetic local page/controller.
- * [OUTPUT]: Stable native controls throughout moves/resizes, App identity, minimize/reveal and zoom/fullscreen restore with unchanged draft/PID.
+ * [OUTPUT]: Stable controls and synchronized visible content across three materials, App identity and native actions with unchanged draft/PID.
  * [POS]: Isolated temporary data and self-owned window, no screenshots or real host data.
  * [PROTOCOL]: Keep tests/AGENTS.md in sync. */
 import assert from 'node:assert/strict';
@@ -28,16 +28,22 @@ const js = (
       contents: `
 import {windowControlsHtml,installWindowControls} from './ui/surfaces/workspace/window-controls.js';
 document.body.innerHTML='<header>'+windowControlsHtml()+'</header><input id="draft" readonly tabindex="-1" value="未保存的合成草稿">';
-let ready=false,returned=false,state=null;
+let ready=false,returned=false,state=null,material='matte',probeMaterial=null;
 const post=value=>window.ipc.postMessage(JSON.stringify(value));
+const backdrop=()=>post({kind:'backdrop',material,theme:'light',hidden:false,x:12,y:12,width:innerWidth-24,height:innerHeight-24,radius:24,viewportWidth:innerWidth,viewportHeight:innerHeight});
+addEventListener('resize',backdrop);
 window.__companionPopout={presented(){},motionFinished(){ready=true;},returned(ok){returned=ok;},resized(){},moved(){},dock(){returned=true;}};
 const controller=installWindowControls(document.body,{post,dock:async()=>post({kind:'return',anchor:null}),error:e=>window.failure=String(e)});
 const update=controller.update;controller.update=value=>{state=value;update(value);};
 post({kind:'show',anchor:null});
+backdrop();
 async function poll(){
- try{const response=await fetch('/probe',{method:'POST',body:JSON.stringify({ready,returned,state,chromeProbe:window.__companionNativeChromeProbe,draft:document.querySelector('#draft').value,width:innerWidth,height:innerHeight,error:window.failure,webControls:document.querySelectorAll('[data-window-control]').length,transient:controller.geometryTransient()})});
+ try{const response=await fetch('/probe',{method:'POST',body:JSON.stringify({ready,returned,state,chromeProbe:window.__companionNativeChromeProbe,probeMaterial,glassAvailable:window.__companionNativeGlass,draft:document.querySelector('#draft').value,width:innerWidth,height:innerHeight,error:window.failure,webControls:document.querySelectorAll('[data-window-control]').length,transient:controller.geometryTransient()})});
  for(const action of await response.json()){
-  if(action==='hide'||action==='reveal'||action==='window-state'||action==='native-chrome-probe')post({kind:action});
+  if(typeof action==='object'){
+   material=action.material;probeMaterial=material;window.__companionNativeChromeProbe=null;backdrop();post({kind:'native-chrome-probe'});
+  }
+  else if(action==='hide'||action==='reveal'||action==='window-state')post({kind:action});
   else if(action==='close')post({kind:'close'});
   else if(action==='maximize')post({kind:'toggle-maximize'});
   else if(action==='fullscreen')post({kind:'native-fullscreen'});
@@ -52,7 +58,7 @@ async function poll(){
     format: 'iife',
   })
 ).outputFiles[0].text;
-const html = `<!doctype html><meta charset="utf-8"><style>body{background:white;color:black;font-family:system-ui}button{width:32px;height:32px}svg{width:18px;height:18px}input{display:block;margin:20px}</style><script type="module">${js.replaceAll('</script', '<\\/script')}</script>`;
+const html = `<!doctype html><meta charset="utf-8"><style>body{background:transparent;color:black;font-family:system-ui;margin:12px}button{width:32px;height:32px}svg{width:18px;height:18px}input{display:block;margin:20px}</style><script type="module">${js.replaceAll('</script', '<\\/script')}</script>`;
 const server = createServer(async (req, res) => {
   try {
     if (req.url === '/probe') {
@@ -176,23 +182,52 @@ try {
     );
   }
   const originalButtons = latest.state.nativeChrome.buttons;
-  commands.push('native-chrome-probe');
-  await wait(() => latest?.chromeProbe?.length === 25, 'continuous native move/resize');
   let maxChromeDrift = 0;
-  for (const sample of latest.chromeProbe) {
-    assert.equal(sample.headerContentReachable, true, 'window menu stays reachable during resize');
-    assert.equal(sample.buttons.length, 3);
-    for (const [index, button] of sample.buttons.entries()) {
-      assert.ok(button.visible && button.reachable && button.enabled, JSON.stringify(button));
-      for (const key of ['x', 'y', 'width', 'height']) {
-        maxChromeDrift = Math.max(
-          maxChromeDrift,
-          Math.abs(button[key] - originalButtons[index][key]),
-        );
-        assert.ok(
-          Math.abs(button[key] - originalButtons[index][key]) <= 0.5,
-          `native ${key} must stay fixed during resize: ${JSON.stringify(button)}`,
-        );
+  const surfaceSamples = [];
+  for (const material of ['matte', 'frosted', 'native-glass']) {
+    commands.push({ material });
+    await wait(
+      () => latest?.probeMaterial === material && latest?.chromeProbe?.length === 25,
+      `continuous native move/resize: ${material}`,
+    );
+    surfaceSamples.push(...latest.chromeProbe);
+    for (const [sampleIndex, sample] of latest.chromeProbe.entries()) {
+      const surface = sample.surface;
+      assert.equal(surface.visible, true, 'WebView stays visible throughout resize');
+      assert.equal(surface.alpha, 1);
+      assert.equal(
+        surface.web.width,
+        surface.viewport.width,
+        'WebView and window resize in the same frame',
+      );
+      assert.equal(surface.web.height, surface.viewport.height);
+      assert.equal(
+        surface.boundary.width,
+        surface.viewport.width - 24,
+        'material keeps its window inset',
+      );
+      assert.equal(surface.boundary.height, surface.viewport.height - 24);
+      assert.deepEqual(surface.animations, [0, 0, 0], 'no implicit resize/fade on content layers');
+      assert.equal(surface.frosted, material === 'frosted');
+      assert.equal(surface.glass, material === 'native-glass' && latest.glassAvailable);
+      assert.equal(
+        sample.headerContentReachable,
+        true,
+        'window menu stays reachable during resize',
+      );
+      assert.equal(sample.buttons.length, 3);
+      for (const [index, button] of sample.buttons.entries()) {
+        assert.ok(button.visible && button.reachable && button.enabled, JSON.stringify(button));
+        for (const key of ['x', 'y', 'width', 'height']) {
+          maxChromeDrift = Math.max(
+            maxChromeDrift,
+            Math.abs(button[key] - originalButtons[index][key]),
+          );
+          assert.ok(
+            Math.abs(button[key] - originalButtons[index][key]) <= 0.5,
+            `${material} frame ${sampleIndex}: native ${key} must stay fixed during resize: ${JSON.stringify(button)}`,
+          );
+        }
       }
     }
   }
@@ -261,8 +296,10 @@ try {
     hideReveal: true,
     nativeTrafficLights: true,
     nativeResizeStable: true,
-    nativeChromeSamples: latest.chromeProbe.length,
+    nativeChromeSamples: surfaceSamples.length,
     nativeChromeMaxDrift: maxChromeDrift,
+    synchronizedSurfaceResize: true,
+    materialVariants: ['matte', 'frosted', 'native-glass'],
     nativeMinimize: true,
     nativeGreen: true,
     fullscreenReturn: true,
