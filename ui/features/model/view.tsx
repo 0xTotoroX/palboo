@@ -1,7 +1,7 @@
 import { useLocale } from '../../shared/use-locale';
 import { tr } from '../../shared/i18n.js';
 /* [INPUT]: Existing model control envelope and serialized actions.
- * [OUTPUT]: Title-aligned reasoning headings, content-sized favorites matrix, independent Fast charge/strike and divider controls, preset tags, a shared bottom row with lower-edge-aligned account usage, icons and an independent footer slot, in-panel catalog and wrapping presets with synchronous draft handoff, measured horizontal reading restoration and capability-driven selection.
+ * [OUTPUT]: Title-aligned reasoning headings, content-sized favorites matrix, independent Fast charge/strike and divider controls, presets with saved reasoning and speed, a shared bottom row with lower-edge-aligned account usage, icons and an independent footer slot, in-panel catalog and wrapping presets with synchronous draft handoff, measured horizontal reading restoration and capability-driven selection.
  * [POS]: Reusable business view; surfaces own placement and theme.
  * [PROTOCOL]: Keep AGENTS.md in this module in sync. */
 import {
@@ -28,6 +28,10 @@ export type { ModelState } from './catalog';
 const dischargeShape =
   'M24 0 L23 43 L27 86 L20 122 L26 166 L23 209 L28 256 L21 295 L25 328 L24 360';
 const label = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
+const presetLabel = (name: string, selection: Selection) =>
+  [name, label(selection.reasoning), selection.speed === 'fast' ? 'Fast' : '']
+    .filter(Boolean)
+    .join(' · ');
 const icon = (name: string) => <span dangerouslySetInnerHTML={{ __html: iconSvg(name) }} />;
 export function ModelView({
   state,
@@ -347,6 +351,7 @@ export function ModelView({
         }
       }}
     >
+      {presetDraft.selection.speed === 'fast' && icon('bolt-filled')}
       <input
         aria-label={tr('预设名称')}
         placeholder={tr('预设名称')}
@@ -356,6 +361,9 @@ export function ModelView({
         disabled={busy || !prefs.enabled}
         onChange={(event) => setPresetDraft({ ...presetDraft, name: event.target.value })}
       />
+      {presetDraft.selection.reasoning && (
+        <span className="model-preset-reasoning">{label(presetDraft.selection.reasoning)}</span>
+      )}
       <button
         type="submit"
         aria-label={tr('保存')}
@@ -638,10 +646,13 @@ export function ModelView({
                       className="model-preset-choice"
                       disabled={busy}
                       aria-disabled={!tools && (!allowed || !valid(p.selection))}
-                      aria-label={p.name}
-                      aria-description={
-                        tools ? tr('点击重命名') : p.selection.speed === 'fast' ? 'Fast' : undefined
-                      }
+                      aria-label={presetLabel(p.name, p.selection)}
+                      aria-description={tools ? tr('点击重命名') : undefined}
+                      title={presetLabel(
+                        s.models.find((m) => m.id === p.selection.model)?.label ||
+                          p.selection.model,
+                        p.selection,
+                      )}
                       aria-pressed={
                         !tools &&
                         s.current?.model === p.selection.model &&
@@ -654,7 +665,15 @@ export function ModelView({
                       }}
                     >
                       {p.selection.speed === 'fast' && icon('bolt-filled')}
-                      <span>{p.name}</span>
+                      <span>
+                        {p.name}
+                        {p.selection.reasoning && (
+                          <span className="model-preset-reasoning">
+                            {' · '}
+                            {label(p.selection.reasoning)}
+                          </span>
+                        )}
+                      </span>
                     </button>
                   )}
                   {tools && (

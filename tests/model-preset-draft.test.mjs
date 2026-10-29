@@ -1,5 +1,5 @@
 /* [INPUT]: Real FeatureView/ModelView with synthetic owner handoff and model preferences.
- * [OUTPUT]: Immediate preset creation and legacy creation/rename drafts survive remount, failed saves and current-model changes; clearing is synchronous.
+ * [OUTPUT]: Saved reasoning/Fast remain visible and apply together; immediate preset creation and legacy creation/rename drafts survive remount, failed saves and current-model changes; clearing is synchronous.
  * [POS]: Isolated browser regression; no native windows, real host or model requests.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import test from 'node:test';
@@ -28,6 +28,11 @@ const request=async(input)=>{
   if(input.owner!==window.entry.owner) throw Error('stale owner');
   if(input.op==='read') return structuredClone(window.model);
   if(input.op==='action') {
+    if(input.action==='apply') {
+      window.model.snapshot.current=structuredClone(input.data.selection);
+      window.model.snapshot.revision+='-applied';
+      return structuredClone(window.model);
+    }
     if(input.action!=='preferences') throw Error('unexpected model action');
     if(window.failSave) throw Error('模拟保存失败');
     if(input.data.revision!==window.model.revision) throw Error('stale revision');
@@ -139,7 +144,7 @@ test('rename draft retains identity and captured selection; cancel and Escape cl
     const page = await fixture(browser);
     const input = page.getByRole('textbox', { name: '预设名称' });
     await page.getByRole('button', { name: '编辑预设', exact: true }).click();
-    await page.getByRole('button', { name: '原名称', exact: true }).click();
+    await page.getByRole('button', { name: '原名称 · High · Fast', exact: true }).click();
     await input.fill('改名草稿');
     const draft = (await move(page)).modelPresetDraft;
     assert.deepEqual(draft, {
@@ -149,6 +154,11 @@ test('rename draft retains identity and captured selection; cancel and Escape cl
       creating: false,
     });
     assert.equal(await input.inputValue(), draft.name);
+    assert.equal(
+      await page.locator('.model-preset-editor .model-preset-reasoning').innerText(),
+      'High',
+    );
+    assert.equal(await page.locator('.model-preset-editor [data-icon="bolt-filled"]').count(), 1);
     await page.evaluate(() => (window.failSave = true));
     await page.getByRole('button', { name: '保存', exact: true }).click();
     await page.getByRole('alert').filter({ hasText: '模拟保存失败' }).waitFor();
@@ -157,12 +167,12 @@ test('rename draft retains identity and captured selection; cancel and Escape cl
     assert.equal((await move(page)).modelPresetDraft, undefined);
     assert.equal(await input.count(), 0);
     assert.equal(await page.evaluate(() => window.model.preferences.presets[0].name), '原名称');
-    await page.getByRole('button', { name: '原名称', exact: true }).click();
+    await page.getByRole('button', { name: '原名称 · High · Fast', exact: true }).click();
     await input.fill('取消改名');
     await input.press('Escape');
     assert.equal((await move(page)).modelPresetDraft, undefined);
     assert.equal(await input.count(), 0);
-    await page.getByRole('button', { name: '原名称', exact: true }).click();
+    await page.getByRole('button', { name: '原名称 · High · Fast', exact: true }).click();
     await input.fill('保存改名');
     await move(page);
     await page.evaluate(() => (window.failSave = false));
@@ -188,7 +198,7 @@ test('add preset captures the current selection immediately and failed saves do 
     assert.equal(await page.getByRole('textbox', { name: '预设名称' }).count(), 0);
     await page.evaluate(() => (window.failSave = false));
     await page.getByRole('button', { name: '添加预设', exact: true }).click();
-    await page.getByRole('button', { name: 'Alpha', exact: true }).waitFor();
+    await page.getByRole('button', { name: 'Alpha · High · Fast', exact: true }).waitFor();
     const saved = await page.evaluate(() => window.model.preferences.presets.at(-1));
     assert.ok(saved.id);
     assert.deepEqual(saved.selection, { model: 'alpha', reasoning: 'high', speed: 'fast' });
@@ -210,9 +220,12 @@ test('preset rename and add distinguish the Fast marker from a standard preset',
         selection: { ...window.alpha, speed: 'standard' },
       });
     });
-    await page.getByRole('button', { name: 'Alpha', exact: true }).waitFor();
+    await page
+      .locator('.model-presets')
+      .getByRole('button', { name: 'Alpha · High', exact: true })
+      .waitFor();
     await page.getByRole('button', { name: '编辑预设', exact: true }).click();
-    await page.getByRole('button', { name: '原名称', exact: true }).click();
+    await page.getByRole('button', { name: '原名称 · High · Fast', exact: true }).click();
     await page.getByRole('textbox', { name: '预设名称' }).fill('Alpha');
     await page.getByRole('button', { name: '保存', exact: true }).click();
     await page.getByRole('textbox', { name: '预设名称' }).waitFor({ state: 'detached' });
@@ -222,11 +235,112 @@ test('preset rename and add distinguish the Fast marker from a standard preset',
     );
     await page.getByRole('button', { name: '编辑预设', exact: true }).click();
     await page.getByRole('button', { name: '添加预设', exact: true }).click();
-    await page.getByRole('button', { name: 'Alpha 2', exact: true }).waitFor();
+    await page.getByRole('button', { name: 'Alpha 2 · High · Fast', exact: true }).waitFor();
     assert.equal(
       await page.evaluate(() => window.model.preferences.presets.at(-1).selection.speed),
       'fast',
     );
+  } finally {
+    await browser.close();
+  }
+});
+
+test('presets show and apply saved reasoning independently of the current model and keep unavailable choices readable', async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await fixture(browser);
+    const initial = await page.evaluate(() => {
+      window.model.snapshot.models[0].reasoning.push('low', 'none');
+      window.model.snapshot.models.push({
+        id: 'basic',
+        label: 'Basic',
+        reasoning: [],
+        fast: false,
+      });
+      window.model.preferences.presets.push(
+        { id: 'high', name: 'Alpha', selection: { ...window.alpha, speed: 'standard' } },
+        {
+          id: 'low',
+          name: 'Alpha',
+          selection: { ...window.alpha, reasoning: 'low', speed: 'standard' },
+        },
+        {
+          id: 'none',
+          name: 'Alpha',
+          selection: { ...window.alpha, reasoning: 'none', speed: 'standard' },
+        },
+        {
+          id: 'basic',
+          name: 'Basic',
+          selection: { model: 'basic', reasoning: '', speed: 'standard' },
+        },
+        {
+          id: 'missing',
+          name: '旧模型',
+          selection: { model: 'missing', reasoning: 'ultra', speed: 'fast' },
+        },
+      );
+      window.model.snapshot.current = window.beta;
+      return structuredClone(window.model.preferences.presets);
+    });
+    const presets = page.locator('.model-presets');
+    const low = presets.getByRole('button', { name: 'Alpha · Low', exact: true });
+    const high = presets.getByRole('button', { name: 'Alpha · High', exact: true });
+    const fast = presets.getByRole('button', { name: '原名称 · High · Fast', exact: true });
+    const unavailable = presets.getByRole('button', { name: '旧模型 · Ultra · Fast', exact: true });
+    await low.waitFor();
+    assert.equal(await low.innerText(), 'Alpha · Low');
+    assert.equal(await high.innerText(), 'Alpha · High');
+    assert.equal(await fast.innerText(), '原名称 · High');
+    assert.equal(await fast.getAttribute('title'), 'Alpha · High · Fast');
+    assert.equal(
+      await presets.getByRole('button', { name: 'Alpha · None', exact: true }).innerText(),
+      'Alpha · None',
+    );
+    assert.equal(
+      await presets
+        .getByRole('button', { name: 'Basic', exact: true })
+        .locator('.model-preset-reasoning')
+        .count(),
+      0,
+    );
+    assert.equal(await unavailable.getAttribute('aria-disabled'), 'true');
+    await unavailable.click({ force: true });
+    assert.equal(
+      await page.evaluate(() => window.calls.filter((c) => c.op === 'action').length),
+      0,
+    );
+    assert.deepEqual(await page.evaluate(() => window.model.preferences.presets), initial);
+
+    await low.focus();
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(
+      () =>
+        window.model.snapshot.current.reasoning === 'low' &&
+        window.model.snapshot.current.model === 'alpha',
+    );
+    assert.equal(await low.getAttribute('aria-pressed'), 'true');
+    assert.equal(await high.getAttribute('aria-pressed'), 'false');
+    await fast.click();
+    await page.waitForFunction(() => window.model.snapshot.current.speed === 'fast');
+    const applied = await page.evaluate(() =>
+      window.calls.filter((c) => c.action === 'apply').map((c) => c.data),
+    );
+    assert.deepEqual(
+      applied.map((c) => c.selection),
+      [
+        { model: 'alpha', reasoning: 'low', speed: 'standard' },
+        { model: 'alpha', reasoning: 'high', speed: 'fast' },
+      ],
+    );
+    assert.ok(
+      applied.every(
+        (c) => c.target.id === 'chat' && c.expectedRevision && c.preserveSpeed === false,
+      ),
+    );
+    assert.equal(await fast.getAttribute('aria-pressed'), 'true');
+    assert.equal(await low.getAttribute('aria-pressed'), 'false');
+    assert.deepEqual(await page.evaluate(() => window.model.preferences.presets), initial);
   } finally {
     await browser.close();
   }

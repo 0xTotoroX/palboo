@@ -609,7 +609,7 @@ test(
       }));
       await page.evaluate((state) => window.render(state), state);
       await view
-        .getByRole('button', { name: '收藏快捷组合 24', exact: true })
+        .getByRole('button', { name: '收藏快捷组合 24 · High', exact: true })
         .waitFor({ state: 'attached' });
       const wrapped = await view.locator('.model-presets').evaluate((node) => {
         const buttons = [...node.querySelectorAll('button')];
@@ -623,7 +623,7 @@ test(
       assert.equal(wrapped.scroll, wrapped.height, 'presets use the shared favorites scroller');
       assert.ok(await scroller.evaluate((node) => node.scrollHeight > node.clientHeight));
       await scroller.evaluate((node) => (node.scrollTop = node.scrollHeight));
-      const lastPreset = view.getByRole('button', { name: '收藏快捷组合 24', exact: true });
+      const lastPreset = view.getByRole('button', { name: '收藏快捷组合 24 · High', exact: true });
       const presetBox = await lastPreset.boundingBox(),
         presetViewport = await scroller.boundingBox();
       assert.ok(
@@ -729,13 +729,16 @@ test(
       assert.match(await fillClip(), /^inset\(100%/, 'standard mode has no visible filled layer');
       assert.equal(
         await page
-          .getByRole('button', { name: '快速预设', exact: true })
+          .getByRole('button', { name: '快速预设 · High · Fast', exact: true })
           .locator('[data-icon="bolt-filled"]')
           .count(),
         1,
       );
       assert.equal(
-        await page.getByRole('button', { name: '旧预设', exact: true }).locator('svg').count(),
+        await page
+          .getByRole('button', { name: '旧预设 · High', exact: true })
+          .locator('svg')
+          .count(),
         0,
       );
       assert.equal(
@@ -1013,7 +1016,10 @@ test(
           .evaluate((n) => n === document.activeElement),
         true,
       );
-      assert.equal(await page.getByRole('button', { name: '旧预设', exact: true }).count(), 1);
+      assert.equal(
+        await page.getByRole('button', { name: '旧预设 · High', exact: true }).count(),
+        1,
+      );
       assert.equal(await page.evaluate(() => window.state.preferences.presets[0].id), 'kept');
       await page.evaluate(() => {
         window.state.snapshot.models[0].fast = false;

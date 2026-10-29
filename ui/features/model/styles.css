@@ -1,5 +1,5 @@
 /* [INPUT]: Model matrix, all-model picker, wrapping presets and surface semantic colors.
- * [OUTPUT]: Content-sized matrix, separate Fast and electric divider controls and recessed preset tags, a wrapping bottom row with lower-edge-aligned account usage and a single-surface model catalog.
+ * [OUTPUT]: Content-sized matrix, separate Fast and electric divider controls and recessed preset tags with readable saved reasoning, a wrapping bottom row with lower-edge-aligned account usage and a single-surface model catalog.
  * [POS]: Shared model content styling; no outer window or material.
  * [PROTOCOL]: Keep model/AGENTS.md in sync. */
 .feature-model {
@@ -278,8 +278,13 @@
   overflow-wrap: anywhere;
   text-align: left;
 }
-.model-preset-choice > span:has(svg) {
+.model-preset-choice > span:has(svg),
+.model-preset-editor > span {
   flex: none;
+}
+.model-preset-reasoning {
+  color: var(--muted);
+  white-space: nowrap;
 }
 .feature-model .model-preset-choice[aria-disabled='true'] {
   opacity: 0.45;
