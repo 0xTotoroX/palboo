@@ -1,4 +1,4 @@
-/* [INPUT]: Shared feature and board DOM. [OUTPUT]: Quiet responsive surfaces and opaque edge dialogs inside native visible bounds.
+/* [INPUT]: Shared feature and board DOM. [OUTPUT]: Quiet responsive surfaces, desktop arrow cursors and opaque edge dialogs inside native visible bounds.
  * [POS]: Shadow-isolated presentation. [PROTOCOL]: Keep AGENTS.md in this module in sync. */
 :host {
   --paper: #fafafa;
@@ -224,4 +224,18 @@ input:focus-visible {
   padding-block: 12px;
   background: var(--paper);
   z-index: 1;
+}
+
+/* Keep text and resize cursors while native desktop actions use the system arrow. */
+:host([data-placement='desktop'])
+  :is(
+    button,
+    select,
+    summary,
+    a[href],
+    [role='button'],
+    [draggable='true'],
+    .task-card .card-title
+  ):not([role='separator'], .model-column-resize) {
+  cursor: default;
 }

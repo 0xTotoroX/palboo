@@ -281,6 +281,7 @@ function probePage() {
               ]),
             ),
             pin: workbench.querySelector('[data-action=pin]')?.getAttribute('aria-pressed'),
+            headerCursor: getComputedStyle(workbench.querySelector('.csw-head')).cursor,
             headerText: workbench.querySelector('.csw-head')?.innerText.trim(),
             headerTitles: workbench.querySelectorAll('.csw-head [title]').length,
             headerSurfaces: ['[data-action=pin]'].map((selector) => {
@@ -288,6 +289,8 @@ function probePage() {
               if (!node) return null;
               const style = getComputedStyle(node);
               return {
+                rect: node.getBoundingClientRect(),
+                cursor: style.cursor,
                 background: style.backgroundColor,
                 shadow: style.boxShadow,
                 border: style.borderTopWidth,
@@ -775,6 +778,17 @@ try {
         throw Error(
           'Standalone native fixture must use three system controls without an exec Dock entry',
         );
+      const pin = telemetry.workbench.headerSurfaces[0],
+        green = chrome.buttons[2];
+      if (
+        !pin ||
+        pin.rect.x < 100 ||
+        pin.rect.x < green.x + green.width ||
+        Math.abs(pin.rect.y + pin.rect.height / 2 - (green.y + green.height / 2)) > 1 ||
+        pin.cursor !== 'default' ||
+        telemetry.workbench.headerCursor !== 'default'
+      )
+        throw Error('Pin must sit beside native traffic lights with system arrow cursors');
       spaces.push({ pinned, collectionBehavior: behavior, level: level() });
     };
     if (!(pinnedLevel > 0) || telemetry.workbench.pin !== 'true')

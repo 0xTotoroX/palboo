@@ -1,5 +1,5 @@
 /* [INPUT]: Shared header markup/styles in an isolated browser.
- * [OUTPUT]: No redundant face/settings entry; breathing room and right-aligned window actions.
+ * [OUTPUT]: No redundant face/settings entry; breathing room and a reachable pin beside native traffic lights.
  * [POS]: No real host, model or configuration operations.
  * [PROTOCOL]: Keep tests/AGENTS.md in sync. */
 import test from 'node:test';
@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { build } from 'esbuild';
 import { chromium } from 'playwright';
-test('workbench preserves top breathing room and aligns desktop controls on the right', async () => {
+test('workbench preserves breathing room and places the native pin beside traffic lights', async () => {
   const built = await build({
     stdin: {
       contents: `import {workbenchHeadHtml} from './ui/surfaces/workspace/chrome.js';window.renderHeader=(desktop=false)=>document.querySelector('.csw-workbench').innerHTML=workbenchHeadHtml(desktop)+"<div id='content' style='height:200px'>Content</div>";window.renderHeader();`,
@@ -73,6 +73,28 @@ test('workbench preserves top breathing room and aligns desktop controls on the 
     assert.equal(bounds.x + bounds.width - (actions[2].x + 28), 12);
     assert.equal(await head.isVisible(), true);
     assert.equal(await page.locator('.csw-workbench-face').isVisible(), false);
+    await page.addStyleTag({
+      content: await readFile('ui/surfaces/desktop/legacy/native.css', 'utf8'),
+    });
+    await page.evaluate(() => {
+      window.__buddyNativeChrome = true;
+      document.documentElement.dataset.nativeBackdrop = 'true';
+      window.renderHeader(true);
+      document.querySelector('.csw-workbench-controls').innerHTML =
+        '<button class="csw-icon" data-pin aria-label="置顶"><svg viewBox="0 0 24 24"></svg></button>';
+    });
+    assert.equal(await page.locator('[data-window-control]').count(), 0);
+    const pin = await page.locator('[data-pin]').boundingBox();
+    assert.equal(pin.x - bounds.x, 88, 'hit area begins beyond the native titlebar');
+    assert.equal(pin.y + pin.height / 2 - bounds.y, 22, 'same center line as traffic lights');
+    assert.deepEqual([pin.width, pin.height], [28, 28]);
+    assert.equal(
+      await page.locator('[data-pin]').evaluate((node) => {
+        const r = node.getBoundingClientRect();
+        return node.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
+      }),
+      true,
+    );
   } finally {
     await browser.close();
   }

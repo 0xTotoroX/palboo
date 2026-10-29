@@ -4,7 +4,7 @@
 
 index → boot → 共享胶囊；通过 HTTP/IPC 连接本机服务和 Wry。业务操作由宿主重新校验；明暗与语义色通过共享 presentation 从宿主投影同步；backdrop IPC 将主题传到自有原生窗口，与内嵌一致。原生背景独立合成，样式覆盖按顺序置于共享 CSS 之后。
 
-boot 先 ready，再请求原生 show；AppKit 在来源位置已可见时调用 presented，确认交接并继续提起。dock 先读取 panel/anchor、等待原生返回，再附带移动前的临时阅读位置和偏好恢复宿主，确认后才发 close；失败回到原位置。moving/docking 抑制中间尺寸与位置保存，return/cancel-return 支持中途取消。几何观察仅响应 root/popover/glass 的变化，以微任务合并同批通知；正文局部变化不触发背景测量。native.css 取消网页表面的材质渐变，让前景与原生背景同时切换。
+boot 先 ready，再请求原生 show；AppKit 在来源位置已可见时调用 presented，确认交接并继续提起。dock 先读取 panel/anchor、等待原生返回，再附带移动前的临时阅读位置和偏好恢复宿主，确认后才发 close；失败回到原位置。moving/docking 抑制中间尺寸与位置保存，return/cancel-return 支持中途取消。几何观察仅响应 root/popover/glass 的变化，以微任务合并同批通知；正文局部变化不触发背景测量。native.css 取消网页表面的材质渐变，让前景与原生背景同时切换；原生置顶位于红黄绿右侧，桌面操作/拖动区域使用箭头，输入和缩放仍用原光标。
 
 成员清单：
 

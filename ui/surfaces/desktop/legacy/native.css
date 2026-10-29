@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 实际生效材质与原生背景能力。
- * [OUTPUT]: 与原生事务同步切换的材质前景及确认弹窗；胶囊复用公共布局。
+ * [OUTPUT]: 原生材质前景、红黄绿旁的置顶和系统箭头光标；胶囊复用公共布局。
  * [POS]: 原生覆盖，不实现玻璃折射，按顺序放在共享样式之后。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -24,6 +24,31 @@ html[data-native-backdrop='true']
 /* AppKit 与网页前景同步切换，避免旧背景颜色在新材质上继续过渡。 */
 html[data-native-backdrop='true'] .csw-glass {
   transition: none;
+}
+
+/* Leave AppKit's 100px titlebar hit region clear; align with the traffic lights. */
+html[data-native-backdrop='true']
+  .csw-workbench-head[data-window='desktop']
+  .csw-workbench-controls {
+  position: absolute;
+  grid-area: auto;
+  left: 88px;
+  top: 8px;
+}
+
+html[data-native-backdrop='true']
+  [data-companion-stepwise-root]
+  :is(
+    button,
+    select,
+    summary,
+    a[href],
+    [role='button'],
+    [draggable='true'],
+    .csw-head,
+    .csw-workbench-pane > header
+  ):not([role='separator'], .csw-resize-handle) {
+  cursor: default;
 }
 
 .csw-popout-confirm {
@@ -56,7 +81,7 @@ html[data-native-backdrop='true'] .csw-glass {
   padding: 7px 10px;
   background: var(--csw-hover, var(--buddy-subtle));
   color: inherit;
-  cursor: pointer;
+  cursor: default;
 }
 .csw-popout-confirm button[data-append] {
   background: color-mix(in srgb, var(--csw-accent, var(--buddy-action)) 18%, transparent);
