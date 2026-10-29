@@ -748,7 +748,13 @@ test('pointer takeover releases keyboard chapter lock; static resizing and manua
     const suggestion = demo.getByRole('button', { name: /拆解第一版/ });
     await suggestion.focus();
     await page.keyboard.press('Enter');
+    await page.waitForFunction(() => document.querySelector('.product-demo textarea').value);
+    const keyboardDraft = await demo.getByLabel('接着聊', { exact: true }).inputValue();
     await suggestion.click();
+    await page.waitForFunction(
+      (value) => document.querySelector('.product-demo textarea').value === `${value}\n${value}`,
+      keyboardDraft,
+    );
     await page.mouse.wheel(0, 1);
     await page.locator('.story-copy[data-chapter="terms"] h2').evaluate((heading) => {
       scrollTo(0, scrollY + heading.getBoundingClientRect().top - innerHeight * 0.5);
