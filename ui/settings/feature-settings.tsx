@@ -1,7 +1,7 @@
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
-/* [INPUT]: 四功能的归属、版本化布局与旧布局兼容读取。
- * [OUTPUT]: 紧凑分组的主界面形式、功能放置与布局设置，以及预览用的只读已加载快照。
+/* [INPUT]: 功能归属、版本化布局、命名预设与旧布局兼容读取。
+ * [OUTPUT]: 主界面形式、功能放置、布局与预设设置，以及预览用的只读已加载快照。
  * [POS]: 设置页编排；写入 features，不再写旧两功能 dockLayout/popoutLayout。
  * [PROTOCOL]: 变更时同步 settings/AGENTS.md。 */
 import { useEffect, useRef, useState } from 'react';
@@ -12,6 +12,7 @@ import { NativeSelect } from './components/ui/native-select';
 import { titles, type FeatureState } from '../shared/features';
 import { resolveFeatureLayout } from '../surfaces/workspace/layout';
 import { layoutGroups } from '../surfaces/workspace/layout-tree';
+import { LayoutPresetSettings } from './layout-preset-settings';
 export function FeatureSettings({
   live,
   active = true,
@@ -67,7 +68,7 @@ export function FeatureSettings({
   useEffect(() => onPlacement(primary), [primary, onPlacement]);
   useEffect(() => onSnapshot?.(ready ? state : null), [state, ready, onSnapshot]);
   async function change(input: object) {
-    if (writing.current) return;
+    if (writing.current) return false;
     feedback.capture();
     writing.current = true;
     generation.current++;
@@ -79,11 +80,13 @@ export function FeatureSettings({
         ...next,
         legacyLayouts: next.legacyLayouts ?? previous.legacyLayouts,
       }));
+      return true;
     } catch (e) {
       setError((e as Error).message);
       try {
         setState(await request<FeatureState>('features', { op: 'state' }));
       } catch {}
+      return false;
     } finally {
       writing.current = false;
       setBusy(false);
@@ -122,6 +125,7 @@ export function FeatureSettings({
       expectedLayout: state.layouts?.[primary] ?? null,
       layout: {
         axis: mode === 'tabs' ? 'auto' : mode,
+        ...(layout.visible ? { visible: layout.visible } : {}),
         groups:
           mode === 'tabs'
             ? [
@@ -197,6 +201,7 @@ export function FeatureSettings({
         </div>
       </div>
       <div hidden={simple}>
+        <LayoutPresetSettings state={state} layout={layout} busy={moving} change={change} />
         <section id="feature-placements" className="settings-subsection">
           <h3>{tr('各功能位置')}</h3>
           <div className="settings-feature-grid">

@@ -204,8 +204,7 @@ mod macos {
             unsafe { root.superview() }
                 .and_then(|parent| {
                     parent.hitTest(NSPoint::new(
-                        // Pin center: 12px window gutter + 88px offset + 14px hit radius.
-                        114.,
+                        native.frame().size.width - 38.,
                         native.frame().size.height - 34.,
                     ))
                 })

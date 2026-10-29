@@ -1,5 +1,5 @@
 /* [INPUT]: Shared header markup/styles in an isolated browser.
- * [OUTPUT]: No redundant face/settings entry; breathing room and a reachable pin beside native traffic lights.
+ * [OUTPUT]: No redundant face/settings entry; breathing room and reachable native window actions on the right.
  * [POS]: No real host, model or configuration operations.
  * [PROTOCOL]: Keep tests/AGENTS.md in sync. */
 import test from 'node:test';
@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { build } from 'esbuild';
 import { chromium } from 'playwright';
-test('workbench preserves breathing room and places the native pin beside traffic lights', async () => {
+test('workbench preserves breathing room and keeps native window actions on the right', async () => {
   const built = await build({
     stdin: {
       contents: `import {workbenchHeadHtml} from './ui/surfaces/workspace/chrome.js';window.renderHeader=(desktop=false)=>document.querySelector('.csw-workbench').innerHTML=workbenchHeadHtml(desktop)+"<div id='content' style='height:200px'>Content</div>";window.renderHeader();`,
@@ -85,7 +85,7 @@ test('workbench preserves breathing room and places the native pin beside traffi
     });
     assert.equal(await page.locator('[data-window-control]').count(), 0);
     const pin = await page.locator('[data-pin]').boundingBox();
-    assert.equal(pin.x - bounds.x, 88, 'hit area begins beyond the native titlebar');
+    assert.equal(bounds.x + bounds.width - (pin.x + pin.width), 12, 'actions remain right aligned');
     assert.equal(pin.y + pin.height / 2 - bounds.y, 22, 'same center line as traffic lights');
     assert.deepEqual([pin.width, pin.height], [28, 28]);
     assert.equal(

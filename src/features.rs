@@ -1,5 +1,5 @@
 // [INPUT]: Fixed feature identities, authenticated UI requests and existing business services.
-// [OUTPUT]: Persisted edge navigation, one main placement, checked layouts/view handoff and owner-guarded model preferences and quick-prompt settings edits.
+// [OUTPUT]: Persisted edge navigation, one main placement, checked layouts/presets/view handoff and owner-guarded model preferences and quick-prompt settings edits.
 // [POS]: Presentation lifecycle only; business validation remains in tasks/codex/model_control.
 // [PROTOCOL]: Keep src/AGENTS.md in sync.
 use crate::{
@@ -23,6 +23,7 @@ mod bots;
 pub async fn pause_bot_sync() {
     bots::pause_sync().await;
 }
+mod layout_presets;
 #[path = "features/main_surface.rs"]
 mod main_surface;
 use main_surface::{FeatureLayout, MainSurface, SavedFeatures};
@@ -80,6 +81,7 @@ impl Features {
         main.layouts.retain(|placement, layout| {
             ["sidebar", "overlay", "desktop"].contains(&placement.as_str()) && layout.valid()
         });
+        layout_presets::sanitize(&mut main.layout_presets);
         // Old mixed placements become one main surface; task data and open state stay intact.
         for pref in prefs.values_mut() {
             if pref.placement != "edge" {
@@ -167,7 +169,7 @@ impl Features {
         })
     }
     fn snapshot(&self) -> Value {
-        json!({"mainManaged":self.main_managed(),"layouts":self.main.pref.layouts,"activeFeature":self.main.active,"mainPlacement":self.main.pref.placement,"returnPlacement":self.main.pref.return_placement,"pendingPlacement":self.main.target,"mainWindow":{"lease":self.main.lease,"pid":self.main.child.as_ref().map(|c|c.id()),"size":self.main.pref.size},"features":self.entries.iter().map(|(id,e)|json!({"id":id,"desktopSupported":crate::panel::popout_supported(),"placement":e.pref.placement,"returnPlacement":e.pref.return_placement,"open":e.pref.open,"closing":e.closing.is_some(),"size":e.pref.size,"owner":e.owner,"view":e.view,"reveal":e.reveal,"pending":e.pending.as_ref().map(|p|json!({"placement":p.placement,"owner":p.owner,"ready":p.source_ready}))})).collect::<Vec<_>>()})
+        json!({"mainManaged":self.main_managed(),"layouts":self.main.pref.layouts,"layoutPresets":self.main.pref.layout_presets,"layoutPresetsRevision":self.main.pref.layout_presets_revision,"activeFeature":self.main.active,"mainPlacement":self.main.pref.placement,"returnPlacement":self.main.pref.return_placement,"pendingPlacement":self.main.target,"mainWindow":{"lease":self.main.lease,"pid":self.main.child.as_ref().map(|c|c.id()),"size":self.main.pref.size},"features":self.entries.iter().map(|(id,e)|json!({"id":id,"desktopSupported":crate::panel::popout_supported(),"placement":e.pref.placement,"returnPlacement":e.pref.return_placement,"open":e.pref.open,"closing":e.closing.is_some(),"size":e.pref.size,"owner":e.owner,"view":e.view,"reveal":e.reveal,"pending":e.pending.as_ref().map(|p|json!({"placement":p.placement,"owner":p.owner,"ready":p.source_ready}))})).collect::<Vec<_>>()})
     }
     fn validate(&self, id: &str, owner: &str) -> Result<()> {
         let e = self.entries.get(id).context("功能尚未打开")?;
@@ -339,6 +341,9 @@ impl App {
                 return Err(error);
             }
             return Ok(f.snapshot());
+        }
+        if op.starts_with("main-preset-") {
+            return self.layout_preset_request(&input).await;
         }
         if op.starts_with("main-") {
             return self.main_surface_request(&input).await;

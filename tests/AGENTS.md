@@ -380,3 +380,5 @@ Fast/普通预设按闪电标记独立消歧：model-groups 覆盖同组编号�
 - `native-app.mjs`：用正式 Swift 入口、原始图标和隔离目录组装合成 App，不安装或修改 Dock 固定项。`window-controls-native.mjs` 核对真实 bundle 路径/标识、Dock reopen 的同 PID/草稿保留；裸 CLI 的 `native-check --header-only` 则必须是 accessory。`window_process` 的忽略原生用例显式验证 LaunchServices→exec 的身份、真实 PID、自然退出和主动回收。
 
 常用语内容优先验收：quick-prompts-editor 验三行实际溢出、展开与执行分离、只读可展开、空名称保存及回退、隐藏挂载/缩放/双语/减少动态效果；settings-safety 验显示开关独立保存且保留未完成正文。website 验独立常用语示例的完整填入、名称切换、已有草稿与七功能滚动；Rust 验可选名称、显示偏好持久化/旧默认/冲突及生成请求不失效。
+
+- `layout-presets.test.mjs`：真实工作台菜单、布局控制器与设置组件配合合成 API，覆盖隐藏/恢复与形式切换的原节点、草稿及滚动，置顶独立、键盘/窄窗/英文菜单、命名保存失败、认证入口直达抽屉、功能组合不改开关、改名冲突、覆盖取消和删除保留当前布局。Rust layout_presets 单测验证持久化、回滚、独立修订/原布局/归属校验及旧布局兼容。原生标题测试继续验证右侧操作命中，不使用系统截图。

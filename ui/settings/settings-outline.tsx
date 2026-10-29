@@ -1,6 +1,6 @@
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
-/* [INPUT]: URL anchors, saved page preference (legacy mode ignored), shared icons and the Dev source widget.
+/* [INPUT]: URL anchors/authenticated entry queries, saved page preference (legacy mode ignored), shared icons and the Dev source widget.
  * [OUTPUT]: Shared sidebar/compact grouped disclosure with inert closing content, keyboard navigation, legacy/search/invalid-field routing and reading restoration without remounting forms.
  * [POS]: Presentation state only; never changes backend configuration or remounts forms.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
@@ -142,8 +142,14 @@ function savedPage(): SettingsPage {
     storage('sessionStorage', 'buddy-settings-detail-page');
   return value in pageTitles ? (value as SettingsPage) : aliases['settings-' + value] || 'features';
 }
+function settingsHash() {
+  return !location.hash.startsWith('#settings-') &&
+    new URLSearchParams(location.search).get('open') === 'layout-presets'
+    ? '#settings-surfaces/layout-presets'
+    : location.hash;
+}
 function fromHash() {
-  const [section, field = ''] = location.hash.slice(1).split('/');
+  const [section, field = ''] = settingsHash().slice(1).split('/');
   let decoded = field;
   try {
     decoded = decodeURIComponent(field);
@@ -184,7 +190,7 @@ function reportInvalidField(target: HTMLElement) {
 export function useSettingsPage(ready: boolean) {
   const [selection, setSelection] = useState(() => ({
     ...(fromHash() || { page: savedPage() }),
-    hash: location.hash,
+    hash: settingsHash(),
   }));
   const { page, hash } = selection;
   const [dev, setDev] = useState(false);
@@ -202,7 +208,7 @@ export function useSettingsPage(ready: boolean) {
   useEffect(() => {
     const change = () => {
       const next = fromHash() || history.state?.buddySettings;
-      if (next) select(next, location.hash);
+      if (next) select(next, settingsHash());
     };
     const reveal = (event: Event) => {
       const { page, id } = (event as CustomEvent<{ page: SettingsPage; id: string }>).detail;

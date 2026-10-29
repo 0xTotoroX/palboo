@@ -12,8 +12,10 @@
 
 [PROTOCOL]: 结构、职责或接口变化时更新本文；父级描述受影响时同步父级地图。
 
-桌面工作台不显示胶囊眼睛；顶部左侧为 AppKit 原生红黄绿按钮，置顶紧邻绿色按钮右侧并同排，点击区避开原生标题栏；标题栏、标签和按钮使用系统箭头，输入/缩放保留原光标，拖动行为不变。Alt+Enter 仍可收回。workspace/window-controls 读取 __buddyNativeChrome 后省略重复网页按钮；旧窗口运行时保留原控件。最小化/放大/全屏不保存临时尺寸，恢复复用同一窗口和功能节点；Dock/应用切换身份由同一个 Palboo.app 提供，图标使用产品源图。
+桌面工作台不显示胶囊眼睛；顶部左侧为 AppKit 原生红黄绿按钮，右上角三点菜单提供置顶与布局预设，点击区避开原生标题栏；标题栏、标签和按钮使用系统箭头，输入/缩放保留原光标，拖动行为不变。Alt+Enter 仍可收回。workspace/window-controls 读取 __buddyNativeChrome 后省略重复网页按钮；旧窗口运行时保留原控件。最小化/放大/全屏不保存临时尺寸，恢复复用同一窗口和功能节点；Dock/应用切换身份由同一个 Palboo.app 提供，图标使用产品源图。
 
 main 的公共标签/标题与 FeatureView 正文读取同一全局字体快照，原生窗口几何/交接不改动。
 
 main 将 feature state 的 scopeAllowed 经 scope-visible IPC 投影给原生窗口，范围切换只临时隐藏/恢复，不销毁内容或改变手动隐藏偏好。
+
+main 通过 workspace/window-menu 提供置顶与布局预设，传递 lease、预设修订和原布局；布局保存/窗口交接中暂禁菜单动作。菜单和命名输入区不触发原生拖动，关闭窗口清理菜单监听；管理动作通过原设置 URL 的 open=layout-presets 定位现有抽屉。

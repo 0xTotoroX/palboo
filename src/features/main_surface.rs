@@ -1,5 +1,5 @@
 // [INPUT]: Feature owners, main placement and saved flat/nested layouts.
-// [OUTPUT]: Validated recursive layout persistence with optional collapsed rows, one main window and atomic group handoff.
+// [OUTPUT]: Validated recursive layouts with optional visible features/collapsed rows, named preset storage, one main window and atomic group handoff.
 // [POS]: Main-surface lifecycle within features; no task or model business logic.
 // [PROTOCOL]: Keep features/AGENTS.md in sync.
 use super::*;
@@ -31,15 +31,20 @@ pub(super) enum LayoutNode {
 pub(super) struct FeatureLayout {
     pub axis: String,
     pub groups: Vec<LayoutNode>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub visible: Option<Vec<String>>,
 }
 impl FeatureLayout {
     pub fn valid(&self) -> bool {
-        Self::valid_groups(
-            &self.axis,
-            &self.groups,
-            0,
-            &mut std::collections::BTreeSet::new(),
-        )
+        let mut ids = std::collections::BTreeSet::new();
+        Self::valid_groups(&self.axis, &self.groups, 0, &mut ids)
+            && self.visible.as_ref().is_none_or(|visible| {
+                let mut seen = std::collections::BTreeSet::new();
+                !visible.is_empty()
+                    && visible
+                        .iter()
+                        .all(|id| ids.contains(id.as_str()) && seen.insert(id))
+            })
     }
     fn valid_groups<'a>(
         axis: &str,
@@ -82,6 +87,8 @@ pub(super) struct MainPreference {
     pub return_placement: String,
     pub size: [u32; 2],
     pub layouts: BTreeMap<String, FeatureLayout>,
+    pub layout_presets: Vec<super::layout_presets::LayoutPreset>,
+    pub layout_presets_revision: u64,
 }
 impl Default for MainPreference {
     fn default() -> Self {
@@ -90,6 +97,8 @@ impl Default for MainPreference {
             return_placement: "sidebar".into(),
             size: [840, 620],
             layouts: BTreeMap::new(),
+            layout_presets: Vec::new(),
+            layout_presets_revision: 0,
         }
     }
 }
@@ -309,11 +318,12 @@ impl App {
         }
         if op == "main-settings" {
             drop(f);
-            webbrowser::open(
-                &crate::assets::settings_url()
-                    .unwrap_or(crate::lifecycle::Runtime::read(&self.paths)?.url()),
-            )
-            .context("无法打开设置")?;
+            let mut url =
+                reqwest::Url::parse(&crate::lifecycle::Runtime::read(&self.paths)?.url())?;
+            if input["section"] == "layout-presets" {
+                url.query_pairs_mut().append_pair("open", "layout-presets");
+            }
+            webbrowser::open(url.as_str()).context("无法打开设置")?;
             return Ok(json!({"ok":true}));
         }
         ensure!(op == "main-anchor", "未知主窗口操作");

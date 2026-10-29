@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 实际生效材质与原生背景能力。
- * [OUTPUT]: 原生材质前景、红黄绿旁的置顶和系统箭头光标；胶囊复用公共布局。
+ * [OUTPUT]: 原生材质前景和系统箭头光标；窗口操作与胶囊复用公共布局。
  * [POS]: 原生覆盖，不实现玻璃折射，按顺序放在共享样式之后。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -24,16 +24,6 @@ html[data-native-backdrop='true']
 /* AppKit 与网页前景同步切换，避免旧背景颜色在新材质上继续过渡。 */
 html[data-native-backdrop='true'] .csw-glass {
   transition: none;
-}
-
-/* Leave AppKit's 100px titlebar hit region clear; align with the traffic lights. */
-html[data-native-backdrop='true']
-  .csw-workbench-head[data-window='desktop']
-  .csw-workbench-controls {
-  position: absolute;
-  grid-area: auto;
-  left: 88px;
-  top: 8px;
 }
 
 html[data-native-backdrop='true']

@@ -1,6 +1,6 @@
 import { tr } from './i18n.js';
 /* [INPUT]: Authenticated feature transport and shared business DTOs.
- * [OUTPUT]: Persisted edge navigation, seven-feature icon mapping and placement, main ownership, default fonts, recursive split geometry with optional row collapse flags and transient view, preset and quick-prompt draft/disclosure contracts.
+ * [OUTPUT]: Persisted edge navigation, seven-feature icon mapping and placement, main ownership, default fonts, recursive split geometry with optional visible membership/row collapse flags and revisioned named layout presets and transient view, preset and quick-prompt draft/disclosure contracts.
  * [POS]: Presentation boundary. [PROTOCOL]: Keep AGENTS.md in this module in sync. */
 import type { BoardView } from '../features/board/app';
 export const titles = {
@@ -99,7 +99,8 @@ export type Entry = {
 };
 export type LayoutGroup = { ids: string[]; active: string; weight: number; collapsed?: boolean };
 export type LayoutNode = LayoutGroup | (FeatureLayout & { weight: number });
-export type FeatureLayout = { axis: string; groups: LayoutNode[] };
+export type FeatureLayout = { axis: string; groups: LayoutNode[]; visible?: string[] };
+export type LayoutPreset = { id: string; name: string; layout: FeatureLayout };
 export type EdgeTabs = { order: string[]; selected: string };
 export type FeatureState = {
   scopeAllowed?: boolean;
@@ -107,6 +108,8 @@ export type FeatureState = {
   edgeTabsRevision?: number;
   mainManaged?: boolean;
   layouts?: Record<string, FeatureLayout>;
+  layoutPresets?: LayoutPreset[];
+  layoutPresetsRevision?: number;
   legacyLayouts?: Record<string, import('./contracts').WorkbenchLayout>;
   activeFeature?: string;
   mainPlacement?: Placement;

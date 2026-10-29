@@ -55,7 +55,7 @@ ui/codex 是宿主识别和写入的唯一实现，经受限请求桥请求模�
 工作台 Ui.feature 选择兼容组合/大纲/看板；ReadingState.taskView 不使用聊天 token，接续自定义分组、快速新建草稿与横向位置；editor 字段接续详情快照和编辑草稿。panel 的 expand 交接意图只来自显式位置选择。requests 对宿主任务操作限制为视图命令；桌面本机 HTTP 仍使用既有 bearer 认证。
 
 独立功能呈现：
-- [features.rs](features.rs)：固定四功能的位置偏好、来源快照/目标 ready 交接、owner 校验、返回位置、只读锚点、内存阅读状态与主窗口监督；业务开关变更复用关闭/按原位置唤起，关闭先等待当前 owner 回传草稿再回收窗口，5 秒无响应时保留最近快照退出；快速重新启用会取消关闭并恢复持久化状态；仅当前 owner 可补存关闭视图，不复制业务服务。
+- [features.rs](features.rs)：固定功能的位置偏好、命名布局预设、来源快照/目标 ready 交接、owner 校验、返回位置、只读锚点、内存阅读状态与主窗口监督；业务开关变更复用关闭/按原位置唤起，关闭先等待当前 owner 回传草稿再回收窗口，5 秒无响应时保留最近快照退出；快速重新启用会取消关闭并恢复持久化状态；仅当前 owner 可补存关闭视图，不复制业务服务。
 - [features/AGENTS.md](features/AGENTS.md)：唯一主界面的偏好迁移、共享桌面窗口租约与整组原子交接。
 - [feature_window.rs](feature_window.rs)：共享 main lease 的轻量入口，复用 panel_window::run_surface 的原生材质、几何与往返动效；唤起复用窗口而不重播入场。
 

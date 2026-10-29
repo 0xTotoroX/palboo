@@ -68,6 +68,8 @@ Suggestions fill the composer by default. If you already have a draft, Palboo ap
 
 Hover over the left-rail eyes for chat, desktop, and settings actions. Single-click, double-click, and right-click actions are configurable in **Appearance & fonts**.
 
+The desktop window's **…** menu contains **Always on top** and **Layout presets**. Save and switch feature combinations, splits, tab order, and divider proportions; manage presets under **Layout & position → Layout presets**. Switching preserves drafts and reading position. Presets use features already open in the main workspace and leave pinning and appearance unchanged.
+
 Sidebar and desktop layouts are saved separately; switching positions preserves drafts and reading position. An edge/notch panel can coexist with the main workspace, follow Codex's display, or stay on a chosen display. Hover or press `Command+Shift+M` to expand it. Palboo can be enabled separately in new chats and Dots under **Layout & position → Where Palboo is enabled** (off by default). This applies to all placements and features; actions that need a response remain unavailable until one exists.
 
 Palboo follows Codex's appearance. English, Simplified Chinese, and system-default language choices apply across the App without changing personal content. The website keeps its own language choice. Its interactive demos use the same Palboo components with local example data: try suggestions, outlines, terms, tasks, model controls, speed readings, prompt editing, and Bot actions without connecting an account. Explore model catalogs and presets, Bot states and grouped layouts; after the opening animation, the eyes follow your mouse.

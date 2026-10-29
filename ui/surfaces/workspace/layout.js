@@ -9,6 +9,7 @@ import { installSidebarCompact } from './sidebar-compact.js';
 import { transferRows } from './compact-rows.js';
 import { installArrangement } from './arrangement.js';
 import { bindSeparator, elementScale } from './separator.js';
+import { readWorkbenchScroll, writeWorkbenchScroll } from '../../shared/scroll.js';
 import {
   layoutGroups,
   layoutMinimum,
@@ -51,6 +52,10 @@ export function installFeatureLayout(root, { save, error }) {
   const panes = document.createElement('div');
   panes.className = 'csw-workbench-panes csw-feature-panes';
   root.append(panes);
+  const parking = document.createElement('div');
+  parking.hidden = true;
+  root.append(parking);
+  const parkedReading = new WeakMap();
   const compact = installSidebarCompact(panes);
   /** @type {import('../../shared/features').FeatureLayout} */
   let layout;
@@ -66,9 +71,24 @@ export function installFeatureLayout(root, { save, error }) {
   const cache = new Map();
   const inputs = new Map();
   const persisted = new Map();
+  function rememberReading(item) {
+    if (item.node.hidden || !item.node.isConnected) return;
+    const nodes = [
+      item.node,
+      ...item.node.querySelectorAll('*'),
+      ...(item.node.shadowRoot?.querySelectorAll('*') || []),
+    ];
+    parkedReading.set(
+      item.node,
+      nodes
+        .filter((node) => node.clientHeight && node.scrollHeight > node.clientHeight)
+        .map((node) => ({ node, top: readWorkbenchScroll(node), left: node.scrollLeft })),
+    );
+  }
+  const isShown = (item) => item.active && (!layout?.visible || layout.visible.includes(item.id));
   function visible(node) {
     if (!node.groups) {
-      const ids = node.ids.filter((id) => items.some((item) => item.id === id && item.active));
+      const ids = node.ids.filter((id) => items.some((item) => item.id === id && isShown(item)));
       return ids.length ? { ...node, ids, original: node } : null;
     }
     const groups = node.groups.map(visible).filter(Boolean);
@@ -109,7 +129,7 @@ export function installFeatureLayout(root, { save, error }) {
       width,
       height,
       target,
-      items.filter((item) => item.active).map((item) => item.id),
+      items.filter(isShown).map((item) => item.id),
     );
     if (next && action === 'activate') {
       const wasActive = layoutGroups(value).some((group) => group.active === id);
@@ -129,7 +149,7 @@ export function installFeatureLayout(root, { save, error }) {
       (node) => !node.hidden && !node.matches('[role="separator"]'),
     );
     if (
-      group?.ids.filter((entry) => items.some((item) => item.id === entry && item.active))
+      group?.ids.filter((entry) => items.some((item) => item.id === entry && isShown(item)))
         .length === 1 &&
       source?.parentElement === parent &&
       parent.dataset.axis === axis &&
@@ -146,8 +166,11 @@ export function installFeatureLayout(root, { save, error }) {
       render();
       void persist();
     },
-    update: () => render(),
-    enabled: (id) => items.some((item) => item.id === id && item.active && !item.node.inert),
+    update: () => {
+      for (const item of items) rememberReading(item);
+      render();
+    },
+    enabled: (id) => items.some((item) => item.id === id && isShown(item) && !item.node.inert),
     arrange,
     deferActivation(id) {
       const section = panes.querySelector(`[data-pane-tab="${id}"]`)?.closest('[data-pane]');
@@ -382,6 +405,15 @@ export function installFeatureLayout(root, { save, error }) {
   }
   function render() {
     if (!layout) return;
+    for (const item of items) {
+      const excluded = !item.active || (layout.visible && !layout.visible.includes(item.id));
+      if (excluded && item.node.parentNode !== parking) {
+        rememberReading(item);
+        item.node.hidden = true;
+        parking.append(item.node);
+        if (item.mount?.headerActions) parking.append(item.mount.headerActions);
+      }
+    }
     const tree = visible(layout);
     if (!tree) {
       observer.disconnect();
@@ -393,6 +425,7 @@ export function installFeatureLayout(root, { save, error }) {
     const signature = (node) => (node.groups ? [node.axis, node.groups.map(signature)] : node.ids);
     const nextShape = JSON.stringify(signature(tree));
     if (shape !== nextShape) {
+      for (const item of items) rememberReading(item);
       shape = nextShape;
       observer.disconnect();
       observer.observe(panes);
@@ -403,16 +436,30 @@ export function installFeatureLayout(root, { save, error }) {
     const focused = arrangement.focused;
     root.dataset.composition = focused ? 'focus' : layoutGroups(tree).length > 1 ? 'split' : 'tabs';
     updateGrid(tree, panes, focused);
+    for (const item of items) {
+      if (item.node.hidden || item.node.parentNode === parking) continue;
+      const reading = parkedReading.get(item.node);
+      if (reading) {
+        for (const { node, top, left } of reading) {
+          writeWorkbenchScroll(node, top);
+          node.scrollLeft = left;
+        }
+        parkedReading.delete(item.node);
+      }
+    }
     arrangement.sync();
     compact.finishRender();
   }
   const observer = new ResizeObserver(render);
   observer.observe(panes);
   return {
+    snapshot: () => layout && structuredClone(layout),
     update(nextItems, surface, saved, legacy, reveal, revealVersion = 0) {
       items = nextItems;
       const changedSurface = placement !== surface;
       const incoming = JSON.stringify([saved, legacy]);
+      if (!dirty && !saving && inputs.get(surface) !== incoming)
+        for (const item of items) rememberReading(item);
       if (
         !dirty &&
         !saving &&
@@ -440,6 +487,7 @@ export function installFeatureLayout(root, { save, error }) {
           const ids = items.filter((item) => item.active).map((item) => item.id);
           layout = resolveFeatureLayout(null, legacy, ids);
         }
+        if (arrangement.focused) arrangement.command(arrangement.focused, 'focus');
       }
       const known = new Set(layoutGroups(layout).flatMap((group) => group.ids));
       for (const item of items)
@@ -448,10 +496,23 @@ export function installFeatureLayout(root, { save, error }) {
           known.add(item.id);
         }
       const selection = `${reveal}:${revealVersion}`;
+      let revealed = false;
+      if (
+        reveal &&
+        selected &&
+        selection !== selected &&
+        layout.visible &&
+        !layout.visible.includes(reveal) &&
+        items.some((item) => item.id === reveal && item.active)
+      ) {
+        layout.visible.push(reveal);
+        revealed = true;
+      }
       if (
         reveal &&
         selection !== selected &&
-        items.some((item) => item.id === reveal && item.active)
+        items.some((item) => item.id === reveal && item.active) &&
+        (!layout.visible || layout.visible.includes(reveal))
       ) {
         const group = layoutGroups(layout).find((group) => group.ids.includes(reveal));
         if (group) {
@@ -461,13 +522,19 @@ export function installFeatureLayout(root, { save, error }) {
             delete group.collapsed;
             compact.activate(layout, reveal, false);
           }
-          selected = selection;
         }
       }
+      selected = selection;
+      if (revealed) void persist();
       cache.set(surface, layout);
       if (
         arrangement.focused &&
-        !items.some((item) => item.active && item.id === arrangement.focused)
+        !items.some(
+          (item) =>
+            item.active &&
+            item.id === arrangement.focused &&
+            (!layout.visible || layout.visible.includes(item.id)),
+        )
       )
         arrangement.command(arrangement.focused, 'focus');
       for (const item of items)
@@ -482,6 +549,7 @@ export function installFeatureLayout(root, { save, error }) {
       arrangement.destroy();
       compact.destroy();
       panes.remove();
+      parking.remove();
     },
   };
 }

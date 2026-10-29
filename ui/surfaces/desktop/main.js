@@ -1,7 +1,7 @@
 import { tr } from '../../shared/i18n.js';
 import { setLocale, getLocale } from '../../shared/i18n.js';
 /* [INPUT]: Shared page scope, main-window lease, feature owners, checked layout saves and the original native window IPC.
- * [OUTPUT]: Existing desktop chrome/material and spatial enter/return transitions.
+ * [OUTPUT]: Desktop chrome with a pin/layout menu, existing material and spatial enter/return transitions.
  * [POS]: Desktop surface adapter; feature content and actions stay in features/content.
  * [PROTOCOL]: Keep AGENTS.md in this module in sync. */
 import { typographyStyle, layoutZoom } from '../../shared/typography';
@@ -9,8 +9,8 @@ import { mountFeature } from '../workspace/mount';
 import { installFeatureLayout } from '../workspace/layout';
 import { installStyle } from '../embedded/shell/install-styles.js';
 import { installWindowControls } from '../workspace/window-controls.js';
+import { installWindowMenu } from '../workspace/window-menu.js';
 import { workbenchHeadHtml } from '../workspace/chrome.js';
-import { iconSvg } from '../../shared/icons/index.js';
 /** @param {import('../../shared/features').Request} request */
 export function startDesktop(request, lease) {
   installStyle();
@@ -21,8 +21,6 @@ export function startDesktop(request, lease) {
   root.style.cssText =
     '--csw-default-chip-width:84px;--csw-default-chip-height:36px;--csw-default-panel-radius:24px;position:fixed;inset:12px;width:auto;height:auto;pointer-events:auto;';
   root.innerHTML = `<div class="csw-popover" data-open="true" data-morphing="false" style="position:absolute;inset:0;width:100%;height:100%"><div class="csw-glass" style="inset:0;width:100%;height:100%;border-radius:24px"></div><section class="csw-panel" style="inset:0;width:100%;height:100%;border-radius:24px"><div class="csw-workbench">${workbenchHeadHtml(true)}</div></section><div class="csw-resize-handle" data-corner="bl" style="position:absolute;left:0;bottom:0;width:20px;height:20px;pointer-events:auto" aria-label="${tr('从左下角调整窗口大小')}"></div><div class="csw-resize-handle" data-corner="br" style="position:absolute;right:0;bottom:0;width:20px;height:20px;pointer-events:auto" aria-label="${tr('从右下角调整窗口大小')}"></div></div>`;
-  root.querySelector('.csw-workbench-controls').innerHTML =
-    `<button class="csw-icon" data-pin aria-label="${tr('取消窗口置顶')}" aria-pressed="true">${iconSvg('pin')}</button>`;
   const mounts = new Map();
   let state,
     selected = '',
@@ -123,6 +121,23 @@ export function startDesktop(request, lease) {
     __companionFloatingPanel: { nativeGestureEnded: () => {} },
   });
   const head = root.querySelector('.csw-workbench-head');
+  const windowMenu = installWindowMenu(head.querySelector('.csw-workbench-controls'), {
+    request,
+    lease,
+    layout: () => composition.snapshot(),
+    pin: async (value) => {
+      await call('pin', { value });
+      native({ kind: 'pin', value });
+    },
+    settings: () => call('settings', { section: 'layout-presets' }),
+    refresh: poll,
+    isBusy: () =>
+      moving ||
+      !!state?.pendingPlacement ||
+      !!root.querySelector(
+        '[data-layout-saving="true"],[data-arranging="true"],[data-resizing="true"]',
+      ),
+  });
   const windowControls = installWindowControls(root, {
     dock,
     post: native,
@@ -142,6 +157,7 @@ export function startDesktop(request, lease) {
     if (
       event.button !== 0 ||
       event.target.closest('button') ||
+      event.target.closest('.csw-window-menu') ||
       root.hasAttribute('data-window-maximized')
     )
       return;
@@ -167,21 +183,6 @@ export function startDesktop(request, lease) {
         native({ kind: 'resize', corner: handle.dataset.corner }),
       ),
     );
-  head.querySelector('[data-pin]').addEventListener('click', (event) => {
-    const button = event.currentTarget,
-      value = button.getAttribute('aria-pressed') !== 'true';
-    button.disabled = true;
-    void call('pin', { value })
-      .then(() => {
-        native({ kind: 'pin', value });
-      })
-      .catch(error)
-      .finally(() => {
-        button.disabled = false;
-      });
-    button.setAttribute('aria-pressed', String(value));
-    button.setAttribute('aria-label', value ? tr('取消窗口置顶') : tr('窗口置顶'));
-  });
   function appearance(value) {
     if (value.typographyPreferences) {
       const font = typographyStyle(value.typography, value.typographyPreferences, layoutZoom(root));
@@ -266,6 +267,7 @@ export function startDesktop(request, lease) {
         ?.setAttribute('aria-label', tr('从右下角调整窗口大小'));
       if (!windowState.valid) {
         stopped = true;
+        windowMenu.destroy();
         composition.destroy();
         for (const item of mounts.values()) item.mount.dispose();
         native({ kind: 'close' });
@@ -278,16 +280,10 @@ export function startDesktop(request, lease) {
       }
       if (state.appearance)
         appearance({ ...state.appearance, surface: state.appearance.themes.desktop });
-      const pin = head.querySelector('[data-pin]');
       if (pinned !== (windowState.alwaysOnTop !== false)) {
         pinned = windowState.alwaysOnTop !== false;
         native({ kind: 'pin', value: pinned });
       }
-      pin.setAttribute('aria-pressed', String(windowState.alwaysOnTop !== false));
-      pin.setAttribute(
-        'aria-label',
-        windowState.alwaysOnTop !== false ? tr('取消窗口置顶') : tr('窗口置顶'),
-      );
       if (!sized) {
         const size = state.mainWindow?.size || [840, 620];
         native({ kind: 'size', width: size[0] + 24, height: size[1] + 24, id: 0 });
@@ -334,6 +330,7 @@ export function startDesktop(request, lease) {
           mounts.delete(key);
         }
       renderContent();
+      windowMenu.update(state, windowState.alwaysOnTop !== false);
       windowControls.refresh();
       failures = 0;
     } catch (e) {

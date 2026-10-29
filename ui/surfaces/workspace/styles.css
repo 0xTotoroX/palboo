@@ -696,3 +696,109 @@
 .csw-workbench-pane[data-compact='true'] .csw-workbench-tabs button {
   cursor: pointer;
 }
+
+.csw-window-menu {
+  position: relative;
+  display: flex;
+}
+.csw-workbench-controls[data-menu-open='true'] {
+  opacity: 1;
+}
+.csw-window-menu-panel {
+  position: absolute;
+  top: 32px;
+  right: 0;
+  z-index: 30;
+  width: 240px;
+  max-width: calc(100vw - 48px);
+  max-height: calc(100vh - 86px);
+  overflow: auto;
+  padding: 5px;
+  border: 1px solid var(--csw-divider);
+  border-radius: 12px;
+  background: var(--csw-surface-opaque);
+  color: var(--csw-text);
+  box-shadow: 0 6px 22px #0002;
+  font-size: 13px;
+  cursor: default;
+}
+.csw-window-menu-panel button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 32px;
+  border: 0;
+  border-radius: 7px;
+  padding: 5px 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: default;
+}
+.csw-window-menu-panel button:hover {
+  background: var(--csw-hover);
+}
+.csw-window-menu-panel button:disabled {
+  opacity: 0.45;
+}
+.csw-window-menu-panel button > span:first-child {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.csw-window-menu-panel svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+.csw-menu-check {
+  display: flex;
+  margin-left: auto;
+}
+.csw-window-menu-panel [aria-checked='false'] .csw-menu-check {
+  visibility: hidden;
+}
+.csw-menu-divider {
+  height: 1px;
+  background: var(--csw-divider);
+  margin: 5px 7px;
+}
+.csw-menu-caption,
+.csw-menu-empty {
+  padding: 5px 8px;
+  color: var(--csw-muted);
+}
+.csw-preset-save {
+  padding: 12px;
+}
+.csw-preset-save label {
+  display: grid;
+  gap: 8px;
+}
+.csw-preset-save input {
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--csw-divider);
+  background: var(--csw-surface-opaque);
+  color: var(--csw-text);
+  font: inherit;
+}
+.csw-preset-save-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+.csw-preset-save-actions button {
+  width: auto;
+}
+.csw-window-menu-error {
+  margin: 4px 0;
+  padding: 6px 8px;
+  color: var(--csw-danger, var(--csw-text));
+  overflow-wrap: anywhere;
+}

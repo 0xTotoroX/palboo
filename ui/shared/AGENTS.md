@@ -71,3 +71,5 @@ Settings.terminologyImportsPending 为只读待处理状态；__palbooTerminolog
 - `quick-prompts.js`：独立常用语内容身份和可选名称的纯函数；quickPromptName 在短名称为空时取正文首行前20字，仅用于显示，不改写指令；宿主投影与保存成功后的设置合并共用，避免新条目立即点击时带旧版本。text.js 提供共享 hashText，runtime 保留原导出。
 
 EditableSettings.quickPromptsEnabled/quickPromptClickMode/quickPromptLabelOnly 声明独立开关、可空点击模式与默认关闭的仅名称显示；显示偏好不进入 quickPromptToken。PanelSnapshot/PanelCommand.quickPromptToken 独立于建议生成版本，旧命令仍兼容 promptToken。features.ts 的 prompts 与 feature-prompts 使用同一位置、字号和草稿交接协议。
+
+`features.ts` 的 FeatureLayout.visible 是可选的主界面显示组合，缺省保留全部已打开功能；LayoutPreset 与 layoutPresetsRevision 描述命名布局和并发版本，独立于模型预设及业务配置。
