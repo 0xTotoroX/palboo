@@ -1,6 +1,6 @@
 // [INPUT]: Paths、私有 runtime 信息、host/host_launch、系统进程与本地产物。
 // [OUTPUT]: start/stop/status/doctor/launch/update 与 Runtime 认证 JSON/原始术语文件请求；完整 App 核对后台来源并拒绝单文件升级；宿主 App 经 LaunchServices 启动并保留自身权限归属；host-only 仅准备宿主；显式 --restart-running 沿用宿主重开策略。
-// [POS]: CLI 进程管理层，负责复用服务和本地更新回滚；Dev 设置入口优先使用监督进程地址。
+// [POS]: CLI 进程管理层，负责复用服务和本地更新回滚；stop_runtime 供完整 App 更新按已核验身份正常停止后台；Dev 设置入口优先使用监督进程地址。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
 use crate::config::{self, Paths, VERSION, write_private};
@@ -16,7 +16,7 @@ use std::{
     time::Duration,
 };
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Runtime {
     pub pid: u32,
     pub port: u16,
@@ -200,7 +200,7 @@ pub async fn stop(paths: &Paths) -> Result<()> {
     stop_runtime(paths, &runtime).await
 }
 
-async fn stop_runtime(paths: &Paths, runtime: &Runtime) -> Result<()> {
+pub(crate) async fn stop_runtime(paths: &Paths, runtime: &Runtime) -> Result<()> {
     // 使用已核验实例的地址和 token，不能重读后停止并发启动的新实例。
     let mut failure = runtime.request("shutdown", Some(json!({}))).await.err();
     for _ in 0..70 {

@@ -1,5 +1,22 @@
 // English interface copy. User-authored content is not translated.
 export default {
+  应用更新: 'App updates',
+  当前版本: 'Current version',
+  '正在检查…': 'Checking…',
+  '发现新版本 v{{version}}': 'Version {{version}} is available',
+  '当前无需更新。': 'No update is needed.',
+  '此版本仅提供源码，没有安装包。':
+    'This release provides source code only. No installer is available.',
+  '请先保存或还原当前设置，再更新。': 'Save or revert your settings before updating.',
+  更新说明: 'Release notes',
+  更新并重启: 'Update and restart',
+  '请先切回正式模式，再更新已安装的 App。':
+    'Switch to release mode before updating the installed App.',
+  '请从已安装的 Palboo.app 打开设置后更新。':
+    'Open settings from the installed Palboo.app to update.',
+  'App 所在位置不可写，请先将完整 App 移到可写的应用程序目录。':
+    'Move the complete App to a writable Applications folder before updating.',
+  '请先安装完整 Palboo.app。': 'Install the complete Palboo.app first.',
   '短名称（选填）': 'Short name (optional)',
   留空时使用内容开头: 'Leave blank to use the opening words',
   仅显示名称: 'Show names only',

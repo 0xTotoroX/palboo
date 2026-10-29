@@ -37,6 +37,10 @@ Requires **macOS 14+ on Apple Silicon** and the **Codex / ChatGPT desktop app**.
 
 The DMG contains the complete App. Everyday use needs no terminal commands, Node.js, or Rust. Optional Agents and model services use your existing installations and accounts.
 
+**Manual updates:** in **System → Startup & connection → App updates**, choose **Check for updates**, then **Update and restart**. Palboo verifies and replaces the complete App, keeps your settings, and restores the previous App if installation or startup fails. Codex stays running. Checks and downloads happen only when requested; save unfinished settings first. Development mode allows checks; switch to release mode to install.
+
+The published v1.2.0 and earlier do not contain this updater. Install the first version that includes it manually once. Source-only patch releases show their notes without an install button; an App in a read-only location must be moved to a writable Applications folder first.
+
 <details>
 <summary>Compatibility and first-launch help</summary>
 

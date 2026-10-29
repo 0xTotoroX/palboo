@@ -1,17 +1,12 @@
-// [INPUT]: Private mode preferences, bundled release CLI and registered Dev supervisor.
+// [INPUT]: Private mode preferences, bundled release CLI, registered Dev supervisor and app_transition.
 // [OUTPUT]: Unified App launch, connection-confirmed mode handover and revision-checked preference recovery.
-// [POS]: One-shot mode worker; keeps release and per-source Dev data in their original places.
+// [POS]: One-shot mode worker; shares launch/install lock and preference helpers with App updates; keeps release and per-source Dev data in place.
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 use crate::{
     config::{Paths, write_private},
     lifecycle::{self, Runtime},
 };
 use anyhow::{Context, Result, bail, ensure};
-use axum::{
-    Json, Router,
-    response::Html,
-    routing::{get, post},
-};
 use clap::Subcommand;
 use fs2::FileExt;
 use serde::{Deserialize, Serialize};
@@ -22,7 +17,7 @@ use std::{
     sync::Arc,
     time::Duration,
 };
-use tokio::sync::{Notify, RwLock};
+use tokio::sync::RwLock;
 
 #[derive(Clone, Copy, Default, Debug, PartialEq, Serialize, Deserialize, clap::ValueEnum)]
 #[serde(rename_all = "lowercase")]
@@ -104,20 +99,20 @@ pub fn shared_paths() -> Result<Paths> {
             .join("palboo-launcher"),
     ))
 }
-fn read(paths: &Paths) -> Result<Preferences> {
+pub(crate) fn read(paths: &Paths) -> Result<Preferences> {
     let path = paths.root.join("app-mode.json");
     if !path.exists() {
         return Ok(Preferences::default());
     }
     serde_json::from_slice(&std::fs::read(path)?).context("运行模式配置无法读取，原数据已保留")
 }
-fn save(paths: &Paths, value: &Preferences) -> Result<()> {
+pub(crate) fn save(paths: &Paths, value: &Preferences) -> Result<()> {
     write_private(
         &paths.root.join("app-mode.json"),
         &serde_json::to_vec_pretty(value)?,
     )
 }
-fn mode_lock(paths: &Paths) -> Result<std::fs::File> {
+pub(crate) fn mode_lock(paths: &Paths) -> Result<std::fs::File> {
     let file = std::fs::OpenOptions::new()
         .create(true)
         .truncate(false)
@@ -128,7 +123,7 @@ fn mode_lock(paths: &Paths) -> Result<std::fs::File> {
         .context("正在启动或切换运行模式，请稍后再试")?;
     Ok(file)
 }
-fn release_executable(prefs: &Preferences) -> Result<PathBuf> {
+pub(crate) fn release_executable(prefs: &Preferences) -> Result<PathBuf> {
     let current = std::env::current_exe()?;
     let path = if current.ends_with("Contents/MacOS/palboo") {
         current
@@ -262,7 +257,7 @@ async fn dev(
     );
     Ok(result)
 }
-fn release_paths(prefs: &Preferences) -> Result<Paths> {
+pub(crate) fn release_paths(prefs: &Preferences) -> Result<Paths> {
     match &prefs.release_data {
         Some(path) => Paths::new(Some(path.clone())),
         None => Paths::new(None),
@@ -332,7 +327,7 @@ async fn release(
     )
 }
 
-async fn wait_for_release(
+pub(crate) async fn wait_for_release(
     runtime: &Runtime,
     connection: Option<&Value>,
     timeout: Duration,
@@ -358,7 +353,7 @@ async fn wait_for_release(
         .context("正式模式连接超时，请检查 Codex 是否就绪；运行模式设置未更改")?
 }
 
-async fn development_running(prefs: &Preferences) -> Result<bool> {
+pub(crate) async fn development_running(prefs: &Preferences) -> Result<bool> {
     let Some(source) = prefs.source.as_ref() else {
         return Ok(false);
     };
@@ -513,89 +508,19 @@ async fn worker(paths: &Paths, file: &Path) -> Result<()> {
         crate::i18n::set_language(language);
     }
     let _ = std::fs::remove_file(file);
-    let token = uuid::Uuid::new_v4().simple().to_string();
-    let route = format!("/switch/{token}");
-    let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0)).await?;
-    let port = listener.local_addr()?.port();
-    let progress = Arc::new(RwLock::new(
-        json!({"phase":"preparing","message":crate::i18n::text("正在准备…", "Preparing…")}),
-    ));
-    let state = progress.clone();
-    let acknowledged = Arc::new(Notify::new());
-    let ack = acknowledged.clone();
-    let page = TRANSITION_PAGE
-        .replace("__STATE__", &format!("{route}/state"))
-        .replace(
-            "lang=\"zh-CN\"",
-            crate::i18n::text("lang=\"zh-CN\"", "lang=\"en\""),
-        )
-        .replace(
-            "正在切换运行模式…",
-            crate::i18n::text("正在切换运行模式…", "Switching modes…"),
-        )
-        .replace(
-            "返回设置",
-            crate::i18n::text("返回设置", "Return to settings"),
-        )
-        .replace(
-            "切换状态暂时不可达，请重新打开 Palboo。",
-            crate::i18n::text(
-                "切换状态暂时不可达，请重新打开 Palboo。",
-                "Switch status is unavailable. Reopen Palboo.",
-            ),
-        )
-        .replace(
-            "未开始切换，请重新打开设置。",
-            crate::i18n::text(
-                "未开始切换，请重新打开设置。",
-                "Switching has not started. Reopen settings.",
-            ),
-        );
-    let router = Router::new()
-        .route(
-            &format!("{route}/state/start"),
-            post(move || {
-                let ack = ack.clone();
-                async move {
-                    ack.notify_one();
-                    Json(json!({"ok":true}))
-                }
-            }),
-        )
-        .route(&route, get(move || async { Html(page) }))
-        .route(
-            &format!("{route}/state"),
-            get(move || {
-                let state = state.clone();
-                async move { Json(state.read().await.clone()) }
-            }),
-        );
-    let task = tokio::spawn(async move { axum::serve(listener, router).await });
-    write_private(
+    crate::app_transition::run(
         &ready,
-        &serde_json::to_vec(&json!({"url":format!("http://127.0.0.1:{port}{route}")}))?,
-    )?;
-    let outcome = if tokio::time::timeout(Duration::from_secs(45), acknowledged.notified())
-        .await
-        .is_ok()
-    {
-        switch(paths, &request, &progress).await
-    } else {
-        Err(anyhow::anyhow!("切换页面未打开，当前模式保持不变。"))
-    };
-    match outcome {
-        Ok(value) => *progress.write().await = json!({"phase":"done","url":value["url"]}),
-        Err(error) => {
-            if progress.read().await["phase"] != "failed" {
-                *progress.write().await =
-                    json!({"phase":"failed","message":error.to_string(),"url":request.return_url});
-            }
-        }
-    }
-    drop(guard);
-    tokio::time::sleep(Duration::from_secs(120)).await;
-    task.abort();
-    Ok(())
+        &request.return_url,
+        request.language.as_deref(),
+        "正在切换运行模式…",
+        "Switching modes…",
+        guard,
+        |progress| {
+            let request = &request;
+            async move { switch(paths, request, &progress).await }
+        },
+    )
+    .await
 }
 
 pub async fn run(data_paths: &Paths, command: Command) -> Result<()> {
@@ -695,11 +620,11 @@ pub async fn run(data_paths: &Paths, command: Command) -> Result<()> {
     }
 }
 
-const TRANSITION_PAGE: &str = r#"<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Palboo</title><style>:root{color-scheme:light dark}body{font:16px system-ui;margin:0;min-height:100vh;display:grid;place-items:center}main{max-width:34em;padding:32px}h1{font-size:24px}p{line-height:1.7}a{color:inherit}</style><main><h1>Palboo</h1><p role="status">正在切换运行模式…</p><a hidden>返回设置</a></main><script>const p=document.querySelector('p'),a=document.querySelector('a');async function poll(){try{const r=await fetch('__STATE__',{cache:'no-store'}),s=await r.json();if(s.phase==='done'){location.replace(s.url);return}p.textContent=s.message;if(s.phase==='failed'){a.href=s.url;a.hidden=false;return}setTimeout(poll,700)}catch{p.textContent='切换状态暂时不可达，请重新打开 Palboo。'}}fetch('__STATE__/start',{method:'POST'}).then(poll).catch(()=>{p.textContent='未开始切换，请重新打开设置。'})</script></html>"#;
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use axum::{Json, Router, routing::get};
+    use tokio::sync::Notify;
 
     #[tokio::test]
     async fn release_waits_for_connection_and_rejects_other_targets_and_timeout() {

@@ -1,9 +1,11 @@
 // [INPUT]: CLI 参数以及 config/lifecycle/server/panel_window/model_control/tasks 模块。
-// [OUTPUT]: palboo 命令分发与进程入口；launch --host-only 供开发入口仅准备宿主。
+// [OUTPUT]: palboo 命令分发与进程入口；模式交接/手动更新使用独立短期 worker；launch --host-only 供开发入口仅准备宿主。
 // [POS]: 独立可执行文件入口，区分后台和窗口子进程。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
 mod app_mode;
+mod app_transition;
+mod app_update;
 mod assets;
 mod brand;
 mod cdp;
@@ -59,6 +61,11 @@ enum Commands {
     AppMode {
         #[command(subcommand)]
         command: app_mode::Command,
+    },
+    #[command(hide = true)]
+    AppUpdateWorker {
+        #[arg(long)]
+        request: PathBuf,
     },
     #[command(about = "查询、预览和修改本机配置（JSON），不自动启动后台")]
     Config {
@@ -178,6 +185,7 @@ async fn main() -> Result<()> {
         allow_fixture: false,
     }) {
         Commands::AppMode { command } => app_mode::run(&paths, command).await,
+        Commands::AppUpdateWorker { request } => app_update::worker(&request).await,
         Commands::Config { command } => config_cli::run(&paths, command).await,
         Commands::CodexHostRestart { lease } => codex_host::restart::run(&paths, &lease).await,
         Commands::RemindersWorker {

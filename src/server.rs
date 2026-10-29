@@ -1,6 +1,6 @@
-// [INPUT]: App、Runtime、本机认证令牌、target/web 与 ui/panel/popout 资源。
+// [INPUT]: App、Runtime、app_mode/app_update、本机认证令牌、target/web 与 ui/panel/popout 资源。
 // [OUTPUT]: serve、认证任务 API、HTTP/SSE API、设置页、看板和弹出页资源；含原生呈现确认的窗口协议及受鉴权的无正文开发状态与仅开发模式开放的工作台唤起接口。
-// [POS]: 仅监听 loopback 的服务入口，公开状态剔除聊天正文；认证状态携带 Dev 设置地址供旧入口跳转；独立模型控制 API、页面与窗口租约共用鉴权；偏好服务自行管理操作锁。
+// [POS]: 仅监听 loopback 的服务入口，公开状态剔除聊天正文；认证状态携带 Dev 设置地址供旧入口跳转；更新读取/检查/安装和模型控制、窗口租约共用鉴权；操作锁由对应服务管理。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
 use crate::{
@@ -144,6 +144,11 @@ fn router(service: Service) -> Router {
         .route("/state", get(state))
         .route("/app-mode", get(app_mode_status).post(app_mode_switch))
         .route(
+            "/app-update",
+            get(app_update_status).post(app_update_install),
+        )
+        .route("/app-update/check", post(app_update_check))
+        .route(
             "/performance",
             get(performance_state).post(performance_update),
         )
@@ -248,6 +253,33 @@ async fn app_mode_status() -> Result<Json<Value>, ApiError> {
     Ok(Json(crate::app_mode::status(
         crate::assets::development().is_some(),
     )?))
+}
+
+async fn app_update_status() -> Result<Json<Value>, ApiError> {
+    Ok(Json(
+        crate::app_update::status(crate::assets::development().is_some()).await?,
+    ))
+}
+async fn app_update_check() -> Result<Json<Value>, ApiError> {
+    Ok(Json(
+        crate::app_update::check(crate::assets::development().is_some()).await?,
+    ))
+}
+async fn app_update_install(
+    State(service): State<Service>,
+    Json(update): Json<crate::app_update::Update>,
+) -> Result<Json<Value>, ApiError> {
+    let url = crate::assets::settings_url()
+        .unwrap_or_else(|| format!("http://127.0.0.1:{}/#token={}", service.port, service.token));
+    Ok(Json(
+        crate::app_update::begin(
+            &service.app.paths,
+            update,
+            crate::assets::development().is_some(),
+            url,
+        )
+        .await?,
+    ))
 }
 async fn app_mode_switch(
     State(service): State<Service>,
