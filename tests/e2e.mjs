@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 独立 Chromium、合成 fixture、release/debug 程序与模型 stub。
- * [OUTPUT]: target/reports/e2e 下的 CDP、设置与统一字体双向同步、完整长上下文三协议传输、建议、大纲及弹出交互验收报告。
+ * [OUTPUT]: target/reports/e2e 下的 CDP、设置与统一字体双向同步、完整长上下文三协议传输、建议、大纲、弹出及旧工作台迁移验收报告。
  * [POS]: 端到端测试入口，委托 popout-checks 验证窗口协议；--native-popout 以真实 Wry 窗口验收大纲定位与往返，不截图。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -371,8 +371,9 @@ try {
     await settle();
   };
   const generate = async () => {
-    if ((await panelState()).tab !== 'next') await switchView('next');
-    await desktop.locator('.csw-head').hover();
+    // Feature toggles can select another workbench tab without changing the legacy activeTab.
+    await switchView('next');
+    await desktop.locator('.csw-workbench').hover();
     await desktop.locator('[data-companion-stepwise-root] [data-refresh="next"]').click();
     await waitFor(
       async () => (await panelState()).status === 'ok',
@@ -752,15 +753,6 @@ try {
       async () => (await panelState()).outline.length > 2,
       'Outline did not recover independently',
     );
-    const outlineBeforeDisable = (await panelState()).outline;
-    await patch({ enabled: false });
-    await waitFor(
-      async () =>
-        !(await desktop.evaluate(() => window.__companionFloatingPanel.state.settings.enabled)),
-      'Stepwise setting did not reach host',
-    );
-    assert.deepEqual((await panelState()).outline, outlineBeforeDisable);
-    await patch({ enabled: true });
     await switchView('next');
     modelDelay = 1600;
     const independentRequest = calls.length;
@@ -792,7 +784,7 @@ try {
     );
     await patch({ maxItems: 4 });
     await generate();
-    record('大纲开关保留建议和生成中请求；Stepwise 开关保留大纲；生成参数更新投影身份');
+    record('大纲开关保留建议和生成中请求；生成参数更新投影身份');
     const idleScans = await desktop.evaluate(() => {
       const p = window.__companionFloatingPanel;
       const before = p.state.scans;
@@ -1166,7 +1158,7 @@ try {
     });
     await page.screenshot({ path: join(output, 'settings-single-liquid.png') });
     await selectSettingsCategory(page, 'next');
-    await page.getByLabel('指令执行模式', { exact: true }).selectOption('hybrid');
+    await page.getByRole('combobox', { name: '指令执行模式', exact: true }).selectOption('hybrid');
     await waitFor(
       async () => (await panelState()).clickMode === 'hybrid',
       'Web click mode did not reach embedded panel',
@@ -1228,20 +1220,8 @@ try {
       async () => await desktop.locator('[data-refresh="outline"]').isDisabled(),
       'Independent outline disable did not apply',
     );
-    await patch({ enabled: false });
-    await waitFor(
-      async () => (await desktop.locator('[data-companion-stepwise-root]').count()) === 0,
-      'Disabled runtime still mounted',
-    );
-    await patch({ enabled: true, answerOutlineEnabled: true });
-    await waitFor(
-      async () => (await desktop.locator('[data-companion-stepwise-root]').count()) === 1,
-      'Runtime did not reactivate',
-    );
-    // Re-enabling can restore an already-open preference; require open rather than toggle it.
-    await desktop.evaluate(() => window.__companionFloatingPanel.setOpen(true));
-    await settle();
-    record('桌面／网页设置双向同步与独立功能开关');
+    await patch({ answerOutlineEnabled: true });
+    record('桌面／网页设置双向同步与大纲独立开关');
 
     for (const protocol of ['responses', 'chat_completions', 'anthropic_messages']) {
       await patch({ protocol });
@@ -1566,6 +1546,38 @@ try {
     assert.ok(Math.abs(upwardEnd.height - 340) < 2, 'Minimum height must stop at the dragged edge');
     record('向上展开的面板缩到最小高度后，松手不跳位');
 
+    // Disabling Stepwise now migrates enabled quick phrases into managed feature views.
+    // Finish retained legacy controls/popout checks before exercising that transition.
+    const outlineBeforeDisable = (await panelState()).outline;
+    await patch({ enabled: false });
+    await waitFor(
+      async () =>
+        !(await desktop.evaluate(() => window.__companionFloatingPanel.state.settings.enabled)),
+      'Stepwise setting did not reach host',
+    );
+    assert.deepEqual((await panelState()).outline, outlineBeforeDisable);
+    await waitFor(async () => {
+      const state = (await api('features', { op: 'state' })).body;
+      return (
+        state.mainManaged && state.features.some((entry) => entry.id === 'prompts' && entry.open)
+      );
+    }, 'Enabled quick phrases did not migrate independently of Stepwise');
+    record('关闭 Stepwise 保留大纲，并将仍启用的常用语交给独立功能视图');
+
+    await patch({ enabled: false, answerOutlineEnabled: false, quickPromptsEnabled: false });
+    await waitFor(
+      async () => (await desktop.locator('[data-companion-stepwise-root]').count()) === 0,
+      'Disabled runtime still mounted',
+    );
+    await patch({ enabled: true, answerOutlineEnabled: true, quickPromptsEnabled: true });
+    await waitFor(
+      async () => (await desktop.locator('[data-companion-stepwise-root]').count()) === 1,
+      'Runtime did not reactivate',
+    );
+    await desktop.evaluate(() => window.__companionFloatingPanel.setOpen(true));
+    await settle();
+    record('关闭全部独立功能清理运行态，重新启用后恢复唯一工作台');
+
     await api('disconnect', {});
     await waitFor(
       async () => (await desktop.locator('[data-companion-stepwise-root]').count()) === 0,
@@ -1597,7 +1609,7 @@ try {
       JSON.stringify(
         {
           artifact,
-          version: '0.4.0',
+          version: JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version,
           passed: reports.length,
           reports,
           pageErrors: errors,
