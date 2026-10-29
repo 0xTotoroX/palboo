@@ -135,7 +135,9 @@ return <div className="settings-app"><LayoutPreview appearance features={feature
     assert.ok(compact.height < 220, `two-model preview fits content: ${compact.height}`);
     assert.ok(compact.gap <= 16, `no blank presets spacer: ${compact.gap}`);
     assert.ok(compact.bottom <= 4, `no fixed-height bottom space: ${compact.bottom}`);
-    const choice = preview.getByRole('button', { name: '示例模型 B · High', exact: true });
+    const choice = preview
+      .locator('.model-matrix')
+      .getByRole('button', { name: '示例模型 B · High', exact: true });
     await choice.click();
     assert.equal(await choice.getAttribute('aria-pressed'), 'true');
     assert.equal(
@@ -145,7 +147,10 @@ return <div className="settings-app"><LayoutPreview appearance features={feature
       'false',
     );
     await preview.getByRole('button', { name: '添加预设', exact: true }).click();
-    await preview.getByRole('button', { name: '示例模型 B', exact: true }).waitFor();
+    const preset = preview
+      .locator('.model-presets')
+      .getByRole('button', { name: '示例模型 B · High', exact: true });
+    await preset.waitFor();
     await page.getByRole('button', { name: '读取额度', exact: true }).click();
     assert.equal(await preview.locator('.model-usage').textContent(), '周 41%5小时 83%');
     await page.getByRole('button', { name: '切换额度', exact: true }).click();
@@ -154,7 +159,7 @@ return <div className="settings-app"><LayoutPreview appearance features={feature
     await page.getByRole('button', { name: '更新额度', exact: true }).click();
     assert.equal(await preview.locator('.model-usage').textContent(), '周 38%');
     assert.equal(await choice.getAttribute('aria-pressed'), 'true');
-    assert.equal(await preview.getByRole('button', { name: '示例模型 B', exact: true }).count(), 1);
+    assert.equal(await preset.count(), 1);
     await page.getByRole('button', { name: '清空额度', exact: true }).click();
     assert.equal(await preview.locator('.model-usage').textContent(), '周 —5小时 —');
     assert.equal(await page.locator('.settings-row label').textContent(), '大纲');

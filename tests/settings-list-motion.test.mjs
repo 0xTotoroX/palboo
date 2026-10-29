@@ -266,8 +266,8 @@ createRoot(document.getElementById('root')).render(<App/>);`,
       await page.getByRole('textbox', { name: '新分组名称', exact: true }).fill('新看板分组');
       await clear();
       await page.getByRole('button', { name: '新增分组', exact: true }).click();
-      assert.ok(
-        (await animations()).some(
+      await page.waitForFunction(() =>
+        window.motion.some(
           (x) => x.list === 'board-groups' && x.key === 'new' && x.duration === 200,
         ),
       );
@@ -280,7 +280,9 @@ createRoot(document.getElementById('root')).render(<App/>);`,
         .locator('#model-organization')
         .getByRole('button', { name: '新增分组', exact: true })
         .click();
-      assert.ok((await animations()).some((x) => x.list === 'model-groups' && x.duration === 200));
+      await page.waitForFunction(() =>
+        window.motion.some((x) => x.list === 'model-groups' && x.duration === 200),
+      );
       const closeGroups = page.getByRole('button', { name: '关闭模型分组', exact: true });
       if (await closeGroups.count()) await closeGroups.click();
       // Reduced motion cancels in flight and performs future operations immediately.

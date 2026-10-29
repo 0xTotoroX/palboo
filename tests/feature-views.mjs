@@ -449,6 +449,17 @@ try {
   const savedSelection = structuredClone(model.snapshot.current);
   const presetButton = view.getByRole('button', { name: '添加预设', exact: true });
   const defaultName = model.snapshot.models.find((m) => m.id === savedSelection.model).label;
+  const savedPreset = (name) =>
+    view.locator('.model-presets').getByRole('button', {
+      name: [
+        name,
+        savedSelection.reasoning.charAt(0).toUpperCase() + savedSelection.reasoning.slice(1),
+        savedSelection.speed === 'fast' ? 'Fast' : '',
+      ]
+        .filter(Boolean)
+        .join(' · '),
+      exact: true,
+    });
   rejectPresetSave = true;
   await presetButton.click();
   await page.waitForFunction(() =>
@@ -460,11 +471,11 @@ try {
   assert.equal(await view.locator('.model-preset-editor').count(), 0);
   rejectPresetSave = false;
   await presetButton.click();
-  await view.getByRole('button', { name: defaultName, exact: true }).waitFor();
+  await savedPreset(defaultName).waitFor();
   assert.deepEqual(model.preferences.presets[0].selection, savedSelection);
   assert.equal(await view.locator('.model-preset-editor').count(), 0);
   await view.getByRole('button', { name: '编辑预设', exact: true }).click();
-  await view.getByRole('button', { name: defaultName, exact: true }).click();
+  await savedPreset(defaultName).click();
   const editor = view.getByRole('form', { name: '重命名模型预设' });
   const nameInput = editor.getByRole('textbox', { name: '预设名称' });
   await nameInput.waitFor();
@@ -474,13 +485,13 @@ try {
   await nameInput.fill('取消的名称');
   await editor.getByRole('button', { name: '取消', exact: true }).click();
   assert.equal(model.preferences.presets[0].name, defaultName);
-  await view.getByRole('button', { name: defaultName, exact: true }).click();
+  await savedPreset(defaultName).click();
   await nameInput.fill('Esc 取消');
   await nameInput.dispatchEvent('keydown', { key: 'Escape', isComposing: true });
   assert.equal(await nameInput.inputValue(), 'Esc 取消', 'IME Escape keeps the draft');
   await nameInput.press('Escape');
   await editor.waitFor({ state: 'hidden' });
-  await view.getByRole('button', { name: defaultName, exact: true }).click();
+  await savedPreset(defaultName).click();
   await nameInput.fill('  日常  ');
   rejectPresetSave = true;
   await nameInput.press('Enter');
@@ -496,11 +507,11 @@ try {
   model.snapshot.current = { model: 'b', reasoning: 'high', speed: 'standard' };
   await view.locator('[data-model="b"][data-reasoning="high"][aria-pressed="true"]').waitFor();
   await editor.getByRole('button', { name: '保存', exact: true }).click();
-  await view.getByRole('button', { name: '日常', exact: true }).waitFor();
+  await savedPreset('日常').waitFor();
   await editor.waitFor({ state: 'hidden' });
   assert.deepEqual(model.preferences.presets[0].selection, savedSelection);
   await view.getByRole('button', { name: '编辑预设', exact: true }).click();
-  await view.getByRole('button', { name: '日常', exact: true }).click();
+  await savedPreset('日常').click();
   await view
     .locator(
       `[data-model="${savedSelection.model}"][data-reasoning="${savedSelection.reasoning}"][aria-pressed="true"]`,
@@ -510,7 +521,7 @@ try {
   await view.getByRole('button', { name: '编辑预设', exact: true }).click();
   assert.equal(await view.locator('.model-preset-delete').count(), 1);
   const applyBeforeRename = actions.filter((item) => item.action === 'apply').length;
-  await view.getByRole('button', { name: '日常', exact: true }).click();
+  await savedPreset('日常').click();
   assert.equal(
     actions.filter((item) => item.action === 'apply').length,
     applyBeforeRename,
@@ -520,7 +531,7 @@ try {
   assert.equal(await rename.getByRole('textbox').inputValue(), '日常');
   await rename.getByRole('textbox').fill('工作');
   await rename.getByRole('textbox').press('Enter');
-  await view.getByRole('button', { name: '工作', exact: true }).waitFor();
+  await savedPreset('工作').waitFor();
   await rename.waitFor({ state: 'hidden' });
   // The renamed preset can render before its editor closes and edge sizing catches up.
   await page.evaluate(
@@ -643,7 +654,7 @@ try {
   );
   await view.getByRole('button', { name: '编辑预设', exact: true }).click();
   await view.getByLabel('删除预设 工作').click();
-  await view.getByRole('button', { name: '工作', exact: true }).waitFor({ state: 'detached' });
+  await savedPreset('工作').waitFor({ state: 'detached' });
   record(
     'shared model view uses readback, preserves speed, hides/restores models, persists drag order and saves/removes presets',
   );

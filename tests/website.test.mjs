@@ -85,9 +85,13 @@ test('portfolio demos preserve drafts, preferences and undo without service requ
     assert.match(await demo.locator('.chat-paragraph.is-focused').innerText(), /上线前检查/);
     assert.ok(await demo.locator('.demo-chat article').evaluate((node) => node.scrollTop > 0));
     await choose('模型切换');
-    await demo.getByRole('button', { name: 'GPT-6-Astra · High', exact: true }).click();
+    await demo
+      .locator('.model-matrix')
+      .getByRole('button', { name: 'GPT-6-Astra · High', exact: true })
+      .click();
     assert.equal(
       await demo
+        .locator('.model-matrix')
         .getByRole('button', { name: 'GPT-6-Astra · High', exact: true })
         .getAttribute('aria-pressed'),
       'true',
@@ -660,9 +664,13 @@ test('model matrix, quota, presets, material samples and speed states use real p
   try {
     await page.goto(base);
     const model = page.locator('.tools-section .demo-models');
-    await model.getByRole('button', { name: 'GPT-6-Astra · High', exact: true }).click();
+    await model
+      .locator('.model-matrix')
+      .getByRole('button', { name: 'GPT-6-Astra · High', exact: true })
+      .click();
     assert.equal(
       await model
+        .locator('.model-matrix')
         .getByRole('button', { name: 'GPT-6-Astra · High', exact: true })
         .getAttribute('aria-pressed'),
       'true',
@@ -672,12 +680,21 @@ test('model matrix, quota, presets, material samples and speed states use real p
       await model.getByRole('button', { name: 'Fast', exact: true }).getAttribute('aria-pressed'),
       'true',
     );
-    await model.getByRole('button', { name: 'GPT-6-Astra · Medium', exact: true }).click();
+    await model
+      .locator('.model-matrix')
+      .getByRole('button', { name: 'GPT-6-Astra · Medium', exact: true })
+      .click();
     assert.equal(
       await model.getByRole('button', { name: 'Fast', exact: true }).getAttribute('aria-pressed'),
       'true',
     );
-    assert.equal(await model.getByRole('button', { name: 'GPT-6-Astra', exact: true }).count(), 2);
+    assert.equal(
+      await model
+        .locator('.model-presets')
+        .getByRole('button', { name: /^GPT-6-Astra · High(?: · Fast)?$/ })
+        .count(),
+      2,
+    );
     await model.getByRole('button', { name: '添加预设', exact: true }).click();
     assert.match(await model.locator('.model-presets').innerText(), /GPT-6-Astra/);
     assert.match(await model.locator('.model-usage').innerText(), /72/);

@@ -44,7 +44,7 @@ test('token module plugs into model footer and unplugs without changing model co
       },
       readFileSync('ui/features/model/styles.css', 'utf8'),
     );
-    await page.getByRole('button', { name: '测试预设', exact: true }).waitFor();
+    await page.getByRole('button', { name: '测试预设 · High', exact: true }).waitFor();
     const matrix = await page.locator('.model-matrix').boundingBox();
     assert.equal(await page.locator('.token-meter-readout').count(), 0);
     await page.evaluate(() => {
@@ -117,7 +117,7 @@ test('token module plugs into model footer and unplugs without changing model co
     await meter.waitFor({ state: 'detached' });
     assert.deepEqual(await page.locator('.model-preset-actions').boundingBox(), actions);
     assert.deepEqual(await page.evaluate(() => window.calls), []);
-    await page.getByRole('button', { name: '测试预设', exact: true }).click();
+    await page.getByRole('button', { name: '测试预设 · High', exact: true }).click();
     assert.equal(await page.evaluate(() => window.calls.at(-1).data.action), 'apply');
     await page.evaluate(() => {
       window.state.snapshot.tokenMeter = {
