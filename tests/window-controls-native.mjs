@@ -1,10 +1,10 @@
 /* [INPUT]: Current debug native window, production App entry and a synthetic local page/controller.
- * [OUTPUT]: System traffic lights, actual App bundle identity and Dock reopen, minimize/reveal and zoom/restore with unchanged draft/PID.
+ * [OUTPUT]: Stable native controls throughout moves/resizes, App identity, minimize/reveal and zoom/fullscreen restore with unchanged draft/PID.
  * [POS]: Isolated temporary data and self-owned window, no screenshots or real host data.
  * [PROTOCOL]: Keep tests/AGENTS.md in sync. */
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { mkdtemp, writeFile, rm, mkdir } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, rm, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawn, execFileSync } from 'node:child_process';
@@ -13,8 +13,9 @@ import { prepareTestBinary } from '../scripts/verify.mjs';
 import { nativeApp } from './native-app.mjs';
 const root = resolve(import.meta.dirname, '..'),
   dir = await mkdtemp(join(tmpdir(), 'buddy-window-controls-'));
-const binary = prepareTestBinary('debug').binary;
-const app = nativeApp(dir);
+const app = nativeApp(dir, prepareTestBinary('debug').binary);
+const binary = join(app, 'Contents/MacOS/palboo');
+const readyFile = join(dir, 'window.pid');
 let latest,
   commands = [],
   child,
@@ -34,9 +35,9 @@ const controller=installWindowControls(document.body,{post,dock:async()=>post({k
 const update=controller.update;controller.update=value=>{state=value;update(value);};
 post({kind:'show',anchor:null});
 async function poll(){
- try{const response=await fetch('/probe',{method:'POST',body:JSON.stringify({ready,returned,state,draft:document.querySelector('#draft').value,width:innerWidth,height:innerHeight,error:window.failure,webControls:document.querySelectorAll('[data-window-control]').length,transient:controller.geometryTransient()})});
+ try{const response=await fetch('/probe',{method:'POST',body:JSON.stringify({ready,returned,state,chromeProbe:window.__companionNativeChromeProbe,draft:document.querySelector('#draft').value,width:innerWidth,height:innerHeight,error:window.failure,webControls:document.querySelectorAll('[data-window-control]').length,transient:controller.geometryTransient()})});
  for(const action of await response.json()){
-  if(action==='hide'||action==='reveal'||action==='window-state')post({kind:action});
+  if(action==='hide'||action==='reveal'||action==='window-state'||action==='native-chrome-probe')post({kind:action});
   else if(action==='close')post({kind:'close'});
   else if(action==='maximize')post({kind:'toggle-maximize'});
   else if(action==='fullscreen')post({kind:'native-fullscreen'});
@@ -120,6 +121,8 @@ try {
       '-W',
       '--env',
       'PALBOO_DEV_GENIE=0',
+      '--env',
+      `PALBOO_WINDOW_READY_FILE=${readyFile}`,
       app,
       '--args',
       '--palboo-window',
@@ -171,6 +174,27 @@ try {
       button.y >= 20 && button.y + button.height <= 48,
       'traffic lights fit the existing header: ' + JSON.stringify(button),
     );
+  }
+  const originalButtons = latest.state.nativeChrome.buttons;
+  commands.push('native-chrome-probe');
+  await wait(() => latest?.chromeProbe?.length === 25, 'continuous native move/resize');
+  let maxChromeDrift = 0;
+  for (const sample of latest.chromeProbe) {
+    assert.equal(sample.headerContentReachable, true, 'window menu stays reachable during resize');
+    assert.equal(sample.buttons.length, 3);
+    for (const [index, button] of sample.buttons.entries()) {
+      assert.ok(button.visible && button.reachable && button.enabled, JSON.stringify(button));
+      for (const key of ['x', 'y', 'width', 'height']) {
+        maxChromeDrift = Math.max(
+          maxChromeDrift,
+          Math.abs(button[key] - originalButtons[index][key]),
+        );
+        assert.ok(
+          Math.abs(button[key] - originalButtons[index][key]) <= 0.5,
+          `native ${key} must stay fixed during resize: ${JSON.stringify(button)}`,
+        );
+      }
+    }
   }
   commands.push('minimize');
   await wait(() => latest?.state?.minimized && !bounds(), 'native yellow button minimizes');
@@ -225,9 +249,20 @@ try {
   );
   await wait(() => restored(original), 'normal frame after fullscreen');
   near(bounds(), original);
+  for (const [index, button] of latest.state.nativeChrome.buttons.entries()) {
+    assert.ok(
+      button.visible && button.reachable && button.enabled,
+      'restored native controls work',
+    );
+    assert.equal(button.x, originalButtons[index].x);
+    assert.equal(button.y, originalButtons[index].y);
+  }
   const result = {
     hideReveal: true,
     nativeTrafficLights: true,
+    nativeResizeStable: true,
+    nativeChromeSamples: latest.chromeProbe.length,
+    nativeChromeMaxDrift: maxChromeDrift,
     nativeMinimize: true,
     nativeGreen: true,
     fullscreenReturn: true,
@@ -248,6 +283,7 @@ try {
   );
   console.log(JSON.stringify(result));
 } finally {
+  if (!nativePid) nativePid = Number(await readFile(readyFile, 'utf8').catch(() => ''));
   if (child && child.exitCode === null) {
     if (nativePid) {
       try {

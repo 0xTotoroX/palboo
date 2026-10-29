@@ -1,5 +1,5 @@
 // [INPUT]: Tao/Wry、Runtime、Preferences、Palboo.app 身份、共享 native_backdrop 与 AppKit 手势。
-// [OUTPUT]: 原生红黄绿窗口与 Palboo 应用图标、置顶及调度中心/Spaces、跨屏往返和实时材质。
+// [OUTPUT]: 同步随窗口绘制的原生红黄绿、Palboo 应用身份、置顶/Spaces、跨屏往返和实时材质。
 // [POS]: 窗口子进程实现；系统管理最小化/放大/全屏，关闭沿用收回，普通几何独立于临时窗口状态。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
@@ -16,7 +16,7 @@ use tao::{
     platform::macos::WindowBuilderExtMacOS,
     window::{Window, WindowBuilder},
 };
-use wry::WebViewBuilder;
+use wry::{WebViewBuilder, WebViewBuilderExtDarwin};
 
 #[derive(Clone, Copy, Debug)]
 struct Pose {
@@ -228,46 +228,58 @@ mod macos {
         }
     }
 
-    pub fn position_window_controls(window: &Window) {
+    #[cfg(debug_assertions)]
+    pub fn probe_window_controls(window: &Window) -> Value {
+        let native = native_window(window);
+        let original = native.frame();
+        let mut samples = Vec::new();
+        // 和拖动/缩放共用 AppKit frame 更新，逐次绘制后取样，不发送系统鼠标事件。
+        for step in 0..24 {
+            let phase = step % 8;
+            let offset = f64::from(phase.min(7 - phase)) * 8.;
+            let mut frame = original;
+            if step < 8 {
+                frame.origin.x += offset;
+                frame.origin.y -= offset;
+            } else {
+                frame.size.width += offset;
+                frame.size.height += offset;
+                frame.origin.y -= offset;
+                if step >= 16 {
+                    frame.origin.x -= offset;
+                }
+            }
+            native.setFrame_display(frame, step < 8);
+            native.displayIfNeeded();
+            // layer-backed view 的 drawRect 在事务提交时执行；取样必须包含这次绘制。
+            CATransaction::flush();
+            samples.push(native_controls(window));
+        }
+        native.setFrame_display(original, true);
+        native.displayIfNeeded();
+        CATransaction::flush();
+        samples.push(native_controls(window));
+        serde_json::json!(samples)
+    }
+
+    pub fn limit_titlebar_hit_area(window: &Window) {
         if window.fullscreen().is_some() {
             return;
         }
         let native = native_window(window);
         if let Some(button) = native.standardWindowButton(NSWindowButton::CloseButton) {
-            let frame = button.convertRect_toView(button.bounds(), None);
-            let top = native.frame().size.height - frame.origin.y - frame.size.height;
-            // Wry 替换 Tao 的 contentView 后不再触发其 drawRect 布局；沿用标准按钮与动作。
-            if (frame.origin.x - 26.).abs() > 0.5 || (top - 27.).abs() > 0.5 {
-                let Some(parent) = (unsafe { button.superview() }) else {
-                    return;
-                };
-                let Some(container) = (unsafe { parent.superview() }) else {
-                    return;
-                };
-                // 仅原生按钮区域接收标题栏点击，右侧网页置顶和拖动条保持可达。
-                container.setFrame(NSRect::new(
-                    NSPoint::new(0., native.frame().size.height - 56.),
-                    NSSize::new(100., 56.),
-                ));
-                for (index, kind) in [
-                    NSWindowButton::CloseButton,
-                    NSWindowButton::MiniaturizeButton,
-                    NSWindowButton::ZoomButton,
-                ]
-                .into_iter()
-                .enumerate()
-                {
-                    if let Some(button) = native.standardWindowButton(kind) {
-                        let origin = parent.convertPoint_fromView(
-                            NSPoint::new(
-                                26. + index as f64 * 20.,
-                                native.frame().size.height - 27. - button.frame().size.height,
-                            ),
-                            None,
-                        );
-                        button.setFrameOrigin(origin);
-                    }
-                }
+            let Some(parent) = (unsafe { button.superview() }) else {
+                return;
+            };
+            let Some(container) = (unsafe { parent.superview() }) else {
+                return;
+            };
+            // 按钮位置由 Wry 在 AppKit 绘制内同步布局；这里只限制点击区域，
+            // 不再重写标题栏高度和按钮坐标，避免与系统缩放布局来回覆盖。
+            let mut frame = container.frame();
+            if (frame.size.width - 100.).abs() > 0.5 {
+                frame.size.width = 100.;
+                container.setFrame(frame);
             }
         }
     }
@@ -585,6 +597,8 @@ pub fn run_surface(
     let proxy = event_loop.create_proxy();
     let allowed = page.clone();
     let builder = WebViewBuilder::new()
+        // build() 替换 Tao 的 contentView，红绿灯 inset 必须同时交给 Wry。
+        .with_traffic_light_inset(LogicalPosition::new(26., 30.))
         .with_incognito(crate::assets::development().is_some())
         .with_url(url)
         .with_transparent(true)
@@ -611,7 +625,7 @@ pub fn run_surface(
 
     let mut gesture: Option<macos::Gesture> = None;
     let backdrop = macos::Backdrop::new(&window);
-    macos::position_window_controls(&window);
+    macos::limit_titlebar_hit_area(&window);
     let mut reported_glass_style = None;
     let mut window_transition: Option<WindowTransition> = None;
     let mut return_origin: Option<Pose> = None;
@@ -638,7 +652,7 @@ pub fn run_surface(
     let mut scope_hidden = false;
     event_loop.run(move |event, _, control| {
         *control = ControlFlow::Wait;
-        macos::position_window_controls(&window);
+        macos::limit_titlebar_hit_area(&window);
         match event {
             Event::Reopen { .. } => {
                 let _ = event_loop_proxy.send_event(json!({"kind":"reveal"}));
@@ -663,6 +677,11 @@ pub fn run_surface(
                     }
                 }
                 "window-state" => publish_window_controls(&webview, &window, normal_window_pose, window_hidden),
+                #[cfg(debug_assertions)]
+                "native-chrome-probe" if window_transition.is_none() && gesture.is_none() => {
+                    let samples = macos::probe_window_controls(&window);
+                    let _ = webview.evaluate_script(&format!("window.__companionNativeChromeProbe = {samples};"));
+                }
                 "hide" => {
                     if window_transition.is_none() && gesture.is_none() {
                         window.set_visible(false);

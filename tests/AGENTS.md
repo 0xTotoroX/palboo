@@ -2,7 +2,7 @@
 
 > L2 | 父级：[AGENTS.md](../AGENTS.md)
 
-- `window-controls-native.mjs`：当前 debug 程序与合成页面，回读 AppKit 红黄绿几何、点击可达性及应用图标，执行系统按钮最小化/放大/关闭、全屏退出后收回、隐藏恢复与尺寸还原；保留同一进程和合成草稿。窗口几何直接由本窗口回读，不以当前 Space 的屏幕可见列表判断隐藏，无截图或鼠标权限请求。`native-check --header-only` 补验三材质、置顶层级及 Managed 策略。
+- `window-controls-native.mjs`：当前 debug 程序与合成页面，回读 AppKit 红黄绿几何、点击可达性及应用图标；连续移动和左右两角缩放的25次绘制提交后采样要求按钮坐标/尺寸稳定、菜单可达，执行系统按钮最小化/放大/关闭、全屏退出后收回与按钮复位、隐藏恢复与尺寸还原；保留同一进程和合成草稿。窗口几何直接由本窗口回读，不以当前 Space 的屏幕可见列表判断隐藏，无截图或鼠标权限请求。`native-check --header-only` 补验三材质、置顶层级及 Managed 策略。
 
 网站滚动回归同时验证无需点击遍历六个功能、三种排列、四种承载及四边、五个材质状态；看板流转、国内/国外模型/Fast 与内联测速、提示优化与 Bot 咨询随滚动推进。检查反向回看、手动暂停/主动滚动恢复、编辑草稿优先、短屏自然排版、减少动态效果与单一工作台身份；长页面返回顶部必须精确恢复终点。
 
@@ -377,7 +377,7 @@ Fast/普通预设按闪电标记独立消歧：model-groups 覆盖同组编号�
 
 `compact-feature-layout.test.mjs` 通过实际 mountFeature 与完整标题/正文外壳验证 240px 窄栏、280px 矮面板、长列表、中英文及20px大字号：术语图标筛选在标题槽、正文只有一层12px边距、按钮至少28px且键盘可用；模型额度/测速/操作初始可见，滚动模型不移动底栏，Esc 退出预设编辑。settings-preview-controls 以真实 Bot/下一步/看板组件验证徽章、按需消息、停止及填入仅更新示例内存；settings-modes 同时检查外框高度和 Shadow DOM 正文边界，防止实际内容遮挡下方表单；performance 检查关闭前后均无空仪表、无新增采样。
 
-- `native-app.mjs`：用正式 Swift 入口、原始图标和隔离目录组装合成 App，不安装或修改 Dock 固定项。`window-controls-native.mjs` 核对真实 bundle 路径/标识、Dock reopen 的同 PID/草稿保留；裸 CLI 的 `native-check --header-only` 则必须是 accessory。`window_process` 的忽略原生用例显式验证 LaunchServices→exec 的身份、真实 PID、自然退出和主动回收。
+- `native-app.mjs`：用正式 Swift 入口、原始图标及已核验程序在隔离目录组装自包含合成 App，程序不从真实源码目录加载；不安装或修改 Dock 固定项。`window-controls-native.mjs` 核对真实 bundle 路径/标识、Dock reopen 的同 PID/草稿保留，并通过本次 ready PID 回执清理未呈现的窗口；裸 CLI 的 `native-check --header-only` 则必须是 accessory。`window_process` 的忽略原生用例显式验证 LaunchServices→exec 的身份、真实 PID、自然退出和主动回收。
 
 常用语内容优先验收：quick-prompts-editor 验三行实际溢出、展开与执行分离、只读可展开、空名称保存及回退、隐藏挂载/缩放/双语/减少动态效果；settings-safety 验显示开关独立保存且保留未完成正文。website 验独立常用语示例的完整填入、名称切换、已有草稿与七功能滚动；Rust 验可选名称、显示偏好持久化/旧默认/冲突及生成请求不失效。
 
