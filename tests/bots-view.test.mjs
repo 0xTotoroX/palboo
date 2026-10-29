@@ -59,6 +59,7 @@ test('Bot list keeps messages opt-in and animates only visible active avatars', 
       window.disabled = true;
       window.render();
     });
+    await page.getByRole('status', { name: '等待 Codex 连接…', exact: true }).waitFor();
     await opener.focus();
     await page.keyboard.press('Enter');
     assert.equal(await page.evaluate(() => window.opens), 3);
