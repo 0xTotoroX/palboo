@@ -9,6 +9,7 @@ import { test } from 'node:test';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
 import { readFile } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
 import { build } from 'esbuild';
 import { chromium } from 'playwright';
 import { fixtureSettings } from './fixtures.mjs';
@@ -26,6 +27,22 @@ test(
       outfile: 'app.js',
       jsx: 'automatic',
       loader: { '.css': 'empty', '.png': 'dataurl' },
+      // Real feature previews consume inline CSS inside their shadow roots.
+      plugins: [
+        {
+          name: 'inline-preview-css',
+          setup(builder) {
+            builder.onResolve({ filter: /\.css\?inline$/ }, (args) => ({
+              path: resolve(dirname(args.importer), args.path.split('?')[0]),
+              namespace: 'css-text',
+            }));
+            builder.onLoad({ filter: /.*/, namespace: 'css-text' }, async (args) => ({
+              contents: await readFile(args.path, 'utf8'),
+              loader: 'text',
+            }));
+          },
+        },
+      ],
       define: { 'import.meta.env.DEV': 'false', 'import.meta.hot': 'undefined' },
     });
     const builtHtml = await readFile('target/web/index.html', 'utf8');

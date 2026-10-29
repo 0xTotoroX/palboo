@@ -127,8 +127,6 @@ test(
                 textarea: size('.settings-entry-content'),
                 heading: size('#quick-prompts-title'),
                 short: row.getBoundingClientRect().height,
-                controlHeight: document.querySelector('#generation-mode').getBoundingClientRect()
-                  .height,
                 numberRight: document.querySelector('#dock-width').getBoundingClientRect().right,
                 switchRight: document
                   .querySelector('[aria-label=桌面窗口置顶]')
@@ -136,9 +134,16 @@ test(
                 numberWidth: document.querySelector('#dock-width').getBoundingClientRect().width,
                 long: document.querySelectorAll('.settings-prompt-entry')[1].getBoundingClientRect()
                   .height,
-                cells: [...row.children].map((e) => {
+                cells: [...row.querySelectorAll('textarea, input, :scope > button')].map((e) => {
                   const r = e.getBoundingClientRect();
-                  return { left: r.left, right: r.right, top: r.top, width: r.width };
+                  return {
+                    left: r.left,
+                    right: r.right,
+                    top: r.top,
+                    bottom: r.bottom,
+                    width: r.width,
+                    height: r.height,
+                  };
                 }),
                 overflow: document.documentElement.scrollWidth > innerWidth,
               };
@@ -151,12 +156,17 @@ test(
               );
             assert.equal(geometry.heading, base);
             assert.ok(
-              geometry.short <= geometry.controlHeight + 16 && geometry.long > geometry.short + 20,
+              geometry.short <= geometry.cells[0].height + geometry.cells[1].height + 40 &&
+                geometry.long > geometry.short + 20,
               JSON.stringify(geometry),
             );
             assert.ok(
-              geometry.cells[0].right < geometry.cells[1].left &&
-                geometry.cells[1].right < geometry.cells[2].left,
+              geometry.cells[0].bottom < geometry.cells[1].top &&
+                geometry.cells[0].left === geometry.cells[1].left &&
+                geometry.cells[0].right === geometry.cells[1].right &&
+                geometry.cells[0].right < geometry.cells[2].left &&
+                Math.abs(geometry.cells[0].top - geometry.cells[2].top) < 1,
+              'content stays above the optional name, with removal beside the content',
             );
             assert.ok(geometry.cells[1].width > 100);
             assert.equal(geometry.overflow, false);

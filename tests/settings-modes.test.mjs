@@ -1482,22 +1482,31 @@ test(
         'cross-tab theme choices only save the appearance preference',
       );
       await emulateMedia(page, { colorScheme: 'light', reducedMotion: 'no-preference' });
-      await preview.locator('.layout-demo-window').evaluate((node) => {
-        window.placementFrames = [];
-        const sample = () => {
-          window.placementFrames.push(node.x.baseVal.value);
-          if (window.placementFrames.length < 100) requestAnimationFrame(sample);
-        };
-        requestAnimationFrame(sample);
+      const desktopPlacement = page.getByRole('button', { name: '桌面窗口', exact: true });
+      await desktopPlacement.evaluate((button) => {
+        // Start at the gesture, after Playwright has scrolled/waited for the target.
+        button.addEventListener(
+          'pointerdown',
+          () => {
+            const node = document.querySelector('.layout-demo-window');
+            window.placementFrames = [];
+            const sample = () => {
+              window.placementFrames.push(node.x.baseVal.value);
+              if (window.placementFrames.length < 100) requestAnimationFrame(sample);
+            };
+            requestAnimationFrame(sample);
+          },
+          { once: true },
+        );
       });
-      await page.getByRole('button', { name: '桌面窗口', exact: true }).click();
+      await desktopPlacement.click();
       await preview.locator('.layout-demo-canvas[data-demo-placement="desktop"]').waitFor();
       await page.waitForFunction(
         () => document.querySelector('.layout-demo-window').x.baseVal.value === 754,
       );
       assert.ok(
         await page.evaluate(() => window.placementFrames.some((x) => x > 470 && x < 730)),
-        'placement changes animate only the illustration',
+        `placement changes animate only the illustration: ${JSON.stringify(await page.evaluate(() => window.placementFrames))}`,
       );
       const beforeMotion = writes.length;
       await page.getByRole('link', { name: '模型服务', exact: true }).click();

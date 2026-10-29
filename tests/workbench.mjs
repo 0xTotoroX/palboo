@@ -3410,7 +3410,12 @@ const cases = [
         const other = disabled === 'next' ? 'outline' : 'next';
         assert.equal(await page.locator(`[data-refresh="${other}"]`).isDisabled(), false);
       }
-      await syncSettings(page, { enabled: false, answerOutlineEnabled: false });
+      // Quick phrases now keep the runtime alive independently of Stepwise.
+      await syncSettings(page, {
+        enabled: false,
+        quickPromptsEnabled: false,
+        answerOutlineEnabled: false,
+      });
       assert.equal(await page.locator(slotSelector).count(), 0, 'disabled runtime releases slot');
       await page.evaluate(() => window.__companionFloatingPanel.setWorkbench(true));
       await settle(page);
@@ -3420,7 +3425,11 @@ const cases = [
         'mode change cannot reenable features',
       );
       await hostUnchanged(page, baseline);
-      await syncSettings(page, { enabled: true, answerOutlineEnabled: true });
+      await syncSettings(page, {
+        enabled: true,
+        quickPromptsEnabled: true,
+        answerOutlineEnabled: true,
+      });
       await mode(page, true);
       await layout(page);
     },

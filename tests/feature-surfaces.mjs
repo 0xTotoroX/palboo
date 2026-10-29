@@ -112,6 +112,7 @@ export function featureSurfaceCases({ mode, createPopout, settle, output, bundle
         await page.evaluate(async () => {
           Object.assign(window.workbenchFixture.settings, {
             enabled: false,
+            quickPromptsEnabled: false,
             answerOutlineEnabled: false,
             taskBoardEnabled: true,
           });

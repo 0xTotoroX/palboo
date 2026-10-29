@@ -17,8 +17,8 @@ Desktop windows use native macOS traffic-light controls and reuse the existing P
 
 | Tool                      | What it does                                                                                                                            |
 | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| **Next steps · Stepwise** | Suggest relevant follow-ups and choose directions.                                                                |
-| **Quick phrases** | Manage reusable prompts independently; choose fill, send, or click-to-fill/double-click-to-send. |
+| **Next steps · Stepwise** | Suggest relevant follow-ups and choose directions.                                                                                      |
+| **Quick phrases**         | Manage reusable prompts independently; choose fill, send, or click-to-fill/double-click-to-send.                                        |
 | **Outline**               | Navigate long answers and jump to the original text.                                                                                    |
 | **Terminology**           | Explain terms in context; collect favorites and mark terms as mastered.                                                                 |
 | **Task board**            | Organize tasks into To do, In progress, and Done, with groups and drag-and-drop.                                                        |

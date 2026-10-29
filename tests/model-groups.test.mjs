@@ -587,8 +587,9 @@ test(
       const lastBox = await lastChoice.boundingBox(),
         scrollBox = await scroller.boundingBox();
       assert.ok(
-        lastBox.y >= scrollBox.y && lastBox.y + lastBox.height <= scrollBox.y + scrollBox.height,
-        'last favorite remains reachable within the viewport',
+        lastBox.y >= scrollBox.y - 1 &&
+          lastBox.y + lastBox.height <= scrollBox.y + scrollBox.height + 1,
+        `last favorite remains reachable within the viewport: ${JSON.stringify({ lastBox, scrollBox })}`,
       );
       await lastChoice.click();
       assert.equal((await page.evaluate(() => window.applied)).selection.model, 'favorite-4');
@@ -626,10 +627,11 @@ test(
       const lastPreset = view.getByRole('button', { name: '收藏快捷组合 24 · High', exact: true });
       const presetBox = await lastPreset.boundingBox(),
         presetViewport = await scroller.boundingBox();
+      // Scroll offsets round to CSS pixels while flex heights retain fractional pixels.
       assert.ok(
-        presetBox.y >= presetViewport.y &&
-          presetBox.y + presetBox.height <= presetViewport.y + presetViewport.height,
-        'last wrapped preset remains reachable in the shared viewport',
+        presetBox.y >= presetViewport.y - 1 &&
+          presetBox.y + presetBox.height <= presetViewport.y + presetViewport.height + 1,
+        `last wrapped preset remains reachable in the shared viewport: ${JSON.stringify({ presetBox, presetViewport })}`,
       );
       assert.deepEqual(errors, []);
     } finally {
