@@ -1,5 +1,5 @@
 /* [INPUT]: Tom Modern visual direction, shared typography and resolved settings theme.
- * [OUTPUT]: Original settings surfaces and controls with accented editorial headings and responsive grouped navigation.
+ * [OUTPUT]: Original settings surfaces, four aligned header icons, compact version footer and responsive grouped navigation.
  * [POS]: Does not alter the workspace or host theme tokens.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 /* Shared tokens may be emitted after the entry CSS by Vite; specificity keeps both builds aligned. */
@@ -152,12 +152,20 @@ html:root :is(.settings-theme, .settings-choice, .preview-selector) button[aria-
 }
 .settings-header-actions {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 16px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
   margin-left: auto;
   min-width: 0;
+}
+.settings-header-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.settings-header-tools > .settings-search {
+  display: flex;
+  margin: 0;
 }
 .settings-theme {
   position: relative;
@@ -166,17 +174,6 @@ html:root :is(.settings-theme, .settings-choice, .preview-selector) button[aria-
 .settings-theme button {
   cursor: pointer;
   color: var(--buddy-muted);
-}
-.settings-theme .settings-theme-trigger {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  min-height: 34px;
-  padding: 4px 7px;
-  border-radius: 6px;
-  font-size: 0.8125em;
-  white-space: nowrap;
 }
 .settings-theme-trigger:hover {
   background: var(--buddy-subtle);
@@ -231,12 +228,6 @@ html:root :is(.settings-theme, .settings-choice, .preview-selector) button[aria-
   overflow: hidden;
   clip-path: inset(50%);
 }
-.settings-topline > .settings-search {
-  min-width: 160px;
-  flex: 1;
-  max-width: 280px;
-  margin: 0 0 0 auto;
-}
 html:root .settings-search-input {
   min-height: 36px;
   border-radius: 7px;
@@ -244,12 +235,6 @@ html:root .settings-search-input {
 .settings-search input {
   font-size: 0.875em;
   padding-block: 7px;
-}
-.settings-search kbd {
-  font-size: 0.6875em;
-  white-space: nowrap;
-  color: var(--buddy-muted);
-  font-family: inherit;
 }
 .settings-search ul {
   border-radius: 9px;
@@ -579,13 +564,6 @@ html:root .settings-nav {
   .settings-topline {
     gap: 16px;
   }
-  .settings-topline > .settings-search {
-    order: 3;
-    flex-basis: 100%;
-    min-width: 0;
-    max-width: none;
-    margin: 0;
-  }
 }
 @media (max-width: 640px) {
   .settings-app {
@@ -596,16 +574,8 @@ html:root .settings-nav {
   }
 }
 @media (max-width: 600px) {
-  .settings-theme-trigger > span:not(.buddy-icon),
   .settings-edition {
     display: none;
-  }
-  .settings-theme .settings-theme-trigger {
-    min-width: 34px;
-    padding-inline: 0;
-  }
-  .settings-header-actions {
-    gap: 10px;
   }
 }
 @media (max-width: 460px) {
@@ -618,9 +588,6 @@ html:root .settings-nav {
   }
   .settings-topline {
     gap: 12px;
-  }
-  .settings-header-actions {
-    gap: 7px;
   }
 
   html:root .settings-nav {
@@ -795,24 +762,18 @@ html:root .settings-nav {
   }
 }
 
-/* Search is a compact entry; the modal owns the full input and result list. */
-.settings-topline > .settings-search {
-  flex: 0 0 auto;
-  min-width: 0;
-  width: auto;
-  max-width: none;
-  margin-left: auto;
-  order: 0;
-}
-.settings-topline > .settings-header-actions {
-  margin-left: 0;
-}
-.settings-search-trigger {
+/* Four equal header actions; labels remain in tooltips and accessible names. */
+.settings-search-trigger,
+.settings-theme .settings-theme-trigger,
+.settings-external-links a {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
-  min-height: 36px;
-  padding: 6px 10px;
+  justify-content: center;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 6px;
   color: var(--buddy-muted);
   background: transparent;
   border: 0;
@@ -963,33 +924,18 @@ html:root .settings-nav {
   border-top: 1px solid var(--buddy-border);
 }
 
-/* Keep header actions within the viewport at large text sizes. */
-@media (max-width: 460px) {
-  .settings-search-trigger {
-    gap: 6px;
-    padding-inline: 4px;
-  }
-  .settings-search-trigger > span[aria-hidden] {
-    display: none;
-  }
-}
-
-.settings-external-links,
 .settings-mode-options {
   display: flex;
   align-items: center;
   gap: 8px;
 }
-.settings-external-links a {
-  display: inline-flex;
+.settings-external-links {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  min-width: 28px;
-  min-height: 28px;
-  color: inherit;
-  border-radius: 6px;
+  gap: 6px;
 }
-.settings-external-links a:hover {
+.settings-external-links a:hover,
+.settings-search-trigger:hover {
   color: var(--buddy-text);
   background: var(--buddy-hover);
 }

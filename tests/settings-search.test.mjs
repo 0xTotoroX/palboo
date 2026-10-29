@@ -81,6 +81,11 @@ test('settings search reaches hidden categories without remounting or indexing p
       true,
     );
     await page.keyboard.press('Control+k');
+    assert.equal(await search.isVisible(), false);
+    await page.keyboard.press('Meta+k');
+    assert.equal(await search.isVisible(), false);
+    assert.equal(await page.locator('.settings-search-trigger kbd').count(), 0);
+    await page.getByRole('button', { name: '搜索设置', exact: true }).click();
     await search.press('ArrowDown');
     assert.equal(
       await page

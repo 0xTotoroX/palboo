@@ -1,7 +1,7 @@
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: Mounted settings labels, explicit page catalog and lazy drawer entries.
- * [OUTPUT]: Local label search with Cmd/Ctrl+K and original-control navigation; library editors opt out of indexing private names.
+ * [OUTPUT]: Click-open local label search and original-control navigation; no global shortcut, library editors opt out of indexing private names.
  * [POS]: Presentation only; never indexes input values, credentials or chat content.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { useEffect, useRef, useState, useId } from 'react';
@@ -171,23 +171,6 @@ export function SettingsSearch({
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLUListElement>(null);
   useEffect(() => {
-    const shortcut = (event: KeyboardEvent) => {
-      if (
-        event.isComposing ||
-        event.altKey ||
-        !(event.metaKey || event.ctrlKey) ||
-        event.key.toLowerCase() !== 'k'
-      )
-        return;
-      // 原生模态抽屉拥有当前焦点范围，不抢走抽屉内的编辑焦点。
-      if (document.querySelector('dialog[open]')) return;
-      event.preventDefault();
-      show();
-    };
-    document.addEventListener('keydown', shortcut);
-    return () => document.removeEventListener('keydown', shortcut);
-  }, []);
-  useEffect(() => {
     if (!query.trim()) {
       setEntries([]);
       return;
@@ -225,13 +208,13 @@ export function SettingsSearch({
         type="button"
         className="settings-search-trigger"
         aria-label={tr('搜索设置')}
+        title={tr('搜索设置')}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={dialogId}
         onClick={show}
       >
         <Icon name="search" />
-        <kbd aria-hidden="true">⌘ K</kbd>
       </button>
       <dialog
         ref={dialogRef}

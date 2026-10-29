@@ -1,7 +1,7 @@
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: Authenticated Codex theme snapshot, shared icons and this origin's display preference.
- * [OUTPUT]: Light/dark settings theme and a compact animated menu with retained, inert closing options.
+ * [OUTPUT]: Icon-only theme entry with an accessible current choice and a compact animated menu with retained, inert closing options.
  * [POS]: Settings-only preference; revision-checked Palboo persistence, never writes Codex appearance.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
@@ -166,7 +166,6 @@ export function SettingsTheme({
         onClick={() => setOpen(!open)}
       >
         <Icon name={symbol(preference)} />
-        <span>{label}</span>
       </button>
       <div
         id={menuId}

@@ -1174,6 +1174,11 @@ test(
               brand: brand.toJSON(),
               actions: actions.toJSON(),
               header: node.getBoundingClientRect().toJSON(),
+              tools: [
+                ...node.querySelectorAll(
+                  '.settings-search-trigger,.settings-theme-trigger,.settings-external-links a',
+                ),
+              ].map((entry) => entry.getBoundingClientRect().toJSON()),
             };
           });
           if (width > 1100) {
@@ -1186,8 +1191,22 @@ test(
               'wide search shares the brand row',
             );
             assert.ok(
-              header.search.x >= header.brand.right && header.search.right <= header.actions.x,
+              header.search.x >= header.brand.right &&
+                header.search.x >= header.actions.x &&
+                header.search.right <= header.actions.right,
             );
+          }
+          assert.equal(header.tools.length, 4);
+          for (const [index, tool] of header.tools.entries()) {
+            assert.ok(tool.width >= 28 && tool.height >= 28);
+            assert.ok(
+              Math.abs(
+                tool.y + tool.height / 2 - (header.tools[0].y + header.tools[0].height / 2),
+              ) < 1,
+              'all four header icons share one center line',
+            );
+            if (index)
+              assert.ok(tool.x >= header.tools[index - 1].right, 'header actions never overlap');
           }
           assert.ok(header.search.width <= 100, 'compact search remains a button at every width');
           assert.ok(header.actions.right <= header.header.right + 1, 'header controls fit');
@@ -1604,6 +1623,8 @@ test(
         true,
       );
       await page.keyboard.press('Control+k');
+      assert.equal(await page.getByRole('dialog', { name: '搜索设置' }).isVisible(), false);
+      await page.getByRole('button', { name: '搜索设置', exact: true }).click();
       assert.equal(
         await page
           .getByRole('searchbox', { name: '搜索设置' })
