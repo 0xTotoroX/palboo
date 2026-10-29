@@ -1,5 +1,5 @@
 // [INPUT]: Tao/Wry、Runtime、Preferences、Palboo.app 身份、共享 native_backdrop 与 AppKit 手势。
-// [OUTPUT]: 原生红黄绿、Palboo 应用身份、置顶/Spaces、跨屏往返及窗口/网页/材质同帧缩放。
+// [OUTPUT]: 原生红黄绿、Palboo 应用身份、置顶/Spaces、跨屏往返及有序释放手势的同帧缩放。
 // [POS]: 窗口子进程实现；系统管理最小化/放大/全屏，关闭沿用收回，普通几何独立于临时窗口状态。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
@@ -826,7 +826,7 @@ pub fn run_surface(
                 }
                 "drag" | "resize" => {
                     // 先结束旧手势，防止两个 WebKit live-resize 生命周期交叉。
-                    gesture = None;
+                    drop(gesture.take());
                     if let Some(warp) = &mut warp { warp.reset(); }
                     current_bend = [0., 0.];
                     if window_transition.is_some() || return_origin.is_some() {
