@@ -311,6 +311,7 @@ test(
       await navigation.getByRole('link', { name: '常用开关', exact: true }).click();
       const outlineSwitch = page.getByRole('switch', { name: '启用大纲', exact: true });
       await outlineSwitch.waitFor();
+      await until(() => outlineSwitch.isEnabled(), 'initial settings controls become usable');
       assert.equal(await outlineSwitch.isEnabled(), true, 'settings controls must be usable');
       await navigation.getByRole('link', { name: '开发来源', exact: true }).click();
       await page
