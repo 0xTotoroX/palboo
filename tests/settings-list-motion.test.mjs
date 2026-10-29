@@ -118,20 +118,29 @@ createRoot(document.getElementById('root')).render(<App/>);`,
           window.motion = [];
         });
       const animations = () => page.evaluate(() => window.motion);
-      // Provider transition uses the existing elements and does not add a save.
+      // Provider changes retain their normal autosave; animation must not add another write.
       await clear();
+      const beforeProvider = writes;
+      const providerSaved = page.waitForResponse(
+        (response) =>
+          response.url().endsWith('/api/settings') &&
+          response.request().method() === 'POST' &&
+          response.request().postDataJSON()?.provider === 'api',
+      );
       await page.locator('#provider').selectOption('api');
       let log = await animations();
       assert.ok(log.some((x) => x.field === 'base-url' && x.duration === 180));
       assert.ok(
         log.filter((x) => x.field).every((x) => x.frames[0].transform === 'translateY(4px)'),
       );
-      assert.equal(writes, 0, 'animation does not submit provider change');
       const geometry = await page.locator('#base-url').evaluate((el) => {
         const box = el.getBoundingClientRect();
         return { width: box.width, height: box.height };
       });
       await finishAnimations(page.locator('.settings-model-editor'));
+      await providerSaved;
+      assert.equal(settings.provider, 'api');
+      assert.equal(writes, beforeProvider + 1, 'animation does not duplicate provider autosave');
       assert.deepEqual(
         await page.locator('#base-url').evaluate((el) => {
           const box = el.getBoundingClientRect();

@@ -1765,7 +1765,11 @@ test('quick phrases demonstrate full content, optional names and draft-safe inse
         .click();
       assert.equal(await draft.inputValue(), 'Existing draft');
       await prompt.click();
-      await page.waitForTimeout(350);
+      await page.waitForFunction(
+        (expected) =>
+          document.querySelector('.quick-phrases-showcase textarea')?.value === expected,
+        'Existing draft\n' + full,
+      );
       assert.equal(await draft.inputValue(), 'Existing draft\n' + full);
       await demo
         .getByRole('button', {
@@ -1776,7 +1780,11 @@ test('quick phrases demonstrate full content, optional names and draft-safe inse
       assert.equal(await prompt.textContent(), text);
       await draft.fill('');
       await prompt.click();
-      await page.waitForTimeout(350);
+      await page.waitForFunction(
+        (expected) =>
+          document.querySelector('.quick-phrases-showcase textarea')?.value === expected,
+        full,
+      );
       assert.equal(await draft.inputValue(), full);
       await page.setViewportSize({ width: 360, height: 760 });
       await page.waitForFunction(() => document.documentElement.scrollWidth <= innerWidth);
