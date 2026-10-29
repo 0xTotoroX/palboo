@@ -1,5 +1,5 @@
 // [INPUT]: 包内 CLI、共享模式记录、各模式既有配置与 AppKit。
-// [OUTPUT]: 按模式启动工作台/设置；经本 App 登记桌面窗口、回执真实 PID；--check 只检查包内程序。
+// [OUTPUT]: 按模式启动工作台/设置；经本 App 登记桌面窗口、回执真实 PID；启动错误去除重复 Error 前缀；--check 只检查包内程序。
 // [POS]: 统一的可移动 App 入口；正式模式独立运行，开发模式使用已登记的源码与 Node。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 import AppKit
@@ -48,8 +48,11 @@ func command(_ cli: URL, _ arguments: [String]) throws -> String {
     // 一边读取一边等待，避免输出写满管道后相互等待。
     let data = pipe.fileHandleForReading.readDataToEndOfFile()
     process.waitUntilExit()
-    let output = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+    var output = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
     guard process.terminationStatus == 0 else {
+        while output.hasPrefix("Error: ") {
+            output = String(output.dropFirst("Error: ".count)).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
         throw LaunchFailure(message: output.isEmpty ? localized("Palboo 启动失败（\(process.terminationStatus)）。", "Palboo could not start (\(process.terminationStatus)).") : output)
     }
     return output

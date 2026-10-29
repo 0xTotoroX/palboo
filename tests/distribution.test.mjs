@@ -230,6 +230,7 @@ app-mode)
   development) echo '{"mode":"development"}';;
   cancel) echo '已取消重开' >&2; exit 1;;
   failure) echo 'synthetic launch failure' >&2; exit 2;;
+  wrapped-failure) echo 'Error: Error: synthetic launch failure (-600)' >&2; exit 2;;
   esac;;
 popout)
   case "$SCENARIO" in
@@ -274,6 +275,9 @@ esac
       );
     }
     for (const scenario of ['failure', 'broken-window']) assert.equal(run(scenario).status, 1);
+    const wrappedFailure = run('wrapped-failure');
+    assert.equal(wrappedFailure.status, 1);
+    assert.equal(wrappedFailure.stderr.trim(), 'synthetic launch failure (-600)');
     rmSync(cli);
     assert.equal(run('', ['--check']).status, 1);
   },

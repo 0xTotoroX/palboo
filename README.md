@@ -42,7 +42,7 @@ The DMG contains the complete App. Everyday use needs no terminal commands, Node
 
 - Desktop windows require macOS 15+; native Liquid Glass requires macOS 26. Windows and Intel Macs are not supported.
 - If macOS blocks the App, confirm you downloaded it from this repository, then choose **System Settings → Privacy & Security → Open Anyway**. Do not disable system security globally.
-- If Codex needs to restart, the default policy asks before quitting and reopening it. Cancel to keep it running. The optional force-restart policy can interrupt tasks or lose unsaved work.
+- If Codex needs to restart, the default policy asks before quitting and reopening it. Cancel to keep it running. If macOS is still cleaning up the previous instance, Palboo briefly retries opening the app. The optional force-restart policy can interrupt tasks or lose unsaved work.
 - Releases ending in `.0` include a DMG. Patch releases contain notes and source archives only; an older DMG does not include newer patches.
 
 </details>

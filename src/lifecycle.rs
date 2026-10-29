@@ -1,10 +1,11 @@
-// [INPUT]: Paths、私有 runtime 信息、系统进程与本地产物。
+// [INPUT]: Paths、私有 runtime 信息、host/host_launch、系统进程与本地产物。
 // [OUTPUT]: start/stop/status/doctor/launch/update 与 Runtime 认证 JSON/原始术语文件请求；完整 App 核对后台来源并拒绝单文件升级；宿主 App 经 LaunchServices 启动并保留自身权限归属；host-only 仅准备宿主；显式 --restart-running 沿用宿主重开策略。
 // [POS]: CLI 进程管理层，负责复用服务和本地更新回滚；Dev 设置入口优先使用监督进程地址。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
 use crate::config::{self, Paths, VERSION, write_private};
 use crate::host::{desktop_process, find_desktop, process_debug_endpoint};
+use crate::host_launch::{bundled_application, launch_desktop};
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -172,17 +173,6 @@ async fn start_binary(
         }
     }
     bail!("后台启动超时，请运行 doctor 检查")
-}
-
-fn bundled_application(executable: &Path) -> Option<PathBuf> {
-    let macos = executable.parent()?;
-    let contents = macos.parent()?;
-    let app = contents.parent()?;
-    (macos.file_name()? == "MacOS"
-        && contents.file_name()? == "Contents"
-        && app.extension()? == "app"
-        && contents.join("Info.plist").is_file())
-    .then(|| app.to_path_buf())
 }
 
 fn runtime_matches(runtime: &Runtime, executable: &Path) -> bool {
@@ -375,54 +365,6 @@ pub async fn launch(
     bail!(
         "未能连接新启动的 Codex。请检查应用是否已打开，并稍后再次打开 Palboo；不会继续退出或循环重启。"
     )
-}
-
-async fn launch_desktop(executable: &Path, port: u16, profile: Option<&Path>) -> Result<()> {
-    let executable = executable.canonicalize().context("桌面程序路径无效")?;
-    let application = bundled_application(&executable);
-    let mut command = if let Some(app) = &application {
-        // 直接 spawn App 内部程序会继承启动器的 TCC 身份；由系统启动完整 App。
-        // 普通启动不使用 -n，避免与用户同时打开应用时创建第二个实例。
-        let mut command = Command::new("/usr/bin/open");
-        command.arg("-a").arg(app);
-        if profile.is_some() {
-            command.arg("-n");
-        }
-        command.arg("--args");
-        command
-    } else {
-        // 保留显式 --app 指定独立可执行文件的既有用法。
-        Command::new(&executable)
-    };
-    command.args([
-        "--remote-debugging-address=127.0.0.1",
-        &format!("--remote-debugging-port={port}"),
-    ]);
-    if let Some(profile) = profile {
-        command.arg(format!("--user-data-dir={}", profile.display()));
-    }
-    command.stdin(Stdio::null()).stdout(Stdio::null());
-    if application.is_some() {
-        let output = tokio::time::timeout(
-            Duration::from_secs(10),
-            tokio::process::Command::from(command)
-                .stderr(Stdio::piped())
-                .kill_on_drop(true)
-                .output(),
-        )
-        .await
-        .context("系统启动 Codex 超时；未尝试其他启动方式")??;
-        anyhow::ensure!(
-            output.status.success(),
-            "系统无法打开 Codex：{}",
-            String::from_utf8_lossy(&output.stderr).trim()
-        );
-    } else {
-        command.stderr(Stdio::null());
-        detach(&mut command);
-        command.spawn().context("无法启动桌面 Codex")?;
-    }
-    Ok(())
 }
 
 // Dev uses the same host policy without starting or modifying the installed backend.
@@ -726,8 +668,13 @@ int main(void) {
         );
         let profile = dir.path().join("Isolated profile with spaces");
         std::fs::create_dir(&profile).unwrap();
-        for profile in [None, Some(profile.as_path())] {
+        // 连续两次普通启动覆盖退出后立即重开；不退出真实宿主。
+        let mut previous_pid = None;
+        for profile in [None, None, Some(profile.as_path())] {
             let report = profile.unwrap_or(dir.path()).join("launch.json");
+            if report.exists() {
+                std::fs::remove_file(&report).unwrap();
+            }
             launch_desktop(&executable, 49123, profile).await.unwrap();
             for _ in 0..100 {
                 if report.exists() {
@@ -737,6 +684,8 @@ int main(void) {
             }
             let value: Value = serde_json::from_slice(&std::fs::read(report).unwrap()).unwrap();
             let pid = value["pid"].as_i64().unwrap() as i32;
+            assert_ne!(Some(pid), previous_pid);
+            previous_pid = Some(pid);
             cleanup
                 .0
                 .push(NSRunningApplication::runningApplicationWithProcessIdentifier(pid).unwrap());
