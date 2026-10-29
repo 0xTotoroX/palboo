@@ -447,8 +447,8 @@ test('background launch survives the launcher, logs privately, reuses its owner 
     const timer = setInterval(() => {}, 100);
     process.on('SIGTERM', () => {
       clearInterval(timer);
-      release();
       fs.writeFileSync('target/dev/stopped', 'normal');
+      release();
     });
     release = claimLease(lock);
   `,
