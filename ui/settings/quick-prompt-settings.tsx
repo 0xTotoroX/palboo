@@ -1,7 +1,7 @@
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: Shared settings editor and legacy click-mode preference.
- * [OUTPUT]: Independent quick-prompt settings, execution mode and retained drafts using the original save queue.
+ * [OUTPUT]: Content-first phrase editing with optional names, global name-only display and execution mode using the original save queue.
  * [POS]: Functional settings only; shared model configuration lives in model-settings.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { usePromptKeys, useSettingsListMotion } from './settings-list-motion';
@@ -12,7 +12,8 @@ import type { View } from './api';
 import type { SettingsEditor } from './use-settings-form';
 import { Icon } from '../shared/icons/react';
 import { ConfirmationButton } from './settings-confirmation';
-import { Field } from './settings-controls';
+import { Field, Toggle } from './settings-controls';
+import { quickPromptName } from '../shared/quick-prompts.js';
 import { NativeSelect } from './components/ui/native-select';
 export function QuickPromptSettings({
   editor,
@@ -31,6 +32,12 @@ export function QuickPromptSettings({
   if (!form || !saved) return null;
   return (
     <div data-settings-page="prompts">
+      <Toggle
+        id="quick-prompt-label-only"
+        label={tr('仅显示名称')}
+        checked={form.quickPromptLabelOnly ?? false}
+        onChange={(value) => change('quickPromptLabelOnly', value)}
+      />
       <Field id="quick-prompt-click" label={tr('指令执行模式')}>
         <NativeSelect
           id="quick-prompt-click"
@@ -54,33 +61,34 @@ export function QuickPromptSettings({
               data-settings-list-item={promptKeys[index]}
               className="settings-entry settings-prompt-entry"
             >
-              <Input
-                className="settings-entry-name"
-                aria-label={tr('常用提示词 {{value1}} 名称', { value1: index + 1 })}
-                value={item.label}
-                maxLength={20}
-                required
-                onChange={(e) =>
-                  change(
-                    'quickPrompts',
-                    form.quickPrompts.map((p, i) =>
-                      i === index ? { ...p, label: e.target.value } : p,
-                    ),
-                  )
-                }
-              />
               <textarea
                 aria-label={tr('常用提示词 {{value1}} 内容', { value1: index + 1 })}
                 value={item.prompt}
                 maxLength={4000}
                 required
-                rows={1}
+                rows={2}
+                placeholder={tr('指令内容')}
                 className="settings-entry-content"
                 onChange={(e) =>
                   change(
                     'quickPrompts',
                     form.quickPrompts.map((p, i) =>
                       i === index ? { ...p, prompt: e.target.value } : p,
+                    ),
+                  )
+                }
+              />
+              <Input
+                className="settings-entry-name"
+                aria-label={tr('常用提示词 {{value1}} 名称', { value1: index + 1 })}
+                value={item.label}
+                maxLength={20}
+                placeholder={tr('短名称（选填）')}
+                onChange={(e) =>
+                  change(
+                    'quickPrompts',
+                    form.quickPrompts.map((p, i) =>
+                      i === index ? { ...p, label: e.target.value } : p,
                     ),
                   )
                 }
@@ -92,7 +100,9 @@ export function QuickPromptSettings({
                 aria-label={tr('删除常用提示词 {{value1}}', { value1: index + 1 })}
                 revision={saved.configurationRevision}
                 disabled={editor.saving || editor.remoteChanged}
-                title={tr('删除提示词“{{value1}}”？', { value1: item.label || tr('未命名') })}
+                title={tr('删除提示词“{{value1}}”？', {
+                  value1: quickPromptName(item) || tr('未命名'),
+                })}
                 description={tr('会删除这条常用提示词的名称与内容，其他提示词保持不变。')}
                 confirmLabel={tr('确认删除')}
                 onConfirm={() =>

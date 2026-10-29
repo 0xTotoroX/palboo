@@ -28,7 +28,8 @@ function load(context, path, names) {
         const value = node.declarationList.declarations.find(
           (item) => item.name.getText(source) === name,
         );
-        if (value) return `const ${value.getText(source)};`;
+        if (value)
+          return `${node.declarationList.flags & ts.NodeFlags.Const ? 'const' : 'let'} ${value.getText(source)};`;
       }
     }
     assert.fail(`${path} no longer declares ${name}; update the fixture to load its real owner`);
@@ -77,9 +78,13 @@ function viewFixture() {
     clearTimeout: timers.clearTimeout,
     getLocale: () => 'zh-CN',
     tr: (text) => text,
+    ResizeObserver: class {
+      observe() {}
+      disconnect() {}
+    },
   });
   load(context, 'ui/shared/constants.js', ['PROMPT_CLICK_DELAY_MS']);
-  load(context, 'ui/features/next/quick-prompts.js', ['createQuickPrompts']);
+  load(context, 'ui/features/next/quick-prompts.js', ['nextViewId', 'createQuickPrompts']);
   load(context, 'ui/features/quick-prompts.js', ['createQuickPromptsView']);
   const button = Object.assign(new EventTarget(), {
     dataset: { quickPrompt: '0' },

@@ -122,7 +122,7 @@ test('portfolio demos preserve drafts, preferences and undo without service requ
     await demo.getByRole('tab', { name: '下一步', exact: true }).focus();
     await page.keyboard.press('ArrowRight');
     assert.equal(
-      await demo.getByRole('tab', { name: '大纲', exact: true }).getAttribute('aria-selected'),
+      await demo.getByRole('tab', { name: '常用语', exact: true }).getAttribute('aria-selected'),
       'true',
     );
     const prompt = page.getByLabel('提示词优化演示', { exact: true });
@@ -1350,7 +1350,7 @@ test('native scrolling visits every feature, arrangement, placement and material
     assert.deepEqual(visited.arrangements, new Set(['上下', '左右', '标签']));
     assert.deepEqual(
       visited.features,
-      new Set(['下一步', '大纲', '术语', 'Grok Bot', '模型切换', '看板']),
+      new Set(['下一步', '常用语', '大纲', '术语', 'Grok Bot', '模型切换', '看板']),
     );
     assert.deepEqual(visited.edges, new Set(['right', 'left', 'top', 'bottom']));
     assert.deepEqual(
@@ -1723,5 +1723,53 @@ test('Bot replay uses synchronized original eye motion and ends after one cycle'
     );
   } finally {
     await page.close();
+  }
+});
+
+test('quick phrases demonstrate full content, optional names and draft-safe insertion in both languages', async () => {
+  for (const locale of ['zh-CN', 'en']) {
+    const page = await browser.newPage({ locale, viewport: { width: 1000, height: 900 } });
+    const unexpected = [];
+    page.on('request', (request) => {
+      if (!request.url().startsWith(base) && !request.url().startsWith('data:'))
+        unexpected.push(request.url());
+    });
+    try {
+      await page.goto(base + '?lang=' + locale);
+      const demo = page.locator('.quick-phrases-showcase');
+      await demo.scrollIntoViewIfNeeded();
+      const text = locale === 'en' ? 'Review the plan' : '检查方案';
+      const prompt = demo.getByRole('button', { name: text, exact: true });
+      const full = await prompt.locator('.csw-quick-text').textContent();
+      const draft = demo.getByRole('textbox');
+      await draft.fill('Existing draft');
+      await demo
+        .getByRole('button', { name: locale === 'en' ? 'Show full text' : '展开全文', exact: true })
+        .click();
+      assert.equal(await draft.inputValue(), 'Existing draft');
+      await prompt.click();
+      await page.waitForTimeout(350);
+      assert.equal(await draft.inputValue(), 'Existing draft\n' + full);
+      await demo
+        .getByRole('button', {
+          name: locale === 'en' ? 'Show names only' : '仅显示名称',
+          exact: true,
+        })
+        .click();
+      assert.equal(await prompt.textContent(), text);
+      await draft.fill('');
+      await prompt.click();
+      await page.waitForTimeout(350);
+      assert.equal(await draft.inputValue(), full);
+      await page.setViewportSize({ width: 360, height: 760 });
+      await page.waitForFunction(() => document.documentElement.scrollWidth <= innerWidth);
+      assert.equal(
+        await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+        true,
+      );
+      assert.deepEqual(unexpected, []);
+    } finally {
+      await page.close();
+    }
   }
 });

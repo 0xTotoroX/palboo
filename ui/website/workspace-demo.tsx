@@ -15,7 +15,14 @@ import type { FeatureState } from '../shared/features';
 import type { SurfaceState } from '../settings/surface-settings';
 import type { SurfaceTheme } from '../surfaces/theme/appearance';
 import { features, ModelDemo, ComposerDemo } from './demos';
-import { NextDemo, OutlineDemo, BoardDemo, TermDemo, BotDemo } from './product-demos';
+import {
+  NextDemo,
+  QuickPhrasesDemo,
+  OutlineDemo,
+  BoardDemo,
+  TermDemo,
+  BotDemo,
+} from './product-demos';
 import { Icon } from '../shared/icons/react';
 import { smooth } from './scroll-motion';
 
@@ -55,7 +62,7 @@ const sampleFeatures: FeatureState = {
     sidebar: {
       axis: 'vertical',
       groups: [
-        { ids: ['next', 'terms', 'bots'], active: 'next', weight: 1 },
+        { ids: ['next', 'prompts', 'terms', 'bots'], active: 'next', weight: 1 },
         { ids: ['outline'], active: 'outline', weight: 1 },
       ],
     },
@@ -86,6 +93,8 @@ function WorkspaceFeature({ id }: { id: string }) {
     <div className="site-workspace-feature">
       {id === 'next' ? (
         <NextDemo onInsert={insert} />
+      ) : id === 'prompts' ? (
+        <QuickPhrasesDemo onInsert={insert} />
       ) : id === 'outline' ? (
         <OutlineDemo onJump={(index) => setDraft(examples.outline[index])} />
       ) : id === 'board' ? (
@@ -97,7 +106,7 @@ function WorkspaceFeature({ id }: { id: string }) {
       ) : id === 'bots' ? (
         <BotDemo onInsert={insert} />
       ) : null}
-      {['next', 'bots'].includes(id) && (
+      {['next', 'prompts', 'bots'].includes(id) && (
         <ComposerDemo
           draft={draft}
           onChange={setDraft}

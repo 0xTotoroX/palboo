@@ -1,7 +1,7 @@
 import { tr } from '../shared/i18n.js';
 /*
  * [INPUT]: 版本化设置 API、连接状态与服务端修订。
- * [OUTPUT]: 生成/Jev 独立密钥及表单的失焦/选择自动保存与手动保存共用队列，功能开关及确认后的密钥/方向/提示词删除单独保存，保留在途编辑和失败草稿，并在请求期间固定反馈来源。
+ * [OUTPUT]: 生成/Jev 独立密钥及表单的失焦/选择自动保存与手动保存共用队列，功能与常用语显示开关及确认后的密钥/方向/提示词删除单独保存，保留在途编辑和失败草稿，并在请求期间固定反馈来源。
  * [POS]: 设置表单事务；不执行模型生成、宿主重启或窗口操作。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -14,6 +14,7 @@ type ControlPatch = {
   jevConsent?: boolean;
   enabled?: boolean;
   quickPromptsEnabled?: boolean;
+  quickPromptLabelOnly?: boolean;
   answerOutlineEnabled?: boolean;
   promptEnhancementEnabled?: boolean;
   tokenMeterEnabled?: boolean;
@@ -194,6 +195,7 @@ export function useSettingsForm(
             for (const key of [
               'enabled',
               'quickPromptsEnabled',
+              'quickPromptLabelOnly',
               'answerOutlineEnabled',
               'promptEnhancementEnabled',
               'tokenMeterEnabled',
@@ -282,6 +284,7 @@ export function useSettingsForm(
     const control: ControlPatch | null =
       key === 'enabled' ||
       key === 'quickPromptsEnabled' ||
+      key === 'quickPromptLabelOnly' ||
       key === 'answerOutlineEnabled' ||
       key === 'promptEnhancementEnabled' ||
       key === 'tokenMeterEnabled' ||

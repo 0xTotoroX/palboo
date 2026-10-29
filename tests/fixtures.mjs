@@ -11,6 +11,7 @@ export const fixtureSettings = {
   enabled: true,
   quickPromptsEnabled: true,
   quickPromptClickMode: null,
+  quickPromptLabelOnly: false,
   answerOutlineEnabled: true,
   promptEnhancementEnabled: true,
   tokenMeterEnabled: true,

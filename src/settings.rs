@@ -1,5 +1,5 @@
 // [INPUT]: App、有效模型配置与私有配置/密钥文件。
-// [OUTPUT]: 三种方向来源/库/位置/Jev 设置、只读内置目录及独立密钥保存、并发保存版本与有效生成版本；常用语独立开关/点击模式，快捷指令编辑只接受列表和必填修订号；Codex模型目录复用宿主快切。
+// [OUTPUT]: 三种方向来源/库/位置/Jev 设置、只读内置目录及独立密钥保存、并发保存版本与有效生成版本；常用语独立开关/点击模式/仅名称显示，短名称选填，快捷指令编辑只接受列表和必填修订号；Codex模型目录复用宿主快切。
 // [POS]: 设置事务边界；共享连接和各功能请求分域取消；无关大纲开关与常用提示词修改不取消生成；maxInputChars=0 表示完整最近一问一答，旧正数上限保留。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
@@ -11,6 +11,7 @@ use serde_json::{Value, json};
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuickPrompt {
+    #[serde(default)]
     pub label: String,
     pub prompt: String,
 }
@@ -21,6 +22,7 @@ pub struct Options {
     pub enabled: bool,
     pub quick_prompts_enabled: bool,
     pub quick_prompt_click_mode: Option<String>,
+    pub quick_prompt_label_only: bool,
     pub answer_outline_enabled: bool,
     pub prompt_enhancement_enabled: bool,
     pub token_meter_enabled: bool,
@@ -160,7 +162,7 @@ mod tests {
         );
         assert!(
             app.save_settings(
-                serde_json::from_value(json!({"quickPrompts":[{"label":"", "prompt":"x"}]}))
+                serde_json::from_value(json!({"quickPrompts":[{"label":"名称", "prompt":" "}]}))
                     .unwrap()
             )
             .await
@@ -170,6 +172,48 @@ mod tests {
             .await
             .unwrap();
         assert!(paths.load().unwrap().stepwise.quick_prompts.is_empty());
+    }
+
+    #[tokio::test]
+    async fn quick_prompts_allow_optional_names_and_keep_display_out_of_generation() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths::new(Some(dir.path().into())).unwrap();
+        let app = App::new(paths.clone(), Config::default(), None, false);
+        let before = app.settings().await;
+        let lease = app
+            .model_requests
+            .lease(crate::model_requests::Scope::Stepwise);
+        assert_eq!(before["quickPromptLabelOnly"], false);
+        let saved = app.save_settings(serde_json::from_value(json!({
+            "quickPrompts":[{"prompt":"完整内容，不用短名称"},{"label":"  ","prompt":"另一条内容"}],
+            "quickPromptLabelOnly":true,
+            "expectedRevision":before["configurationRevision"]
+        })).unwrap()).await.unwrap();
+        assert_eq!(saved["quickPrompts"][0]["label"], "");
+        assert_eq!(saved["quickPrompts"][1]["label"], "");
+        assert_eq!(saved["generationRevision"], before["generationRevision"]);
+        assert!(lease.check().is_ok());
+        assert!(paths.load().unwrap().stepwise.quick_prompt_label_only);
+        assert!(
+            app.save_settings(
+                serde_json::from_value(json!({
+                    "quickPromptLabelOnly":false,"expectedRevision":before["configurationRevision"]
+                }))
+                .unwrap()
+            )
+            .await
+            .is_err()
+        );
+        assert!(
+            app.save_settings(
+                serde_json::from_value(json!({
+                    "quickPrompts":[{"label":"x".repeat(21),"prompt":"有效内容"}]
+                }))
+                .unwrap()
+            )
+            .await
+            .is_err()
+        );
     }
 
     #[tokio::test]
@@ -188,6 +232,7 @@ mod tests {
         assert!(step.check().is_ok());
         let config = paths.load().unwrap();
         assert!(!config.stepwise.quick_prompts_enabled);
+        assert!(!config.stepwise.quick_prompt_label_only);
         assert_eq!(
             config.stepwise.quick_prompt_click_mode.as_deref(),
             Some("hybrid")
@@ -419,6 +464,7 @@ impl Default for Options {
             enabled: true,
             quick_prompts_enabled: true,
             quick_prompt_click_mode: None,
+            quick_prompt_label_only: false,
             answer_outline_enabled: true,
             prompt_enhancement_enabled: true,
             token_meter_enabled: true,
@@ -455,6 +501,7 @@ pub struct Update {
     pub enabled: Option<bool>,
     pub quick_prompts_enabled: Option<bool>,
     pub quick_prompt_click_mode: Option<String>,
+    pub quick_prompt_label_only: Option<bool>,
     pub answer_outline_enabled: Option<bool>,
     pub prompt_enhancement_enabled: Option<bool>,
     pub token_meter_enabled: Option<bool>,
@@ -590,6 +637,9 @@ impl App {
         if let Some(value) = patch.quick_prompts_enabled {
             options.quick_prompts_enabled = value;
         }
+        if let Some(value) = patch.quick_prompt_label_only {
+            options.quick_prompt_label_only = value;
+        }
         if let Some(value) = patch.quick_prompt_click_mode {
             anyhow::ensure!(
                 ["fill", "direct", "hybrid"].contains(&value.as_str()),
@@ -648,12 +698,11 @@ impl App {
             for item in &mut value {
                 item.label = item.label.trim().to_owned();
                 item.prompt = item.prompt.trim().to_owned();
-                if item.label.is_empty()
-                    || item.label.chars().count() > 20
+                if item.label.chars().count() > 20
                     || item.prompt.is_empty()
                     || item.prompt.chars().count() > 4000
                 {
-                    bail!("常用提示词需要 1–20 字的名称和 1–4000 字的内容");
+                    bail!("常用语内容需要 1–4000 字，短名称选填且不超过 20 字");
                 }
             }
             options.quick_prompts = value;

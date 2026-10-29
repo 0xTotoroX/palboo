@@ -19,6 +19,7 @@ export const layoutStops = [
   { placement: 'sidebar', arrangement: 'tabs', active: 'outline' },
   { placement: 'overlay', arrangement: 'tabs', active: 'bots' },
   { placement: 'desktop', arrangement: 'tabs', active: 'next' },
+  { placement: 'desktop', arrangement: 'tabs', active: 'prompts' },
   { placement: 'edge', arrangement: 'tabs', active: 'model', edge: 'right' },
   { placement: 'edge', arrangement: 'tabs', active: 'board', edge: 'left' },
   { placement: 'edge', arrangement: 'tabs', active: 'model', edge: 'top' },

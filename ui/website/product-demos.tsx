@@ -1,5 +1,5 @@
 /* [INPUT]: Application feature components and synthetic website projections.
- * [OUTPUT]: Actual next/outline/terms/board/Bot interactions with memory-only action adapters.
+ * [OUTPUT]: Actual next/phrases/outline/terms/board/Bot interactions with memory-only action adapters.
  * [POS]: Website integration; product rendering remains in ui/features.
  * [PROTOCOL]: Keep website/AGENTS.md in sync. */
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -19,15 +19,51 @@ export function NextDemo({ onInsert }: { onInsert: (text: string) => void }) {
   useLocale();
   const [explore, setExplore] = useState(false);
   const reading = useRef<Reading>({});
-  const [quick, setQuick] = useState<{ label: string; prompt: string }[] | null>(null);
-  const revision = useRef(0);
   const snapshot = sampleProjection(explore);
-  snapshot.settings.configurationRevision = revision.current;
-  if (quick) snapshot.settings.quickPrompts = quick;
   return (
     <DemoSurface kind="next" styles={contentStyles}>
       <ProjectedContent
         id="next"
+        snapshot={snapshot}
+        reading={reading.current}
+        disabled={false}
+        command={async (kind, data) => {
+          if (kind === 'generate') setExplore((value) => !value);
+          const item = kind === 'fill' ? snapshot.prompts[data?.index ?? 0] : null;
+          if (item?.prompt) onInsert(item.prompt);
+        }}
+      />
+    </DemoSurface>
+  );
+}
+export function QuickPhrasesDemo({
+  onInsert,
+  namesOnly = false,
+}: {
+  onInsert: (text: string) => void;
+  namesOnly?: boolean;
+}) {
+  useLocale();
+  const reading = useRef<Reading>({});
+  const [quick, setQuick] = useState<{ label: string; prompt: string }[] | null>(null);
+  const revision = useRef(0);
+  const snapshot = sampleProjection();
+  snapshot.settings.quickPromptLabelOnly = namesOnly;
+  snapshot.settings.configurationRevision = revision.current;
+  snapshot.settings.quickPrompts = quick ?? [
+    { label: tr('继续'), prompt: tr('继续完成剩余步骤。') },
+    { label: '', prompt: tr('请用更直白的语言解释，并举一个具体例子。') },
+    {
+      label: tr('检查方案'),
+      prompt: tr(
+        '检查这份作品集方案：\n1. 找出影响阅读和操作的问题。\n2. 按影响程度排序。\n3. 给出可以直接执行的修改建议。\n4. 标明需要我补充的信息。\n保留已经确认的视觉风格。',
+      ),
+    },
+  ];
+  return (
+    <DemoSurface kind="prompts" styles={contentStyles}>
+      <ProjectedContent
+        id="prompts"
         snapshot={snapshot}
         reading={reading.current}
         disabled={false}
@@ -41,14 +77,10 @@ export function NextDemo({ onInsert }: { onInsert: (text: string) => void }) {
           };
         }}
         command={async (kind, data) => {
-          if (kind === 'generate') setExplore((value) => !value);
-          const item =
-            kind === 'fill'
-              ? snapshot.prompts[data?.index ?? 0]
-              : kind === 'quick-fill'
-                ? snapshot.settings.quickPrompts[data?.index ?? 0]
-                : null;
-          if (item?.prompt) onInsert(item.prompt);
+          if (kind === 'quick-fill') {
+            const item = snapshot.settings.quickPrompts[data?.index ?? 0];
+            if (item?.prompt) onInsert(item.prompt);
+          }
         }}
       />
     </DemoSurface>

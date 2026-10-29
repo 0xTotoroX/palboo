@@ -1,5 +1,5 @@
-/* [INPUT]: Actual next view, retained reading state and synthetic revision-checked settings.
- * [OUTPUT]: Add/edit/delete confirmation, draft retention, conflict/failed save protection and no accidental sending.
+/* [INPUT]: Actual standalone phrase view, retained reading state and synthetic revision-checked settings.
+ * [OUTPUT]: Content disclosure and optional-name display, add/edit/delete confirmation, retained failure drafts and guarded execution.
  * [POS]: Isolated browser tests; no real settings or chat writes. [PROTOCOL]: Keep tests/AGENTS.md in sync. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -11,9 +11,10 @@ const script = (
     stdin: {
       resolveDir: process.cwd(),
       contents: `import {createQuickPromptsView} from './ui/features/quick-prompts.js';
+import {setLocale} from './ui/shared/i18n.js'; window.setLocale=setLocale;
 window.reading={};window.calls=[];window.saves=[];window.fail=false;window.pending=false;
-window.snapshot={settings:{enabled:false,quickPromptsEnabled:true,quickPromptClickMode:null,configurationRevision:1,generationMode:'manual',quickPrompts:[{label:'继续',prompt:'继续'},{label:'执行',prompt:'执行'}]},display:{promptClickMode:'fill'},prompts:[],promptToken:'same',bridgeStatus:'ready'};
-let view;window.mount=()=>{view?.clear();view=createQuickPromptsView({read:()=>snapshot,reading,command:(...args)=>calls.push(args),saveQuickPrompts:async(items,revision)=>{saves.push({items,revision});if(pending)await new Promise(resolve=>window.finish=resolve);if(fail)throw Error('保存失败');if(revision!==snapshot.settings.configurationRevision)throw Error('设置已在其他窗口更新');snapshot.settings={...snapshot.settings,quickPrompts:items,configurationRevision:revision+1};return snapshot.settings;}});document.querySelector('#root').innerHTML=view.html();view.bind(document.querySelector('#root'));};mount();`,
+window.snapshot={settings:{enabled:false,quickPromptsEnabled:true,quickPromptClickMode:null,quickPromptLabelOnly:false,configurationRevision:1,generationMode:'manual',quickPrompts:[{label:'继续',prompt:'继续'},{label:'执行',prompt:'执行'}]},display:{promptClickMode:'fill'},prompts:[],promptToken:'same',bridgeStatus:'ready'};
+let view;window.mount=()=>{view?.clear();view=createQuickPromptsView({read:()=>snapshot,reading,command:(...args)=>calls.push(args),saveQuickPrompts:async(items,revision)=>{saves.push({items,revision});if(pending)await new Promise(resolve=>window.finish=resolve);if(fail)throw Error('保存失败');if(revision!==snapshot.settings.configurationRevision)throw Error('设置已在其他窗口更新');snapshot.settings={...snapshot.settings,quickPrompts:items,configurationRevision:revision+1};return snapshot.settings;}});document.querySelector('#root').innerHTML=view.html();view.bind(document.querySelector('#root'));};window.disable=(value)=>view.setDisabled(value);mount();`,
     },
     bundle: true,
     write: false,
@@ -142,4 +143,129 @@ test('quick prompt failures and external conflicts retain drafts without retries
   });
   await page.getByRole('button', { name: '添加快捷指令', exact: true }).click();
   assert.equal(await page.getByLabel('快捷指令名称', { exact: true }).inputValue(), '');
+});
+
+test('content-first phrases separate reading from execution and retain disclosure across updates', async (t) => {
+  const page = await fixture(t);
+  const prompt =
+    '检查方案：\n第一步，检查布局。\n第二步，核对内容。\n第三步，给出修改建议。\n保留已确认的主题。';
+  await page.evaluate((prompt) => {
+    snapshot.settings.quickPrompts = [
+      { label: '审查', prompt },
+      { label: '继续', prompt: '继续' },
+    ];
+    mount();
+  }, prompt);
+  const phrase = page.getByRole('button', { name: '审查', exact: true });
+  const body = phrase.locator('.csw-quick-text');
+  assert.equal(await body.textContent(), prompt);
+  assert.equal(await phrase.evaluate((node) => getComputedStyle(node).textDecorationLine), 'none');
+  assert.equal(
+    await page
+      .getByRole('button', { name: '继续', exact: true })
+      .locator('.csw-quick-caption')
+      .count(),
+    0,
+  );
+  assert.ok(
+    (await page.getByRole('button', { name: '继续', exact: true }).boundingBox()).height < 60,
+  );
+  const before = (await body.boundingBox()).height;
+  await page.evaluate(() => disable(true));
+  assert.equal(await phrase.isDisabled(), true);
+  await page.getByRole('button', { name: '展开全文', exact: true }).focus();
+  await page.keyboard.press('Enter');
+  assert.ok((await body.boundingBox()).height > before);
+  await page.waitForTimeout(350);
+  assert.deepEqual(await page.evaluate(() => calls), []);
+  await page.evaluate(() => mount());
+  assert.equal(
+    await page.getByRole('button', { name: '收起内容' }).getAttribute('aria-expanded'),
+    'true',
+  );
+  await page.getByRole('button', { name: '收起内容' }).click();
+  assert.equal((await body.boundingBox()).height, before);
+  await page.evaluate(() => disable(false));
+  await phrase.click();
+  await page.waitForFunction(() => calls.length === 1);
+  assert.deepEqual(await page.evaluate(() => calls[0]), [
+    'quick-fill',
+    { index: 0, submit: false },
+  ]);
+});
+
+test('optional names save blank and name-only mode falls back without changing content', async (t) => {
+  const page = await fixture(t);
+  const prompt = '请用更直白的语言解释，并举一个具体例子。\n保留所有关键条件。';
+  await page.getByRole('button', { name: '添加快捷指令', exact: true }).click();
+  assert.equal(
+    await page
+      .getByLabel('快捷指令内容', { exact: true })
+      .evaluate((node) => document.activeElement === node),
+    true,
+  );
+  assert.equal(
+    await page.getByLabel('快捷指令名称', { exact: true }).getAttribute('required'),
+    null,
+  );
+  await page.getByLabel('快捷指令内容', { exact: true }).fill(prompt);
+  await page.getByRole('button', { name: '保存', exact: true }).click();
+  await page.waitForFunction(() => snapshot.settings.quickPrompts.length === 3);
+  assert.deepEqual(await page.evaluate(() => snapshot.settings.quickPrompts[2]), {
+    label: '',
+    prompt,
+  });
+  await page.evaluate(() => {
+    snapshot.settings.quickPromptLabelOnly = true;
+    mount();
+  });
+  const firstLine = Array.from(prompt.split('\n')[0]);
+  const fallback = firstLine.slice(0, 20).join('') + (firstLine.length > 20 ? '…' : '');
+  assert.equal(
+    await page.getByRole('button', { name: fallback, exact: true }).textContent(),
+    fallback,
+  );
+  assert.equal(await page.locator('[data-quick-expand]').count(), 0);
+  await page.getByRole('button', { name: fallback, exact: true }).click();
+  await page.waitForFunction(() => calls.length === 1);
+  assert.deepEqual(await page.evaluate(() => calls[0]), [
+    'quick-fill',
+    { index: 2, submit: false },
+  ]);
+  assert.deepEqual(await page.evaluate(() => snapshot.settings.quickPrompts[2]), {
+    label: '',
+    prompt,
+  });
+});
+
+test('disclosure follows actual wrapping and responds to resizing, language and hidden mounts', async (t) => {
+  const page = await fixture(t);
+  await page.evaluate(() => {
+    snapshot.settings.quickPrompts = [
+      {
+        label: 'Review',
+        prompt:
+          'Please check the plan and list concrete changes, keeping the visual style we agreed on. '.repeat(
+            3,
+          ),
+      },
+    ];
+    setLocale('en');
+    document.querySelector('#root').hidden = true;
+    mount();
+  });
+  await page.evaluate(() => (document.querySelector('#root').hidden = false));
+  await page.getByRole('button', { name: 'Show full text' }).waitFor();
+  await page.setViewportSize({ width: 1200, height: 760 });
+  await page.getByRole('button', { name: 'Show full text' }).waitFor({ state: 'hidden' });
+  await page.setViewportSize({ width: 240, height: 760 });
+  await page.getByRole('button', { name: 'Show full text' }).waitFor();
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.getByRole('button', { name: 'Show full text' }).click();
+  assert.equal(
+    await page.getByRole('button', { name: 'Collapse text' }).getAttribute('aria-expanded'),
+    'true',
+  );
+  assert.deepEqual(await page.evaluate(() => calls), []);
 });

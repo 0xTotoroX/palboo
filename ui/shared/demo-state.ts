@@ -120,6 +120,7 @@ export function sampleProjection(explore = false): PanelSnapshot {
       tokenMeterEnabled: true,
       quickPromptsEnabled: true,
       quickPromptClickMode: null,
+      quickPromptLabelOnly: false,
       grokbotEnabled: true,
       grokbotAutoSync: true,
       generationMode: 'manual',

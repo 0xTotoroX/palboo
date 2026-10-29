@@ -1,5 +1,17 @@
 // English interface copy. User-authored content is not translated.
 export default {
+  '继续完成剩余步骤。': 'Continue with the remaining steps.',
+  '请用更直白的语言解释，并举一个具体例子。':
+    'Explain in plain language and give a concrete example.',
+  检查方案: 'Review the plan',
+  '检查这份作品集方案：\n1. 找出影响阅读和操作的问题。\n2. 按影响程度排序。\n3. 给出可以直接执行的修改建议。\n4. 标明需要我补充的信息。\n保留已经确认的视觉风格。':
+    'Review this portfolio plan:\n1. Find problems that affect reading and interaction.\n2. Rank them by impact.\n3. Suggest specific, actionable changes.\n4. List any information you need from me.\nKeep the visual style we already agreed on.',
+  '把常用指令完整放在手边。短句直接读，长内容展开看；点一下，填入当前草稿。':
+    'Keep your full instructions close. Read short phrases at a glance, expand longer ones, and click to add them to your draft.',
+  '短名称选填，也可以切换为仅显示名称。填入或直接发送单独设置，与下一步独立使用。':
+    'Short names are optional. Switch to names only when you prefer, and choose whether to insert or send. Quick phrases work independently of Next steps.',
+  常用语示例草稿: 'Quick phrases demo draft',
+
   常用组合: 'Everyday presets',
   国内模型: 'Chinese models',
   国外模型: 'International models',
@@ -233,8 +245,8 @@ export default {
   '下一步。\n让对话继续推进。': 'Next steps.\nKeep the conversation moving.',
   '根据最近一问一答，给出可以继续的下一步。选中建议，填入输入框，接着推进你的想法。':
     'Get useful next steps from your latest question and answer. Choose a suggestion, add it to the input, and keep developing your idea.',
-  '自动生成或手动刷新。方向可以自选、自动探索或智能挑选；内置方向和常用提示词都能编辑，也能添加自己的内容。填入或直接发送，由你选择。生成建议需配置模型服务。':
-    'Generate automatically or refresh manually. Pick directions yourself, explore freely, or use smart selection. Edit built-in directions and quick prompts, or add your own. Choose whether to insert or send. Requires a configured model service.',
+  '自动生成或手动刷新。方向可以自选、自动探索或智能挑选；内置方向可以编辑，也能添加自己的方向。填入或直接发送，由你选择。生成建议需配置模型服务。':
+    'Generate automatically or refresh manually. Pick directions yourself, explore freely, or use smart selection. Edit built-in directions or add your own. Choose whether to insert or send. Requires a configured model service.',
   '大纲。\n长回答也能快速定位。': 'Outline.\nFind your place in long answers.',
   '把回答里的标题变成目录。方案、步骤、检查清单，想回看哪一段，就直接跳到哪一段。':
     'Turn response headings into a table of contents. Jump straight to the plan, step, or checklist you want to revisit.',

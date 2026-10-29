@@ -1,5 +1,12 @@
 // English interface copy. User-authored content is not translated.
 export default {
+  '短名称（选填）': 'Short name (optional)',
+  留空时使用内容开头: 'Leave blank to use the opening words',
+  仅显示名称: 'Show names only',
+  展开全文: 'Show full text',
+  收起内容: 'Collapse text',
+  '常用语内容需要 1–4000 字，短名称选填且不超过 20 字':
+    'Phrase content must be 1–4,000 characters; an optional short name can be up to 20 characters.',
   常用语: 'Quick phrases',
   常用语已停用: 'Quick phrases are disabled.',
   运行模式: 'Run mode',

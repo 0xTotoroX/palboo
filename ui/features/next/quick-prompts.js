@@ -1,10 +1,13 @@
 import { tr } from '../../shared/i18n.js';
 /* [INPUT]: Projected quick prompts, transient reading state and revision-checked settings save.
- * [OUTPUT]: Compact shortcuts or expanded standalone phrases with previews, inline editing, confirmed removal and retained failure drafts.
+ * [OUTPUT]: Content-first standalone phrases or compact names, independent long-text disclosure, optional-name editing and retained failure drafts.
  * [POS]: Shared quick-prompt editor; adapters own transport and settings own persistence.
  * [PROTOCOL]: Keep next/AGENTS.md in sync. */
-import { escapeAttr, escapeHtml } from '../../shared/text.js';
+import { escapeAttr, escapeHtml, hashText } from '../../shared/text.js';
 import { iconSvg } from '../../shared/icons/index.js';
+import { quickPromptName } from '../../shared/quick-prompts.js';
+
+let nextViewId = 0;
 
 export function createQuickPrompts({
   read,
@@ -15,9 +18,12 @@ export function createQuickPrompts({
   expanded = false,
 }) {
   let root,
+    sizes,
     busy = false,
     disabled = false,
     error = '';
+  const viewId = ++nextViewId;
+  const itemKey = (item) => hashText(JSON.stringify(item));
   const state = () => {
     const settings = read().settings || {};
     const saved = reading.quickPromptSaved;
@@ -31,34 +37,48 @@ export function createQuickPrompts({
     if (!draft) return '';
     const cancel = `<button type="button" data-quick-action="cancel">${tr('取消')}</button>`;
     if (draft.remove)
-      return `<div class="csw-quick-editor" role="group" aria-label="${tr('确认删除快捷指令')}"><p>${escapeHtml(tr('删除“{{name}}”？', { name: draft.label }))}</p><div class="csw-quick-editor-actions">${cancel}<button type="button" data-quick-action="confirm-delete">${tr('确认删除')}</button></div></div>`;
-    return `<form class="csw-quick-editor" aria-label="${draft.index === null ? tr('添加快捷指令') : tr('编辑快捷指令')}"><label>${tr('名称')}<input name="label" aria-label="${tr('快捷指令名称')}" maxlength="20" required value="${escapeAttr(draft.label)}"></label><label>${tr('指令内容')}<textarea name="prompt" aria-label="${tr('快捷指令内容')}" maxlength="4000" rows="3" required>${escapeHtml(draft.prompt)}</textarea></label><div class="csw-quick-editor-actions">${cancel}<button type="submit">${tr('保存')}</button></div></form>`;
+      return `<div class="csw-quick-editor" role="group" aria-label="${tr('确认删除快捷指令')}"><p>${escapeHtml(tr('删除“{{name}}”？', { name: quickPromptName(draft) }))}</p><div class="csw-quick-editor-actions">${cancel}<button type="button" data-quick-action="confirm-delete">${tr('确认删除')}</button></div></div>`;
+    return `<form class="csw-quick-editor" aria-label="${draft.index === null ? tr('添加快捷指令') : tr('编辑快捷指令')}"><label>${tr('指令内容')}<textarea name="prompt" aria-label="${tr('快捷指令内容')}" maxlength="4000" rows="4" required>${escapeHtml(draft.prompt)}</textarea></label><label>${tr('短名称（选填）')}<input name="label" aria-label="${tr('快捷指令名称')}" maxlength="20" placeholder="${tr('留空时使用内容开头')}" value="${escapeAttr(draft.label)}"></label><div class="csw-quick-editor-actions">${cancel}<button type="submit">${tr('保存')}</button></div></form>`;
   }
   function html() {
     const { items } = state();
     const editing = reading.quickPromptEditing;
+    const namesOnly = !expanded || !!read().settings?.quickPromptLabelOnly;
+    const validKeys = new Set(items.map(itemKey));
+    reading.quickPromptExpanded = (reading.quickPromptExpanded || []).filter((key) =>
+      validKeys.has(key),
+    );
     const tags = items
       .map((item, index) => {
+        const name = quickPromptName(item);
         const remove = editing
-          ? iconButton('delete:' + index, 'close', tr('删除快捷指令 ') + escapeAttr(item.label))
+          ? iconButton('delete:' + index, 'close', tr('删除快捷指令 ') + escapeAttr(name))
           : '';
-        const preview = expanded && item.prompt.trim() !== item.label.trim() ? item.prompt : '';
         const description = editing
           ? tr('aria-description="点击编辑快捷指令"')
-          : preview
-            ? `aria-description="${escapeAttr(preview)}"`
+          : item.prompt.trim() !== name
+            ? `aria-description="${escapeAttr(item.prompt)}"`
             : '';
-        const content = expanded
-          ? `<span class="csw-quick-label">${escapeHtml(item.label)}</span>${preview ? `<span class="csw-quick-preview" aria-hidden="true">${escapeHtml(preview)}</span>` : ''}`
-          : escapeHtml(item.label);
-        return `<div class="csw-quick-tag"><button type="button" class="csw-quick-prompt" data-quick-prompt="${index}" aria-label="${escapeAttr(item.label)}" ${description}>${content}</button>${remove}</div>`;
+        const open = reading.quickPromptExpanded.includes(itemKey(item));
+        const bodyId = `quick-phrase-${viewId}-${index}`;
+        const caption =
+          item.label?.trim() && item.label.trim() !== item.prompt.trim()
+            ? `<span class="csw-quick-caption" hidden>${escapeHtml(item.label)}</span>`
+            : '';
+        const content = namesOnly
+          ? escapeHtml(name)
+          : `${caption}<span id="${bodyId}" class="csw-quick-text">${escapeHtml(item.prompt)}</span>`;
+        const disclosure = namesOnly
+          ? ''
+          : `<button type="button" class="csw-quick-disclosure" data-quick-expand="${index}" aria-controls="${bodyId}" aria-expanded="${open}" hidden>${open ? tr('收起内容') : tr('展开全文')}</button>`;
+        return `<div class="csw-quick-tag" data-open="${open}"><button type="button" class="csw-quick-prompt" data-quick-prompt="${index}" aria-label="${escapeAttr(name)}" ${description}>${content}</button>${disclosure}${remove}</div>`;
       })
       .join('');
     const actions = save
       ? `<div class="csw-quick-actions">${iconButton('edit', 'pencil', editing ? tr('完成编辑快捷指令') : tr('编辑快捷指令'), `aria-pressed="${!!editing}"`)}${iconButton('add', 'plus', tr('添加快捷指令'))}</div>`
       : '';
     const feedback = error || (busy ? tr('正在保存…') : '');
-    return `<div class="csw-quick-area" data-expanded="${expanded}"><div class="csw-quick-prompts" aria-label="${tr('常用提示词')}" data-editing="${!!editing}">${tags}${actions}</div>${editorHtml(reading.quickPromptDraft)}<div class="csw-quick-feedback" role="status" ${feedback ? '' : 'hidden'}>${escapeHtml(feedback)}</div></div>`;
+    return `<div class="csw-quick-area" data-expanded="${expanded}" data-names-only="${namesOnly}"><div class="csw-quick-prompts" aria-label="${tr('常用提示词')}" data-editing="${!!editing}">${tags}${actions}</div>${editorHtml(reading.quickPromptDraft)}<div class="csw-quick-feedback" role="status" ${feedback ? '' : 'hidden'}>${escapeHtml(feedback)}</div></div>`;
   }
   function repaint(focus) {
     if (!root?.isConnected) return;
@@ -74,7 +94,7 @@ export function createQuickPrompts({
     if (busy || disabled) return;
     // Keep an unfinished editor until the user saves or cancels it.
     if (reading.quickPromptDraft) {
-      root.querySelector('input, [data-quick-action="cancel"]')?.focus();
+      root.querySelector('textarea, [data-quick-action="cancel"]')?.focus();
       return;
     }
     const { items, revision } = state();
@@ -83,13 +103,13 @@ export function createQuickPrompts({
     reading.quickPromptDraft = {
       index,
       remove,
-      label: index === null ? '' : items[index].label,
+      label: index === null ? '' : items[index].label || '',
       prompt: index === null ? '' : items[index].prompt,
       revision,
       items: structuredClone(items),
     };
     error = '';
-    repaint(remove ? '[data-quick-action="cancel"]' : 'input');
+    repaint(remove ? '[data-quick-action="cancel"]' : 'textarea');
   }
   function cancel() {
     if (busy || disabled) return;
@@ -100,7 +120,7 @@ export function createQuickPrompts({
   async function submit() {
     const draft = reading.quickPromptDraft;
     if (!draft || busy || disabled || !save) return;
-    if (!draft.remove && (!draft.label.trim() || !draft.prompt.trim())) return;
+    if (!draft.remove && !draft.prompt.trim()) return;
     const items = structuredClone(draft.items);
     if (draft.remove) items.splice(draft.index, 1);
     else if (draft.index === null)
@@ -126,7 +146,7 @@ export function createQuickPrompts({
       error = e.message || tr('保存失败，请重试');
     } finally {
       busy = false;
-      repaint(error ? 'input, [data-quick-action="cancel"]' : '[data-quick-action="add"]');
+      repaint(error ? 'textarea, [data-quick-action="cancel"]' : '[data-quick-action="add"]');
     }
   }
   function setDisabled(value) {
@@ -134,13 +154,43 @@ export function createQuickPrompts({
     if (!root) return;
     root.querySelectorAll('button,input,textarea').forEach((n) => {
       n.disabled =
-        busy || disabled || (n.dataset.quickAction === 'add' && state().items.length >= 8);
+        n.dataset.quickExpand === undefined &&
+        (busy || disabled || (n.dataset.quickAction === 'add' && state().items.length >= 8));
+    });
+  }
+  function syncDisclosure() {
+    if (!root?.clientWidth) return;
+    root.querySelectorAll('[data-quick-expand]').forEach((button) => {
+      const tag = button.parentElement;
+      const text = tag.querySelector('.csw-quick-text');
+      const overflow = text.scrollHeight > parseFloat(getComputedStyle(text).lineHeight) * 3 + 1;
+      button.hidden = !overflow;
+      const caption = tag.querySelector('.csw-quick-caption');
+      if (caption) caption.hidden = !overflow;
     });
   }
   function bind(node) {
+    sizes?.disconnect();
     root = node.matches('.csw-quick-area') ? node : node.querySelector('.csw-quick-area');
     if (!root) return;
     setDisabled(disabled);
+    syncDisclosure();
+    sizes = new ResizeObserver(syncDisclosure);
+    sizes.observe(root);
+    root.querySelectorAll('[data-quick-expand]').forEach((button) =>
+      button.addEventListener('click', (event) => {
+        event.stopPropagation();
+        beforeEdit();
+        const key = itemKey(state().items[Number(button.dataset.quickExpand)]);
+        const open = !reading.quickPromptExpanded.includes(key);
+        reading.quickPromptExpanded = reading.quickPromptExpanded.filter((value) => value !== key);
+        if (open) reading.quickPromptExpanded.push(key);
+        button.parentElement.dataset.open = String(open);
+        button.setAttribute('aria-expanded', String(open));
+        button.textContent = open ? tr('收起内容') : tr('展开全文');
+        syncDisclosure();
+      }),
+    );
     root.querySelectorAll('[data-quick-prompt]').forEach((button) =>
       button.addEventListener('click', (event) => {
         if (busy || disabled || reading.quickPromptEditing || reading.quickPromptDraft) {
@@ -159,7 +209,7 @@ export function createQuickPrompts({
         else if (action === 'confirm-delete') void submit();
         else if (action === 'edit') {
           if (reading.quickPromptDraft) {
-            root.querySelector('input, [data-quick-action="cancel"]')?.focus();
+            root.querySelector('textarea, [data-quick-action="cancel"]')?.focus();
             return;
           }
           beforeEdit();
@@ -200,6 +250,7 @@ export function createQuickPrompts({
     setDisabled,
     state,
     clear: () => {
+      sizes?.disconnect();
       root = null;
     },
   };

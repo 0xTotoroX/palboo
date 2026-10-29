@@ -87,7 +87,7 @@ New configurations use the complete latest question and answer, with up to three
 
 Manage directions in **Next steps**. Built-in edits and custom directions stay local; built-in wording can be restored. Choose whether a click fills or sends, or drag a suggestion into its linked composer.
 
-**Features → Quick phrases** manages up to eight presets and its own click mode. Add, edit, and confirm deletions directly in the phrase panel too. It works with Stepwise disabled and preserves existing phrases and click behavior. Existing drafts are always preserved and appended to, never sent automatically.
+**Features → Quick phrases** manages up to eight presets and its own click mode. Full content comes first: short phrases appear directly and long instructions expand on demand. Short names are optional; enable **Show names only** for a compact view. Add, edit, and confirm deletions directly in the phrase panel too. It works with Stepwise disabled and preserves existing phrases and click behavior. Existing drafts are always preserved and appended to, never sent automatically.
 
 </details>
 

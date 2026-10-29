@@ -177,6 +177,7 @@ export function FeaturePreviewContent({
     form?.directionSource === 'manual' ? form.selectedDirections.length : (form?.maxItems ?? 3);
   snapshot.prompts = snapshot.prompts.slice(0, Math.max(0, limit));
   snapshot.settings.quickPrompts = quick || form?.quickPrompts || snapshot.settings.quickPrompts;
+  snapshot.settings.quickPromptLabelOnly = form?.quickPromptLabelOnly ?? false;
   snapshot.settings.quickPromptsEnabled =
     form?.quickPromptsEnabled ?? snapshot.settings.quickPromptsEnabled;
   snapshot.settings.quickPromptClickMode =

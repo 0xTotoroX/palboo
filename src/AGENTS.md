@@ -141,6 +141,6 @@ DesktopStatus.pageKind 接收共享宿主分类；host_page_allowed 读取旧 si
 
 - [app_mode.rs](app_mode.rs)：正式/开发模式私有记录、修订及跨安装/启动/切换互斥；临时 loopback 进度页在浏览器确认后交接，编译/启动失败回滚，保留两套业务数据；注册来源、完整 App 绑定与无活动 Dev 时的正式恢复。正式后台 HTTP 可用后仍等待 Codex connected（最多20秒），固定交接同时核对端点和窗口；成功才保存模式。实际模式和保存偏好不一致时允许按当前修订纠正，失败提示不预先声称已恢复。
 
-常用语登记为 prompts，独立开关和点击模式不使生成请求失效；旧配置继承原 Stepwise 开关，已有 prompts 位置优先，否则继承 next 开合与位置。旧工作台停用 next 而保留常用语时，按原侧栏/浮层及开合意愿登记；旧桌面窗口交接前不抢占。settings::list_models 选择 Codex 时委托 model_control 的共用目录读取，API 来源沿用原 /models；快切 preferences HTTP 路由不重复获取下层呈现操作锁。
+常用语登记为 prompts，独立开关、点击模式与 quickPromptLabelOnly 显示偏好不使生成请求失效；显示偏好默认关闭，旧配置无需迁移，短名称允许留空或省略、最多20字，内容仍必填且最多4000字；旧配置继承原 Stepwise 开关，已有 prompts 位置优先，否则继承 next 开合与位置。旧工作台停用 next 而保留常用语时，按原侧栏/浮层及开合意愿登记；旧桌面窗口交接前不抢占。settings::list_models 选择 Codex 时委托 model_control 的共用目录读取，API 来源沿用原 /models；快切 preferences HTTP 路由不重复获取下层呈现操作锁。
 
 - `window_process.rs`：panel/features 共用的桌面进程句柄；经已登记完整 App 的 `--open-window`/LaunchServices 进入当前模式程序，在 AppKit 登记后回执真实 PID，以 kqueue 追踪退出并按应用实例回收。未安装 App 的源码窗口保持 accessory；旧入口缺少能力时明确要求更新，不回退 exec Dock 身份。

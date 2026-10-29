@@ -283,7 +283,7 @@ launcher-face 回归覆盖眼睛入口单击、双击、Enter/Space 与逐一点
 
 本轮模型服务与推荐拖放回归：workbench-binding 覆盖真实鼠标拖放、原条目保留、抓取预览、释放动画中间帧、错误落点、跨聊天/停用拒绝、同文档与独立窗口序列化接收协议、只追加不发送；popout-checks 覆盖远端直接追加。Rust model_requests/model/settings/terminology 覆盖分域取消、重开不复活、协议回退取消、手动分类关闭零新增请求和无迟到入库；连接测试独立于 Stepwise/Jev。均为合成数据，不代表 macOS 原生跨进程拖拽的实机验收。
 
-`quick-prompts-editor.test.mjs`：真实下一步编辑器的添加/修改/确认删除、重挂载保留草稿、异步失败和并发冲突、空列表添加及编辑零误发送；features Rust用例验证owner、功能开关、修订、字段范围和持久化。
+`quick-prompts-editor.test.mjs`：真实独立常用语编辑器的添加/修改/确认删除、重挂载保留草稿、异步失败和并发冲突、空列表添加及编辑零误发送；features Rust用例验证owner、功能开关、修订、字段范围和持久化。
 
 `model-usage.test.mjs`覆盖真实时长映射、周单窗、codex桶、缺失/过期值、限频/共享读取、超时/账号切换/停用回收；model-groups检查额度位于铅笔左侧且垂直居中、开关只保存对应偏好。workbench-binding检查推荐拖入与末尾换行的实际行距，无额外空段且不发送。`settings-open.test.mjs`与settings-browser/bridge-requests覆盖短超时重试、并发共享、可见错误、旧输入框、节点重建、Enter未处理、身份变化与取消；成功只确认地址提交。
 
@@ -378,3 +378,5 @@ Fast/普通预设按闪电标记独立消歧：model-groups 覆盖同组编号�
 `compact-feature-layout.test.mjs` 通过实际 mountFeature 与完整标题/正文外壳验证 240px 窄栏、280px 矮面板、长列表、中英文及20px大字号：术语图标筛选在标题槽、正文只有一层12px边距、按钮至少28px且键盘可用；模型额度/测速/操作初始可见，滚动模型不移动底栏，Esc 退出预设编辑。settings-preview-controls 以真实 Bot/下一步/看板组件验证徽章、按需消息、停止及填入仅更新示例内存；settings-modes 同时检查外框高度和 Shadow DOM 正文边界，防止实际内容遮挡下方表单；performance 检查关闭前后均无空仪表、无新增采样。
 
 - `native-app.mjs`：用正式 Swift 入口、原始图标和隔离目录组装合成 App，不安装或修改 Dock 固定项。`window-controls-native.mjs` 核对真实 bundle 路径/标识、Dock reopen 的同 PID/草稿保留；裸 CLI 的 `native-check --header-only` 则必须是 accessory。`window_process` 的忽略原生用例显式验证 LaunchServices→exec 的身份、真实 PID、自然退出和主动回收。
+
+常用语内容优先验收：quick-prompts-editor 验三行实际溢出、展开与执行分离、只读可展开、空名称保存及回退、隐藏挂载/缩放/双语/减少动态效果；settings-safety 验显示开关独立保存且保留未完成正文。website 验独立常用语示例的完整填入、名称切换、已有草稿与七功能滚动；Rust 验可选名称、显示偏好持久化/旧默认/冲突及生成请求不失效。

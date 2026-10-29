@@ -14,10 +14,13 @@ import { OpeningStory, ReadingStory } from './story';
 import { ScrollDemo } from './scroll-tour';
 import type { GithubLinkVariant } from './github-link';
 import { PromptDemo } from './prompt-demo';
+import { QuickPhrasesDemo } from './product-demos';
 
 function ToolDetails() {
   useLocale();
   const [botDraft, setBotDraft] = useState<string | null>(null);
+  const [phraseDraft, setPhraseDraft] = useState('');
+  const [namesOnly, setNamesOnly] = useState(false);
   return (
     <section className="tools-section page-width" aria-labelledby="tools-title">
       <h2 id="tools-title">
@@ -25,6 +28,35 @@ function ToolDetails() {
         <br />
         {tr('不必离开对话。')}
       </h2>
+      <div id="quick-phrases" className="tool-row quick-phrases-showcase">
+        <div>
+          <h3>{tr('常用语')}</h3>
+          <p>{tr('把常用指令完整放在手边。短句直接读，长内容展开看；点一下，填入当前草稿。')}</p>
+          <p>
+            {tr('短名称选填，也可以切换为仅显示名称。填入或直接发送单独设置，与下一步独立使用。')}
+          </p>
+        </div>
+        <div>
+          <div className="choice-row">
+            <button
+              type="button"
+              aria-pressed={namesOnly}
+              onClick={() => setNamesOnly((value) => !value)}
+            >
+              {tr('仅显示名称')}
+            </button>
+          </div>
+          <QuickPhrasesDemo
+            namesOnly={namesOnly}
+            onInsert={(value) => setPhraseDraft((draft) => (draft ? `${draft}\n${value}` : value))}
+          />
+          <ComposerDemo
+            draft={phraseDraft}
+            onChange={setPhraseDraft}
+            label={tr('常用语示例草稿')}
+          />
+        </div>
+      </div>
       <ScrollDemo steps={4} className="model-tour">
         {(step) => (
           <div className="tool-row">

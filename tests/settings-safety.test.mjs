@@ -22,7 +22,7 @@ import React,{useEffect}from'react';import{createRoot}from'react-dom/client';
 import{NextSettings}from'./ui/settings/next-settings';import{QuickPromptSettings}from'./ui/settings/quick-prompt-settings';import{ConnectionSettings}from'./ui/settings/connection-settings';
 import{SettingsForm}from'./ui/settings/settings-controls';import{useSettingsForm}from'./ui/settings/use-settings-form';
 import{TerminologySettings}from'./ui/settings/terminology-settings';import{CodexHostSettings}from'./ui/settings/codex-host-settings';
-function App(){const e=useSettingsForm(false,undefined,v=>Object.fromEntries(["enabled", "quickPromptsEnabled", "quickPromptClickMode", "answerOutlineEnabled", "promptEnhancementEnabled", "generationMode", "hostRestartPolicy", "provider", "protocol", "model", "baseUrl", "apiKeyEnv", "maxItems", "directionSource", "directionLibrary", "selectedDirections", "jev", "quickPrompts", "maxInputChars", "maxOutputTokens", "timeoutMs"].map(key=>[key,v[key]])),()=>{});useEffect(()=>{e.load(window.fixture);window.loadSettings=e.load},[]);
+function App(){const e=useSettingsForm(false,undefined,v=>Object.fromEntries(["enabled", "quickPromptsEnabled", "quickPromptClickMode", "quickPromptLabelOnly", "answerOutlineEnabled", "promptEnhancementEnabled", "generationMode", "hostRestartPolicy", "provider", "protocol", "model", "baseUrl", "apiKeyEnv", "maxItems", "directionSource", "directionLibrary", "selectedDirections", "jev", "quickPrompts", "maxInputChars", "maxOutputTokens", "timeoutMs"].map(key=>[key,v[key]])),()=>{});useEffect(()=>{e.load(window.fixture);window.loadSettings=e.load},[]);
 return <div><SettingsForm editor={e} notify={()=>{}} active><NextSettings editor={e}/><QuickPromptSettings editor={e}/><ConnectionSettings editor={e} live view={{connection:{status:'connected',endpoint:'9229',targets:[]}}} notify={()=>{}}/></SettingsForm><CodexHostSettings live active/><TerminologySettings active/></div>}
 createRoot(document.getElementById('root')).render(<App/>);`,
         },
@@ -362,6 +362,33 @@ createRoot(document.getElementById('root')).render(<App/>);`,
         'credential removal retains endpoint/model/consent',
       );
       assert.equal(settings.baseUrl, fixtureSettings.baseUrl);
+
+      await page.getByRole('button', { name: '关闭词库管理', exact: true }).click();
+
+      // The display switch saves only its preference, even with an unfinished phrase.
+      await page.evaluate((value) => window.loadSettings(value), settings);
+      const phraseContent = page.getByRole('textbox', { name: '常用提示词 1 内容', exact: true });
+      await phraseContent.fill('');
+      const revision = settings.configurationRevision;
+      await Promise.all([
+        page.waitForResponse(
+          (response) =>
+            response.url().endsWith('/api/settings') &&
+            response.request().postDataJSON()?.quickPromptLabelOnly === true,
+        ),
+        page.getByRole('switch', { name: '仅显示名称' }).click(),
+      ]);
+      assert.deepEqual(writes.at(-1).body, {
+        quickPromptLabelOnly: true,
+        expectedRevision: revision,
+      });
+      assert.equal(await phraseContent.inputValue(), '');
+      assert.notEqual(settings.quickPrompts[0].prompt, '');
+      await page.evaluate((value) => window.loadSettings(value), settings);
+      assert.equal(
+        await page.getByRole('switch', { name: '仅显示名称' }).getAttribute('aria-checked'),
+        'true',
+      );
     } finally {
       await browser.close();
     }

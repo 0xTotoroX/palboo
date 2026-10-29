@@ -1,6 +1,6 @@
 // [INPUT]: 模型配置、受限 Codex CLI 或 HTTP 结构化接口。
 // [OUTPUT]: Model、ModelInfo、Suggestion；保留原 Codex 服务路由，关闭无关 Skill/插件/Hook/终端初始化的结构化补全与生成/测试/模型查询。
-// [POS]: 模型适配层，三种方向来源共用生成与总超时；智谱请求/最终回答适配，保留方向和数量校验。
+// [POS]: 模型适配层，三种方向来源共用生成与总超时，常用语呈现偏好不使生成失效；智谱请求/最终回答适配，保留方向和数量校验。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
 use anyhow::{Context, Result, bail};
@@ -178,6 +178,7 @@ impl Model {
         options.quick_prompts = other.options.quick_prompts.clone();
         options.quick_prompts_enabled = other.options.quick_prompts_enabled;
         options.quick_prompt_click_mode = other.options.quick_prompt_click_mode.clone();
+        options.quick_prompt_label_only = other.options.quick_prompt_label_only;
         if options.direction_source == crate::directions::DirectionSource::Auto
             && other.options.direction_source == options.direction_source
         {

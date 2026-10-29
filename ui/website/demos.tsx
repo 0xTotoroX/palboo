@@ -8,7 +8,14 @@ import { useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from 're
 import { Icon } from '../shared/icons/react';
 import { ModelDemo } from './model-demo';
 export { ModelDemo } from './model-demo';
-import { NextDemo, OutlineDemo, BoardDemo, TermDemo, BotDemo } from './product-demos';
+import {
+  NextDemo,
+  QuickPhrasesDemo,
+  OutlineDemo,
+  BoardDemo,
+  TermDemo,
+  BotDemo,
+} from './product-demos';
 import { headings } from './demo-state';
 export { BoardDemo, BotDemo, TermDemo, botSampleNames } from './product-demos';
 export { headings } from './demo-state';
@@ -20,6 +27,13 @@ export const features = [
       return tr('下一步');
     },
     icon: 'feature-next',
+  },
+  {
+    id: 'prompts',
+    get label() {
+      return tr('常用语');
+    },
+    icon: 'feature-prompts',
   },
   {
     id: 'outline',
@@ -186,6 +200,9 @@ export function FeatureDemo({
             <div key={reset}>
               <div hidden={active !== 'next'}>
                 <NextDemo onInsert={insert} />
+              </div>
+              <div hidden={active !== 'prompts'}>
+                <QuickPhrasesDemo onInsert={insert} />
               </div>
               <div hidden={active !== 'outline'}>
                 <OutlineDemo
