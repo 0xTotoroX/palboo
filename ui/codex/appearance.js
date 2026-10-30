@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 宿主页面标记、字体与主题。
- * [OUTPUT]: 宿主字体/主题、内容区域及设置页双色外观、按角色区分的控件/菜单尺寸与减少动效快照。
+ * [OUTPUT]: 宿主字体/主题、内容区域及设置页双色外观、按角色区分的导航/标题及控件/菜单尺寸与减少动效快照。
  * [POS]: 宿主外观适配边界，不依赖胶囊视图。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -233,6 +233,7 @@ function readSettingsPalette(root, theme) {
     surface: ['--color-background-elevated-primary-opaque'],
     text: ['--app-color-text-foreground', '--color-token-text-primary', '--text-primary'],
     muted: ['--app-color-text-foreground-secondary', '--color-text-secondary', '--text-secondary'],
+    tertiary: ['--app-color-text-foreground-tertiary', '--color-text-tertiary'],
     accent: ['--codex-theme-accent-color', '--color-token-charts-blue'],
     accentText: ['--app-color-text-accent', '--color-token-text-link-foreground'],
     onAccent: ['--app-color-text-on-accent'],
@@ -328,6 +329,13 @@ function readSettingsPalette(root, theme) {
     menuLineHeight: ['--menu-line-height', 'line-height'],
     menuGap: ['--menu-item-gap', 'gap'],
     buttonWeight: ['--button-font-weight', 'font-weight'],
+    navFontSize: [['--text-sm', '--font-text-sm-size'], 'font-size'],
+    navLineHeight: [['--text-sm--line-height', '--font-text-sm-line-height'], 'line-height'],
+    navRadius: ['--radius-lg', 'border-radius'],
+    navWeight: [['--font-ui-weight', '--font-weight-normal'], 'font-weight'],
+    navGroupWeight: ['--font-weight-medium', 'font-weight'],
+    headingSize: ['--text-form-title', 'font-size'],
+    headingLineHeight: ['--text-form-title--line-height', 'line-height'],
     headingWeight: ['--text-form-title--font-weight', 'font-weight'],
     headingTracking: ['--text-form-title--letter-spacing', 'letter-spacing'],
     transitionDuration: ['--transition-duration-basic', 'transition-duration'],

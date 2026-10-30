@@ -1,5 +1,5 @@
 /* [INPUT]: 真实宿主外观采样器、设置主题菜单与控件、合成样式/修订 API。
- * [OUTPUT]: 双主题控件角色/菜单与组合输入状态、本机字形/提示、双色采样缓存、原主题恢复及草稿/保存回归。
+ * [OUTPUT]: 双主题导航层级/控件角色与组合输入状态、本机字形/提示、双色采样缓存、原主题恢复及草稿/保存回归。
  * [POS]: 隔离浏览器，不读取真实聊天或修改用户设置。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import test from 'node:test';
@@ -35,7 +35,9 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
 <SettingsTheme codexTheme={host?.theme} hostAppearance={host} appearance={appearance}/>
 <SettingsSearch/>
 <MotionProbe identity={host?.theme}/>
+<nav className="settings-nav" aria-label="测试分类"><section className="settings-nav-group"><h2>界面</h2><div className="settings-nav-children"><a href="#sample" aria-current="page">外观与字体</a><a href="#other">启动与连接</a></div></section></nav>
 <main className="settings-content"><div className="settings-form-column">
+<section className="settings-section"><h2 id="section-heading">显示与操作</h2></section>
 <Field label="服务地址" id="draft"><Input id="draft" defaultValue="保留草稿"/></Field>
 <Field label="显示方式" id="select"><NativeSelect id="select" controlWidth="short" defaultValue="a"><option value="a">跟随当前窗口 / Follow the current window</option><option value="b">固定显示器 / Fixed display</option></NativeSelect></Field>
 <Input id="padded-input" className="pr-[43px]" defaultValue="example"/>
@@ -111,6 +113,12 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
             '--app-color-background-accent-hover': dark ? '#3d284f' : '#ede5fc',
             '--font-ui-family': 'Georgia, serif',
             '--font-ui-weight': '430',
+            '--text-sm': '17px',
+            '--text-sm--line-height': '24px',
+            '--font-weight-medium': '500',
+            '--text-form-title': '1rem',
+            '--text-form-title--line-height': '1.625',
+            '--color-text-tertiary': dark ? '#aaaaaa' : '#777777',
             '--app-color-text-on-accent': '#000000',
             '--spacing': '.25rem',
             '--control-radius-md': 'calc(.5rem * 1.25)',
@@ -212,6 +220,42 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
       menuRadius: '25px',
     });
     assert.equal(await page.locator('html').getAttribute('data-settings-style'), 'chatgpt');
+    const navigationStyle = () =>
+      page.locator('.settings-nav-children a[aria-current]').evaluate((n) => {
+        const s = getComputedStyle(n);
+        return {
+          size: s.fontSize,
+          weight: s.fontWeight,
+          line: s.lineHeight,
+          font: s.fontFamily,
+          marker: getComputedStyle(n, '::before').content,
+        };
+      });
+    assert.deepEqual(await navigationStyle(), {
+      size: '17px',
+      weight: '430',
+      line: '24px',
+      font: 'Georgia, serif',
+      marker: 'none',
+    });
+    assert.equal(await color('.settings-nav-children a[aria-current]'), 'rgb(245, 245, 245)');
+    assert.equal(
+      await page.locator('.settings-nav-group h2').evaluate((n) => getComputedStyle(n).fontSize),
+      '17px',
+    );
+    assert.equal(
+      await page
+        .locator('#section-heading')
+        .evaluate((n) => getComputedStyle(n, '::after').content),
+      'none',
+    );
+    await page.setViewportSize({ width: 360, height: 720 });
+    assert.equal(
+      (await navigationStyle()).size,
+      '17px',
+      'narrow navigation preserves host type size',
+    );
+    await page.setViewportSize({ width: 900, height: 720 });
     assert.equal(
       await page.locator('#draft').evaluate((n) => getComputedStyle(n).fontSize),
       '20px',
@@ -354,6 +398,19 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
     await choose('Palboo 原有');
     await waitColor('rgb(250, 250, 250)');
     const original = await geometry();
+    const originalNavBase = await page
+      .locator('.settings-nav')
+      .evaluate((n) => parseFloat(getComputedStyle(n).fontSize));
+    assert.equal(
+      parseFloat((await navigationStyle()).size),
+      originalNavBase * 0.8125,
+      'original theme keeps its own inherited scale',
+    );
+    assert.equal(
+      (await navigationStyle()).marker,
+      '""',
+      'original theme keeps its current-page marker',
+    );
     assert.equal(
       await page.locator('#select').evaluate((n) => getComputedStyle(n).borderRadius),
       '4px',

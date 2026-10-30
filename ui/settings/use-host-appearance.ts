@@ -1,5 +1,5 @@
 /* [INPUT]: 无正文宿主界面外观快照、设置页主题来源与明暗模式。
- * [OUTPUT]: 按输入/按钮/分段选项/菜单角色映射设置颜色/尺寸及字体动效；接收双色 palettes、保留末次读数。
+ * [OUTPUT]: 按导航/标题/输入/按钮/菜单角色映射设置颜色/尺寸及字体动效；接收双色 palettes、保留末次读数。
  * [POS]: 只影响设置文档，不更改功能布局、业务字体偏好或宿主。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { useLayoutEffect, useRef } from 'react';
@@ -87,6 +87,14 @@ export function useHostAppearance(
       '--settings-menu-line-height': metric('menuLineHeight', 'line-height', '1.5'),
       '--settings-menu-gap': metric('menuGap', 'gap', '0.375rem'),
       '--settings-button-weight': metric('buttonWeight', 'font-weight', '400'),
+      '--settings-nav-size': metric('navFontSize', 'font-size', '0.875rem'),
+      '--settings-nav-line-height': metric('navLineHeight', 'line-height', '1.4286'),
+      '--settings-nav-radius': metric('navRadius', 'border-radius', '0.5rem'),
+      '--settings-nav-weight': metric('navWeight', 'font-weight', '400'),
+      '--settings-nav-group-weight': metric('navGroupWeight', 'font-weight', '500'),
+      '--settings-nav-group-color': colors.tertiary || colors.muted || mix(55),
+      '--settings-heading-size': metric('headingSize', 'font-size', '1rem'),
+      '--settings-heading-line-height': metric('headingLineHeight', 'line-height', '1.625'),
       '--settings-heading-weight': metric('headingWeight', 'font-weight', '600'),
       '--settings-heading-tracking': metric('headingTracking', 'letter-spacing', 'normal'),
       '--settings-control-duration': metric('transitionDuration', 'transition-duration', '150ms'),

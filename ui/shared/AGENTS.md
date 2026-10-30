@@ -74,4 +74,4 @@ EditableSettings.quickPromptsEnabled/quickPromptClickMode/quickPromptLabelOnly �
 
 `features.ts` 的 FeatureLayout.visible 是可选的主界面显示组合，缺省保留全部已打开功能；LayoutPreset 与 layoutPresetsRevision 描述命名布局和并发版本，独立于模型预设及业务配置。
 
-contracts.ts 的 HostSettingsAppearance 仅传递宿主界面语义色、字体和可选 geometry 尺寸/状态表现变量、reducedMotion 及可选双色 palettes；可选 toolbarRadius、菜单尺寸和 inputBorder/segmented/ghost/slider 颜色按控件角色补充，旧快照保持回退，不含正文；AppearanceSettings.settingsStyle 为 chatgpt/palboo/null，缺省采用跟随，独立于 settingsTheme 明暗选择。
+contracts.ts 的 HostSettingsAppearance 仅传递宿主界面语义色、字体和可选 geometry 尺寸/状态表现变量、reducedMotion 及可选双色 palettes；可选导航/标题字号行高、toolbarRadius、菜单尺寸和 inputBorder/segmented/ghost/slider 颜色按控件角色补充，旧快照保持回退，不含正文；AppearanceSettings.settingsStyle 为 chatgpt/palboo/null，缺省采用跟随，独立于 settingsTheme 明暗选择。
