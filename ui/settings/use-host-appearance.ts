@@ -1,5 +1,5 @@
 /* [INPUT]: 无正文宿主界面外观快照、设置页主题来源与明暗模式。
- * [OUTPUT]: 设置专属颜色/尺寸/动效变量及界面字体；接收双色 palettes、保留末次读数并广播减少动效变化。
+ * [OUTPUT]: 按输入/按钮/分段选项/菜单角色映射设置颜色/尺寸及字体动效；接收双色 palettes、保留末次读数。
  * [POS]: 只影响设置文档，不更改功能布局、业务字体偏好或宿主。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { useLayoutEffect, useRef } from 'react';
@@ -59,6 +59,7 @@ export function useHostAppearance(
       '--settings-space': metric('space', 'gap', '0.25rem'),
       '--settings-control-radius': metric('controlRadius', 'border-radius', '0.625rem'),
       '--settings-button-radius': metric('buttonRadius', 'border-radius', '0.75rem'),
+      '--settings-toolbar-radius': metric('toolbarRadius', 'border-radius', '9999px'),
       '--settings-popup-radius': metric('menuRadius', 'border-radius', '1rem'),
       '--settings-item-radius': metric('menuItemRadius', 'border-radius', '0.75rem'),
       '--settings-dialog-radius': metric('dialogRadius', 'border-radius', '0.75rem'),
@@ -67,6 +68,7 @@ export function useHostAppearance(
       '--settings-button-gap': metric('buttonGap', 'gap', '4px'),
       '--settings-menu-padding': metric('menuPadding', 'padding', '0.25rem'),
       '--settings-item-padding': metric('menuItemPadding', 'padding', '0.3125rem 0.5rem'),
+      '--settings-item-height': metric('menuItemHeight', 'min-height', '2.25rem'),
       '--settings-switch-width': metric('switchWidth', 'width', '32px'),
       '--settings-switch-height': metric('switchHeight', 'height', '19px'),
       '--settings-switch-size': metric('switchThumbSize', 'width', '13px'),
@@ -108,6 +110,12 @@ export function useHostAppearance(
       '--settings-scrollbar-hover': colors.scrollbarHover || colors.scrollbar || mix(40),
       '--settings-input-hover-border': colors.inputHoverBorder || colors.border || mix(25),
       '--settings-input-focus-border': colors.inputFocusBorder || colors.focus || accent,
+      '--settings-input-border': colors.inputBorder || colors.border || mix(15),
+      '--settings-ghost-hover': colors.ghostHover || colors.hover || mix(5),
+      '--settings-ghost-active': colors.ghostActive || colors.ghostHover || mix(12),
+      '--settings-segmented': colors.segmented || mix(10),
+      '--settings-segmented-hover': colors.segmentedHover || mix(15),
+      '--settings-slider-track': colors.sliderTrack || colors.border || mix(15),
       '--settings-placeholder': colors.placeholder || colors.muted || mix(65),
       '--settings-disabled-background': colors.disabledBackground || mix(5),
       '--settings-disabled-border': colors.disabledBorder || mix(6),

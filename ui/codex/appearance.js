@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 宿主页面标记、字体与主题。
- * [OUTPUT]: 宿主字体、主题、可用内容区域及设置页独立双色外观、尺寸与减少动效快照。
+ * [OUTPUT]: 宿主字体/主题、内容区域及设置页双色外观、按角色区分的控件/菜单尺寸与减少动效快照。
  * [POS]: 宿主外观适配边界，不依赖胶囊视图。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -248,7 +248,13 @@ function readSettingsPalette(root, theme) {
       '--color-background-secondary-soft-hover',
     ],
     input: ['--color-background-primary-soft-alpha'],
+    inputBorder: ['--input-outline-border-color', '--color-border-primary-outline'],
     selected: ['--app-color-background-accent-hover'],
+    segmented: ['--color-background-segmented-selected'],
+    segmentedHover: ['--color-background-segmented-selected-hover'],
+    ghostHover: ['--color-background-primary-ghost-hover'],
+    ghostActive: ['--color-background-primary-ghost-active'],
+    sliderTrack: ['--slider-track-color'],
     focus: ['--app-color-border-focus', '--color-token-focus-border'],
     switchTrack: ['--switch-track-color'],
     switchOn: ['--switch-track-color-checked'],
@@ -299,14 +305,16 @@ function readSettingsPalette(root, theme) {
     space: ['--spacing', 'gap'],
     controlRadius: ['--control-radius-md', 'border-radius'],
     buttonRadius: ['--radius-button-action', 'border-radius'],
+    toolbarRadius: ['--radius-button-toolbar', 'border-radius'],
     menuRadius: ['--menu-radius', 'border-radius'],
     menuItemRadius: ['--menu-item-radius', 'border-radius'],
     dialogRadius: ['--dialog-radius', 'border-radius'],
     controlHeight: ['--control-size-lg', 'height'],
     controlPadding: ['--control-gutter-md', 'padding'],
     buttonGap: ['--button-gap-md', 'gap'],
-    menuPadding: ['--menu-gutter', 'padding'],
-    menuItemPadding: ['--menu-item-padding', 'padding'],
+    menuPadding: [['--app-menu-gutter', '--menu-gutter'], 'padding'],
+    menuItemPadding: [['--app-menu-item-padding', '--menu-item-padding'], 'padding'],
+    menuItemHeight: [['--app-menu-item-height', '--control-size-lg'], 'min-height'],
     switchWidth: ['--switch-track-width', 'width'],
     switchHeight: ['--switch-track-height', 'height'],
     switchThumbSize: ['--switch-thumb-size', 'width'],
@@ -339,8 +347,9 @@ function readSettingsPalette(root, theme) {
   };
   const geometry = {};
   for (const [name, [variable, property]] of Object.entries(metrics)) {
-    const value = token(variable);
-    if (value && CSS.supports(property, value)) geometry[name] = value;
+    const variables = Array.isArray(variable) ? variable : [variable];
+    const value = variables.map(token).find((value) => value && CSS.supports(property, value));
+    if (value) geometry[name] = value;
   }
   return {
     theme,

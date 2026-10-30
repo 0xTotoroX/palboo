@@ -5,6 +5,7 @@
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
 export interface HostSettingsAppearance {
+  // 可选角色变量允许旧宿主回退；不携带页面正文或官方组件实现。
   theme: 'light' | 'dark';
   palettes?: Partial<Record<'light' | 'dark', Omit<HostSettingsAppearance, 'palettes'>>>;
   reducedMotion?: boolean;
@@ -13,6 +14,7 @@ export interface HostSettingsAppearance {
       | 'space'
       | 'controlRadius'
       | 'buttonRadius'
+      | 'toolbarRadius'
       | 'menuRadius'
       | 'menuItemRadius'
       | 'dialogRadius'
@@ -21,6 +23,7 @@ export interface HostSettingsAppearance {
       | 'buttonGap'
       | 'menuPadding'
       | 'menuItemPadding'
+      | 'menuItemHeight'
       | 'switchWidth'
       | 'switchHeight'
       | 'switchThumbSize'
@@ -65,7 +68,13 @@ export interface HostSettingsAppearance {
       | 'border'
       | 'hover'
       | 'input'
+      | 'inputBorder'
       | 'selected'
+      | 'segmented'
+      | 'segmentedHover'
+      | 'ghostHover'
+      | 'ghostActive'
+      | 'sliderTrack'
       | 'focus'
       | 'switchTrack'
       | 'switchOn'

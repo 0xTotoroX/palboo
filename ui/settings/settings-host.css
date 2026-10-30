@@ -1,5 +1,5 @@
 /* [INPUT]: 宿主界面语义与尺寸变量和现有设置控件/分组结构。
- * [OUTPUT]: 跟随 ChatGPT 的圆角、间距、字体角色、控件状态与菜单/弹窗样式。
+ * [OUTPUT]: 跟随 ChatGPT 的控件角色、圆角/间距、状态、菜单、组合输入与滑杆样式。
  * [POS]: 仅限 chatgpt 来源；保留页面栅格、功能排列和 Palboo 原有主题。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 html[data-settings-style='chatgpt'] {
@@ -27,6 +27,16 @@ html[data-settings-style='chatgpt'] {
   .settings-app :is(input, textarea)::placeholder {
     color: var(--settings-placeholder);
     opacity: 1;
+  }
+  .settings-app :is([data-slot='input'], textarea) {
+    border-color: var(--settings-input-border);
+  }
+  .settings-app [data-slot='native-select'] {
+    border-radius: var(--settings-toolbar-radius);
+    corner-shape: round;
+  }
+  .settings-app input[type='number'] {
+    font-variant-numeric: tabular-nums;
   }
   .settings-app :is(button, a, summary):focus-visible {
     outline: 2px solid var(--buddy-focus);
@@ -85,9 +95,29 @@ html[data-settings-style='chatgpt'] {
   .settings-app [data-slot='button'][data-variant='default']:enabled:active {
     background: var(--settings-button-active);
   }
+  .settings-app [data-slot='button'][data-variant='outline']:enabled:hover {
+    border-color: var(--settings-control-border);
+  }
+  .settings-app
+    :is(
+      [data-slot='button'][data-variant='outline'],
+      [data-slot='button'][data-variant='ghost']
+    ):enabled:hover,
+  .settings-app [data-slot='native-select']:enabled:hover {
+    background: var(--settings-ghost-hover);
+  }
+  .settings-app
+    :is(
+      [data-slot='button'][data-variant='outline'],
+      [data-slot='button'][data-variant='ghost']
+    ):enabled:active {
+    background: var(--settings-ghost-active);
+  }
   /* 图标操作保留既有固定宽度；不挤窄图形或改变操作列。 */
   .settings-app [data-slot='button'][data-size='icon'] {
     padding: 0;
+    border-radius: 9999px;
+    corner-shape: round;
   }
   .settings-app .direction-picker-search > .buddy-icon {
     left: var(--settings-control-padding);
@@ -123,16 +153,41 @@ html[data-settings-style='chatgpt'] {
     margin-bottom: calc(var(--settings-space) * 4);
   }
   .settings-choice button {
-    border-radius: var(--settings-button-radius);
+    border-radius: var(--settings-toolbar-radius);
     min-height: var(--settings-control-height);
     padding: calc(var(--settings-space) * 1.25) var(--settings-control-padding);
+  }
+  .settings-app :is(.settings-choice, .settings-section-tabs, .direction-library-nav) button {
+    border-color: transparent;
+    color: var(--buddy-muted);
+    background: transparent;
+  }
+  .settings-app
+    :is(.settings-choice, .settings-section-tabs, .direction-library-nav)
+    button[aria-pressed='true'] {
+    border-color: transparent;
+    background: var(--settings-segmented);
+    color: var(--buddy-text);
+    font-weight: var(--settings-button-weight);
+  }
+  .settings-app
+    :is(.settings-choice, .settings-section-tabs, .direction-library-nav)
+    button:hover:not(:disabled) {
+    border-color: transparent;
+    background: var(--settings-ghost-hover);
+  }
+  .settings-app
+    :is(.settings-choice, .settings-section-tabs, .direction-library-nav)
+    button[aria-pressed='true']:hover:not(:disabled) {
+    background: var(--settings-segmented-hover);
   }
   .settings-control-pair,
   .settings-save {
     gap: calc(var(--settings-space) * 2);
   }
   .settings-app :is(.settings-theme-trigger, .settings-search-trigger, .settings-header-tools a) {
-    border-radius: var(--settings-button-radius);
+    border-radius: 9999px;
+    corner-shape: round;
   }
   .settings-theme-menu,
   .settings-suggestion-list,
@@ -155,7 +210,7 @@ html[data-settings-style='chatgpt'] {
   .settings-suggestion-list [role='option'],
   .direction-picker-options [role='option'],
   .settings-search li button {
-    min-height: var(--settings-control-height);
+    min-height: var(--settings-item-height);
     border-radius: var(--settings-item-radius);
     padding: var(--settings-item-padding);
     font-size: var(--settings-menu-font-size);
@@ -163,9 +218,18 @@ html[data-settings-style='chatgpt'] {
     gap: var(--settings-menu-gap);
   }
   .settings-theme-menu button:hover,
+  .settings-theme-menu button:focus-visible,
   .settings-search li button:hover,
   .settings-suggestion-list [role='option']:hover,
   .direction-picker-options [role='option']:hover {
+    background: var(--settings-menu-hover);
+  }
+  .settings-theme-menu button[aria-pressed='true'] {
+    color: var(--buddy-text);
+    background: transparent;
+    font-weight: var(--settings-button-weight);
+  }
+  .settings-theme-menu button[aria-pressed='true']:is(:hover, :focus-visible) {
     background: var(--settings-menu-hover);
   }
   .settings-search-dialog .settings-search-input {
@@ -180,6 +244,20 @@ html[data-settings-style='chatgpt'] {
   }
   .settings-entry {
     border-radius: var(--settings-control-radius);
+    border-color: var(--settings-input-border);
+  }
+  .settings-entry:focus-within {
+    border-color: var(--settings-input-focus-border);
+  }
+  /* 组合编辑区只有外框反馈，内部草稿不再套第二层输入框。 */
+  .settings-app .settings-entry :is(input, textarea):not(:disabled) {
+    border-color: transparent;
+    background: transparent;
+    outline: none;
+  }
+  .settings-app :is(input, select, textarea)[aria-invalid='true']:not(:disabled) {
+    border-color: var(--error-foreground);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--error-foreground) 20%, transparent);
   }
   .settings-app [data-slot='switch'] {
     position: relative;
@@ -204,6 +282,9 @@ html[data-settings-style='chatgpt'] {
     content: '';
     position: absolute;
     inset: -5px -2px;
+  }
+  .settings-app [data-slot='switch']:disabled::after {
+    pointer-events: none;
   }
   .settings-app [data-slot='switch-thumb'] {
     border-radius: 9999px;
@@ -252,13 +333,72 @@ html[data-settings-style='chatgpt'] {
       backdrop-filter: var(--settings-menu-blur);
       font-size: var(--settings-menu-font-size);
       line-height: var(--settings-menu-line-height);
+      border-color: transparent;
     }
     .settings-app select[data-slot='native-select'] option {
-      min-height: var(--settings-control-height);
+      min-height: var(--settings-item-height);
       border-radius: var(--settings-item-radius);
       padding: var(--settings-item-padding);
       corner-shape: var(--settings-corner-shape);
     }
+    .settings-app select[data-slot='native-select'] option:checked {
+      background: transparent;
+      color: var(--buddy-text);
+      font-weight: var(--settings-button-weight);
+    }
+    .settings-app select[data-slot='native-select'] option::checkmark {
+      color: var(--buddy-text);
+    }
+    .settings-app
+      select[data-slot='native-select']
+      option:is(:hover, :focus-visible):not(:disabled) {
+      background: var(--settings-menu-hover);
+    }
+  }
+}
+
+/* 保留原生滑杆的键盘、指针和提交事件，只统一轨道与滑块。 */
+html[data-settings-style='chatgpt'] .settings-app input[type='range'] {
+  appearance: none;
+  box-sizing: border-box;
+  height: 28px;
+  padding: 13px 0;
+  border: 0;
+  border-radius: 9999px;
+  color: var(--buddy-text);
+  background: var(--settings-slider-track) content-box;
+  cursor: pointer;
+  &::-webkit-slider-runnable-track {
+    height: 2px;
+    border-radius: 9999px;
+  }
+  &::-webkit-slider-thumb {
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    margin-top: -9px;
+    border: 0;
+    border-radius: 9999px;
+    background: currentColor;
+    box-shadow: 0 1px 2px #0002;
+  }
+  &::-moz-range-track {
+    height: 2px;
+    border: 0;
+    border-radius: 9999px;
+    background: var(--settings-slider-track);
+  }
+  &::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border: 0;
+    border-radius: 9999px;
+    background: currentColor;
+    box-shadow: 0 1px 2px #0002;
+  }
+  &:disabled {
+    color: var(--settings-disabled-text);
+    cursor: not-allowed;
   }
 }
 

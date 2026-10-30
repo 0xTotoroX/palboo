@@ -53,7 +53,7 @@
 - [use-host-appearance.ts](use-host-appearance.ts)：消费认证 SSE 的 settingsAppearance，将宿主背景、语义颜色、界面字体/字号、控件状态及圆角/间距/开关尺寸映射到设置专属变量。接收宿主一次提供的双色 palettes，分别保留本页浅/深色末次有效快照；旧宿主未发布的模式才使用中性黑白。Palboo 原有主题清理覆盖，沿用原有配色与业务字体偏好；不新增轮询或改变布局。公共动效参数沿用现有动画控制器；宿主减少动态效果通过 settings-motion-change 即时结束导航、列表补位和布局预览动画，系统偏好仍优先。
 - [use-host-fonts.ts](use-host-fonts.ts)：将宿主所选具体字形的别名映射到本机 local() FontFace；异步完成核对生命周期，换字体/来源后回收，不枚举或下载字体文件。
 - [use-settings-tooltip.ts](use-settings-tooltip.ts)：仅跟随主题替换既有 title 提示，支持悬停/键盘/Esc、抽屉顶层与视口边界；关闭或销毁恢复 title 和原有 aria-describedby，保留 Palboo 原生提示。
-- [settings-host.css](settings-host.css)：仅在跟随 ChatGPT 来源下映射控件圆角/连续曲率、内边距、行/分组间距、菜单/搜索/弹窗阴影、文字选中、细圆滚动条、悬停提示及输入/按钮/开关各状态；保留栅格、宽度分档、功能顺序、图标列和原生交互。选择器与带图标输入保留两端空间；Palboo 原有主题不加载这些覆盖。
+- [settings-host.css](settings-host.css)：仅在跟随 ChatGPT 来源下映射控件圆角/连续曲率、内边距、行/分组间距、菜单/搜索/弹窗阴影、文字选中、细圆滚动条、悬停提示及输入/按钮/开关各状态；保留栅格、宽度分档、功能顺序、图标列和原生交互。选择器读取独立 toolbar 圆角，菜单选中项保留勾号、悬停/键盘高亮，分段选项采用独立中性色；组合编辑区只反馈外框，错误输入保持独立边框；滑杆沿用原生事件。选择器与带图标输入保留两端空间；Palboo 原有主题不加载这些覆盖。
 - [index.html](index.html)：设置网页入口，图标复用 ../icon.png。
 - [board.html](board.html)：旧独立看板 HTML 入口，仍挂载 ../surfaces/desktop/legacy-board.tsx 及共用看板内容。
 - [feature.html](feature.html)：桌面和贴边通用 HTML 入口。

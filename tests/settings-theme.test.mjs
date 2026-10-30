@@ -1,5 +1,5 @@
 /* [INPUT]: 真实宿主外观采样器、设置主题菜单与控件、合成样式/修订 API。
- * [OUTPUT]: 双主题样式与本机字形/提示、双色无闪烁采样与缓存、原主题恢复及草稿/保存回归。
+ * [OUTPUT]: 双主题控件角色/菜单与组合输入状态、本机字形/提示、双色采样缓存、原主题恢复及草稿/保存回归。
  * [POS]: 隔离浏览器，不读取真实聊天或修改用户设置。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import test from 'node:test';
@@ -41,6 +41,11 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
 <Input id="padded-input" className="pr-[43px]" defaultValue="example"/>
 <IconButton id="icon" aria-label="刷新"><Icon name="refresh"/></IconButton>
 <Button id="action">保存</Button><Button disabled id="disabled">不可用</Button>
+<Button id="outline" variant="outline">检查连接</Button>
+<div className="settings-choice"><button id="selected-choice" aria-pressed="true">当前布局</button><button aria-pressed="false">另一布局</button></div>
+<div className="settings-entry" id="compound"><Input className="settings-entry-name" aria-label="组合名称" defaultValue="我的名称"/><textarea className="settings-entry-content" aria-label="组合正文" defaultValue="草稿正文"/></div>
+<Input id="invalid" aria-label="无效输入" aria-invalid="true" defaultValue="example"/>
+<input id="slider" type="range" aria-label="位置" defaultValue="50"/>
 <Switch aria-label="功能开关" checked onCheckedChange={()=>{}}/>
 <SettingsDrawer id="sample" title="高级设置"><Input aria-label="抽屉草稿" defaultValue="保留抽屉草稿"/><button type="button" title="抽屉提示">提示测试</button></SettingsDrawer>
 <DirectionPicker library={[{id:'demo',name:'示例方向',instruction:'说明',enabled:true}]} builtIns={[{id:'demo'}]} selected={[]} onSelect={()=>{}}/>
@@ -110,18 +115,28 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
             '--spacing': '.25rem',
             '--control-radius-md': 'calc(.5rem * 1.25)',
             '--radius-button-action': 'calc(.625rem * 1.25)',
+            '--radius-button-toolbar': '9999px',
             '--menu-radius': 'calc(1rem * 1.25)',
             '--menu-item-radius': 'calc(.75rem * 1.25)',
             '--control-size-lg': '2.25rem',
             '--control-gutter-md': '.75rem',
             '--menu-item-padding': 'calc(.25rem * 1.25) calc(.25rem * 2)',
+            '--app-menu-gutter': '10px',
+            '--app-menu-item-padding': '6px 10px',
+            '--app-menu-item-height': '36px',
             '--switch-track-width': '32px',
             '--switch-track-height': '19px',
             '--switch-thumb-size': 'calc(19px - 2 * 3px)',
             '--switch-thumb-offset': '3px',
             '--codex-corner-shape': 'superellipse(1.5)',
             '--input-outline-border-color-hover': '#888888',
+            '--input-outline-border-color': '#bbbbbb',
             '--input-outline-border-color-focus': '#666666',
+            '--color-background-primary-ghost-hover': dark ? '#353535' : '#f5f5f5',
+            '--color-background-primary-ghost-active': dark ? '#454545' : '#e5e5e5',
+            '--color-background-segmented-selected': dark ? '#383838' : '#e8e8e8',
+            '--color-background-segmented-selected-hover': dark ? '#484848' : '#d8d8d8',
+            '--slider-track-color': dark ? '#555555' : '#dddddd',
             '--input-placeholder-text-color': '#777777',
             '--color-background-primary-solid': dark ? '#eeeeee' : '#222222',
             '--color-background-primary-solid-hover': dark ? '#dddddd' : '#333333',
@@ -222,6 +237,61 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
     assert.notEqual(await color('#action'), before);
     assert.equal(before, 'rgb(34, 34, 34)');
     assert.equal(await color('#action'), 'rgb(51, 51, 51)');
+    assert.equal(
+      await page.locator('#select').evaluate((n) => getComputedStyle(n).borderRadius),
+      '9999px',
+      'dropdown uses toolbar radius independently of text inputs and action buttons',
+    );
+    assert.equal(await color('#selected-choice'), 'rgb(232, 232, 232)');
+    await page.locator('#selected-choice').hover();
+    assert.equal(await color('#selected-choice'), 'rgb(216, 216, 216)');
+    const outlineBorder = await page
+      .locator('#outline')
+      .evaluate((n) => getComputedStyle(n).borderColor);
+    await page.locator('#outline').hover();
+    assert.equal(await color('#outline'), 'rgb(245, 245, 245)');
+    assert.equal(
+      await page.locator('#outline').evaluate((n) => getComputedStyle(n).borderColor),
+      outlineBorder,
+    );
+    await page.getByRole('textbox', { name: '组合正文' }).fill('保留组合草稿');
+    assert.equal(
+      await page.locator('#compound').evaluate((n) => getComputedStyle(n).borderColor),
+      'rgb(102, 102, 102)',
+    );
+    assert.equal(await color('.settings-entry-content'), 'rgba(0, 0, 0, 0)');
+    assert.equal(
+      await page
+        .locator('.settings-entry-content')
+        .evaluate((n) => getComputedStyle(n).borderColor),
+      'rgba(0, 0, 0, 0)',
+    );
+    await page.locator('#invalid').focus();
+    assert.equal(
+      await page.locator('#invalid').evaluate((n) => getComputedStyle(n).borderColor),
+      'rgb(180, 35, 24)',
+      'error state survives focus',
+    );
+    await page.locator('#slider').focus();
+    await page.keyboard.press('ArrowRight');
+    assert.equal(
+      await page.locator('#slider').inputValue(),
+      '51',
+      'styled slider retains native keyboard operation',
+    );
+    await page.locator('.settings-theme-trigger').click();
+    await page.locator('#draft').focus();
+    const menuStyles = await page.locator('.settings-theme-menu').evaluate((n) => ({
+      padding: getComputedStyle(n).padding,
+      itemPadding: getComputedStyle(n.querySelector('button')).padding,
+      checkedBackground: getComputedStyle(n.querySelector('[aria-pressed=true]')).backgroundColor,
+    }));
+    assert.deepEqual(menuStyles, {
+      padding: '10px',
+      itemPadding: '6px 10px',
+      checkedBackground: 'rgba(0, 0, 0, 0)',
+    });
+    await page.locator('.settings-theme-trigger').click();
     const corners = await page.locator('#draft').evaluate((n) => ({
       supported: CSS.supports('corner-shape', 'superellipse(1.5)'),
       value: getComputedStyle(n).cornerShape,
@@ -284,6 +354,15 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
     await choose('Palboo 原有');
     await waitColor('rgb(250, 250, 250)');
     const original = await geometry();
+    assert.equal(
+      await page.locator('#select').evaluate((n) => getComputedStyle(n).borderRadius),
+      '4px',
+    );
+    assert.equal(
+      await page.getByRole('textbox', { name: '组合正文' }).inputValue(),
+      '保留组合草稿',
+    );
+    assert.equal(await page.locator('#slider').inputValue(), '51');
     assert.equal(original.radius, '4px');
     assert.equal(original.switchWidth, '36px');
     assert.equal(original.switchHeight, '22px');
