@@ -1,15 +1,16 @@
-/* [INPUT]: 无正文宿主界面外观快照、设置页主题来源与明暗模式。
- * [OUTPUT]: 按导航/标题/输入/按钮/菜单角色映射设置颜色/尺寸及字体动效；接收双色 palettes、保留末次读数。
+/* [INPUT]: 无正文宿主界面外观快照、设置页主题来源、明暗模式和独立强调色。
+ * [OUTPUT]: 按角色映射颜色/尺寸及字体动效；双色缓存和可读的独立导航强调色，保留末次读数。
  * [POS]: 只影响设置文档，不更改功能布局、业务字体偏好或宿主。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { useLayoutEffect, useRef } from 'react';
-import type { HostSettingsAppearance } from '../shared/contracts';
+import type { HostSettingsAppearance, SettingsAccent } from '../shared/contracts';
 
 export function useHostAppearance(
   snapshot: HostSettingsAppearance | null | undefined,
   theme: 'light' | 'dark',
   source: 'chatgpt' | 'palboo',
   independentTypography = false,
+  settingsAccent?: SettingsAccent,
 ) {
   const palettes = useRef<Partial<Record<'light' | 'dark', HostSettingsAppearance>>>({});
   const last = useRef<HostSettingsAppearance | null>(null);
@@ -35,14 +36,18 @@ export function useHostAppearance(
   useLayoutEffect(() => {
     const root = document.documentElement;
     root.dataset.settingsStyle = source;
-    if (source !== 'chatgpt') return;
     const colors = Object.fromEntries(
       Object.entries(palette?.colors || {}).filter(
         ([, color]) => typeof color === 'string' && CSS.supports('color', color),
       ),
     );
     // 未观察到另一种模式时使用中性黑白；不会将浅色读数套进深色模式。
-    const paper = colors.page || (theme === 'dark' ? '#000000' : '#ffffff');
+    const paper =
+      source === 'palboo'
+        ? theme === 'dark'
+          ? '#19191b'
+          : '#fafafa'
+        : colors.page || (theme === 'dark' ? '#000000' : '#ffffff');
     const ink = colors.text || (theme === 'dark' ? '#ececec' : '#1f2328');
     const mix = (amount: number) => `color-mix(in srgb, ${ink} ${amount}%, ${paper})`;
     const accent = colors.accent || ink;
@@ -65,7 +70,7 @@ export function useHostAppearance(
       const base = palette?.typography?.fontSize || last.current?.typography?.fontSize || 16;
       return /^\d+(\.\d+)?px$/.test(value) ? `${parseFloat(value) / base}rem` : value;
     };
-    const values: Record<string, string> = {
+    const hostValues: Record<string, string> = {
       '--settings-space': metric('space', 'gap', '0.25rem'),
       '--settings-control-radius': metric('controlRadius', 'border-radius', '0.625rem'),
       '--settings-button-radius': metric('buttonRadius', 'border-radius', '0.75rem'),
@@ -178,12 +183,61 @@ export function useHostAppearance(
       '--notice-foreground': ink,
       '--settings-text-size': 'var(--buddy-type-size, 16px)',
     };
+    const values: Record<string, string> = source === 'chatgpt' ? hostValues : {};
+    const accentSource = settingsAccent?.source || 'chatgpt';
+    const decoration =
+      accentSource === 'palboo'
+        ? '#ff5a00'
+        : accentSource === 'custom' && /^#[0-9a-f]{6}$/i.test(settingsAccent?.color || '')
+          ? settingsAccent!.color
+          : colors.accent || ink;
+    values['--settings-orange'] = decoration;
+    values['--settings-accent-text'] = readableAccent(
+      accentSource === 'chatgpt' ? colors.accentText || decoration : decoration,
+      paper,
+    );
     for (const [key, value] of Object.entries(values)) root.style.setProperty(key, value);
     return () => {
       for (const key of Object.keys(values)) root.style.removeProperty(key);
     };
-  }, [palette, theme, source, snapshot]);
+  }, [palette, theme, source, snapshot, settingsAccent?.source, settingsAccent?.color]);
   return source === 'chatgpt' || independentTypography
     ? palette?.typography || last.current?.typography
     : undefined;
+}
+
+// 自定义颜色保留原色点缀；文字只在需要时向黑/白调整，保证与实际页面的对比度。
+function readableAccent(color: string, background: string) {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 1;
+  const context = canvas.getContext('2d', { willReadFrequently: true });
+  if (!context) return color;
+  const rgb = (value: string) => {
+    context.clearRect(0, 0, 1, 1);
+    context.fillStyle = value;
+    context.fillRect(0, 0, 1, 1);
+    return Array.from(context.getImageData(0, 0, 1, 1).data).slice(0, 3);
+  };
+  const luminance = (values: number[]) =>
+    values.reduce((total, value, i) => {
+      const channel = value / 255;
+      return (
+        total +
+        (channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4) *
+          [0.2126, 0.7152, 0.0722][i]
+      );
+    }, 0);
+  const base = rgb(color),
+    paper = luminance(rgb(background));
+  const contrast = (value: number[]) => {
+    const ink = luminance(value);
+    return (Math.max(ink, paper) + 0.05) / (Math.min(ink, paper) + 0.05);
+  };
+  if (contrast(base) >= 4.5) return color;
+  const end = (paper + 0.05) / 0.05 >= 1.05 / (paper + 0.05) ? 0 : 255;
+  for (let step = 1; step <= 100; step++) {
+    const adjusted = base.map((value) => Math.round(value + ((end - value) * step) / 100));
+    if (contrast(adjusted) >= 4.5) return `rgb(${adjusted.join(', ')})`;
+  }
+  return end ? '#ffffff' : '#000000';
 }

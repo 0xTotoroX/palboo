@@ -46,6 +46,7 @@ impl Scope {
                 "typography",
                 "settingsTheme",
                 "settingsStyle",
+                "settingsAccent",
                 "language",
                 "alwaysOnTop",
                 "launcherAction",
@@ -247,17 +248,20 @@ pub(super) fn schema(scope: Scope) -> Value {
             "nestedFields":{
                 "ui":keys(crate::panel::Ui::default()),
                 "typography":keys(crate::panel::TypographyPreferences::default()),
+                "settingsAccent":keys(crate::panel::SettingsAccent::default()),
                 "position":["x","y"],
                 "ui.dockLayout / ui.popoutLayout":keys(crate::panel::WorkbenchLayout::default())
             },
             "choices":{
                 "language":["system","en","zh-CN"],"settingsTheme":["codex","light","dark"],"settingsStyle":["chatgpt","palboo"],
+                "settingsAccent.source":["chatgpt","palboo","custom"],
                 "typography.mode":["follow","custom"],"typography.source":["body","session","composer"],
                 "ui.promptClickMode":["fill","direct","hybrid"],"launcherAction":["inside","outside","settings"],"launcherDoubleAction":["inside","outside","settings","toggle"],"launcherContextAction":["inside","outside","settings","toggle"],
                 "settingsTarget":["plugin","web"]
             },
             "notes":{
                 "typography":"支持局部更新；scale 为 75–150%，customSize 为 10–32px",
+                "settingsAccent":"设置页点缀独立于主题；color 为 #RRGGBB，切换 source 保留自定义颜色",
                 "ui":"下一步显示/操作：labelOnly、promptClickMode；侧栏宽度：dockWidth；Palboo启用范围：sidebarNewChat、sidebarDots",
                 "legacy":"ui.dockLayout/popoutLayout 为旧两功能布局；新布局使用 config set layout，分形式材质使用 surfaces"
             },

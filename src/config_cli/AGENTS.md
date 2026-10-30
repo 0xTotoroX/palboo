@@ -13,3 +13,5 @@
 settings schema 包含 quickPromptsEnabled 与 quickPromptClickMode；常用语列表、开关、模式沿原设置修订保存，不改变模型服务配置。
 
 appearance schema 包含 settingsStyle（chatgpt/palboo），与 settingsTheme（codex/light/dark）分别控制设置外观来源和明暗。
+
+settingsAccent.source（chatgpt/palboo/custom）与 color（#RRGGBB）只影响设置页点缀；局部补丁保留另一字段，由后台验证颜色和修订。

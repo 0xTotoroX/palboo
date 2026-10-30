@@ -1,5 +1,5 @@
 // [INPUT]: App、宿主投影、窗口租约与私有 panel 偏好（新聊天/Dots 侧栏开关仅由外观设置修改）。
-// [OUTPUT]: macOS 15+ arm64 弹出能力与入口校验、Panel、独立胶囊/工作台尺寸、分窗口字体族/跟随/字号偏好及旧统一偏好兼容、兼容分功能字号及分呈现方式的排列/比例偏好、带分栏阅读位置与新建任务草稿接续的弹出/收回/受限命令（含常用提示词填入），以及保留原实例的开发唤起目标。
+// [OUTPUT]: 设置页独立强调色、macOS 15+ arm64 弹出能力与入口校验、Panel、独立胶囊/工作台尺寸、分窗口字体族/跟随/字号偏好及旧统一偏好兼容、兼容分功能字号及分呈现方式的排列/比例偏好、带分栏阅读位置与新建任务草稿接续的弹出/收回/受限命令（含常用提示词填入），以及保留原实例的开发唤起目标。
 // [POS]: 后台系统浮窗管理层，从准备租约起保护窗口快照，原生呈现后隐藏内嵌胶囊；临时坐标不持久化，收回偏好按版本校验并保存。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
@@ -179,12 +179,39 @@ pub struct Preferences {
     pub settings_target: String,
     pub settings_theme: Option<String>,
     pub settings_style: Option<String>,
+    pub settings_accent: SettingsAccent,
     pub language: String,
     pub launcher_action: String,
     pub launcher_double_action: String,
     pub launcher_context_action: String,
     pub position: Option<Position>,
     pub ui: Ui,
+}
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
+pub struct SettingsAccent {
+    pub source: String,
+    pub color: String,
+}
+impl Default for SettingsAccent {
+    fn default() -> Self {
+        Self {
+            source: "chatgpt".into(),
+            color: "#ff5a00".into(),
+        }
+    }
+}
+impl SettingsAccent {
+    fn validate(&self) -> Result<()> {
+        ensure!(
+            ["chatgpt", "palboo", "custom"].contains(&self.source.as_str())
+                && self.color.len() == 7
+                && self.color.starts_with('#')
+                && self.color.as_bytes()[1..].iter().all(u8::is_ascii_hexdigit),
+            "设置页强调色无效"
+        );
+        Ok(())
+    }
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase", deny_unknown_fields)]
@@ -238,6 +265,7 @@ impl Default for Preferences {
             settings_target: "plugin".into(),
             settings_theme: None,
             settings_style: None,
+            settings_accent: SettingsAccent::default(),
             language: "system".into(),
             launcher_action: "inside".into(),
             launcher_double_action: "toggle".into(),
@@ -841,6 +869,11 @@ impl App {
             }
             next.settings_style = Some(style.into());
         }
+        if let Some(value) = input.get("settingsAccent") {
+            next.settings_accent = serde_json::from_value(value.clone())?;
+            next.settings_accent.validate()?;
+            next.settings_accent.color.make_ascii_lowercase();
+        }
         if let Some(value) = input.get("settingsTarget") {
             let target = value.as_str().context("设置打开方式无效")?;
             if !["plugin", "web"].contains(&target) {
@@ -1284,6 +1317,62 @@ mod tests {
                 .is_err()
         );
         assert_eq!(app.appearance().await, saved);
+    }
+
+    #[tokio::test]
+    async fn settings_accent_is_independent_validated_and_persistent() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths::new(Some(dir.path().into())).unwrap();
+        let app = App::new(paths, crate::config::Config::default(), None, true);
+        let initial = app.appearance().await;
+        let settings = app.settings().await;
+        assert_eq!(initial.settings_accent.source, "chatgpt");
+        let saved = app
+            .save_appearance(json!({"expectedRevision":initial.revision,
+            "settingsAccent":{"source":"custom","color":"#ABCDEF"}}))
+            .await
+            .unwrap();
+        assert_eq!(saved.settings_accent.color, "#abcdef");
+        assert_eq!(saved.ui, initial.ui);
+        assert_eq!(saved.typography, initial.typography);
+        assert_eq!(saved.surface_typography, initial.surface_typography);
+        assert_eq!(saved.settings_style, initial.settings_style);
+        assert_eq!(app.settings().await, settings);
+        assert_eq!(Preferences::read(&app.paths), saved);
+        for accent in [
+            json!({"source":"invalid","color":"#123456"}),
+            json!({"source":"custom","color":"red"}),
+            json!({"source":"custom","color":"#GGGGGG"}),
+            json!({"source":"custom","color":"#123456","extra":true}),
+        ] {
+            assert!(
+                app.save_appearance(json!({"expectedRevision":saved.revision,
+                "settingsAccent":accent}))
+                    .await
+                    .is_err()
+            );
+        }
+        assert!(
+            app.save_appearance(json!({"expectedRevision":initial.revision,
+            "settingsAccent":{"source":"palboo","color":"#abcdef"}}))
+                .await
+                .is_err()
+        );
+        assert_eq!(app.appearance().await, saved);
+        let following = app
+            .save_appearance(json!({"expectedRevision":saved.revision,
+            "settingsAccent":{"source":"chatgpt","color":"#abcdef"}}))
+            .await
+            .unwrap();
+        assert_eq!(following.settings_accent.color, "#abcdef");
+        let mut legacy = serde_json::to_value(&saved).unwrap();
+        legacy.as_object_mut().unwrap().remove("settingsAccent");
+        assert_eq!(
+            serde_json::from_value::<Preferences>(legacy)
+                .unwrap()
+                .settings_accent,
+            SettingsAccent::default()
+        );
     }
 
     #[tokio::test]

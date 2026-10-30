@@ -110,6 +110,7 @@ export function SettingsTheme({
     theme,
     source,
     !!appearance?.surfaceTypography?.settings,
+    appearance?.settingsAccent,
   );
   const fontPreferences =
     appearance?.surfaceTypography?.settings ||

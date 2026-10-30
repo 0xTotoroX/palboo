@@ -16,6 +16,7 @@ test('settings follow host appearance while preserving original theme, modes and
       contents: `
 import React from 'react';import {createRoot} from 'react-dom/client';
 import {SettingsTheme} from './ui/settings/settings-theme';
+import {PanelSettings} from './ui/settings/panel-settings';
 import {Input} from './ui/settings/components/ui/input';
 import {Button} from './ui/settings/components/ui/button';
 import {Switch} from './ui/settings/components/ui/switch';
@@ -51,6 +52,7 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
 <Switch aria-label="功能开关" checked onCheckedChange={()=>{}}/>
 <SettingsDrawer id="sample" title="高级设置"><Input aria-label="抽屉草稿" defaultValue="保留抽屉草稿"/><button type="button" title="抽屉提示">提示测试</button></SettingsDrawer>
 <DirectionPicker library={[{id:'demo',name:'示例方向',instruction:'说明',enabled:true}]} builtIns={[{id:'demo'}]} selected={[]} onSelect={()=>{}}/>
+<PanelSettings value={appearance} section="surfaces" page="appearance"/>
 </div></main></div>);`,
     },
     bundle: true,
@@ -70,6 +72,7 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
     let pref = {
       revision: 1,
       settingsTheme: 'codex',
+      ui: { dockWidth: 360 },
       typography: { mode: 'custom', customSize: 24, scale: 150, source: 'body' },
     };
     const writes = [];
@@ -233,12 +236,12 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
       });
     assert.deepEqual(await navigationStyle(), {
       size: '17px',
-      weight: '430',
+      weight: '500',
       line: '24px',
       font: 'Georgia, serif',
       marker: 'none',
     });
-    assert.equal(await color('.settings-nav-children a[aria-current]'), 'rgb(245, 245, 245)');
+    assert.equal(await color('.settings-nav-children a[aria-current]'), 'rgba(0, 0, 0, 0)');
     assert.equal(
       await page.locator('.settings-nav-group h2').evaluate((n) => getComputedStyle(n).fontSize),
       '17px',
@@ -247,7 +250,7 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
       await page
         .locator('#section-heading')
         .evaluate((n) => getComputedStyle(n, '::after').content),
-      'none',
+      '""',
     );
     await page.setViewportSize({ width: 360, height: 720 });
     assert.equal(
@@ -267,7 +270,7 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
     );
     await page.locator('#draft').fill('未保存的新草稿');
     await page.locator('#draft').evaluate((n) => (window.draftNode = n));
-    assert.equal(await color('[role=switch]'), 'rgb(166, 125, 242)');
+    assert.equal(await color('[role=switch][aria-label="功能开关"]'), 'rgb(166, 125, 242)');
     await page.locator('#draft').focus();
     assert.equal(
       await page.locator('#draft').evaluate((n) => getComputedStyle(n).borderColor),
@@ -408,8 +411,8 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
     );
     assert.equal(
       (await navigationStyle()).marker,
-      '""',
-      'original theme keeps its current-page marker',
+      'none',
+      'original theme uses a single text accent for the current page',
     );
     assert.equal(
       await page.locator('#select').evaluate((n) => getComputedStyle(n).borderRadius),
@@ -700,6 +703,96 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
       }),
       null,
     );
+
+    // Accent edits only save their own appearance field; custom text remains readable in both modes.
+    await choose('跟随 ChatGPT');
+    await choose('自动');
+    await render(light);
+    const beforeAccent = await geometry();
+    const sourcePicker = page.locator('#settings-accent-source');
+    const hex = page.locator('#settings-accent-color');
+    const ready = () =>
+      page.waitForFunction(() => !document.querySelector('#settings-accent-source').disabled);
+    const selectAccent = async (source) => {
+      await sourcePicker.selectOption(source);
+      await ready();
+      await render(light);
+    };
+    const accentWritesStart = writes.length;
+    await selectAccent('palboo');
+    await page.waitForFunction(
+      () => document.documentElement.style.getPropertyValue('--settings-orange') === '#ff5a00',
+    );
+    assert.deepEqual(
+      await geometry(),
+      beforeAccent,
+      'accent does not change layout or control geometry',
+    );
+    await selectAccent('custom');
+    await hex.fill('#oops');
+    await hex.press('Enter');
+    await page.getByText('请输入六位十六进制颜色，如 #FF5A00', { exact: true }).waitFor();
+    assert.equal(writes.length, accentWritesStart + 2);
+    await hex.fill('#ffffff');
+    await hex.press('Enter');
+    await ready();
+    await render(light);
+    assert.equal(pref.settingsAccent.color, '#ffffff');
+    const contrast = () =>
+      page.locator('.settings-nav-children a[aria-current]').evaluate((node) => {
+        const lum = (color) =>
+          color
+            .match(/[\d.]+/g)
+            .slice(0, 3)
+            .reduce((total, value, i) => {
+              const c = Number(value) / 255;
+              return (
+                total +
+                (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4) *
+                  [0.2126, 0.7152, 0.0722][i]
+              );
+            }, 0);
+        const a = lum(getComputedStyle(node).color),
+          b = lum(getComputedStyle(document.documentElement).backgroundColor);
+        return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+      });
+    assert.ok((await contrast()) >= 4.5);
+    await render(dark);
+    await waitColor('rgb(16, 16, 16)');
+    assert.ok((await contrast()) >= 4.5);
+    reject = true;
+    await hex.fill('#00aa88');
+    await hex.press('Enter');
+    await page.getByText('conflict', { exact: true }).waitFor();
+    assert.equal(await hex.inputValue(), '#00aa88', 'failed save retains the draft');
+    assert.equal(pref.settingsAccent.color, '#ffffff');
+    await selectAccent('chatgpt');
+    await selectAccent('custom');
+    assert.equal(await hex.inputValue(), '#00aa88', 'source switching retains the custom draft');
+    await hex.press('Enter');
+    await ready();
+    await render(light);
+    assert.equal(pref.settingsAccent.color, '#00aa88');
+    await selectAccent('chatgpt');
+    await choose('Palboo 原有');
+    assert.equal(
+      await sourcePicker.inputValue(),
+      'chatgpt',
+      'theme does not reset independent accent source',
+    );
+    await page.mouse.move(0, 0);
+    assert.equal(await color('.settings-nav-children a[aria-current]'), 'rgba(0, 0, 0, 0)');
+    assert.equal((await navigationStyle()).marker, 'none');
+    assert.ok(
+      writes
+        .slice(accentWritesStart)
+        .every((w) =>
+          Object.keys(w).every((k) =>
+            ['settingsAccent', 'settingsStyle', 'expectedRevision'].includes(k),
+          ),
+        ),
+    );
+    assert.equal(await page.locator('#draft').inputValue(), '未保存的新草稿');
   } finally {
     await browser.close();
   }

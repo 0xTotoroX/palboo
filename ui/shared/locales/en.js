@@ -1,5 +1,12 @@
 // English interface copy. User-authored content is not translated.
 export default {
+  颜色: 'Color',
+  设置页强调色无效: 'Invalid settings accent color',
+  设置页强调色: 'Settings accent color',
+  颜色来源: 'Color source',
+  'Palboo 橙': 'Palboo orange',
+  选择强调色: 'Choose accent color',
+  '请输入六位十六进制颜色，如 #FF5A00': 'Enter a six-digit hex color, such as #FF5A00',
   未知字体窗口: 'Unknown typography surface',
   窗口字体选项无效: 'Invalid window typography',
   请输入有效的本机字体名称: 'Enter a valid local font name',

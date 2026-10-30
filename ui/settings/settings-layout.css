@@ -741,7 +741,7 @@ html:root .settings-nav {
   }
 }
 
-/* Accent belongs to titles and the current navigation item, not form labels or controls. */
+/* 点缀与当前位置共用独立强调色；标题点缀弱化，不叠加选中竖线。 */
 .settings-app
   :is(
     .settings-section h2,
@@ -755,22 +755,32 @@ html:root .settings-nav {
   height: 4px;
   margin-left: 8px;
   background: var(--settings-orange);
+  opacity: 0.5;
 }
 .settings-nav .settings-nav-children a[aria-current='page'] {
   color: var(--settings-accent-text);
 }
 .settings-nav .settings-nav-children a[aria-current='page']::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  width: 4px;
-  height: 12px;
-  background: var(--settings-orange);
+  content: none;
 }
-@media (max-width: 640px) {
-  .settings-nav .settings-nav-children a[aria-current='page']::before {
-    content: none;
-  }
+.settings-accent-editor {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 260px;
+  max-width: 100%;
+}
+.settings-app .settings-accent-editor input[type='color'] {
+  flex: 0 0 39px;
+  width: 39px;
+  padding: 4px;
+}
+.settings-accent-editor input[type='color']::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+.settings-accent-editor input[type='color']::-webkit-color-swatch {
+  border: 0;
+  border-radius: 2px;
 }
 
 /* Four equal header actions; labels remain in tooltips and accessible names. */

@@ -17,6 +17,8 @@
 
 仅放真正跨模块使用的契约与资源；不承担功能呈现、窗口管理或业务保存。
 
+AppearanceSettings.settingsAccent 独立保存设置页强调色来源与六位颜色，不改变主题来源、字体或业务窗口配色。
+
 contracts 的 __buddyNativeChrome 标识原生标题栏能力；__buddyWindowControls 的 minimized/fullscreen 只用于临时几何保护，不写业务配置。
 
 [PROTOCOL]: 结构、职责或接口变化时更新本文；父级描述受影响时同步父级地图。

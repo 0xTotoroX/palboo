@@ -20,6 +20,8 @@ ui/codex 是宿主识别和写入的唯一实现，经受限请求桥请求模�
 
 成员清单：
 
+panel 的 settingsAccent 默认跟随宿主，独立保存来源及自定义 #RRGGBB；外观修订校验拒绝未知来源/非法颜色，不影响模型、布局或字体偏好，旧配置自动取默认值。
+
 - [directions.rs](directions.rs)：三种方向来源、十二个内置方向及库/位置校验，按目录版本补充新增方向且保留旧修改/删除/位置/智能勾选，最近一问一答 Exchange 与完整性标记。
 - [jev.rs](jev.rs)：可关闭的 TypeSafe System One 批量适用性判断；显式同意、独立密钥、严格结果校验，无静默降级。
 - [stepwise_tests.rs](stepwise_tests.rs)：合成 HTTP 的三路径、相同上下文、失败/取消、方向约束、密钥和迁移集成测试，以及显式选择的真实模型合成质量样例。

@@ -27,9 +27,13 @@ html[data-settings-style='chatgpt'] {
     border-radius: var(--settings-nav-radius);
     corner-shape: var(--settings-corner-shape);
   }
-  .settings-app .settings-nav .settings-nav-children a:is(:hover, [aria-current='page']) {
+  .settings-app .settings-nav .settings-nav-children a:hover {
     background: var(--settings-ghost-hover);
     color: var(--buddy-text);
+  }
+  .settings-app .settings-nav .settings-nav-children a[aria-current='page'] {
+    color: var(--settings-accent-text);
+    font-weight: var(--settings-nav-group-weight);
   }
   .settings-app .settings-nav-group h2 {
     font-size: var(--settings-nav-size);
@@ -38,17 +42,10 @@ html[data-settings-style='chatgpt'] {
     color: var(--settings-nav-group-color);
   }
   .settings-app .settings-nav-current {
-    color: var(--buddy-text);
+    color: var(--settings-accent-text);
     font-weight: var(--settings-nav-weight);
   }
-  /* 跟随主题由文字角色和选中底面区分层级；原主题保留自己的装饰。 */
-  .settings-app
-    :is(
-      .settings-section h2,
-      .settings-section h3,
-      .settings-drawer-header h2,
-      .settings-nav-group h2
-    )::after,
+  /* 保留 Palboo 的轻量点缀，以文字强调当前位置。 */
   .settings-app .settings-nav .settings-nav-children a[aria-current='page']::before {
     content: none;
   }

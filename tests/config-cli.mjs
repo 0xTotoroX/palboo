@@ -130,6 +130,15 @@ try {
   assert.deepEqual(dark.current.ui, appearance.ui);
   await assert.rejects(() => set('appearance', { settingsTheme: 'other' }), /主题无效/);
   assert.equal((await cli('get', 'appearance')).settingsTheme, 'dark');
+  assert.equal(appearance.settingsAccent.source, 'chatgpt');
+  await set('appearance', { settingsAccent: { source: 'custom', color: '#008866' } });
+  const accent = await set('appearance', { settingsAccent: { source: 'palboo' } });
+  assert.deepEqual(accent.current.settingsAccent, { source: 'palboo', color: '#008866' });
+  assert.deepEqual(accent.current.ui, appearance.ui);
+  await assert.rejects(
+    () => set('appearance', { settingsAccent: { color: 'invalid' } }),
+    /强调色无效/,
+  );
   await set('appearance', {
     language: 'en',
     ui: { labelOnly: true, promptClickMode: 'hybrid', dockWidth: 360, sidebarNewChat: true },
