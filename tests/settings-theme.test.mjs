@@ -1,5 +1,5 @@
 /* [INPUT]: 真实宿主外观采样器、设置主题菜单与控件、合成样式/修订 API。
- * [OUTPUT]: 双主题颜色/字体/圆角/间距/控件状态与原有几何恢复、断线保留、固定模式隔离与草稿/保存回归。
+ * [OUTPUT]: 双主题样式与本机字形/提示、双色无闪烁采样与缓存、原主题恢复及草稿/保存回归。
  * [POS]: 隔离浏览器，不读取真实聊天或修改用户设置。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import test from 'node:test';
@@ -42,7 +42,7 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
 <IconButton id="icon" aria-label="刷新"><Icon name="refresh"/></IconButton>
 <Button id="action">保存</Button><Button disabled id="disabled">不可用</Button>
 <Switch aria-label="功能开关" checked onCheckedChange={()=>{}}/>
-<SettingsDrawer id="sample" title="高级设置"><Input aria-label="抽屉草稿" defaultValue="保留抽屉草稿"/></SettingsDrawer>
+<SettingsDrawer id="sample" title="高级设置"><Input aria-label="抽屉草稿" defaultValue="保留抽屉草稿"/><button type="button" title="抽屉提示">提示测试</button></SettingsDrawer>
 <DirectionPicker library={[{id:'demo',name:'示例方向',instruction:'说明',enabled:true}]} builtIns={[{id:'demo'}]} selected={[]} onSelect={()=>{}}/>
 </div></main></div>);`,
     },
@@ -142,6 +142,12 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
             '--transition-duration-moderate': '180ms',
             '--transition-ease-basic': 'ease-in-out',
             '--ease-enter': 'cubic-bezier(.2,.8,.2,1)',
+            '--cubic-exit': 'cubic-bezier(.8,0,.4,1)',
+            '--tooltip-background-color': '#252525',
+            '--tooltip-text-color': '#fefefe',
+            '--tooltip-border-radius': '13px',
+            '--tooltip-font-size': '15px',
+            '--tooltip-padding-inline': '12px',
           };
           for (const [k, v] of Object.entries(tokens)) r.style.setProperty(k, v);
           return window.readHost();
@@ -409,6 +415,148 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
         ),
       ),
     );
+    // Existing native title content now follows host tooltip tokens, including in dialogs.
+    await page.getByRole('button', { name: '高级设置', exact: true }).click();
+    await page.getByRole('button', { name: '提示测试', exact: true }).focus();
+    await page.getByRole('tooltip').waitFor({ state: 'visible' });
+    assert.equal(
+      await page.getByRole('tooltip').evaluate((n) => !!n.closest('dialog[open]')),
+      true,
+    );
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: '搜索设置', exact: true }).focus();
+    await page.getByRole('tooltip').waitFor({ state: 'visible' });
+    assert.equal(await page.getByRole('tooltip').innerText(), '搜索设置');
+    assert.equal(
+      await page.getByRole('tooltip').evaluate((n) => getComputedStyle(n).backgroundColor),
+      'rgb(37, 37, 37)',
+    );
+    assert.equal(
+      await page.getByRole('tooltip').evaluate((n) => getComputedStyle(n).borderRadius),
+      '13px',
+    );
+    await page.keyboard.press('Escape');
+    assert.equal(await page.getByRole('tooltip').count(), 0);
+    assert.equal(
+      await page.getByRole('button', { name: '搜索设置', exact: true }).getAttribute('title'),
+      '搜索设置',
+    );
+    await page.mouse.move(0, 0);
+    await page.getByRole('button', { name: '搜索设置', exact: true }).hover();
+    await page.getByRole('tooltip').waitFor({ state: 'visible' });
+    await page.getByRole('tooltip').hover();
+    assert.equal(await page.getByRole('tooltip').isVisible(), true, 'tooltip remains hoverable');
+    await page.screenshot({ path: 'target/reports/settings-theme/follow-tooltip.png' });
+    await choose('Palboo 原有');
+    assert.equal(await page.getByRole('tooltip').count(), 0);
+    assert.equal(
+      await page.getByRole('button', { name: '搜索设置', exact: true }).getAttribute('title'),
+      '搜索设置',
+    );
+    await choose('跟随 ChatGPT');
+
+    // Both palettes are sampled without changing the host root, focus, or visible theme.
+    const pair = await hostPage.evaluate(() => {
+      const root = document.documentElement;
+      root.removeAttribute('style');
+      root.className = '';
+      root.dataset.theme = 'light';
+      const theme = document.createElement('style');
+      theme.dataset.codexAppThemes = '';
+      theme.textContent = `:root, [data-theme] { --spacing: 4px; --font-ui-family: Georgia, serif; --color-token-scrollbar-slider-background: var(--app-color-border); }
+        :root[data-theme="light"], :root [data-theme="light"] { --app-color-background-surface: #fafafa; --app-color-text-foreground: #121212; --menu-background-color: #f1f1f1; --app-color-border: #cccccc; }
+        :root[data-theme="dark"], :root [data-theme="dark"] { --app-color-background-surface: #17191b; --app-color-text-foreground: #f4f4f4; --menu-background-color: #282a2c; --app-color-border: #555555; --font-ui-family: monospace; }`;
+      document.head.append(theme);
+      const input = document.createElement('input');
+      document.body.append(input);
+      input.focus();
+      const before = root.outerHTML.slice(0, root.outerHTML.indexOf('>') + 1);
+      const result = window.readHost();
+      const observer = new MutationObserver(() => {});
+      observer.observe(document.body, { childList: true, subtree: true });
+      window.readHost();
+      const repeatedMutations = observer.takeRecords().length;
+      observer.disconnect();
+      return {
+        result,
+        unchanged: before === root.outerHTML.slice(0, root.outerHTML.indexOf('>') + 1),
+        focused: document.activeElement === input,
+        probes: document.querySelectorAll('[data-palboo-appearance-probe]').length,
+        repeatedMutations,
+      };
+    });
+    assert.equal(pair.result.palettes.dark.colors.page, '#17191b');
+    assert.equal(pair.result.palettes.dark.colors.menu, '#282a2c');
+    assert.equal(pair.result.palettes.dark.colors.scrollbar, '#555555');
+    assert.equal(pair.result.palettes.dark.typography.fontFamily, 'monospace');
+    assert.equal(pair.unchanged && pair.focused, true);
+    assert.equal(pair.probes, 0);
+    assert.equal(pair.repeatedMutations, 0, 'unchanged snapshots do not remount probes');
+    await render(pair.result);
+    await choose('深色');
+    await waitColor('rgb(23, 25, 27)');
+    assert.equal(await page.locator('#draft').inputValue(), '未保存的新草稿');
+    assert.equal(await hostPage.locator('html').getAttribute('data-theme'), 'light');
+    const updatedPair = await hostPage.evaluate(() => {
+      const style = document.querySelector('[data-codex-app-themes]');
+      style.textContent = style.textContent.replace('#17191b', '#202224');
+      return window.readHost();
+    });
+    await render(updatedPair);
+    await waitColor('rgb(32, 34, 36)');
+
+    // Use an available test-machine font to verify the alias resolves to a real local face.
+    const localFont = await page.evaluate(async () => {
+      for (const name of ['ArialMT', 'Arial', 'DejaVu Sans', 'Liberation Sans']) {
+        try {
+          await new FontFace('font-availability-probe', `local(${JSON.stringify(name)})`).load();
+          return name;
+        } catch {}
+      }
+      return null;
+    });
+    assert.ok(localFont, 'test browser supplies a standard local font');
+    const alias = `Codex selected ${localFont}`;
+    const fontHost = {
+      ...pair.result,
+      palettes: undefined,
+      typography: { ...pair.result.typography, fontFamily: `"${alias}", monospace` },
+    };
+    await choose('自动');
+    await render(fontHost);
+    await page.waitForFunction(
+      (name) =>
+        [...document.fonts].some(
+          (f) => f.family.replace(/^"|"$/g, '') === name && f.status === 'loaded',
+        ),
+      alias,
+    );
+    const fontWidths = await page.evaluate(
+      async ({ name, alias }) => {
+        const reference = new FontFace('font-reference', `local(${JSON.stringify(name)})`);
+        await reference.load();
+        document.fonts.add(reference);
+        const context = document.createElement('canvas').getContext('2d');
+        const width = (family) => {
+          context.font = `16px "${family}"`;
+          return context.measureText('Hello Palboo 123').width;
+        };
+        const widths = [width(alias), width('font-reference')];
+        document.fonts.delete(reference);
+        return widths;
+      },
+      { name: localFont, alias },
+    );
+    assert.equal(fontWidths[0], fontWidths[1]);
+    await choose('Palboo 原有');
+    assert.equal(
+      await page.evaluate(
+        (name) => [...document.fonts].some((f) => f.family.replace(/^"|"$/g, '') === name),
+        alias,
+      ),
+      false,
+    );
+    await hostPage.evaluate(() => document.querySelector('[data-codex-app-themes]').remove());
     assert.equal(
       await hostPage.evaluate(() => {
         document.documentElement.style.removeProperty('--app-color-background-surface');

@@ -1,5 +1,5 @@
 /* [INPUT]: 无正文宿主界面外观快照、设置页主题来源与明暗模式。
- * [OUTPUT]: 设置专属颜色/尺寸/动效变量及界面字体；保留浅/深色末次读数并广播减少动效变化。
+ * [OUTPUT]: 设置专属颜色/尺寸/动效变量及界面字体；接收双色 palettes、保留末次读数并广播减少动效变化。
  * [POS]: 只影响设置文档，不更改功能布局、业务字体偏好或宿主。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { useLayoutEffect, useRef } from 'react';
@@ -13,6 +13,10 @@ export function useHostAppearance(
   const palettes = useRef<Partial<Record<'light' | 'dark', HostSettingsAppearance>>>({});
   const last = useRef<HostSettingsAppearance | null>(null);
   if (snapshot && ['light', 'dark'].includes(snapshot.theme) && snapshot.typography) {
+    for (const mode of ['light', 'dark'] as const) {
+      const saved = snapshot.palettes?.[mode];
+      if (saved?.theme === mode && saved.typography) palettes.current[mode] = saved;
+    }
     last.current = snapshot;
     palettes.current[snapshot.theme] = snapshot;
   }
@@ -88,6 +92,20 @@ export function useHostAppearance(
       '--settings-menu-enter': metric('enterDuration', 'transition-duration', '200ms'),
       '--settings-menu-exit': metric('transitionDuration', 'transition-duration', '150ms'),
       '--settings-ease': metric('enterEase', 'transition-timing-function', 'ease-out'),
+      '--settings-exit-ease': metric('exitEase', 'transition-timing-function', 'ease-in'),
+      '--settings-tooltip-radius': metric('tooltipRadius', 'border-radius', '0.75rem'),
+      '--settings-tooltip-shape': metric('tooltipShape', 'corner-shape', 'round'),
+      '--settings-tooltip-shadow': metric('tooltipShadow', 'box-shadow', '0 8px 18px #0003', true),
+      '--settings-tooltip-size': metric('tooltipSize', 'font-size', '0.875rem'),
+      '--settings-tooltip-weight': metric('tooltipWeight', 'font-weight', '400'),
+      '--settings-tooltip-line-height': metric('tooltipLineHeight', 'line-height', '1.4'),
+      '--settings-tooltip-tracking': metric('tooltipTracking', 'letter-spacing', 'normal'),
+      '--settings-tooltip-padding-block': metric('tooltipPaddingBlock', 'padding', '5px'),
+      '--settings-tooltip-padding-inline': metric('tooltipPaddingInline', 'padding', '12px'),
+      '--settings-tooltip-background': colors.tooltip || ink,
+      '--settings-tooltip-text': colors.tooltipText || paper,
+      '--settings-tooltip-border': colors.tooltipBorder || 'transparent',
+      '--settings-scrollbar-hover': colors.scrollbarHover || colors.scrollbar || mix(40),
       '--settings-input-hover-border': colors.inputHoverBorder || colors.border || mix(25),
       '--settings-input-focus-border': colors.inputFocusBorder || colors.focus || accent,
       '--settings-placeholder': colors.placeholder || colors.muted || mix(65),

@@ -5,6 +5,7 @@
 html:root {
   --settings-menu-enter: 180ms;
   --settings-menu-exit: 140ms;
+  --settings-exit-ease: var(--settings-ease);
   --settings-panel-enter: 220ms;
   --settings-panel-exit: 160ms;
 }
@@ -36,8 +37,8 @@ body,
   transform-origin: top left;
   pointer-events: none;
   transition:
-    opacity var(--settings-menu-exit) var(--settings-ease),
-    transform var(--settings-menu-exit) var(--settings-ease),
+    opacity var(--settings-menu-exit) var(--settings-exit-ease),
+    transform var(--settings-menu-exit) var(--settings-exit-ease),
     display var(--settings-menu-exit) allow-discrete;
 }
 .settings-menu-motion:not([hidden]) {
@@ -45,6 +46,7 @@ body,
   transform: none;
   pointer-events: auto;
   transition-duration: var(--settings-menu-enter);
+  transition-timing-function: var(--settings-ease);
 }
 .settings-theme-menu {
   transform-origin: top right;
@@ -77,8 +79,8 @@ body,
     transform-origin: top left;
     pointer-events: none;
     transition:
-      opacity var(--settings-menu-exit) var(--settings-ease),
-      transform var(--settings-menu-exit) var(--settings-ease),
+      opacity var(--settings-menu-exit) var(--settings-exit-ease),
+      transform var(--settings-menu-exit) var(--settings-exit-ease),
       display var(--settings-menu-exit) allow-discrete;
   }
   .settings-nav[data-open='true'] .settings-category-links {
@@ -86,6 +88,7 @@ body,
     transform: none;
     pointer-events: auto;
     transition-duration: var(--settings-menu-enter);
+    transition-timing-function: var(--settings-ease);
   }
   .settings-nav[data-open='true'] .settings-nav-trigger .buddy-icon {
     rotate: 180deg;
@@ -104,8 +107,8 @@ body,
     transform-origin: top left;
     pointer-events: none;
     transition:
-      opacity var(--settings-menu-exit) var(--settings-ease),
-      transform var(--settings-menu-exit) var(--settings-ease),
+      opacity var(--settings-menu-exit) var(--settings-exit-ease),
+      transform var(--settings-menu-exit) var(--settings-exit-ease),
       display var(--settings-menu-exit) allow-discrete,
       overlay var(--settings-menu-exit) allow-discrete;
   }
@@ -114,6 +117,7 @@ body,
     transform: none;
     pointer-events: auto;
     transition-duration: var(--settings-menu-enter);
+    transition-timing-function: var(--settings-ease);
   }
   @starting-style {
     .settings-app select[data-slot='native-select']:open::picker(select) {

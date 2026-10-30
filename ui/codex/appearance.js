@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 宿主页面标记、字体与主题。
- * [OUTPUT]: 宿主字体、主题、可用内容区域及设置页独立外观、尺寸与减少动效快照。
+ * [OUTPUT]: 宿主字体、主题、可用内容区域及设置页独立双色外观、尺寸与减少动效快照。
  * [POS]: 宿主外观适配边界，不依赖胶囊视图。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -225,23 +225,31 @@ function visibleTypographyNode(selector) {
 }
 
 // 只采集设置页需要的语义样式，不读取聊天、修改宿主主题或复制宿主样式表。
-function readSettingsAppearance() {
-  const root = document.documentElement;
+function readSettingsPalette(root, theme) {
   const style = getComputedStyle(root);
   const token = (name) => style.getPropertyValue(name).trim();
   const sources = {
-    page: ['--app-color-background-surface', '--chat-background-color'],
+    page: ['--app-color-background-surface', '--chat-background-color', '--bg-primary'],
     surface: ['--color-background-elevated-primary-opaque'],
-    text: ['--app-color-text-foreground', '--color-token-text-primary'],
-    muted: ['--app-color-text-foreground-secondary'],
+    text: ['--app-color-text-foreground', '--color-token-text-primary', '--text-primary'],
+    muted: ['--app-color-text-foreground-secondary', '--color-text-secondary', '--text-secondary'],
     accent: ['--codex-theme-accent-color', '--color-token-charts-blue'],
     accentText: ['--app-color-text-accent', '--color-token-text-link-foreground'],
     onAccent: ['--app-color-text-on-accent'],
-    border: ['--color-token-input-border', '--color-border'],
-    hover: ['--color-token-list-hover-background', '--color-background-secondary-soft-hover'],
+    border: [
+      '--app-color-border-heavy',
+      '--color-token-input-border',
+      '--color-border',
+      '--border-default',
+    ],
+    hover: [
+      '--app-color-background-button-secondary-hover',
+      '--color-token-list-hover-background',
+      '--color-background-secondary-soft-hover',
+    ],
     input: ['--color-background-primary-soft-alpha'],
     selected: ['--app-color-background-accent-hover'],
-    focus: ['--color-token-focus-border'],
+    focus: ['--app-color-border-focus', '--color-token-focus-border'],
     switchTrack: ['--switch-track-color'],
     switchOn: ['--switch-track-color-checked'],
     switchThumb: ['--switch-thumb-color'],
@@ -260,10 +268,22 @@ function readSettingsAppearance() {
     menuHover: ['--menu-item-background-color'],
     backdrop: ['--dialog-backdrop-dim-background', '--modal-backdrop-background'],
     selection: ['--color-background-text-selection'],
-    scrollbar: ['--color-token-scrollbar-slider-background', '--scrollbar-color'],
+    scrollbar: [
+      '--app-color-border',
+      '--color-token-scrollbar-slider-background',
+      '--scrollbar-color',
+    ],
     switchDisabled: ['--switch-track-color-disabled'],
     switchOnDisabled: ['--switch-track-color-checked-disabled'],
     switchThumbDisabled: ['--switch-thumb-color-disabled'],
+    tooltip: ['--tooltip-background-color'],
+    tooltipText: ['--tooltip-text-color'],
+    tooltipBorder: ['--tooltip-border-color'],
+    scrollbarHover: [
+      '--app-color-border-heavy',
+      '--color-token-scrollbar-slider-hover-background',
+      '--scrollbar-color',
+    ],
   };
   const colors = {};
   for (const [name, keys] of Object.entries(sources)) {
@@ -306,6 +326,16 @@ function readSettingsAppearance() {
     transitionEase: ['--transition-ease-basic', 'transition-timing-function'],
     enterDuration: ['--transition-duration-moderate', 'transition-duration'],
     enterEase: ['--ease-enter', 'transition-timing-function'],
+    exitEase: ['--cubic-exit', 'transition-timing-function'],
+    tooltipRadius: ['--tooltip-border-radius', 'border-radius'],
+    tooltipShape: ['--tooltip-corner-shape', 'corner-shape'],
+    tooltipShadow: ['--tooltip-box-shadow', 'box-shadow'],
+    tooltipSize: ['--tooltip-font-size', 'font-size'],
+    tooltipWeight: ['--tooltip-font-weight', 'font-weight'],
+    tooltipLineHeight: ['--tooltip-line-height', 'line-height'],
+    tooltipTracking: ['--tooltip-letter-spacing', 'letter-spacing'],
+    tooltipPaddingBlock: ['--tooltip-padding-block', 'padding'],
+    tooltipPaddingInline: ['--tooltip-padding-inline', 'padding'],
   };
   const geometry = {};
   for (const [name, [variable, property]] of Object.entries(metrics)) {
@@ -313,12 +343,12 @@ function readSettingsAppearance() {
     if (value && CSS.supports(property, value)) geometry[name] = value;
   }
   return {
-    theme: detectCodexTheme(),
+    theme,
     colors,
     geometry,
     reducedMotion:
-      root.dataset.reducedMotion === 'true' ||
-      (root.dataset.reducedMotion !== 'false' &&
+      document.documentElement.dataset.reducedMotion === 'true' ||
+      (document.documentElement.dataset.reducedMotion !== 'false' &&
         matchMedia('(prefers-reduced-motion: reduce)').matches),
     typography: {
       fontFamily: family,
@@ -333,6 +363,50 @@ function readSettingsAppearance() {
       source: 'interface',
     },
   };
+}
+
+// 当前宿主在这一份样式中同时发布两种主题；仅由自有隐藏节点承接样式。
+// 相同快照不重复创建节点，采样完立即移除，不持有宿主元素。
+let settingsPalettesCache = null;
+function readSettingsAppearance() {
+  const current = readSettingsPalette(document.documentElement, detectCodexTheme());
+  if (!current) return null;
+  const themeStyle = document.head?.querySelector('style[data-codex-app-themes]');
+  const source = themeStyle?.textContent || '';
+  if (
+    !document.body ||
+    !source.includes('[data-theme="light"]') ||
+    !source.includes('[data-theme="dark"]')
+  )
+    return current;
+  const signature = JSON.stringify(current) + source;
+  if (settingsPalettesCache?.signature === signature)
+    return { ...current, palettes: settingsPalettesCache.palettes };
+  const container = document.createElement('div');
+  container.dataset.palbooAppearanceProbe = '';
+  container.hidden = true;
+  container.inert = true;
+  container.setAttribute('aria-hidden', 'true');
+  container.style.setProperty('display', 'none', 'important');
+  const nodes = ['light', 'dark'].map((theme) => {
+    const node = document.createElement('div');
+    node.dataset.theme = theme;
+    container.append(node);
+    return node;
+  });
+  const palettes = { [current.theme]: current };
+  try {
+    document.body.append(container);
+    for (const node of nodes) {
+      if (node.dataset.theme === current.theme) continue;
+      const palette = readSettingsPalette(node, node.dataset.theme);
+      if (palette) palettes[node.dataset.theme] = palette;
+    }
+    settingsPalettesCache = { signature, palettes };
+  } finally {
+    container.remove();
+  }
+  return { ...current, palettes };
 }
 
 export {

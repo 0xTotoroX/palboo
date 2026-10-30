@@ -50,8 +50,10 @@
 - [settings-motion.ts](settings-motion.ts)：分类入场、功能预览与服务字段的可中断动画，提供公共时长/缓动及减少动效判断；跟随主题读取宿主参数，原主题保留原时长。键盘即时响应，宿主/系统减少动态效果取消进行中的动画；ResizeObserver 同步顶栏真实高度至目录粘性偏移，不重新挂载控件、不存储配置；页面入场保留4px位移。
 - [settings-motion.css](settings-motion.css)：设置动效唯一样式入口：原主题导航、主题、候选和原生选择菜单共用180ms展开/140ms收起、4px轻移与0.985缩放淡入；跟随主题读取宿主时长/缓动（缺省200ms/150ms），箭头同步旋转。主题从右上、向上候选从左下进入；搜索/确认框共用菜单节奏，右侧抽屉220ms进入/160ms退出并联动遮罩，关闭立即inert。保留抽屉箭头和真实保存反馈，跟随主题取消按钮按压缩放；侧栏不参与菜单动画，旧浏览器即时回退。键盘和宿主/系统减少动态效果取消装饰过渡，候选菜单不受折叠裁切。
 - [settings-theme.tsx](settings-theme.tsx)：页头主题菜单分别提供来源（默认跟随 ChatGPT／Palboo 原有）和自动／浅色／深色；以 appearance 修订保存 settingsStyle/settingsTheme，保留草稿、键盘、关闭焦点与错误反馈。独立来源不改宿主或业务字体偏好。
-- [use-host-appearance.ts](use-host-appearance.ts)：消费认证 SSE 的 settingsAppearance，将宿主背景、语义颜色、界面字体/字号、控件状态及圆角/间距/开关尺寸映射到设置专属变量。分别保留本页浅/深色末次有效快照，缺失时保持；未观察到的模式使用中性黑白。Palboo 原有主题清理覆盖，沿用原有配色与业务字体偏好；不新增轮询或改变布局。公共动效参数沿用现有动画控制器；宿主减少动态效果通过 settings-motion-change 即时结束导航、列表补位和布局预览动画，系统偏好仍优先。
-- [settings-host.css](settings-host.css)：仅在跟随 ChatGPT 来源下映射控件圆角/连续曲率、内边距、行/分组间距、菜单/搜索/弹窗阴影、文字选中、滚动条及输入/按钮/开关各状态；保留栅格、宽度分档、功能顺序、图标列和原生交互。选择器与带图标输入保留两端空间；Palboo 原有主题不加载这些覆盖。
+- [use-host-appearance.ts](use-host-appearance.ts)：消费认证 SSE 的 settingsAppearance，将宿主背景、语义颜色、界面字体/字号、控件状态及圆角/间距/开关尺寸映射到设置专属变量。接收宿主一次提供的双色 palettes，分别保留本页浅/深色末次有效快照；旧宿主未发布的模式才使用中性黑白。Palboo 原有主题清理覆盖，沿用原有配色与业务字体偏好；不新增轮询或改变布局。公共动效参数沿用现有动画控制器；宿主减少动态效果通过 settings-motion-change 即时结束导航、列表补位和布局预览动画，系统偏好仍优先。
+- [use-host-fonts.ts](use-host-fonts.ts)：将宿主所选具体字形的别名映射到本机 local() FontFace；异步完成核对生命周期，换字体/来源后回收，不枚举或下载字体文件。
+- [use-settings-tooltip.ts](use-settings-tooltip.ts)：仅跟随主题替换既有 title 提示，支持悬停/键盘/Esc、抽屉顶层与视口边界；关闭或销毁恢复 title 和原有 aria-describedby，保留 Palboo 原生提示。
+- [settings-host.css](settings-host.css)：仅在跟随 ChatGPT 来源下映射控件圆角/连续曲率、内边距、行/分组间距、菜单/搜索/弹窗阴影、文字选中、细圆滚动条、悬停提示及输入/按钮/开关各状态；保留栅格、宽度分档、功能顺序、图标列和原生交互。选择器与带图标输入保留两端空间；Palboo 原有主题不加载这些覆盖。
 - [index.html](index.html)：设置网页入口，图标复用 ../icon.png。
 - [board.html](board.html)：旧独立看板 HTML 入口，仍挂载 ../surfaces/desktop/legacy-board.tsx 及共用看板内容。
 - [feature.html](feature.html)：桌面和贴边通用 HTML 入口。

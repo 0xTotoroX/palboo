@@ -261,3 +261,60 @@ html[data-settings-style='chatgpt'] {
     }
   }
 }
+
+/* 原生滚动逻辑保持不变；Chromium/WebKit 使用同一条细圆轨道。 */
+html[data-settings-style='chatgpt'] {
+  &,
+  .settings-app * {
+    scrollbar-width: thin;
+  }
+  @supports selector(::-webkit-scrollbar) {
+    &,
+    .settings-app * {
+      scrollbar-color: auto;
+      scrollbar-width: auto;
+    }
+    &::-webkit-scrollbar,
+    .settings-app *::-webkit-scrollbar {
+      width: calc(var(--settings-space) * 2);
+      height: calc(var(--settings-space) * 2);
+    }
+    &::-webkit-scrollbar-thumb,
+    .settings-app *::-webkit-scrollbar-thumb {
+      border-radius: 999px;
+      background: var(--settings-scrollbar);
+    }
+    &::-webkit-scrollbar-thumb:hover,
+    .settings-app *::-webkit-scrollbar-thumb:hover {
+      background: var(--settings-scrollbar-hover);
+    }
+    &::-webkit-scrollbar-track,
+    .settings-app *::-webkit-scrollbar-track,
+    &::-webkit-scrollbar-corner,
+    .settings-app *::-webkit-scrollbar-corner {
+      background: transparent;
+    }
+  }
+  .settings-host-tooltip {
+    position: fixed;
+    inset: auto;
+    margin: 0;
+    max-width: min(300px, calc(100vw - 16px));
+    width: max-content;
+    padding: var(--settings-tooltip-padding-block) var(--settings-tooltip-padding-inline);
+    border: 1px solid var(--settings-tooltip-border);
+    border-radius: var(--settings-tooltip-radius);
+    corner-shape: var(--settings-tooltip-shape);
+    background: var(--settings-tooltip-background);
+    color: var(--settings-tooltip-text);
+    box-shadow: var(--settings-tooltip-shadow);
+    font-family: inherit;
+    font-size: var(--settings-tooltip-size);
+    font-weight: var(--settings-tooltip-weight);
+    line-height: var(--settings-tooltip-line-height);
+    letter-spacing: var(--settings-tooltip-tracking);
+    text-align: center;
+    overflow-wrap: anywhere;
+    z-index: 1000;
+  }
+}

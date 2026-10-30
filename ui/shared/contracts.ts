@@ -6,6 +6,7 @@
  */
 export interface HostSettingsAppearance {
   theme: 'light' | 'dark';
+  palettes?: Partial<Record<'light' | 'dark', Omit<HostSettingsAppearance, 'palettes'>>>;
   reducedMotion?: boolean;
   geometry?: Partial<
     Record<
@@ -38,7 +39,17 @@ export interface HostSettingsAppearance {
       | 'transitionDuration'
       | 'transitionEase'
       | 'enterDuration'
-      | 'enterEase',
+      | 'enterEase'
+      | 'exitEase'
+      | 'tooltipRadius'
+      | 'tooltipShape'
+      | 'tooltipShadow'
+      | 'tooltipSize'
+      | 'tooltipWeight'
+      | 'tooltipLineHeight'
+      | 'tooltipTracking'
+      | 'tooltipPaddingBlock'
+      | 'tooltipPaddingInline',
       string
     >
   >;
@@ -77,7 +88,11 @@ export interface HostSettingsAppearance {
       | 'scrollbar'
       | 'switchDisabled'
       | 'switchOnDisabled'
-      | 'switchThumbDisabled',
+      | 'switchThumbDisabled'
+      | 'tooltip'
+      | 'tooltipText'
+      | 'tooltipBorder'
+      | 'scrollbarHover',
       string
     >
   >;

@@ -1,7 +1,7 @@
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: Authenticated host appearance, shared icons, typography and revision-checked theme preferences.
- * [OUTPUT]: Icon-only theme entry with an accessible current choice and a compact animated menu with retained, inert closing options.
+ * [OUTPUT]: Icon-only theme entry, retained animated menu, local font-face loading and host-styled existing tooltips.
  * [POS]: Settings-only preference; revision-checked Palboo persistence, never writes Codex appearance.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
@@ -10,6 +10,8 @@ import type { AppearanceSettings, HostSettingsAppearance } from '../shared/contr
 import type { Typography } from '../shared/typography';
 import { useTypography } from './use-typography';
 import { useHostAppearance } from './use-host-appearance';
+import { useHostFonts } from './use-host-fonts';
+import { useSettingsTooltip } from './use-settings-tooltip';
 import { request } from './api';
 import { migrateBrowserBrandStorage } from '../shared/brand-storage.js';
 
@@ -104,6 +106,8 @@ export function SettingsTheme({
         : lastCodexTheme.current || systemTheme
       : preference;
   const hostTypography = useHostAppearance(hostAppearance, theme, source);
+  useHostFonts(hostTypography?.fontFamily);
+  useSettingsTooltip(source === 'chatgpt');
   useTypography(hostTypography || typography, hostTypography ? undefined : appearance?.typography);
 
   useLayoutEffect(() => {
