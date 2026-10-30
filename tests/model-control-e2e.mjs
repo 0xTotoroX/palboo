@@ -202,6 +202,23 @@ try {
     assert.equal(response.status, 200, JSON.stringify(response.body));
     return response.body;
   }
+  async function closeModelSurface() {
+    // Enabling the feature reveals a real view whose passive polls share the operation lock.
+    // Return to this fixture's API-only setup before testing explicit refresh/apply calls.
+    const entry = await waitFor(async () => {
+      const state = await request('features', { op: 'state' });
+      const model = state.body.features.find(({ id }) => id === 'model');
+      return model?.open && !model.closing && !model.pending ? model : null;
+    }, 'model surface did not finish opening');
+    const closed = await request('features', { op: 'close', id: 'model', owner: entry.owner });
+    assert.equal(closed.status, 200, JSON.stringify(closed.body));
+    assert.equal(closed.body.features.find(({ id }) => id === 'model').open, false);
+    await waitFor(async () => {
+      const state = await api('state');
+      assert.equal(state.preferences.enabled, true);
+      return state.snapshot.status !== 'busy';
+    }, 'model view read did not finish after closing');
+  }
   const command = (snapshot, selection) => ({
     target: snapshot.target,
     expectedRevision: snapshot.revision,
@@ -271,6 +288,7 @@ try {
   });
   assert.deepEqual((await request('settings/models')).body.models, ['alpha', 'beta']);
   await api('preferences', { revision: disabledCatalog.revision, patch: { enabled: true } });
+  await closeModelSurface();
   await request('settings', { provider: 'api' });
   record(
     'settings list matches quick switch catalog even when switching is disabled, without selecting a model',
@@ -429,6 +447,7 @@ try {
     revision: disabledBridge.revision,
     patch: { enabled: true },
   });
+  await closeModelSurface();
   await api('state');
   assert.equal(await page.evaluate(() => host.catalogRequests.length), 2);
   await page.evaluate(() =>
