@@ -6,6 +6,7 @@
  */
 export interface HostSettingsAppearance {
   theme: 'light' | 'dark';
+  reducedMotion?: boolean;
   geometry?: Partial<
     Record<
       | 'space'
@@ -23,7 +24,21 @@ export interface HostSettingsAppearance {
       | 'switchHeight'
       | 'switchThumbSize'
       | 'switchOffset'
-      | 'switchShadow',
+      | 'switchShadow'
+      | 'cornerShape'
+      | 'menuShadow'
+      | 'menuBlur'
+      | 'dialogShadow'
+      | 'menuFontSize'
+      | 'menuLineHeight'
+      | 'menuGap'
+      | 'buttonWeight'
+      | 'headingWeight'
+      | 'headingTracking'
+      | 'transitionDuration'
+      | 'transitionEase'
+      | 'enterDuration'
+      | 'enterEase',
       string
     >
   >;
@@ -44,7 +59,25 @@ export interface HostSettingsAppearance {
       | 'switchTrack'
       | 'switchOn'
       | 'switchThumb'
-      | 'danger',
+      | 'danger'
+      | 'inputHoverBorder'
+      | 'inputFocusBorder'
+      | 'placeholder'
+      | 'disabledBackground'
+      | 'disabledBorder'
+      | 'disabledText'
+      | 'primary'
+      | 'primaryHover'
+      | 'primaryActive'
+      | 'primaryText'
+      | 'menu'
+      | 'menuHover'
+      | 'backdrop'
+      | 'selection'
+      | 'scrollbar'
+      | 'switchDisabled'
+      | 'switchOnDisabled'
+      | 'switchThumbDisabled',
       string
     >
   >;

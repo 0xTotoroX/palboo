@@ -1851,8 +1851,8 @@ test(
       assert.equal(await menu.evaluate((n) => n.inert), true, 'closing menu is immediately inert');
       await menu.waitFor({ state: 'hidden' });
       assert.deepEqual(await page.evaluate(() => window.menuMotion), [
-        { open: 'true', duration: 180, frames: ['0', '1'], inert: false },
-        { open: 'false', duration: 140, frames: ['1', '0'], inert: true },
+        { open: 'true', duration: 200, frames: ['0', '1'], inert: false },
+        { open: 'false', duration: 150, frames: ['1', '0'], inert: true },
       ]);
       // Reverse during the actual CSS transition, retaining the same menu and links.
       await menuTrigger.click();

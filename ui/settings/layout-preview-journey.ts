@@ -11,6 +11,8 @@ export function useDemoJourney(location: string, target: DemoFrame, animate = tr
     previous = useRef(location);
   useEffect(() => {
     const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+    const shouldReduce = () =>
+      reduced.matches || document.documentElement.dataset.settingsReducedMotion === 'true';
     let request = 0,
       disposed = false;
     const from = current.current,
@@ -60,12 +62,13 @@ export function useDemoJourney(location: string, target: DemoFrame, animate = tr
       request = requestAnimationFrame(tick);
     };
     const onReduced = () => {
-      if (reduced.matches) finish();
+      if (shouldReduce()) finish();
     };
     const onVisibility = () => {
       if (document.hidden) finish();
     };
     reduced.addEventListener('change', onReduced);
+    window.addEventListener('settings-motion-change', onReduced);
     document.addEventListener('visibilitychange', onVisibility);
     document.addEventListener('keydown', finish);
     if (
@@ -73,7 +76,7 @@ export function useDemoJourney(location: string, target: DemoFrame, animate = tr
         (key) => target[key as keyof DemoFrame] === from[key as keyof DemoFrame],
       ) ||
       !animate ||
-      reduced.matches ||
+      shouldReduce() ||
       document.hidden ||
       document.documentElement.dataset.settingsInput === 'keyboard'
     )
@@ -83,6 +86,7 @@ export function useDemoJourney(location: string, target: DemoFrame, animate = tr
       disposed = true;
       cancelAnimationFrame(request);
       reduced.removeEventListener('change', onReduced);
+      window.removeEventListener('settings-motion-change', onReduced);
       document.removeEventListener('visibilitychange', onVisibility);
       document.removeEventListener('keydown', finish);
     };

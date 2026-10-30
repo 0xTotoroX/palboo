@@ -1,8 +1,61 @@
-/* [INPUT]: 宿主界面尺寸变量和现有设置控件/分组结构。
- * [OUTPUT]: 跟随 ChatGPT 的圆角、间距、菜单与开关样式。
+/* [INPUT]: 宿主界面语义与尺寸变量和现有设置控件/分组结构。
+ * [OUTPUT]: 跟随 ChatGPT 的圆角、间距、字体角色、控件状态与菜单/弹窗样式。
  * [POS]: 仅限 chatgpt 来源；保留页面栅格、功能排列和 Palboo 原有主题。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 html[data-settings-style='chatgpt'] {
+  .settings-content {
+    line-height: inherit;
+  }
+  .settings-app :is(.settings-section h2, .settings-section h3, .settings-drawer-header h2) {
+    font-weight: var(--settings-heading-weight);
+    letter-spacing: var(--settings-heading-tracking);
+  }
+  .settings-app :is(input, select, textarea, button, .settings-search-input, .settings-entry) {
+    corner-shape: var(--settings-corner-shape);
+  }
+  .settings-app ::selection {
+    background: var(--settings-selection);
+    color: var(--buddy-text);
+  }
+  &,
+  .settings-app * {
+    scrollbar-color: var(--settings-scrollbar) transparent;
+  }
+  .settings-app :is(input, textarea) {
+    caret-color: var(--buddy-text);
+  }
+  .settings-app :is(input, textarea)::placeholder {
+    color: var(--settings-placeholder);
+    opacity: 1;
+  }
+  .settings-app :is(button, a, summary):focus-visible {
+    outline: 2px solid var(--buddy-focus);
+    outline-offset: 2px;
+  }
+  .settings-app :is([data-slot='input'], [data-slot='native-select'], textarea):focus-visible {
+    border-color: var(--settings-input-focus-border);
+    outline: none;
+  }
+  @media (hover: hover) {
+    .settings-app
+      :is([data-slot='input'], [data-slot='native-select'], textarea):hover:not(:disabled):not(
+        :focus-visible
+      ) {
+      border-color: var(--settings-input-hover-border);
+      background-color: var(--buddy-input);
+    }
+  }
+  .settings-app
+    :is([data-slot='input'], [data-slot='native-select'], textarea, [data-slot='button']):disabled {
+    opacity: 1;
+    color: var(--settings-disabled-text);
+    background-color: var(--settings-disabled-background);
+    border-color: var(--settings-disabled-border);
+  }
+  .settings-app [data-slot='button'][data-variant='ghost']:disabled {
+    background: transparent;
+    border-color: transparent;
+  }
   .settings-app :is([data-slot='input'], [data-slot='native-select']) {
     padding-inline-start: var(--settings-control-padding);
     padding-block: calc(var(--settings-space) * 1.25);
@@ -18,10 +71,29 @@ html[data-settings-style='chatgpt'] {
     border-radius: var(--settings-button-radius);
     gap: var(--settings-button-gap);
     padding: calc(var(--settings-space) * 1.25) var(--settings-control-padding);
+    font-weight: var(--settings-button-weight);
+  }
+  .settings-app [data-slot='button'][data-variant='default']:enabled {
+    color: var(--settings-button-text);
+    background: var(--settings-button-background);
+    border-color: transparent;
+  }
+  .settings-app [data-slot='button'][data-variant='default']:enabled:hover {
+    background: var(--settings-button-hover);
+    filter: none;
+  }
+  .settings-app [data-slot='button'][data-variant='default']:enabled:active {
+    background: var(--settings-button-active);
   }
   /* 图标操作保留既有固定宽度；不挤窄图形或改变操作列。 */
-  .settings-app [data-slot='button']:has(> .buddy-icon:only-child) {
+  .settings-app [data-slot='button'][data-size='icon'] {
     padding: 0;
+  }
+  .settings-app .direction-picker-search > .buddy-icon {
+    left: var(--settings-control-padding);
+  }
+  .settings-app .direction-picker-search input {
+    padding-inline-start: calc(var(--settings-control-padding) + 18px + var(--settings-space) * 2);
   }
   .settings-app .settings-suggestion-trigger {
     top: 50%;
@@ -64,18 +136,44 @@ html[data-settings-style='chatgpt'] {
   }
   .settings-theme-menu,
   .settings-suggestion-list,
-  .settings-category-links {
+  .direction-picker-panel {
     border-radius: var(--settings-popup-radius);
+    corner-shape: var(--settings-corner-shape);
+    background: var(--settings-menu-surface);
+    box-shadow: var(--settings-menu-shadow);
+    border-color: transparent;
+    backdrop-filter: var(--settings-menu-blur);
+    font-size: var(--settings-menu-font-size);
+    line-height: var(--settings-menu-line-height);
   }
   .settings-theme-menu,
-  .settings-suggestion-list {
+  .settings-suggestion-list,
+  .direction-picker-panel {
     padding: var(--settings-menu-padding);
   }
   .settings-theme-menu button,
-  .settings-suggestion-list [role='option'] {
+  .settings-suggestion-list [role='option'],
+  .direction-picker-options [role='option'],
+  .settings-search li button {
     min-height: var(--settings-control-height);
     border-radius: var(--settings-item-radius);
     padding: var(--settings-item-padding);
+    font-size: var(--settings-menu-font-size);
+    line-height: var(--settings-menu-line-height);
+    gap: var(--settings-menu-gap);
+  }
+  .settings-theme-menu button:hover,
+  .settings-search li button:hover,
+  .settings-suggestion-list [role='option']:hover,
+  .direction-picker-options [role='option']:hover {
+    background: var(--settings-menu-hover);
+  }
+  .settings-search-dialog .settings-search-input {
+    border-radius: var(--settings-control-radius);
+    padding-inline: var(--settings-control-padding);
+  }
+  .settings-search-dialog .settings-search-input:focus-within {
+    outline-color: var(--settings-input-focus-border);
   }
   .settings-theme-divider {
     margin: var(--settings-menu-padding);
@@ -90,6 +188,17 @@ html[data-settings-style='chatgpt'] {
     width: var(--settings-switch-width);
     height: var(--settings-switch-height);
     min-height: var(--settings-switch-height);
+    corner-shape: round;
+  }
+  .settings-app [data-slot='switch']:disabled {
+    opacity: 1;
+    background: var(--settings-switch-disabled);
+  }
+  .settings-app [data-slot='switch'][data-state='checked']:disabled {
+    background: var(--settings-switch-on-disabled);
+  }
+  .settings-app [data-slot='switch']:disabled [data-slot='switch-thumb'] {
+    background: var(--settings-switch-thumb-disabled);
   }
   .settings-app [data-slot='switch']::after {
     content: '';
@@ -111,18 +220,44 @@ html[data-settings-style='chatgpt'] {
       )
       0;
   }
-  .settings-key-dialog {
+  .settings-key-dialog,
+  .settings-search-dialog {
     border-radius: var(--settings-dialog-radius);
+    corner-shape: var(--settings-corner-shape);
+    box-shadow: var(--settings-dialog-shadow);
+    background: var(--buddy-surface);
+  }
+  .settings-drawer {
+    box-shadow: var(--settings-dialog-shadow);
+  }
+  :is(.settings-key-dialog, .settings-search-dialog, .settings-drawer)::backdrop {
+    background: var(--settings-backdrop);
+  }
+  @media (max-width: 640px) {
+    .settings-category-links {
+      border-radius: var(--settings-popup-radius);
+      corner-shape: var(--settings-corner-shape);
+      box-shadow: var(--settings-menu-shadow);
+      background: var(--settings-menu-surface);
+      backdrop-filter: var(--settings-menu-blur);
+    }
   }
   @supports (appearance: base-select) {
     .settings-app select[data-slot='native-select']::picker(select) {
       border-radius: var(--settings-popup-radius);
       padding: var(--settings-menu-padding);
+      corner-shape: var(--settings-corner-shape);
+      background: var(--settings-menu-surface);
+      box-shadow: var(--settings-menu-shadow);
+      backdrop-filter: var(--settings-menu-blur);
+      font-size: var(--settings-menu-font-size);
+      line-height: var(--settings-menu-line-height);
     }
     .settings-app select[data-slot='native-select'] option {
       min-height: var(--settings-control-height);
       border-radius: var(--settings-item-radius);
       padding: var(--settings-item-padding);
+      corner-shape: var(--settings-corner-shape);
     }
   }
 }

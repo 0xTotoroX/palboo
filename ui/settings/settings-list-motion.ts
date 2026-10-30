@@ -1,8 +1,9 @@
-/* [INPUT]: Keyed configuration rows, committed list geometry and input modality.
- * [OUTPUT]: Presentation-only row keys and interruptible 200ms list reflow; no persistence.
+/* [INPUT]: Keyed configuration rows, committed list geometry, input modality and shared motion preferences.
+ * [OUTPUT]: Presentation-only row keys and interruptible themed list reflow (200ms in the original theme); no persistence.
  * [POS]: Settings lists reuse their DOM, layout and existing save handlers.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 import { useId, useLayoutEffect, useRef } from 'react';
+import { motionTiming, reducedMotion } from './settings-motion';
 
 // Quick prompts have no persisted ID. Match surviving objects before equal values, then
 // retain the slot on edits/server normalization. Duplicate prompts remain distinct.
@@ -100,17 +101,19 @@ export function useSettingsListMotion<T extends HTMLElement = HTMLDivElement>() 
     window.addEventListener('pointerdown', capture, true);
     window.addEventListener('keydown', cancel, true);
     reduce.addEventListener('change', cancel);
+    window.addEventListener('settings-motion-change', cancel);
     return () => {
       cancel();
       window.removeEventListener('pointerdown', capture, true);
       window.removeEventListener('keydown', cancel, true);
       reduce.removeEventListener('change', cancel);
+      window.removeEventListener('settings-motion-change', cancel);
     };
   }, []);
   useLayoutEffect(() => {
     const next = read();
     const immediate =
-      matchMedia('(prefers-reduced-motion: reduce)').matches ||
+      reducedMotion(matchMedia('(prefers-reduced-motion: reduce)')) ||
       document.documentElement.dataset.settingsInput === 'keyboard';
     const pending: { node: HTMLElement; frames: Keyframe[] }[] = [];
     const structureChanged = [...next].some(([id, list]) => {
@@ -156,12 +159,7 @@ export function useSettingsListMotion<T extends HTMLElement = HTMLDivElement>() 
     }
     previous.current = next;
     for (const { node, frames } of pending) {
-      const animation = node.animate(frames, {
-        duration: 200,
-        easing:
-          getComputedStyle(node).getPropertyValue('--settings-ease').trim() ||
-          'cubic-bezier(.2,.7,.2,1)',
-      });
+      const animation = node.animate(frames, motionTiming(node, 200));
       active.current.set(node, animation);
       animation.onfinish = () => {
         if (active.current.get(node) === animation) active.current.delete(node);

@@ -376,3 +376,32 @@ html[data-settings-input='keyboard'] .settings-action-label-value {
     opacity: 0.2;
   }
 }
+
+/* 跟随主题读取宿主动效参数；键盘与本机无障碍偏好继续优先。 */
+html[data-settings-style='chatgpt']:not([data-settings-input='keyboard'])
+  .settings-app
+  :is(button, a, input, select, textarea, .settings-search-input, [data-slot='switch-thumb']) {
+  transition-duration: var(--settings-control-duration);
+  transition-timing-function: var(--settings-control-ease);
+}
+html[data-settings-style='chatgpt'] .settings-app button:active:not(:disabled) {
+  transform: none;
+}
+html[data-settings-reduced-motion='true'] {
+  &,
+  body,
+  .settings-app *,
+  .settings-app *::before,
+  .settings-app *::after,
+  .settings-app dialog::backdrop,
+  .settings-app details::details-content,
+  .settings-app select::picker(select) {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+  .settings-connection-test[data-connection-state='pending']::after {
+    clip-path: none;
+    opacity: 0.2;
+  }
+}

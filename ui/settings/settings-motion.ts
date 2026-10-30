@@ -1,8 +1,25 @@
-/* [INPUT]: Presentation identity, header geometry and input modality.
- * [OUTPUT]: Sticky offsets and interruptible navigation/scene and provider-field transitions; keyboard and reduced motion stay immediate.
+/* [INPUT]: Presentation identity, header geometry, input modality and host motion preferences.
+ * [OUTPUT]: Shared timing/reduced-motion helpers, sticky offsets and interruptible navigation/scene and provider-field transitions; keyboard and reduced motion stay immediate.
  * [POS]: Settings-only motion, never remounts controls or changes configuration.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 import { useLayoutEffect, useRef } from 'react';
+
+export function reducedMotion(media: MediaQueryList) {
+  return media.matches || document.documentElement.dataset.settingsReducedMotion === 'true';
+}
+
+export function motionTiming(element: Element, fallback: number) {
+  const style = getComputedStyle(element);
+  const value =
+    document.documentElement.dataset.settingsStyle === 'chatgpt'
+      ? style.getPropertyValue('--settings-menu-enter').trim()
+      : '';
+  const duration = value ? parseFloat(value) * (value.endsWith('ms') ? 1 : 1000) : fallback;
+  return {
+    duration: Number.isFinite(duration) ? duration : fallback,
+    easing: style.getPropertyValue('--settings-ease').trim() || 'cubic-bezier(.2,.7,.2,1)',
+  };
+}
 
 export function useSettingsMotion(identity: string) {
   const ref = useRef<HTMLDivElement>(null);
@@ -35,24 +52,22 @@ export function useSettingsMotion(identity: string) {
     const element = ref.current;
     if (!element) return;
     const reduce = matchMedia('(prefers-reduced-motion: reduce)');
-    if (reduce.matches || document.documentElement.dataset.settingsInput === 'keyboard') return;
+    if (reducedMotion(reduce) || document.documentElement.dataset.settingsInput === 'keyboard')
+      return;
     const animation = element.animate(
       [
         { opacity: 0.65, transform: 'translateY(4px)' },
         { opacity: 1, transform: 'none' },
       ],
-      {
-        duration: 220,
-        easing:
-          getComputedStyle(element).getPropertyValue('--settings-ease').trim() ||
-          'cubic-bezier(.2,.7,.2,1)',
-      },
+      motionTiming(element, 220),
     );
     const cancel = () => animation.cancel();
     reduce.addEventListener('change', cancel);
+    window.addEventListener('settings-motion-change', cancel);
     return () => {
       cancel();
       reduce.removeEventListener('change', cancel);
+      window.removeEventListener('settings-motion-change', cancel);
     };
   }, [identity]);
   return ref;
@@ -68,8 +83,9 @@ export function usePreviewTransition(identity: string) {
     previous.current = identity;
     if (!root || before === identity) return;
     const reduce = matchMedia('(prefers-reduced-motion: reduce)');
-    if (reduce.matches || document.documentElement.dataset.settingsInput === 'keyboard') return;
-    const options = { duration: 200, easing: 'cubic-bezier(.2,.7,.2,1)' };
+    if (reducedMotion(reduce) || document.documentElement.dataset.settingsInput === 'keyboard')
+      return;
+    const options = motionTiming(root, 200);
     const animations: Animation[] = [];
     const outgoing = root.querySelector<HTMLElement>(`[data-preview-scene="${before}"]`);
     const incoming = root.querySelector<HTMLElement>(`[data-preview-scene="${identity}"]`);
@@ -95,10 +111,12 @@ export function usePreviewTransition(identity: string) {
       );
     const cancel = () => animations.forEach((animation) => animation.cancel());
     reduce.addEventListener('change', cancel);
+    window.addEventListener('settings-motion-change', cancel);
     window.addEventListener('keydown', cancel, true);
     return () => {
       cancel();
       reduce.removeEventListener('change', cancel);
+      window.removeEventListener('settings-motion-change', cancel);
       window.removeEventListener('keydown', cancel, true);
     };
   }, [identity]);
@@ -118,7 +136,7 @@ export function useProviderFieldsMotion(provider: string | undefined) {
       !root ||
       !before ||
       before === provider ||
-      reduce.matches ||
+      reducedMotion(reduce) ||
       document.documentElement.dataset.settingsInput === 'keyboard'
     )
       return;
@@ -137,20 +155,17 @@ export function useProviderFieldsMotion(provider: string | undefined) {
           { opacity: 0, transform: 'translateY(4px)' },
           { opacity: 1, transform: 'none' },
         ],
-        {
-          duration: 180,
-          easing:
-            getComputedStyle(root).getPropertyValue('--settings-ease').trim() ||
-            'cubic-bezier(.2,.7,.2,1)',
-        },
+        motionTiming(root, 180),
       ),
     );
     const cancel = () => animations.forEach((animation) => animation.cancel());
     reduce.addEventListener('change', cancel);
+    window.addEventListener('settings-motion-change', cancel);
     window.addEventListener('keydown', cancel, true);
     return () => {
       cancel();
       reduce.removeEventListener('change', cancel);
+      window.removeEventListener('settings-motion-change', cancel);
       window.removeEventListener('keydown', cancel, true);
     };
   }, [provider]);

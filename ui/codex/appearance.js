@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 宿主页面标记、字体与主题。
- * [OUTPUT]: 宿主字体、主题、可用内容区域及设置页独立界面外观与尺寸快照。
+ * [OUTPUT]: 宿主字体、主题、可用内容区域及设置页独立外观、尺寸与减少动效快照。
  * [POS]: 宿主外观适配边界，不依赖胶囊视图。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -246,6 +246,24 @@ function readSettingsAppearance() {
     switchOn: ['--switch-track-color-checked'],
     switchThumb: ['--switch-thumb-color'],
     danger: ['--color-text-danger', '--color-token-error-foreground'],
+    inputHoverBorder: ['--input-outline-border-color-hover'],
+    inputFocusBorder: ['--input-outline-border-color-focus'],
+    placeholder: ['--input-placeholder-text-color', '--color-token-input-placeholder-foreground'],
+    disabledBackground: ['--color-background-disabled'],
+    disabledBorder: ['--color-border-disabled'],
+    disabledText: ['--color-text-disabled', '--color-token-disabled-foreground'],
+    primary: ['--color-background-primary-solid'],
+    primaryHover: ['--color-background-primary-solid-hover'],
+    primaryActive: ['--color-background-primary-solid-active'],
+    primaryText: ['--color-text-primary-solid'],
+    menu: ['--menu-background-color'],
+    menuHover: ['--menu-item-background-color'],
+    backdrop: ['--dialog-backdrop-dim-background', '--modal-backdrop-background'],
+    selection: ['--color-background-text-selection'],
+    scrollbar: ['--color-token-scrollbar-slider-background', '--scrollbar-color'],
+    switchDisabled: ['--switch-track-color-disabled'],
+    switchOnDisabled: ['--switch-track-color-checked-disabled'],
+    switchThumbDisabled: ['--switch-thumb-color-disabled'],
   };
   const colors = {};
   for (const [name, keys] of Object.entries(sources)) {
@@ -254,7 +272,9 @@ function readSettingsAppearance() {
   }
   if (!colors.page || !colors.text) return null;
   const size = Number.parseFloat(style.fontSize) || 16;
-  const family = token('--font-ui-family') || style.fontFamily;
+  const uiFamily = token('--font-ui-family');
+  const family =
+    !uiFamily || /^(inherit|initial|unset)$/.test(uiFamily) ? style.fontFamily : uiFamily;
   const metrics = {
     space: ['--spacing', 'gap'],
     controlRadius: ['--control-radius-md', 'border-radius'],
@@ -272,6 +292,20 @@ function readSettingsAppearance() {
     switchThumbSize: ['--switch-thumb-size', 'width'],
     switchOffset: ['--switch-thumb-offset', 'padding'],
     switchShadow: ['--switch-thumb-shadow', 'box-shadow'],
+    cornerShape: ['--codex-corner-shape', 'corner-shape'],
+    menuShadow: ['--menu-box-shadow', 'box-shadow'],
+    menuBlur: ['--menu-backdrop-filter', 'backdrop-filter'],
+    dialogShadow: ['--modal-backdrop-dim-shadow', 'box-shadow'],
+    menuFontSize: ['--menu-font-size', 'font-size'],
+    menuLineHeight: ['--menu-line-height', 'line-height'],
+    menuGap: ['--menu-item-gap', 'gap'],
+    buttonWeight: ['--button-font-weight', 'font-weight'],
+    headingWeight: ['--text-form-title--font-weight', 'font-weight'],
+    headingTracking: ['--text-form-title--letter-spacing', 'letter-spacing'],
+    transitionDuration: ['--transition-duration-basic', 'transition-duration'],
+    transitionEase: ['--transition-ease-basic', 'transition-timing-function'],
+    enterDuration: ['--transition-duration-moderate', 'transition-duration'],
+    enterEase: ['--ease-enter', 'transition-timing-function'],
   };
   const geometry = {};
   for (const [name, [variable, property]] of Object.entries(metrics)) {
@@ -282,6 +316,10 @@ function readSettingsAppearance() {
     theme: detectCodexTheme(),
     colors,
     geometry,
+    reducedMotion:
+      root.dataset.reducedMotion === 'true' ||
+      (root.dataset.reducedMotion !== 'false' &&
+        matchMedia('(prefers-reduced-motion: reduce)').matches),
     typography: {
       fontFamily: family,
       fontSize: size,

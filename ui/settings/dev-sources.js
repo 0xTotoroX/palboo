@@ -1,7 +1,7 @@
 import { tr, getLocale, setLocale } from '../shared/i18n.js';
 /*
  * [INPUT]: 开发网关注入的脚本、同源认证 API 与共享外观变量。
- * [OUTPUT]: 仅 Dev 设置页的目录单选列表、右侧切换操作与跨重载资源回读确认；不显示提交或资源哈希。
+ * [OUTPUT]: 跟随设置主题的 Dev 目录单选列表、右侧切换操作与跨重载资源回读确认；不显示提交或资源哈希。
  * [POS]: 由开发监督进程提供，旧 worktree 无需合并此模块；不进入正式构建或聊天界面。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -53,6 +53,15 @@ button[data-busy="true"]::before{content:"";width:14px;height:14px;box-sizing:bo
 @media(max-width:850px){:host{padding:0 23px!important}}
 @media(max-width:650px){:host{padding:0 18px!important}.source-row{padding:18px;gap:14px;grid-template-columns:18px minmax(0,1fr)}.source-name{font-size:20px}.source-badges{grid-column:2;justify-content:flex-start}.source-badges:empty{display:none}.source-actions{flex-wrap:wrap;gap:16px}[data-state]:not(:empty){flex-basis:100%}}
 @media(prefers-reduced-motion:reduce){*,*::before{animation:none!important;transition:none!important}}
+:host-context([data-settings-style="chatgpt"]){font:inherit}
+:host-context([data-settings-style="chatgpt"]) .source-row{border-radius:var(--settings-control-radius);corner-shape:var(--settings-corner-shape);transition-duration:var(--settings-control-duration);transition-timing-function:var(--settings-control-ease)}
+:host-context([data-settings-style="chatgpt"]) .source-name{font-size:1.25em;font-weight:var(--settings-heading-weight);letter-spacing:var(--settings-heading-tracking)}
+:host-context([data-settings-style="chatgpt"]) .source-path{font-size:.875em}
+:host-context([data-settings-style="chatgpt"]) .source-badges{font-size:.75em}
+:host-context([data-settings-style="chatgpt"]) button{border-radius:var(--settings-button-radius);corner-shape:var(--settings-corner-shape);font-weight:var(--settings-button-weight);background:var(--settings-button-background);color:var(--settings-button-text)}
+:host-context([data-settings-style="chatgpt"]) button:enabled:hover{background:var(--settings-button-hover)}
+:host-context([data-settings-style="chatgpt"]) button:disabled{opacity:1;background:var(--settings-disabled-background);color:var(--settings-disabled-text)}
+:host-context([data-settings-reduced-motion="true"]) *, :host-context([data-settings-reduced-motion="true"]) *::before{animation:none!important;transition:none!important}
 </style><form class="source-content">
 <fieldset class="source-list" aria-label="${tr('开发来源')}"><p data-loading>${tr('正在读取工作目录…')}</p></fieldset>
 <div class="source-actions"><p data-state role="status" aria-live="polite"></p><button type="submit" disabled>${tr('切换来源')}</button></div>

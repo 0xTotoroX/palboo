@@ -169,7 +169,7 @@ return <div className="settings-app" ref={ref}>
     );
     assert.ok(
       nativeFrames.some(
-        (f) => !f.open && f.opacity > 0 && f.opacity < 1 && f.duration.startsWith('0.14s'),
+        (f) => !f.open && f.opacity > 0 && f.opacity < 1 && f.duration.startsWith('0.15s'),
       ),
       'native picker has intermediate exit frames',
     );
@@ -229,8 +229,8 @@ return <div className="settings-app" ref={ref}>
       'settings-search-dialog',
     ]) {
       for (const [duration, frames] of [
-        [180, ['0', '1']],
-        [140, ['1', '0']],
+        [200, ['0', '1']],
+        [150, ['1', '0']],
       ])
         assert.ok(
           transitions.some(

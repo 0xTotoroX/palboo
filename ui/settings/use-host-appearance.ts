@@ -1,5 +1,5 @@
 /* [INPUT]: 无正文宿主界面外观快照、设置页主题来源与明暗模式。
- * [OUTPUT]: 设置专属颜色/尺寸变量及界面字体；分别保留浅/深色末次读数。
+ * [OUTPUT]: 设置专属颜色/尺寸/动效变量及界面字体；保留浅/深色末次读数并广播减少动效变化。
  * [POS]: 只影响设置文档，不更改功能布局、业务字体偏好或宿主。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { useLayoutEffect, useRef } from 'react';
@@ -17,6 +17,16 @@ export function useHostAppearance(
     palettes.current[snapshot.theme] = snapshot;
   }
   const palette = palettes.current[theme];
+  const reducedMotion = source === 'chatgpt' && last.current?.reducedMotion === true;
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    if (reducedMotion) root.dataset.settingsReducedMotion = 'true';
+    else delete root.dataset.settingsReducedMotion;
+    window.dispatchEvent(new Event('settings-motion-change'));
+    return () => {
+      delete root.dataset.settingsReducedMotion;
+    };
+  }, [reducedMotion]);
   useLayoutEffect(() => {
     const root = document.documentElement;
     root.dataset.settingsStyle = source;
@@ -36,8 +46,9 @@ export function useHostAppearance(
       key: keyof NonNullable<HostSettingsAppearance['geometry']>,
       property: string,
       fallback: string,
+      modeSpecific = false,
     ) => {
-      const value = geometry[key];
+      const value = modeSpecific ? palette?.geometry?.[key] : geometry[key];
       return value && CSS.supports(property, value) ? value : fallback;
     };
     const values: Record<string, string> = {
@@ -57,6 +68,43 @@ export function useHostAppearance(
       '--settings-switch-size': metric('switchThumbSize', 'width', '13px'),
       '--settings-switch-offset': metric('switchOffset', 'padding', '3px'),
       '--settings-switch-shadow': metric('switchShadow', 'box-shadow', '0 1px 2px #0003'),
+      '--settings-corner-shape': metric('cornerShape', 'corner-shape', 'round'),
+      '--settings-menu-shadow': metric(
+        'menuShadow',
+        'box-shadow',
+        theme === 'dark' ? '0 8px 24px #0006' : '0 8px 24px #0002',
+        true,
+      ),
+      '--settings-menu-blur': metric('menuBlur', 'backdrop-filter', 'none', true),
+      '--settings-dialog-shadow': metric('dialogShadow', 'box-shadow', '0 16px 48px #0003', true),
+      '--settings-menu-font-size': metric('menuFontSize', 'font-size', '0.875rem'),
+      '--settings-menu-line-height': metric('menuLineHeight', 'line-height', '1.5'),
+      '--settings-menu-gap': metric('menuGap', 'gap', '0.375rem'),
+      '--settings-button-weight': metric('buttonWeight', 'font-weight', '400'),
+      '--settings-heading-weight': metric('headingWeight', 'font-weight', '600'),
+      '--settings-heading-tracking': metric('headingTracking', 'letter-spacing', 'normal'),
+      '--settings-control-duration': metric('transitionDuration', 'transition-duration', '150ms'),
+      '--settings-control-ease': metric('transitionEase', 'transition-timing-function', 'ease'),
+      '--settings-menu-enter': metric('enterDuration', 'transition-duration', '200ms'),
+      '--settings-menu-exit': metric('transitionDuration', 'transition-duration', '150ms'),
+      '--settings-ease': metric('enterEase', 'transition-timing-function', 'ease-out'),
+      '--settings-input-hover-border': colors.inputHoverBorder || colors.border || mix(25),
+      '--settings-input-focus-border': colors.inputFocusBorder || colors.focus || accent,
+      '--settings-placeholder': colors.placeholder || colors.muted || mix(65),
+      '--settings-disabled-background': colors.disabledBackground || mix(5),
+      '--settings-disabled-border': colors.disabledBorder || mix(6),
+      '--settings-disabled-text': colors.disabledText || mix(45),
+      '--settings-button-background': colors.primary || accent,
+      '--settings-button-hover': colors.primaryHover || colors.primary || accent,
+      '--settings-button-active': colors.primaryActive || colors.primaryHover || accent,
+      '--settings-button-text': colors.primaryText || colors.onAccent || paper,
+      '--settings-menu-hover': colors.menuHover || colors.hover || mix(6),
+      '--settings-backdrop': colors.backdrop || (theme === 'dark' ? '#0008' : '#0005'),
+      '--settings-selection': colors.selection || colors.selected || mix(15),
+      '--settings-scrollbar': colors.scrollbar || mix(30),
+      '--settings-switch-disabled': colors.switchDisabled || mix(8),
+      '--settings-switch-on-disabled': colors.switchOnDisabled || mix(25),
+      '--settings-switch-thumb-disabled': colors.switchThumbDisabled || paper,
       '--buddy-page': paper,
       '--buddy-surface': colors.surface || paper,
       '--buddy-text': ink,
@@ -68,7 +116,7 @@ export function useHostAppearance(
       '--buddy-focus': colors.focus || accent,
       '--settings-control-border': colors.border || mix(14),
       '--settings-control-hover': colors.hover || mix(6),
-      '--settings-menu-surface': colors.surface || paper,
+      '--settings-menu-surface': colors.menu || colors.surface || paper,
       '--settings-rule': colors.border || mix(14),
       '--settings-orange': colors.accentText || accent,
       '--settings-accent-text': colors.accentText || accent,
