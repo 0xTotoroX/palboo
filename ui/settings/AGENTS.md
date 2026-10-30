@@ -24,7 +24,7 @@
 - [direction-library.tsx](direction-library.tsx)：单个右侧抽屉中的“内置方向 / 我的方向”目录，选择条目后进入名称/说明编辑，返回恢复目录焦点与滚动；字段持续挂载，关闭与分级导航不触发保存。后台只读目录确定来源，修改过的内置文案可恢复默认并保留勾选及顺序。无效字段及深链接通过 detail-reveal 事件同步打开对应条目；私有条目名称不进入全局设置搜索。
 - [connection-settings.tsx](connection-settings.tsx)：依次展示桌面连接、启动行为、应用更新和运行模式；连接状态就近显示，不重复挂概览卡。断线隐藏旧成功消息，Dev 固定启动时的目标，重连和断开不提交模型表单。
 - [use-settings-form.ts](use-settings-form.ts)：模型及两套独立密钥的草稿、修订校验、保存队列及在途编辑合并；记录编辑来源并在请求期间固定反馈位置；大纲、下一步与常用语开关单独提交，不携带其他字段或密钥草稿；删除 API 密钥复用串行队列，仅发送 clearApiKey 与修订号，不携带其他草稿或将删除意图留在自动保存中；导出 SettingsEditor 供展示模块组合。
-- [panel-settings.tsx](panel-settings.tsx)：有效旧字段的分区适配；下一步显示及推荐指令点击行为，常用语未独立选择模式时兼容继承、统一字体跟随来源、相对比例及自定义字号、侧栏宽度以整数显示和提交，仅读取/聚焦不改写已有小数几何；桌面置顶逐项保存；旧 fontOffset 作为大纲与下一步的兼容回退。不再编辑旧 dockLayout/popoutLayout、位置或主题。
+- [panel-settings.tsx](panel-settings.tsx)：有效旧字段的分区适配；下一步显示及推荐指令点击行为，常用语未独立选择模式时兼容继承、按窗口的字体族、跟随来源、比例及固定字号、侧栏宽度以整数显示和提交，仅读取/聚焦不改写已有小数几何；桌面置顶逐项保存；旧 fontOffset 作为大纲与下一步的兼容回退。不再编辑旧 dockLayout/popoutLayout、位置或主题。
 - [feature-settings.tsx](feature-settings.tsx)：唯一主界面形式、每个功能加入主界面或贴边、四功能布局；与工作台共用 resolveFeatureLayout 读取旧布局，嵌套布局显示为自定义分栏、预设重排保留全部叶子功能，通过 main-layout 校验原快照后保存，未读取配置前禁用操作。
 - [surface-settings.tsx](surface-settings.tsx)：功能位置与布局、主题、字体、尺寸与窗口、贴边位置直接分组显示；管理四种形式各自主题及贴边屏幕/位置；屏幕可显式跟随 Codex，保留自动选择与固定屏幕及断开屏幕的选择，写入带 revision 校验。
 - [model-control-settings.tsx](model-control-settings.tsx)：模型快切开关、分类状态与串行修订保存，聚焦及轮询回读外部变更，写入期间不被旧读取覆盖；冲突重新读取但不自动重放，失败保留编辑草稿；不持有位置或主题。
@@ -92,7 +92,7 @@ settings-search.tsx在页头提供本地设置搜索：从唯一挂载的标签/
 
 术语设置去掉重复的“打开”动作，保留收藏筛选；移除阅读批注候选，旧 note 偏好读取为 plain。
 
-`typography-settings.tsx` 是字体唯一设置入口，复用 PanelSettings 外观 revision 保存，数字草稿跨分类保留；`use-typography.ts` 由主题入口消费字体快照，更新自有文档字体和 rem 基准；跟随 ChatGPT 使用独立界面字体读数，不应用工作台的比例/自定义字号。设置文字层级按同一基准缩放，颜色由 settings-theme 独立管理。旧分功能字号表单由统一跟随/自定义控件替换，旧值不删除。
+`typography-settings.tsx` 是字体唯一设置入口，按 settings/sidebar/overlay/desktop/edge 分别选择本机字体族、跟随来源、75–150%比例或10–32px固定字号，默认跟随 ChatGPT。各表单持续挂载、ID独立，切换窗口不提交草稿，失败保留输入；复用 PanelSettings 外观 revision，以 surfaceTypography 单键补丁保存。缺省业务窗口继承旧 typography，设置页跟随主题使用宿主界面读数，原主题保留旧排版直至显式编辑。`use-typography.ts` 更新自有文档字体/rem基准；导航、菜单、标题和提示的宿主像素读数换算为相对基准，设置字号能统一缩放，主题来源不重置独立偏好。layout-preview 按演示承载选择相同偏好，旧 fontSizes 不删除。
 
 术语设置提供“点击术语时跳转到上下文”开关，默认关闭；通过原 terminology settings/revision 通道持久保存 jumpOnClick，失败保留原值。
 

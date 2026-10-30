@@ -889,9 +889,10 @@ test(
       assert.equal(await dockWidth.inputValue(), '701');
       assert.equal(appearance.ui.dockWidth, 701, 'settings edits save integer pixels');
       await category('appearance');
-      await page.getByLabel('自定义字号（px）', { exact: true }).waitFor();
-      assert.equal(await page.getByLabel('自定义字号（px）', { exact: true }).inputValue(), '17');
-      const font = page.getByLabel('自定义字号（px）', { exact: true });
+      await page.getByLabel('窗口', { exact: true }).selectOption('sidebar');
+      const font = page.locator('#typography-sidebar-size');
+      await font.waitFor();
+      assert.equal(await font.inputValue(), '17');
       const beforeFont = writes.length;
       await font.fill('19.5');
       await roundTrip();

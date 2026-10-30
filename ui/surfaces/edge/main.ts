@@ -160,7 +160,7 @@ export function startEdge(request: Request) {
           panel.style,
           typographyStyle(
             state.appearance.typography,
-            state.appearance.typographyPreferences,
+            state.appearance.edgeTypographyPreferences || state.appearance.typographyPreferences,
             layoutZoom(panel),
           ),
         );

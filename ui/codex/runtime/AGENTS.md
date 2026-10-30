@@ -84,3 +84,5 @@ presentation 同步三种入口动作；exportPanelState 的 viewToken 包含空
 常用语独立开关参与 runtimeEnabled 与 settings-sync 的即时启停；投影使用共享 quickPromptToken，预设动作不依赖 generationRevision。只开常用语时不为填入启动回答扫描，锁定聊天仍使用真实来源身份，旧建议命令校验不变。
 
 生命周期公开 settingsAppearance 只读函数，复用后台现有 desktop_status 刷新传递设置页外观；不新增观察器或定时器。
+
+syncTypography 在旧偏好上携带 surfaces 映射，typography 返回三来源原始快照；旧桌面投影明确解析 desktop 偏好，避免沿用出发窗口字号。

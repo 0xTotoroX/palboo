@@ -20,3 +20,5 @@ main 的公共标签/标题与 FeatureView 正文读取同一全局字体快照�
 main 将 feature state 的 scopeAllowed 经 scope-visible IPC 投影给原生窗口，范围切换只临时隐藏/恢复，不销毁内容或改变手动隐藏偏好。
 
 main 通过 workspace/window-menu 提供置顶与布局预设，传递 lease、预设修订和原布局；布局保存/窗口交接中暂禁菜单动作。菜单和命名输入区不触发原生拖动，关闭窗口清理菜单监听；管理动作通过原设置 URL 的 open=layout-presets 定位现有抽屉。
+
+legacy-board 使用 desktop 独立字体及共享字号计算，旧看板 CSS 通过 --board-font-size 接收同一基准，不改看板布局。

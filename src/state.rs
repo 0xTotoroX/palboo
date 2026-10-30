@@ -476,7 +476,8 @@ impl App {
         let (detached, ui, revision, web_revision) = self.panel_host_state().await;
         let preferences = self.panel.lock().await.prefs.clone();
         let launcher_action = json!({"action":preferences.launcher_action,"doubleAction":preferences.launcher_double_action,"contextAction":preferences.launcher_context_action,"language":preferences.language});
-        let typography = json!(preferences.typography);
+        let mut typography = json!(preferences.typography);
+        typography["surfaces"] = json!(preferences.surface_typography);
         let result = client
             .desktop_status(detached, ui, web_revision, launcher_action, typography)
             .await?;

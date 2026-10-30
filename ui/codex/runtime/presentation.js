@@ -492,7 +492,7 @@ function exportPanelState() {
     colors: panelAppearance().colors,
     accentColor: getComputedStyle(shellState.root).getPropertyValue('--csw-accent').trim(),
     hostTypography: shellState.hostTypography,
-    typography: window.__palbooTypography?.resolved(),
+    typography: window.__palbooTypography?.resolved('desktop'),
     settings: runtimeState.settings,
     association,
     sourceLabel:

@@ -9,6 +9,7 @@ export function useHostAppearance(
   snapshot: HostSettingsAppearance | null | undefined,
   theme: 'light' | 'dark',
   source: 'chatgpt' | 'palboo',
+  independentTypography = false,
 ) {
   const palettes = useRef<Partial<Record<'light' | 'dark', HostSettingsAppearance>>>({});
   const last = useRef<HostSettingsAppearance | null>(null);
@@ -55,6 +56,15 @@ export function useHostAppearance(
       const value = modeSpecific ? palette?.geometry?.[key] : geometry[key];
       return value && CSS.supports(property, value) ? value : fallback;
     };
+    const fontMetric = (
+      key: keyof NonNullable<HostSettingsAppearance['geometry']>,
+      property: string,
+      fallback: string,
+    ) => {
+      const value = metric(key, property, fallback);
+      const base = palette?.typography?.fontSize || last.current?.typography?.fontSize || 16;
+      return /^\d+(\.\d+)?px$/.test(value) ? `${parseFloat(value) / base}rem` : value;
+    };
     const values: Record<string, string> = {
       '--settings-space': metric('space', 'gap', '0.25rem'),
       '--settings-control-radius': metric('controlRadius', 'border-radius', '0.625rem'),
@@ -83,18 +93,18 @@ export function useHostAppearance(
       ),
       '--settings-menu-blur': metric('menuBlur', 'backdrop-filter', 'none', true),
       '--settings-dialog-shadow': metric('dialogShadow', 'box-shadow', '0 16px 48px #0003', true),
-      '--settings-menu-font-size': metric('menuFontSize', 'font-size', '0.875rem'),
-      '--settings-menu-line-height': metric('menuLineHeight', 'line-height', '1.5'),
+      '--settings-menu-font-size': fontMetric('menuFontSize', 'font-size', '0.875rem'),
+      '--settings-menu-line-height': fontMetric('menuLineHeight', 'line-height', '1.5'),
       '--settings-menu-gap': metric('menuGap', 'gap', '0.375rem'),
       '--settings-button-weight': metric('buttonWeight', 'font-weight', '400'),
-      '--settings-nav-size': metric('navFontSize', 'font-size', '0.875rem'),
-      '--settings-nav-line-height': metric('navLineHeight', 'line-height', '1.4286'),
+      '--settings-nav-size': fontMetric('navFontSize', 'font-size', '0.875rem'),
+      '--settings-nav-line-height': fontMetric('navLineHeight', 'line-height', '1.4286'),
       '--settings-nav-radius': metric('navRadius', 'border-radius', '0.5rem'),
       '--settings-nav-weight': metric('navWeight', 'font-weight', '400'),
       '--settings-nav-group-weight': metric('navGroupWeight', 'font-weight', '500'),
       '--settings-nav-group-color': colors.tertiary || colors.muted || mix(55),
-      '--settings-heading-size': metric('headingSize', 'font-size', '1rem'),
-      '--settings-heading-line-height': metric('headingLineHeight', 'line-height', '1.625'),
+      '--settings-heading-size': fontMetric('headingSize', 'font-size', '1rem'),
+      '--settings-heading-line-height': fontMetric('headingLineHeight', 'line-height', '1.625'),
       '--settings-heading-weight': metric('headingWeight', 'font-weight', '600'),
       '--settings-heading-tracking': metric('headingTracking', 'letter-spacing', 'normal'),
       '--settings-control-duration': metric('transitionDuration', 'transition-duration', '150ms'),
@@ -106,9 +116,9 @@ export function useHostAppearance(
       '--settings-tooltip-radius': metric('tooltipRadius', 'border-radius', '0.75rem'),
       '--settings-tooltip-shape': metric('tooltipShape', 'corner-shape', 'round'),
       '--settings-tooltip-shadow': metric('tooltipShadow', 'box-shadow', '0 8px 18px #0003', true),
-      '--settings-tooltip-size': metric('tooltipSize', 'font-size', '0.875rem'),
+      '--settings-tooltip-size': fontMetric('tooltipSize', 'font-size', '0.875rem'),
       '--settings-tooltip-weight': metric('tooltipWeight', 'font-weight', '400'),
-      '--settings-tooltip-line-height': metric('tooltipLineHeight', 'line-height', '1.4'),
+      '--settings-tooltip-line-height': fontMetric('tooltipLineHeight', 'line-height', '1.4'),
       '--settings-tooltip-tracking': metric('tooltipTracking', 'letter-spacing', 'normal'),
       '--settings-tooltip-padding-block': metric('tooltipPaddingBlock', 'padding', '5px'),
       '--settings-tooltip-padding-inline': metric('tooltipPaddingInline', 'padding', '12px'),
@@ -173,5 +183,7 @@ export function useHostAppearance(
       for (const key of Object.keys(values)) root.style.removeProperty(key);
     };
   }, [palette, theme, source, snapshot]);
-  return source === 'chatgpt' ? palette?.typography || last.current?.typography : undefined;
+  return source === 'chatgpt' || independentTypography
+    ? palette?.typography || last.current?.typography
+    : undefined;
 }

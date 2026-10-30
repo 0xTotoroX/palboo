@@ -121,6 +121,7 @@ export type FeatureState = {
     language?: 'system' | 'zh-CN' | 'en';
     typography?: import('./typography').Typography | null;
     typographyPreferences?: import('./typography').TypographyPreferences;
+    edgeTypographyPreferences?: import('./typography').TypographyPreferences;
     theme?: string | null;
     fontSize?: number;
     colors?: Record<string, string>;

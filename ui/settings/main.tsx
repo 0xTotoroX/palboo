@@ -158,7 +158,7 @@ function App() {
               />
               <nav className="settings-external-links" aria-label={tr('Palboo 链接')}>
                 <a
-                  href="https://palboo.0xtotorox.com/"
+                  href="https://palboo.0xtotoro.com/"
                   target="_blank"
                   rel="noopener noreferrer"
                   title={tr('Palboo 宣传页')}

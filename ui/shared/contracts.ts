@@ -406,6 +406,7 @@ export interface AppearanceSettings {
   settingsTheme?: 'codex' | 'light' | 'dark' | null;
   settingsStyle?: 'chatgpt' | 'palboo' | null;
   typography?: import('./typography').TypographyPreferences;
+  surfaceTypography?: import('./typography').SurfaceTypography;
   launcherAction?: 'inside' | 'outside' | 'settings';
   launcherDoubleAction?: 'inside' | 'outside' | 'settings' | 'toggle';
   launcherContextAction?: 'inside' | 'outside' | 'settings' | 'toggle';

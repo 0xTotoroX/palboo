@@ -7,7 +7,7 @@ import { tr } from '../shared/i18n.js';
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { Icon } from '../shared/icons/react';
 import type { AppearanceSettings, HostSettingsAppearance } from '../shared/contracts';
-import type { Typography } from '../shared/typography';
+import { surfaceTypography, type Typography } from '../shared/typography';
 import { useTypography } from './use-typography';
 import { useHostAppearance } from './use-host-appearance';
 import { useHostFonts } from './use-host-fonts';
@@ -105,10 +105,18 @@ export function SettingsTheme({
         ? codexTheme
         : lastCodexTheme.current || systemTheme
       : preference;
-  const hostTypography = useHostAppearance(hostAppearance, theme, source);
-  useHostFonts(hostTypography?.fontFamily);
+  const hostTypography = useHostAppearance(
+    hostAppearance,
+    theme,
+    source,
+    !!appearance?.surfaceTypography?.settings,
+  );
+  const fontPreferences =
+    appearance?.surfaceTypography?.settings ||
+    (hostTypography ? surfaceTypography('settings') : appearance?.typography);
+  useHostFonts(fontPreferences?.fontFamily || hostTypography?.fontFamily || typography?.fontFamily);
   useSettingsTooltip(source === 'chatgpt');
-  useTypography(hostTypography || typography, hostTypography ? undefined : appearance?.typography);
+  useTypography(hostTypography || typography, fontPreferences);
 
   useLayoutEffect(() => {
     if (isTheme(codexTheme)) lastCodexTheme.current = codexTheme;

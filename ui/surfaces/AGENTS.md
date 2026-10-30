@@ -22,3 +22,5 @@ ui/codex/runtime/lifecycle.js 仍是浏览器注入的集成入口。Rust src/fe
 侧栏、页面浮层和桌面窗口的纵向功能栏可随分隔线拖动或单击选中图标收成标题栏，再次单击展开，允许全部折叠；workspace 展平冗余纵向嵌套并保留原节点阅读，collapsed 按承载布局保存。贴边及旧双面板不变。
 
 各承载入口从只读 appearance.language 同步共享语言，并更新自身 lang/可访问名称；不改宿主页面语言。共同头部、标签和布局使用共享名称目录，不因切换语言重建功能节点。桌面旧 boot 保持经典脚本，借用既有工作台只读 translate 接口。
+
+各承载按实际或交接目标消费 surfaceTypography 有效偏好；侧栏/浮层外壳、桌面与贴边头部、功能正文共享对应字体。贴边头部使用独立 edgeTypographyPreferences，不跟随主窗口目标；旧独立看板入口采用 desktop 字体。改变字体不移动功能或清空阅读/草稿。

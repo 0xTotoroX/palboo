@@ -154,6 +154,7 @@ export function SettingsPreview(props: PreviewProps) {
           appearance={props.page === 'appearance'}
           typography={props.view?.panelTypography}
           typographyPreferences={props.view?.panelPreferences.typography}
+          surfaceTypography={props.view?.panelPreferences.surfaceTypography}
         />
       ) : ['features', 'next', 'prompts', 'board', 'model-control', 'bots'].includes(props.page) ? (
         <FeaturePreview {...props} />

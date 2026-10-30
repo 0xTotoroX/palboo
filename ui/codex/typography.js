@@ -1,5 +1,5 @@
 /* [INPUT]: 已识别聊天的正文元素、宿主字体变量和祖先 CSS zoom。
- * [OUTPUT]: 可复用的只读字体快照与有效布局缩放；不包含聊天文本。
+ * [OUTPUT]: 按来源稳定缓存的只读快照、分窗口字体解析与有效布局缩放；不包含聊天文本。
  * [POS]: 宿主排版适配；由统一字体跟随、术语与工作台消费，不修改宿主样式。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import {
@@ -7,6 +7,7 @@ import {
   defaultTypography,
   fallbackTypography,
   resolveTypography,
+  surfaceTypography,
 } from '../shared/typography';
 export { layoutZoom } from '../shared/typography';
 export function readTypography(element = document.body, paragraph = true) {
@@ -43,11 +44,10 @@ export function sessionTypography(fallback) {
 // 缺少有效宿主节点时保留上次值；新读数连续两次一致才发布，避免切换动画和空页面闪回默认值。
 export function createTypographyTracker(getRoot, getComposer) {
   let preferences = { ...defaultTypography };
-  let last = { ...fallbackTypography },
-    pending = '',
-    pendingSource = '',
-    pendingAt = 0;
-  const samples = new Map();
+  let last = { ...fallbackTypography };
+  let surfaces = {};
+  const samples = new Map(),
+    pending = new Map();
   function visible(node) {
     return (
       node instanceof HTMLElement &&
@@ -57,11 +57,11 @@ export function createTypographyTracker(getRoot, getComposer) {
       !node.closest('[inert],[aria-hidden="true"]')
     );
   }
-  function sample() {
+  function sample(name = preferences.source) {
     const root = getRoot();
     let source;
-    if (preferences.source === 'composer') source = getComposer();
-    else if (preferences.source === 'session')
+    if (name === 'composer') source = getComposer();
+    else if (name === 'session')
       source = Array.from(
         document.querySelectorAll(
           'aside.app-shell-left-panel [data-marquee-text] [data-marquee-content], aside.app-shell-left-panel [data-thread-id] [class*="truncate"], aside.app-shell-left-panel a[href*="/threads/"] [class*="truncate"], aside.app-shell-left-panel a[href*="/threads/"]',
@@ -74,33 +74,38 @@ export function createTypographyTracker(getRoot, getComposer) {
         ),
       ).find(visible);
     if (!visible(source)) {
-      pending = '';
-      return samples.get(preferences.source) || last;
+      pending.delete(name);
+      return samples.get(name) || last;
     }
     const next = {
-      ...readTypography(source, preferences.source === 'body'),
-      source: preferences.source,
+      ...readTypography(source, name === 'body'),
+      source: name,
     };
     const key = JSON.stringify(next);
-    if (
-      key === pending &&
-      pendingSource === preferences.source &&
-      performance.now() - pendingAt >= 200
-    ) {
-      last = next;
-      samples.set(preferences.source, next);
+    const previous = pending.get(name);
+    if (previous?.key === key && performance.now() - previous.at >= 200) {
+      samples.set(name, next);
     }
-    if (pending !== key || pendingSource !== preferences.source) pendingAt = performance.now();
-    pending = key;
-    pendingSource = preferences.source;
-    return samples.get(preferences.source) || last;
+    if (previous?.key !== key) pending.set(name, { key, at: performance.now() });
+    return samples.get(name) || last;
   }
+  function snapshot() {
+    for (const source of /** @type {const} */ (['body', 'session', 'composer'])) sample(source);
+    last = samples.get(preferences.source) || last;
+    return { ...last, sources: Object.fromEntries(samples) };
+  }
+
   return {
     configure(value) {
-      preferences = { ...defaultTypography, ...value };
+      const { surfaces: nextSurfaces, ...legacy } = value || {};
+      preferences = { ...defaultTypography, ...legacy };
+      surfaces = nextSurfaces || {};
     },
-    snapshot: sample,
-    resolved: () => resolveTypography(sample(), preferences),
+    snapshot,
+    resolved: (surface) => {
+      const value = surface ? surfaceTypography(surface, surfaces, preferences) : preferences;
+      return resolveTypography(sample(value.source), value);
+    },
     preferences: () => ({ ...preferences }),
   };
 }

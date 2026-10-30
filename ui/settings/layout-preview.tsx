@@ -15,7 +15,14 @@ import {
 } from 'react';
 import { PreviewFrame } from './preview-frame';
 import { PalbooWordmark } from '../shared/brand';
-import { typographyStyle, type Typography, type TypographyPreferences } from '../shared/typography';
+import {
+  typographyStyle,
+  surfaceTypography as resolveSurfaceTypography,
+  type SurfaceTypography,
+  type TypographySurface,
+  type Typography,
+  type TypographyPreferences,
+} from '../shared/typography';
 import { titles, type FeatureLayout, type FeatureState } from '../shared/features';
 import type { SurfaceState } from './surface-settings';
 import { installFeatureLayout, resolveFeatureLayout } from '../surfaces/workspace/layout';
@@ -161,6 +168,7 @@ export function LayoutPreview({
   appearance = false,
   typography,
   typographyPreferences,
+  surfaceTypography,
   hostName,
   examples,
   onPlacementChange,
@@ -179,6 +187,7 @@ export function LayoutPreview({
   appearance?: boolean;
   typography?: Typography | null;
   typographyPreferences?: TypographyPreferences;
+  surfaceTypography?: SurfaceTypography;
   hostName?: string;
   examples?: Record<string, string[]>;
   renderFeature?: (id: string) => ReactNode;
@@ -301,7 +310,14 @@ export function LayoutPreview({
       material={theme?.theme || 'matte'}
       variant={theme?.liquidVariant}
       onLayout={setDemoLayout}
-      textStyle={typographyStyle(typography, typographyPreferences)}
+      textStyle={typographyStyle(
+        typography,
+        resolveSurfaceTypography(
+          location as TypographySurface,
+          surfaceTypography,
+          typographyPreferences,
+        ),
+      )}
       examples={examples}
       renderFeature={renderFeature}
     />

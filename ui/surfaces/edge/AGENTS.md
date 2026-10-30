@@ -22,3 +22,5 @@
 main 从 feature state 的 edgeTabs/edgeTabsRevision 读取偏好，经 features/edge-tabs 以 expected 原值保存到 surfaces.json；原生几何更新同步可见内容矩形，任务详情以该矩形限定位置与滚动范围，不再使用整个透明 WebView 视口。
 
 原生贴边从 surfaces/window 接收 scopeAllowed，范围不允许时释放键盘并隐藏；恢复使用相同窗口、节点与开合状态，快捷键不能绕过范围。
+
+main 从状态投影的 edgeTypographyPreferences 读取贴边头部字体，避免主窗口字体改动串入贴边；功能正文仍使用 owner 对应 appearance。

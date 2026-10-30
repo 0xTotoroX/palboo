@@ -1,5 +1,17 @@
 // English interface copy. User-authored content is not translated.
 export default {
+  未知字体窗口: 'Unknown typography surface',
+  窗口字体选项无效: 'Invalid window typography',
+  请输入有效的本机字体名称: 'Enter a valid local font name',
+  本机字体名称: 'Local font name',
+  自定义字体: 'Custom font',
+  等宽字体: 'Monospace',
+  宋体: 'Songti',
+  苹方: 'PingFang',
+  系统字体: 'System font',
+  聊天侧栏: 'Chat sidebar',
+  设置页: 'Settings',
+  窗口: 'Window',
   '跟随 ChatGPT': 'Follow ChatGPT',
   'Palboo 原有': 'Palboo original',
   主题来源: 'Theme source',

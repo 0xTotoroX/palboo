@@ -302,6 +302,7 @@ function readSettingsPalette(root, theme) {
   const uiFamily = token('--font-ui-family');
   const family =
     !uiFamily || /^(inherit|initial|unset)$/.test(uiFamily) ? style.fontFamily : uiFamily;
+  /** @type {Record<string, [string | string[], string]>} */
   const metrics = {
     space: ['--spacing', 'gap'],
     controlRadius: ['--control-radius-md', 'border-radius'],

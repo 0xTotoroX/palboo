@@ -32,3 +32,5 @@ views 复用唯一原壳和 geometry 动效，只由 embedded/features 替换内
 顶部胶囊眼睛在侧栏和桌面工作台均隐藏，旧绑定节点保留兼容；旧桌面页面 Alt+Enter 可从现有非业务输入控件触发收回，不再要求焦点位于已隐藏的表情。独立眼睛入口的动态表情和菜单保持。
 
 panel-appearance 将全局有效字体应用到旧工作台正文和标题变量；弹出兼容模式读 presentation 的 sharedTypography。旧 fontSizes/fontOffset 仅在没有新字体协议时回退。
+
+panel-appearance 按 workbench/capsule/native 选择 sidebar/overlay/desktop 字体偏好；正文和头部字号保持同一缩放补偿，旧浮窗接收预先解析的 desktop 快照。

@@ -143,7 +143,10 @@ function setPixelVariable(element, property, value) {
 
 function applyTypographyVariables() {
   if (!shellState.root) return;
-  const shared = window.__palbooTypography?.resolved() || shellState.sharedTypography;
+  const shared =
+    window.__palbooTypography?.resolved(
+      IS_POPOUT ? 'desktop' : shellState.layoutMode === 'workbench' ? 'sidebar' : 'overlay',
+    ) || shellState.sharedTypography;
   if (shared) {
     const size = (shared.fontSize * shared.zoom) / layoutZoom(shellState.root);
     shellState.root.style.setProperty('--csw-font-family', shared.fontFamily);

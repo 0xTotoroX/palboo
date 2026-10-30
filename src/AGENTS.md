@@ -101,7 +101,7 @@ settings.Options/Update支持promptEnhancementEnabled，默认true并沿原修�
 
 terminology 的 seen 文件只保存聊天身份、术语编号和分析状态；verifiedSessions 单独保留经语境确认的编号，旧字面 sessions 保留但不作为语义模式当前聊天结果；收藏与已掌握独立保存。features 增加 terms 业务分发与已有主界面缺失成员补登记，不覆盖关闭状态和布局。
 
-panel.Preferences 顶层 typography 单独持久化并验证 follow/custom、body/session/composer、75–150%及10–32px，沿用外观修订。state.panel_typography 仅保存末次有效只读样式，CDP缺失/断连不清除；server 的认证状态/SSE 和 surfaces/features 外观投影传给所有承载，不含聊天文本，不写入模型配置。
+panel.Preferences 保留旧 typography，新增 surfaceTypography 按 settings/sidebar/overlay/desktop/edge 保存字体族、follow/custom、body/session/composer、75–150%及10–32px；沿用外观修订，单窗口补丁合并并拒绝未知目标/非法字体值。缺省业务窗口继承旧 typography，新配置默认跟随；设置页缺省读取宿主界面。state.panel_typography 保存按三种来源稳定缓存的无正文快照，CDP缺失/断连不清除；server 的认证状态/SSE 投递快照与偏好，surfaces/features 按实际/交接目标投影有效偏好，贴边头部独立于主窗口偏好，不含聊天文本，不写入模型配置。
 
 贴边 screen="codex" 显式跟随当前 CDP 连接窗口，surfaces/window 仅此模式读取临时 hostBounds（500ms 超时），edge_geometry 将顶部逻辑坐标转换为 AppKit 后取最大相交屏幕；缺失或无交集时沿原回退保留屏幕。拖动贴边位置不取消跟随，轮询不写回显示器偏好。原空值自动选择与固定 UUID 保留。
 

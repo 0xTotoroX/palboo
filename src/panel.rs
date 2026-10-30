@@ -1,5 +1,5 @@
 // [INPUT]: App、宿主投影、窗口租约与私有 panel 偏好（新聊天/Dots 侧栏开关仅由外观设置修改）。
-// [OUTPUT]: macOS 15+ arm64 弹出能力与入口校验、Panel、独立胶囊/工作台尺寸、统一字体跟随偏好、兼容分功能字号及分呈现方式的排列/比例偏好、带分栏阅读位置与新建任务草稿接续的弹出/收回/受限命令（含常用提示词填入），以及保留原实例的开发唤起目标。
+// [OUTPUT]: macOS 15+ arm64 弹出能力与入口校验、Panel、独立胶囊/工作台尺寸、分窗口字体族/跟随/字号偏好及旧统一偏好兼容、兼容分功能字号及分呈现方式的排列/比例偏好、带分栏阅读位置与新建任务草稿接续的弹出/收回/受限命令（含常用提示词填入），以及保留原实例的开发唤起目标。
 // [POS]: 后台系统浮窗管理层，从准备租约起保护窗口快照，原生呈现后隐藏内嵌胶囊；临时坐标不持久化，收回偏好按版本校验并保存。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
@@ -170,6 +170,7 @@ pub struct Position {
 #[serde(default, rename_all = "camelCase")]
 pub struct Preferences {
     pub typography: TypographyPreferences,
+    pub surface_typography: BTreeMap<String, TypographyPreferences>,
     pub revision: u64,
     pub web_revision: u64,
     pub detached: bool,
@@ -188,6 +189,9 @@ pub struct Preferences {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 pub struct TypographyPreferences {
+    // Keep the legacy shared object readable by older releases during App rollback.
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub font_family: String,
     pub mode: String,
     pub source: String,
     pub scale: f64,
@@ -196,6 +200,7 @@ pub struct TypographyPreferences {
 impl Default for TypographyPreferences {
     fn default() -> Self {
         Self {
+            font_family: String::new(),
             mode: "follow".into(),
             source: "body".into(),
             scale: 100.,
@@ -209,6 +214,11 @@ impl TypographyPreferences {
             || !["body", "session", "composer"].contains(&self.source.as_str())
             || !(75. ..=150.).contains(&self.scale)
             || !(10. ..=32.).contains(&self.custom_size)
+            || self.font_family.len() > 200
+            || self
+                .font_family
+                .chars()
+                .any(|c| c.is_control() || matches!(c, ';' | '{' | '}' | '<' | '>' | '\\'))
         {
             bail!("字体选项无效");
         }
@@ -221,6 +231,7 @@ impl Default for Preferences {
             revision: 0,
             web_revision: 0,
             typography: TypographyPreferences::default(),
+            surface_typography: BTreeMap::new(),
             detached: false,
             return_open: None,
             always_on_top: true,
@@ -237,6 +248,18 @@ impl Default for Preferences {
     }
 }
 impl Preferences {
+    pub fn typography_for(&self, surface: &str) -> TypographyPreferences {
+        self.surface_typography
+            .get(surface)
+            .cloned()
+            .unwrap_or_else(|| {
+                if surface == "settings" {
+                    TypographyPreferences::default()
+                } else {
+                    self.typography.clone()
+                }
+            })
+    }
     pub fn read(paths: &Paths) -> Self {
         std::fs::read(paths.root.join("panel.json"))
             .ok()
@@ -769,6 +792,18 @@ impl App {
         if let Some(value) = input.get("typography") {
             next.typography = serde_json::from_value(value.clone())?;
             next.typography.validate()?;
+        }
+        if let Some(patch) = input.get("surfaceTypography") {
+            for (surface, value) in patch.as_object().context("窗口字体选项无效")? {
+                ensure!(
+                    ["settings", "sidebar", "overlay", "desktop", "edge"]
+                        .contains(&surface.as_str()),
+                    "未知字体窗口"
+                );
+                let typography: TypographyPreferences = serde_json::from_value(value.clone())?;
+                typography.validate()?;
+                next.surface_typography.insert(surface.clone(), typography);
+            }
         }
         for (key, destination) in [
             ("launcherAction", &mut next.launcher_action),
@@ -1577,6 +1612,98 @@ mod tests {
             .unwrap();
         assert_eq!(resized.typography, saved.typography);
         assert_eq!(resized.ui.font_sizes, initial.ui.font_sizes);
+    }
+
+    #[tokio::test]
+    async fn surface_typography_is_independent_persistent_and_revision_checked() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths::new(Some(dir.path().into())).unwrap();
+        let legacy = Preferences {
+            typography: TypographyPreferences {
+                mode: "custom".into(),
+                custom_size: 19.,
+                ..Default::default()
+            },
+            settings_style: Some("palboo".into()),
+            ..Default::default()
+        };
+        legacy.save(&paths).unwrap();
+        let app = App::new(paths.clone(), crate::config::Config::default(), None, true);
+        let settings = app.settings().await;
+        assert_eq!(
+            app.appearance().await.typography_for("desktop").custom_size,
+            19.
+        );
+        let saved = app
+            .save_appearance(json!({"expectedRevision":0,"surfaceTypography":{
+                "sidebar":{"mode":"custom","customSize":22,"fontFamily":"serif"},
+                "edge":{"source":"session","scale":125}
+            }}))
+            .await
+            .unwrap();
+        assert_eq!(saved.ui, legacy.ui);
+        assert_eq!(saved.settings_style, legacy.settings_style);
+        assert_eq!(saved.typography, legacy.typography);
+        assert!(json!(saved.typography).get("fontFamily").is_none());
+        assert_eq!(
+            saved.typography_for("settings"),
+            TypographyPreferences::default()
+        );
+        let desktop = app
+            .save_appearance(
+                json!({"expectedRevision":saved.revision,"surfaceTypography":{
+                    "desktop":{"mode":"custom","customSize":24,"fontFamily":"monospace"}
+                }}),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            desktop.typography_for("sidebar"),
+            saved.typography_for("sidebar")
+        );
+        assert_eq!(Preferences::read(&paths), desktop);
+        for surface in ["sidebar", "overlay", "desktop", "edge"] {
+            assert_eq!(
+                app.surface_appearance(surface).await["typographyPreferences"],
+                json!(desktop.typography_for(surface))
+            );
+        }
+        for patch in [
+            json!({"unknown":{}}),
+            json!({"settings":{"customSize":99}}),
+            json!({"desktop":{"fontFamily":"bad; font"}}),
+            json!({"edge":null}),
+        ] {
+            assert!(
+                app.save_appearance(
+                    json!({"expectedRevision":desktop.revision,"surfaceTypography":patch})
+                )
+                .await
+                .is_err()
+            );
+        }
+        assert!(
+            app.save_appearance(
+                json!({"expectedRevision":saved.revision,"surfaceTypography":{"sidebar":{}}})
+            )
+            .await
+            .is_err()
+        );
+        let reset = app
+            .save_appearance(
+                json!({"expectedRevision":desktop.revision,"surfaceTypography":{"sidebar":{}}}),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            reset.typography_for("sidebar"),
+            TypographyPreferences::default()
+        );
+        assert_eq!(
+            reset.typography_for("desktop"),
+            desktop.typography_for("desktop")
+        );
+        assert_eq!(app.settings().await, settings);
     }
 
     #[tokio::test]

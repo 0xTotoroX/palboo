@@ -1,13 +1,13 @@
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: 版本化外观偏好与认证 API。
- * [OUTPUT]: 下一步的显示/点击设置，及按布局/外观页面显示的全局字体、侧栏页面开关、整数宽度和置顶设置，草稿持续挂载。
+ * [OUTPUT]: 下一步的显示/点击设置，及按布局/外观页面显示的分窗口字体、侧栏页面开关、整数宽度和置顶设置，草稿持续挂载。
  * [POS]: 保留有效旧字段的设置适配；不再编辑旧两功能布局、主题或窗口归属。
  * [PROTOCOL]: 变更时同步 settings/AGENTS.md。 */
 import { DOCK_MIN_WIDTH } from '../surfaces/embedded/width.js';
 import { useEffect, useState } from 'react';
 import { Icon } from '../shared/icons/react';
-import { TypographySettings } from './typography-settings';
+import { SurfaceTypographySettings } from './typography-settings';
 import { Input } from './components/ui/input';
 import { NativeSelect } from './components/ui/native-select';
 import { Field, Toggle, Feedback } from './settings-controls';
@@ -184,9 +184,17 @@ export function PanelSettings({
             hidden={page === 'surfaces'}
           >
             <h2>{tr('字体')}</h2>
-            <TypographySettings
-              value={prefs.typography}
-              save={(typography) => update({ typography })}
+            <SurfaceTypographySettings
+              value={{
+                ...(prefs.settingsStyle === 'palboo' && !prefs.surfaceTypography?.settings
+                  ? { settings: prefs.typography }
+                  : {}),
+                ...prefs.surfaceTypography,
+              }}
+              legacy={prefs.typography}
+              save={(surface, typography) =>
+                update({ surfaceTypography: { [surface]: typography } })
+              }
             />
           </section>
           <section

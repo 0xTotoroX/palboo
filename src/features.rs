@@ -218,10 +218,13 @@ impl App {
         state["scopeAllowed"] = json!(self.host_page_allowed().await);
         let view = self.view();
         state["legacyLayouts"] = json!({"sidebar":view.panel_preferences.ui.dock_layout,"overlay":view.panel_preferences.ui.dock_layout,"desktop":view.panel_preferences.ui.popout_layout});
+        let typography = view
+            .panel_preferences
+            .typography_for(state["mainPlacement"].as_str().unwrap_or("sidebar"));
         let surfaces = self.surfaces.lock().await;
         state["edgeTabs"] = json!(surfaces.preferences.edge_tabs);
         state["edgeTabsRevision"] = json!(surfaces.revision);
-        state["appearance"] = json!({"language":view.panel_preferences.language,"theme":view.panel_theme,"fontSize":view.panel_font_base,"typography":view.panel_typography,"typographyPreferences":view.panel_preferences.typography,"colors":view.panel_colors,"themes":surfaces.preferences.themes});
+        state["appearance"] = json!({"language":view.panel_preferences.language,"theme":view.panel_theme,"fontSize":view.panel_font_base,"typography":view.panel_typography,"typographyPreferences":typography,"edgeTypographyPreferences":view.panel_preferences.typography_for("edge"),"colors":view.panel_colors,"themes":surfaces.preferences.themes});
         state
     }
     pub(crate) async fn task_command(&self, command: Value) -> Result<Value> {
