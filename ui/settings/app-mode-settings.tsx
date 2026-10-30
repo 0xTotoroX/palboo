@@ -1,15 +1,17 @@
 /* [INPUT]: Authenticated App mode API, shared settings controls and existing form save state.
- * [OUTPUT]: Release/Dev selection, source registration and progress handoff; hosts manual App updates and shares unsaved-mode protection.
+ * [OUTPUT]: Manual App updates, Release/Dev selection and a shared development drawer; retains mode drafts across reconnects and guards progress handoff.
  * [POS]: Startup settings; saves no business data and does not duplicate Dev source management.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 import { request } from './api';
 import { Card } from './components/ui/card';
 import { Button } from './components/ui/button';
 import { Input } from './components/ui/input';
+import { NativeSelect } from './components/ui/native-select';
 import { Field } from './settings-controls';
+import { SettingsDrawer } from './settings-drawer';
 import type { SettingsEditor } from './use-settings-form';
 import { AppUpdateSettings } from './app-update-settings';
 
@@ -29,13 +31,27 @@ export function AppModeSettings({ live, editor }: { live: boolean; editor: Setti
   const [source, setSource] = useState('');
   const [node, setNode] = useState('');
   const [busy, setBusy] = useState(false);
+  const [ready, setReady] = useState(false);
   const [error, setError] = useState('');
+  const edited =
+    !!state &&
+    (mode !== state.mode || source !== (state.source || '') || node !== (state.node || ''));
+  const draftEdited = useRef(false);
+  draftEdited.current = edited;
+  const changed = edited || (!!state && mode !== state.preferredMode);
+  const blocked =
+    !live || !ready || !state || busy || editor.dirty || editor.saving || editor.remoteChanged;
   useEffect(() => {
+    setReady(false);
     if (!live) return;
     let disposed = false;
+    setError('');
     request<ModeState>('app-mode')
       .then((value) => {
         if (disposed) return;
+        setReady(true);
+        // 保留草稿及其原始修订，重连不能替用户覆盖外部修改。
+        if (draftEdited.current) return;
         setState(value);
         setMode(value.mode);
         setSource(value.source || '');
@@ -49,7 +65,7 @@ export function AppModeSettings({ live, editor }: { live: boolean; editor: Setti
     };
   }, [live]);
   async function apply() {
-    if (!state || busy) return;
+    if (blocked || !state || !changed) return;
     setBusy(true);
     setError('');
     try {
@@ -65,89 +81,80 @@ export function AppModeSettings({ live, editor }: { live: boolean; editor: Setti
       setBusy(false);
     }
   }
-  return (
+  const actions = (
     <>
-      <Card tabIndex={-1} id="settings-app-mode" aria-labelledby="app-mode-title">
-        <h2 id="app-mode-title">{tr('运行模式')}</h2>
-        <Field id="app-mode" label={tr('Palboo')}>
-          <div className="settings-mode-options" role="group" aria-label={tr('运行模式')}>
-            {(['release', 'development'] as const).map((value) => (
-              <Button
-                key={value}
-                type="button"
-                variant="outline"
-                aria-pressed={mode === value}
-                disabled={!state || busy}
-                onClick={() => setMode(value)}
-              >
-                {tr(value === 'release' ? '正式模式' : '开发模式')}
-              </Button>
-            ))}
-          </div>
-        </Field>
-        {mode === 'development' && (
-          <>
-            <Field id="app-mode-source" label={tr('源码目录')}>
-              <Input
-                id="app-mode-source"
-                value={source}
-                disabled={busy}
-                spellCheck={false}
-                placeholder="/path/to/palboo"
-                onChange={(event) => setSource(event.target.value)}
-              />
-            </Field>
-            <details className="settings-details">
-              <summary>{tr('开发环境')}</summary>
-              <Field id="app-mode-node" label="Node.js">
-                <Input
-                  id="app-mode-node"
-                  value={node}
-                  disabled={busy}
-                  spellCheck={false}
-                  placeholder={tr('自动查找')}
-                  onChange={(event) => setNode(event.target.value)}
-                />
-              </Field>
-            </details>
-          </>
-        )}
-        {editor.dirty && <p className="settings-hint">{tr('请先保存当前设置，再切换模式。')}</p>}
-        {error && (
-          <p role="alert" className="settings-error">
-            {tr(error)}
-          </p>
-        )}
+      {editor.dirty && changed && (
+        <p className="settings-hint">{tr('请先保存当前设置，再切换模式。')}</p>
+      )}
+      {error && (
+        <p role="alert" className="settings-error">
+          {tr(error)}
+        </p>
+      )}
+      {(changed || busy) && (
         <div className="settings-actions">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => void apply()}
-            disabled={
-              !state ||
-              busy ||
-              editor.dirty ||
-              editor.saving ||
-              editor.remoteChanged ||
-              (mode === state.mode &&
-                mode === state.preferredMode &&
-                source === (state.source || '') &&
-                node === (state.node || ''))
-            }
-          >
+          <Button type="button" variant="outline" onClick={() => void apply()} disabled={blocked}>
             {tr(busy ? '正在准备…' : '切换模式')}
           </Button>
         </div>
+      )}
+    </>
+  );
+  return (
+    <>
+      <AppUpdateSettings live={live} editor={editor} modeEditing={busy || edited} />
+      <Card
+        tabIndex={-1}
+        id="settings-app-mode"
+        aria-labelledby="app-mode-title"
+        data-settings-navigation
+      >
+        <h2 id="app-mode-title">{tr('运行模式')}</h2>
+        <Field id="app-mode" label={tr('启动时使用')}>
+          <NativeSelect
+            id="app-mode"
+            controlWidth="short"
+            value={mode}
+            disabled={!live || !ready || busy}
+            onChange={(event) => {
+              // 模式独立提交，不能触发外层模型表单的自动保存。
+              event.stopPropagation();
+              setMode(event.target.value as Mode);
+            }}
+          >
+            <option value="release">{tr('正式模式')}</option>
+            <option value="development">{tr('开发模式')}</option>
+          </NativeSelect>
+        </Field>
+        <SettingsDrawer
+          id="settings-app-development"
+          title={tr('开发设置')}
+          hidden={mode !== 'development'}
+          footer={actions}
+        >
+          <Field id="app-mode-source" label={tr('源码目录')}>
+            <Input
+              id="app-mode-source"
+              value={source}
+              disabled={!live || !ready || busy}
+              spellCheck={false}
+              placeholder="/path/to/palboo"
+              onChange={(event) => setSource(event.target.value)}
+            />
+          </Field>
+          <Field id="app-mode-node" label="Node.js">
+            <Input
+              id="app-mode-node"
+              value={node}
+              disabled={!live || !ready || busy}
+              spellCheck={false}
+              placeholder={tr('自动查找')}
+              onChange={(event) => setNode(event.target.value)}
+            />
+          </Field>
+        </SettingsDrawer>
+        {actions}
       </Card>
-      <AppUpdateSettings
-        live={live}
-        editor={editor}
-        modeEditing={
-          busy ||
-          (!!state &&
-            (mode !== state.mode || source !== (state.source || '') || node !== (state.node || '')))
-        }
-      />
     </>
   );
 }

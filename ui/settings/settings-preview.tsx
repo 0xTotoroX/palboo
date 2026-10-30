@@ -1,7 +1,7 @@
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: Shared preview frame, existing form snapshots, saved surfaces and feature layout.
- * [OUTPUT]: Linked diagrams and actual interactive feature components without instructional footnotes; only the common switcher reserves inactive geometry.
+ * [OUTPUT]: Linked diagrams and actual interactive feature components; connection settings use their own inline state rather than a duplicate overview.
  * [POS]: Settings presentation only; no requests, credentials, task bodies or host commands.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 import { LayoutPreview } from './layout-preview';
@@ -14,7 +14,6 @@ import type { SurfaceState } from './surface-settings';
 import { titles, type FeatureState } from '../shared/features';
 import type { ModelState } from '../features/model/catalog';
 import type { TaskState } from '../features/board/api';
-import { Icon } from '../shared/icons/react';
 import { PreviewFrame as Frame } from './preview-frame';
 import { usePreviewTransition } from './settings-motion';
 
@@ -136,46 +135,9 @@ function GenerationPreview({ form, dirty }: PreviewProps) {
     </Frame>
   );
 }
-function ConnectionPreview({ view, live, form }: PreviewProps) {
-  useLocale();
-  const status = view?.connection.status;
-  const connected = live && status === 'connected';
-  return (
-    <Frame title={tr('连接状态')}>
-      <div className="preview-demo">
-        <div className="preview-connection" data-connected={connected}>
-          <Icon name="connection" />
-          <strong>
-            {connected
-              ? tr('连接已就绪')
-              : !live
-                ? tr('本地服务未连接')
-                : status === 'unresponsive'
-                  ? tr('页面暂未响应')
-                  : tr('等待桌面连接')}
-          </strong>
-        </div>
-        <Facts
-          items={[
-            [tr('本地服务'), live ? tr('可用') : tr('未连接')],
-            [
-              tr('桌面页面'),
-              connected ? tr('已连接') : status === 'unresponsive' ? tr('暂未响应') : tr('未连接'),
-            ],
-            [
-              tr('启动行为'),
-              form?.hostRestartPolicy === 'force' ? tr('直接强制重开') : tr('询问后正常重开'),
-            ],
-            [tr('版本'), view?.version || '—'],
-          ]}
-        />
-      </div>
-    </Frame>
-  );
-}
-
 export function SettingsPreview(props: PreviewProps) {
   useLocale();
+  if (props.page === 'connection') return null;
   const workspace = props.page === 'surfaces' || props.page === 'appearance';
   return (
     <aside
@@ -197,9 +159,7 @@ export function SettingsPreview(props: PreviewProps) {
         <FeaturePreview {...props} />
       ) : props.page === 'model' ? (
         <GenerationPreview {...props} />
-      ) : (
-        <ConnectionPreview {...props} />
-      )}
+      ) : null}
     </aside>
   );
 }

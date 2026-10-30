@@ -162,7 +162,18 @@ test(
         const body = raw ? JSON.parse(raw) : null;
         if (body && body.op !== 'state') writes.push({ path, body });
         let value;
-        if (path === '/api/settings') {
+        if (path === '/api/app-mode') {
+          value = {
+            mode: 'development',
+            preferredMode: 'development',
+            revision: 1,
+            source: '/tmp/palboo fixture',
+            node: '/tmp/node',
+            releaseAvailable: true,
+          };
+        } else if (path === '/api/app-update') {
+          value = { currentVersion: '1.3.0', revision: 1, canInstall: false, checked: false };
+        } else if (path === '/api/settings') {
           if (body) {
             if (rejectNext) {
               rejectNext = false;
@@ -417,7 +428,10 @@ test(
       publishTheme('dark');
       await expectTheme('dark'); // The host wins even when the browser prefers light.
       publishTheme(null, 'unresponsive');
-      await page.getByText('页面暂未响应', { exact: true }).waitFor();
+      await page
+        .locator('.settings-connection-status')
+        .getByText('页面暂未响应', { exact: true })
+        .waitFor();
       await expectTheme('dark'); // A missing host theme retains the last valid snapshot.
       publishTheme('light');
       await expectTheme('light');
@@ -1137,9 +1151,16 @@ test(
       await preview.getByText('新的预览模型草稿', { exact: true }).waitFor();
       assert.equal(await preview.locator('.preview-status').innerText(), '包含未保存的编辑');
       const draftWrites = writes.length;
+      await category('connection');
+      await page.locator('#app-mode').selectOption('release');
+      await page.locator('#app-mode').selectOption('development');
       await category('surfaces');
       await preview.getByRole('button', { name: '贴边 / 刘海', exact: true }).click();
-      assert.equal(writes.length, draftWrites);
+      assert.equal(
+        writes.length,
+        draftWrites,
+        'mode selection never saves an unrelated model draft',
+      );
       await category('model');
       assert.equal(await model.inputValue(), '新的预览模型草稿');
       assert.equal((await preview.textContent()).includes('fixture-unsaved-key'), false);
@@ -1211,7 +1232,10 @@ test(
           assert.ok(header.search.width <= 100, 'compact search remains a button at every width');
           assert.ok(header.actions.right <= header.header.right + 1, 'header controls fit');
           publishTheme(colorScheme, 'unresponsive');
-          await page.getByText('页面暂未响应', { exact: true }).waitFor();
+          await page
+            .locator('.settings-connection-status')
+            .getByText('页面暂未响应', { exact: true })
+            .waitFor();
           assert.equal(
             await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
             false,
@@ -1250,6 +1274,25 @@ test(
                 controls: node.querySelector('.settings-form-column').getBoundingClientRect().top,
               }));
               assert.ok(Math.abs(top.body - top.controls) < 1, 'no empty preview space remains');
+              continue;
+            }
+            if (id === 'connection') {
+              assert.equal(await page.locator('.settings-preview').count(), 0);
+              assert.deepEqual(
+                await page
+                  .locator(
+                    '[data-settings-page="connection"] > section > h2, [data-settings-page="connection"] > section > .settings-section-heading > h2',
+                  )
+                  .allTextContents(),
+                ['桌面连接', '启动行为', '应用更新', '运行模式'],
+              );
+              assert.equal(
+                await page.locator('[data-settings-page="connection"] details').count(),
+                0,
+              );
+              await page.screenshot({
+                path: `target/reports/settings-connection-${colorScheme}-${width}.png`,
+              });
               continue;
             }
             if (id === 'terminology')

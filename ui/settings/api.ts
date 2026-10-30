@@ -1,7 +1,7 @@
 import { tr } from '../shared/i18n.js';
 /*
  * [INPUT]: 启动令牌、React 与本机认证 API/SSE。
- * [OUTPUT]: 公开数据类型、request、原样术语文件上传与 useCompanion 状态订阅。
+ * [OUTPUT]: 公开数据类型、request、原样术语文件上传与 useCompanion 状态订阅；本轮首个状态快照到达才恢复在线。
  * [POS]: 网页通信层，令牌在同源标签页共享并自动恢复认证连接；认证状态中的 Dev 地址将普通设置入口导向监督进程。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -133,6 +133,7 @@ export function useCompanion() {
     };
   }, []);
   useEffect(() => {
+    setLive(false);
     if (!credential) {
       setError(tr('此标签页尚未连接 Palboo。请从眼睛菜单打开一次设置，其他标签页会自动恢复。'));
       return;
@@ -153,8 +154,6 @@ export function useCompanion() {
             return;
           }
           if (!response.ok || !response.body) throw new Error(tr('服务连接暂时中断'));
-          setLive(true);
-          setError('');
           delay = 750;
           const reader = response.body.getReader();
           const decoder = new TextDecoder();
@@ -180,6 +179,8 @@ export function useCompanion() {
                     return;
                   }
                   setView(next);
+                  setLive(true);
+                  setError('');
                 }
               }
             }

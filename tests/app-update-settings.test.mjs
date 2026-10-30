@@ -4,20 +4,22 @@
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import { build } from 'esbuild';
 import { chromium } from 'playwright';
 
 const script = build({
   stdin: {
-    contents: `import React from 'react';import {createRoot} from 'react-dom/client';import {AppModeSettings} from './ui/settings/app-mode-settings';import {setLocale} from './ui/shared/i18n.js';
-    window.locale=setLocale;function App(){const[flags,change]=React.useState({dirty:false,saving:false,remoteChanged:false});window.flags=change;return <div className="settings-app"><main className="settings-content"><div className="settings-form-column"><AppModeSettings live editor={flags}/></div></main></div>}createRoot(document.getElementById('root')).render(<App/>);`,
+    contents: `import React from 'react';import {createRoot} from 'react-dom/client';import {ConnectionSettings} from './ui/settings/connection-settings';import {setLocale} from './ui/shared/i18n.js';import {fixtureSettings} from './tests/fixtures.mjs';
+    const view={connection:{status:'connected',message:'已连接桌面 Codex',endpoint:'http://127.0.0.1:9229',targetId:'fixture',targets:[]}};
+    window.locale=setLocale;function App(){const[flags,change]=React.useState({dirty:false,saving:false,remoteChanged:false});const[live,setLive]=React.useState(true);window.connection=setLive;window.flags=change;return <div className="settings-app"><main className="settings-content"><div className="settings-form-column"><ConnectionSettings live={live} view={view} notify={()=>{}} editor={{...flags,form:fixtureSettings,saved:fixtureSettings,change:()=>{}}}/></div></main></div>}createRoot(document.getElementById('root')).render(<App/>);`,
     resolveDir: process.cwd(),
     loader: 'tsx',
   },
   bundle: true,
   write: false,
   format: 'iife',
+  define: { 'import.meta.env.DEV': 'false' },
 }).then((result) => result.outputFiles[0].text);
 const base = {
   currentVersion: '1.2.0',
@@ -81,7 +83,7 @@ async function fixture(t, options = {}) {
     assert.equal(url.pathname, '/api/app-update');
     if (req.method() === 'GET') {
       if (behavior.holdInitial) await behavior.holdInitial;
-      return route.fulfill({ json: base });
+      return route.fulfill({ json: behavior.initial || base });
     }
     if (behavior.holdInstall) await behavior.holdInstall;
     return route.fulfill({
@@ -151,9 +153,9 @@ test('drafts and edited modes block installation; failures keep the release and 
     assert.equal(await install.isDisabled(), true);
   }
   await f.page.evaluate(() => window.flags({ dirty: false, saving: false, remoteChanged: false }));
-  await f.page.getByRole('button', { name: '开发模式', exact: true }).click();
+  await f.page.getByLabel('启动时使用', { exact: true }).selectOption('development');
   assert.equal(await install.isDisabled(), true);
-  await f.page.getByRole('button', { name: '正式模式', exact: true }).click();
+  await f.page.getByLabel('启动时使用', { exact: true }).selectOption('release');
   await install.click();
   await f.card.getByRole('alert').waitFor();
   assert.deepEqual(f.writes.at(-1).body, {
@@ -250,5 +252,72 @@ test('startup updates fit a narrow layout in both languages with keyboard access
       geometry.labels.every((v) => v.left >= 0 && v.right <= geometry.viewport + 1),
       JSON.stringify(geometry),
     );
+    await f.page.locator('#app-mode').selectOption('development');
+    await f.page
+      .getByRole('button', {
+        name: language === 'en' ? 'Development settings' : '开发设置',
+        exact: true,
+      })
+      .click();
+    const drawer = f.page.getByRole('dialog');
+    await drawer.locator('#app-mode-source').fill('/tmp/a long development source folder/palboo');
+    const source = await drawer.locator('#app-mode-source').elementHandle();
+    assert.ok(await drawer.evaluate((node) => node.scrollWidth <= node.clientWidth + 1));
+    await mkdir('target/reports/settings-connection', { recursive: true });
+    await f.page.screenshot({
+      path: `target/reports/settings-connection/development-${language}.png`,
+    });
+    await f.page.keyboard.press('Escape');
+    await f.page
+      .getByRole('button', {
+        name: language === 'en' ? 'Development settings' : '开发设置',
+        exact: true,
+      })
+      .click();
+    assert.equal(
+      await drawer.locator('#app-mode-source').evaluate((node, old) => node === old, source),
+      true,
+    );
+    assert.equal(
+      await drawer.locator('#app-mode-source').inputValue(),
+      '/tmp/a long development source folder/palboo',
+    );
+    await drawer.locator('#app-mode-source').fill('');
+    await f.page.keyboard.press('Escape');
+    await f.page.locator('#app-mode').selectOption('release');
   }
+});
+
+test('disconnect invalidates versions and late checks; reconnect reads the installed App again', async (t) => {
+  let finish;
+  const f = await fixture(t, {
+    holdCheck: new Promise((resolve) => {
+      finish = resolve;
+    }),
+  });
+  await f.card.getByText('v1.2.0', { exact: true }).waitFor();
+  await f.check();
+  await f.page.evaluate(() => window.connection(false));
+  await f.card.locator('#app-update-version').filter({ hasText: '—' }).waitFor();
+  finish();
+  await f.card.getByRole('button', { name: '检查更新', exact: true }).waitFor();
+  await f.page
+    .locator('#settings-connection')
+    .getByText('本地服务未连接', { exact: true })
+    .waitFor();
+  assert.equal(await f.page.getByText('已连接桌面 Codex', { exact: true }).count(), 0);
+  assert.equal(
+    await f.page.getByRole('button', { name: '连接 Codex', exact: true }).isDisabled(),
+    true,
+  );
+  assert.equal(
+    await f.card.getByRole('button', { name: '检查更新', exact: true }).isDisabled(),
+    true,
+  );
+  assert.equal(await f.card.getByRole('button', { name: '更新并重启', exact: true }).count(), 0);
+  assert.equal(await f.card.getByText('v1.2.0', { exact: true }).count(), 0);
+  f.behavior.initial = { ...base, currentVersion: '1.3.0', revision: 5 };
+  await f.page.evaluate(() => window.connection(true));
+  await f.card.getByText('v1.3.0', { exact: true }).waitFor();
+  assert.equal(f.writes.length, 1, 'reconnection never repeats a check or starts installation');
 });

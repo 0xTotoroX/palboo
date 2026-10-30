@@ -183,11 +183,11 @@ function App() {
               aria-label={connected ? tr('已连接') : undefined}
             >
               {!connected &&
-                (view?.connection.status === 'unresponsive'
-                  ? tr('页面暂未响应')
-                  : live
-                    ? tr('等待连接')
-                    : tr('未连接'))}
+                (!live
+                  ? tr('未连接')
+                  : view?.connection.status === 'unresponsive'
+                    ? tr('页面暂未响应')
+                    : tr('等待连接'))}
             </span>
           </div>
         </div>
@@ -364,7 +364,7 @@ function App() {
         </main>
       </div>
       <footer className="settings-footer">
-        <span>{view?.version ? `v${view.version}` : '—'}</span>
+        <span>{live && view?.version ? `v${view.version}` : '—'}</span>
       </footer>
     </div>
   );

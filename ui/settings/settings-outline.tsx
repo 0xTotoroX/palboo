@@ -97,6 +97,9 @@ const aliases: Record<string, SettingsPage> = {
   'settings-capsule': 'surfaces',
   'settings-fonts': 'appearance',
   'settings-startup': 'connection',
+  'settings-app-mode': 'connection',
+  'settings-app-update': 'connection',
+  'settings-app-development': 'connection',
   'settings-codex-host': 'codex-host',
   'settings-dev': 'dev',
 };
@@ -116,6 +119,7 @@ function targetPage(field: string): SettingsPage | undefined {
   )
     return 'surfaces';
   if (/^quick-prompt/.test(field)) return 'prompts';
+  if (/^app-mode(?:-|$)|^app-update-/.test(field)) return 'connection';
   if (/^(generation-mode|direction-|jev-|suggestion-)/.test(field)) return 'next';
   return undefined;
 }

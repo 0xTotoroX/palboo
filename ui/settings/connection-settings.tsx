@@ -2,7 +2,7 @@ import { AppModeSettings } from './app-mode-settings';
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: 现有设置表单、认证 API 与共用设置控件。
- * [OUTPUT]: 启动策略、本机连接与显式重连/断开；Dev 保留固定目标。
+ * [OUTPUT]: 连接状态与操作、启动策略、应用更新和运行模式；断线不展示过期连接消息，Dev 保留固定目标。
  * [POS]: 设置展示层，不执行后台业务或读取聊天正文。
  * [PROTOCOL]: 变更时同步 settings/AGENTS.md。 */
 import { useState, useEffect } from 'react';
@@ -44,7 +44,7 @@ export function ConnectionSettings({
     }
   }, [view?.connection.endpoint, view?.connection.targetId, connectionEdited]);
   async function run(name: string, action: () => Promise<unknown>) {
-    if (busy) return;
+    if (!live || busy) return;
     setBusy(name);
     try {
       await action();
@@ -64,10 +64,22 @@ export function ConnectionSettings({
   return (
     <>
       {confirmation}
-      <AppModeSettings live={live} editor={editor} />
       <Card tabIndex={-1} id="settings-connection" aria-labelledby="connection-title">
-        <h2 id="connection-title">{tr('桌面连接')}</h2>
-        {!connected && view?.connection.message && (
+        <div className="settings-section-heading">
+          <h2 id="connection-title">{tr('桌面连接')}</h2>
+          <span role="status" className="text-sm text-muted-foreground">
+            {tr(
+              !live
+                ? '本地服务未连接'
+                : view?.connection.status === 'unresponsive'
+                  ? '页面暂未响应'
+                  : connected
+                    ? '已连接'
+                    : '等待连接',
+            )}
+          </span>
+        </div>
+        {live && !connected && view?.connection.message && (
           <p role="status" className="settings-hint">
             {tr(view.connection.message)}
           </p>
@@ -144,7 +156,7 @@ export function ConnectionSettings({
             </ConfirmationButton>
           )}
         </div>
-        {!import.meta.env.DEV && !connected && (
+        {live && !import.meta.env.DEV && !connected && (
           <div className="mt-6 text-sm text-muted-foreground [&>button]:mt-3 [&>button]:w-full [&>button]:justify-between [&_code]:font-mono [&_code]:text-sm">
             <span>{tr('首次接入：等待任务结束并完整退出 ChatGPT，再在终端运行')}</span>
             <Button
@@ -179,7 +191,7 @@ export function ConnectionSettings({
             >
               <NativeSelect
                 id="host-restart-policy"
-                controlWidth="short"
+                controlWidth="medium"
                 value={form.hostRestartPolicy}
                 onChange={(e) => {
                   if (e.target.value === 'force') {
@@ -205,6 +217,7 @@ export function ConnectionSettings({
           </Card>
         </>
       )}
+      <AppModeSettings live={live} editor={editor} />
     </>
   );
 }

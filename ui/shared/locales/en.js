@@ -27,6 +27,8 @@ export default {
   常用语: 'Quick phrases',
   常用语已停用: 'Quick phrases are disabled.',
   运行模式: 'Run mode',
+  启动时使用: 'Launch with',
+  开发设置: 'Development settings',
   正式模式: 'Release',
   开发模式: 'Development',
   源码目录: 'Source folder',

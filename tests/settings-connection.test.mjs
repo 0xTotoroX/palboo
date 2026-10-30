@@ -1,5 +1,5 @@
 /* [INPUT]: Actual settings connection hook, synthetic authenticated SSE service and multiple tabs.
- * [OUTPUT]: Credential sharing/recovery without draft loss, cross-origin sharing or repeated writes.
+ * [OUTPUT]: Snapshot-gated connection, credential sharing/recovery without draft loss, cross-origin sharing or repeated writes.
  * [POS]: Isolated browser/storage and loopback server; no real keys or host changes.
  * [PROTOCOL]: Keep tests/AGENTS.md in sync. */
 import test from 'node:test';
@@ -29,6 +29,8 @@ test('settings tabs recover shared credentials and token rotation without replay
   ).outputFiles[0].text;
   let expected = 'fixture-one',
     writes = 0;
+  let holdSnapshot = true;
+  const snapshot = 'data: {"version":"fixture","connection":{"status":"connected"}}\n\n';
   const streams = new Set();
   const server = createServer((req, res) => {
     if (req.url.startsWith('/api/')) {
@@ -41,7 +43,8 @@ test('settings tabs recover shared credentials and token rotation without replay
       }
       if (req.url === '/api/events') {
         res.writeHead(200, { 'Content-Type': 'text/event-stream' });
-        res.write('data: {"version":"fixture","connection":{"status":"connected"}}\n\n');
+        res.flushHeaders();
+        if (!holdSnapshot) res.write(snapshot);
         streams.add(res);
         res.on('close', () => streams.delete(res));
         return;
@@ -64,7 +67,19 @@ test('settings tabs recover shared credentials and token rotation without replay
     await a.goto(origin + '/#settings-surfaces');
     await a.getByText(/尚未连接 Palboo/).waitFor();
     const b = await context.newPage();
+    const headers = b.waitForResponse('**/api/events');
     await b.goto(origin + '/#token=fixture-one');
+    await headers;
+    await b.evaluate(
+      () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+    );
+    assert.equal(
+      await b.locator('output').getAttribute('data-live'),
+      'false',
+      'headers alone must not reactivate cached state',
+    );
+    holdSnapshot = false;
+    for (const stream of streams) stream.write(snapshot);
     await connected(b);
     await connected(a);
     assert.ok(!b.url().includes('token='));

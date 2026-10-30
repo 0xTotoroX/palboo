@@ -1,5 +1,5 @@
 /* [INPUT]: 手动更新 API、现有设置草稿及共享控件。
- * [OUTPUT]: 本地安装版本、显式检查、版本说明和更新进度页交接。
+ * [OUTPUT]: 本地安装版本、显式检查、版本说明和更新进度页交接；断线失效旧读数与更新候选。
  * [POS]: 启动与连接页面；不后台联网检查，不自动下载或切换开发模式。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { useEffect, useRef, useState } from 'react';
@@ -37,7 +37,12 @@ export function AppUpdateSettings({
   const pending = useRef(false);
   const dirty = editor.dirty || editor.saving || editor.remoteChanged || modeEditing;
   useEffect(() => {
-    if (!live) return;
+    if (!live) {
+      sequence.current++;
+      setState(null);
+      setError('');
+      return;
+    }
     let disposed = false;
     const current = ++sequence.current;
     request<UpdateState>('app-update')
