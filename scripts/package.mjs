@@ -52,7 +52,7 @@ If macOS blocks the first launch, verify the download source, then open System S
 
 Codex and optional Agents use your existing installations, accounts, and settings. No maintainer credentials, chats, or personal glossary are included.
 If Codex is already running without a debugging connection, Palboo follows your launch preference and asks before reopening it. Settings remain in your user data directory when you move the App.
-To update, replace the complete Palboo.app. Do not replace individual files inside the App.
+For later updates, use Settings → System → Startup & connection → App updates. Apps without the updater need one manual installation of this version. When updating manually, replace the complete Palboo.app; do not replace individual files inside the App.
 When upgrading from CodexBuddy or Codex Companion, first stop the old background service with ~/.local/bin/codex-buddy stop or ~/.local/bin/codex-companion stop. If the old service is still running or separate data directories conflict, migration stops and preserves the existing data.
 
 Source, usage, and releases: https://github.com/0xTotoroX/palboo
@@ -67,7 +67,7 @@ Licensed under GPL-3.0-only. Full licenses and third-party notices are in this R
 
 Codex 桌面应用及可选 Agent 使用你自己的安装、登录与配置；安装包不携带维护者的密钥、聊天或个人词库。
 既有 Codex 无调试连接时，Palboo 沿用启动设置询问是否重开。配置保存在当前用户数据目录，移动 App 不会移动或删除配置。
-更新时替换完整 Palboo.app。App 内的主程序不支持单文件覆盖升级。
+后续更新可在“设置 → 系统 → 启动与连接 → 应用更新”中完成。没有更新器的旧版需先手动安装本版本一次。手动更新时替换完整 Palboo.app，不支持覆盖 App 内的单个文件。
 若从旧名 CodexBuddy / Codex Companion 升级，先正常停止旧后台（~/.local/bin/codex-buddy stop 或 ~/.local/bin/codex-companion stop），再打开新 App；旧服务活动或存在独立数据冲突时保留原数据并停止迁移。
 
 源码、使用说明与对应版本： https://github.com/0xTotoroX/palboo

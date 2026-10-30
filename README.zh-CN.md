@@ -124,13 +124,13 @@ Palboo 跟随 Codex 的外观。语言支持简体中文、英文和跟随系统
 <details>
 <summary>更新或卸载</summary>
 
-替换或删除 App 前，先停止 Palboo：
+日常更新使用「**系统 → 启动与连接 → 应用更新**」。手动替换或卸载 App 前，先停止 Palboo：
 
 ```sh
 "/Applications/Palboo.app/Contents/MacOS/palboo" stop
 ```
 
-更新时用新版替换**整个 App**；卸载时删除 `/Applications/Palboo.app`。数据保存在 `~/Library/Application Support/palboo/`，只有希望清空数据时才删除该目录。
+手动更新时用新版替换**整个 App**；卸载时删除 `/Applications/Palboo.app`。数据保存在 `~/Library/Application Support/palboo/`，只有希望清空数据时才删除该目录。
 
 源码安装使用 `~/.local/bin/palboo stop`，卸载时也删除该可执行文件。
 

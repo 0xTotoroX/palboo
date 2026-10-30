@@ -124,13 +124,13 @@ Export includes personal additions, favorites, and mastered terms. Reset deletes
 <details>
 <summary>Update or uninstall</summary>
 
-Stop Palboo before replacing or removing the App:
+Use **System → Startup & connection → App updates** for updates. For manual replacement or uninstallation, stop Palboo first:
 
 ```sh
 "/Applications/Palboo.app/Contents/MacOS/palboo" stop
 ```
 
-To update, replace the **whole App** with the new one. To uninstall, delete `/Applications/Palboo.app`. Saved data stays in `~/Library/Application Support/palboo/`; delete that directory only if you also want to erase your data.
+For a manual update, replace the **whole App** with the new one. To uninstall, delete `/Applications/Palboo.app`. Saved data stays in `~/Library/Application Support/palboo/`; delete that directory only if you also want to erase your data.
 
 Source installations use `~/.local/bin/palboo stop`; also remove that executable when uninstalling.
 
