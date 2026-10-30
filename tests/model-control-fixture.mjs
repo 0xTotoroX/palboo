@@ -1,6 +1,6 @@
 /*
  * [INPUT]: Synthetic model records and fixture options, installed in an isolated browser only.
- * [OUTPUT]: Official-style composer/menu DOM, correlated capability messages and test observations.
+ * [OUTPUT]: Official-style composer/menu DOM, optional read-only electronBridge, correlated capability messages and test observations.
  * [POS]: Shared fixture for host adapter unit scenarios and real-backend/CDP integration tests.
  * [PROTOCOL]: Parent task owns maps; contains no host adapter injection or real chat/model calls.
  */
@@ -28,9 +28,11 @@ export function installModelControlFixture({ records, options = {} }) {
     block: '',
     configs: {},
     unexpected: [],
+    catalogRequests: [],
+    catalogAbandoned: [],
     originalDispatch: window.dispatchEvent,
   });
-  // Public capability traffic is observed; adapter must never initiate requests/sends.
+  // The legacy DOM channel is observation-only; modern directory reads use the bridge.
   window.addEventListener('codex-message-from-view', (event) =>
     state.unexpected.push(event.detail),
   );
@@ -47,6 +49,38 @@ export function installModelControlFixture({ records, options = {} }) {
     );
     state.unexpected.length = 0;
   };
+  window.catalogResponse = (id, result, hostId = 'local', error = undefined) =>
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: { type: 'mcp-response', hostId, message: { id, result, error } },
+      }),
+    );
+  if (options.bridge) {
+    window.electronBridge = {
+      sendMessageFromView(message) {
+        if (message.type === 'mcp-request-abandon') {
+          state.catalogAbandoned.push(message.requestId);
+          return Promise.resolve();
+        }
+        // The real backend also runs the independent read-only quota adapter.
+        if (message.hostId === 'local' && message.request?.method === 'account/rateLimits/read') {
+          queueMicrotask(() => catalogResponse(message.request.id, { rateLimits: null }));
+          return Promise.resolve();
+        }
+        if (message.hostId !== 'local' || message.request?.method !== 'model/list') {
+          state.unexpected.push(message);
+          return Promise.reject(new Error('Unexpected host request'));
+        }
+        state.catalogRequests.push(message.request);
+        if (state.rejectCatalog) return Promise.reject(new Error('Host disconnected'));
+        if (!options.manualCatalog)
+          queueMicrotask(() =>
+            catalogResponse(message.request.id, { data: state.records, nextCursor: null }),
+          );
+        return Promise.resolve();
+      },
+    };
+  }
   window.clearMenus = () =>
     document.querySelectorAll('[role="menu"]').forEach((node) => node.remove());
   window.addChat = (id, dialog = false) => {

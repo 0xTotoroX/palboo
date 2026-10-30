@@ -117,7 +117,7 @@ panel::Preferences.settings_theme 为可空设置页主题偏好，旧配置默�
 
 快捷指令面板编辑：features action=quick-prompts先校验功能owner与启停；requests的/settings/set仅在有quickPrompts时进入save_quick_prompts。该入口拒绝列表及expectedRevision之外的字段，复用settings事务、长度校验和冲突保护，不改生成版本或密钥。
 
-model_control::Preferences增加默认true的show_usage，旧配置兼容；状态回读追加只读usage投影，关闭快切/额度显示回收宿主在途读取。cdp安装model-usage.js，model适配器销毁时一并清理；额度不进入生成配置或模型选择revision。
+model_control::Preferences增加默认true的show_usage，旧配置兼容；状态回读追加只读usage投影，关闭快切/额度显示回收宿主在途读取。cdp安装model-usage.js，model适配器销毁时一并清理；额度不进入生成配置或模型选择revision。关闭快切同时取消在途模型目录补读，单独关闭额度不影响目录。
 
 surfaces.rs 的 Preferences.edgeTabs 保存贴边标签 order/selected，旧文件缺省空偏好；features 的 edge-tabs 操作按 expected 原值比较并仅更新该字段，feature state 返回 edgeTabs/edgeTabsRevision。普通主题和位置写入保留标签偏好，不修改任务、模型或主界面布局。
 

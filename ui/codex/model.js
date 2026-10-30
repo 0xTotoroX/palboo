@@ -1,9 +1,9 @@
 /*
- * [INPUT]: 官方 DOM 菜单、稳定聊天标记/新聊天输入区和关联的 model/list 消息；不依赖工作台锁定。
+ * [INPUT]: 官方 DOM 菜单、稳定聊天标记/新聊天输入区和关联的 model/list 消息；缺失目录时通过本机 electronBridge 只读补取，不依赖工作台锁定。
  * [OUTPUT]: window.__palbooModelControl 的异步 snapshot/apply 和同步 presence/cancel/dispose/inputTarget，dispose同时回收独立额度读取；inputTarget只读当前唯一输入目标及已校验的模型选择。
  * [POS]: include_str / Page.addScriptToEvaluateOnNewDocument 可独立安装的宿主边界。
- * [PROTOCOL]: 父任务维护集成和地图；本文件不写 React、持久存储或发送模型请求。
- * snapshot(false) 不操作 DOM；refresh=true 显式探测菜单，限时等待能力后完整回读。target 无法确认时 id/title 为空。
+ * [PROTOCOL]: 父任务维护集成和地图；本文件不写 React、持久存储或发送模型生成请求。
+ * snapshot(false) 不操作 DOM；目录缺失时合并、限频读取 model/list。refresh=true 显式重试目录并探测菜单、完整回读。target 无法确认时 id/title 为空。
  * apply 返回 {status,message,snapshot,previous,diagnostic}；status 为 success/partial/failed。
  * 显式 snapshot/apply 附有界阶段诊断，不含目标、聊天正文或 DOM；被动读取不产生诊断。
  * restore 是调用方恢复意图标记；selection 仍须完整且通过全部校验，无隐式回滚。
@@ -70,6 +70,10 @@
   };
   const life = new AbortController();
   const requests = new Map();
+  const CATALOG_TIMEOUT_MS = 3500;
+  const CATALOG_RETRY_MS = 30000;
+  let catalogRead = null,
+    nextCatalogRead = 0;
   const nodeIds = new WeakMap();
   const epoch = Array.from(crypto.getRandomValues(new Uint32Array(4))).join('-');
   let disposed = false,
@@ -174,6 +178,99 @@
     const inherited = window.__codexPlusQuickModelPresets?.getModelListCache?.();
     if (Array.isArray(inherited)) accept(inherited);
   } catch {}
+  function sendCatalogMessage(message) {
+    return window.electronBridge?.sendMessageFromView?.(message);
+  }
+  function finishCatalog(read, records = null) {
+    if (catalogRead !== read) return false;
+    clearTimeout(read.timer);
+    catalogRead = null;
+    if (read.id) {
+      try {
+        Promise.resolve(
+          sendCatalogMessage({ type: 'mcp-request-abandon', hostId: 'local', requestId: read.id }),
+        ).catch(() => {});
+      } catch {}
+    }
+    if (records && read.sequence >= acceptedSequence && !disposed) {
+      acceptedSequence = read.sequence;
+      accept(records);
+    }
+    read.resolve();
+    return true;
+  }
+  function requestCatalogPage(read, cursor = null) {
+    const id = `palboo-models:${epoch}:${read.sequence}:${read.cursors.size}`;
+    read.id = id;
+    try {
+      Promise.resolve(
+        sendCatalogMessage({
+          type: 'mcp-request',
+          hostId: 'local',
+          request: { id, method: 'model/list', params: { cursor, limit: 100 } },
+        }),
+      ).catch(() => {
+        if (read.id === id) finishCatalog(read);
+      });
+    } catch {
+      finishCatalog(read);
+    }
+  }
+  function readCatalog(force = false) {
+    if (catalogRead) return catalogRead.promise;
+    if (
+      disposed ||
+      typeof window.electronBridge?.sendMessageFromView !== 'function' ||
+      (!force && Date.now() < nextCatalogRead)
+    )
+      return Promise.resolve();
+    nextCatalogRead = Date.now() + CATALOG_RETRY_MS;
+    const read = {
+      sequence: ++requestSequence,
+      records: [],
+      cursors: new Set(),
+      id: null,
+      resolve: null,
+    };
+    read.promise = new Promise((resolve) => (read.resolve = resolve));
+    catalogRead = read;
+    read.timer = setTimeout(() => finishCatalog(read), CATALOG_TIMEOUT_MS);
+    requestCatalogPage(read);
+    return read.promise;
+  }
+  function receiveCatalog(data, rpc) {
+    const read = catalogRead;
+    if (!read || rpc?.id !== read.id || data.hostId !== 'local') return false;
+    read.id = null;
+    if (rpc.error || !Array.isArray(rpc.result?.data)) {
+      finishCatalog(read);
+      return true;
+    }
+    const cursor = rpc.result.nextCursor;
+    if (
+      read.records.length + rpc.result.data.length > 1000 ||
+      (cursor != null && typeof cursor !== 'string')
+    ) {
+      finishCatalog(read);
+      return true;
+    }
+    read.records.push(...rpc.result.data);
+    if (cursor) {
+      if (read.cursors.has(cursor) || read.cursors.size >= 9) finishCatalog(read);
+      else {
+        read.cursors.add(cursor);
+        requestCatalogPage(read, cursor);
+      }
+    } else finishCatalog(read, read.records);
+    return true;
+  }
+  function invalidateCatalog() {
+    if (catalogRead) finishCatalog(catalogRead);
+    requests.clear();
+    acceptedSequence = ++requestSequence;
+    nextCatalogRead = 0;
+    accept([]);
+  }
   const originalDispatch = window.dispatchEvent;
   function wrappedDispatch(event) {
     const detail = event?.detail,
@@ -182,6 +279,7 @@
       !disposed &&
       event?.type === 'codex-message-from-view' &&
       detail?.type === 'mcp-request' &&
+      (detail.hostId == null || detail.hostId === 'local') &&
       request?.method === 'model/list' &&
       request.id != null
     ) {
@@ -195,13 +293,20 @@
   window.addEventListener(
     'message',
     (event) => {
+      if (disposed || (event.source && event.source !== window)) return;
+      const data = event.data;
+      if (data?.hostId != null && data.hostId !== 'local') return;
+      const notification = data?.method ? data : data?.notification;
       if (
-        disposed ||
-        (event.source && event.source !== window) ||
-        event.data?.type !== 'mcp-response'
-      )
+        data?.type === 'codex-app-server-connection-changed' ||
+        (data?.type === 'mcp-notification' && notification?.method === 'account/updated')
+      ) {
+        invalidateCatalog();
         return;
-      const rpc = event.data.message ?? event.data.response;
+      }
+      if (data?.type !== 'mcp-response') return;
+      const rpc = data.message ?? data.response;
+      if (receiveCatalog(data, rpc)) return;
       const key = JSON.stringify(rpc?.id),
         pending = requests.get(key);
       if (!pending) return;
@@ -512,6 +617,7 @@
       status = 'busy';
       message = tr('模型菜单操作进行中');
     } else if (!models.length) {
+      void readCatalog();
       status = 'waiting';
       message = tr('等待关联的官方 model/list 数据；可刷新官方模型菜单后重试，无需重启');
     } else if (!current) {
@@ -1116,7 +1222,9 @@
     const op = begin(true);
     let error = '';
     try {
-      // A hot injection can provoke a normal host capability fetch by opening its menu.
+      // Modern hosts can bypass the old DOM request event, or cache the menu's fetch.
+      if (!models.length) await readCatalog(true);
+      guard(op);
       const main = await simpleMain(op);
       guard(op, main);
       if (!models.length) {
@@ -1216,7 +1324,9 @@
     return result(status, message);
   }
   function cancel() {
-    if (!operation) return false;
+    const cancelledRead = catalogRead ? finishCatalog(catalogRead) : false;
+    if (cancelledRead) nextCatalogRead = 0;
+    if (!operation) return cancelledRead;
     operation.aborted = tr('操作已取消');
     operation.controller.abort(operation.aborted);
     return true;

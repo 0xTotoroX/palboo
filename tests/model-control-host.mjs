@@ -610,6 +610,230 @@ try {
     },
   );
   await check(
+    'hot attachment reads the modern bridge without opening menus, then applies a saved preset',
+    async (page) => {
+      await page.locator('.ProseMirror').focus();
+      const draft = await page.locator('.ProseMirror').textContent();
+      await snapshot(page);
+      await page.waitForFunction(
+        () => document[Symbol.for('palboo.modelCapabilities')]?.length === 2,
+      );
+      const recovered = await snapshot(page);
+      assert.equal(recovered.models.length, 2);
+      assert.equal(recovered.message, '');
+      assert.equal(await page.evaluate(() => host.clicks.length), 0);
+      assert.equal(
+        await page.locator('.ProseMirror').evaluate((node) => node === document.activeElement),
+        true,
+      );
+      assert.equal(await page.locator('.ProseMirror').textContent(), draft);
+      for (let i = 0; i < 10; i++) await snapshot(page);
+      assert.equal(await page.evaluate(() => host.catalogRequests.length), 1);
+      assert.equal((await apply(page, targetBeta)).status, 'success');
+      assert.deepEqual(await page.evaluate(() => host.configs['chat-a']), targetBeta);
+      assert.equal(await page.locator('.ProseMirror').textContent(), draft);
+    },
+    { noCapabilities: true, bridge: true },
+  );
+  await check(
+    'catalog reads share a request, validate host and identity, and publish complete paginated results',
+    async (page) => {
+      for (let i = 0; i < 10; i++) await snapshot(page);
+      assert.equal(await page.evaluate(() => host.catalogRequests.length), 1);
+      await page.evaluate(() => {
+        const id = host.catalogRequests[0].id;
+        catalogResponse('unknown', { data: host.records });
+        catalogResponse(id, { data: host.records }, 'remote');
+        catalogResponse(id, { data: host.records }, null);
+      });
+      assert.equal((await snapshot(page)).models.length, 0);
+      await page.evaluate(() => {
+        const id = host.catalogRequests[0].id;
+        catalogResponse(id, { data: host.records.slice(0, 1), nextCursor: 'page-2' });
+        catalogResponse(id, { data: host.records });
+      });
+      assert.equal((await snapshot(page)).models.length, 0);
+      assert.equal(await page.evaluate(() => host.catalogRequests.length), 2);
+      assert.equal(await page.evaluate(() => host.catalogRequests[1].params.cursor), 'page-2');
+      await page.evaluate(() =>
+        catalogResponse(host.catalogRequests[1].id, {
+          data: host.records.slice(1),
+          nextCursor: null,
+        }),
+      );
+      assert.deepEqual(
+        (await snapshot(page)).models.map((model) => model.id),
+        ['alpha', 'beta'],
+      );
+      assert.equal(await page.evaluate(() => host.catalogAbandoned.length), 0);
+      assert.equal(await page.evaluate(() => host.clicks.length), 0);
+    },
+    { noCapabilities: true, bridge: true, manualCatalog: true },
+  );
+  await check(
+    'catalog timeout is bounded and throttled; explicit refresh retries without waiting for the cooldown',
+    async (page) => {
+      await page.clock.install();
+      await snapshot(page);
+      await page.clock.runFor(3501);
+      const first = await page.evaluate(() => host.catalogRequests[0].id);
+      assert.deepEqual(await page.evaluate(() => host.catalogAbandoned), [first]);
+      await page.evaluate(() =>
+        catalogResponse(host.catalogRequests[0].id, { data: host.records }),
+      );
+      for (let i = 0; i < 10; i++) await snapshot(page);
+      assert.equal((await snapshot(page)).models.length, 0);
+      assert.equal(await page.evaluate(() => host.catalogRequests.length), 1);
+      await page.evaluate(() => {
+        window.refreshing = window.__palbooModelControl.snapshot(true);
+      });
+      await page.waitForFunction(() => host.catalogRequests.length === 2);
+      await page.evaluate(() =>
+        catalogResponse(host.catalogRequests[1].id, { data: host.records }),
+      );
+      await page.clock.runFor(500);
+      const recovered = await page.evaluate(() => window.refreshing);
+      assert.equal(recovered.status, 'ready', recovered.message);
+      assert.equal(recovered.models.length, 2);
+      assert.deepEqual(await page.evaluate(() => host.changes), []);
+      assert.equal(await page.locator('[role="menu"]').count(), 0);
+    },
+    { noCapabilities: true, bridge: true, manualCatalog: true },
+  );
+  await check(
+    'account and connection changes cancel old reads and recover without inheriting stale capabilities',
+    async (page) => {
+      await snapshot(page);
+      for (const type of ['account/updated', 'codex-app-server-connection-changed']) {
+        await page.evaluate((type) => {
+          const id = host.catalogRequests.at(-1).id;
+          const data =
+            type === 'account/updated'
+              ? { type: 'mcp-notification', hostId: 'local', method: type }
+              : { type, hostId: 'local' };
+          window.dispatchEvent(new MessageEvent('message', { data }));
+          catalogResponse(id, { data: host.records });
+        }, type);
+        assert.equal((await snapshot(page)).models.length, 0);
+      }
+      assert.equal(await page.evaluate(() => host.catalogAbandoned.length), 2);
+      await page.evaluate(() =>
+        catalogResponse(host.catalogRequests.at(-1).id, { data: host.records }),
+      );
+      assert.equal((await snapshot(page)).models.length, 2);
+      await page.evaluate(() =>
+        window.dispatchEvent(
+          new MessageEvent('message', {
+            data: {
+              type: 'mcp-notification',
+              hostId: 'local',
+              notification: { method: 'account/updated' },
+            },
+          }),
+        ),
+      );
+      assert.equal((await snapshot(page)).models.length, 0);
+      assert.equal(
+        await page.evaluate(() => document[Symbol.for('palboo.modelCapabilities')].length),
+        0,
+      );
+    },
+    { noCapabilities: true, bridge: true, manualCatalog: true },
+  );
+  await check(
+    'catalog failures retry on later reads and cancellation/disposal abandon only owned requests',
+    async (page) => {
+      await page.clock.install();
+      await page.evaluate(() => {
+        host.rejectCatalog = true;
+      });
+      await snapshot(page);
+      await page.waitForFunction(() => host.catalogAbandoned.length === 1);
+      await page.evaluate(() => {
+        host.rejectCatalog = false;
+      });
+      await snapshot(page);
+      assert.equal(await page.evaluate(() => host.catalogRequests.length), 1);
+      await page.clock.runFor(30001);
+      await snapshot(page);
+      assert.equal(await page.evaluate(() => host.catalogRequests.length), 2);
+      await page.evaluate(() => {
+        window.__palbooModelControl.cancel();
+        catalogResponse(host.catalogRequests.at(-1).id, { data: host.records });
+      });
+      assert.equal((await snapshot(page)).models.length, 0);
+      await page.clock.runFor(30001);
+      await snapshot(page);
+      await page.evaluate(() => {
+        window.__palbooModelControl.dispose();
+        catalogResponse(host.catalogRequests.at(-1).id, { data: host.records });
+      });
+      assert.equal(
+        await page.evaluate(() => document[Symbol.for('palboo.modelCapabilities')].length),
+        0,
+      );
+      assert.deepEqual(
+        await page.evaluate(() => host.catalogAbandoned),
+        await page.evaluate(() => host.catalogRequests.map(({ id }) => id)),
+      );
+      assert.equal(await page.evaluate(() => host.clicks.length), 0);
+    },
+    { noCapabilities: true, bridge: true, manualCatalog: true },
+  );
+  await check(
+    'partial catalog loops are discarded and an older bridge read cannot replace newer observed capabilities',
+    async (page) => {
+      await page.clock.install();
+      await snapshot(page);
+      await page.evaluate(() => {
+        catalogResponse(host.catalogRequests[0].id, {
+          data: host.records.slice(0, 1),
+          nextCursor: 'repeat',
+        });
+        catalogResponse(host.catalogRequests[1].id, {
+          data: host.records.slice(1),
+          nextCursor: 'repeat',
+        });
+      });
+      assert.equal((await snapshot(page)).models.length, 0);
+      assert.equal(await page.evaluate(() => host.catalogRequests.length), 2);
+      await page.clock.runFor(30001);
+      await snapshot(page);
+      await page.evaluate(() => {
+        capability('newer-observed', host.records.slice(1));
+        catalogResponse(host.catalogRequests.at(-1).id, { data: host.records });
+      });
+      assert.deepEqual(
+        (await snapshot(page)).models.map(({ id }) => id),
+        ['beta'],
+      );
+      assert.equal(await page.evaluate(() => host.clicks.length), 0);
+    },
+    { noCapabilities: true, bridge: true, manualCatalog: true },
+  );
+  await check(
+    'directory reads wait for an eligible unique input and never start for an unsupported agent',
+    async (page) => {
+      await page.evaluate(() => {
+        window.__palbooHostCompatibility = {
+          capability: () => ({ officialModel: false, message: 'Unsupported agent' }),
+        };
+      });
+      assert.equal((await snapshot(page)).status, 'unavailable');
+      assert.equal(await page.evaluate(() => host.catalogRequests.length), 0);
+      await page.evaluate(() => {
+        delete window.__palbooHostCompatibility;
+        addChat('second');
+      });
+      assert.equal((await snapshot(page)).status, 'unavailable');
+      assert.equal(await page.evaluate(() => host.catalogRequests.length), 0);
+      await page.locator('.ProseMirror').first().focus();
+      await snapshot(page);
+      assert.equal(await page.evaluate(() => host.catalogRequests.length), 1);
+    },
+    { noCapabilities: true, bridge: true, manualCatalog: true },
+  );
+  await check(
     'unmatched/wrong-method/replayed/out-of-order model/list responses do not change capabilities',
     async (page) => {
       const empty = await snapshot(page);

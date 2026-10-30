@@ -1,5 +1,5 @@
 // [INPUT]: 已连接的 CDP Client、宿主模型适配器及独立业务偏好。
-// [OUTPUT]: 设置页共用的宿主可选模型目录、模型状态、可关闭的账号额度投影、串行切换、常用、顺序、分类与预设保存与私有末次操作诊断；呈现交给 features。
+// [OUTPUT]: 设置页共用的宿主可选模型目录、模型状态、可关闭的账号额度投影、串行切换、常用、顺序、分类与预设保存与私有末次操作诊断；关闭功能回收目录/额度读取，呈现交给 features。
 // [POS]: 宿主模型控制服务；不读写建议生成配置或工作台的来源/布局。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
@@ -392,7 +392,7 @@ impl App {
         let mut result = control.envelope(control.snapshot.clone());
         drop(control);
         if stop_usage {
-            self.stop_model_usage().await;
+            self.stop_model_reads(!enabled).await;
         }
         drop(_guard);
         if enabled_changed {
@@ -424,11 +424,11 @@ impl App {
         self.feature_request(json!({"op":"reveal","id":"model"}))
             .await
     }
-    async fn stop_model_usage(&self) {
+    async fn stop_model_reads(&self, cancel_catalog: bool) {
         if let Some(client) = self.desktop_client().await {
             let _ = client
                 .evaluate_with_timeout(
-                    "window.__palbooUsage?.read(false); true".into(),
+                    format!("window.__palbooUsage?.read(false); if ({cancel_catalog}) window.__palbooModelControl?.cancel(); true"),
                     Duration::from_secs(2),
                 )
                 .await;
@@ -448,7 +448,7 @@ impl App {
             }
             control.revision += 1;
         }
-        self.stop_model_usage().await;
+        self.stop_model_reads(true).await;
         drop(_guard);
         self.close_feature("model").await?;
         Ok(json!({"ok":true}))

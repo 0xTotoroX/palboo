@@ -56,7 +56,7 @@ const fixture = createServer((request, response) => {
   if (path === '/fixture' && request.method === 'GET') {
     response.writeHead(200, { 'Content-Type': 'text/html', 'Cache-Control': 'no-store' });
     response.end(
-      `<!doctype html><title>Model control synthetic host</title><body><script>(${installModelControlFixture.toString()})(${JSON.stringify({ records, options: { modern: new URL(request.url, 'http://127.0.0.1').searchParams.has('modern'), openPlaceholder: true, speedFlyout: true } })});</script></body>`,
+      `<!doctype html><title>Model control synthetic host</title><body><script>(${installModelControlFixture.toString()})(${JSON.stringify({ records, options: { modern: new URL(request.url, 'http://127.0.0.1').searchParams.has('modern'), bridge: new URL(request.url, 'http://127.0.0.1').searchParams.has('bridge'), manualCatalog: true, openPlaceholder: true, speedFlyout: true } })});</script></body>`,
     );
   } else if (path === '/favicon.ico') {
     response.writeHead(204);
@@ -402,6 +402,54 @@ try {
   assert.equal((await api('apply', command(refreshed.snapshot, fast))).result.status, 'failed');
   assert.equal(await page.evaluate(() => host.triggerEvents), clicks);
   record('navigation reinstalls embedded adapter and rejects the prior document revision');
+
+  await page.goto(`${fixtureOrigin}/fixture?modern=1&bridge=1`);
+  await page.waitForFunction(() => typeof window.__palbooModelControl?.snapshot === 'function');
+  const bridgePending = await waitFor(async () => {
+    const state = await api('state');
+    return state.snapshot.revision.split(':')[0] !== navigated.snapshot.revision.split(':')[0] &&
+      state.snapshot.status !== 'busy' &&
+      (await page.evaluate(() => host.catalogRequests.length > 0))
+      ? state
+      : null;
+  }, 'new document catalog read did not start');
+  assert.equal(bridgePending.snapshot.models.length, 0);
+  assert.equal(await page.evaluate(() => host.catalogRequests.length), 1);
+  const disabledBridge = await api('preferences', {
+    revision: bridgePending.revision,
+    patch: { enabled: false },
+  });
+  assert.deepEqual(
+    await page.evaluate(() => host.catalogAbandoned),
+    await page.evaluate(() => host.catalogRequests.map(({ id }) => id)),
+  );
+  await page.evaluate(() => catalogResponse(host.catalogRequests[0].id, { data: host.records }));
+  assert.equal((await api('state')).snapshot.models.length, 0);
+  const enabledBridge = await api('preferences', {
+    revision: disabledBridge.revision,
+    patch: { enabled: true },
+  });
+  await api('state');
+  assert.equal(await page.evaluate(() => host.catalogRequests.length), 2);
+  await page.evaluate(() =>
+    catalogResponse(host.catalogRequests.at(-1).id, { data: host.records }),
+  );
+  const bridgeRecovered = await api('state');
+  assert.deepEqual(
+    bridgeRecovered.snapshot.models.map(({ id }) => id),
+    ['alpha', 'beta'],
+  );
+  assert.deepEqual(bridgeRecovered.preferences.presets, enabledBridge.preferences.presets);
+  assert.equal(await page.evaluate(() => host.triggerEvents), 0);
+  assert.equal(
+    (await api('apply', command(bridgeRecovered.snapshot, beta))).result.status,
+    'success',
+  );
+  assert.deepEqual(await page.evaluate(() => host.configs['chat-a']), beta);
+  assert.deepEqual(await page.evaluate(() => host.unexpected), []);
+  record(
+    'modern bridge recovers the catalog through Rust/CDP; disable cancels reads and re-enable retries without stale responses',
+  );
 
   await page.goto(`${fixtureOrigin}/fixture?modern=1`);
   try {
