@@ -1,0 +1,128 @@
+/* [INPUT]: 宿主界面尺寸变量和现有设置控件/分组结构。
+ * [OUTPUT]: 跟随 ChatGPT 的圆角、间距、菜单与开关样式。
+ * [POS]: 仅限 chatgpt 来源；保留页面栅格、功能排列和 Palboo 原有主题。
+ * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
+html[data-settings-style='chatgpt'] {
+  .settings-app :is([data-slot='input'], [data-slot='native-select']) {
+    padding-inline-start: var(--settings-control-padding);
+    padding-block: calc(var(--settings-space) * 1.25);
+  }
+  .settings-app [data-slot='input']:not([class*='pr-']) {
+    padding-inline-end: var(--settings-control-padding);
+  }
+  .settings-app [data-slot='native-select'],
+  .settings-app .settings-suggestion-input[data-dropdown='true'] input {
+    padding-inline-end: calc(var(--settings-control-padding) + 18px + var(--settings-space) * 2);
+  }
+  .settings-app [data-slot='button'] {
+    border-radius: var(--settings-button-radius);
+    gap: var(--settings-button-gap);
+    padding: calc(var(--settings-space) * 1.25) var(--settings-control-padding);
+  }
+  /* 图标操作保留既有固定宽度；不挤窄图形或改变操作列。 */
+  .settings-app [data-slot='button']:has(> .buddy-icon:only-child) {
+    padding: 0;
+  }
+  .settings-app .settings-suggestion-trigger {
+    top: 50%;
+    transform: translateY(-50%);
+  }
+  .settings-field {
+    margin-bottom: calc(var(--settings-space) * 4);
+    column-gap: calc(var(--settings-space) * 4);
+    row-gap: calc(var(--settings-space) * 2);
+  }
+  .settings-row {
+    gap: calc(var(--settings-space) * 4);
+    padding-block: calc(var(--settings-space) * 3);
+  }
+  .settings-section {
+    margin-bottom: calc(var(--settings-space) * 6);
+  }
+  .settings-section h2 {
+    margin-bottom: calc(var(--settings-space) * 3);
+  }
+  .settings-form-column > .settings-section:not([hidden]) ~ .settings-section:not([hidden]),
+  .settings-surface-group {
+    padding-top: calc(var(--settings-space) * 6);
+  }
+  .settings-choice {
+    gap: calc(var(--settings-space) * 2);
+    margin-bottom: calc(var(--settings-space) * 4);
+  }
+  .settings-choice button {
+    border-radius: var(--settings-button-radius);
+    min-height: var(--settings-control-height);
+    padding: calc(var(--settings-space) * 1.25) var(--settings-control-padding);
+  }
+  .settings-control-pair,
+  .settings-save {
+    gap: calc(var(--settings-space) * 2);
+  }
+  .settings-app :is(.settings-theme-trigger, .settings-search-trigger, .settings-header-tools a) {
+    border-radius: var(--settings-button-radius);
+  }
+  .settings-theme-menu,
+  .settings-suggestion-list,
+  .settings-category-links {
+    border-radius: var(--settings-popup-radius);
+  }
+  .settings-theme-menu,
+  .settings-suggestion-list {
+    padding: var(--settings-menu-padding);
+  }
+  .settings-theme-menu button,
+  .settings-suggestion-list [role='option'] {
+    min-height: var(--settings-control-height);
+    border-radius: var(--settings-item-radius);
+    padding: var(--settings-item-padding);
+  }
+  .settings-theme-divider {
+    margin: var(--settings-menu-padding);
+  }
+  .settings-entry {
+    border-radius: var(--settings-control-radius);
+  }
+  .settings-app [data-slot='switch'] {
+    position: relative;
+    border: 0;
+    border-radius: 9999px;
+    width: var(--settings-switch-width);
+    height: var(--settings-switch-height);
+    min-height: var(--settings-switch-height);
+  }
+  .settings-app [data-slot='switch']::after {
+    content: '';
+    position: absolute;
+    inset: -5px -2px;
+  }
+  .settings-app [data-slot='switch-thumb'] {
+    border-radius: 9999px;
+    width: var(--settings-switch-size);
+    height: var(--settings-switch-size);
+    box-shadow: var(--settings-switch-shadow);
+  }
+  .settings-app [data-slot='switch-thumb'][data-state='unchecked'] {
+    translate: var(--settings-switch-offset) 0;
+  }
+  .settings-app [data-slot='switch-thumb'][data-state='checked'] {
+    translate: calc(
+        var(--settings-switch-width) - var(--settings-switch-size) - var(--settings-switch-offset)
+      )
+      0;
+  }
+  .settings-key-dialog {
+    border-radius: var(--settings-dialog-radius);
+  }
+  @supports (appearance: base-select) {
+    .settings-app select[data-slot='native-select']::picker(select) {
+      border-radius: var(--settings-popup-radius);
+      padding: var(--settings-menu-padding);
+    }
+    .settings-app select[data-slot='native-select'] option {
+      min-height: var(--settings-control-height);
+      border-radius: var(--settings-item-radius);
+      padding: var(--settings-item-padding);
+    }
+  }
+}

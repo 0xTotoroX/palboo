@@ -1,5 +1,5 @@
 /* [INPUT]: 无正文宿主界面外观快照、设置页主题来源与明暗模式。
- * [OUTPUT]: 设置专属语义变量及界面字体；分别保留浅/深色末次读数。
+ * [OUTPUT]: 设置专属颜色/尺寸变量及界面字体；分别保留浅/深色末次读数。
  * [POS]: 只影响设置文档，不更改功能布局、业务字体偏好或宿主。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { useLayoutEffect, useRef } from 'react';
@@ -31,7 +31,32 @@ export function useHostAppearance(
     const ink = colors.text || (theme === 'dark' ? '#ececec' : '#1f2328');
     const mix = (amount: number) => `color-mix(in srgb, ${ink} ${amount}%, ${paper})`;
     const accent = colors.accent || ink;
+    const geometry = palette?.geometry || last.current?.geometry || {};
+    const metric = (
+      key: keyof NonNullable<HostSettingsAppearance['geometry']>,
+      property: string,
+      fallback: string,
+    ) => {
+      const value = geometry[key];
+      return value && CSS.supports(property, value) ? value : fallback;
+    };
     const values: Record<string, string> = {
+      '--settings-space': metric('space', 'gap', '0.25rem'),
+      '--settings-control-radius': metric('controlRadius', 'border-radius', '0.625rem'),
+      '--settings-button-radius': metric('buttonRadius', 'border-radius', '0.75rem'),
+      '--settings-popup-radius': metric('menuRadius', 'border-radius', '1rem'),
+      '--settings-item-radius': metric('menuItemRadius', 'border-radius', '0.75rem'),
+      '--settings-dialog-radius': metric('dialogRadius', 'border-radius', '0.75rem'),
+      '--settings-control-height': `max(${metric('controlHeight', 'height', '2.25rem')}, calc(var(--settings-text-size) * 1.5 + 12px))`,
+      '--settings-control-padding': metric('controlPadding', 'padding', '0.75rem'),
+      '--settings-button-gap': metric('buttonGap', 'gap', '4px'),
+      '--settings-menu-padding': metric('menuPadding', 'padding', '0.25rem'),
+      '--settings-item-padding': metric('menuItemPadding', 'padding', '0.3125rem 0.5rem'),
+      '--settings-switch-width': metric('switchWidth', 'width', '32px'),
+      '--settings-switch-height': metric('switchHeight', 'height', '19px'),
+      '--settings-switch-size': metric('switchThumbSize', 'width', '13px'),
+      '--settings-switch-offset': metric('switchOffset', 'padding', '3px'),
+      '--settings-switch-shadow': metric('switchShadow', 'box-shadow', '0 1px 2px #0003'),
       '--buddy-page': paper,
       '--buddy-surface': colors.surface || paper,
       '--buddy-text': ink,
@@ -65,6 +90,6 @@ export function useHostAppearance(
     return () => {
       for (const key of Object.keys(values)) root.style.removeProperty(key);
     };
-  }, [palette, theme, source]);
+  }, [palette, theme, source, snapshot]);
   return source === 'chatgpt' ? palette?.typography || last.current?.typography : undefined;
 }

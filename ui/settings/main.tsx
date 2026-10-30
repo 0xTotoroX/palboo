@@ -18,6 +18,7 @@ import '../features/model/styles.css';
 import './settings-preview.css';
 import './terminology-settings.css';
 import './settings-controls.css';
+import './settings-host.css';
 import './settings-motion.css';
 import '../surfaces/workspace/styles.css';
 import './layout-preview.css';

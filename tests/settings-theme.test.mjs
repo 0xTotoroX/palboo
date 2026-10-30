@@ -1,5 +1,5 @@
 /* [INPUT]: 真实宿主外观采样器、设置主题菜单与控件、合成样式/修订 API。
- * [OUTPUT]: 双主题颜色/字体/控件状态、断线保留、固定模式隔离与草稿/保存回归。
+ * [OUTPUT]: 双主题颜色/字体/圆角/间距/控件状态与原有几何恢复、断线保留、固定模式隔离与草稿/保存回归。
  * [POS]: 隔离浏览器，不读取真实聊天或修改用户设置。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import test from 'node:test';
@@ -19,13 +19,20 @@ import {SettingsTheme} from './ui/settings/settings-theme';
 import {Input} from './ui/settings/components/ui/input';
 import {Button} from './ui/settings/components/ui/button';
 import {Switch} from './ui/settings/components/ui/switch';
+import {NativeSelect} from './ui/settings/components/ui/native-select';
+import {Field} from './ui/settings/settings-controls';
+import {IconButton} from './ui/settings/components/ui/button';
+import {Icon} from './ui/shared/icons/react';
 import {readSettingsAppearance} from './ui/codex/appearance';
 window.readHost=readSettingsAppearance;
 window.mount=createRoot(document.getElementById('root'));
 window.render=(host,appearance)=>window.mount.render(<div className="settings-app">
 <SettingsTheme codexTheme={host?.theme} hostAppearance={host} appearance={appearance}/>
 <main className="settings-content"><div className="settings-form-column">
-<label htmlFor="draft">服务地址</label><Input id="draft" defaultValue="保留草稿"/>
+<Field label="服务地址" id="draft"><Input id="draft" defaultValue="保留草稿"/></Field>
+<Field label="显示方式" id="select"><NativeSelect id="select" controlWidth="short" defaultValue="a"><option value="a">跟随当前窗口 / Follow the current window</option><option value="b">固定显示器 / Fixed display</option></NativeSelect></Field>
+<Input id="padded-input" className="pr-[43px]" defaultValue="example"/>
+<IconButton id="icon" aria-label="刷新"><Icon name="refresh"/></IconButton>
 <Button id="action">保存</Button><Button disabled id="disabled">不可用</Button>
 <Switch aria-label="功能开关" checked onCheckedChange={()=>{}}/>
 </div></main></div>);`,
@@ -91,6 +98,18 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
             '--font-ui-family': 'Georgia, serif',
             '--font-ui-weight': '430',
             '--app-color-text-on-accent': '#000000',
+            '--spacing': '.25rem',
+            '--control-radius-md': 'calc(.5rem * 1.25)',
+            '--radius-button-action': 'calc(.625rem * 1.25)',
+            '--menu-radius': 'calc(1rem * 1.25)',
+            '--menu-item-radius': 'calc(.75rem * 1.25)',
+            '--control-size-lg': '2.25rem',
+            '--control-gutter-md': '.75rem',
+            '--menu-item-padding': 'calc(.25rem * 1.25) calc(.25rem * 2)',
+            '--switch-track-width': '32px',
+            '--switch-track-height': '19px',
+            '--switch-thumb-size': 'calc(19px - 2 * 3px)',
+            '--switch-thumb-offset': '3px',
           };
           for (const [k, v] of Object.entries(tokens)) r.style.setProperty(k, v);
           return window.readHost();
@@ -109,6 +128,36 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
     let light = await sample();
     await render(light);
     await waitColor('rgb(255, 255, 255)');
+    const geometry = () =>
+      page.evaluate(() => {
+        const style = (id) => getComputedStyle(document.querySelector(id));
+        return {
+          radius: style('#draft').borderRadius,
+          buttonRadius: style('#action').borderRadius,
+          height: style('#draft').height,
+          fieldMargin: style('.settings-field').marginBottom,
+          switchWidth: style('[role=switch]').width,
+          switchHeight: style('[role=switch]').height,
+          thumbSize: style('[data-slot=switch-thumb]').width,
+          thumbOffset: style('[data-slot=switch-thumb]').translate,
+          reservedPadding: style('#padded-input').paddingRight,
+          iconPadding: style('#icon').paddingLeft,
+          menuRadius: style('.settings-theme-menu').borderRadius,
+        };
+      });
+    assert.deepEqual(await geometry(), {
+      radius: '12.5px',
+      buttonRadius: '15.625px',
+      height: '45px',
+      fieldMargin: '20px',
+      switchWidth: '32px',
+      switchHeight: '19px',
+      thumbSize: '13px',
+      thumbOffset: '16px',
+      reservedPadding: '43px',
+      iconPadding: '0px',
+      menuRadius: '25px',
+    });
     assert.equal(await page.locator('html').getAttribute('data-settings-style'), 'chatgpt');
     assert.equal(
       await page.locator('#draft').evaluate((n) => getComputedStyle(n).fontSize),
@@ -154,6 +203,11 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
     assert.equal(await page.locator('#draft').inputValue(), '未保存的新草稿');
     await choose('Palboo 原有');
     await waitColor('rgb(250, 250, 250)');
+    const original = await geometry();
+    assert.equal(original.radius, '4px');
+    assert.equal(original.switchWidth, '36px');
+    assert.equal(original.switchHeight, '22px');
+    assert.equal(original.menuRadius, '9px');
     assert.equal(
       await page.locator('#draft').evaluate((n) => getComputedStyle(n).fontSize),
       '21px',
@@ -169,6 +223,7 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
     light = await sample(false, 32);
     await render(light);
     await waitColor('rgb(255, 255, 255)');
+    assert.equal((await geometry()).radius, '20px', 'host rem metrics scale with its UI font');
     assert.equal(
       await page.locator('#draft').evaluate((n) => getComputedStyle(n).fontSize),
       '32px',
@@ -179,7 +234,27 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
         await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
         true,
       );
+      await page.locator('#select').selectOption('b');
+      assert.equal(await page.locator('#select').inputValue(), 'b');
+      const arrowClear = await page
+        .locator('#select')
+        .evaluate((n) => parseFloat(getComputedStyle(n).paddingRight) >= 30);
+      assert.equal(arrowClear, true);
     }
+    await page.locator('.settings-theme-trigger').click();
+    await page
+      .locator('.settings-theme-menu')
+      .getByRole('button', { name: '跟随 ChatGPT', exact: true })
+      .press('ArrowDown');
+    assert.equal(
+      await page.evaluate(() => document.activeElement.textContent.trim()),
+      'Palboo 原有',
+    );
+    await page.keyboard.press('Escape');
+    assert.equal(
+      await page.locator('.settings-theme-trigger').getAttribute('aria-expanded'),
+      'false',
+    );
     await mkdir('target/reports/settings-theme', { recursive: true });
     await page.screenshot({ path: 'target/reports/settings-theme/follow-light.png' });
     await render(dark);

@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 宿主页面标记、字体与主题。
- * [OUTPUT]: 宿主字体、主题、可用内容区域及设置页独立界面外观快照。
+ * [OUTPUT]: 宿主字体、主题、可用内容区域及设置页独立界面外观与尺寸快照。
  * [POS]: 宿主外观适配边界，不依赖胶囊视图。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -255,9 +255,33 @@ function readSettingsAppearance() {
   if (!colors.page || !colors.text) return null;
   const size = Number.parseFloat(style.fontSize) || 16;
   const family = token('--font-ui-family') || style.fontFamily;
+  const metrics = {
+    space: ['--spacing', 'gap'],
+    controlRadius: ['--control-radius-md', 'border-radius'],
+    buttonRadius: ['--radius-button-action', 'border-radius'],
+    menuRadius: ['--menu-radius', 'border-radius'],
+    menuItemRadius: ['--menu-item-radius', 'border-radius'],
+    dialogRadius: ['--dialog-radius', 'border-radius'],
+    controlHeight: ['--control-size-lg', 'height'],
+    controlPadding: ['--control-gutter-md', 'padding'],
+    buttonGap: ['--button-gap-md', 'gap'],
+    menuPadding: ['--menu-gutter', 'padding'],
+    menuItemPadding: ['--menu-item-padding', 'padding'],
+    switchWidth: ['--switch-track-width', 'width'],
+    switchHeight: ['--switch-track-height', 'height'],
+    switchThumbSize: ['--switch-thumb-size', 'width'],
+    switchOffset: ['--switch-thumb-offset', 'padding'],
+    switchShadow: ['--switch-thumb-shadow', 'box-shadow'],
+  };
+  const geometry = {};
+  for (const [name, [variable, property]] of Object.entries(metrics)) {
+    const value = token(variable);
+    if (value && CSS.supports(property, value)) geometry[name] = value;
+  }
   return {
     theme: detectCodexTheme(),
     colors,
+    geometry,
     typography: {
       fontFamily: family,
       fontSize: size,

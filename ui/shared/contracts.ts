@@ -6,6 +6,27 @@
  */
 export interface HostSettingsAppearance {
   theme: 'light' | 'dark';
+  geometry?: Partial<
+    Record<
+      | 'space'
+      | 'controlRadius'
+      | 'buttonRadius'
+      | 'menuRadius'
+      | 'menuItemRadius'
+      | 'dialogRadius'
+      | 'controlHeight'
+      | 'controlPadding'
+      | 'buttonGap'
+      | 'menuPadding'
+      | 'menuItemPadding'
+      | 'switchWidth'
+      | 'switchHeight'
+      | 'switchThumbSize'
+      | 'switchOffset'
+      | 'switchShadow',
+      string
+    >
+  >;
   colors: Partial<
     Record<
       | 'page'

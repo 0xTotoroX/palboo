@@ -50,7 +50,8 @@
 - [settings-motion.ts](settings-motion.ts)：分类入场与功能预览200ms交叉淡入淡出的可中断动画，读取输入方式以保持键盘即时响应，尊重动态减少效果偏好；ResizeObserver 同步顶栏真实高度至目录粘性偏移，不重新挂载控件、不存储配置；页面入场以4px位移沿用共享缓动。
 - [settings-motion.css](settings-motion.css)：设置动效唯一样式入口：导航、主题、候选和原生选择菜单共用180ms展开/140ms收起、4px轻移与0.985缩放淡入，箭头同步旋转；主题从右上、向上候选从左下进入。搜索/确认框共用菜单节奏，右侧抽屉220ms进入/160ms退出并联动遮罩，关闭立即inert；保留按钮、开关按压、抽屉箭头和真实保存反馈。侧栏不参与菜单动画，旧浏览器即时回退；键盘和减少动态效果取消装饰过渡，候选菜单不受折叠裁切。
 - [settings-theme.tsx](settings-theme.tsx)：页头主题菜单分别提供来源（默认跟随 ChatGPT／Palboo 原有）和自动／浅色／深色；以 appearance 修订保存 settingsStyle/settingsTheme，保留草稿、键盘、关闭焦点与错误反馈。独立来源不改宿主或业务字体偏好。
-- [use-host-appearance.ts](use-host-appearance.ts)：消费认证 SSE 的 settingsAppearance，将宿主背景、语义颜色、界面字体/字号和控件状态映射到设置专属变量。分别保留本页浅/深色末次有效快照，缺失时保持；未观察到的模式使用中性黑白。Palboo 原有主题清理覆盖，沿用原有配色与业务字体偏好；不新增轮询或改变布局。
+- [use-host-appearance.ts](use-host-appearance.ts)：消费认证 SSE 的 settingsAppearance，将宿主背景、语义颜色、界面字体/字号、控件状态及圆角/间距/开关尺寸映射到设置专属变量。分别保留本页浅/深色末次有效快照，缺失时保持；未观察到的模式使用中性黑白。Palboo 原有主题清理覆盖，沿用原有配色与业务字体偏好；不新增轮询或改变布局。
+- [settings-host.css](settings-host.css)：仅在跟随 ChatGPT 来源下映射控件圆角、内边距、行/分组间距、菜单及圆形开关；保留栅格、宽度分档、功能顺序、图标列和原生交互。选择器与带图标输入保留尾部空间；Palboo 原有主题不加载这些覆盖。
 - [index.html](index.html)：设置网页入口，图标复用 ../icon.png。
 - [board.html](board.html)：旧独立看板 HTML 入口，仍挂载 ../surfaces/desktop/legacy-board.tsx 及共用看板内容。
 - [feature.html](feature.html)：桌面和贴边通用 HTML 入口。
