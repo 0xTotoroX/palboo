@@ -1,5 +1,9 @@
 // English interface copy. User-authored content is not translated.
 export default {
+  '跟随 ChatGPT': 'Follow ChatGPT',
+  'Palboo 原有': 'Palboo original',
+  主题来源: 'Theme source',
+  设置页外观来源无效: 'Invalid settings theme source',
   应用更新: 'App updates',
   当前版本: 'Current version',
   '正在检查…': 'Checking…',

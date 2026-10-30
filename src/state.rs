@@ -1,5 +1,5 @@
 // [INPUT]: CDP Client、Config、Model 与胶囊状态摘要。
-// [OUTPUT]: App、View、连接与无正文胶囊状态与共享字体快照；临时响应超时保留会话并恢复连接状态；退出信号取消模型请求，开发模式锁定启动窗口。
+// [OUTPUT]: App、View、连接与无正文胶囊状态、共享字体与设置界面外观快照；临时响应超时保留会话并恢复连接状态；退出信号取消模型请求，开发模式锁定启动窗口。
 // [POS]: 持有独立 tasks 服务； 后台业务状态层，为 server、requests 与 panel 提供一致状态；独立维护模型控制条服务及窗口监督。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
@@ -50,6 +50,7 @@ pub struct View {
     pub panel_font_base: f64,
     pub panel_colors: Value,
     pub panel_typography: Value,
+    pub settings_appearance: Value,
 }
 
 #[derive(Clone)]
@@ -132,6 +133,7 @@ impl App {
             panel_font_base: 13.,
             panel_colors: json!({}),
             panel_typography: Value::Null,
+            settings_appearance: Value::Null,
         });
         Arc::new(Self {
             performance: Mutex::new(crate::performance::Monitor::default()),
@@ -485,12 +487,15 @@ impl App {
         let colors = result["colors"].clone();
         let font_base = result["fontBase"].as_f64().unwrap_or(13.);
         let typography = result["typography"].clone();
+        let settings_appearance = result["settingsAppearance"].clone();
         self.views.send_if_modified(|view| {
             if view.desktop == desktop
                 && view.panel_theme == theme
                 && view.panel_font_base == font_base
                 && view.panel_colors == colors
                 && (!typography.is_object() || view.panel_typography == typography)
+                && (!settings_appearance.is_object()
+                    || view.settings_appearance == settings_appearance)
                 && view.connection.status == "connected"
             {
                 return false;
@@ -501,6 +506,9 @@ impl App {
             view.panel_colors = colors;
             if typography.is_object() {
                 view.panel_typography = typography;
+            }
+            if settings_appearance.is_object() {
+                view.settings_appearance = settings_appearance;
             }
             view.connection.status = "connected".into();
             view.connection.message = "已连接桌面 Codex".into();

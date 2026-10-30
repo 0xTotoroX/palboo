@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 宿主页面标记、字体与主题。
- * [OUTPUT]: 宿主字体、主题、可用内容区域只读适配。
+ * [OUTPUT]: 宿主字体、主题、可用内容区域及设置页独立界面外观快照。
  * [POS]: 宿主外观适配边界，不依赖胶囊视图。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -224,10 +224,60 @@ function visibleTypographyNode(selector) {
   );
 }
 
+// 只采集设置页需要的语义样式，不读取聊天、修改宿主主题或复制宿主样式表。
+function readSettingsAppearance() {
+  const root = document.documentElement;
+  const style = getComputedStyle(root);
+  const token = (name) => style.getPropertyValue(name).trim();
+  const sources = {
+    page: ['--app-color-background-surface', '--chat-background-color'],
+    surface: ['--color-background-elevated-primary-opaque'],
+    text: ['--app-color-text-foreground', '--color-token-text-primary'],
+    muted: ['--app-color-text-foreground-secondary'],
+    accent: ['--codex-theme-accent-color', '--color-token-charts-blue'],
+    accentText: ['--app-color-text-accent', '--color-token-text-link-foreground'],
+    onAccent: ['--app-color-text-on-accent'],
+    border: ['--color-token-input-border', '--color-border'],
+    hover: ['--color-token-list-hover-background', '--color-background-secondary-soft-hover'],
+    input: ['--color-background-primary-soft-alpha'],
+    selected: ['--app-color-background-accent-hover'],
+    focus: ['--color-token-focus-border'],
+    switchTrack: ['--switch-track-color'],
+    switchOn: ['--switch-track-color-checked'],
+    switchThumb: ['--switch-thumb-color'],
+    danger: ['--color-text-danger', '--color-token-error-foreground'],
+  };
+  const colors = {};
+  for (const [name, keys] of Object.entries(sources)) {
+    const color = keys.map(token).find((value) => value && CSS.supports('color', value));
+    if (color) colors[name] = color;
+  }
+  if (!colors.page || !colors.text) return null;
+  const size = Number.parseFloat(style.fontSize) || 16;
+  const family = token('--font-ui-family') || style.fontFamily;
+  return {
+    theme: detectCodexTheme(),
+    colors,
+    typography: {
+      fontFamily: family,
+      fontSize: size,
+      fontWeight: token('--font-ui-weight') || style.fontWeight,
+      lineHeight: Number.parseFloat(style.lineHeight) || size * 1.5,
+      letterSpacing: style.letterSpacing,
+      titleFamily: family,
+      titleSize: size,
+      titleWeight: token('--font-weight-semibold') || '600',
+      zoom: 1,
+      source: 'interface',
+    },
+  };
+}
+
 export {
   contentSafeBounds,
   detectCodexTheme,
   fallbackHostTypography,
   readHostTypography,
+  readSettingsAppearance,
   typographyFingerprint,
 };

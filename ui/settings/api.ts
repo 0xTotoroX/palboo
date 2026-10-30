@@ -24,6 +24,7 @@ export interface View {
   configurationRevision: number;
   panelPreferences: AppearanceSettings;
   panelTheme: string | null;
+  settingsAppearance?: import('../shared/contracts').HostSettingsAppearance | null;
   panelFontBase: number;
   panelTypography?: import('../shared/typography').Typography | null;
 }

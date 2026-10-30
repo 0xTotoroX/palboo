@@ -211,6 +211,17 @@ html:root :is(.settings-theme, .settings-choice, .preview-selector) button[aria-
 .settings-theme-check {
   margin-left: auto;
 }
+.settings-theme-divider {
+  border-top: 1px solid var(--buddy-border);
+  margin: 5px;
+}
+html[data-settings-style='chatgpt'] [data-slot='button'][data-variant='default']:enabled:hover {
+  background: color-mix(in srgb, var(--buddy-accent) 88%, var(--buddy-text));
+  filter: none;
+}
+html[data-settings-style='chatgpt'] :is(button, input, select, textarea):disabled {
+  opacity: 0.45;
+}
 .settings-theme-menu button:not([aria-pressed='true']) .settings-theme-check {
   visibility: hidden;
 }

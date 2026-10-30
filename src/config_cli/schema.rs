@@ -45,6 +45,7 @@ impl Scope {
                 "expectedRevision",
                 "typography",
                 "settingsTheme",
+                "settingsStyle",
                 "language",
                 "alwaysOnTop",
                 "launcherAction",
@@ -250,7 +251,7 @@ pub(super) fn schema(scope: Scope) -> Value {
                 "ui.dockLayout / ui.popoutLayout":keys(crate::panel::WorkbenchLayout::default())
             },
             "choices":{
-                "language":["system","en","zh-CN"],"settingsTheme":["codex","light","dark"],
+                "language":["system","en","zh-CN"],"settingsTheme":["codex","light","dark"],"settingsStyle":["chatgpt","palboo"],
                 "typography.mode":["follow","custom"],"typography.source":["body","session","composer"],
                 "ui.promptClickMode":["fill","direct","hybrid"],"launcherAction":["inside","outside","settings"],"launcherDoubleAction":["inside","outside","settings","toggle"],"launcherContextAction":["inside","outside","settings","toggle"],
                 "settingsTarget":["plugin","web"]

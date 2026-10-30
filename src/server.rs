@@ -1,6 +1,6 @@
 // [INPUT]: App、Runtime、app_mode/app_update、本机认证令牌、target/web 与 ui/panel/popout 资源。
 // [OUTPUT]: serve、认证任务 API、HTTP/SSE API、设置页、看板和弹出页资源；含原生呈现确认的窗口协议及受鉴权的无正文开发状态与仅开发模式开放的工作台唤起接口。
-// [POS]: 仅监听 loopback 的服务入口，公开状态剔除聊天正文；认证状态携带 Dev 设置地址供旧入口跳转；更新读取/检查/安装和模型控制、窗口租约共用鉴权；操作锁由对应服务管理。
+// [POS]: 仅监听 loopback 的服务入口，公开状态剔除聊天正文并携带设置界面外观快照；认证状态携带 Dev 设置地址供旧入口跳转；更新读取/检查/安装和模型控制、窗口租约共用鉴权；操作锁由对应服务管理。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
 use crate::{
@@ -334,7 +334,7 @@ async fn performance_update(
 fn public_view(view: crate::state::View) -> Value {
     json!({"settingsUrl":crate::assets::settings_url(),"version":view.version,"connection":view.connection,"model":view.model,"updatedAt":view.updated_at,
         "desktop":view.desktop,"configurationRevision":view.configuration_revision,
-        "panelPreferences":view.panel_preferences,"panelTheme":view.panel_theme,"panelFontBase":view.panel_font_base,"panelTypography":view.panel_typography})
+        "panelPreferences":view.panel_preferences,"panelTheme":view.panel_theme,"panelFontBase":view.panel_font_base,"panelTypography":view.panel_typography,"settingsAppearance":view.settings_appearance})
 }
 
 async fn settings(State(service): State<Service>) -> Json<Value> {

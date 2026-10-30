@@ -121,7 +121,7 @@ import {
   setDetached,
   syncPanelPreferences,
 } from './presentation.js';
-import { fallbackHostTypography } from '../appearance.js';
+import { fallbackHostTypography, readSettingsAppearance } from '../appearance.js';
 import { installStyle } from '../../surfaces/embedded/shell/install-styles.js';
 import {
   invalidateOutline,
@@ -796,6 +796,7 @@ function install() {
     panelPreferences,
     exportPanelState,
     panelAppearance,
+    settingsAppearance: readSettingsAppearance,
     syncTypography: (value) => window.__palbooTypography?.configure(value),
     typography: () => {
       const value = window.__palbooTypography?.snapshot();

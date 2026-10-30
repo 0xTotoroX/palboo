@@ -12,7 +12,7 @@
   --color-card: var(--buddy-surface);
   --color-card-foreground: var(--buddy-text);
   --color-primary: var(--buddy-accent);
-  --color-primary-foreground: #fff;
+  --color-primary-foreground: var(--settings-primary-text, #fff);
   --color-secondary: var(--buddy-subtle);
   --color-secondary-foreground: var(--buddy-text);
   --color-muted: var(--buddy-subtle);

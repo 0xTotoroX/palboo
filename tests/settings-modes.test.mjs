@@ -347,12 +347,12 @@ test(
           document.documentElement.dataset.settingsTheme === expected &&
           getComputedStyle(document.documentElement).colorScheme === expected &&
           getComputedStyle(document.documentElement).backgroundColor ===
-            (expected === 'light' ? 'rgb(250, 250, 250)' : 'rgb(25, 25, 27)'),
+            (expected === 'light' ? 'rgb(255, 255, 255)' : 'rgb(0, 0, 0)'),
         theme,
       );
       assert.equal(
         await page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor),
-        theme === 'light' ? 'rgb(250, 250, 250)' : 'rgb(25, 25, 27)',
+        theme === 'light' ? 'rgb(255, 255, 255)' : 'rgb(0, 0, 0)',
       );
       assert.equal(
         await page.locator('.settings-brand img').count(),
@@ -372,7 +372,7 @@ test(
             Array.from(eyes).every((eye) => getComputedStyle(eye).fill === expected)
           );
         },
-        theme === 'light' ? 'rgb(39, 39, 42)' : 'rgb(238, 238, 239)',
+        theme === 'light' ? 'rgb(31, 35, 40)' : 'rgb(236, 236, 236)',
       );
     };
     try {
@@ -1175,12 +1175,12 @@ test(
         // Chromium applies a changed media preference on its next rendering update.
         await page.waitForFunction(
           (expected) => getComputedStyle(document.documentElement).backgroundColor === expected,
-          colorScheme === 'light' ? 'rgb(250, 250, 250)' : 'rgb(25, 25, 27)',
+          colorScheme === 'light' ? 'rgb(255, 255, 255)' : 'rgb(0, 0, 0)',
           { timeout: 3000 },
         );
         assert.equal(
           await page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor),
-          colorScheme === 'light' ? 'rgb(250, 250, 250)' : 'rgb(25, 25, 27)',
+          colorScheme === 'light' ? 'rgb(255, 255, 255)' : 'rgb(0, 0, 0)',
           'production CSS chunk ordering must not overwrite the approved settings palette',
         );
         for (const width of [360, 600, 641, 900, 1360]) {

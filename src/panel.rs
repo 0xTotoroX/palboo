@@ -177,6 +177,7 @@ pub struct Preferences {
     pub always_on_top: bool,
     pub settings_target: String,
     pub settings_theme: Option<String>,
+    pub settings_style: Option<String>,
     pub language: String,
     pub launcher_action: String,
     pub launcher_double_action: String,
@@ -225,6 +226,7 @@ impl Default for Preferences {
             always_on_top: true,
             settings_target: "plugin".into(),
             settings_theme: None,
+            settings_style: None,
             language: "system".into(),
             launcher_action: "inside".into(),
             launcher_double_action: "toggle".into(),
@@ -797,6 +799,13 @@ impl App {
             }
             next.settings_theme = Some(theme.into());
         }
+        if let Some(value) = input.get("settingsStyle") {
+            let style = value.as_str().context("设置页外观来源无效")?;
+            if !["chatgpt", "palboo"].contains(&style) {
+                bail!("设置页外观来源无效");
+            }
+            next.settings_style = Some(style.into());
+        }
         if let Some(value) = input.get("settingsTarget") {
             let target = value.as_str().context("设置打开方式无效")?;
             if !["plugin", "web"].contains(&target) {
@@ -1207,6 +1216,39 @@ mod tests {
             .is_err()
         );
         assert_eq!(app.appearance().await, resized);
+    }
+
+    #[tokio::test]
+    async fn settings_style_preserves_business_preferences_and_rejects_stale_changes() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths::new(Some(dir.path().into())).unwrap();
+        let app = App::new(paths, crate::config::Config::default(), None, true);
+        let initial = app.appearance().await;
+        let settings = app.settings().await;
+        assert_eq!(initial.settings_style, None);
+        let saved = app
+            .save_appearance(json!({"expectedRevision":initial.revision,
+            "settingsStyle":"palboo","settingsTheme":"dark"}))
+            .await
+            .unwrap();
+        assert_eq!(saved.settings_style.as_deref(), Some("palboo"));
+        assert_eq!(saved.ui, initial.ui);
+        assert_eq!(saved.typography, initial.typography);
+        assert_eq!(Preferences::read(&app.paths), saved);
+        assert_eq!(app.settings().await, settings);
+        assert!(
+            app.save_appearance(json!({"expectedRevision":initial.revision,
+            "settingsStyle":"chatgpt"}))
+                .await
+                .is_err()
+        );
+        assert!(
+            app.save_appearance(json!({"expectedRevision":saved.revision,
+            "settingsStyle":"invalid"}))
+                .await
+                .is_err()
+        );
+        assert_eq!(app.appearance().await, saved);
     }
 
     #[tokio::test]

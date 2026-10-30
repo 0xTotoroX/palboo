@@ -4,7 +4,6 @@ import { tr } from '../shared/i18n.js';
  * [OUTPUT]: Tom Modern 统一设置、分组表单与预览；页头集中搜索/主题/外部链接，页脚显示 v 版本号，保留保存与错误反馈。
  * [POS]: 设置展示层，不执行后台业务或读取聊天正文。
  * [PROTOCOL]: 变更时同步 settings/AGENTS.md。 */
-import { useTypography } from './use-typography';
 import { LanguageSettings } from './language-settings';
 import { setLocale, getLocale } from '../shared/i18n.js';
 import { useLocale } from '../shared/use-locale';
@@ -112,7 +111,6 @@ function App() {
     document.documentElement.lang = getLocale();
     document.title = locale === 'en' ? 'Palboo Settings' : tr('Palboo 设置');
   }, [locale]);
-  useTypography(view?.panelTypography, view?.panelPreferences.typography);
   const [notice, setNotice] = useState({ text: '', failed: false });
   const notify = (text: string, failed = false) => setNotice({ text, failed });
   const editor = useSettingsForm(live, view?.configurationRevision, editable, notify);
@@ -152,6 +150,8 @@ function App() {
               <SettingsSearch navigate={navigate} />
               <SettingsTheme
                 codexTheme={view?.panelTheme}
+                hostAppearance={view?.settingsAppearance}
+                typography={view?.panelTypography}
                 appearance={view?.panelPreferences}
                 notify={notify}
               />

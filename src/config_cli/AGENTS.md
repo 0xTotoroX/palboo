@@ -11,3 +11,5 @@
 [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md
 
 settings schema 包含 quickPromptsEnabled 与 quickPromptClickMode；常用语列表、开关、模式沿原设置修订保存，不改变模型服务配置。
+
+appearance schema 包含 settingsStyle（chatgpt/palboo），与 settingsTheme（codex/light/dark）分别控制设置外观来源和明暗。

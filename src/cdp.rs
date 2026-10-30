@@ -1,5 +1,5 @@
 // [INPUT]: 本机 CDP 端点、WebSocket、assets 胶囊脚本与受限 binding。
-// [OUTPUT]: 目标发现、Client 请求/事件/注入及开发实例归属检查及宿主窗口只读逻辑坐标；独立模型及额度适配器的文档生命周期与有界执行。
+// [OUTPUT]: 目标发现、无正文设置外观采样、Client 请求/事件/注入及开发实例归属检查及宿主窗口只读逻辑坐标；独立模型及额度适配器的文档生命周期与有界执行。
 // [POS]: 宿主连接基础层，被 state.rs 和 requests.rs 使用。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
@@ -259,7 +259,7 @@ impl Client {
             }
         }
         let expression = format!(
-            "(() => {{const p=window.__companionFloatingPanel; if (!window.__companionDesktop || !p || p.state.destroyed) return null; p.syncTypography?.({typography}); p.syncPanelPreferences({ui}, {revision}, {detached}, {launcher_action}); return {{desktop:p.desktopStatus(),ui:p.panelPreferences(),theme:p.state.theme,colors:p.panelAppearance().colors,fontBase:p.state.hostTypography.baseItemFontSize,typography:p.typography?.()}};}})()"
+            "(() => {{const p=window.__companionFloatingPanel; if (!window.__companionDesktop || !p || p.state.destroyed) return null; p.syncTypography?.({typography}); p.syncPanelPreferences({ui}, {revision}, {detached}, {launcher_action}); return {{desktop:p.desktopStatus(),ui:p.panelPreferences(),theme:p.state.theme,colors:p.panelAppearance().colors,fontBase:p.state.hostTypography.baseItemFontSize,typography:p.typography?.(),settingsAppearance:p.settingsAppearance?.()}};}})()"
         );
         let mut value = self.evaluate(expression.clone()).await?;
         if value.is_null() {
