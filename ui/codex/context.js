@@ -1,6 +1,6 @@
 import { tr } from '../shared/i18n.js';
 /*
- * [INPUT]: 宿主 DOM、上下文状态和基础可见性工具。
+ * [INPUT]: 宿主 DOM（角色属性及旧版可访问标签）、上下文状态和基础可见性工具。
  * [OUTPUT]: 宿主交互目标记录、工作台跟随/锁定策略、稳定聊天身份重绑与来源可用性、唯一可见主聊天身份；限定容器内的输入目标、包含关联输入区的忙碌状态、完整相邻问答及上下文变更通知；常用语可仅核验聊天身份而不依赖回答扫描。
  * [POS]: 宿主读取边界，不修改 Stepwise 或大纲的内部状态。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
@@ -913,7 +913,15 @@ function assistantBubbleCandidates() {
 }
 
 function roleFromMessageLabel(label) {
-  const text = normalizeText(label?.textContent || '');
+  if (!(label instanceof Element)) return '';
+  const role = label.getAttribute('data-conversation-role');
+  if (role !== null) return role === 'user' || role === 'assistant' ? role : '';
+  // 打印专用的隐藏名称不能拼进旧版角色标签（例如「ChatGPT 说：ChatGPT」）。
+  const readable = /** @type {Element} */ (label.cloneNode(true));
+  readable
+    .querySelectorAll('[aria-hidden="true"],[hidden],.hidden')
+    .forEach((node) => node.remove());
+  const text = normalizeText(readable.textContent || '');
   if (/^(你说|you said|user)\s*[:：]?$/i.test(text)) return 'user';
   if (/^(ChatGPT|assistant|codex)(?:\s+说|\s+said)?\s*[:：]?$/i.test(text)) return 'assistant';
   return '';

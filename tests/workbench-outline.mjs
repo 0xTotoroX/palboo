@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 工作台真实浏览器夹具与合成回答。
- * [OUTPUT]: 原文标题优先、本地段落导航、去重、重挂载定位与过期拒绝回归。
+ * [OUTPUT]: 宿主角色兼容、混合标题、不均匀段落与同名前缀、去重、重挂载定位与过期拒绝回归。
  * [POS]: 由 workbench.mjs 执行；不读取真实聊天，不调用模型或外部服务。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -42,8 +42,166 @@ const items = (page) =>
     })),
   );
 
+async function checkTargets(page, result) {
+  for (const item of result) {
+    await page.locator(`[data-view-body="outline"] [data-outline-id="${item.id}"]`).click();
+    await page.waitForFunction(({ id, target }) => {
+      const element = document.querySelector(
+        `#answer [data-companion-stepwise-outline-id="${id}"]`,
+      );
+      const viewport = document.querySelector('.thread-scroll-container').getBoundingClientRect();
+      const rect = element?.getBoundingClientRect();
+      return (
+        element?.getAttribute('data-outline-fixture') === target &&
+        element.classList.contains('companion-stepwise-outline-target-flash') &&
+        rect.top >= viewport.top &&
+        rect.top < viewport.bottom
+      );
+    }, item);
+  }
+}
+
 export function outlineCases({ mode }) {
   return [
+    [
+      '大纲：新版角色属性和隐藏打印标签、旧版中英文标签均识别回答',
+      async (page) => {
+        await mode(page, true);
+        const variants = [
+          { attribute: true, user: '未知本地化名称', assistant: '未知本地化名称', hidden: true },
+          { attribute: false, user: '你说：', assistant: 'ChatGPT 说：', hidden: true },
+          { attribute: false, user: 'You said:', assistant: 'Codex said:', hidden: true },
+          { attribute: false, user: '你说：', assistant: 'ChatGPT 说：', hidden: false },
+          { attribute: false, user: 'You said:', assistant: 'Assistant:', hidden: false },
+        ];
+        for (const [index, variant] of variants.entries()) {
+          await page.evaluate(
+            ({ index, variant }) => {
+              const turn = document.querySelector('[data-content-search-turn-key]');
+              turn.setAttribute('data-content-search-turn-key', `turn-label-${index}`);
+              for (const role of ['user', 'assistant']) {
+                const label = turn.querySelector(`[data-message-author-role="${role}"] h4.sr-only`);
+                if (variant.attribute) label.setAttribute('data-conversation-role', role);
+                else label.removeAttribute('data-conversation-role');
+                label.replaceChildren(document.createTextNode(variant[role]));
+                if (variant.hidden) {
+                  const hidden = document.createElement('span');
+                  hidden.className = 'hidden print:inline';
+                  hidden.setAttribute('aria-hidden', 'true');
+                  hidden.textContent = role === 'user' ? 'You' : 'ChatGPT';
+                  label.append(hidden);
+                }
+              }
+            },
+            { index, variant },
+          );
+          await setAnswer(page, `<h2 data-outline-fixture="0">原文标题</h2>${paragraphs(3)}`);
+          assert.equal((await items(page)).length, 1);
+          assert.equal(
+            await page.evaluate(() => {
+              const state = window.__companionFloatingPanel.state;
+              return !!state.latestTurnAnchor?.userText && !!state.latestTurnAnchor?.assistantText;
+            }),
+            true,
+          );
+          await checkTargets(page, await items(page));
+        }
+        // 明确的未知角色不能被旧标签文字误认成 assistant。
+        await page.evaluate(() => {
+          const turn = document.querySelector('[data-content-search-turn-key]');
+          turn.setAttribute('data-content-search-turn-key', 'turn-label-z');
+          turn
+            .querySelector('[data-message-author-role="assistant"] h4')
+            .setAttribute('data-conversation-role', 'tool');
+          window.__companionFloatingPanel.scan();
+        });
+        await page.waitForFunction(
+          () => window.__companionFloatingPanel.state.scanStatus === 'no-assistant-message',
+        );
+        assert.deepEqual(await items(page), []);
+      },
+    ],
+    [
+      '大纲：长度不均的自然段保留导航与实际定位',
+      async (page) => {
+        await mode(page, true);
+        for (const lengths of [
+          [400, 800],
+          [800, 400],
+          [600, 600],
+          [120, 1080],
+        ]) {
+          await setAnswer(
+            page,
+            lengths
+              .map(
+                (length, index) =>
+                  `<p data-outline-fixture="${index}">${String.fromCharCode(0x7532 + index).repeat(length - 1)}。</p>`,
+              )
+              .join(''),
+          );
+          const result = await items(page);
+          assert.deepEqual(
+            result.map((item) => item.target),
+            ['0', '1'],
+          );
+          await checkTargets(page, result);
+        }
+      },
+    ],
+    [
+      '大纲：相同首句及截断前缀保留不同正文，标签唯一且定位各自段落',
+      async (page) => {
+        await mode(page, true);
+        for (const prefix of ['这一部分需要单独检查。', '共同的长前缀'.repeat(16)]) {
+          await setAnswer(
+            page,
+            Array.from(
+              { length: 6 },
+              (_, index) =>
+                `<p data-outline-fixture="${index}">${prefix}${String.fromCharCode(0x7532 + index).repeat(700)}</p>`,
+            ).join(''),
+          );
+          const result = await items(page);
+          assert.equal(result.length, 6);
+          assert.equal(new Set(result.map((item) => item.text)).size, 6);
+          assert.ok(result.every((item) => Array.from(item.text).length <= 56));
+          await checkTargets(page, result);
+        }
+      },
+    ],
+    [
+      '大纲：正式标题与编号加粗小标题合并，嵌套加粗不重复',
+      async (page) => {
+        await mode(page, true);
+        const section = (index) =>
+          `<p data-outline-fixture="${index}"><strong>${index}. 检查第 ${index} 项</strong></p><p>${body}</p>`;
+        await setAnswer(
+          page,
+          `<h2 data-outline-fixture="0"><strong>整体接入方案</strong></h2>${[1, 2, 3].map(section).join('')}`,
+        );
+        let result = await items(page);
+        assert.deepEqual(
+          result.map((item) => item.target),
+          ['0', '1', '2', '3'],
+        );
+        assert.deepEqual(
+          result.map((item) => item.kind),
+          ['semantic', 'pseudo', 'pseudo', 'pseudo'],
+        );
+        await checkTargets(page, result);
+        await setAnswer(
+          page,
+          `<h2 data-outline-fixture="0">整体接入方案</h2>${section(1)}<h2 data-outline-fixture="2">验证与交付</h2>${section(3)}`,
+        );
+        result = await items(page);
+        assert.deepEqual(
+          result.map((item) => item.target),
+          ['0', '1', '2', '3'],
+        );
+        await checkTargets(page, result);
+      },
+    ],
     [
       '大纲：无标题中英文长回答只补少量段落，点击与键盘准确定位',
       async (page) => {

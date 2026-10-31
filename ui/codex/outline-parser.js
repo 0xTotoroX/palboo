@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 当前回答的 Markdown DOM 与共享大纲限制。
- * [OUTPUT]: 原文标题优先、无标题时少量段落导航及精确原文锚点；不请求模型。
+ * [OUTPUT]: 合并原文标题；无标题时按内容分组去重并区分同名标签，保留精确原文锚点；不请求模型。
  * [POS]: Codex 大纲的本地解析器；刷新、身份核验和滚动由 outline.js 负责。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -337,11 +337,11 @@ const PARAGRAPH_BLOCK_SELECTOR = 'p,div,ul,ol,table,blockquote,pre,[role="table"
 const PARAGRAPH_ATOMIC_SELECTOR = 'ul,ol,table,blockquote,pre,[role="table"]';
 const MAX_PARAGRAPH_ITEMS = 6;
 const PARAGRAPH_GROUP_SIZE = 600;
-const MIN_PARAGRAPH_GROUP_SIZE = 120;
 
-function outlineParagraphLabel(text) {
+function outlineParagraphLabel(text, sentenceOnly = true) {
   const value = normalizeText(text).replace(/\s+/g, ' ');
-  const sentence = value.match(/^(.+?[。！？]|.+?[.!?](?:\s|$))/u)?.[1]?.trim() || value;
+  const sentence =
+    (sentenceOnly && value.match(/^(.+?[。！？]|.+?[.!?](?:\s|$))/u)?.[1]?.trim()) || value;
   const characters = Array.from(sentence);
   return characters.length <= MAX_OUTLINE_TITLE_LEN
     ? sentence
@@ -366,10 +366,13 @@ function outlineParagraphBlocks(root) {
       node.matches('pre') ||
       (atomic && previous && !previous.atomic && previous.text.length <= MAX_OUTLINE_TITLE_LEN)
     ) {
-      if (previous) previous.weight += text.length;
+      if (previous) {
+        previous.weight += text.length;
+        previous.content += `\n${text}`;
+      }
       continue;
     }
-    blocks.push({ el: node, text, weight: text.length, atomic });
+    blocks.push({ el: node, text, content: text, weight: text.length, atomic });
   }
   return blocks;
 }
@@ -380,25 +383,36 @@ function outlineCollectParagraphs(root) {
   const total = blocks.reduce((sum, block) => sum + block.weight, 0);
   const desired = Math.min(
     MAX_PARAGRAPH_ITEMS,
+    blocks.length,
     Math.max(2, Math.ceil(total / PARAGRAPH_GROUP_SIZE)),
   );
-  const groupSize = Math.max(MIN_PARAGRAPH_GROUP_SIZE, total / desired);
   const groups = [];
-  for (const block of blocks) {
-    const previous = groups.at(-1);
-    if (!previous || (previous.weight >= groupSize && groups.length < desired)) {
-      groups.push({ ...block });
-    } else {
-      previous.weight += block.weight;
+  let cursor = 0;
+  let remainingWeight = total;
+  for (let remainingGroups = desired; remainingGroups > 0; remainingGroups -= 1) {
+    const group = { ...blocks[cursor++] };
+    const groupSize = remainingWeight / remainingGroups;
+    // 选择最接近目标长度的自然段边界，并给后续每组至少留一个块。
+    while (cursor <= blocks.length - remainingGroups) {
+      const block = blocks[cursor];
+      if (
+        remainingGroups > 1 &&
+        Math.abs(group.weight - groupSize) < Math.abs(group.weight + block.weight - groupSize)
+      )
+        break;
+      group.weight += block.weight;
+      group.content += `\n${block.content}`;
+      cursor += 1;
     }
+    groups.push(group);
+    remainingWeight -= group.weight;
   }
-  if (groups.length > 1 && groups.at(-1).weight < MIN_PARAGRAPH_GROUP_SIZE) groups.pop();
   const seen = new Set();
   const result = [];
   for (const group of groups) {
     const text = outlineParagraphLabel(group.text);
-    if (seen.has(text) || outlineIsNoiseTitle(text)) continue;
-    seen.add(text);
+    if (seen.has(group.content) || outlineIsNoiseTitle(text)) continue;
+    seen.add(group.content);
     result.push({
       el: group.el,
       text,
@@ -410,13 +424,29 @@ function outlineCollectParagraphs(root) {
       numberingPattern: '',
     });
   }
+  const counts = new Map();
+  for (const item of result) counts.set(item.text, (counts.get(item.text) || 0) + 1);
+  const labels = new Set();
+  for (const item of result) {
+    const base =
+      counts.get(item.text) > 1 ? outlineParagraphLabel(item.anchorText, false) : item.text;
+    let text = base;
+    let occurrence = 2;
+    while (labels.has(text)) {
+      const suffix = ` (${occurrence++})`;
+      text = `${Array.from(base)
+        .slice(0, MAX_OUTLINE_TITLE_LEN - suffix.length)
+        .join('')}${suffix}`;
+    }
+    labels.add(text);
+    item.text = item.labelText = text;
+  }
   return result.length >= 2 ? result : [];
 }
 
 function outlineCollectItems(root) {
   if (!(root instanceof Element)) return [];
-  const semantic = outlineCollectSemanticHeadings(root);
-  const headings = semantic.length ? semantic : outlineCollectPseudoHeadings(root);
+  const headings = [...outlineCollectSemanticHeadings(root), ...outlineCollectPseudoHeadings(root)];
   // 原文已有标题时不叠加段落目录，包括只有一个有效标题的长回答。
   const items = headings.length
     ? outlineDedupeItems(outlineSortInDocumentOrder(headings))

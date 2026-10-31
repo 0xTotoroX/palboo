@@ -69,7 +69,7 @@ model-control-host 覆盖能力延迟到达、空列表刷新超时及重试、�
 
 - [workbench-binding.mjs](workbench-binding.mjs)：由 workbench.mjs 执行的关联回归，覆盖下一步悬停/离开及减少动态效果、兄弟输入区停止控件阻止提前生成和其他聊天隔离、快捷词即时同步、三种点击模式的单击/双击和发送次数、旧命令拒绝与草稿保护，手动/自动 A-B-A 建议缓存恢复、重新挂载后安全填入、回答/生成设置失效，以及同目标保留、换目标迟到结果、兄弟输入框隔离、身份替换/失联/重挂载、窗口命令及冷初始化；只使用合成响应。
 
-- [workbench-outline.mjs](workbench-outline.mjs)：由 workbench.mjs 执行本地大纲回归；覆盖中英文无标题段落导航、最多六条/去重、原文标题及单标题优先、列表表格整体、短回答/代码空态、鼠标与键盘实际定位、重挂载、改文/换聊天/同文新轮次拒绝旧点击与恢复；网络及桥请求沿用工作台的零模型调用检查。
+- [workbench-outline.mjs](workbench-outline.mjs)：由 workbench.mjs 执行本地大纲回归；覆盖角色属性/隐藏打印标签及旧版中英文兼容、长度不均与同首句/截断前缀的段落分组和精确定位、中英文无标题段落导航、最多六条/按内容去重、混合正式与加粗标题及单标题优先、列表表格整体、短回答/代码空态、鼠标与键盘实际定位、重挂载、改文/换聊天/同文新轮次拒绝旧点击与恢复；网络及桥请求沿用工作台的零模型调用检查。
 
 - [workbench.mjs](workbench.mjs)：工作台浏览器行为验收；自动/双轴布局、交换/重置、连续缩放及生成中切换不增加请求、独立持久化和嵌套滚动接续；真实占位、新聊天/Dots 单一官方输入区标记与无消息列表时的收放及草稿保留、普通/隐藏/自有编辑框拒绝、前景聊天迁移及输入目标、非模态注释浮层的编辑/删除与鼠标往返不改变停靠、模态让位与阅读恢复、两栏独立渲染、键盘调整、空间不足、功能开关、宿主重绘和销毁恢复。连续流程以延迟的合成响应验证聊天切换、过期结果、生成次数及双端阅读交接，不调用模型；`WORKBENCH_CASE` 可按名称片段只运行相关用例，结果单独写入 `selected-results.json`。
 
@@ -93,7 +93,7 @@ model-control-host 覆盖能力延迟到达、空列表刷新超时及重试、�
 - [panel-modules.test.mjs](panel-modules.test.mjs)：对既有胶囊检查范围及共用内容模块执行 checkJs，检查依赖无环、Codex context 与大纲/下一步保持依赖边界；窗口入口及独立传输仍由各自检查覆盖。
 - [native-probe.swift](native-probe.swift)：原生验收的只读事件权限预检、合成背景窗口、指定测试进程窗口几何、合成窗口的真实鼠标拖拽及截图颜色读取器，只编译到临时目录。
 
-- [host-fixture.html](host-fixture.html)：e2e 和弹出测试的宿主 fixture，不包含真实聊天；共享胶囊可交互的桌面宿主 DOM。
+- [host-fixture.html](host-fixture.html)：e2e 和弹出测试的宿主 fixture，不包含真实聊天；包含新版角色属性及隐藏打印名称的共享胶囊桌面宿主 DOM。
 - [source-audit.test.mjs](source-audit.test.mjs)：公开边界、固定 GPL 元数据/正文、历史 MIT 保留、打包许可与真实依赖声明的行为测试；覆盖嵌套署名、显式路径、来源补充和原文引用，以及无 Git 源码清单和私有文件/符号链接拒绝。
 
 - [popout-preferences.test.mjs](popout-preferences.test.mjs)：位置写入延迟时并发置顶/外观串行推进修订号，真实外部冲突仍拒绝。
