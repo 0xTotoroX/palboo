@@ -1,7 +1,7 @@
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: Authenticated host appearance, shared icons, typography and revision-checked theme preferences.
- * [OUTPUT]: Icon-only theme entry, retained animated menu, local font-face loading and host-styled existing tooltips.
+ * [OUTPUT]: Icon-only theme entry, host-only animated menu, local font-face loading and host-styled existing tooltips.
  * [POS]: Settings-only preference; revision-checked Palboo persistence, never writes Codex appearance.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
@@ -18,12 +18,6 @@ import { migrateBrowserBrandStorage } from '../shared/brand-storage.js';
 type Theme = 'light' | 'dark';
 type Preference = Theme | 'codex';
 const storageKey = 'palboo-settings-theme';
-const sourceKey = 'palboo-settings-style';
-type Source = 'chatgpt' | 'palboo';
-const sources = [
-  ['chatgpt', '跟随 ChatGPT'],
-  ['palboo', 'Palboo 原有'],
-] as const;
 const options = [
   ['codex', '自动'],
   ['light', '浅色'],
@@ -44,7 +38,6 @@ function readPreference(): Preference {
 export function SettingsTheme({
   codexTheme,
   hostAppearance,
-  typography,
   appearance,
   notify,
 }: {
@@ -76,13 +69,6 @@ export function SettingsTheme({
     return () => document.removeEventListener('pointerdown', outside);
   }, [open]);
   const [preference, setPreference] = useState<Preference>(readPreference);
-  const [source, setSource] = useState<Source>(() => {
-    try {
-      return localStorage.getItem(sourceKey) === 'palboo' ? 'palboo' : 'chatgpt';
-    } catch {
-      return 'chatgpt';
-    }
-  });
   useEffect(() => {
     const value = appearance?.settingsTheme;
     if (value && appearance.revision >= acceptedRevision.current) {
@@ -90,11 +76,7 @@ export function SettingsTheme({
       acceptedRevision.current = appearance.revision;
       remember(value);
     }
-    if (appearance && appearance.revision >= acceptedRevision.current) {
-      acceptedRevision.current = appearance.revision;
-      rememberSource(appearance.settingsStyle || 'chatgpt');
-    }
-  }, [appearance?.settingsTheme, appearance?.settingsStyle, appearance?.revision]);
+  }, [appearance?.settingsTheme, appearance?.revision]);
   const [systemTheme, setSystemTheme] = useState<Theme>(() =>
     matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
   );
@@ -105,19 +87,11 @@ export function SettingsTheme({
         ? codexTheme
         : lastCodexTheme.current || systemTheme
       : preference;
-  const hostTypography = useHostAppearance(
-    hostAppearance,
-    theme,
-    source,
-    !!appearance?.surfaceTypography?.settings,
-    appearance?.settingsAccent,
-  );
-  const fontPreferences =
-    appearance?.surfaceTypography?.settings ||
-    (hostTypography ? surfaceTypography('settings') : appearance?.typography);
-  useHostFonts(fontPreferences?.fontFamily || hostTypography?.fontFamily || typography?.fontFamily);
-  useSettingsTooltip(source === 'chatgpt');
-  useTypography(hostTypography || typography, fontPreferences);
+  const hostTypography = useHostAppearance(hostAppearance, theme);
+  const fontPreferences = surfaceTypography('settings', appearance?.surfaceTypography);
+  useHostFonts([fontPreferences.fontFamily, hostTypography?.fontFamily].filter(Boolean).join(', '));
+  useSettingsTooltip(true);
+  useTypography(hostTypography, fontPreferences);
 
   useLayoutEffect(() => {
     if (isTheme(codexTheme)) lastCodexTheme.current = codexTheme;
@@ -129,15 +103,6 @@ export function SettingsTheme({
     const media = matchMedia('(prefers-color-scheme: dark)');
     const syncSystem = () => setSystemTheme(media.matches ? 'dark' : 'light');
     const syncStorage = (event: StorageEvent) => {
-      if (event.key === sourceKey || event.key === null) {
-        if (!appearance) {
-          try {
-            setSource(localStorage.getItem(sourceKey) === 'palboo' ? 'palboo' : 'chatgpt');
-          } catch {
-            /* Keep the current preference. */
-          }
-        }
-      }
       if (event.key !== storageKey && event.key !== null) return;
       if (persisted.current && !['codex', 'light', 'dark'].includes(event.newValue || '')) return;
       setPreference(readPreference());
@@ -160,38 +125,21 @@ export function SettingsTheme({
     }
   }
 
-  function rememberSource(next: Source) {
-    setSource(next);
-    try {
-      localStorage.setItem(sourceKey, next);
-    } catch {
-      /* Keep the current tab usable. */
-    }
-  }
-
-  async function select(
-    next: Preference | Source,
-    kind: 'settingsTheme' | 'settingsStyle' = 'settingsTheme',
-  ) {
+  async function select(next: Preference) {
     if (pending.current) return;
-    if (kind === 'settingsTheme' && next === preference && persisted.current) return;
-    if (kind === 'settingsStyle' && next === source && appearance?.settingsStyle === next) return;
-    if (!appearance)
-      return kind === 'settingsStyle'
-        ? rememberSource(next as Source)
-        : remember(next as Preference);
+    if (next === preference && persisted.current) return;
+    if (!appearance) return remember(next);
     pending.current = true;
     setSaving(true);
     try {
       const latest = await request<AppearanceSettings>('appearance');
       const saved = await request<AppearanceSettings>('appearance', {
         expectedRevision: latest.revision,
-        [kind]: next,
+        settingsTheme: next,
       });
       persisted.current = true;
       acceptedRevision.current = saved.revision;
       remember(saved.settingsTheme || preference);
-      rememberSource(saved.settingsStyle || source);
     } catch (error) {
       notify?.(error instanceof Error ? error.message : tr('主题保存失败，请重试。'), true);
     } finally {
@@ -225,7 +173,7 @@ export function SettingsTheme({
         type="button"
         className="settings-theme-trigger"
         aria-label={tr('设置页主题：{{label}}', { label: label })}
-        title={`${tr(source === 'chatgpt' ? '跟随 ChatGPT' : 'Palboo 原有')} · ${label}`}
+        title={`${tr('跟随 ChatGPT')} · ${label}`}
         disabled={saving}
         aria-expanded={open}
         aria-controls={menuId}
@@ -256,24 +204,6 @@ export function SettingsTheme({
           buttons[next]?.focus();
         }}
       >
-        <div role="group" aria-label={tr('主题来源')}>
-          {sources.map(([value, name]) => (
-            <button
-              key={value}
-              type="button"
-              aria-label={tr(name)}
-              aria-pressed={source === value}
-              disabled={saving}
-              onClick={() => {
-                void select(value, 'settingsStyle');
-              }}
-            >
-              <span>{tr(name)}</span>
-              <Icon name="check" className="settings-theme-check" />
-            </button>
-          ))}
-        </div>
-        <div className="settings-theme-divider" />
         {options.map(([value, name]) => (
           <button
             key={value}

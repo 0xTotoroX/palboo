@@ -17,7 +17,7 @@
 
 仅放真正跨模块使用的契约与资源；不承担功能呈现、窗口管理或业务保存。
 
-AppearanceSettings.settingsAccent 独立保存设置页强调色来源与六位颜色，不改变主题来源、字体或业务窗口配色。
+AppearanceSettings.settingsStyle/settingsAccent 保留旧配置兼容，设置页不再消费或编辑。HostSettingsAppearance 另有页面标题、分组圆角/边框和中性导航选中角色；Typography 可携带字形特性、可变轴、样式/伸缩与光学尺寸，缺省保持兼容。
 
 contracts 的 __buddyNativeChrome 标识原生标题栏能力；__buddyWindowControls 的 minimized/fullscreen 只用于临时几何保护，不写业务配置。
 

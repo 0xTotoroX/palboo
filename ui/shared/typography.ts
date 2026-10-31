@@ -12,6 +12,11 @@ export type TypographyPreferences = {
 export type Typography = {
   sources?: Partial<Record<TypographyPreferences['source'], Typography>>;
   fontFamily: string;
+  fontStyle?: string;
+  fontStretch?: string;
+  fontFeatureSettings?: string;
+  fontVariationSettings?: string;
+  fontOpticalSizing?: string;
   fontSize: number;
   fontWeight: string;
   lineHeight: number;
@@ -97,6 +102,11 @@ export function typographyStyle(
     ratio = t.zoom / localZoom;
   return {
     fontFamily: t.fontFamily,
+    fontStyle: t.fontStyle || 'normal',
+    fontStretch: t.fontStretch || 'normal',
+    fontFeatureSettings: t.fontFeatureSettings || 'normal',
+    fontVariationSettings: t.fontVariationSettings || 'normal',
+    fontOpticalSizing: t.fontOpticalSizing === 'none' ? ('none' as const) : ('auto' as const),
     fontSize: `${t.fontSize * ratio}px`,
     fontWeight: t.fontWeight,
     lineHeight: `${t.lineHeight / t.fontSize}`,

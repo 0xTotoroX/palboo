@@ -1,5 +1,5 @@
 /* [INPUT]: Built settings page, synthetic authenticated services and isolated Chromium.
- * [OUTPUT]: Shared drafts/DOM, title-free page hierarchy, terminology controls/tools, compact preview geometry and responsive navigation with interruptible menu motion.
+ * [OUTPUT]: Shared drafts/DOM, single page heading, terminology controls/tools, compact preview geometry and responsive navigation with interruptible menu motion.
  * [POS]: No real user data, model requests or host restarts.
  * [PROTOCOL]: Keep tests/AGENTS.md in sync. */
 import test from 'node:test';
@@ -1259,10 +1259,11 @@ test(
           ]) {
             await category(id);
             assert.equal(
-              await page.locator('main h1, .preview-heading').count(),
-              0,
-              `${id}: no repeated page or preview title`,
+              await page.locator('main h1').count(),
+              1,
+              `${id}: one host-style page heading`,
             );
+            assert.equal(await page.locator('.preview-heading').count(), 0);
             if (id === 'features') {
               assert.equal(
                 await page.locator('.settings-preview').count(),

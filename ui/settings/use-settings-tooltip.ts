@@ -18,6 +18,7 @@ export function useSettingsTooltip(enabled: boolean) {
     let title = '';
     let timer = 0;
     let keyboard = false;
+    let lastClosed = -Infinity;
     const clear = () => window.clearTimeout(timer);
     const close = () => {
       clear();
@@ -30,6 +31,7 @@ export function useSettingsTooltip(enabled: boolean) {
         if (described) target.setAttribute('aria-describedby', described);
         else target.removeAttribute('aria-describedby');
       }
+      if (!tip.hidden) lastClosed = performance.now();
       if (tip.hidePopover && tip.isConnected && tip.matches(':popover-open')) tip.hidePopover();
       tip.hidden = true;
       tip.remove();
@@ -86,7 +88,7 @@ export function useSettingsTooltip(enabled: boolean) {
       keyboard = event.type === 'focusin';
       next.removeAttribute('title');
       if (event.type === 'focusin') show();
-      else timer = window.setTimeout(show, 350);
+      else timer = window.setTimeout(show, performance.now() - lastClosed < 300 ? 0 : 150);
     };
     const leave = (event: Event) => {
       if (!target) return;

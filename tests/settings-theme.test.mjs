@@ -1,5 +1,5 @@
 /* [INPUT]: 真实宿主外观采样器、设置主题菜单与控件、合成样式/修订 API。
- * [OUTPUT]: 双主题导航层级/控件角色与组合输入状态、本机字形/提示、双色采样缓存、原主题恢复及草稿/保存回归。
+ * [OUTPUT]: 跟随宿主的双明暗导航/控件角色与组合输入状态、本机字形/提示、双色缓存、旧主题兼容退出及草稿/保存回归。
  * [POS]: 隔离浏览器，不读取真实聊天或修改用户设置。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import test from 'node:test';
@@ -8,7 +8,7 @@ import { build } from 'esbuild';
 import { readFile, mkdir } from 'node:fs/promises';
 import { chromium } from 'playwright';
 
-test('settings follow host appearance while preserving original theme, modes and drafts', async () => {
+test('settings use only host appearance while preserving modes and drafts', async () => {
   const bundle = await build({
     stdin: {
       resolveDir: process.cwd(),
@@ -105,6 +105,8 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
           r.className = dark ? 'theme-dark' : 'theme-light';
           r.style.fontSize = size + 'px';
           r.style.lineHeight = '1.5';
+          r.style.fontFeatureSettings = '"liga" 0';
+          r.style.fontVariationSettings = '"wght" 430';
           const tokens = {
             '--app-color-background-surface': dark ? '#101010' : '#ffffff',
             '--app-color-text-foreground': dark ? '#ededed' : '#1f2328',
@@ -236,12 +238,12 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
       });
     assert.deepEqual(await navigationStyle(), {
       size: '17px',
-      weight: '500',
+      weight: '430',
       line: '24px',
       font: 'Georgia, serif',
       marker: 'none',
     });
-    assert.equal(await color('.settings-nav-children a[aria-current]'), 'rgba(0, 0, 0, 0)');
+    assert.equal(await color('.settings-nav-children a[aria-current]'), 'rgb(245, 245, 245)');
     assert.equal(
       await page.locator('.settings-nav-group h2').evaluate((n) => getComputedStyle(n).fontSize),
       '17px',
@@ -250,7 +252,7 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
       await page
         .locator('#section-heading')
         .evaluate((n) => getComputedStyle(n, '::after').content),
-      '""',
+      'none',
     );
     await page.setViewportSize({ width: 360, height: 720 });
     assert.equal(
@@ -267,6 +269,14 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
     assert.match(
       await page.locator('#draft').evaluate((n) => getComputedStyle(n).fontFamily),
       /Georgia/,
+    );
+    assert.equal(
+      await page.locator('html').evaluate((n) => getComputedStyle(n).fontFeatureSettings),
+      '"liga" 0',
+    );
+    assert.equal(
+      await page.locator('html').evaluate((n) => getComputedStyle(n).fontVariationSettings),
+      '"wght" 430',
     );
     await page.locator('#draft').fill('未保存的新草稿');
     await page.locator('#draft').evaluate((n) => (window.draftNode = n));
@@ -398,61 +408,20 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
     await waitColor('rgb(255, 255, 255)');
     assert.equal(await page.locator('#draft').evaluate((n) => n === window.draftNode), true);
     assert.equal(await page.locator('#draft').inputValue(), '未保存的新草稿');
-    await choose('Palboo 原有');
-    await waitColor('rgb(250, 250, 250)');
-    const original = await geometry();
-    const originalNavBase = await page
-      .locator('.settings-nav')
-      .evaluate((n) => parseFloat(getComputedStyle(n).fontSize));
-    assert.equal(
-      parseFloat((await navigationStyle()).size),
-      originalNavBase * 0.8125,
-      'original theme keeps its own inherited scale',
-    );
-    assert.equal(
-      (await navigationStyle()).marker,
-      'none',
-      'original theme uses a single text accent for the current page',
-    );
-    assert.equal(
-      await page.locator('#select').evaluate((n) => getComputedStyle(n).borderRadius),
-      '4px',
-    );
-    assert.equal(
-      await page.getByRole('textbox', { name: '组合正文' }).inputValue(),
-      '保留组合草稿',
-    );
-    assert.equal(await page.locator('#slider').inputValue(), '51');
-    assert.equal(original.radius, '4px');
-    assert.equal(original.switchWidth, '36px');
-    assert.equal(original.switchHeight, '22px');
-    assert.equal(original.menuRadius, '9px');
-    assert.equal(
-      await page
-        .locator('html')
-        .evaluate((n) => getComputedStyle(n).getPropertyValue('--settings-menu-enter').trim()),
-      '.18s',
-    );
-    assert.equal(
-      await page.locator('#disabled').evaluate((n) => getComputedStyle(n).opacity),
-      '0.45',
-    );
-    assert.equal(
-      await page
-        .locator('html')
-        .evaluate((n) => n.style.getPropertyValue('--settings-menu-shadow')),
-      '',
-    );
-    assert.equal(
-      await page.locator('#draft').evaluate((n) => getComputedStyle(n).fontSize),
-      '21px',
-    );
-    await choose('深色');
-    await waitColor('rgb(25, 25, 27)');
+    assert.equal(await page.getByRole('button', { name: 'Palboo 原有', exact: true }).count(), 0);
+    pref = {
+      ...pref,
+      settingsStyle: 'palboo',
+      settingsAccent: { source: 'custom', color: '#ff5a00' },
+    };
+    await render(light);
+    await waitColor('rgb(255, 255, 255)');
+    assert.equal((await geometry()).radius, '12.5px', 'legacy style no longer overrides the host');
+    assert.equal(await page.locator('#settings-accent-source').count(), 0);
     reject = true;
-    await choose('跟随 ChatGPT');
-    await waitColor('rgb(25, 25, 27)');
-    await choose('跟随 ChatGPT');
+    await choose('深色');
+    await waitColor('rgb(255, 255, 255)');
+    await choose('深色');
     await waitColor('rgb(16, 16, 16)');
     await choose('自动');
     light = await sample(false, 32);
@@ -479,12 +448,9 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
     await page.locator('.settings-theme-trigger').click();
     await page
       .locator('.settings-theme-menu')
-      .getByRole('button', { name: '跟随 ChatGPT', exact: true })
+      .getByRole('button', { name: '自动', exact: true })
       .press('ArrowDown');
-    assert.equal(
-      await page.evaluate(() => document.activeElement.textContent.trim()),
-      'Palboo 原有',
-    );
+    assert.equal(await page.evaluate(() => document.activeElement.textContent.trim()), '浅色');
     await page.keyboard.press('Escape');
     assert.equal(
       await page.locator('.settings-theme-trigger').getAttribute('aria-expanded'),
@@ -522,9 +488,6 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
       await page.locator('#action').evaluate((n) => getComputedStyle(n).transitionDuration),
       '0s',
     );
-    await choose('Palboo 原有');
-    assert.equal(await page.locator('html').getAttribute('data-settings-reduced-motion'), null);
-    await choose('跟随 ChatGPT');
     await page.getByRole('button', { name: '高级设置', exact: true }).click();
     assert.equal(await page.getByRole('textbox', { name: '抽屉草稿' }).inputValue(), '新抽屉草稿');
     await page.keyboard.press('Escape');
@@ -549,9 +512,7 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
     );
     assert.ok(
       writes.every((w) =>
-        Object.keys(w).every((k) =>
-          ['expectedRevision', 'settingsTheme', 'settingsStyle'].includes(k),
-        ),
+        Object.keys(w).every((k) => ['expectedRevision', 'settingsTheme'].includes(k)),
       ),
     );
     // Existing native title content now follows host tooltip tokens, including in dialogs.
@@ -586,14 +547,7 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
     await page.getByRole('tooltip').hover();
     assert.equal(await page.getByRole('tooltip').isVisible(), true, 'tooltip remains hoverable');
     await page.screenshot({ path: 'target/reports/settings-theme/follow-tooltip.png' });
-    await choose('Palboo 原有');
-    assert.equal(await page.getByRole('tooltip').count(), 0);
-    assert.equal(
-      await page.getByRole('button', { name: '搜索设置', exact: true }).getAttribute('title'),
-      '搜索设置',
-    );
-    await choose('跟随 ChatGPT');
-
+    await page.keyboard.press('Escape');
     // Both palettes are sampled without changing the host root, focus, or visible theme.
     const pair = await hostPage.evaluate(() => {
       const root = document.documentElement;
@@ -687,13 +641,10 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
       { name: localFont, alias },
     );
     assert.equal(fontWidths[0], fontWidths[1]);
-    await choose('Palboo 原有');
-    assert.equal(
-      await page.evaluate(
-        (name) => [...document.fonts].some((f) => f.family.replace(/^"|"$/g, '') === name),
-        alias,
-      ),
-      false,
+    await render(pair.result);
+    await page.waitForFunction(
+      (name) => ![...document.fonts].some((f) => f.family.replace(/^"|"$/g, '') === name),
+      alias,
     );
     await hostPage.evaluate(() => document.querySelector('[data-codex-app-themes]').remove());
     assert.equal(
@@ -704,94 +655,6 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
       null,
     );
 
-    // Accent edits only save their own appearance field; custom text remains readable in both modes.
-    await choose('跟随 ChatGPT');
-    await choose('自动');
-    await render(light);
-    const beforeAccent = await geometry();
-    const sourcePicker = page.locator('#settings-accent-source');
-    const hex = page.locator('#settings-accent-color');
-    const ready = () =>
-      page.waitForFunction(() => !document.querySelector('#settings-accent-source').disabled);
-    const selectAccent = async (source) => {
-      await sourcePicker.selectOption(source);
-      await ready();
-      await render(light);
-    };
-    const accentWritesStart = writes.length;
-    await selectAccent('palboo');
-    await page.waitForFunction(
-      () => document.documentElement.style.getPropertyValue('--settings-orange') === '#ff5a00',
-    );
-    assert.deepEqual(
-      await geometry(),
-      beforeAccent,
-      'accent does not change layout or control geometry',
-    );
-    await selectAccent('custom');
-    await hex.fill('#oops');
-    await hex.press('Enter');
-    await page.getByText('请输入六位十六进制颜色，如 #FF5A00', { exact: true }).waitFor();
-    assert.equal(writes.length, accentWritesStart + 2);
-    await hex.fill('#ffffff');
-    await hex.press('Enter');
-    await ready();
-    await render(light);
-    assert.equal(pref.settingsAccent.color, '#ffffff');
-    const contrast = () =>
-      page.locator('.settings-nav-children a[aria-current]').evaluate((node) => {
-        const lum = (color) =>
-          color
-            .match(/[\d.]+/g)
-            .slice(0, 3)
-            .reduce((total, value, i) => {
-              const c = Number(value) / 255;
-              return (
-                total +
-                (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4) *
-                  [0.2126, 0.7152, 0.0722][i]
-              );
-            }, 0);
-        const a = lum(getComputedStyle(node).color),
-          b = lum(getComputedStyle(document.documentElement).backgroundColor);
-        return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
-      });
-    assert.ok((await contrast()) >= 4.5);
-    await render(dark);
-    await waitColor('rgb(16, 16, 16)');
-    assert.ok((await contrast()) >= 4.5);
-    reject = true;
-    await hex.fill('#00aa88');
-    await hex.press('Enter');
-    await page.getByText('conflict', { exact: true }).waitFor();
-    assert.equal(await hex.inputValue(), '#00aa88', 'failed save retains the draft');
-    assert.equal(pref.settingsAccent.color, '#ffffff');
-    await selectAccent('chatgpt');
-    await selectAccent('custom');
-    assert.equal(await hex.inputValue(), '#00aa88', 'source switching retains the custom draft');
-    await hex.press('Enter');
-    await ready();
-    await render(light);
-    assert.equal(pref.settingsAccent.color, '#00aa88');
-    await selectAccent('chatgpt');
-    await choose('Palboo 原有');
-    assert.equal(
-      await sourcePicker.inputValue(),
-      'chatgpt',
-      'theme does not reset independent accent source',
-    );
-    await page.mouse.move(0, 0);
-    assert.equal(await color('.settings-nav-children a[aria-current]'), 'rgba(0, 0, 0, 0)');
-    assert.equal((await navigationStyle()).marker, 'none');
-    assert.ok(
-      writes
-        .slice(accentWritesStart)
-        .every((w) =>
-          Object.keys(w).every((k) =>
-            ['settingsAccent', 'settingsStyle', 'expectedRevision'].includes(k),
-          ),
-        ),
-    );
     assert.equal(await page.locator('#draft').inputValue(), '未保存的新草稿');
   } finally {
     await browser.close();

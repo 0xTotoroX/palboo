@@ -1,6 +1,6 @@
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
-/* [INPUT]: Independent surface preferences and display inventory. [OUTPUT]: Separate layout and appearance pages retaining their mounted controls and shared preview snapshots.
+/* [INPUT]: Independent surface preferences and display inventory. [OUTPUT]: Separate layout and host-styled appearance groups retaining their mounted controls and shared preview snapshots.
  * [POS]: Presentation settings, no feature enable/disable or business state.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 import { useEffect, useRef, useState } from 'react';
@@ -149,7 +149,7 @@ export function SurfaceSettings({
         hidden={!simple && page === 'surfaces'}
       >
         <h2 hidden={simple}>{tr('各形式外观')}</h2>
-        <div className="space-y-3">
+        <div className={simple ? 'space-y-3' : 'settings-control-group'}>
           {Object.entries(labels).map(([placement, label]) => {
             const theme = state?.preferences.themes[placement] || {
               theme: 'matte',

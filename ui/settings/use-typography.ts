@@ -23,6 +23,11 @@ export function useTypography(snapshot?: Typography | null, preferences?: Typogr
     return () => {
       for (const key of [
         'font-family',
+        'font-style',
+        'font-stretch',
+        'font-feature-settings',
+        'font-variation-settings',
+        'font-optical-sizing',
         'font-size',
         'font-weight',
         'line-height',

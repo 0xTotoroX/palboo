@@ -1,7 +1,7 @@
 import { Icon } from '../shared/icons/react';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: 现有设置表单、认证 API、共用设置控件及 PALBOO 矢量字标。
- * [OUTPUT]: Tom Modern 统一设置、分组表单与预览；页头集中搜索/主题/外部链接，页脚显示 v 版本号，保留保存与错误反馈。
+ * [OUTPUT]: 跟随宿主的设置页标题、分组表单与预览；页头集中搜索/主题/外部链接，页脚显示 v 版本号，保留保存与错误反馈。
  * [POS]: 设置展示层，不执行后台业务或读取聊天正文。
  * [PROTOCOL]: 变更时同步 settings/AGENTS.md。 */
 import { LanguageSettings } from './language-settings';
@@ -201,6 +201,7 @@ function App() {
           aria-label={pageTitles[page]}
           ref={contentRef}
         >
+          <h1 className="settings-page-title">{pageTitles[page]}</h1>
           <Feedback text={error} failed />
           {!editor.form && !error && <p role="status">{tr('正在读取设置…')}</p>}
           <Feedback

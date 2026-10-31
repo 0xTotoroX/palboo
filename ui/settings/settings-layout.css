@@ -1,11 +1,11 @@
-/* [INPUT]: Tom Modern visual direction, shared typography and resolved settings theme.
- * [OUTPUT]: Original settings surfaces, four aligned header icons, compact version footer and responsive grouped navigation.
+/* [INPUT]: Host settings semantics, shared typography and light/dark mode.
+ * [OUTPUT]: Neutral startup fallback, four aligned header icons, compact version footer and responsive grouped navigation.
  * [POS]: Does not alter the workspace or host theme tokens.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 /* Shared tokens may be emitted after the entry CSS by Vite; specificity keeps both builds aligned. */
 html:root {
   color-scheme: light;
-  --buddy-page: #fafafa;
+  --buddy-page: #fff;
   --buddy-surface: #fff;
   --buddy-text: #27272a;
   --buddy-muted: #64646e;
@@ -13,7 +13,7 @@ html:root {
   --buddy-input: #f0f0f3;
   --settings-control-border: #e8e8ed;
   --settings-control-hover: #e9e9ee;
-  --buddy-accent: #c94300;
+  --buddy-accent: var(--buddy-text);
   --buddy-focus: #85858f;
   --buddy-subtle: #f1f1f2;
   --buddy-radius-small: 4px;
@@ -31,8 +31,8 @@ html:root {
   --error: #fcf4f4;
   --error-border: #e6cccc;
   --error-foreground: #9d5353;
-  --settings-orange: #ff5a00;
-  --settings-accent-text: #bd4200;
+  --settings-orange: var(--buddy-accent);
+  --settings-accent-text: var(--buddy-text);
   --settings-shadow: 0 4px 18px #00000006;
   --settings-rule: #e2e2e6;
   --settings-top-rule-width: 1px;
@@ -45,9 +45,9 @@ html:root {
   --settings-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 html:root[data-settings-theme='dark'] {
-  --settings-accent-text: #ff9a64;
+  --settings-accent-text: var(--buddy-text);
   color-scheme: dark;
-  --buddy-page: #19191b;
+  --buddy-page: #000;
   --buddy-surface: #212124;
   --buddy-text: #eeeeef;
   --buddy-muted: #adadb6;
@@ -55,7 +55,7 @@ html:root[data-settings-theme='dark'] {
   --buddy-input: #252528;
   --settings-control-border: var(--buddy-border);
   --settings-control-hover: #2c2c30;
-  --buddy-accent: #c94300;
+  --buddy-accent: var(--buddy-text);
   --buddy-focus: #9898a3;
   --buddy-subtle: #2c2c30;
   --switch-track: #3c3c43;
@@ -741,46 +741,16 @@ html:root .settings-nav {
   }
 }
 
-/* 点缀与当前位置共用独立强调色；标题点缀弱化，不叠加选中竖线。 */
+/* 标题与导航仅使用宿主文字层级和选中状态。 */
 .settings-app
   :is(
     .settings-section h2,
     .settings-section h3,
     .settings-drawer-header h2,
     .settings-nav-group h2
-  )::after {
-  content: '';
-  display: inline-block;
-  width: 4px;
-  height: 4px;
-  margin-left: 8px;
-  background: var(--settings-orange);
-  opacity: 0.5;
-}
-.settings-nav .settings-nav-children a[aria-current='page'] {
-  color: var(--settings-accent-text);
-}
+  )::after,
 .settings-nav .settings-nav-children a[aria-current='page']::before {
   content: none;
-}
-.settings-accent-editor {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 260px;
-  max-width: 100%;
-}
-.settings-app .settings-accent-editor input[type='color'] {
-  flex: 0 0 39px;
-  width: 39px;
-  padding: 4px;
-}
-.settings-accent-editor input[type='color']::-webkit-color-swatch-wrapper {
-  padding: 0;
-}
-.settings-accent-editor input[type='color']::-webkit-color-swatch {
-  border: 0;
-  border-radius: 2px;
 }
 
 /* Four equal header actions; labels remain in tooltips and accessible names. */

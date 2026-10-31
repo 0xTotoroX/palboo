@@ -181,7 +181,7 @@ createRoot(document.querySelector('#root')).render(<App/>);`,
       for (const theme of ['palboo', 'chatgpt']) {
         await page.evaluate((theme) => window.styleSource(theme), theme);
         await page.waitForFunction(
-          (theme) => document.documentElement.dataset.settingsStyle === theme,
+          (theme) => document.documentElement.dataset.settingsStyle === 'chatgpt',
           theme,
         );
         assert.equal(
@@ -203,7 +203,9 @@ createRoot(document.querySelector('#root')).render(<App/>);`,
         () => getComputedStyle(document.documentElement).fontSize === '16px',
       );
       await page.evaluate(() => window.styleSource('palboo'));
-      await page.waitForFunction(() => document.documentElement.dataset.settingsStyle === 'palboo');
+      await page.waitForFunction(
+        () => document.documentElement.dataset.settingsStyle === 'chatgpt',
+      );
       assert.equal(
         await page.locator('html').evaluate((e) => getComputedStyle(e).fontSize),
         '16px',
