@@ -254,6 +254,7 @@ try {
     'main-preset-save',
     'main-preset-apply',
     'main-preset-rename',
+    'main-preset-update',
     'main-preset-delete',
   ])
     assert.ok(schemaFor('layout').operations.includes(op));
@@ -273,9 +274,24 @@ try {
     op: 'main-preset-save',
     placement: 'sidebar',
     name: '阅读',
+    scope: 'sidebar',
     layout: presetLayout,
   });
   const preset = savedPreset.current.layoutPresets[0];
+  assert.equal(preset.scope, 'sidebar');
+  assert.deepEqual(schemaFor('layout').choices.scope, ['all', 'sidebar', 'overlay', 'desktop']);
+  const updatedPreset = await set('layout', {
+    op: 'main-preset-update',
+    id: preset.id,
+    scope: 'all',
+  });
+  assert.equal(updatedPreset.current.layoutPresets[0].scope, 'all');
+  assert.equal(updatedPreset.current.layoutPresets[0].name, '阅读');
+  assert.deepEqual(updatedPreset.current.layoutPresets[0].layout, presetLayout);
+  await assert.rejects(
+    () => set('layout', { op: 'main-preset-update', id: preset.id, scope: 'edge' }),
+    /适用形式无效/,
+  );
   const oldPresetRevision = savedPreset.current.layoutPresetsRevision;
   await set('layout', { op: 'main-preset-apply', placement: 'sidebar', id: preset.id });
   assert.deepEqual((await cli('get', 'layout')).layouts.sidebar, presetLayout);
@@ -311,6 +327,11 @@ try {
       layout: { ...layout, visible: ['outline', 'next'] },
     },
     '--confirm',
+  );
+  assert.equal(
+    (await cli('get', 'layout')).layoutPresets[0].scope,
+    'all',
+    'overwrite retains scope',
   );
   await assert.rejects(
     () => set('layout', { op: 'main-preset-delete', id: preset.id }),

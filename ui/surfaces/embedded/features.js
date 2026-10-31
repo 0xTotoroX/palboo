@@ -169,7 +169,6 @@ export async function popoutSelectedFeature() {
 }
 export function toggleFeatureDock(open) {
   shellState.dockOpen = open;
-  dock?.reopen();
   emitSignal('render', undefined);
 }
 function frame(container, faceClick) {

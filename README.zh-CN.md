@@ -205,7 +205,9 @@ PALBOO_BIN="/Applications/Palboo.app/Contents/MacOS/palboo"
 
 名称和文件（最多 8 MB）在下次主聊天发送时交给当前 Agent 处理。导出仅包含个人添加、收藏和已掌握词条。`config set terminology --json '{"action":"reset-library"}' --confirm` 删除个人内容及导入任务，保留基础词库及其中的收藏、掌握记录。
 
-布局预设也可由 Agent 操作：`config get layout` 读取预设及当前布局，`config schema layout` 提供 `main-preset-save`、`main-preset-apply`、`main-preset-rename`、`main-preset-delete` 的字段和示例，通过 `config set layout --json` 执行。覆盖与删除需 `--confirm`，沿用界面的修订和布局校验。
+「布局与位置」的主界面布局中直接显示当前预设和管理入口。预设共用一个目录，标记为通用、侧栏推荐、浮层推荐或桌面推荐，仍可跨形式使用；各形式分别记住布局。CLI 的 `scope` 接受 `all`、`sidebar`、`overlay`、`desktop`，`main-preset-update` 可单独更新名称或标记而不覆盖已存布局。
+
+布局预设也可由 Agent 操作：`config get layout` 读取预设及当前布局，`config schema layout` 提供 `main-preset-save`、`main-preset-apply`、`main-preset-update`、`main-preset-rename`、`main-preset-delete` 的字段和示例，通过 `config set layout --json` 执行。覆盖与删除需 `--confirm`，沿用界面的修订和布局校验。
 
 用 `--data-dir` 指向其他安装。CLI 不会启动或重启 Codex。未提供的字段和凭据保持不变，数组、字典和布局树整体替换；读取时隐藏秘密，凭据通过文件或标准输入提供。
 

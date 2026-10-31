@@ -1,6 +1,6 @@
 /*
  * [INPUT]: Synthetic model records and fixture options, installed in an isolated browser only.
- * [OUTPUT]: Official-style composer/menu DOM, optional read-only electronBridge, correlated capability messages and test observations.
+ * [OUTPUT]: Official-style composer/menu DOM with fixture-owned cleanup, optional read-only electronBridge, correlated capability messages and test observations.
  * [POS]: Shared fixture for host adapter unit scenarios and real-backend/CDP integration tests.
  * [PROTOCOL]: Parent task owns maps; contains no host adapter injection or real chat/model calls.
  */
@@ -82,7 +82,7 @@ export function installModelControlFixture({ records, options = {} }) {
     };
   }
   window.clearMenus = () =>
-    document.querySelectorAll('[role="menu"]').forEach((node) => node.remove());
+    document.querySelectorAll('[data-fixture-menu]').forEach((node) => node.remove());
   window.addChat = (id, dialog = false) => {
     const pane = document.createElement('section');
     pane.dataset.threadId = id;
@@ -110,6 +110,7 @@ export function installModelControlFixture({ records, options = {} }) {
       const main = document.createElement('div');
       main.id = `main-${id}`;
       main.setAttribute('role', 'menu');
+      main.dataset.fixtureMenu = '';
       main.dataset.state = 'open';
       main.tabIndex = -1;
       const config = state.configs[id];
@@ -216,6 +217,7 @@ export function installModelControlFixture({ records, options = {} }) {
                   const sub = document.createElement('div');
                   sub.id = 'speed-menu';
                   sub.setAttribute('role', 'menu');
+                  sub.dataset.fixtureMenu = '';
                   sub.dataset.state = 'open';
                   flyout.setAttribute('aria-controls', sub.id);
                   for (const speed of ['standard', 'fast']) {
@@ -264,7 +266,10 @@ export function installModelControlFixture({ records, options = {} }) {
             const inline =
               (options.inlineModel && section === 'model') ||
               (options.flatReasoning && section === 'reasoning');
-            if (!inline) menu.setAttribute('role', 'menu');
+            if (!inline) {
+              menu.setAttribute('role', 'menu');
+              menu.dataset.fixtureMenu = '';
+            }
             menu.dataset.state = 'open';
             row.setAttribute('aria-controls', menu.id);
             const choices =

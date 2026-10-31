@@ -1,5 +1,5 @@
 /* [INPUT]: 宿主界面语义与尺寸变量和现有设置控件/分组结构。
- * [OUTPUT]: 跟随 ChatGPT 的导航/标题排版及控件角色、状态、菜单、组合输入与滑杆样式。
+ * [OUTPUT]: 跟随 ChatGPT 的导航/标题排版、标题操作中轴及控件角色、状态、菜单、组合输入与滑杆样式。
  * [POS]: 设置页唯一宿主样式；不改变业务配置与品牌图标。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 html[data-settings-style='chatgpt'] {
@@ -80,7 +80,7 @@ html[data-settings-style='chatgpt'] {
     color: var(--buddy-text);
   }
   .settings-app .settings-nav .settings-nav-children a[aria-current='page'] {
-    color: var(--buddy-text);
+    color: var(--settings-accent-text);
     background: var(--settings-nav-selected);
     font-weight: var(--settings-nav-weight);
   }
@@ -222,6 +222,9 @@ html[data-settings-style='chatgpt'] {
     column-gap: calc(var(--settings-space) * 4);
     row-gap: calc(var(--settings-space) * 2);
   }
+  .settings-layout-presets > .settings-field {
+    margin-bottom: 0;
+  }
   .settings-row {
     gap: calc(var(--settings-space) * 4);
     padding-block: calc(var(--settings-space) * 3);
@@ -231,6 +234,9 @@ html[data-settings-style='chatgpt'] {
   }
   .settings-section h2 {
     margin-bottom: calc(var(--settings-space) * 3);
+  }
+  .settings-section .bot-settings-heading h2 {
+    margin-bottom: 0;
   }
   .settings-form-column > .settings-section:not([hidden]) ~ .settings-section:not([hidden]),
   .settings-surface-group {
@@ -257,7 +263,7 @@ html[data-settings-style='chatgpt'] {
     button[aria-pressed='true'] {
     border-color: transparent;
     background: var(--settings-segmented);
-    color: var(--buddy-text);
+    color: var(--settings-accent-text);
     font-weight: var(--settings-button-weight);
   }
   .settings-app

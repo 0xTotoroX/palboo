@@ -1,5 +1,5 @@
 // [INPUT]: Checked feature layouts, current surface membership and preset revisions.
-// [OUTPUT]: Named layout snapshots and atomic apply/save/rename/delete without changing feature owners or business state.
+// [OUTPUT]: Shared named layouts with recommendation tags and atomic apply/save/update/delete; independent surface layouts and feature owners stay intact.
 // [POS]: Main-surface presentation preferences; persists inside features.json.
 // [PROTOCOL]: Keep features/AGENTS.md in sync.
 use super::*;
@@ -10,7 +10,25 @@ use std::collections::BTreeSet;
 pub(super) struct LayoutPreset {
     pub id: String,
     pub name: String,
+    #[serde(default = "default_scope")]
+    pub scope: String,
     pub layout: FeatureLayout,
+}
+
+fn default_scope() -> String {
+    "all".into()
+}
+
+fn preset_scope(input: &Value, fallback: &str) -> Result<String> {
+    let scope = match input.get("scope") {
+        Some(value) => value.as_str().context("布局预设适用形式无效")?,
+        None => fallback,
+    };
+    ensure!(
+        ["all", "sidebar", "overlay", "desktop"].contains(&scope),
+        "布局预设适用形式无效"
+    );
+    Ok(scope.into())
 }
 
 fn valid_name(name: &str) -> bool {
@@ -18,6 +36,11 @@ fn valid_name(name: &str) -> bool {
 }
 
 pub(super) fn sanitize(presets: &mut Vec<LayoutPreset>) {
+    for preset in presets.iter_mut() {
+        if !["all", "sidebar", "overlay", "desktop"].contains(&preset.scope.as_str()) {
+            preset.scope = default_scope();
+        }
+    }
     let mut ids = BTreeSet::new();
     let mut names = BTreeSet::new();
     presets.retain(|preset| {
@@ -131,6 +154,12 @@ impl App {
                         .map(str::to_owned)
                         .unwrap_or_else(|| uuid::Uuid::new_v4().to_string()),
                     name: name.into(),
+                    scope: preset_scope(
+                        input,
+                        index.map_or("all", |i| {
+                            features.main.pref.layout_presets[i].scope.as_str()
+                        }),
+                    )?,
                     layout,
                 };
                 if let Some(index) = index {
@@ -146,9 +175,26 @@ impl App {
         } else {
             let index = index.context("缺少布局预设")?;
             match op {
-                "main-preset-rename" => {
-                    let name = input["name"].as_str().context("缺少预设名称")?.trim();
-                    ensure!(valid_name(name), "预设名称需为 1–40 个字");
+                "main-preset-rename" | "main-preset-update" => {
+                    ensure!(
+                        input.get("name").is_some()
+                            || (op == "main-preset-update" && input.get("scope").is_some()),
+                        "缺少预设名称或适用形式"
+                    );
+                    let old = &features.main.pref.layout_presets[index];
+                    let name = input
+                        .get("name")
+                        .map(|v| v.as_str().context("预设名称无效"))
+                        .transpose()?
+                        .unwrap_or(&old.name)
+                        .trim()
+                        .to_owned();
+                    let scope = if op == "main-preset-update" {
+                        preset_scope(input, &old.scope)?
+                    } else {
+                        old.scope.clone()
+                    };
+                    ensure!(valid_name(&name), "预设名称需为 1–40 个字");
                     ensure!(
                         !features
                             .main
@@ -160,7 +206,8 @@ impl App {
                                 && preset.name.to_lowercase() == name.to_lowercase()),
                         "已存在同名布局预设"
                     );
-                    features.main.pref.layout_presets[index].name = name.into();
+                    features.main.pref.layout_presets[index].name = name;
+                    features.main.pref.layout_presets[index].scope = scope;
                 }
                 "main-preset-delete" => {
                     features.main.pref.layout_presets.remove(index);
@@ -297,6 +344,65 @@ mod tests {
         let current = app.features.lock().await.snapshot();
         assert_eq!(current["layoutPresets"], saved["layoutPresets"]);
         assert_eq!(current["layoutPresetsRevision"], 1);
+    }
+
+    #[tokio::test]
+    async fn shared_scopes_preserve_legacy_presets_and_independent_surface_layouts() {
+        let legacy: LayoutPreset = serde_json::from_value(
+            json!({"id":"old","name":"旧预设","layout":layout(json!(["outline"]))}),
+        )
+        .unwrap();
+        assert_eq!(legacy.scope, "all");
+        let (_dir, app) = fixture().await;
+        let saved = save(&app).await;
+        let id = &saved["layoutPresets"][0]["id"];
+        let updated = app
+            .feature_request(
+                json!({"op":"main-preset-update","id":id,"scope":"sidebar","expectedRevision":1}),
+            )
+            .await
+            .unwrap();
+        assert_eq!(updated["layoutPresets"][0]["name"], "对照");
+        assert_eq!(updated["layouts"], saved["layouts"]);
+        assert!(
+            app.feature_request(
+                json!({"op":"main-preset-update","id":id,"scope":"edge","expectedRevision":2})
+            )
+            .await
+            .is_err()
+        );
+        assert!(
+            app.feature_request(
+                json!({"op":"main-preset-update","id":id,"scope":"all","expectedRevision":1})
+            )
+            .await
+            .is_err()
+        );
+        let sidebar = layout(json!(["next"]));
+        {
+            let mut features = app.features.lock().await;
+            features.main.pref.layouts.insert(
+                "sidebar".into(),
+                serde_json::from_value(sidebar.clone()).unwrap(),
+            );
+            features.main.pref.placement = "overlay".into();
+            for entry in features.entries.values_mut() {
+                entry.pref.placement = "overlay".into();
+            }
+        }
+        let applied = app.feature_request(json!({"op":"main-preset-apply","id":id,"placement":"overlay","expectedRevision":2,"expectedLayout":null})).await.unwrap();
+        assert_eq!(applied["layouts"]["sidebar"], sidebar);
+        assert_eq!(
+            applied["layouts"]["overlay"],
+            saved["layoutPresets"][0]["layout"]
+        );
+        assert_eq!(
+            applied["layoutPresets"][0]["scope"], "sidebar",
+            "scope is a recommendation, not an application restriction"
+        );
+        let restored = Features::load(&app.paths).snapshot();
+        assert_eq!(restored["layouts"], applied["layouts"]);
+        assert_eq!(restored["layoutPresets"], applied["layoutPresets"]);
     }
 
     #[test]

@@ -275,6 +275,7 @@ function cancelSettingsOpening() {
   runtimeState.settingsOpenStatus = '';
 }
 
+/** @param {{ section?: string }} [options] */
 function openSettings({ section } = {}) {
   if (!isCurrentRuntime()) return Promise.resolve({ ok: false, cancelled: true });
   if (settingsOpening) return settingsOpening.promise;

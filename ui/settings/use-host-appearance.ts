@@ -1,5 +1,5 @@
 /* [INPUT]: 无正文宿主界面外观快照及明暗模式。
- * [OUTPUT]: 按角色映射颜色/尺寸及字体动效；双色缓存和宿主原生语义颜色，保留末次读数。
+ * [OUTPUT]: 按角色映射颜色/尺寸及字体动效；主操作/选中强调色和深色可读文字，双色缓存保留末次读数。
  * [POS]: 只影响设置文档，不更改功能布局、业务字体偏好或宿主。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { useLayoutEffect, useRef } from 'react';
@@ -43,6 +43,9 @@ export function useHostAppearance(
     const ink = colors.text || (theme === 'dark' ? '#ececec' : '#1f2328');
     const mix = (amount: number) => `color-mix(in srgb, ${ink} ${amount}%, ${paper})`;
     const accent = colors.accent || ink;
+    // 某些宿主深色快照仍提供浅色模式的深紫文字色；深色表面采用同源亮强调色。
+    const accentText = theme === 'dark' ? accent : colors.accentText || accent;
+    const accentFill = (amount: number) => `color-mix(in srgb, ${accent} ${amount}%, ${paper})`;
     const geometry = palette?.geometry || last.current?.geometry || {};
     const metric = (
       key: keyof NonNullable<HostSettingsAppearance['geometry']>,
@@ -99,7 +102,7 @@ export function useHostAppearance(
       '--settings-nav-radius': metric('navRadius', 'border-radius', '0.5rem'),
       '--settings-nav-weight': metric('navWeight', 'font-weight', '400'),
       '--settings-nav-group-weight': metric('navGroupWeight', 'font-weight', '500'),
-      '--settings-nav-selected': colors.navSelected || colors.hover || mix(8),
+      '--settings-nav-selected': accentFill(14),
       '--settings-nav-group-color': colors.tertiary || colors.muted || mix(55),
       '--settings-page-title-size': fontMetric('pageTitleSize', 'font-size', '1.5rem'),
       '--settings-page-title-line-height': fontMetric('pageTitleLineHeight', 'line-height', '1.2'),
@@ -138,17 +141,17 @@ export function useHostAppearance(
       '--settings-input-border': colors.inputBorder || colors.border || mix(15),
       '--settings-ghost-hover': colors.ghostHover || colors.hover || mix(5),
       '--settings-ghost-active': colors.ghostActive || colors.ghostHover || mix(12),
-      '--settings-segmented': colors.segmented || mix(10),
-      '--settings-segmented-hover': colors.segmentedHover || mix(15),
+      '--settings-segmented': accentFill(16),
+      '--settings-segmented-hover': accentFill(22),
       '--settings-slider-track': colors.sliderTrack || colors.border || mix(15),
       '--settings-placeholder': colors.placeholder || colors.muted || mix(65),
       '--settings-disabled-background': colors.disabledBackground || mix(5),
       '--settings-disabled-border': colors.disabledBorder || mix(6),
       '--settings-disabled-text': colors.disabledText || mix(45),
-      '--settings-button-background': colors.primary || accent,
-      '--settings-button-hover': colors.primaryHover || colors.primary || accent,
-      '--settings-button-active': colors.primaryActive || colors.primaryHover || accent,
-      '--settings-button-text': colors.primaryText || colors.onAccent || paper,
+      '--settings-button-background': accent,
+      '--settings-button-hover': `color-mix(in srgb, ${accent} 90%, ${ink})`,
+      '--settings-button-active': `color-mix(in srgb, ${accent} 82%, ${ink})`,
+      '--settings-button-text': colors.onAccent || paper,
       '--settings-menu-hover': colors.menuHover || colors.hover || mix(6),
       '--settings-backdrop': colors.backdrop || (theme === 'dark' ? '#0008' : '#0005'),
       '--settings-selection': colors.selection || colors.selected || mix(15),
@@ -169,11 +172,11 @@ export function useHostAppearance(
       '--settings-control-hover': colors.hover || mix(6),
       '--settings-menu-surface': colors.menu || colors.surface || paper,
       '--settings-rule': colors.border || mix(14),
-      '--settings-orange': colors.accentText || accent,
-      '--settings-accent-text': colors.accentText || accent,
-      '--settings-selected': colors.selected || mix(10),
-      '--settings-selected-text': ink,
-      '--settings-switch-on': colors.switchOn || accent,
+      '--settings-orange': accentText,
+      '--settings-accent-text': accentText,
+      '--settings-selected': accentFill(14),
+      '--settings-selected-text': accentText,
+      '--settings-switch-on': accent,
       '--settings-switch-thumb': colors.switchThumb || '#ffffff',
       '--switch-track': colors.switchTrack || mix(15),
       '--settings-primary-text': colors.onAccent || paper,

@@ -119,8 +119,8 @@ try {
   // A second eligible page makes selecting the configured target observable, rather than incidental.
   const page = await context.newPage();
   const decoy = await context.newPage();
-  page.on('pageerror', (error) => pageErrors.push(error.message));
-  decoy.on('pageerror', (error) => pageErrors.push(error.message));
+  page.on('pageerror', (error) => pageErrors.push(error.stack || error.message));
+  decoy.on('pageerror', (error) => pageErrors.push(error.stack || error.message));
   await page.goto(`${fixtureOrigin}/fixture?selected=1`);
   await decoy.goto(`${fixtureOrigin}/fixture?decoy=1`);
   await page.bringToFront();
@@ -298,7 +298,7 @@ try {
   assert.equal(refreshed.snapshot.status, 'ready');
   assert.deepEqual(refreshed.snapshot.current, initial);
   assert.ok(await page.evaluate(() => host.triggerEvents > 0));
-  assert.equal(await page.locator('[role="menu"]').count(), 0);
+  assert.equal(await page.locator('[data-fixture-menu]').count(), 0);
   record('authenticated refresh opens official fixture menus and returns complete readback');
 
   const applied = await api('apply', command(refreshed.snapshot, fast));
@@ -386,7 +386,7 @@ try {
   assert.equal(newChat.result.status, 'success', newChat.result.message);
   assert.deepEqual(newChat.snapshot.current, beta);
   assert.deepEqual(await page.evaluate(() => host.configs['chat-b']), beta);
-  assert.equal(await page.locator('[role="menu"]').count(), 0);
+  assert.equal(await page.locator('[data-fixture-menu]').count(), 0);
   record(
     'unsent new chat switches and reads back through authenticated backend/CDP without a saved ID',
   );
@@ -509,7 +509,7 @@ try {
   const modernBeta = await api('apply', command(preserved.snapshot, beta));
   assert.equal(modernBeta.result.status, 'success', modernBeta.result.message);
   assert.deepEqual(modernBeta.snapshot.current, beta);
-  assert.equal(await page.locator('[role="menu"]').count(), 0);
+  assert.equal(await page.locator('[data-fixture-menu]').count(), 0);
   record('embedded adapter switches modern same-root model view, slider and Fast through Rust/CDP');
 
   await page.evaluate(() => {
@@ -537,7 +537,7 @@ try {
   assert.deepEqual(pageErrors, []);
   record('decoy target untouched; no model requests or page errors');
   settingsPage = await browser.newPage({ locale: 'zh-CN', viewport: { width: 1100, height: 900 } });
-  settingsPage.on('pageerror', (error) => pageErrors.push(error.message));
+  settingsPage.on('pageerror', (error) => pageErrors.push(error.stack || error.message));
   await settingsPage.goto(`${base}/#token=${runtime.token}`);
   {
     await settingsPage.getByRole('link', { name: '模型切换', exact: true }).click();

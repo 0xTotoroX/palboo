@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 独立 Chromium、合成 fixture、release/debug 程序与模型 stub。
- * [OUTPUT]: target/reports/e2e 下的 CDP、设置与统一字体双向同步、完整长上下文三协议传输、建议、大纲、弹出及旧工作台迁移验收报告。
+ * [OUTPUT]: target/reports/e2e 下的 CDP、设置与分形式字体双向同步、完整长上下文三协议传输、建议、大纲、弹出及旧工作台迁移验收报告。
  * [POS]: 端到端测试入口，委托 popout-checks 验证窗口协议；--native-popout 以真实 Wry 窗口验收大纲定位与往返，不截图。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -1176,22 +1176,31 @@ try {
     });
     assert.notEqual(staleAppearance.status, 200);
     await page.getByRole('link', { name: '外观与字体', exact: true }).click();
-    await page.getByLabel('字体大小', { exact: true }).selectOption('custom');
-    await page.getByLabel('自定义字号（px）', { exact: true }).fill('18');
-    await page.getByLabel('自定义字号（px）', { exact: true }).blur();
+    await page.locator('#typography-surface').selectOption('overlay');
+    await page.locator('#typography-overlay-mode').selectOption('custom');
+    await page.locator('#typography-overlay-size').fill('18');
+    await page.locator('#typography-overlay-size').blur();
     await waitFor(async () => {
       const saved = (await api('appearance')).body;
-      const fontSize = await desktop.evaluate(() => window.__palbooTypography?.resolved().fontSize);
-      return (
-        saved.typography.mode === 'custom' && saved.typography.customSize === 18 && fontSize === 18
+      const fontSize = await desktop.evaluate(
+        () => window.__palbooTypography?.resolved('overlay').fontSize,
       );
-    }, 'Web unified font size did not save and reach the host');
+      return (
+        saved.surfaceTypography.overlay?.mode === 'custom' &&
+        saved.surfaceTypography.overlay?.customSize === 18 &&
+        fontSize === 18
+      );
+    }, 'Web overlay font size did not save and reach the host');
+    assert.deepEqual((await api('appearance')).body.typography, appearanceBefore.typography);
     assert.deepEqual((await api('appearance')).body.ui.fontSizes, appearanceBefore.ui.fontSizes);
     const currentAppearance = (await api('appearance')).body;
     await api('appearance', {
       expectedRevision: currentAppearance.revision,
       ui: appearanceBefore.ui,
       typography: appearanceBefore.typography,
+      surfaceTypography: {
+        overlay: appearanceBefore.surfaceTypography?.overlay || appearanceBefore.typography,
+      },
     });
     await waitFor(
       async () => (await panelState()).material === appearanceBefore.ui.material,

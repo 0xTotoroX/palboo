@@ -1,5 +1,5 @@
 // [INPUT]: Tao/Wry、Runtime、Preferences、Palboo.app 身份、共享 native_backdrop 与 AppKit 手势。
-// [OUTPUT]: 原生红黄绿、Palboo 应用身份、置顶/Spaces、跨屏往返及双向短过渡回退、有序释放手势的同帧缩放。
+// [OUTPUT]: 原生红黄绿、Palboo 应用身份、置顶/Spaces、共用可逆路径的跨屏往返/中断恢复、双向短过渡回退及同帧缩放。
 // [POS]: 窗口子进程实现；系统管理最小化/放大/全屏，关闭沿用收回，普通几何独立于临时窗口状态。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
@@ -38,6 +38,48 @@ enum Motion {
     Close,
 }
 
+#[derive(Clone, Copy)]
+struct WindowPath {
+    source: Pose,
+    desktop: Pose,
+    spatial: bool,
+}
+impl WindowPath {
+    // q=0 是聊天内，q=1 是桌面。普通窗口和开发网格只负责绘制，同一 q 始终对应同一帧。
+    fn sample(self, q: f64) -> (Pose, [f64; 2]) {
+        let q = q.clamp(0., 1.);
+        let eased = q.powi(3);
+        let mix = |a, b| a + (b - a) * eased;
+        let arc = if self.spatial {
+            (std::f64::consts::PI * q).sin()
+        } else {
+            0.
+        };
+        let pose = Pose {
+            x: mix(self.source.x, self.desktop.x),
+            y: mix(self.source.y, self.desktop.y) + 10. * arc,
+            width: mix(self.source.width, self.desktop.width),
+            height: mix(self.source.height, self.desktop.height),
+            scale: mix(self.source.scale, self.desktop.scale),
+            alpha: if self.spatial {
+                1.
+            } else {
+                self.source.alpha + (self.desktop.alpha - self.source.alpha) * q
+            },
+        };
+        let strength = 0.74 * arc.powi(2);
+        let dx = self.source.x + self.source.width / 2. - self.desktop.x - self.desktop.width / 2.;
+        let dy =
+            -(self.source.y + self.source.height / 2. - self.desktop.y - self.desktop.height / 2.);
+        let bend = if dx.abs() > dy.abs() {
+            [strength * dx.signum(), 0.]
+        } else {
+            [0., strength * if dy == 0. { 1. } else { dy.signum() }]
+        };
+        (pose, bend)
+    }
+}
+
 struct WindowTransition {
     started: std::time::Instant,
     last_frame: std::time::Instant,
@@ -46,95 +88,65 @@ struct WindowTransition {
     to: Pose,
     motion: Motion,
     spatial: bool,
-    genie_entry: bool,
-    initial_bend: [f64; 2],
+    path: Option<WindowPath>,
+    start_q: f64,
+    end_q: f64,
+    last_q: f64,
 }
 
 impl WindowTransition {
+    fn progress(&self, now: std::time::Instant) -> f64 {
+        (now.duration_since(self.started).as_secs_f64() / self.duration.as_secs_f64()).clamp(0., 1.)
+    }
+    fn q(&self, now: std::time::Instant) -> f64 {
+        self.start_q + (self.end_q - self.start_q) * self.progress(now)
+    }
     fn value(&self, now: std::time::Instant) -> (Pose, bool) {
-        let progress = (now.duration_since(self.started).as_secs_f64()
-            / self.duration.as_secs_f64())
-        .clamp(0., 1.);
-        // 网格入场沿收回路径反向展开；普通空间过渡仍先接住来源再离开。
-        let travel = if self.motion == Motion::Enter && self.spatial && !self.genie_entry {
-            ((progress - 0.22) / 0.78).clamp(0., 1.)
-        } else {
-            progress
-        };
-        let eased = if self.genie_entry {
-            travel.powi(3)
-        } else {
-            1. - (1. - travel).powi(3)
-        };
+        let progress = self.progress(now);
+        if let Some(path) = self.path {
+            return (path.sample(self.q(now)).0, progress >= 1.);
+        }
+        let eased = 1. - (1. - progress).powi(3);
         let mix = |a, b| a + (b - a) * eased;
-        let opacity = if self.genie_entry {
-            1.
-        } else if self.motion == Motion::Enter {
-            (progress / 0.25).min(1.)
-        } else {
-            eased
-        };
-        let pulse = if self.spatial && self.motion == Motion::Enter && !self.genie_entry {
-            0.007 * (std::f64::consts::PI * travel).sin().powi(2)
-        } else {
-            0.
-        };
         (
             Pose {
                 x: mix(self.from.x, self.to.x),
-                y: mix(self.from.y, self.to.y)
-                    + if self.spatial {
-                        10. * (std::f64::consts::PI * travel).sin()
-                    } else {
-                        0.
-                    },
-                scale: mix(self.from.scale, self.to.scale) + pulse,
+                y: mix(self.from.y, self.to.y),
                 width: mix(self.from.width, self.to.width),
                 height: mix(self.from.height, self.to.height),
-                alpha: self.from.alpha + (self.to.alpha - self.from.alpha) * opacity,
+                scale: mix(self.from.scale, self.to.scale),
+                alpha: mix(self.from.alpha, self.to.alpha),
             },
             progress >= 1.,
         )
     }
-
     fn bend(&self, now: std::time::Instant) -> [f64; 2] {
-        let t = (now.duration_since(self.started).as_secs_f64() / self.duration.as_secs_f64())
-            .clamp(0., 1.);
-        if self.motion == Motion::Recover {
-            return self.initial_bend.map(|value| value * (1. - t).powi(3));
-        }
-        if !self.spatial || !matches!(self.motion, Motion::Enter | Motion::Return) {
-            return [0., 0.];
-        }
-        let t = if self.motion == Motion::Enter && !self.genie_entry {
-            ((t - 0.22) / 0.78).clamp(0., 1.)
-        } else {
-            t
-        };
-        let strength = 0.74 * (std::f64::consts::PI * t).sin().powi(2);
-        let direction = if self.genie_entry { -1. } else { 1. };
-        let dx = direction * (self.to.x + self.to.width / 2. - self.from.x - self.from.width / 2.);
-        let dy =
-            -direction * (self.to.y + self.to.height / 2. - self.from.y - self.from.height / 2.);
-        if dx.abs() > dy.abs() {
-            [strength * dx.signum(), 0.]
-        } else {
-            [0., strength * if dy == 0. { 1. } else { dy.signum() }]
-        }
+        self.path
+            .map_or([0., 0.], |path| path.sample(self.q(now)).1)
     }
-
     fn frame(&mut self, now: std::time::Instant) -> (Pose, bool, [f64; 2]) {
-        // 系统忙时保留中间帧，不让第一帧直接跨过整段淡出或曲面形变。
+        // 系统忙时保留中间帧，不让第一帧跨过整段动画。
         let delta = now.duration_since(self.last_frame);
         let max_step = std::time::Duration::from_millis(32);
         if delta > max_step {
             self.started += delta - max_step;
         }
         self.last_frame = now;
+        self.last_q = self.q(now);
         let (pose, finished) = self.value(now);
         (pose, finished, self.bend(now))
     }
-
+    fn reverse(self, motion: Motion) -> Self {
+        let mut next = Self::new(self.from, self.to, motion, self.spatial);
+        next.path = self.path;
+        next.start_q = self.last_q;
+        next.last_q = self.last_q;
+        next.end_q = if motion == Motion::Return { 0. } else { 1. };
+        next.duration = next
+            .duration
+            .mul_f64((next.end_q - next.start_q).abs().max(0.001));
+        next
+    }
     fn new(from: Pose, to: Pose, motion: Motion, spatial: bool) -> Self {
         let ms = match (motion, spatial) {
             (Motion::Enter, true) => 320,
@@ -143,6 +155,12 @@ impl WindowTransition {
             _ => 140,
         };
         let now = std::time::Instant::now();
+        let returning = motion == Motion::Return;
+        let path = (motion != Motion::Close).then_some(WindowPath {
+            source: if returning { to } else { from },
+            desktop: if returning { from } else { to },
+            spatial,
+        });
         Self {
             started: now,
             last_frame: now,
@@ -151,8 +169,10 @@ impl WindowTransition {
             to,
             motion,
             spatial,
-            genie_entry: false,
-            initial_bend: [0., 0.],
+            path,
+            start_q: if returning { 1. } else { 0. },
+            end_q: if returning { 0. } else { 1. },
+            last_q: if returning { 1. } else { 0. },
         }
     }
 }
@@ -630,6 +650,7 @@ pub fn run_surface(
     let mut reported_glass_style = None;
     let mut window_transition: Option<WindowTransition> = None;
     let mut return_origin: Option<Pose> = None;
+    let mut held_return: Option<WindowTransition> = None;
     let mut presentation_reported = false;
     let experimental_genie = cfg!(debug_assertions)
         && (crate::assets::development().is_some()
@@ -638,7 +659,6 @@ pub fn run_surface(
         macos::native_window(&window).windowNumber() as i32,
         experimental_genie,
     );
-    let mut current_bend = [0., 0.];
     let mut motion_pose: Option<Pose> = None;
     let mut warp_source = macos::native_window(&window).frame().size;
     let mut next_motion_frame = std::time::Instant::now();
@@ -737,10 +757,10 @@ pub fn run_surface(
                     let mut target = macos::pose(&window);
                     target.alpha = 1.;
                     target.scale = 1.;
-                    let anchor = macos::anchor_pose(&window, &message["anchor"])
+                    let mut anchor = macos::anchor_pose(&window, &message["anchor"])
                         .filter(|p| p.height >= 364. || warp.as_ref().is_some_and(|w| w.available()));
                     let mut from = anchor.unwrap_or(target);
-                    from.alpha = 0.;
+                    from.alpha = if anchor.is_some() { 1. } else { 0. };
                     if anchor.is_none() { from.scale = 0.98; }
                     if macos::reduce_motion() { from = target; }
                     warp_source = macos::native_window(&window).frame().size;
@@ -753,7 +773,13 @@ pub fn run_surface(
                             genie_entry = warp.available();
                         }
                     }
-                    if !genie_entry { macos::apply_pose(&window, from, &backdrop); }
+                    if !genie_entry {
+                        if anchor.is_some_and(|p| p.height < 364.) {
+                            anchor = None;
+                            from = Pose { scale: 0.98, alpha: 0., ..target };
+                        }
+                        macos::apply_pose(&window, from, &backdrop);
+                    } else { macos::set_window_alpha(&window, from.alpha); }
                     window.set_visible(!scope_hidden);
                     window_hidden = false;
                     publish_window_controls(&webview, &window, normal_window_pose, window_hidden);
@@ -762,9 +788,7 @@ pub fn run_surface(
                         presentation_reported = true;
                         let _ = webview.evaluate_script("window.__companionPopout?.presented(); window.__companionPopout?.motionFinished();");
                     } else {
-                        let mut transition = WindowTransition::new(from, target, Motion::Enter, anchor.is_some());
-                        transition.genie_entry = genie_entry;
-                        window_transition = Some(transition);
+                        window_transition = Some(WindowTransition::new(from, target, Motion::Enter, anchor.is_some()));
                     }
                 }
                 "return" => {
@@ -777,7 +801,10 @@ pub fn run_surface(
                     }
                     warp_source = macos::native_window(&window).frame().size;
                     let from = motion_pose.unwrap_or_else(|| macos::pose(&window));
-                    return_origin = Some(Pose { scale: 1., alpha: 1., ..from });
+                    // 重复收回不重设路径；入场中反向保留稳定桌面终点和已绘制进度。
+                    if window_transition.as_ref().is_some_and(|t| t.motion == Motion::Return) || held_return.is_some() { return; }
+                    let active = window_transition.take();
+                    return_origin = Some(active.as_ref().and_then(|t| t.path).map_or(Pose { scale: 1., alpha: 1., ..from }, |p| p.desktop));
                     if macos::reduce_motion() {
                         window_transition = None;
                         let _ = webview.evaluate_script("window.__companionPopout?.returned(true);");
@@ -786,12 +813,10 @@ pub fn run_surface(
                             .filter(|p| p.height >= 364. || warp.as_ref().is_some_and(|w| w.available()));
                         // 小入口、无效坐标或私有曲面不可用时，沿入场的短缩放/淡入反向收回。
                         // 动画完成后才交还内容；取消或交接失败仍可从当前帧恢复原窗口。
-                        window_transition = Some(WindowTransition::new(
-                            from,
-                            target.unwrap_or(Pose { scale: 0.98, alpha: 0., ..from }),
-                            Motion::Return,
-                            target.is_some(),
-                        ));
+                        window_transition = Some(match active {
+                            Some(transition) if matches!(transition.motion, Motion::Enter | Motion::Recover) => transition.reverse(Motion::Return),
+                            _ => WindowTransition::new(from, target.unwrap_or(Pose { scale: 0.98, alpha: 0., ..from }), Motion::Return, target.is_some()),
+                        });
                     }
                 }
                 "cancel-return" => {
@@ -801,15 +826,14 @@ pub fn run_surface(
                         let from = motion_pose.unwrap_or_else(|| macos::pose(&window));
                         if macos::reduce_motion() {
                             if let Some(warp) = &mut warp { warp.reset(); }
-                            current_bend = [0., 0.];
                             motion_pose = None;
                             macos::apply_pose(&window, target, &backdrop);
                             window_transition = None;
+                            held_return = None;
                             let _ = webview.evaluate_script("window.__companionPopout?.motionFinished();");
                         } else {
-                            let mut transition = WindowTransition::new(from, target, Motion::Recover, true);
-                            transition.initial_bend = current_bend;
-                            window_transition = Some(transition);
+                            window_transition = Some(window_transition.take().or_else(|| held_return.take())
+                                .map_or_else(|| WindowTransition::new(from, target, Motion::Recover, false), |transition| transition.reverse(Motion::Recover)));
                         }
                     }
                     let _ = webview.evaluate_script("window.__companionPopout?.returned(false);");
@@ -835,10 +859,10 @@ pub fn run_surface(
                     // 先结束旧手势，防止两个 WebKit live-resize 生命周期交叉。
                     drop(gesture.take());
                     if let Some(warp) = &mut warp { warp.reset(); }
-                    current_bend = [0., 0.];
                     if window_transition.is_some() || return_origin.is_some() {
                         window_transition = None;
                         return_origin = None;
+                    held_return = None;
                         let current = motion_pose.take().unwrap_or_else(|| macos::pose(&window));
                         macos::apply_pose(&window, Pose { scale: 1., alpha: 1., ..current }, &backdrop);
                         let _ = webview.evaluate_script("window.__companionPopout?.returned(false); window.__companionPopout?.motionFinished();");
@@ -954,7 +978,7 @@ pub fn run_surface(
             next_motion_frame = now + std::time::Duration::from_millis(16);
             let (pose, finished, bend) = transition.frame(now);
             let motion = transition.motion;
-            current_bend = bend;
+            let current_bend = bend;
             motion_pose = Some(pose);
             let use_warp = (transition.spatial || (motion == Motion::Close && motion_pose.is_some()))
                 && warp.as_ref().is_some_and(|w| w.available());
@@ -971,12 +995,12 @@ pub fn run_surface(
             if finished {
                 if motion != Motion::Return || !use_warp {
                     if let Some(warp) = &mut warp { warp.reset(); }
-                    current_bend = [0., 0.];
                     if motion != Motion::Close { macos::apply_pose(&window, pose, &backdrop); }
                     motion_pose = None;
                 }
                 let status = warp.as_ref().map_or(json!({"supported":false}), |warp| warp.status());
                 let _ = webview.evaluate_script(&format!("window.__companionNativeWarp = {status};"));
+                held_return = if motion == Motion::Return { window_transition.take() } else { None };
                 window_transition = None;
                 match motion {
                     Motion::Close => *control = ControlFlow::Exit,
@@ -1073,7 +1097,7 @@ mod motion_tests {
     }
 
     #[test]
-    fn genie_entry_reverses_return_without_a_hidden_or_held_start() {
+    fn spatial_entry_reverses_return_without_a_hidden_or_held_start() {
         for (width, height) in [(108., 70.), (428., 400.)] {
             let source = Pose {
                 x: 300.,
@@ -1092,7 +1116,7 @@ mod motion_tests {
                 alpha: 1.,
             };
             let returning = WindowTransition::new(destination, source, Motion::Return, true);
-            let mut entering = WindowTransition::new(
+            let entering = WindowTransition::new(
                 Pose {
                     alpha: 0.,
                     ..source
@@ -1101,7 +1125,6 @@ mod motion_tests {
                 Motion::Enter,
                 true,
             );
-            entering.genie_entry = true;
             for step in 0..=16 {
                 let t = f64::from(step) / 16.;
                 let enter_time = entering.started + entering.duration.mul_f64(t);
@@ -1136,7 +1159,7 @@ mod motion_tests {
     }
 
     #[test]
-    fn lift_holds_the_source_until_visible_and_finishes_at_rest() {
+    fn lift_starts_visible_at_source_and_finishes_at_rest() {
         let from = Pose {
             x: 300.,
             y: 400.,
@@ -1156,8 +1179,11 @@ mod motion_tests {
         let motion = WindowTransition::new(from, to, Motion::Enter, true);
         let (handoff, _) = motion.value(motion.started + std::time::Duration::from_millis(50));
         assert!(handoff.alpha >= 0.55);
-        assert_eq!(handoff.x, from.x);
-        assert_eq!(handoff.height, from.height);
+        let (first, _) = motion.value(motion.started);
+        assert_eq!(first.x, from.x);
+        assert_eq!(first.height, from.height);
+        assert_eq!(first.alpha, 1.);
+        assert!(handoff.x > from.x && handoff.height > from.height);
         let (last, finished) = motion.value(motion.started + motion.duration);
         assert!(finished);
         assert_eq!(last.x, to.x);
@@ -1189,14 +1215,62 @@ mod motion_tests {
             scale: 0.98,
             alpha: 1.,
         };
-        let motion = WindowTransition::new(from, to, Motion::Return, true);
-        let (current, _) = motion.value(motion.started + std::time::Duration::from_millis(100));
-        let reversed = WindowTransition::new(current, from, Motion::Recover, true);
+        let mut motion = WindowTransition::new(from, to, Motion::Return, true);
+        let time = motion.started + std::time::Duration::from_millis(100);
+        motion.last_frame = time;
+        let (current, _, bend) = motion.frame(time);
+        let reversed = motion.reverse(Motion::Recover);
+        assert_eq!(reversed.bend(reversed.started), bend);
         let (first, _) = reversed.value(reversed.started);
         assert_eq!(first.x, current.x);
         assert_eq!(first.y, current.y);
         assert_eq!(first.height, current.height);
         assert_eq!(first.scale, current.scale);
         assert_eq!(first.alpha, 1.);
+        let (end, finished) = reversed.value(reversed.started + reversed.duration);
+        assert!(finished);
+        assert_eq!(end.x, from.x);
+        assert_eq!(end.height, from.height);
+    }
+
+    #[test]
+    fn interrupted_entry_and_completed_return_keep_the_same_path() {
+        let source = Pose {
+            x: 200.,
+            y: 300.,
+            scale: 0.98,
+            width: 420.,
+            height: 400.,
+            alpha: 1.,
+        };
+        let desktop = Pose {
+            x: 800.,
+            y: 100.,
+            scale: 1.,
+            width: 680.,
+            height: 700.,
+            alpha: 1.,
+        };
+        let mut entry = WindowTransition::new(source, desktop, Motion::Enter, true);
+        let time = entry.started + entry.duration.mul_f64(0.4);
+        entry.last_frame = time;
+        let (visible, _, bend) = entry.frame(time);
+        let mut returning = entry.reverse(Motion::Return);
+        let (first, _) = returning.value(returning.started);
+        assert_eq!(first.x, visible.x);
+        assert_eq!(first.y, visible.y);
+        assert_eq!(returning.bend(returning.started), bend);
+        assert_eq!(returning.duration.as_millis(), 104);
+        let end = returning.started + returning.duration;
+        returning.last_frame = end;
+        let (arrived, finished, _) = returning.frame(end);
+        assert!(finished);
+        assert_eq!(arrived.x, source.x);
+        let recover = returning.reverse(Motion::Recover);
+        assert_eq!(recover.value(recover.started).0.height, source.height);
+        assert_eq!(
+            recover.value(recover.started + recover.duration).0.height,
+            desktop.height
+        );
     }
 }

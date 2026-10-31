@@ -18,6 +18,11 @@
   box-sizing: border-box;
   overflow: hidden;
 }
+[data-palboo-dock][data-dock-motion='true'] > [data-companion-stepwise-root] {
+  left: auto;
+  right: 0;
+  width: var(--csw-dock-motion-width);
+}
 [data-palboo-dock][data-expanded='true']::after {
   content: '';
   position: absolute;

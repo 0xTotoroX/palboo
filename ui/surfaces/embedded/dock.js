@@ -1,7 +1,7 @@
 import { tr } from '../../shared/i18n.js';
 /*
  * [INPUT]: 已识别的 Codex 主内容、标签页、前景聊天及 Dots 官方输入区布局、期望侧栏宽度、开合状态和默认关闭的新聊天/Dots 独立许可。
- * [OUTPUT]: CSS 像素宽度上限、独立调节的聊天/侧栏边界、可撤销占位和屏幕几何；缩窄优先保留最小侧栏，手动收起占位归零。
+ * [OUTPUT]: CSS 像素宽度上限、聊天/侧栏边界与可逆220ms占位收放；保留内容宽度与节点，缩窄优先保留最小侧栏，手动收起占位归零。
  * [POS]: 宿主布局适配；不移动聊天节点，不读取正文，不包含功能视图。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -62,6 +62,30 @@ export function createDock(onChange, beforeMove = () => {}) {
   let preferredWidth = null;
   let chatReserve = CHAT_PREFERRED_WIDTH;
   let hostResize = null;
+  let motion = null,
+    motionWidth = 0,
+    desiredOpen = null,
+    keyboard = false,
+    instant = false;
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+  function stopMotion() {
+    motion?.cancel();
+    motion = null;
+    if (slot) {
+      delete slot.dataset.dockMotion;
+      slot.style.removeProperty('--csw-dock-motion-width');
+      slot.style.overflow = 'visible';
+    }
+    if (attachedRoot) attachedRoot.inert = false;
+  }
+  function settleMotion() {
+    instant = true;
+    schedule();
+  }
+  function inputMode(event) {
+    keyboard = event.type === 'keydown';
+    if (keyboard && motion) settleMotion();
+  }
   const schedule = () => {
     if (!destroyed && !frame)
       frame = requestAnimationFrame(() => {
@@ -108,7 +132,10 @@ export function createDock(onChange, beforeMove = () => {}) {
     attributes: true,
     attributeFilter: ['open', 'aria-hidden', 'aria-modal', 'style', 'class'],
   });
-  window.addEventListener('resize', schedule);
+  window.addEventListener('resize', settleMotion);
+  reduced.addEventListener('change', settleMotion);
+  document.addEventListener('keydown', inputMode, true);
+  document.addEventListener('pointerdown', inputMode, true);
   document.addEventListener('focusin', schedule);
   document.addEventListener('pointerdown', schedule);
   document.addEventListener('pointerdown', startHostResize, true);
@@ -148,6 +175,8 @@ export function createDock(onChange, beforeMove = () => {}) {
     publish({ status: suspended ? 'suspended' : 'unsupported', rect: null });
   }
   function removeSlot() {
+    stopMotion();
+    desiredOpen = null;
     if (slot) beforeMove();
     observer?.disconnect();
     observer = null;
@@ -225,12 +254,46 @@ export function createDock(onChange, beforeMove = () => {}) {
     // 空间变化只是暂时让位；聊天切换不能覆盖用户的开合意愿。
     const returnExpanded = options.open && enough;
     const expanded = !options.detached && returnExpanded;
-    if (dockExpanded && !expanded) beforeMove();
-    dockExpanded = expanded;
-    slot.dataset.expanded = String(expanded);
-    placeRoot();
     const width = expanded ? requestedWidth : 0;
+    const changed = desiredOpen !== null && desiredOpen !== expanded;
+    const from = slot.getBoundingClientRect().width / scale;
+    if (changed || instant || (motion && motionWidth !== requestedWidth)) stopMotion();
     if (slot.style.width !== `${width}px`) slot.style.width = `${width}px`;
+    if (
+      changed &&
+      enough &&
+      !options.detached &&
+      !keyboard &&
+      !reduced.matches &&
+      !instant &&
+      attachedRoot &&
+      Math.abs(from - width) > 1
+    ) {
+      motionWidth = requestedWidth;
+      slot.dataset.dockMotion = 'true';
+      slot.style.overflow = 'hidden';
+      slot.style.setProperty('--csw-dock-motion-width', `${requestedWidth}px`);
+      attachedRoot.inert = true;
+      const animation = slot.animate([{ width: `${from}px` }, { width: `${width}px` }], {
+        duration: 220 * Math.min(1, Math.abs(from - width) / requestedWidth),
+        easing: 'cubic-bezier(.22,1,.36,1)',
+      });
+      motion = animation;
+      animation.finished
+        .then(() => {
+          if (destroyed || motion !== animation) return;
+          stopMotion();
+          update();
+        })
+        .catch(() => {});
+    }
+    desiredOpen = expanded;
+    instant = false;
+    const presenting = expanded || !!motion;
+    if (dockExpanded && !presenting) beforeMove();
+    dockExpanded = presenting;
+    slot.dataset.expanded = String(presenting);
+    placeRoot();
     slot.dataset.reason = enough ? '' : 'space';
     const rect = slot.getBoundingClientRect();
     const scaleY = slot.offsetHeight > 0 ? rect.height / slot.offsetHeight : 1;
@@ -244,12 +307,12 @@ export function createDock(onChange, beforeMove = () => {}) {
       return;
     }
     publish({
-      status: expanded ? 'open' : options.detached ? 'detached' : enough ? 'closed' : 'space',
+      status: presenting ? 'open' : options.detached ? 'detached' : enough ? 'closed' : 'space',
       transient: !!host.dialog,
       rect: {
-        left: rect.left,
+        left: motion ? rect.right - requestedWidth * scale : rect.left,
         top: Math.max(rect.top, 48),
-        width: rect.width,
+        width: motion ? requestedWidth * scale : rect.width,
         scale,
         height: rect.bottom - Math.max(rect.top, 48),
         right: rect.right,
@@ -284,6 +347,7 @@ export function createDock(onChange, beforeMove = () => {}) {
   return {
     update,
     resize(width) {
+      instant = true;
       allocatedWidth = width;
       preferredWidth = width;
       chatReserve = CHAT_PREFERRED_WIDTH;
@@ -301,7 +365,10 @@ export function createDock(onChange, beforeMove = () => {}) {
       destroyed = true;
       mutations.disconnect();
       observer?.disconnect();
-      window.removeEventListener('resize', schedule);
+      window.removeEventListener('resize', settleMotion);
+      reduced.removeEventListener('change', settleMotion);
+      document.removeEventListener('keydown', inputMode, true);
+      document.removeEventListener('pointerdown', inputMode, true);
       document.removeEventListener('focusin', schedule);
       document.removeEventListener('pointerdown', schedule);
       document.removeEventListener('pointerdown', startHostResize, true);

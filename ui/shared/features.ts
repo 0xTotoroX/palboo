@@ -100,7 +100,13 @@ export type Entry = {
 export type LayoutGroup = { ids: string[]; active: string; weight: number; collapsed?: boolean };
 export type LayoutNode = LayoutGroup | (FeatureLayout & { weight: number });
 export type FeatureLayout = { axis: string; groups: LayoutNode[]; visible?: string[] };
-export type LayoutPreset = { id: string; name: string; layout: FeatureLayout };
+export type LayoutPresetScope = 'all' | 'sidebar' | 'overlay' | 'desktop';
+export type LayoutPreset = {
+  id: string;
+  name: string;
+  scope?: LayoutPresetScope;
+  layout: FeatureLayout;
+};
 export type EdgeTabs = { order: string[]; selected: string };
 export type FeatureState = {
   scopeAllowed?: boolean;

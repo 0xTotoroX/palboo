@@ -111,7 +111,7 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
             '--app-color-background-surface': dark ? '#101010' : '#ffffff',
             '--app-color-text-foreground': dark ? '#ededed' : '#1f2328',
             '--codex-theme-accent-color': '#a67df2',
-            '--app-color-text-accent': dark ? '#c4a8ff' : '#7849d1',
+            '--app-color-text-accent': '#7849d1',
             '--color-token-input-border': dark ? '#444444' : '#dddddd',
             '--color-token-focus-border': '#a67df2',
             '--color-token-list-hover-background': dark ? '#303030' : '#f0f0f0',
@@ -243,7 +243,23 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
       font: 'Georgia, serif',
       marker: 'none',
     });
-    assert.equal(await color('.settings-nav-children a[aria-current]'), 'rgb(245, 245, 245)');
+    const purpleTint = async (selector) => {
+      const [r, g, b] = await page.locator(selector).evaluate((n) => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = getComputedStyle(n).backgroundColor;
+        ctx.fillRect(0, 0, 1, 1);
+        return [...ctx.getImageData(0, 0, 1, 1).data];
+      });
+      assert.ok(b > r && r > g, `selected role retains the host accent: ${r},${g},${b}`);
+    };
+    await purpleTint('.settings-nav-children a[aria-current]');
+    assert.equal(
+      await page
+        .locator('.settings-nav-children a[aria-current]')
+        .evaluate((n) => getComputedStyle(n).color),
+      'rgb(120, 73, 209)',
+    );
     assert.equal(
       await page.locator('.settings-nav-group h2').evaluate((n) => getComputedStyle(n).fontSize),
       '17px',
@@ -292,16 +308,18 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
     const before = await color('#action');
     await page.locator('#action').hover();
     assert.notEqual(await color('#action'), before);
-    assert.equal(before, 'rgb(34, 34, 34)');
-    assert.equal(await color('#action'), 'rgb(51, 51, 51)');
+    assert.equal(before, 'rgb(166, 125, 242)');
+    await purpleTint('#action');
     assert.equal(
       await page.locator('#select').evaluate((n) => getComputedStyle(n).borderRadius),
       '9999px',
       'dropdown uses toolbar radius independently of text inputs and action buttons',
     );
-    assert.equal(await color('#selected-choice'), 'rgb(232, 232, 232)');
+    await purpleTint('#selected-choice');
+    const selectedBefore = await color('#selected-choice');
     await page.locator('#selected-choice').hover();
-    assert.equal(await color('#selected-choice'), 'rgb(216, 216, 216)');
+    await purpleTint('#selected-choice');
+    assert.notEqual(await color('#selected-choice'), selectedBefore);
     const outlineBorder = await page
       .locator('#outline')
       .evaluate((n) => getComputedStyle(n).borderColor);
@@ -394,6 +412,13 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
     const dark = await sample(true, 22);
     await render(dark);
     await waitColor('rgb(16, 16, 16)');
+    assert.equal(
+      await page
+        .locator('.settings-nav-children a[aria-current]')
+        .evaluate((n) => getComputedStyle(n).color),
+      'rgb(166, 125, 242)',
+      'dark surfaces use the bright host accent even when its text-accent is a light-mode value',
+    );
     await render(null);
     await waitColor('rgb(16, 16, 16)');
     const choose = async (name) => {
@@ -496,6 +521,9 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
       return window.readHost();
     });
     await render(motionEnabled);
+    await page.waitForFunction(
+      () => document.documentElement.dataset.settingsReducedMotion !== 'true',
+    );
     await page.mouse.click(890, 700);
     assert.equal(
       await page

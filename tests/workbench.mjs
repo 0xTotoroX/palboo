@@ -515,7 +515,7 @@ const cases = [
         assert.deepEqual([buttonBox.width, buttonBox.height], [28, 28]);
         const menuBox = await page.getByRole('menu', { name: '布局预设' }).boundingBox();
         assert.ok(menuBox.x >= 0 && menuBox.x + menuBox.width <= wide.width);
-        await page.getByRole('menuitemradio', { name: '阅读', exact: true }).click();
+        await page.getByRole('menuitemradio', { name: '阅读 · 通用', exact: true }).click();
         await page.waitForFunction(
           () =>
             document.querySelector('[data-window-menu]')?.getAttribute('aria-expanded') === 'false',

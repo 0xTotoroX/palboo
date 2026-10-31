@@ -83,3 +83,5 @@ contracts.ts 的 HostSettingsAppearance 仅传递宿主界面语义色、字体�
 typography 增加 SurfaceTypography（五类窗口）及快照 sources；surfaceTypography 保留旧全局偏好继承，fontFamily 空值跟随，指定本机字体后以宿主字体链回退。contracts/FeatureState 传递独立字体设置与贴边头部有效偏好，不改变业务布局。
 
 i18n.setLocale 接收只读 systemLanguage 并缓存后台解析的系统首选语言；显式 en/zh-CN 优先，system 使用同一来源。旧后台和独立网站无此字段时才回退 navigator；不改用户语言偏好或内容。
+
+LayoutPreset.scope 为可选的 LayoutPresetScope（all/sidebar/overlay/desktop），缺省视为通用。标签仅推荐；共享排序、标签翻译与布局匹配由 workspace/layout-presets.js 提供，设置和各承载共用，不各自过滤预设。

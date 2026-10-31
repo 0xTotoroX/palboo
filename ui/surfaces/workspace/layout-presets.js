@@ -1,8 +1,32 @@
 /* [INPUT]: Current feature membership and resolved layouts.
- * [OUTPUT]: Serializable presentation snapshots and semantic preset matching.
+ * [OUTPUT]: Serializable presentation snapshots, semantic matching and shared recommendation labels/order across forms.
  * [POS]: Shared by the window menu and Web layout settings; never changes feature owners.
  * [PROTOCOL]: Keep workspace/AGENTS.md in sync. */
 import { layoutGroups } from './layout-tree.js';
+import { tr } from '../../shared/i18n.js';
+
+export const layoutPresetScopes = ['all', 'sidebar', 'overlay', 'desktop'];
+
+export function presetScopeLabel(scope = 'all') {
+  return (
+    { all: tr('通用'), sidebar: tr('侧栏推荐'), overlay: tr('浮层推荐'), desktop: tr('桌面推荐') }[
+      scope
+    ] || tr('通用')
+  );
+}
+
+/** @param {import('../../shared/features').LayoutPreset[]} presets
+ * @param {string} placement */
+export function sortedLayoutPresets(presets, placement) {
+  const rank = (preset) =>
+    preset.scope === placement ? 0 : !preset.scope || preset.scope === 'all' ? 1 : 2;
+  return [...presets].sort((a, b) => rank(a) - rank(b));
+}
+
+/** @param {import('../../shared/features').LayoutPreset} preset */
+export function layoutPresetLabel(preset) {
+  return `${preset.name} · ${presetScopeLabel(preset.scope)}`;
+}
 
 /** @param {import('../../shared/features').FeatureState} state */
 export function mainFeatureIds(state) {

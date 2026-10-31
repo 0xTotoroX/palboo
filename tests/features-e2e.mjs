@@ -277,13 +277,31 @@ try {
         expectedRevision: prefs.revision,
         ui: { [kind === 'dots' ? 'sidebarDots' : 'sidebarNewChat']: true },
       });
-      await wait(
-        () =>
-          JSON.parse(
+      try {
+        await wait(
+          () =>
+            JSON.parse(
+              execFileSync(helper, ['windows', String(lease.pid)], { encoding: 'utf8' }),
+            ).some((w) => w.kCGWindowBounds.Width >= 320),
+          'desktop restored in enabled scope',
+        );
+      } catch (error) {
+        const current = await state();
+        report.scopeRestore = {
+          kind,
+          allowed: current.scopeAllowed,
+          sameProcess: current.mainWindow.pid === lease.pid,
+          host: await page.evaluate(() => ({
+            visible: document.visibilityState,
+            allowed: window.__companionFloatingPanel.hostPageAllowed(),
+            kind: window.__companionFloatingPanel.desktopStatus().pageKind,
+          })),
+          windows: JSON.parse(
             execFileSync(helper, ['windows', String(lease.pid)], { encoding: 'utf8' }),
-          ).some((w) => w.kCGWindowBounds.Width >= 320),
-        'desktop restored in enabled scope',
-      );
+          ).map((window) => ({ bounds: window.kCGWindowBounds, alpha: window.kCGWindowAlpha })),
+        };
+        throw error;
+      }
       assert.equal((await entry('board')).owner, moved.owner);
       await page.evaluate(() => {
         window.scopeThreadParent.insertBefore(window.scopeThread, window.scopeThreadNext);
@@ -792,24 +810,28 @@ try {
     true,
   );
   assert.equal(await page.getByText('仅在设置展示的简介', { exact: true }).count(), 0);
-  const setupRow = await settingsPage.evaluate(() => {
-    const setup = document.querySelector('.bot-settings-setup button').getBoundingClientRect();
-    const toggle = document
-      .querySelector('#settings-grokbot [role="switch"]')
-      .getBoundingClientRect();
-    return {
-      delta: Math.abs(setup.top + setup.height / 2 - toggle.top - toggle.height / 2),
-      ahead: setup.right < toggle.left,
-    };
-  });
-  assert.ok(setupRow.delta < 1 && setupRow.ahead, 'setup entry sits beside the enable switch');
+  const setupRow = await settingsPage
+    .getByRole('button', { name: '接入 Grok Bot', exact: true })
+    .evaluate((control) => {
+      const setup = control.getBoundingClientRect();
+      const content = document.querySelector('.settings-content').getBoundingClientRect();
+      return { width: setup.width, height: setup.height, right: setup.right, edge: content.right };
+    });
+  assert.ok(setupRow.width >= 28 && setupRow.height >= 28 && setupRow.right <= setupRow.edge);
+  assert.equal(
+    await settingsPage.getByRole('switch', { name: '启用Grok Bot', exact: true }).count(),
+    0,
+    'feature pages keep management actions while the enable switch stays on Common switches',
+  );
   const callsBeforeSettingsRefresh = botListCalls;
   await settingsPage.getByRole('button', { name: '刷新 Bot 资料', exact: true }).click();
   await settingsPage.locator('.bot-settings-heading [data-action-state="success"]').waitFor();
   assert.equal(botListCalls, callsBeforeSettingsRefresh + 1);
   const geometry = await settingsPage.evaluate(() => {
     const heading = document.querySelector('.bot-settings-heading h2').getBoundingClientRect();
-    const refresh = document.querySelector('.bot-settings-heading button').getBoundingClientRect();
+    const refresh = document
+      .querySelector('.bot-settings-heading button[aria-label="刷新 Bot 资料"]')
+      .getBoundingClientRect();
     const entries = [
       ...document.querySelectorAll('.bot-settings-profiles .settings-drawer-trigger'),
     ].map((el) => el.getBoundingClientRect());

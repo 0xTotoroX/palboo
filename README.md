@@ -205,7 +205,9 @@ Use `config schema <scope>` for nested fields, choices, and examples covering St
 
 Names and files (up to 8 MB) wait for the current chat's Agent on your next message. Exports contain only personal additions, favorites, and mastered terms. `config set terminology --json '{"action":"reset-library"}' --confirm` removes personal content and import jobs while keeping the base glossary and its favorites and mastery records.
 
-Agents can manage layout presets too: `config get layout` reads presets and the current layout; `config schema layout` lists fields and examples for `main-preset-save`, `main-preset-apply`, `main-preset-rename`, and `main-preset-delete`. Execute them with `config set layout --json`. Overwriting and deleting require `--confirm`, with the same revision and layout checks as the UI.
+The current preset and management entry sit with the main workspace layout in **Layout & position**. Presets share one library, labeled General, Sidebar, Overlay, or Desktop; these are recommendations, so a preset can be used in another form. Each form keeps its own layout. `scope` accepts `all`, `sidebar`, `overlay`, or `desktop`; `main-preset-update` edits a name or recommendation without replacing the saved layout.
+
+Agents can manage layout presets too: `config get layout` reads presets and the current layout; `config schema layout` lists fields and examples for `main-preset-save`, `main-preset-apply`, `main-preset-update`, `main-preset-rename`, and `main-preset-delete`. Execute them with `config set layout --json`. Overwriting and deleting require `--confirm`, with the same revision and layout checks as the UI.
 
 Use `--data-dir` to target another installation. The CLI does not start or restart Codex. Omitted fields and credentials are retained; arrays, maps, and layout trees replace the full collection. Reads redact secrets. Pass credentials through a file or stdin.
 

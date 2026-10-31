@@ -5,11 +5,17 @@
 import { tr } from '../../shared/i18n.js';
 import { iconSvg } from '../../shared/icons/index.js';
 import { errorMessage } from '../../shared/text.js';
-import { mainFeatureIds, layoutSnapshot, matchesLayoutPreset } from './layout-presets.js';
+import {
+  mainFeatureIds,
+  layoutSnapshot,
+  matchesLayoutPreset,
+  sortedLayoutPresets,
+  layoutPresetLabel,
+} from './layout-presets.js';
 
 export function installWindowMenu(
   container,
-  { request, lease, layout, pin, settings, refresh, isBusy },
+  { request, lease = null, layout, pin = null, settings, refresh, isBusy },
 ) {
   container.innerHTML = `<div class="csw-window-menu"><button type="button" class="csw-icon" data-window-menu aria-haspopup="menu" aria-expanded="false">${iconSvg('more')}</button><div class="csw-window-menu-panel" role="menu" hidden><button type="button" role="menuitemcheckbox" data-menu-pin aria-checked="true">${iconSvg('pin')}<span data-copy="窗口置顶"></span><span class="csw-menu-check">${iconSvg('check')}</span></button><div class="csw-menu-divider"></div><div class="csw-menu-caption" data-copy="布局预设"></div><div data-presets></div><div class="csw-menu-empty" data-empty data-copy="暂无布局预设"></div><button type="button" role="menuitem" data-save-preset>${iconSvg('plus')}<span data-copy="保存当前布局…"></span></button><button type="button" role="menuitem" data-manage-presets>${iconSvg('settings')}<span data-copy="管理布局预设…"></span></button></div><form class="csw-window-menu-panel csw-preset-save" hidden><label><span data-copy="预设名称"></span><input name="name" maxlength="40" autocomplete="off" required></label><div class="csw-preset-save-actions"><button type="button" data-cancel-save data-copy="取消"></button><button type="submit" data-copy="保存"></button></div></form><p class="csw-window-menu-error" role="alert" hidden></p></div>`;
   const root = container.firstElementChild;
@@ -75,8 +81,11 @@ export function installWindowMenu(
       node.textContent = tr(node.dataset.copy);
     });
     root.querySelector('[data-menu-pin]').setAttribute('aria-checked', String(pinned));
-    const entries = state?.layoutPresets || [];
-    const next = JSON.stringify(entries.map((preset) => [preset.id, preset.name]));
+    const entries = sortedLayoutPresets(
+      state?.layoutPresets || [],
+      state?.mainPlacement || 'sidebar',
+    );
+    const next = JSON.stringify(entries.map((preset) => [preset.id, layoutPresetLabel(preset)]));
     if (signature !== next) {
       signature = next;
       presets.replaceChildren(
@@ -86,7 +95,7 @@ export function installWindowMenu(
           button.setAttribute('role', 'menuitemradio');
           button.dataset.preset = preset.id;
           const label = document.createElement('span');
-          label.textContent = preset.name;
+          label.textContent = layoutPresetLabel(preset);
           const check = document.createElement('span');
           check.className = 'csw-menu-check';
           check.innerHTML = iconSvg('check');
@@ -138,7 +147,11 @@ export function installWindowMenu(
         );
       else if (button.hasAttribute('data-manage-presets')) void run(settings);
       else if (button.hasAttribute('data-save-preset')) {
-        saveContext = { ...context(), layout: layoutSnapshot(layout(), mainFeatureIds(state)) };
+        saveContext = {
+          ...context(),
+          scope: state.mainPlacement,
+          layout: layoutSnapshot(layout(), mainFeatureIds(state)),
+        };
         menu.hidden = true;
         form.hidden = false;
         name.focus();

@@ -36,6 +36,8 @@ export function SettingsDrawer({
   toolbar,
   footer,
   hidden = false,
+  triggerLabel,
+  compact = false,
 }: {
   id?: string;
   title: string;
@@ -43,6 +45,8 @@ export function SettingsDrawer({
   toolbar?: ReactNode;
   footer?: ReactNode;
   hidden?: boolean;
+  triggerLabel?: string;
+  compact?: boolean;
 }) {
   useLocale();
   const generated = useId();
@@ -106,6 +110,7 @@ export function SettingsDrawer({
       hidden={hidden}
       data-settings-drawer
       className="settings-drawer-entry"
+      data-compact={compact || undefined}
     >
       <Button
         ref={trigger}
@@ -113,13 +118,13 @@ export function SettingsDrawer({
         variant="ghost"
         className="settings-drawer-trigger"
         data-settings-navigation
-        aria-label={title}
+        aria-label={triggerLabel || title}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={dialogId}
         onClick={show}
       >
-        <span>{title}</span>
+        <span>{triggerLabel || title}</span>
         <Icon name="chevron-right" />
       </Button>
       <dialog

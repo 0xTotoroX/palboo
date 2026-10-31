@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 实际 React PanelSettings 与隔离浏览器中的合成外观 API。
- * [OUTPUT]: 内容/容器设置及默认关闭的新聊天/Dots 侧栏开关逐字段保存，保留旧布局、材质和尺寸，核对数值范围。
+ * [OUTPUT]: 内容/容器及分形式字体、默认关闭的新聊天/Dots开关逐字段保存，保留旧字体/布局/材质/尺寸并核对数值范围。
  * [POS]: Web 设置交互契约，不连接真实宿主。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -91,8 +91,12 @@ test('workbench settings save only their own preference fields', { timeout: 3000
       assert.deepEqual(Object.keys(saves.at(-1)).sort(), ['expectedRevision', key].sort());
       assert.equal(saves.at(-1)[key], next);
     }
-    assert.equal(await page.getByLabel('字体大小', { exact: true }).inputValue(), 'follow');
-    assert.equal(await page.getByLabel('跟随对象', { exact: true }).inputValue(), 'body');
+    await page.locator('#typography-surface').selectOption('sidebar');
+    const mode = page.locator('#typography-sidebar-mode');
+    const source = page.locator('#typography-sidebar-source');
+    const scale = page.locator('#typography-sidebar-scale');
+    assert.equal(await mode.inputValue(), 'follow');
+    assert.equal(await source.inputValue(), 'body');
     const newChat = page.getByRole('switch', { name: '在新聊天中启用 Palboo', exact: true });
     const dots = page.getByRole('switch', { name: '在 Dots 中启用 Palboo', exact: true });
     assert.equal(await newChat.getAttribute('aria-checked'), 'false');
@@ -124,9 +128,9 @@ test('workbench settings save only their own preference fields', { timeout: 3000
     await width.fill('640');
     await width.press('Tab');
     await page.waitForFunction(() => document.querySelector('#dock-width')?.value === '640');
-    await page.getByLabel('跟随对象', { exact: true }).selectOption('session');
-    await page.getByLabel('相对大小（%）', { exact: true }).fill('115');
-    await page.getByLabel('相对大小（%）', { exact: true }).blur();
+    await source.selectOption('session');
+    await scale.fill('115');
+    await scale.blur();
     await page.waitForFunction(() =>
       [...document.querySelectorAll('fieldset')].every((f) => !f.disabled),
     );
@@ -143,24 +147,27 @@ test('workbench settings save only their own preference fields', { timeout: 3000
         'true',
     );
     assert.equal(prefs.ui.dockWidth, 640);
-    assert.deepEqual(prefs.typography, {
+    assert.deepEqual(prefs.surfaceTypography.sidebar, {
+      fontFamily: '',
       mode: 'follow',
       source: 'session',
       scale: 115,
       customSize: 16,
     });
     assert.equal(prefs.ui.fontOffset, 10.130000000000003);
-    await page.getByLabel('字体大小', { exact: true }).selectOption('custom');
-    const font = page.getByLabel('自定义字号（px）', { exact: true });
+    assert.equal(prefs.typography, undefined, 'surface edits do not rewrite legacy typography');
+    assert.deepEqual(Object.keys(prefs.surfaceTypography), ['sidebar']);
+    await mode.selectOption('custom');
+    const font = page.locator('#typography-sidebar-size');
     await font.fill('18.5');
     await font.blur();
     await page.waitForFunction(() =>
       [...document.querySelectorAll('fieldset')].every((f) => !f.disabled),
     );
-    assert.equal(prefs.typography.customSize, 18.5);
-    await page.getByLabel('字体大小', { exact: true }).selectOption('follow');
-    assert.equal(await page.getByLabel('相对大小（%）', { exact: true }).inputValue(), '115');
-    await page.getByLabel('字体大小', { exact: true }).selectOption('custom');
+    assert.equal(prefs.surfaceTypography.sidebar.customSize, 18.5);
+    await mode.selectOption('follow');
+    assert.equal(await scale.inputValue(), '115');
+    await mode.selectOption('custom');
     assert.equal(await font.inputValue(), '18.5');
     assert.equal(prefs.ui.fontSizes, undefined);
     assert.equal(prefs.ui.labelOnly, true);

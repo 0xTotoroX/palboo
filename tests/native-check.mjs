@@ -1488,9 +1488,22 @@ try {
       );
       if (new Set(growing.map((s) => Math.round(s.bounds.Height))).size < 3)
         throw Error('Genie entry skipped the visible expansion');
+    } else if (!fallbackOnly) {
+      // 首帧先在来源呈现，再沿共同路径移动；不再要求正式版独有的停留淡入。
+      const entry = motionSamples.filter(
+        (s) => s.at >= readyAt && s.at < (entryFinishedAt ?? closingAt) && s.alpha > 0 && s.bounds,
+      );
+      const first = entry[0]?.bounds;
+      if (
+        !first ||
+        Math.hypot(first.X - (sourceAnchor.x - 12), first.Y - (sourceAnchor.y - 12)) > 16 ||
+        Math.abs(first.Height - (sourceAnchor.height + 24)) > 16
+      )
+        throw Error('Native first visible frame was not at its source');
+      if (new Set(entry.map((s) => Math.round(s.bounds.Height))).size < 4)
+        throw Error('Native entry skipped visible intermediate geometry');
     } else {
-      // CGWindowList and the HTTP acknowledgement arrive on independent queues.
-      // Prove the fade at its actual source pose, before travel, rather than ordering receipt times.
+      // 无空间锚点时仍验原地淡入。
       const entryEnd = entryFinishedAt ?? closingAt;
       const sourceFade = motionSamples.some(
         (s) =>

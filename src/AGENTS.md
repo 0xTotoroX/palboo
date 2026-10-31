@@ -157,3 +157,5 @@ DesktopStatus.pageKind 接收共享宿主分类；host_page_allowed 读取旧 si
 设置外观跟随：cdp::desktop_status 读取无正文 settingsAppearance，state::View 保留末次有效快照，server 的认证 state/SSE 对设置页投影；panel::Preferences.settings_style（chatgpt/palboo，可空默认跟随）与 settings_theme 独立，appearance 修订保存不改布局或业务配置。
 
 - `settings_navigation.rs`：设置目的地白名单及宿主内打开协调。认证 `/api/settings/open`、桌面/贴边设置及 CLI 启动入口均经当前连接的宿主调用公开 `openSettings`；预设目的地保持 token 并追加 `open=layout-presets`，失败不调用系统浏览器。`i18n::system_locale` 统一投影只读 `systemLanguage` 到设置 HTTP/SSE、宿主及各功能承载，不保存新偏好。
+
+panel_window::WindowPath 以0=聊天来源、1=桌面终点定义唯一空间路径；WindowTransition 仅管理方向和时间。正式空间移动和Dev网格形变共用路径，取消收回/打断弹出从最后实际呈现的参数反向，不另建弧线。收回完成保留路径直到确认或失败恢复；初次网格不可用且来源小于原生最小尺寸时使用短淡入，不让系统夹紧造成突跳。

@@ -1,5 +1,16 @@
 // English interface copy. User-authored content is not translated.
 export default {
+  当前预设: 'Current preset',
+  自定义布局: 'Custom layout',
+  适用形式: 'Recommended for',
+  侧栏推荐: 'Sidebar',
+  浮层推荐: 'Overlay',
+  桌面推荐: 'Desktop',
+  管理布局预设: 'Manage layout presets',
+  保存更改: 'Save changes',
+  布局预设适用形式无效: 'Invalid layout preset scope',
+  缺少预设名称或适用形式: 'A preset name or scope is required',
+  预设名称无效: 'Invalid preset name',
   'ChatGPT 尚未连接，无法在应用内打开设置':
     'ChatGPT is not connected. Settings could not open inside the app.',
   '设置入口尚未就绪，请稍后重试': 'Settings are not ready. Please try again shortly.',

@@ -83,12 +83,12 @@ test('desktop presets preserve mounted drafts and reading through hide, restore 
     await page.getByRole('tab', { name: '大纲', exact: true }).dblclick();
     assert.equal(await page.locator('.csw-workbench').getAttribute('data-composition'), 'focus');
     await menu.click();
-    await page.getByRole('menuitemradio', { name: '专注', exact: true }).click();
+    await page.getByRole('menuitemradio', { name: '专注 · 通用', exact: true }).click();
     assert.equal(await page.locator('.csw-workbench').getAttribute('data-composition'), 'tabs');
     assert.equal(await page.getByLabel('next草稿').isVisible(), false);
     assert.equal(await page.getByLabel('next草稿').count(), 1);
     await menu.click();
-    await page.getByRole('menuitemradio', { name: '对照', exact: true }).click();
+    await page.getByRole('menuitemradio', { name: '对照 · 通用', exact: true }).click();
     assert.equal(await page.getByLabel('next草稿').inputValue(), '切换布局后保留');
     assert.equal(
       await page.getByLabel('next草稿').evaluate((node) => node.parentElement.scrollTop),
@@ -170,12 +170,12 @@ window.fetch=async(url,options)=>{
  else if(input.op==='main-preset-save' && failSave)error='保存失败，请重试';
  else if(input.op==='main-layout')server.layouts.desktop=input.layout;
  else if(input.op==='main-preset-save'){
-  const preset={id:input.id||'saved',name:input.name,layout:input.layout};
+  const preset={id:input.id||'saved',name:input.name,scope:input.scope,layout:input.layout};
   const index=server.layoutPresets.findIndex(p=>p.id===preset.id);
   if(index<0)server.layoutPresets.push(preset);else server.layoutPresets[index]=preset;
   server.layoutPresetsRevision++;
- }else if(input.op==='main-preset-rename'){
-  server.layoutPresets.find(p=>p.id===input.id).name=input.name;server.layoutPresetsRevision++;
+ }else if(input.op==='main-preset-update'){
+  Object.assign(server.layoutPresets.find(p=>p.id===input.id),{name:input.name,scope:input.scope});server.layoutPresetsRevision++;
  }else if(input.op==='main-preset-delete'){
   server.layoutPresets=server.layoutPresets.filter(p=>p.id!==input.id);server.layoutPresetsRevision++;
  }else if(input.op==='main-preset-apply')server.layouts.desktop=structuredClone(server.layoutPresets.find(p=>p.id===input.id).layout);
@@ -219,6 +219,14 @@ createRoot(document.getElementById('root')).render(<App/>);
     await page.addScriptTag({ content: script });
     const drawer = page.getByRole('dialog', { name: '布局预设', exact: true });
     await drawer.waitFor();
+    assert.equal(
+      await page
+        .locator('#current-layout-preset')
+        .evaluate((n) => !!n.closest('.settings-surface-item')?.querySelector('#main-layout')),
+      true,
+    );
+    assert.equal(await page.getByRole('button', { name: '管理布局预设', exact: true }).count(), 1);
+    assert.equal(await drawer.locator('#new-layout-preset-scope').inputValue(), 'desktop');
     await drawer.getByRole('checkbox', { name: '常用语', exact: true }).click();
     await page.waitForFunction(() => server.layouts.desktop.visible?.length === 2);
     assert.deepEqual(await page.evaluate(() => server.layouts.desktop.visible), [
@@ -236,25 +244,29 @@ createRoot(document.getElementById('root')).render(<App/>);
     await drawer.getByRole('button', { name: '保存当前布局', exact: true }).click();
     await page.waitForFunction(() => server.layoutPresets.length === 1);
     await drawer.getByRole('button', { name: '使用此预设', exact: true }).waitFor();
+    assert.equal(await drawer.locator('#layout-preset-scope').inputValue(), 'desktop');
+    await drawer.locator('#layout-preset-scope').selectOption('all');
+    await drawer.getByRole('button', { name: '保存更改', exact: true }).click();
+    await page.waitForFunction(() => server.layoutPresets[0].scope === 'all');
     const rename = drawer.locator('#layout-preset-rename');
     await rename.fill('我正在编辑');
     await page.evaluate(() => {
       server.layoutPresetsRevision++;
       server.layoutPresets[0].name = '另一窗口的名称';
     });
-    await drawer.getByRole('button', { name: '重命名', exact: true }).click();
+    await drawer.getByRole('button', { name: '保存更改', exact: true }).click();
     await drawer.getByRole('alert').filter({ hasText: '其他窗口更新' }).waitFor();
     assert.equal(await rename.inputValue(), '我正在编辑');
     assert.equal(await page.evaluate(() => server.layoutPresets[0].name), '另一窗口的名称');
     await drawer.getByRole('button', { name: '取消', exact: true }).click();
     assert.equal(await rename.inputValue(), '另一窗口的名称');
     await rename.fill('我的布局');
-    await drawer.getByRole('button', { name: '重命名', exact: true }).click();
+    await drawer.getByRole('button', { name: '保存更改', exact: true }).click();
     await page.waitForFunction(() => server.layoutPresets[0].name === '我的布局');
     await rename.fill('语言切换保留草稿');
     await page.evaluate(() => changeLocale('en'));
     const englishDrawer = page.getByRole('dialog', { name: 'Layout presets', exact: true });
-    await englishDrawer.getByRole('button', { name: 'Rename', exact: true }).waitFor();
+    await englishDrawer.getByRole('button', { name: 'Save changes', exact: true }).waitFor();
     assert.equal(
       await englishDrawer.locator('#layout-preset-rename').inputValue(),
       '语言切换保留草稿',
@@ -304,7 +316,7 @@ test('sidebar and overlay expose the same presets without desktop pin or lease',
       const trigger = page.getByRole('button', { name: '布局预设', exact: true });
       await trigger.click();
       assert.equal(await page.getByRole('menuitemcheckbox').count(), 0);
-      await page.getByRole('menuitemradio', { name: '专注', exact: true }).click();
+      await page.getByRole('menuitemradio', { name: '专注 · 通用', exact: true }).click();
       const applied = await page.evaluate(() => requests.at(-1));
       assert.equal(applied.placement, placement);
       assert.equal('lease' in applied, false);

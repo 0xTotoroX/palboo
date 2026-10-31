@@ -200,10 +200,10 @@ export function FeatureSettings({
               )}
             </NativeSelect>
           </Field>
+          <LayoutPresetSettings state={state} layout={layout} busy={moving} change={change} />
         </div>
       </div>
       <div hidden={simple}>
-        <LayoutPresetSettings state={state} layout={layout} busy={moving} change={change} />
         <section id="feature-placements" className="settings-subsection">
           <h3>{tr('各功能位置')}</h3>
           <div className="settings-feature-grid">

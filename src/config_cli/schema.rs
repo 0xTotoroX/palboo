@@ -62,6 +62,7 @@ impl Scope {
                 "op",
                 "id",
                 "name",
+                "scope",
                 "expectedRevision",
                 "placement",
                 "layout",
@@ -124,6 +125,7 @@ impl Scope {
                 "main-preset-save",
                 "main-preset-apply",
                 "main-preset-rename",
+                "main-preset-update",
                 "main-preset-delete",
             ],
             Self::Tasks => &[
@@ -184,6 +186,7 @@ pub(super) fn operation_fields(scope: Scope, op: &str) -> Option<&'static [&'sta
         (Scope::Layout, "main-placement") => Some(&["op", "placement"]),
         (Scope::Layout, "main-layout") => Some(&["op", "placement", "layout", "expectedLayout"]),
         (Scope::Layout, "main-preset-save") => Some(&[
+            "scope",
             "op",
             "id",
             "name",
@@ -199,6 +202,9 @@ pub(super) fn operation_fields(scope: Scope, op: &str) -> Option<&'static [&'sta
             "expectedLayout",
             "expectedRevision",
         ]),
+        (Scope::Layout, "main-preset-update") => {
+            Some(&["op", "id", "name", "scope", "expectedRevision"])
+        }
         (Scope::Layout, "main-preset-rename") => Some(&["op", "id", "name", "expectedRevision"]),
         (Scope::Layout, "main-preset-delete") => Some(&["op", "id", "expectedRevision"]),
         (Scope::Layout, "move") => Some(&["op", "id", "placement"]),
@@ -294,7 +300,7 @@ pub(super) fn schema(scope: Scope) -> Value {
             "notes":{
                 "startup":"下次启动生效；mode 为 open 时使用 location，inside 沿用侧栏或浮层；只影响主界面，不改变贴边或业务开关",
                 "typography":"支持局部更新；scale 为 75–150%，customSize 为 10–32px",
-                "settingsAccent":"设置页点缀独立于主题；color 为 #RRGGBB，切换 source 保留自定义颜色",
+                "settingsAccent":"兼容旧配置；source/color不参与当前设置页样式，强调色只读跟随宿主并用于选中、开关与主要操作",
                 "ui":"下一步显示/操作：labelOnly、promptClickMode；侧栏宽度：dockWidth；Palboo启用范围：sidebarNewChat、sidebarDots",
                 "legacy":"ui.dockLayout/popoutLayout 为旧两功能布局；新布局使用 config set layout，分形式材质使用 surfaces"
             },
@@ -309,9 +315,9 @@ pub(super) fn schema(scope: Scope) -> Value {
         }),
         Scope::Layout => json!({
             "nestedFields":{"layout":["axis","groups","visible"],"layout.groups[]":["ids","active","weight","collapsed"],"layout.groups[] split":["axis","groups","weight"],"tabs":keys(crate::surfaces::EdgeTabs::default())},
-            "choices":{"move.id":crate::features::IDS,"placement":crate::surfaces::PLACEMENTS,"layout.axis":["auto","vertical","horizontal"]},
-            "notes":{"main-preset-save":"保存命名布局；带id覆盖已有预设需--confirm。name为1–40字，layout为完整布局及visible功能组合", "main-preset-apply":"按当前placement应用id指定的预设，不移动功能或更改业务开关；保存/应用均校验expectedLayout", "main-preset-rename":"按get layout返回的layoutPresets[].id修改name", "main-preset-delete":"按id删除需--confirm，保留当前布局", "expectedRevision":"预设操作使用get layout的layoutPresetsRevision；省略时读取当前版本，显式旧版本拒绝", "main-placement":"主界面仅 sidebar / overlay / desktop；move 将单个功能移到 edge 或主界面","main-layout":"完整替换所选形式的布局；嵌套分栏、合并标签及 collapsed 折叠行均可保存；expectedLayout 为 get 返回的原布局或 null","edge-tabs":"tabs.order 为图标顺序；tabs.selected 为选中功能；未提供的字段保留；expected 对比 get 返回的 edgeTabs"},
-            "examples":[{"op":"main-preset-save","placement":"sidebar","name":"阅读","layout":{"axis":"vertical","groups":[{"ids":["outline"],"active":"outline","weight":1}],"visible":["outline"]}},{"op":"main-preset-apply","placement":"sidebar","id":"<preset-id>"},{"op":"main-preset-rename","id":"<preset-id>","name":"新名称"},{"op":"main-preset-delete","id":"<preset-id>"},{"op":"edge-tabs","tabs":{"order":["model","board"],"selected":"board"}},{"op":"main-layout","placement":"sidebar","layout":{"axis":"vertical","groups":[{"ids":["outline","next"],"active":"next","weight":1,"collapsed":true},{"ids":["terms"],"active":"terms","weight":1}]}}],
+            "choices":{"scope":["all","sidebar","overlay","desktop"],"move.id":crate::features::IDS,"placement":crate::surfaces::PLACEMENTS,"layout.axis":["auto","vertical","horizontal"]},
+            "notes":{"scope":"预设共用；all为通用，其余为推荐形式，不限制跨形式应用。旧预设及新建时缺省all；覆盖省略scope保留原标记", "main-preset-update":"按id局部修改name或scope，保留布局；复用预设修订", "main-preset-save":"保存命名布局；带id覆盖已有预设需--confirm。name为1–40字，layout为完整布局及visible功能组合", "main-preset-apply":"按当前placement应用id指定的预设，不移动功能或更改业务开关；保存/应用均校验expectedLayout", "main-preset-rename":"按get layout返回的layoutPresets[].id修改name", "main-preset-delete":"按id删除需--confirm，保留当前布局", "expectedRevision":"预设操作使用get layout的layoutPresetsRevision；省略时读取当前版本，显式旧版本拒绝", "main-placement":"主界面仅 sidebar / overlay / desktop；move 将单个功能移到 edge 或主界面","main-layout":"完整替换所选形式的布局；嵌套分栏、合并标签及 collapsed 折叠行均可保存；expectedLayout 为 get 返回的原布局或 null","edge-tabs":"tabs.order 为图标顺序；tabs.selected 为选中功能；未提供的字段保留；expected 对比 get 返回的 edgeTabs"},
+            "examples":[{"op":"main-preset-save","placement":"sidebar","name":"阅读","scope":"sidebar","layout":{"axis":"vertical","groups":[{"ids":["outline"],"active":"outline","weight":1}],"visible":["outline"]}},{"op":"main-preset-apply","placement":"sidebar","id":"<preset-id>"},{"op":"main-preset-update","id":"<preset-id>","name":"新名称","scope":"all"},{"op":"main-preset-rename","id":"<preset-id>","name":"新名称"},{"op":"main-preset-delete","id":"<preset-id>"},{"op":"edge-tabs","tabs":{"order":["model","board"],"selected":"board"}},{"op":"main-layout","placement":"sidebar","layout":{"axis":"vertical","groups":[{"ids":["outline","next"],"active":"next","weight":1,"collapsed":true},{"ids":["terms"],"active":"terms","weight":1}]}}],
         }),
         Scope::ModelControl => json!({
             "nestedFields":{"patch":keys(crate::model_control::Preferences::default()),"patch.presets[]":["id","name","selection"],"patch.presets[].selection":["model","reasoning","speed"],"patch.groups[]":["id","name"],"patch.modelOverrides.<model-id>":["manufacturer","groupId"]},

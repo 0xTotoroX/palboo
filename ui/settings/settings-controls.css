@@ -389,6 +389,29 @@
 .settings-drawer-trigger > span:first-child {
   font-weight: 500;
 }
+.settings-layout-presets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+.settings-layout-presets > .settings-field {
+  flex: 1 1 260px;
+  margin: 0;
+  min-width: 0;
+}
+.settings-drawer-entry[data-compact] {
+  margin: 0 0 0 auto;
+}
+.settings-app .settings-drawer-entry[data-compact] > .settings-drawer-trigger {
+  width: auto;
+  min-height: var(--settings-control-height);
+  padding: 0 8px;
+  gap: 6px;
+  background: transparent;
+  color: var(--settings-accent-text);
+}
 #layout-presets-drawer {
   width: min(100vw, 560px);
 }
