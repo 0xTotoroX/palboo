@@ -1,5 +1,5 @@
 /* [INPUT]: Vertical launcher UI in a synthetic browser with no host or native window.
- * [OUTPUT]: Current-location indicator independent of default actions, hover travel, action identity, focus and cleanup checks.
+ * [OUTPUT]: Current-location indicator independent of default actions, three-second leave delay/cancellation, action identity, focus and cleanup checks.
  * [POS]: Isolated interaction/render verification; only synthetic screenshots.
  * [PROTOCOL]: Keep tests/AGENTS.md in sync. */
 import test from 'node:test';
@@ -55,14 +55,14 @@ test('inline expanding menu preserves eyes hit target and has stable hover, keyb
     await page.waitForTimeout(220);
     assert.equal(await host.getAttribute('data-open'), '');
     await page.mouse.move(300, 100);
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(2600);
     assert.equal(
       await host.getAttribute('data-open'),
       '',
-      'menu stays available during pointer travel',
+      'menu stays available until the three-second leave deadline',
     );
     await host.getByRole('menuitem', { name: '在聊天内打开' }).hover();
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(600);
     assert.equal(await host.getAttribute('data-open'), '', 'returning cancels the pending close');
     await page.mouse.move(300, 100);
     await page.waitForFunction(

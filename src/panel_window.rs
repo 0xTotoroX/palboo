@@ -1,5 +1,5 @@
 // [INPUT]: Tao/Wry、Runtime、Preferences、Palboo.app 身份、共享 native_backdrop 与 AppKit 手势。
-// [OUTPUT]: 原生红黄绿、Palboo 应用身份、置顶/Spaces、跨屏往返及有序释放手势的同帧缩放。
+// [OUTPUT]: 原生红黄绿、Palboo 应用身份、置顶/Spaces、跨屏往返及双向短过渡回退、有序释放手势的同帧缩放。
 // [POS]: 窗口子进程实现；系统管理最小化/放大/全屏，关闭沿用收回，普通几何独立于临时窗口状态。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
@@ -778,13 +778,20 @@ pub fn run_surface(
                     warp_source = macos::native_window(&window).frame().size;
                     let from = motion_pose.unwrap_or_else(|| macos::pose(&window));
                     return_origin = Some(Pose { scale: 1., alpha: 1., ..from });
-                    if let Some(target) = macos::anchor_pose(&window, &message["anchor"])
-                        .filter(|p| p.height >= 364. || warp.as_ref().is_some_and(|w| w.available()))
-                        && !macos::reduce_motion() {
-                        window_transition = Some(WindowTransition::new(from, target, Motion::Return, true));
-                    } else {
+                    if macos::reduce_motion() {
                         window_transition = None;
                         let _ = webview.evaluate_script("window.__companionPopout?.returned(true);");
+                    } else {
+                        let target = macos::anchor_pose(&window, &message["anchor"])
+                            .filter(|p| p.height >= 364. || warp.as_ref().is_some_and(|w| w.available()));
+                        // 小入口、无效坐标或私有曲面不可用时，沿入场的短缩放/淡入反向收回。
+                        // 动画完成后才交还内容；取消或交接失败仍可从当前帧恢复原窗口。
+                        window_transition = Some(WindowTransition::new(
+                            from,
+                            target.unwrap_or(Pose { scale: 0.98, alpha: 0., ..from }),
+                            Motion::Return,
+                            target.is_some(),
+                        ));
                     }
                 }
                 "cancel-return" => {

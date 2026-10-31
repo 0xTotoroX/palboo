@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 编译后的系统窗口、合成投影；默认免截图；显式 --screenshots 才启动像素采样验收。
- * [OUTPUT]: --features-only 验证旧浮窗范围隐藏/恢复和真实 Wry 的大纲/看板切换与响应式任务视图；target/reports/native 中的背景验收；--genie-only 加验开发版网格接口及复位（--cross-screen/--reverse-screens 验实际双屏）；--motion-only 单测三材质空间交接与取消；--appearance-only 将免截图的窗口透明度轨迹、呈现确认、强调色/材质和尺寸检查写入 native-appearance。
+ * [OUTPUT]: --features-only 验证旧浮窗范围隐藏/恢复和真实 Wry 的大纲/看板切换与响应式任务视图；target/reports/native 中的背景验收；--genie-only 加验开发版网格接口及复位（--cross-screen/--reverse-screens 验实际双屏）；--motion-only 单测三材质空间交接与取消；--fallback-only 验小入口/无效坐标下的双向短过渡及取消；--appearance-only 将免截图的窗口透明度轨迹、呈现确认、强调色/材质和尺寸检查写入 native-appearance。
  * [POS]: --header-only 免鼠标权限验证三材质透明头部、无可见文字/title、实际置顶层级及调度中心/Spaces属性；--workbench-only 验证双栏布局、鼠标合并与缩放、独立滚动及退出。仅启动合成测试窗口，不使用真实宿主或模型。
  * 设置验收要求头部入口保持隐藏，通过保留的旧处理器验证设置区与阅读恢复，不依赖旧 activeTab。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
@@ -21,10 +21,11 @@ const featuresOnly = process.argv.includes('--features-only');
 const headerOnly = process.argv.includes('--header-only');
 const workbenchOnly = featuresOnly || headerOnly || process.argv.includes('--workbench-only');
 const genieOnly = process.argv.includes('--genie-only');
+const fallbackOnly = process.argv.includes('--fallback-only');
 const chipAnchor = genieOnly && process.argv.includes('--chip-anchor');
 const crossScreen = genieOnly && process.argv.includes('--cross-screen');
 const reverseScreens = crossScreen && process.argv.includes('--reverse-screens');
-const motionOnly = genieOnly || process.argv.includes('--motion-only');
+const motionOnly = genieOnly || fallbackOnly || process.argv.includes('--motion-only');
 const appearanceOnly =
   !screenshots || workbenchOnly || motionOnly || process.argv.includes('--appearance-only');
 const dir = mkdtempSync(join(tmpdir(), 'buddy-native-'));
@@ -46,7 +47,9 @@ const output =
             ? 'native-genie-chip'
             : 'native-genie'
         : motionOnly
-          ? 'native-motion'
+          ? fallbackOnly
+            ? 'native-motion-fallback'
+            : 'native-motion'
           : appearanceOnly
             ? 'native-appearance'
             : 'native');
@@ -71,8 +74,8 @@ const destinationScreen = screens[crossScreen && !reverseScreens ? 1 : 0];
 const sourceAnchor = {
   x: sourceScreen.x + 300,
   y: sourceScreen.y + 180,
-  width: chipAnchor ? 84 : 404,
-  height: chipAnchor ? 36 : motionOnly ? 376 : 420,
+  width: fallbackOnly ? 36 : chipAnchor ? 84 : 404,
+  height: fallbackOnly ? 28 : chipAnchor ? 36 : motionOnly ? 376 : 420,
 };
 const destinationPosition = crossScreen
   ? {
@@ -416,7 +419,11 @@ function probePage() {
             select.dispatchEvent(new Event('change', { bubbles: true }));
           }
         }
-        if (cmd.kind === 'dock') void window.__companionPopout.dock();
+        if (cmd.kind === 'dock') {
+          void window.__companionPopout.dock();
+          if (cmd.cancelAfter)
+            setTimeout(() => window.__companionPopout.cancelDock(), cmd.cancelAfter);
+        }
         if (cmd.kind === 'cancel-dock') window.__companionPopout.cancelDock();
         if (cmd.kind === 'close') window.ipc.postMessage(JSON.stringify({ kind: 'close' }));
         if (cmd.id !== undefined) window.probeCommandId = cmd.id;
@@ -1083,6 +1090,7 @@ try {
       throw Error('Native window did not settle on the requested display');
     const reduced = settled?.reduceMotion;
     const warpChecks = [];
+    const returnChecks = [];
     for (const material of reduced
       ? []
       : ['matte', 'frosted', 'native-glass', ...(genieOnly ? ['native-glass'] : [])]) {
@@ -1096,16 +1104,21 @@ try {
       }
       const beforeFrames = telemetry.warp?.frames ?? 0;
       const start = Date.now();
-      commands.push({ kind: 'dock' });
+      // Also exercise a missing/invalid destination without moving any real host window.
+      if (fallbackOnly) sourceAnchor.width = material === 'frosted' ? 0 : 36;
+      commands.push({ kind: 'dock', ...(fallbackOnly ? { cancelAfter: 64 } : {}) });
       await waitFor(
         () =>
           motionSamples.some(
             (s) =>
-              s.at > start && Math.abs((s.bounds?.X ?? settled.bounds.X) - settled.bounds.X) > 8,
+              s.at > start &&
+              (fallbackOnly
+                ? s.alpha > 0 && s.alpha < 1
+                : Math.abs((s.bounds?.X ?? settled.bounds.X) - settled.bounds.X) > 8),
           ),
-        'return did not move',
+        fallbackOnly ? 'return fallback skipped its visible fade' : 'return did not move',
       );
-      commands.push({ kind: 'cancel-dock' });
+      if (!fallbackOnly) commands.push({ kind: 'cancel-dock' });
       await waitFor(() => {
         const sample = motionSamples.at(-1);
         return (
@@ -1126,6 +1139,7 @@ try {
         recovered.alpha !== 1
       )
         throw Error('Cancelled return did not restore native pose');
+      returnChecks.push({ material, sourceAnchor: { ...sourceAnchor }, recovered: true });
       if (genieOnly) {
         await waitFor(
           () => telemetry.warp?.frames > beforeFrames,
@@ -1141,11 +1155,12 @@ try {
       JSON.stringify(
         {
           artifact,
-          scope: genieOnly ? 'genie-only' : 'motion-only',
+          scope: genieOnly ? 'genie-only' : fallbackOnly ? 'fallback-only' : 'motion-only',
           screens: crossScreen ? screens : undefined,
           sourceAnchor,
           destinationPosition,
           warpChecks,
+          returnChecks,
           errors: telemetry.errors,
         },
         null,
@@ -1482,17 +1497,25 @@ try {
           s.at >= readyAt &&
           s.at < entryEnd &&
           intermediate(s) &&
-          Math.abs(s.bounds?.X - (sourceAnchor.x - 12)) <= 2 &&
-          Math.abs(s.bounds?.Y - (sourceAnchor.y - 12)) <= 2 &&
-          Math.abs(s.bounds?.Width - (sourceAnchor.width + 24)) <= 2 &&
-          Math.abs(s.bounds?.Height - (sourceAnchor.height + 24)) <= 2,
+          (fallbackOnly
+            ? Math.abs(s.bounds?.Width - telemetry.viewport[0]) <= 2 &&
+              Math.abs(s.bounds?.Height - telemetry.viewport[1]) <= 2
+            : Math.abs(s.bounds?.X - (sourceAnchor.x - 12)) <= 2 &&
+              Math.abs(s.bounds?.Y - (sourceAnchor.y - 12)) <= 2 &&
+              Math.abs(s.bounds?.Width - (sourceAnchor.width + 24)) <= 2 &&
+              Math.abs(s.bounds?.Height - (sourceAnchor.height + 24)) <= 2),
       );
       if (!sourceFade) throw Error('Native window did not fade in at its source pose');
     }
     if (!motionSamples.some((s) => s.at > closingAt && intermediate(s)))
       throw Error('Native window did not fade out before exit');
+    if (fallbackOnly) {
+      const dockedAt = requests.find((r) => r.path === '/api/panel/dock')?.at;
+      if (!motionSamples.some((s) => s.at > closingAt && s.at < dockedAt && intermediate(s)))
+        throw Error('Return acknowledged before its fallback fade');
+    }
   }
-  if (motionOnly && !reduced) {
+  if (motionOnly && !fallbackOnly && !reduced) {
     const entry = motionSamples.filter(
       (s) => s.at < closingAt && s.alpha > 0 && s.bounds?.X !== undefined,
     );

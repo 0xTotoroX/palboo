@@ -1,6 +1,6 @@
 /*
  * [INPUT]: Playwright Chromium、buildPanel、合成宿主与设置 fixture。
- * [OUTPUT]: 工作台真实布局、新聊天/Dots 范围、入口按能力处理双击等待、键盘与宿主生命周期回归；分阶段限时、失败留证及浏览器清理。
+ * [OUTPUT]: 工作台真实布局、内外双向可见动画、新聊天/Dots 范围、入口按能力处理双击等待、键盘与宿主生命周期回归；分阶段限时、失败留证及浏览器清理。
  * [POS]: 独立浏览器验收；只模拟后台桥，不请求模型、不读取真实聊天。
  * [PROTOCOL]: 变更时核对 tests/AGENTS.md；入口与地图由主任务维护。
  */
@@ -436,6 +436,157 @@ async function chooseLayout(page, action) {
 }
 
 const cases = [
+  [
+    'bidirectional feature handoff stays visible through the full host shell',
+    async (page) => {
+      await mode(page, true);
+      await page.emulateMedia({ reducedMotion: 'no-preference' });
+      await page.evaluate(() => {
+        const fixture = window.workbenchFixture;
+        const original = window.__companionHostRequest;
+        fixture.handoff = {
+          mainManaged: true,
+          mainPlacement: 'sidebar',
+          pendingPlacement: null,
+          features: [
+            {
+              id: 'prompts',
+              owner: 'inside',
+              placement: 'sidebar',
+              open: true,
+              view: {},
+              reveal: 1,
+            },
+          ],
+          appearance: { themes: {} },
+        };
+        window.__companionHostRequest = (raw) => {
+          const { id, path, payload } = JSON.parse(raw);
+          if (path !== '/features') return original(raw);
+          let reply = {};
+          if (payload.op === 'state') reply = fixture.handoff;
+          if (payload.op === 'read')
+            reply = {
+              snapshot: {
+                viewToken: 'synthetic',
+                quickPromptToken: 'phrases',
+                settings: fixture.settings,
+                display: { promptClickMode: 'fill' },
+                bridgeStatus: 'ready',
+                prompts: [],
+              },
+            };
+          queueMicrotask(() => window.__companionDesktop.complete(id, structuredClone(reply)));
+        };
+        fixture.frames = [];
+        fixture.sampleHandoff = () => {
+          fixture.frames = [];
+          const sample = () => {
+            const root = document.querySelector('.csw-workbench');
+            if (root) {
+              const style = getComputedStyle(root);
+              const rect = root.getBoundingClientRect();
+              fixture.frames.push({
+                visible:
+                  root.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) &&
+                  rect.width > 0 &&
+                  rect.height > 0,
+                opacity: Number(style.opacity),
+                x: new DOMMatrixReadOnly(style.transform).m41,
+                scale: new DOMMatrixReadOnly(style.transform).m11,
+              });
+            }
+            fixture.sampleFrame = requestAnimationFrame(sample);
+          };
+          sample();
+        };
+      });
+      const workbench = page.locator('.csw-workbench');
+      await page.getByRole('button', { name: '添加快捷指令', exact: true }).waitFor();
+      const samples = async () =>
+        page.evaluate(() => {
+          cancelAnimationFrame(window.workbenchFixture.sampleFrame);
+          return window.workbenchFixture.frames.filter((frame) => frame.visible);
+        });
+      for (const inside of ['sidebar', 'overlay']) {
+        await page.evaluate((inside) => {
+          const state = window.workbenchFixture.handoff;
+          state.mainPlacement = state.features[0].placement = inside;
+          state.features[0].reveal++;
+        }, inside);
+        await page.waitForTimeout(850);
+        await page.evaluate(() => window.__companionFloatingPanel.setOpen(true));
+        await page.waitForTimeout(300);
+        assert.equal(await workbench.isVisible(), true);
+        await page.evaluate(() => {
+          const fixture = window.workbenchFixture;
+          fixture.sampleHandoff();
+          fixture.handoff.pendingPlacement = 'desktop';
+          fixture.handoff.features[0].pending = {
+            owner: 'outside',
+            placement: 'desktop',
+            ready: false,
+          };
+        });
+        await page.waitForFunction(
+          () => document.querySelector('.csw-workbench')?.dataset.handoff === 'out',
+        );
+        await page.waitForTimeout(240);
+        const leaving = await samples();
+        assert.ok(
+          leaving.some(
+            (frame) =>
+              frame.opacity < 0.95 && frame.opacity > 0.55 && frame.x > 0 && frame.scale < 1,
+          ),
+          `${inside}: visible departure frames`,
+        );
+        await page.evaluate(() => {
+          const state = window.workbenchFixture.handoff;
+          state.mainPlacement = state.features[0].placement = 'desktop';
+          state.features[0].owner = 'outside';
+          state.pendingPlacement = state.features[0].pending = null;
+        });
+        await page.waitForFunction(
+          () => document.querySelector('[data-companion-stepwise-root]')?.style.display === 'none',
+        );
+        await page.evaluate((inside) => {
+          const state = window.workbenchFixture.handoff;
+          state.pendingPlacement = inside;
+          state.features[0].pending = { owner: 'inside', placement: inside, ready: true };
+        }, inside);
+        await page.waitForTimeout(850);
+        await page.evaluate((inside) => {
+          const fixture = window.workbenchFixture;
+          fixture.sampleHandoff();
+          const state = fixture.handoff;
+          state.mainPlacement = state.features[0].placement = inside;
+          state.features[0].owner = 'inside';
+          state.pendingPlacement = state.features[0].pending = null;
+        }, inside);
+        await page.waitForFunction(() => {
+          const root = document.querySelector('.csw-workbench');
+          return (
+            root?.checkVisibility() &&
+            root.getBoundingClientRect().height > 0 &&
+            root.getAttribute('aria-busy') === 'false'
+          );
+        });
+        await page.waitForTimeout(280);
+        const returning = await samples();
+        assert.ok(
+          returning.some(
+            (frame) =>
+              frame.opacity < 0.95 && frame.opacity > 0.55 && frame.x > 0 && frame.scale < 1,
+          ),
+          `${inside}: visible return frames follow the departure path in reverse`,
+        );
+        assert.equal(returning.at(-1).opacity, 1);
+        assert.equal(returning.at(-1).x, 0);
+        assert.equal(await page.getByText('正在移到新位置…', { exact: true }).count(), 0);
+        assert.equal(await page.getByText('功能正在交接，请稍后重试', { exact: true }).count(), 0);
+      }
+    },
+  ],
   [
     'closed independent views release sidebar space and disabled tools stay closed on click',
     async (page) => {

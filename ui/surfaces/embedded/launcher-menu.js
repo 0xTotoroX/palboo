@@ -1,6 +1,6 @@
 import { tr, subscribeLocale, getLocale } from '../../shared/i18n.js';
 /* [INPUT]: The independent eyes anchor, confirmed main location and action/capability callbacks.
- * [OUTPUT]: An inline sidebar menu with the current location indicator, cancellable hover, handoff-aware actions, keyboard access and shared launcher feedback.
+ * [OUTPUT]: An inline sidebar menu with the current location indicator, cancellable three-second close delay, handoff-aware actions, keyboard access and shared launcher feedback.
  * [POS]: Launcher presentation only; actions remain in the runtime coordinator.
  * [PROTOCOL]: Keep embedded/AGENTS.md in sync. */
 import { iconSvg } from '../../shared/icons/index.js';
@@ -108,7 +108,7 @@ export function createLauncherMenu(anchor, options) {
     clearTimeout(leaveTimer);
     leaveTimer = window.setTimeout(() => {
       if (!busy && !shadow.activeElement) close();
-    }, 500);
+    }, 3000);
   }
   listen(anchor, 'pointerenter', (e) => {
     if (e.pointerType !== 'touch') {

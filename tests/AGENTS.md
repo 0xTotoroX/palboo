@@ -3,7 +3,7 @@
 > L2 | 父级：[AGENTS.md](../AGENTS.md)
 
 - `startup-visibility.test.mjs`：真实启动设置与构建 CSS，验证默认兼容、仅保存外观、打开位置记忆、冲突/离线/桌面能力、中英文320px及键盘；Rust startup 用例覆盖下一次 App 初始化、新旧主界面、业务开关及贴边隔离。
-- `handoff-motion.test.mjs`：真实多功能工作台与草稿，验证统一切换动效、无重复提示行、节点/草稿保留、交互锁及取消恢复、缩窗清理、键盘和减少动态效果；launcher-menu 另验500ms离开缓冲与重新进入取消。
+- `handoff-motion.test.mjs`：真实多功能工作台与草稿，验证统一切换动效、无重复提示行、节点/草稿保留、交互锁及取消恢复、缩窗清理、键盘和减少动态效果；launcher-menu 另验3000ms离开缓冲与重新进入取消。
 
 settings-theme 覆盖唯一宿主主题、旧主题/强调色字段不影响显示、双明暗颜色/导航/控件几何、字体字形参数、本机别名回收、提示及草稿/保存失败。typography-surfaces 保留五类窗口独立偏好；settings-modes 覆盖单个页面标题、分组与跨页草稿/阅读，旧强调色后端兼容仍由 config-cli/panel 验证。
 
@@ -404,3 +404,5 @@ Fast/普通预设按闪电标记独立消歧：model-groups 覆盖同组编号�
 `typography-surfaces.test.mjs` 使用真实字体表单、主题和 FeatureView 验证五种窗口的字体族/字号独立、三种来源并存、窗口切换不保存草稿、失败草稿保留、设置导航随字号缩放、两主题及窄屏/英文。panel 单测验证单窗口合并/重启持久化、旧偏好继承、修订冲突、非法目标和业务配置不变。
 
 handoff-motion 追加真实 embedded/features 适配器回归：连续点击只发起一个请求、pending 阶段不重复切换、真实错误可见且重试清除、销毁拒绝迟到响应并保留其他设置提示；launcher-menu 验内/外暂禁且设置可用。Rust repeated_main_placement 验重复目标保留 owner/草稿，其他目标与旧 owner 仍拒绝。
+
+内外双向动效用 `WORKBENCH_CASE="bidirectional feature handoff" node tests/workbench.mjs` 采样完整宿主外壳的侧栏/浮层往返可见帧；不以隐藏节点上的动画对象代替可见验收。`node tests/native-check.mjs --fallback-only` 禁用私有曲面，以36×28入口和无效坐标验证三材质的原生淡出缩放、取消恢复、交接时序及不保存中间尺寸，默认不截图。正常空间动效仍用 `--motion-only`，开发曲面用 `--genie-only --chip-anchor`。

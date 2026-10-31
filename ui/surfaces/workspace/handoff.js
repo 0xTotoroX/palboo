@@ -1,5 +1,5 @@
 /* [INPUT]: A live workbench, confirmed/pending main placement and native motion ownership.
- * [OUTPUT]: One spatial handoff cue and accessible status, without replacing content or delaying readiness.
+ * [OUTPUT]: A reversible spatial handoff cue and accessible status, without replacing content or delaying readiness.
  * [POS]: Presentation only; leases, drafts and native window movement remain with their existing owners.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { tr } from '../../shared/i18n.js';
@@ -73,7 +73,7 @@ export function installHandoffMotion(root, { native = false } = {}) {
         animate([previous, { transform: 'translateX(12px) scale(.975)', opacity: 0.55 }], true);
       else if (arrived || recovering)
         animate([
-          recovering ? previous : { transform: 'translateX(-12px) scale(.975)', opacity: 0.55 },
+          recovering ? previous : { transform: 'translateX(12px) scale(.975)', opacity: 0.55 },
           { transform: 'none', opacity: 1 },
         ]);
     },
