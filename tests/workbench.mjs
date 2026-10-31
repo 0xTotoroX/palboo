@@ -9,6 +9,7 @@ import { showRetainedSettings } from './workbench-actions.mjs';
 import { independentFeatureCases } from './independent-features.mjs';
 import { featureSurfaceCases } from './feature-surfaces.mjs';
 import { chatBindingCases } from './workbench-binding.mjs';
+import { outlineCases } from './workbench-outline.mjs';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { chromium } from 'playwright';
@@ -1967,6 +1968,7 @@ const cases = [
   ],
 
   ...chatBindingCases({ mode, settle, chooseLayout, createPopout, project, bundle, output }),
+  ...outlineCases({ mode }),
   [
     'arrangement menus tabs focus and hidden reading retain the same business nodes',
     async (host) => {

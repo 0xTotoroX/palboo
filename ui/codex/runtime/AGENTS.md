@@ -12,7 +12,7 @@ presentation 的 panelReadingState 由 lifecycle 导出，记录标签、预览�
 
 成员清单：
 
-- [state.js](state.js)：五组状态及独立停靠/浮窗布局及分功能字号的初始化（弹出始终展开）、能力判断、受限 bridgeCall 和完整生成输入采集（预算仅在后台应用）及自选方向位置数量；不导入上层。
+- [state.js](state.js)：五组状态及独立停靠/浮窗布局及分功能字号的初始化（弹出始终展开）、能力判断、受限 bridgeCall 和完整生成输入采集（预算仅在后台应用）及自选方向位置数量；大纲保留临时来源上下文供点击核验，不导入上层。
 - [signals.js](signals.js)：固定的同步通知类型及订阅，包括 windowToggle 窗口手势与 workbenchToggle 停靠开合请求；不承载状态或业务实现。
 - [diagnostics.js](diagnostics.js)：可见几何和本地限量诊断，不保存聊天正文。
 - [settings-sync.js](settings-sync.js)：openSettings 打开统一配置页，支持 layout-presets 目的地参数；设置请求、保存、推送同步和 15 秒恢复检查；两个功能独立重置。
@@ -72,6 +72,8 @@ lifecycle 的220ms页面变化防抖和1300ms文本稳定等待仅进行本地�
 Grok Bot 由 grokbotEnabled 独立开启，syncTools 安装/销毁 __palbooBots；runtimeEnabled 包含此开关，允许只启用 Bot 功能。调用记录随宿主实例销毁，不持久化。
 
 大纲定位/锚点命令成功只返回 ok=true；仅失败时附带错误文案，避免成功回执误报失败。
+
+大纲在回答身份变化时独立失效，即使新旧正文相同也重建当前目录；正文变化、停用与销毁清除定位上下文。仅来源上下文和原文均匹配才允许恢复重挂载锚点，不影响建议生成配置。
 
 state 默认关闭 sidebarNewChat/sidebarDots；presentation 从外观偏好同步，旧快照缺省关闭，通知旧工作台和独立功能外壳重新计算停靠，不改变 dockOpen 意愿。
 

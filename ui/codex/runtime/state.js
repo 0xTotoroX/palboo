@@ -190,6 +190,7 @@ function createOutlineState(preferences) {
     outlineError: '',
     outlineFingerprint: '',
     outlineSourceHash: '',
+    outlineContext: null,
     outlineRefreshPromise: null,
     outlineMessage: null,
     outlineScrollCleanup: null,

@@ -210,6 +210,7 @@ function scanCurrent(generation, timerId) {
   const nextAssistantMessageId = assistantMessageId(message);
   if (contextState.activeContext.assistantMessageId !== nextAssistantMessageId) {
     contextState.activeContext.assistantMessageId = nextAssistantMessageId;
+    if (outlineActive) invalidateOutline(message);
   }
 
   const sourceText = normalizeText(message.text);
@@ -422,6 +423,7 @@ function stopRuntime() {
   outlineState.outlineScrollCleanup?.();
   outlineState.outlineScrollCleanup = null;
   outlineState.outlineSourceHash = '';
+  outlineState.outlineContext = null;
   outlineState.outlineFingerprint = '';
   outlineState.outlineStatus = 'idle';
   outlineState.outlineError = '';
