@@ -328,12 +328,25 @@ fn prepare(scope: Scope, mut patch: Value, before: &Value) -> Result<Value> {
             }
         }
         Scope::Layout => {
+            if patch["op"]
+                .as_str()
+                .is_some_and(|op| op.starts_with("main-preset-"))
+            {
+                guard(
+                    &mut patch,
+                    "expectedRevision",
+                    before["layoutPresetsRevision"].clone(),
+                )?;
+            }
             if patch["op"] == "edge-tabs" {
                 guard(&mut patch, "expected", before["edgeTabs"].clone())?;
                 ensure!(patch.get("tabs").is_some(), "缺少 tabs");
                 merge_object(&mut patch, "tabs", &before["edgeTabs"])?;
             }
-            if patch["op"] == "main-layout" {
+            if matches!(
+                patch["op"].as_str(),
+                Some("main-layout" | "main-preset-save" | "main-preset-apply")
+            ) {
                 let placement = patch["placement"].as_str().context("缺少placement")?;
                 let old = before["layouts"][placement].clone();
                 if let Some(expected) = patch.get("expectedLayout") {
@@ -349,6 +362,8 @@ fn prepare(scope: Scope, mut patch: Value, before: &Value) -> Result<Value> {
 fn dangerous(scope: Scope, patch: &Value, before: &Value) -> bool {
     let op = patch["op"].as_str().unwrap_or("");
     patch["clearApiKey"] == true
+        || op == "main-preset-delete"
+        || (op == "main-preset-save" && patch.get("id").is_some())
         || patch["clearJevApiKey"] == true
         || patch["hostRestartPolicy"] == "force"
         || patch["jevConsent"] == true

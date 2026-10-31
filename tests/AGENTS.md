@@ -408,3 +408,7 @@ handoff-motion 追加真实 embedded/features 适配器回归：连续点击只�
 设置同步与预览回归：settings-modes覆盖功能分类内的常用开关/兼容集成、界面16:9/功能1:1且最大480px、双主题360/600/900/1360px、真实Shadow DOM边界与兼容示例零写入；截图由PALBOO_TEST_SCREENSHOTS选择。settings-menu-motion按组件区分普通菜单即时、模型入场300ms弹簧、分段280ms底块中断、确认框错误增高300ms及键盘/减少动态效果；settings-motion保留无宿主主题的独立挂载。
 
 内外双向动效用 `WORKBENCH_CASE="bidirectional feature handoff" node tests/workbench.mjs` 采样完整宿主外壳的侧栏/浮层往返可见帧；不以隐藏节点上的动画对象代替可见验收。`node tests/native-check.mjs --fallback-only` 禁用私有曲面，以36×28入口和无效坐标验证三材质的原生淡出缩放、取消恢复、交接时序及不保存中间尺寸，默认不截图。正常空间动效仍用 `--motion-only`，开发曲面用 `--genie-only --chip-anchor`。
+
+预设入口回归：layout-presets 覆盖侧栏/浮层同菜单和当前形式参数、无桌面置顶；workbench 用完整宿主外壳验证真实菜单挂载、保存/应用、管理目的地/失败及销毁。settings-open 验证预设参数进入宿主浏览器且零 window.open；config-cli 通过隔离后台的实际 ready 握手后验证预设增改用删、覆盖确认、修订冲突及未连接时设置入口拒绝；i18n 验证后台系统语言优先于浏览器且显式选择优先。
+
+dev-launcher 以认证合成服务覆盖 --settings 成功/失败及零启动副作用；distribution 的 LAUNCHER_TEST 编译并运行迁移后的合成 App，验证正式/开发暂停状态均不额外调用 start/popout 或浏览器。

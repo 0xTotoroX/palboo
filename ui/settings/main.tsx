@@ -106,8 +106,9 @@ function App() {
   const locale = useLocale();
   const { view, live, error } = useCompanion();
   useEffect(() => {
-    if (view?.panelPreferences) setLocale(view.panelPreferences.language || 'zh-CN');
-  }, [view?.panelPreferences.language]);
+    if (view?.panelPreferences)
+      setLocale(view.panelPreferences.language || 'zh-CN', view.systemLanguage);
+  }, [view?.panelPreferences.language, view?.systemLanguage]);
   useEffect(() => {
     document.documentElement.lang = getLocale();
     document.title = locale === 'en' ? 'Palboo Settings' : tr('Palboo 设置');

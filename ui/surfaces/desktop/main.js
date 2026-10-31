@@ -261,7 +261,7 @@ export function startDesktop(request, lease) {
         selected = next.activeFeature;
       state = next;
       native({ kind: 'scope-visible', value: next.scopeAllowed !== false });
-      setLocale(state.appearance?.language || 'zh-CN');
+      setLocale(state.appearance?.language || 'zh-CN', state.appearance?.systemLanguage);
       root.lang = getLocale();
       root
         .querySelector('[data-corner=bl]')

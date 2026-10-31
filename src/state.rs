@@ -500,7 +500,7 @@ impl App {
         let client = self.desktop_client().await.context("尚未连接 Codex")?;
         let (detached, ui, revision, web_revision) = self.panel_host_state().await;
         let preferences = self.panel.lock().await.prefs.clone();
-        let launcher_action = json!({"action":preferences.launcher_action,"doubleAction":preferences.launcher_double_action,"contextAction":preferences.launcher_context_action,"language":preferences.language});
+        let launcher_action = json!({"action":preferences.launcher_action,"doubleAction":preferences.launcher_double_action,"contextAction":preferences.launcher_context_action,"language":preferences.language,"systemLanguage":crate::i18n::system_locale()});
         let mut typography = json!(preferences.typography);
         typography["surfaces"] = json!(preferences.surface_typography);
         let result = client

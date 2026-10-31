@@ -1,5 +1,5 @@
 // [INPUT]: Saved interface preference and the OS preferred language.
-// [OUTPUT]: Chinese/English copy for native dialogs and window titles.
+// [OUTPUT]: Chinese/English copy for native dialogs and titles, plus the shared read-only system locale.
 // [POS]: Presentation only; never changes Agent configuration or user content.
 // [PROTOCOL]: Keep src/AGENTS.md in sync.
 use std::sync::{
@@ -35,6 +35,14 @@ fn system_language() -> &'static str {
             .unwrap_or_else(|| "en".into())
     })
 }
+pub fn system_locale() -> &'static str {
+    if uses_english("system", system_language()) {
+        "en"
+    } else {
+        "zh-CN"
+    }
+}
+
 pub fn set_language(preference: &str) {
     ENGLISH.store(
         uses_english(preference, system_language()),

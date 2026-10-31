@@ -17,3 +17,5 @@ appearance schema 包含 settingsStyle（chatgpt/palboo），与 settingsTheme�
 settingsAccent.source（chatgpt/palboo/custom）与 color（#RRGGBB）只影响设置页点缀；局部补丁保留另一字段，由后台验证颜色和修订。
 
 appearance.startup 的 mode（restore/closed/open）与 location（inside/outside）支持局部更新并保留另一字段；仅下次启动应用，保存不搬动当前窗口。
+
+layout 暴露 main-preset-save/apply/rename/delete；读取返回 layoutPresets/layoutPresetsRevision，操作携带 expectedRevision，保存/应用同时核对 expectedLayout 与 placement。visible 描述完整布局中的显示组合；预设 id 来自读取结果，move.id 才是功能目录。覆盖和删除需 --confirm，dry-run 不写入，与界面共享同一后台。

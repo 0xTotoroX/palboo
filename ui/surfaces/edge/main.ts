@@ -151,7 +151,7 @@ export function startEdge(request: Request) {
         wanted = new Set<string>(),
         ids: string[] = [];
       let revealed = '';
-      setLocale(state.appearance?.language || 'zh-CN');
+      setLocale(state.appearance?.language || 'zh-CN', state.appearance?.systemLanguage);
       root.lang = getLocale();
       root.querySelector('#edge-handle')?.setAttribute('aria-label', tr('展开功能面板'));
       tabs.setAttribute('aria-label', tr('功能'));

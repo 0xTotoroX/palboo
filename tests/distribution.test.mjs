@@ -227,6 +227,7 @@ case "$1" in
 app-mode)
   case "$SCENARIO" in
   pause) echo '{"mode":"release","paused":true}';;
+  development-pause) echo '{"mode":"development","paused":true,"url":"http://127.0.0.1:9/#token=synthetic"}';;
   development) echo '{"mode":"development"}';;
   cancel) echo '已取消重开' >&2; exit 1;;
   failure) echo 'synthetic launch failure' >&2; exit 2;;
@@ -261,18 +262,20 @@ esac
       JSON.stringify({ checked, calls: existsSync(log) ? readFileSync(log, 'utf8') : 'missing' }),
     );
     assert.equal(readFileSync(log, 'utf8').trim(), '--version');
-    for (const scenario of ['', 'pause', 'cancel', 'unsupported', 'development']) {
+    for (const scenario of ['', 'cancel', 'unsupported', 'development']) {
       assert.equal(run(scenario).status, 0);
       const commands = readFileSync(log, 'utf8').trim().split('\n');
       assert.equal(commands[0], 'app-mode launch');
       assert.deepEqual(
         commands.slice(1),
-        scenario === 'pause'
-          ? ['start']
-          : ['cancel', 'development'].includes(scenario)
-            ? []
-            : ['popout'],
+        ['cancel', 'development'].includes(scenario) ? [] : ['popout'],
       );
+    }
+    for (const scenario of ['pause', 'development-pause']) {
+      const paused = run(scenario);
+      assert.equal(paused.status, 1);
+      assert.match(paused.stderr, /ChatGPT/);
+      assert.equal(readFileSync(log, 'utf8').trim(), 'app-mode launch');
     }
     for (const scenario of ['failure', 'broken-window']) assert.equal(run(scenario).status, 1);
     const wrappedFailure = run('wrapped-failure');

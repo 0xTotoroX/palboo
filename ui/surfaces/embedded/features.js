@@ -9,6 +9,8 @@ import { errorMessage } from '../../shared/text.js';
 import { mountFeature } from '../workspace/mount';
 import { installFeatureLayout } from '../workspace/layout';
 import { installHandoffMotion } from '../workspace/handoff.js';
+import { installWindowMenu } from '../workspace/window-menu.js';
+import { openSettings } from '../../codex/runtime/settings-sync.js';
 import { bindDockResize } from './width.js';
 import { createDock, dockWidthLimit } from './dock.js';
 import { bridgeCall, shellState, runtimeState } from '../../codex/runtime/state.js';
@@ -26,6 +28,7 @@ let state = null,
   dock = null;
 let composition = null;
 let handoffMotion = null;
+let layoutMenu = null;
 let dockValue = { status: '', rect: null };
 let primary = 'overlay';
 let selected = '';
@@ -194,6 +197,21 @@ function frame(container, faceClick) {
     },
     error: showError,
   });
+  layoutMenu?.destroy();
+  layoutMenu = installWindowMenu(root.querySelector('.csw-workbench-controls'), {
+    request,
+    layout: () => composition.snapshot(),
+    settings: async () => {
+      const result = await openSettings({ section: 'layout-presets' });
+      if (!result.ok) throw Error(result.message || tr('设置打开已取消。'));
+    },
+    refresh: poll,
+    isBusy: () =>
+      featureTransitioning() ||
+      !!root.querySelector(
+        '[data-layout-saving="true"],[data-arranging="true"],[data-resizing="true"]',
+      ),
+  });
   const handle = root.querySelector('.csw-workbench-resize');
   bindDockResize(
     handle,
@@ -239,6 +257,7 @@ function content(root, placement) {
     selected,
     state.features.find((entry) => entry.id === selected)?.reveal,
   );
+  layoutMenu?.update(state);
 }
 // Called after the original shell has installed its DOM. Never replace live mounts on collapse.
 export function renderFeatureShell(faceClick) {
@@ -304,7 +323,7 @@ function renderState(next) {
     returnState = { placement: primary, open: shellState.open, dockOpen: shellState.dockOpen };
   const returning = primary === 'desktop' && next.mainPlacement !== 'desktop';
   state = { ...previous, ...next };
-  setLocale(state.appearance?.language || 'zh-CN');
+  setLocale(state.appearance?.language || 'zh-CN', state.appearance?.systemLanguage);
   if (!independent) {
     stopWorkbench();
     independent = true;
@@ -409,6 +428,8 @@ export function stopFeatureHost() {
   composition = null;
   handoffMotion?.destroy();
   handoffMotion = null;
+  layoutMenu?.destroy();
+  layoutMenu = null;
   for (const item of mounts.values()) item.mount.dispose();
   mounts.clear();
   dock?.destroy();

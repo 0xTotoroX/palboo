@@ -285,7 +285,7 @@ impl App {
         let prefs = self.appearance().await;
         let typography = prefs.typography_for(placement);
         let ui = prefs.ui;
-        json!({"language":prefs.language,"theme":view.panel_theme,"fontSize":view.panel_font_base,"typography":view.panel_typography,"typographyPreferences":typography,"fontSizes":ui.font_sizes,"legacyFontSize":(ui.font_offset != 0.).then_some(view.panel_font_base + ui.font_offset),"colors":view.panel_colors,"surface":theme})
+        json!({"language":prefs.language,"systemLanguage":crate::i18n::system_locale(),"theme":view.panel_theme,"fontSize":view.panel_font_base,"typography":view.panel_typography,"typographyPreferences":typography,"fontSizes":ui.font_sizes,"legacyFontSize":(ui.font_offset != 0.).then_some(view.panel_font_base + ui.font_offset),"colors":view.panel_colors,"surface":theme})
     }
     pub async fn surface_request(&self, input: Value) -> Result<Value> {
         let op = input["op"].as_str().unwrap_or("state");

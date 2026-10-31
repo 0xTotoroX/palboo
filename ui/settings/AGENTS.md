@@ -173,3 +173,5 @@ launcher-settings 将单击、双击、右键并列为同宽设置行，各次�
 - `use-dialog-height.ts`：确认弹窗内部ResizeObserver测量自然高度，首帧立即落位，之后300ms snappy过渡；中断从当前高度接续，关闭/销毁清理，键盘与减少动态效果即时。固定高度抽屉不使用此测量。
 
 提示层在pointerdown到pointerup/cancel期间不显示，避免鼠标获得焦点时提示层遮住抬起落点；键盘聚焦和悬停仍沿原规则显示。组件动效证据以本机调用链为准，未绑定的整窗开合/抽屉及系统控件不宣称已同步。
+
+main.tsx 从认证 state/SSE 的 systemLanguage 解析“跟随系统”，与原生/工作台一致，浏览器首选语言不覆盖后台结果。预设 deep link 在 ChatGPT 内打开完整设置并直达既有抽屉，管理文案与共享语言同步。

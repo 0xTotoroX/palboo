@@ -23,6 +23,7 @@ import {
   revealDevelopment,
   launcherSource,
   developmentSettingsUrl,
+  openDevelopmentSettings,
   openDevelopment,
 } from '../scripts/dev-launcher.mjs';
 import { readHostProcess, watchHostProcess } from '../scripts/dev-host.mjs';
@@ -772,4 +773,29 @@ test('Dev settings and reveal follow the selected source session without reopeni
     requests.map((r) => r.path),
     ['/api/state', '/api/development/reveal'],
   );
+});
+
+test('Dev settings use the authenticated host route and preserve failure without opening a browser', async (t) => {
+  let failed = false;
+  const { root, requests } = await developmentFixture(t, (_req, res) => {
+    res.statusCode = failed ? 409 : 200;
+    res.end(
+      JSON.stringify(
+        failed ? { ok: false, message: '宿主尚未就绪' } : { ok: true, status: 'submitted' },
+      ),
+    );
+  });
+  const runtime = JSON.parse(readFileSync(join(root, 'target/dev/real/runtime.json')));
+  writeFileSync(join(root, 'target/dev/owner.json'), JSON.stringify({ pid: process.pid }));
+  writeFileSync(
+    join(root, 'target/dev/session.json'),
+    JSON.stringify({ url: `http://127.0.0.1:${runtime.port}`, token: runtime.token }),
+  );
+  assert.deepEqual(await openDevelopmentSettings(root), { ok: true, status: 'submitted' });
+  failed = true;
+  await assert.rejects(() => openDevelopmentSettings(root), /宿主尚未就绪/);
+  assert.deepEqual(requests, [
+    { path: '/api/settings/open', body: {} },
+    { path: '/api/settings/open', body: {} },
+  ]);
 });

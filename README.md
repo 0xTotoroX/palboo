@@ -74,7 +74,7 @@ Suggestions fill the composer by default. If you already have a draft, Palboo ap
 
 Hover over the left-rail eyes for chat, desktop, and settings actions. Single-click, double-click, and right-click actions are configurable in **Appearance & fonts**.
 
-The desktop window's **…** menu contains **Always on top** and **Layout presets**. Save and switch feature combinations, splits, tab order, and divider proportions; manage presets under **Layout & position → Layout presets**. Switching preserves drafts and reading position. Presets use features already open in the main workspace and leave pinning and appearance unchanged.
+The **…** menu in the sidebar, page overlay, and desktop window offers **Layout presets**; the desktop also offers **Always on top**. All settings open inside ChatGPT's built-in browser, and **Manage layout presets…** goes directly to preset management in the full settings page. Save and switch feature combinations, splits, tab order, and divider proportions; manage presets under **Layout & position → Layout presets**. Switching preserves drafts and reading position. Presets use features already open in the main workspace and leave pinning and appearance unchanged.
 
 Sidebar and desktop layouts are saved separately; switching positions preserves drafts and reading position. An edge/notch panel can coexist with the main workspace, follow Codex's display, or stay on a chosen display. Hover or press `Command+Shift+M` to expand it. Palboo can be enabled separately in new chats and Dots under **Layout & position → Where Palboo is enabled** (off by default). This applies to all placements and features; actions that need a response remain unavailable until one exists.
 
@@ -204,6 +204,8 @@ Use `config schema <scope>` for nested fields, choices, and examples covering St
 ```
 
 Names and files (up to 8 MB) wait for the current chat's Agent on your next message. Exports contain only personal additions, favorites, and mastered terms. `config set terminology --json '{"action":"reset-library"}' --confirm` removes personal content and import jobs while keeping the base glossary and its favorites and mastery records.
+
+Agents can manage layout presets too: `config get layout` reads presets and the current layout; `config schema layout` lists fields and examples for `main-preset-save`, `main-preset-apply`, `main-preset-rename`, and `main-preset-delete`. Execute them with `config set layout --json`. Overwriting and deleting require `--confirm`, with the same revision and layout checks as the UI.
 
 Use `--data-dir` to target another installation. The CLI does not start or restart Codex. Omitted fields and credentials are retained; arrays, maps, and layout trees replace the full collection. Reads redact secrets. Pass credentials through a file or stdin.
 

@@ -15,7 +15,7 @@ presentation 的 panelReadingState 由 lifecycle 导出，记录标签、预览�
 - [state.js](state.js)：五组状态及独立停靠/浮窗布局及分功能字号的初始化（弹出始终展开）、能力判断、受限 bridgeCall 和完整生成输入采集（预算仅在后台应用）及自选方向位置数量；不导入上层。
 - [signals.js](signals.js)：固定的同步通知类型及订阅，包括 windowToggle 窗口手势与 workbenchToggle 停靠开合请求；不承载状态或业务实现。
 - [diagnostics.js](diagnostics.js)：可见几何和本地限量诊断，不保存聊天正文。
-- [settings-sync.js](settings-sync.js)：openSettings 打开统一配置页，不传未使用的页面定位参数；设置请求、保存、推送同步和 15 秒恢复检查；两个功能独立重置。
+- [settings-sync.js](settings-sync.js)：openSettings 打开统一配置页，支持 layout-presets 目的地参数；设置请求、保存、推送同步和 15 秒恢复检查；两个功能独立重置。
 - [presentation.js](presentation.js)：包含宿主明暗、语义色及应用偏好后的大纲/下一步内容字号的只读窗口投影（缺失时恢复默认色）、Web 三材质及 liquidVariant 偏好同步（忽略弹出收起偏好），通过工作台纯模型迁移旧比例并接收两端独立布局；按钮与表情双击共用 togglePanelWindow 弹出/收回与动作校验，未收到后台 popoutSupported=true 时禁用弹出；执行业务动作前重新核对宿主；quick-fill 按快捷词配置与 promptToken 校验，遵循 submit 意图并保护已有草稿，追加草稿不发送；不接收远端 theme 命令，按投影设置浮窗主题和原生外观通知，不改变系统设置；内嵌弹出/收回发出 appearance 通知以同步 SVG 液态；弹出与收回使用方向相反的图标，提示对应动作；窗口切换由公共表情手势触发，旧图标隐藏；桌面头部保留置顶按钮，默认开启且可保存取消选择，写入期间禁用按钮，使用请求时的目标值避免投影回读后二次翻转；Web 设置保留同一偏好，不插入弹出专用来源行。
 - [lifecycle.js](lifecycle.js)：组合入口、DOM 观察、正文扫描、启停/销毁、接口和通知订阅；大纲与下一步均停用时跳过正文读取，仅维护其他功能容器；重新注入时清理旧根和侧栏占位，重复占位视为不健康实例；切换聊天只重置当前建议与在途请求，按当前聊天/回答恢复缓存（含手动模式）；停用时清理表情连击记录；公开运行实例是否为开发版，提供 panelAppearance 只读颜色接口，不暴露主题写入接口；停用/销毁时发送内嵌 SVG 液态清理通知。
 
@@ -88,3 +88,5 @@ presentation 同步三种入口动作；exportPanelState 的 viewToken 包含空
 syncTypography 在旧偏好上携带 surfaces 映射，typography 返回三来源原始快照；旧桌面投影明确解析 desktop 偏好，避免沿用出发窗口字号。
 
 lifecycle 将主功能交接状态传给左栏菜单，交接期间内/外及往返动作不重复发起，设置入口保留；状态来自 embedded/features，不新增后台轮询或改变已确认位置指示。
+
+公开运行接口导出 openSettings，供后台统一设置导航调用；宿主桥只返回本机目的地，不外跳系统浏览器。presentation 消费共享 systemLanguage，不修改宿主 document.lang。

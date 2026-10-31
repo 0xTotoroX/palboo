@@ -156,3 +156,45 @@ test('chat switch while backend responds cannot open browser on the new chat', a
   assert.equal(result.ok, false);
   assert.match(result.message, /聊天正在切换/);
 });
+
+test('preset management carries the deep link through the host browser without an external window', async (t) => {
+  const page = await fixture(t);
+  await page.evaluate(() => {
+    window.externalCalls = 0;
+    window.open = () => {
+      externalCalls++;
+    };
+    window.reply = async () => ({
+      status: 'ok',
+      target: 'web',
+      url: 'http://127.0.0.1:12345/?open=layout-presets#token=synthetic',
+    });
+    const next = document.createElement('button');
+    next.setAttribute('aria-label', '新标签页');
+    next.textContent = 'New';
+    document.body.append(next);
+    next.onclick = () => {
+      const input = document.createElement('input');
+      input.setAttribute('data-browser-sidebar-address-input', '');
+      document.body.append(input);
+      input.onkeydown = (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          window.submitted = input.value;
+          input.blur();
+        }
+      };
+    };
+  });
+  const result = await page.evaluate(() => openSettings({ section: 'layout-presets' }));
+  assert.deepEqual(result, { ok: true, status: 'submitted' });
+  assert.equal(
+    await page.evaluate(() => submitted),
+    'http://127.0.0.1:12345/?open=layout-presets#token=synthetic',
+  );
+  assert.deepEqual((await page.evaluate(() => requests))[0].payload, {
+    inHostBrowser: true,
+    section: 'layout-presets',
+  });
+  assert.equal(await page.evaluate(() => externalCalls), 0);
+});

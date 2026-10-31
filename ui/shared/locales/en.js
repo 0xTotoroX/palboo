@@ -1,5 +1,11 @@
 // English interface copy. User-authored content is not translated.
 export default {
+  'ChatGPT 尚未连接，无法在应用内打开设置':
+    'ChatGPT is not connected. Settings could not open inside the app.',
+  '设置入口尚未就绪，请稍后重试': 'Settings are not ready. Please try again shortly.',
+  '未能在 ChatGPT 内打开设置，请重试': 'Settings could not open inside ChatGPT. Please try again.',
+  未知设置页面: 'Unknown settings page',
+  设置地址必须是本机服务: 'The settings address must use a local service',
   颜色: 'Color',
   设置页强调色无效: 'Invalid settings accent color',
   设置页强调色: 'Settings accent color',
@@ -890,6 +896,7 @@ export default {
   暂无可用模型: 'No models available',
   收藏: 'Favorites',
   点击重命名: 'Click to rename',
+  重命名: 'Rename',
   '删除预设 {{value1}}': 'Delete preset {{value1}}',
   'Codex 剩余额度': 'Codex usage remaining',
   '5小时': '5 hours',

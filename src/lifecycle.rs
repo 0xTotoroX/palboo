@@ -121,7 +121,10 @@ async fn start_binary(
                 .await?;
         }
         if !no_open {
-            webbrowser::open(&runtime.url()).context("无法自动打开浏览器")?;
+            runtime
+                .request("settings/open", Some(json!({})))
+                .await
+                .context("无法在 ChatGPT 内打开设置")?;
         }
         println!("Palboo 已在运行：http://127.0.0.1:{}", runtime.port);
         return Ok(());
@@ -160,7 +163,10 @@ async fn start_binary(
                 "另一来源的 Palboo 后台已启动，请先正常退出后重试"
             );
             if !no_open {
-                webbrowser::open(&runtime.url()).context("服务已启动，但无法自动打开浏览器")?;
+                runtime
+                    .request("settings/open", Some(json!({})))
+                    .await
+                    .context("服务已启动，但未能在 ChatGPT 内打开设置")?;
             }
             println!("Palboo 已启动：http://127.0.0.1:{}", runtime.port);
             return Ok(());

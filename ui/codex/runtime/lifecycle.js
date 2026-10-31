@@ -788,6 +788,7 @@ function install() {
     start,
     destroy,
     loadSettings,
+    openSettings,
     syncSettings,
     setOpen,
     setWorkbench,

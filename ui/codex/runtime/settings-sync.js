@@ -275,7 +275,7 @@ function cancelSettingsOpening() {
   runtimeState.settingsOpenStatus = '';
 }
 
-function openSettings() {
+function openSettings({ section } = {}) {
   if (!isCurrentRuntime()) return Promise.resolve({ ok: false, cancelled: true });
   if (settingsOpening) return settingsOpening.promise;
   const generation = runtimeState.runtimeGeneration;
@@ -290,7 +290,7 @@ function openSettings() {
     try {
       const payload = await bridgeCall(
         '/settings/open',
-        { inHostBrowser: true },
+        { inHostBrowser: true, ...(section ? { section } : {}) },
         { signal: operation.controller.signal },
       );
       if (!current() || operation.controller.signal.aborted || payload?.cancelled)

@@ -32,6 +32,7 @@ mod prompt_enhancement;
 mod requests;
 mod server;
 mod settings;
+mod settings_navigation;
 mod state;
 #[cfg(test)]
 mod stepwise_tests;

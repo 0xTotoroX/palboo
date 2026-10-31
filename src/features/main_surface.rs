@@ -388,13 +388,7 @@ impl App {
         }
         if op == "main-settings" {
             drop(f);
-            let mut url =
-                reqwest::Url::parse(&crate::lifecycle::Runtime::read(&self.paths)?.url())?;
-            if input["section"] == "layout-presets" {
-                url.query_pairs_mut().append_pair("open", "layout-presets");
-            }
-            webbrowser::open(url.as_str()).context("无法打开设置")?;
-            return Ok(json!({"ok":true}));
+            return self.open_settings_in_host(input["section"].as_str()).await;
         }
         ensure!(op == "main-anchor", "未知主窗口操作");
         drop(f);

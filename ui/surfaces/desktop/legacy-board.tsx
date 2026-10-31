@@ -29,8 +29,9 @@ function DesktopBoard() {
     };
   }, []);
   useEffect(() => {
-    if (view?.panelPreferences) setLocale(view.panelPreferences.language || 'system');
-  }, [view?.panelPreferences.language]);
+    if (view?.panelPreferences)
+      setLocale(view.panelPreferences.language || 'system', view.systemLanguage);
+  }, [view?.panelPreferences.language, view?.systemLanguage]);
   useEffect(() => {
     document.documentElement.lang = locale;
     document.title = tr('Palboo · 任务看板');

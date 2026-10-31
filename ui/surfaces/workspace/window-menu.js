@@ -1,6 +1,6 @@
 /* [INPUT]: Current main window, checked layout snapshots and existing pin/settings callbacks.
  * [OUTPUT]: Accessible window menu with pin, named layouts and draft-preserving save.
- * [POS]: Desktop chrome only; preset persistence belongs to the features service.
+ * [POS]: Shared sidebar/overlay/desktop chrome; only desktop receives pin/lease capabilities.
  * [PROTOCOL]: Keep workspace/AGENTS.md in sync. */
 import { tr } from '../../shared/i18n.js';
 import { iconSvg } from '../../shared/icons/index.js';
@@ -19,6 +19,8 @@ export function installWindowMenu(
   const name = form.querySelector('input');
   const message = root.querySelector('[role=alert]');
   const presets = root.querySelector('[data-presets]');
+  root.querySelector('[data-menu-pin]').hidden = !pin;
+  root.querySelector('.csw-menu-divider').hidden = !pin;
   const events = new AbortController();
   let state,
     pinned = true,
@@ -28,9 +30,9 @@ export function installWindowMenu(
   const busy = () => pending || isBusy();
   const context = () => ({
     placement: state.mainPlacement,
-    lease,
+    ...(lease ? { lease } : {}),
     expectedRevision: state.layoutPresetsRevision || 0,
-    expectedLayout: structuredClone(state.layouts?.desktop ?? null),
+    expectedLayout: structuredClone(state.layouts?.[state.mainPlacement] ?? null),
   });
   function close(focus = false) {
     menu.hidden = form.hidden = true;
@@ -46,7 +48,7 @@ export function installWindowMenu(
     menu.hidden = false;
     trigger.setAttribute('aria-expanded', 'true');
     container.dataset.menuOpen = 'true';
-    menu.querySelector('button:not(:disabled)')?.focus();
+    menu.querySelector('button:not(:disabled):not([hidden])')?.focus();
   }
   async function run(action, onSuccess = () => close(true)) {
     if (busy()) return;
@@ -67,8 +69,8 @@ export function installWindowMenu(
     }
   }
   function render() {
-    trigger.setAttribute('aria-label', tr('窗口操作'));
-    menu.setAttribute('aria-label', tr('窗口操作'));
+    trigger.setAttribute('aria-label', tr(pin ? '窗口操作' : '布局预设'));
+    menu.setAttribute('aria-label', tr(pin ? '窗口操作' : '布局预设'));
     root.querySelectorAll('[data-copy]').forEach((node) => {
       node.textContent = tr(node.dataset.copy);
     });
@@ -181,7 +183,7 @@ export function installWindowMenu(
       }
       if (menu.hidden || !['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
       event.preventDefault();
-      const buttons = [...menu.querySelectorAll('button:not(:disabled)')];
+      const buttons = [...menu.querySelectorAll('button:not(:disabled):not([hidden])')];
       const current = buttons.indexOf(document.activeElement);
       const index =
         event.key === 'Home'

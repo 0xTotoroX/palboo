@@ -17,6 +17,7 @@ func localized(_ chinese: String, _ english: String) -> String {
 
 struct LaunchFailure: LocalizedError {
     let message: String
+    var allowsRecovery = true
     var errorDescription: String? { message }
 }
 
@@ -60,7 +61,6 @@ func command(_ cli: URL, _ arguments: [String]) throws -> String {
 
 var developmentTarget: pid_t?
 var launchedDevelopment = false
-var pausedSettings: URL?
 
 func launch() throws {
     let cli = try bundledCLI()
@@ -70,23 +70,21 @@ func launch() throws {
     }
     let result = try command(cli, ["app-mode", "launch"])
     let outcome = result.data(using: .utf8).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+    if outcome?["paused"] as? Bool == true {
+        throw LaunchFailure(message: localized(
+            "连接已暂停。请返回 ChatGPT 内已打开的 Palboo 设置页恢复连接。",
+            "The connection is paused. Resume it from the Palboo settings page already open inside ChatGPT."), allowsRecovery: false)
+    }
     if outcome?["mode"] as? String == "development" {
         launchedDevelopment = true
         developmentTarget = (outcome?["pid"] as? NSNumber)?.int32Value
-        if outcome?["paused"] as? Bool == true, let url = outcome?["url"] as? String {
-            pausedSettings = URL(string: url)
-        }
         return
     }
-    if outcome?["paused"] as? Bool == true {
-        _ = try command(cli, ["start"])
-    } else {
-        do {
-            _ = try command(cli, ["popout"])
-        } catch {
-            // macOS 14 保留已连接的内嵌工作台，其余失败仍显示真实原因。
-            if !error.localizedDescription.contains("桌面浮窗仅支持 macOS 15") { throw error }
-        }
+    do {
+        _ = try command(cli, ["popout"])
+    } catch {
+        // macOS 14 保留已连接的内嵌工作台，其余失败仍显示真实原因。
+        if !error.localizedDescription.contains("桌面浮窗仅支持 macOS 15") { throw error }
     }
 }
 
@@ -206,14 +204,17 @@ final class Launcher: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         DispatchQueue.global(qos: .userInitiated).async {
             var failure: String?
+            var allowsRecovery = true
             do {
                 try launch()
             } catch {
                 if !error.localizedDescription.contains("已取消重开") {
                     failure = error.localizedDescription
+                    allowsRecovery = (error as? LaunchFailure)?.allowsRecovery ?? true
                 }
             }
             let message = failure
+            let canRecover = allowsRecovery
             DispatchQueue.main.async {
                 if let message {
                     NSApp.activate(ignoringOtherApps: true)
@@ -221,8 +222,8 @@ final class Launcher: NSObject, NSApplicationDelegate {
                     alert.messageText = "Palboo"
                     alert.informativeText = message
                     alert.addButton(withTitle: localized("好", "OK"))
-                    alert.addButton(withTitle: localized("使用正式模式", "Use release mode"))
-                    if alert.runModal() == .alertSecondButtonReturn {
+                    if canRecover { alert.addButton(withTitle: localized("使用正式模式", "Use release mode")) }
+                    if alert.runModal() == .alertSecondButtonReturn && canRecover {
                         DispatchQueue.global(qos: .userInitiated).async {
                             do {
                                 let cli = try bundledCLI()
@@ -240,12 +241,8 @@ final class Launcher: NSObject, NSApplicationDelegate {
                     }
                 }
                 if message == nil && launchedDevelopment {
-                    if let pausedSettings {
-                        NSWorkspace.shared.open(pausedSettings)
-                    } else {
-                        self.finishDevelopment()
-                        return
-                    }
+                    self.finishDevelopment()
+                    return
                 }
                 NSApp.terminate(nil)
             }

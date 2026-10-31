@@ -81,3 +81,5 @@ EditableSettings.quickPromptsEnabled/quickPromptClickMode/quickPromptLabelOnly �
 contracts.ts 的 HostSettingsAppearance 仅传递宿主界面语义色、字体和可选 geometry 尺寸/状态表现变量、reducedMotion 及可选双色 palettes；可选导航/标题字号行高、toolbarRadius、菜单尺寸和 inputBorder/segmented/ghost/slider 颜色按控件角色补充，旧快照保持回退，不含正文；AppearanceSettings.settingsStyle 为 chatgpt/palboo/null，缺省采用跟随，独立于 settingsTheme 明暗选择。
 
 typography 增加 SurfaceTypography（五类窗口）及快照 sources；surfaceTypography 保留旧全局偏好继承，fontFamily 空值跟随，指定本机字体后以宿主字体链回退。contracts/FeatureState 传递独立字体设置与贴边头部有效偏好，不改变业务布局。
+
+i18n.setLocale 接收只读 systemLanguage 并缓存后台解析的系统首选语言；显式 en/zh-CN 优先，system 使用同一来源。旧后台和独立网站无此字段时才回退 navigator；不改用户语言偏好或内容。

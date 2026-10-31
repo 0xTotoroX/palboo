@@ -21,3 +21,5 @@ Bot 的 open-app 动作沿用功能 owner 和开关校验，通过 LaunchService
 - `layout_presets.rs`：命名主布局预设的保存、覆盖、改名、删除和应用；独立 layoutPresetsRevision 拒绝过期管理请求，应用同时校验 expectedLayout、当前位置、桌面 lease 与功能交接状态。仅修改主布局可见组合和分栏，不改变业务开关/owner/视图或其他形式偏好；文件保存失败回滚内存，旧配置默认空列表。
 
 main-placement 对相同目标的在途整组交接返回原快照，不新建 owner、不重置超时或草稿；不同目标及其他业务操作继续按原交接互斥和归属校验拒绝。
+
+主窗口 `main-settings` 与独立功能 `settings` 经共享 `settings_navigation` 在 ChatGPT 内打开完整设置及预设目的地，原 lease/owner 校验保留。预设保存/应用/改名/删除同时提供 `config layout` 写入，复用上述事务；CLI 删除及覆盖需确认。

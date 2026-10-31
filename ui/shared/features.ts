@@ -119,6 +119,7 @@ export type FeatureState = {
   features: Entry[];
   appearance?: {
     language?: 'system' | 'zh-CN' | 'en';
+    systemLanguage?: 'zh-CN' | 'en';
     typography?: import('./typography').Typography | null;
     typographyPreferences?: import('./typography').TypographyPreferences;
     edgeTypographyPreferences?: import('./typography').TypographyPreferences;

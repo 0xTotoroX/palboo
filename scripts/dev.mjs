@@ -146,7 +146,7 @@ async function api(path, body) {
     method: body === undefined ? 'GET' : 'POST',
     headers: { Authorization: `Bearer ${runtime.token}`, 'Content-Type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
-    signal: AbortSignal.timeout(10000),
+    signal: AbortSignal.timeout(path === 'settings/open' ? 16000 : 10000),
   });
   const result = await response.json();
   if (!response.ok) throw new Error(result.message || '开发后台请求失败');
@@ -673,10 +673,9 @@ try {
     `Palboo · 开发版\n设置页开发服务：${url}\n真实 Codex · 默认内嵌；保存自动更新，Ctrl+C 退出并恢复安装版。\n开发配置：${data}`,
   );
   if (!args['no-open']) {
-    const opener = spawn('open', [`${url}/#token=${encodeURIComponent(token)}`], {
-      stdio: 'ignore',
-    });
-    opener.on('error', () => console.error('无法自动打开开发设置页。'));
+    await api('settings/open', {}).catch((error) =>
+      console.error(`无法在 ChatGPT 内打开开发设置页：${error.message}`),
+    );
   }
   startWatchers();
   if (hostProcess)

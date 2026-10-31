@@ -8,7 +8,7 @@ import { build } from 'esbuild';
 import { chromium } from 'playwright';
 import { readFile } from 'node:fs/promises';
 
-async function fixture(page) {
+async function fixture(page, placement = 'desktop') {
   const script = (
     await build({
       stdin: {
@@ -19,29 +19,29 @@ import {workbenchHeadHtml} from './ui/surfaces/workspace/chrome.js';
 import {installFeatureLayout} from './ui/surfaces/workspace/layout.js';
 import {installWindowMenu} from './ui/surfaces/workspace/window-menu.js';
 import {setLocale} from './ui/shared/i18n.js';
-window.changeLocale=setLocale;window.__buddyNativeChrome=true;installStyle();
-document.documentElement.dataset.nativeBackdrop='true';
-const host=document.querySelector('#root');host.innerHTML='<div class="csw-workbench">'+workbenchHeadHtml(true)+'</div>';
+const placement=${JSON.stringify(placement)};window.changeLocale=setLocale;window.__buddyNativeChrome=placement==='desktop';installStyle();
+if(placement==='desktop')document.documentElement.dataset.nativeBackdrop='true';
+const host=document.querySelector('#root');host.innerHTML='<div class="csw-workbench">'+workbenchHeadHtml(placement==='desktop')+'</div>';
 const root=host.firstElementChild;
 const paired={axis:'vertical',groups:[{ids:['outline'],active:'outline',weight:1},{ids:['next','prompts'],active:'next',weight:1}],visible:['outline','next','prompts']};
 const focused={...structuredClone(paired),visible:['outline']};
-window.state={mainPlacement:'desktop',layoutPresetsRevision:1,layouts:{desktop:paired},layoutPresets:[{id:'paired',name:'对照',layout:paired},{id:'focused',name:'专注',layout:focused}],features:['outline','next','prompts'].map(id=>({id,open:true,placement:'desktop',owner:id}))};
+window.state={mainPlacement:placement,layoutPresetsRevision:1,layouts:{[placement]:paired},layoutPresets:[{id:'paired',name:'对照',layout:paired},{id:'focused',name:'专注',layout:focused}],features:['outline','next','prompts'].map(id=>({id,open:true,placement,owner:id}))};
 window.requests=[];window.pins=[];window.pinned=true;window.rejectSave=false;
 const items=state.features.map(entry=>{const node=document.createElement('div');node.style.cssText='height:100%;min-height:0';const shadow=node.attachShadow({mode:'open'});shadow.innerHTML='<div data-scroll style="height:100%;overflow:auto"><input aria-label="'+entry.id+'草稿" value="未保存内容"><div style="height:900px">Synthetic content</div></div>';return {...entry,node,active:true}});
 window.originalNodes=items.map(item=>item.node);
 const composition=installFeatureLayout(root,{save:async(surface,next)=>{state.layouts[surface]=next},error:e=>{throw e}});
-const refresh=async()=>{composition.update(items,'desktop',state.layouts.desktop,null,'next',1);menu.update(state,pinned)};
+const refresh=async()=>{composition.update(items,placement,state.layouts[placement],null,'next',1);menu.update(state,pinned)};
 const request=async input=>{
  requests.push(structuredClone(input));
- if(input.op==='main-preset-apply')state.layouts.desktop=structuredClone(state.layoutPresets.find(p=>p.id===input.id).layout);
+ if(input.op==='main-preset-apply')state.layouts[placement]=structuredClone(state.layoutPresets.find(p=>p.id===input.id).layout);
  else if(input.op==='main-preset-save'){
   if(rejectSave)throw Error('保存失败，请重试');
   state.layoutPresets.push({id:'saved',name:input.name,layout:input.layout});state.layoutPresetsRevision++;
  }
  return state;
 };
-const menu=installWindowMenu(root.querySelector('.csw-workbench-controls'),{request,lease:'test',layout:()=>composition.snapshot(),pin:async value=>{pinned=value;pins.push(value)},settings:async()=>{window.settingsOpened=true},refresh,isBusy:()=>false});
-window.refresh=refresh;window.switchSurface=surface=>composition.update(items,surface,state.layouts.desktop,null,'next',1);refresh();
+const menu=installWindowMenu(root.querySelector('.csw-workbench-controls'),{request,...(placement==='desktop'?{lease:'test',pin:async value=>{pinned=value;pins.push(value)}}:{}),layout:()=>composition.snapshot(),settings:async()=>{window.settingsOpened=true},refresh,isBusy:()=>false});
+window.refresh=refresh;window.switchSurface=surface=>composition.update(items,surface,state.layouts[placement],null,'next',1);refresh();
 `,
         loader: 'js',
       },
@@ -55,7 +55,9 @@ window.refresh=refresh;window.switchSurface=surface=>composition.update(items,su
     '<div id="root" data-companion-stepwise-root="true" data-workbench="true" style="position:fixed;inset:12px;pointer-events:auto;--csw-text:#222;--csw-muted:#777;--csw-surface-opaque:#fff;--csw-hover:#eee;--csw-divider:#ddd"></div>',
   );
   await page.addScriptTag({ content: script });
-  await page.getByRole('button', { name: '窗口操作', exact: true }).waitFor();
+  await page
+    .getByRole('button', { name: placement === 'desktop' ? '窗口操作' : '布局预设', exact: true })
+    .waitFor();
 }
 
 test('desktop presets preserve mounted drafts and reading through hide, restore and surface changes', async () => {
@@ -158,7 +160,7 @@ import React from 'react';import {createRoot} from 'react-dom/client';
 import {FeatureSettings} from './ui/settings/feature-settings';
 import {useSettingsPage} from './ui/settings/settings-outline';
 import {setLocale} from './ui/shared/i18n.js';
-setLocale('zh-CN');
+window.changeLocale=setLocale;setLocale('system','zh-CN');
 window.requests=[];window.failSave=false;
 window.server={mainPlacement:'desktop',layoutPresetsRevision:0,layoutPresets:[],layouts:{desktop:{axis:'horizontal',groups:[{ids:['outline'],active:'outline',weight:.4},{ids:['next','prompts'],active:'next',weight:.6}]}},features:['outline','next','prompts'].map(id=>({id,open:true,placement:'desktop'}))};
 window.fetch=async(url,options)=>{
@@ -202,6 +204,7 @@ createRoot(document.getElementById('root')).render(<App/>);
     const page = await browser.newPage({
       viewport: { width: 390, height: 780 },
       reducedMotion: 'reduce',
+      locale: 'en-US',
     });
     page.setDefaultTimeout(5000);
     const errors = [];
@@ -248,6 +251,16 @@ createRoot(document.getElementById('root')).render(<App/>);
     await rename.fill('我的布局');
     await drawer.getByRole('button', { name: '重命名', exact: true }).click();
     await page.waitForFunction(() => server.layoutPresets[0].name === '我的布局');
+    await rename.fill('语言切换保留草稿');
+    await page.evaluate(() => changeLocale('en'));
+    const englishDrawer = page.getByRole('dialog', { name: 'Layout presets', exact: true });
+    await englishDrawer.getByRole('button', { name: 'Rename', exact: true }).waitFor();
+    assert.equal(
+      await englishDrawer.locator('#layout-preset-rename').inputValue(),
+      '语言切换保留草稿',
+    );
+    await page.evaluate(() => changeLocale('system'));
+    await drawer.getByRole('button', { name: '取消', exact: true }).click();
     await drawer.getByRole('switch', { name: '常用语', exact: true }).click();
     await page.waitForFunction(() => server.layouts.desktop.visible.length === 3);
     await drawer.getByRole('button', { name: '使用此预设', exact: true }).click();
@@ -274,6 +287,39 @@ createRoot(document.getElementById('root')).render(<App/>);
       true,
     );
     assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('sidebar and overlay expose the same presets without desktop pin or lease', async () => {
+  const browser = await chromium.launch();
+  try {
+    for (const placement of ['sidebar', 'overlay']) {
+      const page = await browser.newPage({
+        viewport: { width: 340, height: 650 },
+        reducedMotion: 'reduce',
+      });
+      await fixture(page, placement);
+      const trigger = page.getByRole('button', { name: '布局预设', exact: true });
+      await trigger.click();
+      assert.equal(await page.getByRole('menuitemcheckbox').count(), 0);
+      await page.getByRole('menuitemradio', { name: '专注', exact: true }).click();
+      const applied = await page.evaluate(() => requests.at(-1));
+      assert.equal(applied.placement, placement);
+      assert.equal('lease' in applied, false);
+      assert.equal(applied.expectedLayout.groups.length, 2);
+      await trigger.click();
+      await page.getByRole('menuitem', { name: '保存当前布局…', exact: true }).click();
+      await page.getByLabel('预设名称', { exact: true }).fill('当前阅读');
+      await page.getByRole('button', { name: '保存', exact: true }).click();
+      await page.waitForFunction(() => state.layoutPresets.some((p) => p.name === '当前阅读'));
+      assert.equal((await page.evaluate(() => requests.at(-1))).placement, placement);
+      await trigger.click();
+      await page.getByRole('menuitem', { name: '管理布局预设…', exact: true }).click();
+      assert.equal(await page.evaluate(() => settingsOpened), true);
+      await page.close();
+    }
   } finally {
     await browser.close();
   }

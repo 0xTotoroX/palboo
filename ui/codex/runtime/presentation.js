@@ -184,7 +184,7 @@ function applyPanelPreferences(ui) {
   emitSignal('render', undefined);
 }
 
-/** @param {string | {language?: string, action?: string, doubleAction?: string, contextAction?: string} | null} launcherAction */
+/** @param {string | {language?: string, systemLanguage?: string, action?: string, doubleAction?: string, contextAction?: string} | null} launcherAction */
 function syncPanelPreferences(ui, revision, detached, launcherAction = 'inside') {
   const previousLocale = getLocale();
   const gestures = typeof launcherAction === 'object' ? launcherAction : null;
@@ -197,7 +197,7 @@ function syncPanelPreferences(ui, revision, detached, launcherAction = 'inside')
       : fallback;
   }
   if (launcherAction && typeof launcherAction === 'object') {
-    setLocale(launcherAction.language || 'zh-CN');
+    setLocale(launcherAction.language || 'zh-CN', launcherAction.systemLanguage);
     launcherAction = launcherAction.action;
   }
   if (getLocale() !== previousLocale) emitSignal('render', undefined);
@@ -584,7 +584,7 @@ function panelCommand(command) {
 }
 
 async function receivePanelState(result, initial) {
-  setLocale(result.preferences?.language || 'system');
+  setLocale(result.preferences?.language || 'system', result.systemLanguage);
   document.documentElement.lang = getLocale();
   if (result.snapshot?.typography) shellState.sharedTypography = result.snapshot.typography;
   if (result.snapshot?.hostTypography) shellState.hostTypography = result.snapshot.hostTypography;

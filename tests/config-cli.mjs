@@ -72,6 +72,16 @@ try {
     join(data, 'terminology-library.json'),
     JSON.stringify([baseTerm('BASE-1'), baseTerm('BASE-2')]),
   );
+  await writeFile(
+    join(data, 'features.json'),
+    JSON.stringify({
+      main: { placement: 'sidebar' },
+      features: {
+        outline: { placement: 'sidebar', open: true },
+        next: { placement: 'sidebar', open: true },
+      },
+    }),
+  );
   await start();
   const original = await cli('get', 'settings');
   const dry = await set('settings', { generationMode: 'manual' }, '--dry-run');
@@ -240,6 +250,84 @@ try {
     () => set('layout', { op: 'main-layout', placement: 'sidebar', layout, expectedLayout: null }),
     /布局已变化/,
   );
+  for (const op of [
+    'main-preset-save',
+    'main-preset-apply',
+    'main-preset-rename',
+    'main-preset-delete',
+  ])
+    assert.ok(schemaFor('layout').operations.includes(op));
+  assert.ok(schemaFor('layout').nestedFields.layout.includes('visible'));
+  // Complete the same owner handshake as a mounted view in this isolated service.
+  for (const entry of (await cli('get', 'layout')).features) {
+    if (!entry.pending) continue;
+    const ready = await api('features', {
+      op: 'ready',
+      id: entry.id,
+      owner: entry.pending.owner,
+    });
+    assert.equal(ready.ok, true, JSON.stringify(await ready.json()));
+  }
+  const presetLayout = { ...layout, visible: ['outline'] };
+  const savedPreset = await set('layout', {
+    op: 'main-preset-save',
+    placement: 'sidebar',
+    name: '阅读',
+    layout: presetLayout,
+  });
+  const preset = savedPreset.current.layoutPresets[0];
+  const oldPresetRevision = savedPreset.current.layoutPresetsRevision;
+  await set('layout', { op: 'main-preset-apply', placement: 'sidebar', id: preset.id });
+  assert.deepEqual((await cli('get', 'layout')).layouts.sidebar, presetLayout);
+  await set('layout', { op: 'main-preset-rename', id: preset.id, name: '专注' });
+  await assert.rejects(
+    () =>
+      set('layout', {
+        op: 'main-preset-rename',
+        id: preset.id,
+        name: '过期',
+        expectedRevision: oldPresetRevision,
+      }),
+    /修订已变化/,
+  );
+  await assert.rejects(
+    () =>
+      set('layout', {
+        op: 'main-preset-save',
+        id: preset.id,
+        name: '覆盖',
+        placement: 'sidebar',
+        layout,
+      }),
+    /明确确认/,
+  );
+  await set(
+    'layout',
+    {
+      op: 'main-preset-save',
+      id: preset.id,
+      name: '对照',
+      placement: 'sidebar',
+      layout: { ...layout, visible: ['outline', 'next'] },
+    },
+    '--confirm',
+  );
+  await assert.rejects(
+    () => set('layout', { op: 'main-preset-delete', id: preset.id }),
+    /明确确认/,
+  );
+  await set('layout', { op: 'main-preset-delete', id: preset.id }, '--confirm');
+  const afterPresetDelete = await cli('get', 'layout');
+  assert.equal(afterPresetDelete.layoutPresets.length, 0);
+  assert.deepEqual(afterPresetDelete.layouts.sidebar, presetLayout);
+  const noHost = await api('settings/open', { section: 'layout-presets' });
+  assert.equal(noHost.ok, false);
+  assert.match((await noHost.json()).message, /ChatGPT.*连接/);
+  await assert.rejects(
+    () => exec(binary, ['--data-dir', data, 'start']),
+    /无法在 ChatGPT 内打开设置/,
+  );
+  assert.ok(await cli('get', 'settings'), 'failed settings navigation keeps the service alive');
   const stacked = {
     axis: 'vertical',
     groups: [

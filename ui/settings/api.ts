@@ -22,6 +22,7 @@ export interface View {
   model: { provider: string; model: string; label: string; available: boolean; reason: string };
   updatedAt: number;
   configurationRevision: number;
+  systemLanguage?: 'zh-CN' | 'en';
   panelPreferences: AppearanceSettings;
   panelTheme: string | null;
   settingsAppearance?: import('../shared/contracts').HostSettingsAppearance | null;

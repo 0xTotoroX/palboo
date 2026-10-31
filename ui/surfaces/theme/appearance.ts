@@ -8,6 +8,7 @@ export type SurfaceTheme = {
 };
 export type Appearance = {
   language?: 'system' | 'zh-CN' | 'en';
+  systemLanguage?: 'zh-CN' | 'en';
   typography?: import('../../shared/typography').Typography | null;
   typographyPreferences?: import('../../shared/typography').TypographyPreferences;
   theme?: string | null;

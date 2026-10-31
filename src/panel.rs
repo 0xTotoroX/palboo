@@ -629,7 +629,7 @@ impl App {
             Value::Null
         };
         Ok(
-            json!({"preferences":prefs,"ready":ready,"presented":presented,"snapshot":snapshot,
+            json!({"preferences":prefs,"systemLanguage":crate::i18n::system_locale(),"ready":ready,"presented":presented,"snapshot":snapshot,
             "scopeAllowed":self.host_page_allowed().await,
             "connection":self.view().connection.status}),
         )

@@ -161,6 +161,7 @@ fn router(service: Service) -> Router {
         .route("/connect", post(connect))
         .route("/disconnect", post(disconnect))
         .route("/settings", get(settings).post(save_settings))
+        .route("/settings/open", post(open_settings))
         .route("/settings/test", post(test_settings))
         .route("/settings/models", get(list_models))
         .route("/panel/state", post(panel_state))
@@ -332,13 +333,25 @@ async fn performance_update(
 }
 
 fn public_view(view: crate::state::View) -> Value {
-    json!({"settingsUrl":crate::assets::settings_url(),"version":view.version,"connection":view.connection,"model":view.model,"updatedAt":view.updated_at,
+    json!({"settingsUrl":crate::assets::settings_url(),"systemLanguage":crate::i18n::system_locale(),"version":view.version,"connection":view.connection,"model":view.model,"updatedAt":view.updated_at,
         "desktop":view.desktop,"configurationRevision":view.configuration_revision,
         "panelPreferences":view.panel_preferences,"panelTheme":view.panel_theme,"panelFontBase":view.panel_font_base,"panelTypography":view.panel_typography,"settingsAppearance":view.settings_appearance})
 }
 
 async fn settings(State(service): State<Service>) -> Json<Value> {
     Json(service.app.settings().await)
+}
+
+async fn open_settings(
+    State(service): State<Service>,
+    Json(input): Json<Value>,
+) -> Result<Json<Value>, ApiError> {
+    Ok(Json(
+        service
+            .app
+            .open_settings_in_host(input["section"].as_str())
+            .await?,
+    ))
 }
 async fn save_settings(
     State(service): State<Service>,

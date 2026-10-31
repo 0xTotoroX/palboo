@@ -150,7 +150,8 @@ export function FeatureView({
         }
         fingerprint = nextFingerprint;
         if (value.appearance) {
-          if (value.appearance.language) setLocale(value.appearance.language);
+          if (value.appearance.language)
+            setLocale(value.appearance.language, value.appearance.systemLanguage);
           setAppearance(value.appearance);
         }
         const token = contentToken(entry.id, value);

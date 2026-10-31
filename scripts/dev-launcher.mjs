@@ -464,16 +464,27 @@ export function developmentSettingsUrl(directory) {
   return url.href;
 }
 
+export async function openDevelopmentSettings(directory) {
+  const url = new URL(developmentSettingsUrl(directory));
+  const token = new URLSearchParams(url.hash.slice(1)).get('token');
+  const response = await fetch(new URL('/api/settings/open', url), {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: '{}',
+    signal: AbortSignal.timeout(16000),
+  });
+  const result = await response.json();
+  if (!response.ok || !result.ok) throw new Error(result.message || '无法在 ChatGPT 内打开设置');
+  return result;
+}
+
 async function main() {
   if (process.platform !== 'darwin') throw new Error('开发 App 入口仅适用于 macOS。');
   const mode = process.argv[2];
   if (!mode) return install();
   if (!['--open', '--run', '--stop', '--settings'].includes(mode))
     throw new Error('用法：npm run install:dev');
-  if (mode === '--settings') {
-    command('open', [developmentSettingsUrl(root)]);
-    return;
-  }
+  if (mode === '--settings') return openDevelopmentSettings(root);
   if (mode === '--stop') {
     await stopBackgroundDevelopment(root);
     console.log('后台开发会话已退出。');

@@ -190,19 +190,8 @@ pub(crate) async fn dispatch(
         }
         "/stepwise/test" => app.test_settings().await,
         "/settings/open" => {
-            if request.payload["configuredTarget"] == true
-                && app.appearance().await.settings_target == "plugin"
-            {
-                return Ok(json!({"status":"ok", "target":"plugin"}));
-            }
-            let runtime = crate::lifecycle::Runtime::read(&app.paths)?;
-            if request.payload["configuredTarget"] == true
-                || request.payload["inHostBrowser"] == true
-            {
-                return Ok(json!({"status":"ok", "target":"web", "url":runtime.url()}));
-            }
-            webbrowser::open(&runtime.url()).context("无法打开浏览器，请运行 palboo start")?;
-            Ok(json!({"status":"ok"}))
+            let url = app.settings_destination(request.payload["section"].as_str())?;
+            Ok(json!({"status":"ok", "target":"web", "url":url}))
         }
         _ => bail!("不支持的桌面请求"),
     }

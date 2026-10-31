@@ -649,6 +649,13 @@
   height: 16px;
   padding: 0;
 }
+.csw-workbench .csw-workbench-head[data-window='embedded']:has([data-window-menu]) {
+  display: flex;
+  justify-content: flex-end;
+  flex-basis: 44px;
+  height: 44px;
+  padding: 8px 12px;
+}
 .csw-workbench .csw-workbench-head[data-window='desktop'] {
   grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 4px;

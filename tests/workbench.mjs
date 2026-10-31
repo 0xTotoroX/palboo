@@ -437,6 +437,122 @@ async function chooseLayout(page, action) {
 
 const cases = [
   [
+    'embedded presets use the shared menu and host settings through the full shell',
+    async (page) => {
+      await mode(page, true);
+      await page.evaluate(() => {
+        const fixture = window.workbenchFixture;
+        const original = window.__companionHostRequest;
+        const layout = {
+          axis: 'vertical',
+          groups: [{ ids: ['prompts'], active: 'prompts', weight: 1 }],
+          visible: ['prompts'],
+        };
+        fixture.presets = {
+          mainManaged: true,
+          mainPlacement: 'sidebar',
+          pendingPlacement: null,
+          layoutPresetsRevision: 1,
+          layoutPresets: [{ id: 'reading', name: '阅读', layout }],
+          layouts: { sidebar: layout, overlay: layout },
+          features: [
+            {
+              id: 'prompts',
+              owner: 'inside',
+              placement: 'sidebar',
+              open: true,
+              view: {},
+              reveal: 1,
+            },
+          ],
+          appearance: { themes: {}, language: 'system', systemLanguage: 'zh-CN' },
+        };
+        window.__companionHostRequest = (raw) => {
+          const { id, path, payload } = JSON.parse(raw);
+          if (path !== '/features' && path !== '/settings/open') return original(raw);
+          fixture.requests.push({ path, payload });
+          const state = fixture.presets;
+          let reply = state;
+          if (path === '/settings/open') reply = { error: '测试设置入口暂不可用' };
+          else if (payload.op === 'read')
+            reply = {
+              snapshot: {
+                viewToken: 'synthetic',
+                quickPromptToken: 'phrases',
+                settings: fixture.settings,
+                display: { promptClickMode: 'fill' },
+                bridgeStatus: 'ready',
+                prompts: [],
+              },
+            };
+          else if (payload.op === 'main-preset-apply')
+            state.layouts[payload.placement] = structuredClone(
+              state.layoutPresets.find((p) => p.id === payload.id).layout,
+            );
+          else if (payload.op === 'main-preset-save') {
+            state.layoutPresets.push({
+              id: payload.name,
+              name: payload.name,
+              layout: payload.layout,
+            });
+            state.layoutPresetsRevision++;
+          }
+          queueMicrotask(() => window.__companionDesktop.complete(id, structuredClone(reply)));
+        };
+      });
+      await page.getByRole('button', { name: '添加快捷指令', exact: true }).waitFor();
+      const trigger = page.getByRole('button', { name: '布局预设', exact: true });
+      for (const placement of ['sidebar', 'overlay']) {
+        await page.evaluate((placement) => {
+          const state = window.workbenchFixture.presets;
+          state.mainPlacement = state.features[0].placement = placement;
+          state.features[0].reveal++;
+        }, placement);
+        await page.waitForTimeout(850);
+        await trigger.click();
+        assert.equal(await page.getByRole('menuitemcheckbox').count(), 0);
+        const buttonBox = await trigger.boundingBox();
+        assert.deepEqual([buttonBox.width, buttonBox.height], [28, 28]);
+        const menuBox = await page.getByRole('menu', { name: '布局预设' }).boundingBox();
+        assert.ok(menuBox.x >= 0 && menuBox.x + menuBox.width <= wide.width);
+        await page.getByRole('menuitemradio', { name: '阅读', exact: true }).click();
+        await page.waitForFunction(
+          () =>
+            document.querySelector('[data-window-menu]')?.getAttribute('aria-expanded') === 'false',
+        );
+        const applied = await page.evaluate(
+          () =>
+            window.workbenchFixture.requests
+              .filter((r) => r.payload?.op === 'main-preset-apply')
+              .at(-1).payload,
+        );
+        assert.equal(applied.placement, placement);
+        assert.equal('lease' in applied, false);
+        await trigger.click();
+        await page.getByRole('menuitem', { name: '保存当前布局…', exact: true }).click();
+        await page.getByLabel('预设名称', { exact: true }).fill(`阅读-${placement}`);
+        await page.getByRole('button', { name: '保存', exact: true }).click();
+        await page.waitForFunction(
+          () =>
+            document.querySelector('[data-window-menu]')?.getAttribute('aria-expanded') === 'false',
+        );
+      }
+      await trigger.click();
+      await page.getByRole('menuitem', { name: '管理布局预设…', exact: true }).click();
+      await page
+        .getByRole('menu', { name: '布局预设' })
+        .getByRole('alert')
+        .filter({ hasText: '测试设置入口暂不可用' })
+        .waitFor();
+      const request = await page.evaluate(() =>
+        window.workbenchFixture.requests.filter((r) => r.path === '/settings/open').at(-1),
+      );
+      assert.deepEqual(request.payload, { inHostBrowser: true, section: 'layout-presets' });
+      await page.evaluate(() => window.__companionFloatingPanel.destroy());
+      assert.equal(await page.locator('[data-window-menu]').count(), 0);
+    },
+  ],
+  [
     'bidirectional feature handoff stays visible through the full host shell',
     async (page) => {
       await mode(page, true);

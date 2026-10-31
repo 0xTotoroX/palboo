@@ -82,3 +82,17 @@ test('built-in display names translate without changing model group identities o
   assert.equal(JSON.stringify({ prefs, direction, originals }), snapshot);
   setLocale('zh-CN');
 });
+
+test('app system language comes from the backend and explicit choices still win', () => {
+  setLocale('system', 'zh-CN');
+  assert.equal(getLocale(), 'zh-CN');
+  assert.equal(tr('布局预设'), '布局预设');
+  setLocale('en', 'zh-CN');
+  assert.equal(getLocale(), 'en');
+  assert.equal(tr('重命名'), 'Rename');
+  setLocale('system');
+  assert.equal(getLocale(), 'zh-CN');
+  setLocale('system', 'en');
+  assert.equal(getLocale(), 'en');
+  setLocale('zh-CN');
+});
