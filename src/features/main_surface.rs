@@ -1,5 +1,5 @@
-// [INPUT]: Feature owners, main placement and saved flat/nested layouts.
-// [OUTPUT]: Validated recursive layouts with optional visible features/collapsed rows, named preset storage, one main window and atomic group handoff.
+// [INPUT]: Feature owners, enabled features, startup display preferences, main placement and saved flat/nested layouts.
+// [OUTPUT]: Cold-start main visibility/location, validated recursive layouts with optional visible features/collapsed rows, named preset storage, one main window and atomic group handoff.
 // [POS]: Main-surface lifecycle within features; no task or model business logic.
 // [PROTOCOL]: Keep features/AGENTS.md in sync.
 use super::*;
@@ -159,6 +159,71 @@ impl MainSurface {
     }
 }
 impl Features {
+    // 只在后台冷启动应用；热重载、重新连接和普通状态回读不重复覆盖用户操作。
+    pub(crate) fn apply_startup(
+        &mut self,
+        panel: &mut crate::panel::Panel,
+        enabled: &[(&str, bool)],
+    ) {
+        let prefs = &mut panel.prefs;
+        if prefs.startup.mode == "restore" {
+            return;
+        }
+        let open = prefs.startup.mode == "open";
+        let outside = open && prefs.startup.location == "outside" && panel.popout_supported;
+        let managed = self.main_managed();
+        prefs.detached = outside && !managed;
+        prefs.ui.open = open;
+        prefs.ui.dock_open = open;
+        prefs.return_open = Some(open);
+        prefs.revision += 1;
+        if !managed {
+            return;
+        }
+        for &(id, on) in enabled {
+            if on && id != "model" {
+                self.entries.entry(id.into()).or_insert_with(|| Entry {
+                    pref: Preference {
+                        placement: self.main.pref.placement.clone(),
+                        ..Default::default()
+                    },
+                    owner: uuid::Uuid::new_v4().to_string(),
+                    view: json!({}),
+                    pending: None,
+                    reveal: 1,
+                    closing: None,
+                });
+            }
+        }
+        if open {
+            let inside = if self.main.pref.placement == "desktop" {
+                &self.main.pref.return_placement
+            } else {
+                &self.main.pref.placement
+            };
+            let inside = if inside == "overlay" {
+                "overlay"
+            } else {
+                "sidebar"
+            };
+            self.main.pref.placement = if outside { "desktop" } else { inside }.into();
+            self.main.pref.return_placement = inside.into();
+            prefs.ui.layout_mode = if inside == "sidebar" {
+                "workbench"
+            } else {
+                "capsule"
+            }
+            .into();
+        }
+        for (id, entry) in &mut self.entries {
+            if entry.pref.placement == "edge" {
+                continue;
+            }
+            entry.pref.open = open && enabled.iter().any(|(key, on)| *key == id && *on);
+            entry.pref.placement = self.main.pref.placement.clone();
+            entry.pref.return_placement = self.main.pref.return_placement.clone();
+        }
+    }
     pub(super) fn desktop_active(&self) -> bool {
         self.entries.values().any(|e| {
             e.pref.open && e.pref.placement == "desktop"
@@ -337,5 +402,111 @@ impl App {
             Value::Null
         };
         Ok(json!({"anchor":anchor}))
+    }
+}
+
+#[cfg(test)]
+mod startup_tests {
+    use super::*;
+
+    #[test]
+    fn startup_preserves_old_defaults_and_only_changes_enabled_main_views() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths::new(Some(dir.path().into())).unwrap();
+        let saved = json!({"main":{"placement":"desktop","returnPlacement":"overlay","size":[920,680]},
+        "features":{
+            "next":{"placement":"desktop","open":false},
+            "board":{"placement":"desktop","open":false},
+            "bots":{"placement":"desktop","open":true},
+            "model":{"placement":"edge","open":true}
+        }});
+        write_private(
+            &paths.root.join("features.json"),
+            &serde_json::to_vec(&saved).unwrap(),
+        )
+        .unwrap();
+        for (mode, location, supported) in [
+            ("restore", "inside", true),
+            ("closed", "outside", true),
+            ("open", "inside", true),
+            ("open", "outside", true),
+            ("open", "outside", false),
+        ] {
+            let mut features = Features::load(&paths);
+            let mut panel = crate::panel::Panel::load(&paths, false);
+            panel.popout_supported = supported;
+            panel.prefs.startup = crate::panel::StartupPreferences {
+                mode: mode.into(),
+                location: location.into(),
+            };
+            panel.prefs.detached = true;
+            let before = panel.prefs.clone();
+            let old_state = features.snapshot();
+            features.apply_startup(
+                &mut panel,
+                &[
+                    ("next", true),
+                    ("prompts", true),
+                    ("board", false),
+                    ("bots", false),
+                ],
+            );
+            assert!(features.entries["model"].pref.open);
+            assert_eq!(features.entries["model"].pref.placement, "edge");
+            assert_eq!(features.main.pref.size, [920, 680]);
+            if mode == "restore" {
+                assert_eq!(features.snapshot(), old_state);
+                assert_eq!(panel.prefs, before);
+                continue;
+            }
+            assert!(
+                !panel.prefs.detached,
+                "managed content must not spawn the legacy window"
+            );
+            let open = mode == "open";
+            assert_eq!(panel.prefs.ui.open, open);
+            assert_eq!(panel.prefs.ui.dock_open, open);
+            assert_eq!(features.entries["next"].pref.open, open);
+            assert_eq!(features.entries["prompts"].pref.open, open);
+            assert!(!features.entries["board"].pref.open && !features.entries["bots"].pref.open);
+            if open {
+                let target = if location == "outside" && supported {
+                    "desktop"
+                } else {
+                    "overlay"
+                };
+                assert_eq!(features.main.pref.placement, target);
+                assert_eq!(features.entries["next"].pref.placement, target);
+                assert_eq!(features.main.pref.return_placement, "overlay");
+            }
+            assert_eq!(panel.prefs.startup.location, location);
+        }
+        let actual: Value =
+            serde_json::from_slice(&std::fs::read(paths.root.join("features.json")).unwrap())
+                .unwrap();
+        assert_eq!(
+            actual, saved,
+            "startup does not rewrite saved layouts or feature choices"
+        );
+    }
+
+    #[test]
+    fn startup_legacy_popout_respects_platform_without_overwriting_choice() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths::new(Some(dir.path().into())).unwrap();
+        for supported in [false, true] {
+            let mut features = Features::load(&paths);
+            let mut panel = crate::panel::Panel::load(&paths, false);
+            panel.popout_supported = supported;
+            panel.prefs.startup = crate::panel::StartupPreferences {
+                mode: "open".into(),
+                location: "outside".into(),
+            };
+            features.apply_startup(&mut panel, &[("next", true)]);
+            assert_eq!(panel.prefs.detached, supported);
+            assert!(panel.prefs.ui.open);
+            assert_eq!(panel.prefs.startup.location, "outside");
+            assert!(!features.main_managed());
+        }
     }
 }

@@ -125,6 +125,17 @@ try {
   await assert.rejects(() => set('settings', { jev: { consent: true } }), /明确确认/);
   const appearance = await cli('get', 'appearance');
   assert.equal(appearance.settingsTheme, null);
+  assert.deepEqual(appearance.startup, { mode: 'restore', location: 'inside' });
+  await set('appearance', { startup: { mode: 'closed', location: 'outside' } });
+  const startup = await set('appearance', { startup: { mode: 'restore' } });
+  assert.deepEqual(startup.current.startup, { mode: 'restore', location: 'outside' });
+  assert.deepEqual(startup.current.ui, appearance.ui);
+  assert.equal(startup.current.detached, appearance.detached);
+  await assert.rejects(
+    () => set('appearance', { startup: { mode: 'invalid' } }),
+    /启动显示选项无效/,
+  );
+  await assert.rejects(() => set('appearance', { startup: { unknown: true } }), /未知/);
   const dark = await set('appearance', { settingsTheme: 'dark' });
   assert.equal(dark.current.settingsTheme, 'dark');
   assert.deepEqual(dark.current.ui, appearance.ui);

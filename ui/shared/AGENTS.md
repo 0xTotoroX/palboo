@@ -29,6 +29,8 @@ AppearanceSettings 增加可选 settingsTarget（plugin/web），旧后台缺省
 
 AppearanceSettings.launcherAction/launcherDoubleAction/launcherContextAction 分别保存眼睛单击、双击、右键动作；旧配置默认 inside/toggle/settings，双击和右键额外支持 toggle，设置修订与生成设置分离。
 
+AppearanceSettings.startup 保存 mode（restore/closed/open）和 location（inside/outside）；缺省 restore/inside，外观修订独立保存，仅后台冷启动应用，普通读回不改变当前开合与位置。
+
 contracts.ts声明宿主inputTarget只读目标和提示词优化verify/destroy生命周期接口；原文不进入持久化配置或窗口投影。
 
 codex-host.ts定义独立后台管理状态和重启进度，不扩展FeatureId或插件注册。contracts声明上游只读Agent探针。

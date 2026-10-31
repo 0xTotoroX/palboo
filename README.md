@@ -39,6 +39,8 @@ The DMG contains the complete App. Everyday use needs no terminal commands, Node
 
 **Manual updates:** in **System → Startup & connection → App updates**, choose **Check for updates**, then **Update and restart**. Palboo verifies and replaces the complete App, keeps your settings, and restores the previous App if installation or startup fails. Codex stays running. Checks and downloads happen only when requested; save unfinished settings first. Development mode allows checks; switch to release mode to install.
 
+**Startup display:** under **System → Startup & connection → Launch behavior**, restore the last state, start collapsed, or start open. When starting open, choose the chat workspace or desktop window. The choice takes effect the next time Palboo starts; existing settings continue to restore the last state. The sidebar menu waits half a second before closing when you move away. Switching between chat and desktop keeps the content visible with a shared transition instead of repeated progress messages.
+
 The published v1.2.0 and earlier do not contain this updater. Install the first version that includes it manually once. Source-only patch releases show their notes without an install button; an App in a read-only location must be moved to a writable Applications folder first.
 
 <details>

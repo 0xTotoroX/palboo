@@ -1,4 +1,4 @@
-// [INPUT]: App、宿主投影、窗口租约与私有 panel 偏好（新聊天/Dots 侧栏开关仅由外观设置修改）。
+// [INPUT]: App、宿主投影、窗口租约与私有 panel 偏好（含下次启动的显示状态和内外位置）。
 // [OUTPUT]: 设置页独立强调色、macOS 15+ arm64 弹出能力与入口校验、Panel、独立胶囊/工作台尺寸、分窗口字体族/跟随/字号偏好及旧统一偏好兼容、兼容分功能字号及分呈现方式的排列/比例偏好、带分栏阅读位置与新建任务草稿接续的弹出/收回/受限命令（含常用提示词填入），以及保留原实例的开发唤起目标。
 // [POS]: 后台系统浮窗管理层，从准备租约起保护窗口快照，原生呈现后隐藏内嵌胶囊；临时坐标不持久化，收回偏好按版本校验并保存。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
@@ -169,6 +169,7 @@ pub struct Position {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct Preferences {
+    pub startup: StartupPreferences,
     pub typography: TypographyPreferences,
     pub surface_typography: BTreeMap<String, TypographyPreferences>,
     pub revision: u64,
@@ -186,6 +187,30 @@ pub struct Preferences {
     pub launcher_context_action: String,
     pub position: Option<Position>,
     pub ui: Ui,
+}
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
+pub struct StartupPreferences {
+    pub mode: String,
+    pub location: String,
+}
+impl Default for StartupPreferences {
+    fn default() -> Self {
+        Self {
+            mode: "restore".into(),
+            location: "inside".into(),
+        }
+    }
+}
+impl StartupPreferences {
+    fn validate(&self) -> Result<()> {
+        ensure!(
+            ["restore", "closed", "open"].contains(&self.mode.as_str())
+                && ["inside", "outside"].contains(&self.location.as_str()),
+            "启动显示选项无效"
+        );
+        Ok(())
+    }
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase", deny_unknown_fields)]
@@ -255,6 +280,7 @@ impl TypographyPreferences {
 impl Default for Preferences {
     fn default() -> Self {
         Self {
+            startup: StartupPreferences::default(),
             revision: 0,
             web_revision: 0,
             typography: TypographyPreferences::default(),
@@ -301,6 +327,9 @@ impl Preferences {
                 serde_json::from_value::<Self>(value).ok()
             })
             .map(|mut prefs| {
+                if prefs.startup.validate().is_err() {
+                    prefs.startup = StartupPreferences::default();
+                }
                 if prefs.detached {
                     prefs.ui.open = true;
                 }
@@ -796,6 +825,13 @@ impl App {
             bail!("外观已在其他窗口更新，请重试");
         }
         let mut next = panel.prefs.clone();
+        if let Some(value) = input.get("startup") {
+            next.startup = serde_json::from_value(value.clone())?;
+            next.startup.validate()?;
+            if next.startup.mode == "open" && next.startup.location == "outside" {
+                require_popout(panel.popout_supported)?;
+            }
+        }
         if let Some(patch) = input.get("ui") {
             let mut ui = serde_json::to_value(&next.ui)?;
             for (key, value) in patch.as_object().context("外观参数无效")? {
@@ -1793,6 +1829,54 @@ mod tests {
             desktop.typography_for("desktop")
         );
         assert_eq!(app.settings().await, settings);
+    }
+
+    #[tokio::test]
+    async fn startup_preferences_save_for_next_launch_without_moving_current_views() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths::new(Some(dir.path().into())).unwrap();
+        let app = App::new(paths.clone(), crate::config::Config::default(), None, true);
+        let before = app.appearance().await;
+        let settings = app.settings().await;
+        assert_eq!(before.startup, StartupPreferences::default());
+        let saved = app
+            .save_appearance(json!({"expectedRevision":before.revision,
+            "startup":{"mode":"closed","location":"inside"}}))
+            .await
+            .unwrap();
+        assert_eq!(saved.ui, before.ui);
+        assert_eq!(saved.detached, before.detached);
+        assert_eq!(app.settings().await, settings);
+        assert_eq!(Preferences::read(&paths).startup, saved.startup);
+        assert!(
+            app.save_appearance(json!({"expectedRevision":before.revision,
+            "startup":{"mode":"open","location":"inside"}}))
+                .await
+                .is_err()
+        );
+        for invalid in [
+            json!({"mode":"invalid"}),
+            json!({"location":"edge"}),
+            json!({"mode":true}),
+        ] {
+            assert!(
+                app.save_appearance(json!({"expectedRevision":saved.revision,"startup":invalid}))
+                    .await
+                    .is_err()
+            );
+        }
+        app.panel.lock().await.popout_supported = false;
+        assert!(
+            app.save_appearance(json!({"expectedRevision":saved.revision,
+            "startup":{"mode":"open","location":"outside"}}))
+                .await
+                .is_err()
+        );
+        let restarted = App::new(paths, crate::config::Config::default(), None, true);
+        let effective = restarted.appearance().await;
+        assert!(!effective.ui.open && !effective.ui.dock_open && !effective.detached);
+        assert_eq!(restarted.view().panel_preferences, effective);
+        assert_eq!(effective.startup, saved.startup);
     }
 
     #[tokio::test]

@@ -119,7 +119,7 @@ function targetPage(field: string): SettingsPage | undefined {
   )
     return 'surfaces';
   if (/^quick-prompt/.test(field)) return 'prompts';
-  if (/^app-mode(?:-|$)|^app-update-/.test(field)) return 'connection';
+  if (/^app-mode(?:-|$)|^app-update-|^startup-/.test(field)) return 'connection';
   if (/^(generation-mode|direction-|jev-|suggestion-)/.test(field)) return 'next';
   return undefined;
 }

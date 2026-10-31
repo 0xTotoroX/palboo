@@ -43,6 +43,7 @@ impl Scope {
             ],
             Self::Appearance => &[
                 "expectedRevision",
+                "startup",
                 "typography",
                 "settingsTheme",
                 "settingsStyle",
@@ -246,6 +247,7 @@ pub(super) fn schema(scope: Scope) -> Value {
         }),
         Scope::Appearance => json!({
             "nestedFields":{
+                "startup":keys(crate::panel::StartupPreferences::default()),
                 "ui":keys(crate::panel::Ui::default()),
                 "typography":keys(crate::panel::TypographyPreferences::default()),
                 "settingsAccent":keys(crate::panel::SettingsAccent::default()),
@@ -253,6 +255,7 @@ pub(super) fn schema(scope: Scope) -> Value {
                 "ui.dockLayout / ui.popoutLayout":keys(crate::panel::WorkbenchLayout::default())
             },
             "choices":{
+                "startup.mode":["restore","closed","open"],"startup.location":["inside","outside"],
                 "language":["system","en","zh-CN"],"settingsTheme":["codex","light","dark"],"settingsStyle":["chatgpt","palboo"],
                 "settingsAccent.source":["chatgpt","palboo","custom"],
                 "typography.mode":["follow","custom"],"typography.source":["body","session","composer"],
@@ -260,6 +263,7 @@ pub(super) fn schema(scope: Scope) -> Value {
                 "settingsTarget":["plugin","web"]
             },
             "notes":{
+                "startup":"下次启动生效；mode 为 open 时使用 location，inside 沿用侧栏或浮层；只影响主界面，不改变贴边或业务开关",
                 "typography":"支持局部更新；scale 为 75–150%，customSize 为 10–32px",
                 "settingsAccent":"设置页点缀独立于主题；color 为 #RRGGBB，切换 source 保留自定义颜色",
                 "ui":"下一步显示/操作：labelOnly、promptClickMode；侧栏宽度：dockWidth；Palboo启用范围：sidebarNewChat、sidebarDots",

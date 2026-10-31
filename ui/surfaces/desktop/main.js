@@ -7,6 +7,7 @@ import { setLocale, getLocale } from '../../shared/i18n.js';
 import { typographyStyle, layoutZoom } from '../../shared/typography';
 import { mountFeature } from '../workspace/mount';
 import { installFeatureLayout } from '../workspace/layout';
+import { installHandoffMotion } from '../workspace/handoff.js';
 import { installStyle } from '../embedded/shell/install-styles.js';
 import { installWindowControls } from '../workspace/window-controls.js';
 import { installWindowMenu } from '../workspace/window-menu.js';
@@ -23,6 +24,9 @@ export function startDesktop(request, lease) {
     '--csw-default-chip-width:84px;--csw-default-chip-height:36px;--csw-default-panel-radius:24px;position:fixed;inset:12px;width:auto;height:auto;pointer-events:auto;';
   root.innerHTML = `<div class="csw-popover" data-open="true" data-morphing="false" style="position:absolute;inset:0;width:100%;height:100%"><div class="csw-glass" style="inset:0;width:100%;height:100%;border-radius:24px"></div><section class="csw-panel" style="inset:0;width:100%;height:100%;border-radius:24px"><div class="csw-workbench">${workbenchHeadHtml(true)}</div></section><div class="csw-resize-handle" data-corner="bl" style="position:absolute;left:0;bottom:0;width:20px;height:20px;pointer-events:auto" aria-label="${tr('从左下角调整窗口大小')}"></div><div class="csw-resize-handle" data-corner="br" style="position:absolute;right:0;bottom:0;width:20px;height:20px;pointer-events:auto" aria-label="${tr('从右下角调整窗口大小')}"></div></div>`;
   const mounts = new Map();
+  const handoffMotion = installHandoffMotion(root.querySelector('.csw-workbench'), {
+    native: true,
+  });
   let state,
     selected = '',
     pinned,
@@ -234,6 +238,7 @@ export function startDesktop(request, lease) {
     error,
   });
   function renderContent() {
+    handoffMotion.update('desktop', state.pendingPlacement);
     const items = [...mounts.values()];
     for (const item of items)
       item.node.inert = !item.active || document.documentElement.dataset.buddyReloading === 'true';
@@ -269,6 +274,7 @@ export function startDesktop(request, lease) {
         nativeResize.destroy();
         windowMenu.destroy();
         composition.destroy();
+        handoffMotion.destroy();
         for (const item of mounts.values()) item.mount.dispose();
         native({ kind: 'close' });
         return;
@@ -337,6 +343,7 @@ export function startDesktop(request, lease) {
       error(e);
       if (++failures >= 3) {
         stopped = true;
+        handoffMotion.destroy();
         nativeResize.destroy();
         native({ kind: 'close' });
       }

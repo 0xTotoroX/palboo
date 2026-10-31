@@ -1,7 +1,7 @@
 /*
  * [INPUT]: 本机设置 API（含独立常用语开关/点击模式/默认关闭的仅名称显示及默认关闭的新聊天/Dots 侧栏开关）、宿主上下文和弹出窗口协议。
  * [OUTPUT]: 无正文 HostSettingsAppearance 与设置主题来源/独立强调色、三种方向来源、方向库/位置与只读内置目录、Jev 同意及凭据状态、常用提示词配置与 quick-fill 命令、完整上下文哨兵 maxInputChars=0、启动策略 ask/force、独立胶囊/工作台偏好、停靠与浮窗各自的排列/顺序/双轴比例、独立功能字号、含分栏阅读位置的投影、呈现确认及操作身份、工作台聊天关联投影及模式命令的共享类型。
- * [POS]: 界面边界契约；不产生运行时依赖。
+ * [POS]: 界面边界契约；AppearanceSettings.startup 独立保存下次启动的显示与内外位置，不产生运行时依赖。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
 export interface HostSettingsAppearance {
@@ -403,6 +403,7 @@ declare global {
 
 export type SettingsAccent = { source: 'chatgpt' | 'palboo' | 'custom'; color: string };
 export interface AppearanceSettings {
+  startup?: { mode: 'restore' | 'closed' | 'open'; location: 'inside' | 'outside' };
   language?: 'system' | 'zh-CN' | 'en';
   settingsTheme?: 'codex' | 'light' | 'dark' | null;
   settingsStyle?: 'chatgpt' | 'palboo' | null;

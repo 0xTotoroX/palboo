@@ -54,6 +54,25 @@ test('inline expanding menu preserves eyes hit target and has stable hover, keyb
     await host.getByRole('menuitem', { name: '在桌面打开' }).hover();
     await page.waitForTimeout(220);
     assert.equal(await host.getAttribute('data-open'), '');
+    await page.mouse.move(300, 100);
+    await page.waitForTimeout(300);
+    assert.equal(
+      await host.getAttribute('data-open'),
+      '',
+      'menu stays available during pointer travel',
+    );
+    await host.getByRole('menuitem', { name: '在聊天内打开' }).hover();
+    await page.waitForTimeout(300);
+    assert.equal(await host.getAttribute('data-open'), '', 'returning cancels the pending close');
+    await page.mouse.move(300, 100);
+    await page.waitForFunction(
+      () => !document.querySelector('[data-palboo-launcher-menu]').hasAttribute('data-open'),
+    );
+    await eye.hover();
+    await page.waitForFunction(() =>
+      document.querySelector('[data-palboo-launcher-menu]').hasAttribute('data-open'),
+    );
+    await host.getByRole('menuitem', { name: '在桌面打开' }).hover();
     for (const location of ['inside', 'outside', 'inside']) {
       await page.evaluate((location) => {
         window.options.currentLocation = location;

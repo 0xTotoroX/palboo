@@ -3,11 +3,12 @@ import { setLocale, getLocale } from '../../shared/i18n.js';
 import { measureWork } from '../../shared/performance.js';
 import { errorMessage } from '../../shared/text.js';
 /* [INPUT]: Feature owners, main ownership, saved placements, opt-in sidebar page switches and the existing capsule/dock.
- * [OUTPUT]: Business views inside the original shell, geometry refresh on dock changes, window round trips retaining the departure state, reopening enabled main views after window closure, and cancellation of motion when changing surfaces.
+ * [OUTPUT]: Business views inside the original shell, geometry refresh, whole-workbench handoff motion, window round trips retaining the departure state and reopening enabled main views after window closure.
  * [POS]: Embedded surface adapter. Geometry and gestures remain in shell.
  * [PROTOCOL]: Keep embedded/AGENTS.md in sync. */
 import { mountFeature } from '../workspace/mount';
 import { installFeatureLayout } from '../workspace/layout';
+import { installHandoffMotion } from '../workspace/handoff.js';
 import { bindDockResize } from './width.js';
 import { createDock, dockWidthLimit } from './dock.js';
 import { bridgeCall, shellState, runtimeState } from '../../codex/runtime/state.js';
@@ -24,6 +25,7 @@ let timer = 0,
 let state = null,
   dock = null;
 let composition = null;
+let handoffMotion = null;
 let dockValue = { status: '', rect: null };
 let primary = 'overlay';
 let selected = '';
@@ -139,6 +141,8 @@ function frame(container, faceClick) {
   root.innerHTML = `${workbenchHeadHtml()}<p data-feature-error role="alert" hidden></p><div class="csw-workbench-resize" role="separator" tabindex="0" aria-label="${tr('调整工作台宽度')}" aria-orientation="vertical"></div>`;
   root.querySelector('.csw-workbench-face').addEventListener('click', faceClick);
   composition?.destroy();
+  handoffMotion?.destroy();
+  handoffMotion = installHandoffMotion(root);
   composition = installFeatureLayout(root, {
     save: async (placement, layout, expectedLayout) => {
       const entry = state.features.find((entry) => entry.open && entry.placement === placement);
@@ -175,6 +179,7 @@ function frame(container, faceClick) {
   return root;
 }
 function content(root, placement) {
+  handoffMotion?.update(placement, state.pendingPlacement);
   const entries = group(placement).filter((entry) => entry.open || entry.pending);
   if (!entries.some((e) => e.id === selected)) selected = entries[0]?.id || '';
   root.querySelector('.csw-workbench-face').dataset.expression = resolveFabExpression();
@@ -364,6 +369,8 @@ export function stopFeatureHost() {
   timer = 0;
   composition?.destroy();
   composition = null;
+  handoffMotion?.destroy();
+  handoffMotion = null;
   for (const item of mounts.values()) item.mount.dispose();
   mounts.clear();
   dock?.destroy();

@@ -265,6 +265,7 @@ fn prepare(scope: Scope, mut patch: Value, before: &Value) -> Result<Value> {
             guard(&mut patch, "expectedRevision", before["revision"].clone())?;
             merge_object(&mut patch, "typography", &before["typography"])?;
             merge_object(&mut patch, "settingsAccent", &before["settingsAccent"])?;
+            merge_object(&mut patch, "startup", &before["startup"])?;
         }
         Scope::CodexHost => guard(&mut patch, "expectedRevision", before["revision"].clone())?,
         Scope::Surfaces => {

@@ -106,7 +106,7 @@ export function createLauncherMenu(anchor, options) {
     clearTimeout(leaveTimer);
     leaveTimer = window.setTimeout(() => {
       if (!busy && !shadow.activeElement) close();
-    }, 180);
+    }, 500);
   }
   listen(anchor, 'pointerenter', (e) => {
     if (e.pointerType !== 'touch') {

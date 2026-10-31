@@ -1,4 +1,4 @@
-// [INPUT]: CDP Client、Config、Model 与胶囊状态摘要。
+// [INPUT]: CDP Client、Config、Model、主界面启动偏好与胶囊状态摘要。
 // [OUTPUT]: App、View、连接与无正文胶囊状态、共享字体与设置界面外观快照；临时响应超时保留会话并恢复连接状态；退出信号取消模型请求，开发模式锁定启动窗口。
 // [POS]: 持有独立 tasks 服务； 后台业务状态层，为 server、requests 与 panel 提供一致状态；独立维护模型控制条服务及窗口监督。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
@@ -110,6 +110,31 @@ impl App {
         let model = Model::load(&config)
             .with_key(paths.load_key().ok().flatten())
             .with_jev_key(paths.load_named_key("jevApiKey").ok().flatten());
+        let tasks = crate::tasks::Service::load(&paths);
+        let model_control = crate::model_control::Control::load(&paths);
+        let mut panel = crate::panel::Panel::load(&paths, allow_fixture);
+        let mut features = crate::features::Features::load(&paths);
+        if panel.prefs.startup.mode != "restore" {
+            let terms = crate::terminology::library(&paths.root).is_ok_and(|v| !v.is_empty());
+            features.apply_startup(
+                &mut panel,
+                &[
+                    ("outline", model.options.answer_outline_enabled),
+                    ("next", model.options.enabled),
+                    ("prompts", model.options.quick_prompts_enabled),
+                    ("bots", model.options.grokbot_enabled),
+                    (
+                        "board",
+                        tasks
+                            .inner
+                            .try_lock()
+                            .is_ok_and(|inner| inner.store.board_enabled),
+                    ),
+                    ("model", model_control.preferences.enabled),
+                    ("terms", terms),
+                ],
+            );
+        }
         let (views, _) = watch::channel(View {
             version: crate::config::VERSION.into(),
             connection: Connection {
@@ -128,7 +153,7 @@ impl App {
             model: model.info(),
             updated_at: now(),
             configuration_revision: 1,
-            panel_preferences: crate::panel::Preferences::read(&paths),
+            panel_preferences: panel.prefs.clone(),
             panel_theme: None,
             panel_font_base: 13.,
             panel_colors: json!({}),
@@ -138,18 +163,18 @@ impl App {
         Arc::new(Self {
             performance: Mutex::new(crate::performance::Monitor::default()),
             surfaces: Mutex::new(crate::surfaces::Surfaces::load(&paths)),
-            features: Mutex::new(crate::features::Features::load(&paths)),
+            features: Mutex::new(features),
             feature_operation: Mutex::new(()),
             codex_host_operation: Mutex::new(()),
             terminology_operation: Mutex::new(()),
             terminology_import_changed: tokio::sync::Notify::new(),
             model_requests: Default::default(),
-            tasks: crate::tasks::Service::load(&paths),
+            tasks,
             views,
             shutdown: Notify::new(),
             closing: watch::channel(false).0,
-            panel: Mutex::new(crate::panel::Panel::load(&paths, allow_fixture)),
-            model_control: Mutex::new(crate::model_control::Control::load(&paths)),
+            panel: Mutex::new(panel),
+            model_control: Mutex::new(model_control),
             paths,
             desired: RwLock::new(desired),
             model: RwLock::new(model),

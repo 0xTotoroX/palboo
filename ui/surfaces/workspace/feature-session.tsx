@@ -2,7 +2,7 @@ import { useLocale } from '../../shared/use-locale';
 import { tr } from '../../shared/i18n.js';
 import { setLocale, getLocale } from '../../shared/i18n.js';
 /* [INPUT]: Owner lease, business projection, request function and optional surface header slot.
- * [OUTPUT]: Business content with shared host typography and legacy font fallback, guarded actions and draft/reading handoff with close acknowledgement; the surface owns chrome.
+ * [OUTPUT]: Business content with shared typography, guarded actions, accessible busy state, errors and draft/reading handoff; the surface owns shared motion and status.
  * [POS]: Shared by native windows and host Shadow DOM surfaces; no host parsing.
  * [PROTOCOL]: Keep AGENTS.md in this module in sync. */
 import {
@@ -307,6 +307,7 @@ export function FeatureView({
       className="feature-view"
       data-feature={entry.id}
       data-busy={busy}
+      aria-busy={!!entry.pending}
       style={
         {
           ...style,
@@ -318,7 +319,6 @@ export function FeatureView({
         } as CSSProperties
       }
     >
-      {entry.pending && <p role="status">{tr('正在移到新位置…')}</p>}
       {error && <p role="alert">{error}</p>}
       {!connected && value && entry.id !== 'board' && (
         <p role="status">{tr('连接已断开，保留上次内容。')}</p>

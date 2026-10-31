@@ -1,8 +1,9 @@
 import { AppModeSettings } from './app-mode-settings';
+import { StartupSettings } from './startup-settings';
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: 现有设置表单、认证 API 与共用设置控件。
- * [OUTPUT]: 连接状态与操作、启动策略、应用更新和运行模式；断线不展示过期连接消息，Dev 保留固定目标。
+ * [OUTPUT]: 连接状态与操作、下次启动显示/位置和宿主启动策略、应用更新和运行模式；断线不展示过期连接消息，Dev 保留固定目标。
  * [POS]: 设置展示层，不执行后台业务或读取聊天正文。
  * [PROTOCOL]: 变更时同步 settings/AGENTS.md。 */
 import { useState, useEffect } from 'react';
@@ -180,6 +181,11 @@ export function ConnectionSettings({
         <>
           <Card tabIndex={-1} id="settings-startup" aria-labelledby="startup-title">
             <h2 id="startup-title">{tr('启动行为')}</h2>
+            <StartupSettings
+              value={view?.panelPreferences}
+              live={live}
+              outsideAvailable={editor.saved?.popoutSupported === true}
+            />
             <Field
               id="host-restart-policy"
               label={tr('ChatGPT 已打开，但没有调试连接时')}
