@@ -3,12 +3,13 @@ import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: Shared preview frame, existing form snapshots, saved surfaces and feature layout.
  * [OUTPUT]: Linked diagrams and actual interactive feature components; connection settings use their own inline state rather than a duplicate overview.
- * [POS]: Settings presentation only; no requests, credentials, task bodies or host commands.
+ * [POS]: Settings presentation only; receives current local snapshots, never requests credentials or sends host commands.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 import { LayoutPreview } from './layout-preview';
 import { ModelPreview } from './model-preview';
 import { FeaturePreviewContent } from './feature-preview';
-import { useState, type ReactNode } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
+import type { BotCatalog } from './bot-settings';
 import type { SettingsPage } from './settings-outline';
 import type { EditableSettings, View } from './api';
 import type { SurfaceState } from './surface-settings';
@@ -26,6 +27,7 @@ type PreviewProps = {
   surfaces: SurfaceState | null;
   model: ModelState | null;
   tasks: TaskState | null;
+  bots: BotCatalog | null;
   view: View | null;
   live: boolean;
 };
@@ -44,7 +46,7 @@ function Facts({ items }: { items: [string, ReactNode][] }) {
   );
 }
 
-function FeaturePreview({ form, tasks, model, view, dirty, page }: PreviewProps) {
+function FeaturePreview({ form, tasks, model, bots, view, dirty, page }: PreviewProps) {
   useLocale();
   const [tab, setTab] = useState<'outline' | 'next' | 'prompts' | 'board' | 'model' | 'bots'>(
     'next',
@@ -105,9 +107,16 @@ function FeaturePreview({ form, tasks, model, view, dirty, page }: PreviewProps)
             >
               <div className="preview-demo preview-product" data-enabled={active !== false}>
                 {scene === 'model' ? (
-                  <ModelPreview model={model} />
+                  <ModelPreview model={model} mode="current" />
                 ) : (
-                  <FeaturePreviewContent id={scene} form={form} view={view} tasks={tasks} />
+                  <FeaturePreviewContent
+                    id={scene}
+                    form={form}
+                    view={view}
+                    tasks={tasks}
+                    bots={bots}
+                    mode="current"
+                  />
                 )}
               </div>
             </div>
@@ -122,7 +131,6 @@ function GenerationPreview({ form, dirty }: PreviewProps) {
   useLocale();
   return (
     <Frame
-      format="interface"
       className="preview-generation"
       title={tr('共享模型连接')}
       status={dirty ? tr('包含未保存的编辑') : undefined}
@@ -144,6 +152,24 @@ function GenerationPreview({ form, dirty }: PreviewProps) {
 }
 export function SettingsPreview(props: PreviewProps) {
   useLocale();
+  const { form, view, tasks, bots, model } = props;
+  const renderFeature = useCallback(
+    (id: string, headerActions: HTMLElement) =>
+      id === 'model' ? (
+        <ModelPreview model={model} mode="current" headerActions={headerActions} />
+      ) : ['outline', 'next', 'prompts', 'board', 'bots', 'terms'].includes(id) ? (
+        <FeaturePreviewContent
+          id={id as 'outline' | 'next' | 'prompts' | 'board' | 'bots' | 'terms'}
+          form={form}
+          view={view}
+          tasks={tasks}
+          bots={bots}
+          mode="current"
+          headerActions={headerActions}
+        />
+      ) : null,
+    [form, view, tasks, bots, model],
+  );
   if (['connection', 'codex-host'].includes(props.page)) return null;
   const workspace = props.page === 'surfaces' || props.page === 'appearance';
   return (
@@ -162,6 +188,7 @@ export function SettingsPreview(props: PreviewProps) {
           typography={props.view?.panelTypography}
           typographyPreferences={props.view?.panelPreferences.typography}
           surfaceTypography={props.view?.panelPreferences.surfaceTypography}
+          renderFeature={renderFeature}
         />
       ) : ['features', 'next', 'prompts', 'board', 'model-control', 'bots'].includes(props.page) ? (
         <FeaturePreview {...props} />

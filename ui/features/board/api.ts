@@ -43,10 +43,12 @@ export type Calendar = {
   writable: boolean;
 };
 export type BoardColumn = { id: string; title: string };
+export type BoardViewMode = 'merged' | 'expanded';
 export type TaskState = {
   store: {
     revision: number;
     boardEnabled: boolean;
+    viewMode?: BoardViewMode;
     syncEnabled: boolean;
     bindings: Bindings;
     columns?: BoardColumn[];
@@ -94,6 +96,7 @@ export const emptyFields = (): Fields => ({
 export function useTasks(poll = false, request: TaskRequest = localRequest) {
   const [state, setState] = useState<TaskState | null>(null);
   const [error, setError] = useState('');
+  const [readError, setReadError] = useState('');
   const [busy, setBusy] = useState(false);
   const writing = useRef(false);
   const generation = useRef(0);
@@ -104,10 +107,10 @@ export function useTasks(poll = false, request: TaskRequest = localRequest) {
       const next = await request<TaskState>('tasks/state');
       if (epoch === generation.current) {
         setState(next);
-        if (next.error) setError(next.error);
+        setReadError(next.error || '');
       }
     } catch (e) {
-      if (epoch === generation.current) setError(errorMessage(e));
+      if (epoch === generation.current) setReadError(errorMessage(e));
     }
   }, [request]);
   useEffect(() => {
@@ -146,7 +149,7 @@ export function useTasks(poll = false, request: TaskRequest = localRequest) {
       await reload();
     }
   }
-  return { state, error, busy, command, reload, setError };
+  return { state, error: error || readError, busy, command, reload, setError };
 }
 export function dueText(due: Due | null) {
   if (!due) return '';

@@ -21,3 +21,5 @@ appearance.startup 的 mode（restore/closed/open）与 location（inside/outsid
 layout 暴露 main-preset-save/apply/update/rename/delete；读取返回 layoutPresets/layoutPresetsRevision，操作携带 expectedRevision，保存/应用同时核对 expectedLayout 与 placement。visible 描述完整布局中的显示组合；预设 id 来自读取结果，move.id 才是功能目录。覆盖和删除需 --confirm，dry-run 不写入，与界面共享同一后台。
 
 layout.scope=all/sidebar/overlay/desktop 是共享预设的推荐标签；save 未传时新建默认 all、覆盖保留旧值，update 支持 name/scope 局部保存。应用允许跨标签，只写当前形式布局；schema 同时暴露枚举、操作字段和示例，config-cli 集成验证旧命令、标记更新、非法标记和覆盖保留。
+
+任务配置同步支持`{"op":"view","viewMode":"merged|expanded"}`，复用任务修订；只保存布局，任务与同步开关保留。

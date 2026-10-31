@@ -1,11 +1,12 @@
-/* [INPUT]: Preview language and visitor edits to synthetic portfolio content.
- * [OUTPUT]: Typed product projections and an in-memory, revision-checked task adapter.
- * [POS]: Shared settings/website demo data only; never reads files, host state, model endpoints or credentials.
+/* [INPUT]: Preview language, synthetic portfolio data or an explicitly supplied task snapshot.
+ * [OUTPUT]: Typed example projections/terms and a copy-on-entry, revision-checked task adapter.
+ * [POS]: Shared preview data; never reads files, host state, model endpoints or credentials. Website calls omit task seeds.
  * [PROTOCOL]: Keep shared/AGENTS.md in sync. */
 import { tr } from './i18n.js';
 import type { PanelSnapshot, PromptItem } from './contracts';
 import {
   emptyFields,
+  type BoardViewMode,
   type Fields,
   type Task,
   type TaskRequest,
@@ -175,36 +176,40 @@ function task(id: string, fields: Fields): Task {
     conflict: null,
   };
 }
-export function createDemoTasks() {
+export function createDemoTasks(seed?: TaskState, exampleViewMode: BoardViewMode = 'merged') {
   let serial = 6;
-  const state: TaskState = {
-    status: 'ready',
-    store: {
-      revision: 0,
-      boardEnabled: true,
-      syncEnabled: false,
-      bindings: { calendarId: '' },
-      inflight: null,
-      tasks: taskNames.map((title, i) =>
-        task(`sample-${i}`, {
-          ...emptyFields(),
-          title,
-          column: i === 1 || i === 4 ? 'doing' : 'todo',
-          completed: i === 2 || i === 5,
-          priority: i === 0 ? 1 : i === 4 ? 5 : 0,
-          notes: i === 0 ? taskNotes : '',
-        }),
-      ),
-    },
-  };
+  const state: TaskState = seed
+    ? structuredClone(seed)
+    : {
+        status: 'ready',
+        store: {
+          revision: 0,
+          boardEnabled: true,
+          viewMode: exampleViewMode,
+          syncEnabled: false,
+          bindings: { calendarId: '' },
+          inflight: null,
+          tasks: taskNames.map((title, i) =>
+            task(`sample-${i}`, {
+              ...emptyFields(),
+              title,
+              column: i === 1 || i === 4 ? 'doing' : 'todo',
+              completed: i === 2 || i === 5,
+              priority: i === 0 ? 1 : i === 4 ? 5 : 0,
+              notes: i === 0 ? taskNotes : '',
+            }),
+          ),
+        },
+      };
   const snapshot = () => {
     const result = structuredClone(state);
-    result.store.tasks.forEach((item) => {
-      const index = Number(item.id.replace('sample-', ''));
-      if (item.fields.title === taskNames[index]) item.fields.title = tr(item.fields.title);
-      if (item.id === 'sample-0' && item.fields.notes === taskNotes)
-        item.fields.notes = tr(taskNotes);
-    });
+    if (!seed)
+      result.store.tasks.forEach((item) => {
+        const index = Number(item.id.replace('sample-', ''));
+        if (item.fields.title === taskNames[index]) item.fields.title = tr(item.fields.title);
+        if (item.id === 'sample-0' && item.fields.notes === taskNotes)
+          item.fields.notes = tr(taskNotes);
+      });
     return result;
   };
   const request: TaskRequest = async <T>(path: string, body?: unknown) => {
@@ -246,4 +251,43 @@ export function createDemoTasks() {
       state.store.revision++;
     },
   };
+}
+
+export function sampleTerms(): import('../features/terminology').Term[] {
+  return [
+    {
+      id: 'responsive',
+      name: tr('响应式布局'),
+      english: 'Responsive layout',
+      definition: tr('让页面随屏幕宽度调整排列。例如电脑上并排展示作品，手机上改为纵向阅读。'),
+      category: [tr('页面与布局')],
+    },
+    {
+      id: 'breakpoint',
+      name: tr('断点'),
+      english: 'Breakpoint',
+      category: [tr('页面与布局')],
+      definition: tr(
+        '布局切换的宽度条件。比如空间不足时，两列作品变成一列，文字保持原本的可读大小。',
+      ),
+    },
+    {
+      id: 'loading',
+      name: tr('首屏加载'),
+      english: 'Initial load',
+      category: [tr('性能')],
+      definition: tr(
+        '访客第一次看到页面内容所需的加载过程。先呈现标题和核心作品，其余图片按需要加载。',
+      ),
+    },
+    {
+      id: 'accessibility',
+      name: tr('可访问性'),
+      english: 'Accessibility',
+      category: [tr('交互')],
+      definition: tr(
+        '让不同操作方式都能完成任务。键盘可到达按钮，焦点清楚，减少动态效果时仍能阅读和操作。',
+      ),
+    },
+  ];
 }

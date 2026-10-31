@@ -386,47 +386,53 @@
   container-type: inline-size;
 }
 @container (max-width: 30em) {
-  .preview-model-control .model-matrix,
-  .preview-model-control .model-row,
-  .preview-model-control .model-inline-heading {
+  .preview-model-control[data-preview-source='example'] .model-matrix,
+  .preview-model-control[data-preview-source='example'] .model-row,
+  .preview-model-control[data-preview-source='example'] .model-inline-heading {
     min-width: 0;
   }
-  .preview-model-control .model-inline-heading {
+  .preview-model-control[data-preview-source='example'] .model-inline-heading {
     width: 100% !important;
     grid-template-columns: minmax(0, 1fr) !important;
   }
-  .preview-model-control .model-inline-heading > .model-choices,
-  .preview-model-control .model-column-resize,
-  .preview-model-control .model-discharge {
+  .preview-model-control[data-preview-source='example'] .model-inline-heading > .model-choices,
+  .preview-model-control[data-preview-source='example'] .model-column-resize,
+  .preview-model-control[data-preview-source='example'] .model-discharge {
     display: none;
   }
-  .preview-model-control .model-inline-heading .model-fast {
+  .preview-model-control[data-preview-source='example'] .model-inline-heading .model-fast {
     left: auto;
     right: 0;
   }
-  .preview-model-control .model-row {
+  .preview-model-control[data-preview-source='example'] .model-row {
     grid-template-columns: minmax(0, 1fr);
     gap: 6px;
     padding-block: 8px;
   }
-  .preview-model-control .model-row .model-choices {
+  .preview-model-control[data-preview-source='example'] .model-row .model-choices {
     display: flex;
     flex-wrap: wrap;
     gap: 4px;
   }
-  .preview-model-control .model-row .model-choices button {
+  .preview-model-control[data-preview-source='example'] .model-row .model-choices button {
     font-size: 0;
     padding-inline: 8px;
   }
-  .preview-model-control .model-row .model-choices button::after {
+  .preview-model-control[data-preview-source='example'] .model-row .model-choices button::after {
     content: attr(data-reasoning);
     font-size: var(--settings-text-size);
     text-transform: capitalize;
   }
-  .preview-model-control .model-row .model-choices button[data-reasoning='']::after {
+  .preview-model-control[data-preview-source='example']
+    .model-row
+    .model-choices
+    button[data-reasoning='']::after {
     content: '选择';
   }
-  .preview-model-control .model-row .model-choices button[aria-pressed='true'] {
+  .preview-model-control[data-preview-source='example']
+    .model-row
+    .model-choices
+    button[aria-pressed='true'] {
     background: var(--buddy-subtle);
   }
 }

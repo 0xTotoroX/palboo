@@ -21,7 +21,7 @@ Desktop windows use native macOS traffic-light controls and reuse the existing P
 | **Quick phrases**         | Manage reusable prompts independently; choose fill, send, or click-to-fill/double-click-to-send.                                        |
 | **Outline**               | Navigate long answers and jump to the original text.                                                                                    |
 | **Terminology**           | Explain terms in context; collect favorites and mark terms as mastered.                                                                 |
-| **Task board**            | Organize tasks into To do, In progress, and Done, with groups and drag-and-drop.                                                        |
+| **Task board**            | Organize tasks with merged or fully expanded views, custom groups and drag-and-drop.                                                        |
 | **Model switching**       | Switch Codex models, reasoning levels, and Fast mode; save presets and see available usage limits.                                      |
 | **Prompt enhancement**    | Refine a draft before sending, with the option to restore the original.                                                                 |
 | **Chat speed**            | Keep each model’s latest estimated speed across chats, labeled until a new reading arrives; inspect token usage when Codex provides it. |

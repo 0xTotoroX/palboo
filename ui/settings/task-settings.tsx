@@ -11,7 +11,7 @@ import { Input } from './components/ui/input';
 import { Switch } from './components/ui/switch';
 import { NativeSelect } from './components/ui/native-select';
 import { Icon } from '../shared/icons/react';
-import { Feedback } from './settings-controls';
+import { Feedback, Field } from './settings-controls';
 import { useFeedbackTarget } from './settings-feedback';
 import {
   useTasks,
@@ -50,6 +50,21 @@ export function TaskSettings({ tasks }: { tasks: ReturnType<typeof useTasks> }) 
     (!!hasLinks && !!currentId && !needsRepair);
   return (
     <section id="settings-tasks" className="settings-section space-y-5">
+      <Field label={tr('看板视图')} id="board-view-mode">
+        <NativeSelect
+          id="board-view-mode"
+          aria-label={tr('看板视图')}
+          value={state?.store.viewMode ?? 'merged'}
+          disabled={busy || !state}
+          onChange={(event) => {
+            feedback.capture();
+            void command({ op: 'view', viewMode: event.target.value });
+          }}
+        >
+          <option value="merged">{tr('合并视图')}</option>
+          <option value="expanded">{tr('完全展开视图')}</option>
+        </NativeSelect>
+      </Field>
       <section id="board-groups">
         <h2>{tr('看板分组')}</h2>
         <div ref={listRef} data-settings-list="board-groups" className="space-y-3">

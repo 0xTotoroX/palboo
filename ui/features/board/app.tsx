@@ -1,7 +1,7 @@
 import { useLocale } from '../../shared/use-locale';
 import { tr } from '../../shared/i18n.js';
 /* [INPUT]: Task API, native window events, drag/drop components, optional surface header slot and polling policy.
- * [OUTPUT]: Task groups, inline creation/removal and compact tabs or wide columns.
+ * [OUTPUT]: Saved merged tabs or fully expanded groups, with inline creation/removal.
  * [POS]: Task-only application entry; no Codex/model dependencies.
  * [PROTOCOL]: Keep board/AGENTS.md in sync. */
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -46,6 +46,7 @@ export function Board({
   const busy = taskBusy || locked;
   const element = useRef<HTMLDivElement>(null);
   const [narrow, setNarrow] = useState(false);
+  const merged = state?.store.viewMode !== 'expanded';
   const [stage, setStage] = useState(view?.tab === 'archive' ? 'done' : view?.stage || 'todo');
   useEffect(() => {
     const node = element.current;
@@ -53,7 +54,7 @@ export function Board({
     const observer = new ResizeObserver(([entry]) => setNarrow(entry.contentRect.width < 680));
     observer.observe(node);
     return () => observer.disconnect();
-  }, [!!state]);
+  }, [!!state, state?.store.boardEnabled]);
   const tab = 'board';
   const [search, setSearch] = useState(view?.search ?? '');
   const [searchOpen, setSearchOpen] = useState(!!view?.search);
@@ -71,7 +72,7 @@ export function Board({
     title: columnTitle(column),
   }));
   useEffect(() => {
-    if (!columns.some((c) => c.id === stage)) setStage('todo');
+    if (!columns.some((c) => c.id === stage)) setStage(columns[0]?.id || 'todo');
   }, [columns, stage]);
   useEffect(() => {
     if (view) Object.assign(view, { search, stage, tab, quickAdd, editor: draft });
@@ -87,8 +88,8 @@ export function Board({
   }, [request]);
   useEffect(() => {
     const grid = element.current?.querySelector<HTMLElement>('.board-grid');
-    if (grid && !narrow) grid.scrollLeft = view?.gridLeft || 0;
-  }, [narrow, tab, state?.store.tasks.length, view]);
+    if (grid && !narrow && !merged) grid.scrollLeft = view?.gridLeft || 0;
+  }, [narrow, merged, tab, state?.store.tasks.length, view]);
   const move = useCallback(
     (id: string, column: string, before?: string) => {
       const task = state?.store.tasks.find((t) => t.id === id);
@@ -209,6 +210,7 @@ export function Board({
           view.gridLeft = node.scrollLeft;
       }}
       className={`board-app ${embedded ? 'embedded' : ''}`}
+      data-view-mode={merged ? 'merged' : 'expanded'}
     >
       {!embedded && (
         <header className="board-header">
@@ -246,7 +248,7 @@ export function Board({
         />
       )}
       <main className="board-main">
-        {narrow && (
+        {merged && (
           <div className="board-toolbar">
             <nav className="stage-tabs" aria-label={tr('任务阶段')}>
               {columns.map((column) => (
@@ -297,14 +299,14 @@ export function Board({
           </div>
         )}
         <div
-          className={`board-grid ${narrow ? 'narrow' : ''}`}
+          className={`board-grid ${merged ? 'narrow' : narrow ? 'stacked' : ''}`}
           style={
-            narrow
+            narrow || merged
               ? undefined
               : { gridTemplateColumns: `repeat(${columns.length}, minmax(210px, 1fr))` }
           }
         >
-          {(narrow ? columns.filter((column) => column.id === stage) : columns).map((column) => {
+          {(merged ? columns.filter((column) => column.id === stage) : columns).map((column) => {
             const group = visible.filter((t) => taskGroup(t) === column.id);
             return (
               <Column

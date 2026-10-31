@@ -13,6 +13,7 @@ import contentStyles from '../features/content.css?inline';
 import boardStyles from '../features/board/styles.css?inline';
 import { DemoSurface } from './demo-surface';
 import { createDemoTasks, sampleProjection } from './demo-state';
+import { sampleTerms } from '../shared/demo-state';
 import { useSiteTheme } from './theme';
 
 export function NextDemo({ onInsert }: { onInsert: (text: string) => void }) {
@@ -106,7 +107,7 @@ export function OutlineDemo({ onJump }: { onJump: (index: number) => void }) {
 }
 export function BoardDemo({ tourStatus }: { tourStatus?: number } = {}) {
   const locale = useLocale();
-  const [tasks] = useState(createDemoTasks);
+  const [tasks] = useState(() => createDemoTasks(undefined, 'expanded'));
   const [revision, setRevision] = useState(0);
   useEffect(() => {
     if (tourStatus === undefined) return;
@@ -130,42 +131,7 @@ export function TermDemo() {
   const [favorites, setFavorites] = useState<string[]>(['breakpoint']);
   const [mastered, setMastered] = useState<string[]>(['accessibility']);
   const state: TermData = {
-    entries: [
-      {
-        id: 'responsive',
-        name: tr('响应式布局'),
-        english: 'Responsive layout',
-        definition: tr('让页面随屏幕宽度调整排列。例如电脑上并排展示作品，手机上改为纵向阅读。'),
-        category: [tr('页面与布局')],
-      },
-      {
-        id: 'breakpoint',
-        name: tr('断点'),
-        english: 'Breakpoint',
-        category: [tr('页面与布局')],
-        definition: tr(
-          '布局切换的宽度条件。比如空间不足时，两列作品变成一列，文字保持原本的可读大小。',
-        ),
-      },
-      {
-        id: 'loading',
-        name: tr('首屏加载'),
-        english: 'Initial load',
-        category: [tr('性能')],
-        definition: tr(
-          '访客第一次看到页面内容所需的加载过程。先呈现标题和核心作品，其余图片按需要加载。',
-        ),
-      },
-      {
-        id: 'accessibility',
-        name: tr('可访问性'),
-        english: 'Accessibility',
-        category: [tr('交互')],
-        definition: tr(
-          '让不同操作方式都能完成任务。键盘可到达按钮，焦点清楚，减少动态效果时仍能阅读和操作。',
-        ),
-      },
-    ],
+    entries: sampleTerms(),
     preferences: { favorites, mastered, cardMaterial: 'matte' },
     involved: ['responsive', 'breakpoint', 'loading', 'accessibility'],
     context: 'website',

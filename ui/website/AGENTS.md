@@ -43,3 +43,5 @@
 - `theme.tsx`：网站独立的浅色/深色切换，页首与语言入口并排，单击当前主题图标或使用 Enter/Space 直接切换，不显示下拉菜单。提供只读主题订阅，使打开的术语卡片同步更新；偏好只保存到 palboo-site-theme 并跨标签同步；默认浅色，旧 system 值或存储不可用时回退浅色，不跟随系统变化，不影响示例状态或宿主外观。
 
 网站发布使用 `.github/workflows/site.yml` 手动选择已审核的提交或标签，默认只构建；选择 publish 才部署 GitHub Pages。上传内容限于 `target/site/`，不包含 App、开发资料或源素材。部署与自定义域名接入分别验收，不以本地预览或构建通过宣称上线。
+
+任务演示继续使用无seed的createDemoTasks，显式采用expanded以完整演示跨组进度；术语样本复用shared/demo-state的sampleTerms。共享适配器支持设置页复制真实快照，不使网站读取本地数据或服务。

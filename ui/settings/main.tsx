@@ -8,7 +8,7 @@ import { LanguageSettings } from './language-settings';
 import { setLocale, getLocale } from '../shared/i18n.js';
 import { useLocale } from '../shared/use-locale';
 import { StrictMode, useEffect, useState } from 'react';
-import { BotSettings, BotSetupInstructions } from './bot-settings';
+import { BotSettings, BotSetupInstructions, type BotCatalog } from './bot-settings';
 import { TerminologySettings } from './terminology-settings';
 import { createRoot } from 'react-dom/client';
 import '../shared/tokens.css';
@@ -120,6 +120,7 @@ function App() {
   const [features, setFeatures] = useState<FeatureState | null>(null);
   const [surfaces, setSurfaces] = useState<SurfaceState | null>(null);
   const [model, setModel] = useState<ModelState | null>(null);
+  const [bots, setBots] = useState<BotCatalog | null>(null);
   const [modelEnablement, setModelEnablement] = useState<HTMLDivElement | null>(null);
   const [termEnablement, setTermEnablement] = useState<HTMLDivElement | null>(null);
   const [hostEnablement, setHostEnablement] = useState<HTMLDivElement | null>(null);
@@ -219,6 +220,7 @@ function App() {
                 features={features}
                 surfaces={surfaces}
                 model={model}
+                bots={bots}
                 tasks={tasks.state}
                 view={view}
                 live={live}
@@ -294,7 +296,7 @@ function App() {
               <div data-settings-page="model-control" hidden={page !== 'model-control'}>
                 <ModelControlSettings
                   live={live}
-                  active={common || page === 'model-control'}
+                  active={common || page === 'model-control' || surfacesVisible}
                   detailed={page === 'model-control'}
                   enablementTarget={modelEnablement}
                   onSnapshot={setModel}
@@ -303,7 +305,13 @@ function App() {
               <div hidden={page !== 'bots'} className="settings-actions">
                 <BotSetupInstructions hidden={page !== 'bots'} />
               </div>
-              <BotSettings active={page === 'bots'} live={live} editor={editor} />
+              <BotSettings
+                active={page === 'bots'}
+                previewActive={surfacesVisible}
+                onSnapshot={setBots}
+                live={live}
+                editor={editor}
+              />
               <section
                 data-settings-page="surfaces"
                 hidden={!surfacesVisible}

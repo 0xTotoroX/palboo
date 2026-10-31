@@ -656,3 +656,39 @@ async fn local_removal_persists_without_reimporting_or_writing_remote() {
     );
     assert_eq!(snapshot.reminders[0], original);
 }
+
+#[tokio::test]
+async fn board_view_modes_persist_without_changing_tasks_or_modules() {
+    let dir = tempfile::tempdir().unwrap();
+    let paths = Paths::new(Some(dir.path().to_path_buf())).unwrap();
+    let mut old = serde_json::to_value(Store::default()).unwrap();
+    old.as_object_mut().unwrap().remove("viewMode");
+    std::fs::write(
+        paths.root.join("tasks.json"),
+        serde_json::to_vec(&old).unwrap(),
+    )
+    .unwrap();
+    let service = Service::load(&paths);
+    assert_eq!(service.state().await["store"]["viewMode"], "merged");
+    for (revision, mode) in [(1, "expanded"), (2, "merged")] {
+        service
+            .command(json!({"op":"view","viewMode":mode,"revision":revision}))
+            .await
+            .unwrap();
+        let restored = Service::load(&paths).state().await;
+        assert_eq!(restored["store"]["viewMode"], mode);
+        assert_eq!(restored["store"]["boardEnabled"], false);
+        assert_eq!(restored["store"]["syncEnabled"], false);
+        assert_eq!(restored["store"]["columns"], old["columns"]);
+        assert_eq!(restored["store"]["tasks"], old["tasks"]);
+    }
+    let saved = std::fs::read(paths.root.join("tasks.json")).unwrap();
+    for command in [
+        json!({"op":"view","viewMode":"expanded","revision":1}),
+        json!({"op":"view","viewMode":"invalid","revision":3}),
+        json!({"op":"view","revision":3}),
+    ] {
+        assert!(service.command(command).await.is_err());
+        assert_eq!(std::fs::read(paths.root.join("tasks.json")).unwrap(), saved);
+    }
+}

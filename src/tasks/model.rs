@@ -258,12 +258,22 @@ pub fn default_columns() -> Vec<BoardColumn> {
         })
         .collect()
 }
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum BoardViewMode {
+    #[default]
+    Merged,
+    Expanded,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Store {
     pub schema: u32,
     pub revision: u64,
     pub board_enabled: bool,
+    #[serde(default)]
+    pub view_mode: BoardViewMode,
     pub sync_enabled: bool,
     pub bindings: Bindings,
     #[serde(default)]
@@ -282,6 +292,7 @@ impl Default for Store {
             schema: 2,
             revision: 1,
             board_enabled: false,
+            view_mode: BoardViewMode::default(),
             sync_enabled: false,
             bindings: Bindings::default(),
             binding_source: None,

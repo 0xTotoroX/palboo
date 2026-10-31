@@ -75,6 +75,7 @@ try {
     assert.equal(r.status, 401);
   }
   await command({ op: 'modules', boardEnabled: true });
+  await command({ op: 'view', viewMode: 'expanded' });
   browser = await chromium.launch({
     ...(process.env.PALBOO_CHROME_BIN
       ? { executablePath: process.env.PALBOO_CHROME_BIN }
@@ -166,6 +167,14 @@ try {
     1,
   );
   await page.setViewportSize({ width: 360, height: 600 });
+  await page.locator('.board-grid.stacked').waitFor();
+  assert.equal(
+    await page.locator('.board-column').count(),
+    3,
+    'expanded stays fully visible on narrow screens',
+  );
+  await command({ op: 'view', viewMode: 'merged' });
+  await page.locator('[data-view-mode=merged]').waitFor();
   await page.getByRole('navigation', { name: '任务阶段' }).waitFor();
   assert.deepEqual(await page.locator('.stage-tabs button').allTextContents(), [
     '待办',

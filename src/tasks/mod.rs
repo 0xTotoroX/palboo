@@ -219,6 +219,10 @@ impl Service {
         }
         let mut next = inner.store.clone();
         match op {
+            "view" => {
+                next.view_mode =
+                    serde_json::from_value(command["viewMode"].clone()).context("看板视图无效")?;
+            }
             "createColumn" | "renameColumn" => {
                 ensure!(next.board_enabled, "看板已停用");
                 let title = command["title"].as_str().unwrap_or("").trim();

@@ -178,3 +178,31 @@
     font-size: 12px;
   }
 }
+
+/* Actual feature content occupies the existing workspace body and header slots. */
+.layout-demo-content.layout-demo-live {
+  padding: 0;
+  overflow: hidden;
+  --preview-feature-height: 100%;
+  --preview-feature-max-height: none;
+  --preview-feature-body-flex: 1;
+}
+.preview-frame[data-preview-format='interface'] .layout-demo-live > .preview-feature-content,
+.preview-frame[data-preview-format='interface'] .layout-demo-live .preview-feature-surface,
+.preview-frame[data-preview-format='interface'] .layout-demo-live .preview-model-control {
+  height: 100%;
+  max-height: none;
+  min-height: 0;
+}
+.preview-frame[data-preview-format='interface']
+  .layout-demo-live
+  > .preview-feature-content
+  > .preview-feature-surface {
+  flex: 1;
+}
+.preview-frame[data-preview-format='interface'] .layout-demo-live .preview-model-control {
+  padding: 0;
+}
+.layout-demo-live .preview-model-control .feature-model {
+  height: 100%;
+}

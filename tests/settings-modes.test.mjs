@@ -161,7 +161,8 @@ test(
         let raw = '';
         for await (const chunk of req) raw += chunk;
         const body = raw ? JSON.parse(raw) : null;
-        if (body && body.op !== 'state') writes.push({ path, body });
+        if (body && body.op !== 'state' && !(body.op === 'bots-catalog' && !body.refresh))
+          writes.push({ path, body });
         let value;
         if (path === '/api/app-mode') {
           value = {
@@ -216,7 +217,13 @@ test(
               if (entry.placement !== 'edge') entry.placement = body.placement;
           }
           if (body?.op === 'main-layout') features.layouts[body.placement] = body.layout;
-          value = body?.op === 'bots-catalog' ? { stale: false, bots: [] } : features;
+          value =
+            body?.op === 'bots-catalog'
+              ? {
+                  stale: false,
+                  bots: [{ id: 'current-review', name: '代码审查', available: true }],
+                }
+              : features;
         } else if (path === '/api/surfaces') {
           if (body?.op === 'save') {
             if (rejectSurface) {
@@ -284,7 +291,19 @@ test(
               },
             ],
           };
-        else if (path === '/api/model-control/state') value = { preferences: { enabled: true } };
+        else if (path === '/api/model-control/state')
+          value = {
+            revision: 1,
+            preferences: { enabled: true, pinned: [], presets: [] },
+            snapshot: {
+              target: null,
+              models: [],
+              current: null,
+              revision: 'fixture',
+              status: 'waiting',
+              message: '',
+            },
+          };
         else value = { ok: true };
         res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify(value));
         return;
@@ -1443,9 +1462,7 @@ test(
               Math.abs(previewOrder.width - previewOrder.controls.width) < 1,
               `${id}: shared preview width`,
             );
-            const format = ['surfaces', 'appearance', 'model'].includes(id)
-              ? 'interface'
-              : 'feature';
+            const format = ['surfaces', 'appearance'].includes(id) ? 'interface' : 'feature';
             assert.equal(stage.format, format, `${id}: uses its shared preview family`);
             if (format === 'interface')
               assert.ok(

@@ -20,12 +20,12 @@ test('settings previews show actionable models and visible materials without ser
 import React,{useState}from'react';import{createRoot}from'react-dom/client';
 import{LayoutPreview}from'./ui/settings/layout-preview';
 import{ModelPreview}from'./ui/settings/model-preview';
-import{SettingsPreview}from'./ui/settings/settings-preview';
+import{SettingsPreview}from'./ui/settings/settings-preview';import{createDemoTasks}from'./ui/shared/demo-state';
 import{NativeSelect}from'./ui/settings/components/ui/native-select';
 import{FeatureSwitch}from'./ui/settings/settings-controls';
 const features={mainPlacement:'sidebar',features:[{id:'outline',open:true,placement:'sidebar'}],layouts:{}};
 window.requests=[];window.fetch=(...args)=>{window.requests.push(args);throw Error('No service calls in previews')};
-function App(){const[model,setModel]=useState(null);const[surfaces,setSurfaces]=useState({preferences:{themes:Object.fromEntries(['sidebar','overlay','desktop','edge'].map(id=>[id,{theme:'matte'}])),edge:{edge:'right',position:.5}}});
+const tasks=await createDemoTasks().request('tasks/state'); const bots={stale:false,bots:[{id:'review',name:'代码审查'},{id:'research',name:'资料整理'},{id:'general',name:'通用'}]};function App(){const[model,setModel]=useState(null);const[surfaces,setSurfaces]=useState({preferences:{themes:Object.fromEntries(['sidebar','overlay','desktop','edge'].map(id=>[id,{theme:'matte'}])),edge:{edge:'right',position:.5}}});
 return <div className="settings-app"><LayoutPreview appearance features={features} surfaces={surfaces} live/>
 <button onClick={()=>setSurfaces(s=>({...s,preferences:{...s.preferences,themes:{...s.preferences.themes,desktop:{theme:'frosted'}}}}))}>更改桌面磨砂</button>
 <button onClick={()=>setSurfaces(s=>({...s,preferences:{...s.preferences,themes:{...s.preferences.themes,desktop:{theme:'native-glass',liquidVariant:'regular'}}}}))}>更改桌面液态</button>
@@ -36,8 +36,8 @@ return <div className="settings-app"><LayoutPreview appearance features={feature
 <button onClick={()=>setModel(s=>({...s,preferences:{...s.preferences,showUsage:!s.preferences.showUsage}}))}>切换额度</button>
 <button onClick={()=>setModel(s=>({...s,snapshot:{...s.snapshot,usage:[{minutes:10080,remainingPercent:38,resetsAt:null}]}}))}>更新额度</button>
 <button onClick={()=>setModel(s=>({...s,snapshot:{...s.snapshot,usage:null}}))}>清空额度</button>
-<SettingsPreview page="board" form={null} tasks={{store:{boardEnabled:true}}} live/>
-<SettingsPreview page="bots" form={{grokbotEnabled:true}} live/>
+<SettingsPreview page="board" form={null} tasks={tasks} live/>
+<SettingsPreview page="bots" bots={bots} form={{grokbotEnabled:true}} live/>
 <SettingsPreview page="next" form={{maxItems:2}} live/>
 <FeatureSwitch name="大纲" checked disabled onChange={()=>{}}/>
 <label htmlFor="choice">示例选择</label><NativeSelect id="choice" defaultValue="a"><option value="a">选项 A</option><option value="b">选项 B</option></NativeSelect>
@@ -45,6 +45,7 @@ return <div className="settings-app"><LayoutPreview appearance features={feature
 </div>};createRoot(document.getElementById('root')).render(<App/>);`,
       },
       bundle: true,
+      format: 'esm',
       write: false,
       jsx: 'automatic',
       plugins: [
@@ -74,7 +75,7 @@ return <div className="settings-app"><LayoutPreview appearance features={feature
     const page = await browser.newPage({ viewport: { width: 904, height: 1041 } });
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));
-    const fixture = `<!doctype html><meta charset="utf-8"><style>${css}</style><div id="root"></div><script>${script.replace(/<\/script/gi, '<\\/script')}</script>`;
+    const fixture = `<!doctype html><meta charset="utf-8"><style>${css}</style><div id="root"></div><script type="module">${script.replace(/<\/script/gi, '<\\/script')}</script>`;
     // Match the product's secure localhost context, including crypto.randomUUID for presets.
     await page.route('http://127.0.0.1:49390/', (route) =>
       route.fulfill({ contentType: 'text/html', body: fixture }),
@@ -210,12 +211,12 @@ return <div className="settings-app"><LayoutPreview appearance features={feature
     const history = bots.getByRole('button', { name: '最近消息', exact: true });
     assert.equal((await history.textContent()).trim(), '');
     await history.click();
-    await bots.locator('.palboo-bot-message').first().waitFor();
     await bots.getByRole('button', { name: '返回 Bot 列表', exact: true }).click();
-    const reviewer = bots.getByRole('group', { name: '代码审查', exact: true });
-    await reviewer.hover();
-    await reviewer.getByRole('button', { name: '填入停止请求' }).click();
-    assert.equal(await reviewer.getByRole('button', { name: '追问', exact: true }).count(), 1);
+    await bots.getByRole('button', { name: '代码审查', exact: true }).click();
+    assert.match(
+      await page.locator('[data-preview-kind=bots] .preview-draft').textContent(),
+      /代码审查/,
+    );
     const next = page.locator('[data-preview-kind=next] [data-settings-feature=next]');
     assert.equal(await next.locator('.csw-row').count(), 2);
     await next.locator('.csw-row').first().click();

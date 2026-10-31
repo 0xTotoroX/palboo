@@ -82,16 +82,28 @@ function WorkspaceSample({
   onLayout: (next: FeatureLayout) => void;
   textStyle?: CSSProperties;
   examples?: Record<string, string[]>;
-  renderFeature?: (id: string) => ReactNode;
+  renderFeature?: (id: string, headerActions: HTMLElement) => ReactNode;
 }) {
   useLocale();
   const ref = useRef<HTMLDivElement>(null),
     controller = useRef<ReturnType<typeof installFeatureLayout> | null>(null);
   const mounts = useRef(
-    new Map<string, { id: string; title: string; node: HTMLDivElement; active: boolean }>(),
+    new Map<
+      string,
+      {
+        id: string;
+        title: string;
+        node: HTMLDivElement;
+        active: boolean;
+        mount: { headerActions: HTMLElement };
+      }
+    >(),
   );
   const change = useRef(onLayout);
-  const [slots, setSlots] = useState<{ id: string; node: HTMLDivElement }[]>([]);
+  const customContent = !!renderFeature;
+  const [slots, setSlots] = useState<
+    { id: string; node: HTMLDivElement; mount: { headerActions: HTMLElement } }[]
+  >([]);
   change.current = onLayout;
   useEffect(() => {
     controller.current = installFeatureLayout(ref.current!, {
@@ -108,15 +120,20 @@ function WorkspaceSample({
     for (const entry of entries) {
       if (!mounts.current.has(entry.id)) {
         const node = document.createElement('div');
-        node.className = 'layout-demo-content';
+        node.className = `layout-demo-content${customContent ? ' layout-demo-live' : ''}`;
         node.dataset.readingKey = `demo-${entry.id}`;
-        if (!renderFeature)
+        if (!customContent)
           node.append(document.createElement('ol'), document.createElement('input'));
-        mounts.current.set(entry.id, { ...entry, node, active: true });
+        mounts.current.set(entry.id, {
+          ...entry,
+          node,
+          active: true,
+          mount: { headerActions: document.createElement('span') },
+        });
       }
       const item = mounts.current.get(entry.id)!;
       item.title = entry.title;
-      if (renderFeature) continue;
+      if (customContent) continue;
       const labels =
         examples?.[entry.id] ||
         (entry.id === 'outline'
@@ -146,8 +163,8 @@ function WorkspaceSample({
     const ids = new Set(entries.map((entry) => entry.id));
     for (const [id, item] of mounts.current) item.active = ids.has(id);
     controller.current?.update([...mounts.current.values()], placement, layout, null, null);
-    if (renderFeature) setSlots([...mounts.current.values()]);
-  }, [entries, layout, placement, examples, renderFeature]);
+    if (customContent) setSlots([...mounts.current.values()]);
+  }, [entries, layout, placement, examples, customContent]);
   return (
     <>
       <div
@@ -158,7 +175,10 @@ function WorkspaceSample({
         data-material={material}
         data-variant={variant}
       />
-      {renderFeature && slots.map(({ id, node }) => createPortal(renderFeature(id), node, id))}
+      {renderFeature &&
+        slots.map(({ id, node, mount }) =>
+          createPortal(renderFeature(id, mount.headerActions), node, id),
+        )}
     </>
   );
 }
@@ -191,7 +211,7 @@ export function LayoutPreview({
   surfaceTypography?: SurfaceTypography;
   hostName?: string;
   examples?: Record<string, string[]>;
-  renderFeature?: (id: string) => ReactNode;
+  renderFeature?: (id: string, headerActions: HTMLElement) => ReactNode;
   onPlacementChange?: (placement: string) => void;
   sceneZoom?: number;
   entryRef?: Ref<SVGGElement>;

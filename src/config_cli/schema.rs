@@ -82,6 +82,7 @@ impl Scope {
                 "archived",
                 "expectedTask",
                 "boardEnabled",
+                "viewMode",
                 "syncEnabled",
                 "bindings",
                 "iCloudConfirmed",
@@ -130,6 +131,7 @@ impl Scope {
             ],
             Self::Tasks => &[
                 "modules",
+                "view",
                 "bindings",
                 "repairBindings",
                 "createColumn",
@@ -326,9 +328,10 @@ pub(super) fn schema(scope: Scope) -> Value {
             "examples":[{"patch":{"showUsage":false,"modelColumnWidth":240}}],
         }),
         Scope::Tasks => json!({
+            "choices":{"viewMode":["merged","expanded"]},
             "nestedFields":{"fields":["title","notes","priority","due","column","completed"],"fields.due":["year","month","day","hour","minute","timeZone"]},
             "notes":{"fields":"create/update 支持局部字段；due 可为 null；priority 0/1/5/9 对应无/高/中/低，保留旧 0–9","guards":"update/remove/archive 自动携带 expectedTask，避免覆盖并发任务修改","legacyReminders":"旧 reminders 命令与 bindings/syncEnabled 仅兼容保留；普通配置读取不申请 Apple 权限"},
-            "examples":[{"op":"modules","boardEnabled":true},{"op":"create","fields":{"title":"Review draft","notes":"Check the outline","priority":5}}],
+            "examples":[{"op":"modules","boardEnabled":true},{"op":"view","viewMode":"expanded"},{"op":"create","fields":{"title":"Review draft","notes":"Check the outline","priority":5}}],
         }),
         Scope::Terminology => json!({
             "nestedFields":{"entries[]":["id","name","english","definition","aliases","category","example","source"]},

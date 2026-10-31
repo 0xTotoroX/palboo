@@ -177,6 +177,14 @@ try {
   assert.equal(font.current.ui.promptClickMode, 'hybrid');
   await assert.rejects(() => set('appearance', { typography: { scle: 110 } }), /未知/);
   await set('tasks', { op: 'modules', boardEnabled: true });
+  const taskLayout = await cli('get', 'tasks');
+  assert.equal(taskLayout.store.viewMode, 'merged');
+  const expandedBoard = await set('tasks', { op: 'view', viewMode: 'expanded' });
+  assert.equal(expandedBoard.current.store.viewMode, 'expanded');
+  assert.deepEqual(expandedBoard.current.store.tasks, taskLayout.store.tasks);
+  assert.equal(expandedBoard.current.store.syncEnabled, taskLayout.store.syncEnabled);
+  await assert.rejects(() => set('tasks', { op: 'view', viewMode: 'invalid' }), /看板视图无效/);
+  await set('tasks', { op: 'view', viewMode: 'merged' });
   const created = await set('tasks', {
     op: 'create',
     fields: {

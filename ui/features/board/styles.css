@@ -165,6 +165,12 @@ h1 {
   border-radius: 16px;
   border: 1px solid transparent;
 }
+.board-grid.stacked {
+  grid-template-columns: minmax(0, 1fr);
+}
+.board-grid.stacked .board-column {
+  min-height: 0;
+}
 .column-heading {
   display: flex;
   align-items: center;

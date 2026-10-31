@@ -16,21 +16,32 @@ import { ActionIcon } from './components/ui/action-feedback';
 import { Icon } from '../shared/icons/react';
 import { botGroups, type BotSidebar } from '../shared/bot-catalog';
 
-type Catalog = {
+export type BotCatalog = {
   stale: boolean;
   error?: string;
   sidebar?: BotSidebar;
   sidebarError?: string;
-  bots: { id: string; name: string; description?: string; hidden?: boolean }[];
+  bots: {
+    id: string;
+    name: string;
+    description?: string;
+    hidden?: boolean;
+    available?: boolean;
+    avatar?: { shape: string; color: string; photoAvailable?: boolean };
+  }[];
 };
 export function BotSettings({
   active,
   live,
   editor,
+  previewActive = false,
+  onSnapshot,
 }: {
   active: boolean;
   live: boolean;
   editor: SettingsEditor;
+  previewActive?: boolean;
+  onSnapshot?: (catalog: BotCatalog | null) => void;
 }) {
   useLocale();
   const [query, setQuery] = useState('');
@@ -46,11 +57,14 @@ export function BotSettings({
     setSearchOpen(false);
     searchButton.current?.focus();
   };
-  const [catalog, setCatalog] = useState<Catalog | null>(null);
+  const [catalog, setCatalog] = useState<BotCatalog | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [refreshed, setRefreshed] = useState(false);
   const sequence = useRef(0);
+  useEffect(() => {
+    onSnapshot?.(error ? { ...catalog, bots: catalog?.bots ?? [], stale: true, error } : catalog);
+  }, [catalog, error, onSnapshot]);
   const auto = editor.form?.grokbotAutoSync ?? true;
   async function load(refresh = false, quiet = false) {
     const id = ++sequence.current;
@@ -60,7 +74,7 @@ export function BotSettings({
       setRefreshed(false);
     }
     try {
-      const value = await request<Catalog>('features', { op: 'bots-catalog', refresh });
+      const value = await request<BotCatalog>('features', { op: 'bots-catalog', refresh });
       if (id === sequence.current) {
         setCatalog((previous) =>
           JSON.stringify(previous) === JSON.stringify(value) ? previous : value,
@@ -75,14 +89,14 @@ export function BotSettings({
     }
   }
   useEffect(() => {
-    if (!active || !live) return;
+    if ((!active && !previewActive) || !live) return;
     let stopped = false,
       reading = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const automatic =
       editor.saved?.grokbotEnabled === true && (editor.saved?.grokbotAutoSync ?? true);
     const read = async (initial = false) => {
-      if (stopped || reading || document.hidden) return;
+      if (stopped || reading || (!initial && document.hidden)) return;
       reading = true;
       try {
         await load(false, !initial);
@@ -103,7 +117,7 @@ export function BotSettings({
       sequence.current++;
       document.removeEventListener('visibilitychange', visible);
     };
-  }, [active, live, editor.saved?.grokbotAutoSync, editor.saved?.grokbotEnabled]);
+  }, [active, previewActive, live, editor.saved?.grokbotAutoSync, editor.saved?.grokbotEnabled]);
   const term = query.trim().toLocaleLowerCase();
   const groups = botGroups(catalog?.bots ?? [], catalog?.sidebar)
     .map((group) => ({

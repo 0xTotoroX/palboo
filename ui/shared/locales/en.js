@@ -1,5 +1,8 @@
 // English interface copy. User-authored content is not translated.
 export default {
+  看板视图: 'Board view',
+  合并视图: 'Merged view',
+  完全展开视图: 'Fully expanded view',
   当前预设: 'Current preset',
   自定义布局: 'Custom layout',
   适用形式: 'Recommended for',
