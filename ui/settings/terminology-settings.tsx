@@ -7,7 +7,7 @@ import { tr } from '../shared/i18n.js';
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { SettingsDrawer } from './settings-drawer';
 import { PreviewFrame } from './preview-frame';
-import { Field, Toggle, Feedback } from './settings-controls';
+import { Field, Toggle, FeatureSwitch, Feedback } from './settings-controls';
 import { useFeedbackTarget } from './settings-feedback';
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
@@ -108,7 +108,15 @@ function download(text: string, name: string, type = 'text/markdown;charset=utf-
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-export function TerminologySettings({ active }: { active: boolean }) {
+export function TerminologySettings({
+  active,
+  detailsVisible = true,
+  enablementTarget,
+}: {
+  active: boolean;
+  detailsVisible?: boolean;
+  enablementTarget?: HTMLElement | null;
+}) {
   useLocale();
   const feedback = useFeedbackTarget();
   const [data, setData] = useState<Library | null>(null),
@@ -217,10 +225,23 @@ export function TerminologySettings({ active }: { active: boolean }) {
     >
       {confirmation}
       <style>{cardStyles}</style>
+      <FeatureSwitch
+        name={tr('术语释义')}
+        portalTarget={enablementTarget}
+        checked={prefs?.enabled ?? false}
+        disabled={busy || !prefs}
+        onChange={(enabled) =>
+          prefs && void command({ action: 'settings', revision: prefs.revision, enabled })
+        }
+      />
       <Feedback
         text={error}
         failed
-        target={feedback.target?.closest('dialog') ? null : feedback.target}
+        target={
+          feedback.target?.closest('dialog')
+            ? null
+            : feedback.target || (!detailsVisible ? enablementTarget : null)
+        }
       />
       {!prefs ? (
         <p>{tr('正在读取术语库…')}</p>
@@ -232,14 +253,6 @@ export function TerminologySettings({ active }: { active: boolean }) {
             </PreviewFrame>
           </div>
           <div className="term-behavior" role="group" aria-label={tr('识别与操作')}>
-            <Toggle
-              label={tr('在聊天中标注术语')}
-              checked={prefs.enabled}
-              disabled={busy}
-              onChange={(enabled) =>
-                void command({ action: 'settings', revision: prefs.revision, enabled })
-              }
-            />
             <Toggle
               label={tr('结合问答核对词义与识别概念')}
               checked={prefs.semantic}

@@ -5,7 +5,7 @@ import { tr } from '../shared/i18n.js';
  * [PROTOCOL]: 变更时同步 settings/AGENTS.md。 */
 import { useEffect, useRef, useState } from 'react';
 import { request } from './api';
-import { Toggle, Feedback } from './settings-controls';
+import { FeatureSwitch, Feedback } from './settings-controls';
 import { useFeedbackTarget } from './settings-feedback';
 import { ConfirmationButton } from './settings-confirmation';
 import { Button } from './components/ui/button';
@@ -33,7 +33,17 @@ const labels: Record<CodexHostStatus['state'], string> = {
     return tr('状态异常');
   },
 };
-export function CodexHostSettings({ live, active }: { live: boolean; active: boolean }) {
+export function CodexHostSettings({
+  live,
+  active,
+  detailsVisible = true,
+  enablementTarget,
+}: {
+  live: boolean;
+  active: boolean;
+  detailsVisible?: boolean;
+  enablementTarget?: HTMLElement | null;
+}) {
   useLocale();
   const [state, setState] = useState<CodexHostStatus | null>(null);
   const [busy, setBusy] = useState(false);
@@ -118,8 +128,16 @@ export function CodexHostSettings({ live, active }: { live: boolean; active: boo
       aria-label={tr('CodexHost 设置')}
       id="settings-codex-host"
     >
-      <Toggle
-        label={tr('启用 CodexHost')}
+      <FeatureSwitch
+        name="CodexHost"
+        portalTarget={enablementTarget}
+        actions={
+          !detailsVisible && ['pendingEnable', 'pendingDisable'].includes(state?.state || '') ? (
+            <a href="#settings-codex-host" data-settings-navigation>
+              {labels[state!.state]}
+            </a>
+          ) : undefined
+        }
         checked={state?.enabled ?? false}
         disabled={disabled || !state}
         onChange={(enabled) => void command('set-enabled', { enabled })}
@@ -127,7 +145,7 @@ export function CodexHostSettings({ live, active }: { live: boolean; active: boo
       <Feedback
         text={error || state?.error || (busy ? tr('处理中…') : '')}
         failed={!!(error || state?.error)}
-        target={feedback.target}
+        target={feedback.target || (!detailsVisible ? enablementTarget : null)}
       />
       {state?.restart && (
         <Feedback text={state.restart.message} failed={state.restart.state === 'failed'} />

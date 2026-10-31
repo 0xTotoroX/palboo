@@ -16,7 +16,7 @@ export const pageTitles = {
     return tr('性能与开关');
   },
   get features() {
-    return tr('常用开关');
+    return tr('功能开关');
   },
   get prompts() {
     return tr('常用语');

@@ -30,8 +30,8 @@ export function PreviewFrame({
         aria-label={title}
       >
         <div className="preview-frame-content">{children}</div>
-        {status && <p className="preview-status">{status}</p>}
       </section>
+      {status && <p className="preview-status">{status}</p>}
       {after}
     </>
   );

@@ -307,8 +307,8 @@ test(
       stage = 'render complete settings';
       await page.goto(`${session.url}/#token=${session.token}`);
       const navigation = page.getByRole('navigation', { name: '设置分类' });
-      await page.getByRole('main', { name: '常用开关', exact: true }).waitFor();
-      await navigation.getByRole('link', { name: '常用开关', exact: true }).click();
+      await page.getByRole('main', { name: '功能开关', exact: true }).waitFor();
+      await navigation.getByRole('link', { name: '功能开关', exact: true }).click();
       const outlineSwitch = page.getByRole('switch', { name: '启用大纲', exact: true });
       await outlineSwitch.waitFor();
       await until(() => outlineSwitch.isEnabled(), 'initial settings controls become usable');
@@ -444,7 +444,7 @@ test(
         'true',
       );
       stage = 'check switched settings usability';
-      await navigation.getByRole('link', { name: '常用开关', exact: true }).click();
+      await navigation.getByRole('link', { name: '功能开关', exact: true }).click();
       await outlineSwitch.waitFor();
       await until(() => outlineSwitch.isEnabled(), 'settings remain usable after switching');
       assert.equal(await outlineSwitch.isEnabled(), true, 'settings remain usable after switching');

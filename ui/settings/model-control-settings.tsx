@@ -13,11 +13,13 @@ export function ModelControlSettings({
   live,
   active = true,
   detailed = true,
+  enablementTarget,
   onSnapshot,
 }: {
   live: boolean;
   active?: boolean;
   detailed?: boolean;
+  enablementTarget?: HTMLElement | null;
   onSnapshot?: (state: ModelState | null) => void;
 }) {
   useLocale();
@@ -118,6 +120,7 @@ export function ModelControlSettings({
     >
       <FeatureSwitch
         name={tr('模型切换')}
+        portalTarget={enablementTarget}
         checked={enabled ?? false}
         disabled={!live || busy || enabled === null}
         onChange={(value) => void change(value)}
@@ -126,7 +129,7 @@ export function ModelControlSettings({
         <Feedback
           text={message || (busy ? tr('正在保存…') : '')}
           failed={!!message}
-          target={feedback.target}
+          target={feedback.target || (!detailed ? enablementTarget : null)}
         />
       )}
       <div hidden={!detailed}>

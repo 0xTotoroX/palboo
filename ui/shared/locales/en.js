@@ -626,6 +626,22 @@ export default {
   包含未保存的编辑: 'Includes unsaved edits',
   功能预览: 'Feature preview',
   兼容集成: 'Compatibility integrations',
+  功能开关: 'Feature switches',
+  交互示例: 'Interactive example',
+  'CodexHost 让 Claude Code、Pi、OpenCode 等 Agent 在 Codex 桌面中运行，共用会话列表与原生界面。':
+    'CodexHost runs Agents such as Claude Code, Pi and OpenCode inside Codex Desktop, sharing its conversation list and native interface.',
+  '支持跨 Agent 协作、代码差异审查、会话分支与远程开发；具体能力取决于所选 Agent。':
+    'Supports cross-Agent collaboration, Diff review, conversation forks and remote development. Available capabilities depend on the selected Agent.',
+  'CodexHost 原版 GitHub 仓库': 'Original CodexHost GitHub repository',
+  '整理设置页，并检查边界情况。': 'Refine the settings page and check edge cases.',
+  '我来检查实现，并将测试交给另一个 Agent。':
+    'I will review the implementation and delegate testing to another Agent.',
+  '委派给 {{agent}}': 'Delegate to {{agent}}',
+  '在独立会话中运行测试，可从同一侧栏查看进度与结果。':
+    'Run tests in a separate conversation, with progress and results in the same sidebar.',
+  查看更改: 'Review changes',
+  代码差异示例: 'Example code diff',
+  '给所选 Agent 分配任务…': 'Assign a task to the selected Agent…',
   兼容集成预览: 'Compatibility integrations preview',
   兼容功能预览: 'Compatibility feature preview',
   '示例 Agent': 'Example Agent',

@@ -1,83 +1,90 @@
-import { SegmentedGroup } from './components/ui/segmented-group';
-/* [INPUT]: Safe settings snapshots and shared feature/model preview adapters.
- * [OUTPUT]: Square compatibility scene showing Agent selection and the official-model boundary.
- * [POS]: In-memory demonstration only; never installs, starts, switches or requests a real Agent.
+/* [INPUT]: CodexHost upstream README capabilities and local demonstration state.
+ * [OUTPUT]: A multi-Agent workspace example with delegation and Diff review, plus upstream attribution.
+ * [POS]: Presentation only; never starts an Agent, changes a real session or calls a service.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 import { useState } from 'react';
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 import { Icon } from '../shared/icons/react';
-import type { EditableSettings, View } from './api';
-import type { TaskState } from '../features/board/api';
-import type { ModelState } from '../features/model/catalog';
 import { NativeSelect } from './components/ui/native-select';
-import { FeaturePreviewContent } from './feature-preview';
-import { ModelPreview } from './model-preview';
 import { PreviewFrame } from './preview-frame';
 
-export function CodexHostPreview({
-  form,
-  view,
-  tasks,
-  model,
-}: {
-  form: EditableSettings | null;
-  view: View | null;
-  tasks: TaskState | null;
-  model: ModelState | null;
-}) {
+export function CodexHostPreview() {
   useLocale();
-  const [agent, setAgent] = useState('Codex');
-  const [feature, setFeature] = useState('next');
+  const [agent, setAgent] = useState('Claude Code');
+  const delegated = agent === 'Pi' ? 'Claude Code' : 'Pi';
   return (
-    <PreviewFrame title={tr('兼容集成预览')} className="preview-compatibility">
+    <PreviewFrame
+      title={tr('兼容集成预览')}
+      className="preview-compatibility"
+      after={
+        <div className="compatibility-introduction">
+          <p>
+            {tr(
+              'CodexHost 让 Claude Code、Pi、OpenCode 等 Agent 在 Codex 桌面中运行，共用会话列表与原生界面。',
+            )}
+          </p>
+          <p>
+            {tr('支持跨 Agent 协作、代码差异审查、会话分支与远程开发；具体能力取决于所选 Agent。')}
+          </p>
+          <a
+            href="https://github.com/BytePioneer-AI/codex-host"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {tr('CodexHost 原版 GitHub 仓库')}
+          </a>
+        </div>
+      }
+    >
       <header className="compatibility-preview-header">
-        <span>ChatGPT</span>
-        <span className="compatibility-preview-provider">CodexHost</span>
+        <strong>Codex Desktop</strong>
+        <span>{tr('交互示例')}</span>
       </header>
-      <SegmentedGroup
-        value={feature}
-        className="preview-selector"
-        role="group"
-        aria-label={tr('兼容功能预览')}
-      >
-        <button type="button" aria-pressed={feature === 'next'} onClick={() => setFeature('next')}>
-          {tr('下一步')}
-        </button>
-        <button
-          type="button"
-          aria-pressed={feature === 'model'}
-          onClick={() => setFeature('model')}
-        >
-          {tr('模型切换')}
-        </button>
-      </SegmentedGroup>
-      <div className="compatibility-preview-content">
-        <div hidden={feature !== 'next'}>
-          <FeaturePreviewContent id="next" form={form} view={view} tasks={tasks} />
+      <div className="compatibility-preview-conversation">
+        <p className="compatibility-preview-request">{tr('整理设置页，并检查边界情况。')}</p>
+        <div className="compatibility-preview-response">
+          <strong>{agent}</strong>
+          <p>{tr('我来检查实现，并将测试交给另一个 Agent。')}</p>
         </div>
-        <div hidden={feature !== 'model' || agent !== 'Codex'}>
-          <ModelPreview model={model} />
+        <details className="compatibility-preview-task">
+          <summary>
+            <span>{tr('委派给 {{agent}}', { agent: delegated })}</span>
+            <Icon name="chevron-right" />
+          </summary>
+          <p>{tr('在独立会话中运行测试，可从同一侧栏查看进度与结果。')}</p>
+        </details>
+        <details className="compatibility-preview-review" open>
+          <summary>
+            <span>{tr('查看更改')}</span>
+            <Icon name="chevron-right" />
+          </summary>
+          <pre aria-label={tr('代码差异示例')}>
+            <code>
+              <span>- const label = "Options";</span>
+              {'\n'}
+              <span>+ const label = "Features";</span>
+            </code>
+          </pre>
+        </details>
+      </div>
+      <footer className="compatibility-preview-composer">
+        <p>{tr('给所选 Agent 分配任务…')}</p>
+        <div className="compatibility-preview-agent">
+          <label htmlFor="preview-compatibility-agent">Agent</label>
+          <NativeSelect
+            id="preview-compatibility-agent"
+            value={agent}
+            onChange={(event) => setAgent(event.target.value)}
+            controlWidth="short"
+          >
+            <option>Codex</option>
+            <option>Claude Code</option>
+            <option>Pi</option>
+            <option>OpenCode</option>
+          </NativeSelect>
         </div>
-        {feature === 'model' && agent !== 'Codex' && (
-          <div className="compatibility-preview-boundary" role="status">
-            <Icon name="feature-model" />
-            <p>{tr('当前使用 {{agent}}，请通过 CodexHost 切换模型', { agent })}</p>
-          </div>
-        )}
-      </div>
-      <div className="compatibility-preview-agent">
-        <label htmlFor="preview-compatibility-agent">{tr('示例 Agent')}</label>
-        <NativeSelect
-          id="preview-compatibility-agent"
-          value={agent}
-          onChange={(event) => setAgent(event.target.value)}
-          controlWidth="short"
-        >
-          <option>Codex</option>
-          <option>OpenCode</option>
-        </NativeSelect>
-      </div>
+      </footer>
     </PreviewFrame>
   );
 }

@@ -120,11 +120,12 @@ function App() {
   const [features, setFeatures] = useState<FeatureState | null>(null);
   const [surfaces, setSurfaces] = useState<SurfaceState | null>(null);
   const [model, setModel] = useState<ModelState | null>(null);
+  const [modelEnablement, setModelEnablement] = useState<HTMLDivElement | null>(null);
+  const [termEnablement, setTermEnablement] = useState<HTMLDivElement | null>(null);
+  const [hostEnablement, setHostEnablement] = useState<HTMLDivElement | null>(null);
   const contentRef = useSettingsMotion(page);
   const tasks = useTasks(live);
   const common = page === 'features';
-  const featuresVisible =
-    common || ['next', 'prompts', 'board', 'model-control', 'bots'].includes(page);
   const surfacesVisible = page === 'surfaces' || page === 'appearance';
   useEffect(() => {
     setNotice((current) => (current.failed ? current : { text: '', failed: false }));
@@ -225,12 +226,12 @@ function App() {
             )}
             <div className="settings-form-column">
               <section
-                hidden={!featuresVisible}
+                hidden={!common}
                 data-settings-page="features"
                 className="settings-section settings-feature-list"
-                aria-label={tr('常用功能')}
+                aria-label={tr('功能开关')}
               >
-                <div id="settings-outline" hidden={!common}>
+                <div id="settings-outline">
                   <FeatureSwitch
                     name={tr('大纲')}
                     checked={editor.form?.answerOutlineEnabled ?? false}
@@ -238,7 +239,7 @@ function App() {
                     onChange={(v) => editor.change('answerOutlineEnabled', v)}
                   />
                 </div>
-                <div data-settings-page="next" hidden={!common && page !== 'next'}>
+                <div>
                   <FeatureSwitch
                     name={tr('下一步')}
                     checked={editor.form?.enabled ?? false}
@@ -246,7 +247,7 @@ function App() {
                     onChange={(v) => editor.change('enabled', v)}
                   />
                 </div>
-                <div data-settings-page="prompts" hidden={!common && page !== 'prompts'}>
+                <div>
                   <FeatureSwitch
                     name={tr('常用语')}
                     checked={editor.form?.quickPromptsEnabled ?? false}
@@ -254,7 +255,8 @@ function App() {
                     onChange={(v) => editor.change('quickPromptsEnabled', v)}
                   />
                 </div>
-                <div data-settings-page="board" hidden={!common && page !== 'board'}>
+                <div ref={setTermEnablement} />
+                <div>
                   <FeatureSwitch
                     name={tr('看板')}
                     checked={tasks.state?.store.boardEnabled ?? false}
@@ -262,21 +264,10 @@ function App() {
                     onChange={(boardEnabled) => void tasks.command({ op: 'modules', boardEnabled })}
                   />
                 </div>
-                <div
-                  data-settings-page="model-control"
-                  hidden={!common && page !== 'model-control'}
-                >
-                  <ModelControlSettings
-                    live={live}
-                    active={common || page === 'model-control'}
-                    detailed={page === 'model-control'}
-                    onSnapshot={setModel}
-                  />
-                </div>
-                <div id="settings-grokbot" hidden={!common && page !== 'bots'}>
+                <div ref={setModelEnablement} />
+                <div id="settings-grokbot">
                   <FeatureSwitch
                     name="Grok Bot"
-                    actions={<BotSetupInstructions hidden={page !== 'bots'} />}
                     checked={editor.form?.grokbotEnabled ?? false}
                     disabled={!live || !editor.form}
                     onChange={(value) => editor.change('grokbotEnabled', value)}
@@ -298,7 +289,20 @@ function App() {
                     onChange={(value) => editor.change('promptEnhancementEnabled', value)}
                   />
                 </div>
+                <div ref={setHostEnablement} />
               </section>
+              <div data-settings-page="model-control" hidden={page !== 'model-control'}>
+                <ModelControlSettings
+                  live={live}
+                  active={common || page === 'model-control'}
+                  detailed={page === 'model-control'}
+                  enablementTarget={modelEnablement}
+                  onSnapshot={setModel}
+                />
+              </div>
+              <div hidden={page !== 'bots'} className="settings-actions">
+                <BotSetupInstructions hidden={page !== 'bots'} />
+              </div>
               <BotSettings active={page === 'bots'} live={live} editor={editor} />
               <section
                 data-settings-page="surfaces"
@@ -326,7 +330,11 @@ function App() {
                 </div>
               </section>
               <div data-settings-page="terminology" hidden={page !== 'terminology'}>
-                <TerminologySettings active={page === 'terminology'} />
+                <TerminologySettings
+                  active={common || page === 'terminology'}
+                  detailsVisible={page === 'terminology'}
+                  enablementTarget={termEnablement}
+                />
               </div>
               <SettingsForm
                 editor={editor}
@@ -350,7 +358,12 @@ function App() {
                 <TaskSettings tasks={tasks} />
               </div>
               <div data-settings-page="codex-host" hidden={page !== 'codex-host'}>
-                <CodexHostSettings live={live} active={page === 'codex-host'} />
+                <CodexHostSettings
+                  live={live}
+                  active={common || page === 'codex-host'}
+                  detailsVisible={page === 'codex-host'}
+                  enablementTarget={hostEnablement}
+                />
               </div>
               <div data-settings-page="performance" hidden={page !== 'performance'}>
                 <PerformanceSettings live={live} active={page === 'performance'} />

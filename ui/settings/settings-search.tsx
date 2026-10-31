@@ -64,7 +64,9 @@ function indexSettings(): Entry[] {
         ? (node.htmlFor && document.getElementById(node.htmlFor)) ||
           node.querySelector<HTMLElement>('input,button,select') ||
           node
-        : node;
+        : node.matches('button[aria-haspopup="dialog"]')
+          ? node.closest<HTMLElement>('[data-settings-drawer][id]') || node
+          : node;
     if (!(target instanceof HTMLElement)) return [];
     if (!target.id) {
       let candidate = `buddy-settings-search-${i}`;

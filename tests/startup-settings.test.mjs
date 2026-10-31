@@ -222,7 +222,7 @@ test(
       await page.getByRole('button', { name: '关闭高级设置', exact: true }).click();
       await page
         .getByRole('navigation', { name: '设置分类' })
-        .getByRole('link', { name: '常用开关', exact: true })
+        .getByRole('link', { name: '功能开关', exact: true })
         .click();
       await page.getByRole('link', { name: '模型服务', exact: true }).click();
       await page.getByRole('button', { name: '高级设置', exact: true }).click();
@@ -449,7 +449,7 @@ test(
       await directionLibrary.waitFor({ state: 'visible' });
       assert.equal(await page.getByLabel('方向名称 5', { exact: true }).inputValue(), '');
       await closeLibrary();
-      await page.getByRole('link', { name: '常用开关', exact: true }).click();
+      await page.getByRole('link', { name: '功能开关', exact: true }).click();
       const tokenSwitch = page.getByRole('switch', { name: '启用聊天测速', exact: true });
       assert.equal(await tokenSwitch.isChecked(), true);
       await tokenSwitch.click();

@@ -5,6 +5,7 @@ import { tr } from '../shared/i18n.js';
  * [POS]: 设置页组合组件，不持有业务数据或新增保存服务。
  * [PROTOCOL]: 变更时同步 settings/AGENTS.md。 */
 import { useId, useRef, useState, useEffect, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { revealSettingsField } from './settings-outline';
 import { ConfirmationButton } from './settings-confirmation';
 import { Button } from './components/ui/button';
@@ -68,16 +69,18 @@ export function FeatureSwitch({
   disabled,
   onChange,
   actions,
+  portalTarget,
 }: {
   name: string;
   actions?: ReactNode;
+  portalTarget?: HTMLElement | null;
   checked: boolean;
   disabled?: boolean;
   onChange: (value: boolean) => void;
 }) {
   useLocale();
   const id = useId();
-  return (
+  const control = (
     <div className="settings-row settings-feature-switch">
       <label htmlFor={id}>{name}</label>
       <div className="flex shrink-0 items-center gap-4">
@@ -92,6 +95,11 @@ export function FeatureSwitch({
       </div>
     </div>
   );
+  return portalTarget
+    ? createPortal(control, portalTarget)
+    : portalTarget === null
+      ? null
+      : control;
 }
 export function Feedback({
   text,

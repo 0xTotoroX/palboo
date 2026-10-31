@@ -167,12 +167,7 @@ export function SettingsPreview(props: PreviewProps) {
       ) : ['features', 'next', 'prompts', 'board', 'model-control', 'bots'].includes(props.page) ? (
         <FeaturePreview {...props} />
       ) : props.page === 'codex-host' ? (
-        <CodexHostPreview
-          form={props.form}
-          view={props.view}
-          tasks={props.tasks}
-          model={props.model}
-        />
+        <CodexHostPreview />
       ) : props.page === 'model' ? (
         <GenerationPreview {...props} />
       ) : null}

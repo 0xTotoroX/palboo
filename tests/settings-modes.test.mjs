@@ -25,6 +25,7 @@ test(
     let panelTheme = null;
     let connectionStatus = 'connected';
     const streams = new Set();
+    let codexHost = { enabled: false, revision: 1, state: 'disabled', canRestore: false };
     const terminology = {
       entries: [
         {
@@ -174,7 +175,17 @@ test(
         } else if (path === '/api/app-update') {
           value = { currentVersion: '1.3.0', revision: 1, canInstall: false, checked: false };
         } else if (path === '/api/codex-host') {
-          value = { enabled: false, revision: 1, state: 'disabled', canRestore: false };
+          if (body) {
+            assert.equal(body.op, 'set-enabled');
+            assert.equal(body.expectedRevision, codexHost.revision);
+            codexHost = {
+              ...codexHost,
+              enabled: body.enabled,
+              revision: codexHost.revision + 1,
+              state: body.enabled ? 'pendingEnable' : 'disabled',
+            };
+          }
+          value = codexHost;
         } else if (path === '/api/settings') {
           if (body) {
             if (rejectNext) {
@@ -393,7 +404,7 @@ test(
         '布局与位置',
         '外观与字体',
       ]);
-      assert.ok(groups.find((group) => group.title === '功能').pages.includes('常用开关'));
+      assert.ok(groups.find((group) => group.title === '功能').pages.includes('功能开关'));
       assert.ok(groups.find((group) => group.title === '功能').pages.includes('兼容集成'));
       // 冷打开页面级链接包含预览；随后切页仍保留阅读位置，字段链接仍直接定位。
       const landing = await context.newPage();
@@ -593,8 +604,28 @@ test(
       await category('features');
       assert.equal(await page.locator('.settings-mode').count(), 0);
       assert.equal(await page.getByRole('navigation', { name: '设置分类' }).isVisible(), true);
-      assert.equal(await page.getByRole('switch').count(), 8);
+      assert.equal(await page.getByRole('switch').count(), 10);
       assert.equal(await page.getByRole('button', { name: /^打开/ }).count(), 0);
+      for (const [name, path] of [
+        ['术语释义', '/api/terminology'],
+        ['CodexHost', '/api/codex-host'],
+      ]) {
+        const control = page.getByRole('switch', { name: `启用${name}`, exact: true });
+        for (let index = 0; index < 2; index++) {
+          const saved = page.waitForResponse(
+            (response) => response.url().endsWith(path) && response.request().method() === 'POST',
+          );
+          await control.click();
+          await (await saved).finished();
+        }
+      }
+      assert.deepEqual(
+        writes.map((entry) => entry.path),
+        ['/api/terminology', '/api/terminology', '/api/codex-host', '/api/codex-host'],
+      );
+      assert.equal(terminology.preferences.enabled, true);
+      assert.equal(codexHost.enabled, false);
+      writes.length = 0;
       await category('model');
       await category('features');
       await page.goBack();
@@ -664,7 +695,7 @@ test(
           assert.equal(await page.locator('.preview-scene[data-active="true"]').count(), 1);
         if (id === 'features') {
           assert.equal(await page.locator('.settings-preview').count(), 0);
-          assert.equal(await page.getByRole('switch').count(), 8);
+          assert.equal(await page.getByRole('switch').count(), 10);
           assert.equal(
             await page.getByRole('button', { name: '模型分组', exact: true }).isVisible(),
             false,
@@ -675,15 +706,27 @@ test(
         if (id === 'codex-host') {
           const before = writes.length;
           const demo = page.locator('.preview-compatibility');
-          await demo.getByRole('button', { name: '模型切换', exact: true }).click();
-          await demo.getByLabel('示例 Agent', { exact: true }).selectOption('OpenCode');
+          await demo.getByLabel('Agent', { exact: true }).selectOption('OpenCode');
           await demo
-            .getByRole('status')
-            .getByText('当前使用 OpenCode，请通过 CodexHost 切换模型', { exact: true })
+            .locator('.compatibility-preview-response strong')
+            .getByText('OpenCode', { exact: true })
             .waitFor();
-          await demo.getByRole('button', { name: '下一步', exact: true }).click();
-          await demo.locator('[data-settings-feature="next"]').waitFor();
-          await demo.getByLabel('示例 Agent', { exact: true }).selectOption('Codex');
+          await demo.getByText('委派给 Pi', { exact: true }).click();
+          await demo
+            .getByText('在独立会话中运行测试，可从同一侧栏查看进度与结果。', { exact: true })
+            .waitFor();
+          await demo.getByLabel('代码差异示例').waitFor();
+          await demo.getByText('查看更改', { exact: true }).click();
+          await demo.getByLabel('代码差异示例').waitFor({ state: 'hidden' });
+          await demo.getByText('查看更改', { exact: true }).click();
+          await demo.getByLabel('Agent', { exact: true }).selectOption('Pi');
+          await demo.getByText('委派给 Claude Code', { exact: true }).waitFor();
+          assert.equal(
+            await page
+              .getByRole('link', { name: 'CodexHost 原版 GitHub 仓库', exact: true })
+              .getAttribute('href'),
+            'https://github.com/BytePioneer-AI/codex-host',
+          );
           assert.equal(
             writes.length,
             before,
@@ -692,6 +735,16 @@ test(
         }
         if (id === 'appearance')
           assert.equal(await page.getByLabel('主界面布局', { exact: true }).isVisible(), false);
+        if (id !== 'features')
+          assert.equal(
+            await page
+              .getByRole('switch', {
+                name: /^启用(大纲|下一步|常用语|看板|模型切换|Grok Bot|术语释义|CodexHost)$/,
+              })
+              .count(),
+            0,
+            'master switches only appear on Feature switches',
+          );
       }
       assert.equal(
         writes.length,
@@ -1061,7 +1114,7 @@ test(
       assert.equal(writes.length, count);
       for (const hash of ['settings-simple', 'settings-overview']) {
         await page.goto(origin + '/#' + hash);
-        await page.getByRole('main', { name: '常用开关', exact: true }).waitFor();
+        await page.getByRole('main', { name: '功能开关', exact: true }).waitFor();
         assert.equal(await page.getByRole('navigation', { name: '设置分类' }).isVisible(), true);
         assert.equal(await page.locator('.settings-mode').count(), 0);
       }
@@ -1304,7 +1357,7 @@ test(
                 0,
                 'common switches have no preview',
               );
-              assert.equal(await page.getByRole('switch').count(), 8);
+              assert.equal(await page.getByRole('switch').count(), 10);
               const top = await page.locator('.settings-body').evaluate((node) => ({
                 body: node.getBoundingClientRect().top,
                 controls: node.querySelector('.settings-form-column').getBoundingClientRect().top,
@@ -1344,7 +1397,7 @@ test(
                 height: node.getBoundingClientRect().height,
               };
             });
-            assert.equal(stage.border, '0px', `${id}: no nested preview border`);
+            assert.equal(stage.border, '1px', `${id}: one content boundary`);
             assert.equal(stage.radius, '12px', `${id}: shared rounded preview stage`);
             assert.notEqual(stage.background, 'rgba(0, 0, 0, 0)');
 
@@ -1405,6 +1458,27 @@ test(
                   .map((node) => node.dataset.settingsFeature),
               );
             assert.deepEqual(escapedContent, [], `${id}: real content stays inside the preview`);
+            if (['next', 'prompts', 'board', 'bots'].includes(id)) {
+              const actual = await page
+                .locator('.preview-scene[data-active="true"] [data-settings-feature]')
+                .evaluate((node) => {
+                  const rect = node.shadowRoot
+                    .querySelector('.feature-view')
+                    .getBoundingClientRect();
+                  const frame = node.closest('.preview-frame').getBoundingClientRect();
+                  return {
+                    width: rect.width,
+                    height: rect.height,
+                    availableWidth: frame.width - 2,
+                    availableHeight: frame.height - 2,
+                  };
+                });
+              assert.ok(
+                Math.abs(actual.width - actual.availableWidth) < 1 &&
+                  Math.abs(actual.height - actual.availableHeight) < 1,
+                `${id}: actual content, not only the outer frame, fills the square ${JSON.stringify(actual)}`,
+              );
+            }
             previewGeometry.push({
               theme: colorScheme,
               width,
@@ -1415,11 +1489,15 @@ test(
             if (
               process.env.PALBOO_TEST_SCREENSHOTS === '1' &&
               [360, 1360].includes(width) &&
-              ['surfaces', 'board', 'codex-host', 'model-control'].includes(id)
-            )
+              ['surfaces', 'board', 'codex-host', 'model-control', 'prompts', 'bots'].includes(id)
+            ) {
+              const readingPosition = await page.evaluate(() => scrollY);
+              await page.evaluate(() => scrollTo({ top: 0, behavior: 'instant' }));
               await page.screenshot({
                 path: `target/reports/settings-preview-${id}-${colorScheme}-${width}.png`,
               });
+              await page.evaluate((top) => scrollTo({ top, behavior: 'instant' }), readingPosition);
+            }
             assert.equal(
               await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
               false,

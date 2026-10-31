@@ -4,8 +4,7 @@
  * [PROTOCOL]: 变更时同步 settings/AGENTS.md。 */
 #settings-terminology .term-preview {
   display: flex;
-  justify-content: center;
-  align-items: safe center;
+  align-items: stretch;
   flex: 1;
   min-height: 0;
   overflow: auto;
@@ -15,7 +14,11 @@
   --term-border: var(--border);
 }
 #settings-terminology .term-preview .term-card {
+  width: 100% !important;
   max-width: 100%;
+  min-height: 100%;
+  border-radius: 0;
+  box-shadow: none;
 }
 #settings-terminology .term-section {
   margin-top: 24px;

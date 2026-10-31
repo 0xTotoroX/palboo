@@ -389,6 +389,17 @@
 .settings-drawer-trigger > span:first-child {
   font-weight: 500;
 }
+.settings-app #model-organization {
+  margin-block: 12px 0;
+}
+.settings-app #model-organization > .settings-drawer-trigger {
+  width: auto;
+  margin-left: auto;
+  min-height: var(--settings-control-height);
+  padding: 0 8px;
+  gap: 8px;
+  background: transparent;
+}
 .settings-drawer {
   position: fixed;
   /* Keep the top-layer edge at the viewport, beyond a reserved classic scrollbar gutter. */

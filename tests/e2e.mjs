@@ -84,7 +84,7 @@ async function checkSettingsNavigation(page, context, base, runtime) {
       await page
         .getByRole('main', {
           name: {
-            features: '常用开关',
+            features: '功能开关',
             model: '模型服务',
             surfaces: '布局与位置',
             connection: '启动与连接',
@@ -404,7 +404,7 @@ try {
       ['board', '看板'],
       ['model', '模型切换'],
     ]) {
-      await nav.getByRole('link', { name: '常用开关', exact: true }).click();
+      await nav.getByRole('link', { name: '功能开关', exact: true }).click();
       const control = page.getByRole('switch', { name: `启用${name}`, exact: true });
       await waitFor(() => control.isEnabled(), `${name} switch unavailable`);
       if (!(await featureFlags())[id]) {
@@ -456,7 +456,7 @@ try {
     await page.goto(`${base}/#settings-next/max-output`);
     const limit = page.getByLabel('输出 token 上限', { exact: true });
     await limit.fill('1');
-    await nav.getByRole('link', { name: '常用开关', exact: true }).click();
+    await nav.getByRole('link', { name: '功能开关', exact: true }).click();
     await page.getByRole('switch', { name: '启用大纲', exact: true }).click();
     await waitFor(
       async () => !(await settings()).answerOutlineEnabled,
@@ -470,7 +470,7 @@ try {
     );
     await limit.fill(String((await settings()).maxOutputTokens));
     await limit.blur();
-    await nav.getByRole('link', { name: '常用开关', exact: true }).click();
+    await nav.getByRole('link', { name: '功能开关', exact: true }).click();
     await page.getByRole('switch', { name: '启用大纲', exact: true }).click();
     await waitFor(async () => (await settings()).answerOutlineEnabled, 'outline did not restore');
     await waitFor(
