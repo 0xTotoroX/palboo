@@ -1169,3 +1169,115 @@ test(
     }
   },
 );
+
+test(
+  'model settings finish slow initial reads and preserve saved enablement across reloads',
+  { timeout: 20000 },
+  async () => {
+    const bundle = await build({
+      stdin: {
+        contents: `import React from 'react';import {createRoot} from 'react-dom/client';
+        import {ModelControlSettings} from './ui/settings/model-control-settings';
+        createRoot(document.getElementById('root')).render(<ModelControlSettings live active detailed={false}/>);`,
+        resolveDir: process.cwd(),
+        loader: 'tsx',
+      },
+      bundle: true,
+      write: false,
+      jsx: 'automatic',
+      define: { 'process.env.NODE_ENV': '"production"' },
+    });
+    const browser = await chromium.launch({ headless: true });
+    let release;
+    const gate = new Promise((resolve) => {
+      release = resolve;
+    });
+    try {
+      const page = await browser.newPage();
+      page.setDefaultTimeout(4000);
+      await page.addInitScript(() => {
+        window.fixtureHidden = true;
+        Object.defineProperty(document, 'hidden', { get: () => window.fixtureHidden });
+      });
+      let enabled = true,
+        reads = 0;
+      const writes = [],
+        errors = [];
+      page.on('pageerror', (e) => errors.push(e.message));
+      await page.route('http://model-loading.test/**', async (route) => {
+        const path = new URL(route.request().url()).pathname;
+        if (path === '/')
+          return route.fulfill({ contentType: 'text/html', body: '<div id="root"></div>' });
+        if (path === '/api/model-control/state') {
+          reads++;
+          if (reads === 1) await gate;
+          return route.fulfill({
+            json: {
+              revision: 1,
+              preferences: { enabled, pinned: [], presets: [] },
+              snapshot: null,
+            },
+          });
+        }
+        assert.ok(['/api/model-control/open', '/api/model-control/close'].includes(path), path);
+        assert.equal(route.request().method(), 'POST');
+        writes.push(path);
+        enabled = path.endsWith('/open');
+        return route.fulfill({ json: { ok: true } });
+      });
+      const mount = async () => {
+        await page.goto('http://model-loading.test/');
+        await page.addScriptTag({ content: bundle.outputFiles[0].text });
+      };
+      await mount();
+      const control = page.getByRole('switch', { name: '启用模型切换', exact: true });
+      await control.waitFor();
+      assert.equal(await control.isEnabled(), false);
+      // A background tab must still load once. Focus and two poll intervals may
+      // arrive while that first response is pending; they must not supersede it.
+      await page.evaluate(() => {
+        window.fixtureHidden = false;
+        document.dispatchEvent(new Event('visibilitychange'));
+        window.dispatchEvent(new Event('focus'));
+      });
+      await new Promise((resolve) => setTimeout(resolve, 4200));
+      assert.equal(reads, 1, 'slow requests are not overlapped or invalidated by polling');
+      release();
+      await page.waitForFunction(
+        () =>
+          document.querySelector('[aria-label="启用模型切换"]').getAttribute('aria-checked') ===
+          'true',
+      );
+      assert.equal(await control.isEnabled(), true);
+      await control.click();
+      await page.waitForFunction(
+        () =>
+          document.querySelector('[aria-label="启用模型切换"]').getAttribute('aria-checked') ===
+            'false' && !document.querySelector('[aria-label="启用模型切换"]').disabled,
+      );
+      assert.equal(enabled, false);
+      await mount();
+      await page.waitForFunction(() => {
+        const control = document.querySelector('[aria-label="启用模型切换"]');
+        return control && !control.disabled;
+      });
+      assert.equal(
+        await control.getAttribute('aria-checked'),
+        'false',
+        'background initial read restores the saved off state',
+      );
+      await control.click();
+      await page.waitForFunction(
+        () =>
+          document.querySelector('[aria-label="启用模型切换"]').getAttribute('aria-checked') ===
+          'true',
+      );
+      assert.equal(enabled, true);
+      assert.deepEqual(writes, ['/api/model-control/close', '/api/model-control/open']);
+      assert.deepEqual(errors, []);
+    } finally {
+      release();
+      await browser.close();
+    }
+  },
+);

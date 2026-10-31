@@ -34,8 +34,10 @@ export function ModelControlSettings({
   useEffect(() => {
     if (!live || !active) return;
     let disposed = false;
-    const load = async () => {
-      if (writing.current || document.hidden) return;
+    let reading = false;
+    const load = async (initial = false) => {
+      if (writing.current || reading || (!initial && document.hidden)) return;
+      reading = true;
       const version = ++generation.current;
       try {
         const value = await request<ModelState>('model-control/state');
@@ -45,15 +47,20 @@ export function ModelControlSettings({
         }
       } catch (error) {
         if (!disposed && version === generation.current) setMessage(String(error));
+      } finally {
+        reading = false;
       }
     };
-    void load();
-    window.addEventListener('focus', load);
-    const timer = setInterval(() => void load(), 2000);
+    const refresh = () => void load();
+    void load(true);
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    const timer = setInterval(refresh, 2000);
     return () => {
       disposed = true;
       clearInterval(timer);
-      window.removeEventListener('focus', load);
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
     };
   }, [live, active]);
   async function change(open: boolean) {

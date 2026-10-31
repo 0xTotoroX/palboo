@@ -8,7 +8,6 @@ import { tr } from '../shared/i18n.js';
 import { LayoutPreview } from './layout-preview';
 import { ModelPreview } from './model-preview';
 import { FeaturePreviewContent } from './feature-preview';
-import { CodexHostPreview } from './codex-host-preview';
 import { useState, type ReactNode } from 'react';
 import type { SettingsPage } from './settings-outline';
 import type { EditableSettings, View } from './api';
@@ -145,7 +144,7 @@ function GenerationPreview({ form, dirty }: PreviewProps) {
 }
 export function SettingsPreview(props: PreviewProps) {
   useLocale();
-  if (props.page === 'connection') return null;
+  if (['connection', 'codex-host'].includes(props.page)) return null;
   const workspace = props.page === 'surfaces' || props.page === 'appearance';
   return (
     <aside
@@ -166,8 +165,6 @@ export function SettingsPreview(props: PreviewProps) {
         />
       ) : ['features', 'next', 'prompts', 'board', 'model-control', 'bots'].includes(props.page) ? (
         <FeaturePreview {...props} />
-      ) : props.page === 'codex-host' ? (
-        <CodexHostPreview />
       ) : props.page === 'model' ? (
         <GenerationPreview {...props} />
       ) : null}

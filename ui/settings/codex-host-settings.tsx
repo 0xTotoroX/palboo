@@ -10,6 +10,7 @@ import { useFeedbackTarget } from './settings-feedback';
 import { ConfirmationButton } from './settings-confirmation';
 import { Button } from './components/ui/button';
 import type { CodexHostStatus } from '../shared/codex-host';
+import { CodexHostPreview } from './codex-host-preview';
 const labels: Record<CodexHostStatus['state'], string> = {
   get disabled() {
     return tr('已关闭');
@@ -124,7 +125,7 @@ export function CodexHostSettings({
         ));
   return (
     <section
-      className="settings-section space-y-6"
+      className="settings-section compatibility-integration"
       aria-label={tr('CodexHost 设置')}
       id="settings-codex-host"
     >
@@ -142,6 +143,30 @@ export function CodexHostSettings({
         disabled={disabled || !state}
         onChange={(enabled) => void command('set-enabled', { enabled })}
       />
+      {detailsVisible && (
+        <>
+          <div className="compatibility-heading">
+            <h2>CodexHost</h2>
+            <span className="compatibility-state">
+              {state ? labels[state.state] : tr('正在读取…')}
+            </span>
+          </div>
+          <p className="compatibility-introduction">
+            {tr(
+              '通过 CodexHost，在 ChatGPT / Codex 桌面中接入 Claude Code、Pi、OpenCode 等 Agent。',
+            )}
+          </p>
+          <a
+            className="compatibility-source"
+            href="https://github.com/BytePioneer-AI/codex-host"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {tr('CodexHost 原版 GitHub 仓库')}
+          </a>
+          <CodexHostPreview />
+        </>
+      )}
       <Feedback
         text={error || state?.error || (busy ? tr('处理中…') : '')}
         failed={!!(error || state?.error)}
@@ -151,37 +176,36 @@ export function CodexHostSettings({
         <Feedback text={state.restart.message} failed={state.restart.state === 'failed'} />
       )}
       {state && (
-        <>
+        <div className="compatibility-management">
+          <h3>{tr('运行与更新')}</h3>
           <dl className="settings-status-list">
-            <div className="settings-row">
-              <dt>{tr('状态')}</dt>
-              <dd>{labels[state.state]}</dd>
-            </div>
             <div className="settings-row">
               <dt>{tr('已安装版本')}</dt>
               <dd>{state.version || tr('未安装')}</dd>
             </div>
-            {state.runningVersion && (
+            {state.runningVersion && state.runningVersion !== state.version && (
               <div className="settings-row">
                 <dt>{tr('实际运行版本')}</dt>
                 <dd>{state.runningVersion}</dd>
               </div>
             )}
-            {state.executable && (
-              <div className="settings-row items-start">
-                <dt className="shrink-0">{tr('程序路径')}</dt>
-                <dd className="min-w-0 break-all text-right select-text">{state.executable}</dd>
-              </div>
-            )}
-            {state.runningExecutable && state.runningExecutable !== state.executable && (
-              <div className="settings-row items-start">
-                <dt className="shrink-0">{tr('运行路径')}</dt>
-                <dd className="min-w-0 break-all text-right select-text">
-                  {state.runningExecutable}
-                </dd>
-              </div>
-            )}
           </dl>
+          {(state.executable || state.runningExecutable) && (
+            <dl className="compatibility-path">
+              {state.executable && (
+                <>
+                  <dt>{tr('程序路径')}</dt>
+                  <dd>{state.executable}</dd>
+                </>
+              )}
+              {state.runningExecutable && state.runningExecutable !== state.executable && (
+                <>
+                  <dt>{tr('运行路径')}</dt>
+                  <dd>{state.runningExecutable}</dd>
+                </>
+              )}
+            </dl>
+          )}
           {state.state === 'pendingEnable' && (
             <p>{tr('需要重开 Codex 才能启用时，请先结束任务，再打开 Palboo。')}</p>
           )}
@@ -242,7 +266,7 @@ export function CodexHostSettings({
             )}
           </div>
           {latest === state.version && <p role="status">{tr('已是最新版本')}</p>}
-        </>
+        </div>
       )}
     </section>
   );

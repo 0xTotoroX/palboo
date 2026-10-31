@@ -5,15 +5,17 @@
 import { useState } from 'react';
 import { tr } from '../shared/i18n.js';
 import { useLocale } from '../shared/use-locale';
-import { titles, type FeatureLayout, type FeatureState } from '../shared/features';
+import { titles, featureIcons, type FeatureLayout, type FeatureState } from '../shared/features';
 import {
   layoutSnapshot,
   mainFeatureIds,
   matchesLayoutPreset,
 } from '../surfaces/workspace/layout-presets.js';
 import { SettingsDrawer } from './settings-drawer';
-import { Field, Toggle } from './settings-controls';
+import { Field } from './settings-controls';
 import { Button } from './components/ui/button';
+import { Input } from './components/ui/input';
+import { Icon } from '../shared/icons/react';
 import { NativeSelect } from './components/ui/native-select';
 import { useConfirmation } from './settings-confirmation';
 
@@ -60,21 +62,29 @@ export function LayoutPresetSettings({
   }
   return (
     <SettingsDrawer id="layout-presets" title={tr('布局预设')}>
-      <section className="settings-subsection">
-        <h3>{tr('当前布局')}</h3>
-        <div className="settings-feature-grid">
-          {ids.map((id) => (
-            <Toggle
-              key={id}
-              label={titles[id]}
-              checked={current.visible!.includes(id)}
-              disabled={busy || (current.visible!.length === 1 && current.visible!.includes(id))}
-              onChange={(value) => show(id, value)}
-            />
-          ))}
-        </div>
+      <section className="settings-subsection layout-preset-section">
+        <h3>{tr('保存新预设')}</h3>
+          <fieldset className="layout-preset-membership">
+            <legend>{tr('包含的功能')}</legend>
+            <div className="layout-preset-features">
+              {ids.map((id) => (
+                <label key={id} className="layout-preset-feature">
+                  <Input
+                    type="checkbox"
+                    checked={current.visible!.includes(id)}
+                    disabled={
+                      busy || (current.visible!.length === 1 && current.visible!.includes(id))
+                    }
+                    onChange={(event) => show(id, event.target.checked)}
+                  />
+                  <Icon name={featureIcons[id]} />
+                  <span>{titles[id]}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
         <Field id="new-layout-preset-name" label={tr('预设名称')}>
-          <input
+          <Input
             id="new-layout-preset-name"
             value={name}
             maxLength={40}
@@ -92,13 +102,13 @@ export function LayoutPresetSettings({
           </Button>
         </div>
       </section>
-      <section className="settings-subsection">
+      <section className="settings-subsection layout-preset-section">
         <h3>{tr('已保存的预设')}</h3>
         {!chosen ? (
           <p className="settings-hint">{tr('暂无布局预设')}</p>
         ) : (
           <>
-            <Field id="saved-layout-preset" label={tr('布局预设')}>
+            <Field id="saved-layout-preset" label={tr('选择预设')}>
               <NativeSelect
                 id="saved-layout-preset"
                 value={chosen.id}
@@ -113,7 +123,7 @@ export function LayoutPresetSettings({
               </NativeSelect>
             </Field>
             <Field id="layout-preset-rename" label={tr('名称')}>
-              <input
+              <Input
                 id="layout-preset-rename"
                 value={drafts[chosen.id]?.name ?? chosen.name}
                 maxLength={40}

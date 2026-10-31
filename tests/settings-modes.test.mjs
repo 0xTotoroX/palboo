@@ -1,5 +1,5 @@
 /* [INPUT]: Built settings page, synthetic authenticated services and isolated Chromium.
- * [OUTPUT]: Shared drafts/DOM, grouped feature controls, 16:9/1:1 previews with isolated compatibility actions and responsive navigation with interruptible menu motion.
+ * [OUTPUT]: Shared drafts/DOM, grouped controls, 16:9 interface/content-sized feature previews, compatibility overview and responsive navigation.
  * [POS]: No real user data, model requests or host restarts.
  * [PROTOCOL]: Keep tests/AGENTS.md in sync. */
 import test from 'node:test';
@@ -705,22 +705,18 @@ test(
           assert.equal(await page.getByLabel('侧栏主题', { exact: true }).isVisible(), false);
         if (id === 'codex-host') {
           const before = writes.length;
-          const demo = page.locator('.preview-compatibility');
-          await demo.getByLabel('Agent', { exact: true }).selectOption('OpenCode');
-          await demo
-            .locator('.compatibility-preview-response strong')
-            .getByText('OpenCode', { exact: true })
-            .waitFor();
-          await demo.getByText('委派给 Pi', { exact: true }).click();
-          await demo
-            .getByText('在独立会话中运行测试，可从同一侧栏查看进度与结果。', { exact: true })
-            .waitFor();
-          await demo.getByLabel('代码差异示例').waitFor();
-          await demo.getByText('查看更改', { exact: true }).click();
-          await demo.getByLabel('代码差异示例').waitFor({ state: 'hidden' });
-          await demo.getByText('查看更改', { exact: true }).click();
-          await demo.getByLabel('Agent', { exact: true }).selectOption('Pi');
-          await demo.getByText('委派给 Claude Code', { exact: true }).waitFor();
+          const integration = page.locator('#settings-codex-host');
+          await integration.getByRole('heading', { name: 'CodexHost', exact: true }).waitFor();
+          await integration.getByRole('figure', { name: 'CodexHost 兼容层示意' }).waitFor();
+          assert.deepEqual(
+            await integration.locator('.compatibility-flow-agents span').allTextContents(),
+            ['Claude Code', 'Pi', 'OpenCode'],
+          );
+          assert.equal(
+            await page.locator('.settings-preview').count(),
+            0,
+            'compatibility is a management page, without a fake feature canvas',
+          );
           assert.equal(
             await page
               .getByRole('link', { name: 'CodexHost 原版 GitHub 仓库', exact: true })
@@ -730,7 +726,7 @@ test(
           assert.equal(
             writes.length,
             before,
-            'compatibility demonstration never writes settings or switches the real Agent',
+            'compatibility overview never writes settings or switches the real Agent',
           );
         }
         if (id === 'appearance')
@@ -1384,6 +1380,20 @@ test(
               });
               continue;
             }
+            if (id === 'codex-host') {
+              assert.equal(await page.locator('.settings-preview').count(), 0);
+              const bounds = await page.locator('.compatibility-overview').evaluate((node) => ({
+                width: node.getBoundingClientRect().width,
+                scrollWidth: node.scrollWidth,
+                height: node.getBoundingClientRect().height,
+              }));
+              assert.ok(
+                bounds.scrollWidth <= bounds.width + 1,
+                'compatibility diagram fits narrow screens',
+              );
+              assert.ok(bounds.height < 440, 'compatibility overview has no empty fixed canvas');
+              continue;
+            }
             if (id === 'terminology')
               await page.locator('#settings-terminology .settings-row').first().waitFor();
             const stage = await page.locator('.preview-frame:visible').evaluate((node) => {
@@ -1436,14 +1446,24 @@ test(
             const format = ['surfaces', 'appearance', 'model'].includes(id)
               ? 'interface'
               : 'feature';
-            const ratio = format === 'interface' ? 16 / 9 : 1;
             assert.equal(stage.format, format, `${id}: uses its shared preview family`);
-            assert.ok(
-              Math.abs(stage.width / stage.height - ratio) < 0.01,
-              `${colorScheme} ${width} ${id}: ${stage.width} × ${stage.height} keeps ${ratio} ratio`,
-            );
-            if (format === 'feature')
-              assert.ok(stage.width <= 480.5, 'square previews share a bounded size');
+            if (format === 'interface')
+              assert.ok(
+                Math.abs(stage.width / stage.height - 16 / 9) < 0.01,
+                `${colorScheme} ${width} ${id}: interface keeps 16:9`,
+              );
+            else {
+              assert.ok(stage.width <= 480.5, 'feature previews share a bounded width');
+              assert.ok(
+                stage.height > 60 && stage.height <= 466,
+                `${id}: usable content with bounded scrolling (${stage.height})`,
+              );
+              if (['bots', 'prompts', 'terminology'].includes(id))
+                assert.ok(
+                  stage.height < 300,
+                  `${id}: short content does not leave an empty square (${stage.height})`,
+                );
+            }
             const escapedContent = await preview
               .locator('[data-settings-feature]:visible')
               .evaluateAll((nodes) =>
@@ -1476,7 +1496,7 @@ test(
               assert.ok(
                 Math.abs(actual.width - actual.availableWidth) < 1 &&
                   Math.abs(actual.height - actual.availableHeight) < 1,
-                `${id}: actual content, not only the outer frame, fills the square ${JSON.stringify(actual)}`,
+                `${id}: frame fits the actual component with no extra blank area ${JSON.stringify(actual)}`,
               );
             }
             previewGeometry.push({
@@ -1689,9 +1709,9 @@ test(
       await drawer.evaluate(async (n) => {
         await Promise.allSettled(n.getAnimations().map((a) => a.finished));
       });
-      assert.equal(
-        await limits.evaluate((n) => n.getBoundingClientRect().height),
-        entryHeight,
+      assert.ok(
+        Math.abs((await limits.evaluate((n) => n.getBoundingClientRect().height)) - entryHeight) <
+          0.1,
         'drawer does not reflow the main page',
       );
       const bounds = await drawer.boundingBox();

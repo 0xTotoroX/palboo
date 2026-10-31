@@ -219,7 +219,7 @@ createRoot(document.getElementById('root')).render(<App/>);
     await page.addScriptTag({ content: script });
     const drawer = page.getByRole('dialog', { name: '布局预设', exact: true });
     await drawer.waitFor();
-    await drawer.getByRole('switch', { name: '常用语', exact: true }).click();
+    await drawer.getByRole('checkbox', { name: '常用语', exact: true }).click();
     await page.waitForFunction(() => server.layouts.desktop.visible?.length === 2);
     assert.deepEqual(await page.evaluate(() => server.layouts.desktop.visible), [
       'outline',
@@ -261,7 +261,7 @@ createRoot(document.getElementById('root')).render(<App/>);
     );
     await page.evaluate(() => changeLocale('system'));
     await drawer.getByRole('button', { name: '取消', exact: true }).click();
-    await drawer.getByRole('switch', { name: '常用语', exact: true }).click();
+    await drawer.getByRole('checkbox', { name: '常用语', exact: true }).click();
     await page.waitForFunction(() => server.layouts.desktop.visible.length === 3);
     await drawer.getByRole('button', { name: '使用此预设', exact: true }).click();
     await page.waitForFunction(() => server.layouts.desktop.visible.length === 2);
