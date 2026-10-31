@@ -91,6 +91,18 @@ test('inline expanding menu preserves eyes hit target and has stable hover, keyb
       );
     }
     assert.equal(await host.locator('.glass,.rim,[data-csw-optics]').count(), 0);
+    await page.evaluate(() => {
+      window.options.switching = true;
+      window.menu.update();
+    });
+    assert.equal(await host.getByRole('menuitem', { name: '在聊天内打开' }).isDisabled(), true);
+    assert.equal(await host.getByRole('menuitem', { name: '在桌面打开' }).isDisabled(), true);
+    assert.equal(await host.getByRole('menuitem', { name: '打开设置' }).isEnabled(), true);
+    await page.evaluate(() => {
+      window.options.switching = false;
+      window.menu.update();
+    });
+    assert.equal(await host.getByRole('menuitem', { name: '在桌面打开' }).isEnabled(), true);
     assert.equal(
       await host.evaluate((node) => getComputedStyle(node).backgroundColor),
       'rgba(0, 0, 0, 0)',

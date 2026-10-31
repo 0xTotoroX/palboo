@@ -3,7 +3,7 @@ import { setLocale, getLocale } from '../../shared/i18n.js';
 import { measureWork } from '../../shared/performance.js';
 import { errorMessage } from '../../shared/text.js';
 /* [INPUT]: Feature owners, main ownership, saved placements, opt-in sidebar page switches and the existing capsule/dock.
- * [OUTPUT]: Business views inside the original shell, geometry refresh, whole-workbench handoff motion, window round trips retaining the departure state and reopening enabled main views after window closure.
+ * [OUTPUT]: Business views, whole-workbench handoff motion, single-flight window switching with retry feedback cleanup, and reopening enabled main views after window closure.
  * [POS]: Embedded surface adapter. Geometry and gestures remain in shell.
  * [PROTOCOL]: Keep embedded/AGENTS.md in sync. */
 import { mountFeature } from '../workspace/mount';
@@ -30,6 +30,8 @@ let dockValue = { status: '', rect: null };
 let primary = 'overlay';
 let selected = '';
 let mainReopen = null;
+let mainMove = null;
+let lastError = '';
 let returnState = null;
 let stateFingerprint = '';
 const mounts = new Map();
@@ -48,6 +50,14 @@ export async function revealFeature(id, placement) {
 }
 export function featurePlacement() {
   return primary;
+}
+export function featureTransitioning() {
+  return !!(
+    mainMove ||
+    mainReopen ||
+    state?.pendingPlacement ||
+    state?.features.some((e) => e.pending)
+  );
 }
 export async function reopenMainFeatures() {
   if (mainReopen) return mainReopen;
@@ -78,10 +88,14 @@ export async function reopenMainFeatures() {
   try {
     return await mainReopen;
   } finally {
-    if (generation === epoch) mainReopen = null;
+    if (generation === epoch) {
+      mainReopen = null;
+      emitSignal('render', undefined);
+    }
   }
 }
 export async function revealMainFeature() {
+  if (featureTransitioning()) return;
   if (await reopenMainFeatures()) return;
   const entries = group(primary).filter((entry) => entry.open);
   const id = entries.find((entry) => entry.id === selected)?.id || entries[0]?.id;
@@ -103,30 +117,52 @@ function group(placement) {
   );
 }
 function showError(error) {
+  lastError = errorMessage(error);
   const node = shellState.panel?.querySelector('[data-feature-error]');
   if (node) {
-    node.textContent = errorMessage(error);
+    node.textContent = lastError;
     node.hidden = false;
   }
   if (!node?.getBoundingClientRect().width) {
-    runtimeState.settingsOpenStatus = errorMessage(error);
+    runtimeState.settingsOpenStatus = lastError;
     emitSignal('render', undefined);
   }
 }
+function clearError() {
+  const node = shellState.panel?.querySelector('[data-feature-error]');
+  if (node) {
+    node.textContent = '';
+    node.hidden = true;
+  }
+  if (lastError && runtimeState.settingsOpenStatus === lastError)
+    runtimeState.settingsOpenStatus = '';
+  lastError = '';
+}
 export async function popoutSelectedFeature() {
+  if (mainMove) return mainMove;
+  if (featureTransitioning()) return;
   const id = selected || group(primary)[0]?.id;
   if (!id) return;
-  try {
-    render(
-      await request({
-        op: 'main-placement',
-        placement: primary === 'desktop' ? state.returnPlacement || 'sidebar' : 'desktop',
-      }),
-    );
-    await reopenMainFeatures();
-  } catch (e) {
-    showError(e);
-  }
+  const generation = epoch;
+  const placement = primary === 'desktop' ? state.returnPlacement || 'sidebar' : 'desktop';
+  clearError();
+  mainMove = (async () => {
+    try {
+      const result = await request({ op: 'main-placement', placement });
+      if (generation !== epoch) return;
+      render(result);
+      await reopenMainFeatures();
+    } catch (e) {
+      if (generation === epoch) showError(e);
+    } finally {
+      if (generation === epoch) {
+        mainMove = null;
+        emitSignal('render', undefined);
+      }
+    }
+  })();
+  emitSignal('render', undefined);
+  return mainMove;
 }
 export function toggleFeatureDock(open) {
   shellState.dockOpen = open;
@@ -365,6 +401,8 @@ export function startFeatureHost() {
 export function stopFeatureHost() {
   epoch++;
   mainReopen = null;
+  mainMove = null;
+  clearError();
   clearInterval(timer);
   timer = 0;
   composition?.destroy();

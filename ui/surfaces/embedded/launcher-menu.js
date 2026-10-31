@@ -1,6 +1,6 @@
 import { tr, subscribeLocale, getLocale } from '../../shared/i18n.js';
 /* [INPUT]: The independent eyes anchor, confirmed main location and action/capability callbacks.
- * [OUTPUT]: An inline sidebar menu with the current location indicator, cancellable hover, keyboard access and shared launcher feedback.
+ * [OUTPUT]: An inline sidebar menu with the current location indicator, cancellable hover, handoff-aware actions, keyboard access and shared launcher feedback.
  * [POS]: Launcher presentation only; actions remain in the runtime coordinator.
  * [PROTOCOL]: Keep embedded/AGENTS.md in sync. */
 import { iconSvg } from '../../shared/icons/index.js';
@@ -69,7 +69,9 @@ export function createLauncherMenu(anchor, options) {
       button.setAttribute('aria-label', tr(item[2]));
       button.querySelector('span').textContent = tr(item[1]);
       button.disabled =
-        busy || (button.dataset.action === 'outside' && value.outsideAvailable === false);
+        busy ||
+        (value.switching && button.dataset.action !== 'settings') ||
+        (button.dataset.action === 'outside' && value.outsideAvailable === false);
       button.setAttribute('aria-current', String(button.dataset.action === value.currentLocation));
     }
     if (open) place();

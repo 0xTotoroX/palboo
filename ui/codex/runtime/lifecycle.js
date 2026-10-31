@@ -11,7 +11,7 @@ import { createTypographyTracker } from '../typography.js';
 import { installTerminology } from '../../terminology/host.js';
 /*
  * [INPUT]: 宿主上下文、独立功能、设置协调、外壳与通知。
- * [OUTPUT]: 只读 panelAppearance 接口； 回答结束且文本稳定后扫描生成、启停与通知订阅，连接胶囊/左侧图标入口与停靠开合，Dev 插件页签选中后收起旧侧栏；切换聊天恢复有效建议缓存，来源失联保留只读结果并使异步请求失效。
+ * [OUTPUT]: 只读 panelAppearance 接口； 回答结束且文本稳定后扫描生成、启停与通知订阅，连接胶囊/左侧图标入口与停靠开合，主功能交接中禁用重复内外操作，Dev 插件页签选中后收起旧侧栏；切换聊天恢复有效建议缓存，来源失联保留只读结果并使异步请求失效。
  * [POS]: 模块组合入口；统一初始化并回收观察器、定时器和订阅。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -22,6 +22,7 @@ import {
   popoutSelectedFeature,
   toggleFeatureDock,
   featurePlacement,
+  featureTransitioning,
   revealMainFeature,
   reopenMainFeatures,
 } from '../../surfaces/embedded/features.js';
@@ -533,6 +534,7 @@ async function start() {
 async function launcherAction(action, toggle = false) {
   if (!hostPageAllowed(shellState) && action !== 'settings') return;
   if (!toggle) cancelFaceClick();
+  if (action !== 'settings' && independentFeatures() && featureTransitioning()) return;
   if (action === 'toggle') {
     if (runtimeState.settings?.popoutSupported === true) emitSignal('windowToggle', undefined);
     return;
@@ -694,6 +696,7 @@ function install() {
           colors: panelAppearance().colors,
           theme: shellState.theme,
           outsideAvailable: runtimeState.settings?.popoutSupported === true,
+          switching: independentFeatures() && featureTransitioning(),
           action: (action) => launcherAction(action),
           click: (event) => {
             const run = (action) => {

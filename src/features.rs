@@ -1290,6 +1290,41 @@ mod tests {
         assert_eq!(cold["features"][0]["view"], json!({}));
     }
     #[tokio::test]
+    async fn repeated_main_placement_joins_existing_handoff_without_replacing_owners() {
+        let (_dir, app) = app().await;
+        let owner = open(&app, "outline").await;
+        let request = json!({"op":"main-placement","placement":"overlay"});
+        let initial = app.feature_request(request.clone()).await.unwrap();
+        let target = initial["features"][0]["pending"]["owner"].clone();
+        assert_eq!(initial["features"][0]["owner"], owner);
+        for _ in 0..3 {
+            assert_eq!(app.feature_request(request.clone()).await.unwrap(), initial);
+        }
+        assert!(
+            app.feature_request(json!({"op":"main-placement","placement":"sidebar"}))
+                .await
+                .is_err(),
+            "a different request must not replace the in-flight handoff"
+        );
+        app.feature_request(json!({"op":"handoff","id":"outline","owner":owner,"pendingOwner":target,"view":{"top":72}}))
+            .await
+            .unwrap();
+        app.feature_request(json!({"op":"ready","id":"outline","owner":target}))
+            .await
+            .unwrap();
+        let completed = app.feature_request(request).await.unwrap();
+        assert!(completed["pendingPlacement"].is_null());
+        assert_eq!(completed["mainPlacement"], "overlay");
+        assert_eq!(completed["features"][0]["owner"], target);
+        assert_eq!(completed["features"][0]["view"]["top"], 72);
+        assert!(
+            app.feature_request(json!({"op":"save","id":"outline","owner":owner,"view":{}}))
+                .await
+                .is_err(),
+            "joining a handoff does not weaken stale owner protection"
+        );
+    }
+    #[tokio::test]
     async fn external_move_waits_for_source_and_timeout_retains_original_owner() {
         let (_dir, app) = app().await;
         let owner = open(&app, "outline").await;

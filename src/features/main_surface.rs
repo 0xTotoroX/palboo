@@ -1,5 +1,5 @@
 // [INPUT]: Feature owners, enabled features, startup display preferences, main placement and saved flat/nested layouts.
-// [OUTPUT]: Cold-start main visibility/location, validated recursive layouts with optional visible features/collapsed rows, named preset storage, one main window and atomic group handoff.
+// [OUTPUT]: Cold-start main visibility/location, validated recursive layouts with optional visible features/collapsed rows, named preset storage, one main window and atomic group handoff with idempotent repeated placement requests.
 // [POS]: Main-surface lifecycle within features; no task or model business logic.
 // [PROTOCOL]: Keep features/AGENTS.md in sync.
 use super::*;
@@ -266,6 +266,11 @@ impl Features {
             target != "desktop" || crate::panel::popout_supported(),
             "当前系统不支持桌面窗口"
         );
+        // Repeated launcher/window requests join the same handoff, retaining its
+        // owners, draft snapshots and deadline instead of reporting a busy error.
+        if include.is_none() && self.main.target.as_deref() == Some(target) {
+            return Ok(());
+        }
         ensure!(
             self.entries.values().all(|e| e.pending.is_none()),
             "功能正在交接，请稍后重试"

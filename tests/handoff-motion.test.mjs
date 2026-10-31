@@ -1,5 +1,5 @@
 /* [INPUT]: Real workbench layout/mounts, synthetic feature snapshots and handoff owners.
- * [OUTPUT]: A single spatial cue preserves content/drafts/scroll, blocks interaction, restores on cancellation and respects reduced motion.
+ * [OUTPUT]: A single spatial cue preserves content/drafts/scroll, blocks interaction, restores on cancellation, respects reduced motion and coalesces repeated window requests.
  * [POS]: Browser-only acceptance; no host data or native capture.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import test from 'node:test';
@@ -31,6 +31,7 @@ window.items=entries.map(entry=>{
  const node=document.createElement('div');node.style.cssText='height:100%;min-height:0';
  return {id:entry.id,node,active:true,mount:mountFeature(node,entry,entry.owner,'sidebar',request,()=>{})};
 });
+
 const layout=installFeatureLayout(root,{save:async()=>{},error:e=>{throw e}});
 layout.update(items,'sidebar',{axis:'vertical',groups:entries.map(e=>({ids:[e.id],active:e.id,weight:1}))},null,'prompts',1);
 motion.update('sidebar',null);
@@ -106,5 +107,98 @@ window.destroy=()=>{motion.destroy();items.forEach(item=>item.mount.dispose());l
   await page.evaluate(() => destroy());
   assert.equal(await page.locator('#workbench').getAttribute('data-handoff'), null);
   assert.equal(await page.locator('#workbench').evaluate((node) => node.inert), false);
+  assert.deepEqual(errors, []);
+});
+
+test('embedded switching coalesces repeated clicks and clears only its previous error', async (t) => {
+  const script = (
+    await build({
+      stdin: {
+        resolveDir: process.cwd(),
+        contents: `
+import {startFeatureHost,stopFeatureHost,renderFeatureShell,popoutSelectedFeature,featureTransitioning,featurePlacement,independentFeatures} from './ui/surfaces/embedded/features';
+import {shellState,runtimeState} from './ui/codex/runtime/state';
+import {onSignal} from './ui/codex/runtime/signals';
+import {installStyle} from './ui/surfaces/embedded/shell/install-styles';
+installStyle();shellState.panel=document.querySelector('#panel');
+window.fixture={mainManaged:true,mainPlacement:'overlay',returnPlacement:'overlay',pendingPlacement:null,features:[{id:'prompts',owner:'source',placement:'overlay',open:true,size:[840,620],view:{},reveal:1,pending:null}],appearance:{themes:{}}};
+window.moves=[];window.failNext=false;
+window.__companionDesktopRequest=async(path,input)=>{
+ if(input.op==='main-placement'){
+  moves.push(input.placement);
+  if(failNext){failNext=false;return {error:'测试：窗口启动失败'}};
+  if(window.moveReply)return {error:'功能正在交接，请稍后重试'};
+  return new Promise(resolve=>{window.moveReply=()=>{
+   fixture.pendingPlacement=input.placement;
+   fixture.features[0].pending={owner:'target-'+moves.length,placement:input.placement,ready:true};
+   window.moveReply=null;resolve(structuredClone(fixture));
+  }});
+ }
+ if(input.op==='state')return structuredClone(fixture);
+ if(input.op==='read')return {snapshot:{viewToken:'synthetic',quickPromptToken:'phrases',settings:{quickPromptsEnabled:true,quickPrompts:[],configurationRevision:1},display:{promptClickMode:'fill'},bridgeStatus:'ready',prompts:[]}};
+ return {};
+};
+window.finishMove=()=>{const entry=fixture.features[0];fixture.mainPlacement=fixture.pendingPlacement;fixture.pendingPlacement=null;Object.assign(entry,{owner:entry.pending.owner,placement:entry.pending.placement,pending:null})};
+Object.assign(window,{move:popoutSelectedFeature,moving:featureTransitioning,placement:featurePlacement,independent:independentFeatures,stop:stopFeatureHost,runtime:runtimeState});
+onSignal('render',()=>renderFeatureShell(()=>{}));startFeatureHost();
+`,
+      },
+      bundle: true,
+      write: false,
+      loader: { '.css': 'text' },
+      define: { PALBOO_DEVELOPMENT: 'true' },
+    })
+  ).outputFiles[0].text;
+  const browser = await chromium.launch();
+  t.after(() => browser.close());
+  const page = await browser.newPage();
+  page.setDefaultTimeout(5000);
+  const errors = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.setContent(
+    '<div data-companion-stepwise-root="true"><section id="panel" style="position:fixed;inset:12px"></section></div>',
+  );
+  await page.addScriptTag({ content: script });
+  await page.waitForFunction(() => independent());
+  const feedback = page.locator('[data-feature-error]');
+  await page.evaluate(async () => {
+    failNext = true;
+    await move();
+  });
+  assert.equal(await feedback.textContent(), '测试：窗口启动失败');
+  for (const target of ['desktop', 'overlay']) {
+    const before = await page.evaluate(() => moves.length);
+    await page.evaluate(() => {
+      window.inFlight = Promise.all([move(), move(), move()]);
+    });
+    await page.waitForFunction(() => !!window.moveReply);
+    assert.equal(await page.evaluate(() => moves.length), before + 1);
+    assert.equal(await page.evaluate(() => moving()), true);
+    assert.equal(await feedback.textContent(), '');
+    assert.equal(await feedback.isHidden(), true);
+    await page.evaluate(async () => {
+      moveReply();
+      await inFlight;
+      await move();
+    });
+    assert.equal(await page.evaluate(() => moves.length), before + 1);
+    assert.equal(await page.evaluate(() => moving()), true);
+    assert.equal(await page.getByText('功能正在交接，请稍后重试', { exact: true }).count(), 0);
+    await page.evaluate(() => finishMove());
+    await page.waitForFunction((target) => placement() === target && !moving(), target);
+  }
+  await page.evaluate(() => {
+    runtime.settingsOpenStatus = '其他设置提示';
+    window.inFlight = move();
+  });
+  await page.waitForFunction(() => !!window.moveReply);
+  await page.evaluate(async () => {
+    stop();
+    moveReply();
+    await inFlight;
+  });
+  assert.equal(await page.evaluate(() => independent() || moving()), false);
+  assert.equal(await page.evaluate(() => runtime.settingsOpenStatus), '其他设置提示');
+  assert.equal(await feedback.textContent(), '');
   assert.deepEqual(errors, []);
 });

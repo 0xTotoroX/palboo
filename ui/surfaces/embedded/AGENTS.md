@@ -42,3 +42,5 @@ launcher接收settingsStatus/settingsBusy，只在设置处理中或动作失败
 dock 复用 codex/page-context 的普通聊天、新聊天和 Dots 分类；后两者由 sidebarNewChat/sidebarDots 控制所有 Palboo 承载的启用范围。关闭时撤销占位、临时隐藏内容但保留开合意愿与草稿；入口不能绕过设置，普通聊天不受影响。
 
 功能重开按 prompts 的独立开关处理。旧工作台迁入独立浮层时保留已有展开状态，侧栏继续使用原 dockOpen；不影响已保存位置和窗口草稿交接。
+
+主界面切换请求单飞，交接期间内/外入口暂禁而设置仍可用；初次请求与跨窗口回读中的 pending 均参与判断。重试清理本次工作台的旧错误，保留其他设置状态；销毁后的迟到响应不得恢复界面或提示。
