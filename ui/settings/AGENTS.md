@@ -45,12 +45,12 @@
 - `layout-preview.tsx`：布局与位置页的独立交互示例，消费已保存功能登记、布局和材质，复用真实工作台布局控制器；临时拖动、展开、排列和添加示例功能仅改内存；上下/左右演示采用两个可读分栏，功能不足补临时示例，横排扩大示意窗口至可用宽度；重置预览只清空演示覆盖；功能标签与主工作台共用图标、尺寸和间距，不另行覆盖文字标签样式。新登记功能自动参与排列；演示正文独立维护，不连接业务内容或保存接口；外观页沿用同一材质/Regular/Clear和统一字体解析。窗口先弹出再移向副屏，反向从当前几何接续，键盘/减少动态效果或聚焦输入时即时完成，隐藏或卸载停止动画；介绍页通过可选 hostName、examples、onPlacementChange、sceneZoom、entryRef、focusWorkspace、materialProgress、onReset 复用完整预览与可逆镜头；renderFeature 可在稳定节点中挂载网站的实际功能组件，未传时保留原演示正文；焦点识别包含 Shadow DOM。renderControls 可在场景后组合共享位置/排列控件与重置动作，不另建布局状态；默认设置行为和文案保留。语言切换原位更新示例标签和占位，保留输入节点与草稿。
 - `layout-preview-journey.ts`：设置与介绍页共用的纯窗口移动动画，保持先弹出再移至副屏的轨迹，取消和减少动态效果行为一致，不访问服务。
 - `layout-preview-scene.tsx` / `layout-preview-scene.css`：原设备/副屏 SVG 及限定场景作用域的表面样式，供设置与介绍页共用，宿主名可由使用方提供；按 placement 区分侧栏让位与浮层/桌面/贴边的完整聊天宽度，缺省保留旧几何行为；可选 zoom 接续介绍页的滚动放大，entryRef 提供原双眼落点，focusWorkspace 在窄屏聚焦内容并直接完成窗口位置变化；materialProgress 将同一 foreignObject 工作台从设备位置接续到品牌背景中央，先淡出宿主再显现背景，不重挂载输入节点；缺省不启用材质衔接，设置页仍沿原布局与外观场景显示。
-- `layout-preview.css`：设置交互示例与材质样本样式，导入共享设备表面。正面16:10 ChatGPT示意与小副屏、四边窄框；副屏在移入时显现，窗口填满其屏幕。全部预览统一位于对应页面表单顶部；布局页设备画布限高160px，外观页使用200px高、字号不缩放的工作台材质样本及有明暗层次的背景，保存材质成功后跟随对应位置，空位置也保留示例内容；贴边预览跟随保存的边与相对位置，材质为近似效果。
+- `layout-preview.css`：设置交互示例与材质样本样式，导入共享设备表面。正面16:10 ChatGPT示意与小副屏、四边窄框；副屏在移入时显现，窗口填满其屏幕。全部预览统一位于对应页面表单顶部；界面预览外框统一16:9，外观页使用字号不缩放的工作台材质样本及有明暗层次的背景，保存材质成功后跟随对应位置，空位置也保留示例内容；贴边预览跟随保存的边与相对位置，材质为近似效果。
 - `preview-frame.tsx`：所有设置预览共用外框、可访问名称与必要状态；不显示重复标题，不读取或保存配置；术语预览同样使用此框架并位于控件之前。
 - [settings-preview.css](settings-preview.css)：共用预览外框、功能示例、模型和连接示意的样式；全部预览共用中性灰底和12px圆角，功能与连接示例用圆角悬浮面板区别表单，建议与输入分区，去除套框和逐条分隔线。模型预览窄空间将强度选项移到名称下方并自然换行，看板单列切组，保留隔离演示状态；材质为近似效果，不用于实际业务视图。
 - [settings-list-motion.ts](settings-list-motion.ts)：配置列表增删/排序补位和新项4px淡入，共用主题时长（原主题200ms）及减少动效判断；以稳定ID测量相对位置，提示词没有持久ID时使用仅在界面保留的身份，兼容重复内容、后台整表回读与删除确认；不改变布局、保存时机或数据结构。
 - [settings-motion.ts](settings-motion.ts)：分类入场、功能预览与服务字段的可中断动画，提供公共时长/缓动及减少动效判断；跟随主题读取宿主参数，原主题保留原时长。键盘即时响应，宿主/系统减少动态效果取消进行中的动画；ResizeObserver 同步顶栏真实高度至目录粘性偏移，不重新挂载控件、不存储配置；页面入场保留4px位移。
-- [settings-motion.css](settings-motion.css)：菜单以0.95比例与透明度过渡，读取公共时长和进退缓动；控件不添加无依据的按压缩放。保留可中断关闭、焦点恢复及减少动态效果；抽屉等尚未绑定官方内部参数的动效不能宣称完整复刻。
+- [settings-motion.css](settings-motion.css)：普通设置菜单即时开合；模型候选入场按已确认300ms/bounce0.1的弹簧采样，scale .8、opacity0及blur8px恢复到正常状态；控件不添加无依据的按压缩放。保留可中断关闭、焦点恢复及减少动态效果；抽屉等尚未绑定官方内部参数的动效不能宣称完整复刻。
 - [settings-theme.tsx](settings-theme.tsx)：页头仅提供自动／浅色／深色，统一跟随 ChatGPT.app；只保存 settingsTheme 及修订。忽略旧 settingsStyle/settingsAccent，保留错误反馈、草稿、键盘及关闭焦点；独立窗口字体偏好仍有效。
 - [use-host-appearance.ts](use-host-appearance.ts)：认证 SSE 外观快照映射宿主语义颜色、导航/页面/分组标题、控件、分组边框、字体与动效。浅深分别缓存，缺失模式回退中性黑白；宿主减少动态效果与系统共同生效，不新增轮询或写宿主偏好。
 - [use-host-fonts.ts](use-host-fonts.ts)：将宿主所选具体字形的别名映射到本机 local() FontFace；异步完成核对生命周期，换字体/来源后回收，不枚举或下载字体文件。
@@ -81,7 +81,7 @@
 
 分类按钮带data-settings-navigation；切换不触发模型表单或字号输入的失焦保存。常规模型、各形式材质、字体、窗口、功能位置、看板分组及术语识别/词库直接显示。高级设置、模型分组、方向库与词库管理使用右侧抽屉，内部不嵌套抽屉；Stepwise 的显示操作、生成与方向选择直接显示，Jev 配置在智能模式下直接显示；Dev 来源属于高级开发配置。小字去掉装饰和重复描述，保留发送/重开后果、数据使用、环境覆盖、失败和必要状态。
 
-- codex-host-settings.tsx：详细模式“系统 → CodexHost”独立页面，分类可见时轮询codex-host API；启停保存独立revision，安装、更新、回退、启动及重启停用均为显式操作。旧settings-codex-host锚点保持有效。
+- codex-host-settings.tsx：“功能 → 兼容集成”独立页面，分类可见时轮询codex-host API；启停保存独立revision，安装、更新、回退、启动及重启停用均为显式操作。旧settings-codex-host锚点保持有效。
 
 View.connection.status支持unresponsive：主标题显示页面暂未响应，启动与连接仍保留断开/手动重连操作，不将短暂页面迟缓显示为凭据错误。
 
@@ -94,7 +94,7 @@ settings-search.tsx在页头提供本地设置搜索：从唯一挂载的标签/
 
 术语设置去掉重复的“打开”动作，保留收藏筛选；移除阅读批注候选，旧 note 偏好读取为 plain。
 
-`typography-settings.tsx` 是字体唯一设置入口，按 settings/sidebar/overlay/desktop/edge 分别选择本机字体族、跟随来源、75–150%比例或10–32px固定字号，默认跟随 ChatGPT。各表单持续挂载、ID独立，切换窗口不提交草稿，失败保留输入；复用 PanelSettings 外观 revision，以 surfaceTypography 单键补丁保存。缺省业务窗口继承旧 typography，设置页跟随主题使用宿主界面读数，原主题保留旧排版直至显式编辑。`use-typography.ts` 更新自有文档字体/rem基准；导航、菜单、标题和提示的宿主像素读数换算为相对基准，设置字号能统一缩放，主题来源不重置独立偏好。layout-preview 按演示承载选择相同偏好，旧 fontSizes 不删除。
+`typography-settings.tsx` 是字体唯一设置入口，按 settings/sidebar/overlay/desktop/edge 分别选择本机字体族、跟随来源、75–150%比例或10–32px固定字号，默认跟随 ChatGPT。各表单持续挂载、ID独立，切换窗口不提交草稿，失败保留输入；复用 PanelSettings 外观 revision，以 surfaceTypography 单键补丁保存。缺省业务窗口继承旧 typography，设置页跟随主题使用宿主界面读数，旧排版偏好保留兼容，显式编辑后按窗口覆盖。`use-typography.ts` 更新自有文档字体/rem基准；导航、菜单、标题和提示的宿主像素读数换算为相对基准，设置字号能统一缩放，主题来源不重置独立偏好。layout-preview 按演示承载选择相同偏好，旧 fontSizes 不删除。
 
 术语设置提供“点击术语时跳转到上下文”开关，默认关闭；通过原 terminology settings/revision 通道持久保存 jumpOnClick，失败保留原值。
 
@@ -116,7 +116,7 @@ settings-search.tsx在页头提供本地设置搜索：从唯一挂载的标签/
 - `settings-drawer.tsx`：共用原生 dialog 右侧抽屉，支持固定工具栏和页脚，保留原 DOM/表单归属、草稿和内部滚动；关闭、Esc、背景点击及分类切换不增加保存。搜索/旧锚点可打开目标，重复定位仍有效；detail-reveal 事件在聚焦前揭示抽屉内部条目，初始深链接在提交后的微任务执行；关闭按钮与标题不进入搜索索引。窄屏占满宽度，键盘/减少动态效果即时完成，嵌套危险操作确认仍单独取消。
 - 抽屉中的保存状态/失败反馈读取既有 SettingsEditor；手动保存继续提交原 SettingsForm，同一串行队列与修订保护不变。模型分组和词库复用原操作反馈；模型/密钥/词库数据不迁移。样式归 settings-controls.css，常用配置仍直接显示。
 
-两级设置导航：settings-outline.tsx 集中维护界面、功能、系统三组/子页和旧锚点映射；界面在前，常用开关归入界面；中宽屏分组始终显示，窄屏以“分类 / 当前页”展开同一份完整目录，按分类直接选页；不再显示两行导航。main.tsx、next-settings.tsx、surface-settings.tsx 和 panel-settings.tsx 只隐藏原节点：下一步含常用提示词，布局/外观分开，表单与草稿不重复创建。搜索索引补充页面及按需加载的词库入口，字段按最近 data-settings-page 定位；手动保存遇到隐藏的无效字段会切到所属页/抽屉并显示原生校验。预览按当前功能选取场景，术语/CodexHost/开发来源不挂无关预览。
+两级设置导航：settings-outline.tsx 集中维护界面、功能、系统三组/子页和旧锚点映射；界面在前，常用开关归入功能首位，兼容集成归功能末尾；中宽屏分组始终显示，窄屏以“分类 / 当前页”展开同一份完整目录，按分类直接选页；不再显示两行导航。main.tsx、next-settings.tsx、surface-settings.tsx 和 panel-settings.tsx 只隐藏原节点：下一步含常用提示词，布局/外观分开，表单与草稿不重复创建。搜索索引补充页面及按需加载的词库入口，字段按最近 data-settings-page 定位；手动保存遇到隐藏的无效字段会切到所属页/抽屉并显示原生校验。预览按当前功能选取场景，术语使用本页卡片，兼容集成使用独立示例，开发来源不挂无关预览。
 
 设置模式合并：main.tsx 不再渲染模式入口或简易聚合表单；settings-outline 不读写模式偏好，仅维护分组子页、历史和逐页滚动；settings-preview 按子页选择预览。settings-layout.css 移除模式专用样式，分组目录复用于中宽屏侧栏与窄屏单行菜单，保留主题与表单节奏。
 
@@ -166,3 +166,10 @@ launcher-settings 将单击、双击、右键并列为同宽设置行，各次�
 - settings-outline 接受 open=layout-presets 入口参数，保留 token 片段认证流程并直接打开布局预设抽屉；后续显式页面锚点优先。
 
 设置页右上角统一排列搜索、主题、官网、GitHub 四个34px图标入口；悬停/无障碍名称保留，主题选项仍在原菜单。搜索不注册全局快捷键且不显示快捷键提示；页脚仅显示动态 vX.Y.Z。窄屏整组保持右对齐，异常连接状态在图标组下方显示。
+
+- `codex-host-preview.tsx`：兼容集成的1:1预览，复用真实下一步与模型组件，示例Codex/OpenCode切换只改内存，明确外部Agent的官方模型控制边界；不调用安装、启动或配置API。
+- `preview-frame.tsx` / `settings-preview.css`：interface/feature两档共享外框（16:9 / 1:1）；before/after槽承载框外演示操作，窄屏不占用画布；功能框最大480px且居中、窄屏同比缩小，内容滚动不撑破比例，模型底栏保持可达。真实组件CSS通过继承变量填满框内空间，不改变网站默认内容高度。
+- `settings-spring.ts`：按本机已确认280ms/bounce0求解器生成的四位精度采样曲线；没有新动效依赖，CSS linear不支持时回退snappy cubic。
+- `use-dialog-height.ts`：确认弹窗内部ResizeObserver测量自然高度，首帧立即落位，之后300ms snappy过渡；中断从当前高度接续，关闭/销毁清理，键盘与减少动态效果即时。固定高度抽屉不使用此测量。
+
+提示层在pointerdown到pointerup/cancel期间不显示，避免鼠标获得焦点时提示层遮住抬起落点；键盘聚焦和悬停仍沿原规则显示。组件动效证据以本机调用链为准，未绑定的整窗开合/抽屉及系统控件不宣称已同步。

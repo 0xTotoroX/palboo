@@ -1,3 +1,4 @@
+import { SegmentedGroup } from './components/ui/segmented-group';
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: 功能归属、版本化布局、命名预设与旧布局兼容读取。
@@ -156,7 +157,8 @@ export function FeatureSettings({
             className={simple ? 'settings-placement-row' : 'settings-field settings-placement-row'}
           >
             <span>{tr('主界面位置')}</span>
-            <div
+            <SegmentedGroup
+              value={state.pendingPlacement || primary}
               id="main-placement"
               className="settings-choice"
               role="group"
@@ -175,7 +177,7 @@ export function FeatureSettings({
                     : labels[p]}
                 </button>
               ))}
-            </div>
+            </SegmentedGroup>
           </div>
         </div>
         <div className="settings-surface-item" hidden={simple}>

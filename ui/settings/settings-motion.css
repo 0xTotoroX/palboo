@@ -1,10 +1,11 @@
 /* [INPUT]: Settings markup, theme variables and pointer/keyboard modality.
- * [OUTPUT]: Shared reversible menu/dialog motion, theme/control feedback and immediate keyboard/reduced-motion states.
+ * [OUTPUT]: Desktop menu roles, sampled model spring, local dialog fallback and immediate keyboard/reduced-motion states.
  * [POS]: Visual feedback only; native actions and form mounting stay unchanged.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 html:root {
-  --settings-menu-enter: 180ms;
-  --settings-menu-exit: 140ms;
+  --settings-menu-enter: 0ms;
+  --settings-menu-exit: 0ms;
+  --settings-content-enter: 200ms;
   --settings-exit-ease: var(--settings-ease);
   --settings-panel-enter: 220ms;
   --settings-panel-exit: 160ms;
@@ -56,6 +57,60 @@ body,
   .settings-menu-motion:not([hidden]) {
     opacity: 0;
     transform: translateY(var(--settings-menu-offset)) scale(0.95);
+  }
+}
+/* Desktop ModelPicker: 300ms / bounce .1, sampled through its 10ms CSS
+   spring path. The tiny overshoot is intentional; no exit spring was bound. */
+.settings-suggestion-list[data-model-picker='true'] {
+  --settings-model-spring: cubic-bezier(0.23, 1, 0.32, 1);
+  filter: blur(0px);
+}
+@supports (transition-timing-function: linear(0, 1)) {
+  .settings-suggestion-list[data-model-picker='true'] {
+    --settings-model-spring: linear(
+      0,
+      0.0359,
+      0.1208,
+      0.2289,
+      0.3438,
+      0.4549,
+      0.5566,
+      0.6459,
+      0.722,
+      0.7854,
+      0.8369,
+      0.8782,
+      0.9106,
+      0.9356,
+      0.9547,
+      0.9689,
+      0.9794,
+      0.9869,
+      0.9922,
+      0.9959,
+      0.9983,
+      0.9999,
+      1.0008,
+      1.0013,
+      1.0015,
+      1.0015,
+      1.0014,
+      1.0013,
+      1.0011,
+      1
+    );
+  }
+}
+.settings-suggestion-list[data-model-picker='true']:not([hidden]) {
+  transition-property: opacity, transform, filter;
+  transition-duration: 300ms;
+  transition-timing-function: var(--settings-model-spring);
+}
+@starting-style {
+  .settings-suggestion-list[data-model-picker='true']:not([hidden]) {
+    opacity: 0;
+    transform: scale(0.8);
+    filter: blur(8px);
   }
 }
 .settings-native-select > .buddy-icon,
@@ -124,10 +179,11 @@ body,
   }
 }
 
-/* Dialogs share the menu rhythm, with a longer travel for the right-hand sheet. */
+/* Whole-dialog entry keeps a local fallback: only the host's content-height
+   transition is confirmed. Fixed-height sheets keep their existing travel. */
 :is(.settings-drawer, .settings-search-dialog, .settings-key-dialog) {
-  --settings-dialog-enter: var(--settings-menu-enter);
-  --settings-dialog-exit: var(--settings-menu-exit);
+  --settings-dialog-enter: 180ms;
+  --settings-dialog-exit: 140ms;
   --settings-dialog-from: translateY(4px) scale(0.985);
   opacity: 0;
   transform: var(--settings-dialog-from);
@@ -226,6 +282,7 @@ html[data-settings-input='keyboard'],
 html[data-settings-input='keyboard'] :is(body, .settings-header, .preview-frame),
 html[data-settings-input='keyboard'] .settings-app :is(button, a, input, select, textarea),
 html[data-settings-input='keyboard'] .settings-menu-motion,
+html[data-settings-input='keyboard'] .settings-suggestion-list[data-model-picker],
 html[data-settings-input='keyboard']
   :is(.settings-drawer, .settings-search-dialog, .settings-key-dialog),
 html[data-settings-input='keyboard']

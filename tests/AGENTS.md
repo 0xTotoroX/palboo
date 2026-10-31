@@ -256,7 +256,7 @@ macOS 的 Tab 遍历受运行器系统键盘导航偏好影响；轮廓验收对
 
 顶栏与动效回归：settings-modes 核对 360/600/900/1360px 的搜索同行或等宽换行、图标主题无障碍名称、功能开关不重复显示打开动作及原启用请求不变；用逐帧实际高度验证 details 展开、快速反向和完整终态，键盘/减少动态效果即时完成，所有动效零配置写入。
 
-窄屏导航动效回归：settings-modes 检查实际CSS展开/收起过渡、关闭立即inert、快速反向后的可见和可交互终态，以及键盘/减少动态效果即时切换；沿用断点、焦点与零配置写入检查。
+窄屏导航动效回归：settings-modes 检查本机对应普通菜单的即时展开/收起、关闭立即inert、快速反向后的可见和可交互终态，以及键盘/减少动态效果即时切换；沿用断点、焦点与零配置写入检查。
 
 - `settings-credentials.test.mjs`：真实密钥控件/保存队列与假密钥接口，核对已配置状态、空输入隐藏眼睛、更换取消保留旧密钥、模式切换保留草稿、删除取消/Esc零写入、单字段删除补丁、失败不自动重试及过期确认拒绝；不访问真实凭据。
 
@@ -404,5 +404,7 @@ Fast/普通预设按闪电标记独立消歧：model-groups 覆盖同组编号�
 `typography-surfaces.test.mjs` 使用真实字体表单、主题和 FeatureView 验证五种窗口的字体族/字号独立、三种来源并存、窗口切换不保存草稿、失败草稿保留、设置导航随字号缩放、两主题及窄屏/英文。panel 单测验证单窗口合并/重启持久化、旧偏好继承、修订冲突、非法目标和业务配置不变。
 
 handoff-motion 追加真实 embedded/features 适配器回归：连续点击只发起一个请求、pending 阶段不重复切换、真实错误可见且重试清除、销毁拒绝迟到响应并保留其他设置提示；launcher-menu 验内/外暂禁且设置可用。Rust repeated_main_placement 验重复目标保留 owner/草稿，其他目标与旧 owner 仍拒绝。
+
+设置同步与预览回归：settings-modes覆盖功能分类内的常用开关/兼容集成、界面16:9/功能1:1且最大480px、双主题360/600/900/1360px、真实Shadow DOM边界与兼容示例零写入；截图由PALBOO_TEST_SCREENSHOTS选择。settings-menu-motion按组件区分普通菜单即时、模型入场300ms弹簧、分段280ms底块中断、确认框错误增高300ms及键盘/减少动态效果；settings-motion保留无宿主主题的独立挂载。
 
 内外双向动效用 `WORKBENCH_CASE="bidirectional feature handoff" node tests/workbench.mjs` 采样完整宿主外壳的侧栏/浮层往返可见帧；不以隐藏节点上的动画对象代替可见验收。`node tests/native-check.mjs --fallback-only` 禁用私有曲面，以36×28入口和无效坐标验证三材质的原生淡出缩放、取消恢复、交接时序及不保存中间尺寸，默认不截图。正常空间动效仍用 `--motion-only`，开发曲面用 `--genie-only --chip-anchor`。

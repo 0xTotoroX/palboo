@@ -1,3 +1,4 @@
+import { SegmentedGroup } from './components/ui/segmented-group';
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: Saved feature/surface/typography snapshots, optional website feature renderer/stops/framing/material progress and shared workspace controller.
@@ -331,7 +332,12 @@ export function LayoutPreview({
     onReset?.();
   };
   const placementControls = (
-    <div className="preview-selector" role="group" aria-label={tr('演示位置')}>
+    <SegmentedGroup
+      value={location}
+      className="preview-selector"
+      role="group"
+      aria-label={tr('演示位置')}
+    >
       <button
         type="button"
         aria-label={tr('演示侧栏')}
@@ -359,10 +365,15 @@ export function LayoutPreview({
       <button type="button" aria-pressed={location === 'edge'} onClick={() => setMode('edge')}>
         {tr('贴边 / 刘海')}
       </button>
-    </div>
+    </SegmentedGroup>
   );
   const arrangementControls = (
-    <div className="preview-selector" role="group" aria-label={tr('演示排列')}>
+    <SegmentedGroup
+      value={arrangement}
+      className="preview-selector"
+      role="group"
+      aria-label={tr('演示排列')}
+    >
       <button
         type="button"
         aria-pressed={arrangement === 'vertical'}
@@ -380,22 +391,53 @@ export function LayoutPreview({
       <button type="button" aria-pressed={arrangement === 'tabs'} onClick={() => arrange('tabs')}>
         {tr('标签')}
       </button>
-    </div>
+    </SegmentedGroup>
   );
   return (
     <PreviewFrame
+      format="interface"
       className={`layout-demo${appearance ? ' layout-demo-appearance' : ''}`}
       title={appearance ? tr('外观效果') : tr('你的工作空间')}
       status={!live ? tr('连接中断 · 末次状态') : undefined}
+      before={
+        !renderControls && (
+          <div className="layout-demo-toolbar" data-settings-navigation>
+            {placementControls}
+            <button type="button" className="layout-demo-reset" onClick={reset}>
+              {tr('重置预览')}
+            </button>
+          </div>
+        )
+      }
+      after={
+        !renderControls && (
+          <div className="layout-demo-toolbar" data-settings-navigation hidden={appearance}>
+            {arrangementControls}
+            <button
+              type="button"
+              className="layout-demo-reset"
+              onClick={() => {
+                const item = {
+                  id: `demo-${extra.length + 1}`,
+                  title: extra.length ? tr('示例功能 ') + (extra.length + 1) : tr('笔记'),
+                };
+                setExtra([...extra, item]);
+                setDemoLayout({
+                  axis: 'vertical',
+                  groups: [...samples, item].map((entry) => ({
+                    ids: [entry.id],
+                    active: entry.id,
+                    weight: 1,
+                  })),
+                });
+              }}
+            >
+              {tr('＋ 添加示例功能')}
+            </button>
+          </div>
+        )
+      }
     >
-      {!renderControls && (
-        <div className="layout-demo-toolbar" data-settings-navigation>
-          {placementControls}
-          <button type="button" className="layout-demo-reset" onClick={reset}>
-            {tr('重置预览')}
-          </button>
-        </div>
-      )}
       <div
         className="layout-demo-canvas"
         data-demo-placement={location}
@@ -432,40 +474,15 @@ export function LayoutPreview({
           </LayoutPreviewScene>
         )}
       </div>
-      {renderControls ? (
-        renderControls({
-          placement: placementControls,
-          arrangement: arrangementControls,
-          location,
-          setPlacement: setMode,
-          reset,
-        })
-      ) : (
-        <div className="layout-demo-toolbar" data-settings-navigation hidden={appearance}>
-          {arrangementControls}
-          <button
-            type="button"
-            className="layout-demo-reset"
-            onClick={() => {
-              const item = {
-                id: `demo-${extra.length + 1}`,
-                title: extra.length ? tr('示例功能 ') + (extra.length + 1) : tr('笔记'),
-              };
-              setExtra([...extra, item]);
-              setDemoLayout({
-                axis: 'vertical',
-                groups: [...samples, item].map((entry) => ({
-                  ids: [entry.id],
-                  active: entry.id,
-                  weight: 1,
-                })),
-              });
-            }}
-          >
-            {tr('＋ 添加示例功能')}
-          </button>
-        </div>
-      )}
+      {renderControls
+        ? renderControls({
+            placement: placementControls,
+            arrangement: arrangementControls,
+            location,
+            setPlacement: setMode,
+            reset,
+          })
+        : null}
     </PreviewFrame>
   );
 }

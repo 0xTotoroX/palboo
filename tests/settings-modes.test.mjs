@@ -1,5 +1,5 @@
 /* [INPUT]: Built settings page, synthetic authenticated services and isolated Chromium.
- * [OUTPUT]: Shared drafts/DOM, single page heading, terminology controls/tools, compact preview geometry and responsive navigation with interruptible menu motion.
+ * [OUTPUT]: Shared drafts/DOM, grouped feature controls, 16:9/1:1 previews with isolated compatibility actions and responsive navigation with interruptible menu motion.
  * [POS]: No real user data, model requests or host restarts.
  * [PROTOCOL]: Keep tests/AGENTS.md in sync. */
 import test from 'node:test';
@@ -173,6 +173,8 @@ test(
           };
         } else if (path === '/api/app-update') {
           value = { currentVersion: '1.3.0', revision: 1, canInstall: false, checked: false };
+        } else if (path === '/api/codex-host') {
+          value = { enabled: false, revision: 1, state: 'disabled', canRestore: false };
         } else if (path === '/api/settings') {
           if (body) {
             if (rejectNext) {
@@ -381,6 +383,18 @@ test(
       });
       await page.goto(origin + '/#token=fixture');
       await page.getByRole('switch', { name: '启用大纲', exact: true }).waitFor();
+      const groups = await page.locator('.settings-nav-group').evaluateAll((nodes) =>
+        nodes.map((node) => ({
+          title: node.querySelector('h2').textContent,
+          pages: [...node.querySelectorAll('a')].map((link) => link.textContent),
+        })),
+      );
+      assert.deepEqual(groups.find((group) => group.title === '界面').pages, [
+        '布局与位置',
+        '外观与字体',
+      ]);
+      assert.ok(groups.find((group) => group.title === '功能').pages.includes('常用开关'));
+      assert.ok(groups.find((group) => group.title === '功能').pages.includes('兼容集成'));
       // 冷打开页面级链接包含预览；随后切页仍保留阅读位置，字段链接仍直接定位。
       const landing = await context.newPage();
       try {
@@ -416,7 +430,7 @@ test(
       ]);
       assert.equal(
         await page
-          .locator('.settings-nav-group[aria-label="界面"] a[href="#settings-features"]')
+          .locator('.settings-nav-group[aria-label="功能"] a[href="#settings-features"]')
           .count(),
         1,
       );
@@ -658,6 +672,24 @@ test(
         }
         if (id === 'surfaces')
           assert.equal(await page.getByLabel('侧栏主题', { exact: true }).isVisible(), false);
+        if (id === 'codex-host') {
+          const before = writes.length;
+          const demo = page.locator('.preview-compatibility');
+          await demo.getByRole('button', { name: '模型切换', exact: true }).click();
+          await demo.getByLabel('示例 Agent', { exact: true }).selectOption('OpenCode');
+          await demo
+            .getByRole('status')
+            .getByText('当前使用 OpenCode，请通过 CodexHost 切换模型', { exact: true })
+            .waitFor();
+          await demo.getByRole('button', { name: '下一步', exact: true }).click();
+          await demo.locator('[data-settings-feature="next"]').waitFor();
+          await demo.getByLabel('示例 Agent', { exact: true }).selectOption('Codex');
+          assert.equal(
+            writes.length,
+            before,
+            'compatibility demonstration never writes settings or switches the real Agent',
+          );
+        }
         if (id === 'appearance')
           assert.equal(await page.getByLabel('主界面布局', { exact: true }).isVisible(), false);
       }
@@ -1253,6 +1285,8 @@ test(
             'board',
             'model-control',
             'bots',
+            'prompts',
+            'codex-host',
             'terminology',
             'model',
             'connection',
@@ -1305,6 +1339,9 @@ test(
                 border: style.borderWidth,
                 radius: style.borderRadius,
                 background: style.backgroundColor,
+                format: node.dataset.previewFormat,
+                width: node.getBoundingClientRect().width,
+                height: node.getBoundingClientRect().height,
               };
             });
             assert.equal(stage.border, '0px', `${id}: no nested preview border`);
@@ -1343,13 +1380,17 @@ test(
               Math.abs(previewOrder.width - previewOrder.controls.width) < 1,
               `${id}: shared preview width`,
             );
-            // Keep the preview below half of the 900px desktop viewport, with
-            // room for wrapping rather than shrinking text on narrow screens.
-            const budget = width <= 760 ? 400 : 330;
+            const format = ['surfaces', 'appearance', 'model'].includes(id)
+              ? 'interface'
+              : 'feature';
+            const ratio = format === 'interface' ? 16 / 9 : 1;
+            assert.equal(stage.format, format, `${id}: uses its shared preview family`);
             assert.ok(
-              previewOrder.height <= budget,
-              `${colorScheme} ${width} ${id}: preview ${previewOrder.height}px exceeds ${budget}px`,
+              Math.abs(stage.width / stage.height - ratio) < 0.01,
+              `${colorScheme} ${width} ${id}: ${stage.width} × ${stage.height} keeps ${ratio} ratio`,
             );
+            if (format === 'feature')
+              assert.ok(stage.width <= 480.5, 'square previews share a bounded size');
             const escapedContent = await preview
               .locator('[data-settings-feature]:visible')
               .evaluateAll((nodes) =>
@@ -1369,7 +1410,16 @@ test(
               width,
               page: id,
               height: previewOrder.height,
+              frame: stage,
             });
+            if (
+              process.env.PALBOO_TEST_SCREENSHOTS === '1' &&
+              [360, 1360].includes(width) &&
+              ['surfaces', 'board', 'codex-host', 'model-control'].includes(id)
+            )
+              await page.screenshot({
+                path: `target/reports/settings-preview-${id}-${colorScheme}-${width}.png`,
+              });
             assert.equal(
               await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
               false,
@@ -1755,7 +1805,6 @@ test(
               true,
             );
             await page.keyboard.press('Home');
-            await page.keyboard.press('ArrowDown');
             await page.keyboard.press('Enter');
             await page.getByRole('main', { name: '布局与位置', exact: true }).waitFor();
             assert.equal(await trigger.getAttribute('aria-expanded'), 'false');
@@ -1852,11 +1901,12 @@ test(
       await menuTrigger.click();
       assert.equal(await menu.evaluate((n) => n.inert), true, 'closing menu is immediately inert');
       await menu.waitFor({ state: 'hidden' });
-      assert.deepEqual(await page.evaluate(() => window.menuMotion), [
-        { open: 'true', duration: 200, frames: ['0', '1'], inert: false },
-        { open: 'false', duration: 150, frames: ['1', '0'], inert: true },
-      ]);
-      // Reverse during the actual CSS transition, retaining the same menu and links.
+      assert.deepEqual(
+        await page.evaluate(() => window.menuMotion),
+        [],
+        'desktop host settings menus switch immediately',
+      );
+      // Rapidly reopen without remounting the menu or losing its interaction state.
       await menuTrigger.click();
       await menu.evaluate(async (node) => {
         const trigger = document.querySelector('.settings-nav-trigger');
@@ -1947,6 +1997,15 @@ test(
       await page.waitForFunction(() => document.documentElement.lang === 'zh-CN');
       await page.getByRole('link', { name: 'Palboo 设置', exact: true }).waitFor();
       assert.deepEqual(errors, []);
+    } catch (error) {
+      await page
+        .screenshot({ path: 'target/reports/settings-modes-failure.png', timeout: 3000 })
+        .catch(() => {});
+      await page
+        .content()
+        .then((html) => writeFile('target/reports/settings-modes-failure.html', html))
+        .catch(() => {});
+      throw error;
     } finally {
       await cleanup();
     }

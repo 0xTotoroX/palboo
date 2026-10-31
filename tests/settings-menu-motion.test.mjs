@@ -1,5 +1,5 @@
 /* [INPUT]: Actual settings menus/dialogs, built CSS and synthetic local state in Chromium.
- * [OUTPUT]: Reversible enter/exit transitions, inert closing content, retained drafts and immediate accessibility fallbacks.
+ * [OUTPUT]: Desktop menu roles, spring selection continuity, measured dialog height, retained drafts and immediate accessibility fallbacks.
  * [POS]: Synthetic data only; never connects to Palboo or writes user settings.
  * [PROTOCOL]: Keep tests/AGENTS.md in sync. */
 import test from 'node:test';
@@ -23,16 +23,18 @@ import{NativeSelect}from'./ui/settings/components/ui/native-select';
 import{SettingsDrawer}from'./ui/settings/settings-drawer';
 import{SettingsSearch}from'./ui/settings/settings-search';
 import{ConfirmationButton}from'./ui/settings/settings-confirmation';
+import{SegmentedGroup}from'./ui/settings/components/ui/segmented-group';
 import{useSettingsMotion}from'./ui/settings/settings-motion';
-function App(){const[value,setValue]=useState('Alpha');const ref=useSettingsMotion('menus');
+function App(){const[value,setValue]=useState('Alpha');const[segment,setSegment]=useState('短');const ref=useSettingsMotion('menus');
 window.changes??=0;window.actions??=0;
 return <div className="settings-app" ref={ref}>
 <header className="settings-header"><SettingsTheme/><SettingsSearch navigate={()=>window.actions++}/></header>
 <button id="outside" type="button">其他操作</button>
+<SegmentedGroup value={segment} className="preview-selector" role="group" aria-label="示例分段">{['短','很长的第二项','第三项'].map(v=><button key={v} type="button" aria-pressed={segment===v} onClick={()=>setSegment(v)}>{v}</button>)}</SegmentedGroup>
 <main className="settings-content" data-settings-page="model" style={{maxWidth:500}}>
 <label htmlFor="selection">生成方式</label><NativeSelect id="selection" defaultValue="manual" onChange={()=>window.changes++}><option value="manual">手动</option><option value="auto">自动</option><option disabled>不可用</option></NativeSelect>
 <SettingsDrawer title="高级设置"><label htmlFor="draft">草稿</label><input id="draft" defaultValue="保留内容"/></SettingsDrawer>
-<ConfirmationButton title="确认删除？" description="保留退出时的内容" confirmLabel="确认删除" onConfirm={()=>window.actions++}>删除示例</ConfirmationButton>
+<ConfirmationButton title="确认删除？" description="保留退出时的内容" confirmLabel="确认删除" onConfirm={()=>Promise.reject(new Error('合成失败：保留原内容，请稍后重新操作。'.repeat(5)))}>删除示例</ConfirmationButton>
 </main><div style={{position:'fixed',bottom:24,right:24,width:300}}><label htmlFor="candidate">候选名称</label><SuggestionInput id="candidate" value={value} options={['Alpha','Beta']} dropdown={{label:'选择候选',onOpen:()=>{}}} onValueChange={v=>{window.changes++;setValue(v)}}/></div>
 </div>};createRoot(document.getElementById('root')).render(<App/>);`,
       },
@@ -163,15 +165,11 @@ return <div className="settings-app" ref={ref}>
       window.sampleNative = false;
       return window.nativeFrames;
     });
-    assert.ok(
-      nativeFrames.some((f) => f.open && f.opacity > 0 && f.opacity < 1),
-      'native picker has intermediate entry frames',
-    );
-    assert.ok(
-      nativeFrames.some(
-        (f) => !f.open && f.opacity > 0 && f.opacity < 1 && f.duration.startsWith('0.15s'),
-      ),
-      'native picker has intermediate exit frames',
+    assert.ok(nativeFrames.some((f) => f.open && f.opacity === 1));
+    assert.equal(
+      nativeFrames.some((f) => f.opacity > 0 && f.opacity < 1),
+      false,
+      'ordinary desktop settings picker switches immediately',
     );
     assert.equal(
       await page.evaluate(() => window.changes),
@@ -198,6 +196,31 @@ return <div className="settings-app" ref={ref}>
     const confirmation = page.locator('.settings-key-dialog');
     await page.getByRole('button', { name: '删除示例', exact: true }).click();
     await finishAnimations(confirmation);
+    assert.equal(
+      await confirmation.evaluate((node) => node.scrollHeight <= node.clientHeight + 1),
+      true,
+      'entry scale does not shrink the measured content height',
+    );
+    const initialHeight = (await confirmation.boundingBox()).height;
+    await confirmation.evaluate((node) => {
+      window.dialogHeightMotion = [];
+      const animate = node.animate.bind(node);
+      node.animate = (frames, options) => {
+        window.dialogHeightMotion.push({ frames, options });
+        return animate(frames, options);
+      };
+    });
+    await confirmation.getByRole('button', { name: '确认删除', exact: true }).click();
+    await confirmation.getByRole('alert').waitFor();
+    await page.waitForFunction(() => window.dialogHeightMotion.length > 0);
+    await finishAnimations(confirmation);
+    assert.ok(
+      (await confirmation.boundingBox()).height > initialHeight + 20,
+      'failure content expands the same dialog',
+    );
+    const heightMotion = await page.evaluate(() => window.dialogHeightMotion.at(-1));
+    assert.equal(heightMotion.options.duration, 300);
+    assert.equal(heightMotion.options.easing, 'cubic-bezier(.23,1,.32,1)');
     await page.getByRole('button', { name: '取消', exact: true }).click();
     assert.equal(await confirmation.locator('h3').textContent(), '确认删除？');
     assert.equal(await confirmation.evaluate((n) => n.inert), true);
@@ -222,15 +245,20 @@ return <div className="settings-app" ref={ref}>
     assert.equal(await search.isVisible(), false);
 
     const transitions = await page.evaluate(() => window.menuTransitions);
-    for (const className of [
-      'settings-theme-menu',
-      'settings-suggestion-list',
-      'settings-key-dialog',
-      'settings-search-dialog',
-    ]) {
+    assert.equal(
+      transitions.some((t) => t.className.includes('settings-theme-menu')),
+      false,
+    );
+    assert.ok(
+      transitions.some(
+        (t) => t.className.includes('settings-suggestion-list') && t.duration === 300,
+      ),
+      'model menu alone uses the confirmed entry spring',
+    );
+    for (const className of ['settings-key-dialog', 'settings-search-dialog']) {
       for (const [duration, frames] of [
-        [200, ['0', '1']],
-        [150, ['1', '0']],
+        [180, ['0', '1']],
+        [140, ['1', '0']],
       ])
         assert.ok(
           transitions.some(
@@ -243,6 +271,41 @@ return <div className="settings-app" ref={ref}>
           `${className} ${duration}ms transition`,
         );
     }
+    const segments = page.getByRole('group', { name: '示例分段' });
+    const indicator = segments.locator('.settings-segment-indicator');
+    await segments.getByRole('button', { name: '很长的第二项', exact: true }).click();
+    assert.equal(
+      await segments
+        .locator('[aria-pressed="true"]')
+        .evaluate((node) => getComputedStyle(node).backgroundColor),
+      'rgba(0, 0, 0, 0)',
+      'hover does not paint a second selected surface over the moving indicator',
+    );
+    const spring = await indicator.evaluate((node) =>
+      node.getAnimations().map((animation) => ({
+        timing: animation.effect.getTiming(),
+        frames: animation.effect.getKeyframes(),
+      })),
+    );
+    assert.ok(
+      spring.some((a) => a.timing.duration === 280 && a.timing.easing.startsWith('linear(')),
+      'selection moves with the verified non-bouncing spring',
+    );
+    await segments.getByRole('button', { name: '第三项', exact: true }).click();
+    await finishAnimations(indicator);
+    const selectedBox = await segments.locator('[aria-pressed="true"]').boundingBox();
+    const markerBox = await indicator.boundingBox();
+    assert.ok(
+      Math.abs(markerBox.x - selectedBox.x) < 1 &&
+        Math.abs(markerBox.width - selectedBox.width) < 1,
+      'interrupted selection ends on the current button',
+    );
+    await segments.getByRole('button', { name: '短', exact: true }).press('Enter');
+    assert.equal(
+      await indicator.evaluate((node) => node.getAnimations().length),
+      0,
+      'keyboard selection is immediate',
+    );
     assert.ok(
       transitions.some(
         (t) => t.className.includes('settings-drawer') && !t.pseudo && t.duration === 160,

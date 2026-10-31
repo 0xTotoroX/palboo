@@ -5,6 +5,10 @@
 #settings-terminology .term-preview {
   display: flex;
   justify-content: center;
+  align-items: safe center;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
   --term-bg: var(--background);
   --term-fg: var(--foreground);
   --term-muted: var(--muted-foreground);

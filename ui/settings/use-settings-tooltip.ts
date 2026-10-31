@@ -1,5 +1,5 @@
 /* [INPUT]: 跟随主题开关、设置页既有 title 与指针/键盘焦点。
- * [OUTPUT]: 消费宿主变量的悬停提示；支持键盘、Esc、抽屉与切换主题时恢复原生 title。
+ * [OUTPUT]: 消费宿主变量的悬停提示；键盘焦点即时显示，鼠标按下期间不抢占点击，支持 Esc、抽屉及原生 title 恢复。
  * [POS]: 仅替换已有提示的呈现，不添加文案、不改变控件或保存行为。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { useEffect, useId } from 'react';
@@ -18,6 +18,7 @@ export function useSettingsTooltip(enabled: boolean) {
     let title = '';
     let timer = 0;
     let keyboard = false;
+    let pointerDown = false;
     let lastClosed = -Infinity;
     const clear = () => window.clearTimeout(timer);
     const close = () => {
@@ -64,6 +65,7 @@ export function useSettingsTooltip(enabled: boolean) {
     };
     const enter = (event: Event) => {
       if (event instanceof PointerEvent && event.pointerType === 'touch') return;
+      if (pointerDown) return;
       if (event.type === 'pointerover' && keyboard && document.activeElement === target) return;
       const node = event.target;
       if (!(node instanceof Element)) return;
@@ -104,6 +106,13 @@ export function useSettingsTooltip(enabled: boolean) {
     const key = (event: KeyboardEvent) => {
       if (event.key === 'Escape') close();
     };
+    const press = () => {
+      pointerDown = true;
+      close();
+    };
+    const release = () => {
+      pointerDown = false;
+    };
     const scroll = () => {
       if (keyboard && !tip.hidden) position();
       else close();
@@ -112,7 +121,10 @@ export function useSettingsTooltip(enabled: boolean) {
     document.addEventListener('pointerout', leave);
     document.addEventListener('focusin', enter);
     document.addEventListener('focusout', leave);
-    document.addEventListener('pointerdown', close, true);
+    document.addEventListener('pointerdown', press, true);
+    document.addEventListener('pointerup', release, true);
+    document.addEventListener('pointercancel', release, true);
+    window.addEventListener('blur', release);
     document.addEventListener('keydown', key);
     document.addEventListener('scroll', scroll, true);
     window.addEventListener('resize', close);
@@ -122,7 +134,10 @@ export function useSettingsTooltip(enabled: boolean) {
       document.removeEventListener('pointerout', leave);
       document.removeEventListener('focusin', enter);
       document.removeEventListener('focusout', leave);
-      document.removeEventListener('pointerdown', close, true);
+      document.removeEventListener('pointerdown', press, true);
+      document.removeEventListener('pointerup', release, true);
+      document.removeEventListener('pointercancel', release, true);
+      window.removeEventListener('blur', release);
       document.removeEventListener('keydown', key);
       document.removeEventListener('scroll', scroll, true);
       window.removeEventListener('resize', close);

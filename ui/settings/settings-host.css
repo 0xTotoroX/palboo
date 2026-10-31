@@ -271,6 +271,21 @@ html[data-settings-style='chatgpt'] {
     button[aria-pressed='true']:hover:not(:disabled) {
     background: var(--settings-segmented-hover);
   }
+  .settings-app [data-settings-segmented] > button[aria-pressed='true'],
+  .settings-app [data-settings-segmented] > button[aria-pressed='true']:hover:not(:disabled) {
+    background: transparent;
+    box-shadow: none;
+  }
+  .settings-app
+    [data-settings-segmented]:has(> button[aria-pressed='true']:hover)
+    > .settings-segment-indicator {
+    background: var(--settings-segmented-hover);
+  }
+  .settings-app
+    [data-settings-segmented]:has(> button[aria-pressed='true']:disabled)
+    > .settings-segment-indicator {
+    opacity: 0.45;
+  }
   .settings-control-pair,
   .settings-save {
     gap: calc(var(--settings-space) * 2);

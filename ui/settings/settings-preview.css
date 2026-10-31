@@ -1,5 +1,5 @@
 /* [INPUT]: Read-only preview markup and settings semantic colors.
- * [OUTPUT]: Responsive workspace diagrams, material samples and interaction scenes.
+ * [OUTPUT]: Shared 16:9 interface / 1:1 feature frames with contained responsive product scenes.
  * [POS]: Settings preview frames; real feature content keeps its shared styles inside Shadow DOM.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 .settings-preview {
@@ -9,17 +9,113 @@
   font-size: 0.8125em;
 }
 .preview-frame {
+  --preview-feature-height: 100%;
+  --preview-feature-max-height: none;
+  --preview-feature-body-flex: 1;
   container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 480px;
+  margin-inline: auto;
+  aspect-ratio: 1;
+  min-height: 0;
+  overflow: hidden;
   border: 0;
   border-radius: 12px;
   padding: 16px;
   background: color-mix(in srgb, var(--buddy-text) 7%, var(--buddy-page));
   box-shadow: none;
 }
+.preview-frame[data-preview-format='interface'] {
+  max-width: none;
+  aspect-ratio: 16 / 9;
+}
+.preview-frame-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+}
 .preview-status {
+  flex: none;
   margin: 8px 0 0;
   color: var(--buddy-muted);
   font-size: 0.84em;
+}
+.preview-frame .preview-scenes,
+.preview-frame .preview-scene,
+.preview-frame .preview-product {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  align-items: stretch;
+}
+.preview-frame .preview-feature-content,
+.preview-frame .preview-feature-content:is([data-feature='bots'], [data-feature='prompts']) {
+  height: 100%;
+  min-height: 0;
+}
+.preview-frame .preview-feature-content > .preview-feature-surface {
+  height: auto;
+  flex: 1;
+  min-height: 0;
+}
+.preview-frame .preview-model-control {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-height: none;
+  overflow: hidden;
+}
+.preview-frame .preview-model-control .feature-model {
+  flex: 1;
+  min-height: 0;
+}
+.preview-generation .preview-frame-content {
+  justify-content: center;
+}
+.compatibility-preview-header,
+.compatibility-preview-agent {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.compatibility-preview-header {
+  margin-bottom: 16px;
+  font-weight: 500;
+}
+.compatibility-preview-provider {
+  color: var(--buddy-muted);
+  font-weight: 400;
+}
+.compatibility-preview-content,
+.compatibility-preview-content > div:not([hidden]) {
+  flex: 1;
+  height: 100%;
+  min-height: 0;
+}
+.compatibility-preview-content {
+  overflow: auto;
+}
+.compatibility-preview-agent {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--buddy-border);
+}
+.compatibility-preview-boundary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 20px;
+  text-align: center;
+  color: var(--buddy-muted);
 }
 .preview-selector {
   display: flex;

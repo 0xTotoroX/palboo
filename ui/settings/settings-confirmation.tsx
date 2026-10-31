@@ -1,11 +1,12 @@
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: Explicit action, consequence text and optional configuration revision.
- * [OUTPUT]: Shared confirmation dialog with safe initial focus, retained inert exit content, cancellation and failure feedback.
+ * [OUTPUT]: Shared confirmation dialog with measured height motion, safe initial focus, retained inert exit content, cancellation and failure feedback.
  * [POS]: Settings-only presentation; opening/cancelling never executes the supplied action.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 import { useEffect, useId, useRef, useState, type ComponentProps } from 'react';
 import { Button } from './components/ui/button';
+import { useDialogHeight } from './use-dialog-height';
 
 type Confirmation = {
   title: string;
@@ -22,6 +23,8 @@ export function useConfirmation(revision?: number | string, blocked = false) {
   const flight = useRef(false);
   const lastContent = useRef<Omit<Confirmation, 'action'> | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
+  const content = useRef<HTMLDivElement>(null);
+  useDialogHeight(dialog, content);
   const id = useId();
   const latest = useRef({ revision, blocked });
   latest.current = { revision, blocked };
@@ -70,35 +73,37 @@ export function useConfirmation(revision?: number | string, blocked = false) {
         else setPending(null);
       }}
     >
-      <h3 id={`${id}-title`}>{lastContent.current?.title}</h3>
-      <p id={`${id}-description`} className="mt-3 text-sm text-muted-foreground">
-        {lastContent.current?.description}
-      </p>
-      {error && (
-        <p role="alert" className="settings-error mt-3 text-sm">
-          {error}
+      <div ref={content} className="settings-dialog-content">
+        <h3 id={`${id}-title`}>{lastContent.current?.title}</h3>
+        <p id={`${id}-description`} className="mt-3 text-sm text-muted-foreground">
+          {lastContent.current?.description}
         </p>
-      )}
-      <div className="mt-5 flex justify-end gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          autoFocus
-          data-settings-navigation
-          disabled={busy}
-          onClick={() => setPending(null)}
-        >
-          {tr('取消')}
-        </Button>
-        <Button
-          type="button"
-          data-settings-navigation
-          disabled={busy || blocked}
-          aria-busy={busy}
-          onClick={() => void run()}
-        >
-          {busy ? tr('处理中…') : lastContent.current?.confirmLabel || tr('确认')}
-        </Button>
+        {error && (
+          <p role="alert" className="settings-error mt-3 text-sm">
+            {error}
+          </p>
+        )}
+        <div className="mt-5 flex justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            autoFocus
+            data-settings-navigation
+            disabled={busy}
+            onClick={() => setPending(null)}
+          >
+            {tr('取消')}
+          </Button>
+          <Button
+            type="button"
+            data-settings-navigation
+            disabled={busy || blocked}
+            aria-busy={busy}
+            onClick={() => void run()}
+          >
+            {busy ? tr('处理中…') : lastContent.current?.confirmLabel || tr('确认')}
+          </Button>
+        </div>
       </div>
     </dialog>
   );

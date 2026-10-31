@@ -1,7 +1,7 @@
 import { useLocale } from '../../../shared/use-locale';
 import { tr } from '../../../shared/i18n.js';
 /* [INPUT]: Editable text, suggestions, optional dropdown loading/status and the caller's draft callback.
- * [OUTPUT]: Accessible free-text combobox with an animated, retained suggestion list; closing content is inert.
+ * [OUTPUT]: Accessible free-text combobox with retained inert choices; model dropdown opts into its dedicated entry spring.
  * [POS]: Settings UI only; selection updates the same draft without submitting a form.
  * [PROTOCOL]: Keep components/ui/AGENTS.md in sync. */
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ComponentProps } from 'react';
@@ -179,6 +179,7 @@ export function SuggestionInput({
         inert={!expanded}
         aria-hidden={!expanded}
         data-above={above}
+        data-model-picker={!!dropdown}
       >
         {dropdown && !shownMatches.length && (
           <li role="presentation" className="settings-suggestion-status">

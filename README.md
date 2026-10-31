@@ -56,7 +56,7 @@ The published v1.2.0 and earlier do not contain this updater. Install the first 
 ## Get started
 
 1. **Open the workbench:** click the eyes in Codex's left rail. Right-click for settings.
-2. **Choose your tools:** turn features on or off in **Interface → Common switches**. Set their placement in **Layout & position**, and their material and language in **Appearance & fonts**.
+2. **Choose your tools:** turn features on or off in **Features → Common switches**. Set their placement in **Layout & position**, and their material and language in **Appearance & fonts**.
 3. **Set up suggestions:** in **System → Model service**, use your Codex CLI login or a model API, then test the connection. Choose manual or automatic generation in **Features → Next steps**.
 
 Suggestions fill the composer by default. If you already have a draft, Palboo appends to it without sending.
@@ -116,7 +116,7 @@ Export includes personal additions, favorites, and mastered terms. Reset deletes
 - **Model switching** controls the current Codex input target, independently of Stepwise's model. Models, reasoning levels, and usage limits come from Codex; only available capabilities are shown.
 - With the existing Codex login selected, **System → Model service** uses the same available model catalog as quick switching. Reading the catalog leaves the chat’s model unchanged and works with quick switching disabled. Connection or catalog failures are shown and can be retried.
 - **Grok Bot** is optional and off by default. Copy the setup prompt from **Features → Grok Bot → Connect Grok Bot** to your Agent. BDK, MCP, and the Skill remain separately installed. The panel shortcut opens the Grok Bot app, including when profiles are stale. Consultations append to the composer without sending; closing the panel does not stop remote Bot work.
-- **System → CodexHost** shows status and versions, with update and restore actions. External hosts and Agents keep their own configuration.
+- **Features → Compatibility integrations** shows status and versions, with update and restore actions. External hosts and Agents keep their own configuration.
 - **System → Performance & switches** can pause the Codex connection while retaining settings, tasks, and drafts. Optional monitoring runs only while that page is visible.
 
 </details>

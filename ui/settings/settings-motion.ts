@@ -12,7 +12,7 @@ export function motionTiming(element: Element, fallback: number) {
   const style = getComputedStyle(element);
   const value =
     document.documentElement.dataset.settingsStyle === 'chatgpt'
-      ? style.getPropertyValue('--settings-menu-enter').trim()
+      ? style.getPropertyValue('--settings-content-enter').trim()
       : '';
   const duration = value ? parseFloat(value) * (value.endsWith('ms') ? 1 : 1000) : fallback;
   return {

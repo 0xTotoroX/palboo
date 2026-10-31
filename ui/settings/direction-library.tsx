@@ -1,3 +1,4 @@
+import { SegmentedGroup } from './components/ui/segmented-group';
 import { directionCopy } from './direction-copy';
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
@@ -82,7 +83,9 @@ export function DirectionLibrary({ editor }: { editor: SettingsEditor }) {
     >
       <div ref={root} className="direction-library" data-settings-search-ignore>
         <div hidden={!!active}>
-          <nav
+          <SegmentedGroup
+            value={group}
+            as="nav"
             className="direction-library-nav"
             aria-label={tr('方向分类')}
             data-settings-navigation
@@ -104,7 +107,7 @@ export function DirectionLibrary({ editor }: { editor: SettingsEditor }) {
                 {key === 'builtin' ? tr('内置方向') : tr('我的方向')}
               </Button>
             ))}
-          </nav>
+          </SegmentedGroup>
           <div className="direction-library-list" role="region" aria-label={groupName}>
             {items.map((item) => (
               <div className="direction-library-row" key={item.id}>

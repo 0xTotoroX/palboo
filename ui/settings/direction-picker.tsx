@@ -1,3 +1,4 @@
+import { SegmentedGroup } from './components/ui/segmented-group';
 import { directionCopy } from './direction-copy';
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
@@ -198,7 +199,13 @@ export function DirectionPicker({
             }}
           />
         </div>
-        <nav className="direction-library-nav" aria-label={tr('选择方向分类')} hidden={!!term}>
+        <SegmentedGroup
+          value={group}
+          as="nav"
+          className="direction-library-nav"
+          aria-label={tr('选择方向分类')}
+          hidden={!!term}
+        >
           {(['custom', 'builtin'] as const).map((key) => (
             <Button
               key={key}
@@ -214,7 +221,7 @@ export function DirectionPicker({
               {key === 'custom' ? tr('我的方向') : tr('内置方向')}
             </Button>
           ))}
-        </nav>
+        </SegmentedGroup>
         <ul
           ref={list}
           id={`${id}-list`}

@@ -46,7 +46,9 @@ export const pageTitles = {
   get connection() {
     return tr('启动与连接');
   },
-  'codex-host': 'CodexHost',
+  get 'codex-host'() {
+    return tr('兼容集成');
+  },
   get dev() {
     return tr('开发来源');
   },
@@ -57,19 +59,28 @@ export const pageGroups: { title: string; pages: SettingsPage[] }[] = [
     get title() {
       return tr('界面');
     },
-    pages: ['features', 'surfaces', 'appearance'],
+    pages: ['surfaces', 'appearance'],
   },
   {
     get title() {
       return tr('功能');
     },
-    pages: ['next', 'prompts', 'terminology', 'board', 'model-control', 'bots'],
+    pages: [
+      'features',
+      'next',
+      'prompts',
+      'terminology',
+      'board',
+      'model-control',
+      'bots',
+      'codex-host',
+    ],
   },
   {
     get title() {
       return tr('系统');
     },
-    pages: ['model', 'connection', 'performance', 'codex-host', 'dev'],
+    pages: ['model', 'connection', 'performance', 'dev'],
   },
 ];
 export const pageGroup = (page: SettingsPage) =>

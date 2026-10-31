@@ -1,3 +1,4 @@
+import { SegmentedGroup } from './components/ui/segmented-group';
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: Shared preview frame, existing form snapshots, saved surfaces and feature layout.
@@ -7,6 +8,7 @@ import { tr } from '../shared/i18n.js';
 import { LayoutPreview } from './layout-preview';
 import { ModelPreview } from './model-preview';
 import { FeaturePreviewContent } from './feature-preview';
+import { CodexHostPreview } from './codex-host-preview';
 import { useState, type ReactNode } from 'react';
 import type { SettingsPage } from './settings-outline';
 import type { EditableSettings, View } from './api';
@@ -71,7 +73,8 @@ function FeaturePreview({ form, tasks, model, view, dirty, page }: PreviewProps)
   };
   return (
     <Frame title={tr('功能如何呈现')} status={dirty ? tr('包含未保存的编辑') : undefined}>
-      <div
+      <SegmentedGroup
+        value={activeScene}
         className="preview-selector"
         role="group"
         aria-label={tr('功能预览')}
@@ -88,7 +91,7 @@ function FeaturePreview({ form, tasks, model, view, dirty, page }: PreviewProps)
             {titles[id]}
           </button>
         ))}
-      </div>
+      </SegmentedGroup>
       <div className="preview-scenes" data-single-scene={page !== 'features'} ref={transition}>
         {(['outline', 'next', 'prompts', 'board', 'model', 'bots'] as const).map((scene) => {
           const active = enabled[scene];
@@ -119,7 +122,12 @@ function FeaturePreview({ form, tasks, model, view, dirty, page }: PreviewProps)
 function GenerationPreview({ form, dirty }: PreviewProps) {
   useLocale();
   return (
-    <Frame title={tr('共享模型连接')} status={dirty ? tr('包含未保存的编辑') : undefined}>
+    <Frame
+      format="interface"
+      className="preview-generation"
+      title={tr('共享模型连接')}
+      status={dirty ? tr('包含未保存的编辑') : undefined}
+    >
       <div className="preview-demo">
         <div className="preview-model-name">
           <strong>{form?.model || tr('尚未配置模型')}</strong>
@@ -143,7 +151,7 @@ export function SettingsPreview(props: PreviewProps) {
     <aside
       className="settings-preview"
       aria-label={tr('联动预览')}
-      hidden={['performance', 'terminology', 'codex-host', 'dev'].includes(props.page)}
+      hidden={['performance', 'terminology', 'dev'].includes(props.page)}
       data-preview-kind={workspace ? 'workspace' : props.page}
     >
       {workspace ? (
@@ -158,6 +166,13 @@ export function SettingsPreview(props: PreviewProps) {
         />
       ) : ['features', 'next', 'prompts', 'board', 'model-control', 'bots'].includes(props.page) ? (
         <FeaturePreview {...props} />
+      ) : props.page === 'codex-host' ? (
+        <CodexHostPreview
+          form={props.form}
+          view={props.view}
+          tasks={props.tasks}
+          model={props.model}
+        />
       ) : props.page === 'model' ? (
         <GenerationPreview {...props} />
       ) : null}

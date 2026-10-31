@@ -1,5 +1,5 @@
-/* [INPUT]: 预览可访问名称、必要状态及示例内容。
- * [OUTPUT]: 无重复可见标题的预览外框；仅在有变化或异常时显示状态。
+/* [INPUT]: 预览类型、可访问名称、必要状态、框外演示操作及示例内容。
+ * [OUTPUT]: 整体界面16:9、单功能1:1的统一外框，内容独立适配和滚动。
  * [POS]: 纯展示组件，不读取配置或发出保存请求。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import type { ReactNode } from 'react';
@@ -7,18 +7,32 @@ import type { ReactNode } from 'react';
 export function PreviewFrame({
   title,
   status,
+  format = 'feature',
   className = '',
+  before,
+  after,
   children,
 }: {
   title: string;
   status?: string;
+  format?: 'interface' | 'feature';
   className?: string;
+  before?: ReactNode;
+  after?: ReactNode;
   children: ReactNode;
 }) {
   return (
-    <section className={`preview-frame ${className}`.trim()} aria-label={title}>
-      {children}
-      {status && <p className="preview-status">{status}</p>}
-    </section>
+    <>
+      {before}
+      <section
+        className={`preview-frame ${className}`.trim()}
+        data-preview-format={format}
+        aria-label={title}
+      >
+        <div className="preview-frame-content">{children}</div>
+        {status && <p className="preview-status">{status}</p>}
+      </section>
+      {after}
+    </>
   );
 }

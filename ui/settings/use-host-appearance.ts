@@ -113,8 +113,11 @@ export function useHostAppearance(
       '--settings-heading-tracking': metric('headingTracking', 'letter-spacing', 'normal'),
       '--settings-control-duration': metric('transitionDuration', 'transition-duration', '150ms'),
       '--settings-control-ease': metric('transitionEase', 'transition-timing-function', 'ease'),
-      '--settings-menu-enter': metric('enterDuration', 'transition-duration', '200ms'),
-      '--settings-menu-exit': metric('transitionDuration', 'transition-duration', '150ms'),
+      // The installed desktop settings menu has no entry/exit motion; shared
+      // moderate/basic durations belong to content and control transitions.
+      '--settings-menu-enter': '0ms',
+      '--settings-menu-exit': '0ms',
+      '--settings-content-enter': metric('enterDuration', 'transition-duration', '200ms'),
       '--settings-ease': metric('enterEase', 'transition-timing-function', 'ease-out'),
       '--settings-exit-ease': metric('exitEase', 'transition-timing-function', 'ease-in'),
       '--settings-tooltip-radius': metric('tooltipRadius', 'border-radius', '0.75rem'),

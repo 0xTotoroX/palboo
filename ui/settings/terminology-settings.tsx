@@ -1,3 +1,4 @@
+import { SegmentedGroup } from './components/ui/segmented-group';
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: 认证术语 API、可唤起状态、共用卡片/动作图标与用户导入/输入。
@@ -364,7 +365,9 @@ export function TerminologySettings({ active }: { active: boolean }) {
                 }
               >
                 <div ref={managementRoot}>
-                  <nav
+                  <SegmentedGroup
+                    value={management}
+                    as="nav"
                     className="settings-section-tabs"
                     aria-label={tr('词库管理操作')}
                     data-settings-navigation
@@ -385,7 +388,7 @@ export function TerminologySettings({ active }: { active: boolean }) {
                     >
                       {tr('导入与导出')}
                     </Button>
-                  </nav>
+                  </SegmentedGroup>
                   <div
                     className="term-entry"
                     data-term-management="add"
