@@ -35,6 +35,9 @@
   aspect-ratio: 16 / 9;
   padding: 16px;
 }
+.preview-frame.preview-board {
+  max-width: none;
+}
 .preview-frame-content {
   display: flex;
   flex-direction: column;

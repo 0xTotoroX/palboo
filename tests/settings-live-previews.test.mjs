@@ -127,7 +127,7 @@ return <div className={'settings-app '+(dark?'dark':'')} style={{maxWidth:900,ma
       await page.getByRole('button', { name: '启停测试', exact: true }).click();
       await board.getByText('任务看板已停用，请在设置页开启。', { exact: true }).waitFor();
       await page.getByRole('button', { name: '启停测试', exact: true }).click();
-      await board.locator('.board-grid.stacked').waitFor();
+      await board.locator('.board-grid:not(.stacked)').waitFor();
       assert.deepEqual(await page.evaluate(() => window.commands), [
         { op: 'view', viewMode: 'expanded' },
       ]);
@@ -177,6 +177,22 @@ return <div className={'settings-app '+(dark?'dark':'')} style={{maxWidth:900,ma
           await page.getByLabel('看板视图', { exact: true }).selectOption(mode);
           await board.locator(`[data-view-mode=${mode}]`).waitFor();
           assert.equal(await board.locator('.board-column').count(), mode === 'merged' ? 1 : 3);
+          if (mode === 'expanded') {
+            await board.locator('.board-grid:not(.stacked)').waitFor();
+            const columns = await board.locator('.board-column').evaluateAll((nodes) =>
+              nodes.map((node) => {
+                const { x, y } = node.getBoundingClientRect();
+                return { x, y };
+              }),
+            );
+            assert.ok(columns.every((column) => Math.abs(column.y - columns[0].y) < 1));
+            assert.ok(columns[1].x > columns[0].x && columns[2].x > columns[1].x);
+            await board.getByRole('button', { name: '新建任务', exact: true }).last().click();
+            await board.getByLabel('新任务标题').press('Escape');
+            assert.ok(
+              await board.getByRole('button', { name: '搜索任务', exact: true }).isVisible(),
+            );
+          }
         }
         await page.getByRole('button', { name: '主题', exact: true }).click();
         assert.equal(

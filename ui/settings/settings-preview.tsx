@@ -73,7 +73,11 @@ function FeaturePreview({ form, tasks, model, bots, view, dirty, page }: Preview
     bots: form?.grokbotEnabled,
   };
   return (
-    <Frame title={tr('功能如何呈现')} status={dirty ? tr('包含未保存的编辑') : undefined}>
+    <Frame
+      title={tr('功能如何呈现')}
+      className={activeScene === 'board' ? 'preview-board' : undefined}
+      status={dirty ? tr('包含未保存的编辑') : undefined}
+    >
       <SegmentedGroup
         value={activeScene}
         className="preview-selector"

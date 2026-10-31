@@ -1470,7 +1470,12 @@ test(
                 `${colorScheme} ${width} ${id}: interface keeps 16:9`,
               );
             else {
-              assert.ok(stage.width <= 480.5, 'feature previews share a bounded width');
+              if (id === 'board')
+                assert.ok(
+                  Math.abs(stage.width - previewOrder.width) < 1,
+                  'board preview uses the available page width',
+                );
+              else assert.ok(stage.width <= 480.5, 'other feature previews share a bounded width');
               assert.ok(
                 stage.height > 60 && stage.height <= 466,
                 `${id}: usable content with bounded scrolling (${stage.height})`,

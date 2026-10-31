@@ -405,7 +405,7 @@ Fast/普通预设按闪电标记独立消歧：model-groups 覆盖同组编号�
 
 handoff-motion 追加真实 embedded/features 适配器回归：连续点击只发起一个请求、pending 阶段不重复切换、真实错误可见且重试清除、销毁拒绝迟到响应并保留其他设置提示；launcher-menu 验内/外暂禁且设置可用。Rust repeated_main_placement 验重复目标保留 owner/草稿，其他目标与旧 owner 仍拒绝。
 
-设置同步与预览回归：settings-modes覆盖功能分类内的常用开关/兼容集成、界面16:9/功能内容自适应且最大宽度480px、双主题360/600/900/1360px、真实Shadow DOM边界与兼容层概览零写入；截图由PALBOO_TEST_SCREENSHOTS选择。settings-menu-motion按组件区分普通菜单即时、模型入场300ms弹簧、分段280ms底块中断、确认框错误增高300ms及键盘/减少动态效果；settings-motion保留无宿主主题的独立挂载。
+设置同步与预览回归：settings-modes覆盖功能分类内的常用开关/兼容集成、界面16:9/功能内容自适应且最大宽度480px（任务看板占满可用宽度）、双主题360/600/900/1360px、真实Shadow DOM边界与兼容层概览零写入；截图由PALBOO_TEST_SCREENSHOTS选择。settings-menu-motion按组件区分普通菜单即时、模型入场300ms弹簧、分段280ms底块中断、确认框错误增高300ms及键盘/减少动态效果；settings-motion保留无宿主主题的独立挂载。
 
 预览与总开关修正：settings-modes逐个核对真实Shadow DOM内容与外框等高（不能只验外框或不溢出），覆盖常用语/Bot/术语短内容无空白方框；功能开关页10个主开关、子页无重复、术语/CodexHost保存仍走原修订API，CodexHost只改启用意愿。兼容层接入关系、能力摘要、原仓库链接和窄屏边界，零服务写入；搜索词库继续采用稳定抽屉锚点。深浅/多宽度截图包括常用语和Bot。
 
@@ -424,5 +424,5 @@ dev-launcher 以认证合成服务覆盖 --settings 成功/失败及零启动副
 
 旧设置回归按五种形式的稳定控件ID检查字体局部保存，断言不改旧typography或其他形式；features-e2e只定位可见的Bot管理入口，核对功能页不重复总开关及入口命中尺寸，不读取功能开关页的隐藏几何。
 
-- `settings-live-previews.test.mjs`：当前配置快照联动任务内容、模型常用/分组/预设/当前选择、Bot目录/隐藏/顺序；合并/完全展开在宽窄屏生效；预览编辑零业务请求，布局/外观复用单个标题槽，并覆盖多分栏内长列表滚动与透明内容层，支持英文和减少动态效果。合成截图在target/reports/settings-live-previews。
+- `settings-live-previews.test.mjs`：当前配置快照联动任务内容、模型常用/分组/预设/当前选择、Bot目录/隐藏/顺序；合并/完全展开在宽窄屏生效，独立展开预览各组横向排列、窄屏可操作最后一组且标题搜索保持可见；预览编辑零业务请求，布局/外观复用单个标题槽，并覆盖多分栏内长列表滚动与透明内容层，支持英文和减少动态效果。合成截图在target/reports/settings-live-previews。
 - `board.mjs`新增展开窄屏全分组及合并切换检查；Rust任务测试覆盖旧文件默认值、两模式持久化、修订冲突与无效值不写盘。

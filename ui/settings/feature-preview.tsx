@@ -28,6 +28,7 @@ const theme = `
 :host>div{height:var(--preview-feature-height,100%);min-height:0}
 .feature-view{height:var(--preview-feature-height,100%);max-height:var(--preview-feature-max-height,none);border-radius:12px}
 :host([data-contained=true]) .feature-view{background:transparent;border-radius:0}
+:host([data-wide-board=true]) .board-app{min-width:720px}
 .feature-view:is([data-feature=bots],[data-feature=prompts]){height:var(--preview-feature-height,auto);max-height:var(--preview-feature-max-height,270px)}
 .feature-view:is([data-feature=bots],[data-feature=prompts])>.feature-body{flex:var(--preview-feature-body-flex,0 1 auto);min-height:0;overflow:auto}
 .csw-feature-pane-head{flex:none}
@@ -43,10 +44,12 @@ function Surface({
   id,
   children,
   headerActions,
+  wideBoard = false,
 }: {
   id: Kind;
   children: (header: HTMLElement) => ReactNode;
   headerActions?: HTMLElement;
+  wideBoard?: boolean;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const [mount] = useState(() => document.createElement('div'));
@@ -64,6 +67,7 @@ function Surface({
       ref={host}
       data-settings-feature={id}
       data-contained={!!headerActions}
+      data-wide-board={wideBoard}
     >
       {createPortal(
         <section className="feature-view" data-feature={id} aria-label={titles[id]}>
@@ -280,7 +284,11 @@ export function FeaturePreviewContent({
   };
   return (
     <div className="preview-feature-content" data-feature={id} data-preview-source={mode}>
-      <Surface id={id} headerActions={headerActions}>
+      <Surface
+        id={id}
+        headerActions={headerActions}
+        wideBoard={id === 'board' && !headerActions && tasks?.store.viewMode === 'expanded'}
+      >
         {(header) =>
           id === 'board' ? (
             <BoardPreview tasks={tasks} header={header} mode={mode} />
