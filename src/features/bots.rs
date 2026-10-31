@@ -1,5 +1,5 @@
 // [INPUT]: OS roster/account/sidebar/UI-reference events, local BDK catalog and lifecycle.
-// [OUTPUT]: Validated fresh/stale metadata and a fixed LaunchServices App opener; no reply cursor reads.
+// [OUTPUT]: Validated metadata, on-demand local replies and a fixed LaunchServices App opener; no reply cursor reads.
 // [POS]: Palboo metadata transport. [PROTOCOL]: Keep src/AGENTS.md in sync.
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use serde_json::{Value, json};
@@ -12,6 +12,23 @@ use std::{
     time::{Duration, Instant},
 };
 use tokio::sync::Mutex;
+#[path = "bot_reply.rs"]
+mod reply;
+
+pub async fn latest_reply(input: Value, auto_sync: bool) -> anyhow::Result<Value> {
+    let before = catalog(true, auto_sync).await;
+    let expected = before.clone();
+    let result =
+        tokio::task::spawn_blocking(move || reply::read(&cache_root(), &before, &input)).await??;
+    let after = catalog(true, auto_sync).await;
+    anyhow::ensure!(
+        after["stale"] == false
+            && after["account"] == expected["account"]
+            && after["revision"] == expected["revision"],
+        "Bot 资料已变化，请返回最近消息后重试。"
+    );
+    Ok(json!({"reply":result}))
+}
 
 pub async fn open_app() -> anyhow::Result<()> {
     // Fixed application identity: never accept an executable, URL or shell command from the view.
@@ -35,7 +52,7 @@ async fn open_application(mut command: tokio::process::Command) -> anyhow::Resul
 }
 
 // Only account, roster, saved sections and UI-reference events invalidate metadata.
-// No per-file content reads in the event handler, and no chat cache files are read.
+// No per-file content reads in the event handler; transcripts are read only on explicit selection.
 struct RosterWatch {
     _watcher: RecommendedWatcher,
     generation: Arc<AtomicU64>,

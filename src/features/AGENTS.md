@@ -12,7 +12,7 @@ features.rs负责主界面接管后的缺失成员补登记，只补开关已开
 
 terms 使用同一主窗口与功能owner，业务读取/操作转 terminology，locate 沿用 owner 与交接互斥校验；有私有词库时为已管理主界面补登记，不重开已关闭条目。
 
-bots 使用现有主界面与 owner，独立 grokbotEnabled 开关控制；已有设置可恢复缺失成员但不重开已关闭条目。业务读取和填入由 features.rs::bot_view 委托当前 CDP 的 __palbooBots，连接变化拒绝投影，所有动作保持主聊天输入。
+bots 使用现有主界面与 owner，独立 grokbotEnabled 开关控制；已有设置可恢复缺失成员但不重开已关闭条目。元数据读取和填入由 features.rs::bot_view 委托当前 CDP 的 __palbooBots，连接变化拒绝投影；咨询动作保持主聊天输入，latest-reply 为独立只读动作，不要求 composer。
 
 - `bots.rs`：本机 BDK 名单传输与 OS 文件监听；过滤账号槽/roster/侧栏分组/ui-agent-refs 事件，以原有可见读取节奏消费变化，60秒健康兜底；手动模式回收 watcher，首次/显式刷新/动作时读取；停止时回收缓存；校验账号、修订、stale布尔值及 Bot 身份字段，保留有效的过期目录供展示，过期资料仍禁止填入操作，异常目录显示同步失败；可选 sidebar 校验版本、组 ID、置顶位置与可见身份的唯一完整覆盖，兼容旧目录；不消费回复游标。
 
@@ -25,3 +25,5 @@ main-placement 对相同目标的在途整组交接返回原快照，不新建 o
 主窗口 `main-settings` 与独立功能 `settings` 经共享 `settings_navigation` 在 ChatGPT 内打开完整设置及预设目的地，原 lease/owner 校验保留。预设保存/应用/改名/删除同时提供 `config layout` 写入，复用上述事务；CLI 删除及覆盖需确认。
 
 LayoutPreset.scope 缺省 all，允许 sidebar/overlay/desktop；推荐标签不限制应用位置。main-preset-update 支持名称/标记局部更新，与旧 rename 共用修订和保存回滚；覆盖未传 scope 时保留原值。应用只替换 placement 对应布局，不覆盖其他形式。
+
+- `bot_reply.rs`：显式阅读时从本机当前账号的 transcript.replicas 读取所选 Bot，使用已验证目录的账号摘要、稳定 ID、名称和修订核对身份；校验 schema、roster 最新 entry 标记、消息顺序、回答分段边界和文件一致性。同次 request 的 send-message 正文完整拼接，附件单独标记；缓存缺失、过期或不完整时返回同步提示，不用摘要降级冒充全文。目录轮询不读取聊天，正文不写盘、不记录日志、不访问凭据或调用 BDK check。

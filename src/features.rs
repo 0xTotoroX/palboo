@@ -767,6 +767,13 @@ impl App {
             bots::open_app().await?;
             return Ok(json!({"opened":true}));
         }
+        if let Some(input) = action
+            .as_ref()
+            .filter(|value| value["action"] == "latest-reply")
+        {
+            let auto_sync = self.model.read().await.options.grokbot_auto_sync;
+            return bots::latest_reply(input.clone(), auto_sync).await;
+        }
         let Some(client) = self.desktop_client().await else {
             ensure!(action.is_none(), "Codex 已断开");
             return Ok(json!({"snapshot":null}));

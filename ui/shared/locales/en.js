@@ -1741,4 +1741,18 @@ export default {
   '最多保存 32 个布局预设': 'You can save up to 32 layout presets.',
   缺少布局预设: 'Missing layout preset',
   未知布局预设操作: 'Unknown layout preset operation',
+  返回最近消息: 'Back to recent messages',
+  图片: 'Image',
+  '查看「{{agent}}」的完整回答': 'Read the full reply from {{agent}}',
+  '正在读取回答…': 'Loading reply…',
+  暂无完整回答: 'No reply yet',
+  '当前预览不读取 Bot 回答。': 'Bot replies are not loaded in this preview.',
+  '此回答包含附件，请在 Grok Bot 中查看。':
+    'This reply includes attachments. Open Grok Bot to view them.',
+  '请先在 Grok Bot 中打开此 Bot，同步完整回答后重试。':
+    'Open this Bot in Grok Bot to sync the full reply, then try again.',
+  'Bot 资料已变化，请返回最近消息后重试。':
+    'Bot details have changed. Return to recent messages and try again.',
+  'Grok Bot 回答格式已变化，请更新接入。':
+    'The Grok Bot reply format has changed. Update the integration.',
 };

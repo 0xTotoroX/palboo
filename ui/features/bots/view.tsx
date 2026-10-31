@@ -1,10 +1,12 @@
 import { useLocale } from '../../shared/use-locale';
 import { tr } from '../../shared/i18n.js';
-/* [INPUT]: Metadata-only host projection and guarded main-composer actions.
- * [OUTPUT]: Avatar status, one badge and icon-only header actions for messages and the independent App shortcut.
+/* [INPUT]: Host metadata, guarded composer actions and an explicit read-only reply loader.
+ * [OUTPUT]: Original Bot actions plus message-directory/detail navigation and icon-only header controls.
  * [POS]: Palboo feature content, shared by existing surfaces; no second chat input.
  * [PROTOCOL]: Keep ui/features/AGENTS.md in sync. */
-import { useId, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
+import { BotMessages, type ReplyLoader } from './messages';
+import type { Reading } from '../../shared/features';
 import { createPortal } from 'react-dom';
 import { Icon } from '../../shared/icons/react';
 import { BotAvatar, type BotBadge } from './avatar';
@@ -94,7 +96,11 @@ export function BotsView({
   headerActions,
   openApp,
   openDisabled = false,
+  readReply,
+  reading,
 }: {
+  readReply?: ReplyLoader;
+  reading?: Reading;
   headerActions?: HTMLElement;
   state: BotState;
   disabled: boolean;
@@ -104,8 +110,10 @@ export function BotsView({
 }) {
   useLocale();
   const [expanded, setExpanded] = useState(false);
+  const [selected, setSelected] = useState<string | null>(null);
   const previewId = useId();
   const snapshot = state.snapshot;
+  useEffect(() => setSelected(null), [snapshot?.catalog?.revision]);
   const opener = openApp ? (
     <button
       type="button"
@@ -153,7 +161,11 @@ export function BotsView({
         <Icon name="refresh" />
       </button>
     ) : null;
-  const historyLabel = expanded ? tr('返回 Bot 列表') : tr('最近消息');
+  const historyLabel = selected
+    ? tr('返回最近消息')
+    : expanded
+      ? tr('返回 Bot 列表')
+      : tr('最近消息');
   const controls = (
     <>
       {refresh}
@@ -165,9 +177,9 @@ export function BotsView({
           title={historyLabel}
           aria-expanded={expanded}
           aria-controls={expanded ? previewId : undefined}
-          onClick={() => setExpanded(!expanded)}
+          onClick={() => (selected ? setSelected(null) : setExpanded(!expanded))}
         >
-          <Icon name={expanded ? 'catalog' : 'outline'} />
+          <Icon name={selected ? 'back' : expanded ? 'catalog' : 'outline'} />
         </button>
       )}
       {opener}
@@ -180,22 +192,17 @@ export function BotsView({
         : (hasBots || opener || refresh) && <div className="palboo-bot-toolbar">{controls}</div>}
       {notice && <BotStatus className="palboo-bot-notice" label={tr(notice)} icon="warning" />}
       {expanded && (
-        <section className="palboo-bot-messages" id={previewId} aria-label={tr('最近消息')}>
-          {messages.length ? (
-            messages.map((bot) => (
-              <article className="palboo-bot-message" key={bot.id || bot.name}>
-                <h3>{bot.name}</h3>
-                <p className="palboo-bot-preview">{bot.preview}</p>
-              </article>
-            ))
-          ) : (
-            <BotStatus
-              className="palboo-bot-notice"
-              label={tr('暂无最近消息')}
-              icon="feature-bots"
-            />
-          )}
-        </section>
+        <BotMessages
+          key={snapshot.catalog?.revision || ''}
+          bots={messages}
+          selected={selected}
+          select={setSelected}
+          revision={snapshot.catalog?.revision || ''}
+          stale={Boolean(snapshot.catalog?.stale)}
+          readReply={readReply}
+          reading={reading}
+          id={previewId}
+        />
       )}
       {!expanded &&
         groups.map((group) => (

@@ -20,6 +20,7 @@ import { createServer } from 'node:http';
 import { readFileSync, writeFileSync, mkdtempSync, mkdirSync, existsSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
+import { createHash } from 'node:crypto';
 import { chromium } from 'playwright';
 import { prepareTestBinary } from '../scripts/verify.mjs';
 const root = resolve(import.meta.dirname, '..'),
@@ -45,7 +46,7 @@ async function wait(fn, label) {
 let botListCalls = 0;
 let botCatalog = {
   version: 1,
-  account: 'fixture',
+  account: createHash('sha256').update('fixture').digest('hex'),
   revision: 'r1',
   stale: false,
   bots: ['X 资讯', '随口一问', '通用', '环境运维'].map((name, i) => ({
@@ -703,6 +704,42 @@ try {
       (text) => text === '合成资料摘要',
     ),
   );
+  const cache = (key, schemaVersion, value) =>
+    writeFileSync(join(directory, cacheFile(key)), JSON.stringify({ schemaVersion, value }));
+  cache('sand.client.slice.client-meta.account-slot', 1, 'fixture');
+  cache('sand.client.slice.account.fixture.roster.last-roster', 4, {
+    rows: [{ id: 'bot-2', name: '通用', newestEntryId: 'e2' }],
+  });
+  const fullReply = '# 合成完整回答\n\n' + '完整正文。\n\n'.repeat(100) + 'END_OF_FULL_REPLY';
+  cache('sand.client.slice.account.fixture.transcript.replicas.bot-2', 1, {
+    entries: [
+      { id: 'e1', seq: 1, kind: 'message', role: 'user', requestId: 'r0' },
+      {
+        id: 'e2',
+        seq: 2,
+        kind: 'send-message',
+        requestId: 'r1',
+        message: { type: 'text', content: fullReply },
+      },
+    ],
+    precedingTimestampMs: 0,
+  });
+  const draftBeforeReading = await composer.innerText();
+  await page.getByRole('button', { name: '查看「通用」的完整回答', exact: true }).click();
+  await page.getByRole('heading', { name: '合成完整回答', exact: true }).waitFor();
+  assert.match(await page.locator('.palboo-bot-markdown').textContent(), /END_OF_FULL_REPLY/);
+  assert.equal(await composer.innerText(), draftBeforeReading);
+  assert.equal(await page.evaluate(() => window.submitCount), sends);
+  await assert.rejects(
+    api('features', {
+      op: 'action',
+      id: 'bots',
+      owner: 'stale-owner',
+      data: { action: 'latest-reply', botId: 'bot-2', agent: '通用', revision: 'r1' },
+    }),
+  );
+  await page.getByRole('button', { name: '返回最近消息', exact: true }).click();
+  record('Bot full reply uses the guarded read path and preserves the main composer');
   await page.getByRole('button', { name: '返回 Bot 列表', exact: true }).click();
   assert.equal(await page.locator('.palboo-bot-preview').count(), 0);
   const quietCalls = botListCalls;
@@ -800,15 +837,13 @@ try {
     await settingsPage.getByRole('complementary', { name: '联动预览' }).isVisible(),
     true,
   );
-  await settingsPage.getByRole('button', { name: '手动新增 Bot', exact: true }).click();
+  const settingsBot = settingsPage
+    .locator('[data-settings-page="bots"]')
+    .getByRole('button', { name: '手动新增 Bot', exact: true });
+  await settingsBot.click();
   await settingsPage.getByText('仅在设置展示的简介', { exact: true }).waitFor();
   await settingsPage.keyboard.press('Escape');
-  assert.equal(
-    await settingsPage
-      .getByRole('button', { name: '手动新增 Bot', exact: true })
-      .evaluate((el) => document.activeElement === el),
-    true,
-  );
+  assert.equal(await settingsBot.evaluate((el) => document.activeElement === el), true);
   assert.equal(await page.getByText('仅在设置展示的简介', { exact: true }).count(), 0);
   const setupRow = await settingsPage
     .getByRole('button', { name: '接入 Grok Bot', exact: true })
@@ -824,7 +859,10 @@ try {
     'feature pages keep management actions while the enable switch stays on Common switches',
   );
   const callsBeforeSettingsRefresh = botListCalls;
-  await settingsPage.getByRole('button', { name: '刷新 Bot 资料', exact: true }).click();
+  await settingsPage
+    .locator('.bot-settings-heading')
+    .getByRole('button', { name: '刷新 Bot 资料', exact: true })
+    .click();
   await settingsPage.locator('.bot-settings-heading [data-action-state="success"]').waitFor();
   assert.equal(botListCalls, callsBeforeSettingsRefresh + 1);
   const geometry = await settingsPage.evaluate(() => {
@@ -848,7 +886,7 @@ try {
     await settingsPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
     true,
   );
-  await settingsPage.getByRole('button', { name: '手动新增 Bot', exact: true }).click();
+  await settingsBot.click();
   await settingsPage.getByText('仅在设置展示的简介', { exact: true }).waitFor();
   await settingsPage.keyboard.press('Escape');
   await settingsPage.screenshot({ path: join(output, 'palboo-bot-settings-narrow.png') });
@@ -881,10 +919,16 @@ try {
   assert.equal(cachedCatalog.stale, true);
   assert.equal(cachedCatalog.bots.length, goodCatalog.bots.length);
   assert.equal(cachedCatalog.error, undefined);
-  await settingsPage.getByText('请打开 Grok Bot 更新资料。', { exact: true }).waitFor();
+  await settingsPage
+    .locator('[data-settings-page="bots"]')
+    .getByText('请打开 Grok Bot 更新资料。', { exact: true })
+    .waitFor();
   botCatalog = { version: 1, bots: [{ name: '无身份 Bot', available: true }] };
   await api('features', { op: 'bots-catalog', refresh: true });
-  await settingsPage.getByText('Grok Bot 同步失败，请重试。', { exact: true }).waitFor();
+  await settingsPage
+    .locator('[data-settings-page="bots"]')
+    .getByText('Grok Bot 同步失败，请重试。', { exact: true })
+    .waitFor();
   assert.equal((await botRead()).snapshot.catalog.stale, true);
   botCatalog = {
     ...goodCatalog,
@@ -899,9 +943,13 @@ try {
     'settings change',
   );
   await settingsPage
+    .locator('[data-settings-page="bots"]')
     .getByRole('button', { name: '自动同步新增', exact: true })
     .waitFor({ timeout: 15000 });
-  await settingsPage.getByRole('button', { name: '自动同步新增', exact: true }).click();
+  await settingsPage
+    .locator('[data-settings-page="bots"]')
+    .getByRole('button', { name: '自动同步新增', exact: true })
+    .click();
   await settingsPage.getByText('实时更新的资料', { exact: true }).waitFor();
   await settingsPage.keyboard.press('Escape');
   record(
@@ -935,7 +983,10 @@ try {
     join(directory, cacheFile('sand.client.slice.account.fixture.sidebar.last-sections')),
     'sections changed',
   );
-  await settingsPage.getByRole('heading', { name: '工作分组', exact: true }).waitFor();
+  await settingsPage
+    .locator('[data-settings-page="bots"]')
+    .getByRole('heading', { name: '工作分组', exact: true })
+    .waitFor();
   await page.getByRole('heading', { name: '工作分组', exact: true }).waitFor();
   await page
     .locator('[data-feature="bots"]')
@@ -994,7 +1045,10 @@ try {
     await page.locator('.palboo-bot-select').first().getAttribute('aria-label'),
     'X 资讯',
   );
-  await settingsPage.getByRole('button', { name: '刷新 Bot 资料', exact: true }).click();
+  await settingsPage
+    .locator('.bot-settings-heading')
+    .getByRole('button', { name: '刷新 Bot 资料', exact: true })
+    .click();
   await wait(
     async () =>
       (await page.locator('.palboo-bot-select').first().getAttribute('aria-label')) === '通用',

@@ -1,11 +1,12 @@
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: Feature identity, business envelope, guarded transport, reading state and optional header slot.
- * [OUTPUT]: Seven feature views and guarded business adapters, including the Bot App shortcut independent of composer availability.
+ * [OUTPUT]: Seven feature views and guarded business adapters, including Bot full-reply reads and the App shortcut independent of composer availability.
  * [POS]: Fixed feature composition; persistence and validation remain in existing services.
  * [PROTOCOL]: Keep AGENTS.md in this module in sync. */
 import { useCallback, useRef } from 'react';
 import { BotsView, type BotState } from './bots/view';
+import type { BotReply } from './bots/messages';
 import { Board } from './board/app';
 import { TerminologyView, type TermData } from './terminology';
 import type { TaskRequest } from './board/api';
@@ -61,6 +62,13 @@ export function FeatureContent({
   if (id === 'bots')
     return (
       <BotsView
+        reading={reading}
+        readReply={async (identity) => {
+          const result = await call<{ reply: BotReply }>('action', {
+            data: { action: 'latest-reply', ...identity },
+          });
+          return result.reply;
+        }}
         headerActions={headerActions}
         state={(value as unknown as BotState) ?? { snapshot: null }}
         disabled={locked || !connected}
