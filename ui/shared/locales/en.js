@@ -670,6 +670,8 @@ export default {
   '支持跨 Agent 协作、代码差异审查、会话分支与远程开发；具体能力取决于所选 Agent。':
     'Supports cross-Agent collaboration, Diff review, conversation forks and remote development. Available capabilities depend on the selected Agent.',
   'CodexHost 原版 GitHub 仓库': 'Original CodexHost GitHub repository',
+  '在 ChatGPT / Codex 中接入 Claude Code、Pi、OpenCode 等 Agent。':
+    'Use Claude Code, Pi, OpenCode, and other agents in ChatGPT / Codex.',
   '整理设置页，并检查边界情况。': 'Refine the settings page and check edge cases.',
   '我来检查实现，并将测试交给另一个 Agent。':
     'I will review the implementation and delegate testing to another Agent.',

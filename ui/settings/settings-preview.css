@@ -123,28 +123,28 @@
 /* Compatibility management uses an isolated Agent picker before the integration details. */
 .compatibility-heading {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 8px 24px;
 }
-.compatibility-heading h2 {
+.compatibility-title {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.settings-section.compatibility-integration .compatibility-heading h2 {
   margin: 0;
-  font-size: 1.375em;
+  font-size: 1em;
   font-weight: 500;
 }
 .compatibility-state {
   color: var(--buddy-muted);
 }
 .compatibility-introduction {
-  margin: 12px 0 0;
+  margin: 8px 0 0;
+  color: var(--buddy-muted);
   line-height: 1.6;
-}
-.compatibility-source {
-  display: inline-flex;
-  margin-top: 8px;
-  text-decoration: underline;
-  text-underline-offset: 3px;
 }
 .compatibility-preview {
   margin-bottom: 28px;
@@ -253,24 +253,66 @@
   color: var(--buddy-muted);
 }
 .compatibility-management {
-  margin-top: 32px;
+  margin-top: 24px;
 }
-.compatibility-management h3 {
-  margin: 0 0 12px;
-  font-size: 1em;
-  font-weight: 500;
+.compatibility-release {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+}
+.compatibility-versions {
+  flex: 1 1 220px;
+  margin: 0;
+}
+.compatibility-versions > div,
+.compatibility-path > div {
+  display: grid;
+  grid-template-columns: 8em minmax(0, 1fr);
+  align-items: baseline;
+  gap: 12px;
+}
+.compatibility-versions > div {
+  align-items: center;
+  min-height: var(--settings-control-height, 35px);
+}
+.compatibility-versions dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+.compatibility-update {
+  margin-left: auto;
+}
+.compatibility-update > p {
+  margin: 8px 0 0;
+  text-align: right;
+  color: var(--buddy-muted);
 }
 .compatibility-path {
-  margin: 16px 0 24px;
+  margin: 16px 0 0;
+  line-height: 1.5;
+  color: var(--buddy-muted);
 }
-.compatibility-path dt {
-  margin-bottom: 8px;
+.compatibility-path dt,
+.compatibility-path dd {
+  font-size: 0.875em;
+}
+.compatibility-path > div + div {
+  margin-top: 8px;
 }
 .compatibility-path dd {
   margin: 0;
   overflow-wrap: anywhere;
-  color: var(--buddy-muted);
   user-select: text;
+}
+.compatibility-runtime-actions:not(:empty) {
+  margin-top: 16px;
+}
+@media (max-width: 600px) {
+  .compatibility-path > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
 }
 .preview-selector {
   display: flex;

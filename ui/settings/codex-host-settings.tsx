@@ -1,6 +1,6 @@
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
-/* [INPUT]: 认证 CodexHost API。 [OUTPUT]: CodexHost 独立开关、运行状态、版本更新及显式重启停用。
+/* [INPUT]: 认证 CodexHost API。 [OUTPUT]: CodexHost 独立开关、紧凑版本/路径信息及显式更新、回退与重启停用操作。
  * [POS]: 设置展示，不管理进程或复制其他功能配置；只在此分类可见时轮询。
  * [PROTOCOL]: 变更时同步 settings/AGENTS.md。 */
 import { useEffect, useRef, useState } from 'react';
@@ -9,6 +9,7 @@ import { FeatureSwitch, Feedback } from './settings-controls';
 import { useFeedbackTarget } from './settings-feedback';
 import { ConfirmationButton } from './settings-confirmation';
 import { Button } from './components/ui/button';
+import { Icon } from '../shared/icons/react';
 import type { CodexHostStatus } from '../shared/codex-host';
 import { CodexHostPreview } from './codex-host-preview';
 const labels: Record<CodexHostStatus['state'], string> = {
@@ -147,24 +148,27 @@ export function CodexHostSettings({
         <>
           <CodexHostPreview live={live} />
           <div className="compatibility-heading">
-            <h2>CodexHost</h2>
+            <div className="compatibility-title">
+              <h2>CodexHost</h2>
+              <Button asChild variant="ghost" size="icon">
+                <a
+                  href="https://github.com/BytePioneer-AI/codex-host"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={tr('CodexHost 原版 GitHub 仓库')}
+                  aria-label={tr('CodexHost 原版 GitHub 仓库')}
+                >
+                  <Icon name="detach" />
+                </a>
+              </Button>
+            </div>
             <span className="compatibility-state">
               {state ? labels[state.state] : tr('正在读取…')}
             </span>
           </div>
           <p className="compatibility-introduction">
-            {tr(
-              '通过 CodexHost，在 ChatGPT / Codex 桌面中接入 Claude Code、Pi、OpenCode 等 Agent。',
-            )}
+            {tr('在 ChatGPT / Codex 中接入 Claude Code、Pi、OpenCode 等 Agent。')}
           </p>
-          <a
-            className="compatibility-source"
-            href="https://github.com/BytePioneer-AI/codex-host"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            {tr('CodexHost 原版 GitHub 仓库')}
-          </a>
         </>
       )}
       <Feedback
@@ -177,39 +181,80 @@ export function CodexHostSettings({
       )}
       {state && (
         <div className="compatibility-management">
-          <h3>{tr('运行与更新')}</h3>
-          <dl className="settings-status-list">
-            <div className="settings-row">
-              <dt>{tr('已安装版本')}</dt>
-              <dd>{state.version || tr('未安装')}</dd>
-            </div>
-            {state.runningVersion && state.runningVersion !== state.version && (
-              <div className="settings-row">
-                <dt>{tr('实际运行版本')}</dt>
-                <dd>{state.runningVersion}</dd>
+          <div className="compatibility-release">
+            <dl className="compatibility-versions">
+              <div>
+                <dt>{tr('已安装版本')}</dt>
+                <dd>{state.version || tr('未安装')}</dd>
               </div>
-            )}
-          </dl>
+              {state.runningVersion && state.runningVersion !== state.version && (
+                <div>
+                  <dt>{tr('实际运行版本')}</dt>
+                  <dd>{state.runningVersion}</dd>
+                </div>
+              )}
+            </dl>
+            <div className="compatibility-update">
+              <div className="settings-actions">
+                {state.canRestore && (
+                  <ConfirmationButton
+                    variant="ghost"
+                    disabled={disabled}
+                    revision={state.revision}
+                    title={tr('恢复 CodexHost 上一版本？')}
+                    description={tr(
+                      '将切换回先前安装的版本，当前会话可能需要重新启动才能使用。已有配置保持不变。',
+                    )}
+                    confirmLabel={tr('确认恢复')}
+                    onConfirm={() => command('restore')}
+                  >
+                    {tr('恢复上一版本')}
+                  </ConfirmationButton>
+                )}
+                <Button
+                  variant="outline"
+                  disabled={disabled}
+                  onClick={() => void command('check-update')}
+                >
+                  {tr('检查更新')}
+                </Button>
+                {target && newer && (
+                  <Button
+                    disabled={disabled}
+                    onClick={() => void command('install', { version: target })}
+                  >
+                    {busy
+                      ? tr('处理中…')
+                      : tr('{{value1}} {{target}}', {
+                          value1: state.version ? tr('更新到') : tr('安装'),
+                          target: target,
+                        })}
+                  </Button>
+                )}
+              </div>
+              {latest === state.version && <p role="status">{tr('已是最新版本')}</p>}
+            </div>
+          </div>
           {(state.executable || state.runningExecutable) && (
             <dl className="compatibility-path">
               {state.executable && (
-                <>
+                <div>
                   <dt>{tr('程序路径')}</dt>
                   <dd>{state.executable}</dd>
-                </>
+                </div>
               )}
               {state.runningExecutable && state.runningExecutable !== state.executable && (
-                <>
+                <div>
                   <dt>{tr('运行路径')}</dt>
                   <dd>{state.runningExecutable}</dd>
-                </>
+                </div>
               )}
             </dl>
           )}
           {state.state === 'pendingEnable' && (
             <p>{tr('需要重开 Codex 才能启用时，请先结束任务，再打开 Palboo。')}</p>
           )}
-          <div className="settings-actions">
+          <div className="settings-actions compatibility-runtime-actions">
             {state.state === 'pendingDisable' && (
               <ConfirmationButton
                 disabled={disabled}
@@ -224,48 +269,12 @@ export function CodexHostSettings({
                 {restarting ? tr('正在重启…') : tr('重启 Codex 并停用')}
               </ConfirmationButton>
             )}
-            <Button
-              variant="outline"
-              disabled={disabled}
-              onClick={() => void command('check-update')}
-            >
-              {tr('检查更新')}
-            </Button>
-            {target && newer && (
-              <Button
-                disabled={disabled}
-                onClick={() => void command('install', { version: target })}
-              >
-                {busy
-                  ? tr('处理中…')
-                  : tr('{{value1}} {{target}}', {
-                      value1: state.version ? tr('更新到') : tr('安装'),
-                      target: target,
-                    })}
-              </Button>
-            )}
             {state.enabled && ['pendingEnable'].includes(state.state) && (
               <Button variant="outline" disabled={disabled} onClick={() => void command('start')}>
                 {tr('启动')}
               </Button>
             )}
-            {state.canRestore && (
-              <ConfirmationButton
-                variant="ghost"
-                disabled={disabled}
-                revision={state.revision}
-                title={tr('恢复 CodexHost 上一版本？')}
-                description={tr(
-                  '将切换回先前安装的版本，当前会话可能需要重新启动才能使用。已有配置保持不变。',
-                )}
-                confirmLabel={tr('确认恢复')}
-                onConfirm={() => command('restore')}
-              >
-                {tr('恢复上一版本')}
-              </ConfirmationButton>
-            )}
           </div>
-          {latest === state.version && <p role="status">{tr('已是最新版本')}</p>}
         </div>
       )}
     </section>
