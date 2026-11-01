@@ -407,7 +407,7 @@ Fast/普通预设按闪电标记独立消歧：model-groups 覆盖同组编号�
 
 handoff-motion 追加真实 embedded/features 适配器回归：连续点击只发起一个请求、pending 阶段不重复切换、真实错误可见且重试清除、销毁拒绝迟到响应并保留其他设置提示；launcher-menu 验内/外暂禁且设置可用。Rust repeated_main_placement 验重复目标保留 owner/草稿，其他目标与旧 owner 仍拒绝。
 
-设置同步与预览回归：settings-modes覆盖功能分类内的常用开关/兼容集成、界面16:9/功能内容自适应且最大宽度480px（任务看板占满可用宽度）、双主题360/600/900/1360px、真实Shadow DOM边界与兼容层概览零写入；截图由PALBOO_TEST_SCREENSHOTS选择。settings-menu-motion按组件区分普通菜单即时、模型入场300ms弹簧、分段280ms底块中断、确认框错误增高300ms及键盘/减少动态效果；settings-motion保留无宿主主题的独立挂载。
+设置同步与预览回归：settings-modes覆盖功能分类内的常用开关/兼容集成、界面16:9/功能内容自适应且最大宽度480px（任务看板占满可用宽度）、双主题360/600/900/1360px、真实Shadow DOM边界与兼容层概览零写入；截图由PALBOO_TEST_SCREENSHOTS选择；Clear星星覆盖鼠标/Space/Enter切换与原修订保存，分类主题点跟随宿主强调色，功能外框采用Clear并保持真实内容边界。settings-menu-motion按组件区分普通菜单即时、模型入场300ms弹簧、分段280ms底块中断、确认框错误增高300ms及键盘/减少动态效果；settings-motion保留无宿主主题的独立挂载。
 
 预览与总开关修正：settings-modes逐个核对真实Shadow DOM内容与外框等高（不能只验外框或不溢出），覆盖常用语/Bot/术语短内容无空白方框；功能开关页10个主开关、子页无重复、术语/CodexHost保存仍走原修订API，CodexHost只改启用意愿。兼容层接入关系、能力摘要、原仓库链接和窄屏边界，零服务写入；搜索词库继续采用稳定抽屉锚点。深浅/多宽度截图包括常用语和Bot。
 

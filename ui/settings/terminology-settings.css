@@ -8,6 +8,10 @@
   flex: none;
   min-height: 0;
   overflow: auto;
+  --paper: var(--buddy-surface);
+  --ink: var(--buddy-text);
+  --line: var(--buddy-border);
+  --hover: var(--buddy-subtle);
   --term-bg: var(--background);
   --term-fg: var(--foreground);
   --term-muted: var(--muted-foreground);

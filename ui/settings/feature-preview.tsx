@@ -26,7 +26,7 @@ type Kind = 'outline' | 'next' | 'prompts' | 'board' | 'bots' | 'terms';
 const theme = `
 :host{display:block;min-width:0;font:inherit;color-scheme:inherit;--paper:var(--buddy-surface);--surface:var(--paper);--ink:var(--buddy-text);--muted:var(--buddy-muted);--line:var(--buddy-border);--border:var(--line);--hover:var(--buddy-input);--accent:var(--buddy-focus);--danger:var(--error-foreground);--board-bg:transparent;--csw-text:var(--ink);--csw-muted:var(--muted);--csw-divider:var(--line);--csw-hover:var(--hover);--csw-accent:var(--accent);--csw-item-font:1em;--csw-chrome-font:1em;--csw-next-font:1em;--csw-outline-font:1em;--csw-label-weight:500;--feature-refresh-opacity:1;--board-font-size:1em}
 :host>div{height:var(--preview-feature-height,100%);min-height:0}
-.feature-view{height:var(--preview-feature-height,100%);max-height:var(--preview-feature-max-height,none);border-radius:12px}
+.feature-view{height:var(--preview-feature-height,100%);max-height:var(--preview-feature-max-height,none);border-radius:12px;background:var(--preview-content-background,var(--paper))}
 :host([data-contained=true]) .feature-view{background:transparent;border-radius:0}
 :host([data-wide-board=true]) .board-app{min-width:720px}
 .feature-view:is([data-feature=bots],[data-feature=prompts]){height:var(--preview-feature-height,auto);max-height:var(--preview-feature-max-height,270px)}

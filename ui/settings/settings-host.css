@@ -94,7 +94,7 @@ html[data-settings-style='chatgpt'] {
     color: var(--buddy-text);
     font-weight: var(--settings-nav-weight);
   }
-  /* 当前项使用宿主导航底色，标题不添加额外装饰。 */
+  /* 当前项使用宿主导航底色，不叠加装饰线。 */
   .settings-app .settings-nav .settings-nav-children a[aria-current='page']::before {
     content: none;
   }

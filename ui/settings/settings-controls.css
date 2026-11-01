@@ -116,6 +116,27 @@
   gap: 8px;
   min-width: 0;
 }
+.settings-app .settings-native-select[data-has-action='true'] [data-slot='native-select'] {
+  padding-inline-end: 72px;
+}
+.settings-select-action {
+  position: absolute;
+  inset-inline-end: 30px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.settings-app .settings-select-action .settings-liquid-toggle {
+  min-height: 28px;
+  height: 28px;
+  width: 28px;
+  padding: 0;
+  border: 0;
+  color: var(--buddy-muted);
+  background: transparent;
+}
+.settings-app .settings-select-action .settings-liquid-toggle[aria-pressed='true'] {
+  color: var(--buddy-text);
+}
 .settings-control-pair > .settings-native-select {
   flex-shrink: 0;
   margin-inline-start: 0;

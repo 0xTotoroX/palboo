@@ -9,6 +9,7 @@ import { Feedback, Toggle } from './settings-controls';
 import { FeatureSettings } from './feature-settings';
 import { request } from './api';
 import { NativeSelect } from './components/ui/native-select';
+import { LiquidVariantToggle } from './liquid-variant-toggle';
 import { PanelSettings } from './panel-settings';
 import type { AppearanceSettings } from '../shared/contracts';
 import type { SurfaceTheme } from '../surfaces/theme/appearance';
@@ -169,6 +170,18 @@ export function SurfaceSettings({
                       aria-label={tr('{{label}}主题', { label: label })}
                       disabled={disabled}
                       value={theme.theme}
+                      action={
+                        theme.theme === 'native-glass' && (
+                          <LiquidVariantToggle
+                            label={tr('{{label}}液态变体', { label })}
+                            disabled={disabled}
+                            value={theme.liquidVariant}
+                            onChange={(liquidVariant) =>
+                              void save({ placement, theme: { ...theme, liquidVariant } })
+                            }
+                          />
+                        )
+                      }
                       onChange={(event) =>
                         void save({ placement, theme: { ...theme, theme: event.target.value } })
                       }
@@ -178,23 +191,6 @@ export function SurfaceSettings({
                       <option value="frosted">{tr('磨砂')}</option>
                       <option value="native-glass">{tr('液态')}</option>
                     </NativeSelect>
-                    {theme.theme === 'native-glass' && (
-                      <NativeSelect
-                        controlWidth="compact"
-                        aria-label={tr('{{label}}液态变体', { label: label })}
-                        disabled={disabled}
-                        value={theme.liquidVariant}
-                        onChange={(event) =>
-                          void save({
-                            placement,
-                            theme: { ...theme, liquidVariant: event.target.value },
-                          })
-                        }
-                      >
-                        <option value="regular">Regular</option>
-                        <option value="clear">Clear</option>
-                      </NativeSelect>
-                    )}
                   </div>
                 </div>
               </div>

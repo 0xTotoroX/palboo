@@ -1,5 +1,5 @@
 /* [INPUT]: Read-only preview markup and settings semantic colors.
- * [OUTPUT]: Shared 16:9 interface frames and content-sized feature scenes with bounded scrolling.
+ * [OUTPUT]: Shared 16:9 interface frames and content-sized Clear feature scenes with bounded scrolling.
  * [POS]: Settings preview frames; real feature content keeps its shared styles inside Shadow DOM.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 .settings-preview {
@@ -37,6 +37,47 @@
 }
 .preview-frame.preview-board {
   max-width: none;
+}
+.preview-frame[data-preview-format='feature'] {
+  --preview-content-background: transparent;
+  --preview-clear-tint: #ffffff0f;
+  position: relative;
+  isolation: isolate;
+  background: transparent;
+  border-color: color-mix(in srgb, var(--buddy-text) 18%, transparent);
+  box-shadow:
+    0 4px 16px #0000001f,
+    inset 0 1px 0 #ffffff66,
+    inset 0 -1px 0 #ffffff0f,
+    inset 0 0 0 1px #ffffff21;
+}
+.preview-clear-surface {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: var(--preview-clear-tint);
+  backdrop-filter: blur(0.3px);
+  -webkit-backdrop-filter: blur(0.3px);
+  box-shadow: inset 0 0 12px -5px #ffffff40;
+}
+.dark .preview-frame[data-preview-format='feature'],
+html[data-settings-theme='dark'] .preview-frame[data-preview-format='feature'] {
+  --preview-clear-tint: #1212120f;
+}
+.preview-clear-surface > svg {
+  position: absolute;
+  pointer-events: none;
+}
+.preview-frame[data-preview-format='feature'] > .preview-frame-content {
+  position: relative;
+}
+@media (prefers-reduced-transparency: reduce) {
+  .preview-clear-surface {
+    background: var(--buddy-surface);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
 }
 .preview-frame-content {
   display: flex;

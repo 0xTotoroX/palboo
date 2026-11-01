@@ -804,7 +804,29 @@ test(
             .getAttribute('aria-checked') === 'false',
       );
       await page.getByLabel('术语卡片背景', { exact: true }).selectOption('native-glass');
-      await page.getByLabel('术语卡片液态变体', { exact: true }).selectOption('clear');
+      const termClear = page.getByRole('button', { name: '术语卡片液态变体', exact: true });
+      await termClear.click();
+      await page.locator('#term-liquid-variant[aria-pressed="true"]').waitFor();
+      const starBounds = await termClear.evaluate((star) => {
+        const select = star.closest('.settings-native-select').querySelector('select');
+        const button = star.getBoundingClientRect();
+        return {
+          width: button.width,
+          height: button.height,
+          left: button.left,
+          textEnd:
+            select.getBoundingClientRect().right -
+            parseFloat(getComputedStyle(select).paddingInlineEnd),
+        };
+      });
+      assert.ok(starBounds.width >= 28 && starBounds.height >= 28);
+      assert.ok(starBounds.textEnd <= starBounds.left - 4, 'text reserves room for the Clear star');
+      assert.equal(terminology.preferences.cardLiquidVariant, 'clear');
+      await termClear.press('Space');
+      await page.locator('#term-liquid-variant[aria-pressed="false"]').waitFor();
+      assert.equal(terminology.preferences.cardLiquidVariant, 'regular');
+      await termClear.press('Enter');
+      await page.locator('#term-liquid-variant[aria-pressed="true"]').waitFor();
       await page.getByLabel('术语卡片背景', { exact: true }).selectOption('custom');
       await page.getByLabel('术语卡片自定义颜色', { exact: true }).fill('#334455');
       await page.waitForFunction(
@@ -1413,14 +1435,27 @@ test(
               assert.ok(bounds.height < 440, 'compatibility overview has no empty fixed canvas');
               continue;
             }
-            if (id === 'terminology')
+            if (id === 'terminology') {
               await page.locator('#settings-terminology .settings-row').first().waitFor();
+              await page.waitForFunction(() => {
+                const card = document.querySelector('.term-preview .term-card');
+                if (!card) return false;
+                const color = document.createElement('canvas').getContext('2d');
+                color.fillStyle = getComputedStyle(document.documentElement)
+                  .getPropertyValue('--buddy-surface')
+                  .trim();
+                const paper = color.fillStyle;
+                color.fillStyle = getComputedStyle(card).backgroundColor;
+                return color.fillStyle === paper;
+              });
+            }
             const stage = await page.locator('.preview-frame:visible').evaluate((node) => {
               const style = getComputedStyle(node);
               return {
                 border: style.borderWidth,
                 radius: style.borderRadius,
-                background: style.backgroundColor,
+                background: getComputedStyle(node.querySelector('.preview-clear-surface') || node)
+                  .backgroundColor,
                 format: node.dataset.previewFormat,
                 width: node.getBoundingClientRect().width,
                 height: node.getBoundingClientRect().height,
@@ -1531,7 +1566,16 @@ test(
             if (
               process.env.PALBOO_TEST_SCREENSHOTS === '1' &&
               [360, 1360].includes(width) &&
-              ['surfaces', 'board', 'codex-host', 'model-control', 'prompts', 'bots'].includes(id)
+              [
+                'surfaces',
+                'next',
+                'board',
+                'codex-host',
+                'model-control',
+                'prompts',
+                'bots',
+                'terminology',
+              ].includes(id)
             ) {
               const readingPosition = await page.evaluate(() => scrollY);
               await page.evaluate(() => scrollTo({ top: 0, behavior: 'instant' }));
@@ -1659,7 +1703,7 @@ test(
       const regularColor = await preview
         .locator('[data-preview-workspace]')
         .evaluate((n) => getComputedStyle(n).backgroundColor);
-      await page.getByLabel('页面浮层液态变体', { exact: true }).selectOption('clear');
+      await page.getByRole('button', { name: '页面浮层液态变体', exact: true }).click();
       await preview.locator('[data-preview-workspace][data-variant="clear"]').waitFor();
       assert.notEqual(
         await preview

@@ -2,7 +2,7 @@ import { SegmentedGroup } from './components/ui/segmented-group';
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: 认证术语 API、可唤起状态、共用卡片/动作图标与用户导入/输入。
- * [OUTPUT]: 独立外观预览、词条原位展开与词库检索；管理抽屉按新增/导入导出分区，保留草稿与深链接，名称/文件排队交给下次主聊天，个人导出与确认重置。
+ * [OUTPUT]: 随主题原位更新的外观预览、词条原位展开与词库检索；管理抽屉按新增/导入导出分区，保留草稿与深链接，名称/文件排队交给下次主聊天，个人导出与确认重置。
  * [POS]: 详细设置的功能区，不访问主聊天内容。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { SettingsDrawer } from './settings-drawer';
@@ -15,6 +15,7 @@ import { useConfirmation } from './settings-confirmation';
 import { request, uploadTerminology } from './api';
 import { inheritedAppearance } from '../terminology/appearance.js';
 import { NativeSelect } from './components/ui/native-select';
+import { LiquidVariantToggle } from './liquid-variant-toggle';
 import { Button, IconButton } from './components/ui/button';
 import { Input, inputStyles } from './components/ui/input';
 import { Switch } from './components/ui/switch';
@@ -92,7 +93,20 @@ function Preview({ term, preferences }: { term: Term; preferences: Library['pref
       locked: true,
     });
     node.replaceChildren(card);
+    let frame = 0;
+    const appearance = new MutationObserver(() => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        card.update(term, { appearance: inheritedAppearance(node) });
+      });
+    });
+    appearance.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['style', 'class', 'data-settings-theme'],
+    });
     return () => {
+      cancelAnimationFrame(frame);
+      appearance.disconnect();
       card.dispose();
       node.replaceChildren();
     };
@@ -293,6 +307,23 @@ export function TerminologySettings({
                 aria-label={tr('术语卡片背景')}
                 disabled={busy}
                 value={prefs.cardMaterial || (prefs.cardStyle === 'frost' ? 'frosted' : 'matte')}
+                action={
+                  prefs.cardMaterial === 'native-glass' && (
+                    <LiquidVariantToggle
+                      id="term-liquid-variant"
+                      label={tr('术语卡片液态变体')}
+                      disabled={busy}
+                      value={prefs.cardLiquidVariant}
+                      onChange={(cardLiquidVariant) =>
+                        void command({
+                          action: 'settings',
+                          revision: prefs.revision,
+                          cardLiquidVariant,
+                        })
+                      }
+                    />
+                  )
+                }
                 onChange={(e) =>
                   void command({
                     action: 'settings',
@@ -308,27 +339,6 @@ export function TerminologySettings({
                 <option value="custom">{tr('自定义')}</option>
               </NativeSelect>
             </Field>
-            {prefs.cardMaterial === 'native-glass' && (
-              <Field id="term-liquid-variant" label={tr('液态变体')}>
-                <NativeSelect
-                  id="term-liquid-variant"
-                  controlWidth="compact"
-                  aria-label={tr('术语卡片液态变体')}
-                  disabled={busy}
-                  value={prefs.cardLiquidVariant || 'regular'}
-                  onChange={(e) =>
-                    void command({
-                      action: 'settings',
-                      revision: prefs.revision,
-                      cardLiquidVariant: e.target.value,
-                    })
-                  }
-                >
-                  <option value="regular">Regular</option>
-                  <option value="clear">Clear</option>
-                </NativeSelect>
-              </Field>
-            )}
             {prefs.cardMaterial === 'custom' && (
               <Field id="term-custom-color" label={tr('背景颜色')}>
                 <Input

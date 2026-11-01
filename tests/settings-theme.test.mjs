@@ -264,6 +264,13 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
       await page.locator('.settings-nav-group h2').evaluate((n) => getComputedStyle(n).fontSize),
       '17px',
     );
+    const groupDot = await page.locator('.settings-nav-group h2').evaluate((n) => {
+      const dot = getComputedStyle(n, '::after');
+      return { content: dot.content, width: dot.width, color: dot.backgroundColor };
+    });
+    assert.equal(groupDot.content, '""');
+    assert.equal(groupDot.width, '4px');
+    assert.equal(groupDot.color, 'rgb(166, 125, 242)');
     assert.equal(
       await page
         .locator('#section-heading')
