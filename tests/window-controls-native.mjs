@@ -1,5 +1,5 @@
 /* [INPUT]: Current debug native window, production App entry and a synthetic local page/controller.
- * [OUTPUT]: Stable controls and synchronized visible content across three materials, App identity and native actions with unchanged draft/PID.
+ * [OUTPUT]: Per-page presentation and repeatable return after reload, stable controls/content across three materials and native actions with unchanged draft/PID.
  * [POS]: Isolated temporary data and self-owned window, no screenshots or real host data.
  * [PROTOCOL]: Keep tests/AGENTS.md in sync. */
 import assert from 'node:assert/strict';
@@ -28,23 +28,28 @@ const js = (
       contents: `
 import {windowControlsHtml,installWindowControls} from './ui/surfaces/workspace/window-controls.js';
 document.body.innerHTML='<header>'+windowControlsHtml()+'</header><input id="draft" readonly tabindex="-1" value="未保存的合成草稿">';
-let ready=false,returned=false,state=null,material='matte',probeMaterial=null;
+const instance=Number(sessionStorage.getItem('native-probe-instance')||0)+1;
+sessionStorage.setItem('native-probe-instance',String(instance));
+let ready=false,presented=false,returned=false,state=null,material='matte',probeMaterial=null;
 const post=value=>window.ipc.postMessage(JSON.stringify(value));
 const backdrop=()=>post({kind:'backdrop',material,theme:'light',hidden:false,x:12,y:12,width:innerWidth-24,height:innerHeight-24,radius:24,viewportWidth:innerWidth,viewportHeight:innerHeight});
 addEventListener('resize',backdrop);
-window.__companionPopout={presented(){},motionFinished(){ready=true;},returned(ok){returned=ok;},resized(){},moved(){},dock(){returned=true;}};
+window.__companionPopout={presented(){presented=true;},motionFinished(){ready=true;},returned(ok){returned=ok;},resized(){},moved(){},dock(){returned=true;}};
 const controller=installWindowControls(document.body,{post,dock:async()=>post({kind:'return',anchor:null}),error:e=>window.failure=String(e)});
 const update=controller.update;controller.update=value=>{state=value;update(value);};
 post({kind:'show',anchor:null});
 backdrop();
 async function poll(){
- try{const response=await fetch('/probe',{method:'POST',body:JSON.stringify({ready,returned,state,chromeProbe:window.__companionNativeChromeProbe,probeMaterial,glassAvailable:window.__companionNativeGlass,draft:document.querySelector('#draft').value,width:innerWidth,height:innerHeight,error:window.failure,webControls:document.querySelectorAll('[data-window-control]').length,transient:controller.geometryTransient()})});
+ try{const response=await fetch('/probe',{method:'POST',body:JSON.stringify({instance,ready,presented,returned,state,chromeProbe:window.__companionNativeChromeProbe,probeMaterial,glassAvailable:window.__companionNativeGlass,draft:document.querySelector('#draft').value,width:innerWidth,height:innerHeight,error:window.failure,webControls:document.querySelectorAll('[data-window-control]').length,transient:controller.geometryTransient()})});
  for(const action of await response.json()){
   if(typeof action==='object'){
    material=action.material;probeMaterial=material;window.__companionNativeChromeProbe=null;backdrop();post({kind:'native-chrome-probe'});
   }
   else if(action==='hide'||action==='reveal'||action==='window-state')post({kind:action});
   else if(action==='close')post({kind:'close'});
+  else if(action==='reload'){location.reload();break;}
+  else if(action==='return'){ready=false;returned=false;post({kind:'return',anchor:null});}
+  else if(action==='cancel-return'){ready=false;post({kind:'cancel-return'});}
   else if(action==='maximize')post({kind:'toggle-maximize'});
   else if(action==='fullscreen')post({kind:'native-fullscreen'});
   else post({kind:'native-window-button',button:action==='close-window'?'close':action});
@@ -145,7 +150,7 @@ try {
     },
   );
   await wait(
-    () => latest?.ready && latest?.state && !latest.state.hidden && bounds(),
+    () => latest?.ready && latest?.presented && latest?.state && !latest.state.hidden && bounds(),
     'initial visible',
   );
   const original = bounds(),
@@ -181,6 +186,34 @@ try {
       'traffic lights fit the existing header: ' + JSON.stringify(button),
     );
   }
+  // A development page reload reuses the same native window, but has new JS callbacks.
+  const firstInstance = latest.instance;
+  commands.push('reload');
+  await wait(
+    () => latest?.instance > firstInstance && latest.ready && latest.presented,
+    'reloaded page receives its own presentation acknowledgement',
+  );
+  assert.equal(latest.state.nativeChrome.processId, pid);
+  near(bounds(), original);
+  commands.push('return');
+  await wait(() => latest?.returned, 'first return finishes');
+  // The page can be replaced after native motion finishes, before the host accepts it.
+  const returnedInstance = latest.instance;
+  commands.push('reload');
+  await wait(
+    () => latest?.instance > returnedInstance && latest.ready && latest.presented,
+    'reload after return restores the desktop presentation',
+  );
+  near(bounds(), original);
+  commands.push('return');
+  await wait(() => latest?.returned, 'return after reload does not retain an old handoff');
+  commands.push('cancel-return');
+  await wait(() => latest?.ready && restored(original), 'cancel return restores normal geometry');
+  commands.push('window-state');
+  await wait(
+    () => latest?.state?.nativeChrome?.buttons.every((button) => button.enabled),
+    'controls recover after reloaded return',
+  );
   const originalButtons = latest.state.nativeChrome.buttons;
   let maxChromeDrift = 0;
   const surfaceSamples = [];
@@ -293,6 +326,10 @@ try {
     assert.equal(button.y, originalButtons[index].y);
   }
   const result = {
+    pageReloadPresented: true,
+    returnAfterReload: true,
+    reloadDuringHandoff: true,
+    cancelReloadedReturn: true,
     hideReveal: true,
     nativeTrafficLights: true,
     nativeResizeStable: true,

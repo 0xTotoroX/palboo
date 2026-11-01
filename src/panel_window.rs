@@ -1,5 +1,5 @@
 // [INPUT]: Tao/Wry、Runtime、Preferences、Palboo.app 身份、共享 native_backdrop 与 AppKit 手势。
-// [OUTPUT]: 原生红黄绿、Palboo 应用身份、置顶/Spaces、共用可逆路径的跨屏往返/中断恢复、双向短过渡回退及同帧缩放。
+// [OUTPUT]: 原生红黄绿、Palboo 应用身份、置顶/Spaces、共用可逆路径的跨屏往返/中断恢复、页面重载后的呈现确认与旧交接清理、双向短过渡回退及同帧缩放。
 // [POS]: 窗口子进程实现；系统管理最小化/放大/全屏，关闭沿用收回，普通几何独立于临时窗口状态。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
@@ -754,7 +754,18 @@ pub fn run_surface(
                     publish_window_controls(&webview, &window, normal_window_pose, window_hidden);
                 }
                 "show" => {
-                    let mut target = macos::pose(&window);
+                    // 页面重载会替换 JS 回调；重新确认呈现，并退掉旧页面未完成的交接。
+                    // 返回途中的 frame 可能已缩向入口，桌面终点仍取原来的普通窗口位置。
+                    let mut target = return_origin.take()
+                        .or_else(|| window_transition.as_ref().and_then(|t| t.path).map(|p| p.desktop))
+                        .unwrap_or_else(|| macos::pose(&window));
+                    presentation_reported = false;
+                    window_transition = None;
+                    held_return = None;
+                    deferred_return = None;
+                    return_after_fullscreen = false;
+                    motion_pose = None;
+                    if let Some(warp) = &mut warp { warp.reset(); }
                     target.alpha = 1.;
                     target.scale = 1.;
                     let mut anchor = macos::anchor_pose(&window, &message["anchor"])
