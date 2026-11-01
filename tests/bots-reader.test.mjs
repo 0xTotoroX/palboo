@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 import { chromium } from 'playwright';
 import { readFileSync, mkdirSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
 
 test('recent messages open one complete reply without reusing Bot composer clicks', async () => {
   const bundle = await build({
@@ -136,6 +137,136 @@ test('recent messages open one complete reply without reusing Bot composer click
     await page.getByRole('button', { name: 'Back to Bots', exact: true }).click();
     await page.getByRole('button', { name: 'Bot 1', exact: true }).click();
     assert.equal(await page.evaluate(() => window.calls.at(-1).action), 'ask');
+  } finally {
+    await browser.close();
+  }
+});
+
+test('recent message rows stay aligned inside the complete shared feature shell', async () => {
+  const bundle = await build({
+    stdin: {
+      resolveDir: process.cwd(),
+      loader: 'tsx',
+      contents: `
+import {mountFeature} from './ui/surfaces/workspace/mount';
+import {setLocale} from './ui/shared/i18n';
+import {iconSvg} from './ui/shared/icons';
+let mounted;
+window.calls=[];
+window.show=(width,height,language,font,theme)=>{
+ mounted?.dispose();setLocale(language);
+ const pane=document.querySelector('main');
+ pane.style.cssText='display:flex;flex-direction:column;width:'+width+'px;height:'+height+'px;--csw-chrome-font:'+font+'px;--feature-refresh-opacity:1';
+ pane.innerHTML='<header class="csw-workbench-pane-header"><span class="csw-feature-tabs">'+iconSvg('feature-bots')+'</span><span class="csw-feature-header-actions"></span></header><div class="feature-mount" style="flex:1;min-height:0"></div>';
+ const state={appearance:{theme,language,fontSizes:{bots:font}},snapshot:{target:{threadId:'fixture',token:'safe'},catalog:{revision:'r1',stale:false},bots:[
+  {id:'short',name:'短回答',available:true,occupied:false,current:null,preview:'完成。'},
+  {id:'long',name:'长回答',available:true,occupied:false,current:null,preview:'这是一段较长的合成消息。'.repeat(30)}
+ ]}};
+ mounted=mountFeature(pane.querySelector('.feature-mount'),{id:'bots',owner:'test',open:true,placement:'sidebar',view:{},size:[width,height],reveal:1,pending:null},'test','sidebar',async request=>{
+  if(request.op==='action'){
+   window.calls.push(request.data);
+   if(request.data.action==='latest-reply')return {reply:{...request.data,messageId:'reply',text:'# 完整回答\\n\\n'+'合成完整正文。\\n\\n'.repeat(80)+'END_OF_FULL_REPLY',hasAttachments:false}};
+  }
+  return state;
+ },()=>{});
+ pane.querySelector('.csw-feature-header-actions').append(mounted.headerActions);
+};`,
+    },
+    bundle: true,
+    write: false,
+    jsx: 'automatic',
+    plugins: [
+      {
+        name: 'inline-css',
+        setup(builder) {
+          builder.onResolve({ filter: /\.css\?inline$/ }, (args) => ({
+            path: resolve(dirname(args.importer), args.path.split('?')[0]),
+            namespace: 'css-text',
+          }));
+          builder.onLoad({ filter: /.*/, namespace: 'css-text' }, (args) => ({
+            contents: readFileSync(args.path, 'utf8'),
+            loader: 'text',
+          }));
+        },
+      },
+    ],
+  });
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage({
+      viewport: { width: 900, height: 760 },
+      reducedMotion: 'reduce',
+    });
+    await page.setContent('<style>body{margin:0}</style><main class="csw-workbench-pane"></main>');
+    await page.addStyleTag({ content: readFileSync('ui/surfaces/workspace/styles.css', 'utf8') });
+    await page.addScriptTag({ content: bundle.outputFiles[0].text });
+    for (const [width, height, language, font, theme] of [
+      [240, 280, 'zh-CN', 16, 'dark'],
+      [760, 620, 'en', 24, 'light'],
+      [460, 360, 'zh-CN', 20, 'light'],
+    ]) {
+      await page.evaluate((args) => window.show(...args), [width, height, language, font, theme]);
+      const english = language === 'en';
+      await page
+        .getByRole('button', { name: english ? 'Recent messages' : '最近消息', exact: true })
+        .click();
+      const geometry = await page.locator('.palboo-bot-message').evaluateAll((rows) =>
+        rows.map((row) => {
+          const rect = row.getBoundingClientRect();
+          const body = row.closest('.feature-body').getBoundingClientRect();
+          const name = row.querySelector('.palboo-bot-message-name').getBoundingClientRect();
+          const preview = row.querySelector('.palboo-bot-preview');
+          const previewRect = preview.getBoundingClientRect();
+          return {
+            nameInset: name.x - rect.x,
+            previewInset: previewRect.x - rect.x,
+            left: rect.x - body.x,
+            right: body.right - rect.right,
+            top: rect.top - body.top,
+            previewHeight: previewRect.height,
+            lineHeight: parseFloat(getComputedStyle(preview).lineHeight),
+          };
+        }),
+      );
+      assert.equal(geometry.length, 2);
+      for (const row of geometry) {
+        assert.ok(Math.abs(row.nameInset) < 1, 'short and long Bot names share the row left edge');
+        assert.ok(Math.abs(row.previewInset) < 1, 'previews share the name left edge');
+        assert.equal(row.left, 12, 'one surface inset');
+        assert.equal(row.right, 12, 'whole row remains clickable');
+        assert.ok(
+          row.previewHeight <= row.lineHeight * 2 + 1,
+          'directory keeps two-line summaries',
+        );
+      }
+      assert.equal(geometry[0].top, 12, 'content starts directly below the existing header');
+      await page.locator('.palboo-bot-message').first().focus();
+      await page.keyboard.press('Enter');
+      await page.getByRole('heading', { name: '完整回答', exact: true }).waitFor();
+      await page.locator('.palboo-bot-markdown > :last-child').scrollIntoViewIfNeeded();
+      assert.equal(
+        await page.locator('.palboo-bot-markdown > :last-child').textContent(),
+        'END_OF_FULL_REPLY',
+      );
+      await page
+        .getByRole('button', {
+          name: english ? 'Back to recent messages' : '返回最近消息',
+          exact: true,
+        })
+        .click();
+      assert.equal(
+        await page
+          .locator('.palboo-bot-message')
+          .first()
+          .evaluate((n) => n.getRootNode().activeElement === n),
+        true,
+      );
+      await page
+        .getByRole('button', { name: english ? 'Back to Bots' : '返回 Bot 列表', exact: true })
+        .click();
+      await page.getByRole('button', { name: '短回答', exact: true }).click();
+      assert.equal(await page.evaluate(() => window.calls.at(-1).action), 'ask');
+    }
   } finally {
     await browser.close();
   }

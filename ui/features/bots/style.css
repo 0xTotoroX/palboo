@@ -1,5 +1,5 @@
 /* [INPUT]: Existing surface semantic colors and font size.
- * [OUTPUT]: Compact top-aligned Bot selectors and icon-only fallback actions; surface headers own hosted actions.
+ * [OUTPUT]: Compact top-aligned Bot selectors, full-width left-aligned message rows and icon-only fallback actions; surface headers own hosted actions.
  * [POS]: Feature styles only. [PROTOCOL]: Keep ui/features/AGENTS.md in sync. */
 .palboo-bots {
   display: grid;
@@ -269,8 +269,12 @@
 }
 .palboo-bot-message {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  justify-content: stretch;
   gap: 6px;
   min-width: 0;
+  width: 100%;
   padding: 8px 0;
   border: 0;
   border-radius: 4px;

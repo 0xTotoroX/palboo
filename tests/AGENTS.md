@@ -429,4 +429,4 @@ dev-launcher 以认证合成服务覆盖 --settings 成功/失败及零启动副
 - `settings-live-previews.test.mjs`：当前配置快照联动任务内容、模型常用/分组/预设/当前选择、Bot目录/隐藏/顺序；合并/完全展开在宽窄屏生效，独立展开预览各组横向排列、窄屏可操作最后一组且标题搜索保持可见；预览编辑零业务请求，布局/外观复用单个标题槽，并覆盖多分栏内长列表滚动与透明内容层，支持英文和减少动态效果。合成截图在target/reports/settings-live-previews。
 - `board.mjs`新增展开窄屏全分组及合并切换检查；Rust任务测试覆盖旧文件默认值、两模式持久化、修订冲突与无效值不写盘。
 
-- `bots-reader.test.mjs`：真实功能样式下的摘要目录、单回答 Markdown/长文末尾、原咨询点击、目录滚动和焦点恢复、迟到结果、失败重试、中英文及窄栏；合成 HTML/链接/图片不执行或发请求。features-e2e 覆盖真实 Rust 缓存读取、owner 拒绝及主聊天草稿不变，Rust bot_reply 测试验证账号/修订/schema/完整性及原文件不变。
+- `bots-reader.test.mjs`：摘要目录、单回答 Markdown/长文末尾、原咨询点击、目录滚动和焦点恢复、迟到结果、失败重试、中英文及窄栏；额外通过实际 mountFeature、完整共用样式与标题槽核对长短摘要左边界、整行点击区域、两行截断及单层留白，覆盖宽窄窗口、深浅主题及大字号。合成 HTML/链接/图片不执行或发请求。features-e2e 覆盖真实 Rust 缓存读取、owner 拒绝及主聊天草稿不变，Rust bot_reply 测试验证账号/修订/schema/完整性及原文件不变。
