@@ -1,8 +1,8 @@
 /* [INPUT]: Current feature state, resolved layout and the settings write queue.
- * [OUTPUT]: Current preset selection, compact management entry and shared presets with retained name/scope drafts.
+ * [OUTPUT]: Separate selection/management slots for the main layout group, with retained preset name/scope drafts.
  * [POS]: Main layout settings and its existing drawer; never changes business feature switches.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { tr } from '../shared/i18n.js';
 import { useLocale } from '../shared/use-locale';
 import {
@@ -34,11 +34,13 @@ export function LayoutPresetSettings({
   layout,
   busy,
   change,
+  renderControls,
 }: {
   state: FeatureState;
   layout: FeatureLayout;
   busy: boolean;
   change: (input: object) => Promise<boolean>;
+  renderControls: (controls: { selector: ReactNode; manager: ReactNode }) => ReactNode;
 }) {
   useLocale();
   const [name, setName] = useState('');
@@ -98,8 +100,8 @@ export function LayoutPresetSettings({
   const draft = chosen && drafts[chosen.id];
   const changed =
     draft && (draft.name.trim() !== chosen.name || draft.scope !== (chosen.scope || 'all'));
-  return (
-    <div className="settings-layout-presets">
+  return renderControls({
+    selector: (
       <Field id="current-layout-preset" label={tr('当前预设')}>
         <NativeSelect
           id="current-layout-preset"
@@ -119,6 +121,8 @@ export function LayoutPresetSettings({
           ))}
         </NativeSelect>
       </Field>
+    ),
+    manager: (
       <SettingsDrawer
         id="layout-presets"
         title={tr('布局预设')}
@@ -322,6 +326,6 @@ export function LayoutPresetSettings({
         </section>
         {confirmation.confirmation}
       </SettingsDrawer>
-    </div>
-  );
+    ),
+  });
 }

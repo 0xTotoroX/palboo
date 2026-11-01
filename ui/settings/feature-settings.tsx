@@ -2,7 +2,7 @@ import { SegmentedGroup } from './components/ui/segmented-group';
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: 功能归属、版本化布局、命名预设与旧布局兼容读取。
- * [OUTPUT]: 主界面形式、功能放置、布局与预设设置，以及预览用的只读已加载快照。
+ * [OUTPUT]: 主界面位置/布局/预设的对齐行、标题右侧的预设管理，以及功能放置与只读预览快照。
  * [POS]: 设置页编排；写入 features，不再写旧两功能 dockLayout/popoutLayout。
  * [PROTOCOL]: 变更时同步 settings/AGENTS.md。 */
 import { useEffect, useRef, useState } from 'react';
@@ -150,59 +150,76 @@ export function FeatureSettings({
       onChangeCapture={feedback.track}
       onPointerDownCapture={feedback.track}
     >
-      <h2 hidden={simple}>{tr('主界面')}</h2>
-      <div className={simple ? undefined : 'settings-surface-rows'}>
-        <div className="settings-surface-item">
-          <div
-            className={simple ? 'settings-placement-row' : 'settings-field settings-placement-row'}
-          >
-            <span>{tr('主界面位置')}</span>
-            <SegmentedGroup
-              value={state.pendingPlacement || primary}
-              id="main-placement"
-              className="settings-choice"
-              role="group"
-              aria-label={tr('主界面形式')}
-            >
-              {(['sidebar', 'overlay', 'desktop'] as const).map((p) => (
-                <button
-                  type="button"
-                  key={p}
-                  aria-pressed={(state.pendingPlacement || primary) === p}
-                  disabled={moving || (p === 'desktop' && !desktopSupported)}
-                  onClick={() => void change({ op: 'main-placement', placement: p })}
+      <LayoutPresetSettings
+        state={state}
+        layout={layout}
+        busy={moving}
+        change={change}
+        renderControls={({ selector, manager }) => (
+          <>
+            <div className="settings-section-heading settings-main-layout-heading" hidden={simple}>
+              <h2>{tr('主界面')}</h2>
+              {manager}
+            </div>
+            <div className={simple ? undefined : 'settings-surface-rows settings-main-layout-rows'}>
+              <div className="settings-surface-item">
+                <div
+                  className={
+                    simple ? 'settings-placement-row' : 'settings-field settings-placement-row'
+                  }
                 >
-                  {simple
-                    ? { sidebar: tr('侧栏'), overlay: tr('浮层'), desktop: tr('桌面') }[p]
-                    : labels[p]}
-                </button>
-              ))}
-            </SegmentedGroup>
-          </div>
-        </div>
-        <div className="settings-surface-item" hidden={simple}>
-          <Field id="main-layout" label={tr('主界面布局')}>
-            <NativeSelect
-              id="main-layout"
-              controlWidth="short"
-              disabled={moving || !ids.length}
-              value={mode}
-              onChange={(e) => arrange(e.target.value)}
-            >
-              <option value="tabs">{tr('标签组')}</option>
-              <option value="vertical">{tr('上下分栏')}</option>
-              <option value="horizontal">{tr('左右分栏')}</option>
-              <option value="auto">{tr('自动分栏')}</option>
-              {mode === 'custom' && (
-                <option value="custom" disabled>
-                  {tr('自定义分栏')}
-                </option>
-              )}
-            </NativeSelect>
-          </Field>
-          <LayoutPresetSettings state={state} layout={layout} busy={moving} change={change} />
-        </div>
-      </div>
+                  <span>{tr('主界面位置')}</span>
+                  <SegmentedGroup
+                    value={state.pendingPlacement || primary}
+                    id="main-placement"
+                    className="settings-choice"
+                    role="group"
+                    aria-label={tr('主界面形式')}
+                  >
+                    {(['sidebar', 'overlay', 'desktop'] as const).map((p) => (
+                      <button
+                        type="button"
+                        key={p}
+                        aria-pressed={(state.pendingPlacement || primary) === p}
+                        disabled={moving || (p === 'desktop' && !desktopSupported)}
+                        onClick={() => void change({ op: 'main-placement', placement: p })}
+                      >
+                        {simple
+                          ? { sidebar: tr('侧栏'), overlay: tr('浮层'), desktop: tr('桌面') }[p]
+                          : labels[p]}
+                      </button>
+                    ))}
+                  </SegmentedGroup>
+                </div>
+              </div>
+              <div className="settings-surface-item" hidden={simple}>
+                <Field id="main-layout" label={tr('主界面布局')}>
+                  <NativeSelect
+                    id="main-layout"
+                    controlWidth="short"
+                    disabled={moving || !ids.length}
+                    value={mode}
+                    onChange={(e) => arrange(e.target.value)}
+                  >
+                    <option value="tabs">{tr('标签组')}</option>
+                    <option value="vertical">{tr('上下分栏')}</option>
+                    <option value="horizontal">{tr('左右分栏')}</option>
+                    <option value="auto">{tr('自动分栏')}</option>
+                    {mode === 'custom' && (
+                      <option value="custom" disabled>
+                        {tr('自定义分栏')}
+                      </option>
+                    )}
+                  </NativeSelect>
+                </Field>
+              </div>
+              <div className="settings-surface-item" hidden={simple}>
+                {selector}
+              </div>
+            </div>
+          </>
+        )}
+      />
       <div hidden={simple}>
         <section id="feature-placements" className="settings-subsection">
           <h3>{tr('各功能位置')}</h3>

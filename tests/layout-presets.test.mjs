@@ -1,5 +1,5 @@
 /* [INPUT]: Real window menu, layout controller and isolated synthetic feature nodes.
- * [OUTPUT]: Preset switching preserves DOM/drafts/scroll; menu keyboard, save failure and pin interactions remain usable.
+ * [OUTPUT]: Preset switching preserves DOM/drafts/scroll; aligned settings fields, menu keyboard, save failure and pin interactions remain usable.
  * [POS]: Browser regression without host data, screenshots or native permissions.
  * [PROTOCOL]: Keep tests/AGENTS.md in sync. */
 import test from 'node:test';
@@ -219,12 +219,28 @@ createRoot(document.getElementById('root')).render(<App/>);
     await page.addScriptTag({ content: script });
     const drawer = page.getByRole('dialog', { name: '布局预设', exact: true });
     await drawer.waitFor();
-    assert.equal(
-      await page
-        .locator('#current-layout-preset')
-        .evaluate((n) => !!n.closest('.settings-surface-item')?.querySelector('#main-layout')),
-      true,
-    );
+    for (const width of [901, 390]) {
+      await page.setViewportSize({ width, height: 780 });
+      const geometry = await page.evaluate(() => {
+        const rect = (selector) => {
+          const box = document.querySelector(selector).getBoundingClientRect();
+          return { left: box.left, right: box.right, width: box.width, top: box.top };
+        };
+        return {
+          layout: rect('#main-layout'),
+          preset: rect('#current-layout-preset'),
+          manager: rect('button[aria-controls="layout-presets-drawer"]'),
+        };
+      });
+      assert.ok(geometry.layout.width > 0);
+      for (const edge of ['left', 'right', 'width'])
+        assert.ok(
+          Math.abs(geometry.layout[edge] - geometry.preset[edge]) < 1,
+          `${width}px: layout and preset ${edge} should align`,
+        );
+      assert.ok(geometry.manager.top < geometry.layout.top, 'management belongs above the fields');
+      assert.ok(geometry.preset.top > geometry.layout.top, 'presets have their own row');
+    }
     assert.equal(await page.getByRole('button', { name: '管理布局预设', exact: true }).count(), 1);
     assert.equal(await drawer.locator('#new-layout-preset-scope').inputValue(), 'desktop');
     await drawer.getByRole('checkbox', { name: '常用语', exact: true }).click();

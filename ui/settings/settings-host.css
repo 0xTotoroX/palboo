@@ -56,6 +56,10 @@ html[data-settings-style='chatgpt'] {
   .settings-surface-rows > .settings-surface-item {
     padding-block: calc(var(--settings-space) * 3);
   }
+  .settings-main-layout-rows .settings-field,
+  .settings-main-layout-rows .settings-choice {
+    margin-bottom: 0;
+  }
 
   .settings-content {
     line-height: inherit;
@@ -232,9 +236,6 @@ html[data-settings-style='chatgpt'] {
     column-gap: calc(var(--settings-space) * 4);
     row-gap: calc(var(--settings-space) * 2);
   }
-  .settings-layout-presets > .settings-field {
-    margin-bottom: 0;
-  }
   .settings-row {
     gap: calc(var(--settings-space) * 4);
     padding-block: calc(var(--settings-space) * 3);
@@ -245,7 +246,8 @@ html[data-settings-style='chatgpt'] {
   .settings-section h2 {
     margin-bottom: calc(var(--settings-space) * 3);
   }
-  .settings-section .bot-settings-heading h2 {
+  .settings-section .bot-settings-heading h2,
+  .settings-section .settings-main-layout-heading h2 {
     margin-bottom: 0;
   }
   .settings-form-column > .settings-section:not([hidden]) ~ .settings-section:not([hidden]),
