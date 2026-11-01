@@ -24,6 +24,7 @@ function Sample({
   mode,
   headerActions,
   showUsage,
+  showTokenMeter,
 }: {
   source: ModelState;
   telemetry?: ModelState['snapshot'];
@@ -31,6 +32,7 @@ function Sample({
   mode: 'current' | 'example';
   headerActions?: HTMLElement;
   showUsage: boolean;
+  showTokenMeter: boolean;
 }) {
   useLocale();
   const reading = useRef<Reading>({});
@@ -52,7 +54,11 @@ function Sample({
   const displayed = {
     ...state,
     preferences: { ...state.preferences, showUsage },
-    snapshot: { ...state.snapshot, usage: telemetry?.usage, tokenMeter: telemetry?.tokenMeter },
+    snapshot: {
+      ...state.snapshot,
+      usage: telemetry?.usage,
+      tokenMeter: showTokenMeter ? telemetry?.tokenMeter : undefined,
+    },
   };
   return (
     <div
@@ -99,11 +105,13 @@ export function ModelPreview({
   demoSelection,
   mode = 'example',
   headerActions,
+  showTokenMeter = true,
 }: {
   model: ModelState | null;
   demoSelection?: Selection;
   mode?: 'current' | 'example';
   headerActions?: HTMLElement;
+  showTokenMeter?: boolean;
 }) {
   useLocale();
   // Only presentation data crosses this boundary. Never retain the host target or revision.
@@ -159,6 +167,7 @@ export function ModelPreview({
       demoSelection={demoSelection}
       headerActions={headerActions}
       showUsage={model?.preferences.showUsage !== false}
+      showTokenMeter={showTokenMeter}
     />
   );
 }

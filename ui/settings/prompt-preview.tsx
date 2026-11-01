@@ -1,23 +1,32 @@
 /* [INPUT]: Real composer enhancer, a local textarea and deterministic example replies.
  * [OUTPUT]: Product optimize/cancel/restore control, preserving manually edited drafts.
- * [POS]: Website-only target and transport; never discovers a host or calls a model.
- * [PROTOCOL]: Keep website/AGENTS.md and website browser checks in sync. */
+ * [POS]: Shared settings/website demo target and transport; never discovers a host or calls a model.
+ * [PROTOCOL]: Keep settings/AGENTS.md and both consumers' browser checks in sync. */
 import { useEffect, useRef } from 'react';
 import { installPromptEnhancer } from '../codex/prompt-enhancement.js';
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 
-export function PromptDemo({ tourStep }: { tourStep?: number }) {
+export function PromptPreview({
+  tourStep,
+  active = true,
+}: {
+  tourStep?: number;
+  active?: boolean;
+}) {
   const locale = useLocale();
   const root = useRef<HTMLDivElement>(null);
   const editor = useRef<HTMLTextAreaElement>(null);
   const edited = useRef(false);
   useEffect(() => {
     if (!edited.current) editor.current!.value = tr('帮我把这个作品集方案安排一下');
+  }, [locale]);
+  useEffect(() => {
+    if (!active) return;
     const timers = new Set<ReturnType<typeof setTimeout>>();
     const controller = installPromptEnhancer({
       getTarget: () => ({
-        id: 'website-prompt',
+        id: 'preview-prompt',
         root: root.current,
         scope: root.current,
         composer: editor.current,
@@ -42,15 +51,15 @@ export function PromptDemo({ tourStep }: { tourStep?: number }) {
       controller.destroy();
       timers.forEach(clearTimeout);
     };
-  }, [locale]);
+  }, [locale, active]);
   useEffect(() => {
-    if (tourStep === undefined || edited.current) return;
+    if (!active || tourStep === undefined || edited.current) return;
     const button = root.current
       ?.querySelector('[data-palboo-prompt]')
       ?.shadowRoot?.querySelector('button');
     if (button?.getAttribute('aria-label') === tr(tourStep === 1 ? '优化提示词' : '恢复原提示词'))
       button.click();
-  }, [tourStep, locale]);
+  }, [tourStep, locale, active]);
   return (
     <div ref={root} className="demo-composer demo-prompt" data-codex-composer-root>
       <textarea

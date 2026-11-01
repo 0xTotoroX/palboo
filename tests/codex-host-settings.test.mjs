@@ -15,7 +15,11 @@ test('CodexHost settings use their own authenticated endpoint and preserve expli
     bundle: true,
     write: false,
     jsx: 'automatic',
-    define: { 'process.env.NODE_ENV': '"production"' },
+    define: {
+      'process.env.NODE_ENV': '"production"',
+      // The isolated IIFE has no module URL; keep preview assets inside the fixture.
+      'import.meta.url': '"https://palboo.test/settings.js"',
+    },
     plugins: [
       {
         name: 'api-fixture',
@@ -34,9 +38,13 @@ test('CodexHost settings use their own authenticated endpoint and preserve expli
   const browser = await chromium.launch({ headless: true });
   try {
     const page = await browser.newPage();
+    const errors = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+    await page.route('https://palboo.test/**', (route) => route.fulfill({ status: 404 }));
     await page.setContent('<div id="root"></div>');
     await page.addScriptTag({ content: out.outputFiles[0].text });
-    const control = page.getByRole('switch', { name: '启用CodexHost' });
+    assert.deepEqual(errors, []);
+    const control = page.getByRole('switch', { name: '启用兼容集成' });
     await control.waitFor();
     await page.getByText('已关闭', { exact: true }).waitFor();
     await control.click();
@@ -53,7 +61,7 @@ test('CodexHost settings use their own authenticated endpoint and preserve expli
         (e) =>
           !!e
             .closest('.settings-feedback-slot')
-            ?.previousElementSibling?.querySelector('[aria-label="启用CodexHost"]'),
+            ?.previousElementSibling?.querySelector('[aria-label="启用兼容集成"]'),
       ),
       true,
     );
@@ -70,6 +78,7 @@ test('CodexHost settings use their own authenticated endpoint and preserve expli
         ['set-enabled', 10, false],
       ],
     );
+    assert.deepEqual(errors, []);
   } finally {
     await browser.close();
   }

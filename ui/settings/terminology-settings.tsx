@@ -8,6 +8,7 @@ import { tr } from '../shared/i18n.js';
 import { SettingsDrawer } from './settings-drawer';
 import { PreviewFrame } from './preview-frame';
 import { Field, Toggle, FeatureSwitch, Feedback } from './settings-controls';
+import { pageTitles } from './settings-outline';
 import { useFeedbackTarget } from './settings-feedback';
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
@@ -240,7 +241,7 @@ export function TerminologySettings({
       {confirmation}
       <style>{cardStyles}</style>
       <FeatureSwitch
-        name={tr('术语释义')}
+        name={pageTitles.terminology}
         portalTarget={enablementTarget}
         checked={prefs?.enabled ?? false}
         disabled={busy || !prefs}

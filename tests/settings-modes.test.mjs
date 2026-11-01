@@ -625,11 +625,83 @@ test(
       await category('features');
       assert.equal(await page.locator('.settings-mode').count(), 0);
       assert.equal(await page.getByRole('navigation', { name: '设置分类' }).isVisible(), true);
-      assert.equal(await page.getByRole('switch').count(), 10);
+      assert.equal(await page.getByRole('switch').count(), 9);
+      const featureNames = await page
+        .locator('.settings-feature-list .settings-feature-switch > label')
+        .allTextContents();
+      const featurePages = await page
+        .locator('.settings-nav-group')
+        .filter({ has: page.getByRole('heading', { name: '功能', exact: true }) })
+        .getByRole('link')
+        .allTextContents();
+      assert.deepEqual(
+        featureNames,
+        featurePages.slice(1),
+        'every feature switch shares its page name and order',
+      );
+      assert.equal(
+        await page.getByRole('switch', { name: '启用聊天测速', exact: true }).count(),
+        0,
+      );
+      await category('model-control');
+      const speed = page.getByRole('switch', { name: '启用聊天测速', exact: true });
+      for (const enabled of [false, true]) {
+        const saved = page.waitForResponse(
+          (response) =>
+            response.url().endsWith('/api/settings') && response.request().method() === 'POST',
+        );
+        await speed.click();
+        await (await saved).finished();
+        assert.equal(settings.tokenMeterEnabled, enabled);
+        assert.deepEqual(Object.keys(writes.at(-1).body).sort(), [
+          'expectedRevision',
+          'tokenMeterEnabled',
+        ]);
+        await category('features');
+        await category('model-control');
+        assert.equal(await speed.getAttribute('aria-checked'), String(enabled));
+      }
+      writes.length = 0;
+      await category('prompt-enhancement');
+      const promptPreview = page.getByLabel('提示词优化演示', { exact: true });
+      const originalPrompt = await promptPreview.inputValue();
+      await page.getByRole('button', { name: '优化提示词', exact: true }).click();
+      await page.getByRole('button', { name: '恢复原提示词', exact: true }).waitFor();
+      assert.match(await promptPreview.inputValue(), /交付内容与检查方法/);
+      await page.getByRole('button', { name: '恢复原提示词', exact: true }).click();
+      assert.equal(await promptPreview.inputValue(), originalPrompt);
+      await promptPreview.fill('我的预览草稿');
+      await page.getByRole('button', { name: '优化提示词', exact: true }).click();
+      await page.getByRole('button', { name: '取消优化', exact: true }).click();
+      await page.getByRole('button', { name: '优化提示词', exact: true }).waitFor();
+      await category('outline');
+      const outlineItems = page.locator(
+        '[data-preview-scene=outline][data-active=true] .csw-outline-row[data-outline-id]',
+      );
+      await outlineItems.first().waitFor();
+      const heading = await outlineItems.first().getAttribute('aria-label');
+      await outlineItems.first().click();
+      assert.equal(
+        await page.locator('[data-preview-scene=outline] .preview-draft').textContent(),
+        heading,
+      );
+      assert.equal(
+        await page.evaluate(() => !!window.__palbooPromptEnhancer),
+        false,
+        'hidden prompt preview releases its controller',
+      );
+      await category('prompt-enhancement');
+      assert.equal(await promptPreview.inputValue(), '我的预览草稿');
+      assert.equal(
+        writes.length,
+        0,
+        'preview optimize, cancel, restore and navigation never write to services',
+      );
+      await category('features');
       assert.equal(await page.getByRole('button', { name: /^打开/ }).count(), 0);
       for (const [name, path] of [
         ['术语释义', '/api/terminology'],
-        ['CodexHost', '/api/codex-host'],
+        ['兼容集成', '/api/codex-host'],
       ]) {
         const control = page.getByRole('switch', { name: `启用${name}`, exact: true });
         for (let index = 0; index < 2; index++) {
@@ -698,6 +770,8 @@ test(
       const splitWrites = writes.length;
       for (const id of [
         'features',
+        'outline',
+        'prompt-enhancement',
         'next',
         'board',
         'model-control',
@@ -712,11 +786,11 @@ test(
         assert.equal(await key.inputValue(), 'fixture-unsaved-key');
         assert.equal(await model.evaluate((n, original) => n === original, modelNode), true);
         assert.equal(await page.getByLabel('搜索术语', { exact: true }).isVisible(), false);
-        if (['next', 'board', 'model-control'].includes(id))
+        if (['outline', 'next', 'board', 'model-control'].includes(id))
           assert.equal(await page.locator('.preview-scene[data-active="true"]').count(), 1);
         if (id === 'features') {
           assert.equal(await page.locator('.settings-preview').count(), 0);
-          assert.equal(await page.getByRole('switch').count(), 10);
+          assert.equal(await page.getByRole('switch').count(), 9);
           assert.equal(
             await page.getByRole('button', { name: '模型分组', exact: true }).isVisible(),
             false,
@@ -798,7 +872,7 @@ test(
           assert.equal(
             await page
               .getByRole('switch', {
-                name: /^启用(大纲|下一步|常用语|看板|模型切换|Grok Bot|术语释义|CodexHost)$/,
+                name: /^启用(大纲|下一步|常用语|任务看板|模型切换|Grok Bot|术语释义|提示词优化|兼容集成)$/,
               })
               .count(),
             0,
@@ -1415,6 +1489,8 @@ test(
             'surfaces',
             'appearance',
             'features',
+            'outline',
+            'prompt-enhancement',
             'next',
             'board',
             'model-control',
@@ -1438,7 +1514,7 @@ test(
                 0,
                 'common switches have no preview',
               );
-              assert.equal(await page.getByRole('switch').count(), 10);
+              assert.equal(await page.getByRole('switch').count(), 9);
               const top = await page.locator('.settings-body').evaluate((node) => ({
                 body: node.getBoundingClientRect().top,
                 controls: node.querySelector('.settings-form-column').getBoundingClientRect().top,
@@ -1521,7 +1597,9 @@ test(
 
             const previewOrder = await page.evaluate(() => {
               const sample = document
-                .querySelector('.settings-preview:not([hidden]), .settings-local-preview')
+                .querySelector(
+                  '.settings-preview:not([hidden]), .settings-local-preview:not([hidden])',
+                )
                 ?.getBoundingClientRect();
               const controls = document
                 .querySelector(
@@ -1540,7 +1618,7 @@ test(
               };
             });
             assert.ok(
-              previewOrder.bottom <= previewOrder.controls.top,
+              id === 'prompt-enhancement' || previewOrder.bottom <= previewOrder.controls.top,
               `${id}: preview above every setting`,
             );
             assert.ok(
@@ -1589,7 +1667,7 @@ test(
                   .map((node) => node.dataset.settingsFeature),
               );
             assert.deepEqual(escapedContent, [], `${id}: real content stays inside the preview`);
-            if (['next', 'prompts', 'board', 'bots'].includes(id)) {
+            if (['outline', 'next', 'prompts', 'board', 'bots'].includes(id)) {
               const actual = await page
                 .locator('.preview-scene[data-active="true"] [data-settings-feature]')
                 .evaluate((node) => {

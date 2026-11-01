@@ -11,6 +11,7 @@ import { ConfirmationButton } from './settings-confirmation';
 import { Button } from './components/ui/button';
 import type { CodexHostStatus } from '../shared/codex-host';
 import { CodexHostPreview } from './codex-host-preview';
+import { pageTitles } from './settings-outline';
 const labels: Record<CodexHostStatus['state'], string> = {
   get disabled() {
     return tr('已关闭');
@@ -130,7 +131,7 @@ export function CodexHostSettings({
       id="settings-codex-host"
     >
       <FeatureSwitch
-        name="CodexHost"
+        name={pageTitles['codex-host']}
         portalTarget={enablementTarget}
         actions={
           !detailsVisible && ['pendingEnable', 'pendingDisable'].includes(state?.state || '') ? (

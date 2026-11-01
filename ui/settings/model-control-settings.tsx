@@ -1,9 +1,10 @@
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
-/* [INPUT]: Model state, revision-checked API. [OUTPUT]: Feature/usage switches, serialized organization settings and read-only preview snapshot.
+/* [INPUT]: Model state, revision-checked API. [OUTPUT]: Feature/usage switches, a slot for the chat-speed option, serialized organization settings and read-only preview snapshot.
  * [POS]: Business enablement only; all placement and themes belong to shared settings.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { pageTitles } from './settings-outline';
 import { FeatureSwitch, Feedback } from './settings-controls';
 import { useFeedbackTarget } from './settings-feedback';
 import { request } from './api';
@@ -15,12 +16,14 @@ export function ModelControlSettings({
   detailed = true,
   enablementTarget,
   onSnapshot,
+  children,
 }: {
   live: boolean;
   active?: boolean;
   detailed?: boolean;
   enablementTarget?: HTMLElement | null;
   onSnapshot?: (state: ModelState | null) => void;
+  children?: ReactNode;
 }) {
   useLocale();
   const [state, setState] = useState<ModelState | null>(null);
@@ -126,7 +129,7 @@ export function ModelControlSettings({
       onChangeCapture={feedback.track}
     >
       <FeatureSwitch
-        name={tr('模型切换')}
+        name={pageTitles['model-control']}
         portalTarget={enablementTarget}
         checked={enabled ?? false}
         disabled={!live || busy || enabled === null}
@@ -146,6 +149,7 @@ export function ModelControlSettings({
           disabled={!live || busy || !state}
           onChange={(value) => void operate({ showUsage: value })}
         />
+        {children}
         {state?.snapshot?.models && (
           <ModelOrganization
             feedback={message}

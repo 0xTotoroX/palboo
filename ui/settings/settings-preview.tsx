@@ -52,17 +52,19 @@ function FeaturePreview({ form, tasks, model, bots, view, dirty, page }: Preview
     'next',
   );
   const activeScene =
-    page === 'prompts'
-      ? 'prompts'
-      : page === 'bots'
-        ? 'bots'
-        : page === 'board'
-          ? 'board'
-          : page === 'model-control'
-            ? 'model'
-            : page === 'next'
-              ? 'next'
-              : tab;
+    page === 'outline'
+      ? 'outline'
+      : page === 'prompts'
+        ? 'prompts'
+        : page === 'bots'
+          ? 'bots'
+          : page === 'board'
+            ? 'board'
+            : page === 'model-control'
+              ? 'model'
+              : page === 'next'
+                ? 'next'
+                : tab;
   const transition = usePreviewTransition(activeScene);
   const enabled = {
     outline: form?.answerOutlineEnabled,
@@ -111,7 +113,11 @@ function FeaturePreview({ form, tasks, model, bots, view, dirty, page }: Preview
             >
               <div className="preview-demo preview-product" data-enabled={active !== false}>
                 {scene === 'model' ? (
-                  <ModelPreview model={model} mode="current" />
+                  <ModelPreview
+                    model={model}
+                    mode="current"
+                    showTokenMeter={form?.tokenMeterEnabled !== false}
+                  />
                 ) : (
                   <FeaturePreviewContent
                     id={scene}
@@ -160,7 +166,12 @@ export function SettingsPreview(props: PreviewProps) {
   const renderFeature = useCallback(
     (id: string, headerActions: HTMLElement) =>
       id === 'model' ? (
-        <ModelPreview model={model} mode="current" headerActions={headerActions} />
+        <ModelPreview
+          model={model}
+          mode="current"
+          headerActions={headerActions}
+          showTokenMeter={form?.tokenMeterEnabled !== false}
+        />
       ) : ['outline', 'next', 'prompts', 'board', 'bots', 'terms'].includes(id) ? (
         <FeaturePreviewContent
           id={id as 'outline' | 'next' | 'prompts' | 'board' | 'bots' | 'terms'}
@@ -174,7 +185,7 @@ export function SettingsPreview(props: PreviewProps) {
       ) : null,
     [form, view, tasks, bots, model],
   );
-  if (['connection', 'codex-host'].includes(props.page)) return null;
+  if (['connection', 'codex-host', 'prompt-enhancement'].includes(props.page)) return null;
   const workspace = props.page === 'surfaces' || props.page === 'appearance';
   return (
     <aside
@@ -194,7 +205,9 @@ export function SettingsPreview(props: PreviewProps) {
           surfaceTypography={props.view?.panelPreferences.surfaceTypography}
           renderFeature={renderFeature}
         />
-      ) : ['features', 'next', 'prompts', 'board', 'model-control', 'bots'].includes(props.page) ? (
+      ) : ['features', 'outline', 'next', 'prompts', 'board', 'model-control', 'bots'].includes(
+          props.page,
+        ) ? (
         <FeaturePreview {...props} />
       ) : props.page === 'model' ? (
         <GenerationPreview {...props} />

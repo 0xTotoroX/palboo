@@ -13,7 +13,7 @@ import { BoardDemo, BotDemo, ComposerDemo, ModelDemo, botSampleNames } from './d
 import { OpeningStory, ReadingStory } from './story';
 import { ScrollDemo } from './scroll-tour';
 import type { GithubLinkVariant } from './github-link';
-import { PromptDemo } from './prompt-demo';
+import { PromptPreview } from '../settings/prompt-preview';
 import { QuickPhrasesDemo } from './product-demos';
 
 function ToolDetails() {
@@ -81,7 +81,7 @@ function ToolDetails() {
               <h3>{tr('提示词优化')}</h3>
               <p>{tr('发送之前，把草稿表达得更清楚。改写后可以继续编辑，也可以还原。')}</p>
             </div>
-            <PromptDemo tourStep={step} />
+            <PromptPreview tourStep={step} />
           </div>
         )}
       </ScrollDemo>

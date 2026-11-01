@@ -348,6 +348,11 @@ export default {
   看板: 'Board',
   聊天测速: 'Chat speed',
   提示词优化: 'Prompt enhancement',
+  提示词优化演示: 'Prompt refinement demo',
+  帮我把这个作品集方案安排一下: 'Help me plan this portfolio project',
+  '请按目标、步骤和检查方法组织回答。': 'Organize the answer by goals, steps, and checks.',
+  '请把这个个人作品集方案整理成两天内可完成的步骤，列出每一步的交付内容与检查方法。':
+    'Turn this portfolio plan into steps I can finish in two days, with a deliverable and a check for each step.',
   '模型设置已在其他窗口更新，已重新读取。请检查后再保存。':
     'Model settings changed in another window and have been reloaded. Review them before saving.',
   模型切换设置: 'Model switching settings',

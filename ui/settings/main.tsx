@@ -40,6 +40,8 @@ import { CodexHostSettings } from './codex-host-settings';
 import { PerformanceSettings } from './performance-settings';
 import { SettingsSearch } from './settings-search';
 import { SettingsPreview } from './settings-preview';
+import { PreviewFrame } from './preview-frame';
+import { PromptPreview } from './prompt-preview';
 import { useSettingsMotion } from './settings-motion';
 import { SettingsTheme } from './settings-theme';
 import type { FeatureState } from '../shared/features';
@@ -233,9 +235,9 @@ function App() {
                 className="settings-section settings-feature-list"
                 aria-label={tr('功能开关')}
               >
-                <div id="settings-outline">
+                <div id="settings-outline-enabled">
                   <FeatureSwitch
-                    name={tr('大纲')}
+                    name={pageTitles.outline}
                     checked={editor.form?.answerOutlineEnabled ?? false}
                     disabled={!live || !editor.form}
                     onChange={(v) => editor.change('answerOutlineEnabled', v)}
@@ -243,7 +245,7 @@ function App() {
                 </div>
                 <div>
                   <FeatureSwitch
-                    name={tr('下一步')}
+                    name={pageTitles.next}
                     checked={editor.form?.enabled ?? false}
                     disabled={!live || !editor.form}
                     onChange={(v) => editor.change('enabled', v)}
@@ -251,7 +253,7 @@ function App() {
                 </div>
                 <div>
                   <FeatureSwitch
-                    name={tr('常用语')}
+                    name={pageTitles.prompts}
                     checked={editor.form?.quickPromptsEnabled ?? false}
                     disabled={!live || !editor.form}
                     onChange={(v) => editor.change('quickPromptsEnabled', v)}
@@ -260,7 +262,7 @@ function App() {
                 <div ref={setTermEnablement} />
                 <div>
                   <FeatureSwitch
-                    name={tr('看板')}
+                    name={pageTitles.board}
                     checked={tasks.state?.store.boardEnabled ?? false}
                     disabled={tasks.busy || !tasks.state || !!tasks.state.error}
                     onChange={(boardEnabled) => void tasks.command({ op: 'modules', boardEnabled })}
@@ -269,29 +271,30 @@ function App() {
                 <div ref={setModelEnablement} />
                 <div id="settings-grokbot">
                   <FeatureSwitch
-                    name="Grok Bot"
+                    name={pageTitles.bots}
                     checked={editor.form?.grokbotEnabled ?? false}
                     disabled={!live || !editor.form}
                     onChange={(value) => editor.change('grokbotEnabled', value)}
                   />
                 </div>
-                <div id="settings-token-meter" hidden={!common}>
+                <div id="settings-prompt-enhancement-enabled">
                   <FeatureSwitch
-                    name={tr('聊天测速')}
-                    checked={editor.form?.tokenMeterEnabled ?? false}
-                    disabled={!live || !editor.form}
-                    onChange={(value) => editor.change('tokenMeterEnabled', value)}
-                  />
-                </div>
-                <div id="settings-prompt-enhancement" hidden={!common}>
-                  <FeatureSwitch
-                    name={tr('提示词优化')}
+                    name={pageTitles['prompt-enhancement']}
                     checked={editor.form?.promptEnhancementEnabled ?? true}
                     disabled={!live || !editor.form}
                     onChange={(value) => editor.change('promptEnhancementEnabled', value)}
                   />
                 </div>
                 <div ref={setHostEnablement} />
+              </section>
+              <section
+                data-settings-page="prompt-enhancement"
+                hidden={page !== 'prompt-enhancement'}
+                className="settings-local-preview"
+              >
+                <PreviewFrame title={pageTitles['prompt-enhancement']} className="preview-prompt">
+                  <PromptPreview active={page === 'prompt-enhancement'} />
+                </PreviewFrame>
               </section>
               <div data-settings-page="model-control" hidden={page !== 'model-control'}>
                 <ModelControlSettings
@@ -300,7 +303,16 @@ function App() {
                   detailed={page === 'model-control'}
                   enablementTarget={modelEnablement}
                   onSnapshot={setModel}
-                />
+                >
+                  <div id="settings-token-meter">
+                    <FeatureSwitch
+                      name={tr('聊天测速')}
+                      checked={editor.form?.tokenMeterEnabled ?? false}
+                      disabled={!live || !editor.form}
+                      onChange={(value) => editor.change('tokenMeterEnabled', value)}
+                    />
+                  </div>
+                </ModelControlSettings>
               </div>
               <div hidden={page !== 'bots'} className="settings-actions">
                 <BotSetupInstructions hidden={page !== 'bots'} />

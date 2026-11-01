@@ -18,6 +18,12 @@ export const pageTitles = {
   get features() {
     return tr('功能开关');
   },
+  get outline() {
+    return tr('大纲');
+  },
+  get 'prompt-enhancement'() {
+    return tr('提示词优化');
+  },
   get prompts() {
     return tr('常用语');
   },
@@ -67,12 +73,14 @@ export const pageGroups: { title: string; pages: SettingsPage[] }[] = [
     },
     pages: [
       'features',
+      'outline',
       'next',
       'prompts',
       'terminology',
       'board',
       'model-control',
       'bots',
+      'prompt-enhancement',
       'codex-host',
     ],
   },
@@ -88,7 +96,9 @@ export const pageGroup = (page: SettingsPage) =>
 const aliases: Record<string, SettingsPage> = {
   'settings-simple': 'features',
   'settings-overview': 'features',
-  'settings-outline': 'features',
+  'settings-outline': 'outline',
+  'settings-prompt-enhancement': 'prompt-enhancement',
+  'settings-token-meter': 'model-control',
   'settings-model-control': 'model-control',
   'model-organization': 'model-control',
   'settings-next': 'next',
