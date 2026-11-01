@@ -11,6 +11,15 @@ html[data-settings-style='chatgpt'] {
     font-weight: var(--settings-page-title-weight);
     letter-spacing: var(--settings-page-title-tracking);
   }
+  .settings-page-title:has(+ .settings-page-intro) {
+    margin-bottom: calc(var(--settings-space) * 3);
+  }
+  .settings-page-intro {
+    max-width: 62ch;
+    margin: 0 0 calc(var(--settings-space) * 6);
+    color: var(--buddy-muted);
+    line-height: 1.6;
+  }
   .settings-nav .settings-nav-children a {
     min-height: calc(var(--settings-space) * 9);
     padding: calc(var(--settings-space) * 1.5) calc(var(--settings-space) * 3);

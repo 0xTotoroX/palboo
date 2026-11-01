@@ -636,8 +636,8 @@ test(
         .allTextContents();
       assert.deepEqual(
         featureNames,
-        featurePages.slice(1),
-        'every feature switch shares its page name and order',
+        featurePages.slice(1).map((name) => (name === '兼容集成' ? 'CodexHost' : name)),
+        'feature switches share page names and order, with CodexHost named inside integrations',
       );
       assert.equal(
         await page.getByRole('switch', { name: '启用聊天测速', exact: true }).count(),
@@ -701,7 +701,7 @@ test(
       assert.equal(await page.getByRole('button', { name: /^打开/ }).count(), 0);
       for (const [name, path] of [
         ['术语释义', '/api/terminology'],
-        ['兼容集成', '/api/codex-host'],
+        ['CodexHost', '/api/codex-host'],
       ]) {
         const control = page.getByRole('switch', { name: `启用${name}`, exact: true });
         for (let index = 0; index < 2; index++) {
@@ -872,7 +872,7 @@ test(
           assert.equal(
             await page
               .getByRole('switch', {
-                name: /^启用(大纲|下一步|常用语|任务看板|模型切换|Grok Bot|术语释义|提示词优化|兼容集成)$/,
+                name: /^启用(大纲|下一步|常用语|任务看板|模型切换|Grok Bot|术语释义|提示词优化|CodexHost)$/,
               })
               .count(),
             0,

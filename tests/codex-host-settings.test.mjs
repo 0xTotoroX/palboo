@@ -44,7 +44,7 @@ test('CodexHost settings use their own authenticated endpoint and preserve expli
     await page.setContent('<div id="root"></div>');
     await page.addScriptTag({ content: out.outputFiles[0].text });
     assert.deepEqual(errors, []);
-    const control = page.getByRole('switch', { name: '启用兼容集成' });
+    const control = page.getByRole('switch', { name: '启用CodexHost' });
     await control.waitFor();
     await page.getByText('已关闭', { exact: true }).waitFor();
     await control.click();
@@ -61,7 +61,7 @@ test('CodexHost settings use their own authenticated endpoint and preserve expli
         (e) =>
           !!e
             .closest('.settings-feedback-slot')
-            ?.previousElementSibling?.querySelector('[aria-label="启用兼容集成"]'),
+            ?.previousElementSibling?.querySelector('[aria-label="启用CodexHost"]'),
       ),
       true,
     );

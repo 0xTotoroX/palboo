@@ -349,6 +349,10 @@ export default {
   聊天测速: 'Chat speed',
   提示词优化: 'Prompt enhancement',
   提示词优化演示: 'Prompt refinement demo',
+  '长回答也能轻松找重点。点击目录，直接回到对应段落。':
+    'Find your way through long answers. Select an outline entry to jump to its paragraph.',
+  '把想法说清楚，让任务更容易执行。发送前优化提示词，也可以还原后继续修改。':
+    'Turn your ideas into clear instructions. Refine a prompt before sending, or restore it and keep editing.',
   帮我把这个作品集方案安排一下: 'Help me plan this portfolio project',
   '请按目标、步骤和检查方法组织回答。': 'Organize the answer by goals, steps, and checks.',
   '请把这个个人作品集方案整理成两天内可完成的步骤，列出每一步的交付内容与检查方法。':

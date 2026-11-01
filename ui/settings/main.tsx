@@ -207,6 +207,16 @@ function App() {
           ref={contentRef}
         >
           <h1 className="settings-page-title">{pageTitles[page]}</h1>
+          {page === 'outline' && (
+            <p className="settings-page-intro">
+              {tr('长回答也能轻松找重点。点击目录，直接回到对应段落。')}
+            </p>
+          )}
+          {page === 'prompt-enhancement' && (
+            <p className="settings-page-intro">
+              {tr('把想法说清楚，让任务更容易执行。发送前优化提示词，也可以还原后继续修改。')}
+            </p>
+          )}
           <Feedback text={error} failed />
           {!editor.form && !error && <p role="status">{tr('正在读取设置…')}</p>}
           <Feedback

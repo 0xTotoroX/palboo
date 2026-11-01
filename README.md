@@ -56,7 +56,7 @@ The published v1.2.0 and earlier do not contain this updater. Install the first 
 ## Get started
 
 1. **Open the workbench:** click the eyes in Codex's left rail. Right-click for settings.
-2. **Choose your tools:** turn features on or off in **Features → Feature switches**. Each matching feature page has a preview and detailed settings; find chat speed under **Features → Model switching**. Set placement in **Layout & position**, and material and language in **Appearance & fonts**.
+2. **Choose your tools:** turn features on or off in **Features → Feature switches**. Each feature has a preview page and relevant settings; find chat speed under **Features → Model switching**. Set placement in **Layout & position**, and material and language in **Appearance & fonts**.
 3. **Set up suggestions:** in **System → Model service**, use your Codex CLI login or a model API, then test the connection. Choose manual or automatic generation in **Features → Next steps**.
 
 Suggestions fill the composer by default. If you already have a draft, Palboo appends to it without sending.
