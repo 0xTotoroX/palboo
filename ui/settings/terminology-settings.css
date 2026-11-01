@@ -80,12 +80,19 @@
   overscroll-behavior: contain;
   overflow-anchor: none;
 }
+#settings-terminology .term-result {
+  border-bottom: 1px solid var(--buddy-border);
+}
+#settings-terminology .term-result > .term-row {
+  border-bottom: 0;
+}
 #settings-terminology .term-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 12px;
   padding-block: 8px;
+  border-bottom: 1px solid var(--buddy-border);
   font-size: 0.875em;
 }
 #settings-terminology .term-result-name {
@@ -160,6 +167,7 @@
 
 #settings-terminology .term-import-jobs {
   margin-top: 24px;
+  border-top: 1px solid var(--border);
 }
 #settings-terminology .term-import-job {
   display: flex;
@@ -167,6 +175,7 @@
   justify-content: space-between;
   gap: 12px;
   padding: 14px 0;
+  border-bottom: 1px solid var(--border);
 }
 #settings-terminology .term-import-job > div:first-child {
   min-width: 0;

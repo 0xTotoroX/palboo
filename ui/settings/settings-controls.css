@@ -452,6 +452,7 @@
 .layout-preset-section + .layout-preset-section {
   margin-top: 28px;
   padding-top: 24px;
+  border-top: 1px solid var(--buddy-border);
 }
 .layout-preset-section > h3 {
   margin: 0 0 16px;
@@ -593,9 +594,13 @@ html:has(.settings-drawer[open]) {
 .settings-drawer-toolbar {
   flex: none;
   padding: 0 28px 8px;
+  border-bottom: 1px solid var(--buddy-border);
 }
 .settings-drawer-toolbar .settings-catalog-selection {
   margin-top: 4px;
+}
+#model-organization .settings-drawer-footer {
+  border-top: 1px solid var(--buddy-border);
 }
 #model-organization .settings-drawer-footer:not(:has(> fieldset:not([hidden]), > p)) {
   display: none;
@@ -852,6 +857,7 @@ html:has(.settings-drawer[open]) {
   display: flex;
   align-items: center;
   gap: 12px;
+  border-bottom: 1px solid var(--buddy-border);
 }
 .settings-app .direction-library-row button {
   flex: 1;

@@ -135,6 +135,7 @@
   grid-template-columns: 1fr auto;
   gap: 14px 20px;
   padding: 22px;
+  border-top: 1px solid var(--monitor-line);
   align-items: center;
 }
 .performance-work-value {
@@ -163,6 +164,7 @@
 .performance-host {
   padding: 20px 22px;
   background: transparent;
+  border-top: 1px solid var(--monitor-line);
 }
 .performance-host-heading {
   display: flex;
@@ -221,6 +223,7 @@
 }
 .performance-details {
   padding: 16px 22px 20px;
+  border-top: 1px solid var(--monitor-line);
   font-size: 13px;
 }
 .performance-details summary {
@@ -280,6 +283,7 @@
   }
   .performance-instrument + .performance-instrument {
     border-left: 0;
+    border-top: 1px solid var(--monitor-line);
   }
   .performance-host,
   .performance-host-work,

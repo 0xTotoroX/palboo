@@ -57,7 +57,7 @@
 - [use-host-appearance.ts](use-host-appearance.ts)：认证 SSE 外观快照映射宿主语义颜色、导航/页面/分组标题、控件、分组边框、字体与动效。浅深分别缓存，缺失模式回退中性黑白；宿主减少动态效果与系统共同生效，不新增轮询或写宿主偏好。
 - [use-host-fonts.ts](use-host-fonts.ts)：将宿主所选具体字形别名映射到 local() FontFace；使用 OpenAI Sans/Serif 时经认证 /host-fonts 按需读取本机 App 包内字节。异步加载失败保留回退链、晚到加载不注册，换字体/来源或销毁时中止请求并回收；不安装、不联网下载、不随包分发字体。
 - [use-settings-tooltip.ts](use-settings-tooltip.ts)：替换既有 title 提示，悬停等待150ms、连续提示300ms内跳过等待；支持键盘、Esc、抽屉和原生title恢复，不添加文案。
-- [settings-host.css](settings-host.css)：设置页唯一宿主皮肤；同步导航强调色选中背景、页面/分组标题、分组圆角细边框、控件/菜单/提示/滚动条、组合输入与各交互状态。设置分组保留宿主圆角外框与内边距；框内行、组间、列表、词库和抽屉不画横向分隔线；输入控件边界保留；预览选择器使用中性分段状态，不以强调色替代普通选择。品牌与业务功能保留。
+- [settings-host.css](settings-host.css)：设置页唯一宿主皮肤；同步导航强调色选中背景、页面/分组标题、分组圆角细边框、控件/菜单/提示/滚动条、组合输入与各交互状态。设置分组保留宿主圆角外框与内边距；框内行、组间、列表、词库和抽屉恢复细横向分隔线，不与外框重复描边；输入控件边界保留；预览选择器使用中性分段状态，不以强调色替代普通选择。品牌与业务功能保留。
 - [index.html](index.html)：设置网页入口，图标复用 ../icon.png。
 - [board.html](board.html)：旧独立看板 HTML 入口，仍挂载 ../surfaces/desktop/legacy-board.tsx 及共用看板内容。
 - [feature.html](feature.html)：桌面和贴边通用 HTML 入口。
