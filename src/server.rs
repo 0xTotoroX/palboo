@@ -1,5 +1,5 @@
 // [INPUT]: App、Runtime、app_mode/app_update、本机认证令牌、target/web 与 ui/panel/popout 资源。
-// [OUTPUT]: serve、认证任务 API、HTTP/SSE API、设置页、看板和弹出页资源；含原生呈现确认的窗口协议及受鉴权的无正文开发状态与仅开发模式开放的工作台唤起接口。
+// [OUTPUT]: serve、认证任务/宿主字体 API、HTTP/SSE API、设置页、看板和弹出页资源；含原生呈现确认的窗口协议及受鉴权的无正文开发状态与仅开发模式开放的工作台唤起接口。
 // [POS]: 仅监听 loopback 的服务入口，公开状态剔除聊天正文并携带设置界面外观快照；认证状态携带 Dev 设置地址供旧入口跳转；更新读取/检查/安装和模型控制、窗口租约共用鉴权；操作锁由对应服务管理。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
@@ -142,6 +142,8 @@ fn router(service: Service) -> Router {
         .route("/tasks/state", get(tasks_state))
         .route("/tasks/command", post(tasks_command))
         .route("/state", get(state))
+        .route("/host-fonts", get(host_font_catalog))
+        .route("/host-fonts/{id}", get(host_font))
         .route("/app-mode", get(app_mode_status).post(app_mode_switch))
         .route(
             "/app-update",
@@ -199,6 +201,28 @@ fn router(service: Service) -> Router {
             validate_host,
         ))
         .with_state(service)
+}
+
+async fn host_font_catalog() -> Json<Value> {
+    let fonts = tokio::task::spawn_blocking(crate::host_fonts::list)
+        .await
+        .unwrap_or_default();
+    Json(json!({ "fonts": fonts }))
+}
+
+async fn host_font(Path(id): Path<String>) -> Response {
+    match tokio::task::spawn_blocking(move || crate::host_fonts::font(&id)).await {
+        Ok(Some(bytes)) => (
+            [
+                (header::CONTENT_TYPE, "font/woff2"),
+                (header::CACHE_CONTROL, "private, no-store"),
+                (header::X_CONTENT_TYPE_OPTIONS, "nosniff"),
+            ],
+            bytes.to_vec(),
+        )
+            .into_response(),
+        _ => StatusCode::NOT_FOUND.into_response(),
+    }
 }
 
 fn same_origin(headers: &HeaderMap, port: u16) -> bool {
@@ -692,6 +716,48 @@ fn static_asset(path: &str) -> Response {
 mod tests {
     use super::*;
     use tower::ServiceExt;
+    #[tokio::test]
+    async fn host_fonts_require_authentication_and_reject_unknown_ids() {
+        let temp = tempfile::tempdir().unwrap();
+        let app = App::new(
+            Paths::new(Some(temp.path().into())).unwrap(),
+            Default::default(),
+            None,
+            false,
+        );
+        let router = router(Service {
+            app,
+            token: "test-token".into(),
+            port: 47831,
+        });
+        for (path, token, status) in [
+            ("/api/host-fonts", "wrong", StatusCode::UNAUTHORIZED),
+            (
+                "/api/host-fonts/openai-sans-regular",
+                "wrong",
+                StatusCode::UNAUTHORIZED,
+            ),
+            (
+                "/api/host-fonts/unknown.woff2",
+                "test-token",
+                StatusCode::NOT_FOUND,
+            ),
+        ] {
+            let response = router
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .uri(path)
+                        .header("host", "127.0.0.1:47831")
+                        .header("authorization", format!("Bearer {token}"))
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.status(), status, "{path}");
+        }
+    }
     #[tokio::test]
     async fn terminology_upload_is_authenticated_opaque_and_route_bounded() {
         let temp = tempfile::tempdir().unwrap();

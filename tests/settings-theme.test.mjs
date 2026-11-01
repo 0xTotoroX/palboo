@@ -113,6 +113,7 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
             '--app-color-background-surface': dark ? '#101010' : '#ffffff',
             '--app-color-text-foreground': dark ? '#ededed' : '#1f2328',
             '--codex-theme-accent-color': '#a67df2',
+            '--app-color-background-button-secondary-hover': dark ? '#292929' : '#eeeeee',
             '--app-color-text-accent': '#7849d1',
             '--color-token-input-border': dark ? '#444444' : '#dddddd',
             '--color-token-focus-border': '#a67df2',
@@ -250,22 +251,12 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
       font: 'Georgia, serif',
       marker: 'none',
     });
-    const purpleTint = async (selector) => {
-      const [r, g, b] = await page.locator(selector).evaluate((n) => {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        ctx.fillStyle = getComputedStyle(n).backgroundColor;
-        ctx.fillRect(0, 0, 1, 1);
-        return [...ctx.getImageData(0, 0, 1, 1).data];
-      });
-      assert.ok(b > r && r > g, `selected role retains the host accent: ${r},${g},${b}`);
-    };
-    await purpleTint('.settings-nav-children a[aria-current]');
+    assert.equal(await color('.settings-nav-children a[aria-current]'), 'rgb(238, 238, 238)');
     assert.equal(
       await page
         .locator('.settings-nav-children a[aria-current]')
         .evaluate((n) => getComputedStyle(n).color),
-      'rgb(120, 73, 209)',
+      'rgb(31, 35, 40)',
     );
     assert.equal(
       await page.locator('.settings-nav-group h2').evaluate((n) => getComputedStyle(n).fontSize),
@@ -275,9 +266,7 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
       const dot = getComputedStyle(n, '::after');
       return { content: dot.content, width: dot.width, color: dot.backgroundColor };
     });
-    assert.equal(groupDot.content, '""');
-    assert.equal(groupDot.width, '4px');
-    assert.equal(groupDot.color, 'rgb(166, 125, 242)');
+    assert.equal(groupDot.content, 'none', 'navigation groups have no decorative accent dots');
     assert.equal(
       await page
         .locator('#section-heading')
@@ -322,17 +311,17 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
     const before = await color('#action');
     await page.locator('#action').hover();
     assert.notEqual(await color('#action'), before);
-    assert.equal(before, 'rgb(166, 125, 242)');
-    await purpleTint('#action');
+    assert.equal(before, 'rgb(34, 34, 34)', 'primary button follows its own semantic role');
+    assert.equal(await color('#action'), 'rgb(51, 51, 51)');
     assert.equal(
       await page.locator('#select').evaluate((n) => getComputedStyle(n).borderRadius),
       '9999px',
       'dropdown uses toolbar radius independently of text inputs and action buttons',
     );
-    await purpleTint('#selected-choice');
+    assert.equal(await color('#selected-choice'), 'rgb(232, 232, 232)');
     const selectedBefore = await color('#selected-choice');
     await page.locator('#selected-choice').hover();
-    await purpleTint('#selected-choice');
+    assert.equal(await color('#selected-choice'), 'rgb(216, 216, 216)');
     assert.notEqual(await color('#selected-choice'), selectedBefore);
     const outlineBorder = await page
       .locator('#outline')
@@ -430,8 +419,8 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
       await page
         .locator('.settings-nav-children a[aria-current]')
         .evaluate((n) => getComputedStyle(n).color),
-      'rgb(166, 125, 242)',
-      'dark surfaces use the bright host accent even when its text-accent is a light-mode value',
+      'rgb(237, 237, 237)',
+      'dark navigation follows host foreground rather than the accent role',
     );
     await render(null);
     await waitColor('rgb(16, 16, 16)');

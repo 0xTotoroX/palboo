@@ -17,6 +17,7 @@ mod edge_window;
 mod feature_window;
 mod features;
 mod host;
+mod host_fonts;
 mod host_launch;
 mod i18n;
 mod jev;

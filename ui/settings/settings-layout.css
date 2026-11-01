@@ -216,7 +216,7 @@ html:root :is(.settings-theme, .settings-choice, .preview-selector) button[aria-
   margin: 5px;
 }
 html[data-settings-style='chatgpt'] [data-slot='button'][data-variant='default']:enabled:hover {
-  background: color-mix(in srgb, var(--buddy-accent) 88%, var(--buddy-text));
+  background: var(--settings-button-hover);
   filter: none;
 }
 html[data-settings-style='chatgpt'] :is(button, input, select, textarea):disabled {
@@ -644,15 +644,7 @@ html:root .settings-nav {
   font-weight: 600;
   color: var(--buddy-muted);
 }
-.settings-nav-group h2::after {
-  content: '';
-  display: inline-block;
-  width: 4px;
-  height: 4px;
-  margin-inline-start: 7px;
-  vertical-align: baseline;
-  background: var(--buddy-accent);
-}
+
 .settings-nav-children {
   display: flex;
   flex-direction: column;

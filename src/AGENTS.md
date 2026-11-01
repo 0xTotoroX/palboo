@@ -159,3 +159,5 @@ DesktopStatus.pageKind 接收共享宿主分类；host_page_allowed 读取旧 si
 - `settings_navigation.rs`：设置目的地白名单及宿主内打开协调。认证 `/api/settings/open`、桌面/贴边设置及 CLI 启动入口均经当前连接的宿主调用公开 `openSettings`；预设目的地保持 token 并追加 `open=layout-presets`，失败不调用系统浏览器。`i18n::system_locale` 统一投影只读 `systemLanguage` 到设置 HTTP/SSE、宿主及各功能承载，不保存新偏好。
 
 panel_window::WindowPath 以0=聊天来源、1=桌面终点定义唯一空间路径；WindowTransition 仅管理方向和时间。正式空间移动和Dev网格形变共用路径，取消收回/打断弹出从最后实际呈现的参数反向，不另建弧线。收回完成保留路径直到确认或失败恢复；初次网格不可用且来源小于原生最小尺寸时使用短淡入，不让系统夹紧造成突跳。同一窗口加载新页面的 show 重新确认 presented，并清理旧页面的返回、延迟返回和形变状态；普通桌面终点从保存的返回起点或活动路径恢复，不采用收回途中的临时尺寸。
+
+- `host_fonts.rs`：只读已安装 ChatGPT/Codex App 的受支持 OpenAI Sans/Serif 字形。核验 App 标识、资源在包内、ASAR 索引/成员边界、CSS 本地引用与 SHA-256；限制大小并按包文件身份缓存，不接受 HTTP 路径、不联网、不安装字体。server 的认证 GET /api/host-fonts 和 /api/host-fonts/{id} 仅暴露白名单元数据与 WOFF2，不支持的包安全回退。包内字体不属于 Palboo 分发产物。

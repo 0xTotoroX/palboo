@@ -52,10 +52,10 @@
 - [settings-preview.css](settings-preview.css)：功能及模型服务摘要使用最大480px单层哑光内容框、12px圆角和内容自适应高度，正文最大440px后内部滚动；任务看板独立预览使用页面可用全宽，不固定比例。真实模型沿用组件样式与底栏，独立示例可使用名称下方强度选项。整体场景为16:9，材质效果为近似预览。
 - [settings-list-motion.ts](settings-list-motion.ts)：配置列表增删/排序补位和新项4px淡入，共用主题时长（原主题200ms）及减少动效判断；以稳定ID测量相对位置，提示词没有持久ID时使用仅在界面保留的身份，兼容重复内容、后台整表回读与删除确认；不改变布局、保存时机或数据结构。
 - [settings-motion.ts](settings-motion.ts)：分类入场、功能预览与服务字段的可中断动画，提供公共时长/缓动及减少动效判断；跟随主题读取宿主参数，原主题保留原时长。键盘即时响应，宿主/系统减少动态效果取消进行中的动画；ResizeObserver 同步顶栏真实高度至目录粘性偏移，不重新挂载控件、不存储配置；页面入场保留4px位移。
-- [settings-motion.css](settings-motion.css)：普通设置菜单即时开合；模型候选入场按已确认300ms/bounce0.1的弹簧采样，scale .8、opacity0及blur8px恢复到正常状态；控件不添加无依据的按压缩放。保留可中断关闭、焦点恢复及减少动态效果；抽屉等尚未绑定官方内部参数的动效不能宣称完整复刻。
+- [settings-motion.css](settings-motion.css)：普通设置菜单即时开合；模型候选入场按已确认300ms/bounce0.1的弹簧采样，scale .8、opacity0及blur8px恢复到正常状态；控件不添加无依据的按压缩放。保留可中断关闭、焦点恢复及减少动态效果；普通确认/搜索弹窗不附加整窗缩放或淡入淡出，仅内容高度过渡；抽屉参考已确认的 ViewerSidepanel（400/40/mass1），全宽平移使用10ms弹簧采样、600ms收敛，不声称它是官方设置页的同一抽屉组件。
 - [settings-theme.tsx](settings-theme.tsx)：页头仅提供自动／浅色／深色，统一跟随 ChatGPT.app；只保存 settingsTheme 及修订。忽略旧 settingsStyle/settingsAccent，保留错误反馈、草稿、键盘及关闭焦点；独立窗口字体偏好仍有效。
 - [use-host-appearance.ts](use-host-appearance.ts)：认证 SSE 外观快照映射宿主语义颜色、导航/页面/分组标题、控件、分组边框、字体与动效。浅深分别缓存，缺失模式回退中性黑白；宿主减少动态效果与系统共同生效，不新增轮询或写宿主偏好。
-- [use-host-fonts.ts](use-host-fonts.ts)：将宿主所选具体字形的别名映射到本机 local() FontFace；异步完成核对生命周期，换字体/来源后回收，不枚举或下载字体文件。
+- [use-host-fonts.ts](use-host-fonts.ts)：将宿主所选具体字形别名映射到 local() FontFace；使用 OpenAI Sans/Serif 时经认证 /host-fonts 按需读取本机 App 包内字节。异步加载失败保留回退链、晚到加载不注册，换字体/来源或销毁时中止请求并回收；不安装、不联网下载、不随包分发字体。
 - [use-settings-tooltip.ts](use-settings-tooltip.ts)：替换既有 title 提示，悬停等待150ms、连续提示300ms内跳过等待；支持键盘、Esc、抽屉和原生title恢复，不添加文案。
 - [settings-host.css](settings-host.css)：设置页唯一宿主皮肤；同步导航强调色选中背景、页面/分组标题、分组圆角细边框、控件/菜单/提示/滚动条、组合输入与各交互状态。材质/字体和功能开关复用分组样式；预览选择器使用中性分段状态，不以强调色替代普通选择。品牌与业务功能保留。
 - [index.html](index.html)：设置网页入口，图标复用 ../icon.png。
@@ -145,7 +145,7 @@ model-control-settings提供“启用额度显示”，复用模型快切独立�
 
 panel-settings 在“布局与位置 → 启用范围”提供新聊天与 Dots 两个默认关闭的 Palboo 全功能范围开关，复用 appearance 的 expectedRevision 逐字段保存及失败反馈；settings-outline 支持对应搜索/锚点定位。
 
-设置弹层关闭时保留最后可见内容完成退出，不延迟原生关闭与焦点恢复：settings-search 的查询在动画结束后清空，下次打开重置；settings-confirmation 只保留标题/描述，不保留可执行确认动作；settings-drawer 保留原草稿与滚动。动效统一在settings-motion.css，布局与控件CSS只管理几何和配色。
+设置弹层关闭时保留最后可见内容完成退出，不延迟原生关闭与焦点恢复：settings-search 即时关闭后清空查询，下次打开重置；settings-confirmation 只保留标题/描述，不保留可执行确认动作；settings-drawer 保留原草稿与滚动。动效统一在settings-motion.css，布局与控件CSS只管理几何和配色。
 
 设置页输入、下拉、未选中的选项及描边按钮共用柔和灰底和低对比边界；悬停加深、聚焦保留细线；深色继续原有配色。FeatureSwitch 可见名称不加“启用”，可访问动作名称保留。
 
@@ -183,6 +183,8 @@ main.tsx 从认证 state/SSE 的 systemLanguage 解析“跟随系统”，与�
 
 布局预设与主界面布局在同一设置分组：当前预设下拉直接应用，紧邻的管理入口复用 SettingsDrawer 紧凑触发器。管理抽屉支持通用/侧栏推荐/浮层推荐/桌面推荐；名称与标记草稿共用原修订，冲突/失败保留，取消接收远端。预设为共享目录，各形式布局独立；当前预设按实际布局匹配。
 
-use-host-appearance 将宿主强调色用于主按钮、开启开关与导航/分段选中浅底；深色强调文字使用同源亮色，浅色采用宿主 accentText。旧自定义强调色不参与显示。紧凑预设字段去除宿主通用底边距，使管理按钮与下拉中轴对齐；窄屏自然换行。Bot 资料标题行同样去除通用标题下边距，使标题与刷新按钮保持中轴对齐。
+use-host-appearance 分别使用宿主 primary/navSelected/segmented/switchOn 等语义颜色，普通导航和分段文字使用正文色；开关、链接、Clear 星星与焦点按各自角色使用强调色，移除分类装饰色点。旧自定义强调色不参与显示。紧凑预设字段去除宿主通用底边距，使管理按钮与下拉中轴对齐；窄屏自然换行。Bot 资料标题行同样去除通用标题下边距，使标题与刷新按钮保持中轴对齐。
 
 模型设置首读不受标签页可见性影响，后续轮询只在可见页面串行读取；焦点/可见性变化复用同一读取入口，慢响应不被周期性请求作废。写入继续使用原串行队列与完成后回读。
+
+大纲与提示词优化的介绍位于各自预览之后；提示词优化预览与其他预览同在 settings-body 的首部，保持独立挂载和本地草稿，不嵌在介绍之后的表单列。

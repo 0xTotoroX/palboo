@@ -1,5 +1,5 @@
 /* [INPUT]: Settings markup, theme variables and pointer/keyboard modality.
- * [OUTPUT]: Desktop menu roles, sampled model spring, local dialog fallback and immediate keyboard/reduced-motion states.
+ * [OUTPUT]: Desktop menu roles, sampled model/panel springs, immediate standard dialogs and immediate keyboard/reduced-motion states.
  * [POS]: Visual feedback only; native actions and form mounting stay unchanged.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 html:root {
@@ -7,8 +7,8 @@ html:root {
   --settings-menu-exit: 0ms;
   --settings-content-enter: 200ms;
   --settings-exit-ease: var(--settings-ease);
-  --settings-panel-enter: 220ms;
-  --settings-panel-exit: 160ms;
+  --settings-panel-duration: 600ms;
+  --settings-panel-spring: cubic-bezier(0.23, 1, 0.32, 1);
 }
 html:root,
 body,
@@ -179,55 +179,106 @@ body,
   }
 }
 
-/* Whole-dialog entry keeps a local fallback: only the host's content-height
-   transition is confirmed. Fixed-height sheets keep their existing travel. */
-:is(.settings-drawer, .settings-search-dialog, .settings-key-dialog) {
-  --settings-dialog-enter: 180ms;
-  --settings-dialog-exit: 140ms;
-  --settings-dialog-from: translateY(4px) scale(0.985);
-  opacity: 0;
-  transform: var(--settings-dialog-from);
-  pointer-events: none;
-  transition:
-    opacity var(--settings-dialog-exit) var(--settings-ease),
-    transform var(--settings-dialog-exit) var(--settings-ease),
-    display var(--settings-dialog-exit) allow-discrete,
-    overlay var(--settings-dialog-exit) allow-discrete;
-}
-.settings-drawer {
-  --settings-dialog-enter: var(--settings-panel-enter);
-  --settings-dialog-exit: var(--settings-panel-exit);
-  --settings-dialog-from: translateX(16px);
-}
-.settings-search-dialog {
-  --settings-dialog-from: translateY(-4px) scale(0.985);
-}
-:is(.settings-drawer, .settings-search-dialog, .settings-key-dialog)[open] {
+/* App Dialog / default: no whole-surface entry/exit animation. Its measured
+   content-height transition remains in use-dialog-height. System pickers stay native. */
+:is(.settings-search-dialog, .settings-key-dialog) {
   opacity: 1;
   transform: none;
-  pointer-events: auto;
-  transition-duration: var(--settings-dialog-enter);
+  transition: none;
 }
 :is(.settings-drawer, .settings-search-dialog, .settings-key-dialog)::backdrop {
-  opacity: 0;
+  transition: none;
+}
+/* App ViewerSidepanel: x = 100% -> 0, stiffness 400, damping 40, mass 1.
+   Sample the critical spring at 10ms; 600ms settles below a visual pixel.
+   This maps the verified side-panel motion onto Palboo's existing drawers. */
+@supports (transition-timing-function: linear(0, 1)) {
+  html:root {
+    --settings-panel-spring: linear(
+      0,
+      0.01752,
+      0.06155,
+      0.1219,
+      0.19121,
+      0.26424,
+      0.33737,
+      0.40817,
+      0.47507,
+      0.53716,
+      0.59399,
+      0.64543,
+      0.69156,
+      0.73262,
+      0.76892,
+      0.80085,
+      0.8288,
+      0.85316,
+      0.87431,
+      0.89262,
+      0.90842,
+      0.92202,
+      0.9337,
+      0.94371,
+      0.95227,
+      0.95957,
+      0.9658,
+      0.97109,
+      0.97559,
+      0.97941,
+      0.98265,
+      0.98539,
+      0.9877,
+      0.98966,
+      0.99131,
+      0.9927,
+      0.99388,
+      0.99487,
+      0.9957,
+      0.99639,
+      0.99698,
+      0.99747,
+      0.99789,
+      0.99823,
+      0.99852,
+      0.99877,
+      0.99897,
+      0.99914,
+      0.99928,
+      0.9994,
+      0.9995,
+      0.99958,
+      0.99965,
+      0.99971,
+      0.99976,
+      0.9998,
+      0.99983,
+      0.99986,
+      0.99988,
+      0.9999,
+      1
+    );
+  }
+}
+.settings-drawer {
+  opacity: 1;
+  transform: translateX(100%);
   pointer-events: none;
   transition:
-    opacity var(--settings-dialog-exit) var(--settings-ease),
-    display var(--settings-dialog-exit) allow-discrete,
-    overlay var(--settings-dialog-exit) allow-discrete;
+    transform var(--settings-panel-duration) var(--settings-panel-spring),
+    display var(--settings-panel-duration) allow-discrete,
+    overlay var(--settings-panel-duration) allow-discrete;
 }
-:is(.settings-drawer, .settings-search-dialog, .settings-key-dialog)[open]::backdrop {
-  opacity: 1;
+.settings-drawer[open] {
+  transform: none;
   pointer-events: auto;
-  transition-duration: var(--settings-dialog-enter);
+}
+:is(.settings-drawer, .settings-search-dialog, .settings-key-dialog):not([open]),
+:is(.settings-drawer, .settings-search-dialog, .settings-key-dialog):not([open])::backdrop {
+  pointer-events: none;
 }
 @starting-style {
-  :is(.settings-drawer, .settings-search-dialog, .settings-key-dialog)[open] {
-    opacity: 0;
-    transform: var(--settings-dialog-from);
-  }
-  :is(.settings-drawer, .settings-search-dialog, .settings-key-dialog)[open]::backdrop {
-    opacity: 0;
+  .settings-drawer[open] {
+    transform: translateX(100%);
   }
 }
 .settings-drawer-trigger > .buddy-icon {

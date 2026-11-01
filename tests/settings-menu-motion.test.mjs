@@ -181,7 +181,21 @@ return <div className="settings-app" ref={ref}>
     await page.getByRole('button', { name: '高级设置', exact: true }).click();
     assert.equal(
       await drawer.evaluate((n) => getComputedStyle(n, '::backdrop').transitionDuration),
-      '0.22s',
+      '0s',
+    );
+    const panelSpring = await drawer.evaluate((node) => ({
+      duration: getComputedStyle(node).transitionDuration,
+      curve: getComputedStyle(node).transitionTimingFunction,
+      frames: node
+        .getAnimations()
+        .filter((a) => a.transitionProperty === 'transform')
+        .flatMap((a) => a.effect.getKeyframes().map((f) => f.transform)),
+    }));
+    assert.ok(panelSpring.duration.includes('0.6s'));
+    assert.ok(panelSpring.curve.startsWith('linear('));
+    assert.ok(
+      panelSpring.frames.some((f) => f.includes('100%')),
+      'full-width side-panel entry',
     );
     await page.locator('#draft').fill('未保存输入');
     await finishAnimations(drawer);
@@ -189,6 +203,18 @@ return <div className="settings-app" ref={ref}>
     assert.equal(await drawer.evaluate((n) => n.inert), true);
     await drawer.waitFor({ state: 'hidden' });
     await page.getByRole('button', { name: '高级设置', exact: true }).click();
+    assert.equal(await page.locator('#draft').inputValue(), '未保存输入');
+    await drawer.evaluate(async (node) => {
+      window.retainedDrawer = node;
+      node.querySelector('[data-drawer-close]').click();
+      await new Promise(requestAnimationFrame);
+      document.querySelector('.settings-drawer-trigger').click();
+    });
+    await finishAnimations(drawer);
+    assert.equal(
+      await drawer.evaluate((node) => node === window.retainedDrawer && node.open && !node.inert),
+      true,
+    );
     assert.equal(await page.locator('#draft').inputValue(), '未保存输入');
     await page.keyboard.press('Escape');
     assert.equal(await drawer.isVisible(), false);
@@ -233,8 +259,8 @@ return <div className="settings-app" ref={ref}>
     await page.getByRole('button', { name: '关闭搜索', exact: true }).click();
     assert.equal(
       await search.locator('input').inputValue(),
-      '草稿',
-      'search does not swap its content during exit',
+      '',
+      'instant search close clears only after the dialog is hidden',
     );
     assert.equal(await search.evaluate((n) => n.inert), true);
     await search.waitFor({ state: 'hidden' });
@@ -255,22 +281,11 @@ return <div className="settings-app" ref={ref}>
       ),
       'model menu alone uses the confirmed entry spring',
     );
-    for (const className of ['settings-key-dialog', 'settings-search-dialog']) {
-      for (const [duration, frames] of [
-        [180, ['0', '1']],
-        [140, ['1', '0']],
-      ])
-        assert.ok(
-          transitions.some(
-            (t) =>
-              t.className.includes(className) &&
-              !t.pseudo &&
-              t.duration === duration &&
-              JSON.stringify(t.frames) === JSON.stringify(frames),
-          ),
-          `${className} ${duration}ms transition`,
-        );
-    }
+    assert.equal(
+      transitions.some((t) => /settings-(key|search)-dialog/.test(t.className)),
+      false,
+      'standard App dialogs have no added whole-surface fade or zoom',
+    );
     const segments = page.getByRole('group', { name: '示例分段' });
     const indicator = segments.locator('.settings-segment-indicator');
     await segments.getByRole('button', { name: '很长的第二项', exact: true }).click();
@@ -306,11 +321,10 @@ return <div className="settings-app" ref={ref}>
       0,
       'keyboard selection is immediate',
     );
-    assert.ok(
-      transitions.some(
-        (t) => t.className.includes('settings-drawer') && !t.pseudo && t.duration === 160,
-      ),
-      'drawer exits faster than it enters',
+    assert.equal(
+      transitions.some((t) => t.className.includes('settings-drawer')),
+      false,
+      'side panel slides without a competing opacity animation',
     );
 
     await themeTrigger.click();

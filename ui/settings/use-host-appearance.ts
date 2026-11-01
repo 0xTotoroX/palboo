@@ -1,5 +1,5 @@
 /* [INPUT]: 无正文宿主界面外观快照及明暗模式。
- * [OUTPUT]: 按角色映射颜色/尺寸及字体动效；主操作/选中强调色和深色可读文字，双色缓存保留末次读数。
+ * [OUTPUT]: 按宿主语义角色映射颜色/尺寸及字体动效；主按钮、导航、分段和强调色独立，双色缓存保留末次读数。
  * [POS]: 只影响设置文档，不更改功能布局、业务字体偏好或宿主。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { useLayoutEffect, useRef } from 'react';
@@ -43,8 +43,7 @@ export function useHostAppearance(
     const ink = colors.text || (theme === 'dark' ? '#ececec' : '#1f2328');
     const mix = (amount: number) => `color-mix(in srgb, ${ink} ${amount}%, ${paper})`;
     const accent = colors.accent || ink;
-    // 某些宿主深色快照仍提供浅色模式的深紫文字色；深色表面采用同源亮强调色。
-    const accentText = theme === 'dark' ? accent : colors.accentText || accent;
+    const accentText = colors.accentText || accent;
     const accentFill = (amount: number) => `color-mix(in srgb, ${accent} ${amount}%, ${paper})`;
     const geometry = palette?.geometry || last.current?.geometry || {};
     const metric = (
@@ -102,7 +101,7 @@ export function useHostAppearance(
       '--settings-nav-radius': metric('navRadius', 'border-radius', '0.5rem'),
       '--settings-nav-weight': metric('navWeight', 'font-weight', '400'),
       '--settings-nav-group-weight': metric('navGroupWeight', 'font-weight', '500'),
-      '--settings-nav-selected': accentFill(14),
+      '--settings-nav-selected': colors.navSelected || colors.ghostHover || mix(8),
       '--settings-nav-group-color': colors.tertiary || colors.muted || mix(55),
       '--settings-page-title-size': fontMetric('pageTitleSize', 'font-size', '1.5rem'),
       '--settings-page-title-line-height': fontMetric('pageTitleLineHeight', 'line-height', '1.2'),
@@ -141,17 +140,17 @@ export function useHostAppearance(
       '--settings-input-border': colors.inputBorder || colors.border || mix(15),
       '--settings-ghost-hover': colors.ghostHover || colors.hover || mix(5),
       '--settings-ghost-active': colors.ghostActive || colors.ghostHover || mix(12),
-      '--settings-segmented': accentFill(16),
-      '--settings-segmented-hover': accentFill(22),
+      '--settings-segmented': colors.segmented || mix(8),
+      '--settings-segmented-hover': colors.segmentedHover || colors.segmented || mix(12),
       '--settings-slider-track': colors.sliderTrack || colors.border || mix(15),
       '--settings-placeholder': colors.placeholder || colors.muted || mix(65),
       '--settings-disabled-background': colors.disabledBackground || mix(5),
       '--settings-disabled-border': colors.disabledBorder || mix(6),
       '--settings-disabled-text': colors.disabledText || mix(45),
-      '--settings-button-background': accent,
-      '--settings-button-hover': `color-mix(in srgb, ${accent} 90%, ${ink})`,
-      '--settings-button-active': `color-mix(in srgb, ${accent} 82%, ${ink})`,
-      '--settings-button-text': colors.onAccent || paper,
+      '--settings-button-background': colors.primary || ink,
+      '--settings-button-hover': colors.primaryHover || mix(85),
+      '--settings-button-active': colors.primaryActive || mix(75),
+      '--settings-button-text': colors.primaryText || paper,
       '--settings-menu-hover': colors.menuHover || colors.hover || mix(6),
       '--settings-backdrop': colors.backdrop || (theme === 'dark' ? '#0008' : '#0005'),
       '--settings-selection': colors.selection || colors.selected || mix(15),
@@ -174,12 +173,12 @@ export function useHostAppearance(
       '--settings-rule': colors.border || mix(14),
       '--settings-orange': accentText,
       '--settings-accent-text': accentText,
-      '--settings-selected': accentFill(14),
-      '--settings-selected-text': accentText,
-      '--settings-switch-on': accent,
+      '--settings-selected': colors.selected || accentFill(14),
+      '--settings-selected-text': colors.text || ink,
+      '--settings-switch-on': colors.switchOn || accent,
       '--settings-switch-thumb': colors.switchThumb || '#ffffff',
       '--switch-track': colors.switchTrack || mix(15),
-      '--settings-primary-text': colors.onAccent || paper,
+      '--settings-primary-text': colors.primaryText || paper,
       '--error-foreground': colors.danger || (theme === 'dark' ? '#ff8583' : '#b42318'),
       '--error': `color-mix(in srgb, var(--error-foreground) 8%, ${paper})`,
       '--error-border': `color-mix(in srgb, var(--error-foreground) 25%, ${paper})`,

@@ -11,9 +11,6 @@ html[data-settings-style='chatgpt'] {
     font-weight: var(--settings-page-title-weight);
     letter-spacing: var(--settings-page-title-tracking);
   }
-  .settings-page-title:has(+ .settings-page-intro) {
-    margin-bottom: calc(var(--settings-space) * 3);
-  }
   .settings-page-intro {
     max-width: 62ch;
     margin: 0 0 calc(var(--settings-space) * 6);
@@ -89,7 +86,7 @@ html[data-settings-style='chatgpt'] {
     color: var(--buddy-text);
   }
   .settings-app .settings-nav .settings-nav-children a[aria-current='page'] {
-    color: var(--settings-accent-text);
+    color: var(--buddy-text);
     background: var(--settings-nav-selected);
     font-weight: var(--settings-nav-weight);
   }
@@ -272,7 +269,7 @@ html[data-settings-style='chatgpt'] {
     button[aria-pressed='true'] {
     border-color: transparent;
     background: var(--settings-segmented);
-    color: var(--settings-accent-text);
+    color: var(--buddy-text);
     font-weight: var(--settings-button-weight);
   }
   .settings-app

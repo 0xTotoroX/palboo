@@ -407,7 +407,7 @@ Fast/普通预设按闪电标记独立消歧：model-groups 覆盖同组编号�
 
 handoff-motion 追加真实 embedded/features 适配器回归：连续点击只发起一个请求、pending 阶段不重复切换、真实错误可见且重试清除、销毁拒绝迟到响应并保留其他设置提示；launcher-menu 验内/外暂禁且设置可用。Rust repeated_main_placement 验重复目标保留 owner/草稿，其他目标与旧 owner 仍拒绝。
 
-设置同步与预览回归：settings-modes覆盖功能分类内的常用开关/兼容集成、界面16:9/功能内容自适应且最大宽度480px（任务看板占满可用宽度）、双主题360/600/900/1360px、真实Shadow DOM边界与兼容层概览零写入；截图由PALBOO_TEST_SCREENSHOTS选择；Clear星星覆盖鼠标/Space/Enter切换与原修订保存，分类主题点与Clear选中星星跟随宿主强调色，功能外框采用哑光并保持真实内容边界；CodexHost预览验证18个标识加载、更多分组、键盘、添加和单选零服务写入、勾选靠右及窄屏滚动。settings-menu-motion按组件区分普通菜单即时、模型入场300ms弹簧、分段280ms底块中断、确认框错误增高300ms及键盘/减少动态效果；settings-motion保留无宿主主题的独立挂载。
+设置同步与预览回归：settings-modes覆盖功能分类内的常用开关/兼容集成、界面16:9/功能内容自适应且最大宽度480px（任务看板占满可用宽度）、双主题360/600/900/1360px、真实Shadow DOM边界与兼容层概览零写入；截图由PALBOO_TEST_SCREENSHOTS选择；Clear星星覆盖鼠标/Space/Enter切换与原修订保存，分类不添加装饰点，Clear选中星星跟随宿主强调色，功能外框采用哑光并保持真实内容边界；CodexHost预览验证18个标识加载、更多分组、键盘、添加和单选零服务写入、勾选靠右及窄屏滚动。settings-menu-motion按组件区分普通菜单即时、模型入场300ms弹簧、分段280ms底块中断、确认框错误增高300ms及键盘/减少动态效果；settings-motion保留无宿主主题的独立挂载。
 
 预览与总开关修正：settings-modes逐个核对真实Shadow DOM内容与外框等高（不能只验外框或不溢出），覆盖常用语/Bot/术语短内容无空白方框；功能开关页9个主开关与导航对应同序（兼容集成对应CodexHost）、子页无重复、术语/CodexHost保存仍走原修订API，CodexHost只改启用意愿。兼容层Agent菜单、介绍、原仓库链接和窄屏边界，零服务写入；搜索词库继续采用稳定抽屉锚点。深浅/多宽度截图包括常用语和Bot。
 
@@ -432,3 +432,6 @@ dev-launcher 以认证合成服务覆盖 --settings 成功/失败及零启动副
 - `bots-reader.test.mjs`：摘要目录、单回答 Markdown/长文末尾、原咨询点击、目录滚动和焦点恢复、迟到结果、失败重试、中英文及窄栏；额外通过实际 mountFeature、完整共用样式与标题槽核对长短摘要左边界、整行点击区域、两行截断及单层留白，覆盖宽窄窗口、深浅主题及大字号。合成 HTML/链接/图片不执行或发请求。features-e2e 覆盖真实 Rust 缓存读取、owner 拒绝及主聊天草稿不变，Rust bot_reply 测试验证账号/修订/schema/完整性及原文件不变。
 
 设置功能目录回归：settings-modes核对九个主开关与功能导航对应同序（兼容集成对应CodexHost），聊天测速在模型切换页独立保存并沿用旧锚点；大纲点击、提示词优化/取消/还原不发送业务请求，跨页保留预览草稿且隐藏时释放提示词控制器。窄屏、双主题与英文继续覆盖新增预览；website的对应提示词用例验证共用组件迁移后行为保持。
+
+- `settings-host-fonts.test.mjs`：合成 FontFace 与真实字体 hook/API 验证按需认证、字体族过滤、局部失败回退、local 别名及卸载晚到回收；不含专用字体字节。host_fonts Rust 单测验证 ASAR 边界/完整性、未知字形、外部引用及模糊声明拒绝，server 单测验证鉴权。ignored installed_host_font_catalog_is_readable 仅在本机显式读取已安装 App，不能替代浏览器实际字体解码验收。
+- 本轮 settings-theme 验证主按钮、导航、分段各自语义色及无分类装饰点；settings-menu-motion 验证普通弹窗即时、抽屉全宽弹簧和反向开合、草稿/焦点及减少动效。settings-modes 将提示词优化加入统一“预览在控件与介绍之前”几何断言。

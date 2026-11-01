@@ -1,7 +1,7 @@
 import { tr } from '../shared/i18n.js';
 /*
  * [INPUT]: 启动令牌、React 与本机认证 API/SSE。
- * [OUTPUT]: 公开数据类型、request、原样术语文件上传与 useCompanion 状态订阅；本轮首个状态快照到达才恢复在线。
+ * [OUTPUT]: 公开数据类型、可取消 request、认证宿主字体二进制读取、原样术语文件上传与 useCompanion 状态订阅；本轮首个状态快照到达才恢复在线。
  * [POS]: 网页通信层，令牌在同源标签页共享并自动恢复认证连接；认证状态中的 Dev 地址将普通设置入口导向监督进程。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -85,11 +85,16 @@ const headers = () => ({
   'Content-Type': 'application/json',
 });
 
-export async function request<T = { ok: boolean }>(path: string, body?: unknown): Promise<T> {
+export async function request<T = { ok: boolean }>(
+  path: string,
+  body?: unknown,
+  signal?: AbortSignal,
+): Promise<T> {
   const response = await fetch(`/api/${path}`, {
     method: body === undefined ? 'GET' : 'POST',
     headers: headers(),
     body: body === undefined ? undefined : JSON.stringify(body),
+    signal,
   });
   const value = await response.json().catch(() => ({
     ok: false,
@@ -98,6 +103,20 @@ export async function request<T = { ok: boolean }>(path: string, body?: unknown)
   }));
   if (!response.ok || value.ok === false) throw new ApiError(value);
   return value as T;
+}
+
+export async function requestHostFont(id: string, signal: AbortSignal): Promise<ArrayBuffer> {
+  const response = await fetch(`/api/host-fonts/${encodeURIComponent(id)}`, {
+    headers: { Authorization: headers().Authorization },
+    signal,
+    cache: 'no-store',
+  });
+  if (!response.ok || response.headers.get('Content-Type') !== 'font/woff2')
+    throw new Error('Host font unavailable');
+  const bytes = await response.arrayBuffer();
+  if (bytes.byteLength < 48 || bytes.byteLength > 2 * 1024 * 1024)
+    throw new Error('Invalid host font size');
+  return bytes;
 }
 
 export async function uploadTerminology<T>(file: File): Promise<T> {

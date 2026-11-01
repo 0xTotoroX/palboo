@@ -1618,7 +1618,7 @@ test(
               };
             });
             assert.ok(
-              id === 'prompt-enhancement' || previewOrder.bottom <= previewOrder.controls.top,
+              previewOrder.bottom <= previewOrder.controls.top,
               `${id}: preview above every setting`,
             );
             assert.ok(
