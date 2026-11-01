@@ -11,6 +11,11 @@ export default {
   '短名称选填，也可以切换为仅显示名称。填入或直接发送单独设置，与下一步独立使用。':
     'Short names are optional. Switch to names only when you prefer, and choose whether to insert or send. Quick phrases work independently of Next steps.',
   常用语示例草稿: 'Quick phrases demo draft',
+  常用语显示方式: 'Quick phrase display',
+  完整内容: 'Full text',
+  '帮我把作品集第一版整理成一份方案。': 'Turn the first version of my portfolio into a plan.',
+  '方案整理好了：三个代表作品、首页结构，以及手机上的阅读顺序。':
+    'The plan is ready: three key projects, the home page structure and the reading order on phones.',
 
   常用组合: 'Everyday presets',
   国内模型: 'Chinese models',

@@ -1,7 +1,8 @@
 /* [INPUT]: Real feature components inside website-only example frames.
- * [OUTPUT]: Readable model catalogs, responsive Bot layouts and restrained state transitions.
+ * [OUTPUT]: Quick-phrase chat scene, readable model catalogs, responsive Bot layouts and restrained state transitions.
  * [POS]: Presentation framing only; no replacement product controls.
  * [PROTOCOL]: Keep website/AGENTS.md and DESIGN_SYSTEM.md in sync. */
+.phrase-showcase,
 .model-showcase,
 .bot-showcase {
   min-width: 0;
@@ -43,6 +44,119 @@
 .demo-replay svg {
   width: 18px;
   height: 18px;
+}
+/* ---------- 常用语：Codex 聊天与 Palboo 面板并排 ---------- */
+.phrase-scene {
+  width: 100%;
+  max-width: 100%;
+}
+.phrase-scene-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(250px, 0.82fr);
+  height: 420px;
+}
+.phrase-chat {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: 20px 22px 22px;
+  border-right: 1px solid var(--site-border);
+  font-size: 14px;
+}
+.phrase-thread {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  overflow: hidden;
+  mask-image: linear-gradient(to bottom, transparent, #000 28px);
+}
+.phrase-thread .chat-question {
+  flex: none;
+  margin: 28px 0 18px auto;
+  font-size: inherit;
+}
+.phrase-chat .phrase-thread p {
+  flex: none;
+  max-width: none;
+  margin: 0;
+  color: var(--site-text);
+  font-size: inherit;
+  line-height: 1.8;
+}
+.phrase-chat .demo-composer {
+  flex: none;
+  margin-top: 18px;
+}
+.phrase-chat .demo-composer textarea {
+  field-sizing: content;
+  min-height: 62px;
+  max-height: 188px;
+  overflow-y: auto;
+  resize: none;
+}
+.phrase-chat .demo-composer.is-filled {
+  animation: phrase-filled 700ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.phrase-panel {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: 14px 18px 20px;
+  scrollbar-width: thin;
+}
+.phrase-panel .demo-content-heading {
+  margin: 14px 0 10px;
+}
+.phrase-flight {
+  position: fixed;
+  z-index: 20;
+  padding: 6px 12px;
+  overflow: hidden;
+  border: 1px solid var(--site-border);
+  border-radius: var(--buddy-radius-small);
+  background: var(--site-surface);
+  box-shadow: var(--site-shadow);
+  color: var(--site-text);
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+@keyframes phrase-filled {
+  from {
+    box-shadow: 0 0 0 1px var(--site-muted);
+  }
+  to {
+    box-shadow: 0 0 0 1px transparent;
+  }
+}
+@container (max-width: 600px) {
+  .phrase-scene-body {
+    display: flex;
+    flex-direction: column;
+    height: auto;
+  }
+  .phrase-panel {
+    overflow: visible;
+  }
+  .phrase-chat {
+    order: 1;
+    padding: 16px 18px 18px;
+    border-right: 0;
+    border-top: 1px solid var(--site-border);
+  }
+  .phrase-chat .chat-title,
+  .phrase-thread {
+    display: none;
+  }
+  .phrase-chat .demo-composer {
+    margin-top: 0;
+  }
 }
 .bot-demo-frame {
   width: 100%;
@@ -93,6 +207,9 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
+  .phrase-chat .demo-composer.is-filled {
+    animation: none;
+  }
   .bot-demo-frame {
     transition: none;
   }

@@ -37,11 +37,21 @@ export function NextDemo({ onInsert }: { onInsert: (text: string) => void }) {
     </DemoSurface>
   );
 }
+export const samplePhrases = () => [
+  { label: tr('继续'), prompt: tr('继续完成剩余步骤。') },
+  { label: '', prompt: tr('请用更直白的语言解释，并举一个具体例子。') },
+  {
+    label: tr('检查方案'),
+    prompt: tr(
+      '检查这份作品集方案：\n1. 找出影响阅读和操作的问题。\n2. 按影响程度排序。\n3. 给出可以直接执行的修改建议。\n4. 标明需要我补充的信息。\n保留已经确认的视觉风格。',
+    ),
+  },
+];
 export function QuickPhrasesDemo({
   onInsert,
   namesOnly = false,
 }: {
-  onInsert: (text: string) => void;
+  onInsert: (text: string, index: number) => void;
   namesOnly?: boolean;
 }) {
   useLocale();
@@ -51,16 +61,7 @@ export function QuickPhrasesDemo({
   const snapshot = sampleProjection();
   snapshot.settings.quickPromptLabelOnly = namesOnly;
   snapshot.settings.configurationRevision = revision.current;
-  snapshot.settings.quickPrompts = quick ?? [
-    { label: tr('继续'), prompt: tr('继续完成剩余步骤。') },
-    { label: '', prompt: tr('请用更直白的语言解释，并举一个具体例子。') },
-    {
-      label: tr('检查方案'),
-      prompt: tr(
-        '检查这份作品集方案：\n1. 找出影响阅读和操作的问题。\n2. 按影响程度排序。\n3. 给出可以直接执行的修改建议。\n4. 标明需要我补充的信息。\n保留已经确认的视觉风格。',
-      ),
-    },
-  ];
+  snapshot.settings.quickPrompts = quick ?? samplePhrases();
   return (
     <DemoSurface kind="prompts" styles={contentStyles}>
       <ProjectedContent
@@ -79,8 +80,9 @@ export function QuickPhrasesDemo({
         }}
         command={async (kind, data) => {
           if (kind === 'quick-fill') {
-            const item = snapshot.settings.quickPrompts[data?.index ?? 0];
-            if (item?.prompt) onInsert(item.prompt);
+            const index = data?.index ?? 0;
+            const item = snapshot.settings.quickPrompts[index];
+            if (item?.prompt) onInsert(item.prompt, index);
           }
         }}
       />

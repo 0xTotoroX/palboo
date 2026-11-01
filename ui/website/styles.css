@@ -367,9 +367,6 @@ h2 {
   font-size: 14px;
   line-height: 1.65;
 }
-.quick-phrases-showcase .choice-row {
-  margin-bottom: 16px;
-}
 .install {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);

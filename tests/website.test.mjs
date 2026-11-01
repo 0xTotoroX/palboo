@@ -1417,6 +1417,19 @@ test('scroll-led tool demonstrations show task progress, models, speed, optimiza
         index,
       );
     }
+    const phrases = page.locator('.phrases-tour');
+    await scrollScene(page, '.phrases-tour', 0.05);
+    assert.equal(await phrases.getByRole('textbox').inputValue(), '');
+    await scrollScene(page, '.phrases-tour', 0.5);
+    await page.waitForFunction(() =>
+      document.querySelector('.phrases-tour textarea').value.startsWith('检查这份作品集方案'),
+    );
+    await scrollScene(page, '.phrases-tour', 0.9);
+    await phrases.getByRole('button', { name: '仅显示名称', pressed: true }).waitFor();
+    assert.equal(
+      await phrases.getByRole('button', { name: '检查方案', exact: true }).textContent(),
+      '检查方案',
+    );
     const model = page.locator('.model-tour');
     for (const [progress, name, fast] of [
       [0.05, 'GPT-6.1-Sol · Low', false],
@@ -1792,6 +1805,10 @@ test('quick phrases demonstrate full content, optional names and draft-safe inse
         full,
       );
       assert.equal(await draft.inputValue(), full);
+      await demo
+        .getByRole('button', { name: locale === 'en' ? 'Full text' : '完整内容', exact: true })
+        .click();
+      assert.equal(await prompt.locator('.csw-quick-text').textContent(), full);
       await page.setViewportSize({ width: 360, height: 760 });
       await page.waitForFunction(() => document.documentElement.scrollWidth <= innerWidth);
       assert.equal(
