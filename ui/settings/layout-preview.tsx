@@ -2,7 +2,7 @@ import { SegmentedGroup } from './components/ui/segmented-group';
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: Saved feature/surface/typography snapshots, optional website feature renderer/stops/framing/material progress and shared workspace controller.
- * [OUTPUT]: Isolated previews with readable arrangements, the original brand backdrop and reversible device-to-material motion.
+ * [OUTPUT]: Isolated previews with presentation-only text scaling, the brand backdrop and reversible device-to-material motion.
  * [POS]: Shared layout/appearance sample content; save callbacks stay in memory and never call an API.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 import {
@@ -171,7 +171,10 @@ function WorkspaceSample({
         ref={ref}
         className="csw-workbench layout-demo-workspace"
         data-preview-workspace
-        style={textStyle}
+        style={{
+          ...textStyle,
+          fontSize: `calc(${textStyle?.fontSize || '16px'} * var(--layout-preview-text-scale, 1))`,
+        }}
         data-material={material}
         data-variant={variant}
       />
