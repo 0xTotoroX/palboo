@@ -22,13 +22,21 @@
   padding-block: var(--site-section-space);
 }
 .site-settings-demo {
-  padding: 28px;
-  background: var(--site-stage);
-  border-radius: 16px;
+  padding: 24px;
+  background: var(--site-surface);
+  border: 1px solid var(--site-border);
+  border-radius: 12px;
 }
-.site-settings-demo .layout-demo {
+.site-settings-demo .preview-frame[data-preview-format='interface'] {
+  /* The device scene owns its geometry; controls follow outside the frame. */
+  aspect-ratio: auto;
+  border: 0;
+  background: transparent;
   overflow: visible;
   padding: 0;
+}
+.site-settings-demo .layout-demo > .preview-frame-content {
+  overflow: visible;
 }
 .site-settings-demo .layout-demo-scene {
   max-width: none;
@@ -64,7 +72,7 @@
   min-height: 40px;
   padding: 8px 14px;
   color: var(--site-muted);
-  border-radius: 6px;
+  border-radius: var(--buddy-radius-small);
   font-size: 15px;
 }
 .site-settings-demo .preview-selector button[aria-pressed='true'],
@@ -84,7 +92,7 @@
   margin-top: 16px;
   color: var(--site-muted);
   font-size: 16px;
-  line-height: 1.9;
+  line-height: 1.7;
 }
 [data-site-theme='dark'] .layout-demo-material-backdrop {
   background: #29272b;
@@ -93,14 +101,12 @@
 [data-site-theme='dark'] .site-settings-demo {
   --settings-glass-highlight: #ffffff26;
 }
-.demo-models {
-  padding: 24px;
-  background: var(--site-stage);
-  border-radius: 12px;
+.demo-models > .preview-frame-content {
+  padding: 16px;
 }
 .demo-models .feature-model {
-  min-height: 200px;
-  font-size: 14px;
+  min-height: 0;
+  font-size: 16px;
 }
 .demo-models .model-intrinsic-width {
   min-width: 0;
@@ -109,16 +115,19 @@
   max-width: 100%;
 }
 .demo-models .model-primary {
-  padding-top: 30px;
+  padding-top: 16px;
 }
 .demo-models .model-status-row {
-  margin-top: 24px;
+  margin-top: 16px;
 }
 .demo-models .model-favorites {
   flex: none;
 }
-.demo-panel .demo-models {
-  padding: 12px;
+.demo-models.is-inline > .preview-frame-content {
+  padding: 0;
+}
+.demo-models.is-inline .feature-model {
+  font-size: inherit;
 }
 .demo-panel .demo-models .model-row {
   min-height: 44px;
@@ -151,7 +160,7 @@
   padding-block: 18px;
   list-style: none;
   cursor: pointer;
-  font-size: 18px;
+  font-size: 16px;
 }
 .connection-details summary::-webkit-details-marker {
   display: none;
@@ -195,8 +204,8 @@
   .connection-story {
     padding-block: 64px;
   }
-  .demo-models {
-    padding: 20px 14px;
+  .demo-models > .preview-frame-content {
+    padding: 16px;
   }
   .choice-row button {
     padding: 8px 10px;

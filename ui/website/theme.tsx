@@ -35,7 +35,7 @@ export function SiteTheme() {
     document.documentElement.style.colorScheme = preference;
     document
       .querySelector('meta[name="theme-color"]')
-      ?.setAttribute('content', preference === 'dark' ? '#19191b' : '#fdfcf9');
+      ?.setAttribute('content', preference === 'dark' ? '#181818' : '#ffffff');
   }, [preference]);
   useEffect(() => {
     const sync = (event: StorageEvent) => {

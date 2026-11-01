@@ -1,3 +1,4 @@
+import { PreviewFrame } from '../settings/preview-frame';
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: Product feature adapters, synthetic portfolio content and visitor input.
@@ -147,7 +148,11 @@ export function FeatureDemo({
     setDraft((current) => (current ? `${current}\n${value}` : value));
   const selected = features.find((feature) => feature.id === active)!;
   return (
-    <div className="product-demo" data-feature={active} aria-label={tr('Palboo 交互演示')}>
+    <PreviewFrame
+      className="site-preview product-demo"
+      data-feature={active}
+      title={tr('Palboo 交互演示')}
+    >
       <div className="demo-window-body">
         <aside className={`demo-panel demo-panel-${active}`}>
           <div className="demo-panel-top">
@@ -294,6 +299,6 @@ export function FeatureDemo({
           <ComposerDemo draft={draft} onChange={setDraft} />
         </div>
       </div>
-    </div>
+    </PreviewFrame>
   );
 }

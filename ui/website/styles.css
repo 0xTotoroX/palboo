@@ -3,6 +3,7 @@
  * [POS]: Website-only styling; no global product or settings overrides.
  * [PROTOCOL]: Keep website/AGENTS.md and DESIGN_SYSTEM.md in sync. */
 @import '../shared/tokens.css';
+@import '../shared/preview-frame.css';
 @import '../surfaces/workspace/styles.css';
 @import '../settings/layout-preview.css';
 @import '../features/model/styles.css';
@@ -11,16 +12,16 @@
 @import './showcases.css';
 @import './story.css';
 :root {
-  --site-page: #fdfcf9;
+  --site-page: #fff;
   --site-surface: #fff;
-  --site-text: #27272a;
-  --site-muted: #66666f;
-  --site-border: #e2e2e6;
-  --site-input: #f0eff3;
-  --site-stage: #ededf0;
-  --site-accent: #bd4200;
-  --site-strong: #ff5a00;
-  --site-shadow: 0 24px 72px #28283c12, 0 2px 6px #28283c06;
+  --site-text: #0d0d0d;
+  --site-muted: #5d5d5d;
+  --site-border: #e5e5e5;
+  --site-input: #f5f5f5;
+  --site-stage: #f5f5f5;
+  --site-accent: var(--site-text);
+  --site-strong: var(--site-text);
+  --site-shadow: 0 4px 16px #00000014;
   --site-ease: cubic-bezier(0.23, 1, 0.32, 1);
   --site-section-space: clamp(64px, 7vw, 96px);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -31,15 +32,15 @@
   text-rendering: optimizeLegibility;
 }
 :root[data-site-theme='dark'] {
-  --site-page: #19191b;
-  --site-surface: #222225;
-  --site-text: #eeeeef;
-  --site-muted: #adadb6;
-  --site-border: #36363c;
-  --site-input: #2c2c30;
-  --site-stage: #252528;
-  --site-accent: #ff9a64;
-  --site-shadow: 0 24px 72px #0003, 0 2px 6px #0002;
+  --site-page: #181818;
+  --site-surface: #212121;
+  --site-text: #f3f3f3;
+  --site-muted: #b4b4b4;
+  --site-border: #383838;
+  --site-input: #2f2f2f;
+  --site-stage: #212121;
+  --site-accent: var(--site-text);
+  --site-shadow: 0 4px 16px #0003;
 }
 * {
   box-sizing: border-box;
@@ -96,7 +97,7 @@ main:focus {
   outline: none;
 }
 ::selection {
-  background: #f4a3ad55;
+  background: color-mix(in srgb, var(--site-text) 16%, transparent);
 }
 .page-width {
   width: min(1240px, calc(100% - 96px));
@@ -127,13 +128,13 @@ main:focus {
   justify-content: center;
   min-width: 36px;
   min-height: 36px;
-  border-radius: 6px;
+  border-radius: var(--buddy-radius-small);
 }
 h2 {
-  font-size: clamp(30px, 3.2vw, 46px);
+  font-size: clamp(28px, 2.7vw, 36px);
   line-height: 1.35;
-  font-weight: 550;
-  letter-spacing: -0.035em;
+  font-weight: 500;
+  letter-spacing: -0.025em;
 }
 .text-link {
   display: inline-flex;
@@ -147,7 +148,7 @@ h2 {
 }
 .reading-story {
   display: grid;
-  grid-template-columns: minmax(0, 0.33fr) minmax(0, 0.67fr);
+  grid-template-columns: minmax(0, 0.36fr) minmax(0, 0.64fr);
   column-gap: 5%;
   position: relative;
   padding-block: 50px;
@@ -164,7 +165,7 @@ h2 {
 }
 .story-copy p {
   font-size: 16px;
-  line-height: 1.85;
+  line-height: 1.7;
   color: var(--site-muted);
   margin-top: 24px;
   max-width: 32em;
@@ -184,9 +185,31 @@ h2 {
 .reading-stage :is(input, textarea, select, [contenteditable='true']) {
   scroll-margin-block: 24px;
 }
-.product-demo {
+.site-preview {
+  --buddy-surface: var(--site-surface);
+  --buddy-text: var(--site-text);
+  --buddy-muted: var(--site-muted);
+  --buddy-border: var(--site-border);
+  --buddy-focus: var(--site-text);
   max-width: none;
-  border-radius: 14px;
+}
+.site-preview.is-inline {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+.site-preview.preview-prompt .demo-composer {
+  margin: 0;
+  border: 0;
+  background: transparent;
+}
+.site-preview.preview-prompt .demo-composer > span[data-palboo-prompt] {
+  position: static;
+}
+.site-preview.preview-prompt textarea {
+  min-height: 144px;
+  font-size: 16px;
 }
 .demo-window-body {
   min-height: 590px;
@@ -289,23 +312,21 @@ h2 {
 .section-intro p {
   max-width: 440px;
   color: var(--site-muted);
-  font-size: 17px;
-  line-height: 1.85;
+  font-size: 16px;
+  line-height: 1.7;
 }
 .board-story {
   padding-block: var(--site-section-space);
 }
-.board-stage {
-  padding: 36px;
-  background: var(--site-stage);
-  border-radius: 20px;
+.board-stage > .preview-frame-content {
+  padding: 24px;
 }
 .board-project {
   display: flex;
   gap: 12px;
   align-items: center;
   font-size: 15px;
-  margin-bottom: 32px;
+  margin-bottom: 16px;
 }
 .demo-panel-board .demo-feature-content {
   max-height: 420px;
@@ -315,27 +336,39 @@ h2 {
   padding-block: var(--site-section-space);
 }
 .tools-section > h2 {
-  margin-bottom: 64px;
+  margin-bottom: 32px;
 }
 .tool-row {
   display: grid;
   grid-template-columns: minmax(0, 0.36fr) minmax(0, 0.64fr);
   gap: clamp(32px, 6vw, 80px);
   padding: 48px 0;
+  min-width: 0;
   border-top: 1px solid var(--site-border);
-  align-items: center;
+  align-items: start;
+}
+.tool-row > * {
+  min-width: 0;
 }
 .tool-row h3 {
   font-size: 24px;
-  font-weight: 550;
+  font-weight: 500;
   letter-spacing: -0.025em;
 }
 .tool-row p {
   font-size: 16px;
-  line-height: 1.85;
+  line-height: 1.7;
   color: var(--site-muted);
   margin-top: 16px;
   max-width: 400px;
+}
+.tool-row p + p,
+.story-copy p + p {
+  font-size: 14px;
+  line-height: 1.65;
+}
+.quick-phrases-showcase .choice-row {
+  margin-bottom: 16px;
 }
 .install {
   display: grid;
@@ -427,10 +460,10 @@ h2 {
   grid-template-columns: 7.5em minmax(0, 1fr);
   gap: 24px;
   font-size: 15px;
-  line-height: 1.85;
+  line-height: 1.7;
 }
 .install-facts dt {
-  font-weight: 550;
+  font-weight: 500;
 }
 .install-facts dd {
   margin: 0;
@@ -520,7 +553,7 @@ h2 {
 }
 .reading-story[data-static='true'] .static-chapter {
   display: grid;
-  grid-template-columns: minmax(0, 0.33fr) minmax(0, 0.67fr);
+  grid-template-columns: minmax(0, 0.36fr) minmax(0, 0.64fr);
   gap: 40px;
 }
 .reading-story[data-static='true'] .story-copy {
@@ -564,7 +597,7 @@ h2 {
     font-size: 44px;
   }
   h2 {
-    font-size: 32px;
+    font-size: 28px;
   }
   .reading-story[data-static='true'] .static-chapter {
     grid-template-columns: 1fr;
@@ -623,9 +656,8 @@ h2 {
   .tools-section {
     padding-block: 64px;
   }
-  .board-stage {
-    padding: 20px 14px;
-    border-radius: 14px;
+  .board-stage > .preview-frame-content {
+    padding: 16px;
   }
   .board-project {
     margin-bottom: 20px;
@@ -639,7 +671,7 @@ h2 {
     padding: 30px 0;
   }
   .tool-row h3 {
-    font-size: 23px;
+    font-size: 24px;
   }
   .tools-section > h2 {
     margin-bottom: 40px;
@@ -688,7 +720,7 @@ h2 {
   min-height: 40px;
   padding: 6px 12px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--buddy-radius-small);
   background: transparent;
   color: var(--site-muted);
   font: inherit;

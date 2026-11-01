@@ -1,3 +1,4 @@
+import { PreviewFrame } from '../settings/preview-frame';
 /* [INPUT]: Real ModelView/TokenMeterView, synthetic catalog and visitor actions.
  * [OUTPUT]: Domestic/international examples, editable presets, a full catalog and retained speed.
  * [POS]: Website-only memory adapter; examples do not advertise host or provider compatibility.
@@ -148,7 +149,10 @@ export function ModelDemo({
           ))}
         </div>
       )}
-      <div className="demo-models" aria-label={tr('Codex 模型快切演示')}>
+      <PreviewFrame
+        className={`site-preview demo-models ${detailed ? '' : 'is-inline'}`}
+        title={tr('Codex 模型快切演示')}
+      >
         <ModelView
           state={{
             ...state,
@@ -206,7 +210,7 @@ export function ModelDemo({
             return commit(next);
           }}
         />
-      </div>
+      </PreviewFrame>
     </div>
   );
 }

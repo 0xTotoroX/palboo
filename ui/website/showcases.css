@@ -11,12 +11,12 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 6px;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
 }
 .demo-controls button {
   min-height: 36px;
   padding: 6px 12px;
-  border-radius: 6px;
+  border-radius: var(--buddy-radius-small);
   font-size: 14px;
   color: var(--site-muted);
 }
@@ -46,11 +46,8 @@
 }
 .bot-demo-frame {
   width: 100%;
-  max-width: 680px;
+  max-width: 100%;
   margin-inline: auto;
-  border: 1px solid var(--site-border);
-  border-radius: 12px;
-  background: var(--site-surface);
   transition: max-width 280ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 .bot-showcase[data-layout='medium'] .bot-demo-frame {
@@ -58,11 +55,6 @@
 }
 .bot-showcase[data-layout='sidebar'] .bot-demo-frame {
   max-width: 270px;
-}
-.site-workspace-feature .bot-demo-frame,
-.demo-panel .bot-demo-frame {
-  border: 0;
-  background: transparent;
 }
 .model-showcase.is-detailed .model-row {
   min-height: 44px;
@@ -99,9 +91,6 @@
   .demo-controls button {
     padding-inline: 10px;
   }
-  .model-showcase.is-detailed .demo-models {
-    padding: 20px 14px;
-  }
 }
 @media (prefers-reduced-motion: reduce) {
   .bot-demo-frame {
@@ -109,5 +98,14 @@
   }
   .model-showcase.is-detailed .model-row {
     animation: none;
+  }
+}
+
+@media (pointer: coarse) {
+  .demo-controls button,
+  .choice-row button,
+  .demo-feature-tabs button {
+    min-width: 44px;
+    min-height: 44px;
   }
 }

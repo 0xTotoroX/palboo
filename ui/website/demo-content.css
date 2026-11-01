@@ -2,18 +2,10 @@
  * [OUTPUT]: Chat/composer framing; product controls keep their own isolated CSS.
  * [POS]: Website framing only; no parallel feature artwork or controls.
  * [PROTOCOL]: Keep website/AGENTS.md in sync. */
-.product-demo {
-  max-width: 1000px;
-  margin-inline: auto;
-  border-radius: 10px;
-  overflow: hidden;
-  background: var(--site-page);
-  box-shadow: var(--site-shadow);
-  border: 1px solid color-mix(in srgb, var(--site-border) 80%, transparent);
-}
+
 .site-real-feature {
   min-width: 0;
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1.5;
 }
 .site-workspace-feature {
@@ -167,7 +159,7 @@
   position: relative;
   background: var(--site-input);
   padding: 10px 12px 9px;
-  border-radius: 7px;
+  border-radius: var(--buddy-radius-control);
   margin-top: 16px;
 }
 .demo-composer label {

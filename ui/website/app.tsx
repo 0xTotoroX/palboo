@@ -14,6 +14,7 @@ import { OpeningStory, ReadingStory } from './story';
 import { ScrollDemo } from './scroll-tour';
 import type { GithubLinkVariant } from './github-link';
 import { PromptPreview } from '../settings/prompt-preview';
+import { PreviewFrame } from '../settings/preview-frame';
 import { QuickPhrasesDemo } from './product-demos';
 
 function ToolDetails() {
@@ -46,10 +47,14 @@ function ToolDetails() {
               {tr('仅显示名称')}
             </button>
           </div>
-          <QuickPhrasesDemo
-            namesOnly={namesOnly}
-            onInsert={(value) => setPhraseDraft((draft) => (draft ? `${draft}\n${value}` : value))}
-          />
+          <PreviewFrame title={tr('常用语')} className="site-preview">
+            <QuickPhrasesDemo
+              namesOnly={namesOnly}
+              onInsert={(value) =>
+                setPhraseDraft((draft) => (draft ? `${draft}\n${value}` : value))
+              }
+            />
+          </PreviewFrame>
           <ComposerDemo
             draft={phraseDraft}
             onChange={setPhraseDraft}
@@ -61,7 +66,7 @@ function ToolDetails() {
         {(step) => (
           <div className="tool-row">
             <div>
-              <h3>{tr('模型快切')}</h3>
+              <h3>{tr('模型切换')}</h3>
               <p>
                 {tr(
                   '常用模型放在手边，模型与推理档位一键切换。把写作、编码和深入分析存成预设，也能展开目录按厂家挑选。',
@@ -81,7 +86,9 @@ function ToolDetails() {
               <h3>{tr('提示词优化')}</h3>
               <p>{tr('发送之前，把草稿表达得更清楚。改写后可以继续编辑，也可以还原。')}</p>
             </div>
-            <PromptPreview tourStep={step} />
+            <PreviewFrame title={tr('提示词优化')} className="site-preview preview-prompt">
+              <PromptPreview tourStep={step} />
+            </PreviewFrame>
           </div>
         )}
       </ScrollDemo>
@@ -155,13 +162,13 @@ export function App({ githubVariant }: { githubVariant?: GithubLinkVariant }) {
                   )}
                 </p>
               </div>
-              <div className="board-stage">
+              <PreviewFrame className="site-preview board-stage" title={tr('任务看板')}>
                 <div className="board-project">
                   <Icon name="feature-board" />
                   <span>{tr('个人作品集')}</span>
                 </div>
                 <BoardDemo tourStatus={step} />
-              </div>
+              </PreviewFrame>
             </>
           )}
         </ScrollDemo>

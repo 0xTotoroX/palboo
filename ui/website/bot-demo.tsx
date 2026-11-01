@@ -1,3 +1,4 @@
+import { PreviewFrame } from '../settings/preview-frame';
 /* [INPUT]: Actual BotsView, synthetic lifecycle states, groups and visitor layout choices.
  * [OUTPUT]: All four badges, working/completed eyes and responsive one/two/three-column examples.
  * [POS]: Website demo adapter; actions only populate the local example draft.
@@ -153,7 +154,10 @@ export function BotDemo({
           </div>
         </div>
       )}
-      <div className="bot-demo-frame">
+      <PreviewFrame
+        className={`site-preview bot-demo-frame ${detailed ? '' : 'is-inline'}`}
+        title="Grok Bot"
+      >
         <DemoSurface kind="bots" styles={styles}>
           <BotsView
             state={state}
@@ -172,7 +176,7 @@ export function BotDemo({
             }}
           />
         </DemoSurface>
-      </div>
+      </PreviewFrame>
     </div>
   );
 }

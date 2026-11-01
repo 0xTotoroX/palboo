@@ -2,91 +2,18 @@
  * [OUTPUT]: Shared 16:9 interface frames and content-sized matte feature scenes with bounded scrolling.
  * [POS]: Settings preview frames; real feature content keeps its shared styles inside Shadow DOM.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
+@import '../shared/preview-frame.css';
 .settings-preview {
   position: static;
   min-width: 0;
 
   font-size: 0.8125em;
 }
-.preview-frame {
-  --preview-feature-height: auto;
-  --preview-feature-max-height: 440px;
-  --preview-feature-body-flex: 0 1 auto;
-  container-type: inline-size;
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  max-width: 480px;
-  margin-inline: auto;
-  aspect-ratio: auto;
-  min-height: 0;
-  overflow: hidden;
-  border: 1px solid var(--settings-group-border, var(--buddy-border));
-  border-radius: 12px;
-  padding: 0;
-  background: var(--buddy-surface);
-  box-shadow: none;
-}
-.preview-frame[data-preview-format='interface'] {
-  --preview-feature-height: 100%;
-  --preview-feature-max-height: none;
-  --preview-feature-body-flex: 1;
-  max-width: none;
-  aspect-ratio: 16 / 9;
-  padding: 16px;
-}
+
 .preview-frame.preview-board {
   max-width: none;
 }
-.preview-prompt .demo-composer {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  padding: 16px;
-}
-.preview-prompt textarea {
-  flex: 1 0 100%;
-  width: 100%;
-  min-width: 0;
-  min-height: 104px;
-  max-height: 320px;
-  padding: 4px;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  line-height: 1.6;
-  resize: vertical;
-}
-.preview-prompt textarea:focus-visible {
-  outline: 1px solid var(--buddy-focus);
-  outline-offset: 2px;
-}
-.preview-prompt .demo-composer > span[data-palboo-prompt] {
-  margin-left: auto;
-  margin-top: 12px;
-}
-.preview-frame[data-preview-format='feature'] {
-  --preview-content-background: transparent;
-  background: var(--buddy-surface);
-  border-color: color-mix(in srgb, var(--buddy-text) 18%, transparent);
-  box-shadow: 0 4px 16px #00000014;
-}
-.preview-frame-content {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  min-width: 0;
-  overflow: hidden;
-}
-.preview-status {
-  flex: none;
-  margin: 8px 0 0;
-  color: var(--buddy-muted);
-  font-size: 0.84em;
-}
+
 .preview-frame .preview-scenes,
 .preview-frame .preview-scene,
 .preview-frame .preview-product {

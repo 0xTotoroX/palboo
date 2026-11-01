@@ -93,6 +93,7 @@ h1 {
   opacity: 0;
 }
 .intro-preview .site-settings-demo {
+  border: 0;
   padding: 0;
   background: transparent;
 }
