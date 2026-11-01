@@ -1,5 +1,5 @@
 /* [INPUT]: 认证 SSE 中的字体快照与用户偏好。
- * [OUTPUT]: 设置文档字体和 rem 基准；未收到快照时沿用本次连接的末次读数。
+ * [OUTPUT]: 自有文档字体/rem 基准及实际采用的快照；未收到快照时沿用本次连接的末次读数。
  * [POS]: 仅调整自有设置网页，不访问或修改宿主页面。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { useLayoutEffect, useRef } from 'react';
@@ -37,4 +37,5 @@ export function useTypography(snapshot?: Typography | null, preferences?: Typogr
         document.documentElement.style.removeProperty(key);
     };
   }, [snapshot, preferences]);
+  return last.current || snapshot;
 }

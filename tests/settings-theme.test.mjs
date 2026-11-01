@@ -266,7 +266,19 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
       const dot = getComputedStyle(n, '::after');
       return { content: dot.content, width: dot.width, color: dot.backgroundColor };
     });
-    assert.equal(groupDot.content, 'none', 'navigation groups have no decorative accent dots');
+    assert.equal(groupDot.content, '\"\"');
+    assert.equal(groupDot.width, '4px', 'only category headings keep the requested small accent');
+    assert.equal(
+      groupDot.color,
+      await page.locator('.settings-nav-group h2').evaluate((n) => {
+        const probe = document.createElement('span');
+        probe.style.color = 'var(--buddy-accent)';
+        n.append(probe);
+        const color = getComputedStyle(probe).color;
+        probe.remove();
+        return color;
+      }),
+    );
     assert.equal(
       await page
         .locator('#section-heading')

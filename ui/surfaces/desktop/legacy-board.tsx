@@ -1,4 +1,4 @@
-/* [INPUT]: Local authenticated HTTP transport and reusable Board view.
+/* [INPUT]: Local authenticated HTTP/font transport and reusable Board view.
  * [OUTPUT]: Standalone task window entry. [POS]: Board desktop/browser bootstrap.
  * [PROTOCOL]: Keep desktop/AGENTS.md in sync. */
 import { createRoot } from 'react-dom/client';
@@ -6,7 +6,8 @@ import { useEffect } from 'react';
 import { request, useCompanion } from '../../settings/api';
 import { setLocale, tr } from '../../shared/i18n.js';
 import { useTypography } from '../../settings/use-typography';
-import { surfaceTypography } from '../../shared/typography';
+import { surfaceTypography, resolveTypography } from '../../shared/typography';
+import { useHostFonts } from '../../settings/use-host-fonts';
 import { useLocale } from '../../shared/use-locale';
 import { Board } from '../../features/board/app';
 import '../../shared/tokens.css';
@@ -14,14 +15,13 @@ import '../../features/board/styles.css';
 function DesktopBoard() {
   const { view } = useCompanion();
   const locale = useLocale();
-  useTypography(
-    view?.panelTypography,
-    surfaceTypography(
-      'desktop',
-      view?.panelPreferences.surfaceTypography,
-      view?.panelPreferences.typography,
-    ),
+  const preferences = surfaceTypography(
+    'desktop',
+    view?.panelPreferences.surfaceTypography,
+    view?.panelPreferences.typography,
   );
+  const typography = useTypography(view?.panelTypography, preferences);
+  useHostFonts(resolveTypography(typography, preferences).fontFamily);
   useEffect(() => {
     document.documentElement.style.setProperty('--board-font-size', 'var(--buddy-type-size)');
     return () => {

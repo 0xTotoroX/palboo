@@ -24,3 +24,5 @@ ui/codex/runtime/lifecycle.js 仍是浏览器注入的集成入口。Rust src/fe
 各承载入口从只读 appearance.language 同步共享语言，并更新自身 lang/可访问名称；不改宿主页面语言。共同头部、标签和布局使用共享名称目录，不因切换语言重建功能节点。桌面旧 boot 保持经典脚本，借用既有工作台只读 translate 接口。
 
 各承载按实际或交接目标消费 surfaceTypography 有效偏好；侧栏/浮层外壳、桌面与贴边头部、功能正文共享对应字体。贴边头部使用独立 edgeTypographyPreferences，不跟随主窗口目标；旧独立看板入口采用 desktop 字体。改变字体不移动功能或清空阅读/草稿。
+
+main 入口把同源认证 HostFontSource 传给桌面和贴边容器。各文档按对应有效字体族加载本机宿主字形，FontFace 对同文档内的功能 Shadow DOM 生效；不另改功能布局或偏好。

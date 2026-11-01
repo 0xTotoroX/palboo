@@ -24,3 +24,5 @@ main 从 feature state 的 edgeTabs/edgeTabsRevision 读取偏好，经 features
 原生贴边从 surfaces/window 接收 scopeAllowed，范围不允许时释放键盘并隐藏；恢复使用相同窗口、节点与开合状态，快捷键不能绕过范围。
 
 main 从状态投影的 edgeTypographyPreferences 读取贴边头部字体，避免主窗口字体改动串入贴边；功能正文仍使用 owner 对应 appearance。
+
+贴边与刘海共用 edge 有效字体和字号，main 按实际字体族通过 shared/host-fonts 加载本机宿主字形；收起、切标签、轮廓变化保留资源，pagehide 取消并回收。字体变化沿已有内容尺寸观察适配，不新增计时器或重挂载功能。

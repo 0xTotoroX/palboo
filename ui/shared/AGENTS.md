@@ -85,3 +85,5 @@ typography 增加 SurfaceTypography（五类窗口）及快照 sources；surface
 i18n.setLocale 接收只读 systemLanguage 并缓存后台解析的系统首选语言；显式 en/zh-CN 优先，system 使用同一来源。旧后台和独立网站无此字段时才回退 navigator；不改用户语言偏好或内容。
 
 LayoutPreset.scope 为可选的 LayoutPresetScope（all/sidebar/overlay/desktop），缺省视为通用。标签仅推荐；共享排序、标签翻译与布局匹配由 workspace/layout-presets.js 提供，设置和各承载共用，不各自过滤预设。
+
+`host-fonts.ts`：不含 React 或认证凭据的文档字体加载器，消费有效字体族与 HostFontSource；本机 PostScript 别名走 local()，可确认的 App 字形按需读取。按字体族保留加载状态，普通轮询/未变备用字体不重复请求；替换或销毁取消请求、删除自有 FontFace，迟到结果不注册。PopoutBridge 只新增可选的受限 hostFonts 读取契约。

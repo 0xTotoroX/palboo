@@ -28,3 +28,5 @@ boot与共用窗口控件同步临时放大状态；放大及几何交接不保�
 transport 的完整偏好投影包含 sidebarNewChat/sidebarDots；窗口往返保持这两个 Web 设置，不因旧窗口整份 Ui 回传而清除。
 
 boot 将 panel/state 的 scopeAllowed 经 scope-visible IPC 同步原生窗口；新聊天/Dots 范围切换只临时隐藏，保留租约、草稿与窗口开合偏好。
+
+boot 提供可选 hostFonts.list/read，凭据留在本地闭包，仅访问认证字体目录和固定 ID 文件；二进制检查类型及大小，配合取消信号。共享 panel-appearance 按 desktop 快照加载，字体不随业务命令转发给宿主。

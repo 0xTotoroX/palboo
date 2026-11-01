@@ -434,4 +434,6 @@ dev-launcher 以认证合成服务覆盖 --settings 成功/失败及零启动副
 设置功能目录回归：settings-modes核对九个主开关与功能导航对应同序（兼容集成对应CodexHost），聊天测速在模型切换页独立保存并沿用旧锚点；大纲点击、提示词优化/取消/还原不发送业务请求，跨页保留预览草稿且隐藏时释放提示词控制器。窄屏、双主题与英文继续覆盖新增预览；website的对应提示词用例验证共用组件迁移后行为保持。
 
 - `settings-host-fonts.test.mjs`：合成 FontFace 与真实字体 hook/API 验证按需认证、字体族过滤、局部失败回退、local 别名及卸载晚到回收；不含专用字体字节。host_fonts Rust 单测验证 ASAR 边界/完整性、未知字形、外部引用及模糊声明拒绝，server 单测验证鉴权。ignored installed_host_font_catalog_is_readable 仅在本机显式读取已安装 App，不能替代浏览器实际字体解码验收。
-- 本轮 settings-theme 验证主按钮、导航、分段各自语义色及无分类装饰点；settings-menu-motion 验证普通弹窗即时、抽屉全宽弹簧和反向开合、草稿/焦点及减少动效。settings-modes 将提示词优化加入统一“预览在控件与介绍之前”几何断言。
+- 本轮 settings-theme 验证主按钮、导航、分段各自语义色、分类标题4px强调色点及正文标题无装饰；settings-menu-motion 验证普通弹窗即时、抽屉全宽弹簧和反向开合、草稿/焦点及减少动效。settings-modes 将提示词优化加入统一“预览在控件与介绍之前”几何断言。
+
+`native-host-fonts.test.mjs` 使用真实构建入口及桌面/贴边组件验证认证按需字体加载、头部与 Shadow DOM 一致、来源/自定义字体字号独立、内容不重挂载、刘海几何不覆盖偏好、重载恢复及页面退出清理；字体解码使用合成替身，不替代 macOS Wry 实测。

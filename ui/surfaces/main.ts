@@ -1,6 +1,6 @@
-/* [INPUT]: Authenticated native page and lease. [OUTPUT]: One feature window.
+/* [INPUT]: Authenticated native page, font source and lease. [OUTPUT]: One feature window.
  * [POS]: Native entry, no business runtime. [PROTOCOL]: Keep AGENTS.md in this module in sync. */
-import { request as http } from '../settings/api';
+import { request as http, hostFontSource } from '../settings/api';
 import { startEdge } from './edge/main';
 import { startDesktop } from './desktop/main.js';
 import type { Request } from '../shared/features';
@@ -13,5 +13,5 @@ if (
   params.get('surface') === 'edge' ||
   new URLSearchParams(location.search).get('surface') === 'edge'
 )
-  startEdge(request);
-else if (id === 'main') startDesktop(request, owner);
+  startEdge(request, hostFontSource);
+else if (id === 'main') startDesktop(request, owner, hostFontSource);

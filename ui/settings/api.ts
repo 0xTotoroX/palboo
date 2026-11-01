@@ -105,6 +105,11 @@ export async function request<T = { ok: boolean }>(
   return value as T;
 }
 
+export const hostFontSource: import('../shared/host-fonts').HostFontSource = {
+  list: (signal) => request('host-fonts', undefined, signal),
+  read: requestHostFont,
+};
+
 export async function requestHostFont(id: string, signal: AbortSignal): Promise<ArrayBuffer> {
   const response = await fetch(`/api/host-fonts/${encodeURIComponent(id)}`, {
     headers: { Authorization: headers().Authorization },

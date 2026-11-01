@@ -1,10 +1,11 @@
 import { tr } from '../../shared/i18n.js';
 import { setLocale, getLocale } from '../../shared/i18n.js';
-/* [INPUT]: Shared page scope, main-window lease, feature owners, checked layout saves and the original native window IPC.
+/* [INPUT]: Shared page/font scope, main-window lease, feature owners, checked layout saves and the original native window IPC.
  * [OUTPUT]: Desktop chrome with a pin/layout menu, existing material and spatial enter/return transitions.
  * [POS]: Desktop surface adapter; feature content and actions stay in features/content.
  * [PROTOCOL]: Keep AGENTS.md in this module in sync. */
 import { typographyStyle, layoutZoom } from '../../shared/typography';
+import { createHostFontSync } from '../../shared/host-fonts';
 import { mountFeature } from '../workspace/mount';
 import { installFeatureLayout } from '../workspace/layout';
 import { installHandoffMotion } from '../workspace/handoff.js';
@@ -13,8 +14,12 @@ import { installWindowControls } from '../workspace/window-controls.js';
 import { installWindowMenu } from '../workspace/window-menu.js';
 import { workbenchHeadHtml } from '../workspace/chrome.js';
 import { installNativeResize } from './resize.js';
-/** @param {import('../../shared/features').Request} request */
-export function startDesktop(request, lease) {
+/** @param {import('../../shared/features').Request} request
+ * @param {string} lease
+ * @param {import('../../shared/host-fonts').HostFontSource} [fontSource] */
+export function startDesktop(request, lease, fontSource) {
+  const fonts = fontSource && createHostFontSync(fontSource);
+  window.addEventListener('pagehide', () => fonts?.destroy(), { once: true });
   installStyle();
   document.documentElement.dataset.nativeBackdrop = 'true';
   const root = document.getElementById('root');
@@ -189,6 +194,7 @@ export function startDesktop(request, lease) {
   function appearance(value) {
     if (value.typographyPreferences) {
       const font = typographyStyle(value.typography, value.typographyPreferences, layoutZoom(root));
+      fonts?.update(font.fontFamily);
       Object.assign(root.style, font);
       root.style.setProperty('--csw-font-family', font.fontFamily);
       root.style.setProperty('--csw-chrome-font', font.fontSize);
@@ -271,6 +277,7 @@ export function startDesktop(request, lease) {
         ?.setAttribute('aria-label', tr('从右下角调整窗口大小'));
       if (!windowState.valid) {
         stopped = true;
+        fonts?.destroy();
         nativeResize.destroy();
         windowMenu.destroy();
         composition.destroy();
@@ -343,6 +350,7 @@ export function startDesktop(request, lease) {
       error(e);
       if (++failures >= 3) {
         stopped = true;
+        fonts?.destroy();
         handoffMotion.destroy();
         nativeResize.destroy();
         native({ kind: 'close' });

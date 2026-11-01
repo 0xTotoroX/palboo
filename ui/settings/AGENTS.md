@@ -96,7 +96,7 @@ settings-search.tsx在页头提供本地设置搜索：从唯一挂载的标签/
 
 术语设置去掉重复的“打开”动作，保留收藏筛选；移除阅读批注候选，旧 note 偏好读取为 plain。
 
-`typography-settings.tsx` 是字体唯一设置入口，按 settings/sidebar/overlay/desktop/edge 分别选择本机字体族、跟随来源、75–150%比例或10–32px固定字号，默认跟随 ChatGPT。各表单持续挂载、ID独立，切换窗口不提交草稿，失败保留输入；复用 PanelSettings 外观 revision，以 surfaceTypography 单键补丁保存。缺省业务窗口继承旧 typography，设置页跟随主题使用宿主界面读数，旧排版偏好保留兼容，显式编辑后按窗口覆盖。`use-typography.ts` 更新自有文档字体/rem基准；导航、菜单、标题和提示的宿主像素读数换算为相对基准，设置字号能统一缩放，主题来源不重置独立偏好。layout-preview 按演示承载选择相同偏好，旧 fontSizes 不删除。
+`typography-settings.tsx` 是字体唯一设置入口，按 settings/sidebar/overlay/desktop/edge 分别选择本机字体族、跟随来源、75–150%比例或10–32px固定字号，默认跟随 ChatGPT。各表单持续挂载、ID独立，切换窗口不提交草稿，失败保留输入；复用 PanelSettings 外观 revision，以 surfaceTypography 单键补丁保存。缺省业务窗口继承旧 typography，设置页跟随主题使用宿主界面读数，旧排版偏好保留兼容，显式编辑后按窗口覆盖。`use-typography.ts` 更新自有文档字体/rem基准并返回实际采用的末次有效快照，字形加载沿用同一来源；导航、菜单、标题和提示的宿主像素读数换算为相对基准，设置字号能统一缩放，主题来源不重置独立偏好。layout-preview 按演示承载选择相同偏好，旧 fontSizes 不删除。
 
 术语设置提供“点击术语时跳转到上下文”开关，默认关闭；通过原 terminology settings/revision 通道持久保存 jumpOnClick，失败保留原值。
 
@@ -183,8 +183,10 @@ main.tsx 从认证 state/SSE 的 systemLanguage 解析“跟随系统”，与�
 
 布局预设与主界面布局在同一设置分组：当前预设下拉直接应用，紧邻的管理入口复用 SettingsDrawer 紧凑触发器。管理抽屉支持通用/侧栏推荐/浮层推荐/桌面推荐；名称与标记草稿共用原修订，冲突/失败保留，取消接收远端。预设为共享目录，各形式布局独立；当前预设按实际布局匹配。
 
-use-host-appearance 分别使用宿主 primary/navSelected/segmented/switchOn 等语义颜色，普通导航和分段文字使用正文色；开关、链接、Clear 星星与焦点按各自角色使用强调色，移除分类装饰色点。旧自定义强调色不参与显示。紧凑预设字段去除宿主通用底边距，使管理按钮与下拉中轴对齐；窄屏自然换行。Bot 资料标题行同样去除通用标题下边距，使标题与刷新按钮保持中轴对齐。
+use-host-appearance 分别使用宿主 primary/navSelected/segmented/switchOn 等语义颜色，普通导航和分段文字使用正文色；开关、链接、Clear 星星与焦点按各自角色使用强调色，侧栏分类标题按用户选择保留4px宿主强调色点，正文不加装饰。旧自定义强调色不参与显示。紧凑预设字段去除宿主通用底边距，使管理按钮与下拉中轴对齐；窄屏自然换行。Bot 资料标题行同样去除通用标题下边距，使标题与刷新按钮保持中轴对齐。
 
 模型设置首读不受标签页可见性影响，后续轮询只在可见页面串行读取；焦点/可见性变化复用同一读取入口，慢响应不被周期性请求作废。写入继续使用原串行队列与完成后回读。
 
 大纲与提示词优化的介绍位于各自预览之后；提示词优化预览与其他预览同在 settings-body 的首部，保持独立挂载和本地草稿，不嵌在介绍之后的表单列。
+
+use-host-fonts 是 shared/host-fonts 的 React 文档适配器，settings/api 提供认证 HostFontSource，供设置与独立窗口入口共用；有效字体族未变时不重复加载，销毁回收自有字形。字体与字号表单、外观修订和保存范围不变。

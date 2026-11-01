@@ -23,3 +23,5 @@ main 将 feature state 的 scopeAllowed 经 scope-visible IPC 投影给原生窗
 main 通过 workspace/window-menu 提供置顶与布局预设，传递 lease、预设修订和原布局；布局保存/窗口交接中暂禁菜单动作。菜单和命名输入区不触发原生拖动，关闭窗口清理菜单监听；管理动作通过原设置 URL 的 open=layout-presets 定位现有抽屉。
 
 legacy-board 使用 desktop 独立字体及共享字号计算，旧看板 CSS 通过 --board-font-size 接收同一基准，不改看板布局。
+
+main 按 desktop 有效字体族驱动 shared/host-fonts，沿用字体/字号偏好；轮询不重载不变的字形，失效租约、连续断线和页面退出清理。legacy-board 同样按解析后的 desktop 字体接入共享加载器，缺少新快照时字形和样式一起保留末次有效读数。

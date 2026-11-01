@@ -34,3 +34,5 @@ views 复用唯一原壳和 geometry 动效，只由 embedded/features 替换内
 panel-appearance 将全局有效字体应用到旧工作台正文和标题变量；弹出兼容模式读 presentation 的 sharedTypography。旧 fontSizes/fontOffset 仅在没有新字体协议时回退。
 
 panel-appearance 按 workbench/capsule/native 选择 sidebar/overlay/desktop 字体偏好；正文和头部字号保持同一缩放补偿，旧浮窗接收预先解析的 desktop 快照。
+
+旧弹出模式的 panel-appearance 经 PopoutBridge.hostFonts 注册本机字体，正文和标题沿用同一有效字体链；仅 IS_POPOUT 启用，内嵌直接使用宿主文档已有字体。disposePopoutFonts 由 runtime 停用/销毁回收，重新启用可重新创建。

@@ -1,5 +1,5 @@
 /*
- * [INPUT]: 带令牌和租约的启动链接、本机 panel API 与 Wry IPC。
+ * [INPUT]: 带令牌和租约的启动链接、本机 panel/font API 与 Wry IPC。
  * [OUTPUT]: scopeAllowed 临时隐藏/恢复原生窗口；宿主主题随背景 IPC 同步；窗口交接及结束后的控件可用状态；位置、置顶、外观写入共用串行队列与修订号，收回偏好携带动画前捕获的修订号，保留外部并发冲突保护。
  * [POS]: 系统窗口页面引导层，复用共享胶囊而不采集聊天正文。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
@@ -310,6 +310,30 @@
 
   window.__companionPopout = {
     request,
+    hostFonts: {
+      async list(signal) {
+        const response = await fetch('/api/host-fonts', {
+          headers: { Authorization: `Bearer ${token}` },
+          signal,
+          cache: 'no-store',
+        });
+        if (!response.ok) throw new Error('Host fonts unavailable');
+        return response.json();
+      },
+      async read(id, signal) {
+        const response = await fetch(`/api/host-fonts/${encodeURIComponent(id)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          signal,
+          cache: 'no-store',
+        });
+        if (!response.ok || response.headers.get('Content-Type') !== 'font/woff2')
+          throw new Error('Host font unavailable');
+        const bytes = await response.arrayBuffer();
+        if (bytes.byteLength < 48 || bytes.byteLength > 2 * 1024 * 1024)
+          throw new Error('Invalid host font size');
+        return bytes;
+      },
+    },
     async taskRequest(path, body) {
       if (!['tasks/state', 'tasks/command'].includes(path)) throw new Error(tr('不支持的任务请求'));
       const response = await fetch(`/api/${path}`, {

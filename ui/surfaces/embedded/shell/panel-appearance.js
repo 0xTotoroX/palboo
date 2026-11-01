@@ -1,12 +1,13 @@
 import { tr } from '../../../shared/i18n.js';
 /*
- * [INPUT]: runtime/state.js、宿主主题及 presentation.js 的主题投影。
+ * [INPUT]: runtime/state.js、宿主主题、字体来源及 presentation.js 的主题投影。
  * [OUTPUT]: panelAppearance 提供只读明暗/语义色快照； 弹出跟随宿主明暗； 三材质、停靠场景独立偏好及液态分支迁移与实际效果映射、字体、主题、图标与尺寸归一化辅助函数（浮窗无固定上限，内嵌按渲染空间约束）。
  * [POS]: 共享胶囊外观计算层；内嵌模式通过 appearance 事件通知 SVG 液态运行时。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
 
 import { layoutZoom } from '../../../shared/typography';
+import { createHostFontSync } from '../../../shared/host-fonts';
 import { featureFontSize } from '../../../shared/features';
 import { iconSvg } from '../../../shared/icons/index.js';
 import {
@@ -18,6 +19,7 @@ import {
   FONT_OFFSET_KEY,
   HEIGHT_KEY,
   IS_POPOUT,
+  POPOUT,
   LABEL_ONLY_KEY,
   LEGACY_MATERIAL_KEY,
   LEGACY_MATERIAL_MODES,
@@ -141,12 +143,21 @@ function setPixelVariable(element, property, value) {
   }
 }
 
+let popoutFonts;
+export function disposePopoutFonts() {
+  popoutFonts?.destroy();
+  popoutFonts = null;
+}
 function applyTypographyVariables() {
   if (!shellState.root) return;
   const shared =
     window.__palbooTypography?.resolved(
       IS_POPOUT ? 'desktop' : shellState.layoutMode === 'workbench' ? 'sidebar' : 'overlay',
     ) || shellState.sharedTypography;
+  if (IS_POPOUT && POPOUT.hostFonts) {
+    popoutFonts ||= createHostFontSync(POPOUT.hostFonts);
+    popoutFonts.update(shared?.fontFamily || shellState.hostTypography.fontFamily);
+  }
   if (shared) {
     const size = (shared.fontSize * shared.zoom) / layoutZoom(shellState.root);
     shellState.root.style.setProperty('--csw-font-family', shared.fontFamily);

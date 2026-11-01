@@ -1,15 +1,17 @@
 import { tr } from '../../shared/i18n.js';
 import { setLocale, getLocale } from '../../shared/i18n.js';
-/* [INPUT]: Native edge geometry/events and feature owners. [OUTPUT]: Persisted reorderable icon tabs with stable measured wrapping, bounded dialogs and per-view header slots.
+/* [INPUT]: Native edge geometry/events, effective fonts and feature owners. [OUTPUT]: Persisted reorderable icon tabs with stable measured wrapping, bounded dialogs and per-view header slots.
  * [POS]: Keeps mounted views alive while collapsed or in another tab; no business state.
  * [PROTOCOL]: Keep AGENTS.md in this module in sync. */
 import { createEdgeTabs } from './tabs';
 import { mountFeature } from '../workspace/mount';
 import { type FeatureState, type Request } from '../../shared/features';
 import { typographyStyle, layoutZoom } from '../../shared/typography';
+import { createHostFontSync, type HostFontSource } from '../../shared/host-fonts';
 import { surfaceStyle } from '../theme/appearance';
 import styles from './styles.css?inline';
-export function startEdge(request: Request) {
+export function startEdge(request: Request, fontSource?: HostFontSource) {
+  const fonts = fontSource && createHostFontSync(fontSource);
   const style = document.createElement('style');
   style.textContent = styles;
   document.head.append(style);
@@ -155,15 +157,15 @@ export function startEdge(request: Request) {
       root.lang = getLocale();
       root.querySelector('#edge-handle')?.setAttribute('aria-label', tr('展开功能面板'));
       tabs.setAttribute('aria-label', tr('功能'));
-      if (state.appearance?.typographyPreferences)
-        Object.assign(
-          panel.style,
-          typographyStyle(
-            state.appearance.typography,
-            state.appearance.edgeTypographyPreferences || state.appearance.typographyPreferences,
-            layoutZoom(panel),
-          ),
+      if (state.appearance?.typographyPreferences) {
+        const font = typographyStyle(
+          state.appearance.typography,
+          state.appearance.edgeTypographyPreferences || state.appearance.typographyPreferences,
+          layoutZoom(panel),
         );
+        Object.assign(panel.style, font);
+        fonts?.update(font.fontFamily);
+      }
       for (const entry of state.features) {
         for (const candidate of [
           ...(entry.open ? [{ owner: entry.owner, placement: entry.placement }] : []),
@@ -306,6 +308,7 @@ export function startEdge(request: Request) {
     'pagehide',
     () => {
       stopped = true;
+      fonts?.destroy();
       clearInterval(timer);
       cancelAnimationFrame(measureFrame);
       contentChanges.disconnect();

@@ -12,7 +12,7 @@ import { installTerminology } from '../../terminology/host.js';
 /*
  * [INPUT]: 宿主上下文、独立功能、设置协调、外壳与通知。
  * [OUTPUT]: 只读 panelAppearance 接口； 回答结束且文本稳定后扫描生成、启停与通知订阅，连接胶囊/左侧图标入口与停靠开合，主功能交接中禁用重复内外操作，Dev 插件页签选中后收起旧侧栏；切换聊天恢复有效建议缓存，来源失联保留只读结果并使异步请求失效。
- * [POS]: 模块组合入口；统一初始化并回收观察器、定时器和订阅。
+ * [POS]: 模块组合入口；统一初始化并回收观察器、定时器、订阅与旧浮窗字体资源。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
 import {
@@ -27,7 +27,10 @@ import {
   reopenMainFeatures,
 } from '../../surfaces/embedded/features.js';
 import { syncLauncher, stopLauncher } from '../../surfaces/embedded/launcher.js';
-import { panelAppearance } from '../../surfaces/embedded/shell/panel-appearance.js';
+import {
+  panelAppearance,
+  disposePopoutFonts,
+} from '../../surfaces/embedded/shell/panel-appearance.js';
 
 import {
   DETACHED_KEY,
@@ -415,6 +418,7 @@ function stopRuntime() {
   shellState.themeObserver = null;
   shellState.typographyObserver?.disconnect();
   shellState.typographyObserver = null;
+  disposePopoutFonts();
   clearPromptInteractionTimers();
   outlineClearMarks();
   outlineState.outlineItems = [];
