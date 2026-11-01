@@ -145,6 +145,7 @@ export function CodexHostSettings({
       />
       {detailsVisible && (
         <>
+          <CodexHostPreview />
           <div className="compatibility-heading">
             <h2>CodexHost</h2>
             <span className="compatibility-state">
@@ -164,7 +165,6 @@ export function CodexHostSettings({
           >
             {tr('CodexHost 原版 GitHub 仓库')}
           </a>
-          <CodexHostPreview />
         </>
       )}
       <Feedback

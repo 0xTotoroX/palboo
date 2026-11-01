@@ -318,9 +318,11 @@ test(
               ? 'text/javascript'
               : path.endsWith('.css')
                 ? 'text/css'
-                : path.endsWith('.png')
-                  ? 'image/png'
-                  : 'text/html',
+                : path.endsWith('.svg')
+                  ? 'image/svg+xml'
+                  : path.endsWith('.png')
+                    ? 'image/png'
+                    : 'text/html',
           })
           .end(data);
       } catch {
@@ -726,16 +728,58 @@ test(
           const before = writes.length;
           const integration = page.locator('#settings-codex-host');
           await integration.getByRole('heading', { name: 'CodexHost', exact: true }).waitFor();
-          await integration.getByRole('figure', { name: 'CodexHost 兼容层示意' }).waitFor();
-          assert.deepEqual(
-            await integration.locator('.compatibility-flow-agents span').allTextContents(),
-            ['Claude Code', 'Pi', 'OpenCode'],
+          const menu = integration.getByRole('menu', { name: 'Agent 菜单预览' });
+          await menu.waitFor();
+          await page.waitForFunction(() =>
+            [...document.querySelectorAll('.compatibility-agent-choice img')].every(
+              (image) => image.complete && image.naturalWidth > 0,
+            ),
           );
+          assert.equal(await menu.getByRole('menuitemradio').count(), 18);
           assert.equal(
-            await page.locator('.settings-preview').count(),
-            0,
-            'compatibility is a management page, without a fake feature canvas',
+            await menu
+              .getByRole('menuitemradio', { name: 'Antigravity CLI', exact: true })
+              .getAttribute('aria-checked'),
+            'true',
           );
+          const checkInset = await menu
+            .getByRole('menuitemradio', { name: 'Antigravity CLI', exact: true })
+            .evaluate(
+              (node) =>
+                node.getBoundingClientRect().right -
+                node.querySelector('.buddy-icon').getBoundingClientRect().right,
+            );
+          assert.ok(checkInset <= 14, 'selected check stays at the trailing edge, not the middle');
+          await menu.getByRole('menuitemradio', { name: 'OpenCode', exact: true }).click();
+          assert.equal(
+            await menu
+              .getByRole('menuitemradio', { name: 'OpenCode', exact: true })
+              .getAttribute('aria-checked'),
+            'true',
+          );
+          const more = menu.getByRole('button', { name: '更多 Agent (16)', exact: true });
+          await more.click();
+          assert.equal(await menu.getByRole('menuitemradio').count(), 2);
+          await more.press('ArrowDown');
+          assert.equal(
+            await page.evaluate(() => document.activeElement.textContent.trim()),
+            'Codex',
+          );
+          await more.press('Space');
+          assert.equal(await menu.getByRole('menuitemradio').count(), 18);
+          await more.press('ArrowDown');
+          assert.equal(
+            await page.evaluate(() => document.activeElement.textContent.trim()),
+            'OpenCode',
+          );
+          await menu.getByRole('button', { name: '预览添加 Pi', exact: true }).click();
+          assert.equal(
+            await menu
+              .getByRole('menuitemradio', { name: 'Pi', exact: true })
+              .getAttribute('aria-checked'),
+            'true',
+          );
+          await menu.getByRole('menuitemradio', { name: 'Antigravity CLI', exact: true }).click();
           assert.equal(
             await page
               .getByRole('link', { name: 'CodexHost 原版 GitHub 仓库', exact: true })
@@ -745,7 +789,7 @@ test(
           assert.equal(
             writes.length,
             before,
-            'compatibility overview never writes settings or switches the real Agent',
+            'Agent preview interactions never install, save or switch the real Agent',
           );
         }
         if (id === 'appearance')
@@ -1422,17 +1466,26 @@ test(
               continue;
             }
             if (id === 'codex-host') {
-              assert.equal(await page.locator('.settings-preview').count(), 0);
-              const bounds = await page.locator('.compatibility-overview').evaluate((node) => ({
-                width: node.getBoundingClientRect().width,
-                scrollWidth: node.scrollWidth,
-                height: node.getBoundingClientRect().height,
-              }));
+              const bounds = await page
+                .locator('.compatibility-preview .preview-frame')
+                .evaluate((node) => ({
+                  width: node.getBoundingClientRect().width,
+                  scrollWidth: node.scrollWidth,
+                  height: node.getBoundingClientRect().height,
+                  backdrop: getComputedStyle(node).backdropFilter,
+                }));
               assert.ok(
                 bounds.scrollWidth <= bounds.width + 1,
-                'compatibility diagram fits narrow screens',
+                'Agent preview fits narrow screens',
               );
-              assert.ok(bounds.height < 440, 'compatibility overview has no empty fixed canvas');
+              assert.ok(
+                bounds.height <= 442 && bounds.height > 300,
+                'Agent menu scrolls within a content-sized preview',
+              );
+              assert.equal(bounds.backdrop, 'none', 'matte preview has no backdrop filter');
+              await page.screenshot({
+                path: `target/reports/settings-preview-codex-host-${colorScheme}-${width}.png`,
+              });
               continue;
             }
             if (id === 'terminology') {
@@ -1454,8 +1507,8 @@ test(
               return {
                 border: style.borderWidth,
                 radius: style.borderRadius,
-                background: getComputedStyle(node.querySelector('.preview-clear-surface') || node)
-                  .backgroundColor,
+                background: style.backgroundColor,
+                backdrop: style.backdropFilter,
                 format: node.dataset.previewFormat,
                 width: node.getBoundingClientRect().width,
                 height: node.getBoundingClientRect().height,
@@ -1464,6 +1517,7 @@ test(
             assert.equal(stage.border, '1px', `${id}: one content boundary`);
             assert.equal(stage.radius, '12px', `${id}: shared rounded preview stage`);
             assert.notEqual(stage.background, 'rgba(0, 0, 0, 0)');
+            if (stage.format === 'feature') assert.equal(stage.backdrop, 'none');
 
             const previewOrder = await page.evaluate(() => {
               const sample = document

@@ -135,7 +135,7 @@
   background: transparent;
 }
 .settings-app .settings-select-action .settings-liquid-toggle[aria-pressed='true'] {
-  color: var(--buddy-text);
+  color: var(--buddy-accent);
 }
 .settings-control-pair > .settings-native-select {
   flex-shrink: 0;

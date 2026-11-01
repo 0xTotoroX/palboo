@@ -37,7 +37,7 @@
 - [api.ts](api.ts)：认证请求、错误和 SSE 状态订阅，共用 ../shared/contracts.ts；本轮首个有效快照到达才恢复在线，不把响应头视为状态就绪；普通入口根据认证状态跳转 Dev 统一页。
 - [styles.css](styles.css)：Tailwind v4、语义主题映射、搜索和保留的旧总览样式；只扫描本目录，不注入宿主。
 - [settings-layout.css](settings-layout.css)：中性首帧回退、共用导航与表单布局；实际颜色/几何由宿主变量覆盖。640px以下为单行分类入口，641–900px侧栏128px，宽屏180px；内容最大760px。控件宽度分档、标签中轴和预览顺序不变；正文标题不增加装饰；界面/功能/系统分类文字右下侧保留4px宿主强调色点。
-- [settings-controls.css](settings-controls.css)：按钮、输入框、选择器、开关的统一高度、微圆角、中性焦点与禁用态；包含方向库目录/单条编辑层级的主题和控件样式；NativeSelect 按用途收窄且菜单与选择框等宽，原生菜单、自由输入候选、方向选择面板、主题与窄屏目录共享 settings-menu-surface，明暗主题分别取值；材质控件右对齐，选择液态后在同一选择框内显示Clear星星，实心为Clear、空心为Regular；不另加变体下拉或强调底块，保留至少28px命中区域；支持 base-select 时定制原生菜单和选项，原生键盘、点击、取消、禁用及 change 事件不变，不支持时保留系统菜单。自由输入候选和搜索弹层沿用同一菜单样式。Dev 来源因 Shadow DOM 隔离，在 dev-sources.js 内以同一语义变量适配，不依赖新版源码文件。
+- [settings-controls.css](settings-controls.css)：按钮、输入框、选择器、开关的统一高度、微圆角、中性焦点与禁用态；包含方向库目录/单条编辑层级的主题和控件样式；NativeSelect 按用途收窄且菜单与选择框等宽，原生菜单、自由输入候选、方向选择面板、主题与窄屏目录共享 settings-menu-surface，明暗主题分别取值；材质控件右对齐，选择液态后在同一选择框内显示Clear星星，主题色实心为Clear、中性色空心为Regular；不另加变体下拉或强调底块，保留至少28px命中区域；支持 base-select 时定制原生菜单和选项，原生键盘、点击、取消、禁用及 change 事件不变，不支持时保留系统菜单。自由输入候选和搜索弹层沿用同一菜单样式。Dev 来源因 Shadow DOM 隔离，在 dev-sources.js 内以同一语义变量适配，不依赖新版源码文件。
 - [settings-preview.tsx](settings-preview.tsx)：设置预览入口；任务、模型和Bot使用当前本地快照，布局与外观页复用同一渲染器及已有标题操作槽，分栏正文限定在承载高度内滚动并保持透明，不再重复铺设底色。下一步、大纲和术语使用合成内容体现表现偏好，不读取真实聊天或调用模型。模型服务摘要按有效内容定高，整体界面预览保持16:9。
 - `feature-preview.tsx`：Shadow DOM内复用实际ProjectedContent、Board、BotsView、TerminologyView。current模式复制任务内容、分组、视图模式与Bot目录/分组/顺序/头像/隐藏状态；没有数据就显示加载、空态或错误，不以示例冒充。Bot运行状态不由名单推测。example模式及术语样本使用shared/demo-state。所有点击只改内存，任务预览禁用轮询；独立完全展开预览使用至少720px的横向看板，窄屏仅正文横向滚动，标题操作保持可见；嵌入布局预览时保留真实窄栏适配并使用外层标题操作槽，避免双标题和重复内边距。
 - `model-preview.tsx`：current模式完整同步当前模型目录、常用项、顺序、分组、预设、选中模型/思考等级/Fast、额度与测速；缺数据保持等待，不补假模型。只替换为预览目标，所有操作在内存副本执行。独立example模式保留网站/合成演示和明确示例名。遥测更新不重置交互，当前配置变化更新内容，原阅读节点保持；真实预览沿用ModelView窄栏与横向滚动，不改成另一套表格。
@@ -46,9 +46,9 @@
 - `layout-preview-journey.ts`：设置与介绍页共用的纯窗口移动动画，保持先弹出再移至副屏的轨迹，取消和减少动态效果行为一致，不访问服务。
 - `layout-preview-scene.tsx` / `layout-preview-scene.css`：原设备/副屏 SVG 及限定场景作用域的表面样式，供设置与介绍页共用，宿主名可由使用方提供；按 placement 区分侧栏让位与浮层/桌面/贴边的完整聊天宽度，缺省保留旧几何行为；可选 zoom 接续介绍页的滚动放大，entryRef 提供原双眼落点，focusWorkspace 在窄屏聚焦内容并直接完成窗口位置变化；materialProgress 将同一 foreignObject 工作台从设备位置接续到品牌背景中央，先淡出宿主再显现背景，不重挂载输入节点；缺省不启用材质衔接，设置页仍沿原布局与外观场景显示。
 - `layout-preview.css`：设置交互示例与材质样本样式，导入共享设备表面。正面16:10 ChatGPT示意与小副屏、四边窄框；副屏在移入时显现，窗口填满其屏幕。全部预览统一位于对应页面表单顶部；界面预览外框统一16:9，外观页使用字号不缩放的工作台材质样本及有明暗层次的背景，保存材质成功后跟随对应位置，空位置也保留示例内容；贴边预览跟随保存的边与相对位置，材质为近似效果。
-- `preview-frame.tsx`：设置功能预览共用单层Clear内容框与可访问名称，复用theme/glass/svg的折射；尺寸变化按帧合并，隐藏/卸载释放，减少透明度采用实底，不支持SVG时保留CSS柔光边缘。整体界面预览仍沿原样式；必要状态在框外，不读取或保存配置。
-- `liquid-variant-toggle.tsx`：材质选择框内的共享Clear星星按钮，空心/实心对应Regular/Clear，保留键盘、禁用与按下状态，复用各调用方保存及修订流程。
-- [settings-preview.css](settings-preview.css)：功能及模型服务摘要使用最大480px单层Clear内容框、12px圆角和内容自适应高度，正文最大440px后内部滚动；任务看板独立预览使用页面可用全宽，不固定比例。真实模型沿用组件样式与底栏，独立示例可使用名称下方强度选项。整体场景为16:9，材质效果为近似预览。
+- `preview-frame.tsx`：设置功能预览共用单层哑光内容框与可访问名称，不叠加玻璃折射、透明染色或额外观察器。整体界面预览仍沿原样式；必要状态在框外，不读取或保存配置。
+- `liquid-variant-toggle.tsx`：材质选择框内的共享Clear星星按钮，中性色空心/主题色实心对应Regular/Clear，保留键盘、禁用与按下状态，复用各调用方保存及修订流程。
+- [settings-preview.css](settings-preview.css)：功能及模型服务摘要使用最大480px单层哑光内容框、12px圆角和内容自适应高度，正文最大440px后内部滚动；任务看板独立预览使用页面可用全宽，不固定比例。真实模型沿用组件样式与底栏，独立示例可使用名称下方强度选项。整体场景为16:9，材质效果为近似预览。
 - [settings-list-motion.ts](settings-list-motion.ts)：配置列表增删/排序补位和新项4px淡入，共用主题时长（原主题200ms）及减少动效判断；以稳定ID测量相对位置，提示词没有持久ID时使用仅在界面保留的身份，兼容重复内容、后台整表回读与删除确认；不改变布局、保存时机或数据结构。
 - [settings-motion.ts](settings-motion.ts)：分类入场、功能预览与服务字段的可中断动画，提供公共时长/缓动及减少动效判断；跟随主题读取宿主参数，原主题保留原时长。键盘即时响应，宿主/系统减少动态效果取消进行中的动画；ResizeObserver 同步顶栏真实高度至目录粘性偏移，不重新挂载控件、不存储配置；页面入场保留4px位移。
 - [settings-motion.css](settings-motion.css)：普通设置菜单即时开合；模型候选入场按已确认300ms/bounce0.1的弹簧采样，scale .8、opacity0及blur8px恢复到正常状态；控件不添加无依据的按压缩放。保留可中断关闭、焦点恢复及减少动态效果；抽屉等尚未绑定官方内部参数的动效不能宣称完整复刻。
@@ -168,8 +168,9 @@ launcher-settings 将单击、双击、右键并列为同宽设置行，各次�
 
 设置页右上角统一排列搜索、主题、官网、GitHub 四个34px图标入口；悬停/无障碍名称保留，主题选项仍在原菜单。搜索不注册全局快捷键且不显示快捷键提示；页脚仅显示动态 vX.Y.Z。窄屏整组保持右对齐，异常连接状态在图标组下方显示。
 
-- `codex-host-preview.tsx`：兼容层的只读接入关系图及README能力摘要，展示ChatGPT/Codex桌面经CodexHost接入不同Agent；由codex-host-settings复用，当前仅CodexHost，无假聊天、切换Agent或空白占位。原版仓库链接、状态、版本与管理操作直接放在兼容集成页，不调用安装、启动或配置API。
-- `preview-frame.tsx` / `settings-preview.css`：interface保持16:9，feature使用Clear且最大宽度480px居中（看板占满可用宽度）、高度随真实内容自适应；before/after槽承载框外演示操作，窄屏不占用画布。功能正文最多440px后内部滚动，模型底栏保持可达；通过继承变量控制Shadow DOM，不能只缩外框、裁切正文或改变网站默认内容高度。
+- `codex-host-preview.tsx`：兼容集成页顶部的哑光Agent菜单预览，展示图标、单选勾选、更多Agent与添加状态；鼠标/键盘操作仅修改组件内示例，不调用安装、启动、切换或保存API。原版仓库链接、介绍、状态、版本与管理操作保留在下方。
+- `codex-host-agents.ts` / `codex-host-assets/`：CodexHost 0.16.1公开目录和原始标识资源，构建时静态打包；不是本机安装状态，来源、许可与无修改边界见子目录NOTICE和地图，分发收集LGPL/GPL原文。
+- `preview-frame.tsx` / `settings-preview.css`：interface保持16:9，feature使用哑光且最大宽度480px居中（看板占满可用宽度）、高度随真实内容自适应；before/after槽承载框外演示操作，窄屏不占用画布。功能正文最多440px后内部滚动，模型底栏保持可达；通过继承变量控制Shadow DOM，不能只缩外框、裁切正文或改变网站默认内容高度。
 - `settings-spring.ts`：按本机已确认280ms/bounce0求解器生成的四位精度采样曲线；没有新动效依赖，CSS linear不支持时回退snappy cubic。
 - `use-dialog-height.ts`：确认弹窗内部ResizeObserver测量自然高度，首帧立即落位，之后300ms snappy过渡；中断从当前高度接续，关闭/销毁清理，键盘与减少动态效果即时。固定高度抽屉不使用此测量。
 

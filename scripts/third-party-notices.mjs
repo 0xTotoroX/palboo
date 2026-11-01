@@ -1,5 +1,5 @@
 /*
- * [INPUT]: 锁定 Cargo/npm 依赖、已安装包、本地 shadcn/ui、OpenAI 图标与上游许可原文。
+ * [INPUT]: 锁定 Cargo/npm 依赖、已安装包、本地 shadcn/ui、OpenAI/CodexHost 图标与上游许可原文。
  * [OUTPUT]: collectLicenseFiles 收集包内许可路径；generateNotices 生成 THIRD_PARTY_NOTICES.md 与 dependencies.json。
  * [POS]: 递归收集包内许可与署名，保留相对路径；只合并完全相同的原文，保留组件归属和来源。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
@@ -113,6 +113,14 @@ export function generateNotices(directory = join(root, 'dist/licenses')) {
     license: 'MIT',
     source: 'https://github.com/primer/octicons',
     directory: join(root, 'ui/shared/icons/octicons'),
+  });
+  components.push({
+    ecosystem: 'source',
+    name: 'CodexHost Agent identification assets',
+    version: '0.16.1',
+    license: 'LGPL-3.0-only',
+    source: 'https://github.com/BytePioneer-AI/codex-host/tree/v0.16.1',
+    directory: join(root, 'ui/settings/codex-host-assets'),
   });
   components.sort(
     (a, b) =>

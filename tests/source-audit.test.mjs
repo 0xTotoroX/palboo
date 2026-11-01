@@ -219,6 +219,10 @@ test('generated notices preserve nested licenses and pinned authors alongside pa
   assert.equal(component('model-deck host adapter').license, 'MIT');
   assert.equal(component('shadcn/ui').license, 'MIT');
   assert.equal(component('openai/apps-sdk-ui icons').license, 'MIT');
+  const agents = component('CodexHost Agent identification assets');
+  assert.equal(agents.license, 'LGPL-3.0-only');
+  for (const file of ['LICENSE', 'COPYING-GPL-3.0', 'NOTICE.md'])
+    assert.ok(agents.files.includes(file), `Missing Agent asset attribution: ${file}`);
   assert.ok(text.includes('Project-owned code is GPL-3.0-only'));
   assert.ok(!text.includes('Project-owned code has a separate MIT license'));
   for (const name of ['model-deck host adapter', 'shadcn/ui', 'openai/apps-sdk-ui icons'])

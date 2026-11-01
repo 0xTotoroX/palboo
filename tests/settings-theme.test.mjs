@@ -21,6 +21,7 @@ import {Input} from './ui/settings/components/ui/input';
 import {Button} from './ui/settings/components/ui/button';
 import {Switch} from './ui/settings/components/ui/switch';
 import {NativeSelect} from './ui/settings/components/ui/native-select';
+import {LiquidVariantToggle} from './ui/settings/liquid-variant-toggle';
 import {Field} from './ui/settings/settings-controls';
 import {IconButton} from './ui/settings/components/ui/button';
 import {Icon} from './ui/shared/icons/react';
@@ -41,6 +42,7 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
 <section className="settings-section"><h2 id="section-heading">显示与操作</h2></section>
 <Field label="服务地址" id="draft"><Input id="draft" defaultValue="保留草稿"/></Field>
 <Field label="显示方式" id="select"><NativeSelect id="select" controlWidth="short" defaultValue="a"><option value="a">跟随当前窗口 / Follow the current window</option><option value="b">固定显示器 / Fixed display</option></NativeSelect></Field>
+<NativeSelect aria-label="液态材质" action={<LiquidVariantToggle id="clear-star" label="Clear 变体" value="clear" onChange={()=>{}}/>}><option>液态</option></NativeSelect>
 <Input id="padded-input" className="pr-[43px]" defaultValue="example"/>
 <IconButton id="icon" aria-label="刷新"><Icon name="refresh"/></IconButton>
 <Button id="action">保存</Button><Button disabled id="disabled">不可用</Button>
@@ -225,6 +227,11 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
       menuRadius: '25px',
     });
     assert.equal(await page.locator('html').getAttribute('data-settings-style'), 'chatgpt');
+    assert.equal(
+      await page.locator('#clear-star').evaluate((n) => getComputedStyle(n).color),
+      'rgb(166, 125, 242)',
+      'selected Clear star follows the host accent',
+    );
     const navigationStyle = () =>
       page.locator('.settings-nav-children a[aria-current]').evaluate((n) => {
         const s = getComputedStyle(n);
