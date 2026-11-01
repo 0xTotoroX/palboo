@@ -102,7 +102,7 @@ Rust + Tokio/Axum + Tao/Wry + JavaScript 共享胶囊 + React/TypeScript/Vite + 
 根文件与配置：
 
 - `AGENTS.md`：项目约定和 L1 地图的唯一正文。
-- `DESIGN_SYSTEM.md`：仓库内设计系统，明确参考库及实际选型、逐页阅读顺序、品牌、颜色、字体、尺寸、组件、预览与动效；导航不重复为正文大标题，实现数值以对应源码为准。
+- `DESIGN_SYSTEM.md`：当前设计规范与复用入口，统一品牌、宿主语义、字体层级、控件对齐、页面结构、预览和动效；每页保留一个24px页面标题，侧栏及表单字号沿用现有角色。正文只维护当前规则，旧版与冻结快照归维护者项目档案，实现数值以对应源码为准。
 - `README.md` / `README.zh-CN.md`：默认英文与中文版，互设语言入口；只说明功能、安装使用、更新卸载、二次开发入口及必要的隐私/兼容限制；材质实现、内部机制、详细验收和维护过程留在 Obsidian。全量文档同步不扩大公开 README。
 - `build.rs`：拒绝非 macOS arm64 构建目标，调用 `scripts/build-panel.mjs` 解析胶囊模块并生成 Rust 内嵌脚本。
 - `Cargo.toml`：Rust 包、最低编译器版本、GPL-3.0-only 元数据、按平台依赖及 release 配置。
