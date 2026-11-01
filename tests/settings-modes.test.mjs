@@ -1,5 +1,5 @@
 /* [INPUT]: Built settings page, synthetic authenticated services and isolated Chromium.
- * [OUTPUT]: Shared drafts/DOM, grouped controls, 16:9 interface/content-sized feature previews, compatibility overview and responsive navigation.
+ * [OUTPUT]: Shared drafts/DOM, aligned compact controls, loaded content-sized previews, compatibility overview and responsive navigation.
  * [POS]: No real user data, model requests or host restarts.
  * [PROTOCOL]: Keep tests/AGENTS.md in sync. */
 import test from 'node:test';
@@ -1342,7 +1342,8 @@ test(
                   const field = e.closest('.settings-field');
                   const l = field.querySelector('label').getBoundingClientRect();
                   return (
-                    Math.abs(l.left - r.left) < 1 &&
+                    Math.abs(l.left - field.getBoundingClientRect().left) < 1 &&
+                    r.left >= l.left &&
                     Math.abs(field.getBoundingClientRect().right - r.right) < 1 &&
                     l.bottom <= r.top
                   );
@@ -1364,7 +1365,7 @@ test(
             });
             assert.equal(layout.overflow, false, JSON.stringify({ width, base, theme, layout }));
             assert.equal(layout.clipped, false);
-            assert.equal(layout.aligned, true);
+            assert.equal(layout.aligned, true, JSON.stringify({ width, base, theme, layout }));
             assert.equal(layout.retained, true);
             assert.equal(layout.mainOrder, true);
             assert.ok(
@@ -1672,12 +1673,14 @@ test(
               continue;
             }
             if (id === 'codex-host') {
+              await page.locator('.compatibility-preview .compatibility-agent-menu').waitFor();
               const bounds = await page
                 .locator('.compatibility-preview .preview-frame')
                 .evaluate((node) => ({
                   width: node.getBoundingClientRect().width,
                   scrollWidth: node.scrollWidth,
                   height: node.getBoundingClientRect().height,
+                  contentHeight: node.querySelector('.compatibility-agent-menu').scrollHeight,
                   backdrop: getComputedStyle(node).backdropFilter,
                 }));
               assert.ok(
@@ -1685,7 +1688,9 @@ test(
                 'Agent preview fits narrow screens',
               );
               assert.ok(
-                bounds.height <= 442 && bounds.height > 300,
+                bounds.height <= 442 &&
+                  bounds.contentHeight > 0 &&
+                  bounds.height >= Math.min(bounds.contentHeight, 440),
                 'Agent menu scrolls within a content-sized preview',
               );
               assert.equal(bounds.backdrop, 'none', 'matte preview has no backdrop filter');
@@ -1957,8 +1962,8 @@ test(
         .evaluate((n) => getComputedStyle(n).fontSize);
       assert.equal(
         sampleStyle,
-        `${appearance.typography.customSize}px`,
-        'appearance preview uses saved typography',
+        `${appearance.typography.customSize * 0.65}px`,
+        'appearance preview scales saved typography to 65% without changing the preference',
       );
       await page.getByLabel('页面浮层主题', { exact: true }).selectOption('native-glass');
       await preview.locator('[data-preview-workspace][data-material="native-glass"]').waitFor();

@@ -1,5 +1,5 @@
 /* [INPUT]: Host settings semantics, shared typography and light/dark mode.
- * [OUTPUT]: Neutral startup fallback, four aligned header icons, compact version footer and responsive grouped navigation.
+ * [OUTPUT]: Neutral startup fallback, aligned header icons, scalable 14px hints / 12px version and responsive grouped navigation.
  * [POS]: Does not alter the workspace or host theme tokens.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 /* Shared tokens may be emitted after the entry CSS by Vite; specificity keeps both builds aligned. */
@@ -375,7 +375,7 @@ html:root .settings-nav {
 .settings-hint {
   margin-top: 8px;
   color: var(--buddy-muted);
-  font-size: 0.8125em;
+  font-size: 0.875rem;
   line-height: 1.65;
 }
 .settings-feedback {
@@ -526,7 +526,7 @@ html:root .settings-nav {
   border-top: 1px solid var(--settings-rule);
   padding-top: 18px;
   margin-top: 36px;
-  font-size: 0.6875em;
+  font-size: 0.75rem;
   color: var(--buddy-muted);
 }
 /* Keep a sidebar through medium widths; only compact screens use the disclosure. */

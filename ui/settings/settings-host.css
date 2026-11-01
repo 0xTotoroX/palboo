@@ -1,21 +1,25 @@
 /* [INPUT]: 宿主界面语义与尺寸变量和现有设置控件/分组结构。
- * [OUTPUT]: 跟随 ChatGPT 的导航/控件与分组外框；恢复细分隔线，控件保持等宽。
+ * [OUTPUT]: 跟随 ChatGPT 的导航/控件与分组外框；页面标题24px、中等字重，分组略加粗，说明14px，保留字体缩放。
  * [POS]: 设置页唯一宿主样式；不改变业务配置与品牌图标。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 html[data-settings-style='chatgpt'] {
   .settings-page-title {
     margin: 0 0 calc(var(--settings-space) * 6);
     color: var(--buddy-text);
-    font-size: var(--settings-page-title-size);
+    font-size: 1.5rem;
     line-height: var(--settings-page-title-line-height);
-    font-weight: var(--settings-page-title-weight);
+    font-weight: 500;
     letter-spacing: var(--settings-page-title-tracking);
   }
   .settings-page-intro {
     max-width: 62ch;
     margin: 0 0 calc(var(--settings-space) * 6);
     color: var(--buddy-muted);
+    font-size: 0.875rem;
     line-height: 1.6;
+  }
+  .settings-app .compatibility-introduction {
+    font-size: 0.875rem;
   }
   .settings-nav .settings-nav-children a {
     min-height: calc(var(--settings-space) * 9);
@@ -65,7 +69,7 @@ html[data-settings-style='chatgpt'] {
     line-height: inherit;
   }
   .settings-app :is(.settings-section h2, .settings-section h3) {
-    font-weight: var(--settings-nav-group-weight);
+    font-weight: 600;
     letter-spacing: var(--settings-heading-tracking);
   }
   .settings-app .settings-drawer-header h2 {
