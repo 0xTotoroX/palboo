@@ -1,5 +1,5 @@
 /* [INPUT]: Actual selects, suggestion input, field layout and compiled settings CSS.
- * [OUTPUT]: Stable width tiers, matching menus, large-type wrapping and unchanged native events.
+ * [OUTPUT]: Aligned single-control widths, matching menus, large-type wrapping and native events.
  * [POS]: Isolated browser fixture; never reads or writes user preferences.
  * [PROTOCOL]: Keep tests/AGENTS.md in sync. */
 import test from 'node:test';
@@ -9,7 +9,7 @@ import { build } from 'esbuild';
 import { chromium } from 'playwright';
 
 test(
-  'settings selects fit their content category and match their menus across themes and text sizes',
+  'settings selects share one aligned column and match their menus across themes and text sizes',
   { timeout: 60000 },
   async () => {
     const bundle = await build({
@@ -85,11 +85,9 @@ function App(){const [material,setMaterial]=useState('black');const [model,setMo
                 Math.abs(geometry[name].right - geometry.toggle.right) < 1,
                 JSON.stringify(geometry),
               );
-            if (width === 1360 && base < 32) {
-              assert.ok(geometry.short.width < geometry.medium.width);
-              assert.ok(geometry.medium.width < geometry.full.width);
-            }
-            assert.equal(geometry.input.width, geometry.full.width);
+            assert.equal(geometry.short.width, geometry.medium.width);
+            assert.equal(geometry.medium.width, geometry.full.width);
+            assert.ok(geometry.input.width >= geometry.full.width);
             assert.ok(geometry.variant.width < geometry.short.width, JSON.stringify(geometry));
             assert.ok(
               Math.abs(geometry.variant.right - geometry.toggle.right) < 1,

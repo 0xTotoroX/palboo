@@ -1,7 +1,10 @@
 /* [INPUT]: Settings semantic colors, native form elements and shared component slots.
- * [OUTPUT]: Compact, font-scaled control widths and matching native pickers across both themes.
+ * [OUTPUT]: One aligned settings control column with matching native pickers across both themes.
  * [POS]: Settings only; preserves native events, focus, disabled states and save queues.
  * [PROTOCOL]: Keep settings/AGENTS.md and components/ui/AGENTS.md in sync. */
+.settings-app {
+  --settings-control-width: max(208px, calc(var(--settings-text-size, 14px) * 11 + 40px));
+}
 .settings-app :is(input, select, textarea, button, .settings-search-input) {
   border-radius: var(--settings-control-radius);
 }
@@ -108,6 +111,10 @@
 }
 .settings-native-select[data-control-width='medium'] {
   width: min(100%, var(--settings-select-medium));
+}
+/* 设置页的独立选择框共用一列；并排组合控件保留内部紧凑尺寸。 */
+.settings-app .settings-native-select:not([data-control-width='compact']) {
+  width: min(100%, var(--settings-control-width));
 }
 .settings-control-pair {
   display: flex;
@@ -445,7 +452,6 @@
 .layout-preset-section + .layout-preset-section {
   margin-top: 28px;
   padding-top: 24px;
-  border-top: 1px solid var(--buddy-border);
 }
 .layout-preset-section > h3 {
   margin: 0 0 16px;
@@ -587,13 +593,9 @@ html:has(.settings-drawer[open]) {
 .settings-drawer-toolbar {
   flex: none;
   padding: 0 28px 8px;
-  border-bottom: 1px solid var(--buddy-border);
 }
 .settings-drawer-toolbar .settings-catalog-selection {
   margin-top: 4px;
-}
-#model-organization .settings-drawer-footer {
-  border-top: 1px solid var(--buddy-border);
 }
 #model-organization .settings-drawer-footer:not(:has(> fieldset:not([hidden]), > p)) {
   display: none;
@@ -850,7 +852,6 @@ html:has(.settings-drawer[open]) {
   display: flex;
   align-items: center;
   gap: 12px;
-  border-bottom: 1px solid var(--buddy-border);
 }
 .settings-app .direction-library-row button {
   flex: 1;

@@ -1,5 +1,5 @@
 /* [INPUT]: 宿主界面语义与尺寸变量和现有设置控件/分组结构。
- * [OUTPUT]: 跟随 ChatGPT 的导航/控件样式；普通表单用留白分行，密集功能列表保留分隔。
+ * [OUTPUT]: 跟随 ChatGPT 的导航/控件样式；分组用留白组织，标签与控件保持统一列边界。
  * [POS]: 设置页唯一宿主样式；不改变业务配置与品牌图标。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 html[data-settings-style='chatgpt'] {
@@ -24,21 +24,12 @@ html[data-settings-style='chatgpt'] {
   .settings-feature-list,
   .settings-surface-rows,
   .settings-control-group {
-    padding: calc(var(--settings-space) * 1) calc(var(--settings-space) * 4);
-    border: 1px solid var(--settings-group-border);
-    border-radius: var(--settings-group-radius);
-    corner-shape: var(--settings-corner-shape);
+    padding: 0;
+    border: 0;
   }
   .settings-control-group .settings-field {
     margin-bottom: 0;
     padding-block: calc(var(--settings-space) * 3);
-  }
-  .settings-app .settings-feature-list .settings-row {
-    border-bottom: 1px solid var(--settings-group-border);
-  }
-  .settings-app .settings-feature-list > :last-child .settings-row:last-child,
-  .settings-app .settings-feature-list > .settings-row:last-child {
-    border-bottom: 0;
   }
   .settings-surface-rows {
     gap: 0;
@@ -240,7 +231,6 @@ html[data-settings-style='chatgpt'] {
   }
   .settings-form-column > .settings-section:not([hidden]) ~ .settings-section:not([hidden]),
   .settings-surface-group {
-    border-top: 0;
     padding-top: calc(var(--settings-space) * 6);
   }
   .settings-choice {

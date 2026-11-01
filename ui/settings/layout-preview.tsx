@@ -2,7 +2,7 @@ import { SegmentedGroup } from './components/ui/segmented-group';
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: Saved feature/surface/typography snapshots, optional website feature renderer/stops/framing/material progress and shared workspace controller.
- * [OUTPUT]: Isolated previews with readable arrangements, a quiet chat backdrop and reversible device-to-material motion.
+ * [OUTPUT]: Isolated previews with readable arrangements, the original brand backdrop and reversible device-to-material motion.
  * [POS]: Shared layout/appearance sample content; save callbacks stay in memory and never call an API.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 import {
@@ -15,6 +15,7 @@ import {
   type Ref,
 } from 'react';
 import { PreviewFrame } from './preview-frame';
+import { PalbooWordmark } from '../shared/brand';
 import {
   typographyStyle,
   surfaceTypography as resolveSurfaceTypography,
@@ -31,33 +32,6 @@ import { useDemoJourney } from './layout-preview-journey';
 import { createPortal } from 'react-dom';
 
 type Sample = { id: string; title: string };
-function MaterialChatBackdrop() {
-  return (
-    <div className="layout-demo-chat-backdrop" aria-hidden="true">
-      <div className="layout-demo-chat-sidebar">
-        <span className="layout-demo-chat-name">ChatGPT</span>
-        <span className="layout-demo-chat-history">{tr('保留当前内容')}</span>
-        <span>{tr('切换承载位置')}</span>
-      </div>
-      <div className="layout-demo-chat-thread">
-        <p className="layout-demo-chat-question">
-          {tr('保留内容与阅读位置，')}
-          {tr('把工作台移到另一块屏幕。')}
-        </p>
-        <div className="layout-demo-chat-answer">
-          <p>{tr('先弹出，再移到副屏。')}</p>
-          <p>{tr('保留当前内容')}</p>
-          <div className="layout-demo-chat-lines">
-            <i />
-            <i />
-            <i />
-          </div>
-        </div>
-        <div className="layout-demo-chat-composer">{tr('询问任何问题')}</div>
-      </div>
-    </div>
-  );
-}
 export type LayoutDemoStop = {
   placement: string;
   arrangement: 'vertical' | 'horizontal' | 'tabs';
@@ -500,7 +474,9 @@ export function LayoutPreview({
       >
         {appearance ? (
           <div className="layout-demo-material-stage">
-            <MaterialChatBackdrop />
+            <div className="layout-demo-material-backdrop" aria-hidden="true">
+              <PalbooWordmark />
+            </div>
             <div className="layout-demo-material-sample">{sample}</div>
           </div>
         ) : (

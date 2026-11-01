@@ -212,7 +212,6 @@ html:root :is(.settings-theme, .settings-choice, .preview-selector) button[aria-
   margin-left: auto;
 }
 .settings-theme-divider {
-  border-top: 1px solid var(--buddy-border);
   margin: 5px;
 }
 html[data-settings-style='chatgpt'] [data-slot='button'][data-variant='default']:enabled:hover {
@@ -267,7 +266,6 @@ html:root .settings-nav {
   background: var(--buddy-page);
   margin-top: 20px;
   padding-bottom: 18px;
-  border-bottom: 1px solid var(--buddy-border);
 }
 .settings-category-links {
   display: flex;
@@ -322,7 +320,6 @@ html:root .settings-nav {
 }
 .settings-form-column > .settings-section:not([hidden]) ~ .settings-section:not([hidden]),
 .settings-surface-group {
-  border-top: 1px solid var(--buddy-border);
   padding-top: 24px;
 }
 .settings-field {
@@ -333,7 +330,7 @@ html:root .settings-nav {
   margin-bottom: 20px;
 }
 .settings-field input[type='number'] {
-  width: min(100%, 160px);
+  width: min(100%, var(--settings-control-width, 160px));
   display: block;
   margin-left: auto;
   font-variant-numeric: tabular-nums;
@@ -363,7 +360,6 @@ html:root .settings-nav {
 }
 .settings-feature-list .settings-row {
   min-height: 54px;
-  border-bottom: 1px solid var(--buddy-border);
 }
 .settings-feature-list .settings-field {
   margin-top: 18px;
@@ -519,7 +515,6 @@ html:root .settings-nav {
   display: flex;
   justify-content: space-between;
   gap: 16px;
-  border-top: 1px solid var(--settings-rule);
   padding-top: 18px;
   margin-top: 36px;
   font-size: 0.6875em;
@@ -547,7 +542,6 @@ html:root .settings-nav {
     min-width: 0;
     margin-top: 30px;
     padding: 0 22px 0 0;
-    border-bottom: 0;
   }
   .settings-category-links {
     flex-direction: column;
@@ -829,7 +823,6 @@ html:root .settings-nav {
   margin-bottom: 0;
 }
 .settings-app[data-settings-category='bots'] .bot-settings {
-  border-top: 0;
   padding-top: 0;
 }
 .bot-settings > .settings-hint {
@@ -871,7 +864,6 @@ html:root .settings-nav {
   padding: 12px 0;
   background: transparent;
   border-radius: 0;
-  border-bottom: 0;
 }
 .settings-app .bot-settings-profiles .settings-drawer-trigger:hover {
   background: var(--buddy-subtle);
@@ -887,7 +879,6 @@ html:root .settings-nav {
 .bot-settings-group[data-pinned='true'] + .bot-settings-group {
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid var(--buddy-border);
 }
 .bot-settings-group > h3 {
   margin: 0 0 8px;
@@ -910,10 +901,6 @@ html:root .settings-nav {
 }
 .settings-app .bot-settings-setup .settings-drawer-trigger:hover {
   color: var(--buddy-text);
-}
-
-.settings-status-list > .settings-row + .settings-row {
-  border-top: 1px solid var(--buddy-border);
 }
 
 .settings-mode-options {

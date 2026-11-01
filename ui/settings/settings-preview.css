@@ -397,7 +397,6 @@
   flex-direction: column;
   gap: 8px;
   padding: 12px 0;
-  border-bottom: 1px solid var(--buddy-border);
 }
 .preview-connection > .buddy-icon {
   color: var(--buddy-muted);
