@@ -26,6 +26,62 @@ test(
     let connectionStatus = 'connected';
     const streams = new Set();
     let codexHost = { enabled: false, revision: 1, state: 'disabled', canRestore: false };
+    let agentSnapshot = {
+      status: 'ready',
+      message: '',
+      current: 'codex',
+      agents: [
+        {
+          id: 'codex',
+          label: 'Codex',
+          group: 'main',
+          availability: 'ready',
+          available: true,
+          canAdd: false,
+        },
+        {
+          id: 'antigravity',
+          label: 'Antigravity CLI',
+          group: 'main',
+          availability: 'ready',
+          available: true,
+          canAdd: false,
+        },
+        {
+          id: 'zcode',
+          label: 'ZCode',
+          group: 'more',
+          availability: 'unavailable',
+          available: false,
+          canAdd: false,
+        },
+        {
+          id: 'opencode',
+          label: 'OpenCode',
+          group: 'more',
+          availability: 'ready',
+          available: true,
+          canAdd: false,
+        },
+        {
+          id: 'pi',
+          label: 'Pi',
+          group: 'more',
+          availability: 'notInstalled',
+          available: false,
+          canAdd: true,
+        },
+        {
+          id: 'local-agent',
+          label: '本机自定义 Agent',
+          group: 'more',
+          availability: 'error',
+          available: false,
+          canAdd: false,
+        },
+      ],
+    };
+    let agentReadError = false;
     const terminology = {
       entries: [
         {
@@ -175,6 +231,17 @@ test(
           };
         } else if (path === '/api/app-update') {
           value = { currentVersion: '1.3.0', revision: 1, canInstall: false, checked: false };
+        } else if (path === '/api/codex-host/agents') {
+          assert.equal(req.method, 'GET');
+          if (agentReadError) {
+            res
+              .writeHead(503, { 'Content-Type': 'application/json' })
+              .end(
+                JSON.stringify({ ok: false, code: 'fixture_error', message: 'Agent 读取暂时失败' }),
+              );
+            return;
+          }
+          value = agentSnapshot;
         } else if (path === '/api/codex-host') {
           if (body) {
             assert.equal(body.op, 'set-enabled');
@@ -809,15 +876,15 @@ test(
               (image) => image.complete && image.naturalWidth > 0,
             ),
           );
-          assert.equal(await menu.getByRole('menuitemradio').count(), 18);
+          assert.equal(await menu.getByRole('menuitemradio').count(), 6);
           assert.equal(
             await menu
-              .getByRole('menuitemradio', { name: 'Antigravity CLI', exact: true })
+              .getByRole('menuitemradio', { name: 'Codex', exact: true })
               .getAttribute('aria-checked'),
             'true',
           );
           const checkInset = await menu
-            .getByRole('menuitemradio', { name: 'Antigravity CLI', exact: true })
+            .getByRole('menuitemradio', { name: 'Codex', exact: true })
             .evaluate(
               (node) =>
                 node.getBoundingClientRect().right -
@@ -831,7 +898,7 @@ test(
               .getAttribute('aria-checked'),
             'true',
           );
-          const more = menu.getByRole('button', { name: '更多 Agent (16)', exact: true });
+          const more = menu.getByRole('button', { name: '更多 Agent (4)', exact: true });
           await more.click();
           assert.equal(await menu.getByRole('menuitemradio').count(), 2);
           await more.press('ArrowDown');
@@ -840,7 +907,7 @@ test(
             'Codex',
           );
           await more.press('Space');
-          assert.equal(await menu.getByRole('menuitemradio').count(), 18);
+          assert.equal(await menu.getByRole('menuitemradio').count(), 6);
           await more.press('ArrowDown');
           assert.equal(
             await page.evaluate(() => document.activeElement.textContent.trim()),
@@ -854,6 +921,69 @@ test(
             'true',
           );
           await menu.getByRole('menuitemradio', { name: 'Antigravity CLI', exact: true }).click();
+          // Identical reads retain the local trial; actual changes replace it immediately.
+          await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+          assert.equal(
+            await menu
+              .getByRole('menuitemradio', { name: 'Antigravity CLI', exact: true })
+              .getAttribute('aria-checked'),
+            'true',
+          );
+          await integration.getByRole('button', { name: '恢复当前配置', exact: true }).click();
+          assert.equal(
+            await menu
+              .getByRole('menuitemradio', { name: 'Codex', exact: true })
+              .getAttribute('aria-checked'),
+            'true',
+          );
+          assert.equal(
+            await menu.getByRole('menuitemradio', { name: 'Pi', exact: true }).isEnabled(),
+            false,
+          );
+          assert.equal(
+            agentSnapshot.current,
+            'codex',
+            'preview choices do not mutate the service snapshot',
+          );
+          const originalAgents = structuredClone(agentSnapshot);
+          agentSnapshot = {
+            ...agentSnapshot,
+            current: 'local-agent',
+            agents: agentSnapshot.agents
+              .filter((agent) => agent.id !== 'zcode')
+              .map((agent) =>
+                agent.id === 'local-agent'
+                  ? { ...agent, label: '已同步 Agent', availability: 'ready', available: true }
+                  : agent,
+              ),
+          };
+          await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+          await menu.getByRole('menuitemradio', { name: '已同步 Agent', exact: true }).waitFor();
+          assert.equal(await menu.getByRole('menuitemradio').count(), 5);
+          assert.equal(
+            await menu
+              .getByRole('menuitemradio', { name: '已同步 Agent', exact: true })
+              .getAttribute('aria-checked'),
+            'true',
+          );
+          agentReadError = true;
+          await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+          await integration.getByRole('status').filter({ hasText: 'Agent 读取暂时失败' }).waitFor();
+          assert.equal(
+            await menu.count(),
+            0,
+            'read failure must not show an old live selection or static demo',
+          );
+          agentReadError = false;
+          agentSnapshot = originalAgents;
+          await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+          await menu.waitFor();
+          assert.equal(
+            await menu
+              .getByRole('menuitemradio', { name: 'Codex', exact: true })
+              .getAttribute('aria-checked'),
+            'true',
+          );
           assert.equal(
             await page
               .getByRole('link', { name: 'CodexHost 原版 GitHub 仓库', exact: true })

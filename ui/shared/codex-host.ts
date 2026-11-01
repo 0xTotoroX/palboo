@@ -1,4 +1,4 @@
-/* [INPUT]: Authenticated CodexHost status. [OUTPUT]: Management UI contract.
+/* [INPUT]: Authenticated CodexHost status and read-only Agent projection. [OUTPUT]: Management and isolated preview contracts.
  * [POS]: Standalone background feature, independent of MCP and panel placement.
  * [PROTOCOL]: Keep shared/AGENTS.md in sync. */
 export type CodexHostStatus = {
@@ -24,4 +24,18 @@ export type CodexHostStatus = {
     state: 'queued' | 'confirming' | 'restarting' | 'cancelled' | 'completed' | 'failed';
     message: string;
   } | null;
+};
+
+export type CodexHostAgentSnapshot = {
+  status: 'ready' | 'unavailable';
+  message: string;
+  current: string | null;
+  agents: {
+    id: string;
+    label: string;
+    group: 'main' | 'more';
+    availability: string;
+    available: boolean;
+    canAdd: boolean;
+  }[];
 };

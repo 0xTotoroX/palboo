@@ -169,8 +169,8 @@ launcher-settings 将单击、双击、右键并列为同宽设置行，各次�
 
 设置页右上角统一排列搜索、主题、官网、GitHub 四个34px图标入口；悬停/无障碍名称保留，主题选项仍在原菜单。搜索不注册全局快捷键且不显示快捷键提示；页脚仅显示动态 vX.Y.Z。窄屏整组保持右对齐，异常连接状态在图标组下方显示。
 
-- `codex-host-preview.tsx`：兼容集成页顶部的哑光Agent菜单预览，展示图标、单选勾选、更多Agent与添加状态；鼠标/键盘操作仅修改组件内示例，不调用安装、启动、切换或保存API。原版仓库链接、介绍、状态、版本与管理操作保留在下方。
-- `codex-host-agents.ts` / `codex-host-assets/`：CodexHost 0.16.1公开目录和原始标识资源，构建时静态打包；不是本机安装状态，来源、许可与无修改边界见子目录NOTICE和地图，分发收集LGPL/GPL原文。
+- `codex-host-preview.tsx`：兼容集成页顶部的哑光Agent菜单预览；可见时每5秒及聚焦回读认证codex-host/agents，串行、卸载取消、隐藏停轮询。名单/顺序/分组/就绪状态/当前选择来自实际宿主；同值回读保留内存试玩，真实变化重置试玩，“恢复当前配置”可手动还原。读取失败清除旧选择并提示，不退回示例。操作只改临时副本，不调用安装、启动、切换或保存API；管理操作仍在下方。
+- `codex-host-agents.ts` / `codex-host-assets/`：CodexHost 0.16.1原始标识资源的静态ID映射，不决定实际名单、名称或可用状态；未知ID保留真实名称并使用首字标识。来源、许可与无修改边界见子目录NOTICE和地图，分发收集LGPL/GPL原文。
 - `preview-frame.tsx` / `settings-preview.css`：interface保持16:9，feature使用哑光且最大宽度480px居中（看板占满可用宽度）、高度随真实内容自适应；before/after槽承载框外演示操作，窄屏不占用画布。功能正文最多440px后内部滚动，模型底栏保持可达；通过继承变量控制Shadow DOM，不能只缩外框、裁切正文或改变网站默认内容高度。
 - `settings-spring.ts`：按本机已确认280ms/bounce0求解器生成的四位精度采样曲线；没有新动效依赖，CSS linear不支持时回退snappy cubic。
 - `use-dialog-height.ts`：确认弹窗内部ResizeObserver测量自然高度，首帧立即落位，之后300ms snappy过渡；中断从当前高度接续，关闭/销毁清理，键盘与减少动态效果即时。固定高度抽屉不使用此测量。

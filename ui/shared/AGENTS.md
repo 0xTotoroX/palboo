@@ -33,7 +33,7 @@ AppearanceSettings.startup 保存 mode（restore/closed/open）和 location（in
 
 contracts.ts声明宿主inputTarget只读目标和提示词优化verify/destroy生命周期接口；原文不进入持久化配置或窗口投影。
 
-codex-host.ts定义独立后台管理状态和重启进度，不扩展FeatureId或插件注册。contracts声明上游只读Agent探针。
+codex-host.ts定义独立后台管理状态、重启进度及Agent预览快照；快照包含真实名单/分组、就绪状态、可添加状态和当前Agent，不含聊天身份/正文。available表示Agent就绪，不把已锁定会话的禁用按钮当成不可用。contracts声明上游只读Agent探针。
 
 contracts 声明术语实例 locate(id, context)/verify/refresh/destroy、受请求身份校验的 progress 与可选 typography 只读字体快照接口与无正文错误状态；正式词库不放入 shared。
 

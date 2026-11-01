@@ -407,7 +407,7 @@ Fast/普通预设按闪电标记独立消歧：model-groups 覆盖同组编号�
 
 handoff-motion 追加真实 embedded/features 适配器回归：连续点击只发起一个请求、pending 阶段不重复切换、真实错误可见且重试清除、销毁拒绝迟到响应并保留其他设置提示；launcher-menu 验内/外暂禁且设置可用。Rust repeated_main_placement 验重复目标保留 owner/草稿，其他目标与旧 owner 仍拒绝。
 
-设置同步与预览回归：settings-modes覆盖功能分类内的常用开关/兼容集成、界面16:9/功能内容自适应且最大宽度480px（任务看板占满可用宽度）、双主题360/600/900/1360px、真实Shadow DOM边界与兼容层概览零写入；截图由PALBOO_TEST_SCREENSHOTS选择；Clear星星覆盖鼠标/Space/Enter切换与原修订保存，分类不添加装饰点，Clear选中星星跟随宿主强调色，功能外框采用哑光并保持真实内容边界；CodexHost预览验证18个标识加载、更多分组、键盘、添加和单选零服务写入、勾选靠右及窄屏滚动。settings-menu-motion按组件区分普通菜单即时、模型入场300ms弹簧、分段280ms底块中断、确认框错误增高300ms及键盘/减少动态效果；settings-motion保留无宿主主题的独立挂载。
+设置同步与预览回归：settings-modes覆盖功能分类内的常用开关/兼容集成、界面16:9/功能内容自适应且最大宽度480px（任务看板占满可用宽度）、双主题360/600/900/1360px、真实Shadow DOM边界与兼容层概览零写入；截图由PALBOO_TEST_SCREENSHOTS选择；Clear星星覆盖鼠标/Space/Enter切换与原修订保存，分类不添加装饰点，Clear选中星星跟随宿主强调色，功能外框采用哑光并保持真实内容边界；CodexHost预览验证真实快照的名单/名称/分组/选择/可用状态、未知ID、重复读取保留试玩、真实变化回读与故障恢复、更多分组、键盘、添加和单选零服务写入、勾选靠右及窄屏滚动。settings-menu-motion按组件区分普通菜单即时、模型入场300ms弹簧、分段280ms底块中断、确认框错误增高300ms及键盘/减少动态效果；settings-motion保留无宿主主题的独立挂载。
 
 预览与总开关修正：settings-modes逐个核对真实Shadow DOM内容与外框等高（不能只验外框或不溢出），覆盖常用语/Bot/术语短内容无空白方框；功能开关页9个主开关与导航对应同序（兼容集成对应CodexHost）、子页无重复、术语/CodexHost保存仍走原修订API，CodexHost只改启用意愿。兼容层Agent菜单、介绍、原仓库链接和窄屏边界，零服务写入；搜索词库继续采用稳定抽屉锚点。深浅/多宽度截图包括常用语和Bot。
 
@@ -437,3 +437,5 @@ dev-launcher 以认证合成服务覆盖 --settings 成功/失败及零启动副
 - 本轮 settings-theme 验证主按钮、导航、分段各自语义色、分类标题4px强调色点及正文标题无装饰；settings-menu-motion 验证普通弹窗即时、抽屉全宽弹簧和反向开合、草稿/焦点及减少动效。settings-modes 将提示词优化加入统一“预览在控件与介绍之前”几何断言。
 
 `native-host-fonts.test.mjs` 使用真实构建入口及桌面/贴边组件验证认证按需字体加载、头部与 Shadow DOM 一致、来源/自定义字体字号独立、内容不重挂载、刘海几何不覆盖偏好、重载恢复及页面退出清理；字体解码使用合成替身，不替代 macOS Wry 实测。
+
+- `codex-host-preview.test.mjs`：实际按需CDP表达式的合成浏览器验证，覆盖当前输入目标隔离、锁定会话与Agent就绪状态分离、主组/更多组、安装与错误状态、菜单/探针不一致及未知协议拒绝；读取零点击/网络/写入，不带聊天草稿。

@@ -92,6 +92,8 @@ panel_window 使用透明原生标题栏与标准红黄绿按钮，由统一 Pal
 
 Config.codex_host兼容旧codexHost键，App.codex_host_operation串行管理，server提供认证GET/POST /api/codex-host。cdp先安装只读Agent兼容适配，再安装模型菜单适配。
 
+GET /api/codex-host/agents是独立按需只读投影，供兼容集成预览；不进入持久配置、模型选择命令或外部安装通道，不暴露聊天正文和输入内容。
+
 features.task_command承接原server看板命令协调：主界面已接管时，未登记看板的打开/启用进入共享容器；旧窗口草稿仍按原规则保护。restore_unregistered_main_features在feature_operation内只补缺失条目。模型preferences白名单加入modelOrder，继续校验owner、唯一ID及revision。state.handle_refresh_failure保留仍存活客户端上的Elapsed；Connection.status新增unresponsive，下一次正常refresh即恢复connected。
 
 - `terminology.rs`：本机私有基础/个人词库、背景材质/液态变体/自定义色/宽度、默认关闭的 jumpOnClick 偏好及已掌握状态（兼容旧样式字段），认证命令、中文文档与个人范围导出；通过独立操作锁串行保存，损坏文件拒绝覆盖。

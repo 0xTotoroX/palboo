@@ -4,6 +4,8 @@
 
 src/codex_host.rs管理Options、安装/运行身份、启停选择、有界冷启动和认证/codex-host API，不进入面板布局或依赖MCP。
 
+认证GET /codex-host/agents按需在当前CDP连接执行ui/codex/codex-host-preview.js，3秒超时；只返回Agent名单、分组、可用性与当前选择，不打开菜单、不写配置、不安装或切换Agent，不依赖模型快切开关。无连接或探针不支持时明确失败，不提供合成状态。
+
 - restart.rs：显式重启停用的独立协调进程；复核修订、宿主进程、窗口探针和Dev来源。取消不退出宿主。旧Dev记录可从owner读取监督PID，仍核对准确命令、当前占用和sourceEpoch。
 - update.rs：官方Release查询、私有指定版本安装与校验，保留前版本；不覆盖全局安装、不自动更新或重启。适配最低基线0.10.2与本机安装版本分开记录。
 

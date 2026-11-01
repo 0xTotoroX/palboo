@@ -145,7 +145,7 @@ export function CodexHostSettings({
       />
       {detailsVisible && (
         <>
-          <CodexHostPreview />
+          <CodexHostPreview live={live} />
           <div className="compatibility-heading">
             <h2>CodexHost</h2>
             <span className="compatibility-state">

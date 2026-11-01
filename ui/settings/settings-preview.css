@@ -177,13 +177,19 @@
   text-align: start;
   cursor: pointer;
 }
-.compatibility-agent-choice > img {
+.compatibility-agent-choice > img,
+.compatibility-agent-choice > .compatibility-agent-fallback {
   width: 22px;
   height: 22px;
   flex: none;
   object-fit: contain;
 }
-.compatibility-agent-choice > span:not(.buddy-icon) {
+.compatibility-agent-choice > .compatibility-agent-fallback {
+  display: grid;
+  place-items: center;
+  color: var(--buddy-muted);
+}
+.compatibility-agent-choice > span:not(.buddy-icon, .compatibility-agent-fallback) {
   flex: 1;
   min-width: 0;
   overflow-wrap: anywhere;
@@ -240,6 +246,11 @@
 }
 .compatibility-agent-menu button:focus-visible {
   outline-offset: -2px;
+}
+.compatibility-preview-status {
+  margin: 0;
+  padding: 24px;
+  color: var(--buddy-muted);
 }
 .compatibility-management {
   margin-top: 32px;

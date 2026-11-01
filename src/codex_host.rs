@@ -1,5 +1,5 @@
 // [INPUT]: CodexHost 独立安装、上游 runtime descriptor、Palboo 配置和只读宿主发现。
-// [OUTPUT]: 安装与实际运行身份（版本及解析后的路径）、启停意图、冷启动、显式重启停用及更新接入。
+// [OUTPUT]: 安装与实际运行身份（版本及路径）、当前Agent只读预览、启停意图、冷启动、显式重启停用及更新接入。
 // [POS]: 独立后台功能适配；开关不退出当前会话，显式重启由独立协调进程接续；不复制上游业务或进入面板布局。
 // [PROTOCOL]: 变更时同步 codex_host/AGENTS.md。
 pub(crate) mod restart;
@@ -351,6 +351,23 @@ pub fn find_tool(name: &str) -> Option<PathBuf> {
         .find(|p| p.is_file())
 }
 impl App {
+    pub(crate) async fn codex_host_agents(&self) -> Result<Value> {
+        let client = self.desktop_client().await.context("尚未连接 Codex")?;
+        let snapshot = client
+            .evaluate_with_timeout(
+                include_str!("../ui/codex/codex-host-preview.js").into(),
+                Duration::from_secs(3),
+            )
+            .await?;
+        ensure!(
+            self.desktop_client()
+                .await
+                .is_some_and(|active| std::sync::Arc::ptr_eq(&client, &active)),
+            "Codex 连接已变化，请重试"
+        );
+        Ok(snapshot)
+    }
+
     pub(crate) async fn codex_host_status(&self) -> Result<Value> {
         let options = self.config.lock().await.codex_host.clone();
         status(&self.paths, &options).await

@@ -29,7 +29,7 @@ test('CodexHost settings use their own authenticated endpoint and preserve expli
             namespace: 'api-fixture',
           }));
           b.onLoad({ filter: /.*/, namespace: 'api-fixture' }, () => ({
-            contents: `window.commands=[];let state={enabled:false,revision:9,state:'disabled',version:'0.10.2',executable:'/tmp/fixture',baseline:'0.10.2',canRestore:false};export async function request(path,body){if(path!=='codex-host')throw Error('wrong endpoint');window.commands.push({path,body});if(body){if(window.fail)throw Error('合成保存失败');if(body.expectedRevision!==state.revision)throw Error('stale');if(body.op==='set-enabled'){state={...state,enabled:body.enabled,state:body.enabled?'pendingEnable':'disabled',revision:state.revision+1}}else throw Error('unexpected side effect')}return state;}`,
+            contents: `window.commands=[];let state={enabled:false,revision:9,state:'disabled',version:'0.10.2',executable:'/tmp/fixture',baseline:'0.10.2',canRestore:false};export async function request(path,body){if(path==='codex-host/agents'&&!body)return {status:'unavailable',message:'当前宿主未接入 CodexHost',current:null,agents:[]};if(path!=='codex-host')throw Error('wrong endpoint');window.commands.push({path,body});if(body){if(window.fail)throw Error('合成保存失败');if(body.expectedRevision!==state.revision)throw Error('stale');if(body.op==='set-enabled'){state={...state,enabled:body.enabled,state:body.enabled?'pendingEnable':'disabled',revision:state.revision+1}}else throw Error('unexpected side effect')}return state;}`,
           }));
         },
       },

@@ -138,6 +138,7 @@ fn router(service: Service) -> Router {
             "/codex-host",
             get(codex_host_status).post(codex_host_command),
         )
+        .route("/codex-host/agents", get(codex_host_agents))
         .route("/surfaces", post(surfaces))
         .route("/tasks/state", get(tasks_state))
         .route("/tasks/command", post(tasks_command))
@@ -1022,6 +1023,9 @@ async fn features(
 
 async fn codex_host_status(State(service): State<Service>) -> Result<Json<Value>, ApiError> {
     Ok(Json(service.app.codex_host_status().await?))
+}
+async fn codex_host_agents(State(service): State<Service>) -> Result<Json<Value>, ApiError> {
+    Ok(Json(service.app.codex_host_agents().await?))
 }
 async fn codex_host_command(
     State(service): State<Service>,

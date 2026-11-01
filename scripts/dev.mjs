@@ -131,6 +131,9 @@ const nativeInputs = (root) => [
   ...filesUnder(root, 'src'),
   existsSync(join(root, 'ui/codex/model.js')) ? 'ui/codex/model.js' : 'ui/model-control/host.js',
   ...(existsSync(join(root, 'ui/codex/codex-host.js')) ? ['ui/codex/codex-host.js'] : []),
+  ...(existsSync(join(root, 'ui/codex/codex-host-preview.js'))
+    ? ['ui/codex/codex-host-preview.js']
+    : []),
   existsSync(join(root, 'ui/shared/tokens.css')) ? 'ui/shared/tokens.css' : 'ui/tokens.css',
   existsSync(join(root, 'ui/shared/icons/index.js'))
     ? 'ui/shared/icons/index.js'

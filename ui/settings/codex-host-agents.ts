@@ -1,6 +1,6 @@
 /* [INPUT]: CodexHost 0.16.1 public plugin manifests and unmodified identification assets.
- * [OUTPUT]: Agent names and bundled icon URLs for the isolated settings preview.
- * [POS]: Static presentation catalog, not an installed-Agent or availability probe; attribution lives in codex-host-assets/NOTICE.md.
+ * [OUTPUT]: Bundled identity icon lookup for IDs returned by the current host.
+ * [POS]: Static icon metadata only; live names, ordering, availability and selection come from codex-host/agents. Attribution lives in codex-host-assets/NOTICE.md.
  * [PROTOCOL]: Keep settings/AGENTS.md and asset provenance in sync. */
 export const codexHostAgents = [
   {
