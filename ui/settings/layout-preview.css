@@ -1,5 +1,5 @@
 /* [INPUT]: Frontal preview geometry, shared workspace classes and settings theme tokens.
- * [OUTPUT]: Scoped device finish, full-size material samples and compact responsive controls.
+ * [OUTPUT]: Scoped device finish, quiet chat backdrops, material samples and responsive controls.
  * [POS]: Settings illustration only; no styles applied to product workspaces.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 @import './layout-preview-scene.css';
@@ -125,6 +125,81 @@
   border-radius: 8px;
   overflow: hidden;
   background: var(--buddy-subtle);
+}
+.layout-demo-chat-backdrop {
+  --preview-chat-ink: color-mix(in srgb, var(--buddy-text) 36%, var(--buddy-page));
+  --preview-chat-fill: color-mix(in srgb, var(--buddy-text) 7%, var(--buddy-page));
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  display: grid;
+  grid-template-columns: 23% minmax(0, 1fr);
+  overflow: hidden;
+  background: var(--buddy-page);
+  color: var(--preview-chat-ink);
+  font-size: 12px;
+  line-height: 1.6;
+  pointer-events: none;
+  user-select: none;
+}
+.layout-demo-chat-sidebar {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+  padding: 18px 12px;
+  background: var(--preview-chat-fill);
+}
+.layout-demo-chat-name {
+  margin-bottom: 20px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.layout-demo-chat-history {
+  padding: 5px 8px;
+  margin-inline: -8px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--buddy-text) 5%, transparent);
+}
+.layout-demo-chat-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
+  padding: 20px clamp(16px, 4%, 32px);
+}
+.layout-demo-chat-question {
+  align-self: flex-end;
+  max-width: 80%;
+  padding: 10px 14px;
+  margin: 0;
+  border-radius: 14px;
+  background: var(--preview-chat-fill);
+}
+.layout-demo-chat-answer p {
+  margin: 0 0 12px;
+}
+.layout-demo-chat-lines {
+  display: grid;
+  gap: 8px;
+  width: 90%;
+  color: color-mix(in srgb, var(--buddy-text) 10%, var(--buddy-page));
+}
+.layout-demo-chat-lines i {
+  height: 3px;
+  border-radius: 2px;
+  background: currentColor;
+}
+.layout-demo-chat-lines i:last-child {
+  width: 65%;
+}
+.layout-demo-chat-composer {
+  margin-top: auto;
+  min-height: 52px;
+  padding: 12px 16px;
+  border-radius: 16px;
+  background: var(--preview-chat-fill);
 }
 .layout-demo-material-backdrop {
   position: absolute;

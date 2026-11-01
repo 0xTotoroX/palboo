@@ -1,5 +1,5 @@
 /* [INPUT]: Settings semantic colors, native form elements and shared component slots.
- * [OUTPUT]: One control language for both themes, including the native select picker.
+ * [OUTPUT]: Compact, font-scaled control widths and matching native pickers across both themes.
  * [POS]: Settings only; preserves native events, focus, disabled states and save queues.
  * [PROTOCOL]: Keep settings/AGENTS.md and components/ui/AGENTS.md in sync. */
 .settings-app :is(input, select, textarea, button, .settings-search-input) {
@@ -97,8 +97,8 @@
   max-width: 100%;
   margin-inline-start: auto;
   --settings-select-compact: max(120px, calc(var(--settings-text-size, 14px) * 5 + 40px));
-  --settings-select-short: max(180px, calc(var(--settings-text-size, 14px) * 10 + 40px));
-  --settings-select-medium: max(260px, calc(var(--settings-text-size, 14px) * 15 + 40px));
+  --settings-select-short: max(152px, calc(var(--settings-text-size, 14px) * 7 + 48px));
+  --settings-select-medium: max(208px, calc(var(--settings-text-size, 14px) * 11 + 40px));
 }
 .settings-native-select[data-control-width='compact'] {
   width: min(100%, var(--settings-select-compact));
