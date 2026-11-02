@@ -20,6 +20,7 @@ import { chromium } from 'playwright';
 import { prepareTestBinary } from '../scripts/verify.mjs';
 import { workbookFixture } from './reader-fixtures.mjs';
 import { exerciseReaderEditing } from './reader-editing.mjs';
+import { exerciseReaderFolders } from './reader-folders.mjs';
 const artifact = prepareTestBinary();
 const root = resolve(import.meta.dirname, '..');
 const folder = realpathSync(mkdtempSync(join(tmpdir(), 'palboo-reader-')));
@@ -293,42 +294,30 @@ try {
   });
   await settings.goto(`${base}/#token=${runtime.token}`);
   await settings.locator('.settings-nav a[href="#settings-sites"]').click();
+  assert.equal(await settings.locator('#reader-vault').isVisible(), false);
+  assert.equal(await settings.locator('#website-name').isVisible(), false);
+  assert.equal(await settings.locator('.reader-folder-list .web-library-row').count(), 1);
+  for (const width of [985, 720, 390]) {
+    await settings.setViewportSize({ width, height: 850 });
+    const layout = await settings.evaluate(() => {
+      const box = (selector) => document.querySelector(selector).getBoundingClientRect();
+      return {
+        overflow: document.documentElement.scrollWidth > innerWidth,
+        previewFirst:
+          box('#settings-sites .preview-frame').bottom <= box('.reader-configuration').top,
+        aligned: Math.abs(box('.reader-folder-list').left - box('.reader-configuration').left) < 1,
+      };
+    });
+    assert.deepEqual(layout, { overflow: false, previewFirst: true, aligned: true });
+  }
+  await settings.setViewportSize({ width: 985, height: 850 });
+  await settings.getByRole('button', { name: '编辑中文笔记', exact: true }).click();
   assert.equal(await settings.locator('#reader-vault').inputValue(), vault);
   assert.equal(
     await settings.locator('#reader-vault-choice option:checked').innerText(),
     '中文笔记',
   );
-  assert.equal(await settings.locator('#reader-attachments').isVisible(), false);
-  assert.equal(await settings.locator('#website-name').isVisible(), false);
-  assert.equal(await settings.locator('#settings-sites input[type="search"]').isVisible(), false);
-  for (const width of [985, 720, 390]) {
-    await settings.setViewportSize({ width, height: 850 });
-    const layout = await settings.evaluate(() => {
-      const box = (selector) => document.querySelector(selector).getBoundingClientRect();
-      const notes = box('.reader-configuration'),
-        input = box('#reader-vault');
-      return {
-        aligned: Math.abs(notes.left - input.left) < 1,
-        fullPathWidth: Math.abs(notes.width - input.width) < 1,
-        overflow: document.documentElement.scrollWidth > innerWidth,
-        selectHeight: box('#reader-vault-choice').height,
-        previewBelow: box('#settings-sites .preview-frame').top > box('.web-library-list').bottom,
-      };
-    });
-    assert.deepEqual(
-      { ...layout, selectHeight: undefined },
-      {
-        aligned: true,
-        fullPathWidth: true,
-        overflow: false,
-        selectHeight: undefined,
-        previewBelow: true,
-      },
-    );
-    assert.ok(layout.selectHeight < 60, 'vault selector does not wrap into a multi-line path');
-  }
-  await settings.setViewportSize({ width: 985, height: 850 });
-  record('settings controls align at wide and narrow widths; details stay off the main form');
+  record('preview stays above configuration; folders stay visible and wide/narrow layouts fit');
   const beforePicker = await api('web-library');
   await settings.route('**/api/web-library/choose-directory', (route) =>
     route.fulfill({ json: { path: join(vault, '_AI') } }),
@@ -355,9 +344,8 @@ try {
   await settings.locator('#reader-vault').fill(vault);
   record('folder picker draft and cancel preserve saved grants');
   assert.equal(await settings.locator('.settings-preview').count(), 0);
-  await settings.getByRole('button', { name: '额外附件目录', exact: true }).click();
   await settings.locator('#reader-attachments').fill(join(vault, '项目/附件'));
-  await settings.getByRole('dialog', { name: '额外附件目录', exact: true }).press('Escape');
+  await settings.getByRole('dialog', { name: '编辑文件夹', exact: true }).press('Escape');
   const saved = await api('web-library');
   await api('web-library', {
     expectedRevision: saved.revision,
@@ -365,30 +353,41 @@ try {
   });
   await settings.locator('.settings-nav a[href="#settings-features"]').click();
   await settings.locator('.settings-nav a[href="#settings-sites"]').click();
+  await settings.getByRole('button', { name: '编辑文件夹', exact: true }).click();
   await settings.getByRole('button', { name: '重新读取已保存目录', exact: true }).waitFor();
   assert.equal(
     await settings.locator('#reader-attachments').inputValue(),
     join(vault, '项目/附件'),
   );
   await settings
-    .locator('.reader-folder-footer > .settings-actions')
+    .getByRole('dialog', { name: '编辑文件夹', exact: true })
     .getByRole('button', { name: '保存', exact: true })
     .click();
   await settings
+    .getByRole('dialog', { name: '编辑文件夹', exact: true })
     .getByRole('alert')
     .filter({ hasText: '网站设置已在其他窗口更新，请刷新后重试' })
     .waitFor();
   assert.deepEqual((await api('web-library')).attachments, [join(vault, '其他')]);
   await settings.getByRole('button', { name: '重新读取已保存目录', exact: true }).click();
   assert.equal(await settings.locator('#reader-attachments').inputValue(), join(vault, '其他'));
+  await settings
+    .getByRole('dialog', { name: '编辑文件夹', exact: true })
+    .getByRole('button', { name: '取消', exact: true })
+    .click();
   const current = await api('web-library');
   await api('web-library', { expectedRevision: current.revision, attachments: [] });
   await settings.locator('.settings-nav a[href="#settings-features"]').click();
   await settings.locator('.settings-nav a[href="#settings-sites"]').click();
+  await settings.getByRole('button', { name: '编辑中文笔记', exact: true }).click();
   await wait(
     async () => (await settings.locator('#reader-attachments').inputValue()) === '',
     'clean roots refresh',
   );
+  await settings
+    .getByRole('dialog', { name: '编辑文件夹', exact: true })
+    .getByRole('button', { name: '取消', exact: true })
+    .click();
   record('root drafts survive external conflicts; saved grants refresh without silent overwrite');
   await settings.getByRole('button', { name: '添加网站', exact: true }).click();
   await settings.locator('#website-name').fill('合成网站');
@@ -428,7 +427,7 @@ try {
   });
   await settings
     .locator('[data-settings-feature="sites"] button')
-    .filter({ hasText: 'Obsidian' })
+    .filter({ hasText: '中文笔记' })
     .click();
   assert.equal(calls.length, 0);
   await settings.getByRole('button', { name: '删除更新名称', exact: true }).click();
@@ -443,6 +442,7 @@ try {
   await page.setViewportSize({ width: 1100, height: 820 });
   await exerciseReaderEditing({ page, vault, url: (await api('web-library/reader')).url, record });
   assert.deepEqual(errors, []);
+  await exerciseReaderFolders({ page, context, settings, api, vault, folder, wait, record });
   const stableUrl = (await api('web-library/reader')).url;
   const oldPid = child.pid;
   child.kill('SIGTERM');

@@ -52,17 +52,6 @@
 .web-library-settings #reader-vault-choice::picker(select) {
   max-width: min(640px, 90vw);
 }
-.reader-folder-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 12px;
-}
-.reader-folder-footer > .settings-actions {
-  margin-left: auto;
-}
 .reader-folder-choice > button {
   flex: none;
 }
@@ -138,5 +127,12 @@
   display: none;
 }
 .web-library-settings .preview-frame {
-  margin-inline: 0;
+  margin-inline: auto;
+}
+.reader-configuration .settings-drawer-content > .reader-folder-label {
+  margin-bottom: 8px;
+}
+.reader-configuration .settings-drawer-content > .reader-folder-choice,
+.reader-configuration .settings-drawer-content > #reader-vault {
+  margin-top: 0;
 }

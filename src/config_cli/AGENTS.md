@@ -24,4 +24,4 @@ layout.scope=all/sidebar/overlay/desktop 是共享预设的推荐标签；save �
 
 任务配置同步支持`{"op":"view","viewMode":"merged|expanded"}`，复用任务修订；只保存布局，任务与同步开关保留。
 
-web-library 支持目录授权、网站增删/排序及开关，与设置共用 expectedRevision；catalog vaults 仅读 Obsidian 登记路径，open-website 仅按已保存 ID 在宿主内打开。更换授权及删除条目需 --confirm，schema 离线可查，目录选择器的 CLI 等价操作为 set web-library.vault。
+web-library 支持多个文件夹授权、网站增删/排序及开关，与设置共用 expectedRevision；folders 为完整列表，旧 vault/attachments 仍控制首个目录。catalog vaults 仅读 Obsidian 登记路径；open-website folder:<id> 独立打开文件夹，obsidian 保留首个目录别名。改变目录授权/文件夹列表及删除网站需 --confirm，schema 离线可查，移除入口不删除文件。

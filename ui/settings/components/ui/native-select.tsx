@@ -29,10 +29,7 @@ export function NativeSelect({
         {...props}
       />
       {action && <span className="settings-select-action">{action}</span>}
-      <Icon
-        name="chevron-down"
-        className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-      />
+      <Icon name="chevron-down" />
     </div>
   );
 }

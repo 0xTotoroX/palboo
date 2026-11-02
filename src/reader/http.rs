@@ -2,7 +2,7 @@
 // [OUTPUT]: A separate loopback origin for local reads, same-origin versioned saves and settings navigation.
 // [POS]: No settings credential or configuration API; source writes are limited to existing Markdown.
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
-use crate::web_library::{Library, Preferences, ReaderEndpoint};
+use crate::web_library::{Folder, Library, Preferences};
 use anyhow::{Result, ensure};
 use axum::{
     Extension, Json, Router,
@@ -43,6 +43,7 @@ pub(super) struct HttpState {
 #[derive(Clone)]
 struct Access {
     token: String,
+    folder: Folder,
     preferences: Preferences,
 }
 pub async fn start(
@@ -60,14 +61,11 @@ pub async fn start(
     {
         let preferences = library.preferences.lock().unwrap();
         let mut endpoint = library.endpoint.lock().unwrap();
-        *endpoint = ReaderEndpoint {
-            port,
-            token: if endpoint.token.is_empty() {
-                uuid::Uuid::new_v4().simple().to_string()
-            } else {
-                endpoint.token.clone()
-            },
-        };
+        endpoint.port = port;
+        if endpoint.token.is_empty() {
+            endpoint.token = uuid::Uuid::new_v4().simple().to_string();
+        }
+        endpoint.reconcile(&preferences, &preferences);
         library.persist_endpoint(&preferences, &endpoint)?;
     }
     let router = router(HttpState {
@@ -91,6 +89,7 @@ pub(super) fn router(state: HttpState) -> Router {
         .route("/{operation}", get(read))
         .route("/save", post(save))
         .route("/settings-open", post(open_settings))
+        .route("/folder-open", post(open_folder))
         .layer(DefaultBodyLimit::max(super::files::MAX_NOTE as usize * 2))
         .route_layer(middleware::from_fn_with_state(state.clone(), authorize));
     Router::new()
@@ -137,13 +136,28 @@ async fn authorize(State(state): State<HttpState>, mut request: Request, next: N
     {
         return StatusCode::FORBIDDEN.into_response();
     }
-    let access = {
+    let access = (|| {
         let preferences = state.library.preferences.lock().unwrap();
-        let token = state.library.endpoint.lock().unwrap().token.clone();
-        Access {
+        let id = headers
+            .get("x-palboo-folder")
+            .map(|value| value.to_str())
+            .transpose()
+            .ok()?;
+        let folder = preferences.folder(id.unwrap_or_default()).ok()?;
+        let endpoint = state.library.endpoint.lock().unwrap();
+        let token = endpoint.credential(&preferences, &folder)?.to_owned();
+        Some(Access {
             token,
-            preferences: preferences.clone(),
-        }
+            preferences: preferences.scoped(&folder),
+            folder,
+        })
+    })();
+    let Some(access) = access else {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({"message":"笔记文件夹已移除，请从 Palboo 重新打开"})),
+        )
+            .into_response();
     };
     if access.token.is_empty()
         || headers
@@ -176,8 +190,9 @@ async fn read(
         ensure!(matches!(operation.as_str(), "catalog" | "search" | "note" | "resolve" | "image" | "workbook"), "未知阅读请求");
         ensure!(input.q.len() <= 500 && input.id.len() <= 8192 && input.target.len() <= 8192 && input.sheet.len() <= 1024 && input.offset <= 100_000, "阅读请求过长");
         let preferences = access.preferences;
-        let mut index = state.library.index.lock().unwrap();
-        ensure!(state.library.endpoint.lock().unwrap().token == access.token, "阅读凭据已过期，请从 Palboo 重新打开阅读器");
+        let mut indexes = state.library.indexes.lock().unwrap();
+        let index = indexes.entry(access.folder.id.clone()).or_default();
+        check_access(&state.library, &access.folder, &access.token)?;
         if !index.ready(&preferences) || operation == "catalog" && input.refresh { index.refresh(&preferences)?; }
         let response = if operation == "image" {
             let (bytes, mime) = index.image(&preferences, &input.id, &input.target)?;
@@ -186,6 +201,9 @@ async fn read(
             let value: Value = match operation.as_str() {
                 "catalog" => {
                     let mut result = index.catalog();
+                    result["name"] = json!(access.folder.name);
+                    result["folder"] = json!(access.folder.id);
+                    result["folders"] = json!(preferences.folders.iter().map(Folder::summary).collect::<Vec<_>>());
                     if let Some(appearance) = &state.appearance {
                         let view = appearance.borrow();
                         result["appearance"] = view.settings_appearance.clone();
@@ -203,8 +221,7 @@ async fn read(
             };
             Json(value).into_response()
         };
-        let current = state.library.preferences.lock().unwrap();
-        ensure!(current.vault == preferences.vault && current.attachments == preferences.attachments && state.library.endpoint.lock().unwrap().token == access.token, "授权目录已更新，请重新打开阅读器");
+        check_access(&state.library, &access.folder, &access.token)?;
         Ok(response)
     }).await;
     match result {
@@ -239,14 +256,23 @@ async fn save(
             input.id.len() <= 8192 && input.expected_version.len() == 64,
             "阅读请求过长"
         );
-        let mut index = state.library.index.lock().unwrap();
+        let mut indexes = state.library.indexes.lock().unwrap();
+        let index = indexes.entry(access.folder.id.clone()).or_default();
         // Keep the grant locked through the write, so changing folders revokes old writes immediately.
-        let preferences = state.library.preferences.lock().unwrap();
+        let current = state.library.preferences.lock().unwrap();
+        let folder = current.folder(&access.folder.id)?;
         ensure!(
-            preferences.vault == access.preferences.vault
-                && state.library.endpoint.lock().unwrap().token == access.token,
+            folder.same_grants(&access.folder)
+                && state
+                    .library
+                    .endpoint
+                    .lock()
+                    .unwrap()
+                    .credential(&current, &folder)
+                    == Some(access.token.as_str()),
             "授权目录已更新，请重新打开阅读器"
         );
+        let preferences = current.scoped(&folder);
         if !index.ready(&preferences) {
             index.refresh(&preferences)?;
         }
@@ -272,6 +298,44 @@ async fn save(
         Err(_) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!({"message":"保存失败，草稿已保留"})),
+        )
+            .into_response(),
+    }
+}
+fn check_access(library: &Library, folder: &Folder, token: &str) -> Result<()> {
+    let current = library.preferences.lock().unwrap();
+    let selected = current.folder(&folder.id)?;
+    ensure!(
+        selected.same_grants(folder)
+            && library
+                .endpoint
+                .lock()
+                .unwrap()
+                .credential(&current, &selected)
+                == Some(token),
+        "授权目录已更新，请重新打开阅读器"
+    );
+    Ok(())
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct OpenFolder {
+    id: String,
+}
+async fn open_folder(
+    State(state): State<HttpState>,
+    Extension(access): Extension<Access>,
+    Json(input): Json<OpenFolder>,
+) -> Response {
+    let result = (|| -> Result<Value> {
+        ensure!(input.id.len() <= 80, "文件夹标识无效或重复");
+        Ok(json!({"url":state.library.switch_folder(&access.folder, &access.token, &input.id)?}))
+    })();
+    match result {
+        Ok(value) => Json(value).into_response(),
+        Err(error) => (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"message":error.to_string()})),
         )
             .into_response(),
     }

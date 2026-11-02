@@ -21,6 +21,6 @@
 
 由 settings-host.css 消费宿主尺寸变量覆盖控件几何；settings-controls.css提供共享基础样式。开关轨道/圆形滑块及端点沿用宿主读数，透明命中区域保留可操作高度；输入箭头和图标空间不被统一内边距覆盖。Button 的 data-size 明确标识图标按钮，包含状态层的图标也不受文字按钮内边距影响。
 
-- `native-select.css`：NativeSelect结构和原生菜单的共享皮肤；设置与网站入口直接导入，不带Tailwind Preflight或宿主采样，设置页继续覆盖宿主控件几何。
+- `native-select.css`：NativeSelect结构、箭头定位和原生菜单的共享皮肤；箭头只在此处进行一次垂直居中，不在组件叠加 Tailwind translate/transform；设置与网站入口直接导入，不带Tailwind Preflight或宿主采样，设置页继续覆盖宿主控件几何。
 - `segmented-group.css`：设置与网站共用的分段选中表面，颜色由所属文档语义变量提供。
 - `segmented-group.tsx`：保持原按钮和回调的单一选中底块，280ms/bounce0弹簧采样；按真实按钮几何测量，快速选择从当前合成位置接续，尺寸变化/键盘/减少动态效果立即定位，不给业务列表或侧边导航加额外动画。官网位置、排列和材质选项同源，键盘即时切换。

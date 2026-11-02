@@ -1,5 +1,5 @@
 /* [INPUT]: Local revisioned website/vault grants and existing settings controls/preview.
- * [OUTPUT]: Folder-first settings, retained attachment/site drawers and a read-only snapshot for workspace previews.
+ * [OUTPUT]: Preview-first settings, visible folders/sites and retained detail editors.
  * [POS]: Settings only; user drafts survive failures, previews never navigate or read notes.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { useEffect, useRef, useState } from 'react';
@@ -7,7 +7,7 @@ import { request } from './api';
 import { Field, FeatureSwitch, Feedback } from './settings-controls';
 import { Button, IconButton } from './components/ui/button';
 import { Input } from './components/ui/input';
-import { NativeSelect } from './components/ui/native-select';
+import { ReaderFolderSettings } from './reader-folder-settings';
 import { SettingsSortableList } from './settings-sortable-list';
 import { useConfirmation } from './settings-confirmation';
 import { SettingsDrawer, closeSettingsDrawers, revealSettingsDrawer } from './settings-drawer';
@@ -39,9 +39,36 @@ function configuration(value: unknown): WebLibrary {
       (!Array.isArray(data.vaults) || !data.vaults.every((path) => typeof path === 'string')))
   )
     throw new Error(tr('网站设置暂不可用，请更新或重新连接 Palboo。'));
-  return data;
+  if (
+    data.folders !== undefined &&
+    (!Array.isArray(data.folders) ||
+      !data.folders.every(
+        (folder) =>
+          folder &&
+          typeof folder.id === 'string' &&
+          typeof folder.name === 'string' &&
+          typeof folder.path === 'string' &&
+          Array.isArray(folder.attachments) &&
+          folder.attachments.every((path) => typeof path === 'string'),
+      ))
+  )
+    throw new Error(tr('网站设置暂不可用，请更新或重新连接 Palboo。'));
+  return {
+    ...data,
+    folders:
+      data.folders ??
+      (data.vault
+        ? [
+            {
+              id: 'obsidian',
+              name: data.vault.split('/').at(-1) || 'Obsidian',
+              path: data.vault,
+              attachments: data.attachments,
+            },
+          ]
+        : []),
+  };
 }
-const grants = (value: WebLibrary) => JSON.stringify([value.vault, value.attachments]);
 export function WebLibrarySettings({
   live,
   active,
@@ -58,32 +85,17 @@ export function WebLibrarySettings({
   useLocale();
   const [state, setState] = useState<WebLibrary | null>(null);
   useEffect(() => onSnapshot?.(state), [state, onSnapshot]);
-  const [vault, setVault] = useState('');
-  const [attachments, setAttachments] = useState('');
   const [site, setSite] = useState<Site>({ id: '', name: '', url: '' });
   const [filter, setFilter] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const flight = useRef(false);
   const siteName = useRef<HTMLInputElement>(null);
-  const rootDraft = useRef<{ revision: number; grants: string } | null>(null);
   const confirmation = useConfirmation(state?.revision, busy);
   function receive(value: unknown) {
     const next = configuration(value);
-    const draft = rootDraft.current;
-    if (!draft) {
-      setVault(next.vault || '');
-      setAttachments(next.attachments.join('\n'));
-    } else if (draft.grants === grants(next)) {
-      draft.revision = next.revision;
-    }
     setState((previous) => ({ ...previous, ...next }));
     return next;
-  }
-  function editRoot(edit: () => void) {
-    if (state && !rootDraft.current)
-      rootDraft.current = { revision: state.revision, grants: grants(state) };
-    edit();
   }
   useEffect(() => {
     if (!live || (!active && !previewActive && !enablementTarget)) return;
@@ -98,22 +110,18 @@ export function WebLibrarySettings({
       });
     return () => controller.abort();
   }, [live, active, previewActive, enablementTarget]);
-  async function save(patch: Partial<WebLibrary>) {
+  async function save(patch: Partial<WebLibrary>, revision?: number) {
     if (!state || flight.current) return false;
     flight.current = true;
     setBusy(true);
     setError('');
     try {
-      const roots = 'vault' in patch || 'attachments' in patch;
       const next = configuration(
         await request<WebLibrary>('web-library', {
           ...patch,
-          expectedRevision: roots
-            ? (rootDraft.current?.revision ?? state.revision)
-            : state.revision,
+          expectedRevision: revision ?? state.revision,
         }),
       );
-      if (roots) rootDraft.current = null;
       receive(next);
       if (next.presentationError) setError(next.presentationError);
       return true;
@@ -143,50 +151,6 @@ export function WebLibrarySettings({
     }
   }
   const disabled = !live || !state || busy;
-  async function chooseFolder() {
-    if (disabled || flight.current) return;
-    flight.current = true;
-    setBusy(true);
-    setError('');
-    try {
-      const result = await request<{ path: string | null }>('web-library/choose-directory', {});
-      if (result.path) editRoot(() => setVault(result.path!));
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      flight.current = false;
-      setBusy(false);
-    }
-  }
-  function saveFolders() {
-    return save({
-      vault: vault.trim(),
-      attachments: attachments
-        .split('\n')
-        .map((value) => value.trim())
-        .filter(Boolean),
-    });
-  }
-  const rootActions = (
-    <div className="settings-actions">
-      {rootDraft.current && state && rootDraft.current.revision !== state.revision && (
-        <Button
-          variant="outline"
-          disabled={disabled}
-          onClick={() => {
-            rootDraft.current = null;
-            receive(state);
-            setError('');
-          }}
-        >
-          {tr('重新读取已保存目录')}
-        </Button>
-      )}
-      <Button disabled={disabled || !rootDraft.current} onClick={() => void saveFolders()}>
-        {tr('保存')}
-      </Button>
-    </div>
-  );
   return (
     <>
       <FeatureSwitch
@@ -202,86 +166,25 @@ export function WebLibrarySettings({
         hidden={!active}
         className="web-library-settings"
       >
-        <section className="settings-section reader-configuration">
-          <div className="web-library-heading">
-            <h2>{tr('本地笔记')}</h2>
-            <Button
-              variant="outline"
-              disabled={disabled || !state?.vault}
-              onClick={() => void open('obsidian')}
-            >
-              {tr('打开阅读器')}
-            </Button>
-          </div>
-          <label htmlFor="reader-vault" className="reader-folder-label">
-            {tr('笔记文件夹')}
-          </label>
-          <div className="reader-folder-choice">
-            {!!state?.vaults?.length && (
-              <NativeSelect
-                id="reader-vault-choice"
-                aria-label={tr('已发现的笔记库')}
-                value={state.vaults.includes(vault) ? vault : ''}
-                onChange={(e) => editRoot(() => setVault(e.target.value))}
-                disabled={disabled}
-              >
-                <option value="">{vault ? tr('自定义文件夹') : tr('选择笔记库')}</option>
-                {state.vaults.map((path) => (
-                  <option key={path} value={path}>
-                    {path.split('/').at(-1)}
-                    {state.vaults!.filter(
-                      (other) => other.split('/').at(-1) === path.split('/').at(-1),
-                    ).length > 1
-                      ? ` · ${path}`
-                      : ''}
-                  </option>
-                ))}
-              </NativeSelect>
-            )}
-            <Button variant="outline" disabled={disabled} onClick={() => void chooseFolder()}>
-              <Icon name="reader-folder" />
-              {tr('选择文件夹')}
-            </Button>
-          </div>
-          <Input
-            id="reader-vault"
-            value={vault}
-            onChange={(e) => editRoot(() => setVault(e.target.value))}
-            disabled={disabled}
-            placeholder={tr('选择文件夹，或粘贴完整路径')}
+        <PreviewFrame title={tr('网站')}>
+          <FeaturePreviewContent
+            id="sites"
+            sites={state}
+            mode="current"
+            form={null}
+            view={null}
+            tasks={null}
           />
-          <p className="settings-hint">
-            {tr('仅本机访问。编辑 Markdown 后自动保存到原文件，表格仅供预览。')}
-          </p>
-          <div className="reader-folder-footer">
-            <SettingsDrawer
-              title={tr('额外附件目录')}
-              hidden={!active}
-              compact
-              footer={
-                <>
-                  <Feedback text={error} failed />
-                  {rootActions}
-                </>
-              }
-            >
-              <Field
-                label={tr('目录路径')}
-                id="reader-attachments"
-                hint={tr('仅在图片位于笔记库外时添加，每行一个目录。')}
-              >
-                <textarea
-                  id="reader-attachments"
-                  value={attachments}
-                  onChange={(e) => editRoot(() => setAttachments(e.target.value))}
-                  disabled={disabled}
-                  rows={5}
-                />
-              </Field>
-            </SettingsDrawer>
-            {rootActions}
-          </div>
-        </section>
+        </PreviewFrame>
+        <ReaderFolderSettings
+          state={state}
+          active={active}
+          disabled={disabled}
+          error={error}
+          clearError={() => setError('')}
+          save={save}
+          open={open}
+        />
         <section className="settings-section" data-settings-search-ignore>
           <div className="web-library-heading">
             <h2>{tr('自定义网站')}</h2>
@@ -427,19 +330,6 @@ export function WebLibrarySettings({
           </SettingsSortableList>
         </section>
         <Feedback text={error} failed />
-        <section className="settings-section">
-          <h2>{tr('预览')}</h2>
-          <PreviewFrame title={tr('网站')}>
-            <FeaturePreviewContent
-              id="sites"
-              sites={state}
-              mode="current"
-              form={null}
-              view={null}
-              tasks={null}
-            />
-          </PreviewFrame>
-        </section>
       </section>
       {confirmation.confirmation}
     </>

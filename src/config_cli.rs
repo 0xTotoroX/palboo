@@ -370,7 +370,7 @@ fn prepare(scope: Scope, mut patch: Value, before: &Value) -> Result<Value> {
 fn dangerous(scope: Scope, patch: &Value, before: &Value) -> bool {
     let op = patch["op"].as_str().unwrap_or("");
     (matches!(scope, Scope::WebLibrary)
-        && (["vault", "attachments"]
+        && (["vault", "attachments", "folders"]
             .iter()
             .any(|key| patch.get(*key).is_some_and(|v| v != &before[*key]))
             || patch["sites"].as_array().is_some_and(|next| {

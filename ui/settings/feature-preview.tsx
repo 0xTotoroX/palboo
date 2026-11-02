@@ -424,7 +424,12 @@ export function FeaturePreviewContent({
             <SitesView
               state={
                 sites
-                  ? { enabled: sites.enabled, configured: !!sites.vault, sites: sites.sites }
+                  ? {
+                      enabled: sites.enabled,
+                      configured: !!sites.vault,
+                      folders: sites.folders,
+                      sites: sites.sites,
+                    }
                   : null
               }
               open={async (id) => {

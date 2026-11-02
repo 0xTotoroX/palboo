@@ -199,7 +199,8 @@ use-host-appearance 分别使用宿主 primary/navSelected/segmented/switchOn �
 
 use-host-fonts 是 shared/host-fonts 的 React 文档适配器，settings/api 提供认证 HostFontSource，供设置与独立窗口入口共用；有效字体族未变时不重复加载，销毁回收自有字形。字体与字号表单、外观修订和保存范围不变。
 
-- `web-library-settings.tsx` / `web-library-settings.css`：网站功能开关、已发现库选择/手填目录、明确额外附件授权及网站添加/编辑/删除、搜索与拖动/键盘排序；使用独立修订，失败保留草稿。主页先显示单列文件夹控件和网站列表，库选项默认只显示名称，额外附件与网站表单使用保留草稿的共用抽屉；少于七个网站时隐藏搜索，功能预览位于配置之后。预览复用 SitesView，操作仅在内存中。WebLibrarySettings 通过 onSnapshot 向共同设置入口传递已加载网站配置，previewActive 允许布局/外观预览按需读取；预览与网站表单共用一份读取结果，编辑与保存仍由原表单负责。
+- `web-library-settings.tsx` / `web-library-settings.css`：网站功能开关、列表增删改/搜索/排序及独立修订；功能预览固定在页面标题之后、配置之前。预览复用真实 SitesView，仅在内存操作；onSnapshot 与 previewActive 向布局/外观共享一次读取结果。配置先显示文件夹列表，再显示网站列表，细节表单复用保留草稿的共用抽屉。
+- `reader-folder-settings.tsx`：多个笔记文件夹的添加/命名/编辑/移除与独立打开；检测到的 Obsidian 名单和系统选择器只填草稿，保存完整 folders 数组并校验原修订；关闭/切页/错误保留草稿，切换编辑对象前确认丢弃。附件授权属于各自文件夹，移除入口不删除原文件；旧单目录配置继续可读写。
 - `reader.html`：独立阅读网页构建入口，由 reader 服务单独提供，不复用设置页认证。
 
 本地笔记设置支持 Obsidian 已登记目录及系统“选择文件夹”。原生选择器只返回草稿路径，取消不变，点击保存才通过独立修订授予读取。目录输入继续支持普通 Markdown；设置 ?open=sites 直达该页，不保存草稿。

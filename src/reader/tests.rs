@@ -202,6 +202,7 @@ async fn reader_http_rejects_main_credentials_foreign_origins_and_unscoped_write
     *f.library.endpoint.lock().unwrap() = ReaderEndpoint {
         port: 12345,
         token: "reader-only".into(),
+        ..Default::default()
     };
     let router = http::router(http::HttpState {
         library: f.library.clone(),
@@ -421,6 +422,7 @@ async fn writes_require_same_origin_and_version_and_return_conflicts() {
     *f.library.endpoint.lock().unwrap() = ReaderEndpoint {
         port: 12345,
         token: "reader-only".into(),
+        ..Default::default()
     };
     let router = http::router(http::HttpState {
         library: f.library.clone(),
@@ -462,6 +464,7 @@ fn reader_endpoint_survives_restart_but_not_revoked_grants() {
             &ReaderEndpoint {
                 port: 12345,
                 token: "a".repeat(32),
+                ..Default::default()
             },
         )
         .unwrap();
@@ -478,4 +481,167 @@ fn reader_endpoint_survives_restart_but_not_revoked_grants() {
     let revoked = Library::load(&paths);
     assert_ne!(revoked.endpoint.lock().unwrap().token, "a".repeat(32));
     assert_eq!(revoked.endpoint.lock().unwrap().port, 12345);
+}
+
+#[test]
+fn legacy_folder_configuration_loads_without_rewriting_sources_or_settings() {
+    let f = Fixture::new();
+    let paths = Paths::new(Some(f._dir.path().canonicalize().unwrap().join("palboo"))).unwrap();
+    let file = paths.root.join("web-library.json");
+    let legacy = json!({"revision":12,"enabled":true,"vault":f.vault,"attachments":[],"sites":[]})
+        .to_string();
+    std::fs::write(&file, &legacy).unwrap();
+    let restored = Library::load(&paths);
+    assert_eq!(restored.snapshot()["folders"][0]["path"], json!(f.vault));
+    assert_eq!(restored.snapshot()["folders"][0]["id"], "obsidian");
+    assert_eq!(std::fs::read_to_string(file).unwrap(), legacy);
+    let invalid = json!({"expectedRevision":12,"folders":[{"id":"a","name":"A","path":f.vault},{"id":"b","name":"B","path":f.vault}]});
+    assert!(
+        restored
+            .save(serde_json::from_value(invalid).unwrap())
+            .is_err()
+    );
+    assert_eq!(restored.snapshot()["revision"], 12);
+}
+
+#[tokio::test]
+async fn multiple_folder_tabs_isolate_reads_writes_tokens_and_revocation() {
+    let f = Fixture::new();
+    f.library.endpoint.lock().unwrap().port = 12345;
+    let first_url = f.library.destination("obsidian").unwrap();
+    let token = first_url.split("#reader=").nth(1).unwrap().to_owned();
+    let other = f._dir.path().canonicalize().unwrap().join("其他笔记库");
+    std::fs::create_dir(&other).unwrap();
+    std::fs::write(other.join("首页.md"), "# other folder\nsecond-only").unwrap();
+    let mut folders = f.library.snapshot()["folders"].as_array().unwrap().clone();
+    folders.push(json!({"id":"second","name":"Other","path":other,"attachments":[]}));
+    f.library
+        .save(serde_json::from_value(json!({"expectedRevision":1,"folders":folders})).unwrap())
+        .unwrap();
+    assert_eq!(f.library.destination("obsidian").unwrap(), first_url);
+    let second_url = f.library.destination("folder:second").unwrap();
+    let second_token = second_url.split("#reader=").nth(1).unwrap().to_owned();
+    assert_ne!(token, second_token);
+    let paths = Paths::new(Some(f._dir.path().canonicalize().unwrap().join("palboo"))).unwrap();
+    assert_eq!(
+        Library::load(&paths).destination("folder:second").unwrap(),
+        second_url
+    );
+    let router = http::router(http::HttpState {
+        library: f.library.clone(),
+        port: 12345,
+        appearance: None,
+        app: None,
+    });
+    async fn request(
+        router: &axum::Router,
+        path: &str,
+        folder: &str,
+        token: &str,
+        body: Option<Value>,
+    ) -> (u16, Value) {
+        let mut request = Request::builder()
+            .method(if body.is_some() { "POST" } else { "GET" })
+            .uri(path)
+            .header("Host", "127.0.0.1:12345")
+            .header("Origin", "http://127.0.0.1:12345")
+            .header("X-Palboo-Folder", folder)
+            .header("Authorization", format!("Bearer {token}"));
+        let payload = if let Some(body) = body {
+            request = request.header("Content-Type", "application/json");
+            Body::from(body.to_string())
+        } else {
+            Body::empty()
+        };
+        let response = router
+            .clone()
+            .oneshot(request.body(payload).unwrap())
+            .await
+            .unwrap();
+        let status = response.status().as_u16();
+        let bytes = to_bytes(response.into_body(), 1_000_000).await.unwrap();
+        (
+            status,
+            serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+        )
+    }
+    assert_eq!(
+        request(&router, "/api/catalog", "second", &token, None)
+            .await
+            .0,
+        401
+    );
+    let (status, first) = request(
+        &router,
+        "/api/note?id=%E9%A6%96%E9%A1%B5.md",
+        "obsidian",
+        &token,
+        None,
+    )
+    .await;
+    assert_eq!(status, 200);
+    assert!(first["markdown"].as_str().unwrap().contains("needle"));
+    let (status, second) = request(
+        &router,
+        "/api/note?id=%E9%A6%96%E9%A1%B5.md",
+        "second",
+        &second_token,
+        None,
+    )
+    .await;
+    assert_eq!(status, 200);
+    assert!(second["markdown"].as_str().unwrap().contains("second-only"));
+    assert_eq!(request(&router,"/api/save","second",&second_token,Some(json!({"id":"首页.md","expectedVersion":second["version"],"markdown":"saved in second"}))).await.0,200);
+    assert_eq!(
+        std::fs::read_to_string(f.vault.join("首页.md")).unwrap(),
+        first["markdown"].as_str().unwrap()
+    );
+    assert_eq!(
+        std::fs::read_to_string(other.join("首页.md")).unwrap(),
+        "saved in second"
+    );
+    let (status, destination) = request(
+        &router,
+        "/api/folder-open",
+        "obsidian",
+        &token,
+        Some(json!({"id":"second"})),
+    )
+    .await;
+    assert_eq!(status, 200);
+    assert_eq!(destination["url"], second_url);
+    folders.reverse();
+    folders[0]["name"] = json!("Renamed");
+    f.library
+        .save(serde_json::from_value(json!({"expectedRevision":2,"folders":folders})).unwrap())
+        .unwrap();
+    assert_eq!(f.library.destination("folder:obsidian").unwrap(), first_url);
+    assert_eq!(f.library.destination("folder:second").unwrap(), second_url);
+    assert_eq!(
+        request(&router, "/api/catalog", "obsidian", &token, None)
+            .await
+            .0,
+        200
+    );
+    folders.remove(0);
+    f.library
+        .save(serde_json::from_value(json!({"expectedRevision":3,"folders":folders})).unwrap())
+        .unwrap();
+    assert_eq!(
+        request(&router, "/api/catalog", "second", &second_token, None)
+            .await
+            .0,
+        401
+    );
+    assert_eq!(
+        request(&router, "/api/catalog", "obsidian", &token, None)
+            .await
+            .0,
+        200
+    );
+    assert_eq!(
+        std::fs::read_to_string(other.join("首页.md")).unwrap(),
+        "saved in second"
+    );
+    assert_eq!(f.library.indexes.lock().unwrap().len(), 1);
 }

@@ -1,5 +1,5 @@
-/* [INPUT]: Saved websites, configured reader flag and owner-guarded open callback.
- * [OUTPUT]: Searchable website/Obsidian launch list in every existing Palboo surface.
+/* [INPUT]: Saved folders/websites and an owner-guarded open callback.
+ * [OUTPUT]: Each folder opens its own reader tab from the existing Palboo feature surface.
  * [POS]: Clicks navigate the host browser; no model invocation or note context injection.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { useState } from 'react';
@@ -24,9 +24,15 @@ export function SitesView({
   const [search, setSearch] = useState(reading?.siteSearch || '');
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
+  const folders = state?.folders ?? (state?.configured ? [{ id: '', name: 'Obsidian' }] : []);
   const entries = [
-    { id: 'obsidian', name: 'Obsidian', url: '', available: state?.configured },
-    ...(state?.sites || []).map((site) => ({ ...site, available: true })),
+    ...folders.map((folder) => ({
+      id: folder.id ? `folder:${folder.id}` : 'obsidian',
+      name: folder.name,
+      url: '',
+      local: true,
+    })),
+    ...(state?.sites || []).map((site) => ({ ...site, local: false })),
   ];
   async function launch(id: string) {
     if (busy) return;
@@ -65,18 +71,18 @@ export function SitesView({
           .map((site) => (
             <li key={site.id}>
               <button
-                disabled={disabled || !!busy || !site.available}
+                disabled={disabled || !!busy}
                 onClick={() => void launch(site.id)}
                 title={site.url || tr('本地笔记')}
                 aria-busy={busy === site.id}
               >
-                <Icon name={site.id === 'obsidian' ? 'reader-note' : 'feature-sites'} />
+                <Icon name={site.local ? 'reader-folder' : 'feature-sites'} />
                 <span className="sites-name">{site.name}</span>
               </button>
             </li>
           ))}
       </ul>
-      {state && !state.configured && <p role="status">{tr('在网站设置中选择 Obsidian 笔记库')}</p>}
+      {state && !state.configured && <p role="status">{tr('在网站设置中添加笔记文件夹')}</p>}
     </div>
   );
 }

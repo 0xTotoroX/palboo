@@ -1,14 +1,16 @@
 /* [INPUT]: Fragment reader credential on a separate loopback origin.
- * [OUTPUT]: Cancellable JSON/image reads and authenticated same-origin edit requests; credential is never read from Palboo settings storage.
+ * [OUTPUT]: Folder-scoped JSON/image reads and same-origin edits; each tab retains its own folder credential.
  * [POS]: Reader transport; URL credentials are removed before rendering any note.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { tr } from '../shared/i18n.js';
 const params = new URLSearchParams(location.hash.slice(1));
+export const folderId = new URLSearchParams(location.search).get('folder') || '';
+const credentialKey = folderId ? `palboo-reader:${folderId}` : 'palboo-reader';
 const incoming = params.get('reader');
 let credential = incoming || '';
 try {
-  credential ||= sessionStorage.getItem('palboo-reader') || '';
-  if (incoming) sessionStorage.setItem('palboo-reader', incoming);
+  credential ||= sessionStorage.getItem(credentialKey) || '';
+  if (incoming) sessionStorage.setItem(credentialKey, incoming);
 } catch {
   /* Memory-only access remains available. */
 }
@@ -46,6 +48,7 @@ async function request(url: string, options: RequestInit) {
       ...options,
       headers: {
         Authorization: `Bearer ${credential}`,
+        ...(folderId ? { 'X-Palboo-Folder': folderId } : {}),
         ...(options.body ? { 'Content-Type': 'application/json' } : {}),
       },
       cache: 'no-store',
@@ -68,6 +71,8 @@ export async function write<T>(operation: string, body: unknown): Promise<T> {
 }
 export type Summary = { id: string; title: string; kind?: 'markdown' | 'spreadsheet' };
 export type Catalog = {
+  folder?: string;
+  folders?: import('../shared/web-library').FolderSummary[];
   name: string;
   revision: number;
   skipped: number;

@@ -76,10 +76,19 @@ function App(){const [material,setMaterial]=useState('black');const [model,setMo
                 clipped: [...document.querySelectorAll('select')]
                   .filter((e) => e.scrollHeight > e.clientHeight + 2)
                   .map((e) => e.id),
+                arrows: [...document.querySelectorAll('.settings-native-select')].map((wrapper) => {
+                  const select = wrapper.querySelector('select').getBoundingClientRect();
+                  const icon = wrapper.querySelector('.buddy-icon').getBoundingClientRect();
+                  return Math.abs(select.y + select.height / 2 - icon.y - icon.height / 2);
+                }),
               };
             });
             assert.equal(geometry.overflow, false, `${width}/${base}/${theme}`);
             assert.deepEqual(geometry.clipped, [], JSON.stringify(geometry));
+            assert.ok(
+              geometry.arrows.every((offset) => offset < 1),
+              'select chevrons remain vertically centered: ' + JSON.stringify(geometry),
+            );
             for (const name of ['short', 'medium', 'full', 'input'])
               assert.ok(
                 Math.abs(geometry[name].right - geometry.toggle.right) < 1,

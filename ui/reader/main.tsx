@@ -4,7 +4,7 @@
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { createRoot } from 'react-dom/client';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { read, write, type Catalog, type Note, type Summary, type Search } from './api';
+import { read, write, folderId, type Catalog, type Note, type Summary, type Search } from './api';
 import { NoteEditor, useNoteEditor } from './editor';
 import { Spreadsheet } from './spreadsheet';
 import { NoteMarkdown, anchorKey, decodeLink } from './markdown';
@@ -17,7 +17,7 @@ import '../shared/tokens.css';
 import './style.css';
 
 setLocale('system');
-const positionKey = 'palboo-reader-positions';
+const positionKey = `palboo-reader-positions:${folderId || 'obsidian'}`;
 function savedPositions(): Record<string, number> {
   try {
     return JSON.parse(sessionStorage.getItem(positionKey) || '{}');
@@ -229,7 +229,7 @@ function Reader() {
     history.pushState(
       null,
       '',
-      `?note=${encodeURIComponent(id)}${anchor ? `#${encodeURIComponent(anchor)}` : ''}`,
+      `?${folderId ? `folder=${encodeURIComponent(folderId)}&` : ''}note=${encodeURIComponent(id)}${anchor ? `#${encodeURIComponent(anchor)}` : ''}`,
     );
     if (selected === id) {
       if (anchor) scrollAnchor(anchor);
@@ -237,6 +237,20 @@ function Reader() {
     }
     pendingAnchor.current = anchor;
     setSelected(id);
+  }
+  async function switchFolder(id: string) {
+    if (navigation.current || id === catalog?.folder) return;
+    navigation.current = true;
+    try {
+      if (!(await editor.finish())) return;
+      remember();
+      const result = await write<{ url: string }>('folder-open', { id });
+      location.assign(result.url);
+    } catch (error) {
+      setError((error as Error).message);
+    } finally {
+      navigation.current = false;
+    }
   }
   async function follow(target: string) {
     if (!note) return;
@@ -262,7 +276,25 @@ function Reader() {
     <div className="reader-app" data-menu={menu}>
       <aside className="reader-sidebar" aria-label={tr('目录与搜索')}>
         <div className="reader-library-row">
-          {menu && <strong title={catalog?.name}>{catalog?.name || 'Obsidian'}</strong>}
+          {menu &&
+            ((catalog?.folders?.length || 0) > 1 ? (
+              <div className="reader-folder-select">
+                <select
+                  aria-label={tr('切换笔记文件夹')}
+                  value={catalog?.folder || ''}
+                  onChange={(e) => void switchFolder(e.target.value)}
+                >
+                  {catalog?.folders?.map((folder) => (
+                    <option key={folder.id} value={folder.id}>
+                      {folder.name}
+                    </option>
+                  ))}
+                </select>
+                <Icon name="chevron-down" />
+              </div>
+            ) : (
+              <strong title={catalog?.name}>{catalog?.name || 'Obsidian'}</strong>
+            ))}
           <button
             className="reader-nav-toggle"
             title={tr(menu ? '收起侧栏' : '展开侧栏')}

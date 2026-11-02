@@ -97,4 +97,4 @@ lifecycle 停用与销毁时调用 disposePopoutFonts，取消旧浮窗字体读
 
 lifecycle 公开 openWebsite，网站与设置共用单飞、取消和运行期身份保护；网站点击由后台提供已校验的目的地，不调用模型。webLibraryEnabled 独立参与入口启停，不启动回答扫描。
 
-lifecycle 将网站开关、宿主范围与颜色传给左栏阅读入口；读列表/按 ID 打开走受限桥，设置目的地使用 section=sites。入口不加入模型上下文。
+lifecycle 只同步既有 Palboo 左栏入口，不再创建网站独立图标。网站功能的文件夹/网站列表及按 ID 打开仍走受限桥，设置目的地使用 section=sites；入口不加入模型上下文。

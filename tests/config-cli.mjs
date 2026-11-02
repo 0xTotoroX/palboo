@@ -115,6 +115,20 @@ try {
     /HTTP/,
   );
   assert.equal((await cli('get', 'web-library')).sites[0].id, 'example');
+  const anotherFolder = join(data, 'second-vault');
+  await mkdir(anotherFolder);
+  const folderList = [
+    ...librarySaved.folders,
+    { id: 'second', name: 'Second', path: anotherFolder, attachments: [] },
+  ];
+  await assert.rejects(() => set('web-library', { folders: folderList }), /明确确认/);
+  await set('web-library', { folders: folderList }, '--confirm');
+  assert.equal((await cli('get', 'web-library')).folders.length, 2);
+  await assert.rejects(() => cli('open-website', 'folder:second'), /ChatGPT.*连接/);
+  await assert.rejects(() => set('web-library', { folders: librarySaved.folders }), /明确确认/);
+  await set('web-library', { folders: librarySaved.folders }, '--confirm');
+  assert.equal((await cli('get', 'web-library')).folders.length, 1);
+
   await assert.rejects(() => cli('open-website', 'example'), /ChatGPT.*连接/);
   const original = await cli('get', 'settings');
   const dry = await set('settings', { generationMode: 'manual' }, '--dry-run');

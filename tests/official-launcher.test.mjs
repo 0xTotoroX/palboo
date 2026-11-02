@@ -1,5 +1,5 @@
 /* [INPUT]: Real launcher adapter in a synthetic host rail with delegated navigation.
- * [OUTPUT]: Official navigation/cleanup and stroke-only website icons in the complete rail shell.
+ * [OUTPUT]: Official navigation/cleanup and a single Palboo entry without a separate website icon.
  * [POS]: Isolated integration test, no real host or plugin calls.
  * [PROTOCOL]: Keep tests/AGENTS.md in sync. */
 import { test } from 'node:test';
@@ -64,39 +64,17 @@ async function fixture() {
   await page.addScriptTag({ content: result.outputFiles[0].text });
   return { page, browser };
 }
-test('website globe stays hollow inside the actual launcher and popover', async () => {
+test('product rail keeps only Palboo without a separate website icon', async () => {
   const { page, browser } = await fixture();
   try {
     await page.evaluate(() => {
       window.reuseOfficial = false;
-      window.sitesOptions = {
-        enabled: true,
-        request: async () => ({
-          configured: true,
-          sites: [{ id: 'test', name: 'Fixture', url: 'https://example.invalid' }],
-        }),
-        settings: () => {},
-      };
+      window.sitesOptions = { enabled: true };
       window.refresh();
     });
-    const entry = page.locator('.palboo-sites-launcher');
-    const shapes = entry.locator('circle,ellipse');
-    assert.deepEqual(
-      await shapes.evaluateAll((nodes) => nodes.map((node) => getComputedStyle(node).fill)),
-      ['none', 'none'],
-    );
-    await entry.click();
-    await page.getByRole('button', { name: 'Fixture', exact: true }).waitFor();
-    assert.equal(
-      await page
-        .locator('.palboo-sites-popover [data-icon="feature-sites"] circle')
-        .evaluate((node) => getComputedStyle(node).fill),
-      'none',
-    );
-    assert.equal(
-      await entry.locator('svg').evaluate((node) => node.getBoundingClientRect().width),
-      18,
-    );
+    assert.equal(await page.locator('[data-palboo-launcher]').count(), 1);
+    assert.equal(await page.locator('.palboo-sites-launcher,.palboo-sites-popover').count(), 0);
+    assert.equal(await page.locator('[data-palboo-launcher] .csw-launcher-face').count(), 1);
   } finally {
     await browser.close();
   }

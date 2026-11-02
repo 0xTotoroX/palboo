@@ -125,6 +125,36 @@ p {
   font-weight: 500;
   padding-left: 8px;
 }
+.reader-folder-select {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+.reader-folder-select select {
+  appearance: none;
+  width: 100%;
+  min-height: 32px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  padding: 4px 28px 4px 8px;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.reader-folder-select select:hover {
+  background: var(--reader-hover);
+}
+.reader-folder-select > .buddy-icon {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
 .reader-nav-toggle {
   display: grid;
   place-items: center;

@@ -112,6 +112,7 @@ impl Scope {
                 "enabled",
                 "vault",
                 "attachments",
+                "folders",
                 "sites",
             ],
             Self::CodexHost => &["op", "expectedRevision", "enabled", "version"],
@@ -357,11 +358,11 @@ pub(super) fn schema(scope: Scope) -> Value {
             "examples":[{"action":"add-names","names":["Retrieval-augmented generation"]},{"action":"reset-library"},{"cardMaterial":"frosted","cardWidth":360}],
         }),
         Scope::WebLibrary => json!({
-            "nestedFields":{"sites":["id","name","url"]},
+            "nestedFields":{"sites":["id","name","url"],"folders[]":["id","name","path","attachments"]},
             "readCommands":["config get web-library","config catalog vaults"],
-            "commands":["config open-website obsidian"],
-            "notes":{"vault":"Obsidian 或 Markdown 文件夹的绝对路径；空字符串移除授权。更换目录需 --confirm；不在源目录创建文件。","attachments":"额外附件目录，数组整体替换；授权改变需 --confirm。","sites":"已保存网站按数组顺序显示，仅无凭据 HTTP(S) 地址；移除条目需 --confirm。","picker":"系统选择器只填写界面草稿；CLI 通过 vault 字段完成等价保存。"},
-            "examples":[{"vault":"/absolute/path/to/notes"},{"sites":[{"id":"cubox","name":"Cubox","url":"https://cubox.pro/web/unread"}]}]
+            "commands":["config open-website obsidian","config open-website folder:<folder-id>"],
+            "notes":{"vault":"兼容首个笔记文件夹；空字符串移除首个授权，其他文件夹保留。更换目录需 --confirm。","attachments":"兼容首个文件夹的附件目录，数组整体替换；授权改变需 --confirm。","folders":"完整文件夹列表，最多16个；id稳定且唯一，path为绝对路径。保留get返回的已有条目后增删；改变列表需 --confirm。移除不删除文件，每个文件夹独立授权和阅读状态。不能与vault/attachments同时提交。","sites":"已保存网站按数组顺序显示，仅无凭据 HTTP(S) 地址；移除条目需 --confirm。","picker":"系统选择器只填写界面草稿；CLI 通过 folders 完成等价保存。"},
+            "examples":[{"folders":[{"id":"notes","name":"Notes","path":"/absolute/path/to/notes","attachments":[]},{"id":"projects","name":"Projects","path":"/absolute/path/to/projects","attachments":[]}]},{"sites":[{"id":"cubox","name":"Cubox","url":"https://cubox.pro/web/unread"}]}]
         }),
         Scope::CodexHost => {
             json!({"notes":{"enabled":"set-enabled 保存启动意愿；不改写官方 CodexHost、供应商 Agent 或它们的模型配置","operations":"start/install/restore/restart-disabled 需 --confirm；读取状态不重启宿主"}})

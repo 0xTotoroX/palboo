@@ -51,4 +51,4 @@ dock.js 显式收放以220ms宽度动画同步聊天占位；整个过程中保�
 
 features 的重开映射包含 sites/webLibraryEnabled，遵循原 owner 与开合协议。
 
-- `sites-launcher.tsx`：网站开启且宿主范围有效时显示一个左栏地球入口，原生 popover 复用 SitesView；每次打开通过受限桥读取已保存网站，不接收正文/令牌、不改变功能 owner 或布局。关闭/销毁取消请求、卸载视图与观察器，未配置目录时直达网站设置。入口共用外壳不覆盖 SVG 自身的 fill 属性，描边地球在入口与列表中均保持空心。
+网站不再挂载独立左栏入口；launcher 只维护 Palboo 眼睛。文件夹与网站统一在已有 sites 功能中打开，停止/热更新清理旧入口；共用外壳不覆盖 SVG 自身的 fill 属性。

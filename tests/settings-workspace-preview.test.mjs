@@ -81,7 +81,7 @@ function App(){const[sites,setSites]=useState(null);const[page,setPage]=useState
       const sites = preview.locator('[data-feature=sites]');
       await sites.getByRole('button', { name: '参考文档', exact: true }).waitFor();
       assert.equal(
-        await sites.getByRole('button', { name: 'Obsidian', exact: true }).isEnabled(),
+        await sites.getByRole('button', { name: 'vault', exact: true }).isEnabled(),
         true,
       );
       assert.equal(await preview.locator('.demo-host-rail').count(), 1);

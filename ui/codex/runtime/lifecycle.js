@@ -680,20 +680,6 @@ function install() {
             shellState.detached ||
             (independentFeatures() && featurePlacement() === 'desktop'),
           root: shellState.root,
-          sites: {
-            enabled:
-              runtimeState.settings?.webLibraryEnabled === true && hostPageAllowed(shellState),
-            theme: shellState.theme,
-            colors: panelAppearance().colors,
-            request: async (id, signal) => {
-              const value = await bridgeCall('/web-library/launcher', id ? { id } : {}, { signal });
-              if (value?.error) throw Error(value.error);
-              return value;
-            },
-            settings: () => {
-              void openSettings({ section: 'sites' });
-            },
-          },
           canUseOfficial: () => Boolean(chatRoot()),
           pluginOpened: () => {
             cancelFaceClick();
