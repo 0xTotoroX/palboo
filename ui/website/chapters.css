@@ -8,7 +8,7 @@
 }
 .install {
   padding-block: clamp(72px, 9vw, 120px);
-  background: var(--site-band);
+  background: var(--site-page);
   scroll-margin-top: 0;
 }
 .install-inner {

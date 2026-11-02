@@ -5,7 +5,15 @@
 .settings-app {
   --settings-control-width: max(208px, calc(var(--settings-text-size, 14px) * 11 + 40px));
 }
-.settings-app :is(input, select, textarea, button, .settings-search-input) {
+/* Chat preview composers keep their shared surface and typography. */
+.settings-app
+  :is(
+    input,
+    select,
+    textarea:not(:where(.preview-composer textarea)),
+    button,
+    .settings-search-input
+  ) {
   border-radius: var(--settings-control-radius);
 }
 .settings-app :is([data-slot='input'], [data-slot='native-select'], [data-slot='button']) {
@@ -16,7 +24,7 @@
   font-size: var(--settings-text-size);
   line-height: 1.5;
 }
-.settings-app :is([data-slot='button'], input, textarea) {
+.settings-app :is([data-slot='button'], input, textarea:not(:where(.preview-composer textarea))) {
   font-size: var(--settings-text-size);
 }
 .settings-app [data-slot='button'] {
@@ -28,7 +36,7 @@
   :is(
     [data-slot='input'],
     [data-slot='native-select'],
-    textarea,
+    textarea:not(:where(.preview-composer textarea)),
     [data-slot='button'][data-variant='outline']
   ) {
   background-color: var(--buddy-input);
@@ -39,7 +47,7 @@
     :is(
       [data-slot='input'],
       [data-slot='native-select'],
-      textarea,
+      textarea:not(:where(.preview-composer textarea)),
       [data-slot='button'][data-variant='outline']
     ):hover:not(:disabled),
   .settings-choice button:hover:not(:disabled):not([aria-pressed='true']) {
@@ -47,20 +55,33 @@
     border-color: color-mix(in srgb, var(--buddy-focus) 35%, var(--buddy-input));
   }
 }
-.settings-app :is([data-slot='input'], [data-slot='native-select'], textarea):focus-visible {
+.settings-app
+  :is(
+    [data-slot='input'],
+    [data-slot='native-select'],
+    textarea:not(:where(.preview-composer textarea))
+  ):focus-visible {
   border-color: var(--buddy-focus);
 }
 .settings-app :is(.settings-theme, .preview-selector) {
   border-radius: var(--settings-control-radius);
 }
-.settings-app :is(button, input, select, textarea, summary, a):focus-visible {
+.settings-app
+  :is(
+    button,
+    input,
+    select,
+    textarea:not(:where(.preview-composer textarea)),
+    summary,
+    a
+  ):focus-visible {
   outline: 1px solid var(--buddy-focus);
   outline-offset: 2px;
 }
 .settings-app .settings-search input:focus-visible {
   outline: none;
 }
-.settings-app :is(input, select, textarea):disabled {
+.settings-app :is(input, select, textarea:not(:where(.preview-composer textarea))):disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }

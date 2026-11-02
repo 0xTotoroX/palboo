@@ -14,14 +14,15 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { useConfirmation } from './settings-confirmation';
 import { request, uploadTerminology } from './api';
-import { inheritedAppearance } from '../terminology/appearance.js';
+import { FeatureChatPreview } from './feature-chat-preview';
 import { NativeSelect } from './components/ui/native-select';
 import { LiquidVariantToggle } from './liquid-variant-toggle';
 import { Button, IconButton } from './components/ui/button';
 import { Input, inputStyles } from './components/ui/input';
 import { Switch } from './components/ui/switch';
 import { Icon } from '../shared/icons/react';
-import { cardStyles, createCard } from '../terminology/card.js';
+import { cardStyles } from '../terminology/card.js';
+import { sampleTerms } from '../shared/demo-state';
 
 type Term = {
   id: string;
@@ -83,37 +84,6 @@ const sample: Term = {
   example: '',
   source: '',
 };
-function Preview({ term, preferences }: { term: Term; preferences: Library['preferences'] }) {
-  const locale = useLocale();
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const node = ref.current!;
-    const card = createCard(term, {
-      preferences,
-      appearance: inheritedAppearance(node),
-      locked: true,
-    });
-    node.replaceChildren(card);
-    let frame = 0;
-    const appearance = new MutationObserver(() => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        card.update(term, { appearance: inheritedAppearance(node) });
-      });
-    });
-    appearance.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['style', 'class', 'data-settings-theme'],
-    });
-    return () => {
-      cancelAnimationFrame(frame);
-      appearance.disconnect();
-      card.dispose();
-      node.replaceChildren();
-    };
-  }, [term, preferences, locale]);
-  return <div ref={ref} className="term-preview" />;
-}
 
 function download(text: string, name: string, type = 'text/markdown;charset=utf-8') {
   const url = URL.createObjectURL(new Blob([text], { type }));
@@ -263,8 +233,19 @@ export function TerminologySettings({
       ) : (
         <>
           <div className="settings-local-preview" aria-label={tr('联动预览')}>
-            <PreviewFrame title={tr('术语卡片预览')}>
-              <Preview term={sample} preferences={prefs} />
+            <PreviewFrame title={tr('术语卡片预览')} className="preview-chat-frame">
+              <FeatureChatPreview
+                id="terms"
+                form={null}
+                view={null}
+                tasks={null}
+                mode="example"
+                active={active && detailsVisible}
+                termPreferences={prefs}
+                example={{
+                  terms: [sample, ...sampleTerms().filter((term) => term.id !== sample.id)],
+                }}
+              />
             </PreviewFrame>
           </div>
           <div className="term-behavior" role="group" aria-label={tr('识别与操作')}>

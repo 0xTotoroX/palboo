@@ -3,6 +3,7 @@
  * [POS]: Website-only examples; contains no host identity, provider promise or credential.
  * [PROTOCOL]: Keep website/AGENTS.md in sync. */
 import { tr } from '../shared/i18n.js';
+import { previewQuestion, previewSections } from '../shared/preview-conversation';
 import type { ModelState } from '../features/model/catalog';
 import type { CodexHostAgentSnapshot } from '../shared/codex-host';
 import { codexHostAgents } from '../settings/codex-host-agents';
@@ -77,10 +78,17 @@ export function modelExample(): ModelState {
       status: 'ready',
       message: '',
       current: { model: 'example-a', reasoning: 'medium', speed: 'standard' },
-      models: ['a', 'b', 'c', 'd', 'e', 'f'].map((id, index) => ({
+      models: 'abcdefghijkl'.split('').map((id, index) => ({
         id: `example-${id}`,
-        label: tr('示例模型 {{id}}', { id: id.toUpperCase() }),
-        reasoning: index === 4 ? [] : index === 3 ? ['low', 'medium'] : ['low', 'medium', 'high'],
+        label: tr('模型 {{id}}', { id: id.toUpperCase() }),
+        reasoning:
+          index === 10
+            ? []
+            : index % 3 === 0
+              ? ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra']
+              : index % 3 === 1
+                ? ['low', 'medium', 'high', 'xhigh']
+                : ['none', 'low', 'medium', 'high', 'max'],
         fast: index === 0 || index === 2,
       })),
       usage: [
@@ -89,9 +97,9 @@ export function modelExample(): ModelState {
       ],
       tokenMeter: {
         threadId: 'website-example',
-        phase: 'completed',
-        speed: null,
-        lastSpeed: 38.4,
+        phase: 'streaming',
+        speed: 38.4,
+        lastSpeed: null,
         model: 'example-a',
         fast: false,
         scope: 'turn',
@@ -102,7 +110,7 @@ export function modelExample(): ModelState {
     preferences: {
       enabled: true,
       showUsage: true,
-      pinned: ['example-a', 'example-b', 'example-c', 'example-d', 'example-e'],
+      pinned: 'abcdefghijkl'.split('').map((id) => `example-${id}`),
       presets: [
         {
           id: 'example-writing',
@@ -142,10 +150,7 @@ export const agentExample: CodexHostAgentSnapshot = {
   }),
 };
 
-export const portfolioQuestion = () =>
-  tr(
-    '我有阅读工具、活动报名页和记账应用三个项目。只有两天，怎样把它们整理成一个能在手机上清楚阅读的作品集？',
-  );
+export const portfolioQuestion = previewQuestion;
 export const portfolioAnswer = () =>
   tr(
     '先保留简介、三个项目和联系方式。每个项目讲清问题、个人贡献和结果；第一天整理内容，第二天完成布局与上线检查。',
@@ -211,7 +216,11 @@ export const portfolioSections = () =>
     id: String(id),
     level: Number(level),
     title: tr(title),
-    text: tr(text),
+    text: Number(level) === 0 ? tr(text).split(/(?<=[。.;；])\s*/u)[0] : tr(text),
+    items:
+      Number(level) === 0
+        ? previewSections().find((section) => section.id === String(id))?.items
+        : undefined,
   }));
 
 export function portfolioProjection(explore = false) {
@@ -541,7 +550,9 @@ export function portfolioBotAction(data: Record<string, unknown>) {
   return data.action === 'check'
     ? tr('查看「{{name}}」的进度。', { name })
     : data.action === 'followup'
-      ? tr('追问「{{name}}」：', { name })
+      ? tr('追问「{{agent}}」，沿用本聊天中对该 Bot 的上一次调用和上下文，不要新建会话：', {
+          agent: name,
+        })
       : data.action === 'stop'
         ? tr('停止「{{name}}」在本聊天中的任务。', { name })
         : tr('请问「{{name}}」：帮我检查作品集方案。', { name });

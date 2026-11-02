@@ -19,6 +19,7 @@
   min-width: 0;
 }
 .site-settings-demo {
+  --layout-preview-text-scale: 0.9;
   padding: 24px;
   background: var(--site-surface);
   border: 1px solid var(--site-border);

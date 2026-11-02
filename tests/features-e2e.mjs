@@ -672,7 +672,48 @@ try {
   assert.ok(botGeometry.every((row) => row.hidden));
   assert.equal(await page.locator('.palboo-bot-tools').count(), 0);
   await page.getByRole('button', { name: '通用', exact: true }).hover();
-  await page.getByRole('button', { name: '追问', exact: true }).waitFor();
+  const followup = page.getByRole('button', { name: '追问', exact: true });
+  await followup.waitFor();
+  const followupData = {
+    ...returned.snapshot.target,
+    botId: 'bot-2',
+    revision: 'r1',
+    agent: '通用',
+    action: 'followup',
+    key: returned.snapshot.bots[2].current.key,
+  };
+  const beforeFollowup = await composer.innerText();
+  await assert.rejects(
+    api('features', { op: 'action', id: 'bots', owner: 'stale-owner', data: followupData }),
+  );
+  await assert.rejects(
+    api('features', {
+      op: 'action',
+      id: 'bots',
+      owner: botEntry.owner,
+      data: { ...followupData, key: 'stale-call' },
+    }),
+  );
+  assert.equal(await composer.innerText(), beforeFollowup);
+  await followup.click();
+  const followupPrompt = '追问「通用」，沿用本聊天中对该 Bot 的上一次调用和上下文，不要新建会话：';
+  await wait(async () => (await composer.innerText()).endsWith(followupPrompt), 'follow-up draft');
+  assert.equal(await composer.innerText(), `${beforeFollowup}\n${followupPrompt}`);
+  assert.equal(await composer.evaluate((node) => document.activeElement === node), true);
+  await page.keyboard.type('请补充一个例子');
+  const followupDraft = await composer.innerText();
+  assert.equal(followupDraft, `${beforeFollowup}\n${followupPrompt}请补充一个例子`);
+  await page.getByRole('button', { name: '通用', exact: true }).hover();
+  await followup.click();
+  await wait(
+    () => composer.evaluate((node) => document.activeElement === node),
+    'repeated follow-up focuses composer',
+  );
+  assert.equal(await composer.innerText(), followupDraft);
+  assert.equal(await page.evaluate(() => window.submitCount), sends);
+  record(
+    'Bot follow-up crosses owner-checked HTTP/CDP, preserves draft and focuses without sending',
+  );
   await page.mouse.move(0, 0);
   assert.doesNotMatch(await page.locator('[data-feature="bots"]').innerText(), /已回复|追问/);
   await page.locator('[data-feature="bots"]').screenshot({ path: join(output, 'palboo-bots.png') });

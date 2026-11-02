@@ -1,7 +1,7 @@
 import { useLocale } from '../../shared/use-locale';
 import { tr } from '../../shared/i18n.js';
 /* [INPUT]: Host metadata, guarded composer actions and an explicit read-only reply loader.
- * [OUTPUT]: Original Bot actions plus message-directory/detail navigation and icon-only header controls.
+ * [OUTPUT]: Status-gated Bot actions plus message-directory/detail navigation and icon-only header controls.
  * [POS]: Palboo feature content, shared by existing surfaces; no second chat input.
  * [PROTOCOL]: Keep ui/features/AGENTS.md in sync. */
 import { useEffect, useId, useState } from 'react';
@@ -232,17 +232,23 @@ export function BotsView({
                     : bot.current?.status === 'interrupted'
                       ? 'stopped'
                       : undefined;
+              const pending = ['calling', 'running'].includes(bot.current?.status || '');
+              const canFollowup = ['finished', 'interrupted'].includes(bot.current?.status || '');
+              const followupNotice =
+                bot.current && !pending && !canFollowup
+                  ? tr('此调用暂时无法追问，请先在主聊天确认状态。')
+                  : '';
               const label = [
                 bot.available === false ? tr('Bot 重名，请在 Grok Bot 中改名。') : '',
                 bot.current ? status[bot.current.status] || tr('状态待确认') : '',
                 bot.occupied ? tr('其他聊天正在调用') : '',
                 bot.unread ? tr('有未读消息') : '',
+                followupNotice,
               ]
                 .filter(Boolean)
                 .join(' · ');
               const unavailable = Boolean(blocked || bot.occupied || bot.available === false);
               const descriptionId = `${previewId}-${encodeURIComponent(id)}`;
-              const pending = ['calling', 'running'].includes(bot.current?.status || '');
               const primaryAction = pending ? tr('查看进度') : tr('追问');
               const send = (intent: string) =>
                 action({
@@ -308,7 +314,8 @@ export function BotsView({
                           type="button"
                           className="palboo-bot-hint"
                           aria-label={primaryAction}
-                          disabled={unavailable}
+                          aria-description={followupNotice || undefined}
+                          disabled={unavailable || (!pending && !canFollowup)}
                           onClick={() => send(pending ? 'check' : 'followup')}
                         >
                           <Icon name={pending ? 'eye' : 'feature-bots'} />

@@ -2,7 +2,7 @@
  * [OUTPUT]: Website feature registration, brand eyes and an accessible local composer.
  * [POS]: Shared framing for the opening and combined scenes, no service requests.
  * [PROTOCOL]: Keep website/AGENTS.md in sync. */
-import { useId } from 'react';
+import { PreviewComposer } from '../settings/preview-composer';
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 export { ModelDemo } from './model-demo';
@@ -71,19 +71,5 @@ export function ComposerDemo({
   label?: string;
 }) {
   useLocale();
-  const id = useId();
-  return (
-    <div className="demo-composer">
-      <label className="sr-only" htmlFor={id}>
-        {label}
-      </label>
-      <textarea
-        id={id}
-        value={draft}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder={tr('接着聊…')}
-        rows={2}
-      />
-    </div>
-  );
+  return <PreviewComposer value={draft} onValueChange={onChange} label={label} />;
 }

@@ -88,8 +88,10 @@ export function CodexHostPreview({
   const selected = local?.selected ?? snapshot?.current;
   const added = local?.added ?? [];
   const agents = snapshot?.status === 'ready' ? snapshot.agents : [];
-  const main = agents.filter((agent) => agent.group === 'main');
-  const more = agents.filter((agent) => agent.group === 'more');
+  const promoted = (agent: Agent) =>
+    agent.group === 'main' || agent.available || added.includes(agent.id);
+  const main = agents.filter(promoted);
+  const more = agents.filter((agent) => !promoted(agent));
   const message =
     !live && !example
       ? tr('尚未连接 Codex')
@@ -135,6 +137,7 @@ export function CodexHostPreview({
             title={tr('预览添加 {{agent}}', { agent: agent.label })}
             onClick={() => {
               setDraft({ source, selected: agent.id, added: [...added, agent.id] });
+              onSelect?.({ ...agent, available: true, availability: 'ready' });
               requestAnimationFrame(() => {
                 menu.current?.querySelector<HTMLButtonElement>('[aria-checked="true"]')?.focus();
               });

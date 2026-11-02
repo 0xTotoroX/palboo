@@ -61,6 +61,8 @@ The published v1.2.0 and earlier do not contain this updater. Install the first 
 
 Suggestions fill the composer by default. If you already have a draft, Palboo appends to it without sending.
 
+Bot follow-up continues the previous call in the current chat. It appends the request to your existing draft and places the cursor at the end; you still choose when to send.
+
 Grok Bot **Recent messages** opens a directory of previews. Select a preview to read that Bot’s latest full reply with Markdown formatting; Back restores your place in the directory. Clicking a Bot in the original list still prepares a question in the main chat. Reading uses the account-verified local Grok Bot cache and does not consume unread replies. If a reply is missing or incomplete, open that Bot in Grok Bot to sync it; attachments remain available in Grok Bot.
 
 <details>

@@ -1,6 +1,6 @@
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: Local MCP notifications and the unique current Codex composer.
- * [OUTPUT]: Palboo Bot projection and identity-checked append-only composer actions.
+ * [OUTPUT]: Palboo Bot projection and identity/status-checked continuation drafts with composer focus.
  * [POS]: Host adapter; no remote requests, reply consumption, submission or timers.
  * [PROTOCOL]: Keep ui/codex/AGENTS.md and runtime/AGENTS.md in sync. */
 import { createBotTracker } from './bots-state.js';
@@ -76,6 +76,11 @@ export function installBots({
       return { ok: false, message: tr('另一条聊天正在调用此 Bot，请先在原聊天确认进度。') };
     if (input.action !== 'ask' && (!state.current || input.key !== state.current.key))
       return { ok: false, message: tr('调用记录已变化，请刷新后重试。') };
+    if (input.action === 'followup' && !['finished', 'interrupted'].includes(state.current.status))
+      return {
+        ok: false,
+        message: tr('此调用暂时无法追问，请先在主聊天确认状态。'),
+      };
     if (input.action === 'stop' && !['calling', 'running'].includes(state.current.status))
       return { ok: false, message: tr('此调用当前没有可停止的任务。') };
     const prompt =
@@ -84,30 +89,47 @@ export function installBots({
         : input.action === 'check'
           ? tr('查看「{{agent}}」的进度。', { agent: input.agent })
           : input.action === 'followup'
-            ? tr('追问「{{agent}}」：', { agent: input.agent })
+            ? tr('追问「{{agent}}」，沿用本聊天中对该 Bot 的上一次调用和上下文，不要新建会话：', {
+                agent: input.agent,
+              })
             : tr('请问「{{agent}}」：', { agent: input.agent });
     const editor = next.composer;
     if (editor.matches(':disabled,[readonly],[aria-disabled="true"]'))
       return { ok: false, message: tr('Codex 输入框暂时不可编辑。') };
+    const textInput = editor instanceof HTMLTextAreaElement || editor instanceof HTMLInputElement;
+    if (!textInput && !editor.isContentEditable)
+      return { ok: false, message: tr('无法确认可编辑的 Codex 输入框。') };
+    editor.focus();
+    // Focusing the host can change its active chat or replace the editor.
+    if (current()?.composer !== editor || input.token !== token || input.threadId !== target?.id)
+      return { ok: false, message: tr('聊天或输入框已变化，请重新选择 Bot。') };
     const existing = rawComposerText(editor);
     // Repeated clicks do not duplicate the routing sentence or change a draft.
     if (!existing.includes(prompt)) {
       const addition = `${existing && !/[\r\n]$/.test(existing) ? '\n' : ''}${prompt}`;
-      editor.focus();
-      if (editor instanceof HTMLTextAreaElement || editor instanceof HTMLInputElement) {
+      if (textInput) {
         setNativeValue(editor, existing + addition);
         editor.dispatchEvent(
           new InputEvent('input', { bubbles: true, inputType: 'insertText', data: addition }),
         );
         editor.dispatchEvent(new Event('change', { bubbles: true }));
-      } else if (editor.isContentEditable) {
+      } else {
         setEditableText(editor, addition, !!existing);
         editor.dispatchEvent(
           new InputEvent('input', { bubbles: true, inputType: 'insertText', data: addition }),
         );
-      } else return { ok: false, message: tr('无法确认可编辑的 Codex 输入框。') };
+      }
     }
-    editor.focus();
+    // Also restore the insertion point on repeated clicks and insertText fallbacks.
+    if (textInput) editor.setSelectionRange(editor.value.length, editor.value.length);
+    else {
+      const range = document.createRange();
+      range.selectNodeContents(editor);
+      range.collapse(false);
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+    }
     return { ok: true };
   }
   const api = {

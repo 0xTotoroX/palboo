@@ -116,7 +116,15 @@ html[data-settings-style='chatgpt'] {
   .settings-app .settings-nav .settings-nav-children a[aria-current='page']::before {
     content: none;
   }
-  .settings-app :is(input, select, textarea, button, .settings-search-input, .settings-entry) {
+  .settings-app
+    :is(
+      input,
+      select,
+      textarea:not(:where(.preview-composer textarea)),
+      button,
+      .settings-search-input,
+      .settings-entry
+    ) {
     corner-shape: var(--settings-corner-shape);
   }
   .settings-app ::selection {
@@ -127,14 +135,14 @@ html[data-settings-style='chatgpt'] {
   .settings-app * {
     scrollbar-color: var(--settings-scrollbar) transparent;
   }
-  .settings-app :is(input, textarea) {
+  .settings-app :is(input, textarea:not(:where(.preview-composer textarea))) {
     caret-color: var(--buddy-text);
   }
-  .settings-app :is(input, textarea)::placeholder {
+  .settings-app :is(input, textarea:not(:where(.preview-composer textarea)))::placeholder {
     color: var(--settings-placeholder);
     opacity: 1;
   }
-  .settings-app :is([data-slot='input'], textarea) {
+  .settings-app :is([data-slot='input'], textarea:not(:where(.preview-composer textarea))) {
     border-color: var(--settings-input-border);
   }
   .settings-app [data-slot='native-select'] {
@@ -148,21 +156,33 @@ html[data-settings-style='chatgpt'] {
     outline: 2px solid var(--buddy-focus);
     outline-offset: 2px;
   }
-  .settings-app :is([data-slot='input'], [data-slot='native-select'], textarea):focus-visible {
+  .settings-app
+    :is(
+      [data-slot='input'],
+      [data-slot='native-select'],
+      textarea:not(:where(.preview-composer textarea))
+    ):focus-visible {
     border-color: var(--settings-input-focus-border);
     outline: none;
   }
   @media (hover: hover) {
     .settings-app
-      :is([data-slot='input'], [data-slot='native-select'], textarea):hover:not(:disabled):not(
-        :focus-visible
-      ) {
+      :is(
+        [data-slot='input'],
+        [data-slot='native-select'],
+        textarea:not(:where(.preview-composer textarea))
+      ):hover:not(:disabled):not(:focus-visible) {
       border-color: var(--settings-input-hover-border);
       background-color: var(--buddy-input);
     }
   }
   .settings-app
-    :is([data-slot='input'], [data-slot='native-select'], textarea, [data-slot='button']):disabled {
+    :is(
+      [data-slot='input'],
+      [data-slot='native-select'],
+      textarea:not(:where(.preview-composer textarea)),
+      [data-slot='button']
+    ):disabled {
     opacity: 1;
     color: var(--settings-disabled-text);
     background-color: var(--settings-disabled-background);
@@ -381,12 +401,17 @@ html[data-settings-style='chatgpt'] {
     border-color: var(--settings-input-focus-border);
   }
   /* 组合编辑区只有外框反馈，内部草稿不再套第二层输入框。 */
-  .settings-app .settings-entry :is(input, textarea):not(:disabled) {
+  .settings-app
+    .settings-entry
+    :is(input, textarea:not(:where(.preview-composer textarea))):not(:disabled) {
     border-color: transparent;
     background: transparent;
     outline: none;
   }
-  .settings-app :is(input, select, textarea)[aria-invalid='true']:not(:disabled) {
+  .settings-app
+    :is(input, select, textarea:not(:where(.preview-composer textarea)))[aria-invalid='true']:not(
+      :disabled
+    ) {
     border-color: var(--error-foreground);
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--error-foreground) 20%, transparent);
   }

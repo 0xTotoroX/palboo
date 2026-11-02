@@ -1,5 +1,48 @@
 // English interface copy. User-authored content is not translated.
 export default {
+  '追问「{{agent}}」，沿用本聊天中对该 Bot 的上一次调用和上下文，不要新建会话：':
+    "Follow up with “{{agent}}”, continuing this chat's previous call to that Bot and its context without starting a new session:",
+  '此调用暂时无法追问，请先在主聊天确认状态。':
+    'This call cannot be followed up yet. Check its status in the main chat.',
+  聊天输入框: 'Message input',
+  发送消息: 'Send message',
+  '模型 {{id}}': 'Model {{id}}',
+  '两天内完成个人作品集，先做哪些事？':
+    'What should I do first to finish my portfolio in two days?',
+  '第一版围绕三个项目，讲清你的贡献。':
+    'Build the first version around three projects and your contribution.',
+  '阅读工具：检索、摘录与整理。': 'Reading tool: search, excerpts and organization.',
+  '活动报名页：信息浏览与报名流程。': 'Event page: information and registration.',
+  '记账应用：分类、统计与月度回顾。': 'Expense app: categories, statistics and monthly review.',
+  '首页保留简介、项目和联系方式。':
+    'Keep an introduction, projects and contact details on the home page.',
+  '每个项目先交代问题，再展示过程与结果。':
+    'Start each project with the problem, then show the process and result.',
+  '用两张关键截图说明设计取舍。': 'Use two key screenshots to explain your design decisions.',
+  '用响应式布局适配宽窄屏，按内容决定断点。保持信息层级与留白，检查可访问性。':
+    'Use responsive layout for wide and narrow screens, with breakpoints guided by content. Keep a clear visual hierarchy and whitespace, and check accessibility.',
+  '第二天完成布局与验收。': 'Finish the layout and checks on day two.',
+  '检查手机阅读与键盘焦点。': 'Check mobile reading and keyboard focus.',
+  '核对项目链接和联系方式。': 'Verify project links and contact details.',
+  '请朋友从首页找到一个代表作品。': 'Ask a friend to find a featured project from the home page.',
+  '记录待补素材，再发布第一版。': 'Record missing assets, then publish the first version.',
+  '为图片预留宽高比，避免布局偏移。首屏加载核心内容，其余素材使用懒加载；补充替代文本，并兼顾减少动态效果。':
+    'Reserve the image aspect ratio to prevent layout shift. Load core content above the fold and use lazy loading for the rest; add alt text and respect reduced motion.',
+  '用响应式布局组织作品，按内容决定断点。':
+    'Organize projects with responsive layout and let the content define breakpoints.',
+  '信息层级依靠标题与留白，手机端改为单列。':
+    'Build a visual hierarchy with headings and whitespace. Use one column on mobile.',
+  '检查键盘焦点，确保可访问性。': 'Check keyboard focus to ensure accessibility.',
+  '保留宽高比并预留尺寸，避免布局偏移。':
+    'Reserve the aspect ratio and dimensions to avoid layout shift.',
+  '首屏加载简介和第一张作品图。': 'Load the introduction and first project image above the fold.',
+  '下方素材使用懒加载，并补充替代文本。':
+    'Use lazy loading for the remaining assets and add alt text.',
+  '开启减少动态效果后，仍能完整阅读与操作。':
+    'Keep everything readable and usable with reduced motion.',
+  检查加载顺序: 'Check loading order',
+  '切换项目时忽略旧请求的迟到结果，避免竞态条件覆盖当前内容。':
+    'Ignore late responses from earlier requests when switching projects, so a race condition cannot overwrite the current content.',
   看板视图: 'Board view',
   合并视图: 'Merged view',
   完全展开视图: 'Fully expanded view',

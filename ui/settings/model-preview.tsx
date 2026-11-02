@@ -13,7 +13,7 @@ import type { Reading } from '../shared/features';
 const fallback = (): Model[] =>
   ['A', 'B'].map((id) => ({
     id: `preview-${id}`,
-    label: tr('示例模型 {{id}}', { id }),
+    label: tr('模型 {{id}}', { id }),
     reasoning: ['low', 'medium', 'high'],
     fast: true,
   }));

@@ -8,9 +8,11 @@ import { textIndex, semanticSpans, scrollToRange } from './text-ranges.js';
 import { createMatcher } from './matcher.js';
 import { createTermPopover } from './popover.js';
 import { inheritedAppearance } from './appearance.js';
-const HIGHLIGHT = 'palboo-terms';
-export function installTerminology({ request, getRoot, getExchange, isBusy }) {
-  window.__palbooTerminology?.destroy();
+let previewSerial = 0;
+export function installTerminology({ request, getRoot, getExchange, isBusy, isolated = false }) {
+  // 设置和官网复用真实标注引擎，但不接管宿主单例或读取后台状态。
+  const HIGHLIGHT = isolated ? `palboo-preview-terms-${++previewSerial}` : 'palboo-terms';
+  if (!isolated) window.__palbooTerminology?.destroy();
   let alive = true,
     root = null,
     observer = null,
@@ -475,7 +477,7 @@ export function installTerminology({ request, getRoot, getExchange, isBusy }) {
   }
   const changed = () => void refresh();
   document.addEventListener('buddy-terminology-change', changed);
-  const poll = setInterval(refresh, 15000);
+  const poll = isolated ? 0 : setInterval(refresh, 15000);
   const apiObject = {
     lastError: '',
     contextKey,
@@ -530,7 +532,7 @@ export function installTerminology({ request, getRoot, getExchange, isBusy }) {
       if (window.__palbooTerminology === apiObject) delete window.__palbooTerminology;
     },
   };
-  window.__palbooTerminology = apiObject;
+  if (!isolated) window.__palbooTerminology = apiObject;
   tick();
   void refresh();
   return apiObject;

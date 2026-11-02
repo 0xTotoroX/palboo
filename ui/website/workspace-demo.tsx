@@ -110,7 +110,7 @@ function WorkspaceFeature({ id, headerActions }: { id: string; headerActions: HT
       ) : id === 'bots' ? (
         <BotDemo onInsert={insert} headerActions={headerActions} />
       ) : null}
-      {['next', 'prompts', 'bots'].includes(id) && (
+      {draft && ['next', 'prompts', 'bots'].includes(id) && (
         <ComposerDemo
           draft={draft}
           onChange={setDraft}

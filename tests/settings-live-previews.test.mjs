@@ -127,7 +127,7 @@ return <div className={'settings-app '+(dark?'dark':'')} style={{maxWidth:900,ma
       await page.getByRole('button', { name: '启停测试', exact: true }).click();
       await board.getByText('任务看板已停用，请在设置页开启。', { exact: true }).waitFor();
       await page.getByRole('button', { name: '启停测试', exact: true }).click();
-      await board.locator('.board-grid:not(.stacked)').waitFor();
+      await board.locator('.board-grid.stacked').waitFor();
       assert.deepEqual(await page.evaluate(() => window.commands), [
         { op: 'view', viewMode: 'expanded' },
       ]);
@@ -161,7 +161,12 @@ return <div className={'settings-app '+(dark?'dark':'')} style={{maxWidth:900,ma
         '当前审查助手',
       ]);
       await bots.getByRole('button', { name: '当前审查助手', exact: true }).click();
-      assert.match(await preview.locator('.preview-draft').textContent(), /当前审查助手/);
+      assert.match(
+        await preview
+          .locator('.preview-scene[data-active=true] .preview-composer textarea')
+          .inputValue(),
+        /当前审查助手/,
+      );
       await page.getByRole('button', { name: '同步配置', exact: true }).click();
       await bots.getByRole('button', { name: '已同步助手', exact: true }).waitFor();
       await page.getByRole('button', { name: 'model-control', exact: true }).click();
@@ -178,15 +183,19 @@ return <div className={'settings-app '+(dark?'dark':'')} style={{maxWidth:900,ma
           await board.locator(`[data-view-mode=${mode}]`).waitFor();
           assert.equal(await board.locator('.board-column').count(), mode === 'merged' ? 1 : 3);
           if (mode === 'expanded') {
-            await board.locator('.board-grid:not(.stacked)').waitFor();
+            await board.locator('.board-grid.stacked').waitFor();
             const columns = await board.locator('.board-column').evaluateAll((nodes) =>
               nodes.map((node) => {
-                const { x, y } = node.getBoundingClientRect();
-                return { x, y };
+                const { x, y, height } = node.getBoundingClientRect();
+                return { x, y, height };
               }),
             );
-            assert.ok(columns.every((column) => Math.abs(column.y - columns[0].y) < 1));
-            assert.ok(columns[1].x > columns[0].x && columns[2].x > columns[1].x);
+            assert.ok(
+              columns
+                .slice(1)
+                .every((column, index) => column.y >= columns[index].y + columns[index].height),
+            );
+            assert.ok(columns.every((column) => Math.abs(column.x - columns[0].x) < 1));
             await board.getByRole('button', { name: '新建任务', exact: true }).last().click();
             await board.getByLabel('新任务标题').press('Escape');
             assert.ok(
@@ -252,10 +261,16 @@ return <div className={'settings-app '+(dark?'dark':'')} style={{maxWidth:900,ma
           background: getComputedStyle(content).backgroundColor,
         };
       });
-      assert.ok(Math.abs(bounds.content - bounds.frame) <= 1, 'content stays inside its pane');
+      assert.ok(
+        Math.abs(bounds.content - bounds.frame) <= 1,
+        `content stays inside its pane: ${JSON.stringify(bounds)}`,
+      );
       assert.equal(bounds.background, 'rgba(0, 0, 0, 0)', 'workspace material stays visible');
       await longBots.getByRole('button', { name: '预览助手 11', exact: true }).click();
-      assert.match(await preview.locator('.preview-draft:visible').textContent(), /预览助手 11/);
+      assert.match(
+        await preview.locator('.preview-composer textarea:visible').inputValue(),
+        /预览助手 11/,
+      );
       await page.getByRole('button', { name: 'English', exact: true }).click();
       await page.getByRole('button', { name: 'board', exact: true }).click();
       await page.getByLabel('Board view', { exact: true }).waitFor();

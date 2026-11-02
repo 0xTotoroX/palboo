@@ -157,9 +157,6 @@ function FeaturePage({
               mode="current"
               preserveEdits
             />
-            <p className="feature-example-note">
-              {tr('模型、档位和额度均为示例，实际选项以接入的宿主与服务为准。')}
-            </p>
           </>
         ) : page.id === 'prompt' ? (
           <div className="preview-prompt">

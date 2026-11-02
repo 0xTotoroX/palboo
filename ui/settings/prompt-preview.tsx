@@ -3,6 +3,7 @@
  * [POS]: Shared settings/website demo target and transport; never discovers a host or calls a model.
  * [PROTOCOL]: Keep settings/AGENTS.md and both consumers' browser checks in sync. */
 import { useEffect, useLayoutEffect, useRef } from 'react';
+import { PreviewComposer } from './preview-composer';
 import { installPromptEnhancer } from '../codex/prompt-enhancement.js';
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
@@ -74,19 +75,20 @@ export function PromptPreview({
       button.click();
   }, [tourStep, locale, active]);
   return (
-    <div ref={root} className="demo-composer demo-prompt" data-codex-composer-root>
-      <textarea
-        ref={editor}
-        aria-label={tr('提示词优化演示')}
-        defaultValue={original}
-        onInput={(event) => {
-          if (event.nativeEvent.isTrusted) edited.current = true;
-          onDraftChange?.(event.currentTarget.value);
-          if (!event.nativeEvent.isTrusted && tourStep === 1)
-            event.currentTarget.scrollTop = event.currentTarget.scrollHeight;
-        }}
-        rows={3}
-      />
-    </div>
+    <PreviewComposer
+      containerRef={root}
+      editorRef={editor}
+      className="demo-prompt"
+      label={tr('提示词优化演示')}
+      defaultValue={draft === undefined ? original : undefined}
+      value={draft}
+      onValueChange={onDraftChange}
+      onInput={(event) => {
+        if (event.nativeEvent.isTrusted) edited.current = true;
+        onDraftChange?.(event.currentTarget.value);
+        if (!event.nativeEvent.isTrusted && tourStep === 1)
+          event.currentTarget.scrollTop = event.currentTarget.scrollHeight;
+      }}
+    />
   );
 }

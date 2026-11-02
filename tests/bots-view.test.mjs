@@ -78,7 +78,7 @@ test('Bot list keeps messages opt-in and animates only visible active avatars', 
     });
     await rows.first().waitFor();
     assert.equal(await page.locator('.palboo-bot-preview').count(), 0);
-    assert.equal(await page.getByRole('status', { name: '调用失败', exact: true }).count(), 1);
+    assert.equal(await page.getByRole('status', { name: /^调用失败/ }).count(), 1);
     assert.doesNotMatch(await rows.first().innerText(), /处理中|查看进度|停止请求/);
     await rows.nth(3).getByRole('button', { name: '工程主管', exact: true }).focus();
     assert.equal(await rows.nth(3).locator('.palboo-bot-state-description').isVisible(), true);

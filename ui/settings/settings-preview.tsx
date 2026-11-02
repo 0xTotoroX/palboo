@@ -8,6 +8,7 @@ import { tr } from '../shared/i18n.js';
 import { LayoutPreview } from './layout-preview';
 import { ModelPreview } from './model-preview';
 import { FeaturePreviewContent } from './feature-preview';
+import { FeatureChatPreview } from './feature-chat-preview';
 import { useCallback, useState, type ReactNode } from 'react';
 import type { BotCatalog } from './bot-settings';
 import type { SettingsPage } from './settings-outline';
@@ -77,7 +78,7 @@ function FeaturePreview({ form, tasks, model, bots, view, dirty, page }: Preview
   return (
     <Frame
       title={tr('功能如何呈现')}
-      className={activeScene === 'board' ? 'preview-board' : undefined}
+      className="preview-chat-frame"
       status={dirty ? tr('包含未保存的编辑') : undefined}
     >
       <SegmentedGroup
@@ -119,13 +120,14 @@ function FeaturePreview({ form, tasks, model, bots, view, dirty, page }: Preview
                     showTokenMeter={form?.tokenMeterEnabled !== false}
                   />
                 ) : (
-                  <FeaturePreviewContent
+                  <FeatureChatPreview
                     id={scene}
                     form={form}
                     view={view}
                     tasks={tasks}
                     bots={bots}
                     mode="current"
+                    active={activeScene === scene}
                   />
                 )}
               </div>

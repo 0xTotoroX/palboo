@@ -244,6 +244,23 @@ test('the opening fits a complete display, retracts its stand and tours placemen
       () => document.querySelector('.studio-display-frame')?.getAttribute('data-progress') === '0',
     );
     assert.equal(await stand.getAttribute('data-progress'), '0');
+    await scrollScene(page, '.opening-story', 0.8 / 3.5);
+    await page.clock.runFor(1100);
+    const hostComposer = page.locator('.layout-demo-host-composer');
+    const hostInput = hostComposer.getByRole('textbox', { name: '聊天输入框', exact: true });
+    const hostSend = hostComposer.getByRole('button', { name: '发送消息', exact: true });
+    assert.equal(await hostSend.isDisabled(), true);
+    await hostInput.fill('保留在显示器内的草稿');
+    assert.equal(await hostInput.inputValue(), '保留在显示器内的草稿');
+    await page.clock.runFor(500);
+    assert.equal(await hostSend.isEnabled(), true);
+    await page.screenshot({ path: resolve(reports, 'monitor-composer.png') });
+    await hostSend.click();
+    assert.equal(await hostInput.inputValue(), '');
+    assert.equal(
+      await hostComposer.locator('.preview-sent-message').innerText(),
+      '保留在显示器内的草稿',
+    );
     await page.locator('#install').scrollIntoViewIfNeeded();
     assert.equal(await page.locator('.install-details').count(), 0);
     await page.screenshot({ path: resolve(reports, 'monitor-footer.png') });
@@ -446,8 +463,15 @@ test('shared phrases expand, insert and keep an unfinished edit through navigati
     assert.equal(await phrases.locator('[data-quick-prompt]').count(), 7);
     await phrases.getByRole('button', { name: '展开全文', exact: true }).first().click();
     await phrases.getByRole('button', { name: '检查方案', exact: true }).click();
-    await phrases.locator('.preview-draft').waitFor();
-    assert.match(await phrases.locator('.preview-draft').innerText(), /保留已经确认的视觉风格/);
+    await page.waitForFunction(() =>
+      document
+        .querySelector('#feature-panel-prompts .preview-composer textarea')
+        ?.value.includes('保留已经确认的视觉风格'),
+    );
+    assert.match(
+      await phrases.locator('.preview-composer textarea').inputValue(),
+      /保留已经确认的视觉风格/,
+    );
     await phrases.getByRole('button', { name: '仅显示名称', exact: true }).click();
     assert.equal(await phrases.locator('[data-names-only=true]').count(), 1);
     await phrases.getByRole('button', { name: '完整内容', exact: true }).click();
@@ -458,8 +482,11 @@ test('shared phrases expand, insert and keep an unfinished edit through navigati
     await select(page, 'prompts');
     assert.equal(await editor.inputValue(), '保留我没有保存的指令');
     await page.locator('.site-language').click();
-    assert.equal(await phrases.locator('textarea').inputValue(), '保留我没有保存的指令');
-    assert.equal(await phrases.locator('.preview-draft').count(), 1);
+    assert.equal(
+      await phrases.locator('.preview-palboo textarea').inputValue(),
+      '保留我没有保存的指令',
+    );
+    assert.equal(await phrases.locator('.preview-composer textarea').count(), 1);
   } finally {
     await page.close();
   }
@@ -480,12 +507,16 @@ test('outline and next step run the settings preview commands in memory', async 
       before,
       'source navigation stays inside the preview',
     );
-    assert.equal(await outline.locator('.preview-draft').count(), 0);
+    assert.equal(await outline.locator('.preview-composer textarea').inputValue(), '');
     await select(page, 'next');
     const next = panel(page, 'next');
     await next.getByRole('button', { name: /^拆解第一版/ }).click();
-    await next.locator('.preview-draft').waitFor();
-    assert.match(await next.locator('.preview-draft').textContent(), /两天的任务清单/);
+    await page.waitForFunction(() =>
+      document
+        .querySelector('#feature-panel-next .preview-composer textarea')
+        ?.value.includes('两天的任务清单'),
+    );
+    assert.match(await next.locator('.preview-composer textarea').inputValue(), /两天的任务清单/);
     await next.getByRole('button', { name: '重新生成建议', exact: true }).click();
     await next.getByRole('button', { name: /^比较展示方式/ }).waitFor();
     await select(page, 'outline');
@@ -504,6 +535,13 @@ test('the real task board can edit and create tasks without leaving the shared f
     const board = panel(page, 'board');
     assert.equal(await board.locator('.board-column').count(), 3);
     assert.equal(await board.locator('.task-card').count(), 9);
+    const groups = await board
+      .locator('.board-column')
+      .evaluateAll((nodes) => nodes.map((n) => n.getBoundingClientRect().toJSON()));
+    assert.ok(
+      groups.slice(1).every((g, i) => g.top >= groups[i].bottom),
+      'stacked groups cannot overlap',
+    );
     await board.getByRole('button', { name: '任务详情：整理三个代表作品', exact: true }).click();
     await board.getByRole('textbox', { name: '标题', exact: true }).fill('整理作品与截图');
     await board.getByRole('button', { name: '保存', exact: true }).click();
@@ -525,6 +563,10 @@ test('shared model choices, Bot messages and the isolated Agent menu remain inte
   try {
     await select(page, 'model');
     const model = panel(page, 'model');
+    assert.equal(await model.locator('.model-row').count(), 12);
+    for (const level of ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'])
+      assert.ok(await model.locator(`[data-reasoning="${level}"]`).count(), level);
+    assert.doesNotMatch(await model.innerText(), /示例模型|均为示例|上次测速/);
     await model.locator('.token-meter-readout').waitFor();
     assert.match(await model.locator('.token-meter-readout').innerText(), /38.4/);
     const choice = model.locator('[data-model="example-c"][data-reasoning="high"]');
@@ -554,6 +596,14 @@ test('shared model choices, Bot messages and the isolated Agent menu remain inte
     assert.equal(await agents.locator('.compatibility-agent-add').count(), 14);
     await agents.locator('.compatibility-agent-add').first().click();
     assert.equal(await agents.locator('.compatibility-agent-add').count(), 13);
+    const promoted = agents.getByRole('menuitemradio', { name: 'Antigravity CLI', exact: true });
+    assert.equal(await promoted.getAttribute('aria-checked'), 'true');
+    assert.equal(
+      await promoted.evaluate((n) => !!n.closest('[role=group]')),
+      false,
+      'available Agent moves above More',
+    );
+    assert.equal(await focused(promoted), true);
     await select(page, 'model');
     assert.equal(await choice.getAttribute('aria-pressed'), 'true');
   } finally {
@@ -600,7 +650,7 @@ test('language changes translate sample labels while preserving model selection,
     await select(page, 'model');
     assert.equal(await choice.getAttribute('aria-pressed'), 'true');
     assert.equal(await fast.getAttribute('aria-pressed'), 'true');
-    assert.match(await choice.getAttribute('aria-label'), /Example model C/i);
+    assert.match(await choice.getAttribute('aria-label'), /Model C/i);
     assert.match(await model.locator('.model-preset-choice').first().innerText(), /我的保留预设/);
     assert.match(await model.locator('.model-preset-choice').nth(1).innerText(), /Deep analysis/);
     await page.locator('.site-language').click();
@@ -608,6 +658,83 @@ test('language changes translate sample labels while preserving model selection,
     assert.equal(await choice.getAttribute('aria-pressed'), 'true');
     assert.equal(await fast.getAttribute('aria-pressed'), 'true');
     assert.match(await model.locator('.model-preset-choice').nth(1).innerText(), /深入分析/);
+  } finally {
+    await page.close();
+  }
+});
+
+test('chat previews keep Palboo on the right and expose editable input with local sending', async () => {
+  const page = await site();
+  try {
+    for (const id of ['outline', 'next', 'prompts', 'terms', 'board', 'bots']) {
+      await select(page, id);
+      const scene = panel(page, id);
+      const chat = await scene.locator('.preview-chat').boundingBox();
+      const palboo = await scene.locator('.preview-palboo').boundingBox();
+      assert.ok(chat.x + chat.width < palboo.x, `${id}: chat left, Palboo right`);
+      assert.ok((await scene.locator('.preview-chat-answer ol li').count()) >= 3);
+      const input = scene.getByRole('textbox', { name: '聊天输入框', exact: true });
+      const send = scene.getByRole('button', { name: '发送消息', exact: true });
+      assert.equal(await send.isDisabled(), true);
+      await input.fill('这是保留的草稿');
+      await select(page, id === 'outline' ? 'next' : 'outline');
+      await select(page, id);
+      assert.equal(await input.inputValue(), '这是保留的草稿');
+      await send.click();
+      assert.equal(await input.inputValue(), '');
+      assert.equal(await scene.locator('.preview-sent-message').innerText(), '这是保留的草稿');
+    }
+    const backgrounds = await page.evaluate(() => [
+      getComputedStyle(document.querySelector('#install')).backgroundColor,
+      getComputedStyle(document.documentElement).backgroundColor,
+    ]);
+    assert.equal(backgrounds[0], backgrounds[1]);
+  } finally {
+    await page.close();
+  }
+});
+
+test('terms mark the conversation and open the real hover card without taking over the host controller', async () => {
+  const page = await site();
+  try {
+    await page.evaluate(() => {
+      window.__palbooTerminology = {
+        sentinel: true,
+        destroy() {
+          throw Error('real host controller must survive');
+        },
+      };
+    });
+    await select(page, 'terms');
+    await page.waitForFunction(() =>
+      [...CSS.highlights].some(
+        ([name, ranges]) => name.startsWith('palboo-preview-terms-') && ranges.size,
+      ),
+    );
+    const point = await page.evaluate(() => {
+      for (const [name, ranges] of CSS.highlights) {
+        if (!/^palboo-preview-terms-\d+$/.test(name)) continue;
+        for (const range of ranges)
+          if (range.toString() === '响应式布局') {
+            const rect = range.getBoundingClientRect();
+            return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+          }
+      }
+    });
+    assert.ok(point, 'real text range is highlighted');
+    await page.mouse.move(point.x, point.y);
+    const popup = page.locator('.term-popover[data-open=true]');
+    await popup.waitFor();
+    assert.match(await popup.innerText(), /Responsive layout/);
+    await page.screenshot({ path: resolve(reports, 'desktop-terms-hover.png') });
+    await select(page, 'next');
+    assert.equal(
+      await page.evaluate(() =>
+        [...CSS.highlights.keys()].some((key) => key.startsWith('palboo-preview-terms-')),
+      ),
+      false,
+    );
+    assert.equal(await page.evaluate(() => window.__palbooTerminology.sentinel), true);
   } finally {
     await page.close();
   }
@@ -639,7 +766,7 @@ test('entry demonstration only runs in view and manual interaction cancels it', 
   try {
     await select(page, 'next');
     await page.clock.runFor(1700);
-    await panel(page, 'next').locator('.preview-draft').waitFor();
+    await panel(page, 'next').locator('.preview-composer textarea').waitFor();
     await select(page, 'prompts');
     const phrases = panel(page, 'prompts');
     await phrases.getByRole('button', { name: '添加快捷指令', exact: true }).click();
@@ -699,6 +826,17 @@ for (const [width, height, language] of [
         if (width === 1609) await page.screenshot({ path: resolve(reports, `feature-${id}.png`) });
       }
       await select(page, 'prompts');
+      if (width <= 420) {
+        const answer = await panel(page, 'prompts').locator('.preview-chat-answer').boundingBox();
+        const thirdPoint = await panel(page, 'prompts')
+          .locator('.preview-chat-answer ol li')
+          .nth(2)
+          .boundingBox();
+        assert.ok(
+          thirdPoint.y + thirdPoint.height <= answer.y + answer.height,
+          `mobile initially shows a complete numbered answer ${JSON.stringify({ answer, thirdPoint })}`,
+        );
+      }
       if (width === 1440 || width === 390 || width === 1063)
         await page.screenshot({
           path: resolve(
