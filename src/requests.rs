@@ -86,11 +86,22 @@ pub(crate) async fn dispatch(
     request: &Request,
 ) -> Result<Value> {
     match request.path.as_str() {
-        "/features" | "/tasks/state" | "/tasks/command" => {
+        "/features" | "/tasks/state" | "/tasks/command" | "/web-library/launcher" => {
             let client = client.context("只能从关联的 Codex 使用内嵌看板")?;
             let current = app.desktop_client().await.context("Codex 已断开")?;
             if !Arc::ptr_eq(client, &current) {
                 bail!("Codex 连接已变化");
+            }
+            if request.path == "/web-library/launcher" {
+                anyhow::ensure!(
+                    app.web_library.enabled() && app.host_page_allowed().await,
+                    "阅读与网站入口暂不可用"
+                );
+                return if let Some(id) = request.payload["id"].as_str() {
+                    app.open_website(id).await
+                } else {
+                    Ok(app.web_library.view())
+                };
             }
             if request.path == "/features" {
                 return app.feature_request(request.payload.clone()).await;

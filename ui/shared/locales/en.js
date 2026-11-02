@@ -1941,4 +1941,19 @@ export default {
   '正在打开网页…': 'Opening page…',
   请先在设置页开启网站: 'Enable Websites in settings first.',
   网站功能已停用: 'Websites is disabled.',
+  阅读与网站: 'Reading & websites',
+  选择笔记文件夹: 'Choose a notes folder',
+  本地笔记: 'Local notes',
+  笔记文件夹: 'Notes folder',
+  '选择文件夹，或粘贴完整路径': 'Choose a folder or paste its full path',
+  选择文件夹: 'Choose folder',
+  '可选择已发现的 Obsidian 笔记库，也可选择任意 Markdown 文件夹。':
+    'Choose a detected Obsidian vault or any Markdown folder.',
+  文件夹选择窗口已经打开: 'The folder picker is already open.',
+  '当前系统不支持原生文件夹选择，请输入完整路径':
+    'Folder selection is unavailable on this system. Enter the full path.',
+  '文件夹选择已超时，请重试': 'Folder selection timed out. Try again.',
+  '无法打开文件夹选择窗口，请输入完整路径':
+    'Could not open the folder picker. Enter the full path.',
+  阅读与网站入口暂不可用: 'Reading & websites is currently unavailable.',
 };

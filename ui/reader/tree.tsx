@@ -4,7 +4,12 @@
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { useEffect, useMemo, useState } from 'react';
 import type { Summary } from './api';
+import { Icon } from '../shared/icons/react';
 type Branch = { folders: Map<string, Branch>; notes: Summary[] };
+const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+function compareNames(a: string, b: string) {
+  return Number(b.startsWith('_')) - Number(a.startsWith('_')) || collator.compare(a, b);
+}
 function Folder({
   name,
   path,
@@ -24,7 +29,10 @@ function Folder({
   }, [selected, path]);
   return (
     <details open={expanded} onToggle={(e) => setExpanded(e.currentTarget.open)}>
-      <summary>{name}</summary>
+      <summary title={name}>
+        <Icon name={expanded ? 'reader-folder-open' : 'reader-folder'} />
+        <span className="reader-row-name">{name}</span>
+      </summary>
       {expanded && <Contents branch={branch} path={path} selected={selected} open={open} />}
     </details>
   );
@@ -42,28 +50,33 @@ function Contents({
 }) {
   return (
     <ul>
-      {[...branch.folders].map(([name, child]) => (
-        <li key={name}>
-          <Folder
-            name={name}
-            path={`${path}${name}/`}
-            branch={child}
-            selected={selected}
-            open={open}
-          />
-        </li>
-      ))}
-      {branch.notes.map((note) => (
-        <li key={note.id}>
-          <button
-            aria-current={note.id === selected ? 'page' : undefined}
-            title={note.id}
-            onClick={() => open(note.id)}
-          >
-            {note.title}
-          </button>
-        </li>
-      ))}
+      {[...branch.folders]
+        .sort(([a], [b]) => compareNames(a, b))
+        .map(([name, child]) => (
+          <li key={name}>
+            <Folder
+              name={name}
+              path={`${path}${name}/`}
+              branch={child}
+              selected={selected}
+              open={open}
+            />
+          </li>
+        ))}
+      {[...branch.notes]
+        .sort((a, b) => compareNames(a.title, b.title))
+        .map((note) => (
+          <li key={note.id}>
+            <button
+              aria-current={note.id === selected ? 'page' : undefined}
+              title={note.id}
+              onClick={() => open(note.id)}
+            >
+              <Icon name="reader-note" />
+              <span className="reader-row-name">{note.title}</span>
+            </button>
+          </li>
+        ))}
     </ul>
   );
 }

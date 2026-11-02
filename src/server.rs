@@ -136,7 +136,12 @@ fn router(service: Service) -> Router {
     let api = Router::new()
         .route("/web-library", get(web_library).post(save_web_library))
         .route("/web-library/open", post(open_website))
+        .route("/web-library/vaults", get(reader_vaults))
         .route("/web-library/reader", get(reader_destination))
+        .route(
+            "/web-library/choose-directory",
+            post(choose_reader_directory),
+        )
         .route("/features", post(features))
         .route("/terminology", get(terminology_state).post(terminology))
         .route(
@@ -400,6 +405,14 @@ async fn open_website(
 async fn reader_destination(State(service): State<Service>) -> Result<Json<Value>, ApiError> {
     Ok(Json(
         json!({"url":service.app.web_library.destination("obsidian")?}),
+    ))
+}
+async fn reader_vaults(State(service): State<Service>) -> Json<Value> {
+    Json(json!({"vaults":service.app.web_library.snapshot()["vaults"]}))
+}
+async fn choose_reader_directory(State(service): State<Service>) -> Result<Json<Value>, ApiError> {
+    Ok(Json(
+        crate::web_library::choose_directory(&service.app.paths).await?,
     ))
 }
 pub(crate) fn reader_asset(path: &str) -> Response {

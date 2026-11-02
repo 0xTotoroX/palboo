@@ -39,6 +39,8 @@ writeFileSync(
 );
 writeFileSync(join(vault, '项目/同名.md'), 'a');
 writeFileSync(join(vault, '其他/同名.md'), 'b');
+writeFileSync(join(vault, '代码笔记.md'), '```sh\n# comment, not a heading\n```\n');
+writeFileSync(join(vault, '另一文件名.md'), '下划线标题\n===\n\n正文\n');
 writeFileSync(join(vault, '.obsidian/config.json'), '{}');
 writeFileSync(
   join(vault, '项目/附件/图片.png'),
@@ -59,6 +61,10 @@ function hashes() {
         ];
       }),
   );
+}
+for (const name of ['A10', 'A2', '_AI']) {
+  mkdirSync(join(vault, name));
+  writeFileSync(join(vault, name, '排序.md'), '# 排序');
 }
 const before = hashes();
 const child = spawn(
@@ -151,14 +157,39 @@ try {
   });
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto(url);
+  await page.locator('.reader-sidebar summary').first().waitFor();
+  const folders = await page
+    .locator('.reader-sidebar nav > ul > li > details > summary')
+    .allTextContents();
+  assert.equal(folders[0], '_AI');
+  assert.ok(
+    folders.indexOf('A2') < folders.indexOf('A10'),
+    'numbers sort naturally in the current locale',
+  );
+  const ai = page.locator('.reader-sidebar summary').filter({ hasText: /^_AI$/ });
+  assert.equal(await ai.locator('[data-icon="reader-folder"]').count(), 1);
+  await ai.press('Enter');
+  await ai.locator('[data-icon="reader-folder-open"]').waitFor();
+  await ai.press('Enter');
+  assert.equal(await ai.evaluate((el) => getComputedStyle(el).listStyleType), 'none');
+  record('folder icons, keyboard expansion, underscore-first and numeric natural order');
   await page.getByRole('button', { name: '首页', exact: true }).click();
-  await page.getByRole('heading', { name: '首页', exact: true }).waitFor();
+  await page.getByRole('heading', { name: '欢迎', exact: true }).waitFor();
   assert.equal(new URL(page.url()).hash, '');
   assert.equal(await page.evaluate(() => window.noteInjected), undefined);
   assert.deepEqual(outbound, []);
   assert.equal(await page.locator('.reader-markdown a').filter({ hasText: '代码链接' }).count(), 0);
   assert.equal(await page.getByRole('button', { name: /加载外部图片/ }).count(), 1);
+  assert.equal(await page.locator('h1').count(), 1, 'the note title is not repeated');
   record('raw HTML/code stay inert; no automatic external image/network requests');
+  await page.getByRole('button', { name: '代码笔记', exact: true }).click();
+  await page.getByRole('heading', { name: '代码笔记', exact: true }).waitFor();
+  assert.equal(await page.locator('.reader-markdown h1').count(), 0);
+  await page.getByRole('button', { name: '另一文件名', exact: true }).click();
+  await page.getByRole('heading', { name: '下划线标题', exact: true }).waitFor();
+  assert.equal(await page.locator('h1').count(), 1, 'setext headings do not repeat the file title');
+  await page.getByRole('button', { name: '首页', exact: true }).click();
+  await page.getByRole('heading', { name: '欢迎', exact: true }).waitFor();
   await page.getByRole('searchbox', { name: '搜索笔记' }).fill('needle');
   await page.locator('.reader-results button').first().waitFor();
   assert.equal(await page.locator('.reader-results button').count(), 1);
@@ -195,7 +226,7 @@ try {
     () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
   );
   await page.locator('.reader-sidebar').getByRole('button', { name: '首页', exact: true }).click();
-  await page.getByRole('heading', { name: '首页', exact: true }).waitFor();
+  await page.getByRole('heading', { name: '欢迎', exact: true }).waitFor();
   await page.goBack();
   await page.waitForFunction(() => document.querySelector('.reader-main').scrollTop >= 840);
   record('wikilinks, aliases, headings, block anchors, backlinks, GFM, local images and zoom');
@@ -239,6 +270,31 @@ try {
   await settings.goto(`${base}/#token=${runtime.token}`);
   await settings.locator('.settings-nav a[href="#settings-sites"]').click();
   assert.equal(await settings.locator('#reader-vault').inputValue(), vault);
+  const beforePicker = await api('web-library');
+  await settings.route('**/api/web-library/choose-directory', (route) =>
+    route.fulfill({ json: { path: join(vault, '_AI') } }),
+  );
+  await settings.getByRole('button', { name: '选择文件夹', exact: true }).click();
+  await settings.waitForFunction(
+    (path) => document.querySelector('#reader-vault').value === path,
+    join(vault, '_AI'),
+  );
+  assert.equal(
+    (await api('web-library')).revision,
+    beforePicker.revision,
+    'picker fills a draft only',
+  );
+  await settings.route('**/api/web-library/choose-directory', (route) =>
+    route.fulfill({ json: { path: null } }),
+  );
+  await settings.getByRole('button', { name: '选择文件夹', exact: true }).click();
+  assert.equal(
+    await settings.locator('#reader-vault').inputValue(),
+    join(vault, '_AI'),
+    'cancel preserves draft',
+  );
+  await settings.locator('#reader-vault').fill(vault);
+  record('folder picker draft and cancel preserve saved grants');
   assert.equal(await settings.locator('.settings-preview').count(), 0);
   await settings.locator('#reader-attachments').fill(join(vault, '项目/附件'));
   const saved = await api('web-library');

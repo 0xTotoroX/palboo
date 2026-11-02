@@ -173,6 +173,11 @@ function savedPage(): SettingsPage {
   return value in pageTitles ? (value as SettingsPage) : aliases['settings-' + value] || 'features';
 }
 function settingsHash() {
+  if (
+    !location.hash.startsWith('#settings-') &&
+    new URLSearchParams(location.search).get('open') === 'sites'
+  )
+    return '#settings-sites';
   return !location.hash.startsWith('#settings-') &&
     new URLSearchParams(location.search).get('open') === 'layout-presets'
     ? '#settings-surfaces/layout-presets'

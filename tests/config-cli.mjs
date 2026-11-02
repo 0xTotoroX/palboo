@@ -3,7 +3,7 @@
  * [POS]: Never reads installed configuration or connects to a real host or reminders account.
  * [PROTOCOL]: Keep tests/AGENTS.md in sync. */
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm, writeFile, mkdir } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile, mkdir, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawn, execFile } from 'node:child_process';
@@ -52,7 +52,7 @@ async function stop() {
 }
 try {
   const schema = await cli('schema');
-  assert.equal(schema.length, 9);
+  assert.equal(schema.length, 10);
   const schemaFor = (scope) => schema.find((item) => item.scope === scope);
   assert.ok(schemaFor('appearance').nestedFields.ui.includes('promptClickMode'));
   assert.ok(schemaFor('model-control').nestedFields.patch.includes('showUsage'));
@@ -83,6 +83,39 @@ try {
     }),
   );
   await start();
+  const libraryBefore = await cli('get', 'web-library');
+  assert.equal(libraryBefore.vault, null);
+  assert.ok(Array.isArray((await cli('catalog', 'vaults')).vaults));
+  const notesFolder = join(data, 'synthetic-vault');
+  await mkdir(notesFolder);
+  await assert.rejects(() => set('web-library', { vault: notesFolder }), /明确确认/);
+  const libraryDry = await set('web-library', { vault: notesFolder }, '--dry-run');
+  assert.equal(libraryDry.dryRun, true);
+  assert.equal((await cli('get', 'web-library')).revision, libraryBefore.revision);
+  await set(
+    'web-library',
+    {
+      vault: notesFolder,
+      sites: [{ id: 'example', name: 'Example', url: 'https://example.invalid' }],
+    },
+    '--confirm',
+  );
+  const librarySaved = await cli('get', 'web-library');
+  assert.equal(librarySaved.vault, await realpath(notesFolder));
+  await set('web-library', { attachments: [] });
+  assert.deepEqual((await cli('get', 'web-library')).sites, librarySaved.sites);
+  await assert.rejects(
+    () => set('web-library', { expectedRevision: 0, enabled: false }),
+    /修订已变化/,
+  );
+  await assert.rejects(() => set('web-library', { sites: [] }), /明确确认/);
+  await assert.rejects(
+    () =>
+      set('web-library', { sites: [{ id: 'bad', name: 'Bad', url: 'file:///tmp' }] }, '--confirm'),
+    /HTTP/,
+  );
+  assert.equal((await cli('get', 'web-library')).sites[0].id, 'example');
+  await assert.rejects(() => cli('open-website', 'example'), /ChatGPT.*连接/);
   const original = await cli('get', 'settings');
   const dry = await set('settings', { generationMode: 'manual' }, '--dry-run');
   assert.equal(dry.dryRun, true);
@@ -476,7 +509,7 @@ try {
   assert.deepEqual(reset.current.preferences.mastered, ['BASE-1']);
   assert.equal(reset.current.imports.jobs.length, 0);
   const keys = Object.keys(await cli('get'));
-  assert.equal(keys.length, 9);
+  assert.equal(keys.length, 10);
   await stop();
   await start();
   assert.equal((await cli('get', 'appearance')).settingsTheme, 'dark');

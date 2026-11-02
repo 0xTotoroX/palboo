@@ -9,7 +9,10 @@ use std::time::Duration;
 
 fn destination(base: &str, section: Option<&str>) -> Result<String> {
     ensure!(
-        matches!(section, None | Some("") | Some("layout-presets")),
+        matches!(
+            section,
+            None | Some("") | Some("layout-presets") | Some("sites")
+        ),
         "未知设置页面"
     );
     let mut url = reqwest::Url::parse(base)?;
@@ -62,6 +65,10 @@ mod tests {
             "http://127.0.0.1:1234/?open=layout-presets#token=synthetic"
         );
         assert_eq!(destination(base, None).unwrap(), base);
+        assert_eq!(
+            destination(base, Some("sites")).unwrap(),
+            "http://127.0.0.1:1234/?open=sites#token=synthetic"
+        );
         assert!(destination(base, Some("https://example.com")).is_err());
         assert!(destination("https://example.com", None).is_err());
     }

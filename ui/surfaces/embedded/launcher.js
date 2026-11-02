@@ -5,12 +5,14 @@ import { tr } from '../../shared/i18n.js';
  * [PROTOCOL]: 变更时同步 embedded/AGENTS.md。 */
 import { createLauncherFace, launcherFaceHtml, launcherFaceStyles } from './launcher-face.js';
 import { createLauncherMenu } from './launcher-menu.js';
+import { createSitesLauncher } from './sites-launcher';
 import { DEVELOPMENT } from '../../shared/constants.js';
 import { createPluginTabLink } from '../../codex/plugin-tab.js';
 let pluginLink = null;
 let pluginStatus = '';
 let entry = null;
 let radial = null;
+let sitesLauncher = null;
 let face = null;
 let official = null;
 let settingsLink = null;
@@ -124,6 +126,8 @@ function schedule() {
 export function stopLauncher() {
   face?.destroy();
   face = null;
+  sitesLauncher?.destroy();
+  sitesLauncher = null;
   radial?.destroy();
   radial = null;
   bindOfficial(null);
@@ -149,7 +153,7 @@ export function launcherButton() {
   return entry?.isConnected ? entry.shadowRoot.querySelector('button') : null;
 }
 
-/** @param {{open:boolean,root:HTMLElement|null,click:(event:MouseEvent)=>void,pointerDown:(event:PointerEvent)=>void,keyDown:(event:KeyboardEvent)=>void,settings:()=>void,settingsStatus?:string,settingsBusy?:boolean,dismissSettingsStatus?:()=>void,currentLocation?:'inside'|'outside',outsideAvailable?:boolean,switching?:boolean,theme?:string,colors?:Record<string,string>,expression?:string,expressionLabel?:string,sourceCue?:{direction:string,angle:number|null},action?:(action:string)=>Promise<void>|void,settingsBrowser?:()=>void,reuseOfficial?:boolean,pluginOpened?:()=>void,pluginTabPreview?:boolean,canUseOfficial?:()=>boolean}} options */
+/** @param {{open:boolean,root:HTMLElement|null,click:(event:MouseEvent)=>void,pointerDown:(event:PointerEvent)=>void,keyDown:(event:KeyboardEvent)=>void,settings:()=>void,sites?:import('./sites-launcher').SitesLauncherOptions,settingsStatus?:string,settingsBusy?:boolean,dismissSettingsStatus?:()=>void,currentLocation?:'inside'|'outside',outsideAvailable?:boolean,switching?:boolean,theme?:string,colors?:Record<string,string>,expression?:string,expressionLabel?:string,sourceCue?:{direction:string,angle:number|null},action?:(action:string)=>Promise<void>|void,settingsBrowser?:()=>void,reuseOfficial?:boolean,pluginOpened?:()=>void,pluginTabPreview?:boolean,canUseOfficial?:()=>boolean}} options */
 export function syncLauncher(options) {
   current = options;
   if (!previewEnabled()) {
@@ -185,6 +189,8 @@ export function syncLauncher(options) {
   if (!rail) {
     face?.destroy();
     face = null;
+    sitesLauncher?.destroy();
+    sitesLauncher = null;
     radial?.destroy();
     radial = null;
     bindOfficial(null);
@@ -196,6 +202,8 @@ export function syncLauncher(options) {
   if (official && !previewEnabled()) {
     face?.destroy();
     face = null;
+    sitesLauncher?.destroy();
+    sitesLauncher = null;
     radial?.destroy();
     radial = null;
     entry?.remove();
@@ -301,6 +309,16 @@ export function syncLauncher(options) {
     feedback.style.left = `${Math.max(8, Math.min(anchor.right + 8, innerWidth - box.width - 8))}px`;
     feedback.style.top = `${Math.max(8, Math.min(anchor.top, innerHeight - box.height - 8))}px`;
   } else if (feedback.matches(':popover-open')) feedback.hidePopover();
+  if (options.sites && !sitesLauncher)
+    sitesLauncher = createSitesLauncher(
+      entry.shadowRoot.querySelector('.csw-launcher-face'),
+      () => current.sites,
+    );
+  if (!options.sites) {
+    sitesLauncher?.destroy();
+    sitesLauncher = null;
+  }
+  sitesLauncher?.update();
   radial?.update();
   entry.shadowRoot.querySelector('button').removeAttribute('title');
   entry.shadowRoot

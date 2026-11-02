@@ -24,6 +24,7 @@
     '/panel/detach',
     '/panel/return',
     '/features',
+    '/web-library/launcher',
     '/tasks/state',
     '/tasks/command',
   ]);

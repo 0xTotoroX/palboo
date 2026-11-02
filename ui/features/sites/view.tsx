@@ -3,6 +3,7 @@
  * [POS]: Clicks navigate the host browser; no model invocation or note context injection.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { useState } from 'react';
+import { sitesStyles } from './styles';
 import { Icon } from '../../shared/icons/react';
 import { tr } from '../../shared/i18n.js';
 import { useLocale } from '../../shared/use-locale';
@@ -41,16 +42,19 @@ export function SitesView({
   }
   return (
     <div className="sites-view">
-      <input
-        type="search"
-        aria-label={tr('搜索网站')}
-        placeholder={tr('搜索网站')}
-        value={search}
-        onChange={(e) => {
-          setSearch(e.target.value);
-          if (reading) reading.siteSearch = e.target.value;
-        }}
-      />
+      <style>{sitesStyles}</style>
+      {(entries.length > 6 || !!search) && (
+        <input
+          type="search"
+          aria-label={tr('搜索网站')}
+          placeholder={tr('搜索网站')}
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            if (reading) reading.siteSearch = e.target.value;
+          }}
+        />
+      )}
       {!state && <p role="status">{tr('正在读取网站…')}</p>}
       {error && <p role="alert">{error}</p>}
       <ul>
@@ -66,8 +70,8 @@ export function SitesView({
                 title={site.url || tr('本地只读阅读器')}
                 aria-busy={busy === site.id}
               >
-                <Icon name={site.id === 'obsidian' ? 'feature-terms' : 'feature-sites'} />
-                <span>{site.name}</span>
+                <Icon name={site.id === 'obsidian' ? 'reader-note' : 'feature-sites'} />
+                <span className="sites-name">{site.name}</span>
               </button>
             </li>
           ))}

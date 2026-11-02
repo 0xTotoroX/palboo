@@ -23,3 +23,5 @@ layout 暴露 main-preset-save/apply/update/rename/delete；读取返回 layoutP
 layout.scope=all/sidebar/overlay/desktop 是共享预设的推荐标签；save 未传时新建默认 all、覆盖保留旧值，update 支持 name/scope 局部保存。应用允许跨标签，只写当前形式布局；schema 同时暴露枚举、操作字段和示例，config-cli 集成验证旧命令、标记更新、非法标记和覆盖保留。
 
 任务配置同步支持`{"op":"view","viewMode":"merged|expanded"}`，复用任务修订；只保存布局，任务与同步开关保留。
+
+web-library 支持目录授权、网站增删/排序及开关，与设置共用 expectedRevision；catalog vaults 仅读 Obsidian 登记路径，open-website 仅按已保存 ID 在宿主内打开。更换授权及删除条目需 --confirm，schema 离线可查，目录选择器的 CLI 等价操作为 set web-library.vault。

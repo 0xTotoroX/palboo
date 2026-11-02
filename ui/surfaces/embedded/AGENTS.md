@@ -50,3 +50,5 @@ features.js 在真实主界面头部安装共享 window-menu，侧栏/浮层提�
 dock.js 显式收放以220ms宽度动画同步聊天占位；整个过程中保留同一内容节点与完整内容宽度，内容 inert。中途反向从当前宽度继续并缩短时长；完成、销毁、窗口尺寸/减少动态效果变化及键盘操作清理动画状态。首次挂载和临时不可用不补演动画。features.toggleFeatureDock 只更新期望状态，不先调用 reopen，避免收起前出现一次强制展开。
 
 features 的重开映射包含 sites/webLibraryEnabled，遵循原 owner 与开合协议。
+
+- `sites-launcher.tsx`：网站开启且宿主范围有效时显示一个左栏地球入口，原生 popover 复用 SitesView；每次打开通过受限桥读取已保存网站，不接收正文/令牌、不改变功能 owner 或布局。关闭/销毁取消请求、卸载视图与观察器，未配置目录时直达网站设置。

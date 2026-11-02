@@ -17,6 +17,8 @@ use std::{
 pub enum Catalog {
     /// 当前建议生成服务提供的模型列表；Codex 快切模型见 config get model-control
     Models,
+    /// Obsidian 已登记的本机笔记库；只列出路径，不授权
+    Vaults,
     /// 本机显示器标识，供 surfaces.edge.screen 使用
     Displays,
     /// 读取已有 Bot 名单；--refresh 显式刷新，不编辑外部 Bot 配置
@@ -29,6 +31,7 @@ impl Catalog {
     pub(super) fn read(self) -> (&'static str, Option<Value>) {
         match self {
             Self::Models => ("settings/models", None),
+            Self::Vaults => ("web-library/vaults", None),
             Self::Displays => ("surfaces/displays", None),
             Self::Bots { refresh } => (
                 "features",

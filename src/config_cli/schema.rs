@@ -107,6 +107,13 @@ impl Scope {
                 "id",
                 "names",
             ],
+            Self::WebLibrary => &[
+                "expectedRevision",
+                "enabled",
+                "vault",
+                "attachments",
+                "sites",
+            ],
             Self::CodexHost => &["op", "expectedRevision", "enabled", "version"],
             Self::Performance => &[
                 "expectedRevision",
@@ -179,6 +186,7 @@ impl Scope {
             Self::Terminology => json!({"jumpOnClick":false}),
             Self::CodexHost => json!({"op":"set-enabled","enabled":false}),
             Self::Performance => json!({"monitoringEnabled":false}),
+            Self::WebLibrary => json!({"enabled":true}),
         }
     }
 }
@@ -347,6 +355,13 @@ pub(super) fn schema(scope: Scope) -> Value {
             },
             "commands":["config import terminology --file terms.pdf --dry-run","config import terminology --file terms.pdf","config export terminology --format markdown --output my-terms.md"],
             "examples":[{"action":"add-names","names":["Retrieval-augmented generation"]},{"action":"reset-library"},{"cardMaterial":"frosted","cardWidth":360}],
+        }),
+        Scope::WebLibrary => json!({
+            "nestedFields":{"sites":["id","name","url"]},
+            "readCommands":["config get web-library","config catalog vaults"],
+            "commands":["config open-website obsidian"],
+            "notes":{"vault":"Obsidian 或 Markdown 文件夹的绝对路径；空字符串移除授权。更换目录需 --confirm；不在源目录创建文件。","attachments":"额外附件目录，数组整体替换；授权改变需 --confirm。","sites":"已保存网站按数组顺序显示，仅无凭据 HTTP(S) 地址；移除条目需 --confirm。","picker":"系统选择器只填写界面草稿；CLI 通过 vault 字段完成等价保存。"},
+            "examples":[{"vault":"/absolute/path/to/notes"},{"sites":[{"id":"cubox","name":"Cubox","url":"https://cubox.pro/web/unread"}]}]
         }),
         Scope::CodexHost => {
             json!({"notes":{"enabled":"set-enabled 保存启动意愿；不改写官方 CodexHost、供应商 Agent 或它们的模型配置","operations":"start/install/restore/restart-disabled 需 --confirm；读取状态不重启宿主"}})

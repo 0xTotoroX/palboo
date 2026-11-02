@@ -13,6 +13,7 @@ mod codex_host;
 mod config;
 mod config_cli;
 mod directions;
+mod directory_picker;
 mod edge_window;
 mod feature_window;
 mod features;
@@ -196,7 +197,13 @@ async fn main() -> Result<()> {
             lease,
             runtime_token,
         } => tasks::native::run(&paths, &lease, &runtime_token),
-        Commands::FeatureWindow { feature, lease } => feature_window::run(&paths, &feature, &lease),
+        Commands::FeatureWindow { feature, lease } => {
+            if feature == "directory-picker" {
+                directory_picker::run(&paths, &lease)
+            } else {
+                feature_window::run(&paths, &feature, &lease)
+            }
+        }
         Commands::BoardWindow { lease } => tasks::window::run(&paths, &lease),
         Commands::Board => {
             lifecycle::start(&paths, config::DEFAULT_PORT, None, true, false).await?;

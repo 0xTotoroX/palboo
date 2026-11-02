@@ -23,8 +23,9 @@ pub enum Scope {
     Terminology,
     CodexHost,
     Performance,
+    WebLibrary,
 }
-const SCOPES: [Scope; 9] = [
+const SCOPES: [Scope; 10] = [
     Scope::Settings,
     Scope::Appearance,
     Scope::Surfaces,
@@ -34,6 +35,7 @@ const SCOPES: [Scope; 9] = [
     Scope::Terminology,
     Scope::CodexHost,
     Scope::Performance,
+    Scope::WebLibrary,
 ];
 #[derive(Clone, Copy, Debug, ValueEnum)]
 pub enum RemindersAction {
@@ -53,7 +55,9 @@ pub enum Command {
     Schema { scope: Option<Scope> },
     /// 读取配置和修订号；不回读密钥原文
     Get { scope: Option<Scope> },
-    /// 查询可用模型、显示器或 Bot 资料；不修改外部配置
+    /// 在 ChatGPT 内打开已保存的网站；obsidian 表示本地阅读器
+    OpenWebsite { id: String },
+    /// 查询可用模型、显示器、笔记库或 Bot 资料；不修改外部配置
     Catalog {
         #[command(subcommand)]
         catalog: Catalog,
@@ -111,6 +115,7 @@ impl Scope {
             Self::Terminology => "terminology",
             Self::CodexHost => "codex-host",
             Self::Performance => "performance",
+            Self::WebLibrary => "web-library",
         }
     }
     fn read(self) -> (&'static str, Option<Value>) {
@@ -124,6 +129,7 @@ impl Scope {
             Self::Terminology => ("terminology", None),
             Self::CodexHost => ("codex-host", None),
             Self::Performance => ("performance", None),
+            Self::WebLibrary => ("web-library", None),
         }
     }
     fn write(self) -> &'static str {
@@ -267,7 +273,9 @@ fn prepare(scope: Scope, mut patch: Value, before: &Value) -> Result<Value> {
             merge_object(&mut patch, "settingsAccent", &before["settingsAccent"])?;
             merge_object(&mut patch, "startup", &before["startup"])?;
         }
-        Scope::CodexHost => guard(&mut patch, "expectedRevision", before["revision"].clone())?,
+        Scope::CodexHost | Scope::WebLibrary => {
+            guard(&mut patch, "expectedRevision", before["revision"].clone())?
+        }
         Scope::Surfaces => {
             guard(&mut patch, "revision", before["revision"].clone())?;
             if patch.get("theme").is_some() {
@@ -361,7 +369,17 @@ fn prepare(scope: Scope, mut patch: Value, before: &Value) -> Result<Value> {
 }
 fn dangerous(scope: Scope, patch: &Value, before: &Value) -> bool {
     let op = patch["op"].as_str().unwrap_or("");
-    patch["clearApiKey"] == true
+    (matches!(scope, Scope::WebLibrary)
+        && (["vault", "attachments"]
+            .iter()
+            .any(|key| patch.get(*key).is_some_and(|v| v != &before[*key]))
+            || patch["sites"].as_array().is_some_and(|next| {
+                before["sites"].as_array().is_some_and(|old| {
+                    old.iter()
+                        .any(|site| !next.iter().any(|new| new["id"] == site["id"]))
+                })
+            })))
+        || patch["clearApiKey"] == true
         || op == "main-preset-delete"
         || (op == "main-preset-save" && patch.get("id").is_some())
         || patch["clearJevApiKey"] == true
@@ -449,6 +467,11 @@ pub async fn run(paths: &Paths, command: Command) -> Result<()> {
                         }
                         all
                     }
+                }
+                Command::OpenWebsite { id } => {
+                    runtime
+                        .request("web-library/open", Some(json!({"id":id})))
+                        .await?
                 }
                 Command::Catalog { catalog } => {
                     let (path, body) = catalog.read();

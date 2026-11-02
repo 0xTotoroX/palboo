@@ -221,6 +221,20 @@ fn known_vaults() -> Vec<String> {
     paths
 }
 
+// The native picker only returns a draft path. Saving the grant remains a separate action.
+pub async fn choose_directory(paths: &Paths) -> Result<Value> {
+    static PICKER: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+    let guard = PICKER.try_lock().context("文件夹选择窗口已经打开")?;
+    let paths = paths.clone();
+    let path = tokio::task::spawn_blocking(move || {
+        let _guard = guard;
+        crate::directory_picker::choose(&paths)
+    })
+    .await??;
+    let path = path.map(|path| directory(&path)).transpose()?;
+    Ok(json!({"path":path}))
+}
+
 impl App {
     pub(crate) async fn save_web_library(&self, patch: Update) -> Result<Value> {
         let before = self.web_library.enabled();

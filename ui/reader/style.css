@@ -88,8 +88,8 @@ p {
 .reader-app {
   height: 100dvh;
   display: grid;
-  grid-template-columns: 250px minmax(0, 1fr);
-  grid-template-rows: 52px minmax(0, 1fr);
+  grid-template-columns: 232px minmax(0, 1fr);
+  grid-template-rows: 44px minmax(0, 1fr);
 }
 .reader-header {
   grid-column: 1/-1;
@@ -119,12 +119,12 @@ p {
   display: none;
 }
 .reader-sidebar {
-  padding: 16px 12px;
+  padding: 12px 8px;
   border-right: 1px solid var(--reader-line);
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   min-height: 0;
 }
 .reader-sidebar nav {
@@ -137,31 +137,87 @@ p {
 }
 .reader-sidebar li > button {
   width: 100%;
-  overflow-wrap: anywhere;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: start;
 }
 .reader-sidebar details > ul {
-  padding-left: 12px;
+  padding-left: 16px;
 }
 .reader-sidebar summary {
   cursor: pointer;
-  padding: 7px 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 5px 8px;
   border-radius: 6px;
-  overflow-wrap: anywhere;
+  list-style: none;
+}
+.reader-sidebar summary::-webkit-details-marker,
+.reader-toc summary::-webkit-details-marker {
+  display: none;
+}
+.reader-sidebar .buddy-icon {
+  color: var(--reader-muted);
+}
+.reader-row-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.reader-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  border-radius: 6px;
+  background: var(--reader-hover);
+  color: var(--reader-muted);
+}
+.reader-search input {
+  font-size: 0.875rem;
+  padding: 7px 0;
+  border: 0;
+  border-radius: 0;
+  color: var(--reader-ink);
+}
+.reader-search:focus-within {
+  outline: 1px solid var(--reader-muted);
+  outline-offset: 1px;
+}
+.reader-search input:focus-visible {
+  outline: none;
+}
+.reader-search input::placeholder {
+  color: var(--reader-muted);
+  opacity: 1;
+}
+.reader-app ::selection {
+  background: var(--reader-line);
+  color: var(--reader-ink);
+}
+.reader-app {
+  scrollbar-color: var(--reader-line) transparent;
+}
+.reader-main .reader-markdown > :first-child {
+  margin-top: 0;
 }
 .reader-sidebar button[aria-current='page'] {
   background: var(--reader-hover);
-  font-weight: 600;
+  font-weight: 500;
 }
 .reader-main {
   overflow: auto;
   overscroll-behavior: contain;
-  padding: 32px clamp(20px, 5vw, 72px);
+  padding: 24px clamp(20px, 4vw, 56px);
   scrollbar-gutter: stable;
   min-width: 0;
   scroll-behavior: auto;
 }
 .reader-main article {
-  max-width: 780px;
+  max-width: 72ch;
   margin: 0 auto;
 }
 .reader-note-header p {
@@ -176,7 +232,7 @@ p {
   overflow-wrap: anywhere;
 }
 .reader-markdown {
-  line-height: 1.85;
+  line-height: 1.75;
   overflow-wrap: anywhere;
 }
 .reader-markdown h1 {
@@ -311,6 +367,18 @@ dialog::backdrop {
 .reader-properties summary,
 .reader-toc summary {
   cursor: pointer;
+}
+.reader-toc summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  list-style: none;
+  width: fit-content;
+  min-height: 28px;
+  border-radius: 4px;
+}
+.reader-toc[open] summary {
+  color: var(--reader-ink);
 }
 .reader-toc a {
   display: block;

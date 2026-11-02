@@ -257,16 +257,20 @@ function Reader() {
         </button>
       </header>
       <aside className="reader-sidebar" aria-label={tr('目录与搜索')}>
-        <input
-          type="search"
-          aria-label={tr('搜索笔记')}
-          placeholder={tr('搜索标题、路径和正文')}
-          value={query}
-          onChange={(e) => {
-            setQuery(e.target.value);
-            setOffset(0);
-          }}
-        />
+        <label className="reader-search">
+          <Icon name="search" />
+          <input
+            type="search"
+            aria-label={tr('搜索笔记')}
+            placeholder={tr('搜索笔记')}
+            title={tr('搜索标题、路径和正文')}
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setOffset(0);
+            }}
+          />
+        </label>
         <nav aria-label={tr('笔记目录')}>
           {query.trim() ? (
             <>
@@ -344,12 +348,14 @@ function Reader() {
         {note && (
           <article>
             <header className="reader-note-header">
-              <p>{note.id}</p>
-              <h1>{note.title}</h1>
+              {!toc.some((item) => item.level === 1) && <h1>{note.title}</h1>}
             </header>
             {toc.length > 1 && (
               <details className="reader-toc">
-                <summary>{tr('文章目录')}</summary>
+                <summary>
+                  <Icon name="feature-outline" />
+                  <span>{tr('文章目录')}</span>
+                </summary>
                 <nav>
                   {toc.map((item) => (
                     <a

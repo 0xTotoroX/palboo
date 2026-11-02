@@ -141,6 +141,21 @@ export function WebLibrarySettings({
     }
   }
   const disabled = !live || !state || busy;
+  async function chooseFolder() {
+    if (disabled || flight.current) return;
+    flight.current = true;
+    setBusy(true);
+    setError('');
+    try {
+      const result = await request<{ path: string | null }>('web-library/choose-directory', {});
+      if (result.path) editRoot(() => setVault(result.path!));
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      flight.current = false;
+      setBusy(false);
+    }
+  }
   return (
     <>
       <FeatureSwitch
@@ -167,7 +182,7 @@ export function WebLibrarySettings({
           />
         </PreviewFrame>
         <section className="settings-section">
-          <h2>{tr('本地 Obsidian')}</h2>
+          <h2>{tr('本地笔记')}</h2>
           {!!state?.vaults?.length && (
             <Field label={tr('已发现的笔记库')} id="reader-vault-choice">
               <NativeSelect
@@ -185,15 +200,24 @@ export function WebLibrarySettings({
               </NativeSelect>
             </Field>
           )}
-          <Field label={tr('笔记库路径')} id="reader-vault">
-            <Input
-              id="reader-vault"
-              value={vault}
-              onChange={(e) => editRoot(() => setVault(e.target.value))}
-              disabled={disabled}
-              placeholder={tr('笔记库的完整目录路径')}
-            />
+          <Field label={tr('笔记文件夹')} id="reader-vault">
+            <div className="reader-folder-choice">
+              <Input
+                id="reader-vault"
+                value={vault}
+                onChange={(e) => editRoot(() => setVault(e.target.value))}
+                disabled={disabled}
+                placeholder={tr('选择文件夹，或粘贴完整路径')}
+              />
+              <Button variant="outline" disabled={disabled} onClick={() => void chooseFolder()}>
+                <Icon name="reader-folder" />
+                {tr('选择文件夹')}
+              </Button>
+            </div>
           </Field>
+          <p className="settings-hint">
+            {tr('可选择已发现的 Obsidian 笔记库，也可选择任意 Markdown 文件夹。')}
+          </p>
           <Field
             label={tr('额外附件目录')}
             id="reader-attachments"

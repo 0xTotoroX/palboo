@@ -21,3 +21,5 @@ requests 请求桥供共享胶囊调用后台白名单操作；不再独立识�
 术语白名单 /terminology 与 /terminology/analyze 分别管理私有词库与受上下文身份校验的旁路分析，不向主聊天填入或发送。
 
 /settings/open使用10秒独立超时，取消与结束均移除在途记录和AbortSignal监听，允许重试并忽略迟到响应；模型生成继续使用原长超时。
+
+`/web-library/launcher` 只读取已保存入口或按 ID 打开；Rust 校验当前 CDP、功能开关和宿主启用范围，不允许改目录、任意 URL 或返回阅读器凭证。

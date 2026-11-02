@@ -42,3 +42,5 @@ website 为 Palboo 自绘地球；github 复用官网已引入的 Octicons mark-
 自绘 `feature-sites` 为网站地球图形，与其他功能图标同用24px画布、18px显示和1.8px描边；功能目录现为八项。
 
 官网与设置的合成宿主侧栏复用公开控件：home→Home、folder→Folder、chats→Chats、history→Clock、compose→ComposeEditSquare、notification→NotificationBell，均来自上述固定OpenAI公开提交；20px源画布等比规范到24px。缩比设备内统一随整个示意缩放，不改变产品18px动作图标标准。
+
+- `reader.js`：Palboo 自绘的轻量文件夹、打开文件夹及文档图标，GPL-3.0-only；统一24px画布/18px显示，不复制 Notebook Navigator 素材。

@@ -166,3 +166,7 @@ panel_window::WindowPath 以0=聊天来源、1=桌面终点定义唯一空间路
 
 - `web_library.rs`：可选网站功能、独立 web-library.json 修订与目录授权、已保存网址校验和宿主打开动作；记录位于 Palboo 数据目录，读取 Obsidian 库清单只供选择。
 - `reader.rs` / [reader/AGENTS.md](reader/AGENTS.md)：独立端口与凭证的只读 Obsidian 服务；源文件经目录描述符只读打开，拒绝符号链接、隐藏文件与越界；不共享设置页 origin 或凭证。
+
+web_library::choose_directory 使用单飞/超时的系统文件夹选择器，只返回候选路径、不写授权；鉴权 API 的 choose-directory 和 vaults 供设置与CLI使用。settings_navigation 允许 sites 目的地。
+
+- `directory_picker.rs`：复用 window_process 从完整 Palboo.app 启动主线程 NSOpenPanel，未安装时 accessory；单选现有目录、不新建或下载云文件，取消返回空值。私有临时回执只保存候选路径并及时清理，辅助进程超时退出；保存授权仍由 web_library 的独立修订控制。
