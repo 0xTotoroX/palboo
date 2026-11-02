@@ -4,6 +4,8 @@
  * [POS]: 设置公共规则、搜索与保留的总览；主布局由 settings-layout.css 管理，不注入宿主。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
+@import './components/ui/native-select.css';
+@import './components/ui/segmented-group.css';
 @import 'tailwindcss' source(none);
 @source './';
 @theme inline {

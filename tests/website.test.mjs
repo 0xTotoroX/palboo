@@ -581,6 +581,141 @@ const names = [
   '提示词优化',
   '兼容集成',
 ];
+test('shared menu controls preserve the tour and the tablet clips the same live workspace', async () => {
+  const page = await newPage({
+    viewport: { width: 924, height: 1079 },
+    reducedMotion: 'no-preference',
+  });
+  try {
+    await page.goto(`${base}/?lang=zh-CN`);
+    await scrollScene(page, '.opening-story', 0.8 / 3.5);
+    await page.getByRole('button', { name: '演示侧栏', exact: true }).click();
+    const draft = page.locator('.layout-demo-host-composer textarea');
+    await draft.fill('保留菜单操作前的草稿');
+    const mode = page.getByLabel('演示字号模式', { exact: true });
+    assert.equal(await mode.evaluate((el) => getComputedStyle(el).appearance), 'base-select');
+    await mode.click();
+    await page.waitForFunction(() =>
+      document.querySelector('[aria-label="演示字号模式"]')?.matches(':open'),
+    );
+    const menu = await mode.evaluate((el) => {
+      const picker = getComputedStyle(el, '::picker(select)');
+      return {
+        background: picker.backgroundColor,
+        width: parseFloat(picker.width),
+        trigger: el.getBoundingClientRect().width,
+        options: [...el.options].map((option) => ({
+          height: option.getBoundingClientRect().height,
+          width: option.getBoundingClientRect().width,
+        })),
+      };
+    });
+    assert.equal(menu.background, 'rgb(255, 255, 255)');
+    assert.ok(Math.abs(menu.width - menu.trigger) < 1);
+    assert.ok(
+      menu.options.every((option) => option.height < 44),
+      'short menu options stay on one line',
+    );
+    await page.screenshot({ path: resolve(reports, 'alignment-menu-924.png') });
+    await page.keyboard.press('Escape');
+    assert.equal(await mode.evaluate((el) => document.activeElement === el), true);
+    await mode.click();
+    await page.getByRole('option', { name: '自定字号', exact: true }).click();
+    await page.getByLabel('演示自定字号').selectOption('18');
+    assert.equal(await draft.inputValue(), '保留菜单操作前的草稿');
+    assert.equal(
+      await page.locator('.layout-demo-canvas').getAttribute('data-demo-placement'),
+      'sidebar',
+    );
+    await page.getByRole('button', { name: '重置预览', exact: true }).click();
+    await frames(page);
+    await page.screenshot({ path: resolve(reports, 'alignment-sidebar-924.png') });
+    const workspace = await page.locator('.layout-demo-window').elementHandle();
+    await page.getByRole('button', { name: '演示移到副屏', exact: true }).click();
+    await page.waitForFunction(
+      () => Number(document.querySelector('.layout-demo-window').getAttribute('x')) === 754,
+    );
+    const corners = await page.locator('.layout-demo-window').evaluate((el) => {
+      const clip = el.querySelector('[data-device-viewport]');
+      const screen = document.querySelector('.demo-tablet-screen');
+      const box = el.getBoundingClientRect();
+      return {
+        radius: clip.dataset.screenRadius,
+        screenRadius: screen.getAttribute('rx'),
+        corner: clip.contains(document.elementFromPoint(box.x + 1, box.y + 1)),
+        center: clip.contains(
+          document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2),
+        ),
+        bounds: box.toJSON(),
+        hit: document
+          .elementFromPoint(box.x + box.width / 2, box.y + box.height / 2)
+          ?.outerHTML.slice(0, 300),
+      };
+    });
+    await page.screenshot({ path: resolve(reports, 'alignment-tablet-924.png') });
+    await writeFile(resolve(reports, 'alignment-corners.json'), JSON.stringify(corners, null, 2));
+    assert.equal(corners.radius, corners.screenRadius);
+    assert.ok(Number(corners.radius) > 10);
+    assert.equal(
+      corners.corner,
+      false,
+      'square content cannot paint or receive input through a rounded corner',
+    );
+    assert.equal(corners.center, true, 'the clipped live workspace remains interactive');
+    await page
+      .locator('.layout-demo-window')
+      .getByRole('button', { name: '拆解第一版', exact: true })
+      .click();
+    assert.ok((await page.locator('.layout-demo-window textarea').inputValue()).includes('作品集'));
+    assert.equal(
+      await workspace.evaluate((el) => el === document.querySelector('.layout-demo-window')),
+      true,
+    );
+    assert.equal(await draft.inputValue(), '保留菜单操作前的草稿');
+    await page.screenshot({ path: resolve(reports, 'alignment-tablet-924.png') });
+    await page.getByRole('button', { name: '切换为深色', exact: true }).click();
+    await page.screenshot({ path: resolve(reports, 'alignment-tablet-dark.png') });
+    await page.getByRole('button', { name: 'Switch to English', exact: true }).click();
+    await page.getByRole('button', { name: 'Preview sidebar', exact: true }).click();
+    await frames(page);
+    await page.waitForFunction(() =>
+      [...document.querySelectorAll('.settings-segment-indicator')].every((el) =>
+        el.getAnimations().every((animation) => animation.playState !== 'running'),
+      ),
+    );
+    await page.screenshot({ path: resolve(reports, 'alignment-sidebar-en.png') });
+    const englishMode = page.getByLabel('Demo font sizing', { exact: true });
+    await englishMode.click();
+    await page.waitForFunction(() =>
+      document.querySelector('[aria-label="Demo font sizing"]')?.matches(':open'),
+    );
+    await page.screenshot({ path: resolve(reports, 'alignment-menu-en.png') });
+    assert.ok(
+      await englishMode.evaluate((el) =>
+        [...el.options].every((option) => option.getBoundingClientRect().height < 44),
+      ),
+      'English menu options also stay on one line',
+    );
+    await page.keyboard.press('Escape');
+    await page.setViewportSize({ width: 390, height: 844 });
+    await scrollScene(page, '.opening-story', 0.8 / 3.5);
+    await page.locator('.workspace-placement-select select').selectOption('sidebar');
+    await englishMode.click();
+    await page.waitForFunction(() =>
+      document.querySelector('[aria-label="Demo font sizing"]')?.matches(':open'),
+    );
+    await page.screenshot({ path: resolve(reports, 'alignment-menu-mobile.png') });
+    const menuBounds = await englishMode.evaluate((el) =>
+      [...el.options].map((option) => option.getBoundingClientRect().toJSON()),
+    );
+    assert.ok(
+      menuBounds.every((box) => box.left >= 0 && box.right <= 390),
+      'the mobile picker stays in the viewport',
+    );
+  } finally {
+    await page.close();
+  }
+});
 async function site(options = {}, language = 'zh-CN', clock = false) {
   const page = await newPage({
     locale: language,

@@ -19,10 +19,9 @@ export function SegmentedGroup({
   useLayoutEffect(() => {
     const node = root.current!,
       surface = marker.current!;
-    // The website reuses layout demo controls with its own styling and motion.
-    if (!node.closest('.settings-app')) return;
     const media = matchMedia('(prefers-reduced-motion: reduce)');
     let ready = false;
+    let keyboard = false;
     let animation: Animation | undefined;
     const cancel = () => {
       animation?.cancel();
@@ -53,6 +52,7 @@ export function SegmentedGroup({
         ready &&
         before.width &&
         box.width &&
+        !keyboard &&
         !reducedMotion(media) &&
         document.documentElement.dataset.settingsInput !== 'keyboard'
       ) {
@@ -73,7 +73,15 @@ export function SegmentedGroup({
     resize.observe(node);
     for (const button of node.querySelectorAll('button')) resize.observe(button);
     const immediate = () => measure(false);
-    window.addEventListener('keydown', cancel, true);
+    const keydown = () => {
+      keyboard = true;
+      cancel();
+    };
+    const pointerdown = () => {
+      keyboard = false;
+    };
+    window.addEventListener('keydown', keydown, true);
+    window.addEventListener('pointerdown', pointerdown, true);
     window.addEventListener('settings-motion-change', immediate);
     media.addEventListener('change', immediate);
     measure(false);
@@ -81,7 +89,8 @@ export function SegmentedGroup({
       cancel();
       resize.disconnect();
       update.current = () => {};
-      window.removeEventListener('keydown', cancel, true);
+      window.removeEventListener('keydown', keydown, true);
+      window.removeEventListener('pointerdown', pointerdown, true);
       window.removeEventListener('settings-motion-change', immediate);
       media.removeEventListener('change', immediate);
     };

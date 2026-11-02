@@ -1,5 +1,14 @@
 // English interface copy. User-authored content is not translated.
 export default {
+  '液态 Clear': 'Liquid Clear',
+  整理三个代表作品: 'Organize three projects',
+  记账应用: 'Expense tracker',
+  活动报名页: 'Event registration',
+  阅读工具: 'Reading tool',
+  两天的作品集计划: 'Two-day portfolio plan',
+  最近: 'Recents',
+  项目之外: 'Outside projects',
+  个人作品集: 'Portfolio',
   '追问「{{agent}}」，沿用本聊天中对该 Bot 的上一次调用和上下文，不要新建会话：':
     "Follow up with “{{agent}}”, continuing this chat's previous call to that Bot and its context without starting a new session:",
   '此调用暂时无法追问，请先在主聊天确认状态。':

@@ -42,9 +42,11 @@ export function OpeningStory({ githubVariant }: { githubVariant?: GithubLinkVari
     const resumeScrolling = () => {
       // Button focus protects a click from reflow, but does not latch the story
       // after the visitor returns to the wheel. Active text editing keeps its view.
+      const focused = demoFocus(preview.current);
       if (
         dragging.current ||
-        demoFocus(preview.current)?.matches('input, textarea, select, [contenteditable="true"]')
+        focused?.closest('select') ||
+        focused?.matches('input, textarea, [contenteditable="true"]')
       )
         return;
       setEngaged(false);

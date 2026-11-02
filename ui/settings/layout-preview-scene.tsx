@@ -4,17 +4,18 @@ import { tr } from '../shared/i18n.js';
  * [OUTPUT]: Shared device/secondary display or a 16:9 desktop monitor; transitions preserve the workspace node.
  * [POS]: Shared live preview and optional local hardware model; no external requests or product commands.
  * [PROTOCOL]: Keep settings/AGENTS.md and website/AGENTS.md in sync. */
-import { useState, type ReactNode, type Ref } from 'react';
+import { useId, useState, type ReactNode, type Ref } from 'react';
 import { PalbooWordmark } from '../shared/brand';
 import { previewQuestion, previewSections } from '../shared/preview-conversation';
 import { StudioDisplayFrame } from './studio-display';
 import { PreviewComposer } from './preview-composer';
+import { PreviewHostNavigation, previewHostWidth } from './preview-host';
 export type DemoFrame = { x: number; y: number; w: number; h: number; secondary: number };
 export const demoFrames: Record<string, DemoFrame> = {
   sidebar: { x: 516, y: 70, w: 182, h: 392, secondary: 0 },
   overlay: { x: 402, y: 120, w: 270, h: 326, secondary: 0 },
   popped: { x: 414, y: 105, w: 274, h: 348, secondary: 0 },
-  desktop: { x: 754, y: 230, w: 330, h: 246, secondary: 1 },
+  desktop: { x: 754, y: 230, w: 330, h: 247.5, secondary: 1 },
   edge: { x: 468, y: 100, w: 230, h: 362, secondary: 0 },
 };
 export function LayoutPreviewScene({
@@ -43,14 +44,16 @@ export function LayoutPreviewScene({
   standProgress?: number;
 }) {
   useLocale();
+  const hostClip = useId();
   const [draft, setDraft] = useState('');
   const studio = display === 'studio';
   const screenHeight = studio ? 384 : 428;
   const trim = 428 - screenHeight;
   const deviceFrame =
     studio && !focusWorkspace ? { ...frame, h: frame.h - trim * (1 - frame.secondary) } : frame;
-  const chatWidth =
-    (!placement || placement === 'sidebar') && frame.x < 710 ? Math.max(230, frame.x - 160) : 540;
+  const chatX = 28 + previewHostWidth + 18;
+  const chatRight = (!placement || placement === 'sidebar') && frame.x < 710 ? frame.x - 16 : 692;
+  const chatWidth = Math.max(210, chatRight - chatX);
   // The website approaches this same device; settings keep their original framing.
   const camera = Math.max(0, Math.min(1, zoom ?? 0)) * (1 - frame.secondary);
   const width = studio ? 800 - 64 * camera + 320 * frame.secondary : 1120 - 384 * camera;
@@ -75,6 +78,18 @@ export function LayoutPreviewScene({
   const materialBackdrop = focusWorkspace
     ? { x: frame.x - 12, y: frame.y - 12, w: frame.w + 24, h: frame.h + 24 }
     : { x: 22, y: 16, w: 694, h: 428 };
+  // Apple 13-inch iPad Pro: 281.6 × 215.5 mm body, 13-inch 4:3 display.
+  // Front corner radii are estimated from Apple's display reference, not CAD measurements.
+  const tabletScale = 330 / 264.16;
+  const tablet = {
+    x: 754 - ((281.6 - 264.16) * tabletScale) / 2,
+    y: 230 - ((215.5 - 198.12) * tabletScale) / 2,
+    w: 281.6 * tabletScale,
+    h: 215.5 * tabletScale,
+    r: 22,
+    screenRadius: 22 - ((281.6 - 264.16) * tabletScale) / 2,
+  };
+  const screenRadius = tablet.screenRadius * frame.secondary * (1 - material);
   return (
     <svg
       className="layout-demo-scene"
@@ -90,6 +105,11 @@ export function LayoutPreviewScene({
       role="group"
       aria-label={tr('{{hostName}} 与副屏中的交互示例', { hostName: hostName })}
     >
+      <defs>
+        <clipPath id={hostClip}>
+          <rect x="28" y="48" width="682" height={screenHeight} rx={studio ? 2 : 3} />
+        </clipPath>
+      </defs>
       <g visibility={focusWorkspace ? 'hidden' : undefined} opacity={1 - reveal(0, 0.65)}>
         {studio ? (
           <StudioDisplayFrame progress={standProgress} />
@@ -109,71 +129,90 @@ export function LayoutPreviewScene({
           height={screenHeight}
           rx={studio ? 2 : 3}
         />
-        <g aria-hidden="true" transform="translate(28 48)">
-          <path
-            className="demo-rail"
-            d={`M3 0H92V${screenHeight}H3Q0 ${screenHeight} 0 ${screenHeight - 3}V3Q0 0 3 0Z`}
-          />
-          <text x="112" y="24" className="demo-title">
-            {hostName}
-          </text>
-          <text x="112" y="48" className="demo-title">
-            {title}
-          </text>
-          {[tr('新聊天'), tr('搜索聊天'), tr('项目'), 'Palboo', title].map((text, i) => (
-            <text key={text} x="14" y={45 + i * 24}>
-              {text}
+        <g clipPath={`url(#${hostClip})`}>
+          <g aria-hidden="true" transform="translate(28 48)">
+            <foreignObject x="0" y="0" width={previewHostWidth} height={screenHeight}>
+              <PreviewHostNavigation hostName={hostName} />
+            </foreignObject>
+            <text x={chatX - 28} y="24" className="demo-title">
+              {tr('两天的作品集计划')}
             </text>
-          ))}
-          <g
-            ref={entryRef}
-            className="demo-eyes demo-entry"
-            transform={`translate(16 ${392 - trim})`}
-          >
-            <rect width="4" height="10" rx="2" />
-            <rect x="8" width="4" height="10" rx="2" />
+            <g
+              ref={entryRef}
+              className="demo-eyes demo-entry"
+              transform={`translate(8 ${screenHeight - 50})`}
+            >
+              <rect width="4" height="10" rx="2" />
+              <rect x="8" width="4" height="10" rx="2" />
+            </g>
+            <foreignObject x={chatX - 28} y="46" width={chatWidth} height={screenHeight - 130}>
+              <div className="demo-chat-copy">
+                <p className="demo-chat-question">{previewQuestion()}</p>
+                {previewSections()
+                  .slice(0, 3)
+                  .map((section) => (
+                    <section key={section.id}>
+                      <h4>{section.title}</h4>
+                      <p>{section.text}</p>
+                      {section.items && (
+                        <ol>
+                          {section.items.map((text) => (
+                            <li key={text}>{text}</li>
+                          ))}
+                        </ol>
+                      )}
+                    </section>
+                  ))}
+              </div>
+            </foreignObject>
           </g>
-          <text x="37" y={401 - trim}>
-            Palboo
-          </text>
-          <foreignObject x="108" y="66" width={chatWidth + 12} height={screenHeight - 150}>
-            <div className="demo-chat-copy">
-              <p className="demo-chat-question">{previewQuestion()}</p>
-              {previewSections()
-                .slice(0, 3)
-                .map((section) => (
-                  <section key={section.id}>
-                    <h4>{section.title}</h4>
-                    <p>{section.text}</p>
-                    {section.items && (
-                      <ol>
-                        {section.items.map((text) => (
-                          <li key={text}>{text}</li>
-                        ))}
-                      </ol>
-                    )}
-                  </section>
-                ))}
+          <foreignObject
+            className="layout-demo-host-composer"
+            x={chatX}
+            y={395 - trim}
+            width={chatWidth}
+            height="64"
+            aria-hidden={focusWorkspace || material >= 0.65}
+          >
+            <div className="demo-chat-composer" inert={focusWorkspace || material >= 0.65}>
+              <PreviewComposer value={draft} onValueChange={setDraft} />
             </div>
           </foreignObject>
         </g>
-        <foreignObject
-          className="layout-demo-host-composer"
-          x="136"
-          y={395 - trim}
-          width={chatWidth + 18}
-          height="64"
-          aria-hidden={focusWorkspace || material >= 0.65}
-        >
-          <div className="demo-chat-composer" inert={focusWorkspace || material >= 0.65}>
-            <PreviewComposer value={draft} onValueChange={setDraft} />
-          </div>
-        </foreignObject>
-        <g opacity={frame.secondary} aria-hidden={frame.secondary < 0.01}>
-          <rect className="demo-device-shadow" x="750" y="229" width="342" height="258" rx="15" />
-          <rect className="demo-device" x="748" y="224" width="342" height="258" rx="15" />
-          <rect className="demo-screen" x="754" y="230" width="330" height="246" rx="9" />
-          <path className="demo-rim" d="M763 225H1075Q1089 225 1089 239V467" />
+        <g className="demo-tablet" opacity={frame.secondary} aria-hidden={frame.secondary < 0.01}>
+          <rect
+            className="demo-device-shadow"
+            x={tablet.x + 1}
+            y={tablet.y + 3}
+            width={tablet.w}
+            height={tablet.h}
+            rx={tablet.r}
+          />
+          <rect
+            className="demo-tablet-metal"
+            x={tablet.x}
+            y={tablet.y}
+            width={tablet.w}
+            height={tablet.h}
+            rx={tablet.r}
+          />
+          <rect
+            className="demo-tablet-glass"
+            x={tablet.x + 1}
+            y={tablet.y + 1}
+            width={tablet.w - 2}
+            height={tablet.h - 2}
+            rx={tablet.r - 1}
+          />
+          <rect
+            className="demo-screen demo-tablet-screen"
+            x="754"
+            y="230"
+            width="330"
+            height="247.5"
+            rx={tablet.screenRadius}
+          />
+          <circle className="demo-tablet-camera" cx="919" cy={tablet.y + 5.5} r="0.85" />
         </g>
       </g>
       {materialProgress !== undefined && (
@@ -203,11 +242,15 @@ export function LayoutPreviewScene({
         data-placement={placement}
       >
         <div
+          data-device-viewport
+          data-screen-radius={screenRadius}
           style={{
             width: sampleFrame.w * 1.75,
             height: sampleFrame.h * 1.75,
             transform: 'scale(0.571428571)',
             transformOrigin: 'top left',
+            borderRadius: screenRadius * 1.75,
+            overflow: 'hidden',
           }}
         >
           {children}

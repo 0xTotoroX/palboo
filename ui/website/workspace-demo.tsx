@@ -11,6 +11,9 @@ import {
   type TypographyPreferences,
 } from '../shared/typography';
 import { LayoutPreview } from '../settings/layout-preview';
+import { NativeSelect } from '../settings/components/ui/native-select';
+import { SegmentedGroup } from '../settings/components/ui/segmented-group';
+import { LiquidVariantToggle } from '../settings/liquid-variant-toggle';
 import type { FeatureState } from '../shared/features';
 import type { SurfaceState } from '../settings/surface-settings';
 import type { SurfaceTheme } from '../surfaces/theme/appearance';
@@ -224,19 +227,20 @@ export function SurfaceStory({
               <div className="workspace-controls">
                 <div className="workspace-position-controls">
                   <div className="workspace-placement-options">{placement}</div>
-                  <select
-                    className="workspace-placement-select"
-                    aria-label={tr('演示位置')}
-                    value={location}
-                    onChange={(event) => setPlacement(event.target.value)}
-                  >
-                    <option value="sidebar">{tr('侧栏')}</option>
-                    <option value="overlay">{tr('页面浮层')}</option>
-                    <option value="desktop">{tr('移到副屏')}</option>
-                    <option value="edge">{tr('贴边 / 刘海')}</option>
-                  </select>
+                  <div className="workspace-placement-select">
+                    <NativeSelect
+                      aria-label={tr('演示位置')}
+                      value={location}
+                      onChange={(event) => setPlacement(event.target.value)}
+                    >
+                      <option value="sidebar">{tr('侧栏')}</option>
+                      <option value="overlay">{tr('页面浮层')}</option>
+                      <option value="desktop">{tr('移到副屏')}</option>
+                      <option value="edge">{tr('贴边 / 刘海')}</option>
+                    </NativeSelect>
+                  </div>
                   {location === 'edge' && (
-                    <select
+                    <NativeSelect
                       className="workspace-edge-select"
                       aria-label={tr('贴边位置演示')}
                       value={edge}
@@ -246,7 +250,7 @@ export function SurfaceStory({
                       <option value="left">{tr('左侧')}</option>
                       <option value="top">{tr('顶部 / 刘海')}</option>
                       <option value="bottom">{tr('底部')}</option>
-                    </select>
+                    </NativeSelect>
                   )}
                   <button
                     type="button"
@@ -263,7 +267,7 @@ export function SurfaceStory({
                   <div className="workspace-type-controls">
                     <label>
                       <span>{tr('字号')}</span>
-                      <select
+                      <NativeSelect
                         aria-label={tr('演示字号模式')}
                         value={typography.mode}
                         onChange={(event) =>
@@ -275,9 +279,9 @@ export function SurfaceStory({
                       >
                         <option value="follow">{tr('跟随正文')}</option>
                         <option value="custom">{tr('自定字号')}</option>
-                      </select>
+                      </NativeSelect>
                     </label>
-                    <select
+                    <NativeSelect
                       aria-label={
                         typography.mode === 'follow' ? tr('演示字号比例') : tr('演示自定字号')
                       }
@@ -302,7 +306,7 @@ export function SurfaceStory({
                           {typography.mode === 'follow' ? '%' : ' px'}
                         </option>
                       ))}
-                    </select>
+                    </NativeSelect>
                   </div>
                 </div>
               </div>
@@ -375,7 +379,12 @@ function MaterialControls({
       </h2>
       <div className="material-controls">
         <div className="material-choice-line">
-          <div className="choice-row" role="group" aria-label={tr('材质演示')}>
+          <SegmentedGroup
+            value={material}
+            className="choice-row"
+            role="group"
+            aria-label={tr('材质演示')}
+          >
             {materials.map((item) => (
               <button
                 key={item.id}
@@ -385,19 +394,10 @@ function MaterialControls({
                 {item.title}
               </button>
             ))}
-          </div>
-          <div
-            className="choice-row"
-            role="group"
-            aria-label={tr('液态变体')}
-            hidden={material !== 'native-glass'}
-          >
-            {(['regular', 'clear'] as const).map((id) => (
-              <button key={id} aria-pressed={variant === id} onClick={() => onVariant(id)}>
-                {id === 'regular' ? 'Regular' : 'Clear'}
-              </button>
-            ))}
-          </div>
+          </SegmentedGroup>
+          {material === 'native-glass' && (
+            <LiquidVariantToggle label={tr('液态 Clear')} value={variant} onChange={onVariant} />
+          )}
         </div>
         <p>{materials.find((item) => item.id === material)!.text}</p>
         <p className="material-boundary">

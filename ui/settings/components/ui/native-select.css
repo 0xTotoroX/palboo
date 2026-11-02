@@ -1,0 +1,115 @@
+/* [INPUT]: NativeSelect markup and settings semantic variables supplied by its document.
+ * [OUTPUT]: One native picker skin shared by settings and the website, without Tailwind Preflight.
+ * [POS]: Component-scoped structure and popup; settings keep their host-specific geometry.
+ * [PROTOCOL]: Keep components/ui/AGENTS.md in sync. */
+:where(.settings-native-select) {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+:where(.settings-native-select select) {
+  appearance: none;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--settings-control-height, 39px);
+  padding: 6px 36px 6px 11px;
+  border: 1px solid var(--settings-control-border, transparent);
+  border-radius: var(--settings-control-radius, 6px);
+  background: var(--buddy-input);
+  color: var(--buddy-text);
+  font: inherit;
+  line-height: 1.5;
+  cursor: pointer;
+}
+:where(.settings-native-select > .buddy-icon) {
+  position: absolute;
+  right: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--buddy-muted);
+  pointer-events: none;
+}
+:where(.settings-native-select select):focus-visible {
+  outline: 1px solid var(--buddy-focus);
+  outline-offset: 2px;
+}
+:where(.settings-native-select select):disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+/* Unsupported browsers retain the native picker and its keyboard/form behavior. */
+@supports (appearance: base-select) {
+  .settings-native-select select[data-slot='native-select'],
+  .settings-native-select select[data-slot='native-select']::picker(select) {
+    appearance: base-select;
+  }
+  .settings-native-select select[data-slot='native-select'] {
+    height: auto;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    align-items: center;
+    cursor: pointer;
+  }
+  .settings-native-select select[data-slot='native-select']:disabled {
+    cursor: not-allowed;
+  }
+  .settings-native-select select[data-slot='native-select']::picker-icon {
+    display: none;
+  }
+  .settings-native-select select[data-slot='native-select']::picker(select) {
+    color-scheme: inherit;
+    color: var(--buddy-text);
+    background: var(--settings-menu-surface);
+    border: 1px solid var(--buddy-border);
+    border-radius: var(--settings-control-radius);
+    box-shadow: var(--settings-menu-shadow);
+    padding: 4px;
+    margin-block: 5px;
+    width: anchor-size(width);
+    min-width: 0;
+    max-width: calc(100vw - 24px);
+    max-height: min(360px, 60vh);
+    overflow-y: auto;
+    font: inherit;
+  }
+  .settings-native-select select[data-slot='native-select'] option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 36px;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 2px;
+    color: var(--buddy-text);
+    background: transparent;
+    font: inherit;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    cursor: pointer;
+  }
+  .settings-native-select select[data-slot='native-select'] option:checked {
+    background: var(--settings-selected);
+    color: var(--settings-selected-text);
+    font-weight: 600;
+  }
+  .settings-native-select select[data-slot='native-select'] option:focus-visible {
+    outline: 1px solid var(--buddy-focus);
+    outline-offset: -1px;
+  }
+  .settings-native-select select[data-slot='native-select'] option::checkmark {
+    order: 1;
+    margin-inline-start: auto;
+    color: var(--buddy-muted);
+  }
+  .settings-native-select select[data-slot='native-select'] option:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  @media (hover: hover) {
+    .settings-native-select
+      select[data-slot='native-select']
+      option:hover:not(:disabled):not(:checked) {
+      background: var(--buddy-subtle);
+    }
+  }
+}

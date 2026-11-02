@@ -299,81 +299,6 @@
   grid-row: 1;
 }
 
-/* Unsupported browsers retain the native picker and its keyboard/form behavior. */
-@supports (appearance: base-select) {
-  .settings-app select[data-slot='native-select'],
-  .settings-app select[data-slot='native-select']::picker(select) {
-    appearance: base-select;
-  }
-  .settings-app select[data-slot='native-select'] {
-    height: auto;
-    white-space: normal;
-    overflow-wrap: anywhere;
-    align-items: center;
-    cursor: pointer;
-  }
-  .settings-app select[data-slot='native-select']:disabled {
-    cursor: not-allowed;
-  }
-  .settings-app select[data-slot='native-select']::picker-icon {
-    display: none;
-  }
-  .settings-app select[data-slot='native-select']::picker(select) {
-    color-scheme: inherit;
-    color: var(--buddy-text);
-    background: var(--settings-menu-surface);
-    border: 1px solid var(--buddy-border);
-    border-radius: var(--settings-control-radius);
-    box-shadow: var(--settings-menu-shadow);
-    padding: 4px;
-    margin-block: 5px;
-    width: anchor-size(width);
-    min-width: 0;
-    max-width: calc(100vw - 24px);
-    max-height: min(360px, 60vh);
-    overflow-y: auto;
-    font: inherit;
-  }
-  .settings-app select[data-slot='native-select'] option {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    min-height: 36px;
-    padding: 8px 10px;
-    border: 0;
-    border-radius: 2px;
-    color: var(--buddy-text);
-    background: transparent;
-    font: inherit;
-    white-space: normal;
-    overflow-wrap: anywhere;
-    cursor: pointer;
-  }
-  .settings-app select[data-slot='native-select'] option:checked {
-    background: var(--settings-selected);
-    color: var(--settings-selected-text);
-    font-weight: 600;
-  }
-  .settings-app select[data-slot='native-select'] option:focus-visible {
-    outline: 1px solid var(--buddy-focus);
-    outline-offset: -1px;
-  }
-  .settings-app select[data-slot='native-select'] option::checkmark {
-    order: 1;
-    margin-inline-start: auto;
-    color: var(--buddy-muted);
-  }
-  .settings-app select[data-slot='native-select'] option:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-  }
-  @media (hover: hover) {
-    .settings-app select[data-slot='native-select'] option:hover:not(:disabled):not(:checked) {
-      background: var(--buddy-subtle);
-    }
-  }
-}
-
 /* Native dialog provides focus containment and Escape; colors follow the settings theme. */
 .settings-key-dialog {
   position: fixed;
@@ -395,28 +320,6 @@
 .settings-dialog-content {
   display: flow-root;
 }
-.settings-app [data-settings-segmented] {
-  position: relative;
-  isolation: isolate;
-}
-.settings-app [data-settings-segmented] > button {
-  position: relative;
-  z-index: 1;
-}
-.settings-app [data-settings-segmented] > button[aria-pressed='true'],
-.settings-app [data-settings-segmented] > button[aria-pressed='true']:hover:not(:disabled) {
-  background: transparent;
-  box-shadow: none;
-  transition-property: color, border-color;
-}
-.settings-app [data-settings-segmented] > .settings-segment-indicator {
-  position: absolute;
-  z-index: 0;
-  pointer-events: none;
-  transform-origin: top left;
-  background: var(--settings-segmented, var(--settings-selected));
-}
-
 /* [INPUT]: Settings drawer markup, shared theme tokens and motion preferences.
  * [OUTPUT]: Quiet entry rows and a responsive right sheet without page reflow.
  * [POS]: Settings-only overlay styles; does not alter form data or host surfaces.

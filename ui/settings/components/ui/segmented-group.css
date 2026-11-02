@@ -1,0 +1,25 @@
+/* [INPUT]: SegmentedGroup selection marker and semantic selection colors.
+ * [OUTPUT]: The same measured selection surface in settings and website previews.
+ * [POS]: Component-scoped presentation; no business state or document reset.
+ * [PROTOCOL]: Keep components/ui/AGENTS.md in sync. */
+[data-settings-segmented] {
+  position: relative;
+  isolation: isolate;
+}
+[data-settings-segmented] > button {
+  position: relative;
+  z-index: 1;
+}
+[data-settings-segmented] > button[aria-pressed='true'],
+[data-settings-segmented] > button[aria-pressed='true']:hover:not(:disabled) {
+  background: transparent;
+  box-shadow: none;
+  transition-property: color, border-color;
+}
+[data-settings-segmented] > .settings-segment-indicator {
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+  transform-origin: top left;
+  background: var(--settings-segmented, var(--settings-selected));
+}

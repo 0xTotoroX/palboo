@@ -49,6 +49,117 @@
 .layout-demo-scene .demo-eyes {
   fill: var(--buddy-text);
 }
+.demo-host-navigation {
+  --buddy-action-icon-size: 11px;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  height: 100%;
+  color: var(--buddy-muted);
+  background: color-mix(in srgb, var(--buddy-text) 3%, var(--buddy-surface));
+  font-size: 8px;
+  line-height: 1.4;
+}
+.demo-host-rail {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  padding-top: 13px;
+  border-right: 0.5px solid var(--buddy-border);
+}
+.demo-host-rail-item {
+  display: grid;
+  place-items: center;
+  width: 21px;
+  height: 21px;
+  border-radius: 6px;
+}
+.demo-host-rail-item[data-active='true'] {
+  color: var(--buddy-text);
+  background: color-mix(in srgb, var(--buddy-text) 8%, transparent);
+}
+.demo-host-rail-item:nth-child(5) {
+  margin-top: 8px;
+}
+.demo-host-avatar {
+  position: absolute;
+  bottom: 12px;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  color: var(--buddy-text);
+  background: color-mix(in srgb, var(--buddy-text) 10%, var(--buddy-surface));
+  font-size: 7px;
+}
+.demo-host-sidebar {
+  overflow: hidden;
+  padding: 12px 6px;
+  border-right: 0.5px solid var(--buddy-border);
+}
+.demo-host-heading {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 3px 12px;
+}
+.demo-host-heading strong {
+  color: var(--buddy-text);
+  font-size: 11px;
+  font-weight: 600;
+}
+.demo-host-heading-actions {
+  display: flex;
+  gap: 5px;
+  margin-left: auto;
+}
+.demo-host-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 23px;
+  padding-inline: 4px;
+  color: var(--buddy-text);
+  border-radius: 4px;
+}
+.demo-host-row > span:last-child {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.demo-host-row[data-current='true'] {
+  background: color-mix(in srgb, var(--buddy-text) 6%, transparent);
+}
+.demo-host-section {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 15px 4px 4px;
+  color: var(--buddy-muted);
+  font-size: 8px;
+}
+.demo-host-recents > .buddy-icon {
+  margin-left: auto;
+}
+.demo-host-chat {
+  min-height: 21px;
+  font-size: 7.5px;
+}
+.layout-demo-scene .demo-tablet-metal {
+  fill: #737479;
+  stroke: #a6a7ab;
+  stroke-width: 0.5;
+}
+.layout-demo-scene .demo-tablet-glass {
+  fill: #09090b;
+}
+.layout-demo-scene .demo-tablet-camera {
+  fill: #1b1d24;
+  stroke: #383a40;
+  stroke-width: 0.4;
+}
 .layout-demo-window {
   overflow: hidden;
 }
