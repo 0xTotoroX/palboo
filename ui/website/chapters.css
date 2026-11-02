@@ -1,0 +1,343 @@
+/* [INPUT]: Website chapter markup, shared demos and site semantic tokens.
+ * [OUTPUT]: Editorial rhythm: two-tone display headlines, blush feature marks, stage band,
+ *           alternating tool rows, connection columns and the closing install band.
+ * [POS]: Chapter layout only; opening/material scene lives in story.css, demos keep their own CSS.
+ * [PROTOCOL]: Keep website/AGENTS.md and DESIGN_SYSTEM.md in sync. */
+
+/* ---------- 双色大标题与功能标记 ---------- */
+.display {
+  font-size: var(--site-display);
+  line-height: 1.1;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+}
+.display > span {
+  display: block;
+  text-wrap: balance;
+}
+.display-soft,
+.material-story h2 span {
+  color: var(--site-muted);
+}
+:lang(en) .display {
+  letter-spacing: -0.035em;
+}
+.feature-mark {
+  --buddy-action-icon-size: 22px;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 28px;
+  border-radius: 50%;
+  background: var(--site-blush-soft);
+  color: var(--site-text);
+}
+
+/* ---------- 阅读章节：下一步 / 大纲 / 术语 ---------- */
+.story-copy {
+  grid-column: 1;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+}
+.story-copy .display {
+  font-size: clamp(34px, 3.6vw, 52px);
+}
+.story-copy p {
+  max-width: 30em;
+  margin-top: 28px;
+  color: var(--site-muted);
+  font-size: 18px;
+  line-height: 1.7;
+}
+.story-copy p + p {
+  margin-top: 14px;
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+/* ---------- 章节导语：标题与说明底部对齐 ---------- */
+.section-intro {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.7fr);
+  align-items: end;
+  gap: clamp(32px, 6vw, 96px);
+  margin-bottom: clamp(28px, 3.6vw, 48px);
+}
+.board-story .display {
+  font-size: clamp(36px, 4.2vw, 60px);
+}
+.section-intro p {
+  max-width: 26em;
+  color: var(--site-muted);
+  font-size: 18px;
+  line-height: 1.7;
+}
+
+/* ---------- 看板：全宽舞台 ---------- */
+.board-story {
+  padding-block: var(--site-section-space) calc(var(--site-section-space) * 0.5);
+}
+.stage-band {
+  padding: clamp(16px, 2.6vw, 36px);
+  border-radius: 32px;
+  background: var(--site-band);
+}
+.board-stage > .preview-frame-content {
+  padding: 24px;
+}
+.board-project {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 16px;
+  font-size: 15px;
+}
+
+/* ---------- 常用操作：左右交替与全宽 ---------- */
+.tools-section {
+  padding-block: calc(var(--site-section-space) * 0.5) var(--site-section-space);
+}
+.tools-section > .display {
+  max-width: 12em;
+  margin-bottom: clamp(16px, 3vw, 40px);
+}
+.tool-row {
+  display: grid;
+  grid-template-columns: minmax(0, 0.38fr) minmax(0, 0.62fr);
+  align-items: center;
+  gap: clamp(32px, 6vw, 96px);
+  min-width: 0;
+}
+/* 舞台居中固定，间距放在相邻场景之间而不计入固定高度 */
+.tools-section > .scroll-demo + .scroll-demo {
+  margin-top: clamp(64px, 8vw, 128px);
+}
+.tool-row > * {
+  min-width: 0;
+}
+.tool-row.is-reversed {
+  grid-template-columns: minmax(0, 0.62fr) minmax(0, 0.38fr);
+}
+.tool-row.is-reversed > .tool-copy {
+  order: 2;
+}
+.tool-row.is-wide {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 40px;
+}
+.tool-row.is-wide .tool-copy {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.7fr);
+  align-items: end;
+  gap: clamp(32px, 6vw, 96px);
+}
+.tool-copy h3 {
+  font-size: clamp(28px, 2.6vw, 36px);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.03em;
+}
+.tool-lead {
+  max-width: 26em;
+  margin-top: 16px;
+  color: var(--site-muted);
+  font-size: 18px;
+  line-height: 1.7;
+}
+.tool-notes {
+  margin-top: 20px;
+}
+.tool-row.is-wide .tool-notes {
+  margin-top: 0;
+}
+.tool-notes p {
+  max-width: 30em;
+  color: var(--site-muted);
+  font-size: 15px;
+  line-height: 1.65;
+}
+.tool-notes p + p {
+  margin-top: 8px;
+}
+.tool-copy .feature-mark {
+  margin-bottom: 24px;
+}
+
+/* ---------- 连接：三列要点，直接可读 ---------- */
+.connection-story {
+  padding-block: calc(var(--site-section-space) * 0.5) var(--site-section-space);
+}
+.connection-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(24px, 4vw, 56px);
+  margin: 0;
+}
+.connection-grid > div {
+  padding-top: 24px;
+  border-top: 1px solid var(--site-border);
+}
+.connection-grid dt {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.connection-grid dd {
+  margin: 12px 0 0;
+  color: var(--site-muted);
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+/* ---------- 收尾：字标、下载与安装条件 ---------- */
+.install {
+  padding-block: clamp(96px, 12vw, 160px) clamp(56px, 7vw, 96px);
+  background: var(--site-band);
+  scroll-margin-top: 0;
+}
+.install-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.install-wordmark {
+  display: block;
+  width: min(640px, 100%);
+  height: auto;
+  margin-bottom: clamp(40px, 5vw, 72px);
+  color: var(--site-text);
+}
+.install .display {
+  font-size: clamp(40px, 5.4vw, 76px);
+}
+.install-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 40px;
+}
+.install-actions .github-link {
+  margin-top: 0;
+  border-color: transparent;
+  background: var(--site-text);
+  color: var(--site-page);
+}
+.install-actions .back-to-top {
+  border-color: color-mix(in srgb, var(--site-text) 32%, var(--site-band));
+  background: transparent;
+  color: var(--site-text);
+}
+.install-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(24px, 4vw, 56px);
+  width: 100%;
+  margin: clamp(72px, 9vw, 120px) 0 0;
+  padding-top: 28px;
+  border-top: 1px solid var(--site-border);
+}
+.install-facts dt {
+  font-size: 15px;
+  font-weight: 600;
+}
+.install-facts dd {
+  margin: 8px 0 0;
+  color: var(--site-muted);
+  font-size: 15px;
+  line-height: 1.7;
+}
+@media (hover: hover) {
+  .install-actions .github-link:hover {
+    background: color-mix(in srgb, var(--site-text) 85%, var(--site-band));
+  }
+  .install-actions .back-to-top:hover {
+    border-color: var(--site-muted);
+    background: color-mix(in srgb, var(--site-text) 6%, transparent);
+  }
+}
+
+/* ---------- 矮窗口：收紧标记与舞台留白，保持固定场景可滚动演示 ---------- */
+@media (max-height: 860px) and (min-width: 901px) {
+  .feature-mark,
+  .tool-copy .feature-mark {
+    width: 40px;
+    height: 40px;
+    margin-bottom: 16px;
+  }
+  .stage-band {
+    padding: 16px;
+    border-radius: 24px;
+  }
+  .board-story .display {
+    font-size: clamp(34px, 3.6vw, 48px);
+  }
+  .section-intro {
+    margin-bottom: 24px;
+  }
+  .tool-row.is-wide {
+    gap: 24px;
+  }
+}
+
+/* ---------- 窄屏：纵向排列，文案在前 ---------- */
+@media (max-width: 900px) {
+  .tool-row,
+  .tool-row.is-reversed,
+  .tool-row.is-wide .tool-copy {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .tool-row {
+    gap: 28px;
+    align-items: start;
+  }
+  .tool-row.is-reversed > .tool-copy {
+    order: 0;
+  }
+  .tool-row.is-wide .tool-copy {
+    gap: 20px;
+  }
+  .section-intro {
+    display: block;
+  }
+  .section-intro p {
+    margin-top: 24px;
+  }
+  .connection-grid,
+  .install-facts {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 28px;
+  }
+}
+@media (max-width: 760px) {
+  .display,
+  .install .display {
+    font-size: clamp(34px, 9vw, 44px);
+  }
+  .story-copy .display {
+    font-size: clamp(30px, 8vw, 40px);
+  }
+  .story-copy p,
+  .section-intro p,
+  .tool-lead {
+    font-size: 16px;
+  }
+  /* 窄屏不再套色带，避免框中框挤压看板 */
+  .stage-band {
+    padding: 0;
+    border-radius: 0;
+    background: none;
+  }
+  .board-stage > .preview-frame-content {
+    padding: 16px;
+  }
+  .feature-mark {
+    width: 40px;
+    height: 40px;
+    margin-bottom: 20px;
+  }
+}

@@ -17,6 +17,7 @@ import { BrandOpening } from './brand-opening';
 import { GithubLink, type GithubLinkVariant } from './github-link';
 import { FeatureDemo, type FeatureId } from './demos';
 import { SurfaceStory } from './workspace-demo';
+import { FeatureMark, Headline, splitTitle } from './headline';
 import { clamp, smooth, useScrollScene } from './scroll-motion';
 import {
   layoutStops,
@@ -185,7 +186,7 @@ export function OpeningStory({ githubVariant }: { githubVariant?: GithubLinkVari
           <h1 id="page-title">
             {tr('让对话，')}
             <br className="mobile-break" />
-            {tr('多一维度')}
+            <span className="display-soft">{tr('多一维度')}</span>
           </h1>
           <p>
             {tr('Palboo，你的 Codex 桌面搭档。')}
@@ -395,7 +396,8 @@ export function ReadingStory() {
       {chapters.map((chapter, i) => (
         <div key={chapter.feature} className="static-chapter">
           <article className="story-copy" data-chapter={chapter.feature} style={{ gridRow: i + 1 }}>
-            <h2>{chapter.title}</h2>
+            <FeatureMark icon={`feature-${chapter.feature}`} />
+            <Headline lead={splitTitle(chapter.title)[0]} soft={splitTitle(chapter.title)[1]} />
             <p>{chapter.text}</p>
             <p>{chapter.detail}</p>
             {i === 0 && <p>{tr('直接试用 Palboo 界面，所有操作仅使用本页示例数据。')}</p>}

@@ -11,6 +11,7 @@
 @import './demo-content.css';
 @import './showcases.css';
 @import './story.css';
+@import './chapters.css';
 :root {
   --site-page: #fff;
   --site-surface: #fff;
@@ -19,11 +20,15 @@
   --site-border: #e5e5e5;
   --site-input: #f5f5f5;
   --site-stage: #f5f5f5;
+  --site-band: #f5f5f3;
+  --site-blush: #f4a3ad;
+  --site-blush-soft: color-mix(in srgb, var(--site-blush) 30%, var(--site-page));
   --site-accent: var(--site-text);
   --site-strong: var(--site-text);
   --site-shadow: 0 4px 16px #00000014;
   --site-ease: cubic-bezier(0.23, 1, 0.32, 1);
-  --site-section-space: clamp(64px, 7vw, 96px);
+  --site-section-space: clamp(104px, 11vw, 160px);
+  --site-display: clamp(40px, 5vw, 68px);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   color: var(--site-text);
   background: var(--site-page);
@@ -39,6 +44,9 @@
   --site-border: #383838;
   --site-input: #2f2f2f;
   --site-stage: #212121;
+  --site-band: #111;
+  --site-blush: #f49ba3;
+  --site-blush-soft: color-mix(in srgb, var(--site-blush) 24%, var(--site-page));
   --site-accent: var(--site-text);
   --site-shadow: 0 4px 16px #0003;
 }
@@ -97,7 +105,7 @@ main:focus {
   outline: none;
 }
 ::selection {
-  background: color-mix(in srgb, var(--site-text) 16%, transparent);
+  background: color-mix(in srgb, var(--site-blush) 45%, transparent);
 }
 .page-width {
   width: min(1240px, calc(100% - 96px));
@@ -152,26 +160,6 @@ h2 {
   column-gap: 5%;
   position: relative;
   padding-block: 50px;
-}
-.story-copy {
-  grid-column: 1;
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-}
-.story-copy h2 {
-  white-space: pre-line;
-}
-.story-copy p {
-  font-size: 16px;
-  line-height: 1.7;
-  color: var(--site-muted);
-  margin-top: 24px;
-  max-width: 32em;
-}
-.story-copy p + p {
-  margin-top: 16px;
 }
 .reading-stage {
   grid-column: 2;
@@ -302,93 +290,9 @@ h2 {
   min-height: 62px;
   padding: 0;
 }
-.section-intro {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 0.82fr);
-  align-items: end;
-  gap: clamp(32px, 6vw, 80px);
-  margin-bottom: 48px;
-}
-.section-intro p {
-  max-width: 440px;
-  color: var(--site-muted);
-  font-size: 16px;
-  line-height: 1.7;
-}
-.board-story {
-  padding-block: var(--site-section-space);
-}
-.board-stage > .preview-frame-content {
-  padding: 24px;
-}
-.board-project {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  font-size: 15px;
-  margin-bottom: 16px;
-}
 .demo-panel-board .demo-feature-content {
   max-height: 420px;
   overflow: auto;
-}
-.tools-section {
-  padding-block: var(--site-section-space);
-}
-.tools-section > h2 {
-  margin-bottom: 32px;
-}
-.tool-row {
-  display: grid;
-  grid-template-columns: minmax(0, 0.36fr) minmax(0, 0.64fr);
-  gap: clamp(32px, 6vw, 80px);
-  padding: 48px 0;
-  min-width: 0;
-  border-top: 1px solid var(--site-border);
-  align-items: start;
-}
-.tool-row > * {
-  min-width: 0;
-}
-.tool-row h3 {
-  font-size: 24px;
-  font-weight: 500;
-  letter-spacing: -0.025em;
-}
-.tool-row p {
-  font-size: 16px;
-  line-height: 1.7;
-  color: var(--site-muted);
-  margin-top: 16px;
-  max-width: 400px;
-}
-.tool-row p + p,
-.story-copy p + p {
-  font-size: 14px;
-  line-height: 1.65;
-}
-.install {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  align-items: center;
-  gap: clamp(40px, 7vw, 96px);
-  padding-block: var(--site-section-space);
-  scroll-margin-top: 24px;
-  border-top: 1px solid var(--site-border);
-}
-.install-top {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 32px;
-}
-.install-wordmark {
-  width: 150px;
-  margin-bottom: 28px;
-}
-.install h2 {
-  font-size: clamp(30px, 3vw, 42px);
-  max-width: 13em;
 }
 .github-link,
 .back-to-top {
@@ -446,25 +350,6 @@ h2 {
 }
 .back-to-top:focus-visible svg {
   transform: translateY(-3px);
-}
-.install-facts {
-  margin: 0;
-  display: grid;
-  gap: 28px;
-}
-.install-facts > div {
-  display: grid;
-  grid-template-columns: 7.5em minmax(0, 1fr);
-  gap: 24px;
-  font-size: 15px;
-  line-height: 1.7;
-}
-.install-facts dt {
-  font-weight: 500;
-}
-.install-facts dd {
-  margin: 0;
-  color: var(--site-muted);
 }
 @media (hover: hover) {
   button:hover,
@@ -600,13 +485,6 @@ h2 {
     grid-template-columns: 1fr;
     gap: 32px;
   }
-  .story-copy p {
-    font-size: 16px;
-  }
-  .story-copy .text-link {
-    margin-top: 12px;
-    align-self: flex-start;
-  }
   .demo-window-body {
     display: flex;
     flex-direction: column;
@@ -638,59 +516,8 @@ h2 {
   .demo-feature-content {
     min-height: 0;
   }
-  .section-intro {
-    display: block;
-    margin-bottom: 32px;
-  }
-  .section-intro p {
-    margin-top: 24px;
-    font-size: 16px;
-  }
-  .section-intro p br {
-    display: none;
-  }
-  .board-story,
-  .tools-section {
-    padding-block: 64px;
-  }
-  .board-stage > .preview-frame-content {
-    padding: 16px;
-  }
-  .board-project {
-    margin-bottom: 20px;
-  }
   .surface-story[data-static='true'] {
     padding-block: 64px;
-  }
-  .tool-row {
-    grid-template-columns: 1fr;
-    gap: 24px;
-    padding: 30px 0;
-  }
-  .tool-row h3 {
-    font-size: 24px;
-  }
-  .tools-section > h2 {
-    margin-bottom: 40px;
-  }
-  .install-facts > div {
-    grid-template-columns: 1fr;
-    gap: 8px;
-  }
-}
-@media (max-width: 900px) {
-  .install,
-  .tool-row {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .tool-row {
-    gap: 28px;
-  }
-  .tool-row p {
-    max-width: 36em;
-  }
-  .install {
-    gap: 44px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
