@@ -2,7 +2,7 @@ import { demoFocus, isDemoPopover } from './demo-focus';
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: Original brand poses, native section progress and the shared settings device/material scene.
- * [OUTPUT]: One short brand/layout/material journey with persistent manual choices.
+ * [OUTPUT]: A complete monitor in the first viewport, then a reversible screen/placement/material tour.
  * [POS]: Website narrative composition; all examples describe one portfolio project.
  * [PROTOCOL]: Keep website/AGENTS.md and DESIGN_SYSTEM.md in sync. */
 import {
@@ -25,13 +25,15 @@ export function OpeningStory({ githubVariant }: { githubVariant?: GithubLinkVari
   const brand = useRef<HTMLDivElement>(null);
   const entry = useRef<SVGGElement>(null);
   const preview = useRef<HTMLDivElement>(null);
+  const copy = useRef<HTMLDivElement>(null);
+  const [monitorStart, setMonitorStart] = useState(() => innerHeight * 0.44);
   const [replay, setReplay] = useState(0);
   const [engaged, setEngaged] = useState(false);
   const dragging = useRef(false);
   const [heldMaterial, setHeldMaterial] = useState<number | null>(null);
   const [staticMaterial, setStaticMaterial] = useState(0);
   const distance = progress * openingDistance;
-  // Preserve the brand flight, then one continuous view of placement and material.
+  // Keep the same live screen while its stand recedes and the camera approaches.
   const sceneProgress = engaged ? 1 : clamp(distance / openingTiming.intro);
   const materialProgress =
     heldMaterial ??
@@ -58,6 +60,13 @@ export function OpeningStory({ githubVariant }: { githubVariant?: GithubLinkVari
   const [landing, setLanding] = useState({ x: 0, y: 0, scale: 0.1 });
   const measureLanding = useCallback(() => {
     if (!brand.current || !entry.current) return;
+    if (copy.current)
+      setMonitorStart(
+        Math.max(
+          innerHeight * 0.44,
+          copy.current.offsetTop + copy.current.offsetHeight + 32 - innerHeight * 0.08,
+        ),
+      );
     const source = brand.current.getBoundingClientRect();
     const destination = entry.current.getBoundingClientRect();
     const next = {
@@ -75,6 +84,7 @@ export function OpeningStory({ githubVariant }: { githubVariant?: GithubLinkVari
     observer.observe(entry.current!);
     observer.observe(brand.current!);
     observer.observe(preview.current!);
+    observer.observe(copy.current!);
     const camera = new MutationObserver(measureLanding);
     camera.observe(entry.current!.ownerSVGElement!, {
       attributes: true,
@@ -91,7 +101,7 @@ export function OpeningStory({ githubVariant }: { githubVariant?: GithubLinkVari
   const x = landing.x * (1 - (1 - travel) ** 3);
   const y = landing.y * smooth(travel) ** 1.8;
   const scale = Math.pow(landing.scale, smooth(travel));
-  const zoom = staticView ? 1 : smooth((sceneProgress - 0.2) / 0.55);
+  const zoom = staticView ? 0 : smooth((sceneProgress - 0.12) / 0.7);
   const reveal = staticView ? 1 : smooth((sceneProgress - 0.64) / 0.18);
   const interactive = staticView || sceneProgress > 0.64;
   return (
@@ -135,6 +145,7 @@ export function OpeningStory({ githubVariant }: { githubVariant?: GithubLinkVari
           />
         </div>
         <div
+          ref={copy}
           className="opening-copy"
           style={
             staticView
@@ -193,9 +204,11 @@ export function OpeningStory({ githubVariant }: { githubVariant?: GithubLinkVari
           style={
             staticView
               ? undefined
-              : {
-                  transform: `translate(-50%, ${44 * (1 - smooth(sceneProgress / 0.6))}svh)`,
-                }
+              : ({
+                  '--monitor-approach': zoom,
+                  '--monitor-start': `${monitorStart}px`,
+                  transform: `translate(-50%, ${monitorStart * (1 - zoom)}px)`,
+                } as CSSProperties)
           }
         >
           <SurfaceStory
@@ -204,6 +217,8 @@ export function OpeningStory({ githubVariant }: { githubVariant?: GithubLinkVari
             interactive={interactive}
             entryRef={entry}
             materialProgress={materialProgress}
+            tourDistance={staticView || engaged ? undefined : distance}
+            standProgress={zoom}
           />
         </div>
       </div>

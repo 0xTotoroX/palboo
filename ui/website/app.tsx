@@ -55,19 +55,6 @@ export function App({ githubVariant }: { githubVariant?: GithubLinkVariant }) {
                 <Icon name="arrow-up" />
               </a>
             </div>
-            <details className="install-details">
-              <summary>{tr('平台与连接要求')}</summary>
-              <p>
-                {tr('桌面浮窗需 macOS 15+，原生液态材质需 macOS 26。')}{' '}
-                {tr('DMG 内含完整 App，无需 Node 或 Rust。')}
-              </p>
-              <p>
-                {tr(
-                  'Palboo 通过本机连接与 Codex 协作，不修改官方应用。模型服务与可选 Agent 沿用你的环境，功能可独立开关。',
-                )}
-              </p>
-              <p>{tr('如被系统拦截，请到“隐私与安全性”中允许打开。')}</p>
-            </details>
           </div>
         </section>
       </main>

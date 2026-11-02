@@ -158,6 +158,145 @@ const ids = [
   'prompt',
   'compatibility',
 ];
+
+test('the opening fits a complete display, retracts its stand and tours placements and materials', async () => {
+  const page = await newPage({
+    viewport: { width: 1609, height: 1079 },
+    reducedMotion: 'no-preference',
+  });
+  try {
+    await page.clock.install();
+    await page.goto(`${base}/?lang=zh-CN`);
+    await page.clock.runFor(7200);
+    const monitor = page.locator('.studio-display-frame');
+    const stand = monitor;
+    await monitor.locator('canvas[data-ready=true]').waitFor();
+    const device = await monitor.boundingBox();
+    const copy = await page.locator('.opening-copy').boundingBox();
+    assert.ok(device.y > copy.y + copy.height, 'centered copy stays above the complete monitor');
+    assert.ok(
+      device.y > 0 && device.y + device.height < 1079,
+      'the stand is visible before scrolling',
+    );
+    assert.equal(await stand.getAttribute('data-progress'), '0');
+    assert.ok(await page.evaluate(() => document.documentElement.scrollHeight < innerHeight * 9.5));
+    await page.screenshot({ path: resolve(reports, 'monitor-opening.png') });
+    const workspace = await page.locator('.layout-demo-window').elementHandle();
+    await scrollScene(page, '.opening-story', 0.3 / 3.5);
+    assert.ok(
+      Number(await stand.getAttribute('data-progress')) > 0 &&
+        Number(await stand.getAttribute('data-progress')) < 1,
+    );
+    for (const [distance, placement, material, variant] of [
+      [0.8, 'sidebar', 'matte', 'regular'],
+      [1.05, 'overlay', 'matte', 'regular'],
+      [1.4, 'desktop', 'matte', 'regular'],
+      [1.7, 'edge', 'matte', 'regular'],
+      [2, 'edge', 'matte', 'regular'],
+      [2.4, 'overlay', 'matte', 'regular'],
+      [2.6, 'overlay', 'frosted', 'regular'],
+      [2.85, 'overlay', 'native-glass', 'regular'],
+      [3.1, 'overlay', 'native-glass', 'clear'],
+      [3.35, 'overlay', 'black', 'regular'],
+    ]) {
+      await scrollScene(page, '.opening-story', distance / 3.5);
+      await page.locator(`.layout-demo-canvas[data-demo-placement="${placement}"]`).waitFor();
+      await page
+        .locator(`.layout-demo-workspace[data-material="${material}"][data-variant="${variant}"]`)
+        .waitFor();
+      await page.clock.runFor(1100);
+      assert.equal(
+        await page.locator('.layout-demo-canvas').getAttribute('data-demo-placement'),
+        placement,
+      );
+      assert.equal(
+        await page.locator('.layout-demo-workspace').getAttribute('data-material'),
+        material,
+      );
+      assert.equal(
+        await page.locator('.layout-demo-workspace').getAttribute('data-variant'),
+        variant,
+      );
+      assert.equal(await stand.getAttribute('data-progress'), '1');
+      assert.equal(
+        await workspace.evaluate((node) => node === document.querySelector('.layout-demo-window')),
+        true,
+      );
+      if (distance === 2) {
+        await page.waitForFunction(
+          () => document.querySelector('[aria-label="贴边位置演示"]')?.value === 'top',
+        );
+        assert.equal(await page.getByLabel('贴边位置演示').inputValue(), 'top');
+      }
+      if ([0.8, 1.4, 2.85].includes(distance))
+        await page.screenshot({
+          path: resolve(reports, `monitor-stage-${placement}-${material}.png`),
+        });
+    }
+    await scrollScene(page, '.opening-story', 1.05 / 3.5);
+    await page.clock.runFor(1100);
+    assert.equal(
+      await page.locator('.layout-demo-canvas').getAttribute('data-demo-placement'),
+      'overlay',
+    );
+    await scrollScene(page, '.opening-story', 0);
+    await page.waitForFunction(
+      () => document.querySelector('.studio-display-frame')?.getAttribute('data-progress') === '0',
+    );
+    assert.equal(await stand.getAttribute('data-progress'), '0');
+    await page.locator('#install').scrollIntoViewIfNeeded();
+    assert.equal(await page.locator('.install-details').count(), 0);
+    await page.screenshot({ path: resolve(reports, 'monitor-footer.png') });
+  } finally {
+    await page.close();
+  }
+});
+
+test('the monitor opening stays complete in a shorter desktop viewport and manual controls pause its tour', async () => {
+  const page = await newPage({
+    viewport: { width: 1063, height: 690 },
+    reducedMotion: 'no-preference',
+  });
+  try {
+    await page.goto(`${base}/?lang=en`);
+    const device = await page.locator('.studio-display-frame').boundingBox();
+    assert.ok(
+      device.x >= 0 &&
+        device.y >= 0 &&
+        device.x + device.width <= 1063 &&
+        device.y + device.height <= 690,
+    );
+    const copy = await page.locator('.opening-copy').boundingBox();
+    assert.ok(
+      device.y > copy.y + copy.height + 20,
+      'short viewport keeps the monitor below the download link',
+    );
+    await scrollScene(page, '.opening-story', 2.6 / 3.5);
+    await page.getByRole('button', { name: 'Matte', exact: true }).click();
+    await frames(page);
+    assert.equal(
+      await page.locator('.layout-demo-workspace').getAttribute('data-material'),
+      'matte',
+    );
+    const materialControls = await page.locator('.material-story').boundingBox();
+    assert.ok(
+      materialControls.y + materialControls.height <= 690,
+      'material controls fit short desktop screens',
+    );
+    await page.mouse.wheel(0, 1);
+    await scrollScene(page, '.opening-story', 3.1 / 3.5);
+    await page.locator('.layout-demo-workspace[data-variant=clear]').waitFor();
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.locator('.opening-story[data-static=true]').waitFor();
+    await page.getByRole('button', { name: 'Matte', exact: true }).click();
+    assert.equal(
+      await page.locator('.layout-demo-workspace').getAttribute('data-material'),
+      'matte',
+    );
+  } finally {
+    await page.close();
+  }
+});
 const names = [
   '大纲',
   '下一步',
@@ -169,13 +308,14 @@ const names = [
   '提示词优化',
   '兼容集成',
 ];
-async function site(options = {}, language = 'zh-CN') {
+async function site(options = {}, language = 'zh-CN', clock = false) {
   const page = await newPage({
     locale: language,
     viewport: { width: 1440, height: 900 },
     reducedMotion: 'reduce',
     ...options,
   });
+  if (clock) await page.clock.install();
   await page.goto(`${base}/?lang=${language}#features`);
   await page.locator('#feature-tab-outline[aria-selected=true]').waitFor();
   await frames(page);
@@ -303,7 +443,8 @@ test('shared phrases expand, insert and keep an unfinished edit through navigati
   try {
     await select(page, 'prompts');
     const phrases = panel(page, 'prompts');
-    await phrases.getByRole('button', { name: '展开全文', exact: true }).click();
+    assert.equal(await phrases.locator('[data-quick-prompt]').count(), 7);
+    await phrases.getByRole('button', { name: '展开全文', exact: true }).first().click();
     await phrases.getByRole('button', { name: '检查方案', exact: true }).click();
     await phrases.locator('.preview-draft').waitFor();
     assert.match(await phrases.locator('.preview-draft').innerText(), /保留已经确认的视觉风格/);
@@ -327,23 +468,30 @@ test('shared phrases expand, insert and keep an unfinished edit through navigati
 test('outline and next step run the settings preview commands in memory', async () => {
   const page = await site();
   try {
-    await panel(page, 'outline').locator('[data-outline-id="1"]').click();
+    const outline = panel(page, 'outline');
+    assert.equal(await outline.locator('.csw-outline-row[data-outline-id]').count(), 9);
+    const before = await page.evaluate(() => scrollY);
+    await outline.locator('[data-outline-id="1:mobile"]').click();
+    await outline
+      .locator('.feature-answer [data-section="1:mobile"][data-selected=true]')
+      .waitFor();
     assert.equal(
-      await panel(page, 'outline').locator('.preview-draft').textContent(),
-      '安排页面与布局',
+      await page.evaluate(() => scrollY),
+      before,
+      'source navigation stays inside the preview',
     );
+    assert.equal(await outline.locator('.preview-draft').count(), 0);
     await select(page, 'next');
     const next = panel(page, 'next');
-    await next.getByRole('button', { name: '拆解第一版', exact: true }).click();
+    await next.getByRole('button', { name: /^拆解第一版/ }).click();
     await next.locator('.preview-draft').waitFor();
-    assert.match(await next.locator('.preview-draft').textContent(), /两天内/);
+    assert.match(await next.locator('.preview-draft').textContent(), /两天的任务清单/);
     await next.getByRole('button', { name: '重新生成建议', exact: true }).click();
-    await next.getByRole('button', { name: '比较展示方式', exact: true }).waitFor();
+    await next.getByRole('button', { name: /^比较展示方式/ }).waitFor();
     await select(page, 'outline');
-    assert.equal(
-      await panel(page, 'outline').locator('.preview-draft').textContent(),
-      '安排页面与布局',
-    );
+    await outline
+      .locator('.feature-answer [data-section="1:mobile"][data-selected=true]')
+      .waitFor();
   } finally {
     await page.close();
   }
@@ -355,6 +503,7 @@ test('the real task board can edit and create tasks without leaving the shared f
     await select(page, 'board');
     const board = panel(page, 'board');
     assert.equal(await board.locator('.board-column').count(), 3);
+    assert.equal(await board.locator('.task-card').count(), 9);
     await board.getByRole('button', { name: '任务详情：整理三个代表作品', exact: true }).click();
     await board.getByRole('textbox', { name: '标题', exact: true }).fill('整理作品与截图');
     await board.getByRole('button', { name: '保存', exact: true }).click();
@@ -378,7 +527,7 @@ test('shared model choices, Bot messages and the isolated Agent menu remain inte
     const model = panel(page, 'model');
     await model.locator('.token-meter-readout').waitFor();
     assert.match(await model.locator('.token-meter-readout').innerText(), /38.4/);
-    const choice = model.locator('[data-model="example-b"][data-reasoning="high"]');
+    const choice = model.locator('[data-model="example-c"][data-reasoning="high"]');
     await choice.click();
     assert.equal(await choice.getAttribute('aria-pressed'), 'true');
     await model.getByRole('button', { name: 'Fast', exact: true }).click();
@@ -390,7 +539,9 @@ test('shared model choices, Bot messages and the isolated Agent menu remain inte
     await select(page, 'bots');
     const bots = panel(page, 'bots');
     await bots.getByRole('button', { name: '最近消息', exact: true }).click();
-    await bots.getByText('检查输入、异常和兼容情况。', { exact: true }).waitFor();
+    await bots
+      .getByText('三个项目各保留两张关键截图；记账应用还缺一段个人贡献说明。', { exact: true })
+      .waitFor();
     await select(page, 'compatibility');
     const agent = panel(page, 'compatibility').getByRole('menuitemradio', {
       name: 'Claude Code',
@@ -398,6 +549,11 @@ test('shared model choices, Bot messages and the isolated Agent menu remain inte
     });
     await agent.click();
     assert.equal(await agent.getAttribute('aria-checked'), 'true');
+    const agents = panel(page, 'compatibility');
+    assert.equal(await agents.locator('.compatibility-agent-row').count(), 18);
+    assert.equal(await agents.locator('.compatibility-agent-add').count(), 14);
+    await agents.locator('.compatibility-agent-add').first().click();
+    assert.equal(await agents.locator('.compatibility-agent-add').count(), 13);
     await select(page, 'model');
     assert.equal(await choice.getAttribute('aria-pressed'), 'true');
   } finally {
@@ -431,7 +587,7 @@ test('language changes translate sample labels while preserving model selection,
   try {
     await select(page, 'model');
     const model = panel(page, 'model');
-    const choice = model.locator('[data-model="example-b"][data-reasoning="high"]');
+    const choice = model.locator('[data-model="example-c"][data-reasoning="high"]');
     const fast = model.getByRole('button', { name: 'Fast', exact: true });
     await choice.click();
     await fast.click();
@@ -444,14 +600,14 @@ test('language changes translate sample labels while preserving model selection,
     await select(page, 'model');
     assert.equal(await choice.getAttribute('aria-pressed'), 'true');
     assert.equal(await fast.getAttribute('aria-pressed'), 'true');
-    assert.match(await choice.getAttribute('aria-label'), /Example model B/i);
+    assert.match(await choice.getAttribute('aria-label'), /Example model C/i);
     assert.match(await model.locator('.model-preset-choice').first().innerText(), /我的保留预设/);
-    assert.doesNotMatch(await model.locator('.model-preset-choice').last().innerText(), /深入分析/);
+    assert.match(await model.locator('.model-preset-choice').nth(1).innerText(), /Deep analysis/);
     await page.locator('.site-language').click();
     await select(page, 'model');
     assert.equal(await choice.getAttribute('aria-pressed'), 'true');
     assert.equal(await fast.getAttribute('aria-pressed'), 'true');
-    assert.match(await model.locator('.model-preset-choice').last().innerText(), /深入分析/);
+    assert.match(await model.locator('.model-preset-choice').nth(1).innerText(), /深入分析/);
   } finally {
     await page.close();
   }
@@ -462,6 +618,7 @@ test('term details close when scrolling to another feature and favorites survive
   try {
     await select(page, 'terms');
     const terms = panel(page, 'terms');
+    assert.equal(await terms.locator('.term-brick').count(), 12);
     await terms.getByRole('button', { name: '响应式布局', exact: true }).click();
     const popup = page.locator('.term-popover[data-open=true]');
     await popup.waitFor();
@@ -478,16 +635,17 @@ test('term details close when scrolling to another feature and favorites survive
 });
 
 test('entry demonstration only runs in view and manual interaction cancels it', async () => {
-  const page = await site({ reducedMotion: 'no-preference' });
+  const page = await site({ reducedMotion: 'no-preference' }, 'zh-CN', true);
   try {
-    await page.clock.install();
     await select(page, 'next');
     await page.clock.runFor(1700);
     await panel(page, 'next').locator('.preview-draft').waitFor();
     await select(page, 'prompts');
     const phrases = panel(page, 'prompts');
     await phrases.getByRole('button', { name: '添加快捷指令', exact: true }).click();
+    await phrases.getByLabel('快捷指令内容').click();
     await phrases.getByLabel('快捷指令内容').fill('手动接管');
+    assert.equal(await phrases.getByLabel('快捷指令内容').inputValue(), '手动接管');
     await page.clock.runFor(2200);
     assert.equal(await phrases.getByLabel('快捷指令内容').inputValue(), '手动接管');
     await select(page, 'model');
@@ -500,6 +658,7 @@ test('entry demonstration only runs in view and manual interaction cancels it', 
 });
 
 for (const [width, height, language] of [
+  [1609, 1079, 'zh-CN'],
   [1440, 900, 'zh-CN'],
   [1024, 720, 'en'],
   [1063, 690, 'zh-CN'],
@@ -537,6 +696,7 @@ for (const [width, height, language] of [
             .evaluate((el) => getComputedStyle(el).fontSize),
           '14px',
         );
+        if (width === 1609) await page.screenshot({ path: resolve(reports, `feature-${id}.png`) });
       }
       await select(page, 'prompts');
       if (width === 1440 || width === 390 || width === 1063)

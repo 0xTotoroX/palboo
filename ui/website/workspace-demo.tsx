@@ -25,6 +25,7 @@ import {
 } from './product-demos';
 import { Icon } from '../shared/icons/react';
 import { smooth } from './scroll-motion';
+import { openingStop } from './scroll-tour';
 
 const examples = {
   get next() {
@@ -135,12 +136,16 @@ export function SurfaceStory({
   interactive = true,
   entryRef,
   materialProgress = 0,
+  tourDistance,
+  standProgress = 0,
 }: {
   zoom?: number;
   reveal?: number;
   interactive?: boolean;
   entryRef?: Ref<SVGGElement>;
   materialProgress?: number;
+  tourDistance?: number;
+  standProgress?: number;
 }) {
   useLocale();
   const [edge, setEdge] = useState('right');
@@ -152,8 +157,15 @@ export function SurfaceStory({
     media.addEventListener('change', change);
     return () => media.removeEventListener('change', change);
   }, []);
-  const [material, setMaterial] = useState<SurfaceTheme['theme']>('native-glass');
+  const [material, setMaterial] = useState<SurfaceTheme['theme']>('matte');
   const [variant, setVariant] = useState<'regular' | 'clear'>('regular');
+  const stop = tourDistance === undefined ? undefined : openingStop(tourDistance);
+  useEffect(() => {
+    if (!stop) return;
+    setEdge(stop.edge);
+    setMaterial(stop.material);
+    setVariant(stop.variant);
+  }, [stop]);
   const surfaces = useMemo(
     () => sampleSurfaces(material, variant, edge),
     [material, variant, edge],
@@ -168,6 +180,7 @@ export function SurfaceStory({
       aria-label={tr('位置与布局')}
       data-controls={interactive}
       data-material-stage={materialProgress >= 0.5}
+      data-tour-stop={stop?.at}
       inert={!interactive}
       style={
         {
@@ -192,6 +205,9 @@ export function SurfaceStory({
           typographyPreferences={typography}
           focusWorkspace={compact}
           materialProgress={materialProgress}
+          display="studio"
+          standProgress={standProgress}
+          demoStop={stop?.layout}
           onReset={reset}
           renderControls={({
             placement,

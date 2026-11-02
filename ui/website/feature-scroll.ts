@@ -3,6 +3,7 @@
  * [POS]: Website-only navigation; never cancels wheel/touch or polls while idle.
  * [PROTOCOL]: Keep website/AGENTS.md and browser acceptance in sync. */
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { demoFocus } from './demo-focus';
 
 const compactQuery = '(max-width: 760px), (max-height: 560px)';
 export function useFeatureScroll(count: number) {
@@ -41,6 +42,7 @@ export function useFeatureScroll(count: number) {
     let frame = 0;
     let resizeFrame = 0;
     let resizing = false;
+    let interacting = false;
     let previousY = scrollY;
     const update = () => {
       frame = 0;
@@ -51,6 +53,15 @@ export function useFeatureScroll(count: number) {
       if (distance <= 0) return;
       if (Math.abs(scrollY - previousY) < 1) return;
       previousY = scrollY;
+      // Focus and scroll-into-view inside a preview must not navigate to another feature.
+      const panel = root.querySelector<HTMLElement>('.feature-panel[data-active="true"]');
+      const shadow = panel?.querySelector('[data-settings-feature]')?.shadowRoot;
+      if (
+        interacting &&
+        (demoFocus(panel)?.matches('input, textarea, select, [contenteditable="true"]') ||
+          shadow?.querySelector('form'))
+      )
+        return;
       const progress = Math.max(0, Math.min(1, -box.top / distance));
       change(Math.round(progress * (count - 1)));
     };
@@ -71,13 +82,34 @@ export function useFeatureScroll(count: number) {
         });
       });
     };
+    const interact = (event: Event) => {
+      if (
+        event
+          .composedPath()
+          .some((node) => node instanceof Element && node.matches('.feature-panel'))
+      )
+        interacting = true;
+    };
     const intent = () => {
       resizing = false;
+      interacting = false;
     };
     const keyboardIntent = (event: globalThis.KeyboardEvent) => {
+      if (
+        event
+          .composedPath()
+          .some(
+            (node) =>
+              node instanceof Element &&
+              node.matches('input, textarea, select, [contenteditable="true"]'),
+          )
+      )
+        return;
       if (['PageDown', 'PageUp', 'ArrowDown', 'ArrowUp', 'Home', 'End', ' '].includes(event.key))
         intent();
     };
+    root.addEventListener('pointerdown', interact, true);
+    root.addEventListener('focusin', interact, true);
     addEventListener('scroll', schedule, { passive: true });
     addEventListener('resize', resize);
     addEventListener('wheel', intent, { passive: true });
@@ -90,6 +122,8 @@ export function useFeatureScroll(count: number) {
     return () => {
       cancelAnimationFrame(frame);
       cancelAnimationFrame(resizeFrame);
+      root.removeEventListener('pointerdown', interact, true);
+      root.removeEventListener('focusin', interact, true);
       removeEventListener('scroll', schedule);
       removeEventListener('resize', resize);
       removeEventListener('wheel', intent);

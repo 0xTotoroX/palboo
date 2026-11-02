@@ -1,4 +1,4 @@
-/* [INPUT]: Current local task/Bot snapshots, saved presentation preferences and shared feature components.
+/* [INPUT]: Current local snapshots, saved preferences, shared components and optional isolated example adapters.
  * [OUTPUT]: Interactive product content in its real header/body layout; all actions stay in memory.
  * [POS]: Settings preview adapter; incoming snapshots are copied, preview actions never call hosts or persist edits.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
@@ -9,7 +9,9 @@ import { Board } from '../features/board/app';
 import { type TaskRequest, type TaskState, type BoardViewMode } from '../features/board/api';
 import type { BotCatalog } from './bot-settings';
 import { BotsView, type BotState } from '../features/bots/view';
-import { TerminologyView } from '../features/terminology';
+import type { ReplyLoader } from '../features/bots/messages';
+import { TerminologyView, type Term } from '../features/terminology';
+import type { PanelSnapshot } from '../shared/contracts';
 import { sampleProjection, sampleTerms, createDemoTasks } from '../shared/demo-state';
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
@@ -23,6 +25,15 @@ import boardStyles from '../features/board/styles.css?inline';
 import botStyles from '../features/bots/style.css?inline';
 
 type Kind = 'outline' | 'next' | 'prompts' | 'board' | 'bots' | 'terms';
+export type FeaturePreviewExample = {
+  projection?: (explore: boolean) => PanelSnapshot;
+  taskRequest?: TaskRequest;
+  terms?: Term[];
+  bots?: BotState['snapshot'];
+  readBotReply?: ReplyLoader;
+  botAction?: (data: Record<string, unknown>) => string;
+  onOutlineJump?: (id: string) => void;
+};
 const theme = `
 :host{display:block;min-width:0;font:inherit;color-scheme:inherit;--paper:var(--buddy-surface);--surface:var(--paper);--ink:var(--buddy-text);--muted:var(--buddy-muted);--line:var(--buddy-border);--border:var(--line);--hover:var(--buddy-input);--accent:var(--buddy-focus);--danger:var(--error-foreground);--board-bg:transparent;--csw-text:var(--ink);--csw-muted:var(--muted);--csw-divider:var(--line);--csw-hover:var(--hover);--csw-accent:var(--accent);--csw-item-font:1em;--csw-chrome-font:1em;--csw-next-font:1em;--csw-outline-font:1em;--csw-label-weight:500;--feature-refresh-opacity:1;--board-font-size:1em}
 :host>div{height:var(--preview-feature-height,100%);min-height:0}
@@ -99,11 +110,13 @@ function BoardPreview({
   header,
   mode,
   exampleViewMode,
+  exampleRequest,
 }: {
   tasks: TaskState | null;
   header: HTMLElement;
   mode: 'current' | 'example';
   exampleViewMode: BoardViewMode;
+  exampleRequest?: TaskRequest;
 }) {
   const locale = useLocale();
   const signature = JSON.stringify(mode === 'current' ? (tasks ?? null) : null);
@@ -113,9 +126,9 @@ function BoardPreview({
   );
   const request: TaskRequest = useCallback(
     async <T,>(path: string, body?: unknown) => {
-      return demo.request<T>(path, body);
+      return (mode === 'example' && exampleRequest ? exampleRequest : demo.request)<T>(path, body);
     },
-    [demo, locale],
+    [demo, locale, mode, exampleRequest],
   );
   if (mode === 'current' && !tasks) return <p role="status">{tr('正在读取本地任务…')}</p>;
   return <Board embedded poll={false} headerActions={header} request={request} />;
@@ -127,12 +140,14 @@ function BotPreview({
   catalog,
   autoSync,
   mode,
+  example,
 }: {
   header: HTMLElement;
   onInsert: (text: string) => void;
   catalog: BotCatalog | null;
   autoSync: boolean;
   mode: 'current' | 'example';
+  example?: FeaturePreviewExample;
 }) {
   useLocale();
   const [stopped, setStopped] = useState(false);
@@ -162,7 +177,7 @@ function BotPreview({
               })),
             }
           : null
-        : {
+        : (example?.bots ?? {
             target: { threadId: 'settings-preview', token: 'example' },
             catalog: { revision: 'example', stale: false },
             bots: [
@@ -191,14 +206,19 @@ function BotPreview({
                 current: null,
               },
             ],
-          },
+          }),
   };
   return (
     <BotsView
       headerActions={header}
       state={state}
       disabled={false}
+      readReply={example?.readBotReply}
       action={(data) => {
+        if (example?.botAction) {
+          onInsert(example.botAction(data));
+          return;
+        }
         if (data.action === 'stop') {
           setStopped(true);
           return;
@@ -215,12 +235,20 @@ function BotPreview({
   );
 }
 
-function TermPreview({ header, active }: { header: HTMLElement; active: boolean }) {
+function TermPreview({
+  header,
+  active,
+  exampleEntries,
+}: {
+  header: HTMLElement;
+  active: boolean;
+  exampleEntries?: Term[];
+}) {
   useLocale();
   const reading = useRef<Reading>({});
   const [favorites, setFavorites] = useState<string[]>([]);
   const [mastered, setMastered] = useState<string[]>([]);
-  const entries = sampleTerms();
+  const entries = exampleEntries ?? sampleTerms();
   return (
     <TerminologyView
       active={active}
@@ -259,6 +287,7 @@ export function FeaturePreviewContent({
   headerActions,
   active = true,
   exampleBoardViewMode = 'merged',
+  example,
 }: {
   id: Kind;
   form: EditableSettings | null;
@@ -269,6 +298,7 @@ export function FeaturePreviewContent({
   headerActions?: HTMLElement;
   active?: boolean;
   exampleBoardViewMode?: BoardViewMode;
+  example?: FeaturePreviewExample;
 }) {
   useLocale();
   const reading = useRef<Reading>({});
@@ -276,7 +306,9 @@ export function FeaturePreviewContent({
   const [explore, setExplore] = useState(false);
   const [quick, setQuick] = useState<{ label: string; prompt: string }[] | null>(null);
   const revision = useRef(0);
-  const snapshot = sampleProjection(explore);
+  // 可选样本仅在 example 模式生效；设置的 current 数据与默认示例保持原有路径。
+  const sample = mode === 'example' ? example : undefined;
+  const snapshot = structuredClone(sample?.projection?.(explore) ?? sampleProjection(explore));
   const limit =
     form?.directionSource === 'manual' ? form.selectedDirections.length : (form?.maxItems ?? 3);
   snapshot.prompts = snapshot.prompts.slice(0, Math.max(0, limit));
@@ -289,7 +321,7 @@ export function FeaturePreviewContent({
   snapshot.settings.configurationRevision = revision.current;
   snapshot.display = {
     ...snapshot.display,
-    labelOnly: view?.panelPreferences.ui.labelOnly ?? true,
+    labelOnly: view?.panelPreferences.ui.labelOnly ?? snapshot.display?.labelOnly ?? true,
     promptClickMode: view?.panelPreferences.ui.promptClickMode ?? 'fill',
   };
   return (
@@ -306,9 +338,10 @@ export function FeaturePreviewContent({
               header={header}
               mode={mode}
               exampleViewMode={exampleBoardViewMode}
+              exampleRequest={sample?.taskRequest}
             />
           ) : id === 'terms' ? (
-            <TermPreview header={header} active={active} />
+            <TermPreview header={header} active={active} exampleEntries={sample?.terms} />
           ) : id === 'bots' ? (
             <BotPreview
               header={header}
@@ -316,6 +349,7 @@ export function FeaturePreviewContent({
               catalog={bots}
               mode={mode}
               autoSync={form?.grokbotAutoSync ?? true}
+              example={sample}
             />
           ) : (
             <ProjectedContent
@@ -340,15 +374,16 @@ export function FeaturePreviewContent({
                   const text = items[data?.index ?? 0]?.prompt;
                   if (text) setDraft((previous) => (previous ? `${previous}\n${text}` : text));
                 }
-                if (kind === 'outline-jump')
-                  setDraft(snapshot.outlineItems.find((item) => item.id === data?.id)?.text || '');
-                if (kind === 'outline-anchor')
-                  setDraft(
-                    (data?.anchor === 'end'
-                      ? snapshot.outlineItems.at(-1)
-                      : snapshot.outlineItems[0]
-                    )?.text || '',
-                  );
+                if (kind === 'outline-jump' || kind === 'outline-anchor') {
+                  const item =
+                    kind === 'outline-jump'
+                      ? snapshot.outlineItems.find((item) => item.id === data?.id)
+                      : data?.anchor === 'end'
+                        ? snapshot.outlineItems.at(-1)
+                        : snapshot.outlineItems[0];
+                  if (sample?.onOutlineJump && item) sample.onOutlineJump(item.id);
+                  else setDraft(item?.text || '');
+                }
               }}
             />
           )

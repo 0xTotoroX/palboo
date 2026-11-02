@@ -1,11 +1,12 @@
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
-/* [INPUT]: Demonstration children, window geometry and optional website camera/material progress.
- * [OUTPUT]: Shared device/secondary display; a continuous material close-up preserves the workspace node.
- * [POS]: Local vector illustration; no screenshots, external assets or product commands.
+/* [INPUT]: Demonstration children, window geometry and optional website camera/material/display/stand progress.
+ * [OUTPUT]: Shared device/secondary display or a 16:9 desktop monitor; transitions preserve the workspace node.
+ * [POS]: Shared live preview and optional local hardware model; no external requests or product commands.
  * [PROTOCOL]: Keep settings/AGENTS.md and website/AGENTS.md in sync. */
 import type { ReactNode, Ref } from 'react';
 import { PalbooWordmark } from '../shared/brand';
+import { StudioDisplayFrame } from './studio-display';
 export type DemoFrame = { x: number; y: number; w: number; h: number; secondary: number };
 export const demoFrames: Record<string, DemoFrame> = {
   sidebar: { x: 454, y: 82, w: 244, h: 380, secondary: 0 },
@@ -24,6 +25,8 @@ export function LayoutPreviewScene({
   entryRef,
   focusWorkspace = false,
   materialProgress,
+  display,
+  standProgress,
 }: {
   frame: DemoFrame;
   children: ReactNode;
@@ -34,14 +37,22 @@ export function LayoutPreviewScene({
   entryRef?: Ref<SVGGElement>;
   focusWorkspace?: boolean;
   materialProgress?: number;
+  display?: 'studio';
+  standProgress?: number;
 }) {
   useLocale();
+  const studio = display === 'studio';
+  const screenHeight = studio ? 384 : 428;
+  const trim = 428 - screenHeight;
+  const deviceFrame =
+    studio && !focusWorkspace ? { ...frame, h: frame.h - trim * (1 - frame.secondary) } : frame;
   const chatWidth =
     (!placement || placement === 'sidebar') && frame.x < 710 ? Math.max(230, frame.x - 190) : 498;
   // The website approaches this same device; settings keep their original framing.
   const camera = Math.max(0, Math.min(1, zoom ?? 0)) * (1 - frame.secondary);
-  const width = 1120 - 384 * camera;
-  const height = width / 1.6;
+  const width = studio ? 800 - 64 * camera + 320 * frame.secondary : 1120 - 384 * camera;
+  const height = studio ? 600 - 140 * camera + 100 * frame.secondary : width / 1.6;
+  const centerY = studio ? 310 - 46 * camera : 264;
   const center = 368 + 192 * frame.secondary;
   const material = Math.max(0, Math.min(1, materialProgress ?? 0));
   const mix = (from: number, to: number) => from + (to - from) * material;
@@ -50,13 +61,13 @@ export function LayoutPreviewScene({
     return t * t * (3 - 2 * t);
   };
   const sampleFrame = focusWorkspace
-    ? frame
+    ? deviceFrame
     : {
-        ...frame,
-        x: mix(frame.x, 148),
-        y: mix(frame.y, 60),
-        w: mix(frame.w, 440),
-        h: mix(frame.h, 340),
+        ...deviceFrame,
+        x: mix(deviceFrame.x, 148),
+        y: mix(deviceFrame.y, 60),
+        w: mix(deviceFrame.w, 440),
+        h: mix(deviceFrame.h, 340),
       };
   const materialBackdrop = focusWorkspace
     ? { x: frame.x - 12, y: frame.y - 12, w: frame.w + 24, h: frame.h + 24 }
@@ -64,25 +75,42 @@ export function LayoutPreviewScene({
   return (
     <svg
       className="layout-demo-scene"
+      data-display={display}
       viewBox={
         focusWorkspace
           ? `${frame.x - 12} ${frame.y - 12} ${frame.w + 24} ${frame.h + 24}`
           : zoom === undefined
             ? `${-188 * (1 - frame.secondary)} 16 1120 500`
-            : `${mix(center - width / 2, 0)} ${mix(264 - height / 2, 0)} ${mix(width, 736)} ${mix(height, 460)}`
+            : `${mix(center - width / 2, 0)} ${mix(centerY - height / 2, 0)} ${mix(width, 736)} ${mix(height, 460)}`
       }
       style={focusWorkspace ? { aspectRatio: `${frame.w + 24} / ${frame.h + 24}` } : undefined}
       role="group"
       aria-label={tr('{{hostName}} 与副屏中的交互示例', { hostName: hostName })}
     >
       <g visibility={focusWorkspace ? 'hidden' : undefined} opacity={1 - reveal(0, 0.65)}>
-        <path className="demo-desk" d="M8 488H1112" />
-        <rect className="demo-device-shadow" x="24" y="47" width="694" height="440" rx="9" />
-        <rect className="demo-device" x="22" y="42" width="694" height="440" rx="9" />
-        <rect className="demo-screen" x="28" y="48" width="682" height="428" rx="3" />
-        <path className="demo-rim" d="M32 43H706Q715 43 715 52" />
+        {studio ? (
+          <StudioDisplayFrame progress={standProgress} />
+        ) : (
+          <>
+            <path className="demo-desk" d="M8 488H1112" />
+            <rect className="demo-device-shadow" x="24" y="47" width="694" height="440" rx="9" />
+            <rect className="demo-device" x="22" y="42" width="694" height="440" rx="9" />
+            <path className="demo-rim" d="M32 43H706Q715 43 715 52" />
+          </>
+        )}
+        <rect
+          className="demo-screen"
+          x="28"
+          y="48"
+          width="682"
+          height={screenHeight}
+          rx={studio ? 2 : 3}
+        />
         <g aria-hidden="true" transform="translate(28 48)">
-          <path className="demo-rail" d="M3 0H126V428H3Q0 428 0 425V3Q0 0 3 0Z" />
+          <path
+            className="demo-rail"
+            d={`M3 0H126V${screenHeight}H3Q0 ${screenHeight} 0 ${screenHeight - 3}V3Q0 0 3 0Z`}
+          />
           <text x="147" y="24" className="demo-title">
             {hostName}
           </text>
@@ -94,11 +122,15 @@ export function LayoutPreviewScene({
               {text}
             </text>
           ))}
-          <g ref={entryRef} className="demo-eyes demo-entry" transform="translate(16 392)">
+          <g
+            ref={entryRef}
+            className="demo-eyes demo-entry"
+            transform={`translate(16 ${392 - trim})`}
+          >
             <rect width="4" height="10" rx="2" />
             <rect x="8" width="4" height="10" rx="2" />
           </g>
-          <text x="37" y="401">
+          <text x="37" y={401 - trim}>
             Palboo
           </text>
           <rect
@@ -138,15 +170,15 @@ export function LayoutPreviewScene({
           <rect
             className="demo-composer"
             x="143"
-            y="347"
+            y={347 - trim}
             width={chatWidth + 18}
             height="64"
             rx="15"
           />
-          <text x="155" y="370">
+          <text x="155" y={370 - trim}>
             {tr('询问任何问题')}
           </text>
-          <text x="155" y="397">
+          <text x="155" y={397 - trim}>
             {tr('＋　工具')}
           </text>
         </g>

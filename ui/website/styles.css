@@ -309,6 +309,11 @@ h2 {
   right: auto;
   width: calc(100% - 40px);
   margin: 24px auto 48px;
+  text-align: center;
+}
+.opening-story[data-static='true'] .opening-copy h1,
+.opening-story[data-static='true'] .opening-copy p {
+  margin-inline: auto;
 }
 .opening-story[data-static='true'] .intro-preview {
   position: relative;

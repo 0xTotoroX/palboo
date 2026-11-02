@@ -10,7 +10,6 @@ import {
   useState,
   type KeyboardEvent,
 } from 'react';
-import { FeaturePreviewContent } from '../settings/feature-preview';
 import { ModelPreview } from '../settings/model-preview';
 import { PromptPreview } from '../settings/prompt-preview';
 import { CodexHostPreview } from '../settings/codex-host-preview';
@@ -19,8 +18,14 @@ import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 import { useSiteTheme } from './theme';
 import { sampleProjection } from '../shared/demo-state';
-import { samplePhrases } from './product-demos';
-import { featurePages, modelExample, agentExample } from './feature-examples';
+import {
+  featurePages,
+  modelExample,
+  agentExample,
+  portfolioPhrases,
+  portfolioPrompt,
+} from './feature-examples';
+import { FeatureContentExample } from './feature-context';
 import { useFeatureScroll } from './feature-scroll';
 
 type Page = (typeof featurePages)[number];
@@ -104,7 +109,7 @@ function FeaturePage({
   const form = {
     ...sampleProjection().settings,
     directionSource: 'auto' as const,
-    quickPrompts: samplePhrases(),
+    quickPrompts: portfolioPhrases(),
     quickPromptLabelOnly: namesOnly,
   };
   return (
@@ -145,28 +150,42 @@ function FeaturePage({
           </div>
         )}
         {page.id === 'model' ? (
-          <ModelPreview
-            model={modelExample()}
-            demoSelection={modelSelection ?? undefined}
-            mode="current"
-            preserveEdits
-          />
+          <>
+            <ModelPreview
+              model={modelExample()}
+              demoSelection={modelSelection ?? undefined}
+              mode="current"
+              preserveEdits
+            />
+            <p className="feature-example-note">
+              {tr('模型、档位和额度均为示例，实际选项以接入的宿主与服务为准。')}
+            </p>
+          </>
         ) : page.id === 'prompt' ? (
           <div className="preview-prompt">
-            <PromptPreview active={active && inView} tourStep={promptStep} />
+            <section className="feature-context" aria-label={tr('项目资料')}>
+              <h3>{tr('项目资料')}</h3>
+              <p>
+                {tr(
+                  '阅读工具、活动报名页、记账应用；已有项目说明和部分截图，个人贡献与结果仍需逐项核对。',
+                )}
+              </p>
+              <p>
+                {tr(
+                  '两天完成第一版：简介、三个项目、联系方式。保留现有视觉风格，兼顾手机阅读，暂不增加博客。',
+                )}
+              </p>
+            </section>
+            <PromptPreview
+              active={active && inView}
+              tourStep={promptStep}
+              example={portfolioPrompt()}
+            />
           </div>
         ) : page.id === 'compatibility' ? (
           <CodexHostPreview live={false} example={agentExample} />
         ) : (
-          <FeaturePreviewContent
-            id={page.id}
-            form={form}
-            view={null}
-            tasks={null}
-            mode="example"
-            active={active && inView}
-            exampleBoardViewMode="expanded"
-          />
+          <FeatureContentExample id={page.id} form={form} active={active && inView} />
         )}
       </div>
     </div>

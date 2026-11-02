@@ -106,6 +106,7 @@ export function CodexHostPreview({
         <button
           type="button"
           role="menuitemradio"
+          aria-label={agent.label}
           aria-checked={selected === agent.id}
           aria-description={status}
           title={status}
