@@ -2,7 +2,7 @@
  * [OUTPUT]: Product optimize/cancel/restore control, preserving manually edited drafts.
  * [POS]: Shared settings/website demo target and transport; never discovers a host or calls a model.
  * [PROTOCOL]: Keep settings/AGENTS.md and both consumers' browser checks in sync. */
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import { installPromptEnhancer } from '../codex/prompt-enhancement.js';
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
@@ -10,17 +10,27 @@ import { tr } from '../shared/i18n.js';
 export function PromptPreview({
   tourStep,
   active = true,
+  draft,
+  onDraftChange,
 }: {
   tourStep?: number;
   active?: boolean;
+  draft?: string;
+  onDraftChange?: (draft: string) => void;
 }) {
   const locale = useLocale();
   const root = useRef<HTMLDivElement>(null);
   const editor = useRef<HTMLTextAreaElement>(null);
   const edited = useRef(false);
   useEffect(() => {
-    if (!edited.current) editor.current!.value = tr('帮我把这个作品集方案安排一下');
-  }, [locale]);
+    if (!edited.current && draft === undefined)
+      editor.current!.value = tr('帮我把这个作品集方案安排一下');
+  }, [locale, draft]);
+  // 网站组合演示可共用草稿；设置页省略这些属性，继续持有自己的预览输入。
+  useLayoutEffect(() => {
+    if (draft !== undefined && editor.current && editor.current.value !== draft)
+      editor.current.value = draft;
+  }, [draft, locale]);
   useEffect(() => {
     if (!active) return;
     const timers = new Set<ReturnType<typeof setTimeout>>();
@@ -68,6 +78,9 @@ export function PromptPreview({
         defaultValue={tr('帮我把这个作品集方案安排一下')}
         onInput={(event) => {
           if (event.nativeEvent.isTrusted) edited.current = true;
+          onDraftChange?.(event.currentTarget.value);
+          if (!event.nativeEvent.isTrusted && tourStep === 1)
+            event.currentTarget.scrollTop = event.currentTarget.scrollHeight;
         }}
         rows={3}
       />

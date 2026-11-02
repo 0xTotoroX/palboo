@@ -1,8 +1,8 @@
-import { demoFocus, demoEventTarget, isDemoPopover } from './demo-focus';
+import { demoFocus, isDemoPopover } from './demo-focus';
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: Original brand poses, native section progress and the shared settings device/material scene.
- * [OUTPUT]: One brand/layout/material scroll journey and a focus-safe reading story.
+ * [OUTPUT]: One short brand/layout/material journey with persistent manual choices.
  * [POS]: Website narrative composition; all examples describe one portfolio project.
  * [PROTOCOL]: Keep website/AGENTS.md and DESIGN_SYSTEM.md in sync. */
 import {
@@ -15,18 +15,9 @@ import {
 } from 'react';
 import { BrandOpening } from './brand-opening';
 import { GithubLink, type GithubLinkVariant } from './github-link';
-import { FeatureDemo, type FeatureId } from './demos';
 import { SurfaceStory } from './workspace-demo';
-import { FeatureMark, Headline, splitTitle } from './headline';
 import { clamp, smooth, useScrollScene } from './scroll-motion';
-import {
-  layoutStops,
-  materialStops,
-  openingTiming,
-  openingDistance,
-  materialStart,
-  stopAt,
-} from './scroll-tour';
+import { openingTiming, openingDistance, materialStart } from './scroll-tour';
 
 export function OpeningStory({ githubVariant }: { githubVariant?: GithubLinkVariant }) {
   useLocale();
@@ -36,43 +27,15 @@ export function OpeningStory({ githubVariant }: { githubVariant?: GithubLinkVari
   const preview = useRef<HTMLDivElement>(null);
   const [replay, setReplay] = useState(0);
   const [engaged, setEngaged] = useState(false);
-  const [tourPaused, setTourPaused] = useState(false);
   const dragging = useRef(false);
   const [heldMaterial, setHeldMaterial] = useState<number | null>(null);
   const [staticMaterial, setStaticMaterial] = useState(0);
   const distance = progress * openingDistance;
-  // Keep the original brand flight; give each layout/material its own reading distance.
+  // Preserve the brand flight, then one continuous view of placement and material.
   const sceneProgress = engaged ? 1 : clamp(distance / openingTiming.intro);
   const materialProgress =
     heldMaterial ??
     (staticView ? staticMaterial : smooth((distance - materialStart) / openingTiming.transition));
-  const playing = !staticView && !tourPaused;
-  const layoutStop =
-    layoutStops[
-      stopAt(
-        (distance - openingTiming.intro) / (layoutStops.length * openingTiming.layoutStep),
-        layoutStops.length,
-      )
-    ];
-  const materialStop =
-    materialStops[
-      stopAt(
-        (distance - materialStart - openingTiming.transition) /
-          (materialStops.length * openingTiming.materialStep),
-        materialStops.length,
-      )
-    ];
-  const [shownLayout, setShownLayout] = useState<typeof layoutStop | undefined>(() =>
-    staticView ? undefined : layoutStop,
-  );
-  const [shownMaterial, setShownMaterial] = useState<typeof materialStop | undefined>(() =>
-    staticView ? undefined : materialStop,
-  );
-  useEffect(() => {
-    if (!playing) return;
-    setShownLayout(layoutStop);
-    setShownMaterial(materialStop);
-  }, [playing, layoutStop, materialStop]);
   useEffect(() => {
     const resumeScrolling = () => {
       // Button focus protects a click from reflow, but does not latch the story
@@ -83,7 +46,6 @@ export function OpeningStory({ githubVariant }: { githubVariant?: GithubLinkVari
       )
         return;
       setEngaged(false);
-      setTourPaused(false);
       setHeldMaterial(null);
     };
     addEventListener('wheel', resumeScrolling, { passive: true });
@@ -201,18 +163,15 @@ export function OpeningStory({ githubVariant }: { githubVariant?: GithubLinkVari
           aria-label={tr('Codex 中的 Palboo 外观示例')}
           onPointerDownCapture={() => {
             setEngaged(true);
-            setTourPaused(true);
           }}
           onDragStartCapture={() => {
             dragging.current = true;
-            setTourPaused(true);
           }}
           onDragEndCapture={() => {
             dragging.current = false;
           }}
           onFocusCapture={(event) => {
             setEngaged(true);
-            setTourPaused(true);
             const target = event.target as HTMLElement;
             const next = target.closest('.material-story')
               ? 1
@@ -245,217 +204,9 @@ export function OpeningStory({ githubVariant }: { githubVariant?: GithubLinkVari
             interactive={interactive}
             entryRef={entry}
             materialProgress={materialProgress}
-            layoutStop={shownLayout}
-            materialStop={shownMaterial}
           />
         </div>
       </div>
-    </section>
-  );
-}
-
-const chapters: { feature: FeatureId; title: string; text: string; detail: string }[] = [
-  {
-    feature: 'next',
-    get title() {
-      return tr('下一步。\n让对话继续推进。');
-    },
-    get text() {
-      return tr('根据最近一问一答，给出可以继续的下一步。选中建议，填入输入框，接着推进你的想法。');
-    },
-    get detail() {
-      return tr(
-        '自动生成或手动刷新。方向可以自选、自动探索或智能挑选；内置方向可以编辑，也能添加自己的方向。填入或直接发送，由你选择。生成建议需配置模型服务。',
-      );
-    },
-  },
-  {
-    feature: 'outline',
-    get title() {
-      return tr('大纲。\n长回答也能快速定位。');
-    },
-    get text() {
-      return tr('把回答里的标题变成目录。方案、步骤、检查清单，想回看哪一段，就直接跳到哪一段。');
-    },
-    get detail() {
-      return tr(
-        '标题在本机提取，不额外调用模型。工作台可以跟随当前聊天，也可以锁定正在阅读的聊天；切换功能时保留阅读位置。',
-      );
-    },
-  },
-  {
-    feature: 'terms',
-    get title() {
-      return tr('术语释义。\n读到哪里，理解到哪里。');
-    },
-    get text() {
-      return tr(
-        '遇到不熟悉的词，就在阅读的位置查看释义。想继续了解的收藏起来，已经理解的标为掌握。',
-      );
-    },
-    get detail() {
-      return tr(
-        '使用本机词库，也可用模型按语境识别。只填名称或导入文件，下次主聊天运行时交给当前 Agent 整理。个人添加、收藏和已掌握的词条可以导出，卡片外观可单独设置。',
-      );
-    },
-  },
-];
-export function ReadingStory() {
-  useLocale();
-  const { ref, activeIndex: index, activeFraction, staticView } = useScrollScene('.story-copy h2');
-  const beat = Math.min(2, Math.floor(activeFraction * 3));
-  const [active, setActive] = useState<FeatureId[]>(chapters.map((chapter) => chapter.feature));
-  const [primary, setPrimary] = useState(0);
-  const [engaged, setEngaged] = useState(false);
-  const [dragging, setDragging] = useState(false);
-  const pending = useRef<FeatureId | null>(null);
-  const keyboard = useRef(false);
-  const layoutFocus = useRef(false);
-  const previousStatic = useRef(staticView);
-  useLayoutEffect(() => {
-    if (previousStatic.current === staticView) return;
-    previousStatic.current = staticView;
-    const hasFocus = demoFocus(ref.current);
-    layoutFocus.current = !!hasFocus;
-    if (staticView) {
-      setActive((current) =>
-        current.map((feature, i) => (hasFocus && i === primary ? feature : chapters[i].feature)),
-      );
-    }
-  }, [staticView, engaged, primary, ref]);
-  useEffect(() => {
-    const resumeReading = () => {
-      if (engaged || dragging || isDemoPopover(document.activeElement)) return;
-      layoutFocus.current = false;
-      // Reflow or focus scrolling may already have measured the next chapter.
-      // Apply it only once the visitor resumes reading, not during the action.
-      if (!staticView && pending.current) {
-        const feature = pending.current;
-        pending.current = null;
-        setActive((current) => current.map((value, i) => (i === primary ? feature : value)));
-      }
-    };
-    const resumeOutside = (event: PointerEvent) => {
-      if (isDemoPopover(event.target)) return;
-      const stage = (event.target as Element | null)?.closest?.('.reading-stage');
-      if (!stage || !ref.current?.contains(stage)) resumeReading();
-    };
-    addEventListener('wheel', resumeReading, { passive: true });
-    addEventListener('touchmove', resumeReading, { passive: true });
-    addEventListener('pointerdown', resumeOutside, { passive: true });
-    return () => {
-      removeEventListener('wheel', resumeReading);
-      removeEventListener('touchmove', resumeReading);
-      removeEventListener('pointerdown', resumeOutside);
-    };
-  }, [engaged, dragging, staticView, primary, ref]);
-  useLayoutEffect(() => {
-    let request = 0;
-    const revealEditor = () => {
-      cancelAnimationFrame(request);
-      request = requestAnimationFrame(() => {
-        if (!engaged && !layoutFocus.current) return;
-        const focused = demoFocus(ref.current);
-        if (!focused) return;
-        const box = focused.getBoundingClientRect();
-        if (box.top < 16 || box.bottom > innerHeight - 16) {
-          focused.scrollIntoView({ block: 'nearest', behavior: 'instant' });
-        }
-      });
-    };
-    // Only correct layout changes while editing. Ordinary document scrolling
-    // and completed pointer actions are never captured.
-    const preserveOnResize = () => {
-      // Resize/scroll can arrive before the media-query change. Protect focus
-      // before either can replace its feature with the newly measured chapter.
-      layoutFocus.current = !!demoFocus(ref.current);
-      revealEditor();
-    };
-    revealEditor();
-    addEventListener('resize', preserveOnResize);
-    return () => {
-      cancelAnimationFrame(request);
-      removeEventListener('resize', preserveOnResize);
-    };
-  }, [staticView, engaged, ref]);
-  useEffect(() => {
-    pending.current = staticView ? null : chapters[index].feature;
-  }, [index, staticView, primary]);
-  useEffect(() => {
-    if (staticView || engaged || dragging || layoutFocus.current || !pending.current) return;
-    const feature = pending.current;
-    pending.current = null;
-    setActive((current) => current.map((value, i) => (i === primary ? feature : value)));
-  }, [index, staticView, primary, engaged, dragging]);
-  return (
-    <section
-      ref={ref}
-      className="reading-story page-width"
-      data-static={staticView}
-      aria-label={tr('下一步、大纲与术语')}
-    >
-      {chapters.map((chapter, i) => (
-        <div key={chapter.feature} className="static-chapter">
-          <article className="story-copy" data-chapter={chapter.feature} style={{ gridRow: i + 1 }}>
-            <FeatureMark icon={`feature-${chapter.feature}`} />
-            <Headline lead={splitTitle(chapter.title)[0]} soft={splitTitle(chapter.title)[1]} />
-            <p>{chapter.text}</p>
-            <p>{chapter.detail}</p>
-            {i === 0 && <p>{tr('直接试用 Palboo 界面，所有操作仅使用本页示例数据。')}</p>}
-          </article>
-          <div
-            className="reading-stage"
-            hidden={!staticView && primary !== i}
-            onPointerDownCapture={(event) => {
-              keyboard.current = false;
-              // Keep the chosen feature through focus scrolling and reflow;
-              // wheel/touch or interaction outside the demo resumes the story.
-              layoutFocus.current = true;
-              setEngaged(
-                !!demoEventTarget(event.nativeEvent)?.closest(
-                  'input, textarea, select, [contenteditable="true"]',
-                ),
-              );
-            }}
-            onKeyDownCapture={() => {
-              keyboard.current = true;
-              setEngaged(true);
-            }}
-            onFocusCapture={(event) => {
-              setPrimary(i);
-              setEngaged(
-                keyboard.current ||
-                  !!demoEventTarget(event.nativeEvent)?.matches(
-                    'input, textarea, select, [contenteditable="true"]',
-                  ),
-              );
-            }}
-            onBlurCapture={(event) => {
-              if (
-                !event.currentTarget.contains(event.relatedTarget as Node | null) &&
-                !isDemoPopover(event.relatedTarget)
-              ) {
-                layoutFocus.current = false;
-                setEngaged(false);
-              }
-            }}
-            onDragStartCapture={() => setDragging(true)}
-            onDragEndCapture={() => setDragging(false)}
-          >
-            <FeatureDemo
-              active={active[i]}
-              tourBeat={
-                !staticView && !engaged && active[i] === chapters[index].feature ? beat : undefined
-              }
-              oneShot={staticView && !engaged && active[i] === chapters[i].feature}
-              onChange={(feature) => {
-                pending.current = null;
-                setActive((current) => current.map((value, j) => (i === j ? feature : value)));
-              }}
-            />
-          </div>
-        </div>
-      ))}
     </section>
   );
 }

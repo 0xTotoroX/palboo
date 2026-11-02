@@ -1,164 +1,16 @@
+/* [INPUT]: Original opening, three combined workspaces and shared brand controls.
+ * [OUTPUT]: A compact feature journey with one installation destination.
+ * [POS]: Independent website; all product examples and visitor edits stay in memory.
+ * [PROTOCOL]: Keep website/AGENTS.md and DESIGN_SYSTEM.md in sync. */
 import { SiteLanguage } from './language';
 import { SiteTheme } from './theme';
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
-/* [INPUT]: Scroll stories, shared brand/icons and isolated portfolio demonstrations.
- * [OUTPUT]: Editorial chapters, feature overview, installation conditions and an accessible return to the opening.
- * [POS]: Independent website; local language/appearance, no business data or services.
- * [PROTOCOL]: Keep website/AGENTS.md and DESIGN_SYSTEM.md in sync. */
-import { useState, type ReactNode } from 'react';
 import { Icon } from '../shared/icons/react';
 import { PalbooWordmark } from '../shared/brand';
-import { BoardDemo, BotDemo, ComposerDemo, ModelDemo, botSampleNames } from './demos';
-import { OpeningStory, ReadingStory } from './story';
-import { ScrollDemo } from './scroll-tour';
+import { OpeningStory } from './story';
 import { GithubLink, type GithubLinkVariant } from './github-link';
-import { PromptPreview } from '../settings/prompt-preview';
-import { PreviewFrame } from '../settings/preview-frame';
-import { PhrasesShowcase } from './phrases-demo';
-import { FeatureMark, Headline } from './headline';
-import { BotReply, ConnectionMap, PromptStory, SettleIn } from './tool-stories';
-
-/* ---------- 工具章节的文案列：标记、标题、导语与补充 ---------- */
-function ToolCopy({
-  icon,
-  title,
-  lead,
-  children,
-}: {
-  icon: string;
-  title: string;
-  lead: string;
-  children?: ReactNode;
-}) {
-  return (
-    <div className="tool-copy">
-      <div className="tool-heading">
-        <FeatureMark icon={icon} />
-        <h3>{title}</h3>
-        <p className="tool-lead">{lead}</p>
-      </div>
-      {children && <div className="tool-notes">{children}</div>}
-    </div>
-  );
-}
-
-function ToolDetails() {
-  useLocale();
-  const [botDraft, setBotDraft] = useState<string | null>(null);
-  return (
-    <section className="tools-section page-width" aria-labelledby="tools-title">
-      <Headline id="tools-title" lead={tr('常用操作，')} soft={tr('不必离开对话。')} />
-      <ScrollDemo steps={4} className="phrases-tour">
-        {(step) => (
-          <div id="quick-phrases" className="tool-row quick-phrases-showcase">
-            <ToolCopy
-              icon="feature-prompts"
-              title={tr('常用语')}
-              lead={tr('把常用指令完整放在手边。短句直接读，长内容展开看；点一下，填入当前草稿。')}
-            >
-              <p>
-                {tr(
-                  '短名称选填，也可以切换为仅显示名称。填入或直接发送单独设置，与下一步独立使用。',
-                )}
-              </p>
-            </ToolCopy>
-            <PhrasesShowcase tourStep={step} />
-          </div>
-        )}
-      </ScrollDemo>
-      <ScrollDemo steps={4} className="model-tour">
-        {(step) => (
-          <div className="tool-row is-wide">
-            <ToolCopy
-              icon="feature-model"
-              title={tr('模型切换')}
-              lead={tr(
-                '常用模型放在手边，模型与推理档位一键切换。把写作、编码和深入分析存成预设，也能展开目录按厂家挑选。',
-              )}
-            >
-              <p>{tr('底部保留最近测速，思考或调用工具时也能看到。')}</p>
-              <p>{tr('模型、档位和额度均为示例，实际选项以接入的宿主与服务为准。')}</p>
-            </ToolCopy>
-            <ModelDemo tourStep={step} detailed />
-          </div>
-        )}
-      </ScrollDemo>
-      <ScrollDemo steps={2} className="prompt-tour">
-        {(step) => (
-          <div className="tool-row is-reversed">
-            <ToolCopy
-              icon="prompt-improve"
-              title={tr('提示词优化')}
-              lead={tr('发送之前，把草稿表达得更清楚。改写后可以继续编辑，也可以还原。')}
-            />
-            <PromptStory step={step} />
-          </div>
-        )}
-      </ScrollDemo>
-      <ScrollDemo steps={3} className="bot-tour">
-        {(step) => (
-          <div className="tool-row">
-            <ToolCopy
-              icon="feature-bots"
-              title="Grok Bot"
-              lead={tr(
-                '让一组 Bot 各司其职。思考和完成直接体现在眼睛上；未读、占用、停止与异常用一枚徽章表示。',
-              )}
-            >
-              <p>
-                {tr(
-                  '试着改变容器宽度和分组，移到头像上查看进度、追问或停止。最近消息统一从顶部打开。沿用已有 BDK、MCP 与 Skill，由当前聊天的 Agent 发起咨询。',
-                )}
-              </p>
-            </ToolCopy>
-            <div>
-              <BotDemo
-                detailed
-                tourStep={step}
-                onInsert={(value) => setBotDraft((draft) => (draft ? `${draft}\n${value}` : value))}
-              />
-              <BotReply step={botDraft === null ? step : undefined} />
-              <ComposerDemo
-                draft={
-                  botDraft ??
-                  (step === undefined
-                    ? ''
-                    : tr('请问「{{name}}」：帮我检查作品集方案。', {
-                        name: botSampleNames()[step],
-                      }))
-                }
-                onChange={setBotDraft}
-                label={tr('Bot 咨询草稿')}
-              />
-            </div>
-          </div>
-        )}
-      </ScrollDemo>
-    </section>
-  );
-}
-
-const connections = () => [
-  {
-    title: tr('模型服务与 CodexHost'),
-    text: tr(
-      '下一步、提示词优化和可选的术语识别使用已配置的模型服务。CodexHost 可按需开启、更新或恢复版本，沿用各 Agent 原有的安装与登录环境。',
-    ),
-  },
-  {
-    title: tr('启动与连接'),
-    text: tr(
-      'Palboo 是独立 App，通过本机连接与 Codex 协作。可查看连接状态、手动重连，并选择宿主重新打开时的处理方式。',
-    ),
-  },
-  {
-    title: tr('性能与开关'),
-    text: tr(
-      '可暂停与 Codex 的连接，保留任务和功能配置；重新开启继续使用。性能监测默认关闭，需要时在设置中查看 Palboo 后台的 CPU 和内存。',
-    ),
-  },
-];
+import { ReadingScene, WritingScene, CoordinationScene } from './scenes';
 
 export function App({ githubVariant }: { githubVariant?: GithubLinkVariant }) {
   useLocale();
@@ -173,69 +25,16 @@ export function App({ githubVariant }: { githubVariant?: GithubLinkVariant }) {
       </a>
       <main id="main" tabIndex={-1}>
         <OpeningStory githubVariant={githubVariant} />
-        <ReadingStory />
-        <ScrollDemo steps={3} className="board-story page-width" labelledBy="board-title">
-          {(step) => (
-            <>
-              <div className="section-intro">
-                <div>
-                  <FeatureMark icon="feature-board" />
-                  <Headline
-                    id="board-title"
-                    lead={tr('任务看板。')}
-                    soft={tr('把聊过的事一件件做完。')}
-                  />
-                </div>
-                <p>
-                  {tr(
-                    '把聊到的事情留在手边。添加任务，拖动到进行中，再逐项完成。分组按需自定义，窄侧栏与贴边也能清楚查看。',
-                  )}
-                </p>
-              </div>
-              <div className="stage-band">
-                <PreviewFrame className="site-preview board-stage" title={tr('任务看板')}>
-                  <div className="board-project">
-                    <Icon name="feature-board" />
-                    <span>{tr('个人作品集')}</span>
-                  </div>
-                  <BoardDemo tourStatus={step} />
-                </PreviewFrame>
-              </div>
-            </>
-          )}
-        </ScrollDemo>
-        <ToolDetails />
-        <section className="connection-story page-width" aria-labelledby="connection-title">
-          <div className="section-intro">
-            <Headline
-              id="connection-title"
-              lead={tr('接入你的环境，')}
-              soft={tr('保留你的选择。')}
-            />
-            <p>
-              {tr('功能可以分别开关。日常操作留在工作台，模型服务、连接与高级偏好集中在设置。')}
-            </p>
-          </div>
-          <ConnectionMap />
-          <dl className="connection-grid">
-            {connections().map((item) => (
-              <div key={item.title}>
-                <dt>{item.title}</dt>
-                <dd>{item.text}</dd>
-              </div>
-            ))}
-          </dl>
-        </section>
-        <section id="install" className="install" aria-labelledby="install-title">
+        <ReadingScene />
+        <WritingScene />
+        <CoordinationScene />
+        <section id="install" className="install is-compact" aria-labelledby="install-title">
           <div className="install-inner page-width">
-            <SettleIn className="install-settle">
+            <div>
               <PalbooWordmark className="install-wordmark" />
-            </SettleIn>
-            <Headline
-              id="install-title"
-              lead={tr('下一次对话，')}
-              soft={tr('让 Palboo 陪你一起。')}
-            />
+              <h2 id="install-title">{tr('下一次对话，让 Palboo 陪你一起。')}</h2>
+              <p className="install-platform">macOS 14+ · Apple Silicon</p>
+            </div>
             <div className="install-actions">
               <GithubLink variant={githubVariant} />
               <a
@@ -258,28 +57,19 @@ export function App({ githubVariant }: { githubVariant?: GithubLinkVariant }) {
                 <Icon name="arrow-up" />
               </a>
             </div>
-            <dl className="install-facts">
-              <div>
-                <dt>{tr('运行环境')}</dt>
-                <dd>
-                  macOS 14+ · Apple Silicon
-                  <br />
-                  {tr('桌面浮窗需 macOS 15+，原生液态材质需 macOS 26。')}
-                </dd>
-              </div>
-              <div>
-                <dt>{tr('安装方式')}</dt>
-                <dd>
-                  {tr('DMG 内含完整 App，无需 Node 或 Rust。')}
-                  <br />
-                  {tr('需已有 Codex；模型服务与可选 Agent 沿用你的环境。')}
-                </dd>
-              </div>
-              <div>
-                <dt>{tr('首次打开')}</dt>
-                <dd>{tr('如被系统拦截，请到“隐私与安全性”中允许打开。')}</dd>
-              </div>
-            </dl>
+            <details className="install-details">
+              <summary>{tr('平台与连接要求')}</summary>
+              <p>
+                {tr('桌面浮窗需 macOS 15+，原生液态材质需 macOS 26。')}{' '}
+                {tr('DMG 内含完整 App，无需 Node 或 Rust。')}
+              </p>
+              <p>
+                {tr(
+                  'Palboo 通过本机连接与 Codex 协作，不修改官方应用。模型服务与可选 Agent 沿用你的环境，功能可独立开关。',
+                )}
+              </p>
+              <p>{tr('如被系统拦截，请到“隐私与安全性”中允许打开。')}</p>
+            </details>
           </div>
         </section>
       </main>

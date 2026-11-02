@@ -101,7 +101,8 @@ const stops: { collection: Collection; selection: Selection; phase: string }[] =
 export function ModelDemo({
   tourStep,
   detailed = false,
-}: { tourStep?: number; detailed?: boolean } = {}) {
+  headerActions,
+}: { tourStep?: number; detailed?: boolean; headerActions?: HTMLElement } = {}) {
   useLocale();
   const [state, setState] = useState(initial);
   const current = useRef(state);
@@ -157,6 +158,7 @@ export function ModelDemo({
         title={tr('Codex 模型快切演示')}
       >
         <ModelView
+          headerActions={headerActions}
           state={{
             ...state,
             preferences: {

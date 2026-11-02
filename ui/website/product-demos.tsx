@@ -20,10 +20,12 @@ import { reducedMotion } from './narrative';
 export function NextDemo({
   onInsert,
   onManual,
+  headerActions,
 }: {
   onInsert: (text: string) => void;
   /** 访客刷新建议：外层退出滚动自动填入，避免填入与显示不一致。 */
   onManual?: () => void;
+  headerActions?: HTMLElement;
 }) {
   useLocale();
   const [explore, setExplore] = useState(false);
@@ -36,6 +38,7 @@ export function NextDemo({
         snapshot={snapshot}
         reading={reading.current}
         disabled={false}
+        headerActions={headerActions}
         command={async (kind, data) => {
           if (kind === 'generate') {
             onManual?.();
@@ -61,9 +64,11 @@ export const samplePhrases = () => [
 export function QuickPhrasesDemo({
   onInsert,
   namesOnly = false,
+  headerActions,
 }: {
   onInsert: (text: string, index: number) => void;
   namesOnly?: boolean;
+  headerActions?: HTMLElement;
 }) {
   useLocale();
   const reading = useRef<Reading>({});
@@ -77,6 +82,7 @@ export function QuickPhrasesDemo({
     <DemoSurface kind="prompts" styles={contentStyles}>
       <ProjectedContent
         id="prompts"
+        headerActions={headerActions}
         snapshot={snapshot}
         reading={reading.current}
         disabled={false}
@@ -100,7 +106,13 @@ export function QuickPhrasesDemo({
     </DemoSurface>
   );
 }
-export function OutlineDemo({ onJump }: { onJump: (index: number) => void }) {
+export function OutlineDemo({
+  onJump,
+  headerActions,
+}: {
+  onJump: (index: number) => void;
+  headerActions?: HTMLElement;
+}) {
   useLocale();
   const reading = useRef<Reading>({});
   return (
@@ -110,6 +122,7 @@ export function OutlineDemo({ onJump }: { onJump: (index: number) => void }) {
         snapshot={sampleProjection()}
         reading={reading.current}
         disabled={false}
+        headerActions={headerActions}
         command={async (kind, data) => {
           if (kind === 'outline-jump') onJump(Number.parseInt(String(data?.id), 10));
           if (kind === 'outline-anchor') onJump(data?.anchor === 'end' ? 2 : 0);
@@ -123,7 +136,10 @@ const tourCard = (root: ShadowRoot | null | undefined) =>
   [...(root?.querySelectorAll<HTMLElement>('.task-card') || [])].find(
     (card) => card.querySelector('.card-title')?.textContent === tr('整理三个代表作品'),
   );
-export function BoardDemo({ tourStatus }: { tourStatus?: number } = {}) {
+export function BoardDemo({
+  tourStatus,
+  headerActions,
+}: { tourStatus?: number; headerActions?: HTMLElement } = {}) {
   const locale = useLocale();
   const [tasks] = useState(() => createDemoTasks(undefined, 'expanded'));
   const [revision, setRevision] = useState(0);
@@ -184,13 +200,16 @@ export function BoardDemo({ tourStatus }: { tourStatus?: number } = {}) {
   return (
     <div ref={wrap} className="board-tour-scope" data-tour-status={tourStatus ?? ''}>
       <DemoSurface kind="board" styles={boardStyles}>
-        <Board embedded request={request} />
+        <Board embedded poll={false} request={request} headerActions={headerActions} />
       </DemoSurface>
     </div>
   );
 }
 /* 术语滚动示例：1 收藏“响应式布局” · 2 掌握“加载”；访客操作后以访客状态为准 */
-export function TermDemo({ tourBeat }: { tourBeat?: number } = {}) {
+export function TermDemo({
+  tourBeat,
+  headerActions,
+}: { tourBeat?: number; headerActions?: HTMLElement } = {}) {
   useLocale();
   useSiteTheme();
   const reading = useRef<Reading>({});
@@ -227,6 +246,7 @@ export function TermDemo({ tourBeat }: { tourBeat?: number } = {}) {
     >
       <DemoSurface kind="terms">
         <TerminologyView
+          headerActions={headerActions}
           followScroll
           state={state}
           reading={reading.current}

@@ -1,5 +1,29 @@
 // English interface copy. User-authored content is not translated.
 export default {
+  '读懂，': 'Read it through.',
+  '也接得上。': 'Know what comes next.',
+  '大纲找到重点，术语随手查，下一步就在同一段对话旁。':
+    'Navigate the answer, look up a term and take the next step — all beside the same conversation.',
+  阅读工作台演示: 'Reading workspace demo',
+  阅读示例草稿: 'Reading demo draft',
+  作品集方案: 'Portfolio plan',
+  '用响应式布局适配电脑与手机，保留简介、作品和联系方式。':
+    'Use a responsive layout for desktop and mobile, with an introduction, projects and contact details.',
+  '常用的话，': 'Your words, ready.',
+  '顺手就能发。': 'From draft to send.',
+  '选模型、放入常用语、整理表达。围绕同一个输入框完成。':
+    'Choose a model, add a saved phrase and refine your wording in one composer.',
+  写作工作台演示: 'Writing workspace demo',
+  '从讨论，': 'From conversation',
+  '到一件件完成。': 'to getting things done.',
+  '任务进看板，需要帮手时，让 Bot 接着处理。':
+    'Keep tasks on the board and ask a Bot when you need a hand.',
+  任务与协作演示: 'Tasks and collaboration demo',
+  '请问「工程主管」：帮我检查作品集方案。': 'Ask “Engineering lead”: Review my portfolio plan.',
+  '下一次对话，让 Palboo 陪你一起。': 'Bring Palboo to your next conversation.',
+  平台与连接要求: 'System and connection requirements',
+  'Palboo 通过本机连接与 Codex 协作，不修改官方应用。模型服务与可选 Agent 沿用你的环境，功能可独立开关。':
+    'Palboo connects locally to Codex without modifying the official app. Model services and optional agents use your existing environment. Each feature can be switched on or off.',
   '继续完成剩余步骤。': 'Continue with the remaining steps.',
   '请用更直白的语言解释，并举一个具体例子。':
     'Explain in plain language and give a concrete example.',

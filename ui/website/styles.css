@@ -4,6 +4,7 @@
  * [PROTOCOL]: Keep website/AGENTS.md and DESIGN_SYSTEM.md in sync. */
 @import '../shared/tokens.css';
 @import '../shared/preview-frame.css';
+@import '../settings/codex-host-preview.css';
 @import '../surfaces/workspace/styles.css';
 @import '../settings/layout-preview.css';
 @import '../features/model/styles.css';
@@ -12,7 +13,7 @@
 @import './showcases.css';
 @import './story.css';
 @import './chapters.css';
-@import './narrative.css';
+@import './scenes.css';
 :root {
   --site-page: #fff;
   --site-surface: #fff;
@@ -156,25 +157,6 @@ h2 {
 .mobile-break {
   display: none;
 }
-.reading-story {
-  display: grid;
-  grid-template-columns: minmax(0, 0.27fr) minmax(0, 0.73fr);
-  column-gap: 40px;
-  position: relative;
-  padding-block: 50px;
-}
-.reading-stage {
-  grid-column: 2;
-  grid-row: 1 / span 3;
-  position: sticky;
-  top: max(24px, calc((100svh - 540px) / 2));
-  align-self: start;
-  margin-top: calc((100svh - 540px) / 2);
-  min-width: 0;
-}
-.reading-stage :is(input, textarea, select, [contenteditable='true']) {
-  scroll-margin-block: 24px;
-}
 .site-preview {
   --buddy-surface: var(--site-surface);
   --buddy-text: var(--site-text);
@@ -202,82 +184,6 @@ h2 {
   min-height: 160px;
   font-size: var(--site-ui-font);
 }
-.demo-window-body {
-  min-height: 540px;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.62fr);
-}
-.demo-chat {
-  grid-column: 1;
-  grid-row: 1;
-  padding: 20px 24px;
-  display: flex;
-  flex-direction: column;
-  font-size: var(--site-ui-font);
-}
-.chat-title {
-  font-size: 12px;
-  gap: 12px;
-}
-.chat-question {
-  font-size: inherit;
-  padding: 10px 12px;
-  margin: 24px 0 18px;
-}
-.demo-chat article {
-  max-height: 310px;
-  overflow: auto;
-  scrollbar-width: thin;
-  scroll-padding-block: 6px;
-}
-.demo-chat article > p {
-  font-weight: 500;
-}
-.chat-paragraph {
-  margin: 0;
-  padding: 10px 6px;
-}
-.chat-paragraph h3 {
-  font-size: inherit;
-}
-.demo-chat > .demo-composer {
-  margin-top: auto;
-}
-.inline-term {
-  display: inline;
-  text-decoration: underline;
-  text-decoration-style: dotted;
-  text-underline-offset: 4px;
-  color: var(--site-text);
-}
-.demo-panel {
-  grid-column: 2;
-  grid-row: 1;
-  padding: 16px;
-}
-.demo-panel-top {
-  font-size: 12px;
-}
-.demo-content-heading {
-  font-size: 14px;
-  margin-bottom: 12px;
-}
-.demo-feature-tabs {
-  gap: 2px;
-  flex-wrap: wrap;
-  margin: 12px -2px;
-  justify-content: flex-start;
-}
-.demo-feature-tabs button {
-  width: 28px;
-  height: 28px;
-}
-.demo-feature-tabs button[aria-selected='true'] {
-  background: transparent;
-  color: var(--site-text);
-}
-.demo-feature-tabs button:not([aria-selected='true']) {
-  opacity: 0.48;
-}
 .demo-composer textarea {
   font-size: var(--site-ui-font);
 }
@@ -292,10 +198,6 @@ h2 {
 .demo-composer textarea {
   min-height: 62px;
   padding: 0;
-}
-.demo-panel-board .demo-feature-content {
-  max-height: 420px;
-  overflow: auto;
 }
 .github-link,
 .back-to-top {
@@ -380,9 +282,6 @@ h2 {
   .back-to-top:hover svg {
     transform: translateY(-3px);
   }
-  .inline-term:hover {
-    color: var(--site-accent);
-  }
 }
 /* Static presentation is also used on short screens and for reduced motion. */
 .opening-story[data-static='true'] {
@@ -426,49 +325,9 @@ h2 {
 .opening-story[data-static='true'] .layout-demo-canvas {
   overflow-x: auto;
 }
-.static-chapter {
-  display: contents;
-}
-.reading-stage[hidden] {
-  display: none;
-}
-.reading-story[data-static='true'] {
-  display: block;
-  padding-block: 80px;
-}
-.reading-story[data-static='true'] .static-chapter {
-  display: grid;
-  grid-template-columns: minmax(0, 0.27fr) minmax(0, 0.73fr);
-  gap: 40px;
-}
-.reading-story[data-static='true'] .story-copy {
-  grid-row: auto !important;
-  min-height: 0;
-  justify-content: flex-start;
-}
-.reading-story[data-static='true'] .static-chapter + .static-chapter {
-  margin-top: 90px;
-}
-.reading-story[data-static='true'] .reading-stage {
-  grid-column: auto;
-  grid-row: auto;
-  position: static;
-  margin-top: 0;
-}
 @media (max-width: 1100px) {
   .page-width {
     width: calc(100% - 64px);
-  }
-  .reading-story {
-    column-gap: 4%;
-    grid-template-columns: minmax(0, 0.25fr) minmax(0, 0.75fr);
-  }
-  .demo-window-body {
-    grid-template-columns: minmax(0, 1fr) minmax(250px, 0.72fr);
-  }
-  .demo-chat,
-  .demo-panel {
-    padding: 18px 14px;
   }
 }
 @media (max-width: 760px) {
@@ -483,44 +342,6 @@ h2 {
   }
   h2 {
     font-size: 28px;
-  }
-  .reading-story[data-static='true'] .static-chapter {
-    grid-template-columns: 1fr;
-    gap: 32px;
-  }
-  .demo-window-body {
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-  }
-  .demo-panel {
-    padding: 16px;
-  }
-  .demo-chat {
-    border-right: 0;
-    border-top: 1px solid var(--site-border);
-    padding: 16px;
-  }
-  .demo-chat article,
-  .demo-chat .chat-title,
-  .demo-chat .chat-question {
-    display: none;
-  }
-  .product-demo[data-feature='outline'] .demo-chat article,
-  .product-demo[data-feature='terms'] .demo-chat article {
-    display: block;
-  }
-  .demo-chat > .demo-composer {
-    margin-top: 14px;
-  }
-  .demo-feature-tabs {
-    gap: 8px;
-  }
-  .demo-feature-content {
-    min-height: 0;
-  }
-  .surface-story[data-static='true'] {
-    padding-block: 64px;
   }
 }
 @media (prefers-reduced-motion: reduce) {

@@ -1,0 +1,110 @@
+/* [INPUT]: Shared CodexHost preview markup and semantic colors.
+ * [OUTPUT]: One real Agent picker layout for settings and isolated website examples.
+ * [POS]: Preview-only CSS, no product host styles or settings resets.
+ * [PROTOCOL]: Keep settings/AGENTS.md and website/AGENTS.md in sync. */
+.compatibility-preview {
+  margin-bottom: 28px;
+}
+.compatibility-agent-menu {
+  padding: 6px;
+  font-size: var(--settings-text-size, inherit);
+  max-height: 440px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--buddy-border) transparent;
+}
+.compatibility-agent-row {
+  position: relative;
+}
+.compatibility-preview .compatibility-agent-choice,
+.compatibility-preview .compatibility-agent-more {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 2.75em;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--buddy-text);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.compatibility-agent-choice > img,
+.compatibility-agent-choice > .compatibility-agent-fallback {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  object-fit: contain;
+}
+.compatibility-agent-choice > .compatibility-agent-fallback {
+  display: grid;
+  place-items: center;
+  color: var(--buddy-muted);
+}
+.compatibility-agent-choice > span:not(.buddy-icon, .compatibility-agent-fallback) {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.compatibility-preview .compatibility-agent-choice:disabled {
+  opacity: 1;
+  color: var(--buddy-muted);
+  cursor: default;
+  padding-inline-end: 40px;
+}
+.compatibility-agent-choice:disabled > img {
+  opacity: 0.65;
+}
+.compatibility-preview .compatibility-agent-choice[aria-checked='true'] {
+  background: color-mix(in srgb, var(--buddy-text) 8%, var(--buddy-surface));
+}
+.compatibility-agent-choice > .buddy-icon {
+  margin-inline-start: auto;
+  flex: none;
+}
+.compatibility-preview .compatibility-agent-choice:hover:not(:disabled),
+.compatibility-preview .compatibility-agent-more:hover {
+  background: var(--buddy-subtle);
+}
+.compatibility-preview .compatibility-agent-more {
+  margin-block: 2px;
+  background: var(--buddy-subtle);
+  color: var(--buddy-muted);
+}
+.compatibility-agent-more > .buddy-icon {
+  width: 22px;
+  flex: none;
+}
+.compatibility-preview .compatibility-agent-add {
+  position: absolute;
+  inset-inline-end: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--buddy-muted);
+  cursor: pointer;
+}
+.compatibility-preview .compatibility-agent-add:hover {
+  background: var(--buddy-subtle);
+  color: var(--buddy-text);
+}
+.compatibility-agent-menu button:focus-visible {
+  outline-offset: -2px;
+}
+.compatibility-preview-status {
+  margin: 0;
+  padding: 24px;
+  color: var(--buddy-muted);
+}

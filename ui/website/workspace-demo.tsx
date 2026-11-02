@@ -10,7 +10,7 @@ import {
   fallbackTypography,
   type TypographyPreferences,
 } from '../shared/typography';
-import { LayoutPreview, type LayoutDemoStop } from '../settings/layout-preview';
+import { LayoutPreview } from '../settings/layout-preview';
 import type { FeatureState } from '../shared/features';
 import type { SurfaceState } from '../settings/surface-settings';
 import type { SurfaceTheme } from '../surfaces/theme/appearance';
@@ -85,26 +85,29 @@ function sampleSurfaces(
   };
 }
 const demoTypography = fallbackTypography;
-function WorkspaceFeature({ id }: { id: string }) {
+function WorkspaceFeature({ id, headerActions }: { id: string; headerActions: HTMLElement }) {
   const [draft, setDraft] = useState('');
   const insert = (value: string) =>
     setDraft((current) => (current ? `${current}\n${value}` : value));
   return (
     <div className="site-workspace-feature">
       {id === 'next' ? (
-        <NextDemo onInsert={insert} />
+        <NextDemo onInsert={insert} headerActions={headerActions} />
       ) : id === 'prompts' ? (
-        <QuickPhrasesDemo onInsert={insert} />
+        <QuickPhrasesDemo onInsert={insert} headerActions={headerActions} />
       ) : id === 'outline' ? (
-        <OutlineDemo onJump={(index) => setDraft(examples.outline[index])} />
+        <OutlineDemo
+          onJump={(index) => setDraft(examples.outline[index])}
+          headerActions={headerActions}
+        />
       ) : id === 'board' ? (
-        <BoardDemo />
+        <BoardDemo headerActions={headerActions} />
       ) : id === 'model' ? (
-        <ModelDemo />
+        <ModelDemo headerActions={headerActions} />
       ) : id === 'terms' ? (
-        <TermDemo />
+        <TermDemo headerActions={headerActions} />
       ) : id === 'bots' ? (
-        <BotDemo onInsert={insert} />
+        <BotDemo onInsert={insert} headerActions={headerActions} />
       ) : null}
       {['next', 'prompts', 'bots'].includes(id) && (
         <ComposerDemo
@@ -123,23 +126,21 @@ function WorkspaceFeature({ id }: { id: string }) {
     </div>
   );
 }
-const renderWorkspaceFeature = (id: string) => <WorkspaceFeature id={id} />;
+const renderWorkspaceFeature = (id: string, headerActions: HTMLElement) => (
+  <WorkspaceFeature id={id} headerActions={headerActions} />
+);
 export function SurfaceStory({
   zoom = 1,
   reveal = 1,
   interactive = true,
   entryRef,
   materialProgress = 0,
-  layoutStop,
-  materialStop,
 }: {
   zoom?: number;
   reveal?: number;
   interactive?: boolean;
   entryRef?: Ref<SVGGElement>;
   materialProgress?: number;
-  layoutStop?: LayoutDemoStop & { edge?: string };
-  materialStop?: { theme: SurfaceTheme['theme']; variant: 'regular' | 'clear' };
 }) {
   useLocale();
   const [edge, setEdge] = useState('right');
@@ -153,14 +154,6 @@ export function SurfaceStory({
   }, []);
   const [material, setMaterial] = useState<SurfaceTheme['theme']>('native-glass');
   const [variant, setVariant] = useState<'regular' | 'clear'>('regular');
-  useEffect(() => {
-    if (layoutStop?.edge) setEdge(layoutStop.edge);
-  }, [layoutStop]);
-  useEffect(() => {
-    if (!materialStop) return;
-    setMaterial(materialStop.theme);
-    setVariant(materialStop.variant);
-  }, [materialStop]);
   const surfaces = useMemo(
     () => sampleSurfaces(material, variant, edge),
     [material, variant, edge],
@@ -199,7 +192,6 @@ export function SurfaceStory({
           typographyPreferences={typography}
           focusWorkspace={compact}
           materialProgress={materialProgress}
-          demoStop={layoutStop}
           onReset={reset}
           renderControls={({
             placement,

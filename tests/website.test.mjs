@@ -6,17 +6,27 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { build, preview } from 'vite';
 import { chromium } from 'playwright';
-import { readFile } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import { emulateMedia } from './browser-motion.mjs';
+import { resolve } from 'node:path';
 
+const reports = resolve('target/reports/site-combined');
+const output = resolve(reports, 'test-site');
+const pageChecks = [];
 let server;
 let browser;
 let base;
 test.before(async () => {
-  await build({ configFile: 'ui/website/vite.config.ts', logLevel: 'error' });
+  await mkdir(reports, { recursive: true });
+  await build({
+    configFile: 'ui/website/vite.config.ts',
+    logLevel: 'error',
+    build: { outDir: output },
+  });
   server = await preview({
     configFile: 'ui/website/vite.config.ts',
     logLevel: 'error',
+    build: { outDir: output },
     preview: { host: '127.0.0.1', port: 0 },
   });
   base = `http://127.0.0.1:${server.httpServer.address().port}`;
@@ -41,7 +51,7 @@ async function scrollScene(page, selector, progress) {
   );
 }
 
-// The original brand approach keeps its 180svh distance before the guided tour.
+// 保留原品牌靠近阶段的180svh距离；后续只手动操作布局和材质。
 async function scrollOpening(page, progress) {
   await page.locator('.opening-story').evaluate((element, value) => {
     scrollTo(0, scrollY + element.getBoundingClientRect().top + innerHeight * 1.8 * value);
@@ -51,63 +61,136 @@ async function scrollOpening(page, progress) {
   );
 }
 
-test('portfolio demos preserve drafts, preferences and undo without service requests', async () => {
-  const page = await browser.newPage({
+// 所有页面只允许本次构建的静态资源；错误或越界请求不能随页面关闭丢失。
+async function checkedPage(page) {
+  page.setDefaultTimeout(10000);
+  page.setDefaultNavigationTimeout(15000);
+  const check = { errors: [], requests: [] };
+  pageChecks.push(check);
+  page.on('pageerror', (error) => check.errors.push(error.message));
+  page.on('websocket', (socket) => check.requests.push(socket.url()));
+  await page.route('**/*', (route) => {
+    const url = route.request().url();
+    if (
+      (url.startsWith(`${base}/`) &&
+        !new URL(url).pathname.startsWith('/api/') &&
+        !['fetch', 'xhr', 'eventsource', 'websocket'].includes(route.request().resourceType())) ||
+      url.startsWith('data:')
+    )
+      return route.continue();
+    check.requests.push(url);
+    return route.abort();
+  });
+  return page;
+}
+async function newPage(options = {}) {
+  return checkedPage(await browser.newPage(options));
+}
+test.afterEach(() => {
+  const checks = pageChecks.splice(0);
+  assert.deepEqual(
+    checks.flatMap((check) => check.errors),
+    [],
+    'no browser errors',
+  );
+  assert.deepEqual(
+    checks.flatMap((check) => check.requests),
+    [],
+    'no host, API or external requests',
+  );
+});
+async function frames(page) {
+  await page.evaluate(
+    () => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))),
+  );
+}
+async function waitValue(locator, value) {
+  const end = Date.now() + 10000;
+  while (Date.now() < end) {
+    if ((await locator.inputValue()) === value) return;
+    await new Promise((done) => setTimeout(done, 25));
+  }
+  assert.equal(await locator.inputValue(), value);
+}
+async function focused(locator) {
+  return locator.evaluate((node) => {
+    let active = document.activeElement;
+    while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
+    return active === node;
+  });
+}
+const sceneSelectors = ['.reader-window', '.writing-window', '.coordination-window'];
+async function enterScene(page, selector) {
+  await page
+    .locator(selector)
+    .evaluate((node) => node.scrollIntoView({ block: 'start', behavior: 'instant' }));
+}
+async function frozenPage(options = {}) {
+  const page = await newPage({
+    locale: 'zh-CN',
+    viewport: { width: 1440, height: 1000 },
+    ...options,
+  });
+  await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') });
+  await page.clock.pauseAt(new Date('2026-01-01T00:00:10Z'));
+  await page.goto(base);
+  await page.clock.runFor(80);
+  return page;
+}
+
+test('reading workspace combines suggestions, outline and terms while preserving its local draft', async () => {
+  const page = await newPage({
     locale: 'zh-CN',
     viewport: { width: 1440, height: 1000 },
     reducedMotion: 'reduce',
   });
-  const errors = [],
-    requests = [];
-  page.on('pageerror', (error) => errors.push(error.message));
-  page.on('request', (request) => requests.push(request.url()));
   try {
     await page.goto(base);
-    const demo = page.locator('.product-demo').first();
-    const choose = (name) => demo.getByRole('tab', { name, exact: true }).click();
-    await demo.getByLabel('接着聊', { exact: true }).fill('我的草稿');
-    await demo.getByRole('button', { name: /拆解第一版/ }).click();
+    const reader = page.locator('.reader-window');
+    const draft = reader.getByLabel('阅读示例草稿', { exact: true });
+    await draft.fill('我的草稿');
+    await reader.getByRole('button', { name: /拆解第一版/ }).click();
     await page.waitForFunction(() =>
-      document.querySelector('.product-demo textarea').value.includes('请把作品集第一版'),
+      document
+        .querySelector('.reader-window textarea')
+        .value.startsWith('我的草稿\n请把作品集第一版'),
     );
-    assert.match(
-      await demo.getByLabel('接着聊', { exact: true }).inputValue(),
-      /^我的草稿\n请把作品集第一版/,
-    );
-    await page.waitForFunction(() =>
-      document.querySelector('.product-demo textarea').value.includes('请把作品集第一版'),
-    );
-    await demo.getByRole('button', { name: '重新生成建议', exact: true }).click();
-    await demo.getByRole('button', { name: /比较展示方式/ }).click();
-    await choose('大纲');
-    await demo.locator('.csw-outline-row').filter({ hasText: '上线前检查' }).click();
-    await demo.locator('.chat-paragraph.is-focused').filter({ hasText: '上线前检查' }).waitFor();
-    assert.match(await demo.locator('.chat-paragraph.is-focused').innerText(), /上线前检查/);
-    assert.ok(await demo.locator('.demo-chat article').evaluate((node) => node.scrollTop > 0));
-    await choose('模型切换');
-    await demo
-      .locator('.model-matrix')
-      .getByRole('button', { name: 'GPT-6-Astra · High', exact: true })
+    const filled = await draft.inputValue();
+    await reader
+      .locator('.scene-feature-next .scene-feature-head')
+      .getByRole('button', { name: '重新生成建议', exact: true })
       .click();
-    assert.equal(
-      await demo
-        .locator('.model-matrix')
-        .getByRole('button', { name: 'GPT-6-Astra · High', exact: true })
-        .getAttribute('aria-pressed'),
-      'true',
+    await reader.getByRole('button', { name: /比较展示方式/ }).click();
+    await page.waitForFunction(
+      (value) => document.querySelector('.reader-window textarea').value.startsWith(value + '\n'),
+      filled,
     );
-    await choose('术语释义');
-    await demo.locator('.term-brick').first().click();
+    assert.ok((await draft.inputValue()).startsWith(filled + '\n'));
+    await reader.locator('.csw-outline-row').filter({ hasText: '上线前检查' }).click();
+    await page.waitForFunction(() =>
+      document.querySelector('.reader-article .is-current')?.textContent.includes('上线前检查'),
+    );
+    assert.match(await reader.locator('.reader-article .is-current').innerText(), /上线前检查/);
+    await reader.getByRole('button', { name: '定位到本轮开头', exact: true }).click();
+    await page.waitForFunction(() =>
+      document.querySelector('.reader-article .is-current')?.textContent.includes('确定作品集内容'),
+    );
+    await reader.getByRole('button', { name: '定位到本轮结尾', exact: true }).focus();
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() =>
+      document.querySelector('.reader-article .is-current')?.textContent.includes('上线前检查'),
+    );
+    await reader
+      .locator('.scene-feature-outline .scene-feature-head')
+      .getByRole('button', { name: '刷新大纲', exact: true })
+      .click();
+    await page.waitForFunction(() => document.querySelector('.reader-article').scrollTop > 0);
+    const terms = reader.locator('.term-brick');
+    await terms.first().click();
     await page.getByRole('button', { name: '收藏术语', exact: true }).click();
     await page.getByRole('button', { name: '已掌握，不再提示', exact: true }).click();
-    await choose('Grok Bot');
-    await demo.getByRole('button', { name: '资料助手', exact: true }).click();
-    assert.match(
-      await demo.getByLabel('接着聊', { exact: true }).inputValue(),
-      /我的草稿[\s\S]*请问「资料助手」/,
-    );
-    await choose('术语释义');
-    await demo.locator('.term-brick').first().click();
+    await page.keyboard.press('Escape');
+    await terms.first().click();
     assert.equal(
       await page
         .getByRole('button', { name: '取消收藏', exact: true })
@@ -120,37 +203,16 @@ test('portfolio demos preserve drafts, preferences and undo without service requ
         .getAttribute('aria-pressed'),
       'true',
     );
-    await demo.getByRole('button', { name: '重置功能演示' }).click();
-    assert.equal(await demo.getByLabel('接着聊', { exact: true }).inputValue(), '');
-    await choose('下一步');
-    await demo.getByRole('tab', { name: '下一步', exact: true }).focus();
-    await page.keyboard.press('ArrowRight');
-    assert.equal(
-      await demo.getByRole('tab', { name: '常用语', exact: true }).getAttribute('aria-selected'),
-      'true',
-    );
-    const prompt = page.getByLabel('提示词优化演示', { exact: true });
-    const original = await prompt.inputValue();
-    await page.getByRole('button', { name: '优化提示词', exact: true }).click();
-    await page.getByRole('button', { name: '恢复原提示词', exact: true }).waitFor();
-    assert.match(await prompt.inputValue(), /交付内容与检查方法/);
-    await page.getByRole('button', { name: '恢复原提示词', exact: true }).click();
-    assert.equal(await prompt.inputValue(), original);
-    assert.deepEqual(errors, []);
-    assert.ok(requests.every((url) => url.startsWith(base) && !url.includes('/api/')));
-    // 首屏与收尾安装区各有一个下载入口，均指向真实发布页
-    const downloads = page.getByRole('link', { name: '下载，前往 GitHub 发布页面' });
-    assert.equal(await downloads.count(), 2);
-    for (const link of await downloads.all())
-      assert.equal(await link.getAttribute('href'), 'https://github.com/0xTotoroX/palboo/releases');
-    assert.equal(await page.locator('a[download]').count(), 0);
+    assert.ok((await draft.inputValue()).startsWith(filled));
+    assert.equal(await reader.locator('[data-real-feature="next"]').count(), 1);
+    assert.equal(await reader.locator('[data-real-feature="outline"]').count(), 1);
+    assert.equal(await reader.locator('[data-real-feature="terms"]').count(), 1);
   } finally {
     await page.close();
   }
 });
-
 test('footer returns to the opening with keyboard focus and keeps demonstration drafts', async () => {
-  const page = await browser.newPage({
+  const page = await newPage({
     locale: 'zh-CN',
     viewport: { width: 847, height: 988 },
   });
@@ -194,7 +256,7 @@ test(
   'full original playback includes typing before the eyes land in the left entry',
   { timeout: 60000 },
   async () => {
-    const page = await browser.newPage({
+    const page = await newPage({
       locale: 'zh-CN',
       viewport: { width: 1440, height: 1000 },
     });
@@ -245,27 +307,6 @@ test(
       assert.ok(Math.abs(landing.dx) < 2 && Math.abs(landing.dy) < 2, JSON.stringify(landing));
       assert.equal(landing.entry, '0');
       assert.equal(landing.artwork, '1', 'the original eyes stay present at the destination');
-      await scrollScene(page, '.reading-story', 0.1);
-      const demo = page.locator('.product-demo:visible');
-      await page.locator('.product-demo:visible[data-feature="next"]').waitFor();
-      assert.equal(await demo.getAttribute('data-feature'), 'next');
-      await demo.getByLabel('接着聊', { exact: true }).fill('滚动时保留的草稿');
-      await demo.getByLabel('接着聊', { exact: true }).blur();
-
-      await scrollScene(page, '.reading-story', 0.48);
-      await page.locator('.product-demo:visible[data-feature="outline"]').waitFor();
-      assert.equal(await demo.getAttribute('data-feature'), 'outline');
-      await scrollScene(page, '.reading-story', 0.9);
-      await page.locator('.product-demo:visible[data-feature="terms"]').waitFor();
-      assert.equal(await demo.getAttribute('data-feature'), 'terms');
-      await scrollScene(page, '.reading-story', 0.1);
-      await page.locator('.product-demo:visible[data-feature="next"]').waitFor();
-      assert.equal(
-        await demo.getByLabel('接着聊', { exact: true }).inputValue(),
-        '滚动时保留的草稿',
-      );
-      const box = await demo.boundingBox();
-      assert.ok(box.y >= 0 && box.y + box.height <= 1000, JSON.stringify(box));
       assert.equal(
         await page
           .locator('main > header, main > nav, .eyebrow, .section-index, .feature-picker')
@@ -280,15 +321,14 @@ test(
         await page.locator('.opening-pin').evaluate((node) => getComputedStyle(node).position),
         'relative',
       );
-      assert.equal(await page.locator('.static-chapter').count(), 3);
+      assert.equal(await page.locator('.combined-scene').count(), 3);
     } finally {
       await page.close();
     }
   },
 );
-
 test('the first wheel movement carries the face and clicking it replays from the top', async () => {
-  const page = await browser.newPage({
+  const page = await newPage({
     locale: 'zh-CN',
     viewport: { width: 1440, height: 1000 },
   });
@@ -344,106 +384,15 @@ test('the first wheel movement carries the face and clicking it replays from the
   }
 });
 
-test('active editing and local state survive chapter changes, responsive modes and reduced motion', async () => {
-  const page = await browser.newPage({
-    locale: 'zh-CN',
-    viewport: { width: 1440, height: 1000 },
-  });
-  try {
-    await page.goto(base);
-    await scrollScene(page, '.reading-story', 0.1);
-    const demo = page.locator('.product-demo').first();
-    await demo.getByLabel('接着聊', { exact: true }).fill('窗口变化后保留');
-    await demo.getByRole('tab', { name: '术语释义', exact: true }).click();
-    await demo.locator('.term-brick').first().click();
-    await page.getByRole('button', { name: '收藏术语', exact: true }).click();
-    await demo.getByRole('tab', { name: '任务看板', exact: true }).click();
-    await demo.getByRole('button', { name: '新建任务', exact: true }).first().click();
-    const input = demo.getByLabel('新任务标题');
-    await input.fill('仍在编辑的任务');
-    await scrollScene(page, '.reading-story', 0.8);
-    assert.equal(await demo.getAttribute('data-feature'), 'board');
-    assert.equal(
-      await input.evaluate((el) => {
-        let active = document.activeElement;
-        while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
-        return el === active;
-      }),
-      true,
-    );
-    for (const viewport of [
-      { width: 550, height: 1000 },
-      { width: 1280, height: 600 },
-      { width: 1440, height: 1000 },
-    ]) {
-      await page.setViewportSize(viewport);
-      await page.evaluate(
-        () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
-      );
-      assert.equal(await input.inputValue(), '仍在编辑的任务');
-      assert.equal(
-        await input.evaluate((el) => {
-          let active = document.activeElement;
-          while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
-          return el === active;
-        }),
-        true,
-      );
-      const box = await input.boundingBox();
-      assert.ok(box.y >= 0 && box.y + box.height <= viewport.height, JSON.stringify(box));
-    }
-    await emulateMedia(page, { reducedMotion: 'reduce' });
-    await page.locator('.reading-story[data-static="true"]').waitFor();
-    assert.equal(await input.inputValue(), '仍在编辑的任务');
-    await page.keyboard.press('Enter');
-    await demo.getByRole('button', { name: '任务详情：仍在编辑的任务', exact: true }).waitFor();
-    assert.equal(await demo.getByLabel('接着聊', { exact: true }).inputValue(), '窗口变化后保留');
-    await demo.getByRole('tab', { name: '术语释义', exact: true }).click();
-    await demo.locator('.term-brick').first().click();
-    assert.equal(
-      await page
-        .getByRole('button', { name: '取消收藏', exact: true })
-        .getAttribute('aria-pressed'),
-      'true',
-    );
-    // A static chapter that has focus becomes the persistent animated stage on return.
-    const third = page.locator('.product-demo').nth(2);
-    await third.getByLabel('接着聊', { exact: true }).fill('术语章节草稿');
-    await emulateMedia(page, { reducedMotion: 'no-preference' });
-    await page.locator('.reading-story[data-static="false"]').waitFor();
-    assert.equal(await third.isVisible(), true);
-    assert.equal(await third.getByLabel('接着聊', { exact: true }).inputValue(), '术语章节草稿');
-    assert.equal(
-      await third.getByLabel('接着聊', { exact: true }).evaluate((el) => {
-        let active = document.activeElement;
-        while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
-        return el === active;
-      }),
-      true,
-    );
-    await third.getByLabel('接着聊', { exact: true }).blur();
-    await page.locator('.story-copy[data-chapter="outline"] h2').evaluate((heading) => {
-      scrollTo({
-        top: scrollY + heading.getBoundingClientRect().top - innerHeight * 0.5,
-        behavior: 'instant',
-      });
-    });
-    await third.locator('[role="tab"][aria-label="大纲"][aria-selected="true"]').waitFor();
-    assert.equal(await third.getAttribute('data-feature'), 'outline');
-  } finally {
-    await page.close();
-  }
-});
-
 test('board supports real pointer drag, keyboard actions and creating a local task', async () => {
-  const page = await browser.newPage({
+  const page = await newPage({
     locale: 'zh-CN',
     viewport: { width: 1280, height: 900 },
     reducedMotion: 'reduce',
   });
   try {
     await page.goto(base);
-    const board = page.locator('.board-stage');
+    const board = page.locator('.coordination-window .scene-feature-board');
     const lanes = board.locator('.board-column');
     const card = board.locator('.task-card').filter({ hasText: '整理三个代表作品' });
     await card.dragTo(lanes.nth(1));
@@ -469,16 +418,17 @@ test('board supports real pointer drag, keyboard actions and creating a local ta
     await board.locator('.task-card').filter({ hasText: '给作品配上介绍' }).hover();
     await remove.click();
     await page.waitForFunction(() => {
-      const root = document.querySelector('.board-stage [data-real-feature="board"]').shadowRoot;
+      const root = document.querySelector(
+        '.coordination-window [data-real-feature="board"]',
+      ).shadowRoot;
       return !root.textContent.includes('给作品配上介绍');
     });
   } finally {
     await page.close();
   }
 });
-
 test('original settings journey, layout controls and drafts are reused on the website', async () => {
-  const page = await browser.newPage({
+  const page = await newPage({
     locale: 'zh-CN',
     viewport: { width: 1440, height: 1000 },
   });
@@ -548,7 +498,7 @@ test('original settings journey, layout controls and drafts are reused on the we
 
 for (const locale of ['zh-CN', 'en-US'])
   test(`opening stays within short desktop viewports and the original eyes clear the copy throughout the flight (${locale})`, async () => {
-    const page = await browser.newPage({ locale });
+    const page = await newPage({ locale });
     try {
       for (const viewport of [
         { width: 1440, height: 900 },
@@ -602,69 +552,15 @@ for (const locale of ['zh-CN', 'en-US'])
     }
   });
 
-test('reading changes with the visible heading, releases pointer actions and restores static chapter correspondence', async () => {
-  const page = await browser.newPage({
-    locale: 'zh-CN',
-    viewport: { width: 1280, height: 720 },
-  });
-  try {
-    await page.goto(base);
-    const demo = page.locator('.product-demo:visible');
-    for (const feature of ['next', 'outline', 'terms', 'next']) {
-      await page.mouse.wheel(0, 1);
-      await page
-        .locator(`[data-chapter="${feature}"] h2`)
-        .evaluate((node) => node.scrollIntoView({ block: 'center' }));
-      await page.waitForFunction(
-        (value) =>
-          document.querySelector('.reading-stage:not([hidden]) .product-demo').dataset.feature ===
-          value,
-        feature,
-      );
-      if (feature === 'next') await demo.getByRole('button', { name: /拆解第一版/ }).click();
-    }
-    await page.mouse.wheel(0, 1);
-    await page
-      .locator('[data-chapter="terms"] h2')
-      .evaluate((node) => node.scrollIntoView({ block: 'center' }));
-    await page.waitForFunction(
-      () =>
-        document.querySelector('.reading-stage:not([hidden]) .product-demo').dataset.feature ===
-        'terms',
-    );
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.waitForFunction(
-      () => document.querySelector('.reading-story').dataset.static === 'true',
-    );
-    assert.deepEqual(
-      await page
-        .locator('.static-chapter .product-demo')
-        .evaluateAll((nodes) => nodes.map((node) => node.dataset.feature)),
-      ['next', 'outline', 'terms'],
-    );
-    const first = page.locator('.product-demo').first();
-    await first.getByLabel('接着聊', { exact: true }).focus();
-    await page.keyboard.press('Tab');
-    assert.notEqual(
-      await first
-        .getByRole('button', { name: '重置功能演示' })
-        .evaluate((node) => node === document.activeElement),
-      true,
-    );
-  } finally {
-    await page.close();
-  }
-});
-
-test('model matrix, quota, presets, material samples and speed states use real product views', async () => {
-  const page = await browser.newPage({
+test('writing workspace uses real model choices, presets, quota and inline speed; materials remain manual', async () => {
+  const page = await newPage({
     locale: 'zh-CN',
     viewport: { width: 1440, height: 900 },
     reducedMotion: 'reduce',
   });
   try {
     await page.goto(base);
-    const model = page.locator('.tools-section .demo-models');
+    const model = page.locator('.writing-window .scene-feature-model');
     await model
       .locator('.model-matrix')
       .getByRole('button', { name: 'GPT-6-Astra · High', exact: true })
@@ -708,14 +604,9 @@ test('model matrix, quota, presets, material samples and speed states use real p
       await model.locator('.token-meter-readout').innerText(),
       /38\.4 tok\/s[\s\S]*上次测速/,
     );
-    const ranges = page.locator('.model-tour').getByRole('group', { name: '模型示例范围' });
-    await ranges.getByRole('button', { name: '国内模型', exact: true }).click();
-    assert.equal(await model.locator('.model-row').count(), 4);
     await model.getByRole('button', { name: 'Qwen3 Coder Plus · 选择', exact: true }).click();
     assert.equal(await model.getByRole('button', { name: 'Fast', exact: true }).isEnabled(), false);
-    await ranges.getByRole('button', { name: '国外模型', exact: true }).click();
-    assert.equal(await model.locator('.model-row').count(), 5);
-    assert.equal((await model.locator('.model-presets button').count()) >= 5, true);
+    assert.equal(await page.getByRole('group', { name: '模型示例范围' }).count(), 0);
     const material = page.locator('.material-story');
     const sample = page.locator('.surface-story [data-material]');
     const backgrounds = new Set();
@@ -736,167 +627,8 @@ test('model matrix, quota, presets, material samples and speed states use real p
     await page.close();
   }
 });
-
-test('pointer takeover releases keyboard chapter lock; static resizing and manual window editing retain focus', async () => {
-  const page = await browser.newPage({
-    locale: 'zh-CN',
-    viewport: { width: 1440, height: 900 },
-  });
-  try {
-    await page.goto(base);
-    await scrollScene(page, '.reading-story', 0.1);
-    const demo = page.locator('.product-demo').first();
-    const suggestion = demo.getByRole('button', { name: /拆解第一版/ });
-    await suggestion.focus();
-    await page.keyboard.press('Enter');
-    await page.waitForFunction(() => document.querySelector('.product-demo textarea').value);
-    const keyboardDraft = await demo.getByLabel('接着聊', { exact: true }).inputValue();
-    await suggestion.click();
-    await page.waitForFunction(
-      (value) => document.querySelector('.product-demo textarea').value === `${value}\n${value}`,
-      keyboardDraft,
-    );
-    await page.mouse.wheel(0, 1);
-    await page.locator('.story-copy[data-chapter="terms"] h2').evaluate((heading) => {
-      scrollTo(0, scrollY + heading.getBoundingClientRect().top - innerHeight * 0.5);
-    });
-    await demo
-      .getByRole('tab', { name: '术语释义', exact: true })
-      .and(page.locator('[aria-selected="true"]'))
-      .waitFor();
-    assert.equal(await demo.getAttribute('data-feature'), 'terms');
-    await demo.locator('.term-brick').first().click();
-    await page.getByRole('button', { name: '收藏术语', exact: true }).click();
-    const favorite = page.getByRole('button', { name: '取消收藏', exact: true });
-    // Focus/reflow scrolling alone must not replace the control being used.
-    await page.locator('.story-copy[data-chapter="outline"] h2').evaluate((heading) => {
-      scrollTo(0, scrollY + heading.getBoundingClientRect().top - innerHeight * 0.5);
-    });
-    await page.evaluate(
-      () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
-    );
-    assert.equal(await demo.getAttribute('data-feature'), 'terms');
-    assert.equal(
-      await favorite.evaluate((el) => {
-        let active = document.activeElement;
-        while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
-        return el === active;
-      }),
-      true,
-    );
-    await page.setViewportSize({ width: 550, height: 900 });
-    await page.waitForFunction(
-      () => document.querySelector('.reading-story').dataset.static === 'true',
-    );
-    assert.equal(await demo.getAttribute('data-feature'), 'terms');
-    assert.equal(
-      await favorite.evaluate((el) => {
-        let active = document.activeElement;
-        while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
-        return el === active;
-      }),
-      true,
-    );
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await page.waitForFunction(
-      () => document.querySelector('.reading-story').dataset.static === 'false',
-    );
-    assert.equal(
-      await favorite.evaluate((el) => {
-        let active = document.activeElement;
-        while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
-        return el === active;
-      }),
-      true,
-    );
-    await page.keyboard.press('Escape');
-    await page.mouse.wheel(0, 1);
-    await page.locator('.story-copy[data-chapter="outline"] h2').evaluate((heading) => {
-      scrollTo(0, scrollY + heading.getBoundingClientRect().top - innerHeight * 0.5);
-    });
-    await demo
-      .getByRole('tab', { name: '大纲', exact: true })
-      .and(page.locator('[aria-selected="true"]'))
-      .waitFor();
-    await scrollOpening(page, 1);
-    const surface = page.locator('.surface-story');
-    await surface.getByRole('button', { name: '演示移到副屏' }).click();
-    await surface.getByLabel('下一步示例草稿').fill('继续保留');
-    await page.waitForFunction(
-      () => document.querySelector('.surface-story .layout-demo-window').x.baseVal.value === 754,
-    );
-    await surface.getByRole('button', { name: '演示侧栏' }).click();
-    assert.equal(await surface.getByLabel('下一步示例草稿').inputValue(), '继续保留');
-  } finally {
-    await page.close();
-  }
-});
-
-test('responsive reflow preserves the focused feature before a delayed media-query notification', async () => {
-  const page = await browser.newPage({
-    locale: 'zh-CN',
-    viewport: { width: 1440, height: 900 },
-  });
-  try {
-    await page.addInitScript(() => {
-      const match = window.matchMedia.bind(window);
-      window.matchMedia = (query) => {
-        const media = match(query);
-        if (!query.includes('max-width: 760px')) return media;
-        const add = media.addEventListener.bind(media);
-        const remove = media.removeEventListener.bind(media);
-        const listeners = new Map();
-        media.addEventListener = (kind, listener, options) => {
-          if (kind !== 'change') return add(kind, listener, options);
-          const delayed = (event) => setTimeout(() => listener.call(media, event), 120);
-          listeners.set(listener, delayed);
-          add(kind, delayed, options);
-        };
-        media.removeEventListener = (kind, listener, options) => {
-          remove(kind, listeners.get(listener) || listener, options);
-          listeners.delete(listener);
-        };
-        return media;
-      };
-    });
-    await page.goto(base);
-    const demo = page.locator('.product-demo').first();
-    await demo.getByRole('tab', { name: '术语释义', exact: true }).click();
-    await demo.locator('.term-brick').first().click();
-    await page.getByRole('button', { name: '收藏术语', exact: true }).click();
-    const favorite = page.getByRole('button', { name: '取消收藏', exact: true });
-    // A responsive reflow can move another chapter into the reading band before
-    // matchMedia notifies React. Exercise that event order explicitly.
-    await page.evaluate(() => {
-      addEventListener(
-        'resize',
-        () => {
-          const heading = document.querySelector('.story-copy[data-chapter="outline"] h2');
-          scrollTo(0, scrollY + heading.getBoundingClientRect().top - innerHeight * 0.5);
-        },
-        { once: true },
-      );
-    });
-    await page.setViewportSize({ width: 550, height: 900 });
-    await page.waitForFunction(
-      () => document.querySelector('.reading-story').dataset.static === 'true',
-    );
-    assert.equal(await demo.getAttribute('data-feature'), 'terms');
-    assert.equal(
-      await favorite.evaluate((element) => {
-        let active = document.activeElement;
-        while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
-        return element === active;
-      }),
-      true,
-    );
-  } finally {
-    await page.close();
-  }
-});
-
 test('light/dark responsive and short screens preserve readable controls without overflow or duplicate ids', async () => {
-  const page = await browser.newPage({
+  const page = await newPage({
     locale: 'zh-CN',
     reducedMotion: 'reduce',
     colorScheme: 'light',
@@ -922,6 +654,10 @@ test('light/dark responsive and short screens preserve readable controls without
         const geometry = await page.evaluate(() => ({
           width: innerWidth,
           scrollWidth: document.documentElement.scrollWidth,
+          reader: [...document.querySelectorAll('.reader-article')].map((node) => ({
+            scrollWidth: node.scrollWidth,
+            clientWidth: node.clientWidth,
+          })),
           opening: document.querySelector('.intro-preview').getBoundingClientRect().toJSON(),
           openingContents: ['.opening-story .layout-demo-canvas', '.workspace-type-controls'].map(
             (selector) => document.querySelector(selector).getBoundingClientRect().toJSON(),
@@ -935,7 +671,7 @@ test('light/dark responsive and short screens preserve readable controls without
             .map((node) => `${node.tagName}.${node.getAttribute('class') || ''}`),
           buttons: [
             ...document.querySelectorAll(
-              '.preview-selector button,.choice-row button,.demo-feature-tabs button',
+              '.preview-selector button,.choice-row button,.scene-feature-head button',
             ),
           ]
             .filter((node) => node.getBoundingClientRect().width)
@@ -946,6 +682,12 @@ test('light/dark responsive and short screens preserve readable controls without
           geometry.scrollWidth <= width,
           `${theme} ${width}: ${JSON.stringify(geometry.overflow)}`,
         );
+        assert.equal(geometry.reader.length, 1);
+        for (const reader of geometry.reader)
+          assert.ok(
+            reader.scrollWidth <= reader.clientWidth + 1,
+            `${theme} ${width}: reader article horizontal overflow ${JSON.stringify(reader)}`,
+          );
         assert.equal(new Set(geometry.ids).size, geometry.ids.length);
         for (const box of geometry.openingContents)
           assert.ok(
@@ -959,7 +701,7 @@ test('light/dark responsive and short screens preserve readable controls without
             box.width >= 28 && box.height >= 28 && box.left >= 0 && box.right <= width,
             JSON.stringify(box),
           );
-        assert.equal(await page.locator('.static-chapter').count(), 3);
+        assert.equal(await page.locator('.combined-scene').count(), 3);
       }
     }
     await page.reload();
@@ -976,11 +718,11 @@ test('light/dark responsive and short screens preserve readable controls without
   }
 });
 test('embedded SVG geometry and poses match the approved original at each phase', async () => {
-  const original = await browser.newPage({
+  const original = await newPage({
     locale: 'zh-CN',
     reducedMotion: 'reduce',
   });
-  const embedded = await browser.newPage();
+  const embedded = await newPage();
   try {
     const source = await readFile('ui/website/media/palboo-opening.source.html', 'utf8');
     await original.setContent(source);
@@ -1014,56 +756,8 @@ test('embedded SVG geometry and poses match the approved original at each phase'
   }
 });
 
-test('English website retains demo drafts and choices through language switching and reload', async () => {
-  const page = await browser.newPage({
-    locale: 'en-US',
-    viewport: { width: 1280, height: 960 },
-    reducedMotion: 'reduce',
-  });
-  const errors = [];
-  page.on('pageerror', (error) => errors.push(error.message));
-  try {
-    await page.goto(base);
-    await page.waitForFunction(() => document.documentElement.lang === 'en');
-    assert.match(
-      await page.locator('h1').innerText(),
-      /Give your conversations\s+another dimension/,
-    );
-    const demo = page.locator('.product-demo').first();
-    await demo.locator('textarea').fill('保留我的输入 / keep my draft');
-    await demo.getByRole('button', { name: 'Regenerate suggestions', exact: true }).click();
-    await demo.getByRole('button', { name: /Compare presentation/ }).waitFor();
-    const draft = await demo.locator('textarea').inputValue();
-    for (const locale of ['zh-CN', 'en']) {
-      await page.locator('.site-language').click();
-      await page.waitForFunction((expected) => document.documentElement.lang === expected, locale);
-      assert.equal(await demo.locator('textarea').inputValue(), draft);
-      await demo
-        .getByRole('button', { name: locale === 'en' ? /Compare presentation/ : /比较展示方式/ })
-        .waitFor();
-    }
-    for (const width of [390, 742, 1280]) {
-      await page.setViewportSize({ width, height: 960 });
-      await page.locator('h1').scrollIntoViewIfNeeded();
-      assert.equal(
-        await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
-        false,
-      );
-      await page.screenshot({ path: `target/reports/localization/site-opening-en-${width}.png` });
-      await page.locator('#install').scrollIntoViewIfNeeded();
-      await page.screenshot({ path: `target/reports/localization/site-install-en-${width}.png` });
-    }
-    await page.reload();
-    await page.waitForFunction(() => document.documentElement.lang === 'en');
-    assert.equal(await page.locator('html').getAttribute('lang'), 'en');
-    assert.deepEqual(errors, []);
-  } finally {
-    await page.close();
-  }
-});
-
 test('opening approaches one shared model and reveals working controls without losing local state', async () => {
-  const page = await browser.newPage({ locale: 'zh-CN', viewport: { width: 828, height: 988 } });
+  const page = await newPage({ locale: 'zh-CN', viewport: { width: 828, height: 988 } });
   const requests = [];
   page.on('request', (request) => requests.push(request.url()));
   try {
@@ -1163,7 +857,7 @@ test('website theme toggles directly and remembers the choice without following 
     colorScheme: 'light',
     viewport: { width: 828, height: 988 },
   });
-  const page = await context.newPage();
+  const page = await checkedPage(await context.newPage());
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
   const expectTheme = (page, theme) =>
@@ -1194,7 +888,7 @@ test('website theme toggles directly and remembers the choice without following 
     await page.keyboard.press('Enter');
     await page.emulateMedia({ colorScheme: 'dark' });
     await expectTheme(page, 'light');
-    const other = await context.newPage();
+    const other = await checkedPage(await context.newPage());
     await other.goto(`${base}/?lang=en`);
     await expectTheme(other, 'light');
     const otherToggle = other.getByRole('button', { name: 'Switch to dark mode', exact: true });
@@ -1225,7 +919,7 @@ test('website theme toggles directly and remembers the choice without following 
 });
 
 test('layout flows into materials through one reversible workspace and keeps edits and focus', async () => {
-  const page = await browser.newPage({ locale: 'zh-CN', viewport: { width: 1280, height: 900 } });
+  const page = await newPage({ locale: 'zh-CN', viewport: { width: 1280, height: 900 } });
   const errors = [],
     requests = [];
   page.on('pageerror', (error) => errors.push(error.message));
@@ -1244,7 +938,7 @@ test('layout flows into materials through one reversible workspace and keeps edi
     const frame = demo.locator('.layout-demo-window');
     const original = await frame.boundingBox();
     const widths = [];
-    for (const progress of [0.64, 0.66, 0.68, 0.7, 0.75]) {
+    for (const progress of [0.72, 0.78, 0.84, 0.9, 0.95]) {
       await scrollScene(page, '.opening-story', progress);
       widths.push((await frame.boundingBox()).width);
       assert.equal(await demo.locator('.layout-demo-workspace').count(), 1);
@@ -1324,355 +1018,8 @@ test('layout flows into materials through one reversible workspace and keeps edi
   }
 });
 
-test('native scrolling visits every feature, arrangement, placement and material in one workspace', async () => {
-  const page = await browser.newPage({ locale: 'zh-CN', viewport: { width: 1280, height: 900 } });
-  const errors = [],
-    requests = [];
-  page.on('pageerror', (error) => errors.push(error.message));
-  page.on('request', (request) => requests.push(request.url()));
-  try {
-    await page.goto(base);
-    const workspace = await page.locator('.surface-story .layout-demo-workspace').elementHandle();
-    const visited = {
-      placements: new Set(),
-      arrangements: new Set(),
-      features: new Set(),
-      edges: new Set(),
-      materials: new Set(),
-    };
-    for (let progress = 0.14; progress < 1; progress += 0.02) {
-      await scrollScene(page, '.opening-story', progress);
-      const state = await page.locator('.surface-story').evaluate((el) => {
-        const workspace = el.querySelector('.layout-demo-workspace');
-        return {
-          placement: el.querySelector('[data-demo-placement]').dataset.demoPlacement,
-          arrangement: el.querySelector('[aria-label="演示排列"] [aria-pressed="true"]')
-            .textContent,
-          features: [...el.querySelectorAll('[role="tab"][aria-selected="true"]')].map((tab) =>
-            tab.getAttribute('aria-label'),
-          ),
-          edge: el.querySelector('.workspace-edge-select')?.value,
-          material:
-            el.dataset.materialStage === 'true'
-              ? `${workspace.dataset.material}/${workspace.dataset.variant}`
-              : null,
-        };
-      });
-      visited.placements.add(state.placement);
-      visited.arrangements.add(state.arrangement);
-      state.features.forEach((name) => visited.features.add(name));
-      if (state.edge) visited.edges.add(state.edge);
-      if (state.material) visited.materials.add(state.material);
-      assert.equal(
-        await workspace.evaluate(
-          (node) => node === document.querySelector('.surface-story .layout-demo-workspace'),
-        ),
-        true,
-      );
-    }
-    assert.deepEqual(visited.placements, new Set(['sidebar', 'overlay', 'desktop', 'edge']));
-    assert.deepEqual(visited.arrangements, new Set(['上下', '左右', '标签']));
-    assert.deepEqual(
-      visited.features,
-      new Set(['下一步', '常用语', '大纲', '术语', 'Grok Bot', '模型切换', '看板']),
-    );
-    assert.deepEqual(visited.edges, new Set(['right', 'left', 'top', 'bottom']));
-    assert.deepEqual(
-      visited.materials,
-      new Set([
-        'matte/regular',
-        'frosted/regular',
-        'native-glass/regular',
-        'native-glass/clear',
-        'black/regular',
-      ]),
-    );
-    await scrollScene(page, '.opening-story', 0.22);
-    await page.waitForFunction(
-      () =>
-        document.querySelector('[aria-label="演示排列"] [aria-pressed="true"]').textContent ===
-        '左右',
-    );
-    assert.equal(await page.locator('.surface-story').getAttribute('data-material-stage'), 'false');
-    assert.equal(await page.locator('.surface-story .csw-workbench-pane').count(), 2);
-    assert.equal(await page.locator('html').getAttribute('data-site-theme'), 'light');
-    assert.deepEqual(errors, []);
-    assert.ok(requests.every((url) => url.startsWith(base) && !url.includes('/api/')));
-  } finally {
-    await page.close();
-  }
-});
-
-test('scroll-led tool demonstrations show task progress, models, speed, optimization and Bot consultation', async () => {
-  const page = await browser.newPage({ locale: 'zh-CN', viewport: { width: 1280, height: 900 } });
-  try {
-    await page.goto(base);
-    for (const [index, progress] of [0.05, 0.4, 0.85].entries()) {
-      await scrollScene(page, '.board-story', progress);
-      await page.waitForFunction(
-        (index) =>
-          document
-            .querySelector('.board-story [data-real-feature=board]')
-            .shadowRoot.querySelectorAll('.board-column')
-            [index].textContent.includes('整理三个代表作品'),
-        index,
-      );
-    }
-    const phrases = page.locator('.phrases-tour');
-    await scrollScene(page, '.phrases-tour', 0.05);
-    assert.equal(await phrases.getByRole('textbox').inputValue(), '');
-    await scrollScene(page, '.phrases-tour', 0.5);
-    await page.waitForFunction(() =>
-      document.querySelector('.phrases-tour textarea').value.startsWith('检查这份作品集方案'),
-    );
-    await scrollScene(page, '.phrases-tour', 0.9);
-    await phrases.getByRole('button', { name: '仅显示名称', pressed: true }).waitFor();
-    assert.equal(
-      await phrases.getByRole('button', { name: '检查方案', exact: true }).textContent(),
-      '检查方案',
-    );
-    const model = page.locator('.model-tour');
-    for (const [progress, name, fast] of [
-      [0.05, 'GPT-6.1-Sol · Low', false],
-      [0.3, 'Claude Sonnet 5 · 选择', false],
-      [0.6, 'DeepSeek V4 Pro · 选择', false],
-      [0.85, 'GPT-6-Astra · High', true],
-    ]) {
-      await scrollScene(page, '.model-tour', progress);
-      await page.waitForFunction(
-        ({ name, fast }) => {
-          const el = document.querySelector('.model-tour');
-          return (
-            el.querySelector(`button[aria-label="${name}"]`)?.getAttribute('aria-pressed') ===
-              'true' &&
-            el.querySelector('.model-fast')?.getAttribute('aria-pressed') === String(fast)
-          );
-        },
-        { name, fast },
-      );
-    }
-    assert.match(await model.innerText(), /72%/);
-    assert.match(await model.locator('.token-meter-readout').innerText(), /38\.4 tok\/s/);
-    assert.equal(await page.locator('.speed-tour').count(), 0);
-    const prompt = page.getByLabel('提示词优化演示', { exact: true });
-    await scrollScene(page, '.prompt-tour', 0.05);
-    assert.equal(await prompt.inputValue(), '帮我把这个作品集方案安排一下');
-    await scrollScene(page, '.prompt-tour', 0.85);
-    await page.waitForFunction(() =>
-      document.querySelector('.prompt-tour textarea').value.includes('交付内容与检查方法'),
-    );
-    assert.equal(
-      await page
-        .locator('.prompt-tour')
-        .getByRole('button', { name: '恢复原提示词', exact: true })
-        .isVisible(),
-      true,
-    );
-    for (const [progress, name] of [
-      [0.05, '工程主管'],
-      [0.4, '资料助手'],
-      [0.85, '随口一问'],
-    ]) {
-      await scrollScene(page, '.bot-tour', progress);
-      await page.waitForFunction(
-        (name) =>
-          document
-            .querySelector('.bot-tour [data-real-feature=bots]')
-            .shadowRoot.querySelector('.palboo-bot-avatar').dataset.activity ===
-          (name === '随口一问' ? 'finished' : 'working'),
-        name,
-      );
-      assert.match(await page.getByLabel('Bot 咨询草稿').inputValue(), new RegExp(name));
-    }
-    await scrollScene(page, '.model-tour', 0.05);
-    await model.locator('button[aria-label="GPT-6.1-Sol · Low"][aria-pressed="true"]').waitFor();
-    assert.equal(
-      await model
-        .getByRole('button', { name: 'GPT-6.1-Sol · Low', exact: true })
-        .getAttribute('aria-pressed'),
-      'true',
-    );
-  } finally {
-    await page.close();
-  }
-});
-
-test('scroll tours yield to editing and manual choices, preserve drafts and release short screens', async () => {
-  const page = await browser.newPage({ locale: 'zh-CN', viewport: { width: 1280, height: 900 } });
-  try {
-    await page.goto(base);
-    await scrollOpening(page, 1);
-    const demo = page.locator('.surface-story');
-    const draft = demo.getByLabel('下一步示例草稿');
-    await draft.fill('保留这份布局草稿');
-    await page.mouse.wheel(0, 400);
-    await scrollScene(page, '.opening-story', 0.45);
-    assert.equal(
-      await demo.locator('[data-demo-placement]').getAttribute('data-demo-placement'),
-      'sidebar',
-    );
-    assert.equal(await draft.inputValue(), '保留这份布局草稿');
-    assert.equal(
-      await draft.evaluate((el) => {
-        let active = document.activeElement;
-        while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
-        return el === active;
-      }),
-      true,
-    );
-    await draft.blur();
-    await page.mouse.move(20, 20);
-    await page.mouse.wheel(0, 1);
-    await page.waitForFunction(
-      () =>
-        document.querySelector('.surface-story [data-demo-placement]').dataset.demoPlacement ===
-        'edge',
-    );
-    await scrollOpening(page, 1);
-    assert.equal(await draft.inputValue(), '保留这份布局草稿');
-
-    const models = page.locator('.model-tour');
-    const ranges = models.getByRole('group', { name: '模型示例范围' });
-    await scrollScene(page, '.model-tour', 0.05);
-    await ranges.getByRole('button', { name: '国内模型', exact: true }).click();
-    await scrollScene(page, '.model-tour', 0.9);
-    assert.equal(await ranges.locator('[aria-pressed="true"]').innerText(), '国内模型');
-    await page.mouse.move(20, 20);
-    await page.mouse.wheel(0, 1);
-    await ranges
-      .getByRole('button', { name: '常用组合' })
-      .and(page.locator('[aria-pressed="true"]'))
-      .waitFor();
-
-    await scrollScene(page, '.bot-tour', 0.4);
-    const botDraft = page.getByLabel('Bot 咨询草稿');
-    const original = await botDraft.inputValue();
-    await botDraft.focus();
-    assert.equal(await botDraft.inputValue(), original);
-    await botDraft.fill('我自己的咨询');
-    await scrollScene(page, '.bot-tour', 0.85);
-    assert.equal(await botDraft.inputValue(), '我自己的咨询');
-    await botDraft.blur();
-    await page.mouse.move(20, 20);
-    await page.mouse.wheel(0, 1);
-    await page.waitForFunction(
-      () =>
-        document
-          .querySelector('.bot-tour [data-real-feature=bots]')
-          .shadowRoot.querySelector('.palboo-bot-avatar').dataset.activity === 'finished',
-    );
-    assert.equal(await botDraft.inputValue(), '我自己的咨询');
-
-    for (const viewport of [
-      { width: 780, height: 620 },
-      { width: 390, height: 844 },
-    ]) {
-      await page.setViewportSize(viewport);
-      await page.locator('.board-story').scrollIntoViewIfNeeded();
-      await page.waitForFunction(
-        () => document.querySelector('.board-story').dataset.static === 'true',
-      );
-      assert.equal(
-        await page
-          .locator('.board-story .scroll-demo-pin')
-          .evaluate((el) => getComputedStyle(el).position),
-        'static',
-      );
-      assert.equal(
-        await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
-        true,
-      );
-    }
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await page.emulateMedia({ reducedMotion: 'reduce' });
-    await page.waitForFunction(() =>
-      [...document.querySelectorAll('.scroll-demo')].every((el) => el.dataset.static === 'true'),
-    );
-    await ranges.getByRole('button', { name: '国外模型', exact: true }).click();
-    await page.mouse.wheel(0, 300);
-    assert.equal(await ranges.locator('[aria-pressed="true"]').innerText(), '国外模型');
-    assert.equal(await botDraft.inputValue(), '我自己的咨询');
-  } finally {
-    await page.close();
-  }
-});
-
-test('real Bot avatars, hover actions and recent messages use local example data', async () => {
-  const page = await browser.newPage({
-    locale: 'zh-CN',
-    viewport: { width: 1280, height: 900 },
-    reducedMotion: 'reduce',
-  });
-  const requests = [];
-  page.on('request', (request) => requests.push(request.url()));
-  try {
-    await page.goto(base);
-    const demo = page.locator('.bot-tour');
-    const bot = demo.getByRole('group', { name: '工程主管', exact: true });
-    await bot.scrollIntoViewIfNeeded();
-    assert.equal(await demo.locator('.palboo-bot-messages').count(), 0);
-    assert.deepEqual(
-      new Set(
-        await demo
-          .locator('.palboo-bot-badge')
-          .evaluateAll((nodes) => nodes.map((node) => node.dataset.badge)),
-      ),
-      new Set(['unread', 'occupied', 'stopped', 'error']),
-    );
-    assert.equal(
-      await demo
-        .locator('.palboo-bot-avatar')
-        .evaluateAll((nodes) =>
-          nodes.every((node) => node.querySelectorAll('.palboo-bot-badge').length <= 1),
-        ),
-      true,
-    );
-    assert.equal(await bot.locator('.palboo-bot-avatar').getAttribute('data-activity'), 'working');
-    await page.mouse.move(10, 10);
-    assert.equal(
-      await bot.getByRole('button', { name: '查看进度', exact: true }).isVisible(),
-      false,
-    );
-    await bot.hover();
-    await bot.getByRole('button', { name: '查看进度', exact: true }).click();
-    assert.match(await demo.getByLabel('Bot 咨询草稿').inputValue(), /查看「工程主管」的进度/);
-    await demo.getByRole('button', { name: '最近消息', exact: true }).click();
-    assert.match(await demo.locator('.palboo-bot-messages').innerText(), /三个代表作品/);
-    await demo.getByRole('button', { name: '返回 Bot 列表', exact: true }).click();
-    assert.equal(await demo.locator('.palboo-bot-messages').count(), 0);
-    const draft = await demo.getByLabel('Bot 咨询草稿').inputValue();
-    const layouts = demo.getByRole('group', { name: 'Bot 排布演示' });
-    for (const [name, expectedColumns] of [
-      ['侧栏', 1],
-      ['双列', 2],
-      ['自适应', 4],
-    ]) {
-      await layouts.getByRole('button', { name, exact: true }).click();
-      const columns = await demo
-        .locator('.palboo-bot-avatar')
-        .evaluateAll(
-          (nodes) => new Set(nodes.map((node) => Math.round(node.getBoundingClientRect().x))).size,
-        );
-      assert.equal(columns, expectedColumns, name);
-    }
-    await demo.getByRole('button', { name: '分组', exact: true }).click();
-    await demo.getByText('创作与灵感', { exact: true }).waitFor();
-    await demo.getByText('项目协作', { exact: true }).waitFor();
-    assert.equal(await demo.getByLabel('Bot 咨询草稿').inputValue(), draft);
-    await demo.getByRole('button', { name: '重播 Bot 状态', exact: true }).click();
-    assert.equal(await bot.locator('.palboo-bot-avatar').getAttribute('data-activity'), 'finished');
-    assert.match(
-      await page.locator('.model-tour .token-meter-readout').innerText(),
-      /38\.4 tok\/s[\s\S]*上次测速/,
-    );
-    assert.ok(requests.every((url) => url.startsWith(base) && !url.includes('/api/')));
-  } finally {
-    await page.close();
-  }
-});
-
 test('completed brand follows the mouse without changing poses, replay or scroll handoff', async () => {
-  const page = await browser.newPage({ locale: 'zh-CN', viewport: { width: 1440, height: 1000 } });
+  const page = await newPage({ locale: 'zh-CN', viewport: { width: 1440, height: 1000 } });
   try {
     await page.goto(base);
     const stage = page.locator('.original-opening');
@@ -1719,386 +1066,726 @@ test('completed brand follows the mouse without changing poses, replay or scroll
   }
 });
 
-test('Bot replay uses synchronized original eye motion and ends after one cycle', async () => {
-  const page = await browser.newPage({ locale: 'zh-CN', viewport: { width: 1440, height: 1000 } });
-  try {
-    await page.goto(base);
-    const demo = page.locator('.bot-tour');
-    await scrollScene(page, '.bot-tour', 0.85);
-    const avatar = demo
-      .getByRole('group', { name: '工程主管', exact: true })
-      .locator('.palboo-bot-avatar');
-    await demo.getByRole('button', { name: '重播 Bot 状态', exact: true }).click();
-    await avatar.and(page.locator('[data-activity="working"][data-moving="true"]')).waitFor();
-    const animations = await avatar.locator('.palboo-bot-eye').evaluateAll((eyes) =>
-      eyes.map((eye) => {
-        const animation = eye.getAnimations()[0];
-        return {
-          name: getComputedStyle(eye).animationName,
-          duration: animation?.effect.getTiming().duration,
-          start: animation?.startTime,
-        };
-      }),
-    );
-    assert.equal(animations.length, 2);
-    assert.equal(animations[0].name, 'palboo-bot-think');
-    assert.deepEqual(animations[0], animations[1]);
-    await avatar.and(page.locator('[data-activity="finished"]')).waitFor();
-    assert.equal(
-      await demo
-        .getByRole('button', { name: '重播 Bot 状态', exact: true })
-        .getAttribute('aria-busy'),
-      'false',
-    );
-    await page.emulateMedia({ reducedMotion: 'reduce' });
-    assert.equal(
-      await avatar
-        .locator('.palboo-bot-eye')
-        .first()
-        .evaluate((eye) => getComputedStyle(eye).animationName),
-      'none',
-    );
-  } finally {
-    await page.close();
-  }
-});
-
-test('quick phrases demonstrate full content, optional names and draft-safe insertion in both languages', async () => {
-  for (const locale of ['zh-CN', 'en']) {
-    const page = await browser.newPage({ locale, viewport: { width: 1000, height: 900 } });
-    const unexpected = [];
-    page.on('request', (request) => {
-      if (!request.url().startsWith(base) && !request.url().startsWith('data:'))
-        unexpected.push(request.url());
+for (const locale of ['zh-CN', 'en']) {
+  test(`writing shares one draft across phrases, optimization, restore and model choices (${locale})`, async () => {
+    const page = await newPage({
+      locale,
+      viewport: { width: 1440, height: 1000 },
+      reducedMotion: 'reduce',
     });
     try {
-      await page.goto(base + '?lang=' + locale);
-      const demo = page.locator('.quick-phrases-showcase');
-      await demo.scrollIntoViewIfNeeded();
-      const text = locale === 'en' ? 'Review the plan' : '检查方案';
-      const prompt = demo.getByRole('button', { name: text, exact: true });
-      const full = await prompt.locator('.csw-quick-text').textContent();
-      const draft = demo.getByRole('textbox');
-      await draft.fill('Existing draft');
-      await demo
+      await page.goto(`${base}/?lang=${locale}`);
+      const writing = page.locator('.writing-window');
+      const phrases = writing.locator('.scene-feature-prompts');
+      const draft = writing.getByRole('textbox');
+      const label = locale === 'en' ? 'Review the plan' : '检查方案';
+      const phrase = phrases.getByRole('button', { name: label, exact: true });
+      const full = await phrase.locator('.csw-quick-text').textContent();
+      const optimize = () =>
+        writing.getByRole('button', {
+          name: locale === 'en' ? 'Refine prompt' : '优化提示词',
+          exact: true,
+        });
+      const restore = () =>
+        writing.getByRole('button', {
+          name: locale === 'en' ? 'Restore original prompt' : '恢复原提示词',
+          exact: true,
+        });
+      await draft.fill('Existing draft / 我的草稿');
+      await phrases
         .getByRole('button', { name: locale === 'en' ? 'Show full text' : '展开全文', exact: true })
         .click();
-      assert.equal(await draft.inputValue(), 'Existing draft');
-      await prompt.click();
-      await page.waitForFunction(
-        (expected) =>
-          document.querySelector('.quick-phrases-showcase textarea')?.value === expected,
-        'Existing draft\n' + full,
+      assert.equal(
+        await draft.inputValue(),
+        'Existing draft / 我的草稿',
+        'expanding is not insertion',
       );
-      assert.equal(await draft.inputValue(), 'Existing draft\n' + full);
-      await demo
-        .getByRole('button', {
-          name: locale === 'en' ? 'Show names only' : '仅显示名称',
-          exact: true,
-        })
+      await phrase.click();
+      const combined = 'Existing draft / 我的草稿\n' + full;
+      await waitValue(draft, combined);
+      const names = phrases.getByRole('button', {
+        name: locale === 'en' ? 'Show names only' : '仅显示名称',
+        exact: true,
+      });
+      await names.click();
+      assert.equal(await phrase.textContent(), label);
+      assert.equal(await draft.inputValue(), combined);
+      await optimize().click();
+      await restore().waitFor();
+      const optimized = await draft.inputValue();
+      assert.ok(optimized.startsWith(combined));
+      assert.notEqual(optimized, combined);
+      await writing
+        .locator('.model-matrix')
+        .getByRole('button', { name: 'GPT-6-Astra · High', exact: true })
         .click();
-      assert.equal(await prompt.textContent(), text);
+      assert.equal(
+        await draft.inputValue(),
+        optimized,
+        'model change preserves the optimized shared draft',
+      );
+      await restore().click();
+      await waitValue(draft, combined);
       await draft.fill('');
-      await prompt.click();
-      await page.waitForFunction(
-        (expected) =>
-          document.querySelector('.quick-phrases-showcase textarea')?.value === expected,
+      await phrase.click();
+      await waitValue(draft, full);
+      await names.click();
+      assert.equal(await phrase.locator('.csw-quick-text').textContent(), full);
+      await page.locator('.site-language').click();
+      assert.equal(
+        await draft.inputValue(),
         full,
+        'translated samples must not translate visitor content',
       );
-      assert.equal(await draft.inputValue(), full);
-      await demo
-        .getByRole('button', { name: locale === 'en' ? 'Full text' : '完整内容', exact: true })
-        .click();
-      assert.equal(await prompt.locator('.csw-quick-text').textContent(), full);
       await page.setViewportSize({ width: 360, height: 760 });
-      await page.waitForFunction(() => document.documentElement.scrollWidth <= innerWidth);
+      await frames(page);
+      assert.equal(await writing.getByRole('textbox').count(), 1);
+      assert.equal(await draft.inputValue(), full);
       assert.equal(
         await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
         true,
       );
-      assert.deepEqual(unexpected, []);
-    } finally {
-      await page.close();
-    }
-  }
-});
-
-test('narrative tours link cause to effect, reverse on scroll-back and keep manual drafts', async () => {
-  const page = await browser.newPage({ locale: 'zh-CN', viewport: { width: 1440, height: 900 } });
-  try {
-    await page.goto(base);
-    // 提示词：反馈来自真实组件——原稿时按钮为“优化提示词”，滚过后为已优化文本与“恢复原提示词”
-    const promptBox = page.locator('.prompt-tour textarea');
-    const promptButton = page.locator('.prompt-tour [data-palboo-prompt] button');
-    const expectAttribute = async (locator, name, value) => {
-      for (let i = 0; i < 40 && (await locator.getAttribute(name)) !== value; i++)
-        await page.waitForTimeout(50);
-      assert.equal(await locator.getAttribute(name), value);
-    };
-    await scrollScene(page, '.prompt-tour', 0.05);
-    assert.equal(await promptBox.inputValue(), '帮我把这个作品集方案安排一下');
-    assert.equal(await promptButton.getAttribute('aria-label'), '优化提示词');
-    await scrollScene(page, '.prompt-tour', 0.9);
-    await page.waitForFunction(() =>
-      document.querySelector('.prompt-tour textarea').value.startsWith('请把这个个人作品集方案'),
-    );
-    await expectAttribute(promptButton, 'aria-label', '恢复原提示词');
-    assert.equal(await page.locator('.causal-link, .causal-ring').count(), 0);
-    assert.equal(await page.locator('.prompt-stages').count(), 0);
-    await scrollScene(page, '.prompt-tour', 0.05);
-    await page.waitForFunction(
-      () =>
-        document.querySelector('.prompt-tour textarea').value === '帮我把这个作品集方案安排一下',
-    );
-    await expectAttribute(promptButton, 'aria-label', '优化提示词');
-    // 模型：示例速度只由真实 TokenMeterView 展示，不再有重复读数
-    await scrollScene(page, '.model-tour', 0.05);
-    await page.locator('.model-tour .token-meter-readout').waitFor();
-    assert.equal(await page.locator('.model-run, .model-run-speed, .term-ledger').count(), 0);
-    // Bot：完成后出现示例回复，回看消失
-    await scrollScene(page, '.bot-tour', 0.9);
-    await page.locator('.bot-tour .bot-reply-bubble').waitFor();
-    await scrollScene(page, '.bot-tour', 0.05);
-    await page.locator('.bot-tour .bot-reply-bubble').waitFor({ state: 'detached' });
-    // 常用语：访客草稿不被滚动覆盖
-    await scrollScene(page, '.phrases-tour', 0.05);
-    const box = page.locator('.phrases-tour').getByRole('textbox');
-    await box.fill('我自己的草稿');
-    await page.mouse.wheel(0, 10);
-    await scrollScene(page, '.phrases-tour', 0.6);
-    await scrollScene(page, '.phrases-tour', 0.9);
-    assert.equal(await box.inputValue(), '我自己的草稿');
-  } finally {
-    await page.close();
-  }
-});
-
-for (const viewport of [
-  { width: 1000, height: 560 },
-  { width: 390, height: 844 },
-]) {
-  test(`static tours still play cause and effect once at ${viewport.width}x${viewport.height}`, async () => {
-    const page = await browser.newPage({ locale: 'zh-CN', viewport });
-    try {
-      await page.goto(base);
-      assert.equal(await page.locator('.bot-tour').getAttribute('data-static'), 'true');
-      // 原生滚动回退下仍能看到任务完成、模型示例回合完成与 Bot 回复
-      assert.equal(await page.locator('.model-tour').getAttribute('data-static'), 'true');
-      // 看板高度随环境字体略有差异：只在它确实回退为静态时检查一次性播放
-      const boardStatic =
-        (await page.locator('.board-story').getAttribute('data-static')) === 'true';
-      await page
-        .locator('.board-story')
-        .evaluate((node) => node.scrollIntoView({ block: 'start' }));
-      if (boardStatic)
-        await page.waitForFunction(
-          () =>
-            document
-              .querySelector('.board-story [data-real-feature=board]')
-              .shadowRoot.querySelectorAll('.board-column')[2]
-              .textContent.includes('整理三个代表作品'),
-          null,
-          { timeout: 8000 },
-        );
-      await page.locator('.model-tour').evaluate((node) => node.scrollIntoView({ block: 'start' }));
-      await page
-        .locator('.model-tour .model-showcase[data-phase="completed"]')
-        .waitFor({ timeout: 8000 });
-      await page.locator('.bot-tour').evaluate((node) => node.scrollIntoView({ block: 'start' }));
-      await page.locator('.bot-tour .bot-reply-bubble').waitFor({ timeout: 8000 });
-      await page
-        .locator('.connection-map')
-        .evaluate((node) => node.scrollIntoView({ block: 'center' }));
-      await page.waitForFunction(
-        () =>
-          Number(
-            getComputedStyle(document.querySelector('.connection-map')).getPropertyValue('--draw'),
-          ) > 0.9,
-      );
-      // 连接图为 HTML 布局：CodexHost 在本机框内并标可选，渲染字号不被缩放
-      const host = page.locator('.cm-local .cm-node', { hasText: 'CodexHost' });
-      assert.match(await host.textContent(), /可选/);
-      const sizes = await page.locator('.connection-map .cm-node').evaluateAll((nodes) =>
-        nodes.map((node) => {
-          const rect = node.getBoundingClientRect();
-          const scale = rect.width / node.offsetWidth;
-          return parseFloat(getComputedStyle(node).fontSize) * scale;
-        }),
-      );
-      assert.ok(sizes.length === 5 && sizes.every((size) => size >= 12), String(sizes));
-      const map = await page.locator('.connection-map').boundingBox();
-      assert.ok(map.x >= 0 && map.x + map.width <= viewport.width);
     } finally {
       await page.close();
     }
   });
 }
 
-test('reduced motion static tours show a readable end state without playback', async () => {
-  const page = await browser.newPage({
+test('cancelled or superseded prompt optimization never replaces the shared visitor draft', async () => {
+  const page = await frozenPage({ reducedMotion: 'reduce' });
+  try {
+    const writing = page.locator('.writing-window');
+    const draft = writing.getByRole('textbox');
+    const optimize = writing.getByRole('button', { name: '优化提示词', exact: true });
+    await draft.fill('开始优化的草稿');
+    await optimize.click();
+    await writing.getByRole('button', { name: '取消优化', exact: true }).click();
+    await page.clock.runFor(600);
+    assert.equal(await draft.inputValue(), '开始优化的草稿');
+    await optimize.click();
+    await draft.fill('请求期间新写的内容');
+    await page.clock.runFor(600);
+    assert.equal(await draft.inputValue(), '请求期间新写的内容');
+    assert.equal(
+      await writing.getByRole('button', { name: '恢复原提示词', exact: true }).count(),
+      0,
+    );
+    await writing
+      .locator('.scene-feature-prompts')
+      .getByRole('button', { name: '继续', exact: true })
+      .click();
+    await page.clock.runFor(500);
+    await waitValue(draft, '请求期间新写的内容\n继续完成剩余步骤。');
+  } finally {
+    await page.close();
+  }
+});
+
+test('compact collaboration keeps real Bot actions and recent messages in its shared header', async () => {
+  const page = await newPage({
     locale: 'zh-CN',
-    viewport: { width: 390, height: 844 },
+    viewport: { width: 1440, height: 1000 },
     reducedMotion: 'reduce',
   });
   try {
     await page.goto(base);
-    await page.locator('.bot-tour').evaluate((node) => node.scrollIntoView({ block: 'start' }));
-    await page.waitForTimeout(1500);
-    assert.equal(await page.locator('[data-static-played]').count(), 0);
-    assert.equal(await page.locator('.causal-link').count(), 0);
-    await page
-      .locator('.connection-map')
-      .evaluate((node) => node.scrollIntoView({ block: 'center' }));
+    const scene = page.locator('.coordination-window');
+    const bots = scene.locator('.scene-feature-bots');
+    const draft = scene.getByLabel('Bot 咨询草稿');
+    await draft.fill('我的协作草稿');
+    assert.equal(await bots.locator('.palboo-bot-avatar').count(), 3);
+    assert.equal(await bots.getByRole('group', { name: '工程主管', exact: true }).count(), 1);
+    assert.equal(await bots.getByRole('group', { name: '资料助手', exact: true }).count(), 1);
+    assert.equal(await bots.getByRole('group', { name: '随口一问', exact: true }).count(), 1);
     assert.equal(
-      await page
-        .locator('.cm-node')
-        .first()
-        .evaluate((node) => getComputedStyle(node).opacity),
-      '1',
-    );
-  } finally {
-    await page.close();
-  }
-});
-
-// 找到阅读章节中某功能的某一拍（按滚动进度扫描，不依赖固定比例）
-async function reachBeat(page, feature, beat) {
-  for (let step = 0; step <= 100; step += 1) {
-    await scrollScene(page, '.reading-story', step / 100);
-    const hit = await page.evaluate(
-      ([feature, beat]) =>
-        [...document.querySelectorAll('.product-demo')].some(
-          (demo) =>
-            demo.getBoundingClientRect().height > 0 &&
-            demo.dataset.feature === feature &&
-            demo.querySelector('.demo-window-body')?.dataset.tourBeat === String(beat),
+      await bots
+        .locator('.palboo-bot-avatar')
+        .evaluateAll((nodes) =>
+          nodes.every((node) => node.querySelectorAll('.palboo-bot-badge').length <= 1),
         ),
-      [feature, beat],
+      true,
     );
-    if (hit) return step / 100;
-  }
-  throw new Error(`beat ${beat} of ${feature} not reached`);
-}
-const visibleDemo = (page) => page.locator('.product-demo:visible').first();
-
-test('manual suggestion refresh exits next-step auto-fill and reversed flights never land', async () => {
-  const page = await browser.newPage({ locale: 'zh-CN', viewport: { width: 1440, height: 1000 } });
-  try {
-    await page.goto(base);
-    const draft = () => visibleDemo(page).getByLabel('接着聊', { exact: true }).inputValue();
-    // 第三拍飞行途中回看：不落地、无幽灵文本、空草稿不被标记
-    await reachBeat(page, 'next', 0);
-    const beat0 = await reachBeat(page, 'next', 0);
-    await reachBeat(page, 'next', 2);
-    await scrollScene(page, '.reading-story', beat0);
-    await page.waitForTimeout(900);
-    assert.equal(await page.locator('.phrase-flight').count(), 0);
-    assert.equal(await draft(), '');
-    assert.equal(await page.locator('.product-demo:visible .demo-composer.is-filled').count(), 0);
-    // 手动刷新建议后，滚到第三拍不再填入与显示不一致的旧建议
-    await visibleDemo(page).getByRole('button', { name: '重新生成建议', exact: true }).click();
-    await visibleDemo(page)
-      .getByRole('button', { name: /比较展示方式/ })
-      .waitFor();
-    await page.mouse.click(4, 4);
-    await reachBeat(page, 'next', 2);
-    await page.waitForTimeout(900);
-    assert.doesNotMatch(await draft(), /请把作品集第一版拆解成两天内可完成的具体步骤/);
-  } finally {
-    await page.close();
-  }
-});
-
-test('term tour pause freezes the last beat until an explicit return to beat zero', async () => {
-  const page = await browser.newPage({ locale: 'zh-CN', viewport: { width: 1440, height: 1000 } });
-  try {
-    await page.goto(base);
-    const scope = page.locator('.product-demo:visible .term-demo-scope');
-    await reachBeat(page, 'terms', 2);
-    await page.waitForFunction(() =>
-      [...document.querySelectorAll('.term-demo-scope')].some((n) =>
-        n.dataset.mastered.includes('breakpoint'),
-      ),
+    const lead = bots.getByRole('group', { name: '工程主管', exact: true });
+    await lead.scrollIntoViewIfNeeded();
+    await page.mouse.move(5, 5);
+    assert.equal(
+      await lead.getByRole('button', { name: '查看进度', exact: true }).isVisible(),
+      false,
     );
-    // 点击阅读区输入框会暂停滚动叙事；示例状态不应被撤回
-    await visibleDemo(page).locator('.demo-composer textarea, input').first().click();
-    await page.waitForTimeout(400);
-    assert.equal(await scope.getAttribute('data-favorites'), 'breakpoint loading');
-    assert.equal(await scope.getAttribute('data-mastered'), 'accessibility breakpoint');
-    await page.mouse.click(4, 4);
-    await reachBeat(page, 'terms', 0);
-    assert.equal(await scope.getAttribute('data-favorites'), 'breakpoint');
+    await lead.hover();
+    await lead.getByRole('button', { name: '查看进度', exact: true }).click();
+    assert.match(await draft.inputValue(), /^我的协作草稿\n查看「工程主管」的进度/);
+    const before = await draft.inputValue();
+    const header = bots.locator('.scene-feature-head');
+    await header.getByRole('button', { name: '最近消息', exact: true }).click();
+    assert.match(await bots.locator('.palboo-bot-messages').innerText(), /三个代表作品/);
+    await header.getByRole('button', { name: '返回 Bot 列表', exact: true }).click();
+    assert.equal(await bots.locator('.palboo-bot-messages').count(), 0);
+    assert.equal(await draft.inputValue(), before);
+    await bots.getByRole('button', { name: '资料助手', exact: true }).focus();
+    await page.keyboard.press('Enter');
+    assert.match(await draft.inputValue(), /请问「资料助手」/);
+    assert.equal(await page.locator('.reader-window textarea').inputValue(), '');
+    assert.equal(await bots.getByRole('group', { name: 'Bot 排布演示' }).count(), 0);
   } finally {
     await page.close();
   }
 });
 
-test('static playback timers are cancelled when a phone resizes into scroll mode', async () => {
-  const page = await browser.newPage({ locale: 'zh-CN', viewport: { width: 390, height: 844 } });
-  try {
-    await page.goto(base);
-    await page.locator('.model-tour').evaluate((node) => node.scrollIntoView({ block: 'start' }));
-    await page.locator('.model-tour[data-static-played="true"]').waitFor();
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await page.locator('.model-tour[data-static="false"]').waitFor();
-    await scrollScene(page, '.model-tour', 0.05);
-    await page.waitForTimeout(3500);
-    assert.equal(await page.locator('.model-tour').getAttribute('data-step'), '0');
-  } finally {
-    await page.close();
-  }
-});
-
-test('resetting the next-step demo cancels an in-flight insertion', async () => {
-  const page = await browser.newPage({ locale: 'zh-CN', viewport: { width: 1440, height: 900 } });
-  try {
-    await page.goto(base);
-    await page.locator('.story-copy[data-chapter="next"] h2').evaluate((heading) => {
-      const following = document.querySelector('.story-copy[data-chapter="outline"] h2');
-      const start = heading.getBoundingClientRect().top;
-      const distance = following.getBoundingClientRect().top - start;
-      scrollTo(0, scrollY + start - innerHeight * 0.55 + distance * 0.8);
+for (const width of [1440, 390]) {
+  for (const selector of sceneSelectors) {
+    test(`combined scene plays once on entry and does not restart on return (${selector}, ${width}px)`, async () => {
+      const page = await newPage({ locale: 'zh-CN', viewport: { width, height: 1000 } });
+      try {
+        await page.goto(base);
+        const scene = page.locator(selector);
+        await enterScene(page, selector);
+        await page.waitForFunction(
+          (selector) => document.querySelector(selector).dataset.step === '0',
+          selector,
+          { polling: 25 },
+        );
+        assert.equal(await scene.getAttribute('data-step'), '0');
+        await page.waitForFunction(
+          (selector) => document.querySelector(selector).dataset.step === '1',
+          selector,
+          { polling: 25 },
+        );
+        assert.equal(await scene.getAttribute('data-step'), '1');
+        if (selector === '.reader-window')
+          assert.match(
+            await scene.locator('.reader-article .is-current').innerText(),
+            /安排页面与布局/,
+          );
+        if (selector === '.writing-window') {
+          await page.waitForFunction(() =>
+            document.querySelector('.writing-window textarea').value.includes('检查这份作品集方案'),
+          );
+          assert.match(
+            await scene.getByRole('textbox').inputValue(),
+            /^帮我把这个作品集方案安排一下\n检查这份作品集方案/,
+          );
+        }
+        if (selector === '.coordination-window')
+          assert.match(await scene.locator('.board-column').nth(1).innerText(), /整理三个代表作品/);
+        if (selector === '.coordination-window') {
+          const eyes = scene
+            .getByRole('group', { name: '工程主管', exact: true })
+            .locator('.palboo-bot-eye');
+          const motions = await eyes.evaluateAll((nodes) =>
+            nodes.map((node) => ({
+              name: getComputedStyle(node).animationName,
+              start: node.getAnimations()[0]?.startTime,
+              duration: node.getAnimations()[0]?.effect.getTiming().duration,
+            })),
+          );
+          assert.equal(motions.length, 2);
+          assert.equal(motions[0].name, 'palboo-bot-think');
+          assert.deepEqual(motions[0], motions[1]);
+        }
+        await page.waitForFunction(
+          (selector) => document.querySelector(selector).dataset.step === '2',
+          selector,
+          { polling: 25 },
+        );
+        assert.equal(await scene.getAttribute('data-step'), '2');
+        if (selector === '.reader-window')
+          await page.waitForFunction(() =>
+            document.querySelector('.reader-window textarea').value.startsWith('请把作品集第一版'),
+          );
+        if (selector === '.writing-window')
+          await page.waitForFunction(() =>
+            document
+              .querySelector('.writing-window textarea')
+              .value.includes('请按目标、步骤和检查方法组织回答'),
+          );
+        await page.locator('.phrase-flight').waitFor({ state: 'detached' });
+        const textbox = scene.getByRole('textbox').last();
+        if (selector === '.reader-window')
+          assert.match(await textbox.inputValue(), /^请把作品集第一版/);
+        if (selector === '.writing-window') {
+          assert.match(await textbox.inputValue(), /请按目标、步骤和检查方法组织回答/);
+          assert.equal(
+            await scene
+              .getByRole('button', { name: 'Fast', exact: true })
+              .getAttribute('aria-pressed'),
+            'true',
+          );
+          assert.match(await scene.locator('.token-meter-readout').innerText(), /38\.4 tok\/s/);
+        }
+        if (selector === '.coordination-window') {
+          assert.match(await scene.locator('.board-column').nth(2).innerText(), /整理三个代表作品/);
+          assert.equal(
+            await scene
+              .getByRole('group', { name: '工程主管', exact: true })
+              .locator('.palboo-bot-avatar')
+              .getAttribute('data-activity'),
+            'finished',
+          );
+          assert.equal(await scene.locator('.scene-bot-reply').isVisible(), true);
+        }
+        const finalDraft = await textbox.inputValue();
+        await page.locator('h1').evaluate((node) => node.scrollIntoView({ behavior: 'instant' }));
+        await frames(page);
+        await enterScene(page, selector);
+        await page.waitForTimeout(3200);
+        assert.equal(await scene.getAttribute('data-step'), '2');
+        assert.equal(await textbox.inputValue(), finalDraft);
+        await page.screenshot({
+          path: resolve(reports, `playback-${selector.slice(1)}-${width}.png`),
+        });
+      } finally {
+        await page.close();
+      }
     });
+  }
+}
+
+for (const action of ['pointer', 'focus', 'keyboard']) {
+  test(`manual ${action} permanently takes over every combined scene across scrolling and resize`, async () => {
+    const page = await frozenPage();
+    try {
+      for (const selector of sceneSelectors) {
+        const scene = page.locator(selector);
+        await enterScene(page, selector);
+        await page.clock.runFor(100);
+        const draft = scene.getByRole('textbox').last();
+        if (action === 'pointer') await scene.locator('.scene-feature-head h3').first().click();
+        if (action === 'focus') await draft.focus();
+        // 单独验证键盘捕获，不用先聚焦输入框掩盖它是否工作。
+        if (action === 'keyboard')
+          await scene.dispatchEvent('keydown', { key: 'Escape', bubbles: true });
+        await page.clock.runFor(50);
+        assert.equal(await scene.getAttribute('data-step'), '', action);
+        const unchanged = await draft.inputValue();
+        await page.clock.runFor(3500);
+        assert.equal(await draft.inputValue(), unchanged);
+        await draft.fill(`${action}: 我的草稿 / keep this`);
+        await draft.blur();
+        await page.mouse.move(3, 3);
+        await page.mouse.wheel(0, 1200);
+        await page.clock.runFor(80);
+        await page.setViewportSize({ width: 390, height: 844 });
+        await page.clock.runFor(80);
+        await enterScene(page, selector);
+        await page.clock.runFor(3500);
+        assert.equal(await scene.getAttribute('data-step'), '');
+        assert.equal(await draft.inputValue(), `${action}: 我的草稿 / keep this`);
+        await page.setViewportSize({ width: 1440, height: 1000 });
+        await page.clock.runFor(80);
+      }
+    } finally {
+      await page.close();
+    }
+  });
+}
+
+test('taking over a reading insertion cancels the in-flight text and never restores stale suggestions', async () => {
+  const page = await frozenPage();
+  try {
+    const scene = page.locator('.reader-window');
+    await enterScene(page, '.reader-window');
+    await page.clock.runFor(80);
+    await page.clock.runFor(2800);
     const flight = page.locator('.phrase-flight');
     await flight.waitFor();
-    // 保留真实飞行中间态，让重置点击不受运行机器速度影响。
     await flight.evaluate((node) => node.getAnimations().forEach((animation) => animation.pause()));
-    const demo = page.locator('.reading-stage:not([hidden]) .product-demo');
-    await demo.getByRole('button', { name: '重置功能演示', exact: true }).click();
-    await page.waitForTimeout(650);
-    assert.equal(await page.locator('.phrase-flight').count(), 0);
-    assert.equal(await demo.getByRole('textbox').inputValue(), '');
-    assert.equal(await page.locator('.causal-link, .causal-ring').count(), 0);
+    const draft = scene.getByLabel('阅读示例草稿');
+    await draft.fill('飞行中输入的新草稿');
+    await scene.getByRole('button', { name: '重新生成建议', exact: true }).click();
+    await scene.getByRole('button', { name: /比较展示方式/ }).waitFor();
+    await page.clock.runFor(4000);
+    assert.equal(await flight.count(), 0);
+    assert.equal(await draft.inputValue(), '飞行中输入的新草稿');
+    await page.mouse.wheel(0, -800);
+    await enterScene(page, '.reader-window');
+    await page.clock.runFor(3500);
+    assert.equal(await draft.inputValue(), '飞行中输入的新草稿');
   } finally {
     await page.close();
   }
 });
 
-test('quick phrase flight is cancelled on reverse scroll and leaves no ghost', async () => {
-  const page = await browser.newPage({ locale: 'zh-CN', viewport: { width: 1440, height: 900 } });
+test('reduced motion leaves all combined workspaces readable and interactive without automatic playback', async () => {
+  const page = await frozenPage({ reducedMotion: 'reduce', viewport: { width: 390, height: 844 } });
+  try {
+    for (const selector of sceneSelectors) {
+      await enterScene(page, selector);
+      await page.clock.runFor(4000);
+      const scene = page.locator(selector);
+      assert.equal(await scene.getAttribute('data-step'), '');
+      assert.equal(await scene.getByRole('textbox').last().isVisible(), true);
+    }
+    assert.equal(await page.locator('.phrase-flight').count(), 0);
+    assert.equal(await page.locator('.reader-window textarea').inputValue(), '');
+    assert.equal(await page.locator('.coordination-window textarea').inputValue(), '');
+    assert.match(
+      await page.locator('.writing-window textarea').inputValue(),
+      /^帮我把这个作品集方案安排一下$/,
+    );
+    const eye = page.locator('.coordination-window .palboo-bot-eye').first();
+    assert.equal(await eye.evaluate((node) => getComputedStyle(node).animationName), 'none');
+    await page.locator('.writing-window textarea').fill('减少动态效果仍能编辑');
+    await page
+      .locator('.writing-window')
+      .getByRole('button', { name: '继续', exact: true })
+      .click();
+    await page.clock.runFor(500);
+    await waitValue(
+      page.locator('.writing-window textarea'),
+      '减少动态效果仍能编辑\n继续完成剩余步骤。',
+    );
+  } finally {
+    await page.close();
+  }
+});
+
+test('scene drafts, edited tasks and open term focus survive responsive and motion changes', async () => {
+  const page = await newPage({
+    locale: 'zh-CN',
+    viewport: { width: 1440, height: 1000 },
+    reducedMotion: 'reduce',
+  });
   try {
     await page.goto(base);
-    await scrollScene(page, '.phrases-tour', 0.05);
-    await page.waitForTimeout(200);
-    await scrollScene(page, '.phrases-tour', 0.4);
-    await scrollScene(page, '.phrases-tour', 0.05);
-    await page.waitForTimeout(800);
-    assert.equal(await page.locator('.phrase-flight').count(), 0);
-    assert.equal(await page.locator('.phrases-tour .demo-composer.is-filled').count(), 0);
-    assert.equal(await page.locator('.phrases-tour').getByRole('textbox').inputValue(), '');
-    // 看板：到完成拍后立即回看，完成高亮动画被取消回收，不在回看后继续播放
-    await scrollScene(page, '.board-story', 0.95);
-    await page.waitForTimeout(250);
-    await scrollScene(page, '.board-story', 0.02);
-    await page.waitForTimeout(250);
-    const stale = await page.evaluate(
-      () =>
-        document
-          .querySelector('.board-story [data-real-feature=board]')
-          .shadowRoot.getAnimations()
-          .filter((a) => a.effect.getKeyframes().some((frame) => 'boxShadow' in frame)).length,
+    for (const [i, selector] of sceneSelectors.entries())
+      await page.locator(selector).getByRole('textbox').last().fill(`场景 ${i} 的草稿`);
+    const reader = page.locator('.reader-window');
+    await reader.locator('.term-brick').first().click();
+    await page.getByRole('button', { name: '收藏术语', exact: true }).click();
+    const favorite = page.getByRole('button', { name: '取消收藏', exact: true });
+    await favorite.focus();
+    for (const viewport of [
+      { width: 550, height: 900 },
+      { width: 1280, height: 600 },
+      { width: 1440, height: 1000 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await frames(page);
+      assert.equal(await focused(favorite), true);
+      assert.equal(await favorite.getAttribute('aria-pressed'), 'true');
+    }
+    await page.keyboard.press('Escape');
+    const board = page.locator('.coordination-window .scene-feature-board');
+    await board.getByRole('button', { name: '新建任务', exact: true }).first().click();
+    const title = board.getByLabel('新任务标题');
+    await title.fill('保持未保存任务');
+    for (const viewport of [
+      { width: 390, height: 844 },
+      { width: 1280, height: 600 },
+      { width: 1440, height: 1000 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await frames(page);
+      assert.equal(await title.inputValue(), '保持未保存任务');
+      assert.equal(await focused(title), true);
+    }
+    await emulateMedia(page, { reducedMotion: 'no-preference' });
+    assert.equal(await focused(title), true);
+    await page.keyboard.press('Enter');
+    await board.getByRole('button', { name: '任务详情：保持未保存任务', exact: true }).waitFor();
+    for (const [i, selector] of sceneSelectors.entries())
+      assert.equal(
+        await page.locator(selector).getByRole('textbox').last().inputValue(),
+        `场景 ${i} 的草稿`,
+      );
+  } finally {
+    await page.close();
+  }
+});
+
+test('English scene labels and product choices translate while visitor drafts survive language switches and reload preserves language', async () => {
+  const page = await newPage({
+    locale: 'en-US',
+    viewport: { width: 1280, height: 960 },
+    reducedMotion: 'reduce',
+  });
+  try {
+    await page.goto(base);
+    assert.equal(await page.locator('html').getAttribute('lang'), 'en');
+    assert.match(
+      await page.locator('h1').innerText(),
+      /Give your conversations\s+another dimension/,
     );
-    assert.equal(stale, 0);
+    for (const [i, selector] of sceneSelectors.entries())
+      await page.locator(selector).getByRole('textbox').last().fill(`Keep draft ${i} / 不翻译`);
+    const reader = page.locator('.reader-window');
+    await reader.getByRole('button', { name: 'Regenerate suggestions', exact: true }).click();
+    await reader.getByRole('button', { name: /Compare presentation/ }).waitFor();
+    const models = page.locator('.writing-window .model-matrix');
+    await models.getByRole('button', { name: 'GPT-6-Astra · High', exact: true }).click();
+    for (const locale of ['zh-CN', 'en']) {
+      await page.locator('.site-language').click();
+      await page.waitForFunction((value) => document.documentElement.lang === value, locale);
+      for (const [i, selector] of sceneSelectors.entries())
+        assert.equal(
+          await page.locator(selector).getByRole('textbox').last().inputValue(),
+          `Keep draft ${i} / 不翻译`,
+        );
+      assert.equal(
+        await models
+          .getByRole('button', { name: 'GPT-6-Astra · High', exact: true })
+          .getAttribute('aria-pressed'),
+        'true',
+      );
+      await reader
+        .getByRole('button', { name: locale === 'en' ? /Compare presentation/ : /比较展示方式/ })
+        .waitFor();
+    }
+    assert.equal(
+      await page.getByRole('region', { name: 'Reading workspace demo', exact: true }).count(),
+      1,
+    );
+    assert.equal(
+      await page.getByRole('region', { name: 'Writing workspace demo', exact: true }).count(),
+      1,
+    );
+    assert.equal(
+      await page.getByRole('region', { name: 'Tasks and collaboration demo', exact: true }).count(),
+      1,
+    );
+    for (const width of [390, 742, 1280]) {
+      await page.setViewportSize({ width, height: 960 });
+      await frames(page);
+      assert.equal(
+        await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+        true,
+      );
+      await enterScene(page, '.writing-window');
+      await page.screenshot({ path: resolve(reports, `writing-en-${width}.png`) });
+    }
+    await page.reload();
+    assert.equal(await page.locator('html').getAttribute('lang'), 'en');
+  } finally {
+    await page.close();
+  }
+});
+
+test('short page keeps three stable combined scenes, accessible header actions and genuine installation links', async () => {
+  const page = await newPage({ locale: 'zh-CN', viewport: { width: 1440, height: 1000 } });
+  try {
+    await page.goto(base);
+    assert.equal(await page.locator('.combined-scene').count(), 3);
+    assert.equal(
+      await page.locator('.reading-story, .scroll-demo, .static-chapter, .tools-section').count(),
+      0,
+    );
+    const initial = await page.evaluate(() => ({
+      height: document.documentElement.scrollHeight,
+      viewport: innerHeight,
+    }));
+    assert.ok(
+      initial.height < initial.viewport * 9,
+      `compact page budget: ${JSON.stringify(initial)}`,
+    );
+    for (const selector of sceneSelectors) {
+      const scene = page.locator(selector);
+      await scene.getByRole('textbox').last().fill('稳定组件');
+      await enterScene(page, selector);
+      const actions = scene.locator('.scene-feature-head button');
+      for (const action of await actions.all()) {
+        if (!(await action.isVisible())) continue;
+        const box = await action.boundingBox();
+        assert.ok(box.width >= 28 && box.height >= 28, JSON.stringify(box));
+        assert.ok(
+          (await action.getAttribute('aria-label')) || (await action.innerText()).trim(),
+          'header action must have an accessible name',
+        );
+      }
+      assert.equal(await scene.getByRole('textbox').last().inputValue(), '稳定组件');
+    }
+    const download = page.getByRole('link', {
+      name: '下载，前往 GitHub 发布页面',
+      includeHidden: true,
+    });
+    assert.equal(await download.count(), 2);
+    for (const link of await download.all())
+      assert.equal(await link.getAttribute('href'), 'https://github.com/0xTotoroX/palboo/releases');
+    assert.equal(await page.locator('a[download]').count(), 0);
+    const details = page.locator('.install-details');
+    await details.locator('summary').focus();
+    await page.keyboard.press('Enter');
+    assert.equal(await details.evaluate((node) => node.open), true);
+    assert.match(await details.innerText(), /macOS 15\+[\s\S]*macOS 26/);
+    assert.match(await details.innerText(), /无需 Node 或 Rust/);
+    assert.match(await details.innerText(), /本机连接[\s\S]*不修改官方应用/);
+    await page.keyboard.press('Enter');
+    assert.equal(await details.evaluate((node) => node.open), false);
+  } finally {
+    await page.close();
+  }
+});
+
+test('scrolling the short opening never enumerates or overwrites manual layouts and materials', async () => {
+  const page = await newPage({ locale: 'zh-CN', viewport: { width: 1440, height: 1000 } });
+  try {
+    await page.goto(base);
+    await scrollOpening(page, 1);
+    const scene = page.locator('.surface-story');
+    const state = () =>
+      scene.evaluate((node) => ({
+        placement: node.querySelector('[data-demo-placement]').dataset.demoPlacement,
+        arrangement: node.querySelector('[aria-label="演示排列"] [aria-pressed="true"]')
+          .textContent,
+        material: node.querySelector('.layout-demo-workspace').dataset.material,
+        variant: node.querySelector('.layout-demo-workspace').dataset.variant,
+      }));
+    const initial = await state();
+    for (const progress of [0.7, 0.8, 0.95, 1, 0.5, 0.2]) {
+      await scrollScene(page, '.opening-story', progress);
+      assert.deepEqual(await state(), initial);
+    }
+    await scrollOpening(page, 1);
+    await scene.getByRole('button', { name: '左右', exact: true }).click();
+    await page.evaluate(() => document.activeElement.blur());
+    await page.mouse.move(5, 5);
+    await page.mouse.wheel(0, 1);
+    await scrollScene(page, '.opening-story', 0.98);
+    await scene
+      .locator('.material-story')
+      .getByRole('button', { name: '磨砂', exact: true })
+      .click();
+    const manual = await state();
+    assert.equal(manual.arrangement, '左右');
+    assert.equal(manual.material, 'frosted');
+    await page.evaluate(() => document.activeElement.blur());
+    for (const progress of [0.4, 0.8, 0.95, 0.65]) {
+      await page.mouse.wheel(0, 1);
+      await scrollScene(page, '.opening-story', progress);
+      assert.deepEqual(await state(), manual);
+    }
+  } finally {
+    await page.close();
+  }
+});
+
+test('synthetic compatibility menu supports selection and keyboard navigation without polling or losing the reading draft', async () => {
+  const page = await frozenPage({ reducedMotion: 'reduce' });
+  const businessRequests = [];
+  page.on('request', (request) => {
+    if (['fetch', 'xhr', 'eventsource'].includes(request.resourceType()))
+      businessRequests.push(request.url());
+  });
+  try {
+    const reader = page.locator('.reader-window');
+    const draft = reader.getByLabel('阅读示例草稿', { exact: true });
+    await draft.fill('切换示例 Agent 仍保留 / keep my draft');
+    const inputNode = await draft.elementHandle();
+    const trigger = reader.getByRole('button', { name: '兼容集成', exact: true });
+    const menu = reader.locator('.scene-agent-menu');
+    const menuNode = await menu.elementHandle();
+    assert.equal(await menu.count(), 1);
+    assert.equal(await menu.isVisible(), false);
+    assert.equal(await trigger.innerText(), 'Codex');
+    await trigger.click();
+    assert.equal(await trigger.getAttribute('aria-expanded'), 'true');
+    assert.deepEqual(
+      (await menu.getByRole('menuitemradio').allTextContents()).map((text) => text.trim()),
+      ['Codex', 'Claude Code', 'OpenCode'],
+    );
+    assert.equal(
+      await menu
+        .getByRole('menuitemradio', { name: 'Codex', exact: true })
+        .getAttribute('aria-checked'),
+      'true',
+    );
+    // 超过真实预览的两个轮询周期，并触发重新聚焦；合成example不应进入服务读取分支。
+    await page.clock.runFor(11000);
+    await page.evaluate(() => {
+      window.dispatchEvent(new Event('focus'));
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await page.clock.runFor(100);
+    await menu.getByRole('menuitemradio', { name: 'Claude Code', exact: true }).click();
+    assert.equal(await trigger.innerText(), 'Claude Code');
+    assert.equal(await trigger.getAttribute('aria-expanded'), 'false');
+    assert.equal(await focused(trigger), true);
+    assert.equal(await menu.isVisible(), false);
+    await page.keyboard.press('Enter');
+    assert.equal(
+      await menu
+        .getByRole('menuitemradio', { name: 'Claude Code', exact: true })
+        .getAttribute('aria-checked'),
+      'true',
+    );
+    await page.keyboard.press('Tab');
+    assert.equal(
+      await focused(menu.getByRole('menuitemradio', { name: 'Codex', exact: true })),
+      true,
+    );
+    await page.keyboard.press('End');
+    assert.equal(
+      await focused(menu.getByRole('menuitemradio', { name: 'OpenCode', exact: true })),
+      true,
+    );
+    await page.keyboard.press('ArrowUp');
+    assert.equal(
+      await focused(menu.getByRole('menuitemradio', { name: 'Claude Code', exact: true })),
+      true,
+    );
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    assert.equal(await trigger.innerText(), 'OpenCode');
+    assert.equal(await focused(trigger), true);
+    assert.equal(await menu.isVisible(), false);
+    await page.keyboard.press('Space');
+    await page.keyboard.press('Tab');
+    await page.keyboard.press('Escape');
+    assert.equal(await menu.isVisible(), false);
+    assert.equal(await focused(trigger), true);
+    assert.equal(await trigger.innerText(), 'OpenCode');
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.clock.runFor(100);
+    await trigger.click();
+    const bounds = await menu.boundingBox();
+    assert.ok(bounds.x >= 0 && bounds.x + bounds.width <= 391, JSON.stringify(bounds));
+    await page.screenshot({ path: resolve(reports, 'compatibility-menu-mobile.png') });
+    await menu.getByRole('menuitemradio', { name: 'Codex', exact: true }).click();
+    assert.equal(await trigger.innerText(), 'Codex');
+    await page.clock.runFor(6000);
+    assert.equal(await draft.inputValue(), '切换示例 Agent 仍保留 / keep my draft');
+    assert.equal(await inputNode.evaluate((node) => node.isConnected), true);
+    assert.equal(
+      await menuNode.evaluate(
+        (node) => node === document.querySelector('.reader-window .scene-agent-menu'),
+      ),
+      true,
+    );
+    assert.equal(await page.locator('.combined-scene').count(), 3);
+    assert.deepEqual(businessRequests, []);
+    const licenses = await readFile(resolve(output, 'LICENSES.txt'), 'utf8');
+    for (const name of ['NOTICE.md', 'LICENSE', 'COPYING-GPL-3.0']) {
+      const original = await readFile(`ui/settings/codex-host-assets/${name}`, 'utf8');
+      assert.ok(licenses.includes(original.trim()), `${name} must be distributed verbatim`);
+    }
+  } finally {
+    await page.close();
+  }
+});
+
+test('writing playback keeps the inserted phrase when the decorative flight is suspended', async () => {
+  const page = await newPage({ locale: 'zh-CN', viewport: { width: 390, height: 844 } });
+  try {
+    await page.goto(base);
+    await enterScene(page, '.writing-window');
+    await page.waitForFunction(
+      () => document.querySelector('.writing-window').dataset.step === '1',
+    );
+    await page.evaluate(() => {
+      document
+        .querySelectorAll('.phrase-flight')
+        .forEach((node) => node.getAnimations().forEach((animation) => animation.pause()));
+    });
+    const draft = page.locator('.writing-window textarea');
+    assert.match(await draft.inputValue(), /帮我把这个作品集方案安排一下\n检查这份作品集方案：/);
+    await page
+      .locator('.writing-window')
+      .getByRole('button', { name: '恢复原提示词', exact: true })
+      .waitFor();
+    assert.match(
+      await draft.inputValue(),
+      /检查这份作品集方案：[\s\S]*请按目标、步骤和检查方法组织回答。$/,
+    );
   } finally {
     await page.close();
   }
