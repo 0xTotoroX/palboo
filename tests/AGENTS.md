@@ -449,7 +449,7 @@ dev-launcher 以认证合成服务覆盖 --settings 成功/失败及零启动副
 
 - `settings-workspace-preview.test.mjs`：合成网站快照进入布局与外观预览；验证单屏取景、连续副屏圆角、搜索/草稿与额外示例保留，以及预览零写入和窄屏边界。
 
-- `sites-launcher.test.mjs`：真实 SitesView 与左栏弹窗的合成浏览器验收，覆盖按需读取、网站打开、少量网站隐藏搜索、大列表过滤、窄屏定位、英文、错误重试、未配置入口、键盘及销毁。web-library 增加文件夹图标、下划线/数字排序、去重标题与文件夹选择仅改草稿/取消保留；config-cli 增加目录授权确认、网站修订、删除确认和原笔记只读断言。
+- `sites-launcher.test.mjs`：真实 SitesView 与左栏弹窗的合成浏览器验收，覆盖按需读取、网站打开、少量网站隐藏搜索、大列表过滤、窄屏定位、英文、错误重试、未配置入口、键盘及销毁。official-launcher 增加完整入口外壳下的地球描边断言；web-library 覆盖设置页宽窄排版、附件/网站抽屉草稿保留，以及文件夹图标、下划线/数字排序、去重标题与文件夹选择仅改草稿/取消保留；config-cli 增加目录授权确认、网站修订、删除确认和原笔记只读断言。
 
 - `reader-editing.mjs`：web-library验收的侧栏、配置跳转、XLSX/CSV/分页/错误及Markdown串行自动保存、中文组合输入、导航/冲突/断线草稿回归；仅写合成笔记。
 - `reader-fixtures.mjs`：自有合成OOXML工作簿，两个工作表、126行、公式缓存和不执行的HTML文本，不依赖外部表格工具。

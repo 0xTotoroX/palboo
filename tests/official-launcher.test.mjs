@@ -1,5 +1,5 @@
 /* [INPUT]: Real launcher adapter in a synthetic host rail with delegated navigation.
- * [OUTPUT]: Official button toggles only the old workbench; right-click opens the official side tab without global navigation; cleanup restores native behavior.
+ * [OUTPUT]: Official navigation/cleanup and stroke-only website icons in the complete rail shell.
  * [POS]: Isolated integration test, no real host or plugin calls.
  * [PROTOCOL]: Keep tests/AGENTS.md in sync. */
 import { test } from 'node:test';
@@ -8,7 +8,7 @@ import { build } from 'esbuild';
 import { chromium } from 'playwright';
 const result = await build({
   stdin: {
-    contents: `import {syncLauncher,stopLauncher,launcherButton,openPluginSettings} from './ui/surfaces/embedded/launcher.js';window.openSettings=openPluginSettings;window.stopLauncher=stopLauncher;window.launcherButton=launcherButton;window.refresh=()=>syncLauncher({reuseOfficial:window.reuseOfficial!==false,open:false,root:null,canUseOfficial:()=>window.chatReady,click:()=>window.toggles++,pointerDown:()=>{},keyDown:()=>{},settingsBrowser:()=>window.browserSettings++,settings:()=>window.externalSettings++});window.refresh();`,
+    contents: `import {syncLauncher,stopLauncher,launcherButton,openPluginSettings} from './ui/surfaces/embedded/launcher.js';window.openSettings=openPluginSettings;window.stopLauncher=stopLauncher;window.launcherButton=launcherButton;window.refresh=()=>syncLauncher({reuseOfficial:window.reuseOfficial!==false,open:false,root:null,canUseOfficial:()=>window.chatReady,click:()=>window.toggles++,pointerDown:()=>{},keyDown:()=>{},settingsBrowser:()=>window.browserSettings++,settings:()=>window.externalSettings++,sites:window.sitesOptions});window.refresh();`,
     resolveDir: process.cwd(),
   },
   bundle: true,
@@ -64,6 +64,43 @@ async function fixture() {
   await page.addScriptTag({ content: result.outputFiles[0].text });
   return { page, browser };
 }
+test('website globe stays hollow inside the actual launcher and popover', async () => {
+  const { page, browser } = await fixture();
+  try {
+    await page.evaluate(() => {
+      window.reuseOfficial = false;
+      window.sitesOptions = {
+        enabled: true,
+        request: async () => ({
+          configured: true,
+          sites: [{ id: 'test', name: 'Fixture', url: 'https://example.invalid' }],
+        }),
+        settings: () => {},
+      };
+      window.refresh();
+    });
+    const entry = page.locator('.palboo-sites-launcher');
+    const shapes = entry.locator('circle,ellipse');
+    assert.deepEqual(
+      await shapes.evaluateAll((nodes) => nodes.map((node) => getComputedStyle(node).fill)),
+      ['none', 'none'],
+    );
+    await entry.click();
+    await page.getByRole('button', { name: 'Fixture', exact: true }).waitFor();
+    assert.equal(
+      await page
+        .locator('.palboo-sites-popover [data-icon="feature-sites"] circle')
+        .evaluate((node) => getComputedStyle(node).fill),
+      'none',
+    );
+    assert.equal(
+      await entry.locator('svg').evaluate((node) => node.getBoundingClientRect().width),
+      18,
+    );
+  } finally {
+    await browser.close();
+  }
+});
 test('official entry toggles without navigation, removes duplicate icon and keeps native right-click and opens settings through the explicit action', async () => {
   const { page, browser } = await fixture();
   try {

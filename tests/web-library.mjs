@@ -1,5 +1,5 @@
 /* [INPUT]: Matching backend/web artifacts, synthetic vault and isolated browser profile.
- * [OUTPUT]: Reader search/link/image/security/read-only and website settings acceptance report.
+ * [OUTPUT]: Reader behavior and compact folder/site settings, retained drafts and revision-conflict acceptance.
  * [POS]: No real notes, external websites, host messages, model calls or credentials.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import assert from 'node:assert/strict';
@@ -287,9 +287,48 @@ try {
   );
   const settings = await context.newPage();
   settings.on('pageerror', (e) => errors.push(e.message));
+  await settings.route('**/api/web-library', async (route) => {
+    const response = await route.fetch();
+    await route.fulfill({ response, json: { ...(await response.json()), vaults: [vault] } });
+  });
   await settings.goto(`${base}/#token=${runtime.token}`);
   await settings.locator('.settings-nav a[href="#settings-sites"]').click();
   assert.equal(await settings.locator('#reader-vault').inputValue(), vault);
+  assert.equal(
+    await settings.locator('#reader-vault-choice option:checked').innerText(),
+    '中文笔记',
+  );
+  assert.equal(await settings.locator('#reader-attachments').isVisible(), false);
+  assert.equal(await settings.locator('#website-name').isVisible(), false);
+  assert.equal(await settings.locator('#settings-sites input[type="search"]').isVisible(), false);
+  for (const width of [985, 720, 390]) {
+    await settings.setViewportSize({ width, height: 850 });
+    const layout = await settings.evaluate(() => {
+      const box = (selector) => document.querySelector(selector).getBoundingClientRect();
+      const notes = box('.reader-configuration'),
+        input = box('#reader-vault');
+      return {
+        aligned: Math.abs(notes.left - input.left) < 1,
+        fullPathWidth: Math.abs(notes.width - input.width) < 1,
+        overflow: document.documentElement.scrollWidth > innerWidth,
+        selectHeight: box('#reader-vault-choice').height,
+        previewBelow: box('#settings-sites .preview-frame').top > box('.web-library-list').bottom,
+      };
+    });
+    assert.deepEqual(
+      { ...layout, selectHeight: undefined },
+      {
+        aligned: true,
+        fullPathWidth: true,
+        overflow: false,
+        selectHeight: undefined,
+        previewBelow: true,
+      },
+    );
+    assert.ok(layout.selectHeight < 60, 'vault selector does not wrap into a multi-line path');
+  }
+  await settings.setViewportSize({ width: 985, height: 850 });
+  record('settings controls align at wide and narrow widths; details stay off the main form');
   const beforePicker = await api('web-library');
   await settings.route('**/api/web-library/choose-directory', (route) =>
     route.fulfill({ json: { path: join(vault, '_AI') } }),
@@ -316,7 +355,9 @@ try {
   await settings.locator('#reader-vault').fill(vault);
   record('folder picker draft and cancel preserve saved grants');
   assert.equal(await settings.locator('.settings-preview').count(), 0);
+  await settings.getByRole('button', { name: '额外附件目录', exact: true }).click();
   await settings.locator('#reader-attachments').fill(join(vault, '项目/附件'));
+  await settings.getByRole('dialog', { name: '额外附件目录', exact: true }).press('Escape');
   const saved = await api('web-library');
   await api('web-library', {
     expectedRevision: saved.revision,
@@ -330,11 +371,13 @@ try {
     join(vault, '项目/附件'),
   );
   await settings
-    .locator('.settings-section')
-    .filter({ has: settings.locator('#reader-vault') })
+    .locator('.reader-folder-footer > .settings-actions')
     .getByRole('button', { name: '保存', exact: true })
     .click();
-  await settings.getByText('网站设置已在其他窗口更新，请刷新后重试', { exact: true }).waitFor();
+  await settings
+    .getByRole('alert')
+    .filter({ hasText: '网站设置已在其他窗口更新，请刷新后重试' })
+    .waitFor();
   assert.deepEqual((await api('web-library')).attachments, [join(vault, '其他')]);
   await settings.getByRole('button', { name: '重新读取已保存目录', exact: true }).click();
   assert.equal(await settings.locator('#reader-attachments').inputValue(), join(vault, '其他'));
@@ -347,9 +390,20 @@ try {
     'clean roots refresh',
   );
   record('root drafts survive external conflicts; saved grants refresh without silent overwrite');
+  await settings.getByRole('button', { name: '添加网站', exact: true }).click();
   await settings.locator('#website-name').fill('合成网站');
   await settings.locator('#website-url').fill('https://example.invalid/path');
+  await settings.getByRole('dialog', { name: '添加网站', exact: true }).press('Escape');
   await settings.getByRole('button', { name: '添加网站', exact: true }).click();
+  assert.equal(
+    await settings.locator('#website-name').inputValue(),
+    '合成网站',
+    'closing retains website draft',
+  );
+  await settings
+    .getByRole('dialog', { name: '添加网站', exact: true })
+    .getByRole('button', { name: '添加网站', exact: true })
+    .click();
   await settings.locator('.web-library-open').filter({ hasText: '合成网站' }).waitFor();
   let state = await api('web-library');
   assert.equal(state.sites.length, 2);

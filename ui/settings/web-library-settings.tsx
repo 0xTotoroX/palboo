@@ -1,5 +1,5 @@
 /* [INPUT]: Local revisioned website/vault grants and existing settings controls/preview.
- * [OUTPUT]: Optional feature toggle, explicit vault/attachment configuration and website CRUD/order/search and a read-only snapshot for workspace previews.
+ * [OUTPUT]: Folder-first settings, retained attachment/site drawers and a read-only snapshot for workspace previews.
  * [POS]: Settings only; user drafts survive failures, previews never navigate or read notes.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { useEffect, useRef, useState } from 'react';
@@ -10,6 +10,7 @@ import { Input } from './components/ui/input';
 import { NativeSelect } from './components/ui/native-select';
 import { SettingsSortableList } from './settings-sortable-list';
 import { useConfirmation } from './settings-confirmation';
+import { SettingsDrawer, closeSettingsDrawers, revealSettingsDrawer } from './settings-drawer';
 import { FeaturePreviewContent } from './feature-preview';
 import { PreviewFrame } from './preview-frame';
 import { tr } from '../shared/i18n.js';
@@ -64,6 +65,7 @@ export function WebLibrarySettings({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const flight = useRef(false);
+  const siteName = useRef<HTMLInputElement>(null);
   const rootDraft = useRef<{ revision: number; grants: string } | null>(null);
   const confirmation = useConfirmation(state?.revision, busy);
   function receive(value: unknown) {
@@ -156,6 +158,35 @@ export function WebLibrarySettings({
       setBusy(false);
     }
   }
+  function saveFolders() {
+    return save({
+      vault: vault.trim(),
+      attachments: attachments
+        .split('\n')
+        .map((value) => value.trim())
+        .filter(Boolean),
+    });
+  }
+  const rootActions = (
+    <div className="settings-actions">
+      {rootDraft.current && state && rootDraft.current.revision !== state.revision && (
+        <Button
+          variant="outline"
+          disabled={disabled}
+          onClick={() => {
+            rootDraft.current = null;
+            receive(state);
+            setError('');
+          }}
+        >
+          {tr('重新读取已保存目录')}
+        </Button>
+      )}
+      <Button disabled={disabled || !rootDraft.current} onClick={() => void saveFolders()}>
+        {tr('保存')}
+      </Button>
+    </div>
+  );
   return (
     <>
       <FeatureSwitch
@@ -171,83 +202,9 @@ export function WebLibrarySettings({
         hidden={!active}
         className="web-library-settings"
       >
-        <PreviewFrame title={tr('网站')}>
-          <FeaturePreviewContent
-            id="sites"
-            sites={state}
-            mode="current"
-            form={null}
-            view={null}
-            tasks={null}
-          />
-        </PreviewFrame>
-        <section className="settings-section">
-          <h2>{tr('本地笔记')}</h2>
-          {!!state?.vaults?.length && (
-            <Field label={tr('已发现的笔记库')} id="reader-vault-choice">
-              <NativeSelect
-                id="reader-vault-choice"
-                value={state.vaults.includes(vault) ? vault : ''}
-                onChange={(e) => editRoot(() => setVault(e.target.value))}
-                disabled={disabled}
-              >
-                <option value="">{tr('选择笔记库')}</option>
-                {state.vaults.map((path) => (
-                  <option key={path} value={path}>
-                    {path.split('/').at(-1)} · {path}
-                  </option>
-                ))}
-              </NativeSelect>
-            </Field>
-          )}
-          <Field label={tr('笔记文件夹')} id="reader-vault">
-            <div className="reader-folder-choice">
-              <Input
-                id="reader-vault"
-                value={vault}
-                onChange={(e) => editRoot(() => setVault(e.target.value))}
-                disabled={disabled}
-                placeholder={tr('选择文件夹，或粘贴完整路径')}
-              />
-              <Button variant="outline" disabled={disabled} onClick={() => void chooseFolder()}>
-                <Icon name="reader-folder" />
-                {tr('选择文件夹')}
-              </Button>
-            </div>
-          </Field>
-          <p className="settings-hint">
-            {tr('可选择已发现的 Obsidian 笔记库，也可选择任意 Markdown 文件夹。')}
-          </p>
-          <Field
-            label={tr('额外附件目录')}
-            id="reader-attachments"
-            hint={tr('仅在图片位于笔记库外时添加，每行一个目录。')}
-          >
-            <textarea
-              id="reader-attachments"
-              value={attachments}
-              onChange={(e) => editRoot(() => setAttachments(e.target.value))}
-              disabled={disabled}
-              rows={2}
-            />
-          </Field>
-          <p className="settings-hint">
-            {tr('仅本机访问。编辑 Markdown 后自动保存到原文件，表格仅供预览。')}
-          </p>
-          <div className="settings-actions">
-            {rootDraft.current && state && rootDraft.current.revision !== state.revision && (
-              <Button
-                variant="outline"
-                disabled={disabled}
-                onClick={() => {
-                  rootDraft.current = null;
-                  receive(state);
-                  setError('');
-                }}
-              >
-                {tr('重新读取已保存目录')}
-              </Button>
-            )}
+        <section className="settings-section reader-configuration">
+          <div className="web-library-heading">
+            <h2>{tr('本地笔记')}</h2>
             <Button
               variant="outline"
               disabled={disabled || !state?.vault}
@@ -255,96 +212,166 @@ export function WebLibrarySettings({
             >
               {tr('打开阅读器')}
             </Button>
-            <Button
-              disabled={disabled}
-              onClick={() =>
-                void save({
-                  vault: vault.trim(),
-                  attachments: attachments
-                    .split('\n')
-                    .map((v) => v.trim())
-                    .filter(Boolean),
-                })
+          </div>
+          <label htmlFor="reader-vault" className="reader-folder-label">
+            {tr('笔记文件夹')}
+          </label>
+          <div className="reader-folder-choice">
+            {!!state?.vaults?.length && (
+              <NativeSelect
+                id="reader-vault-choice"
+                aria-label={tr('已发现的笔记库')}
+                value={state.vaults.includes(vault) ? vault : ''}
+                onChange={(e) => editRoot(() => setVault(e.target.value))}
+                disabled={disabled}
+              >
+                <option value="">{vault ? tr('自定义文件夹') : tr('选择笔记库')}</option>
+                {state.vaults.map((path) => (
+                  <option key={path} value={path}>
+                    {path.split('/').at(-1)}
+                    {state.vaults!.filter(
+                      (other) => other.split('/').at(-1) === path.split('/').at(-1),
+                    ).length > 1
+                      ? ` · ${path}`
+                      : ''}
+                  </option>
+                ))}
+              </NativeSelect>
+            )}
+            <Button variant="outline" disabled={disabled} onClick={() => void chooseFolder()}>
+              <Icon name="reader-folder" />
+              {tr('选择文件夹')}
+            </Button>
+          </div>
+          <Input
+            id="reader-vault"
+            value={vault}
+            onChange={(e) => editRoot(() => setVault(e.target.value))}
+            disabled={disabled}
+            placeholder={tr('选择文件夹，或粘贴完整路径')}
+          />
+          <p className="settings-hint">
+            {tr('仅本机访问。编辑 Markdown 后自动保存到原文件，表格仅供预览。')}
+          </p>
+          <div className="reader-folder-footer">
+            <SettingsDrawer
+              title={tr('额外附件目录')}
+              hidden={!active}
+              compact
+              footer={
+                <>
+                  <Feedback text={error} failed />
+                  {rootActions}
+                </>
               }
             >
-              {tr('保存')}
-            </Button>
+              <Field
+                label={tr('目录路径')}
+                id="reader-attachments"
+                hint={tr('仅在图片位于笔记库外时添加，每行一个目录。')}
+              >
+                <textarea
+                  id="reader-attachments"
+                  value={attachments}
+                  onChange={(e) => editRoot(() => setAttachments(e.target.value))}
+                  disabled={disabled}
+                  rows={5}
+                />
+              </Field>
+            </SettingsDrawer>
+            {rootActions}
           </div>
         </section>
         <section className="settings-section" data-settings-search-ignore>
-          <h2>{tr('自定义网站')}</h2>
-          <div className="settings-actions web-library-presets">
-            {[
-              { name: 'Cubox', url: 'https://cubox.pro/web/unread' },
-              { name: tr('幕布'), url: 'https://mubu.com/app' },
-            ].map((preset) => (
-              <Button
-                key={preset.url}
-                variant="outline"
-                disabled={disabled}
-                onClick={() => setSite({ id: '', ...preset })}
+          <div className="web-library-heading">
+            <h2>{tr('自定义网站')}</h2>
+            <SettingsDrawer
+              title={site.id ? tr('编辑网站') : tr('添加网站')}
+              hidden={!active}
+              compact
+            >
+              <div className="web-library-presets" hidden={!!site.id}>
+                {[
+                  { name: 'Cubox', url: 'https://cubox.pro/web/unread' },
+                  { name: tr('幕布'), url: 'https://mubu.com/app' },
+                ].map((preset) => (
+                  <Button
+                    key={preset.url}
+                    variant="outline"
+                    disabled={disabled}
+                    onClick={() => setSite({ id: '', ...preset })}
+                  >
+                    {preset.name}
+                  </Button>
+                ))}
+              </div>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!state) return;
+                  const next = { ...site, id: site.id || crypto.randomUUID() };
+                  void save({
+                    sites: site.id
+                      ? state.sites.map((s) => (s.id === site.id ? next : s))
+                      : [...state.sites, next],
+                  }).then((ok) => {
+                    if (ok) {
+                      closeSettingsDrawers();
+                      setSite({ id: '', name: '', url: '' });
+                    }
+                  });
+                }}
               >
-                {preset.name}
-              </Button>
-            ))}
+                <Field label={tr('名称')} id="website-name">
+                  <Input
+                    id="website-name"
+                    ref={siteName}
+                    value={site.name}
+                    maxLength={120}
+                    required
+                    disabled={disabled}
+                    onChange={(e) => setSite({ ...site, name: e.target.value })}
+                  />
+                </Field>
+                <Field label={tr('网址')} id="website-url">
+                  <Input
+                    id="website-url"
+                    type="url"
+                    value={site.url}
+                    required
+                    disabled={disabled}
+                    placeholder="https://"
+                    onChange={(e) => setSite({ ...site, url: e.target.value })}
+                  />
+                </Field>
+                <div className="settings-actions">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => {
+                      closeSettingsDrawers();
+                      setSite({ id: '', name: '', url: '' });
+                    }}
+                  >
+                    {tr('取消')}
+                  </Button>
+                  <Button type="submit" disabled={disabled}>
+                    {site.id ? tr('保存') : tr('添加网站')}
+                  </Button>
+                </div>
+              </form>
+              <Feedback text={error} failed />
+            </SettingsDrawer>
           </div>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (!state) return;
-              const next = { ...site, id: site.id || crypto.randomUUID() };
-              void save({
-                sites: site.id
-                  ? state.sites.map((s) => (s.id === site.id ? next : s))
-                  : [...state.sites, next],
-              }).then((ok) => {
-                if (ok) setSite({ id: '', name: '', url: '' });
-              });
-            }}
-          >
-            <Field label={tr('名称')} id="website-name">
-              <Input
-                id="website-name"
-                value={site.name}
-                maxLength={120}
-                required
-                disabled={disabled}
-                onChange={(e) => setSite({ ...site, name: e.target.value })}
-              />
-            </Field>
-            <Field label={tr('网址')} id="website-url">
-              <Input
-                id="website-url"
-                type="url"
-                value={site.url}
-                required
-                disabled={disabled}
-                placeholder="https://"
-                onChange={(e) => setSite({ ...site, url: e.target.value })}
-              />
-            </Field>
-            <div className="settings-actions">
-              {site.id && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setSite({ id: '', name: '', url: '' })}
-                >
-                  {tr('取消')}
-                </Button>
-              )}
-              <Button type="submit" disabled={disabled}>
-                {site.id ? tr('保存') : tr('添加网站')}
-              </Button>
-            </div>
-          </form>
-          <Input
-            type="search"
-            aria-label={tr('搜索网站')}
-            placeholder={tr('搜索网站')}
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-          />
+          {((state?.sites.length || 0) >= 7 || filter) && (
+            <Input
+              type="search"
+              aria-label={tr('搜索网站')}
+              placeholder={tr('搜索网站')}
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+            />
+          )}
           <SettingsSortableList
             ids={state?.sites.map((s) => s.id) || []}
             disabled={disabled || !!filter}
@@ -371,7 +398,10 @@ export function WebLibrarySettings({
                         aria-label={tr('编辑{{name}}', { name: item.name })}
                         disabled={disabled}
                         variant="ghost"
-                        onClick={() => setSite({ ...item })}
+                        onClick={() => {
+                          setSite({ ...item });
+                          if (siteName.current) revealSettingsDrawer(siteName.current);
+                        }}
                       >
                         <Icon name="pencil" />
                       </IconButton>
@@ -397,6 +427,19 @@ export function WebLibrarySettings({
           </SettingsSortableList>
         </section>
         <Feedback text={error} failed />
+        <section className="settings-section">
+          <h2>{tr('预览')}</h2>
+          <PreviewFrame title={tr('网站')}>
+            <FeaturePreviewContent
+              id="sites"
+              sites={state}
+              mode="current"
+              form={null}
+              view={null}
+              tasks={null}
+            />
+          </PreviewFrame>
+        </section>
       </section>
       {confirmation.confirmation}
     </>

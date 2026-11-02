@@ -223,7 +223,7 @@ export function syncLauncher(options) {
         border:0;border-radius:10px;padding:0;background:transparent;color:inherit;cursor:pointer; }
       button:hover { background:color-mix(in srgb,currentColor 10%,transparent); }
       button:focus-visible { outline:2px solid currentColor;outline-offset:2px; }
-      svg { width:20px;height:20px;fill:currentColor; }
+      svg { width:20px;height:20px; }
       .settings-feedback {position:fixed;inset:auto;margin:0;box-sizing:border-box;width:max-content;max-width:min(300px,calc(100vw - 16px));padding:10px 12px;border:1px solid var(--feedback-border,#8884);border-radius:8px;background:var(--feedback-bg,#fff);color:var(--feedback-fg,#222);font:13px/1.5 system-ui;box-shadow:0 4px 16px #0002;overflow-wrap:anywhere;}
       .settings-feedback:popover-open {display:flex;align-items:center;gap:12px;}
       .settings-feedback button {flex:none;width:auto;height:28px;padding:0 6px;font:inherit;}
