@@ -58,11 +58,11 @@ export function outlineHtml(snapshot) {
           const numberPrefix = item.numberPrefix || '';
           const labelText = item.labelText || item.text;
           return `
-        <button class="csw-outline-row" type="button" role="listitem" data-outline-id="${escapeAttr(item.id)}" data-level="${displayLevel}" data-numbered="${numberPrefix ? 'true' : 'false'}" aria-label="${escapeAttr(item.text)}" style="--csw-outline-indent:${Math.min(3, Math.max(0, displayLevel)) * OUTLINE_INDENT_STEP}px">
+        <div role="listitem"><button class="csw-outline-row" type="button" data-outline-id="${escapeAttr(item.id)}" data-level="${displayLevel}" data-numbered="${numberPrefix ? 'true' : 'false'}" aria-label="${escapeAttr(item.text)}" style="--csw-outline-indent:${Math.min(3, Math.max(0, displayLevel)) * OUTLINE_INDENT_STEP}px">
           <span class="csw-outline-heading-marker" aria-hidden="true"></span>
           <span class="csw-outline-prefix" aria-hidden="true">${escapeHtml(numberPrefix)}</span>
           <span class="csw-outline-label">${escapeHtml(labelText)}</span>
-        </button>
+        </button></div>
       `;
         })
         .join('')}

@@ -45,7 +45,7 @@ export function OpeningStory({ githubVariant }: { githubVariant?: GithubLinkVari
       const focused = demoFocus(preview.current);
       if (
         dragging.current ||
-        focused?.closest('select') ||
+        (CSS.supports('selector(select:open)') && focused?.closest('select')?.matches(':open')) ||
         focused?.matches('input, textarea, [contenteditable="true"]')
       )
         return;

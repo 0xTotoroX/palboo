@@ -627,6 +627,19 @@ test('shared menu controls preserve the tour and the tablet clips the same live 
       await page.locator('.layout-demo-canvas').getAttribute('data-demo-placement'),
       'sidebar',
     );
+    // A closed picker may keep focus; deliberate wheel input must release the tour.
+    assert.equal(await mode.evaluate((el) => el.matches(':open')), false);
+    await page.mouse.move(20, 600);
+    await page.mouse.wheel(0, 1);
+    await scrollScene(page, '.opening-story', 0.7);
+    await page.waitForFunction(
+      () =>
+        Number(
+          document.querySelector('.surface-story').style.getPropertyValue('--material-progress'),
+        ) > 0.5,
+    );
+    assert.equal(await page.getByLabel('演示自定字号').inputValue(), '18');
+    await scrollScene(page, '.opening-story', 0.8 / 3.5);
     await page.getByRole('button', { name: '重置预览', exact: true }).click();
     await frames(page);
     await page.screenshot({ path: resolve(reports, 'alignment-sidebar-924.png') });
@@ -888,6 +901,7 @@ test('outline and next step run the settings preview commands in memory', async 
   try {
     const outline = panel(page, 'outline');
     assert.equal(await outline.locator('.csw-outline-row[data-outline-id]').count(), 9);
+    assert.equal(await outline.getByRole('listitem').getByRole('button').count(), 9);
     const before = await page.evaluate(() => scrollY);
     await outline.locator('[data-outline-id="1:mobile"]').click();
     await outline
@@ -1246,3 +1260,27 @@ for (const [width, height, language] of [
     }
   });
 }
+
+test('narrow model previews label each reasoning choice beside its model', async () => {
+  const page = await newPage({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
+  try {
+    await page.goto(`${base}/?lang=zh-CN`);
+    await page.getByRole('tab', { name: '模型切换', exact: true }).click();
+    const panel = page.locator('#feature-panel-model');
+    const high = panel.getByRole('button', { name: '模型 A · High', exact: true });
+    await high.focus();
+    await frames(page);
+    assert.equal(await high.evaluate((el) => getComputedStyle(el, '::after').content), '"High"');
+    const name = await panel.locator('.model-name').first().boundingBox();
+    assert.ok(name.x >= 0 && name.x + name.width <= 390, 'model names remain beside their choices');
+    assert.equal(
+      await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
+      false,
+    );
+    await high.press('Enter');
+    assert.equal(await high.getAttribute('aria-pressed'), 'true');
+    await page.screenshot({ path: resolve(reports, 'review-model-mobile.png') });
+  } finally {
+    await page.close();
+  }
+});

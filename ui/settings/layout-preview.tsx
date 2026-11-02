@@ -30,6 +30,20 @@ import { installFeatureLayout, resolveFeatureLayout } from '../surfaces/workspac
 import { LayoutPreviewScene, demoFrames } from './layout-preview-scene';
 import { useDemoJourney } from './layout-preview-journey';
 import { createPortal } from 'react-dom';
+import { PreviewComposer } from './preview-composer';
+
+function ExtraSample({ title }: { title: string }) {
+  useLocale();
+  return (
+    <div className="layout-demo-extra">
+      <ol>
+        <li>{tr('跟随空间自动排列')}</li>
+        <li>{tr('保留内容与阅读位置')}</li>
+      </ol>
+      <PreviewComposer label={tr('{{value1}}示例草稿', { value1: title })} />
+    </div>
+  );
+}
 
 type Sample = { id: string; title: string };
 export type LayoutDemoStop = {
@@ -102,7 +116,7 @@ function WorkspaceSample({
   const change = useRef(onLayout);
   const customContent = !!renderFeature;
   const [slots, setSlots] = useState<
-    { id: string; node: HTMLDivElement; mount: { headerActions: HTMLElement } }[]
+    { id: string; title: string; node: HTMLDivElement; mount: { headerActions: HTMLElement } }[]
   >([]);
   change.current = onLayout;
   useEffect(() => {
@@ -179,8 +193,13 @@ function WorkspaceSample({
         data-variant={variant}
       />
       {renderFeature &&
-        slots.map(({ id, node, mount }) =>
-          createPortal(renderFeature(id, mount.headerActions), node, id),
+        slots.map(({ id, title, node, mount }) =>
+          createPortal(
+            renderFeature(id, mount.headerActions) ??
+              (id.startsWith('demo-') ? <ExtraSample title={title} /> : null),
+            node,
+            id,
+          ),
         )}
     </>
   );
