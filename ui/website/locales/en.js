@@ -1,5 +1,14 @@
 // English interface copy. User-authored content is not translated.
 export default {
+  '长回答里的重点，一眼找到。': 'Find your way through long answers.',
+  '从当前对话出发，找到接下来可以做的事。': 'Find a useful next step from your conversation.',
+  '常用的指令，点一下就能填入。': 'Your everyday instructions, ready in one click.',
+  '遇到陌生的词，就地看懂。': 'Understand unfamiliar terms as you read.',
+  '把聊到的事情，变成看得见的进展。': 'Turn the things you discuss into visible progress.',
+  '模型、推理强度和常用预设，放在手边。': 'Models, reasoning levels and presets, close at hand.',
+  '找到合适的帮手，查看进度和回复。': 'Find the right helper and follow its progress.',
+  '发送之前，把想法表达得更清楚。': 'Make your ideas clearer before you send.',
+  '在当前聊天里，选择你要协作的 Agent。': 'Choose the Agent you want to work with in your chat.',
   '读懂，': 'Read it through.',
   '也接得上。': 'Know what comes next.',
   '大纲找到重点，术语随手查，下一步就在同一段对话旁。':

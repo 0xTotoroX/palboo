@@ -1,11 +1,12 @@
 /* [INPUT]: Current model catalog/preferences/selection or isolated demo data and the shared model view.
- * [OUTPUT]: Linked model preview; actions mutate only an in-memory copy, with no real target or transport.
+ * [OUTPUT]: Linked model preview with an optional shared speed footer; actions mutate only an in-memory copy.
  * [POS]: Settings/website presentation adapter; no host commands or persisted preference changes.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 import { ModelView } from '../features/model/view';
+import { TokenMeterView } from '../features/token-meter/view';
 import type { Model, ModelState, Selection } from '../features/model/catalog';
 import type { Reading } from '../shared/features';
 
@@ -25,6 +26,7 @@ function Sample({
   headerActions,
   showUsage,
   showTokenMeter,
+  preserveEdits,
 }: {
   source: ModelState;
   telemetry?: ModelState['snapshot'];
@@ -33,15 +35,37 @@ function Sample({
   headerActions?: HTMLElement;
   showUsage: boolean;
   showTokenMeter: boolean;
+  preserveEdits: boolean;
 }) {
   useLocale();
   const reading = useRef<Reading>({});
   const [state, setState] = useState(source);
   const current = useRef(state);
+  const previousSource = useRef(source);
   useEffect(() => {
-    current.current = source;
-    setState(source);
-  }, [source]);
+    // 网站的快照更新只翻译示例名称；用户改过的选择、预设和布局继续保留。
+    const next = preserveEdits
+      ? {
+          ...current.current,
+          snapshot: { ...current.current.snapshot, models: source.snapshot.models },
+          preferences: {
+            ...current.current.preferences,
+            presets: current.current.preferences.presets.map((preset) => {
+              const before = previousSource.current.preferences.presets.find(
+                (item) => item.id === preset.id,
+              );
+              const after = source.preferences.presets.find((item) => item.id === preset.id);
+              return before && after && preset.name === before.name
+                ? { ...preset, name: after.name }
+                : preset;
+            }),
+          },
+        }
+      : source;
+    previousSource.current = source;
+    current.current = next;
+    setState(next);
+  }, [source, preserveEdits]);
   useEffect(() => {
     if (!demoSelection) return;
     const next = {
@@ -73,7 +97,9 @@ function Sample({
         reading={reading.current}
         busy={false}
         footer={
-          mode === 'example' && showUsage && !telemetry?.usage?.length ? (
+          showTokenMeter && telemetry?.tokenMeter ? (
+            <TokenMeterView snapshot={telemetry.tokenMeter} />
+          ) : mode === 'example' && showUsage && !telemetry?.usage?.length ? (
             <span className="model-usage" aria-label={tr('额度暂无数据')}>
               <span>{tr('周 —')}</span>
               <span>{tr('5小时 —')}</span>
@@ -106,12 +132,14 @@ export function ModelPreview({
   mode = 'example',
   headerActions,
   showTokenMeter = true,
+  preserveEdits = false,
 }: {
   model: ModelState | null;
   demoSelection?: Selection;
   mode?: 'current' | 'example';
   headerActions?: HTMLElement;
   showTokenMeter?: boolean;
+  preserveEdits?: boolean;
 }) {
   useLocale();
   // Only presentation data crosses this boundary. Never retain the host target or revision.
@@ -168,6 +196,7 @@ export function ModelPreview({
       headerActions={headerActions}
       showUsage={model?.preferences.showUsage !== false}
       showTokenMeter={showTokenMeter}
+      preserveEdits={preserveEdits}
     />
   );
 }

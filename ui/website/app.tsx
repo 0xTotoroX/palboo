@@ -1,5 +1,5 @@
-/* [INPUT]: Original opening, three combined workspaces and shared brand controls.
- * [OUTPUT]: A compact feature journey with one installation destination.
+/* [INPUT]: Original opening, one settings-based feature showcase and shared brand controls.
+ * [OUTPUT]: A compact scroll-linked feature journey with one installation destination.
  * [POS]: Independent website; all product examples and visitor edits stay in memory.
  * [PROTOCOL]: Keep website/AGENTS.md and DESIGN_SYSTEM.md in sync. */
 import { SiteLanguage } from './language';
@@ -10,7 +10,7 @@ import { Icon } from '../shared/icons/react';
 import { PalbooWordmark } from '../shared/brand';
 import { OpeningStory } from './story';
 import { GithubLink, type GithubLinkVariant } from './github-link';
-import { ReadingScene, WritingScene, CoordinationScene } from './scenes';
+import { FeatureShowcase } from './feature-showcase';
 
 export function App({ githubVariant }: { githubVariant?: GithubLinkVariant }) {
   useLocale();
@@ -25,9 +25,7 @@ export function App({ githubVariant }: { githubVariant?: GithubLinkVariant }) {
       </a>
       <main id="main" tabIndex={-1}>
         <OpeningStory githubVariant={githubVariant} />
-        <ReadingScene />
-        <WritingScene />
-        <CoordinationScene />
+        <FeatureShowcase />
         <section id="install" className="install is-compact" aria-labelledby="install-title">
           <div className="install-inner page-width">
             <div>

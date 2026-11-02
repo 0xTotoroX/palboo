@@ -13,7 +13,7 @@
 @import './showcases.css';
 @import './story.css';
 @import './chapters.css';
-@import './scenes.css';
+@import './feature-showcase.css';
 :root {
   --site-page: #fff;
   --site-surface: #fff;

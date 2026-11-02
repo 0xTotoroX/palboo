@@ -6,7 +6,7 @@ import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode
 import { createPortal } from 'react-dom';
 import { ProjectedContent } from '../features/projected';
 import { Board } from '../features/board/app';
-import { type TaskRequest, type TaskState } from '../features/board/api';
+import { type TaskRequest, type TaskState, type BoardViewMode } from '../features/board/api';
 import type { BotCatalog } from './bot-settings';
 import { BotsView, type BotState } from '../features/bots/view';
 import { TerminologyView } from '../features/terminology';
@@ -98,14 +98,19 @@ function BoardPreview({
   tasks,
   header,
   mode,
+  exampleViewMode,
 }: {
   tasks: TaskState | null;
   header: HTMLElement;
   mode: 'current' | 'example';
+  exampleViewMode: BoardViewMode;
 }) {
   const locale = useLocale();
   const signature = JSON.stringify(mode === 'current' ? (tasks ?? null) : null);
-  const demo = useMemo(() => createDemoTasks(JSON.parse(signature) ?? undefined), [signature]);
+  const demo = useMemo(
+    () => createDemoTasks(JSON.parse(signature) ?? undefined, exampleViewMode),
+    [signature, exampleViewMode],
+  );
   const request: TaskRequest = useCallback(
     async <T,>(path: string, body?: unknown) => {
       return demo.request<T>(path, body);
@@ -210,7 +215,7 @@ function BotPreview({
   );
 }
 
-function TermPreview({ header }: { header: HTMLElement }) {
+function TermPreview({ header, active }: { header: HTMLElement; active: boolean }) {
   useLocale();
   const reading = useRef<Reading>({});
   const [favorites, setFavorites] = useState<string[]>([]);
@@ -218,6 +223,7 @@ function TermPreview({ header }: { header: HTMLElement }) {
   const entries = sampleTerms();
   return (
     <TerminologyView
+      active={active}
       headerActions={header}
       state={{
         entries,
@@ -251,6 +257,8 @@ export function FeaturePreviewContent({
   bots = null,
   mode = 'example',
   headerActions,
+  active = true,
+  exampleBoardViewMode = 'merged',
 }: {
   id: Kind;
   form: EditableSettings | null;
@@ -259,6 +267,8 @@ export function FeaturePreviewContent({
   bots?: BotCatalog | null;
   mode?: 'current' | 'example';
   headerActions?: HTMLElement;
+  active?: boolean;
+  exampleBoardViewMode?: BoardViewMode;
 }) {
   useLocale();
   const reading = useRef<Reading>({});
@@ -291,9 +301,14 @@ export function FeaturePreviewContent({
       >
         {(header) =>
           id === 'board' ? (
-            <BoardPreview tasks={tasks} header={header} mode={mode} />
+            <BoardPreview
+              tasks={tasks}
+              header={header}
+              mode={mode}
+              exampleViewMode={exampleBoardViewMode}
+            />
           ) : id === 'terms' ? (
-            <TermPreview header={header} />
+            <TermPreview header={header} active={active} />
           ) : id === 'bots' ? (
             <BotPreview
               header={header}

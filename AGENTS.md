@@ -92,7 +92,7 @@ Rust + Tokio/Axum + Tao/Wry + JavaScript 共享胶囊 + React/TypeScript/Vite + 
 - [ui/shared/AGENTS.md](ui/shared/AGENTS.md)：跨模块类型、受限通信、图标及纯资源。
 - `components.json`：shadcn/ui 的设置页路径与组件别名配置；保留 new-york/Radix 基础，上游生成的图标统一适配到 shared/icons。
 - [ui/settings/AGENTS.md](ui/settings/AGENTS.md)：React 配置页、基础组件与 Vite 入口，构建输出到 `target/web/`。
-- [ui/website/AGENTS.md](ui/website/AGENTS.md)：独立介绍页复用原版品牌、设置页 LayoutPreview 和真实功能组件，以短开场、阅读／写作／协作三个持续挂载的组合场景展示功能；常用语与提示词优化共用草稿，看板与 Bot 同屏。所有数据与操作留在本页内存，手动接管后滚动不覆盖状态；窄屏自然排版，减少动态效果不自动演示。`dev:site` / `build:site` / `preview:site` 独立启动与输出 `target/site/`，不进入 App、设置页或自动发布流程。
+- [ui/website/AGENTS.md](ui/website/AGENTS.md)：独立介绍页复用原版品牌、设置页 LayoutPreview 和各功能真实预览。短开场后使用左侧固定目录、右侧单页展台，原生滚动、点选及键盘同步切换九项功能；预览持续挂载并保留草稿、任务和收藏。所有数据与操作留在本页内存，手动接管后不恢复自动示范；窄／矮屏改横向目录，减少动态效果不自动演示。`dev:site` / `build:site` / `preview:site` 独立启动与输出 `target/site/`，不进入 App、设置页或自动发布流程。
 - `ui/shared/contracts.ts`：设置、字体、上下文与投影命令的共享类型；保存版本和生成版本各司其职。
 - `ui/shared/tokens.css`：设置页与胶囊共享的颜色、间距、圆角和控件尺寸变量，动作图标与点击区统一使用18px/28px变量。
 - `ui/icon.png`：启动器图标唯一源图；安装时由系统工具生成多尺寸 ICNS，不修改原始构图。
