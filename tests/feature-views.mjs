@@ -821,6 +821,9 @@ try {
   await page.waitForFunction(
     () => document.querySelectorAll('.csw-feature-panes > section').length === 1,
   );
+  // Wide columns now follow the saved layout choice, not the viewport width.
+  tasks.store.viewMode = 'expanded';
+  tasks.store.revision++;
   await page.setViewportSize({ width: 1200, height: 700 });
   await page.getByRole('button', { name: '搜索任务' }).waitFor();
   assert.equal(await board.getByRole('button', { name: '新增分组' }).count(), 0);

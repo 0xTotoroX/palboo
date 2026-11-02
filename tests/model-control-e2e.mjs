@@ -635,7 +635,7 @@ try {
       `${label} saves`,
     );
   }
-  await settingsPage.getByLabel('贴边 / 刘海液态变体', { exact: true }).selectOption('clear');
+  await settingsPage.getByLabel('贴边 / 刘海液态变体', { exact: true }).click();
   await waitFor(
     async () => (await surfaceState()).preferences.themes.edge.liquidVariant === 'clear',
     'variant saves',
@@ -665,8 +665,10 @@ try {
     );
   }
   assert.equal(
-    await settingsPage.getByLabel('贴边 / 刘海液态变体', { exact: true }).inputValue(),
-    'clear',
+    await settingsPage
+      .getByLabel('贴边 / 刘海液态变体', { exact: true })
+      .getAttribute('aria-pressed'),
+    'true',
   );
   assert.deepEqual((await request('state')).body.panelPreferences, beforeAppearance);
   assert.deepEqual((await api('state')).preferences, beforeModel);

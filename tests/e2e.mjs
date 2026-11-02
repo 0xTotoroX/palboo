@@ -65,9 +65,11 @@ async function checkSettingsNavigation(page, context, base, runtime) {
   const recordWrite = (req) => {
     if (req.method() !== 'POST') return;
     const path = new URL(req.url()).pathname;
-    if (['/api/features', '/api/surfaces'].includes(path) && req.postDataJSON()?.op === 'state')
+    const command = ['/api/features', '/api/surfaces'].includes(path) ? req.postDataJSON() : null;
+    if (command?.op === 'state') return;
+    if (path === '/api/features' && command?.op === 'bots-catalog' && command.refresh === false)
       return;
-    writes.push(path);
+    writes.push({ path, op: command?.op });
   };
   page.on('request', recordWrite);
   await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -1141,7 +1143,15 @@ try {
         'native-glass',
       'Surface theme did not save',
     );
-    await page.getByLabel('侧栏液态变体', { exact: true }).selectOption('clear');
+    const sidebarClear = page.getByRole('button', { name: '侧栏液态变体', exact: true });
+    if ((await sidebarClear.getAttribute('aria-pressed')) === 'true') await sidebarClear.click();
+    await waitFor(
+      async () =>
+        (await api('surfaces', { op: 'state' })).body.preferences.themes.sidebar.liquidVariant ===
+        'regular',
+      'Sidebar Regular variant did not save',
+    );
+    await sidebarClear.click();
     await waitFor(
       async () =>
         (await api('surfaces', { op: 'state' })).body.preferences.themes.sidebar.liquidVariant ===
