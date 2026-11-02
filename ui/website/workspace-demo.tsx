@@ -25,7 +25,7 @@ import {
 } from './product-demos';
 import { Icon } from '../shared/icons/react';
 import { smooth } from './scroll-motion';
-import { openingStop } from './scroll-tour';
+import { materialStart, openingDistance, openingStop } from './scroll-tour';
 
 const examples = {
   get next() {
@@ -186,6 +186,10 @@ export function SurfaceStory({
         {
           '--workspace-controls': reveal,
           '--material-progress': materialProgress,
+          '--material-depth':
+            tourDistance === undefined
+              ? 1
+              : smooth((tourDistance - materialStart) / (openingDistance - materialStart)),
           '--layout-controls': 1 - smooth(materialProgress / 0.42),
           '--material-controls': smooth((materialProgress - 0.58) / 0.42),
         } as CSSProperties

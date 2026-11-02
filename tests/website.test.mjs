@@ -6,7 +6,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { build, preview } from 'vite';
 import { chromium } from 'playwright';
-import { mkdir, readFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 const reports = resolve('target/reports/site-features');
@@ -158,6 +158,262 @@ const ids = [
   'prompt',
   'compatibility',
 ];
+
+test('the mascot leaves the screen, joins the backdrop, follows features and returns as OO', async () => {
+  const page = await newPage({
+    viewport: { width: 1609, height: 1079 },
+    reducedMotion: 'no-preference',
+  });
+  try {
+    await page.clock.install();
+    await page.goto(`${base}/?lang=zh-CN`);
+    await page.clock.runFor(7200);
+    const main = page.locator('#main');
+    const mascot = page.locator('.brand-journey');
+    const phase = () => main.getAttribute('data-brand-phase');
+    const position = () =>
+      mascot.evaluate((node) => {
+        const matrix = new DOMMatrix(getComputedStyle(node).transform);
+        return { x: matrix.e, y: matrix.f };
+      });
+    await page.screenshot({ path: resolve(reports, 'journey-opening.png') });
+    await scrollScene(page, '.opening-story', 2.04 / 3.5);
+    await page.clock.runFor(100);
+    assert.equal(await phase(), 'opening');
+    const route = [];
+    for (const distance of [2.13, 2.2, 2.28, 2.4, 2.8, 3.4]) {
+      await scrollScene(page, '.opening-story', distance / 3.5);
+      await page.clock.runFor(100);
+      route.push({ distance, ...(await position()), phase: await phase() });
+      await page.screenshot({ path: resolve(reports, `journey-material-${distance}.png`) });
+    }
+    assert.equal(route[0].phase, 'to-material');
+    assert.equal(route.at(-1).phase, 'material');
+    assert.ok(route[2].x > route[0].x + 200, 'leaves the rail for the existing backdrop eyes');
+    const deep = await page
+      .locator('.layout-demo-material-backdrop svg')
+      .evaluate((el) => Number(getComputedStyle(el).opacity));
+    await scrollScene(page, '.opening-story', 2.4 / 3.5);
+    await page.clock.runFor(100);
+    const light = await page
+      .locator('.layout-demo-material-backdrop svg')
+      .evaluate((el) => Number(getComputedStyle(el).opacity));
+    assert.ok(deep - light > 0.4, 'backdrop deepens across the material tour');
+    await scrollScene(page, '.opening-story', 2.2 / 3.5);
+    await page.clock.runFor(100);
+    const reversed = await position();
+    assert.ok(
+      Math.abs(reversed.x - route[1].x) < 2 && Math.abs(reversed.y - route[1].y) < 2,
+      'reverse scrolling retraces the same route',
+    );
+    await page.evaluate(() =>
+      scrollTo(0, document.querySelector('#features').offsetTop - innerHeight * 0.5),
+    );
+    await frames(page);
+    await page.clock.runFor(150);
+    assert.equal(await phase(), 'to-feature');
+    await page.screenshot({ path: resolve(reports, 'journey-to-features.png') });
+    await scrollScene(page, '#features', 0);
+    await page.clock.runFor(500);
+    assert.equal(await phase(), 'feature');
+    await page.screenshot({ path: resolve(reports, 'journey-desktop.png') });
+    // Sample the actual paint frames in one browser turn. Tool round trips and
+    // screenshots can themselves outlast a short hop, so they are not a clock.
+    const flight = await page.evaluate(
+      () =>
+        new Promise((resolve) => {
+          const node = document.querySelector('.brand-journey');
+          const box = document.querySelector('#features').getBoundingClientRect();
+          const top = scrollY + box.top;
+          const points = [];
+          let start;
+          let interrupted = false;
+          scrollTo(0, top + ((box.height - innerHeight) * 3) / 8);
+          function sample(now) {
+            start ??= now;
+            const matrix = new DOMMatrix(getComputedStyle(node).transform);
+            points.push({ time: now - start, x: matrix.e, y: matrix.f, interrupted });
+            if (!interrupted && now - start >= 120) {
+              interrupted = true;
+              scrollTo(0, top + (box.height - innerHeight) / 8);
+            }
+            if (now - start >= 700) resolve(points);
+            else requestAnimationFrame(sample);
+          }
+          requestAnimationFrame(sample);
+        }),
+    );
+    const firstY = flight[0].y;
+    assert.ok(
+      flight.some((p) => !p.interrupted && p.y > firstY + 2),
+      'feature changes travel through intermediate positions',
+    );
+    for (let i = 1; i < flight.length; i++) {
+      if (flight[i].time - flight[i - 1].time > 40) continue;
+      assert.ok(
+        Math.hypot(flight[i].x - flight[i - 1].x, flight[i].y - flight[i - 1].y) < 35,
+        'retargeting preserves frame-to-frame continuity',
+      );
+    }
+    const settled = await position();
+    const next = await page.locator('#feature-tab-next').boundingBox();
+    assert.ok(Math.abs(settled.y - (next.y + next.height / 2)) < 1);
+    assert.ok(settled.x + 18 < next.x, 'mascot lands outside the feature label and icon');
+    await page.getByRole('tab', { name: '模型切换', exact: true }).click();
+    await page.clock.runFor(500);
+    assert.equal(await mascot.getAttribute('data-target'), 'feature-tab-model');
+    await page.screenshot({ path: resolve(reports, 'journey-model.png') });
+    await page.locator('#install').scrollIntoViewIfNeeded();
+    await frames(page);
+    await page.waitForFunction(
+      () => document.querySelector('#main').dataset.brandPhase === 'footer',
+    );
+    await page.clock.runFor(100);
+    assert.equal(await phase(), 'footer');
+    assert.equal(await page.locator('#install').getAttribute('data-brand-rest'), 'false');
+    await page.screenshot({ path: resolve(reports, 'journey-footer-face.png') });
+    await page.clock.runFor(3200);
+    assert.equal(await page.locator('#install').getAttribute('data-brand-rest'), 'true');
+    await page.waitForFunction(
+      () =>
+        new DOMMatrix(getComputedStyle(document.querySelector('.closing-counter')).transform).a >
+        0.99,
+    );
+    const counter = await page
+      .locator('.closing-counter')
+      .evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).a);
+    assert.ok(counter > 0.99, 'both O counters open after resting');
+    await page.screenshot({ path: resolve(reports, 'journey-footer-name.png') });
+    await scrollScene(page, '#features', 1);
+    await page.clock.runFor(100);
+    assert.equal(await page.locator('#install').getAttribute('data-brand-rest'), 'false');
+    assert.equal(await phase(), 'feature');
+    const handoffs = [];
+    for (const mode of ['footer', 'reverse']) {
+      await scrollScene(page, '#features', mode === 'footer' ? 0 : 1);
+      await page.clock.runFor(500);
+      const sample = await page.evaluate(
+        (mode) =>
+          new Promise((resolve) => {
+            const node = document.querySelector('.brand-journey');
+            const main = document.querySelector('#main');
+            const points = [];
+            let start;
+            let before;
+            let crossedAt;
+            document
+              .querySelector(
+                mode === 'footer' ? '#feature-tab-compatibility' : '#feature-tab-outline',
+              )
+              .click();
+            function record(now) {
+              start ??= now;
+              const matrix = new DOMMatrix(getComputedStyle(node).transform);
+              const point = {
+                time: now - start,
+                x: matrix.e,
+                y: matrix.f,
+                opacity: Number(getComputedStyle(node).opacity),
+                phase: main.dataset.brandPhase,
+              };
+              points.push(point);
+              if (!before && now - start >= 96) {
+                before = point;
+                crossedAt = point.time;
+                const section = document.querySelector('#features');
+                scrollTo(
+                  0,
+                  mode === 'footer'
+                    ? document.documentElement.scrollHeight
+                    : scrollY + section.getBoundingClientRect().top - innerHeight * 0.5,
+                );
+              }
+              if (now - start >= 800) resolve({ mode, before, crossedAt, points });
+              else requestAnimationFrame(record);
+            }
+            requestAnimationFrame(record);
+          }),
+        mode,
+      );
+      const firstOutside = sample.points.find(
+        (p) => p.time > sample.crossedAt && p.phase !== 'feature',
+      );
+      assert.ok(firstOutside, 'the native scroll crosses the feature boundary');
+      assert.ok(
+        Math.hypot(firstOutside.x - sample.before.x, firstOutside.y - sample.before.y) < 35,
+        `${mode}: crossing continues from the last painted position`,
+      );
+      assert.ok(firstOutside.opacity > 0.5, `${mode}: the in-flight face remains visible`);
+      assert.equal(sample.points.at(-1).phase, mode === 'footer' ? 'footer' : 'to-feature');
+      handoffs.push(sample);
+    }
+    await writeFile(
+      resolve(reports, 'journey-handoff-frames.json'),
+      JSON.stringify(handoffs, null, 2),
+    );
+    await scrollScene(page, '#features', 1);
+    await page.clock.runFor(500);
+    await page.getByRole('tab', { name: '兼容集成', exact: true }).press('Home');
+    await page.clock.runFor(500);
+    assert.equal(await mascot.getAttribute('data-target'), 'feature-tab-outline');
+    for (const width of [1063, 896]) {
+      await page.setViewportSize({ width, height: width === 1063 ? 690 : 1079 });
+      await frames(page);
+      await scrollScene(page, '#features', 0);
+      await page.clock.runFor(500);
+      const face = await mascot.locator('svg').boundingBox();
+      const icon = await page.locator('#feature-tab-outline svg').boundingBox();
+      const tab = await page.locator('#feature-tab-outline').boundingBox();
+      assert.ok(
+        face.x >= 0 && face.x + face.width < icon.x,
+        'narrow desktop landing stays visible and clears the functional icon',
+      );
+      assert.ok(
+        face.x + face.width < tab.x - 6,
+        'the mascot also clears the keyboard focus outline',
+      );
+      await page.screenshot({ path: resolve(reports, `journey-user-${width}.png`) });
+    }
+    await page.getByRole('button', { name: '切换为深色', exact: true }).click();
+    await page.clock.runFor(500);
+    await page.screenshot({ path: resolve(reports, 'journey-dark.png') });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.waitForFunction(
+      () => document.querySelector('#main').dataset.brandJourney === 'static',
+    );
+    assert.equal(await main.getAttribute('data-brand-journey'), 'static');
+    assert.equal(await mascot.evaluate((el) => getComputedStyle(el).display), 'none');
+  } finally {
+    await page.close();
+  }
+});
+
+test('compact pages keep normal flow and still finish the footer wordmark', async () => {
+  const page = await newPage({
+    viewport: { width: 390, height: 844 },
+    reducedMotion: 'no-preference',
+  });
+  try {
+    await page.clock.install();
+    await page.goto(`${base}/?lang=en`);
+    await page.clock.runFor(7200);
+    assert.equal(await page.locator('#main').getAttribute('data-brand-journey'), 'static');
+    await page.screenshot({ path: resolve(reports, 'journey-mobile.png') });
+    await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));
+    await frames(page);
+    await page.clock.runFor(3200);
+    assert.equal(await page.locator('#install').getAttribute('data-brand-rest'), 'true');
+    await page.waitForFunction(
+      () =>
+        new DOMMatrix(getComputedStyle(document.querySelector('.closing-counter')).transform).a >
+        0.99,
+    );
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    await page.screenshot({ path: resolve(reports, 'journey-mobile-footer.png') });
+  } finally {
+    await page.close();
+  }
+});
 
 test('the opening fits a complete display, retracts its stand and tours placements and materials', async () => {
   const page = await newPage({

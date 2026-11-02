@@ -170,7 +170,7 @@ h1 {
   border-radius: calc(6px + 6px * var(--material-progress));
 }
 .surface-story .layout-demo-material-backdrop svg {
-  opacity: 0.6;
+  opacity: calc(0.22 + 0.62 * var(--material-depth, 1));
 }
 .surface-story .layout-demo-workspace[data-material='frosted'] {
   background: color-mix(
