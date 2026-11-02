@@ -22,7 +22,9 @@ const theme = `:host {
 .site-product-body :is(input,textarea,select,[contenteditable="true"]){scroll-margin-block:16px}
 .feature-projection{min-width:0}
 .site-product-body > .feature-pane-head{height:28px}
-.site-product-body .csw-next-layout{min-height:0;grid-template-rows:max-content minmax(120px,auto)}
+.site-product-body .csw-next-layout{min-height:0;grid-template-rows:max-content minmax(var(--demo-next-detail-height,120px),auto)}
+.site-product-body .csw-outline-list{max-height:var(--demo-outline-list-height,none);min-height:0;overflow:auto;flex:0 1 auto;scrollbar-width:thin}
+.site-product-body .csw-outline-toolbar{opacity:1;pointer-events:auto;transform:none}
 .site-product-body .board-app.embedded{height:auto}
 .site-product-body .board-main{padding:12px 0}
 .site-product-body .board-grid{overflow:visible}

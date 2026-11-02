@@ -1,6 +1,6 @@
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
-/* [INPUT]: 术语状态、当前聊天涉及编号、窗口阅读状态、受限操作与可选卡片滚动跟随。
+/* [INPUT]: 术语状态、当前聊天涉及编号、窗口阅读状态、受限操作、可选卡片滚动跟随与可见状态。
  * [OUTPUT]: 术语积木、标题栏图标筛选、详情、收藏及已掌握；可选的点击定位通过受限操作回到宿主执行。
  * [POS]: 仅消费后台投影，不采集或改写宿主聊天。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
@@ -45,7 +45,9 @@ export function TerminologyView({
   action,
   followScroll = false,
   headerActions,
+  active = true,
 }: {
+  active?: boolean;
   headerActions?: HTMLElement;
   state: TermData;
   reading: Reading;
@@ -76,7 +78,7 @@ export function TerminologyView({
   useLayoutEffect(() => {
     const view = popup.current;
     if (!view) return;
-    if (!term || !anchor.current?.isConnected) {
+    if (!active || !term || !anchor.current?.isConnected) {
       void view.hide();
       return;
     }
@@ -108,7 +110,7 @@ export function TerminologyView({
         options,
       );
     }
-  }, [term, state.preferences, state.appearance, state.context, locked, reveal]);
+  }, [active, term, state.preferences, state.appearance, state.context, locked, reveal]);
 
   const filters = (
     <nav className="palboo-term-filters" aria-label={tr('术语范围')}>

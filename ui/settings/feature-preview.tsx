@@ -1,17 +1,32 @@
-/* [INPUT]: Current local task/Bot snapshots, saved presentation preferences and shared feature components.
+/* [INPUT]: Current local snapshots, saved preferences, shared components and optional isolated example adapters.
  * [OUTPUT]: Interactive product content in its real header/body layout; all actions stay in memory.
  * [POS]: Settings preview adapter; incoming snapshots are copied, preview actions never call hosts or persist edits.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
-import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+  type Dispatch,
+  type SetStateAction,
+} from 'react';
 import { createPortal } from 'react-dom';
 import { ProjectedContent } from '../features/projected';
 import { Board } from '../features/board/app';
-import { type TaskRequest, type TaskState } from '../features/board/api';
+import { type TaskRequest, type TaskState, type BoardViewMode } from '../features/board/api';
 import type { BotCatalog } from './bot-settings';
 import { BotsView, type BotState } from '../features/bots/view';
 import { SitesView } from '../features/sites/view';
 import type { WebLibrary } from '../shared/web-library';
-import { TerminologyView } from '../features/terminology';
+import type { ReplyLoader } from '../features/bots/messages';
+import { TerminologyView, type Term, type TermData } from '../features/terminology';
+import { installTerminology } from '../terminology/host.js';
+import { PreviewComposer } from './preview-composer';
+import type { PanelSnapshot } from '../shared/contracts';
 import { sampleProjection, sampleTerms, createDemoTasks } from '../shared/demo-state';
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
@@ -25,12 +40,20 @@ import boardStyles from '../features/board/styles.css?inline';
 import botStyles from '../features/bots/style.css?inline';
 
 type Kind = 'outline' | 'next' | 'prompts' | 'board' | 'bots' | 'terms' | 'sites';
+export type FeaturePreviewExample = {
+  projection?: (explore: boolean) => PanelSnapshot;
+  taskRequest?: TaskRequest;
+  terms?: Term[];
+  bots?: BotState['snapshot'];
+  readBotReply?: ReplyLoader;
+  botAction?: (data: Record<string, unknown>) => string;
+  onOutlineJump?: (id: string) => void;
+};
 const theme = `
 :host{display:block;min-width:0;font:inherit;color-scheme:inherit;--paper:var(--buddy-surface);--surface:var(--paper);--ink:var(--buddy-text);--muted:var(--buddy-muted);--line:var(--buddy-border);--border:var(--line);--hover:var(--buddy-input);--accent:var(--buddy-focus);--danger:var(--error-foreground);--board-bg:transparent;--csw-text:var(--ink);--csw-muted:var(--muted);--csw-divider:var(--line);--csw-hover:var(--hover);--csw-accent:var(--accent);--csw-item-font:1em;--csw-chrome-font:1em;--csw-next-font:1em;--csw-outline-font:1em;--csw-label-weight:500;--feature-refresh-opacity:1;--board-font-size:1em}
 :host>div{height:var(--preview-feature-height,100%);min-height:0}
 .feature-view{height:var(--preview-feature-height,100%);max-height:var(--preview-feature-max-height,none);border-radius:12px;background:var(--preview-content-background,var(--paper))}
 :host([data-contained=true]) .feature-view{background:transparent;border-radius:0}
-:host([data-wide-board=true]) .board-app{min-width:720px}
 .feature-view:is([data-feature=bots],[data-feature=prompts]){height:var(--preview-feature-height,auto);max-height:var(--preview-feature-max-height,270px)}
 .feature-view:is([data-feature=bots],[data-feature=prompts])>.feature-body{flex:var(--preview-feature-body-flex,0 1 auto);min-height:0;overflow:auto}
 .csw-feature-pane-head{flex:none}
@@ -46,12 +69,10 @@ function Surface({
   id,
   children,
   headerActions,
-  wideBoard = false,
 }: {
   id: Kind;
   children: (header: HTMLElement) => ReactNode;
   headerActions?: HTMLElement;
-  wideBoard?: boolean;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const [mount] = useState(() => document.createElement('div'));
@@ -69,7 +90,6 @@ function Surface({
       ref={host}
       data-settings-feature={id}
       data-contained={!!headerActions}
-      data-wide-board={wideBoard}
     >
       {createPortal(
         <section className="feature-view" data-feature={id} aria-label={titles[id]}>
@@ -100,19 +120,26 @@ function BoardPreview({
   tasks,
   header,
   mode,
+  exampleViewMode,
+  exampleRequest,
 }: {
   tasks: TaskState | null;
   header: HTMLElement;
   mode: 'current' | 'example';
+  exampleViewMode: BoardViewMode;
+  exampleRequest?: TaskRequest;
 }) {
   const locale = useLocale();
   const signature = JSON.stringify(mode === 'current' ? (tasks ?? null) : null);
-  const demo = useMemo(() => createDemoTasks(JSON.parse(signature) ?? undefined), [signature]);
+  const demo = useMemo(
+    () => createDemoTasks(JSON.parse(signature) ?? undefined, exampleViewMode),
+    [signature, exampleViewMode],
+  );
   const request: TaskRequest = useCallback(
     async <T,>(path: string, body?: unknown) => {
-      return demo.request<T>(path, body);
+      return (mode === 'example' && exampleRequest ? exampleRequest : demo.request)<T>(path, body);
     },
-    [demo, locale],
+    [demo, locale, mode, exampleRequest],
   );
   if (mode === 'current' && !tasks) return <p role="status">{tr('正在读取本地任务…')}</p>;
   return <Board embedded poll={false} headerActions={header} request={request} />;
@@ -124,12 +151,14 @@ function BotPreview({
   catalog,
   autoSync,
   mode,
+  example,
 }: {
   header: HTMLElement;
   onInsert: (text: string) => void;
   catalog: BotCatalog | null;
   autoSync: boolean;
   mode: 'current' | 'example';
+  example?: FeaturePreviewExample;
 }) {
   useLocale();
   const [stopped, setStopped] = useState(false);
@@ -159,7 +188,7 @@ function BotPreview({
               })),
             }
           : null
-        : {
+        : (example?.bots ?? {
             target: { threadId: 'settings-preview', token: 'example' },
             catalog: { revision: 'example', stale: false },
             bots: [
@@ -188,20 +217,33 @@ function BotPreview({
                 current: null,
               },
             ],
-          },
+          }),
   };
   return (
     <BotsView
       headerActions={header}
       state={state}
       disabled={false}
+      readReply={example?.readBotReply}
       action={(data) => {
+        if (example?.botAction) {
+          onInsert(example.botAction(data));
+          return;
+        }
         if (data.action === 'stop') {
           setStopped(true);
           return;
         }
         if (data.action === 'check') {
           onInsert(tr(stopped ? '已停止' : '处理中'));
+          return;
+        }
+        if (data.action === 'followup') {
+          onInsert(
+            tr('追问「{{agent}}」，沿用本聊天中对该 Bot 的上一次调用和上下文，不要新建会话：', {
+              agent: String(data.agent),
+            }),
+          );
           return;
         }
         onInsert(
@@ -212,18 +254,86 @@ function BotPreview({
   );
 }
 
-function TermPreview({ header }: { header: HTMLElement }) {
-  useLocale();
+function TermPreview({
+  header,
+  active,
+  exampleEntries,
+  source,
+  preferences,
+}: {
+  header: HTMLElement;
+  active: boolean;
+  exampleEntries?: Term[];
+  source?: RefObject<HTMLElement | null>;
+  preferences?: Partial<TermData['preferences']>;
+}) {
+  const locale = useLocale();
   const reading = useRef<Reading>({});
   const [favorites, setFavorites] = useState<string[]>([]);
   const [mastered, setMastered] = useState<string[]>([]);
-  const entries = sampleTerms();
+  const entries = exampleEntries ?? sampleTerms();
+  const host = useRef<ReturnType<typeof installTerminology> | null>(null);
+  const state = {
+    entries,
+    preferences: {
+      ...preferences,
+      favorites,
+      mastered,
+      enabled: true,
+      semantic: false,
+      cardMaterial: preferences?.cardMaterial ?? 'matte',
+    },
+  };
+  const latest = useRef(state);
+  latest.current = state;
+  const action = async (data: Record<string, unknown>) => {
+    const id = String(data.id);
+    if (data.action === 'favorite') setFavorites((items) => [...new Set([...items, id])]);
+    if (data.action === 'unfavorite') setFavorites((items) => items.filter((item) => item !== id));
+    if (data.action === 'master') setMastered((items) => [...new Set([...items, id])]);
+    if (data.action === 'restore') setMastered((items) => items.filter((item) => item !== id));
+    if (data.action === 'locate') host.current?.locate(id, 'preview');
+    const next = structuredClone(latest.current);
+    if (data.action === 'favorite') next.preferences.favorites = [...new Set([...favorites, id])];
+    if (data.action === 'unfavorite')
+      next.preferences.favorites = favorites.filter((item) => item !== id);
+    if (data.action === 'master') next.preferences.mastered = [...new Set([...mastered, id])];
+    if (data.action === 'restore')
+      next.preferences.mastered = mastered.filter((item) => item !== id);
+    return next;
+  };
+  const perform = useRef(action);
+  perform.current = action;
+  useEffect(() => {
+    if (!active || !source?.current) return;
+    host.current = installTerminology({
+      isolated: true,
+      request: async (_path: string, data: Record<string, unknown>) => perform.current(data),
+      getRoot: () => source.current,
+      getExchange: () => ({
+        sessionId: 'preview',
+        question: '',
+        answer: source.current?.textContent || '',
+        complete: true,
+      }),
+      isBusy: () => false,
+    });
+    return () => {
+      host.current?.destroy();
+      host.current = null;
+    };
+  }, [active, source, locale]);
+  const signature = JSON.stringify(state);
+  useEffect(() => {
+    void host.current?.refresh();
+  }, [signature]);
   return (
     <TerminologyView
+      active={active}
       headerActions={header}
       state={{
         entries,
-        preferences: { favorites, mastered, cardMaterial: 'matte' },
+        preferences: { ...state.preferences, jumpOnClick: !!source },
         involved: entries.map((term) => term.id),
         context: 'preview',
         phase: 'ready',
@@ -232,15 +342,7 @@ function TermPreview({ header }: { header: HTMLElement }) {
       reading={reading.current}
       locked={false}
       followScroll
-      action={async (data) => {
-        const id = String(data.id);
-        if (data.action === 'favorite') setFavorites((items) => [...new Set([...items, id])]);
-        if (data.action === 'unfavorite')
-          setFavorites((items) => items.filter((item) => item !== id));
-        if (data.action === 'master') setMastered((items) => [...new Set([...items, id])]);
-        if (data.action === 'restore') setMastered((items) => items.filter((item) => item !== id));
-        return {};
-      }}
+      action={action}
     />
   );
 }
@@ -254,6 +356,15 @@ export function FeaturePreviewContent({
   sites = null,
   mode = 'example',
   headerActions,
+  active = true,
+  exampleBoardViewMode = 'merged',
+  example,
+  draft: controlledDraft,
+  onDraftChange,
+  composer = true,
+  onOutlineJump,
+  termSource,
+  termPreferences,
 }: {
   id: Kind;
   form: EditableSettings | null;
@@ -263,14 +374,27 @@ export function FeaturePreviewContent({
   sites?: WebLibrary | null;
   mode?: 'current' | 'example';
   headerActions?: HTMLElement;
+  active?: boolean;
+  exampleBoardViewMode?: BoardViewMode;
+  example?: FeaturePreviewExample;
+  draft?: string;
+  onDraftChange?: Dispatch<SetStateAction<string>>;
+  composer?: boolean;
+  onOutlineJump?: (id: string) => void;
+  termSource?: RefObject<HTMLElement | null>;
+  termPreferences?: Partial<TermData['preferences']>;
 }) {
   useLocale();
   const reading = useRef<Reading>({});
-  const [draft, setDraft] = useState('');
+  const [localDraft, setLocalDraft] = useState('');
+  const draft = controlledDraft ?? localDraft;
+  const setDraft = onDraftChange ?? setLocalDraft;
   const [explore, setExplore] = useState(false);
   const [quick, setQuick] = useState<{ label: string; prompt: string }[] | null>(null);
   const revision = useRef(0);
-  const snapshot = sampleProjection(explore);
+  // 可选样本仅在 example 模式生效；设置的 current 数据与默认示例保持原有路径。
+  const sample = mode === 'example' ? example : undefined;
+  const snapshot = structuredClone(sample?.projection?.(explore) ?? sampleProjection(explore));
   const limit =
     form?.directionSource === 'manual' ? form.selectedDirections.length : (form?.maxItems ?? 3);
   snapshot.prompts = snapshot.prompts.slice(0, Math.max(0, limit));
@@ -283,16 +407,12 @@ export function FeaturePreviewContent({
   snapshot.settings.configurationRevision = revision.current;
   snapshot.display = {
     ...snapshot.display,
-    labelOnly: view?.panelPreferences.ui.labelOnly ?? true,
+    labelOnly: view?.panelPreferences.ui.labelOnly ?? snapshot.display?.labelOnly ?? true,
     promptClickMode: view?.panelPreferences.ui.promptClickMode ?? 'fill',
   };
   return (
     <div className="preview-feature-content" data-feature={id} data-preview-source={mode}>
-      <Surface
-        id={id}
-        headerActions={headerActions}
-        wideBoard={id === 'board' && !headerActions && tasks?.store.viewMode === 'expanded'}
-      >
+      <Surface id={id} headerActions={headerActions}>
         {(header) =>
           id === 'sites' ? (
             <SitesView
@@ -310,16 +430,34 @@ export function FeaturePreviewContent({
               }}
             />
           ) : id === 'board' ? (
-            <BoardPreview tasks={tasks} header={header} mode={mode} />
+            <BoardPreview
+              tasks={tasks}
+              header={header}
+              mode={mode}
+              exampleViewMode={exampleBoardViewMode}
+              exampleRequest={sample?.taskRequest}
+            />
           ) : id === 'terms' ? (
-            <TermPreview header={header} />
+            <TermPreview
+              header={header}
+              active={active}
+              exampleEntries={sample?.terms}
+              source={termSource}
+              preferences={termPreferences}
+            />
           ) : id === 'bots' ? (
             <BotPreview
               header={header}
-              onInsert={setDraft}
+              onInsert={(text) => {
+                if (text)
+                  setDraft((previous) =>
+                    previous.includes(text) ? previous : previous ? `${previous}\n${text}` : text,
+                  );
+              }}
               catalog={bots}
               mode={mode}
               autoSync={form?.grokbotAutoSync ?? true}
+              example={sample}
             />
           ) : (
             <ProjectedContent
@@ -342,26 +480,29 @@ export function FeaturePreviewContent({
                 if (kind === 'fill' || kind === 'quick-fill') {
                   const items = kind === 'fill' ? snapshot.prompts : snapshot.settings.quickPrompts;
                   const text = items[data?.index ?? 0]?.prompt;
-                  if (text) setDraft((previous) => (previous ? `${previous}\n${text}` : text));
+                  if (text)
+                    setDraft((previous) =>
+                      previous.includes(text) ? previous : previous ? `${previous}\n${text}` : text,
+                    );
                 }
-                if (kind === 'outline-jump')
-                  setDraft(snapshot.outlineItems.find((item) => item.id === data?.id)?.text || '');
-                if (kind === 'outline-anchor')
-                  setDraft(
-                    (data?.anchor === 'end'
-                      ? snapshot.outlineItems.at(-1)
-                      : snapshot.outlineItems[0]
-                    )?.text || '',
-                  );
+                if (kind === 'outline-jump' || kind === 'outline-anchor') {
+                  const item =
+                    kind === 'outline-jump'
+                      ? snapshot.outlineItems.find((item) => item.id === data?.id)
+                      : data?.anchor === 'end'
+                        ? snapshot.outlineItems.at(-1)
+                        : snapshot.outlineItems[0];
+                  const jump = onOutlineJump ?? sample?.onOutlineJump;
+                  if (jump && item) jump(item.id);
+                  else setDraft(item?.text || '');
+                }
               }}
             />
           )
         }
       </Surface>
-      {draft && (
-        <div className="preview-draft" role="status" aria-label={tr('示例输入框')}>
-          {draft}
-        </div>
+      {composer && (!headerActions || draft) && ['next', 'prompts', 'bots'].includes(id) && (
+        <PreviewComposer value={draft} onValueChange={setDraft} />
       )}
     </div>
   );

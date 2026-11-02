@@ -6,19 +6,19 @@
   display: block;
   width: 100%;
   height: auto;
-  max-width: 493px;
+  max-width: none;
   margin-inline: auto;
   aspect-ratio: 1120/500;
 }
 .layout-demo-scene text {
   font-family: inherit;
-  font-size: 10px;
+  font-size: 9px;
   fill: var(--buddy-muted);
 }
 .layout-demo-scene .demo-title {
   font-weight: 600;
   fill: var(--buddy-text);
-  font-size: 11px;
+  font-size: 10px;
 }
 .layout-demo-scene .demo-device-shadow {
   fill: #000;
@@ -49,15 +49,80 @@
 .layout-demo-scene .demo-eyes {
   fill: var(--buddy-text);
 }
-.layout-demo-scene .demo-line {
-  fill: var(--buddy-muted);
-  opacity: 0.45;
-}
-.layout-demo-scene .demo-composer {
-  fill: var(--buddy-surface);
-  stroke: var(--buddy-border);
-  stroke-width: 1;
-}
 .layout-demo-window {
   overflow: hidden;
+}
+
+.demo-chat-copy {
+  height: 100%;
+  overflow: auto;
+  scrollbar-width: thin;
+  padding: 0 8px 4px 0;
+  color: var(--buddy-text);
+  font-size: 10px;
+  line-height: 1.6;
+}
+.demo-chat-copy .demo-chat-question {
+  margin: 0 0 14px 20px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  background: var(--buddy-subtle);
+}
+.demo-chat-copy section + section {
+  margin-top: 12px;
+}
+.demo-chat-copy h4 {
+  margin: 0 0 4px;
+  font-size: 10px;
+  font-weight: 600;
+}
+.demo-chat-copy p,
+.demo-chat-copy ol {
+  margin: 0;
+}
+.demo-chat-copy ol {
+  padding-left: 1.5em;
+  margin-top: 4px;
+  list-style: decimal outside;
+}
+.demo-chat-copy li + li {
+  margin-top: 3px;
+}
+.layout-demo-host-composer {
+  overflow: visible;
+}
+.demo-chat-composer {
+  position: relative;
+  font-size: 10px;
+}
+.demo-chat-composer .preview-composer {
+  flex-wrap: nowrap;
+  align-items: flex-end;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 12px;
+}
+.demo-chat-composer .preview-composer textarea {
+  flex: 1;
+  height: 40px;
+  min-height: 40px;
+  max-height: 40px;
+  resize: none;
+}
+.demo-chat-composer .preview-composer button.preview-composer-send {
+  flex-basis: 22px;
+  width: 22px;
+  height: 22px;
+  min-height: 22px;
+  padding: 4px;
+}
+.demo-chat-composer .preview-composer-send svg {
+  width: 14px;
+  height: 14px;
+}
+.demo-chat-composer .preview-sent-message {
+  position: absolute;
+  bottom: 100%;
+  inset-inline: 0;
+  margin-bottom: 8px;
 }

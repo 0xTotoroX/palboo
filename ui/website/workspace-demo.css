@@ -1,5 +1,5 @@
 /* [INPUT]: Shared settings/workspace/model classes and website semantic tokens.
- * [OUTPUT]: Readable website-sized previews, controls and detailed feature sections.
+ * [OUTPUT]: Product-proportioned previews, controls and detailed feature sections.
  * [POS]: Scoped adapters; product and settings appearance remain unchanged.
  * [PROTOCOL]: Keep website/AGENTS.md in sync. */
 .site-settings-demo,
@@ -18,10 +18,8 @@
   --hover: var(--site-input);
   min-width: 0;
 }
-.connection-story {
-  padding-block: var(--site-section-space);
-}
 .site-settings-demo {
+  --layout-preview-text-scale: 0.9;
   padding: 24px;
   background: var(--site-surface);
   border: 1px solid var(--site-border);
@@ -44,18 +42,6 @@
 }
 .site-settings-demo .layout-demo-canvas {
   margin: 28px 0;
-}
-.site-settings-demo .layout-demo-workspace {
-  --csw-chrome-font: 20px;
-  font-size: 20px;
-}
-.site-settings-demo .layout-demo-workspace .csw-workbench-tabs button {
-  min-width: 44px;
-  min-height: 44px;
-}
-.site-settings-demo .layout-demo-workspace .csw-workbench-tabs svg {
-  width: 20px;
-  height: 20px;
 }
 .site-settings-demo .layout-demo-content input {
   font-size: inherit;
@@ -87,8 +73,7 @@
   min-height: 40px;
   font-size: 14px;
 }
-.material-controls p,
-.connection-details p {
+.material-controls p {
   margin-top: 16px;
   color: var(--site-muted);
   font-size: 16px;
@@ -106,7 +91,7 @@
 }
 .demo-models .feature-model {
   min-height: 0;
-  font-size: 16px;
+  font-size: var(--site-ui-font);
 }
 .demo-models .model-intrinsic-width {
   min-width: 0;
@@ -115,10 +100,10 @@
   max-width: 100%;
 }
 .demo-models .model-primary {
-  padding-top: 16px;
+  padding-top: 8px;
 }
 .demo-models .model-status-row {
-  margin-top: 16px;
+  margin-top: 12px;
 }
 .demo-models .model-favorites {
   flex: none;
@@ -128,61 +113,6 @@
 }
 .demo-models.is-inline .feature-model {
   font-size: inherit;
-}
-.demo-panel .demo-models .model-row {
-  min-height: 44px;
-}
-.connection-details {
-  min-width: 0;
-}
-.connection-story {
-  display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-  gap: clamp(40px, 7vw, 96px);
-  align-items: start;
-}
-.connection-story .section-intro {
-  display: block;
-  margin: 0;
-}
-.connection-story .section-intro p {
-  margin-top: 24px;
-}
-.connection-details details {
-  border-bottom: 1px solid var(--site-border);
-}
-.connection-details summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  min-height: 64px;
-  padding-block: 18px;
-  list-style: none;
-  cursor: pointer;
-  font-size: 16px;
-}
-.connection-details summary::-webkit-details-marker {
-  display: none;
-}
-.connection-details summary svg {
-  flex-shrink: 0;
-  color: var(--site-muted);
-  transition: transform 180ms var(--site-ease);
-}
-.connection-details details[open] summary svg {
-  transform: rotate(180deg);
-}
-.connection-details details p {
-  margin: 0;
-  padding: 0 36px 24px 0;
-  line-height: 1.85;
-}
-@media (max-width: 900px) {
-  .connection-story {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 28px;
-  }
 }
 @media (max-width: 760px) {
   .site-settings-demo {
@@ -200,9 +130,6 @@
   }
   .site-settings-demo .layout-demo-toolbar {
     align-items: flex-start;
-  }
-  .connection-story {
-    padding-block: 64px;
   }
   .demo-models > .preview-frame-content {
     padding: 16px;

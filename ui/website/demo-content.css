@@ -1,11 +1,10 @@
-/* [INPUT]: Shared product content and the website's example chat and theme.
- * [OUTPUT]: Chat/composer framing; product controls keep their own isolated CSS.
- * [POS]: Website framing only; no parallel feature artwork or controls.
+/* [INPUT]: Real product content, the website's local composers and semantic colors.
+ * [OUTPUT]: Shared content density and local draft framing.
+ * [POS]: Website framing only; product controls keep their existing isolated CSS.
  * [PROTOCOL]: Keep website/AGENTS.md in sync. */
-
 .site-real-feature {
   min-width: 0;
-  font-size: 16px;
+  font-size: var(--site-ui-font);
   line-height: 1.5;
 }
 .site-workspace-feature {
@@ -33,38 +32,13 @@
   color: var(--site-muted);
   font-size: inherit;
 }
-.demo-window-body {
-  display: grid;
-  grid-template-columns: 1fr 0.95fr;
-  min-height: 435px;
-}
-.demo-chat {
-  padding: 22px 32px 28px;
-  border-right: 1px solid var(--site-border);
-  font-size: 12px;
-  min-width: 0;
-}
-.chat-title {
-  display: flex;
-  justify-content: space-between;
-  color: var(--site-muted);
-  font-size: 11px;
-}
-.chat-title span:first-child {
-  color: var(--site-text);
-  font-weight: 600;
-}
 .chat-question {
   background: var(--site-input);
   width: fit-content;
   max-width: 100%;
-  margin: 30px 0 24px auto;
-  padding: 12px 16px;
+  padding: 10px 12px;
   border-radius: 12px 12px 3px 12px;
   line-height: 1.8;
-}
-.chat-avatar {
-  margin-bottom: 12px;
 }
 .demo-eyes {
   display: inline-flex;
@@ -79,107 +53,25 @@
   border-radius: 3px;
   background: currentColor;
 }
-.demo-chat article > p {
-  margin-bottom: 10px;
-  line-height: 1.8;
-}
-.chat-paragraph {
-  margin-inline: -10px;
-  padding: 9px 10px;
-  border-radius: 5px;
-  transition: background 180ms;
-}
-.chat-paragraph.is-focused {
-  background: var(--site-input);
-}
-.chat-paragraph h3 {
-  font-size: 12px;
-  line-height: 1.7;
-  font-weight: 600;
-}
-.chat-paragraph p {
-  line-height: 1.9;
-  color: var(--site-muted);
-}
-.demo-panel {
-  padding: 14px 20px 18px;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  background: var(--site-surface);
-}
-.demo-panel-top {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  height: 30px;
-  font-size: 11px;
-}
-.demo-panel-top > span:nth-child(2) {
-  flex: 1;
-  color: var(--site-muted);
-}
-.demo-panel-top > .icon-button {
-  width: 30px;
-  height: 30px;
-  color: var(--site-muted);
-}
-.demo-feature-tabs {
-  display: flex;
-  justify-content: space-between;
-  gap: 6px;
-  margin: 16px -3px 20px;
-}
-.demo-feature-tabs button {
-  width: 40px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  color: var(--site-muted);
-}
-.demo-feature-tabs button[aria-selected='true'] {
-  color: var(--site-text);
-  background: var(--site-input);
-}
-.demo-feature-content {
-  flex: 1;
-  min-height: 198px;
-}
-.demo-content-heading {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 12px;
-  font-weight: 550;
-  margin-bottom: 16px;
-}
 .demo-composer {
   position: relative;
   background: var(--site-input);
-  padding: 10px 12px 9px;
+  padding: 12px;
   border-radius: var(--buddy-radius-control);
   margin-top: 16px;
-}
-.demo-composer label {
-  display: block;
-  color: var(--site-muted);
-  font-size: 10px;
-  margin-bottom: 6px;
 }
 .demo-composer textarea {
   display: block;
   width: 100%;
   border: 0;
   background: transparent;
-  font-size: 12px;
+  font-size: var(--site-ui-font);
   line-height: 1.65;
   resize: vertical;
-  min-height: 42px;
+  min-height: 48px;
   max-height: 160px;
   color: var(--site-text);
-  padding: 0 24px 0 0;
+  padding: 0;
 }
 .demo-composer textarea::placeholder {
   color: var(--site-muted);

@@ -1,7 +1,7 @@
 import { SegmentedGroup } from './components/ui/segmented-group';
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
-/* [INPUT]: Saved feature/surface/typography snapshots, optional website feature renderer/stops/framing/material progress and shared workspace controller.
+/* [INPUT]: Saved feature/surface/typography snapshots, optional website renderer/stops/framing/material/display geometry and shared workspace controller.
  * [OUTPUT]: Isolated previews with presentation-only text scaling, the brand backdrop and reversible device-to-material motion.
  * [POS]: Shared layout/appearance sample content; save callbacks stay in memory and never call an API.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
@@ -34,8 +34,8 @@ import { createPortal } from 'react-dom';
 type Sample = { id: string; title: string };
 export type LayoutDemoStop = {
   placement: string;
-  arrangement: 'vertical' | 'horizontal' | 'tabs';
-  active: string;
+  arrangement?: 'vertical' | 'horizontal' | 'tabs';
+  active?: string;
 };
 type PreviewControls = {
   placement: ReactNode;
@@ -204,6 +204,8 @@ export function LayoutPreview({
   materialProgress,
   demoStop,
   renderFeature,
+  display,
+  standProgress,
 }: {
   features: FeatureState | null;
   surfaces: SurfaceState | null;
@@ -223,6 +225,8 @@ export function LayoutPreview({
   renderControls?: (controls: PreviewControls) => ReactNode;
   materialProgress?: number;
   demoStop?: LayoutDemoStop;
+  display?: 'studio';
+  standProgress?: number;
 }) {
   const locale = useLocale();
   const [mode, setMode] = useState<string | null>(null),
@@ -266,7 +270,8 @@ export function LayoutPreview({
       )
       .map(({ id }) => ({ id, title: titles[id] }));
     setMode(demoStop.placement);
-    setDemoLayout(sampleArrangement(entries, demoStop.arrangement, demoStop.active));
+    if (demoStop.arrangement)
+      setDemoLayout(sampleArrangement(entries, demoStop.arrangement, demoStop.active));
   }, [demoStop, features, source]);
   const saved = useMemo(
     () =>
@@ -492,6 +497,8 @@ export function LayoutPreview({
             entryRef={entryRef}
             focusWorkspace={focusWorkspace}
             materialProgress={materialProgress}
+            display={display}
+            standProgress={standProgress}
           >
             {sample}
           </LayoutPreviewScene>

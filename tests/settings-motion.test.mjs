@@ -115,7 +115,7 @@ return <div className="settings-app" ref={ref}><div style={{width:430}}><Setting
 
       const tabs = page.getByRole('group', { name: '功能预览' });
       await preview.getByRole('button', { name: /拆解第一版/ }).click();
-      await preview.locator('.preview-draft').waitFor();
+      await preview.locator('.preview-composer textarea:visible').waitFor();
       const rect = await preview.boundingBox();
       // Record the real WAAPI animation when it starts. Under parallel browser load,
       // the click acknowledgement can arrive after a 200ms animation has finished.
@@ -163,7 +163,7 @@ return <div className="settings-app" ref={ref}><div style={{width:430}}><Setting
         assert.equal(await page.locator('.preview-scene:not([inert])').count(), 1);
       }
       assert.equal(
-        await preview.getByRole('status').textContent(),
+        await preview.locator('.preview-composer textarea:visible').inputValue(),
         '请把作品集第一版拆解成两天内可完成的具体步骤。',
         'sample draft survives tabs',
       );

@@ -43,7 +43,11 @@ test(
           },
         },
       ],
-      define: { 'import.meta.env.DEV': 'false', 'import.meta.hot': 'undefined' },
+      define: {
+        'import.meta.env.DEV': 'false',
+        'import.meta.hot': 'undefined',
+        'import.meta.url': '"http://settings.test/app.js"',
+      },
     });
     const builtHtml = await readFile('target/web/index.html', 'utf8');
     const css = (
@@ -449,7 +453,7 @@ test(
       await directionLibrary.waitFor({ state: 'visible' });
       assert.equal(await page.getByLabel('方向名称 5', { exact: true }).inputValue(), '');
       await closeLibrary();
-      await page.getByRole('link', { name: '功能开关', exact: true }).click();
+      await page.getByRole('link', { name: '模型切换', exact: true }).click();
       const tokenSwitch = page.getByRole('switch', { name: '启用聊天测速', exact: true });
       assert.equal(await tokenSwitch.isChecked(), true);
       await tokenSwitch.click();

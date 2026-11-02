@@ -27,9 +27,14 @@ return <div><SettingsForm editor={e} notify={()=>{}} active><NextSettings editor
 createRoot(document.getElementById('root')).render(<App/>);`,
         },
         bundle: true,
+        loader: { '.css': 'text' },
         write: false,
         jsx: 'automatic',
-        define: { 'process.env.NODE_ENV': '"production"', 'import.meta.env.DEV': 'false' },
+        define: {
+          'process.env.NODE_ENV': '"production"',
+          'import.meta.env.DEV': 'false',
+          'import.meta.url': '"https://safety.test/app.js"',
+        },
       })
     ).outputFiles[0].text;
     const browser = await chromium.launch({ headless: true });

@@ -1,6 +1,6 @@
 import { PreviewFrame } from '../settings/preview-frame';
 /* [INPUT]: Actual BotsView, synthetic lifecycle states, groups and visitor layout choices.
- * [OUTPUT]: All four badges, working/completed eyes and responsive one/two/three-column examples.
+ * [OUTPUT]: All four badges, working/completed eyes and responsive sidebar/two-column/adaptive examples.
  * [POS]: Website demo adapter; actions only populate the local example draft.
  * [PROTOCOL]: Keep website/AGENTS.md and browser checks in sync. */
 import { useEffect, useRef, useState } from 'react';
@@ -27,10 +27,14 @@ export function BotDemo({
   onInsert,
   tourStep,
   detailed = false,
+  compact = false,
+  headerActions,
 }: {
   onInsert: (text: string) => void;
   tourStep?: number;
   detailed?: boolean;
+  compact?: boolean;
+  headerActions?: HTMLElement;
 }) {
   useLocale();
   const [phase, setPhase] = useState(1);
@@ -100,7 +104,7 @@ export function BotDemo({
             }
           : {}),
       },
-      bots: catalog.map(([id, name, color, status], i) => ({
+      bots: (compact ? catalog.slice(0, 3) : catalog).map(([id, name, color, status], i) => ({
         id,
         name: tr(name),
         occupied: id === 'design',
@@ -160,6 +164,7 @@ export function BotDemo({
       >
         <DemoSurface kind="bots" styles={styles}>
           <BotsView
+            headerActions={headerActions}
             state={state}
             disabled={false}
             action={(data) => {

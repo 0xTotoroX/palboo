@@ -167,6 +167,7 @@ h1 {
 }
 .board-grid.stacked {
   grid-template-columns: minmax(0, 1fr);
+  grid-auto-rows: max-content;
 }
 .board-grid.stacked .board-column {
   min-height: 0;

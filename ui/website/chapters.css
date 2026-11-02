@@ -1,0 +1,79 @@
+/* [INPUT]: Compact install band and opening/material headings.
+ * [OUTPUT]: Shared footer actions and neutral secondary headings.
+ * [POS]: Website closing band; feature framing lives in feature-showcase.css.
+ * [PROTOCOL]: Keep website/AGENTS.md and DESIGN_SYSTEM.md in sync. */
+.display-soft,
+.material-story h2 span {
+  color: var(--site-muted);
+}
+.install {
+  padding-block: clamp(72px, 9vw, 120px);
+  background: var(--site-page);
+  scroll-margin-top: 0;
+}
+.install-inner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 48px;
+}
+.install-wordmark {
+  display: block;
+  width: min(420px, 100%);
+  height: auto;
+  margin-bottom: 32px;
+  color: var(--site-text);
+}
+.install .display {
+  font-size: clamp(40px, 5.4vw, 76px);
+}
+.install-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 28px;
+  padding-bottom: 4px;
+}
+.install-actions .github-link {
+  margin-top: 0;
+  border-color: transparent;
+  background: var(--site-text);
+  color: var(--site-page);
+  min-height: 52px;
+  padding: 14px 28px;
+  border-radius: 999px;
+  gap: 12px;
+  font-size: 16px;
+}
+.install-actions .back-to-top {
+  border: 0;
+  background: transparent;
+  color: var(--site-muted);
+  padding: 12px 0;
+  gap: 10px;
+  font-weight: 400;
+}
+.install-platform {
+  margin-top: 12px;
+  color: var(--site-muted);
+  font-size: 14px;
+}
+.install-actions .back-to-top svg {
+  width: 18px;
+  height: 18px;
+}
+@media (hover: hover) {
+  .install-actions .github-link:hover {
+    background: color-mix(in srgb, var(--site-text) 85%, var(--site-band));
+  }
+  .install-actions .back-to-top:hover {
+    color: var(--site-text);
+    background: transparent;
+  }
+}
+@media (max-width: 900px) {
+  .install-inner {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 32px;
+  }
+}

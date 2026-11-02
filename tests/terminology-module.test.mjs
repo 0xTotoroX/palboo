@@ -22,6 +22,7 @@ test('settings default to no jump and card clicks use the saved toggle and curre
         createRoot(document.getElementById('root')).render(<App/>);`,
       },
       bundle: true,
+      loader: { '.css': 'text' },
       write: false,
       jsx: 'automatic',
     })
@@ -81,7 +82,7 @@ test('settings default to no jump and card clicks use the saved toggle and curre
     const toggle = page.getByRole('switch', { name: '点击术语时跳转到上下文' });
     await toggle.waitFor();
     assert.equal(await toggle.isChecked(), false);
-    const card = page.locator('.term-brick');
+    const card = page.locator('#sidebar .term-brick');
     await card.click();
     await page.getByRole('dialog', { name: '防抖释义' }).waitFor();
     assert.deepEqual(await page.evaluate(() => window.actions), []);

@@ -1,6 +1,6 @@
-/* [INPUT]: Authenticated current CodexHost Agent snapshot, bundled identity icons and settings colors.
+/* [INPUT]: Authenticated current CodexHost snapshot or explicit isolated website examples, bundled identity icons and colors.
  * [OUTPUT]: Content-sized Agent picker that follows host changes and isolates temporary selection/add states.
- * [POS]: Visible-page read-only polling; no host commands, installation or persisted preferences.
+ * [POS]: Visible-page read-only polling only without examples; no host commands, installation or persisted preferences.
  * [PROTOCOL]: Keep settings/AGENTS.md and asset attribution in sync. */
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { useLocale } from '../shared/use-locale';
@@ -24,7 +24,15 @@ const availabilityLabels: Record<string, string> = {
   unknown: '状态未知',
 };
 
-export function CodexHostPreview({ live }: { live: boolean }) {
+export function CodexHostPreview({
+  live,
+  example,
+  onSelect,
+}: {
+  live: boolean;
+  example?: CodexHostAgentSnapshot;
+  onSelect?: (agent: Agent) => void;
+}) {
   useLocale();
   const [snapshot, setSnapshot] = useState<CodexHostAgentSnapshot | null>(null);
   const [error, setError] = useState('');
@@ -33,9 +41,9 @@ export function CodexHostPreview({ live }: { live: boolean }) {
     null,
   );
   useEffect(() => {
-    setSnapshot(null);
+    setSnapshot(example ?? null);
     setError('');
-    if (!live) return;
+    if (example || !live) return;
     const controller = new AbortController();
     let reading = false;
     async function load(initial = false) {
@@ -73,18 +81,21 @@ export function CodexHostPreview({ live }: { live: boolean }) {
       window.removeEventListener('focus', refresh);
       document.removeEventListener('visibilitychange', refresh);
     };
-  }, [live]);
+  }, [live, example]);
   const source = JSON.stringify(snapshot);
   useEffect(() => setDraft(null), [source]);
   const local = draft?.source === source ? draft : null;
   const selected = local?.selected ?? snapshot?.current;
   const added = local?.added ?? [];
   const agents = snapshot?.status === 'ready' ? snapshot.agents : [];
-  const main = agents.filter((agent) => agent.group === 'main');
-  const more = agents.filter((agent) => agent.group === 'more');
-  const message = !live
-    ? tr('尚未连接 Codex')
-    : error || (snapshot ? tr(snapshot.message) : tr('正在读取…'));
+  const promoted = (agent: Agent) =>
+    agent.group === 'main' || agent.available || added.includes(agent.id);
+  const main = agents.filter(promoted);
+  const more = agents.filter((agent) => !promoted(agent));
+  const message =
+    !live && !example
+      ? tr('尚未连接 Codex')
+      : error || (snapshot ? tr(snapshot.message) : tr('正在读取…'));
   const moreId = useId();
   const menu = useRef<HTMLDivElement>(null);
   const row = (agent: Agent) => {
@@ -97,12 +108,16 @@ export function CodexHostPreview({ live }: { live: boolean }) {
         <button
           type="button"
           role="menuitemradio"
+          aria-label={agent.label}
           aria-checked={selected === agent.id}
           aria-description={status}
           title={status}
           disabled={!ready}
           className="compatibility-agent-choice"
-          onClick={() => setDraft({ source, selected: agent.id, added })}
+          onClick={() => {
+            setDraft({ source, selected: agent.id, added });
+            onSelect?.(agent);
+          }}
         >
           {icon ? (
             <img src={icon} alt="" width="22" height="22" draggable={false} />
@@ -122,6 +137,7 @@ export function CodexHostPreview({ live }: { live: boolean }) {
             title={tr('预览添加 {{agent}}', { agent: agent.label })}
             onClick={() => {
               setDraft({ source, selected: agent.id, added: [...added, agent.id] });
+              onSelect?.({ ...agent, available: true, availability: 'ready' });
               requestAnimationFrame(() => {
                 menu.current?.querySelector<HTMLButtonElement>('[aria-checked="true"]')?.focus();
               });
@@ -153,7 +169,7 @@ export function CodexHostPreview({ live }: { live: boolean }) {
       <PreviewFrame
         title={tr('兼容集成预览')}
         after={
-          local ? (
+          local && !example ? (
             <div className="settings-actions">
               <Button variant="ghost" onClick={() => setDraft(null)}>
                 {tr('恢复当前配置')}

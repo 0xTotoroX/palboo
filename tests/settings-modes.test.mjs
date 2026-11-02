@@ -749,7 +749,9 @@ test(
       const heading = await outlineItems.first().getAttribute('aria-label');
       await outlineItems.first().click();
       assert.equal(
-        await page.locator('[data-preview-scene=outline] .preview-draft').textContent(),
+        await page
+          .locator('[data-preview-scene=outline] [data-section][data-selected=true] h3')
+          .innerText(),
         heading,
       );
       assert.equal(
@@ -898,9 +900,9 @@ test(
               .getAttribute('aria-checked'),
             'true',
           );
-          const more = menu.getByRole('button', { name: '更多 Agent (4)', exact: true });
+          const more = menu.getByRole('button', { name: /^更多 Agent/, exact: false });
           await more.click();
-          assert.equal(await menu.getByRole('menuitemradio').count(), 2);
+          assert.equal(await menu.getByRole('menuitemradio').count(), 3);
           await more.press('ArrowDown');
           assert.equal(
             await page.evaluate(() => document.activeElement.textContent.trim()),
@@ -910,8 +912,8 @@ test(
           assert.equal(await menu.getByRole('menuitemradio').count(), 6);
           await more.press('ArrowDown');
           assert.equal(
-            await page.evaluate(() => document.activeElement.textContent.trim()),
-            'OpenCode',
+            await page.evaluate(() => document.activeElement.getAttribute('aria-label')),
+            '预览添加 Pi',
           );
           await menu.getByRole('button', { name: '预览添加 Pi', exact: true }).click();
           assert.equal(
@@ -1077,17 +1079,14 @@ test(
       await page.locator('#term-liquid-variant[aria-pressed="true"]').waitFor();
       await page.getByLabel('术语卡片背景', { exact: true }).selectOption('custom');
       await page.getByLabel('术语卡片自定义颜色', { exact: true }).fill('#334455');
-      await page.waitForFunction(
-        () =>
-          document.querySelector('.term-preview .term-card')?.getAttribute('data-material') ===
-          'custom',
-      );
+      await termSettings.getByRole('button', { name: '响应式布局', exact: true }).click();
+      await page
+        .locator('.term-popover[data-open=true] .term-card[data-material=custom]')
+        .waitFor();
       await page.getByLabel('术语卡片背景', { exact: true }).selectOption('matte');
-      await page.waitForFunction(
-        () =>
-          document.querySelector('.term-preview .term-card')?.getAttribute('data-material') ===
-          'matte',
-      );
+      await termSettings.getByRole('button', { name: '响应式布局', exact: true }).click();
+      await page.locator('.term-popover[data-open=true] .term-card[data-material=matte]').waitFor();
+      await page.keyboard.press('Escape');
       const beforeTermNavigation = writes.length;
       await page.getByRole('searchbox', { name: '搜索术语', exact: true }).fill('Fixture');
       await termSettings.locator('.term-result-name').click();
@@ -1097,7 +1096,7 @@ test(
       );
       await termSettings.getByRole('region', { name: '合成术语释义', exact: true }).waitFor();
       assert.equal(
-        await termSettings.locator('.term-preview .term-card strong').innerText(),
+        await termSettings.getByRole('button', { name: '竞态条件', exact: true }).innerText(),
         '竞态条件',
         'reading an entry does not replace the appearance sample',
       );
@@ -1126,7 +1125,9 @@ test(
           row: row.getBoundingClientRect().toJSON(),
           details: details.getBoundingClientRect().toJSON(),
           scroll: scrollY,
-          previewBottom: document.querySelector('.term-preview').getBoundingClientRect().bottom,
+          previewBottom: document
+            .querySelector('#settings-terminology .preview-conversation')
+            .getBoundingClientRect().bottom,
         };
       });
       assert.ok(
@@ -1513,8 +1514,11 @@ test(
       await page.getByRole('link', { name: '下一步', exact: true }).click();
       const demoWrites = writes.length;
       await preview.getByRole('button', { name: /拆解第一版/ }).click();
+      await page.waitForFunction(
+        () => document.querySelector('[data-preview-scene=next] .preview-composer textarea')?.value,
+      );
       assert.equal(
-        await preview.getByRole('status').textContent(),
+        await preview.locator('.preview-composer textarea:visible').inputValue(),
         '请把作品集第一版拆解成两天内可完成的具体步骤。',
       );
       assert.equal(writes.length, demoWrites, 'sample interactions do not write or send');
@@ -1701,17 +1705,26 @@ test(
             }
             if (id === 'terminology') {
               await page.locator('#settings-terminology .settings-row').first().waitFor();
-              await page.waitForFunction(() => {
-                const card = document.querySelector('.term-preview .term-card');
-                if (!card) return false;
+              await page
+                .locator('#settings-terminology')
+                .getByRole('button', { name: '响应式布局', exact: true })
+                .click();
+              const card = page.locator('.term-popover[data-open=true] .term-card');
+              await card.waitFor();
+              const cardColors = await card.evaluate((node) => {
                 const color = document.createElement('canvas').getContext('2d');
                 color.fillStyle = getComputedStyle(document.documentElement)
                   .getPropertyValue('--buddy-surface')
                   .trim();
                 const paper = color.fillStyle;
-                color.fillStyle = getComputedStyle(card).backgroundColor;
-                return color.fillStyle === paper;
+                color.fillStyle = getComputedStyle(node).backgroundColor;
+                return { paper, actual: color.fillStyle };
               });
+              assert.equal(
+                cardColors.actual,
+                cardColors.paper,
+                'matte term card follows the active theme',
+              );
             }
             const stage = await page.locator('.preview-frame:visible').evaluate((node) => {
               const style = getComputedStyle(node);
@@ -1772,21 +1785,26 @@ test(
                 `${colorScheme} ${width} ${id}: interface keeps 16:9`,
               );
             else {
-              if (id === 'board')
+              if (
+                [
+                  'outline',
+                  'next',
+                  'prompts',
+                  'board',
+                  'bots',
+                  'terminology',
+                  'model-control',
+                ].includes(id)
+              )
                 assert.ok(
                   Math.abs(stage.width - previewOrder.width) < 1,
                   'board preview uses the available page width',
                 );
               else assert.ok(stage.width <= 480.5, 'other feature previews share a bounded width');
               assert.ok(
-                stage.height > 60 && stage.height <= 466,
+                stage.height > 60 && stage.height <= (stage.width <= 422 ? 790 : 550),
                 `${id}: usable content with bounded scrolling (${stage.height})`,
               );
-              if (['bots', 'prompts', 'terminology'].includes(id))
-                assert.ok(
-                  stage.height < 300,
-                  `${id}: short content does not leave an empty square (${stage.height})`,
-                );
             }
             const escapedContent = await preview
               .locator('[data-settings-feature]:visible')
@@ -1809,18 +1827,25 @@ test(
                   const rect = node.shadowRoot
                     .querySelector('.feature-view')
                     .getBoundingClientRect();
-                  const frame = node.closest('.preview-frame').getBoundingClientRect();
+                  const pane = node.closest('.preview-palboo');
+                  const style = getComputedStyle(pane);
                   return {
                     width: rect.width,
                     height: rect.height,
-                    availableWidth: frame.width - 2,
-                    availableHeight: frame.height - 2,
+                    availableWidth:
+                      pane.clientWidth -
+                      parseFloat(style.paddingLeft) -
+                      parseFloat(style.paddingRight),
+                    availableHeight:
+                      pane.clientHeight -
+                      parseFloat(style.paddingTop) -
+                      parseFloat(style.paddingBottom),
                   };
                 });
               assert.ok(
                 Math.abs(actual.width - actual.availableWidth) < 1 &&
                   Math.abs(actual.height - actual.availableHeight) < 1,
-                `${id}: frame fits the actual component with no extra blank area ${JSON.stringify(actual)}`,
+                `${id}: Palboo pane fits the actual component with no extra blank area ${JSON.stringify(actual)}`,
               );
             }
             previewGeometry.push({
@@ -1952,7 +1977,13 @@ test(
         .locator('[data-settings-feature=bots]')
         .getByRole('button', { name: '代码审查', exact: true })
         .click();
-      assert.ok((await preview.locator('.preview-draft').textContent()).includes('「代码审查」'));
+      assert.ok(
+        (
+          await preview
+            .locator('.preview-scene[data-active=true] .preview-composer textarea')
+            .inputValue()
+        ).includes('「代码审查」'),
+      );
       assert.equal(writes.length, botWrites, 'Bot preview never calls a Bot or saves settings');
       await category('appearance');
       await preview.getByRole('region', { name: '外观效果', exact: true }).waitFor();

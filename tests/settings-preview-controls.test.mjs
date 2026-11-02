@@ -138,19 +138,19 @@ return <div className="settings-app"><LayoutPreview appearance features={feature
     assert.ok(compact.bottom <= 4, `no fixed-height bottom space: ${compact.bottom}`);
     const choice = preview
       .locator('.model-matrix')
-      .getByRole('button', { name: '示例模型 B · High', exact: true });
+      .getByRole('button', { name: '模型 B · High', exact: true });
     await choice.click();
     assert.equal(await choice.getAttribute('aria-pressed'), 'true');
     assert.equal(
       await preview
-        .getByRole('button', { name: '示例模型 A · Low', exact: true })
+        .getByRole('button', { name: '模型 A · Low', exact: true })
         .getAttribute('aria-pressed'),
       'false',
     );
     await preview.getByRole('button', { name: '添加预设', exact: true }).click();
     const preset = preview
       .locator('.model-presets')
-      .getByRole('button', { name: '示例模型 B · High', exact: true });
+      .getByRole('button', { name: '模型 B · High', exact: true });
     await preset.waitFor();
     await page.getByRole('button', { name: '读取额度', exact: true }).click();
     assert.equal(await preview.locator('.model-usage').textContent(), '周 41%5小时 83%');
@@ -214,13 +214,15 @@ return <div className="settings-app"><LayoutPreview appearance features={feature
     await bots.getByRole('button', { name: '返回 Bot 列表', exact: true }).click();
     await bots.getByRole('button', { name: '代码审查', exact: true }).click();
     assert.match(
-      await page.locator('[data-preview-kind=bots] .preview-draft').textContent(),
+      await page
+        .locator('[data-preview-kind=bots] .preview-composer textarea:visible')
+        .inputValue(),
       /代码审查/,
     );
     const next = page.locator('[data-preview-kind=next] [data-settings-feature=next]');
     assert.equal(await next.locator('.csw-row').count(), 2);
     await next.locator('.csw-row').first().click();
-    await page.locator('[data-preview-kind=next] .preview-draft').waitFor();
+    await page.locator('[data-preview-kind=next] .preview-composer textarea:visible').waitFor();
     assert.deepEqual(await page.evaluate(() => window.requests), []);
     assert.deepEqual(errors, []);
   } finally {

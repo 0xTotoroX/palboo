@@ -1,0 +1,4 @@
+{
+  "prompt": "Origin: own procedural Three.js Studio Display model render, shell layer; source ui/settings/studio-display-model.ts and studio-display-renderer.ts. Orthographic 736x600 view rendered at DPR 2 on transparent background. Geometry references Apple Studio Display product photographs and published dimensions at https://www.apple.com/studio-display/ and https://www.apple.com/studio-display/specs/; no Apple image pixels or logos are embedded. Generated with the img2threejs modeling workflow on 2026-11-02.",
+  "createdAt": "2026-11-02T08:43:10.567Z"
+}

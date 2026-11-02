@@ -101,7 +101,8 @@ const stops: { collection: Collection; selection: Selection; phase: string }[] =
 export function ModelDemo({
   tourStep,
   detailed = false,
-}: { tourStep?: number; detailed?: boolean } = {}) {
+  headerActions,
+}: { tourStep?: number; detailed?: boolean; headerActions?: HTMLElement } = {}) {
   useLocale();
   const [state, setState] = useState(initial);
   const current = useRef(state);
@@ -133,7 +134,10 @@ export function ModelDemo({
   }, [tourStep]);
   const active = models.find((model) => model.id === state.snapshot.current?.model);
   return (
-    <div className={`model-showcase ${detailed ? 'is-detailed' : ''}`}>
+    <div
+      className={`model-showcase ${detailed ? 'is-detailed' : ''}`}
+      data-phase={detailed ? phase : undefined}
+    >
       {detailed && (
         <div className="demo-controls" role="group" aria-label={tr('模型示例范围')}>
           {(
@@ -154,6 +158,7 @@ export function ModelDemo({
         title={tr('Codex 模型快切演示')}
       >
         <ModelView
+          headerActions={headerActions}
           state={{
             ...state,
             preferences: {
