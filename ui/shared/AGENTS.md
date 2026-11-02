@@ -13,7 +13,7 @@
 - `preview-conversation.ts`：设置、官网与设备画面共用的合成问答、短段落和编号条目；无真实聊天或配置。
 - `preview-frame.css`：设置与独立介绍页共用的单层预览外框、内容容器及提示词示例输入样式；颜色由消费方注入，包含聊天左右分栏、窄屏堆叠和共享消息输入框；普通功能高度自适应，设置整体场景16:9，介绍页设备场景独立约束比例与外部控件。
 - `tokens.css`：功能及设置页共用的基础颜色、间距、圆角和控件尺寸变量；action-icon-size/action-hit-size 统一18px动作图标与28px点击区，旧 icon-size 继续保留16px文字控件语义。
-- `brand.tsx`：自有 PALBOO 融合矢量字标，末尾双 O 直接使用图标的直立圆润双眼与淡粉腮红；字母及双眼继承正文颜色，无外部字体、状态或动效。产品图标仍使用 ui/icon.png，品牌规范见根 DESIGN_SYSTEM.md。
+- `brand.tsx`：自有 PALBOO 融合矢量字标，末尾双 O 直接使用图标的直立圆润双眼与淡粉腮红；字母及双眼继承正文颜色，无外部字体、状态或动效。产品图标仍使用 ui/icon.png，品牌规范见根 DESIGN_SYSTEM.md。`PalbooLettering` 提供同源PALB路径供官网结尾复用，不改变原静态字标。
 - [bridge/AGENTS.md](bridge/AGENTS.md)：受限 CDP 请求生命周期。
 - [icons/AGENTS.md](icons/AGENTS.md)：自绘功能 SVG、公开 MIT 控件 SVG 子集及各自许可。
 

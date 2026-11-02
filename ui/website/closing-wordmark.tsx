@@ -3,21 +3,28 @@
  * [POS]: Website ending only; shared product wordmarks retain their original face.
  * [PROTOCOL]: Keep website/AGENTS.md and motion acceptance in sync. */
 import { useId } from 'react';
-import { PalbooWordmark } from '../shared/brand';
+import { PalbooLettering } from '../shared/brand';
 
 export function ClosingWordmark() {
   const mask = useId();
   return (
     <div className="install-brand">
-      <PalbooWordmark className="install-wordmark" />
-      <svg className="closing-face" viewBox="0 0 172 32" fill="currentColor" aria-hidden="true">
+      <svg
+        className="install-wordmark"
+        viewBox="0 0 186 32"
+        fill="currentColor"
+        fillRule="evenodd"
+        aria-hidden="true"
+        focusable="false"
+      >
+        <PalbooLettering />
         <defs>
-          <mask id={mask} maskUnits="userSpaceOnUse" x="-14" y="-14" width="28" height="28">
-            <rect x="-14" y="-14" width="28" height="28" fill="white" />
-            <ellipse className="closing-counter" rx="5" ry="6.5" fill="black" />
+          <mask id={mask} maskUnits="userSpaceOnUse" x="-16" y="-14" width="32" height="28">
+            <rect x="-16" y="-14" width="32" height="28" fill="white" />
+            <ellipse className="closing-counter" rx="5.5" ry="5" fill="black" />
           </mask>
         </defs>
-        <g data-closing-face="">
+        <g className="closing-face" data-closing-face="">
           <g className="closing-eyes">
             {[136.5, 157.5].map((x, index) => (
               <g key={x} className={`closing-letter closing-letter-${index}`}>

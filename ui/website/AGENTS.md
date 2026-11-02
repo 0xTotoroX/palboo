@@ -26,7 +26,7 @@
 - `brand-opening.tsx` / `brand-poses.js`：原版SVG几何及6.8秒时间轴；保留打字、吐双O、滚动、变眼睛、眨眼与腮红。离屏／后台暂停，结束停止；减少动态效果直接终帧。落点不换图。
 - `brand-gaze.ts`：结束后有界追视，重播、运输、离屏、后台或减少动态效果清理位移；不改原时间轴。
 - `brand-journey.tsx` / `.css`：测量现有SVG屏幕矩阵、功能选中项和页尾落点，按原生滚动完成跨区交接；同一可取消短跳跟随目录，不影响真实预览状态。
-- `closing-wordmark.tsx`：复用共享PALB字形，网站专属双眼／双O形变与腮红退出；设置页与产品字标保持原状。
+- `closing-wordmark.tsx`：复用共享PalbooLettering的PALB路径，网站专属双眼／双O形变与腮红退出；终态OO匹配PALB的24单位字高、8单位侧笔画、7单位上下笔画及−6°倾斜，扩展字距不挤压PALB；设置页与产品字标保持原状。
 - `media/`：原品牌SVG、MP4和编辑源，以及GitHub标记与许可；来源见README。页面只加载SVG，不打包原预览页或MP4。
 - `workspace-demo.tsx` / `workspace-demo.css`：复用设置页 LayoutPreview、窗口移动和布局控制器；位置／排列／字号／材质操作仅改内存；原生下拉和分段滑块直接复用NativeSelect／SegmentedGroup及其组件CSS，液态Clear共用独立星星，不铺第二套变体按钮；网站显式启用 Studio Display 外壳与支架收起，可选巡览仅改变位置和材质。renderFeature 贯通真实组件的 headerActions；稳定挂载保留各功能状态。宿主侧栏与副屏圆角沿用共享设置场景，600px以下聚焦工作台。材质为网页近似，原生液态边界明确保留。
 - `demos.tsx`：共享功能名称、双眼和带唯一标签的本地输入框，不再维护可切换的第二套聊天演示。
