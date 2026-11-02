@@ -176,16 +176,19 @@ function BotPreview({
                 sidebar: catalog.sidebar,
                 sidebarError: catalog.sidebarError,
               },
-              bots: catalog.bots.map(({ id, name, description, hidden, available, avatar }) => ({
-                id,
-                name,
-                description,
-                hidden,
-                available,
-                avatar,
-                occupied: false,
-                current: null,
-              })),
+              bots: catalog.bots.map(
+                ({ id, name, description, hidden, available, avatar, preview }) => ({
+                  id,
+                  name,
+                  description,
+                  hidden,
+                  available,
+                  avatar,
+                  preview,
+                  occupied: false,
+                  current: null,
+                }),
+              ),
             }
           : null
         : (example?.bots ?? {
@@ -240,9 +243,12 @@ function BotPreview({
         }
         if (data.action === 'followup') {
           onInsert(
-            tr('追问「{{agent}}」，沿用本聊天中对该 Bot 的上一次调用和上下文，不要新建会话：', {
-              agent: String(data.agent),
-            }),
+            tr(
+              data.key
+                ? '追问「{{agent}}」，沿用本聊天中对该 Bot 的上一次调用和上下文，不要新建会话：'
+                : '追问「{{agent}}」：',
+              { agent: String(data.agent) },
+            ),
           );
           return;
         }

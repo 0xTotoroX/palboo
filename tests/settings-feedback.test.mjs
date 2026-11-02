@@ -132,6 +132,14 @@ test(
                   .querySelector('[aria-label=桌面窗口置顶]')
                   .getBoundingClientRect().right,
                 numberWidth: document.querySelector('#dock-width').getBoundingClientRect().width,
+                numberFont: size('#dock-width'),
+                numberAvailable: document
+                  .querySelector('#dock-width')
+                  .parentElement.getBoundingClientRect().width,
+                selectWidth: document
+                  .querySelector('#generation-mode')
+                  .closest('.settings-native-select')
+                  .getBoundingClientRect().width,
                 long: document.querySelectorAll('.settings-prompt-entry')[1].getBoundingClientRect()
                   .height,
                 cells: [...row.querySelectorAll('textarea, input, :scope > button')].map((e) => {
@@ -174,7 +182,18 @@ test(
               Math.abs(geometry.numberRight - geometry.switchRight) < 1,
               'numeric fields share the switch right edge',
             );
-            assert.ok(geometry.numberWidth <= 160, 'numeric fields retain a short width');
+            const controlWidth = Math.min(
+              geometry.numberAvailable,
+              Math.max(208, geometry.numberFont * 11 + 40),
+            );
+            assert.ok(
+              Math.abs(geometry.numberWidth - controlWidth) < 1,
+              'numeric fields follow the shared control width and fit their container',
+            );
+            assert.ok(
+              Math.abs(geometry.numberWidth - geometry.selectWidth) < 1,
+              'numeric fields and standalone selectors share the same width',
+            );
           }
       assert.equal(writes.length, 0, 'inspection does not save');
       await page.setViewportSize({ width: 740, height: 900 });

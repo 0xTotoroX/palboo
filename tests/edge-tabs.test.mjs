@@ -115,6 +115,11 @@ test('edge tabs drag and keyboard reorder, persist selection, retain drafts and 
 test('edge board uses columns and an opaque detail surface within native bounds with reachable save', async (t) => {
   const page = await fixture(t);
   const board = page.locator('[data-feature="board"]');
+  await page.evaluate(() => {
+    tasks.store.viewMode = 'expanded';
+    tasks.store.revision++;
+  });
+  await board.locator('.board-app[data-view-mode="expanded"]').waitFor();
   await page.waitForFunction(
     () => document.querySelector('.edge-view').getBoundingClientRect().width >= 720,
   );

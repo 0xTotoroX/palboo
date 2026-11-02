@@ -1,7 +1,7 @@
 import { useLocale } from '../../shared/use-locale';
 import { tr } from '../../shared/i18n.js';
 /* [INPUT]: Host metadata, guarded composer actions and an explicit read-only reply loader.
- * [OUTPUT]: Status-gated Bot actions plus message-directory/detail navigation and icon-only header controls.
+ * [OUTPUT]: Current-call or recent-reply follow-up actions, message navigation and icon-only header controls.
  * [POS]: Palboo feature content, shared by existing surfaces; no second chat input.
  * [PROTOCOL]: Keep ui/features/AGENTS.md in sync. */
 import { useEffect, useId, useState } from 'react';
@@ -233,7 +233,10 @@ export function BotsView({
                       ? 'stopped'
                       : undefined;
               const pending = ['calling', 'running'].includes(bot.current?.status || '');
-              const canFollowup = ['finished', 'interrupted'].includes(bot.current?.status || '');
+              const canFollowup = bot.current
+                ? ['finished', 'interrupted'].includes(bot.current.status)
+                : Boolean(bot.preview?.trim());
+              const hasActions = Boolean(bot.current) || canFollowup;
               const followupNotice =
                 bot.current && !pending && !canFollowup
                   ? tr('此调用暂时无法追问，请先在主聊天确认状态。')
@@ -267,7 +270,7 @@ export function BotsView({
                   aria-label={bot.name}
                   tabIndex={unavailable ? 0 : undefined}
                   aria-describedby={label ? descriptionId : undefined}
-                  data-actions={bot.current ? (pending ? 'two' : 'one') : 'none'}
+                  data-actions={hasActions ? (pending ? 'two' : 'one') : 'none'}
                 >
                   <div className="palboo-bot-row">
                     <button
@@ -308,7 +311,7 @@ export function BotsView({
                         {label}
                       </span>
                     )}
-                    {bot.current && (
+                    {hasActions && (
                       <div className="palboo-bot-actions">
                         <button
                           type="button"

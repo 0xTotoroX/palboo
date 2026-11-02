@@ -545,6 +545,25 @@ try {
   const composer = page.getByRole('textbox', { name: '测试草稿' });
   await composer.fill('保留我的原草稿');
   const sends = await page.evaluate(() => window.submitCount);
+  assert.equal(botView.snapshot.bots[2].current, null);
+  await api('features', {
+    op: 'action',
+    id: 'bots',
+    owner: botEntry.owner,
+    data: {
+      ...botView.snapshot.target,
+      botId: 'bot-2',
+      revision: 'r1',
+      agent: '通用',
+      action: 'followup',
+    },
+  });
+  assert.equal(await composer.innerText(), '保留我的原草稿\n追问「通用」：');
+  assert.equal(await page.evaluate(() => window.submitCount), sends);
+  record(
+    'existing Bot replies allow guarded follow-up without an in-memory call or automatic send',
+  );
+  await composer.fill('保留我的原草稿');
   await api('features', {
     op: 'action',
     id: 'bots',
@@ -672,7 +691,9 @@ try {
   assert.ok(botGeometry.every((row) => row.hidden));
   assert.equal(await page.locator('.palboo-bot-tools').count(), 0);
   await page.getByRole('button', { name: '通用', exact: true }).hover();
-  const followup = page.getByRole('button', { name: '追问', exact: true });
+  const followup = page
+    .getByRole('group', { name: '通用', exact: true })
+    .getByRole('button', { name: '追问', exact: true });
   await followup.waitFor();
   const followupData = {
     ...returned.snapshot.target,

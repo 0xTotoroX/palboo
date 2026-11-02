@@ -64,6 +64,7 @@ const tasks=await createDemoTasks().request('tasks/state');tasks.store.columns=[
 const models=Array.from({length:5},(_,i)=>({id:'model-'+i,label:'当前模型 '+i,reasoning:['low','high'],fast:true}));
 const initialModel={revision:3,snapshot:{target:{privateIdentity:'never pass through'},revision:'real-revision',status:'ready',message:'',models,current:{model:'model-2',reasoning:'high',speed:'fast'}},preferences:{enabled:true,showUsage:false,pinned:['model-2','model-0','model-4'],modelOrder:['model-4','model-2','model-0','model-1','model-3'],groups:[{id:'work',name:'工作模型'}],modelOverrides:{'model-2':{groupId:'work'}},presets:[{id:'preset-1',name:'日常检查',selection:{model:'model-2',reasoning:'high',speed:'fast'}}]}};
 const initialBots={stale:false,sidebar:{version:1,groups:[{id:'pinned',kind:'pinned',name:'置顶',botIds:['b']},{id:'section',kind:'section',name:'我的助手',botIds:['a','hidden']}]},bots:[{id:'a',name:'当前审查助手',available:true,avatar:{shape:'circle',color:'green'}},{id:'b',name:'当前资料助手',available:true,avatar:{shape:'circle',color:'violet'}},{id:'hidden',name:'不显示的助手',available:true,hidden:true}]};
+initialBots.bots[0].preview='本机已有的合成回复';
 const initialFeatures={mainPlacement:'sidebar',features:['board','model','bots','terms','next','prompts'].map(id=>({id,open:true,placement:'sidebar'})),layouts:{sidebar:{axis:'auto',groups:[{ids:['board','model','bots','terms','next','prompts'],active:'board',weight:1}]}}};
 window.network=[];window.commands=[];window.fetch=(...args)=>{window.network.push(args);throw Error('No real transport')};
 function App(){const[page,setPage]=useState('board');const[state,setTasks]=useState(tasks);const[model,setModel]=useState(initialModel);const[bots,setBots]=useState(initialBots);const[features,setFeatures]=useState(initialFeatures);const[dark,setDark]=useState(false);
@@ -166,6 +167,14 @@ return <div className={'settings-app '+(dark?'dark':'')} style={{maxWidth:900,ma
           .locator('.preview-scene[data-active=true] .preview-composer textarea')
           .inputValue(),
         /当前审查助手/,
+      );
+      await bots.getByRole('button', { name: '当前审查助手', exact: true }).focus();
+      await bots.getByRole('button', { name: '追问', exact: true }).click();
+      assert.match(
+        await preview
+          .locator('.preview-scene[data-active=true] .preview-composer textarea')
+          .inputValue(),
+        /追问「当前审查助手」：$/,
       );
       await page.getByRole('button', { name: '同步配置', exact: true }).click();
       await bots.getByRole('button', { name: '已同步助手', exact: true }).waitFor();

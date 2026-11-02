@@ -1,6 +1,6 @@
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: Local MCP notifications and the unique current Codex composer.
- * [OUTPUT]: Palboo Bot projection and identity/status-checked continuation drafts with composer focus.
+ * [OUTPUT]: Identity-checked follow-up drafts from current calls or a fresh catalog reply, with composer focus.
  * [POS]: Host adapter; no remote requests, reply consumption, submission or timers.
  * [PROTOCOL]: Keep ui/codex/AGENTS.md and runtime/AGENTS.md in sync. */
 import { createBotTracker } from './bots-state.js';
@@ -74,9 +74,20 @@ export function installBots({
     const state = tracker.snapshot(next.id).find((b) => b.name === input.agent);
     if (state.occupied)
       return { ok: false, message: tr('另一条聊天正在调用此 Bot，请先在原聊天确认进度。') };
-    if (input.action !== 'ask' && (!state.current || input.key !== state.current.key))
+    // A recent Grok reply survives host reloads; it does not prove a call belongs to this chat.
+    const replyFollowup =
+      input.action === 'followup' && !state.current && !input.key && nonempty(state.preview);
+    if (
+      input.action !== 'ask' &&
+      !replyFollowup &&
+      (!state.current || input.key !== state.current.key)
+    )
       return { ok: false, message: tr('调用记录已变化，请刷新后重试。') };
-    if (input.action === 'followup' && !['finished', 'interrupted'].includes(state.current.status))
+    if (
+      input.action === 'followup' &&
+      !replyFollowup &&
+      !['finished', 'interrupted'].includes(state.current.status)
+    )
       return {
         ok: false,
         message: tr('此调用暂时无法追问，请先在主聊天确认状态。'),
@@ -89,9 +100,11 @@ export function installBots({
         : input.action === 'check'
           ? tr('查看「{{agent}}」的进度。', { agent: input.agent })
           : input.action === 'followup'
-            ? tr('追问「{{agent}}」，沿用本聊天中对该 Bot 的上一次调用和上下文，不要新建会话：', {
-                agent: input.agent,
-              })
+            ? replyFollowup
+              ? tr('追问「{{agent}}」：', { agent: input.agent })
+              : tr('追问「{{agent}}」，沿用本聊天中对该 Bot 的上一次调用和上下文，不要新建会话：', {
+                  agent: input.agent,
+                })
             : tr('请问「{{agent}}」：', { agent: input.agent });
     const editor = next.composer;
     if (editor.matches(':disabled,[readonly],[aria-disabled="true"]'))
@@ -145,7 +158,11 @@ export function installBots({
       ) {
         next = { version: 1, bots: [], stale: true, error: tr('Bot 资料不完整，请检查接入。') };
       }
-      if (catalog.account !== next.account) tracker.clear();
+      if (catalog.account !== next.account) {
+        tracker.clear();
+        target = null;
+        token = '';
+      }
       catalog = next;
       tracker.setCatalog(next.bots);
     },

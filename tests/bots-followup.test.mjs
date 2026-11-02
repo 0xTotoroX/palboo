@@ -188,8 +188,60 @@ for (const mode of ['textarea', 'contenteditable', 'insertText fallback']) {
   });
 }
 
+test('recent replies keep follow-up available after a host reload without claiming a chat call', async (t) => {
+  const page = await setup(t);
+  const before = await page.evaluate(() => window.draft());
+  await page.evaluate(() => {
+    window.catalog.bots[0].preview = '已有的合成回复';
+    window.reset();
+    window.observe();
+    window.previousCall = window.input();
+    window.reset();
+    window.refresh();
+  });
+  assert.equal(await page.evaluate(() => window.api.read().bots[0].current), null);
+  assert.equal(await page.evaluate(() => window.api.fill(window.previousCall).ok), false);
+  const row = page.getByRole('group', { name: '通用', exact: true });
+  await row.getByRole('button', { name: '通用', exact: true }).focus();
+  const followup = row.getByRole('button', { name: '追问', exact: true });
+  await followup.waitFor();
+  await followup.click();
+  assert.equal(await page.evaluate(() => window.draft()), before + '追问「通用」：');
+  assert.equal(await page.evaluate(() => document.activeElement === window.editor()), true);
+  assert.equal(await page.evaluate(() => window.submits), 0);
+  assert.equal(await page.evaluate(() => window.calls[0].data.key), undefined);
+});
+
+test('reply-based follow-up rejects stale catalogs, accounts, missing replies and occupied Bots', async (t) => {
+  const page = await setup(t);
+  const before = await page.evaluate(() => window.draft());
+  const results = await page.evaluate(() => {
+    const results = {};
+    window.catalog.bots[0].preview = '已有的合成回复';
+    window.reset();
+    const input = window.input();
+    results.oldKey = window.api.fill({ ...input, key: 'discarded-call' });
+    results.oldRevision = window.api.fill({ ...input, revision: 'old' });
+    window.api.setCatalog({ ...window.catalog, stale: true });
+    results.stale = window.api.fill(input);
+    window.api.setCatalog({ ...window.catalog, account: 'different-account' });
+    results.account = window.api.fill(input);
+    window.reset();
+    window.observe({ threadId: 'b', itemId: 'other-chat', status: 'running' });
+    results.occupied = window.api.fill(window.input());
+    window.catalog.bots[0].preview = '  ';
+    window.reset();
+    results.noReply = window.api.fill(window.input());
+    return results;
+  });
+  for (const [name, result] of Object.entries(results)) assert.equal(result.ok, false, name);
+  assert.equal(await page.evaluate(() => window.draft()), before);
+  assert.equal(await page.evaluate(() => window.submits), 0);
+});
+
 test('follow-up rejects unsupported call states in both the host and visible feature', async (t) => {
   const page = await setup(t);
+  await page.evaluate(() => (window.catalog.bots[0].preview = '已有的合成回复'));
   const before = await page.evaluate(() => window.draft());
   for (const status of [
     'calling',

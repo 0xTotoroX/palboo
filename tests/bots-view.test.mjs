@@ -91,7 +91,20 @@ test('Bot list keeps messages opt-in and animates only visible active avatars', 
     const occupied = page.getByRole('status', { name: '其他聊天正在调用', exact: true });
     await occupied.waitFor();
     assert.equal(await occupied.locator('[data-icon="connection"]').count(), 1);
-    assert.equal(await rows.nth(2).getByRole('button').isDisabled(), true);
+    assert.equal(
+      await rows
+        .nth(2)
+        .getByRole('button', { name: '名称很长的资料整理助手', exact: true })
+        .isDisabled(),
+      true,
+    );
+    assert.equal(
+      await rows
+        .nth(2)
+        .getByRole('button', { name: '追问', exact: true, includeHidden: true })
+        .isDisabled(),
+      true,
+    );
     assert.doesNotMatch(await rows.nth(2).innerText(), /其他聊天/);
     await rows.nth(2).focus();
     assert.equal(await rows.nth(2).locator('.palboo-bot-state-description').isVisible(), true);

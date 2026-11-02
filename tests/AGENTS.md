@@ -310,7 +310,7 @@ launcher-face 回归覆盖眼睛入口单击、双击、Enter/Space 与逐一点
 - `token-meter-view.test.mjs`：真实功能组合层在Shadow DOM内验证底栏按周/5小时额度/可选测速顺序排列、14px辅助文字小于18px图标、额度/测速与图标下边缘对齐及预设下24px间距、窄宽按组换行、插拔右侧位置及矩阵几何稳定、主题与窄宽、卸载不影响预设操作、断连隐藏/恢复、重插单份及零额外请求。
 
 - `bots.test.mjs`：合成 MCP 事件的 host/thread/turn/item 隔离、去重、断连、未知状态、有界缓存、不缓存正文；浏览器验证无第二输入框、保留草稿、重复点击、聊天切换/输入框替换拒绝与停用回收。
-- `bots-followup.test.mjs`：真实 mountFeature/FeatureContent/BotsView 到宿主适配器的追问回归，传输使用合成适配器；验证本聊天续接文案、textarea/富文本/insertText回退的草稿与附件保留、空草稿、键盘接续及重复点击光标、忙碌/未知/异常禁用、过期 key/输入框/目录/账号与其他聊天拒绝、聚焦时重建保护和真实错误呈现。无必需 sessionId、无服务调用或自动发送；features-e2e 另用真实 Rust HTTP/CDP 验证追问 owner/key 拒绝、按钮填入、重复点击与输入焦点，不替代原生前台焦点验收。
+- `bots-followup.test.mjs`：真实 mountFeature/FeatureContent/BotsView 到宿主适配器的追问回归，传输使用合成适配器；验证本聊天续接文案、重开后凭已同步回复追问且不伪造聊天关联、textarea/富文本/insertText回退的草稿与附件保留、空草稿、键盘接续及重复点击光标、忙碌/未知/异常禁用、过期 key/输入框/目录/账号与其他聊天拒绝、聚焦时重建保护和真实错误呈现。无必需 sessionId、无服务调用或自动发送；features-e2e 另用真实 Rust HTTP/CDP 验证追问 owner/key 拒绝、按钮填入、重复点击与输入焦点，不替代原生前台焦点验收。
 - `features-e2e.mjs` 另覆盖真实隔离 Rust/HTTP/CDP 的 Bot 开关、owner与composer校验、四Bot投影、无正文回传、主聊天填入不发送及关闭清理；测试不连接真实 BDK。
 
 features-e2e 用合成缓存文件事件验证动态新增，并计数确认6.5秒静置无 BDK 重复请求；Rust bots 测试验证原子替换通知与 watcher 释放。
@@ -427,7 +427,7 @@ dev-launcher 以认证合成服务覆盖 --settings 成功/失败及零启动副
 
 旧设置回归按五种形式的稳定控件ID检查字体局部保存，断言不改旧typography或其他形式；features-e2e只定位可见的Bot管理入口，核对功能页不重复总开关及入口命中尺寸，不读取功能开关页的隐藏几何。
 
-- `settings-live-previews.test.mjs`：当前配置快照联动任务内容、模型常用/分组/预设/当前选择、Bot目录/隐藏/顺序；合并/完全展开在宽窄屏生效，完全展开预览在窄Palboo分栏内纵向排列、组间不重叠，末组操作可达且标题搜索保持可见；预览编辑零业务请求，布局/外观复用单个标题槽，并覆盖多分栏内长列表滚动与透明内容层，支持英文和减少动态效果。合成截图在target/reports/settings-live-previews。
+- `settings-live-previews.test.mjs`：当前配置快照联动任务内容、模型常用/分组/预设/当前选择、Bot目录/隐藏/顺序及已有回复的追问入口；合并/完全展开在宽窄屏生效，完全展开预览在窄Palboo分栏内纵向排列、组间不重叠，末组操作可达且标题搜索保持可见；预览编辑零业务请求，布局/外观复用单个标题槽，并覆盖多分栏内长列表滚动与透明内容层，支持英文和减少动态效果。合成截图在target/reports/settings-live-previews。
 - `board.mjs`新增展开窄屏全分组及合并切换检查；Rust任务测试覆盖旧文件默认值、两模式持久化、修订冲突与无效值不写盘。
 
 - `bots-reader.test.mjs`：摘要目录、单回答 Markdown/长文末尾、原咨询点击、目录滚动和焦点恢复、迟到结果、失败重试、中英文及窄栏；额外通过实际 mountFeature、完整共用样式与标题槽核对长短摘要左边界、整行点击区域、两行截断及单层留白，覆盖宽窄窗口、深浅主题及大字号。合成 HTML/链接/图片不执行或发请求。features-e2e 覆盖真实 Rust 缓存读取、owner 拒绝及主聊天草稿不变，Rust bot_reply 测试验证账号/修订/schema/完整性及原文件不变。

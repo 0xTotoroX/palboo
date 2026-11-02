@@ -25,6 +25,7 @@ export type BotCatalog = {
     id: string;
     name: string;
     description?: string;
+    preview?: string;
     hidden?: boolean;
     available?: boolean;
     avatar?: { shape: string; color: string; photoAvailable?: boolean };

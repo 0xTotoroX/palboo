@@ -82,7 +82,7 @@
         // A locked chat disables every menu option but does not make installed Agents unavailable.
         available: agent === 'codex' || availability === 'ready',
         canAdd:
-          !!action &&
+          action instanceof HTMLButtonElement &&
           !action.disabled &&
           !action.hidden &&
           action.getAttribute('aria-hidden') !== 'true' &&

@@ -90,7 +90,9 @@ createRoot(document.getElementById('root')).render(<App/>);`,
           const entry = {
             key: this.dataset.settingsListItem,
             list: this.parentElement?.dataset.settingsList,
-            field: this.querySelector('label')?.htmlFor,
+            field: this.matches('.settings-field')
+              ? this.querySelector(':scope > label')?.htmlFor
+              : undefined,
             frames,
             duration: options.duration,
             easing: options.easing,

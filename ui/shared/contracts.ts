@@ -337,7 +337,12 @@ declare global {
   const PALBOO_DEVELOPMENT: boolean;
   interface Window {
     __codexhostRendererBindingProbeV1?: {
-      status(): { version: number; selections?: { composerId: string; agent: string }[] };
+      status(): {
+        version: number;
+        enabledAgents?: string[];
+        availability?: Record<string, string>;
+        selections?: { composerId: string; agent: string }[];
+      };
     };
     __palbooHostCompatibility?: {
       capability(composer?: Element | null): { officialModel: boolean; message: string };
