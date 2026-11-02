@@ -1,7 +1,7 @@
 import { SegmentedGroup } from './components/ui/segmented-group';
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
-/* [INPUT]: Shared preview frame, existing form snapshots, saved surfaces and feature layout.
+/* [INPUT]: Shared preview frame, existing form/website snapshots, saved surfaces and feature layout.
  * [OUTPUT]: Linked diagrams and actual interactive feature components; connection/sites settings own their inline state and preview without a duplicate overview.
  * [POS]: Settings presentation only; receives current local snapshots, never requests credentials or sends host commands.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
@@ -17,6 +17,7 @@ import type { SurfaceState } from './surface-settings';
 import { titles, type FeatureState } from '../shared/features';
 import type { ModelState } from '../features/model/catalog';
 import type { TaskState } from '../features/board/api';
+import type { WebLibrary } from '../shared/web-library';
 import { PreviewFrame as Frame } from './preview-frame';
 import { usePreviewTransition } from './settings-motion';
 
@@ -29,6 +30,7 @@ type PreviewProps = {
   model: ModelState | null;
   tasks: TaskState | null;
   bots: BotCatalog | null;
+  sites?: WebLibrary | null;
   view: View | null;
   live: boolean;
 };
@@ -164,7 +166,7 @@ function GenerationPreview({ form, dirty }: PreviewProps) {
 }
 export function SettingsPreview(props: PreviewProps) {
   useLocale();
-  const { form, view, tasks, bots, model } = props;
+  const { form, view, tasks, bots, model, sites } = props;
   const renderFeature = useCallback(
     (id: string, headerActions: HTMLElement) =>
       id === 'model' ? (
@@ -174,18 +176,19 @@ export function SettingsPreview(props: PreviewProps) {
           headerActions={headerActions}
           showTokenMeter={form?.tokenMeterEnabled !== false}
         />
-      ) : ['outline', 'next', 'prompts', 'board', 'bots', 'terms'].includes(id) ? (
+      ) : ['outline', 'next', 'prompts', 'board', 'bots', 'terms', 'sites'].includes(id) ? (
         <FeaturePreviewContent
-          id={id as 'outline' | 'next' | 'prompts' | 'board' | 'bots' | 'terms'}
+          id={id as 'outline' | 'next' | 'prompts' | 'board' | 'bots' | 'terms' | 'sites'}
           form={form}
           view={view}
           tasks={tasks}
           bots={bots}
+          sites={sites}
           mode="current"
           headerActions={headerActions}
         />
       ) : null,
-    [form, view, tasks, bots, model],
+    [form, view, tasks, bots, model, sites],
   );
   if (['connection', 'codex-host', 'prompt-enhancement', 'sites'].includes(props.page)) return null;
   const workspace = props.page === 'surfaces' || props.page === 'appearance';
@@ -201,6 +204,7 @@ export function SettingsPreview(props: PreviewProps) {
           features={props.features}
           surfaces={props.surfaces}
           live={props.live}
+          sceneZoom={1}
           appearance={props.page === 'appearance'}
           typography={props.view?.panelTypography}
           typographyPreferences={props.view?.panelPreferences.typography}

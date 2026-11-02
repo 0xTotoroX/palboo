@@ -306,6 +306,7 @@ export function ModelView({
                 })}
                 data-model={m.id}
                 data-reasoning={reasoning}
+                data-choice-label={label(reasoning) || tr('选择')}
                 aria-pressed={
                   supported && s.current?.model === m.id && s.current.reasoning === reasoning
                 }

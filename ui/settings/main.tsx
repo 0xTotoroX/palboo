@@ -48,6 +48,7 @@ import { SettingsTheme } from './settings-theme';
 import type { FeatureState } from '../shared/features';
 import type { SurfaceState } from './surface-settings';
 import type { ModelState } from '../features/model/catalog';
+import type { WebLibrary } from '../shared/web-library';
 function editable(value: Settings): EditableSettings {
   const {
     enabled,
@@ -124,6 +125,7 @@ function App() {
   const [surfaces, setSurfaces] = useState<SurfaceState | null>(null);
   const [model, setModel] = useState<ModelState | null>(null);
   const [bots, setBots] = useState<BotCatalog | null>(null);
+  const [sites, setSites] = useState<WebLibrary | null>(null);
   const [modelEnablement, setModelEnablement] = useState<HTMLDivElement | null>(null);
   const [termEnablement, setTermEnablement] = useState<HTMLDivElement | null>(null);
   const [hostEnablement, setHostEnablement] = useState<HTMLDivElement | null>(null);
@@ -225,6 +227,7 @@ function App() {
                 surfaces={surfaces}
                 model={model}
                 bots={bots}
+                sites={sites}
                 tasks={tasks.state}
                 view={view}
                 live={live}
@@ -340,6 +343,8 @@ function App() {
               <WebLibrarySettings
                 live={live}
                 active={page === 'sites'}
+                previewActive={surfacesVisible}
+                onSnapshot={setSites}
                 enablementTarget={siteEnablement}
               />
               <section

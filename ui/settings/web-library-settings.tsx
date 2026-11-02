@@ -1,5 +1,5 @@
 /* [INPUT]: Local revisioned website/vault grants and existing settings controls/preview.
- * [OUTPUT]: Optional feature toggle, explicit vault/attachment configuration and website CRUD/order/search.
+ * [OUTPUT]: Optional feature toggle, explicit vault/attachment configuration and website CRUD/order/search and a read-only snapshot for workspace previews.
  * [POS]: Settings only; user drafts survive failures, previews never navigate or read notes.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { useEffect, useRef, useState } from 'react';
@@ -44,14 +44,19 @@ const grants = (value: WebLibrary) => JSON.stringify([value.vault, value.attachm
 export function WebLibrarySettings({
   live,
   active,
+  previewActive = false,
+  onSnapshot,
   enablementTarget,
 }: {
   live: boolean;
   active: boolean;
+  previewActive?: boolean;
+  onSnapshot?: (state: WebLibrary | null) => void;
   enablementTarget: HTMLElement | null;
 }) {
   useLocale();
   const [state, setState] = useState<WebLibrary | null>(null);
+  useEffect(() => onSnapshot?.(state), [state, onSnapshot]);
   const [vault, setVault] = useState('');
   const [attachments, setAttachments] = useState('');
   const [site, setSite] = useState<Site>({ id: '', name: '', url: '' });
@@ -79,7 +84,7 @@ export function WebLibrarySettings({
     edit();
   }
   useEffect(() => {
-    if (!live || (!active && !enablementTarget)) return;
+    if (!live || (!active && !previewActive && !enablementTarget)) return;
     const controller = new AbortController();
     void request<WebLibrary>('web-library', undefined, controller.signal)
       .then((value) => {
@@ -90,7 +95,7 @@ export function WebLibrarySettings({
         if (!controller.signal.aborted) setError(e.message);
       });
     return () => controller.abort();
-  }, [live, active, enablementTarget]);
+  }, [live, active, previewActive, enablementTarget]);
   async function save(patch: Partial<WebLibrary>) {
     if (!state || flight.current) return false;
     flight.current = true;

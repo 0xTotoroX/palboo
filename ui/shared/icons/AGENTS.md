@@ -40,3 +40,5 @@ theme-auto 摘取上述固定提交的 MoonSunSystem.tsx，日月组合表示“
 website 为 Palboo 自绘地球；github 复用官网已引入的 Octicons mark-github-24 原几何，许可存于 octicons/LICENSE，完整 App 声明收录。GitHub 标记仅指向仓库，不作为 Palboo 品牌，不暗示合作。
 
 自绘 `feature-sites` 为网站地球图形，与其他功能图标同用24px画布、18px显示和1.8px描边；功能目录现为八项。
+
+官网与设置的合成宿主侧栏复用公开控件：home→Home、folder→Folder、chats→Chats、history→Clock、compose→ComposeEditSquare、notification→NotificationBell，均来自上述固定OpenAI公开提交；20px源画布等比规范到24px。缩比设备内统一随整个示意缩放，不改变产品18px动作图标标准。

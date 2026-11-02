@@ -1,7 +1,7 @@
 /*
  * [INPUT]: React select 属性、选项与设置页语义变量。
  * [OUTPUT]: 按用途声明控件宽度及可选内嵌动作，保留原生选择语义/事件和不支持浏览器的原生回退。
- * [POS]: Web 设置页基础组件，不用于宿主注入。
+ * [POS]: 设置页与官网共用基础控件，不用于宿主注入。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
 import * as React from 'react';

@@ -190,6 +190,11 @@
   --preview-feature-max-height: none;
   --preview-feature-body-flex: 1;
 }
+.layout-demo-extra {
+  height: 100%;
+  overflow: auto;
+  padding: 8px;
+}
 .preview-frame[data-preview-format='interface'] .layout-demo-live > .preview-feature-content,
 .preview-frame[data-preview-format='interface'] .layout-demo-live .preview-feature-surface,
 .preview-frame[data-preview-format='interface'] .layout-demo-live .preview-model-control {
