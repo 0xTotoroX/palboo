@@ -1,7 +1,7 @@
 import { demoFocus } from './demo-focus';
 /* [INPUT]: Native section progress and explicit visitor interaction.
  * [OUTPUT]: Ordered website-only demo stops and focus-safe scroll playback.
- * [POS]: Presentation state only; no timers, scroll interception or product writes.
+ * [POS]: Presentation state only; no scroll interception or product writes. Timers only for the one-shot static fallback.
  * [PROTOCOL]: Keep website/AGENTS.md and browser acceptance in sync. */
 import {
   useEffect,
@@ -55,6 +55,44 @@ export function useScrollTour(count: number, tooTall = false) {
   useEffect(() => {
     if (!staticView && !paused) setStep(desired);
   }, [desired, paused, staticView]);
+  // 静态/窄屏回退：进入阅读区后把因果顺序轻量播放一次，停在终态；访客一操作就停。
+  // 减少动态效果时不播放，保留可读的默认状态。
+  const played = useRef(false);
+  const playback = useRef<number[]>([]);
+  // 一批计时器只属于当前静态模式：访客操作、切回滚动模式、减少动态效果或卸载时整批取消。
+  const cancelPlayback = () => {
+    playback.current.forEach(clearTimeout);
+    playback.current.length = 0;
+  };
+  useEffect(() => {
+    if (paused || !staticView) cancelPlayback();
+  }, [paused, staticView]);
+  useEffect(() => {
+    const query = matchMedia('(prefers-reduced-motion: reduce)');
+    const change = () => query.matches && cancelPlayback();
+    query.addEventListener('change', change);
+    return () => query.removeEventListener('change', change);
+  }, []);
+  useEffect(() => () => playback.current.forEach(clearTimeout), []);
+  useEffect(() => {
+    const node = ref.current;
+    if (!staticView || paused || played.current || !node) return;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const timers = playback.current;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry?.isIntersecting || played.current) return;
+        played.current = true;
+        observer.disconnect();
+        node.dataset.staticPlayed = 'true';
+        for (let index = 0; index < count; index += 1)
+          timers.push(window.setTimeout(() => setStep(index), 200 + index * 900));
+      },
+      { rootMargin: '0px 0px -30% 0px', threshold: 0.2 },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [staticView, paused, count, ref]);
   useEffect(() => {
     const resume = () => {
       if (
@@ -105,18 +143,23 @@ export function ScrollDemo({
   const { ref, staticView, step, interaction } = useScrollTour(steps, tooTall);
   const pin = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
-    const measure = () => {
+    // 内容变高只会把示例转为静态；回到固定模式只在视口尺寸变化时重新判断，
+    // 避免演示步骤改变高度时在两种模式之间来回切换。
+    const measure = (fromViewport = false) => {
       const height = pin.current?.offsetHeight || 0;
       ref.current?.style.setProperty('--tour-height', `${height}px`);
-      setTooTall(height > innerHeight - 48);
+      const tall = height > innerHeight - 48;
+      setTooTall((current) => (fromViewport ? tall : current || tall));
     };
-    const observer = new ResizeObserver(measure);
+    const onContent = () => measure();
+    const onViewport = () => measure(true);
+    const observer = new ResizeObserver(onContent);
     observer.observe(pin.current!);
-    addEventListener('resize', measure);
-    measure();
+    addEventListener('resize', onViewport);
+    measure(true);
     return () => {
       observer.disconnect();
-      removeEventListener('resize', measure);
+      removeEventListener('resize', onViewport);
     };
   }, [ref]);
   return (
@@ -124,6 +167,7 @@ export function ScrollDemo({
       ref={ref}
       className={`scroll-demo ${className}`}
       data-static={staticView}
+      data-step={step ?? ''}
       aria-labelledby={labelledBy}
       style={{ '--tour-steps': steps } as CSSProperties}
     >

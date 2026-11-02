@@ -17,6 +17,7 @@ import { PromptPreview } from '../settings/prompt-preview';
 import { PreviewFrame } from '../settings/preview-frame';
 import { PhrasesShowcase } from './phrases-demo';
 import { FeatureMark, Headline } from './headline';
+import { BotReply, ConnectionMap, PromptStory, SettleIn } from './tool-stories';
 
 /* ---------- 工具章节的文案列：标记、标题、导语与补充 ---------- */
 function ToolCopy({
@@ -48,7 +49,7 @@ function ToolDetails() {
   return (
     <section className="tools-section page-width" aria-labelledby="tools-title">
       <Headline id="tools-title" lead={tr('常用操作，')} soft={tr('不必离开对话。')} />
-      <ScrollDemo steps={3} className="phrases-tour">
+      <ScrollDemo steps={4} className="phrases-tour">
         {(step) => (
           <div id="quick-phrases" className="tool-row quick-phrases-showcase">
             <ToolCopy
@@ -91,9 +92,7 @@ function ToolDetails() {
               title={tr('提示词优化')}
               lead={tr('发送之前，把草稿表达得更清楚。改写后可以继续编辑，也可以还原。')}
             />
-            <PreviewFrame title={tr('提示词优化')} className="site-preview preview-prompt">
-              <PromptPreview tourStep={step} />
-            </PreviewFrame>
+            <PromptStory step={step} />
           </div>
         )}
       </ScrollDemo>
@@ -119,6 +118,7 @@ function ToolDetails() {
                 tourStep={step}
                 onInsert={(value) => setBotDraft((draft) => (draft ? `${draft}\n${value}` : value))}
               />
+              <BotReply step={botDraft === null ? step : undefined} />
               <ComposerDemo
                 draft={
                   botDraft ??
@@ -216,6 +216,7 @@ export function App({ githubVariant }: { githubVariant?: GithubLinkVariant }) {
               {tr('功能可以分别开关。日常操作留在工作台，模型服务、连接与高级偏好集中在设置。')}
             </p>
           </div>
+          <ConnectionMap />
           <dl className="connection-grid">
             {connections().map((item) => (
               <div key={item.title}>
@@ -227,7 +228,9 @@ export function App({ githubVariant }: { githubVariant?: GithubLinkVariant }) {
         </section>
         <section id="install" className="install" aria-labelledby="install-title">
           <div className="install-inner page-width">
-            <PalbooWordmark className="install-wordmark" />
+            <SettleIn className="install-settle">
+              <PalbooWordmark className="install-wordmark" />
+            </SettleIn>
             <Headline
               id="install-title"
               lead={tr('下一次对话，')}

@@ -133,7 +133,10 @@ export function ModelDemo({
   }, [tourStep]);
   const active = models.find((model) => model.id === state.snapshot.current?.model);
   return (
-    <div className={`model-showcase ${detailed ? 'is-detailed' : ''}`}>
+    <div
+      className={`model-showcase ${detailed ? 'is-detailed' : ''}`}
+      data-phase={detailed ? phase : undefined}
+    >
       {detailed && (
         <div className="demo-controls" role="group" aria-label={tr('模型示例范围')}>
           {(

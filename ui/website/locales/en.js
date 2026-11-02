@@ -313,4 +313,14 @@ export default {
   自定字号: 'Custom size',
   '单击图标切换功能，拖动标题或分隔线调整布局。':
     'Click an icon to switch tools. Drag a tab or divider to arrange your workspace.',
+  咨询草稿已写好: 'Consultation draft ready',
+  'Bot 正在思考': 'Bot is thinking',
+  '已完成 · 示例回复': 'Done · example reply',
+  '作品集结构清楚；建议把代表作品放在第一屏，并补一句每件作品的目标。':
+    'The portfolio is well structured. Put the key work on the first screen and add one line on each piece’s goal.',
+  本机与可选服务的连接边界: 'Boundary between this computer and optional services',
+  本机: 'This computer',
+  可选: 'optional',
+  可选服务: 'Optional services',
+  本机词库释义: 'Local glossary definition',
 };

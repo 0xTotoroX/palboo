@@ -12,6 +12,7 @@
 @import './showcases.css';
 @import './story.css';
 @import './chapters.css';
+@import './narrative.css';
 :root {
   --site-page: #fff;
   --site-surface: #fff;
@@ -29,6 +30,7 @@
   --site-ease: cubic-bezier(0.23, 1, 0.32, 1);
   --site-section-space: clamp(104px, 11vw, 160px);
   --site-display: clamp(40px, 5vw, 68px);
+  --site-ui-font: 14px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   color: var(--site-text);
   background: var(--site-page);
@@ -156,8 +158,8 @@ h2 {
 }
 .reading-story {
   display: grid;
-  grid-template-columns: minmax(0, 0.36fr) minmax(0, 0.64fr);
-  column-gap: 5%;
+  grid-template-columns: minmax(0, 0.27fr) minmax(0, 0.73fr);
+  column-gap: 40px;
   position: relative;
   padding-block: 50px;
 }
@@ -165,9 +167,9 @@ h2 {
   grid-column: 2;
   grid-row: 1 / span 3;
   position: sticky;
-  top: max(24px, calc((100svh - 590px) / 2));
+  top: max(24px, calc((100svh - 540px) / 2));
   align-self: start;
-  margin-top: calc((100svh - 590px) / 2);
+  margin-top: calc((100svh - 540px) / 2);
   min-width: 0;
 }
 .reading-stage :is(input, textarea, select, [contenteditable='true']) {
@@ -180,6 +182,7 @@ h2 {
   --buddy-border: var(--site-border);
   --buddy-focus: var(--site-text);
   max-width: none;
+  font-size: var(--site-ui-font);
 }
 .site-preview.is-inline {
   border: 0;
@@ -196,29 +199,29 @@ h2 {
   position: static;
 }
 .site-preview.preview-prompt textarea {
-  min-height: 144px;
-  font-size: 16px;
+  min-height: 160px;
+  font-size: var(--site-ui-font);
 }
 .demo-window-body {
-  min-height: 590px;
-  grid-template-columns: 1fr 1fr;
+  min-height: 540px;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.62fr);
 }
 .demo-chat {
   grid-column: 1;
   grid-row: 1;
-  padding: 22px;
+  padding: 20px 24px;
   display: flex;
   flex-direction: column;
-  font-size: 13px;
+  font-size: var(--site-ui-font);
 }
 .chat-title {
   font-size: 12px;
   gap: 12px;
 }
 .chat-question {
-  font-size: 13px;
-  padding: 12px;
-  margin: 26px 0 22px;
+  font-size: inherit;
+  padding: 10px 12px;
+  margin: 24px 0 18px;
 }
 .demo-chat article {
   max-height: 310px;
@@ -234,7 +237,7 @@ h2 {
   padding: 10px 6px;
 }
 .chat-paragraph h3 {
-  font-size: 13px;
+  font-size: inherit;
 }
 .demo-chat > .demo-composer {
   margin-top: auto;
@@ -249,7 +252,7 @@ h2 {
 .demo-panel {
   grid-column: 2;
   grid-row: 1;
-  padding: 22px 20px;
+  padding: 16px;
 }
 .demo-panel-top {
   font-size: 12px;
@@ -261,12 +264,12 @@ h2 {
 .demo-feature-tabs {
   gap: 2px;
   flex-wrap: wrap;
-  margin: 18px -6px;
+  margin: 12px -2px;
   justify-content: flex-start;
 }
 .demo-feature-tabs button {
-  width: 36px;
-  height: 36px;
+  width: 28px;
+  height: 28px;
 }
 .demo-feature-tabs button[aria-selected='true'] {
   background: transparent;
@@ -276,12 +279,12 @@ h2 {
   opacity: 0.48;
 }
 .demo-composer textarea {
-  font-size: 14px;
+  font-size: var(--site-ui-font);
 }
 .demo-composer {
   border: 1px solid transparent;
-  margin-top: 20px;
-  padding: 14px;
+  margin-top: 16px;
+  padding: 12px;
 }
 .demo-composer:focus-within {
   border-color: var(--site-muted);
@@ -435,7 +438,7 @@ h2 {
 }
 .reading-story[data-static='true'] .static-chapter {
   display: grid;
-  grid-template-columns: minmax(0, 0.36fr) minmax(0, 0.64fr);
+  grid-template-columns: minmax(0, 0.27fr) minmax(0, 0.73fr);
   gap: 40px;
 }
 .reading-story[data-static='true'] .story-copy {
@@ -458,10 +461,10 @@ h2 {
   }
   .reading-story {
     column-gap: 4%;
-    grid-template-columns: minmax(0, 0.3fr) minmax(0, 0.7fr);
+    grid-template-columns: minmax(0, 0.25fr) minmax(0, 0.75fr);
   }
   .demo-window-body {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(250px, 0.72fr);
   }
   .demo-chat,
   .demo-panel {
@@ -491,12 +494,12 @@ h2 {
     min-height: 0;
   }
   .demo-panel {
-    padding: 22px;
+    padding: 16px;
   }
   .demo-chat {
     border-right: 0;
     border-top: 1px solid var(--site-border);
-    padding: 18px 22px;
+    padding: 16px;
   }
   .demo-chat article,
   .demo-chat .chat-title,

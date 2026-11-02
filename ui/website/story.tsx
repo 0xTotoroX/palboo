@@ -302,7 +302,8 @@ const chapters: { feature: FeatureId; title: string; text: string; detail: strin
 ];
 export function ReadingStory() {
   useLocale();
-  const { ref, activeIndex: index, staticView } = useScrollScene('.story-copy h2');
+  const { ref, activeIndex: index, activeFraction, staticView } = useScrollScene('.story-copy h2');
+  const beat = Math.min(2, Math.floor(activeFraction * 3));
   const [active, setActive] = useState<FeatureId[]>(chapters.map((chapter) => chapter.feature));
   const [primary, setPrimary] = useState(0);
   const [engaged, setEngaged] = useState(false);
@@ -443,6 +444,10 @@ export function ReadingStory() {
           >
             <FeatureDemo
               active={active[i]}
+              tourBeat={
+                !staticView && !engaged && active[i] === chapters[index].feature ? beat : undefined
+              }
+              oneShot={staticView && !engaged && active[i] === chapters[i].feature}
               onChange={(feature) => {
                 pending.current = null;
                 setActive((current) => current.map((value, j) => (i === j ? feature : value)));

@@ -5,7 +5,7 @@
 
 .site-real-feature {
   min-width: 0;
-  font-size: 16px;
+  font-size: var(--site-ui-font);
   line-height: 1.5;
 }
 .site-workspace-feature {

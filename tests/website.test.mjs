@@ -1645,7 +1645,7 @@ test('real Bot avatars, hover actions and recent messages use local example data
     for (const [name, expectedColumns] of [
       ['侧栏', 1],
       ['双列', 2],
-      ['自适应', 3],
+      ['自适应', 4],
     ]) {
       await layouts.getByRole('button', { name, exact: true }).click();
       const columns = await demo
@@ -1820,5 +1820,286 @@ test('quick phrases demonstrate full content, optional names and draft-safe inse
     } finally {
       await page.close();
     }
+  }
+});
+
+test('narrative tours link cause to effect, reverse on scroll-back and keep manual drafts', async () => {
+  const page = await browser.newPage({ locale: 'zh-CN', viewport: { width: 1440, height: 900 } });
+  try {
+    await page.goto(base);
+    // 提示词：反馈来自真实组件——原稿时按钮为“优化提示词”，滚过后为已优化文本与“恢复原提示词”
+    const promptBox = page.locator('.prompt-tour textarea');
+    const promptButton = page.locator('.prompt-tour [data-palboo-prompt] button');
+    const expectAttribute = async (locator, name, value) => {
+      for (let i = 0; i < 40 && (await locator.getAttribute(name)) !== value; i++)
+        await page.waitForTimeout(50);
+      assert.equal(await locator.getAttribute(name), value);
+    };
+    await scrollScene(page, '.prompt-tour', 0.05);
+    assert.equal(await promptBox.inputValue(), '帮我把这个作品集方案安排一下');
+    assert.equal(await promptButton.getAttribute('aria-label'), '优化提示词');
+    await scrollScene(page, '.prompt-tour', 0.9);
+    await page.waitForFunction(() =>
+      document.querySelector('.prompt-tour textarea').value.startsWith('请把这个个人作品集方案'),
+    );
+    await expectAttribute(promptButton, 'aria-label', '恢复原提示词');
+    assert.equal(await page.locator('.causal-link, .causal-ring').count(), 0);
+    assert.equal(await page.locator('.prompt-stages').count(), 0);
+    await scrollScene(page, '.prompt-tour', 0.05);
+    await page.waitForFunction(
+      () =>
+        document.querySelector('.prompt-tour textarea').value === '帮我把这个作品集方案安排一下',
+    );
+    await expectAttribute(promptButton, 'aria-label', '优化提示词');
+    // 模型：示例速度只由真实 TokenMeterView 展示，不再有重复读数
+    await scrollScene(page, '.model-tour', 0.05);
+    await page.locator('.model-tour .token-meter-readout').waitFor();
+    assert.equal(await page.locator('.model-run, .model-run-speed, .term-ledger').count(), 0);
+    // Bot：完成后出现示例回复，回看消失
+    await scrollScene(page, '.bot-tour', 0.9);
+    await page.locator('.bot-tour .bot-reply-bubble').waitFor();
+    await scrollScene(page, '.bot-tour', 0.05);
+    await page.locator('.bot-tour .bot-reply-bubble').waitFor({ state: 'detached' });
+    // 常用语：访客草稿不被滚动覆盖
+    await scrollScene(page, '.phrases-tour', 0.05);
+    const box = page.locator('.phrases-tour').getByRole('textbox');
+    await box.fill('我自己的草稿');
+    await page.mouse.wheel(0, 10);
+    await scrollScene(page, '.phrases-tour', 0.6);
+    await scrollScene(page, '.phrases-tour', 0.9);
+    assert.equal(await box.inputValue(), '我自己的草稿');
+  } finally {
+    await page.close();
+  }
+});
+
+for (const viewport of [
+  { width: 1000, height: 560 },
+  { width: 390, height: 844 },
+]) {
+  test(`static tours still play cause and effect once at ${viewport.width}x${viewport.height}`, async () => {
+    const page = await browser.newPage({ locale: 'zh-CN', viewport });
+    try {
+      await page.goto(base);
+      assert.equal(await page.locator('.bot-tour').getAttribute('data-static'), 'true');
+      // 原生滚动回退下仍能看到任务完成、模型示例回合完成与 Bot 回复
+      assert.equal(await page.locator('.model-tour').getAttribute('data-static'), 'true');
+      // 看板高度随环境字体略有差异：只在它确实回退为静态时检查一次性播放
+      const boardStatic =
+        (await page.locator('.board-story').getAttribute('data-static')) === 'true';
+      await page
+        .locator('.board-story')
+        .evaluate((node) => node.scrollIntoView({ block: 'start' }));
+      if (boardStatic)
+        await page.waitForFunction(
+          () =>
+            document
+              .querySelector('.board-story [data-real-feature=board]')
+              .shadowRoot.querySelectorAll('.board-column')[2]
+              .textContent.includes('整理三个代表作品'),
+          null,
+          { timeout: 8000 },
+        );
+      await page.locator('.model-tour').evaluate((node) => node.scrollIntoView({ block: 'start' }));
+      await page
+        .locator('.model-tour .model-showcase[data-phase="completed"]')
+        .waitFor({ timeout: 8000 });
+      await page.locator('.bot-tour').evaluate((node) => node.scrollIntoView({ block: 'start' }));
+      await page.locator('.bot-tour .bot-reply-bubble').waitFor({ timeout: 8000 });
+      await page
+        .locator('.connection-map')
+        .evaluate((node) => node.scrollIntoView({ block: 'center' }));
+      await page.waitForFunction(
+        () =>
+          Number(
+            getComputedStyle(document.querySelector('.connection-map')).getPropertyValue('--draw'),
+          ) > 0.9,
+      );
+      // 连接图为 HTML 布局：CodexHost 在本机框内并标可选，渲染字号不被缩放
+      const host = page.locator('.cm-local .cm-node', { hasText: 'CodexHost' });
+      assert.match(await host.textContent(), /可选/);
+      const sizes = await page.locator('.connection-map .cm-node').evaluateAll((nodes) =>
+        nodes.map((node) => {
+          const rect = node.getBoundingClientRect();
+          const scale = rect.width / node.offsetWidth;
+          return parseFloat(getComputedStyle(node).fontSize) * scale;
+        }),
+      );
+      assert.ok(sizes.length === 5 && sizes.every((size) => size >= 12), String(sizes));
+      const map = await page.locator('.connection-map').boundingBox();
+      assert.ok(map.x >= 0 && map.x + map.width <= viewport.width);
+    } finally {
+      await page.close();
+    }
+  });
+}
+
+test('reduced motion static tours show a readable end state without playback', async () => {
+  const page = await browser.newPage({
+    locale: 'zh-CN',
+    viewport: { width: 390, height: 844 },
+    reducedMotion: 'reduce',
+  });
+  try {
+    await page.goto(base);
+    await page.locator('.bot-tour').evaluate((node) => node.scrollIntoView({ block: 'start' }));
+    await page.waitForTimeout(1500);
+    assert.equal(await page.locator('[data-static-played]').count(), 0);
+    assert.equal(await page.locator('.causal-link').count(), 0);
+    await page
+      .locator('.connection-map')
+      .evaluate((node) => node.scrollIntoView({ block: 'center' }));
+    assert.equal(
+      await page
+        .locator('.cm-node')
+        .first()
+        .evaluate((node) => getComputedStyle(node).opacity),
+      '1',
+    );
+  } finally {
+    await page.close();
+  }
+});
+
+// 找到阅读章节中某功能的某一拍（按滚动进度扫描，不依赖固定比例）
+async function reachBeat(page, feature, beat) {
+  for (let step = 0; step <= 100; step += 1) {
+    await scrollScene(page, '.reading-story', step / 100);
+    const hit = await page.evaluate(
+      ([feature, beat]) =>
+        [...document.querySelectorAll('.product-demo')].some(
+          (demo) =>
+            demo.getBoundingClientRect().height > 0 &&
+            demo.dataset.feature === feature &&
+            demo.querySelector('.demo-window-body')?.dataset.tourBeat === String(beat),
+        ),
+      [feature, beat],
+    );
+    if (hit) return step / 100;
+  }
+  throw new Error(`beat ${beat} of ${feature} not reached`);
+}
+const visibleDemo = (page) => page.locator('.product-demo:visible').first();
+
+test('manual suggestion refresh exits next-step auto-fill and reversed flights never land', async () => {
+  const page = await browser.newPage({ locale: 'zh-CN', viewport: { width: 1440, height: 1000 } });
+  try {
+    await page.goto(base);
+    const draft = () => visibleDemo(page).getByLabel('接着聊', { exact: true }).inputValue();
+    // 第三拍飞行途中回看：不落地、无幽灵文本、空草稿不被标记
+    await reachBeat(page, 'next', 0);
+    const beat0 = await reachBeat(page, 'next', 0);
+    await reachBeat(page, 'next', 2);
+    await scrollScene(page, '.reading-story', beat0);
+    await page.waitForTimeout(900);
+    assert.equal(await page.locator('.phrase-flight').count(), 0);
+    assert.equal(await draft(), '');
+    assert.equal(await page.locator('.product-demo:visible .demo-composer.is-filled').count(), 0);
+    // 手动刷新建议后，滚到第三拍不再填入与显示不一致的旧建议
+    await visibleDemo(page).getByRole('button', { name: '重新生成建议', exact: true }).click();
+    await visibleDemo(page)
+      .getByRole('button', { name: /比较展示方式/ })
+      .waitFor();
+    await page.mouse.click(4, 4);
+    await reachBeat(page, 'next', 2);
+    await page.waitForTimeout(900);
+    assert.doesNotMatch(await draft(), /请把作品集第一版拆解成两天内可完成的具体步骤/);
+  } finally {
+    await page.close();
+  }
+});
+
+test('term tour pause freezes the last beat until an explicit return to beat zero', async () => {
+  const page = await browser.newPage({ locale: 'zh-CN', viewport: { width: 1440, height: 1000 } });
+  try {
+    await page.goto(base);
+    const scope = page.locator('.product-demo:visible .term-demo-scope');
+    await reachBeat(page, 'terms', 2);
+    await page.waitForFunction(() =>
+      [...document.querySelectorAll('.term-demo-scope')].some((n) =>
+        n.dataset.mastered.includes('breakpoint'),
+      ),
+    );
+    // 点击阅读区输入框会暂停滚动叙事；示例状态不应被撤回
+    await visibleDemo(page).locator('.demo-composer textarea, input').first().click();
+    await page.waitForTimeout(400);
+    assert.equal(await scope.getAttribute('data-favorites'), 'breakpoint loading');
+    assert.equal(await scope.getAttribute('data-mastered'), 'accessibility breakpoint');
+    await page.mouse.click(4, 4);
+    await reachBeat(page, 'terms', 0);
+    assert.equal(await scope.getAttribute('data-favorites'), 'breakpoint');
+  } finally {
+    await page.close();
+  }
+});
+
+test('static playback timers are cancelled when a phone resizes into scroll mode', async () => {
+  const page = await browser.newPage({ locale: 'zh-CN', viewport: { width: 390, height: 844 } });
+  try {
+    await page.goto(base);
+    await page.locator('.model-tour').evaluate((node) => node.scrollIntoView({ block: 'start' }));
+    await page.locator('.model-tour[data-static-played="true"]').waitFor();
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.locator('.model-tour[data-static="false"]').waitFor();
+    await scrollScene(page, '.model-tour', 0.05);
+    await page.waitForTimeout(3500);
+    assert.equal(await page.locator('.model-tour').getAttribute('data-step'), '0');
+  } finally {
+    await page.close();
+  }
+});
+
+test('resetting the next-step demo cancels an in-flight insertion', async () => {
+  const page = await browser.newPage({ locale: 'zh-CN', viewport: { width: 1440, height: 900 } });
+  try {
+    await page.goto(base);
+    await page.locator('.story-copy[data-chapter="next"] h2').evaluate((heading) => {
+      const following = document.querySelector('.story-copy[data-chapter="outline"] h2');
+      const start = heading.getBoundingClientRect().top;
+      const distance = following.getBoundingClientRect().top - start;
+      scrollTo(0, scrollY + start - innerHeight * 0.55 + distance * 0.8);
+    });
+    const flight = page.locator('.phrase-flight');
+    await flight.waitFor();
+    // 保留真实飞行中间态，让重置点击不受运行机器速度影响。
+    await flight.evaluate((node) => node.getAnimations().forEach((animation) => animation.pause()));
+    const demo = page.locator('.reading-stage:not([hidden]) .product-demo');
+    await demo.getByRole('button', { name: '重置功能演示', exact: true }).click();
+    await page.waitForTimeout(650);
+    assert.equal(await page.locator('.phrase-flight').count(), 0);
+    assert.equal(await demo.getByRole('textbox').inputValue(), '');
+    assert.equal(await page.locator('.causal-link, .causal-ring').count(), 0);
+  } finally {
+    await page.close();
+  }
+});
+
+test('quick phrase flight is cancelled on reverse scroll and leaves no ghost', async () => {
+  const page = await browser.newPage({ locale: 'zh-CN', viewport: { width: 1440, height: 900 } });
+  try {
+    await page.goto(base);
+    await scrollScene(page, '.phrases-tour', 0.05);
+    await page.waitForTimeout(200);
+    await scrollScene(page, '.phrases-tour', 0.4);
+    await scrollScene(page, '.phrases-tour', 0.05);
+    await page.waitForTimeout(800);
+    assert.equal(await page.locator('.phrase-flight').count(), 0);
+    assert.equal(await page.locator('.phrases-tour .demo-composer.is-filled').count(), 0);
+    assert.equal(await page.locator('.phrases-tour').getByRole('textbox').inputValue(), '');
+    // 看板：到完成拍后立即回看，完成高亮动画被取消回收，不在回看后继续播放
+    await scrollScene(page, '.board-story', 0.95);
+    await page.waitForTimeout(250);
+    await scrollScene(page, '.board-story', 0.02);
+    await page.waitForTimeout(250);
+    const stale = await page.evaluate(
+      () =>
+        document
+          .querySelector('.board-story [data-real-feature=board]')
+          .shadowRoot.getAnimations()
+          .filter((a) => a.effect.getKeyframes().some((frame) => 'boxShadow' in frame)).length,
+    );
+    assert.equal(stale, 0);
+  } finally {
+    await page.close();
   }
 });

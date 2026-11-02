@@ -1,6 +1,6 @@
 import { PreviewFrame } from '../settings/preview-frame';
 /* [INPUT]: Actual BotsView, synthetic lifecycle states, groups and visitor layout choices.
- * [OUTPUT]: All four badges, working/completed eyes and responsive one/two/three-column examples.
+ * [OUTPUT]: All four badges, working/completed eyes and responsive sidebar/two-column/adaptive examples.
  * [POS]: Website demo adapter; actions only populate the local example draft.
  * [PROTOCOL]: Keep website/AGENTS.md and browser checks in sync. */
 import { useEffect, useRef, useState } from 'react';

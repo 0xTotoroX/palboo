@@ -14,6 +14,8 @@ export function useScrollScene(anchors?: string) {
   const ref = useRef<HTMLElement>(null);
   const [progress, setProgress] = useState(0);
   const [activeIndex, setActiveIndex] = useState(0);
+  // How far the active anchor has travelled toward the next one (0..1).
+  const [activeFraction, setActiveFraction] = useState(0);
   const [staticView, setStaticView] = useState(
     () =>
       matchMedia('(prefers-reduced-motion: reduce), (max-width: 760px), (max-height: 650px)')
@@ -45,10 +47,18 @@ export function useScrollScene(anchors?: string) {
         // Follow the actual copy entering the reading band, not equal fractions
         // of a section whose sticky and padding geometry can change.
         let index = 0;
-        element.querySelectorAll(anchors).forEach((anchor, i) => {
-          if (anchor.getBoundingClientRect().top <= innerHeight * 0.55) index = i;
+        const band = innerHeight * 0.55;
+        const tops = [...element.querySelectorAll(anchors)].map(
+          (anchor) => anchor.getBoundingClientRect().top,
+        );
+        tops.forEach((top, i) => {
+          if (top <= band) index = i;
         });
         setActiveIndex(index);
+        const start = tops[index] ?? 0;
+        const end = tops[index + 1] ?? box.bottom - innerHeight * 0.45;
+        const fraction = clamp((band - start) / Math.max(1, end - start));
+        setActiveFraction((old) => (Math.abs(old - fraction) < 0.01 ? old : fraction));
       }
     };
     const schedule = () => {
@@ -79,5 +89,39 @@ export function useScrollScene(anchors?: string) {
       media.removeEventListener('change', onMedia);
     };
   }, [anchors]);
-  return { ref, progress, staticView, activeIndex, scrollToStart };
+  return { ref, progress, staticView, activeIndex, activeFraction, scrollToStart };
+}
+
+/* ---------- 进入视口的进度：章节随阅读落定，静态视图直接终态 ---------- */
+export function useEntryProgress<T extends HTMLElement>() {
+  const ref = useRef<T>(null);
+  const [progress, setProgress] = useState(1);
+  useEffect(() => {
+    const element = ref.current!;
+    const media = matchMedia('(prefers-reduced-motion: reduce)');
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      if (media.matches) return setProgress(1);
+      const top = element.getBoundingClientRect().top;
+      const value = clamp((innerHeight * 0.95 - top) / (innerHeight * 0.6));
+      setProgress((old) => (Math.abs(old - value) < 0.005 && value > 0 && value < 1 ? old : value));
+    };
+    const schedule = () => {
+      if (!frame && !document.hidden) frame = requestAnimationFrame(update);
+    };
+    addEventListener('scroll', schedule, { passive: true });
+    addEventListener('resize', schedule);
+    media.addEventListener('change', schedule);
+    document.addEventListener('visibilitychange', schedule);
+    update();
+    return () => {
+      cancelAnimationFrame(frame);
+      removeEventListener('scroll', schedule);
+      removeEventListener('resize', schedule);
+      media.removeEventListener('change', schedule);
+      document.removeEventListener('visibilitychange', schedule);
+    };
+  }, []);
+  return { ref, progress };
 }

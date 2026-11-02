@@ -5,7 +5,7 @@ import { tr } from '../shared/i18n.js';
  * [OUTPUT]: One example chat with actual feature components, model/meter demonstrations and local draft helpers.
  * [POS]: Website illustration layer; no backend, host or model calls.
  * [PROTOCOL]: Keep website/AGENTS.md and browser acceptance in sync. */
-import { useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { Icon } from '../shared/icons/react';
 import { ModelDemo } from './model-demo';
 export { ModelDemo } from './model-demo';
@@ -17,7 +17,9 @@ import {
   TermDemo,
   BotDemo,
 } from './product-demos';
-import { headings } from './demo-state';
+import { headings, sampleProjection } from './demo-state';
+import { sampleTerms } from '../shared/demo-state';
+import { flyText, reducedMotion, markFilled, shadowQuery } from './narrative';
 export { BoardDemo, BotDemo, TermDemo, botSampleNames } from './product-demos';
 export { headings } from './demo-state';
 
@@ -119,20 +121,112 @@ export function ComposerDemo({
   );
 }
 
+/* ---------- 阅读章节的功能叙事：每章三拍，由正文滚动推进 ----------
+ * 下一步：上下文 → 选中建议 → 填入草稿；大纲：目录项 → 对应段落；
+ * 术语：正文关键词 → 词条 → 收藏 → 掌握。访客草稿与手动定位始终优先。 */
+const suggestion = () => sampleProjection(false).prompts[0];
+
 export function FeatureDemo({
   active,
   onChange,
+  tourBeat,
+  oneShot = false,
 }: {
   active: FeatureId;
   onChange: (id: FeatureId) => void;
+  tourBeat?: number;
+  /** 静态/窄屏回退：进入阅读区后把三拍因果播放一次并停在终态。 */
+  oneShot?: boolean;
 }) {
   useLocale();
   const uid = useId();
-  const [draft, setDraft] = useState('');
+  const [ownDraft, setOwnDraft] = useState('');
+  const [touched, setTouched] = useState(false);
+  const [autoFilled, setAutoFilled] = useState(false);
   const [heading, setHeading] = useState(0);
+  const manualHeading = useRef(false);
   const [reset, setReset] = useState(0);
   const article = useRef<HTMLElement>(null);
   const content = useRef<HTMLDivElement>(null);
+  const scene = useRef<HTMLDivElement>(null);
+  const draft = touched ? ownDraft : autoFilled ? suggestion().prompt : '';
+  const setDraft = (value: string | ((current: string) => string)) => {
+    setOwnDraft(typeof value === 'function' ? value(draft) : value);
+    setTouched(true);
+  };
+  const jump = (index: number) => {
+    setHeading(index);
+    const container = article.current;
+    const target = container?.querySelectorAll('section')[index];
+    if (!container || !target) return;
+    container.scrollTo({
+      top:
+        target.getBoundingClientRect().top -
+        container.getBoundingClientRect().top +
+        container.scrollTop -
+        6,
+    });
+  };
+  const [shot, setShot] = useState<number | undefined>(undefined);
+  const shotHalted = useRef(false);
+  useEffect(() => {
+    setShot(undefined);
+    shotHalted.current = false;
+    const node = scene.current;
+    if (!oneShot || !node || reducedMotion()) return;
+    const timers: number[] = [];
+    const halt = () => {
+      shotHalted.current = true;
+      timers.forEach(clearTimeout);
+    };
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry?.isIntersecting) return;
+        observer.disconnect();
+        node.dataset.oneShot = 'played';
+        for (let index = 0; index < 3; index += 1)
+          timers.push(
+            window.setTimeout(() => !shotHalted.current && setShot(index), 200 + index * 900),
+          );
+      },
+      { rootMargin: '0px 0px -30% 0px', threshold: 0.2 },
+    );
+    observer.observe(node);
+    node.addEventListener('pointerdown', halt, true);
+    node.addEventListener('focusin', halt, true);
+    return () => {
+      observer.disconnect();
+      timers.forEach(clearTimeout);
+      node.removeEventListener('pointerdown', halt, true);
+      node.removeEventListener('focusin', halt, true);
+    };
+  }, [oneShot, active, reset]);
+  const rawBeat = tourBeat ?? (oneShot ? shot : undefined);
+  const beat = rawBeat === undefined ? undefined : Math.max(0, Math.min(2, rawBeat));
+  // 下一步：第三拍把选中的建议带入草稿；回看时撤回自动示例，访客草稿不动。
+  useEffect(() => {
+    if (active !== 'next' || beat === undefined || touched) return;
+    const want = beat >= 2;
+    if (want === autoFilled) return;
+    if (!want) return setAutoFilled(false);
+    const root = scene.current;
+    // 落地才填入；回看、卸载或访客接管时取消飞行，过期的落地回调不会执行。
+    return flyText(
+      shadowQuery(root, 'next', '.csw-row[data-index="0"]'),
+      root?.querySelector('.demo-composer'),
+      suggestion().label,
+      () => {
+        setAutoFilled(true);
+        markFilled(root?.querySelector('.demo-composer'));
+      },
+    );
+  }, [active, beat, touched, autoFilled]);
+  // 大纲：逐拍定位到对应段落；术语：回到含关键词的段落。手动定位后不再改写。
+  useEffect(() => {
+    if (beat === undefined || manualHeading.current) return;
+    if (active === 'outline') jump(beat);
+    else if (active === 'terms') jump(1);
+  }, [active, beat]);
   useLayoutEffect(() => {
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const animation = content.current?.animate(
@@ -153,7 +247,7 @@ export function FeatureDemo({
       data-feature={active}
       title={tr('Palboo 交互演示')}
     >
-      <div className="demo-window-body">
+      <div ref={scene} className="demo-window-body" data-tour-beat={beat ?? ''}>
         <aside className={`demo-panel demo-panel-${active}`}>
           <div className="demo-panel-top">
             <Eyes />
@@ -162,7 +256,11 @@ export function FeatureDemo({
               className="icon-button"
               aria-label={tr('重置功能演示')}
               onClick={() => {
-                setDraft('');
+                setOwnDraft('');
+                // 重置属于手动接管，取消未落地的示例并保持空草稿。
+                setTouched(true);
+                setAutoFilled(false);
+                manualHeading.current = false;
                 setHeading(0);
                 setReset((value) => value + 1);
               }}
@@ -204,7 +302,7 @@ export function FeatureDemo({
             </div>
             <div key={reset}>
               <div hidden={active !== 'next'}>
-                <NextDemo onInsert={insert} />
+                <NextDemo onInsert={insert} onManual={() => setDraft(draft)} />
               </div>
               <div hidden={active !== 'prompts'}>
                 <QuickPhrasesDemo onInsert={insert} />
@@ -212,16 +310,8 @@ export function FeatureDemo({
               <div hidden={active !== 'outline'}>
                 <OutlineDemo
                   onJump={(index) => {
-                    setHeading(index);
-                    const container = article.current!;
-                    const target = container.querySelectorAll('section')[index];
-                    container.scrollTo({
-                      top:
-                        target.getBoundingClientRect().top -
-                        container.getBoundingClientRect().top +
-                        container.scrollTop -
-                        6,
-                    });
+                    manualHeading.current = true;
+                    jump(index);
                   }}
                 />
               </div>
@@ -232,7 +322,7 @@ export function FeatureDemo({
                 <ModelDemo />
               </div>
               <div hidden={active !== 'terms'}>
-                <TermDemo />
+                <TermDemo tourBeat={active === 'terms' ? beat : undefined} />
               </div>
               <div hidden={active !== 'bots'}>
                 <BotDemo onInsert={insert} />
@@ -268,7 +358,14 @@ export function FeatureDemo({
                   ) : index === 1 ? (
                     <>
                       {tr('用')}
-                      <button className="inline-term" onClick={() => onChange('terms')}>
+                      <button
+                        className={
+                          active === 'terms' && beat !== undefined
+                            ? 'inline-term is-linked'
+                            : 'inline-term'
+                        }
+                        onClick={() => onChange('terms')}
+                      >
                         {tr('响应式布局')}
                       </button>
                       {tr('适配电脑与手机，保留简介、作品和联系方式。')}
@@ -277,6 +374,12 @@ export function FeatureDemo({
                     tr('检查小屏阅读、图片加载和联系链接，再请朋友试用。')
                   )}
                 </p>
+                {index === 1 && active === 'terms' && beat !== undefined && (
+                  <p className="term-gloss">
+                    <span>{tr('本机词库释义')}</span>
+                    {sampleTerms()[0].definition}
+                  </p>
+                )}
                 {index > 0 && <h4>{tr(index === 1 ? '桌面与手机' : '素材与加载')}</h4>}
                 <p>
                   {

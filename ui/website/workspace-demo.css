@@ -1,5 +1,5 @@
 /* [INPUT]: Shared settings/workspace/model classes and website semantic tokens.
- * [OUTPUT]: Readable website-sized previews, controls and detailed feature sections.
+ * [OUTPUT]: Product-proportioned previews, controls and detailed feature sections.
  * [POS]: Scoped adapters; product and settings appearance remain unchanged.
  * [PROTOCOL]: Keep website/AGENTS.md in sync. */
 .site-settings-demo,
@@ -41,18 +41,6 @@
 }
 .site-settings-demo .layout-demo-canvas {
   margin: 28px 0;
-}
-.site-settings-demo .layout-demo-workspace {
-  --csw-chrome-font: 20px;
-  font-size: 20px;
-}
-.site-settings-demo .layout-demo-workspace .csw-workbench-tabs button {
-  min-width: 44px;
-  min-height: 44px;
-}
-.site-settings-demo .layout-demo-workspace .csw-workbench-tabs svg {
-  width: 20px;
-  height: 20px;
 }
 .site-settings-demo .layout-demo-content input {
   font-size: inherit;
@@ -102,7 +90,7 @@
 }
 .demo-models .feature-model {
   min-height: 0;
-  font-size: 16px;
+  font-size: var(--site-ui-font);
 }
 .demo-models .model-intrinsic-width {
   min-width: 0;
@@ -111,10 +99,10 @@
   max-width: 100%;
 }
 .demo-models .model-primary {
-  padding-top: 16px;
+  padding-top: 8px;
 }
 .demo-models .model-status-row {
-  margin-top: 16px;
+  margin-top: 12px;
 }
 .demo-models .model-favorites {
   flex: none;
@@ -124,9 +112,6 @@
 }
 .demo-models.is-inline .feature-model {
   font-size: inherit;
-}
-.demo-panel .demo-models .model-row {
-  min-height: 44px;
 }
 @media (max-width: 760px) {
   .site-settings-demo {

@@ -8,49 +8,24 @@ import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 import { ComposerDemo, Eyes } from './demos';
 import { QuickPhrasesDemo, samplePhrases } from './product-demos';
+import { flyText, markFilled, shadowQuery } from './narrative';
 
-/* ---------- 滚动示例：0 空草稿 · 1 填入长指令 · 2 仅显示名称 ---------- */
+/* ---------- 滚动示例：0 空草稿 · 1 展开长指令并飞入草稿 · 2 保留草稿，可继续编辑 · 3 仅显示名称 ---------- */
 const tourPhrase = 2;
-const tourDraft = (step?: number) => (step ? samplePhrases()[tourPhrase].prompt : '');
+const tourDraft = (step?: number) => ((step ?? 0) >= 1 ? samplePhrases()[tourPhrase].prompt : '');
+const phraseSource = (scene: HTMLElement | null, index: number) =>
+  shadowQuery(scene, 'prompts', `[data-quick-prompt="${index}"]`);
 
 /* ---------- 从短语飞向输入框，仅作状态衔接 ---------- */
 function fly(scene: HTMLElement | null, index: number) {
-  if (!scene || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  const host = scene.querySelector('[data-real-feature="prompts"]');
-  const source = host?.shadowRoot?.querySelector<HTMLElement>(`[data-quick-prompt="${index}"]`);
-  const composer = scene.querySelector<HTMLElement>('.demo-composer');
-  if (!source || !composer) return;
-  const from = source.getBoundingClientRect();
-  const to = composer.getBoundingClientRect();
-  if (!from.width || !to.width) return;
-  const ghost = document.createElement('div');
-  ghost.className = 'phrase-flight';
-  ghost.setAttribute('aria-hidden', 'true');
-  ghost.textContent = source.getAttribute('aria-label') || source.textContent || '';
-  ghost.style.left = `${from.left}px`;
-  ghost.style.top = `${from.top}px`;
-  ghost.style.maxWidth = `${Math.min(from.width, 280)}px`;
-  document.body.append(ghost);
-  const dx = to.left + 12 - from.left;
-  const dy = to.top + 12 - from.top;
-  const lift = Math.min(48, Math.abs(dx) * 0.15 + 16);
-  const flight = ghost.animate(
-    [
-      { transform: 'translate(0, 0) scale(1)', opacity: 0 },
-      { transform: 'translate(0, -4px) scale(1.02)', opacity: 1, offset: 0.12 },
-      { transform: `translate(${dx * 0.55}px, ${dy * 0.55 - lift}px) scale(0.98)`, opacity: 1 },
-      { transform: `translate(${dx}px, ${dy}px) scale(0.92)`, opacity: 0 },
-    ],
-    { duration: 560, easing: 'cubic-bezier(0.4, 0, 0.2, 1)' },
+  const source = phraseSource(scene, index);
+  const composer = scene?.querySelector<HTMLElement>('.demo-composer');
+  return flyText(
+    source,
+    composer,
+    source?.getAttribute('aria-label') || source?.textContent || '',
+    () => markFilled(composer),
   );
-  const done = () => {
-    ghost.remove();
-    composer.classList.remove('is-filled');
-    void composer.offsetWidth;
-    composer.classList.add('is-filled');
-  };
-  flight.onfinish = done;
-  flight.oncancel = () => ghost.remove();
 }
 
 export function PhrasesShowcase({ tourStep }: { tourStep?: number }) {
@@ -60,17 +35,28 @@ export function PhrasesShowcase({ tourStep }: { tourStep?: number }) {
   const [namesOnly, setNamesOnly] = useState<boolean | null>(null);
   const [filled, setFilled] = useState(0);
   const previous = useRef(tourStep);
+  const cancelFlight = useRef<(() => void) | undefined>(undefined);
   const shownDraft = draft ?? tourDraft(tourStep);
-  const shownNames = namesOnly ?? tourStep === 2;
+  const shownNames = namesOnly ?? tourStep === 3;
+  const visitor = draft !== null || namesOnly !== null;
 
   // 访客草稿优先：一旦编辑或点击，滚动不再改写草稿
   useEffect(() => {
     const from = previous.current;
     previous.current = tourStep;
-    if (draft !== null || !tourStep || from === undefined || from >= 1) return;
-    fly(scene.current, tourPhrase);
+    if (draft !== null || (tourStep ?? 0) < 1 || from === undefined || from >= 1) return;
     setFilled((n) => n + 1);
+    return fly(scene.current, tourPhrase);
   }, [tourStep, draft]);
+
+  // 第一拍展开长指令全文（真实组件的展开按钮），回看时收起；访客操作后不再改动。
+  useEffect(() => {
+    if (visitor || tourStep === undefined) return;
+    const toggle = shadowQuery(scene.current, 'prompts', `[data-quick-expand="${tourPhrase}"]`);
+    if (!toggle || toggle.hidden) return;
+    const open = toggle.getAttribute('aria-expanded') === 'true';
+    if ((tourStep === 1 || tourStep === 2) !== open) toggle.click();
+  }, [tourStep, visitor]);
 
   useLayoutEffect(() => {
     const field = scene.current?.querySelector('textarea');
@@ -82,9 +68,11 @@ export function PhrasesShowcase({ tourStep }: { tourStep?: number }) {
       const base = current ?? shownDraft;
       return base ? `${base}\n${text}` : text;
     });
-    fly(scene.current, index);
+    cancelFlight.current?.();
+    cancelFlight.current = fly(scene.current, index);
     setFilled((n) => n + 1);
   };
+  useEffect(() => () => cancelFlight.current?.(), []);
 
   return (
     <div className="phrase-showcase">
@@ -97,7 +85,7 @@ export function PhrasesShowcase({ tourStep }: { tourStep?: number }) {
         </button>
       </div>
       <PreviewFrame title={tr('常用语')} className="site-preview phrase-scene">
-        <div ref={scene} className="phrase-scene-body">
+        <div ref={scene} className="phrase-scene-body" data-tour-step={tourStep ?? ''}>
           <div className="phrase-chat">
             <div className="chat-title">
               <span>Codex</span>

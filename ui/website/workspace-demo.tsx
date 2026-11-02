@@ -84,7 +84,7 @@ function sampleSurfaces(
     },
   };
 }
-const demoTypography = { ...fallbackTypography, fontSize: 20, titleSize: 20, lineHeight: 32 };
+const demoTypography = fallbackTypography;
 function WorkspaceFeature({ id }: { id: string }) {
   const [draft, setDraft] = useState('');
   const insert = (value: string) =>
