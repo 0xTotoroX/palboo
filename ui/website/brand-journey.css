@@ -1,0 +1,105 @@
+/* [INPUT]: Journey phase, existing anchors and settled footer state.
+ * [OUTPUT]: A single visible travelling face and a bounded eyes-to-OO ending.
+ * [POS]: Website decoration only; no layout displacement or interaction targets.
+ * [PROTOCOL]: Keep website/AGENTS.md in sync. */
+.brand-journey {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 44px;
+  height: 32px;
+  z-index: 8;
+  pointer-events: none;
+  opacity: 0;
+  transform-origin: 0 0;
+  color: var(--site-text);
+}
+.brand-journey svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform: translate(-50%, -46.875%);
+}
+[data-brand-journey='moving']:not([data-brand-phase='opening']) .brand-origin {
+  visibility: hidden;
+}
+[data-brand-journey='moving']
+  .layout-demo-material-backdrop
+  svg
+  > :is([data-brand-eyes], [data-brand-eyes] + g) {
+  opacity: var(--journey-embed, 0);
+}
+.install-brand {
+  position: relative;
+  /* Extend the wordmark for wider O glyphs without resizing the existing PALB. */
+  width: min(454px, 100%);
+  margin-bottom: 32px;
+  color: var(--site-text);
+}
+.install-brand .install-wordmark {
+  width: 100%;
+  margin: 0;
+}
+[data-brand-journey='moving']:not([data-brand-phase='footer']) .closing-face {
+  opacity: 0;
+}
+.closing-counter,
+.closing-letter,
+.closing-eyes {
+  transition: transform 680ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.closing-eye {
+  x: -4.5px;
+  width: 9px;
+  rx: 4.5px;
+  ry: 4.5px;
+  transition:
+    x 680ms var(--site-ease),
+    width 680ms var(--site-ease),
+    rx 680ms var(--site-ease),
+    ry 680ms var(--site-ease);
+}
+.closing-counter {
+  transform: scale(0);
+}
+.closing-blush {
+  transition: opacity 320ms ease;
+}
+[data-brand-rest='true'] .closing-eye {
+  /* 24 high, 8-unit side stems and 7-unit bowls match the PALB lettering. */
+  x: -13.5px;
+  width: 27px;
+  rx: 13.5px;
+  ry: 12px;
+}
+[data-brand-rest='true'] .closing-counter {
+  transform: scale(1);
+}
+[data-brand-rest='true'] .closing-eyes {
+  transform: skewX(-6deg) translateY(1px);
+}
+[data-brand-rest='true'] .closing-letter-0 {
+  transform: translateX(3px);
+}
+[data-brand-rest='true'] .closing-letter-1 {
+  transform: translateX(14px);
+}
+[data-brand-rest='true'] .closing-blush {
+  opacity: 0;
+}
+@media (min-width: 761px) and (max-width: 1100px) and (min-height: 651px) {
+  [data-brand-journey='moving'] .feature-navigation {
+    padding-left: 12px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .brand-journey {
+    display: none;
+  }
+  .closing-eye,
+  .closing-counter,
+  .closing-letter,
+  .closing-eyes {
+    transition: none;
+  }
+}

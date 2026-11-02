@@ -354,6 +354,14 @@
     flex-wrap: wrap;
     gap: 4px;
   }
+  .feature-preview .model-row .model-choices button {
+    min-height: 36px;
+    padding: 6px 8px;
+  }
+  .feature-preview .model-row .model-choices button::after {
+    content: attr(data-choice-label);
+    margin-left: 6px;
+  }
   .feature-preview .model-inline-heading {
     width: 100% !important;
     grid-template-columns: minmax(0, 1fr) !important;

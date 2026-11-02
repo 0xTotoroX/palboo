@@ -6,7 +6,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { build, preview } from 'vite';
 import { chromium } from 'playwright';
-import { mkdir, readFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 const reports = resolve('target/reports/site-features');
@@ -158,6 +158,262 @@ const ids = [
   'prompt',
   'compatibility',
 ];
+
+test('the mascot leaves the screen, joins the backdrop, follows features and returns as OO', async () => {
+  const page = await newPage({
+    viewport: { width: 1609, height: 1079 },
+    reducedMotion: 'no-preference',
+  });
+  try {
+    await page.clock.install();
+    await page.goto(`${base}/?lang=zh-CN`);
+    await page.clock.runFor(7200);
+    const main = page.locator('#main');
+    const mascot = page.locator('.brand-journey');
+    const phase = () => main.getAttribute('data-brand-phase');
+    const position = () =>
+      mascot.evaluate((node) => {
+        const matrix = new DOMMatrix(getComputedStyle(node).transform);
+        return { x: matrix.e, y: matrix.f };
+      });
+    await page.screenshot({ path: resolve(reports, 'journey-opening.png') });
+    await scrollScene(page, '.opening-story', 2.04 / 3.5);
+    await page.clock.runFor(100);
+    assert.equal(await phase(), 'opening');
+    const route = [];
+    for (const distance of [2.13, 2.2, 2.28, 2.4, 2.8, 3.4]) {
+      await scrollScene(page, '.opening-story', distance / 3.5);
+      await page.clock.runFor(100);
+      route.push({ distance, ...(await position()), phase: await phase() });
+      await page.screenshot({ path: resolve(reports, `journey-material-${distance}.png`) });
+    }
+    assert.equal(route[0].phase, 'to-material');
+    assert.equal(route.at(-1).phase, 'material');
+    assert.ok(route[2].x > route[0].x + 200, 'leaves the rail for the existing backdrop eyes');
+    const deep = await page
+      .locator('.layout-demo-material-backdrop svg')
+      .evaluate((el) => Number(getComputedStyle(el).opacity));
+    await scrollScene(page, '.opening-story', 2.4 / 3.5);
+    await page.clock.runFor(100);
+    const light = await page
+      .locator('.layout-demo-material-backdrop svg')
+      .evaluate((el) => Number(getComputedStyle(el).opacity));
+    assert.ok(deep - light > 0.4, 'backdrop deepens across the material tour');
+    await scrollScene(page, '.opening-story', 2.2 / 3.5);
+    await page.clock.runFor(100);
+    const reversed = await position();
+    assert.ok(
+      Math.abs(reversed.x - route[1].x) < 2 && Math.abs(reversed.y - route[1].y) < 2,
+      'reverse scrolling retraces the same route',
+    );
+    await page.evaluate(() =>
+      scrollTo(0, document.querySelector('#features').offsetTop - innerHeight * 0.5),
+    );
+    await frames(page);
+    await page.clock.runFor(150);
+    assert.equal(await phase(), 'to-feature');
+    await page.screenshot({ path: resolve(reports, 'journey-to-features.png') });
+    await scrollScene(page, '#features', 0);
+    await page.clock.runFor(500);
+    assert.equal(await phase(), 'feature');
+    await page.screenshot({ path: resolve(reports, 'journey-desktop.png') });
+    // Sample the actual paint frames in one browser turn. Tool round trips and
+    // screenshots can themselves outlast a short hop, so they are not a clock.
+    const flight = await page.evaluate(
+      () =>
+        new Promise((resolve) => {
+          const node = document.querySelector('.brand-journey');
+          const box = document.querySelector('#features').getBoundingClientRect();
+          const top = scrollY + box.top;
+          const points = [];
+          let start;
+          let interrupted = false;
+          scrollTo(0, top + ((box.height - innerHeight) * 3) / 8);
+          function sample(now) {
+            start ??= now;
+            const matrix = new DOMMatrix(getComputedStyle(node).transform);
+            points.push({ time: now - start, x: matrix.e, y: matrix.f, interrupted });
+            if (!interrupted && now - start >= 120) {
+              interrupted = true;
+              scrollTo(0, top + (box.height - innerHeight) / 8);
+            }
+            if (now - start >= 700) resolve(points);
+            else requestAnimationFrame(sample);
+          }
+          requestAnimationFrame(sample);
+        }),
+    );
+    const firstY = flight[0].y;
+    assert.ok(
+      flight.some((p) => !p.interrupted && p.y > firstY + 2),
+      'feature changes travel through intermediate positions',
+    );
+    for (let i = 1; i < flight.length; i++) {
+      if (flight[i].time - flight[i - 1].time > 40) continue;
+      assert.ok(
+        Math.hypot(flight[i].x - flight[i - 1].x, flight[i].y - flight[i - 1].y) < 35,
+        'retargeting preserves frame-to-frame continuity',
+      );
+    }
+    const settled = await position();
+    const next = await page.locator('#feature-tab-next').boundingBox();
+    assert.ok(Math.abs(settled.y - (next.y + next.height / 2)) < 1);
+    assert.ok(settled.x + 18 < next.x, 'mascot lands outside the feature label and icon');
+    await page.getByRole('tab', { name: '模型切换', exact: true }).click();
+    await page.clock.runFor(500);
+    assert.equal(await mascot.getAttribute('data-target'), 'feature-tab-model');
+    await page.screenshot({ path: resolve(reports, 'journey-model.png') });
+    await page.locator('#install').scrollIntoViewIfNeeded();
+    await frames(page);
+    await page.waitForFunction(
+      () => document.querySelector('#main').dataset.brandPhase === 'footer',
+    );
+    await page.clock.runFor(100);
+    assert.equal(await phase(), 'footer');
+    assert.equal(await page.locator('#install').getAttribute('data-brand-rest'), 'false');
+    await page.screenshot({ path: resolve(reports, 'journey-footer-face.png') });
+    await page.clock.runFor(3200);
+    assert.equal(await page.locator('#install').getAttribute('data-brand-rest'), 'true');
+    await page.waitForFunction(
+      () =>
+        new DOMMatrix(getComputedStyle(document.querySelector('.closing-counter')).transform).a >
+        0.99,
+    );
+    const counter = await page
+      .locator('.closing-counter')
+      .evaluate((el) => new DOMMatrix(getComputedStyle(el).transform).a);
+    assert.ok(counter > 0.99, 'both O counters open after resting');
+    await page.screenshot({ path: resolve(reports, 'journey-footer-name.png') });
+    await scrollScene(page, '#features', 1);
+    await page.clock.runFor(100);
+    assert.equal(await page.locator('#install').getAttribute('data-brand-rest'), 'false');
+    assert.equal(await phase(), 'feature');
+    const handoffs = [];
+    for (const mode of ['footer', 'reverse']) {
+      await scrollScene(page, '#features', mode === 'footer' ? 0 : 1);
+      await page.clock.runFor(500);
+      const sample = await page.evaluate(
+        (mode) =>
+          new Promise((resolve) => {
+            const node = document.querySelector('.brand-journey');
+            const main = document.querySelector('#main');
+            const points = [];
+            let start;
+            let before;
+            let crossedAt;
+            document
+              .querySelector(
+                mode === 'footer' ? '#feature-tab-compatibility' : '#feature-tab-outline',
+              )
+              .click();
+            function record(now) {
+              start ??= now;
+              const matrix = new DOMMatrix(getComputedStyle(node).transform);
+              const point = {
+                time: now - start,
+                x: matrix.e,
+                y: matrix.f,
+                opacity: Number(getComputedStyle(node).opacity),
+                phase: main.dataset.brandPhase,
+              };
+              points.push(point);
+              if (!before && now - start >= 96) {
+                before = point;
+                crossedAt = point.time;
+                const section = document.querySelector('#features');
+                scrollTo(
+                  0,
+                  mode === 'footer'
+                    ? document.documentElement.scrollHeight
+                    : scrollY + section.getBoundingClientRect().top - innerHeight * 0.5,
+                );
+              }
+              if (now - start >= 800) resolve({ mode, before, crossedAt, points });
+              else requestAnimationFrame(record);
+            }
+            requestAnimationFrame(record);
+          }),
+        mode,
+      );
+      const firstOutside = sample.points.find(
+        (p) => p.time > sample.crossedAt && p.phase !== 'feature',
+      );
+      assert.ok(firstOutside, 'the native scroll crosses the feature boundary');
+      assert.ok(
+        Math.hypot(firstOutside.x - sample.before.x, firstOutside.y - sample.before.y) < 35,
+        `${mode}: crossing continues from the last painted position`,
+      );
+      assert.ok(firstOutside.opacity > 0.5, `${mode}: the in-flight face remains visible`);
+      assert.equal(sample.points.at(-1).phase, mode === 'footer' ? 'footer' : 'to-feature');
+      handoffs.push(sample);
+    }
+    await writeFile(
+      resolve(reports, 'journey-handoff-frames.json'),
+      JSON.stringify(handoffs, null, 2),
+    );
+    await scrollScene(page, '#features', 1);
+    await page.clock.runFor(500);
+    await page.getByRole('tab', { name: '兼容集成', exact: true }).press('Home');
+    await page.clock.runFor(500);
+    assert.equal(await mascot.getAttribute('data-target'), 'feature-tab-outline');
+    for (const width of [1063, 896]) {
+      await page.setViewportSize({ width, height: width === 1063 ? 690 : 1079 });
+      await frames(page);
+      await scrollScene(page, '#features', 0);
+      await page.clock.runFor(500);
+      const face = await mascot.locator('svg').boundingBox();
+      const icon = await page.locator('#feature-tab-outline svg').boundingBox();
+      const tab = await page.locator('#feature-tab-outline').boundingBox();
+      assert.ok(
+        face.x >= 0 && face.x + face.width < icon.x,
+        'narrow desktop landing stays visible and clears the functional icon',
+      );
+      assert.ok(
+        face.x + face.width < tab.x - 6,
+        'the mascot also clears the keyboard focus outline',
+      );
+      await page.screenshot({ path: resolve(reports, `journey-user-${width}.png`) });
+    }
+    await page.getByRole('button', { name: '切换为深色', exact: true }).click();
+    await page.clock.runFor(500);
+    await page.screenshot({ path: resolve(reports, 'journey-dark.png') });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.waitForFunction(
+      () => document.querySelector('#main').dataset.brandJourney === 'static',
+    );
+    assert.equal(await main.getAttribute('data-brand-journey'), 'static');
+    assert.equal(await mascot.evaluate((el) => getComputedStyle(el).display), 'none');
+  } finally {
+    await page.close();
+  }
+});
+
+test('compact pages keep normal flow and still finish the footer wordmark', async () => {
+  const page = await newPage({
+    viewport: { width: 390, height: 844 },
+    reducedMotion: 'no-preference',
+  });
+  try {
+    await page.clock.install();
+    await page.goto(`${base}/?lang=en`);
+    await page.clock.runFor(7200);
+    assert.equal(await page.locator('#main').getAttribute('data-brand-journey'), 'static');
+    await page.screenshot({ path: resolve(reports, 'journey-mobile.png') });
+    await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));
+    await frames(page);
+    await page.clock.runFor(3200);
+    assert.equal(await page.locator('#install').getAttribute('data-brand-rest'), 'true');
+    await page.waitForFunction(
+      () =>
+        new DOMMatrix(getComputedStyle(document.querySelector('.closing-counter')).transform).a >
+        0.99,
+    );
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    await page.screenshot({ path: resolve(reports, 'journey-mobile-footer.png') });
+  } finally {
+    await page.close();
+  }
+});
 
 test('the opening fits a complete display, retracts its stand and tours placements and materials', async () => {
   const page = await newPage({
@@ -325,6 +581,154 @@ const names = [
   '提示词优化',
   '兼容集成',
 ];
+test('shared menu controls preserve the tour and the tablet clips the same live workspace', async () => {
+  const page = await newPage({
+    viewport: { width: 924, height: 1079 },
+    reducedMotion: 'no-preference',
+  });
+  try {
+    await page.goto(`${base}/?lang=zh-CN`);
+    await scrollScene(page, '.opening-story', 0.8 / 3.5);
+    await page.getByRole('button', { name: '演示侧栏', exact: true }).click();
+    const draft = page.locator('.layout-demo-host-composer textarea');
+    await draft.fill('保留菜单操作前的草稿');
+    const mode = page.getByLabel('演示字号模式', { exact: true });
+    assert.equal(await mode.evaluate((el) => getComputedStyle(el).appearance), 'base-select');
+    await mode.click();
+    await page.waitForFunction(() =>
+      document.querySelector('[aria-label="演示字号模式"]')?.matches(':open'),
+    );
+    const menu = await mode.evaluate((el) => {
+      const picker = getComputedStyle(el, '::picker(select)');
+      return {
+        background: picker.backgroundColor,
+        width: parseFloat(picker.width),
+        trigger: el.getBoundingClientRect().width,
+        options: [...el.options].map((option) => ({
+          height: option.getBoundingClientRect().height,
+          width: option.getBoundingClientRect().width,
+        })),
+      };
+    });
+    assert.equal(menu.background, 'rgb(255, 255, 255)');
+    assert.ok(Math.abs(menu.width - menu.trigger) < 1);
+    assert.ok(
+      menu.options.every((option) => option.height < 44),
+      'short menu options stay on one line',
+    );
+    await page.screenshot({ path: resolve(reports, 'alignment-menu-924.png') });
+    await page.keyboard.press('Escape');
+    assert.equal(await mode.evaluate((el) => document.activeElement === el), true);
+    await mode.click();
+    await page.getByRole('option', { name: '自定字号', exact: true }).click();
+    await page.getByLabel('演示自定字号').selectOption('18');
+    assert.equal(await draft.inputValue(), '保留菜单操作前的草稿');
+    assert.equal(
+      await page.locator('.layout-demo-canvas').getAttribute('data-demo-placement'),
+      'sidebar',
+    );
+    // A closed picker may keep focus; deliberate wheel input must release the tour.
+    assert.equal(await mode.evaluate((el) => el.matches(':open')), false);
+    await page.mouse.move(20, 600);
+    await page.mouse.wheel(0, 1);
+    await scrollScene(page, '.opening-story', 0.7);
+    await page.waitForFunction(
+      () =>
+        Number(
+          document.querySelector('.surface-story').style.getPropertyValue('--material-progress'),
+        ) > 0.5,
+    );
+    assert.equal(await page.getByLabel('演示自定字号').inputValue(), '18');
+    await scrollScene(page, '.opening-story', 0.8 / 3.5);
+    await page.getByRole('button', { name: '重置预览', exact: true }).click();
+    await frames(page);
+    await page.screenshot({ path: resolve(reports, 'alignment-sidebar-924.png') });
+    const workspace = await page.locator('.layout-demo-window').elementHandle();
+    await page.getByRole('button', { name: '演示移到副屏', exact: true }).click();
+    await page.waitForFunction(
+      () => Number(document.querySelector('.layout-demo-window').getAttribute('x')) === 754,
+    );
+    const corners = await page.locator('.layout-demo-window').evaluate((el) => {
+      const clip = el.querySelector('[data-device-viewport]');
+      const screen = document.querySelector('.demo-tablet-screen');
+      const box = el.getBoundingClientRect();
+      return {
+        radius: clip.dataset.screenRadius,
+        screenRadius: screen.getAttribute('rx'),
+        corner: clip.contains(document.elementFromPoint(box.x + 1, box.y + 1)),
+        center: clip.contains(
+          document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2),
+        ),
+        bounds: box.toJSON(),
+        hit: document
+          .elementFromPoint(box.x + box.width / 2, box.y + box.height / 2)
+          ?.outerHTML.slice(0, 300),
+      };
+    });
+    await page.screenshot({ path: resolve(reports, 'alignment-tablet-924.png') });
+    await writeFile(resolve(reports, 'alignment-corners.json'), JSON.stringify(corners, null, 2));
+    assert.equal(corners.radius, corners.screenRadius);
+    assert.ok(Number(corners.radius) > 10);
+    assert.equal(
+      corners.corner,
+      false,
+      'square content cannot paint or receive input through a rounded corner',
+    );
+    assert.equal(corners.center, true, 'the clipped live workspace remains interactive');
+    await page
+      .locator('.layout-demo-window')
+      .getByRole('button', { name: '拆解第一版', exact: true })
+      .click();
+    assert.ok((await page.locator('.layout-demo-window textarea').inputValue()).includes('作品集'));
+    assert.equal(
+      await workspace.evaluate((el) => el === document.querySelector('.layout-demo-window')),
+      true,
+    );
+    assert.equal(await draft.inputValue(), '保留菜单操作前的草稿');
+    await page.screenshot({ path: resolve(reports, 'alignment-tablet-924.png') });
+    await page.getByRole('button', { name: '切换为深色', exact: true }).click();
+    await page.screenshot({ path: resolve(reports, 'alignment-tablet-dark.png') });
+    await page.getByRole('button', { name: 'Switch to English', exact: true }).click();
+    await page.getByRole('button', { name: 'Preview sidebar', exact: true }).click();
+    await frames(page);
+    await page.waitForFunction(() =>
+      [...document.querySelectorAll('.settings-segment-indicator')].every((el) =>
+        el.getAnimations().every((animation) => animation.playState !== 'running'),
+      ),
+    );
+    await page.screenshot({ path: resolve(reports, 'alignment-sidebar-en.png') });
+    const englishMode = page.getByLabel('Demo font sizing', { exact: true });
+    await englishMode.click();
+    await page.waitForFunction(() =>
+      document.querySelector('[aria-label="Demo font sizing"]')?.matches(':open'),
+    );
+    await page.screenshot({ path: resolve(reports, 'alignment-menu-en.png') });
+    assert.ok(
+      await englishMode.evaluate((el) =>
+        [...el.options].every((option) => option.getBoundingClientRect().height < 44),
+      ),
+      'English menu options also stay on one line',
+    );
+    await page.keyboard.press('Escape');
+    await page.setViewportSize({ width: 390, height: 844 });
+    await scrollScene(page, '.opening-story', 0.8 / 3.5);
+    await page.locator('.workspace-placement-select select').selectOption('sidebar');
+    await englishMode.click();
+    await page.waitForFunction(() =>
+      document.querySelector('[aria-label="Demo font sizing"]')?.matches(':open'),
+    );
+    await page.screenshot({ path: resolve(reports, 'alignment-menu-mobile.png') });
+    const menuBounds = await englishMode.evaluate((el) =>
+      [...el.options].map((option) => option.getBoundingClientRect().toJSON()),
+    );
+    assert.ok(
+      menuBounds.every((box) => box.left >= 0 && box.right <= 390),
+      'the mobile picker stays in the viewport',
+    );
+  } finally {
+    await page.close();
+  }
+});
 async function site(options = {}, language = 'zh-CN', clock = false) {
   const page = await newPage({
     locale: language,
@@ -497,6 +901,7 @@ test('outline and next step run the settings preview commands in memory', async 
   try {
     const outline = panel(page, 'outline');
     assert.equal(await outline.locator('.csw-outline-row[data-outline-id]').count(), 9);
+    assert.equal(await outline.getByRole('listitem').getByRole('button').count(), 9);
     const before = await page.evaluate(() => scrollY);
     await outline.locator('[data-outline-id="1:mobile"]').click();
     await outline
@@ -855,3 +1260,27 @@ for (const [width, height, language] of [
     }
   });
 }
+
+test('narrow model previews label each reasoning choice beside its model', async () => {
+  const page = await newPage({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
+  try {
+    await page.goto(`${base}/?lang=zh-CN`);
+    await page.getByRole('tab', { name: '模型切换', exact: true }).click();
+    const panel = page.locator('#feature-panel-model');
+    const high = panel.getByRole('button', { name: '模型 A · High', exact: true });
+    await high.focus();
+    await frames(page);
+    assert.equal(await high.evaluate((el) => getComputedStyle(el, '::after').content), '"High"');
+    const name = await panel.locator('.model-name').first().boundingBox();
+    assert.ok(name.x >= 0 && name.x + name.width <= 390, 'model names remain beside their choices');
+    assert.equal(
+      await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
+      false,
+    );
+    await high.press('Enter');
+    assert.equal(await high.getAttribute('aria-pressed'), 'true');
+    await page.screenshot({ path: resolve(reports, 'review-model-mobile.png') });
+  } finally {
+    await page.close();
+  }
+});

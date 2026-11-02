@@ -7,7 +7,9 @@ import { SiteTheme } from './theme';
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 import { Icon } from '../shared/icons/react';
-import { PalbooWordmark } from '../shared/brand';
+import { ClosingWordmark } from './closing-wordmark';
+import { BrandJourney } from './brand-journey';
+import './brand-journey.css';
 import { OpeningStory } from './story';
 import { GithubLink, type GithubLinkVariant } from './github-link';
 import { FeatureShowcase } from './feature-showcase';
@@ -29,7 +31,7 @@ export function App({ githubVariant }: { githubVariant?: GithubLinkVariant }) {
         <section id="install" className="install is-compact" aria-labelledby="install-title">
           <div className="install-inner page-width">
             <div>
-              <PalbooWordmark className="install-wordmark" />
+              <ClosingWordmark />
               <h2 id="install-title">{tr('下一次对话，让 Palboo 陪你一起。')}</h2>
               <p className="install-platform">macOS 14+ · Apple Silicon</p>
             </div>
@@ -57,6 +59,7 @@ export function App({ githubVariant }: { githubVariant?: GithubLinkVariant }) {
             </div>
           </div>
         </section>
+        <BrandJourney />
       </main>
     </>
   );

@@ -10,6 +10,15 @@
   --buddy-surface: var(--site-surface);
   --buddy-subtle: var(--site-input);
   --buddy-focus: var(--site-text);
+  --buddy-input: var(--site-input);
+  --settings-control-radius: 6px;
+  --settings-control-height: 40px;
+  --settings-control-hover: color-mix(in srgb, var(--site-text) 8%, var(--site-page));
+  --settings-menu-surface: var(--site-surface);
+  --settings-menu-shadow: 0 4px 16px #0002;
+  --settings-selected: var(--site-input);
+  --settings-selected-text: var(--site-text);
+  --settings-segmented: var(--site-input);
   --settings-glass-highlight: #ffffffb3;
   --paper: var(--site-surface);
   --ink: var(--site-text);
@@ -61,13 +70,26 @@
   border-radius: var(--buddy-radius-small);
   font-size: 15px;
 }
-.site-settings-demo .preview-selector button[aria-pressed='true'],
-.choice-row button[aria-pressed='true'] {
+.site-settings-demo [data-settings-segmented] > button[aria-pressed='true'] {
   color: var(--site-text);
-  background: var(--site-input);
+  background: transparent;
 }
-.site-settings-demo .preview-selector button[aria-pressed='true'] {
-  background: var(--site-surface);
+.material-choice-line .settings-liquid-toggle {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  color: var(--site-muted);
+  background: transparent;
+}
+.material-choice-line .settings-liquid-toggle[aria-pressed='true'] {
+  color: var(--site-accent);
+}
+.material-choice-line .settings-liquid-toggle:hover {
+  background: var(--site-input);
 }
 .site-settings-demo .layout-demo-reset {
   min-height: 40px;
