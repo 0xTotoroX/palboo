@@ -9,6 +9,7 @@ import { setLocale, getLocale } from '../shared/i18n.js';
 import { useLocale } from '../shared/use-locale';
 import { StrictMode, useEffect, useState } from 'react';
 import { BotSettings, BotSetupInstructions, type BotCatalog } from './bot-settings';
+import { WebLibrarySettings } from './web-library-settings';
 import { TerminologySettings } from './terminology-settings';
 import { createRoot } from 'react-dom/client';
 import '../shared/tokens.css';
@@ -126,6 +127,7 @@ function App() {
   const [modelEnablement, setModelEnablement] = useState<HTMLDivElement | null>(null);
   const [termEnablement, setTermEnablement] = useState<HTMLDivElement | null>(null);
   const [hostEnablement, setHostEnablement] = useState<HTMLDivElement | null>(null);
+  const [siteEnablement, setSiteEnablement] = useState<HTMLDivElement | null>(null);
   const contentRef = useSettingsMotion(page);
   const tasks = useTasks(live);
   const common = page === 'features';
@@ -297,6 +299,7 @@ function App() {
                   />
                 </div>
                 <div id="settings-prompt-enhancement-enabled">
+                  <div ref={setSiteEnablement} />
                   <FeatureSwitch
                     name={pageTitles['prompt-enhancement']}
                     checked={editor.form?.promptEnhancementEnabled ?? true}
@@ -333,6 +336,11 @@ function App() {
                 onSnapshot={setBots}
                 live={live}
                 editor={editor}
+              />
+              <WebLibrarySettings
+                live={live}
+                active={page === 'sites'}
+                enablementTarget={siteEnablement}
               />
               <section
                 data-settings-page="surfaces"

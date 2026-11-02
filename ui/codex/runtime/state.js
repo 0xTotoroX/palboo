@@ -356,6 +356,7 @@ function runtimeEnabled(settings = runtimeState.settings) {
     settings?.grokbotEnabled === true ||
     settings?.terminologyEnabled === true ||
     settings?.modelControlEnabled === true ||
+    settings?.webLibraryEnabled === true ||
     settings?.taskBoardEnabled === true ||
     stepwiseEnabled(settings) ||
     quickPromptsEnabled(settings) ||

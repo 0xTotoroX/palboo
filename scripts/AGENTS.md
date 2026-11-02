@@ -75,8 +75,11 @@ verify 追加 config-cli.mjs，以隔离真实后台验证配置命令与数据�
 发布流程在完整验证、打包及建立草稿后停止，公开须由用户审阅具体说明与附件后单独授权；历史版本仅准备标题和说明修订，安装附件与标签保持。Dev 监督进程将 dev-sources.js 打包为独立 IIFE，再注入跨来源的稳定设置页面；先完成运行中后台与宿主发现检查，保持原有失败边界。原生 App 启动器读取已保存界面语言，缺省按系统语言显示错误与按钮。
 
 dev-host 暂停安装版前将原先打开的 edge 功能 ID 写入恢复记录，以 owner 校验关闭；停止 Dev 后仅在原连接 reveal 原功能，保留关闭/位置/业务偏好，不把已关闭功能一起打开。涉及 edge 的在途交接阻止接管；恢复须等功能 ready 后才删除记录，失败或异常中断保留恢复记录。
+
 - [app-mode.mjs](app-mode.mjs)：统一模式的一次性开发适配，按保存 worktree 编译再复用现有 Dev 监督进程；固定宿主目标、受限准备时间、私有请求/结果，不维护新常驻服务。Finder 启动补齐 Homebrew keg-only Rust 与 CARGO_HOME 工具路径，保留继承工具链优先级；准备或新建 Dev 前检查 npm/Cargo/rustc，不读取 shell 启动文件。
 
 开发设置入口保持宿主内：dev.mjs 初次打开和 dev-launcher --settings 都 POST 认证 `/api/settings/open`，等待宿主提交后返回，不调用系统 open；宿主不可用明确失败。稳定监督代理和来源校验保持原样。
 
 app-launcher 在正式/开发模式的暂停状态只报告恢复入口，不打开系统浏览器、不调用 start/reconnect，也不提供无关的回正式模式按钮；原连接及模式不变。
+
+verify 的网页产物检查包含 reader.html，完整验收执行 tests/web-library.mjs，报告在 target/reports/web-library；只使用合成库和独立浏览器配置。

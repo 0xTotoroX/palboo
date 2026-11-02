@@ -218,3 +218,5 @@ Tailwind Preflight 只进入设置文档。宿主页面、真实功能的 Shadow
 相关检查入口为 [settings-theme.test.mjs](tests/settings-theme.test.mjs)、[settings-select.test.mjs](tests/settings-select.test.mjs)、[settings-modes.test.mjs](tests/settings-modes.test.mjs) 及各功能测试。构建页面后再执行依赖构建产物的浏览器检查；纯文档变更只核对来源、链接和一致性，不以重跑运行测试代替内容审阅。
 
 长期归档位置由维护者本机 `buddy.docsPath` 定位，不写入公开路径。当前正文在仓库持续维护；归档保留替换前原文、新基线快照、源码身份和差异说明，明确冻结日期，不作为第二份持续修改的设计系统。
+
+网站是可选固定功能：入口列表复用功能容器和共享地球图标，目录授权与网站管理集中在设置页。阅读器使用独立本机网页，按当前宿主快照读取语义颜色，缺失时回退系统明暗；窄屏切换目录/正文。笔记正文保留可阅读的 Markdown 排版，无编辑控件。

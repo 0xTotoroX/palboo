@@ -130,6 +130,7 @@ export function SettingsOverview({
   const ui = view?.panelPreferences.ui;
   const enabled: Record<FeatureId, boolean> = {
     bots: settings.grokbotEnabled,
+    sites: settings.webLibraryEnabled === true,
     outline: settings.answerOutlineEnabled,
     next: settings.enabled,
     prompts: settings.quickPromptsEnabled,

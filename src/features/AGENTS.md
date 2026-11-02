@@ -27,3 +27,5 @@ main-placement 对相同目标的在途整组交接返回原快照，不新建 o
 LayoutPreset.scope 缺省 all，允许 sidebar/overlay/desktop；推荐标签不限制应用位置。main-preset-update 支持名称/标记局部更新，与旧 rename 共用修订和保存回滚；覆盖未传 scope 时保留原值。应用只替换 placement 对应布局，不覆盖其他形式。
 
 - `bot_reply.rs`：显式阅读时从本机当前账号的 transcript.replicas 读取所选 Bot，使用已验证目录的账号摘要、稳定 ID、名称和修订核对身份；校验 schema、roster 最新 entry 标记、消息顺序、回答分段边界和文件一致性。同次 request 的 send-message 正文完整拼接，附件单独标记；缓存缺失、过期或不完整时返回同步提示，不用摘要降级冒充全文。目录轮询不读取聊天，正文不写盘、不记录日志、不访问凭据或调用 BDK check。
+
+sites 是默认关闭的第八个固定功能，开关与目录/网站配置由 web_library 独立保存。读取仅投影网站名称/URL与是否配置库；动作沿 owner 校验交给宿主浏览器，不投影笔记正文。支持已有四种承载与启动/关闭状态恢复。

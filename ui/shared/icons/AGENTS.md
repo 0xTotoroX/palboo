@@ -2,7 +2,7 @@
 
 > L2 | 父级：[AGENTS.md](../AGENTS.md)
 
-- `features.js`：Palboo 自绘的七个功能图标，使用项目 GPL-3.0-only 许可；24×24 画布、1.8px 圆角描边，Bot 双眼为2.5px，颜色继承 currentColor。
+- `features.js`：Palboo 自绘的八个功能图标，使用项目 GPL-3.0-only 许可；24×24 画布、1.8px 圆角描边，Bot 双眼为2.5px，颜色继承 currentColor。
 - `index.js`：统一导出自绘功能与第三方控件的静态 SVG，供外壳、工作台、宿主窄入口与窗口控件使用；bolt 对应公开 Bolt.tsx，用于模型快切 Fast。
 - `index.d.ts`：共享 SVG 入口的 TypeScript 类型，供独立功能视图复用。
 - `LICENSE`：仅适用于 OpenAI 来源控件图标的原始 MIT 许可；分发许可生成器收集原文，自绘 features.js 遵循项目根许可。
@@ -38,3 +38,5 @@ theme-auto 摘取上述固定提交的 MoonSunSystem.tsx，日月组合表示“
 功能入口统一使用 feature-outline（层级大纲）、feature-next（水平右箭头）、feature-prompts（短句对话框）、feature-board（分栏看板）、feature-model（双方块双向切换）、feature-terms（词典）、feature-bots（对话双眼）。主工作台、贴边／刘海及设置预览通过 shared/features 的同一映射取图；旧 outline／next 保留为通用控件，不混入功能映射。
 
 website 为 Palboo 自绘地球；github 复用官网已引入的 Octicons mark-github-24 原几何，许可存于 octicons/LICENSE，完整 App 声明收录。GitHub 标记仅指向仓库，不作为 Palboo 品牌，不暗示合作。
+
+自绘 `feature-sites` 为网站地球图形，与其他功能图标同用24px画布、18px显示和1.8px描边；功能目录现为八项。

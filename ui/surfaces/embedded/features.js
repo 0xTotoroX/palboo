@@ -74,6 +74,7 @@ export async function reopenMainFeatures() {
     model: 'modelControlEnabled',
     terms: 'terminologyEnabled',
     bots: 'grokbotEnabled',
+    sites: 'webLibraryEnabled',
   };
   const closed = entries.filter((entry) => runtimeState.settings?.[switches[entry.id]] === true);
   if (!closed.length) return false;

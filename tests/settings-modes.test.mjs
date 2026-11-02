@@ -692,7 +692,7 @@ test(
       await category('features');
       assert.equal(await page.locator('.settings-mode').count(), 0);
       assert.equal(await page.getByRole('navigation', { name: '设置分类' }).isVisible(), true);
-      assert.equal(await page.getByRole('switch').count(), 9);
+      assert.equal(await page.getByRole('switch').count(), 10);
       const featureNames = await page
         .locator('.settings-feature-list .settings-feature-switch > label')
         .allTextContents();
@@ -857,7 +857,7 @@ test(
           assert.equal(await page.locator('.preview-scene[data-active="true"]').count(), 1);
         if (id === 'features') {
           assert.equal(await page.locator('.settings-preview').count(), 0);
-          assert.equal(await page.getByRole('switch').count(), 9);
+          assert.equal(await page.getByRole('switch').count(), 10);
           assert.equal(
             await page.getByRole('button', { name: '模型分组', exact: true }).isVisible(),
             false,
@@ -1446,7 +1446,7 @@ test(
         await page
           .locator('#feature-placements > .settings-feature-grid > .settings-feature-cell')
           .count(),
-        7,
+        8,
       );
       const neighborOffset = await page
         .locator('#placement-board')
@@ -1645,7 +1645,7 @@ test(
                 0,
                 'common switches have no preview',
               );
-              assert.equal(await page.getByRole('switch').count(), 9);
+              assert.equal(await page.getByRole('switch').count(), 10);
               const top = await page.locator('.settings-body').evaluate((node) => ({
                 body: node.getBoundingClientRect().top,
                 controls: node.querySelector('.settings-form-column').getBoundingClientRect().top,

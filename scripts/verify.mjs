@@ -72,7 +72,7 @@ export function prepareTestBinary(profile) {
   } catch {}
   if (
     !existsSync(binary) ||
-    ['index.html', 'board.html', 'feature.html'].some(
+    ['index.html', 'board.html', 'feature.html', 'reader.html'].some(
       (file) => !existsSync(join(root, 'target/web', file)),
     ) ||
     previous?.source !== source ||
@@ -113,6 +113,7 @@ async function verify() {
   run(process.execPath, ['tests/board.mjs'], env);
   run(process.execPath, ['tests/config-cli.mjs'], env);
   run(process.execPath, ['tests/features-e2e.mjs'], env);
+  run(process.execPath, ['tests/web-library.mjs'], env);
   run(process.execPath, ['tests/e2e.mjs'], env);
   run(process.execPath, ['tests/lifecycle-test.mjs'], env);
   if (process.argv.includes('--native')) run(process.execPath, ['tests/native-check.mjs'], env);

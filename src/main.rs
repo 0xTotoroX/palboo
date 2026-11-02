@@ -30,6 +30,7 @@ mod panel;
 mod panel_window;
 mod performance;
 mod prompt_enhancement;
+mod reader;
 mod requests;
 mod server;
 mod settings;
@@ -42,6 +43,7 @@ mod tasks;
 mod terminology;
 mod terminology_import;
 mod terminology_lookup;
+mod web_library;
 mod window_process;
 
 use anyhow::Result;

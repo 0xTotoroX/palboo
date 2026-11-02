@@ -1,6 +1,6 @@
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: 宿主公开 DOM 的右侧标签、插件菜单及当前聊天标识。
- * [OUTPUT]: Palboo 插件页签联动；设置入口只手动打开，Dev 试验可选择切换聊天后恢复。
+ * [OUTPUT]: Palboo 插件页签联动；设置/网站共用可见内置浏览器入口，Dev 试验可选择切换聊天后恢复。
  * [POS]: 最小宿主适配，不调用私有 IPC、不读取正文、不改变插件线程绑定。
  * [PROTOCOL]: 变更时同步 codex/AGENTS.md；真实宿主由用户手动验收。 */
 import { mainChatSessionId } from './context.js';
@@ -270,9 +270,21 @@ export function createPluginTabLink({ onOpened, onStatus, follow = true }) {
  * @param {string} url
  * @param {{signal?:AbortSignal,expectedSession?:string|null,isCurrent?:()=>boolean}} options
  */
-export async function openSettingsBrowser(
+export function openSettingsBrowser(url, options = {}) {
+  return openBrowser(url, options, true);
+}
+/** @param {string} url
+ * @param {{signal?:AbortSignal,expectedSession?:string|null,isCurrent?:()=>boolean}} options */
+export function openWebsiteBrowser(url, options = {}) {
+  return openBrowser(url, options, false);
+}
+/** @param {string} url
+ * @param {{signal?:AbortSignal,expectedSession?:string|null,isCurrent?:()=>boolean}} options
+ * @param {boolean} localOnly */
+async function openBrowser(
   url,
   { signal, expectedSession, isCurrent = () => true } = {},
+  localOnly = true,
 ) {
   let target;
   try {
@@ -281,12 +293,15 @@ export async function openSettingsBrowser(
     throw Error(tr('设置地址无效。'));
   }
   if (
-    target.protocol !== 'http:' ||
-    !['127.0.0.1', 'localhost'].includes(target.hostname) ||
+    (localOnly
+      ? target.protocol !== 'http:' || !['127.0.0.1', 'localhost'].includes(target.hostname)
+      : !['http:', 'https:'].includes(target.protocol)) ||
     target.username ||
     target.password
   )
-    throw Error(tr('设置地址必须是本机服务。'));
+    throw Error(
+      tr(localOnly ? '设置地址必须是本机服务。' : '网站仅支持无用户名和密码的 HTTP 或 HTTPS 地址'),
+    );
   let key = expectedSession || sessionKey();
   const deadline = Date.now() + 10000;
   const check = () => {

@@ -190,3 +190,6 @@ use-host-appearance 分别使用宿主 primary/navSelected/segmented/switchOn �
 大纲与提示词优化的介绍位于各自预览之后；提示词优化预览与其他预览同在 settings-body 的首部，保持独立挂载和本地草稿，不嵌在介绍之后的表单列。
 
 use-host-fonts 是 shared/host-fonts 的 React 文档适配器，settings/api 提供认证 HostFontSource，供设置与独立窗口入口共用；有效字体族未变时不重复加载，销毁回收自有字形。字体与字号表单、外观修订和保存范围不变。
+
+- `web-library-settings.tsx` / `web-library-settings.css`：网站功能开关、已发现库选择/手填目录、明确额外附件授权及网站添加/编辑/删除、搜索与拖动/键盘排序；使用独立修订，失败保留草稿。预览复用 SitesView，操作仅在内存中。
+- `reader.html`：独立阅读网页构建入口，由 reader 服务单独提供，不复用设置页认证。

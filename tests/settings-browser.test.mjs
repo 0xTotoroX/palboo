@@ -1,5 +1,5 @@
 /* [INPUT]: Host browser adapter and synthetic visible navigation controls.
- * [OUTPUT]: Local settings enter the host address bar; no external window fallback.
+ * [OUTPUT]: Local settings and validated custom websites enter the host address bar; no external window fallback.
  * [POS]: No real host, browser profile, settings token or network traffic.
  * [PROTOCOL]: Keep tests/AGENTS.md in sync. */
 import test from 'node:test';
@@ -9,7 +9,7 @@ import { chromium } from 'playwright';
 const compiled = await build({
   stdin: {
     contents:
-      "import {openSettingsBrowser} from './ui/codex/plugin-tab.js';window.openSettingsBrowser=openSettingsBrowser;",
+      "import {openSettingsBrowser,openWebsiteBrowser} from './ui/codex/plugin-tab.js';window.openSettingsBrowser=openSettingsBrowser;window.openWebsiteBrowser=openWebsiteBrowser;",
     resolveDir: process.cwd(),
   },
   bundle: true,
@@ -99,6 +99,21 @@ async function syntheticBrowser(t, setup) {
   await page.addScriptTag({ content: compiled.outputFiles[0].text });
   return page;
 }
+test('custom sites use a new in-app tab, while settings remain loopback-only', async (t) => {
+  const page = await syntheticBrowser(t);
+  assert.deepEqual(
+    await page.evaluate(() => window.openWebsiteBrowser('https://example.test/path?q=1')),
+    { status: 'submitted' },
+  );
+  assert.equal(await page.evaluate(() => window.submitted), 'https://example.test/path?q=1');
+  for (const url of [
+    'javascript:alert(1)',
+    'file:///etc/passwd',
+    'https://user:pass@example.test/',
+  ])
+    await assert.rejects(page.evaluate((url) => window.openWebsiteBrowser(url), url));
+  await assert.rejects(page.evaluate(() => window.openSettingsBrowser('https://example.test/')));
+});
 test('a browser tab named New tab is not the create-tab button', async (t) => {
   const page = await syntheticBrowser(t, () => {
     const existing = document.createElement('button');

@@ -37,6 +37,9 @@ export const pageTitles = {
     return tr('任务看板');
   },
   bots: 'Grok Bot',
+  get sites() {
+    return tr('网站');
+  },
   get 'model-control'() {
     return tr('模型切换');
   },
@@ -80,6 +83,7 @@ export const pageGroups: { title: string; pages: SettingsPage[] }[] = [
       'board',
       'model-control',
       'bots',
+      'sites',
       'prompt-enhancement',
       'codex-host',
     ],
@@ -103,6 +107,7 @@ const aliases: Record<string, SettingsPage> = {
   'model-organization': 'model-control',
   'settings-next': 'next',
   'settings-grokbot': 'bots',
+  'settings-sites': 'sites',
   'settings-board': 'board',
   'settings-tasks': 'board',
   'settings-directions': 'next',

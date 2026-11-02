@@ -28,8 +28,8 @@ mod layout_presets;
 mod main_surface;
 use main_surface::{FeatureLayout, MainSurface, SavedFeatures};
 
-pub const IDS: [&str; 7] = [
-    "outline", "board", "next", "prompts", "model", "terms", "bots",
+pub const IDS: [&str; 8] = [
+    "outline", "board", "next", "prompts", "model", "terms", "bots", "sites",
 ];
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase", deny_unknown_fields)]
@@ -265,7 +265,8 @@ impl App {
     }
     pub async fn set_feature_enabled(&self, id: &str, enabled: bool) -> Result<()> {
         if enabled
-            && (id == "bots"
+            && (id == "sites"
+                || id == "bots"
                 || id == "prompts"
                 || self.feature_managed(id).await
                 || self.main_features_managed().await)
@@ -439,6 +440,7 @@ impl App {
                 "terms" => crate::terminology::command(self, json!({"action":"view"})).await,
                 "board" => Ok(self.tasks.state().await),
                 "bots" => self.bot_view(None).await,
+                "sites" => Ok(self.web_library.view()),
                 "model" => self.model_control_state(false).await,
                 _ => {
                     let snapshot = if let Some(c) = self.desktop_client().await {
@@ -512,6 +514,9 @@ impl App {
                     self.model.read().await.options.grokbot_enabled,
                     "请先在设置中开启 Grok Bot"
                 );
+            }
+            if id == "sites" {
+                ensure!(self.web_library.enabled(), "请先在设置页开启网站");
             }
             if id == "model" {
                 ensure!(
@@ -696,6 +701,10 @@ impl App {
             }
             "board" => self.tasks.view_command(data).await,
             "bots" => self.bot_view(Some(data)).await,
+            "sites" => {
+                ensure!(self.web_library.enabled(), "网站功能已停用");
+                self.open_website(data["id"].as_str().unwrap_or("")).await
+            }
             "model" => match input["action"].as_str().unwrap_or("") {
                 "refresh" => {
                     ensure!(
@@ -880,6 +889,7 @@ impl App {
             ("board", board),
             ("terms", terminology),
             ("bots", bots),
+            ("sites", self.web_library.enabled()),
         ]
         .into_iter()
         .filter(|(id, enabled)| *enabled && !f.entries.contains_key(*id))

@@ -48,3 +48,5 @@ dock 复用 codex/page-context 的普通聊天、新聊天和 Dots 分类；后�
 features.js 在真实主界面头部安装共享 window-menu，侧栏/浮层提供预设选择、就地保存与宿主设置目的地；不传桌面 pin/lease。跟随状态更新菜单，编排/缩放/交接期间禁用，停止及重建时销毁监听。
 
 dock.js 显式收放以220ms宽度动画同步聊天占位；整个过程中保留同一内容节点与完整内容宽度，内容 inert。中途反向从当前宽度继续并缩短时长；完成、销毁、窗口尺寸/减少动态效果变化及键盘操作清理动画状态。首次挂载和临时不可用不补演动画。features.toggleFeatureDock 只更新期望状态，不先调用 reopen，避免收起前出现一次强制展开。
+
+features 的重开映射包含 sites/webLibraryEnabled，遵循原 owner 与开合协议。

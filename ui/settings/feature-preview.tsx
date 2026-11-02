@@ -9,6 +9,8 @@ import { Board } from '../features/board/app';
 import { type TaskRequest, type TaskState } from '../features/board/api';
 import type { BotCatalog } from './bot-settings';
 import { BotsView, type BotState } from '../features/bots/view';
+import { SitesView } from '../features/sites/view';
+import type { WebLibrary } from '../shared/web-library';
 import { TerminologyView } from '../features/terminology';
 import { sampleProjection, sampleTerms, createDemoTasks } from '../shared/demo-state';
 import { useLocale } from '../shared/use-locale';
@@ -22,7 +24,7 @@ import contentStyles from '../features/content.css?inline';
 import boardStyles from '../features/board/styles.css?inline';
 import botStyles from '../features/bots/style.css?inline';
 
-type Kind = 'outline' | 'next' | 'prompts' | 'board' | 'bots' | 'terms';
+type Kind = 'outline' | 'next' | 'prompts' | 'board' | 'bots' | 'terms' | 'sites';
 const theme = `
 :host{display:block;min-width:0;font:inherit;color-scheme:inherit;--paper:var(--buddy-surface);--surface:var(--paper);--ink:var(--buddy-text);--muted:var(--buddy-muted);--line:var(--buddy-border);--border:var(--line);--hover:var(--buddy-input);--accent:var(--buddy-focus);--danger:var(--error-foreground);--board-bg:transparent;--csw-text:var(--ink);--csw-muted:var(--muted);--csw-divider:var(--line);--csw-hover:var(--hover);--csw-accent:var(--accent);--csw-item-font:1em;--csw-chrome-font:1em;--csw-next-font:1em;--csw-outline-font:1em;--csw-label-weight:500;--feature-refresh-opacity:1;--board-font-size:1em}
 :host>div{height:var(--preview-feature-height,100%);min-height:0}
@@ -249,6 +251,7 @@ export function FeaturePreviewContent({
   view,
   tasks,
   bots = null,
+  sites = null,
   mode = 'example',
   headerActions,
 }: {
@@ -257,6 +260,7 @@ export function FeaturePreviewContent({
   view: View | null;
   tasks: TaskState | null;
   bots?: BotCatalog | null;
+  sites?: WebLibrary | null;
   mode?: 'current' | 'example';
   headerActions?: HTMLElement;
 }) {
@@ -290,7 +294,22 @@ export function FeaturePreviewContent({
         wideBoard={id === 'board' && !headerActions && tasks?.store.viewMode === 'expanded'}
       >
         {(header) =>
-          id === 'board' ? (
+          id === 'sites' ? (
+            <SitesView
+              state={
+                sites
+                  ? { enabled: sites.enabled, configured: !!sites.vault, sites: sites.sites }
+                  : null
+              }
+              open={async (id) => {
+                setDraft(
+                  id === 'obsidian'
+                    ? 'Obsidian'
+                    : sites?.sites.find((s) => s.id === id)?.name || '',
+                );
+              }}
+            />
+          ) : id === 'board' ? (
             <BoardPreview tasks={tasks} header={header} mode={mode} />
           ) : id === 'terms' ? (
             <TermPreview header={header} />

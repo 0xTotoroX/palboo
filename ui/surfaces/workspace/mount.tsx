@@ -58,6 +58,7 @@ export function mountFeature(
     'board',
     'model',
     'bots',
+    'sites',
     'terms',
   ].includes(initial.id)
     ? document.createElement('span')

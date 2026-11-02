@@ -64,6 +64,7 @@ export default defineConfig({
         index: fileURLToPath(new URL('index.html', import.meta.url)),
         board: fileURLToPath(new URL('board.html', import.meta.url)),
         feature: fileURLToPath(new URL('feature.html', import.meta.url)),
+        reader: fileURLToPath(new URL('reader.html', import.meta.url)),
       },
     },
     outDir: fileURLToPath(new URL('../../target/web', import.meta.url)),

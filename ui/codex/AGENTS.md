@@ -73,3 +73,5 @@ page-context 共用 contentKind/hostPageKind/hostPageAllowed，区分官方单�
 常用语以 quickPromptsEnabled 独立于 Stepwise 运行；contextMatches 的 answer=false 仅用于常用语聊天身份校验，保留运行代次、锁定来源与聊天身份约束，不要求回答哈希。普通建议继续验证回答身份。异步发送同时核对原聊天/输入目标及预设内容，已有草稿只追加。
 
 字体 tracker 的 snapshot 按 body/session/composer 分别防抖缓存并只读投影 sources；resolved 按目标窗口偏好只采对应来源，复用既有生命周期、不新增轮询。字体自定义仅作用于自有节点。
+
+plugin-tab 的 openWebsiteBrowser 与 openSettingsBrowser 共用可见宿主地址栏流程；前者允许无内嵌凭据的 HTTP(S)，设置包装器仍只接受本机 HTTP。只提交刚创建并唯一识别的标签，不覆盖已有页面；返回 submitted 不代表网页加载完成。

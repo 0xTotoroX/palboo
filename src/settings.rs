@@ -545,6 +545,7 @@ impl App {
             "terminologyEnabled": crate::terminology::enabled(&self.paths.root).unwrap_or(false),
             "terminologyImportsPending": crate::terminology_import::pending(&self.paths.root).unwrap_or(false),
             "modelControlEnabled": self.model_control.lock().await.preferences.enabled,
+            "webLibraryEnabled": self.web_library.enabled(),
             "provider": model.provider, "model": model.name,
             "baseUrl": model.base_url, "available": info.available, "reason": info.reason,
             "apiKeyConfigured": model.has_key() || model.provider == "codex" && info.available,

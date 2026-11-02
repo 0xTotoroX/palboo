@@ -26,6 +26,7 @@ Desktop windows use native macOS traffic-light controls and reuse the existing P
 | **Prompt enhancement**    | Refine a draft before sending, with the option to restore the original.                                                                 |
 | **Chat speed**            | Keep each model’s latest estimated speed across chats, labeled until a new reading arrives; inspect token usage when Codex provides it. |
 | **Grok Bot**              | Find your Bots and start a consultation in the current chat.                                                                            |
+| **Local reading & websites** | Read a local Obsidian vault with search, links and images; open saved websites inside ChatGPT. |
 
 ## Installation
 
@@ -122,6 +123,14 @@ Export includes personal additions, favorites, and mastered terms. Reset deletes
 - **System → Performance & switches** can pause the Codex connection while retaining settings, tasks, and drafts. Optional monitoring runs only while that page is visible.
 
 </details>
+
+### Local Obsidian and websites
+
+Enable **Features → Websites** to show the website launcher in Palboo. In **Websites**, select an existing Obsidian vault (or enter its folder), save, and click **Open reader**. Add folders outside the vault only when referenced images need them. Add your own HTTP(S) websites, edit or reorder them, then open them with one click in the connected ChatGPT desktop app’s built-in browser. No official plugin or public deployment is required.
+
+The reader supports title/path/full-text search, wikilinks and display aliases, heading/block links, backlinks, local images, and GFM tables/code. Duplicate links offer a choice. It reads files directly, including when Obsidian is closed; refresh or return to the reader to see saved changes. Notes and `.obsidian` stay unchanged. Palboo stores website preferences in its own data directory; the text index is in memory and reading positions are kept only for the reader session.
+
+The reader binds only to `127.0.0.1` on a separate port with a read-only token. Changing authorized folders invalidates old access links. Hidden files, symbolic links and files outside the approved roots are refused. Remote images load only when clicked; raw HTML/scripts and Obsidian plugins do not execute. Note embeds open as links; Dataview/Canvas are not rendered. Limits: 8 MB per note, 32 MB per image and 128 MB of indexed note text. Skipped notes are reported. Opening or searching does not invoke a model or attach note text to a chat.
 
 ## Maintenance and development
 

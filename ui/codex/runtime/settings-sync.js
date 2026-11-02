@@ -21,7 +21,7 @@ import {
   stepwiseEnabled,
   stepwiseGenerationMode,
 } from './state.js';
-import { openSettingsBrowser } from '../plugin-tab.js';
+import { openSettingsBrowser, openWebsiteBrowser } from '../plugin-tab.js';
 import { mainChatSessionId } from '../context.js';
 import { emitSignal } from './signals.js';
 import { resetStepwiseFeature } from '../next.js';
@@ -275,8 +275,14 @@ function cancelSettingsOpening() {
   runtimeState.settingsOpenStatus = '';
 }
 
-/** @param {{ section?: string }} [options] */
-function openSettings({ section } = {}) {
+/** @param {string} url */
+function openWebsite(url) {
+  if (settingsOpening)
+    return Promise.resolve({ ok: false, message: tr('浏览器正在打开网页，请稍后重试') });
+  return openSettings({ website: url });
+}
+/** @param {{ section?: string, website?: string }} [options] */
+function openSettings({ section, website } = {}) {
   if (!isCurrentRuntime()) return Promise.resolve({ ok: false, cancelled: true });
   if (settingsOpening) return settingsOpening.promise;
   const generation = runtimeState.runtimeGeneration;
@@ -285,21 +291,23 @@ function openSettings({ section } = {}) {
   const current = () => settingsOpening === operation && isCurrentRuntime(generation);
   settingsOpening = operation;
   runtimeState.settingsOpening = true;
-  runtimeState.settingsOpenStatus = tr('正在打开设置…');
+  runtimeState.settingsOpenStatus = tr(website ? '正在打开网页…' : '正在打开设置…');
   // 先发布共享 Promise，重入和连续点击都等待同一次操作。
   operation.promise = Promise.resolve().then(async () => {
     try {
-      const payload = await bridgeCall(
-        '/settings/open',
-        { inHostBrowser: true, ...(section ? { section } : {}) },
-        { signal: operation.controller.signal },
-      );
+      const payload = website
+        ? { status: 'ok', target: 'web', url: website }
+        : await bridgeCall(
+            '/settings/open',
+            { inHostBrowser: true, ...(section ? { section } : {}) },
+            { signal: operation.controller.signal },
+          );
       if (!current() || operation.controller.signal.aborted || payload?.cancelled)
         return { ok: false, cancelled: true };
       if (payload?.error) throw Error(payload.error);
       if (payload?.status !== 'ok' || payload.target !== 'web' || !payload.url)
         throw Error(payload?.message || tr('当前后台尚未提供内置浏览器设置入口。'));
-      const result = await openSettingsBrowser(payload.url, {
+      const result = await (website ? openWebsiteBrowser : openSettingsBrowser)(payload.url, {
         signal: operation.controller.signal,
         expectedSession,
         isCurrent: current,
@@ -329,6 +337,7 @@ function openSettings({ section } = {}) {
 }
 
 export {
+  openWebsite,
   cancelSettingsOpening,
   ensureSettings,
   loadSettings,

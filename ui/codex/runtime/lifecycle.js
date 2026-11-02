@@ -110,6 +110,7 @@ import {
   loadSettings,
   reloadSettings,
   openSettings,
+  openWebsite,
   scheduleSettingsSync,
   syncSettings,
 } from './settings-sync.js';
@@ -795,6 +796,7 @@ function install() {
     destroy,
     loadSettings,
     openSettings,
+    openWebsite,
     syncSettings,
     setOpen,
     setWorkbench,

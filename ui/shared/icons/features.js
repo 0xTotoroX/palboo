@@ -6,6 +6,7 @@
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
 export const featureGlyphs = {
+  'feature-sites': `<svg aria-hidden="true" data-icon="feature-sites" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="1em" height="1em" fill="none"><g stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><ellipse cx="12" cy="12" rx="3.5" ry="8.5"/><path d="M4 9h16M4 15h16"/></g></svg>`,
   'feature-outline': `<svg aria-hidden="true" data-icon="feature-outline" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="1em" height="1em" fill="none"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16M5 10v7a1 1 0 0 0 1 1h3M10 11h10M12 18h8"/></g></svg>`,
   'feature-prompts': `<svg aria-hidden="true" data-icon="feature-prompts" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="1em" height="1em" fill="none"><g stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4.5h12a2.5 2.5 0 0 1 2.5 2.5v8a2.5 2.5 0 0 1-2.5 2.5h-7l-5.5 3v-3A2.5 2.5 0 0 1 3.5 15V7A2.5 2.5 0 0 1 6 4.5Z"/><path d="M8 9h8M8 13h5"/></g></svg>`,
   'feature-next': `<svg aria-hidden="true" data-icon="feature-next" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="1em" height="1em" fill="none"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12h15M14.5 7l5 5-5 5"/></g></svg>`,

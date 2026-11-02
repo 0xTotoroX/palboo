@@ -2,7 +2,7 @@ import { SegmentedGroup } from './components/ui/segmented-group';
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: Shared preview frame, existing form snapshots, saved surfaces and feature layout.
- * [OUTPUT]: Linked diagrams and actual interactive feature components; connection settings use their own inline state rather than a duplicate overview.
+ * [OUTPUT]: Linked diagrams and actual interactive feature components; connection/sites settings own their inline state and preview without a duplicate overview.
  * [POS]: Settings presentation only; receives current local snapshots, never requests credentials or sends host commands.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 import { LayoutPreview } from './layout-preview';
@@ -185,7 +185,7 @@ export function SettingsPreview(props: PreviewProps) {
       ) : null,
     [form, view, tasks, bots, model],
   );
-  if (['connection', 'codex-host', 'prompt-enhancement'].includes(props.page)) return null;
+  if (['connection', 'codex-host', 'prompt-enhancement', 'sites'].includes(props.page)) return null;
   const workspace = props.page === 'surfaces' || props.page === 'appearance';
   return (
     <aside

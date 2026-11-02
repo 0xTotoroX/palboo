@@ -165,6 +165,7 @@ export interface Settings extends EditableSettings {
   presentationError?: string;
   taskBoardEnabled?: boolean;
   modelControlEnabled?: boolean;
+  webLibraryEnabled?: boolean;
   popoutSupported: boolean;
   apiKeyConfigured: boolean;
   storedApiKey: boolean;

@@ -1,0 +1,65 @@
+/* [INPUT]: Existing settings semantic tokens and site management controls.
+ * [OUTPUT]: Compact aligned website rows and explicit source grants.
+ * [POS]: Settings-only layout; no new theme or workspace shell.
+ * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
+.web-library-settings {
+  display: grid;
+  gap: 24px;
+  min-width: 0;
+}
+.web-library-settings[hidden] {
+  display: none;
+}
+.web-library-settings textarea {
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  background: var(--buddy-input);
+  border: 1px solid var(--buddy-border);
+  border-radius: var(--settings-control-radius);
+  padding: 8px 10px;
+  resize: vertical;
+}
+.web-library-list {
+  display: grid;
+  margin-top: 12px;
+}
+.web-library-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--buddy-border);
+}
+.web-library-row:last-child {
+  border: 0;
+}
+.web-library-open {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  padding: 4px 0;
+  font: inherit;
+}
+.web-library-open small {
+  display: block;
+  color: var(--buddy-muted);
+  font-size: 0.75em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.web-library-row > button:not(.web-library-open) {
+  flex: none;
+}
+.web-library-settings form {
+  margin: 16px 0;
+}
+.web-library-presets {
+  justify-content: flex-start;
+}

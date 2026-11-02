@@ -85,6 +85,12 @@ pub async fn serve(
     };
     write_private(&paths.runtime(), &serde_json::to_vec_pretty(&runtime)?)?;
     let app = App::new(paths.clone(), config, endpoint, allow_fixture);
+    let reader = crate::reader::start(
+        app.web_library.clone(),
+        app.closing.subscribe(),
+        app.views.subscribe(),
+    )
+    .await?;
     let state = Service {
         app: app.clone(),
         token: runtime.token.clone(),
@@ -108,6 +114,7 @@ pub async fn serve(
     watcher.abort();
     task_watcher.abort();
     term_watcher.abort();
+    reader.abort();
     app.stop_features().await;
     app.tasks.stop().await;
     app.disconnect().await;
@@ -127,6 +134,9 @@ async fn termination() {
 
 fn router(service: Service) -> Router {
     let api = Router::new()
+        .route("/web-library", get(web_library).post(save_web_library))
+        .route("/web-library/open", post(open_website))
+        .route("/web-library/reader", get(reader_destination))
         .route("/features", post(features))
         .route("/terminology", get(terminology_state).post(terminology))
         .route(
@@ -365,6 +375,47 @@ fn public_view(view: crate::state::View) -> Value {
 
 async fn settings(State(service): State<Service>) -> Json<Value> {
     Json(service.app.settings().await)
+}
+
+async fn web_library(State(service): State<Service>) -> Json<Value> {
+    Json(service.app.web_library.snapshot())
+}
+async fn save_web_library(
+    State(service): State<Service>,
+    Json(input): Json<crate::web_library::Update>,
+) -> Result<Json<Value>, ApiError> {
+    Ok(Json(service.app.save_web_library(input).await?))
+}
+async fn open_website(
+    State(service): State<Service>,
+    Json(input): Json<Value>,
+) -> Result<Json<Value>, ApiError> {
+    Ok(Json(
+        service
+            .app
+            .open_website(input["id"].as_str().unwrap_or(""))
+            .await?,
+    ))
+}
+async fn reader_destination(State(service): State<Service>) -> Result<Json<Value>, ApiError> {
+    Ok(Json(
+        json!({"url":service.app.web_library.destination("obsidian")?}),
+    ))
+}
+pub(crate) fn reader_asset(path: &str) -> Response {
+    let Some(asset) = Assets::get(path) else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    let mime = if path.ends_with(".html") {
+        "text/html; charset=utf-8"
+    } else if path.ends_with(".js") {
+        "text/javascript; charset=utf-8"
+    } else if path.ends_with(".css") {
+        "text/css; charset=utf-8"
+    } else {
+        "application/octet-stream"
+    };
+    ([(header::CONTENT_TYPE, mime)], asset.data.to_vec()).into_response()
 }
 
 async fn open_settings(

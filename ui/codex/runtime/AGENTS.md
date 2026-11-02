@@ -94,3 +94,5 @@ lifecycle 将主功能交接状态传给左栏菜单，交接期间内/外及往
 公开运行接口导出 openSettings，供后台统一设置导航调用；宿主桥只返回本机目的地，不外跳系统浏览器。presentation 消费共享 systemLanguage，不修改宿主 document.lang。
 
 lifecycle 停用与销毁时调用 disposePopoutFonts，取消旧浮窗字体读取并回收自有 FontFace；不触碰宿主文档的字形资源。
+
+lifecycle 公开 openWebsite，网站与设置共用单飞、取消和运行期身份保护；网站点击由后台提供已校验的目的地，不调用模型。webLibraryEnabled 独立参与入口启停，不启动回答扫描。

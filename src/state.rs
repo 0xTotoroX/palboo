@@ -66,6 +66,7 @@ struct Desired {
 }
 
 pub struct App {
+    pub(crate) web_library: Arc<crate::web_library::Library>,
     pub(crate) model_requests: crate::model_requests::Requests,
     pub(crate) performance: Mutex<crate::performance::Monitor>,
     pub(crate) surfaces: Mutex<crate::surfaces::Surfaces>,
@@ -114,6 +115,7 @@ impl App {
         let model_control = crate::model_control::Control::load(&paths);
         let mut panel = crate::panel::Panel::load(&paths, allow_fixture);
         let mut features = crate::features::Features::load(&paths);
+        let web_library = crate::web_library::Library::load(&paths);
         if panel.prefs.startup.mode != "restore" {
             let terms = crate::terminology::library(&paths.root).is_ok_and(|v| !v.is_empty());
             features.apply_startup(
@@ -123,6 +125,7 @@ impl App {
                     ("next", model.options.enabled),
                     ("prompts", model.options.quick_prompts_enabled),
                     ("bots", model.options.grokbot_enabled),
+                    ("sites", web_library.enabled()),
                     (
                         "board",
                         tasks
@@ -161,6 +164,7 @@ impl App {
             settings_appearance: Value::Null,
         });
         Arc::new(Self {
+            web_library,
             performance: Mutex::new(crate::performance::Monitor::default()),
             surfaces: Mutex::new(crate::surfaces::Surfaces::load(&paths)),
             features: Mutex::new(features),

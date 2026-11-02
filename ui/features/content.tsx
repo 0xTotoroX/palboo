@@ -6,6 +6,8 @@ import { tr } from '../shared/i18n.js';
  * [PROTOCOL]: Keep AGENTS.md in this module in sync. */
 import { useCallback, useRef } from 'react';
 import { BotsView, type BotState } from './bots/view';
+import { SitesView } from './sites/view';
+import type { SiteState } from '../shared/web-library';
 import type { BotReply } from './bots/messages';
 import { Board } from './board/app';
 import { TerminologyView, type TermData } from './terminology';
@@ -82,6 +84,18 @@ export function FeatureContent({
             update(result);
             return result;
           });
+        }}
+      />
+    );
+  if (id === 'sites')
+    return (
+      <SitesView
+        state={value as SiteState | null}
+        disabled={locked || !connected}
+        reading={reading}
+        open={async (id) => {
+          const result = await operation(() => call('action', { data: { id } }), true);
+          if (!result) throw Error(tr('功能正在交接，请稍后重试'));
         }}
       />
     );
