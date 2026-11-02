@@ -72,7 +72,7 @@ function Contents({
               title={note.id}
               onClick={() => open(note.id)}
             >
-              <Icon name="reader-note" />
+              <Icon name={note.kind === 'spreadsheet' ? 'reader-sheet' : 'reader-note'} />
               <span className="reader-row-name">{note.title}</span>
             </button>
           </li>

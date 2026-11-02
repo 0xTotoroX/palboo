@@ -1,5 +1,5 @@
 // [INPUT]: Explicit local vault/attachment grants, saved website URLs and the host browser adapter.
-// [OUTPUT]: Revisioned local website preferences and an isolated read-only reader service.
+// [OUTPUT]: Revisioned local website preferences and an isolated reader/editor service with a stable local endpoint.
 // [POS]: Business state for the optional sites feature; never writes to a vault or sends note text to a model.
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 use crate::{
@@ -39,10 +39,17 @@ pub struct Update {
     pub attachments: Option<Vec<PathBuf>>,
     pub sites: Option<Vec<Site>>,
 }
-#[derive(Default)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct ReaderEndpoint {
     pub port: u16,
     pub token: String,
+}
+#[derive(Serialize, Deserialize)]
+struct SavedReaderEndpoint {
+    revision: u64,
+    vault: Option<PathBuf>,
+    attachments: Vec<PathBuf>,
+    endpoint: ReaderEndpoint,
 }
 pub struct Library {
     pub preferences: Mutex<Preferences>,
@@ -81,16 +88,40 @@ impl Library {
             .canonicalize()
             .unwrap_or_else(|_| paths.root.clone())
             .join("web-library.json");
-        let preferences = std::fs::read(&path)
+        let preferences: Preferences = std::fs::read(&path)
             .ok()
             .and_then(|v| serde_json::from_slice(&v).ok())
+            .unwrap_or_default();
+        let endpoint = std::fs::read(path.with_file_name("reader-runtime.json"))
+            .ok()
+            .and_then(|bytes| serde_json::from_slice::<SavedReaderEndpoint>(&bytes).ok())
+            .filter(|saved| {
+                saved.revision == preferences.revision
+                    && saved.vault == preferences.vault
+                    && saved.attachments == preferences.attachments
+                    && saved.endpoint.port > 0
+                    && saved.endpoint.token.len() == 32
+            })
+            .map(|saved| saved.endpoint)
             .unwrap_or_default();
         Arc::new(Self {
             preferences: Mutex::new(preferences),
             index: Mutex::new(Default::default()),
-            endpoint: Mutex::new(Default::default()),
+            endpoint: Mutex::new(endpoint),
             path,
         })
+    }
+    pub(crate) fn persist_endpoint(
+        &self,
+        p: &Preferences,
+        endpoint: &ReaderEndpoint,
+    ) -> Result<()> {
+        write_private(
+            &self.path.with_file_name("reader-runtime.json"),
+            &serde_json::to_vec(
+                &json!({"revision":p.revision,"vault":p.vault,"attachments":p.attachments,"endpoint":endpoint}),
+            )?,
+        )
     }
     pub fn enabled(&self) -> bool {
         self.preferences.lock().unwrap().enabled
@@ -171,7 +202,13 @@ impl Library {
         let result = serde_json::to_value(&*p)?;
         // Grant snapshots and their credential change together under the preference lock.
         if roots_changed {
-            self.endpoint.lock().unwrap().token = uuid::Uuid::new_v4().simple().to_string();
+            let mut endpoint = self.endpoint.lock().unwrap();
+            endpoint.token = uuid::Uuid::new_v4().simple().to_string();
+            // A stale persisted grant is ignored on restart; live access is already revoked.
+            let _ = self.persist_endpoint(&p, &endpoint);
+        }
+        if !roots_changed {
+            let _ = self.persist_endpoint(&p, &self.endpoint.lock().unwrap());
         }
         drop(p);
         if roots_changed {

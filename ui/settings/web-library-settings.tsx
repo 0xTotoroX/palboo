@@ -232,7 +232,7 @@ export function WebLibrarySettings({
             />
           </Field>
           <p className="settings-hint">
-            {tr('仅本机访问，不修改笔记。切换授权目录后，需要重新打开阅读器。')}
+            {tr('仅本机访问。编辑 Markdown 后自动保存到原文件，表格仅供预览。')}
           </p>
           <div className="settings-actions">
             {rootDraft.current && state && rootDraft.current.revision !== state.revision && (

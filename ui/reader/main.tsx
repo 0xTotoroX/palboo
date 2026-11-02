@@ -1,10 +1,12 @@
 /* [INPUT]: Reader-only API, safe Markdown renderer, note tree and browser navigation.
- * [OUTPUT]: Local search, article reading, backlinks, TOC, history and session reading positions.
+ * [OUTPUT]: Collapsible navigation, note reading/editing, spreadsheet previews, links and reading positions.
  * [POS]: Standalone document opened in ChatGPT; no settings token, composer access or AI calls.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { createRoot } from 'react-dom/client';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { read, type Catalog, type Note, type Summary, type Search } from './api';
+import { read, write, type Catalog, type Note, type Summary, type Search } from './api';
+import { NoteEditor, useNoteEditor } from './editor';
+import { Spreadsheet } from './spreadsheet';
 import { NoteMarkdown, anchorKey, decodeLink } from './markdown';
 import { NoteTree } from './tree';
 import { Icon } from '../shared/icons/react';
@@ -47,7 +49,21 @@ function Reader() {
   const [error, setError] = useState('');
   const [searchError, setSearchError] = useState('');
   const [busy, setBusy] = useState(false);
-  const [menu, setMenu] = useState(false);
+  const [menu, setMenu] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('palboo-reader-sidebar');
+      if (saved !== null) return saved === 'true';
+    } catch {}
+    return !matchMedia('(max-width: 640px)').matches;
+  });
+  const editor = useNoteEditor(setNote);
+  const navigation = useRef(false);
+  const selectedDocument = catalog?.notes.find((item) => item.id === selected);
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('palboo-reader-sidebar', String(menu));
+    } catch {}
+  }, [menu]);
   const [toc, setToc] = useState<{ id: string; text: string; level: number }[]>([]);
   const [choices, setChoices] = useState<{ notes: Summary[]; anchor: string } | null>(null);
   const article = useRef<HTMLElement>(null);
@@ -99,7 +115,11 @@ function Reader() {
     };
   }, [refresh]);
   useEffect(() => {
-    const change = () => {
+    const change = async () => {
+      if (!(await editor.finish())) {
+        history.pushState(null, '', `?note=${encodeURIComponent(selectedRef.current)}`);
+        return;
+      }
       remember();
       pendingAnchor.current = decodeLink(location.hash.slice(1));
       const id = new URLSearchParams(location.search).get('note') || '';
@@ -118,14 +138,15 @@ function Reader() {
     };
   }, [remember]);
   useEffect(() => {
-    if (!selected || !catalog) {
+    if (editor.activeRef.current) return;
+    if (!selected || !catalog || selectedDocument?.kind === 'spreadsheet') {
       setNote(null);
       return;
     }
     const controller = new AbortController();
     readingReady.current = false;
     setError('');
-    setNote(null);
+    setNote((current) => (current?.id === selected ? current : null));
     void read<Note>('note', { id: selected }, controller.signal)
       .then((value) => {
         if (!controller.signal.aborted) setNote(value);
@@ -189,16 +210,21 @@ function Reader() {
     else article.current.scrollTop = positions.current[note.id] || 0;
     readingReady.current = true;
     document.title = `${note.title} · Palboo`;
-  }, [note]);
+  }, [note, editor.active]);
   useEffect(() => {
     if (choices) chooser.current?.showModal();
     else chooser.current?.close();
   }, [choices]);
-  function open(id: string, anchor = '') {
+  async function open(id: string, anchor = '') {
+    if (navigation.current) return;
+    navigation.current = true;
+    const saved = await editor.finish();
+    navigation.current = false;
+    if (!saved) return;
     remember();
     linkRequest.current?.abort();
     setChoices(null);
-    setMenu(false);
+    if (matchMedia('(max-width: 640px)').matches) setMenu(false);
     setError('');
     history.pushState(
       null,
@@ -234,86 +260,110 @@ function Reader() {
   }
   return (
     <div className="reader-app" data-menu={menu}>
-      <header className="reader-header">
-        <button
-          className="reader-nav-toggle"
-          aria-label={tr('目录与搜索')}
-          aria-expanded={menu}
-          onClick={() => setMenu(!menu)}
-        >
-          <Icon name="search" />
-        </button>
-        <strong>{catalog?.name || 'Obsidian'}</strong>
-        <span>{tr('只读')}</span>
-        <button
-          aria-label={tr('刷新')}
-          disabled={busy}
-          onClick={() => {
-            remember();
-            void refresh();
-          }}
-        >
-          <Icon name="refresh" />
-        </button>
-      </header>
       <aside className="reader-sidebar" aria-label={tr('目录与搜索')}>
-        <label className="reader-search">
-          <Icon name="search" />
-          <input
-            type="search"
-            aria-label={tr('搜索笔记')}
-            placeholder={tr('搜索笔记')}
-            title={tr('搜索标题、路径和正文')}
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setOffset(0);
-            }}
-          />
-        </label>
-        <nav aria-label={tr('笔记目录')}>
-          {query.trim() ? (
-            <>
-              {searchError && <p role="alert">{searchError}</p>}
-              {!search && !searchError && <p role="status">{tr('正在搜索…')}</p>}
-              {search && (
-                <>
-                  <p className="reader-count">{tr('{{count}} 个结果', { count: search.total })}</p>
-                  <ul className="reader-results">
-                    {search.results.map((item) => (
-                      <li key={item.id}>
-                        <button
-                          onClick={() => open(item.id)}
-                          aria-current={item.id === selected ? 'page' : undefined}
-                        >
-                          <strong>{item.title}</strong>
-                          <small>{item.id}</small>
-                          <span>{item.snippet}</span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="reader-pagination">
-                    <button
-                      disabled={offset === 0}
-                      onClick={() => setOffset(Math.max(0, offset - 50))}
-                    >
-                      {tr('上一页')}
-                    </button>
-                    <button
-                      disabled={offset + 50 >= search.total}
-                      onClick={() => setOffset(offset + 50)}
-                    >
-                      {tr('下一页')}
-                    </button>
-                  </div>
-                </>
-              )}
-            </>
-          ) : (
-            catalog && <NoteTree notes={catalog.notes} selected={selected} open={open} />
-          )}
-        </nav>
+        <div className="reader-library-row">
+          {menu && <strong title={catalog?.name}>{catalog?.name || 'Obsidian'}</strong>}
+          <button
+            className="reader-nav-toggle"
+            title={tr(menu ? '收起侧栏' : '展开侧栏')}
+            aria-label={tr('目录与搜索')}
+            aria-expanded={menu}
+            onClick={() => setMenu(!menu)}
+          >
+            <Icon name="reader-sidebar" />
+          </button>
+        </div>
+        <div className="reader-sidebar-body" hidden={!menu}>
+          <label className="reader-search">
+            <Icon name="search" />
+            <input
+              type="search"
+              aria-label={tr('搜索笔记')}
+              placeholder={tr('搜索笔记')}
+              title={tr('搜索标题、路径和正文')}
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setOffset(0);
+              }}
+            />
+          </label>
+          <nav aria-label={tr('笔记目录')}>
+            {query.trim() ? (
+              <>
+                {searchError && <p role="alert">{searchError}</p>}
+                {!search && !searchError && <p role="status">{tr('正在搜索…')}</p>}
+                {search && (
+                  <>
+                    <p className="reader-count">
+                      {tr('{{count}} 个结果', { count: search.total })}
+                    </p>
+                    <ul className="reader-results">
+                      {search.results.map((item) => (
+                        <li key={item.id}>
+                          <button
+                            onClick={() => open(item.id)}
+                            aria-current={item.id === selected ? 'page' : undefined}
+                          >
+                            <strong>{item.title}</strong>
+                            <small>{item.id}</small>
+                            <span>{item.snippet}</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="reader-pagination">
+                      <button
+                        disabled={offset === 0}
+                        onClick={() => setOffset(Math.max(0, offset - 50))}
+                      >
+                        {tr('上一页')}
+                      </button>
+                      <button
+                        disabled={offset + 50 >= search.total}
+                        onClick={() => setOffset(offset + 50)}
+                      >
+                        {tr('下一页')}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </>
+            ) : (
+              catalog && <NoteTree notes={catalog.notes} selected={selected} open={open} />
+            )}
+          </nav>
+        </div>
+        {menu && (
+          <div className="reader-sidebar-actions">
+            <button
+              title={tr('笔记文件夹设置')}
+              aria-label={tr('笔记文件夹设置')}
+              onClick={async () => {
+                if (!(await editor.finish())) return;
+                try {
+                  await write('settings-open', {});
+                } catch (error) {
+                  setError((error as Error).message);
+                }
+              }}
+            >
+              <Icon name="settings" />
+            </button>
+            <button
+              title={tr('刷新')}
+              aria-label={tr('刷新')}
+              disabled={busy}
+              onClick={async () => {
+                if (editor.activeRef.current && !(await editor.flush())) return;
+                remember();
+                void refresh();
+              }}
+            >
+              <Icon name="refresh" />
+            </button>
+          </div>
+        )}
       </aside>
       <main
         ref={article}
@@ -326,8 +376,9 @@ function Reader() {
         {error && (
           <div role="alert" className="reader-error">
             {error}
+            <button onClick={() => void refresh()}>{tr('重试')}</button>
             <button aria-label={tr('关闭')} onClick={() => setError('')}>
-              ×
+              <Icon name="close" />
             </button>
           </div>
         )}
@@ -336,7 +387,7 @@ function Reader() {
             {tr('{{count}} 篇笔记未索引（无法读取或超过 8 MB）', { count: catalog.skipped })}
           </p>
         )}
-        {!note && (
+        {!note && selectedDocument?.kind !== 'spreadsheet' && (
           <p className="reader-empty" role="status">
             {busy
               ? tr('正在读取笔记目录…')
@@ -345,60 +396,78 @@ function Reader() {
                 : tr('选择一篇笔记开始阅读')}
           </p>
         )}
+        {selectedDocument?.kind === 'spreadsheet' && (
+          <Spreadsheet key={selected} id={selected} revision={catalog?.revision || 0} />
+        )}
         {note && (
           <article>
-            <header className="reader-note-header">
-              {!toc.some((item) => item.level === 1) && <h1>{note.title}</h1>}
-            </header>
-            {toc.length > 1 && (
-              <details className="reader-toc">
-                <summary>
-                  <Icon name="feature-outline" />
-                  <span>{tr('文章目录')}</span>
-                </summary>
-                <nav>
-                  {toc.map((item) => (
-                    <a
-                      key={item.id}
-                      href={`#${item.id}`}
-                      style={{ paddingInlineStart: (item.level - 1) * 12 }}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        content.current
-                          ?.querySelector(`#${item.id}`)
-                          ?.scrollIntoView({ block: 'start' });
-                      }}
-                    >
-                      {item.text}
-                    </a>
-                  ))}
-                </nav>
-              </details>
+            {editor.active ? (
+              <NoteEditor editor={editor} />
+            ) : (
+              <>
+                <div className="reader-note-actions">
+                  <button
+                    aria-label={tr('编辑笔记')}
+                    title={tr('编辑 Markdown，自动保存到原文件')}
+                    onClick={() => editor.begin(note)}
+                  >
+                    <Icon name="pencil" />
+                  </button>
+                </div>
+                <header className="reader-note-header">
+                  {!toc.some((item) => item.level === 1) && <h1>{note.title}</h1>}
+                </header>
+                {toc.length > 1 && (
+                  <details className="reader-toc">
+                    <summary>
+                      <Icon name="feature-outline" />
+                      <span>{tr('文章目录')}</span>
+                    </summary>
+                    <nav>
+                      {toc.map((item) => (
+                        <a
+                          key={item.id}
+                          href={`#${item.id}`}
+                          style={{ paddingInlineStart: (item.level - 1) * 12 }}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            content.current
+                              ?.querySelector(`#${item.id}`)
+                              ?.scrollIntoView({ block: 'start' });
+                          }}
+                        >
+                          {item.text}
+                        </a>
+                      ))}
+                    </nav>
+                  </details>
+                )}
+                <div className="reader-markdown" ref={content}>
+                  <NoteMarkdown
+                    id={note.id}
+                    text={note.markdown}
+                    follow={(target) => void follow(target)}
+                  />
+                </div>
+                <footer className="reader-backlinks">
+                  <h2>{tr('反向链接')}</h2>
+                  {note.backlinks.length ? (
+                    <ul>
+                      {note.backlinks.map((item) => (
+                        <li key={item.id}>
+                          <button title={item.id} onClick={() => open(item.id)}>
+                            {item.title}
+                            <small>{item.id}</small>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p>{tr('暂无反向链接')}</p>
+                  )}
+                </footer>
+              </>
             )}
-            <div className="reader-markdown" ref={content}>
-              <NoteMarkdown
-                id={note.id}
-                text={note.markdown}
-                follow={(target) => void follow(target)}
-              />
-            </div>
-            <footer className="reader-backlinks">
-              <h2>{tr('反向链接')}</h2>
-              {note.backlinks.length ? (
-                <ul>
-                  {note.backlinks.map((item) => (
-                    <li key={item.id}>
-                      <button title={item.id} onClick={() => open(item.id)}>
-                        {item.title}
-                        <small>{item.id}</small>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p>{tr('暂无反向链接')}</p>
-              )}
-            </footer>
           </article>
         )}
       </main>

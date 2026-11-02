@@ -85,12 +85,8 @@ pub async fn serve(
     };
     write_private(&paths.runtime(), &serde_json::to_vec_pretty(&runtime)?)?;
     let app = App::new(paths.clone(), config, endpoint, allow_fixture);
-    let reader = crate::reader::start(
-        app.web_library.clone(),
-        app.closing.subscribe(),
-        app.views.subscribe(),
-    )
-    .await?;
+    let reader =
+        crate::reader::start(app.clone(), app.closing.subscribe(), app.views.subscribe()).await?;
     let state = Service {
         app: app.clone(),
         token: runtime.token.clone(),

@@ -1,10 +1,12 @@
-# reader/ — 本机只读阅读器
+# reader/ — 本机笔记阅读、编辑与表格预览
 
 > L2 | 父级：[AGENTS.md](../AGENTS.md)
 
-- `files.rs`：唯一源文件读取边界；规范化后检查授权根，通过 O_RDONLY/O_NOFOLLOW 逐层打开目录和常规文件，限制笔记8 MB、图片32 MB，拒绝隐藏文件、链接及特殊文件。
-- `index.rs`：按文件元数据增量读取 Markdown，使用 pulldown-cmark 提取真实链接，维护中文可用的全文搜索、路径/名称消歧与反链；索引限128 MB正文，目录限十万文件，跳过的笔记明确计数。索引仅在内存；首次、刷新与网页聚焦时检查源文件。
-- `http.rs`：独立127.0.0.1随机端口、独立读凭证、Host/Origin校验和本地静态资源；GET读取catalog/search/note/resolve/image，图片也要求Bearer认证。修改目录使旧凭证失效，后台退出收回listener；不提供源文件写接口或设置权限。
-- `tests.rs`：合成库检索、反链/代码排除、同名消歧、增量更新、附件授权、路径/链接/HTTP边界与源文件哈希验证。
+- `files.rs`：授权根内的文件边界；通过 O_NOFOLLOW 逐层打开目录，拒绝隐藏文件、链接和特殊文件，限制笔记8 MB、图片32 MB。
+- `edit.rs`：唯一 Markdown 写入边界；核对内容 SHA-256、路径和文件身份，拒绝硬链接/只读文件，通过同目录临时文件原子替换，保留权限、BOM和原换行类型；不提供新建、删除或重命名。
+- `index.rs`：Markdown 全文索引、链接消歧/反链与表格文件名目录；保存后增量更新正文和反链，刷新时检测外部修改；索引只在内存，128 MB正文/十万文件上限。
+- `spreadsheet.rs`：Calamine/CSV 按需解析 XLSX/XLS/XLSM/XLSB/ODS/CSV/TSV，返回工作表和100行分页；XLSX/XLSB流式读取，压缩包展开预算128 MB；不执行公式、宏或外链，不写表格。输入32 MB，最多十万行/512列/200工作表。
+- `http.rs`：独立127.0.0.1端口与凭证、Host/Origin校验、本地静态资源；GET catalog/search/note/resolve/image/workbook；POST save要求同源、独立凭证与文件版本，冲突返回409。settings-open仅请求宿主打开网站设置，不暴露设置凭证。后台退出停止监听，同目录授权下尽量复用地址与凭证。
+- `tests.rs`：合成笔记/表格检索、反链、增量更新、只读哈希、保存冲突、路径/链接/权限/HTTP边界及重启凭据回归。
 
 [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。

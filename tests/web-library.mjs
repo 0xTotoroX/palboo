@@ -18,6 +18,8 @@ import { tmpdir } from 'node:os';
 import { createHash } from 'node:crypto';
 import { chromium } from 'playwright';
 import { prepareTestBinary } from '../scripts/verify.mjs';
+import { workbookFixture } from './reader-fixtures.mjs';
+import { exerciseReaderEditing } from './reader-editing.mjs';
 const artifact = prepareTestBinary();
 const root = resolve(import.meta.dirname, '..');
 const folder = realpathSync(mkdtempSync(join(tmpdir(), 'palboo-reader-')));
@@ -66,12 +68,17 @@ for (const name of ['A10', 'A2', '_AI']) {
   mkdirSync(join(vault, name));
   writeFileSync(join(vault, name, '排序.md'), '# 排序');
 }
+writeFileSync(join(vault, '项目/表格.xlsx'), workbookFixture);
+writeFileSync(join(vault, '项目/数据.csv'), '名称,值\n"带逗号,文本",=1+1\n');
+writeFileSync(join(vault, '项目/损坏.xlsx'), 'not a workbook');
 const before = hashes();
-const child = spawn(
-  artifact.binary,
-  ['--data-dir', data, 'serve', '--port', '0', '--cdp', 'http://127.0.0.1:9'],
-  { stdio: 'ignore', env: { ...process.env, PALBOO_START_DISCONNECTED: '1' } },
-);
+const startBackend = () =>
+  spawn(
+    artifact.binary,
+    ['--data-dir', data, 'serve', '--port', '0', '--cdp', 'http://127.0.0.1:9'],
+    { stdio: 'ignore', env: { ...process.env, PALBOO_START_DISCONNECTED: '1' } },
+  );
+let child = startBackend();
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 async function wait(fn, label) {
   for (let i = 0; i < 200; i++) {
@@ -133,13 +140,13 @@ try {
         headers: { Authorization: `Bearer ${token}` },
       })
     ).status,
-    405,
+    403,
   );
   assert.equal(
     (await fetch(`${base}/api/settings`, { headers: { Authorization: `Bearer ${token}` } })).status,
     401,
   );
-  record('reader origin/credential isolation; no write routes');
+  record('reader credential isolation; same-origin writes only');
   browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
     locale: 'zh-CN',
@@ -158,6 +165,12 @@ try {
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto(url);
   await page.locator('.reader-sidebar summary').first().waitFor();
+  assert.equal(await page.locator('.reader-header').count(), 0);
+  assert.equal(await page.getByText('只读', { exact: true }).count(), 0);
+  assert.equal(
+    await page.locator('.reader-main').evaluate((e) => e.getBoundingClientRect().top),
+    0,
+  );
   const folders = await page
     .locator('.reader-sidebar nav > ul > li > details > summary')
     .allTextContents();
@@ -243,11 +256,18 @@ try {
       false,
     );
     if (width === 390) {
+      if (
+        (await page
+          .getByRole('button', { name: '目录与搜索', exact: true })
+          .getAttribute('aria-expanded')) === 'true'
+      )
+        await page.getByRole('button', { name: '目录与搜索', exact: true }).click();
       await page.getByRole('button', { name: '目录与搜索', exact: true }).click();
       assert.equal(await page.getByRole('searchbox', { name: '搜索笔记' }).isVisible(), true);
       await page.getByRole('button', { name: '目录与搜索', exact: true }).click();
     }
   }
+  await page.getByRole('button', { name: '目录与搜索', exact: true }).click();
   await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce' });
   await page.waitForFunction(
     () => getComputedStyle(document.documentElement).colorScheme === 'dark',
@@ -365,6 +385,41 @@ try {
   assert.deepEqual(outbound, []);
   assert.deepEqual(errors, []);
   record('all original note, attachment and .obsidian hashes unchanged; no browser errors');
+  await page.unroute('**/api/catalog?*');
+  await page.setViewportSize({ width: 1100, height: 820 });
+  await exerciseReaderEditing({ page, vault, url: (await api('web-library/reader')).url, record });
+  assert.deepEqual(errors, []);
+  const stableUrl = (await api('web-library/reader')).url;
+  const oldPid = child.pid;
+  child.kill('SIGTERM');
+  await new Promise((resolve) => child.once('exit', resolve));
+  child = startBackend();
+  await wait(() => {
+    try {
+      const next = JSON.parse(readFileSync(join(data, 'runtime.json')));
+      return next.pid !== oldPid;
+    } catch {
+      return false;
+    }
+  }, 'backend restart');
+  await wait(async () => {
+    try {
+      const response = await fetch(new URL('/api/catalog', stableUrl), {
+        headers: {
+          Authorization: `Bearer ${new URLSearchParams(new URL(stableUrl).hash.slice(1)).get('reader')}`,
+        },
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }, 'stable reader port/token');
+  await page.reload();
+  await page.getByRole('heading', { name: '欢迎', exact: true }).waitFor();
+  assert.deepEqual(hashes(), before);
+  record(
+    'same-grant backend restart preserves reader origin/access; synthetic edits restored; other files unchanged',
+  );
   const report = { passed: true, artifact, checks };
   mkdirSync(join(root, 'target/reports/web-library'), { recursive: true });
   writeFileSync(

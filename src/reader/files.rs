@@ -31,7 +31,7 @@ pub fn normalized(path: &Path) -> Result<PathBuf> {
     }
     Ok(result)
 }
-fn open_at(parent: &File, name: &std::ffi::OsStr, directory: bool) -> Result<File> {
+pub(super) fn open_at(parent: &File, name: &std::ffi::OsStr, directory: bool) -> Result<File> {
     let name = CString::new(name.as_bytes())?;
     let flags = libc::O_RDONLY
         | libc::O_CLOEXEC
@@ -43,7 +43,7 @@ fn open_at(parent: &File, name: &std::ffi::OsStr, directory: bool) -> Result<Fil
     ensure!(fd >= 0, "文件不存在、不可读取或包含符号链接");
     Ok(unsafe { File::from_raw_fd(fd) })
 }
-pub fn read(roots: &[PathBuf], path: &Path, limit: u64) -> Result<Vec<u8>> {
+pub(super) fn parent(roots: &[PathBuf], path: &Path) -> Result<(File, std::ffi::OsString)> {
     let path = normalized(path)?;
     let root = roots
         .iter()
@@ -69,8 +69,19 @@ pub fn read(roots: &[PathBuf], path: &Path, limit: u64) -> Result<Vec<u8>> {
             anyhow::bail!("路径无效")
         };
         ensure!(!name.as_bytes().starts_with(b"."), "隐藏目录不可读取");
-        file = open_at(&file, name, i + 1 < parts.len())?;
+        if i + 1 == parts.len() {
+            return Ok((file, name.to_os_string()));
+        }
+        file = open_at(&file, name, true)?;
     }
+    anyhow::bail!("路径无效")
+}
+pub fn read(roots: &[PathBuf], path: &Path, limit: u64) -> Result<Vec<u8>> {
+    let (parent, name) = parent(roots, path)?;
+    let file = open_at(&parent, &name, false)?;
+    read_file(&file, limit)
+}
+pub(super) fn read_file(file: &File, limit: u64) -> Result<Vec<u8>> {
     let metadata = file.metadata()?;
     ensure!(
         metadata.is_file() && metadata.len() <= limit,

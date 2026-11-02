@@ -34,6 +34,9 @@ tao = "0.37"
 wry = "0.57"
 notify = "8.2.0"
 pulldown-cmark = { version = "0.13", default-features = false }
+calamine = { version = "0.37", features = ["dates"] }
+csv = "1.4"
+zip = { version = "9.2", default-features = false, features = ["deflate"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSApplication", "NSImage", "NSButton", "NSEvent", "NSScreen", "NSWindow", "NSView", "NSPanel", "NSOpenPanel", "NSSavePanel", "NSColor", "NSResponder", "NSGlassEffectView", "NSVisualEffectView", "NSGraphics", "NSAppearance", "NSAccessibility", "NSWorkspace", "NSRunningApplication", "libc", "objc2-quartz-core"] }

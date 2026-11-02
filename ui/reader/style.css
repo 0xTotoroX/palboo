@@ -24,7 +24,9 @@ body {
   margin: 0;
 }
 button,
-input {
+input,
+textarea,
+select {
   font: inherit;
   color: inherit;
 }
@@ -38,12 +40,16 @@ button:disabled {
 button,
 a,
 input,
+textarea,
+select,
 summary {
   outline-offset: 3px;
 }
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
 summary:focus-visible {
   outline: 2px solid var(--reader-muted);
 }
@@ -89,45 +95,66 @@ p {
   height: 100dvh;
   display: grid;
   grid-template-columns: 232px minmax(0, 1fr);
-  grid-template-rows: 44px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
 }
-.reader-header {
-  grid-column: 1/-1;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  border-bottom: 1px solid var(--reader-line);
-  padding: 8px 16px;
-}
-.reader-header strong {
-  font-size: 1rem;
-  font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.reader-header span {
-  font-size: 0.75rem;
-  color: var(--reader-muted);
-}
-.reader-header > button:last-child {
-  margin-inline-start: auto;
-  display: grid;
-  place-items: center;
-}
-.reader-nav-toggle {
-  display: none;
+.reader-app[data-menu='false'] {
+  grid-template-columns: 44px minmax(0, 1fr);
 }
 .reader-sidebar {
-  padding: 12px 8px;
+  padding: 8px;
   border-right: 1px solid var(--reader-line);
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   min-height: 0;
 }
+.reader-library-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+}
+.reader-library-row strong {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.875rem;
+  font-weight: 500;
+  padding-left: 8px;
+}
+.reader-nav-toggle {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 28px;
+  padding: 5px;
+}
+.reader-sidebar-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  flex: 1;
+}
+.reader-sidebar-body[hidden] {
+  display: none;
+}
+.reader-sidebar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.reader-sidebar-actions button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  padding: 6px;
+}
 .reader-sidebar nav {
+  flex: 1;
   overflow: auto;
   min-height: 0;
   font-size: 0.875rem;
@@ -418,7 +445,7 @@ dialog::backdrop {
 .reader-empty {
   color: var(--reader-muted);
 }
-.reader-results button {
+.reader-sidebar .reader-results button {
   display: block;
 }
 .reader-results strong {
@@ -446,35 +473,164 @@ dialog::backdrop {
   margin-top: 12px;
 }
 @media (max-width: 640px) {
-  .reader-app {
+  .reader-app,
+  .reader-app[data-menu='false'] {
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+  .reader-app[data-menu='true'] {
     grid-template-columns: minmax(0, 1fr);
-  }
-  .reader-nav-toggle {
-    display: grid;
-    place-items: center;
-  }
-  .reader-sidebar {
-    display: none;
-  }
-  .reader-app[data-menu='true'] .reader-sidebar {
-    display: flex;
-    border: 0;
   }
   .reader-app[data-menu='true'] .reader-main {
     display: none;
   }
   .reader-main {
-    padding: 24px 20px;
+    padding: 20px 16px;
   }
   .reader-note-header h1 {
     font-size: 1.5rem;
   }
-  .reader-header {
-    padding: 8px 12px;
+  .reader-sheet-controls {
+    align-items: start;
+    flex-direction: column;
   }
 }
 @media (prefers-reduced-motion: reduce) {
   * {
     scroll-behavior: auto !important;
   }
+}
+
+.reader-note-actions {
+  float: right;
+  position: sticky;
+  top: 0;
+  margin: -6px -12px 4px 12px;
+  z-index: 1;
+  background: var(--reader-paper);
+  border-radius: 6px;
+}
+.reader-note-actions button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  padding: 6px;
+}
+.reader-edit-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-bottom: 12px;
+  position: sticky;
+  top: -24px;
+  background: var(--reader-paper);
+  z-index: 1;
+}
+.reader-edit-actions span {
+  font-size: 0.8rem;
+  color: var(--reader-muted);
+}
+.reader-editor textarea {
+  display: block;
+  width: 100%;
+  min-height: calc(100dvh - 108px);
+  resize: vertical;
+  padding: 8px 0;
+  border: 0;
+  background: transparent;
+  line-height: 1.75;
+  color: inherit;
+  caret-color: var(--reader-ink);
+  overflow-wrap: anywhere;
+}
+.reader-save-error {
+  padding: 8px 0;
+  margin-bottom: 16px;
+}
+.reader-save-error p {
+  margin: 4px 0 8px;
+}
+.reader-save-error > div {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.reader-save-error button {
+  border: 1px solid var(--reader-line);
+}
+.reader-workbook {
+  min-width: 0;
+}
+.reader-workbook h1 {
+  font-size: 1.2rem;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+  margin: 0 0 20px;
+}
+.reader-sheet-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  font-size: 0.875rem;
+}
+.reader-sheet-controls label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.reader-sheet-controls select {
+  border: 1px solid var(--reader-line);
+  border-radius: 6px;
+  background: var(--reader-paper);
+  padding: 6px 8px;
+  min-width: 0;
+  max-width: 240px;
+}
+.reader-sheet-controls span {
+  color: var(--reader-muted);
+}
+.reader-sheet-scroll {
+  overflow: auto;
+  max-height: calc(100dvh - 180px);
+  border: 1px solid var(--reader-line);
+  border-radius: 6px;
+}
+.reader-sheet-scroll table {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.875rem;
+  width: 100%;
+  font-variant-numeric: tabular-nums;
+}
+.reader-sheet-scroll :is(th, td) {
+  border-right: 1px solid var(--reader-line);
+  border-bottom: 1px solid var(--reader-line);
+  padding: 7px 10px;
+  min-width: 80px;
+  max-width: 420px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  vertical-align: top;
+}
+.reader-sheet-scroll th {
+  background: var(--reader-hover);
+  color: var(--reader-muted);
+  font-weight: 400;
+}
+.reader-sheet-scroll thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  text-align: center;
+}
+.reader-sheet-scroll th:first-child {
+  min-width: 44px;
+  width: 44px;
+  text-align: right;
+}
+.reader-sheet-scroll .reader-number {
+  text-align: right;
 }

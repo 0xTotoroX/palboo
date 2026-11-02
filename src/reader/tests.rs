@@ -1,5 +1,5 @@
 // [INPUT]: Synthetic vaults, local-only router and reader-specific authorization.
-// [OUTPUT]: Read-only/hash, search/link/image, traversal/symlink and HTTP boundary regression tests.
+// [OUTPUT]: Read hashes, search/link/image/spreadsheet, guarded edits and HTTP/endpoint regression tests.
 // [POS]: No real user notes, host, network websites or credentials.
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 use super::*;
@@ -197,7 +197,7 @@ fn sites_validate_schemes_credentials_identity_and_persist_order() {
     assert!(f.library.destination("missing").is_err());
 }
 #[tokio::test]
-async fn reader_http_never_accepts_main_credentials_foreign_origins_or_writes() {
+async fn reader_http_rejects_main_credentials_foreign_origins_and_unscoped_writes() {
     let f = Fixture::new();
     *f.library.endpoint.lock().unwrap() = ReaderEndpoint {
         port: 12345,
@@ -207,6 +207,7 @@ async fn reader_http_never_accepts_main_credentials_foreign_origins_or_writes() 
         library: f.library.clone(),
         port: 12345,
         appearance: None,
+        app: None,
     });
     for (method, path, host, token, origin, status) in [
         ("GET", "/api/catalog", "127.0.0.1:12345", "", None, 401),
@@ -240,7 +241,7 @@ async fn reader_http_never_accepts_main_credentials_foreign_origins_or_writes() 
             "127.0.0.1:12345",
             "reader-only",
             None,
-            405,
+            403,
         ),
         (
             "GET",
@@ -288,4 +289,193 @@ async fn reader_http_never_accepts_main_credentials_foreign_origins_or_writes() 
             assert_eq!(value["notes"].as_array().unwrap().len(), 4);
         }
     }
+}
+
+#[test]
+fn markdown_save_is_versioned_atomic_and_keeps_newlines_permissions_and_indexes() {
+    use std::os::unix::fs::PermissionsExt;
+    let f = Fixture::new();
+    let p = f.library.preferences.lock().unwrap().clone();
+    let file = f.vault.join("首页.md");
+    std::fs::write(&file, "\u{feff}# 首页\r\n原文\r\n").unwrap();
+    std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o640)).unwrap();
+    let mut index = f.index();
+    let version = index.note(&p, "首页.md").unwrap()["version"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let saved = index
+        .save(
+            &p,
+            "首页.md",
+            &version,
+            "# 首页\n新内容 unique-edit\n[[项目/文章]]\n",
+        )
+        .unwrap();
+    assert_eq!(
+        std::fs::read_to_string(&file).unwrap(),
+        "\u{feff}# 首页\r\n新内容 unique-edit\r\n[[项目/文章]]\r\n"
+    );
+    assert_eq!(
+        std::fs::metadata(&file).unwrap().permissions().mode() & 0o777,
+        0o640
+    );
+    assert_eq!(index.search("unique-edit", 0)["total"], 1);
+    assert_eq!(
+        index.note(&p, "项目/文章.md").unwrap()["backlinks"][0]["id"],
+        "首页.md"
+    );
+    assert_ne!(saved["version"], version);
+    assert!(
+        index
+            .save(&p, "首页.md", &version, "stale")
+            .unwrap_err()
+            .is::<edit::Conflict>()
+    );
+    assert!(!std::fs::read_dir(&f.vault).unwrap().any(|entry| {
+        entry
+            .unwrap()
+            .file_name()
+            .to_string_lossy()
+            .starts_with(".palboo-")
+    }));
+}
+
+#[test]
+fn markdown_save_refuses_external_edits_links_hidden_and_ungranted_files() {
+    use std::os::unix::fs::{PermissionsExt, symlink};
+    let f = Fixture::new();
+    let p = f.library.preferences.lock().unwrap().clone();
+    let mut index = f.index();
+    let original = index.note(&p, "首页.md").unwrap();
+    let version = original["version"].as_str().unwrap();
+    let file = f.vault.join("首页.md");
+    std::fs::write(&file, "external").unwrap();
+    assert!(
+        index
+            .save(&p, "首页.md", version, "draft")
+            .unwrap_err()
+            .is::<edit::Conflict>()
+    );
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), "external");
+    for id in [
+        "../outside.md",
+        ".obsidian/秘密.md",
+        "项目/附件/测试.png",
+        "new.md",
+    ] {
+        assert!(index.save(&p, id, version, "draft").is_err());
+    }
+    let outside = f._dir.path().join("outside.md");
+    std::fs::write(&outside, "outside").unwrap();
+    std::fs::remove_file(&file).unwrap();
+    symlink(&outside, &file).unwrap();
+    assert!(
+        index
+            .save(&p, "首页.md", &edit::version(b"outside"), "draft")
+            .is_err()
+    );
+    assert_eq!(std::fs::read_to_string(&outside).unwrap(), "outside");
+    std::fs::remove_file(&file).unwrap();
+    std::fs::hard_link(&outside, &file).unwrap();
+    assert!(
+        index
+            .save(&p, "首页.md", &edit::version(b"outside"), "draft")
+            .is_err()
+    );
+    std::fs::remove_file(&file).unwrap();
+    std::fs::write(&file, "locked").unwrap();
+    std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o444)).unwrap();
+    assert!(
+        index
+            .save(&p, "首页.md", &edit::version(b"locked"), "draft")
+            .is_err()
+    );
+}
+
+#[test]
+fn spreadsheet_catalog_resolution_and_csv_paging_are_inert() {
+    let f = Fixture::new();
+    let csv = "名称,数值\n\"文本,带逗号\",=1+1\n<script>alert(1)</script>,12\n";
+    std::fs::write(f.vault.join("项目/表格.csv"), csv).unwrap();
+    let index = f.index();
+    let p = f.library.preferences.lock().unwrap().clone();
+    assert_eq!(
+        index.resolve("首页.md", "项目/表格.csv").unwrap().0,
+        vec!["项目/表格.csv"]
+    );
+    assert_eq!(index.search("表格", 0)["results"][0]["kind"], "spreadsheet");
+    let preview = index.workbook(&p, "项目/表格.csv", "", 1).unwrap();
+    assert_eq!(preview["totalRows"], 3);
+    assert_eq!(preview["rows"][0], json!(["文本,带逗号", "=1+1"]));
+    assert_eq!(preview["rows"][1][0], "<script>alert(1)</script>");
+    assert_eq!(
+        std::fs::read_to_string(f.vault.join("项目/表格.csv")).unwrap(),
+        csv
+    );
+}
+
+#[tokio::test]
+async fn writes_require_same_origin_and_version_and_return_conflicts() {
+    let f = Fixture::new();
+    *f.library.endpoint.lock().unwrap() = ReaderEndpoint {
+        port: 12345,
+        token: "reader-only".into(),
+    };
+    let router = http::router(http::HttpState {
+        library: f.library.clone(),
+        port: 12345,
+        appearance: None,
+        app: None,
+    });
+    let p = f.library.preferences.lock().unwrap().clone();
+    let note = f.index().note(&p, "首页.md").unwrap();
+    for (origin, token, status) in [
+        (None, "reader-only", 403),
+        (Some("https://evil.test"), "reader-only", 403),
+        (Some("http://127.0.0.1:12345"), "wrong", 401),
+        (Some("http://127.0.0.1:12345"), "reader-only", 200),
+        (Some("http://127.0.0.1:12345"), "reader-only", 409),
+    ] {
+        let mut request = Request::builder()
+            .method("POST")
+            .uri("/api/save")
+            .header("Host", "127.0.0.1:12345")
+            .header("Authorization", format!("Bearer {token}"))
+            .header("Content-Type", "application/json");
+        if let Some(origin) = origin {
+            request = request.header("Origin", origin);
+        }
+        let response=router.clone().oneshot(request.body(Body::from(json!({"id":"首页.md","expectedVersion":note["version"],"markdown":"saved through authenticated editor"}).to_string())).unwrap()).await.unwrap();
+        assert_eq!(response.status().as_u16(), status);
+    }
+}
+
+#[test]
+fn reader_endpoint_survives_restart_but_not_revoked_grants() {
+    let f = Fixture::new();
+    let paths = Paths::new(Some(f._dir.path().canonicalize().unwrap().join("palboo"))).unwrap();
+    let p = f.library.preferences.lock().unwrap().clone();
+    f.library
+        .persist_endpoint(
+            &p,
+            &ReaderEndpoint {
+                port: 12345,
+                token: "a".repeat(32),
+            },
+        )
+        .unwrap();
+    let restored = Library::load(&paths);
+    assert_eq!(restored.endpoint.lock().unwrap().token, "a".repeat(32));
+    restored
+        .save(
+            serde_json::from_value(
+                json!({"expectedRevision":p.revision,"vault":f.vault.join("项目")}),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+    let revoked = Library::load(&paths);
+    assert_ne!(revoked.endpoint.lock().unwrap().token, "a".repeat(32));
+    assert_eq!(revoked.endpoint.lock().unwrap().port, 12345);
 }

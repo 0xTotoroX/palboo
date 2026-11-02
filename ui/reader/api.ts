@@ -1,5 +1,5 @@
 /* [INPUT]: Fragment reader credential on a separate loopback origin.
- * [OUTPUT]: Cancellable read-only JSON/image requests; credential is never read from Palboo settings storage.
+ * [OUTPUT]: Cancellable JSON/image reads and authenticated same-origin edit requests; credential is never read from Palboo settings storage.
  * [POS]: Reader transport; URL credentials are removed before rendering any note.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { tr } from '../shared/i18n.js';
@@ -26,22 +26,47 @@ export async function raw(
   params: Record<string, string | number | boolean>,
   signal?: AbortSignal,
 ) {
-  const response = await fetch(
+  return request(
     `/api/${operation}?${new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)]))}`,
-    {
-      headers: { Authorization: `Bearer ${credential}` },
-      signal,
+    { signal },
+  );
+}
+export class ReaderError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+  ) {
+    super(message);
+  }
+}
+async function request(url: string, options: RequestInit) {
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...options,
+      headers: {
+        Authorization: `Bearer ${credential}`,
+        ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+      },
       cache: 'no-store',
       credentials: 'omit',
-    },
-  );
+    });
+  } catch (error) {
+    if ((error as Error).name === 'AbortError') throw error;
+    throw new ReaderError(tr('本地服务暂时断开，请重试；若仍无法连接，请从 Palboo 重新打开'), 0);
+  }
   if (!response.ok) {
     const failure = await response.json().catch(() => null);
-    throw Error(tr(failure?.message || '读取失败，请重试'));
+    throw new ReaderError(tr(failure?.message || '读取失败，请重试'), response.status);
   }
   return response;
 }
-export type Summary = { id: string; title: string };
+export async function write<T>(operation: string, body: unknown): Promise<T> {
+  return (
+    await request(`/api/${operation}`, { method: 'POST', body: JSON.stringify(body) })
+  ).json();
+}
+export type Summary = { id: string; title: string; kind?: 'markdown' | 'spreadsheet' };
 export type Catalog = {
   name: string;
   revision: number;
@@ -51,5 +76,5 @@ export type Catalog = {
   language?: string;
   systemLanguage?: string;
 };
-export type Note = Summary & { markdown: string; backlinks: Summary[] };
+export type Note = Summary & { markdown: string; backlinks: Summary[]; version: string };
 export type Search = { total: number; offset: number; results: (Summary & { snippet: string })[] };

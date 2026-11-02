@@ -1,17 +1,17 @@
 // [INPUT]: Reader-only token, explicit Library grants and compiled local web assets.
-// [OUTPUT]: A separate loopback origin serving read-only catalog/search/note/link/image endpoints.
-// [POS]: No settings routes, cookies, external fetches or source writes; shutdown follows the owning backend.
+// [OUTPUT]: A separate loopback origin for local reads, same-origin versioned saves and settings navigation.
+// [POS]: No settings credential or configuration API; source writes are limited to existing Markdown.
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 use crate::web_library::{Library, Preferences, ReaderEndpoint};
 use anyhow::{Result, ensure};
 use axum::{
     Extension, Json, Router,
     body::Body,
-    extract::{Path, Query, Request, State},
+    extract::{DefaultBodyLimit, Path, Query, Request, State},
     http::{StatusCode, header},
     middleware::{self, Next},
     response::{IntoResponse, Response},
-    routing::get,
+    routing::{get, post},
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -30,12 +30,15 @@ struct Input {
     offset: usize,
     #[serde(default)]
     refresh: bool,
+    #[serde(default)]
+    sheet: String,
 }
 #[derive(Clone)]
 pub(super) struct HttpState {
     pub library: Arc<Library>,
     pub port: u16,
     pub appearance: Option<tokio::sync::watch::Receiver<crate::state::View>>,
+    pub app: Option<std::sync::Weak<crate::state::App>>,
 }
 #[derive(Clone)]
 struct Access {
@@ -43,20 +46,35 @@ struct Access {
     preferences: Preferences,
 }
 pub async fn start(
-    library: Arc<Library>,
+    app: Arc<crate::state::App>,
     mut closing: tokio::sync::watch::Receiver<bool>,
     appearance: tokio::sync::watch::Receiver<crate::state::View>,
 ) -> Result<JoinHandle<()>> {
-    let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0)).await?;
-    let port = listener.local_addr()?.port();
-    *library.endpoint.lock().unwrap() = ReaderEndpoint {
-        port,
-        token: uuid::Uuid::new_v4().simple().to_string(),
+    let library = app.web_library.clone();
+    let previous_port = library.endpoint.lock().unwrap().port;
+    let listener = match tokio::net::TcpListener::bind(("127.0.0.1", previous_port)).await {
+        Ok(listener) => listener,
+        Err(_) => tokio::net::TcpListener::bind(("127.0.0.1", 0)).await?,
     };
+    let port = listener.local_addr()?.port();
+    {
+        let preferences = library.preferences.lock().unwrap();
+        let mut endpoint = library.endpoint.lock().unwrap();
+        *endpoint = ReaderEndpoint {
+            port,
+            token: if endpoint.token.is_empty() {
+                uuid::Uuid::new_v4().simple().to_string()
+            } else {
+                endpoint.token.clone()
+            },
+        };
+        library.persist_endpoint(&preferences, &endpoint)?;
+    }
     let router = router(HttpState {
         library,
         port,
         appearance: Some(appearance),
+        app: Some(Arc::downgrade(&app)),
     });
     Ok(tokio::spawn(async move {
         let _ = axum::serve(listener, router)
@@ -71,6 +89,9 @@ pub async fn start(
 pub(super) fn router(state: HttpState) -> Router {
     let api = Router::new()
         .route("/{operation}", get(read))
+        .route("/save", post(save))
+        .route("/settings-open", post(open_settings))
+        .layer(DefaultBodyLimit::max(super::files::MAX_NOTE as usize * 2))
         .route_layer(middleware::from_fn_with_state(state.clone(), authorize));
     Router::new()
         .nest("/api", api)
@@ -111,6 +132,11 @@ async fn authorize(State(state): State<HttpState>, mut request: Request, next: N
     {
         return StatusCode::FORBIDDEN.into_response();
     }
+    if request.method() != axum::http::Method::GET
+        && headers.get(header::ORIGIN).and_then(|v| v.to_str().ok()) != Some(origin.as_str())
+    {
+        return StatusCode::FORBIDDEN.into_response();
+    }
     let access = {
         let preferences = state.library.preferences.lock().unwrap();
         let token = state.library.endpoint.lock().unwrap().token.clone();
@@ -147,8 +173,8 @@ async fn read(
     Query(input): Query<Input>,
 ) -> Response {
     let result = tokio::task::spawn_blocking(move || -> Result<Response> {
-        ensure!(matches!(operation.as_str(), "catalog" | "search" | "note" | "resolve" | "image"), "未知阅读请求");
-        ensure!(input.q.len() <= 500 && input.id.len() <= 8192 && input.target.len() <= 8192 && input.offset <= 100_000, "阅读请求过长");
+        ensure!(matches!(operation.as_str(), "catalog" | "search" | "note" | "resolve" | "image" | "workbook"), "未知阅读请求");
+        ensure!(input.q.len() <= 500 && input.id.len() <= 8192 && input.target.len() <= 8192 && input.sheet.len() <= 1024 && input.offset <= 100_000, "阅读请求过长");
         let preferences = access.preferences;
         let mut index = state.library.index.lock().unwrap();
         ensure!(state.library.endpoint.lock().unwrap().token == access.token, "阅读凭据已过期，请从 Palboo 重新打开阅读器");
@@ -170,6 +196,7 @@ async fn read(
                 },
                 "search" => index.search(&input.q, input.offset),
                 "note" => index.note(&preferences, &input.id)?,
+                "workbook" => index.workbook(&preferences, &input.id, &input.sheet, input.offset)?,
                 "resolve" => { let (candidates, anchor) = index.resolve(&input.id, &input.target)?;
                     json!({"candidates":candidates.iter().map(|id|index.summary(id)).collect::<Vec<_>>(),"anchor":anchor}) },
                 _ => unreachable!(),
@@ -190,6 +217,74 @@ async fn read(
         Err(_) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!({"message":"读取失败，请重试"})),
+        )
+            .into_response(),
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct Edit {
+    id: String,
+    expected_version: String,
+    markdown: String,
+}
+async fn save(
+    State(state): State<HttpState>,
+    Extension(access): Extension<Access>,
+    Json(input): Json<Edit>,
+) -> Response {
+    let result = tokio::task::spawn_blocking(move || -> Result<Value> {
+        ensure!(
+            input.id.len() <= 8192 && input.expected_version.len() == 64,
+            "阅读请求过长"
+        );
+        let mut index = state.library.index.lock().unwrap();
+        // Keep the grant locked through the write, so changing folders revokes old writes immediately.
+        let preferences = state.library.preferences.lock().unwrap();
+        ensure!(
+            preferences.vault == access.preferences.vault
+                && state.library.endpoint.lock().unwrap().token == access.token,
+            "授权目录已更新，请重新打开阅读器"
+        );
+        if !index.ready(&preferences) {
+            index.refresh(&preferences)?;
+        }
+        index.save(
+            &preferences,
+            &input.id,
+            &input.expected_version,
+            &input.markdown,
+        )
+    })
+    .await;
+    match result {
+        Ok(Ok(value)) => Json(value).into_response(),
+        Ok(Err(error)) => (
+            if error.is::<super::edit::Conflict>() {
+                StatusCode::CONFLICT
+            } else {
+                StatusCode::BAD_REQUEST
+            },
+            Json(json!({"message":error.to_string()})),
+        )
+            .into_response(),
+        Err(_) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"message":"保存失败，草稿已保留"})),
+        )
+            .into_response(),
+    }
+}
+async fn open_settings(State(state): State<HttpState>) -> Response {
+    let Some(app) = state.app.and_then(|app| app.upgrade()) else {
+        return StatusCode::SERVICE_UNAVAILABLE.into_response();
+    };
+    match app.open_settings_in_host(Some("sites")).await {
+        Ok(value) => Json(value).into_response(),
+        Err(error) => (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"message":error.to_string()})),
         )
             .into_response(),
     }

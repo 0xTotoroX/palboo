@@ -67,7 +67,7 @@ export function SitesView({
               <button
                 disabled={disabled || !!busy || !site.available}
                 onClick={() => void launch(site.id)}
-                title={site.url || tr('本地只读阅读器')}
+                title={site.url || tr('本地笔记')}
                 aria-busy={busy === site.id}
               >
                 <Icon name={site.id === 'obsidian' ? 'reader-note' : 'feature-sites'} />

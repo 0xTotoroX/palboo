@@ -2,7 +2,7 @@
 // [OUTPUT]: Bounded incremental text index, paginated search, unambiguous link resolution and backlinks.
 // [POS]: In-memory derived state; refreshed explicitly/on reader focus, never persisted into the vault.
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
-use super::files;
+use super::{edit, files, spreadsheet};
 use crate::web_library::Preferences;
 use anyhow::{Context, Result, ensure};
 use pulldown_cmark::{Event, Options, Parser, Tag};
@@ -25,6 +25,7 @@ struct Note {
 pub struct Index {
     vault: Option<PathBuf>,
     notes: BTreeMap<String, Note>,
+    documents: BTreeMap<String, String>,
     names: BTreeMap<String, Vec<String>>,
     images: Vec<PathBuf>,
     backlinks: BTreeMap<String, BTreeSet<String>>,
@@ -101,10 +102,21 @@ impl Index {
         walk(vault, &mut paths)?;
         paths.sort();
         let mut notes = BTreeMap::new();
+        let mut documents = BTreeMap::new();
         let mut images = Vec::new();
         let mut skipped = 0;
         let mut total = 0usize;
         for path in paths {
+            if spreadsheet::supported(&path) {
+                documents.insert(
+                    path.strip_prefix(vault)?.to_string_lossy().into_owned(),
+                    path.file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .into_owned(),
+                );
+                continue;
+            }
             if files::image_type(&path).is_some() {
                 images.push(path);
                 continue;
@@ -156,7 +168,7 @@ impl Index {
             images.extend(paths.into_iter().filter(|p| files::image_type(p).is_some()));
         }
         let mut names = BTreeMap::<String, Vec<String>>::new();
-        for id in notes.keys() {
+        for id in notes.keys().chain(documents.keys()) {
             let parts: Vec<_> = without_md(id).split('/').collect();
             for i in 0..parts.len() {
                 names
@@ -167,10 +179,15 @@ impl Index {
         }
         self.vault = Some(vault.clone());
         self.notes = notes;
+        self.documents = documents;
         self.names = names;
         self.images = images;
         self.skipped = skipped;
         self.revision += 1;
+        self.rebuild_backlinks();
+        Ok(())
+    }
+    fn rebuild_backlinks(&mut self) {
         let mut backlinks = BTreeMap::<String, BTreeSet<String>>::new();
         for (id, note) in &self.notes {
             for link in &note.links {
@@ -186,16 +203,15 @@ impl Index {
             }
         }
         self.backlinks = backlinks;
-        Ok(())
     }
     pub fn ready(&self, p: &Preferences) -> bool {
         self.vault == p.vault && self.vault.is_some()
     }
     pub fn catalog(&self) -> Value {
-        json!({"name":self.vault.as_ref().and_then(|p|p.file_name()).map(|s|s.to_string_lossy()),"revision":self.revision,"skipped":self.skipped,"notes":self.notes.keys().map(|id|self.summary(id)).collect::<Vec<_>>()})
+        json!({"name":self.vault.as_ref().and_then(|p|p.file_name()).map(|s|s.to_string_lossy()),"revision":self.revision,"skipped":self.skipped,"notes":self.notes.keys().chain(self.documents.keys()).map(|id|self.summary(id)).collect::<Vec<_>>()})
     }
     pub fn summary(&self, id: &str) -> Value {
-        json!({"id":id,"title":self.notes.get(id).map(|n| &n.title)})
+        json!({"id":id,"title":self.notes.get(id).map(|n| &n.title).or_else(||self.documents.get(id)),"kind":if self.documents.contains_key(id) { "spreadsheet" } else { "markdown" }})
     }
     pub fn search(&self, query: &str, offset: usize) -> Value {
         let query = query.trim().to_lowercase();
@@ -221,8 +237,13 @@ impl Index {
                 matches.push((rank, id, snippet));
             }
         }
+        for id in self.documents.keys() {
+            if words.iter().all(|w| id.to_lowercase().contains(w)) {
+                matches.push((0, id, String::new()));
+            }
+        }
         matches.sort_by(|a, b| (a.0, a.1).cmp(&(b.0, b.1)));
-        json!({"total":matches.len(),"offset":offset,"results":matches.iter().skip(offset).take(50).map(|(_,id,snippet)|json!({"id":id,"title":self.notes[*id].title,"snippet":snippet})).collect::<Vec<_>>()})
+        json!({"total":matches.len(),"offset":offset,"results":matches.iter().skip(offset).take(50).map(|(_,id,snippet)|{let mut value=self.summary(id);value["snippet"]=json!(snippet);value}).collect::<Vec<_>>()})
     }
     pub fn resolve(&self, from: &str, raw: &str) -> Result<(Vec<String>, String)> {
         ensure!(self.notes.contains_key(from), "来源笔记已不存在，请刷新");
@@ -242,6 +263,9 @@ impl Index {
             && let Ok(path) = path.strip_prefix(vault)
         {
             let path = path.to_string_lossy();
+            if self.documents.contains_key(path.as_ref()) {
+                return Ok((vec![path.into_owned()], fragment));
+            }
             let id = format!("{}.md", without_md(&path));
             if self.notes.contains_key(&id) {
                 return Ok((vec![id], fragment));
@@ -264,6 +288,9 @@ impl Index {
             return Ok((Vec::new(), fragment));
         }
         let direct = format!("{target}.md");
+        if self.documents.contains_key(target) {
+            return Ok((vec![target.to_owned()], fragment));
+        }
         if target.contains('/') && self.notes.contains_key(&direct) {
             return Ok((vec![direct], fragment));
         }
@@ -284,8 +311,49 @@ impl Index {
             files::MAX_NOTE,
         )?)?;
         Ok(
-            json!({"id":id,"title":self.notes[id].title,"markdown":text,"backlinks":self.backlinks.get(id).into_iter().flatten().map(|id|self.summary(id)).collect::<Vec<_>>()}),
+            json!({"id":id,"title":self.notes[id].title,"kind":"markdown","version":edit::version(text.as_bytes()),"markdown":text,"backlinks":self.backlinks.get(id).into_iter().flatten().map(|id|self.summary(id)).collect::<Vec<_>>()}),
         )
+    }
+    pub fn save(
+        &mut self,
+        p: &Preferences,
+        id: &str,
+        version: &str,
+        markdown: &str,
+    ) -> Result<Value> {
+        ensure!(self.notes.contains_key(id), "笔记不存在，请刷新目录");
+        let vault = p.vault.as_ref().context("尚未选择笔记库")?;
+        ensure!(
+            self.notes
+                .iter()
+                .filter(|(key, _)| key.as_str() != id)
+                .map(|(_, note)| note.text.len())
+                .sum::<usize>()
+                + markdown.len()
+                <= 128 * 1024 * 1024,
+            "笔记正文超过 128 MB 索引上限，请选择较小的目录"
+        );
+        let text = edit::save(vault, id, version, markdown)?;
+        let note = self.notes.get_mut(id).unwrap();
+        note.text = text.clone();
+        note.links = links(&text);
+        note.size = text.len() as u64;
+        note.modified = None;
+        self.revision += 1;
+        self.rebuild_backlinks();
+        Ok(
+            json!({"id":id,"title":self.notes[id].title,"kind":"markdown","version":edit::version(text.as_bytes()),"markdown":text,"backlinks":self.backlinks.get(id).into_iter().flatten().map(|id|self.summary(id)).collect::<Vec<_>>()}),
+        )
+    }
+    pub fn workbook(&self, p: &Preferences, id: &str, sheet: &str, offset: usize) -> Result<Value> {
+        ensure!(self.documents.contains_key(id), "表格不存在，请刷新目录");
+        let vault = p.vault.as_ref().context("尚未选择笔记库")?;
+        let bytes = files::read(
+            std::slice::from_ref(vault),
+            &vault.join(id),
+            spreadsheet::MAX_BYTES,
+        )?;
+        spreadsheet::preview(id, bytes, sheet, offset)
     }
     pub fn image(&self, p: &Preferences, from: &str, raw: &str) -> Result<(Vec<u8>, &'static str)> {
         ensure!(self.notes.contains_key(from), "来源笔记不存在");
