@@ -1,11 +1,18 @@
 import { tr } from '../../shared/i18n.js';
-/* [INPUT]: 宿主模型能力与独立模型偏好；不读取接入凭据或聊天。
- * [OUTPUT]: 共用模型、可选额度及测速投影类型、保守厂家识别、稳定分组及顺序，以及不合并预设身份的名称消歧。
+/* [INPUT]: 宿主模型能力（含 CodexHost 外部 CLI 模型与可选 Agent 列表）与独立模型偏好；不读取接入凭据或聊天。
+ * [OUTPUT]: 共用模型、可选 CLI Agent、可选额度及测速投影类型、保守厂家识别、稳定分组及顺序，以及不合并预设身份的名称消歧。
  * [POS]: 快切与设置共用的纯分类逻辑，不执行切换或保存。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import type { TokenMeterSnapshot } from '../../shared/token-meter';
 export type Selection = { model: string; reasoning: string; speed: string };
 export type Model = { id: string; label: string; reasoning: string[]; fast: boolean };
+export type AgentOption = { id: string; label: string; available: boolean };
+export type AgentInfo = {
+  current: string;
+  label: string;
+  locked: boolean;
+  options: AgentOption[];
+};
 export type ModelOverride = { manufacturer?: string; groupId?: string };
 export type ModelPreferences = {
   enabled: boolean;
@@ -28,6 +35,7 @@ export type ModelState = {
     message: string;
     current: Selection | null;
     models: Model[];
+    agent?: AgentInfo | null;
     tokenMeter?: TokenMeterSnapshot | null;
     usage?: { minutes: 300 | 10080; remainingPercent: number; resetsAt: number | null }[] | null;
   };

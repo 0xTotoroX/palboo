@@ -1,5 +1,5 @@
-// [INPUT]: 已连接的 CDP Client、宿主模型适配器及独立业务偏好。
-// [OUTPUT]: 设置页共用的宿主可选模型目录、模型状态、可关闭的账号额度投影、串行切换、常用、顺序、分类与预设保存与私有末次操作诊断；关闭功能回收目录/额度读取，呈现交给 features。
+// [INPUT]: 已连接的 CDP Client、宿主模型适配器（含 CodexHost 外部 CLI 模型与新会话 CLI 切换）及独立业务偏好。
+// [OUTPUT]: 设置页共用的宿主可选模型目录、模型状态、可关闭的账号额度投影、串行模型/CLI切换、常用、顺序、分类与预设保存与私有末次操作诊断；关闭功能回收目录/额度读取，呈现交给 features。
 // [POS]: 宿主模型控制服务；不读写建议生成配置或工作台的来源/布局。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
@@ -233,7 +233,7 @@ impl App {
             .await
             .context("尚未连接 Codex；请先在设置中连接宿主")?;
         let snapshot = client.evaluate_with_timeout(
-            "(async () => { const control = window.__palbooModelControl; let value = await control?.snapshot(false); if (value && !value.models?.length) value = await control.snapshot(true); return value ?? null; })()".into(),
+            "(async () => { const control = window.__palbooModelControl; if (typeof control?.codexCatalog === 'function') return await control.codexCatalog(); let value = await control?.snapshot(false); if (value && !value.models?.length) value = await control.snapshot(true); return value ?? null; })()".into(),
             Duration::from_secs(20),
         ).await?;
         anyhow::ensure!(
@@ -317,9 +317,21 @@ impl App {
             self.model_control.lock().await.preferences.enabled,
             "模型快切已停用"
         );
-        let selection: Selection =
-            serde_json::from_value(command["selection"].clone()).context("请选择完整模型配置")?;
-        selection.validate()?;
+        let agent = command["agent"]
+            .as_str()
+            .map(str::trim)
+            .filter(|id| !id.is_empty());
+        if let Some(id) = agent {
+            anyhow::ensure!(id.len() <= 64, "CLI 标识无效");
+        }
+        let selection = if agent.is_none() {
+            let parsed: Selection = serde_json::from_value(command["selection"].clone())
+                .context("请选择完整模型配置")?;
+            parsed.validate()?;
+            Some(parsed)
+        } else {
+            None
+        };
         if command["target"]["id"].as_str().is_none_or(str::is_empty)
             || command["expectedRevision"]
                 .as_str()
@@ -328,7 +340,11 @@ impl App {
             bail!("聊天来源已过期，请刷新后重试");
         }
         let client = self.desktop_client().await.context("尚未连接 Codex")?;
-        let payload = json!({"target":command["target"],"expectedRevision":command["expectedRevision"],"selection":selection,"preserveSpeed":command["preserveSpeed"] == true});
+        let payload = if let Some(id) = agent {
+            json!({"target":command["target"],"expectedRevision":command["expectedRevision"],"agent":id})
+        } else {
+            json!({"target":command["target"],"expectedRevision":command["expectedRevision"],"selection":selection,"preserveSpeed":command["preserveSpeed"] == true})
+        };
         let response = client
             .evaluate_with_timeout(
                 format!("window.__palbooModelControl.apply({payload})"),

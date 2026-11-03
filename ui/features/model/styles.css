@@ -1,5 +1,5 @@
-/* [INPUT]: Model matrix, all-model picker, wrapping presets and surface semantic colors.
- * [OUTPUT]: Content-sized matrix, separate Fast and electric divider controls and recessed preset tags with readable saved reasoning, a wrapping bottom row with lower-edge-aligned account usage and a single-surface model catalog.
+/* [INPUT]: Model matrix, all-model picker, optional CLI switcher, wrapping presets and surface semantic colors.
+ * [OUTPUT]: Content-sized matrix, separate Fast and electric divider controls, compact CLI switcher pills, and recessed preset tags with readable saved reasoning, a wrapping bottom row with lower-edge-aligned account usage and a single-surface model catalog.
  * [POS]: Shared model content styling; no outer window or material.
  * [PROTOCOL]: Keep model/AGENTS.md in sync. */
 .feature-model {
@@ -238,6 +238,33 @@
 .model-empty-favorites {
   color: var(--muted);
   margin: 8px 0;
+}
+.model-agents {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+  min-width: 0;
+}
+.feature-model .model-agent-choice {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: 14px;
+  color: var(--muted);
+  background: var(--model-tile);
+  font-size: max(13px, 0.875em);
+  line-height: 1.4;
+}
+.feature-model .model-agent-choice[aria-pressed='true'] {
+  color: var(--ink);
+  background: var(--model-tile-on);
+  font-weight: 500;
+}
+.feature-model .model-agent-choice[aria-disabled='true']:not([aria-pressed='true']) {
+  opacity: 0.45;
 }
 .model-collections {
   margin-top: 16px;

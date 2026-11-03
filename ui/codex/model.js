@@ -1,6 +1,6 @@
 /*
- * [INPUT]: 官方 DOM 菜单、稳定聊天标记/新聊天输入区和关联的 model/list 消息；缺失目录时通过本机 electronBridge 只读补取，不依赖工作台锁定。
- * [OUTPUT]: window.__palbooModelControl 的异步 snapshot/apply 和同步 presence/cancel/dispose/inputTarget，dispose同时回收独立额度读取；inputTarget只读当前唯一输入目标及已校验的模型选择。
+ * [INPUT]: 官方 DOM 菜单、CodexHost 兼容适配、稳定聊天标记/新聊天输入区和关联的 model/list 消息；缺失目录时通过本机 electronBridge 只读补取，不依赖工作台锁定。
+ * [OUTPUT]: window.__palbooModelControl 的异步 snapshot/apply/codexCatalog 和同步 presence/cancel/dispose/inputTarget，dispose同时回收独立额度读取；inputTarget只读当前唯一输入目标及已校验的模型选择。
  * [POS]: include_str / Page.addScriptToEvaluateOnNewDocument 可独立安装的宿主边界。
  * [PROTOCOL]: 父任务维护集成和地图；本文件不写 React、持久存储或发送模型生成请求。
  * snapshot(false) 不操作 DOM；目录缺失时合并、限频读取 model/list。refresh=true 显式重试目录并探测菜单、完整回读。target 无法确认时 id/title 为空。
@@ -357,12 +357,15 @@
     const id = one([...values].filter(Boolean));
     return id && id.length <= 256 ? id : '';
   }
+  const CODEXHOST_CONTROLS =
+    '[data-codexhost-agent-control],[data-codexhost-model-control],[data-codexhost-permission-mode-control],[data-codexhost-harness-command-control]';
   function modelTrigger(scope) {
-    return one(
+    const official = one(
       all(scope, 'button[aria-haspopup="menu"],[role="button"][aria-haspopup="menu"]').filter(
         (node) =>
           visible(node) &&
           !owned(node) &&
+          !node.closest(CODEXHOST_CONTROLS) &&
           (node.hasAttribute('data-selected-reasoning-effort') ||
             models.some((model) =>
               normalized(`${text(node)} ${node.textContent || ''}`).includes(
@@ -371,6 +374,13 @@
             ) ||
             /\b(?:gpt[-\s]*)?\d+\.\d+/i.test(text(node))),
       ),
+    );
+    if (official) return official;
+    return one(
+      all(
+        scope,
+        '[data-codexhost-model-control] button[aria-haspopup="menu"],[data-codexhost-model-control] [role="button"][aria-haspopup="menu"]',
+      ).filter((node) => visible(node) && !owned(node)),
     );
   }
   function candidates() {
@@ -530,13 +540,23 @@
   document.addEventListener('pointerdown', track, { capture: true, signal: life.signal });
   document.addEventListener('focusin', track, { capture: true, signal: life.signal });
   document.addEventListener('keydown', track, { capture: true, signal: life.signal });
+  const sameComposerTarget = (a, b) =>
+    Boolean(a && b && ['id', 'root', 'scope', 'composer'].every((key) => a[key] === b[key]));
   function checkLive() {
     if (!operation || operation.aborted) return;
     if (disposed) operation.aborted = tr('适配器已销毁');
     else if (window.__codexPlusQuickModelPresets) operation.aborted = tr('Model Deck 正在运行');
-    else if (!sameTarget(operation.target, resolveTarget()))
+    else if (
+      operation.agentSwitch
+        ? !sameComposerTarget(operation.target, resolveTarget(false))
+        : !sameTarget(operation.target, resolveTarget())
+    )
       operation.aborted = tr('目标聊天或 DOM 已变化');
-    else if (capabilityVersion !== operation.capabilityVersion) {
+    else if (
+      !operation.agentSwitch &&
+      !operation.external &&
+      capabilityVersion !== operation.capabilityVersion
+    ) {
       if (operation.refresh) operation.capabilityVersion = capabilityVersion;
       else operation.aborted = tr('官方模型能力已变化');
     }
@@ -547,7 +567,9 @@
       records.some(
         (record) =>
           [...record.removedNodes].some((node) =>
-            ['root', 'composer', 'trigger'].some((key) => node.contains(operation.target[key])),
+            (operation.agentSwitch ? ['root', 'composer'] : ['root', 'composer', 'trigger']).some(
+              (key) => node.contains(operation.target[key]),
+            ),
           ) ||
           (record.type === 'attributes' &&
             [...IDS, ...MARKERS].includes(record.attributeName) &&
@@ -579,7 +601,13 @@
     const target = resolveTarget(),
       busy = generating(target);
     const compatibility = window.__palbooHostCompatibility?.capability(target?.composer);
-    const current = currentSelection(target);
+    const isExternal = Boolean(compatibility?.externalModel);
+    const external = isExternal
+      ? window.__palbooHostCompatibility?.readExternal?.(target?.composer)
+      : null;
+    const current = isExternal ? external?.current || null : currentSelection(target);
+    const activeModels = isExternal ? external?.models || [] : models;
+    const agent = compatibility?.agent || null;
     const stateKey = JSON.stringify([
       target?.id,
       nodeKey(target?.root),
@@ -592,6 +620,9 @@
       busy,
       Boolean(window.__codexPlusQuickModelPresets),
       compatibility?.officialModel,
+      isExternal,
+      external?.stamp || '',
+      agent,
       compatibility?.message,
       disposed,
     ]);
@@ -610,12 +641,15 @@
     } else if (!target) {
       status = 'unavailable';
       message = tr('无法唯一确认聊天身份与输入框，请选择目标聊天');
-    } else if (compatibility?.officialModel === false) {
+    } else if (compatibility?.officialModel === false && !isExternal) {
       status = 'unavailable';
       message = compatibility.message;
     } else if (operation) {
       status = 'busy';
       message = tr('模型菜单操作进行中');
+    } else if (isExternal) {
+      status = external?.status || 'unavailable';
+      message = external?.message || '';
     } else if (!models.length) {
       void readCatalog();
       status = 'waiting';
@@ -629,14 +663,23 @@
       status,
       message,
       current: disposed ? null : current,
-      models,
+      models: activeModels,
       generating: busy,
+      ...(agent ? { agent } : {}),
     });
   }
   function guard(op, node) {
     checkLive();
     const compatibility = window.__palbooHostCompatibility?.capability(op.target?.composer);
-    if (compatibility?.officialModel === false) op.aborted ||= compatibility.message;
+    if (op.agentSwitch) {
+      if (!compatibility?.agent)
+        op.aborted ||= compatibility?.message || tr('无法确认当前 CodexHost Agent');
+    } else if (op.external) {
+      if (!compatibility?.externalModel)
+        op.aborted ||= compatibility?.message || tr('当前 CLI 模型切换不可用');
+    } else if (compatibility?.officialModel === false) {
+      op.aborted ||= compatibility.message;
+    }
     if (op.controller.signal.aborted || performance.now() >= op.deadline)
       op.aborted ||= String(op.controller.signal.reason || tr('操作超过 11 秒截止时间'));
     if (op.aborted) {
@@ -828,6 +871,10 @@
   }
   // 只为测速读取已呈现的选择；不探测菜单，也不把它当作可写配置。
   function meterSelection(target) {
+    const compatibility = window.__palbooHostCompatibility?.capability(target?.composer);
+    if (compatibility?.externalModel) {
+      return window.__palbooHostCompatibility?.readExternal?.(target?.composer)?.current || null;
+    }
     const cached = currentSelection(target);
     if (cached) return cached;
     const trigger = target?.trigger;
@@ -1153,13 +1200,15 @@
     } while (performance.now() < deadline);
     throw new Error(tr('官方 {{section}} 切换未生效', { section }));
   }
-  function begin(refresh = false) {
-    const target = resolveTarget();
+  function begin(refresh = false, options = {}) {
+    const target = resolveTarget(!options.agentSwitch);
     if (!target) throw new Error(tr('目标不可用'));
     operation = {
       target,
       capabilityVersion,
       refresh,
+      external: Boolean(options.external),
+      agentSwitch: Boolean(options.agentSwitch),
       phase: tr('准备'),
       steps: [],
       mutated: false,
@@ -1184,16 +1233,20 @@
     return operation;
   }
   async function finish(op) {
-    try {
-      await closeMenu(op);
-    } catch (cause) {
-      op.cleanupError = cause.message;
+    if (!op.external && !op.agentSwitch) {
+      try {
+        await closeMenu(op);
+      } catch (cause) {
+        op.cleanupError = cause.message;
+      }
     }
     clearTimeout(op.timer);
     if (
       !op.aborted &&
       !op.controller.signal.aborted &&
-      sameTarget(op.target, resolveTarget()) &&
+      (op.agentSwitch
+        ? sameComposerTarget(op.target, resolveTarget(false))
+        : sameTarget(op.target, resolveTarget())) &&
       visible(op.focus) &&
       op.target.scope.contains(op.focus) &&
       !generating(op.target) &&
@@ -1219,6 +1272,32 @@
     const before = passive();
     if (!refresh || operation || ['unavailable', 'busy', 'conflict'].includes(before.status))
       return before;
+    const liveTarget = resolveTarget();
+    const compatibility = window.__palbooHostCompatibility?.capability(liveTarget?.composer);
+    if (compatibility?.externalModel) {
+      const op = begin(true, { external: true });
+      let error = '';
+      try {
+        phase(op, tr('等待可用模型'));
+        await waitFor(
+          op,
+          () =>
+            window.__palbooHostCompatibility?.readExternal?.(op.target.composer)?.models?.length >
+            0,
+          3500,
+        );
+      } catch (cause) {
+        error = failure(op, cause);
+      }
+      const cleanupError = await finish(op);
+      error ||= cleanupError;
+      const result = passive();
+      result.diagnostic = diagnostic(op);
+      if (error && !result.models?.length) {
+        result.message = error;
+      }
+      return result;
+    }
     const op = begin(true);
     let error = '';
     try {
@@ -1265,11 +1344,90 @@
       previous,
       diagnostic: diagnostic(op),
     });
+    if (typeof request?.agent === 'string' && request.agent.trim()) {
+      if (operation || ['busy', 'conflict'].includes(before.status) || !before.target?.id)
+        return result(
+          before.status === 'ready' ? 'unavailable' : before.status,
+          before.message || tr('目标不可用'),
+        );
+      if (request?.target?.id !== before.target.id || request?.expectedRevision !== before.revision)
+        return result('conflict', tr('目标或修订号已过期，请刷新后重试'));
+      try {
+        op = begin(false, { agentSwitch: true });
+      } catch (cause) {
+        return result('unavailable', cause.message);
+      }
+      let status = 'applied',
+        message = '';
+      try {
+        phase(op, tr('切换 CLI'));
+        op.mutated = true;
+        cache = null;
+        await window.__palbooHostCompatibility.selectAgent(
+          op.target.composer,
+          request.agent.trim(),
+          op.controller.signal,
+        );
+      } catch (cause) {
+        status = op.aborted ? 'conflict' : 'unavailable';
+        message = failure(op, cause);
+        cache = null;
+      }
+      const cleanupError = await finish(op);
+      if (cleanupError && status === 'applied') {
+        status = 'unavailable';
+        message = cleanupError;
+      }
+      return result(status, message);
+    }
     if (operation || ['busy', 'unavailable', 'conflict'].includes(before.status))
       return result(before.status, before.message);
     if (request?.target?.id !== before.target.id || request?.expectedRevision !== before.revision)
       return result('conflict', tr('目标或修订号已过期，请刷新后重试'));
+    const liveTarget = resolveTarget();
+    const compatibility = window.__palbooHostCompatibility?.capability(liveTarget?.composer);
     const selection = { ...request?.selection };
+    if (compatibility?.externalModel) {
+      const extModels = Array.isArray(before.models) ? before.models : [];
+      if (!extModels.length) return result('waiting', before.message);
+      const extModel = extModels.find((entry) => entry.id === selection?.model);
+      const validReasoning = extModel
+        ? extModel.reasoning.length
+          ? extModel.reasoning.includes(selection?.reasoning)
+          : !selection?.reasoning
+        : false;
+      if (!extModel || !validReasoning || selection?.speed !== 'standard')
+        return result('invalid', tr('完整配置不受当前 CLI 支持，未做任何修改'));
+      previous = before.current;
+      op = begin(false, { external: true });
+      let status = 'applied',
+        message = '';
+      try {
+        phase(op, tr('切换 CLI 模型'));
+        op.mutated = true;
+        const after = await window.__palbooHostCompatibility.selectExternal(
+          op.target.composer,
+          selection,
+          op.controller.signal,
+        );
+        guard(op);
+        if (
+          after?.current?.model !== selection.model ||
+          after?.current?.reasoning !== selection.reasoning
+        ) {
+          throw new Error(tr('CLI 模型配置与请求不一致'));
+        }
+      } catch (cause) {
+        status = op.mutated ? 'partial' : op.aborted ? 'conflict' : 'unavailable';
+        message = failure(op, cause);
+      }
+      const cleanupError = await finish(op);
+      if (cleanupError && status === 'applied') {
+        status = 'unavailable';
+        message = cleanupError;
+      }
+      return result(status, message);
+    }
     const model = models.find((entry) => entry.id === selection?.model);
     if (!models.length) return result('waiting', before.message);
     if (
@@ -1347,9 +1505,26 @@
     visible: !disposed && document.visibilityState === 'visible',
     focused: !disposed && document.hasFocus(),
   });
+  async function codexCatalog() {
+    if (!models.length) await readCatalog(true);
+    if (!models.length) {
+      const compatibility = window.__palbooHostCompatibility?.capability(
+        resolveTarget(false)?.composer,
+      );
+      if (compatibility?.officialModel !== false) {
+        const snap = await snapshot(true);
+        if (!models.length) return snap;
+      }
+    }
+    return clone({
+      models,
+      message: models.length ? '' : tr('尚未读取到 Codex 可选模型，请打开宿主模型菜单后重试'),
+    });
+  }
   const api = {
     snapshot,
     apply,
+    codexCatalog,
     cancel,
     dispose,
     presence,
