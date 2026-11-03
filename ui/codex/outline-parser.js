@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 当前回答的 Markdown DOM 与共享大纲限制。
- * [OUTPUT]: 合并原文标题；无标题时按内容分组去重并区分同名标签，保留精确原文锚点；不请求模型。
+ * [OUTPUT]: 扫描同一回答的所有正文块，依次回退到正式标题、推断标题和自然段导航，保留原文锚点。
  * [POS]: Codex 大纲的本地解析器；刷新、身份核验和滚动由 outline.js 负责。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -23,19 +23,16 @@ function outlineVisible(node) {
   return Boolean(rect.width > 8 && rect.height > 8);
 }
 
-function outlineMarkdownRoot(messageNode) {
-  if (!(messageNode instanceof Element)) return null;
-  const preferred = messageNode.querySelector(
-    [
-      "[class*='markdownContent']",
-      "[class*='markdown-content']",
-      '.markdown',
-      '.prose',
-      'article',
-    ].join(','),
-  );
-  if (preferred && !preferred.closest(`[${ROOT_ATTR}="true"]`)) return preferred;
-  return messageNode;
+function outlineMarkdownRoots(messageNode) {
+  const markdown = "[class*='markdownContent'],[class*='markdown-content'],.markdown,.prose";
+  if (messageNode.matches(markdown)) return [messageNode];
+  const selector = `${markdown},article`;
+  const roots = Array.from(messageNode.querySelectorAll(selector)).filter((node) => {
+    if (outlineProtectedSurface(node)) return false;
+    const parentRoot = node.parentElement?.closest(selector);
+    return !parentRoot || parentRoot === messageNode || !messageNode.contains(parentRoot);
+  });
+  return roots.length ? roots : [messageNode];
 }
 
 function outlineProtectedSurface(node) {
@@ -348,9 +345,11 @@ function outlineParagraphLabel(text, sentenceOnly = true) {
     : `${characters.slice(0, MAX_OUTLINE_TITLE_LEN - 1).join('')}…`;
 }
 
-function outlineParagraphBlocks(root) {
+function outlineParagraphBlocks(roots) {
   const blocks = [];
-  for (const node of root.querySelectorAll(PARAGRAPH_BLOCK_SELECTOR)) {
+  for (const node of roots.flatMap((root) =>
+    Array.from(root.querySelectorAll(PARAGRAPH_BLOCK_SELECTOR)),
+  )) {
     if (!outlineVisible(node) || outlineProtectedSurface(node)) continue;
     // 列表、引用、表格和代码是完整块；不重复收集其内部段落或包装节点。
     if (node.parentElement?.closest(PARAGRAPH_ATOMIC_SELECTOR)) continue;
@@ -377,8 +376,8 @@ function outlineParagraphBlocks(root) {
   return blocks;
 }
 
-function outlineCollectParagraphs(root) {
-  const blocks = outlineParagraphBlocks(root);
+function outlineCollectParagraphs(roots) {
+  const blocks = outlineParagraphBlocks(roots);
   if (blocks.length < 2) return [];
   const total = blocks.reduce((sum, block) => sum + block.weight, 0);
   const desired = Math.min(
@@ -444,17 +443,18 @@ function outlineCollectParagraphs(root) {
   return result.length >= 2 ? result : [];
 }
 
-function outlineCollectItems(root) {
-  if (!(root instanceof Element)) return [];
-  const headings = [...outlineCollectSemanticHeadings(root), ...outlineCollectPseudoHeadings(root)];
-  // 原文已有标题时不叠加段落目录，包括只有一个有效标题的长回答。
+function outlineCollectItems(messageNode) {
+  if (!(messageNode instanceof Element)) return [];
+  const roots = outlineMarkdownRoots(messageNode);
+  const semantic = roots.flatMap(outlineCollectSemanticHeadings);
+  const headings = semantic.length ? semantic : roots.flatMap(outlineCollectPseudoHeadings);
   const items = headings.length
     ? outlineDedupeItems(outlineSortInDocumentOrder(headings))
-    : outlineCollectParagraphs(root);
+    : outlineCollectParagraphs(roots);
   return outlineNormalizeDisplayLevels(items).map((item, anchorIndex) => ({
     ...item,
     anchorIndex,
   }));
 }
 
-export { outlineCollectItems, outlineMarkdownRoot };
+export { outlineCollectItems };

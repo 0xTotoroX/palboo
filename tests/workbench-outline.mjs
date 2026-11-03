@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 工作台真实浏览器夹具与合成回答。
- * [OUTPUT]: 宿主角色兼容、混合标题、不均匀段落与同名前缀、去重、重挂载定位与过期拒绝回归。
+ * [OUTPUT]: 宿主角色兼容、标题分级回退、不均匀段落与同名前缀、去重、重挂载定位与过期拒绝回归。
  * [POS]: 由 workbench.mjs 执行；不读取真实聊天，不调用模型或外部服务。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -171,33 +171,39 @@ export function outlineCases({ mode }) {
       },
     ],
     [
-      '大纲：正式标题与编号加粗小标题合并，嵌套加粗不重复',
+      '大纲：跨正文块优先使用正式标题，无正式标题时才使用编号加粗',
       async (page) => {
         await mode(page, true);
+        await page.locator('#answer').evaluate((node) => node.classList.remove('markdown'));
         const section = (index) =>
           `<p data-outline-fixture="${index}"><strong>${index}. 检查第 ${index} 项</strong></p><p>${body}</p>`;
+        const block = (html) => `<div class="markdown">${html}</div>`;
         await setAnswer(
           page,
-          `<h2 data-outline-fixture="0"><strong>整体接入方案</strong></h2>${[1, 2, 3].map(section).join('')}`,
+          block(section(1)) +
+            block('<h2 data-outline-fixture="2"><strong>整体接入方案</strong></h2>') +
+            block(
+              section(3) + '<div class="prose"><h3 data-outline-fixture="4">验证与交付</h3></div>',
+            ),
         );
         let result = await items(page);
         assert.deepEqual(
-          result.map((item) => item.target),
-          ['0', '1', '2', '3'],
-        );
-        assert.deepEqual(
-          result.map((item) => item.kind),
-          ['semantic', 'pseudo', 'pseudo', 'pseudo'],
+          result.map((item) => [item.target, item.kind]),
+          [
+            ['2', 'semantic'],
+            ['4', 'semantic'],
+          ],
         );
         await checkTargets(page, result);
-        await setAnswer(
-          page,
-          `<h2 data-outline-fixture="0">整体接入方案</h2>${section(1)}<h2 data-outline-fixture="2">验证与交付</h2>${section(3)}`,
-        );
+
+        await setAnswer(page, block(section(1)) + block(section(3)));
         result = await items(page);
         assert.deepEqual(
-          result.map((item) => item.target),
-          ['0', '1', '2', '3'],
+          result.map((item) => [item.target, item.kind]),
+          [
+            ['1', 'pseudo'],
+            ['3', 'pseudo'],
+          ],
         );
         await checkTargets(page, result);
       },

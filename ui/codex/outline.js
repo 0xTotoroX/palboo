@@ -38,7 +38,7 @@ import {
   outlineState,
   shellState,
 } from './runtime/state.js';
-import { outlineCollectItems, outlineMarkdownRoot } from './outline-parser.js';
+import { outlineCollectItems } from './outline-parser.js';
 import { contentSafeBounds } from './appearance.js';
 import { emitSignal } from './runtime/signals.js';
 import { remotePanelAction } from '../surfaces/desktop/legacy/transport.js';
@@ -210,7 +210,7 @@ function outlineResolveElement(id) {
   )
     return null;
   // 标签可能截断或重复；重挂载后按原回答中的次序和完整锚点文本核验，不猜匹配。
-  const candidate = outlineCollectItems(outlineMarkdownRoot(message.node))[item.anchorIndex];
+  const candidate = outlineCollectItems(message.node)[item.anchorIndex];
   if (!candidate || candidate.kind !== item.kind || candidate.anchorText !== item.anchorText)
     return null;
   candidate.el.setAttribute(MARK_ATTR, id);
@@ -308,10 +308,13 @@ function outlineBuild(message, sourceHash) {
     return { items: [], fingerprint: sourceHash || '', message: null };
   }
   const textLength = message.text.length;
-  const items = outlineCollectItems(outlineMarkdownRoot(message.node));
+  const items = outlineCollectItems(message.node);
   const structuredEnough = items.length >= Math.max(MIN_OUTLINE_ITEMS, 3) && textLength >= 160;
   outlineClearMarks();
-  if ((textLength < MIN_OUTLINE_TEXT_LEN && !structuredEnough) || !items.length) {
+  if (
+    !items.length ||
+    (items[0].kind !== 'semantic' && textLength < MIN_OUTLINE_TEXT_LEN && !structuredEnough)
+  ) {
     return { items: [], fingerprint: `${sourceHash}|empty`, message: message.node };
   }
   outlineMarkItems(items, sourceHash);
