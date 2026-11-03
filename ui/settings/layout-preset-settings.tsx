@@ -2,7 +2,7 @@
  * [OUTPUT]: Separate selection/management slots for the main layout group, with retained preset name/scope drafts.
  * [POS]: Main layout settings and its existing drawer; never changes business feature switches.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
-import { useState, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { tr } from '../shared/i18n.js';
 import { useLocale } from '../shared/use-locale';
 import {
@@ -27,7 +27,7 @@ import {
 } from '../surfaces/workspace/layout-presets.js';
 import { SettingsDrawer } from './settings-drawer';
 import { Field } from './settings-controls';
-import { Button } from './components/ui/button';
+import { Button, IconButton } from './components/ui/button';
 import { Input } from './components/ui/input';
 import { Icon } from '../shared/icons/react';
 import { NativeSelect } from './components/ui/native-select';
@@ -48,7 +48,11 @@ export function LayoutPresetSettings({
 }) {
   useLocale();
   const [name, setName] = useState('');
-  const [selected, setSelected] = useState('');
+  const [view, setView] = useState<{ kind: 'new' } | { kind: 'edit'; id: string } | null>(null);
+  const backButton = useRef<HTMLButtonElement>(null);
+  const newButton = useRef<HTMLButtonElement>(null);
+  const editButtons = useRef(new Map<string, HTMLButtonElement>());
+  const lastView = useRef(view);
   const [scope, setScope] = useState<LayoutPresetScope | null>(null);
   const [drafts, setDrafts] = useState<
     Record<string, { name: string; scope: LayoutPresetScope; revision: number }>
@@ -60,7 +64,18 @@ export function LayoutPresetSettings({
   const active = presets.find((preset) => matchesLayoutPreset(preset, layout, ids));
   const builtins = builtinLayoutPresets();
   const revision = state.layoutPresetsRevision || 0;
-  const chosen = presets.find((preset) => preset.id === selected) || active || presets[0];
+  const chosen =
+    view?.kind === 'edit' ? presets.find((preset) => preset.id === view.id) : undefined;
+  const editing = Boolean(chosen) || view?.kind === 'new';
+  useLayoutEffect(() => {
+    const previous = lastView.current;
+    lastView.current = view;
+    if (editing) backButton.current?.focus();
+    else if (previous) {
+      const target = previous.kind === 'edit' && editButtons.current.get(previous.id);
+      (target || newButton.current)?.focus();
+    }
+  }, [view, editing]);
   const confirmation = useConfirmation(revision, busy);
   const context = {
     placement: state.mainPlacement || 'sidebar',
@@ -79,6 +94,7 @@ export function LayoutPresetSettings({
     ) {
       setName('');
       setScope(null);
+      setView(null);
     }
   }
   function show(id: string, value: boolean) {
@@ -149,201 +165,252 @@ export function LayoutPresetSettings({
         triggerLabel={tr('管理布局预设')}
         compact
       >
-        <section className="settings-subsection layout-preset-section">
-          <h3>{tr('保存新预设')}</h3>
-          <fieldset className="layout-preset-membership">
-            <legend>{tr('包含的功能')}</legend>
-            <div className="layout-preset-features">
-              {ids.map((id) => (
-                <label key={id} className="layout-preset-feature">
-                  <input
-                    type="checkbox"
-                    checked={current.visible!.includes(id)}
-                    disabled={
-                      busy || (current.visible!.length === 1 && current.visible!.includes(id))
-                    }
-                    onChange={(event) => show(id, event.target.checked)}
-                  />
-                  <Icon name={featureIcons[id]} />
-                  <span>{titles[id]}</span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
-          <Field id="new-layout-preset-name" label={tr('预设名称')}>
-            <Input
-              id="new-layout-preset-name"
-              value={name}
-              maxLength={40}
-              disabled={busy || !ids.length}
-              onChange={(event) => setName(event.target.value)}
-            />
-          </Field>
-          <Field id="new-layout-preset-scope" label={tr('适用形式')}>
-            <NativeSelect
-              id="new-layout-preset-scope"
-              value={scope || placement}
-              disabled={busy}
-              onChange={(event) => setScope(event.target.value as LayoutPresetScope)}
-            >
-              {layoutPresetScopes.map((value) => (
-                <option key={value} value={value}>
-                  {presetScopeLabel(value)}
-                </option>
-              ))}
-            </NativeSelect>
-          </Field>
-          <div className="settings-actions">
+        {editing ? (
+          <div className="layout-preset-navigation">
             <Button
-              type="button"
-              disabled={busy || !name.trim() || !current.visible?.length}
-              onClick={() => void save()}
+              ref={backButton}
+              variant="ghost"
+              size="sm"
+              disabled={busy}
+              onClick={() => setView(null)}
             >
-              {tr('保存当前布局')}
+              <Icon name="back" />
+              {tr('返回')}
             </Button>
+            <h3>{tr(chosen ? '编辑预设' : '保存新预设')}</h3>
           </div>
-        </section>
-        <section className="settings-subsection layout-preset-section">
-          <h3>{tr('已保存的预设')}</h3>
-          {!chosen ? (
-            <p className="settings-hint">{tr('暂无布局预设')}</p>
-          ) : (
-            <>
-              <Field id="saved-layout-preset" label={tr('选择预设')}>
-                <NativeSelect
-                  id="saved-layout-preset"
-                  value={chosen.id}
-                  disabled={busy}
-                  onChange={(event) => setSelected(event.target.value)}
-                >
-                  {presets.map((preset) => (
-                    <option key={preset.id} value={preset.id}>
-                      {layoutPresetLabel(preset)}
-                    </option>
-                  ))}
-                </NativeSelect>
-              </Field>
-              <Field id="layout-preset-rename" label={tr('名称')}>
-                <Input
-                  id="layout-preset-rename"
-                  value={drafts[chosen.id]?.name ?? chosen.name}
-                  maxLength={40}
-                  disabled={busy}
-                  onChange={(event) => edit({ name: event.target.value })}
-                />
-              </Field>
-              <Field id="layout-preset-scope" label={tr('适用形式')}>
-                <NativeSelect
-                  id="layout-preset-scope"
-                  value={draft?.scope ?? chosen.scope ?? 'all'}
-                  disabled={busy}
-                  onChange={(event) => edit({ scope: event.target.value as LayoutPresetScope })}
-                >
-                  {layoutPresetScopes.map((value) => (
-                    <option key={value} value={value}>
-                      {presetScopeLabel(value)}
-                    </option>
-                  ))}
-                </NativeSelect>
-              </Field>
-              <div className="settings-actions">
-                {drafts[chosen.id] && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    disabled={busy}
-                    onClick={() =>
-                      setDrafts((previous) => {
-                        const next = { ...previous };
-                        delete next[chosen.id];
-                        return next;
-                      })
-                    }
-                  >
-                    {tr('取消')}
-                  </Button>
-                )}
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={busy || !drafts[chosen.id]?.name.trim() || !changed}
-                  onClick={async () => {
-                    const draft = drafts[chosen.id];
-                    if (
-                      draft &&
-                      (await change({
-                        op: 'main-preset-update',
-                        id: chosen.id,
-                        expectedRevision: draft.revision,
-                        name: draft.name.trim(),
-                        scope: draft.scope,
-                      }))
-                    )
-                      setDrafts((previous) => {
-                        const next = { ...previous };
-                        delete next[chosen.id];
-                        return next;
-                      });
-                  }}
-                >
-                  {tr('保存更改')}
-                </Button>
-                <Button
-                  type="button"
-                  disabled={busy || matchesLayoutPreset(chosen, layout, ids)}
-                  onClick={() =>
-                    void change({ op: 'main-preset-apply', ...context, id: chosen.id })
-                  }
-                >
-                  {tr('使用此预设')}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={busy || !current.visible?.length}
-                  onClick={() =>
-                    confirmation.confirm({
-                      title: tr('更新布局预设'),
-                      description: tr('用当前布局覆盖“{{name}}”？', { name: chosen.name }),
-                      confirmLabel: tr('更新'),
-                      action: () =>
-                        change({
-                          op: 'main-preset-save',
-                          ...context,
-                          id: chosen.id,
-                          name: chosen.name,
-                          scope: chosen.scope || 'all',
-                          layout: current,
-                        }),
-                    })
-                  }
-                >
-                  {tr('用当前布局更新')}
-                </Button>
+        ) : (
+          <>
+            <div className="layout-preset-list-actions">
+              <Button
+                ref={newButton}
+                variant="outline"
+                size="sm"
+                disabled={busy || !ids.length}
+                onClick={() => setView({ kind: 'new' })}
+              >
+                <Icon name="plus" />
+                {tr('保存新预设')}
+              </Button>
+            </div>
+            {presets.length ? (
+              <ul className="layout-preset-list">
+                {presets.map((preset) => {
+                  const current = preset.id === active?.id;
+                  return (
+                    <li key={preset.id}>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="layout-preset-apply"
+                        aria-current={current || undefined}
+                        aria-disabled={current || undefined}
+                        title={tr('使用此预设')}
+                        disabled={busy}
+                        onClick={() => {
+                          if (!current)
+                            void change({ op: 'main-preset-apply', ...context, id: preset.id });
+                        }}
+                      >
+                        <span>{preset.name}</span>
+                        <span className="layout-preset-scope">
+                          {presetScopeLabel(preset.scope)}
+                        </span>
+                        {current && <Icon name="check" />}
+                      </Button>
+                      <IconButton
+                        ref={(node) => {
+                          if (node) editButtons.current.set(preset.id, node);
+                          else editButtons.current.delete(preset.id);
+                        }}
+                        aria-label={tr('编辑{{name}}', { name: preset.name })}
+                        title={tr('编辑')}
+                        disabled={busy}
+                        onClick={() => setView({ kind: 'edit', id: preset.id })}
+                      >
+                        <Icon name="pencil" />
+                      </IconButton>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="settings-hint">{tr('暂无布局预设')}</p>
+            )}
+          </>
+        )}
+        {view?.kind === 'new' && (
+          <section className="layout-preset-form">
+            <Field id="new-layout-preset-name" label={tr('预设名称')}>
+              <Input
+                id="new-layout-preset-name"
+                value={name}
+                maxLength={40}
+                disabled={busy || !ids.length}
+                onChange={(event) => setName(event.target.value)}
+              />
+            </Field>
+            <Field id="new-layout-preset-scope" label={tr('适用形式')}>
+              <NativeSelect
+                id="new-layout-preset-scope"
+                value={scope || placement}
+                disabled={busy}
+                onChange={(event) => setScope(event.target.value as LayoutPresetScope)}
+              >
+                {layoutPresetScopes.map((value) => (
+                  <option key={value} value={value}>
+                    {presetScopeLabel(value)}
+                  </option>
+                ))}
+              </NativeSelect>
+            </Field>
+            <fieldset className="layout-preset-membership">
+              <legend>{tr('包含的功能')}</legend>
+              <div className="layout-preset-features">
+                {ids.map((id) => (
+                  <label key={id} className="layout-preset-feature">
+                    <input
+                      type="checkbox"
+                      checked={current.visible!.includes(id)}
+                      disabled={
+                        busy || (current.visible!.length === 1 && current.visible!.includes(id))
+                      }
+                      onChange={(event) => show(id, event.target.checked)}
+                    />
+                    <Icon name={featureIcons[id]} />
+                    <span>{titles[id]}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <div className="settings-actions">
+              <Button
+                type="button"
+                disabled={busy || !name.trim() || !current.visible?.length}
+                onClick={() => void save()}
+              >
+                {tr('保存当前布局')}
+              </Button>
+            </div>
+          </section>
+        )}
+        {chosen && (
+          <section className="layout-preset-form">
+            <Field id="layout-preset-rename" label={tr('名称')}>
+              <Input
+                id="layout-preset-rename"
+                value={drafts[chosen.id]?.name ?? chosen.name}
+                maxLength={40}
+                disabled={busy}
+                onChange={(event) => edit({ name: event.target.value })}
+              />
+            </Field>
+            <Field id="layout-preset-scope" label={tr('适用形式')}>
+              <NativeSelect
+                id="layout-preset-scope"
+                value={draft?.scope ?? chosen.scope ?? 'all'}
+                disabled={busy}
+                onChange={(event) => edit({ scope: event.target.value as LayoutPresetScope })}
+              >
+                {layoutPresetScopes.map((value) => (
+                  <option key={value} value={value}>
+                    {presetScopeLabel(value)}
+                  </option>
+                ))}
+              </NativeSelect>
+            </Field>
+            <div className="settings-actions">
+              {drafts[chosen.id] && (
                 <Button
                   type="button"
                   variant="ghost"
                   disabled={busy}
                   onClick={() =>
-                    confirmation.confirm({
-                      title: tr('删除布局预设'),
-                      description: tr('删除“{{name}}”？当前布局会保留。', { name: chosen.name }),
-                      confirmLabel: tr('删除'),
-                      action: () =>
-                        change({
-                          op: 'main-preset-delete',
-                          id: chosen.id,
-                          expectedRevision: revision,
-                        }),
+                    setDrafts((previous) => {
+                      const next = { ...previous };
+                      delete next[chosen.id];
+                      return next;
                     })
                   }
                 >
-                  {tr('删除')}
+                  {tr('取消')}
                 </Button>
-              </div>
-            </>
-          )}
-        </section>
+              )}
+              <Button
+                type="button"
+                disabled={busy || !drafts[chosen.id]?.name.trim() || !changed}
+                onClick={async () => {
+                  const draft = drafts[chosen.id];
+                  if (
+                    draft &&
+                    (await change({
+                      op: 'main-preset-update',
+                      id: chosen.id,
+                      expectedRevision: draft.revision,
+                      name: draft.name.trim(),
+                      scope: draft.scope,
+                    }))
+                  )
+                    setDrafts((previous) => {
+                      const next = { ...previous };
+                      delete next[chosen.id];
+                      return next;
+                    });
+                }}
+              >
+                {tr('保存更改')}
+              </Button>
+            </div>
+            <div className="settings-actions layout-preset-secondary">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={busy || !current.visible?.length}
+                onClick={() =>
+                  confirmation.confirm({
+                    title: tr('更新布局预设'),
+                    description: tr('用当前布局覆盖“{{name}}”？', { name: chosen.name }),
+                    confirmLabel: tr('更新'),
+                    action: () =>
+                      change({
+                        op: 'main-preset-save',
+                        ...context,
+                        id: chosen.id,
+                        name: chosen.name,
+                        scope: chosen.scope || 'all',
+                        layout: current,
+                      }),
+                  })
+                }
+              >
+                {tr('用当前布局更新')}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={busy}
+                onClick={() =>
+                  confirmation.confirm({
+                    title: tr('删除布局预设'),
+                    description: tr('删除“{{name}}”？当前布局会保留。', { name: chosen.name }),
+                    confirmLabel: tr('删除'),
+                    action: async () => {
+                      const deleted = await change({
+                        op: 'main-preset-delete',
+                        id: chosen.id,
+                        expectedRevision: revision,
+                      });
+                      if (deleted) setView(null);
+                      return deleted;
+                    },
+                  })
+                }
+              >
+                {tr('删除')}
+              </Button>
+            </div>
+          </section>
+        )}
         {confirmation.confirmation}
       </SettingsDrawer>
     ),

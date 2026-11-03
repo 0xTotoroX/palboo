@@ -363,23 +363,85 @@
   color: var(--buddy-text);
 }
 #layout-presets-drawer {
-  width: min(100vw, 560px);
+  width: min(100vw, 460px);
 }
 #layout-presets-drawer .settings-drawer-content {
   padding-top: 8px;
 }
-#layout-presets-drawer .layout-preset-section:first-child {
+.layout-preset-list-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+.layout-preset-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+#layout-presets-drawer .layout-preset-list {
   margin-top: 0;
 }
-.layout-preset-section + .layout-preset-section {
-  margin-top: 28px;
-  padding-top: 24px;
+.layout-preset-list > li,
+.layout-preset-navigation {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.layout-preset-list > li + li {
   border-top: 1px solid var(--buddy-border);
 }
-.layout-preset-section > h3 {
-  margin: 0 0 16px;
+#layout-presets-drawer .layout-preset-apply {
+  flex: 1;
+  min-width: 0;
+  justify-content: flex-start;
+  min-height: 44px;
+  padding-inline: 0 8px;
+  color: var(--buddy-text);
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.layout-preset-apply[aria-current] {
+  cursor: default;
+}
+@media (hover: hover) {
+  #layout-presets-drawer .layout-preset-apply:not([aria-current]):enabled:hover {
+    background: var(--settings-control-hover);
+  }
+}
+.layout-preset-scope {
+  flex: 0 0 auto;
+  margin-inline-start: auto;
+  color: var(--buddy-muted);
+  font-size: 0.9em;
+}
+.layout-preset-navigation {
+  margin-bottom: 16px;
+}
+.layout-preset-navigation h3 {
+  margin: 0;
   font-size: 1em;
   font-weight: 500;
+}
+#layout-presets-drawer .layout-preset-form .settings-field {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  align-items: center;
+  gap: 8px;
+}
+#layout-presets-drawer .layout-preset-form .settings-field > * {
+  grid-column: auto;
+}
+#layout-presets-drawer .layout-preset-form .settings-native-select {
+  width: 100%;
+}
+#layout-presets-drawer .layout-preset-navigation + .layout-preset-form {
+  margin-top: 0;
+}
+.layout-preset-form .layout-preset-secondary {
+  margin-top: 12px;
+}
+.layout-preset-secondary > button:first-child {
+  margin-inline-end: auto;
 }
 .layout-preset-membership {
   border: 0;
@@ -411,11 +473,15 @@
 .layout-preset-feature .buddy-icon {
   color: var(--buddy-muted);
 }
-.layout-preset-section .settings-actions {
+.layout-preset-form .settings-actions {
   gap: 8px;
   margin-top: 16px;
 }
 @media (max-width: 420px) {
+  .layout-preset-scope {
+    flex: 0 1 auto;
+    text-align: end;
+  }
   .layout-preset-features {
     gap: 4px 8px;
   }

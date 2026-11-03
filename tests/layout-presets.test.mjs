@@ -447,6 +447,9 @@ createRoot(document.getElementById('root')).render(<App/>);
       assert.ok(geometry.preset.top > geometry.layout.top, 'presets have their own row');
     }
     assert.equal(await page.getByRole('button', { name: '管理布局预设', exact: true }).count(), 1);
+    assert.equal(await drawer.getByRole('textbox').count(), 0);
+    assert.equal(await drawer.getByRole('checkbox').count(), 0);
+    await drawer.getByRole('button', { name: '保存新预设' }).click();
     assert.equal(await drawer.locator('#new-layout-preset-scope').inputValue(), 'desktop');
     await drawer.getByRole('checkbox', { name: '常用语', exact: true }).click();
     await page.waitForFunction(() => server.layouts.desktop.visible?.length === 2);
@@ -464,7 +467,11 @@ createRoot(document.getElementById('root')).render(<App/>);
     await page.evaluate(() => (failSave = false));
     await drawer.getByRole('button', { name: '保存当前布局', exact: true }).click();
     await page.waitForFunction(() => server.layoutPresets.length === 1);
-    await drawer.getByRole('button', { name: '使用此预设', exact: true }).waitFor();
+    const editPreset = (name) => drawer.getByRole('button', { name: '编辑' + name, exact: true });
+    await editPreset('阅读对照').waitFor();
+    assert.equal(await drawer.getByRole('textbox').count(), 0);
+    await editPreset('阅读对照').click();
+    assert.equal(await drawer.getByRole('checkbox').count(), 0);
     assert.equal(await drawer.locator('#layout-preset-scope').inputValue(), 'desktop');
     await drawer.locator('#layout-preset-scope').selectOption('all');
     await drawer.getByRole('button', { name: '保存更改', exact: true }).click();
@@ -494,10 +501,18 @@ createRoot(document.getElementById('root')).render(<App/>);
     );
     await page.evaluate(() => changeLocale('system'));
     await drawer.getByRole('button', { name: '取消', exact: true }).click();
+    await drawer.getByRole('button', { name: '返回', exact: true }).click();
+    assert.equal(
+      await editPreset('我的布局').evaluate((node) => node === document.activeElement),
+      true,
+    );
+    await drawer.getByRole('button', { name: '保存新预设' }).click();
     await drawer.getByRole('checkbox', { name: '常用语', exact: true }).click();
     await page.waitForFunction(() => server.layouts.desktop.visible.length === 3);
-    await drawer.getByRole('button', { name: '使用此预设', exact: true }).click();
+    await drawer.getByRole('button', { name: '返回', exact: true }).click();
+    await drawer.getByRole('button', { name: '我的布局 通用', exact: true }).click();
     await page.waitForFunction(() => server.layouts.desktop.visible.length === 2);
+    await editPreset('我的布局').click();
     await drawer.getByRole('button', { name: '用当前布局更新', exact: true }).click();
     const update = page.getByRole('dialog', { name: '更新布局预设', exact: true });
     await update.getByRole('button', { name: '取消', exact: true }).click();
