@@ -1008,6 +1008,7 @@ test('shared model choices, Bot messages and the isolated Agent menu remain inte
       false,
       'available Agent moves above More',
     );
+    await agents.locator('[role=menuitemradio][aria-checked=true]:focus').waitFor();
     assert.equal(await focused(promoted), true);
     await select(page, 'model');
     assert.equal(await choice.getAttribute('aria-pressed'), 'true');
