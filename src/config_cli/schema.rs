@@ -115,7 +115,13 @@ impl Scope {
                 "folders",
                 "sites",
             ],
-            Self::CodexHost => &["op", "expectedRevision", "enabled", "version"],
+            Self::CodexHost => &[
+                "op",
+                "expectedRevision",
+                "enabled",
+                "version",
+                "startupUpdate",
+            ],
             Self::Performance => &[
                 "expectedRevision",
                 "integrationEnabled",
@@ -165,6 +171,7 @@ impl Scope {
             ],
             Self::CodexHost => &[
                 "set-enabled",
+                "set-startup-update",
                 "check-update",
                 "install",
                 "restore",
@@ -365,7 +372,14 @@ pub(super) fn schema(scope: Scope) -> Value {
             "examples":[{"folders":[{"id":"notes","name":"Notes","path":"/absolute/path/to/notes","attachments":[]},{"id":"projects","name":"Projects","path":"/absolute/path/to/projects","attachments":[]}]},{"sites":[{"id":"cubox","name":"Cubox","url":"https://cubox.pro/web/unread"}]}]
         }),
         Scope::CodexHost => {
-            json!({"notes":{"enabled":"set-enabled 保存启动意愿；不改写官方 CodexHost、供应商 Agent 或它们的模型配置","operations":"start/install/restore/restart-disabled 需 --confirm；读取状态不重启宿主"}})
+            json!({
+                "choices":{"startupUpdate":["notify","automatic","off"]},
+                "notes":{
+                    "enabled":"set-enabled 保存启动意愿；不改写官方 CodexHost、供应商 Agent 或它们的模型配置",
+                    "startupUpdate":"set-startup-update 保存启动更新策略，默认 notify；automatic 安装后在下次启动 CodexHost 时生效",
+                    "operations":"start/install/restore/restart-disabled 需 --confirm；读取状态不重启宿主"
+                }
+            })
         }
         Scope::Performance => {
             json!({"notes":{"integrationEnabled":"暂停/恢复连接，保留配置与本地任务，不重启 Codex","monitoringEnabled":"启用可见性能页的低频采样"}})

@@ -1,14 +1,15 @@
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
-/* [INPUT]: 认证 CodexHost API。 [OUTPUT]: CodexHost 独立开关、紧凑版本/路径信息及显式更新、回退与重启停用操作。
+/* [INPUT]: 认证 CodexHost API。 [OUTPUT]: CodexHost 独立开关、启动更新策略、版本/路径及显式管理操作。
  * [POS]: 设置展示，不管理进程或复制其他功能配置；只在此分类可见时轮询。
  * [PROTOCOL]: 变更时同步 settings/AGENTS.md。 */
 import { useEffect, useRef, useState } from 'react';
 import { request } from './api';
-import { FeatureSwitch, Feedback } from './settings-controls';
+import { FeatureSwitch, Feedback, Field } from './settings-controls';
 import { useFeedbackTarget } from './settings-feedback';
 import { ConfirmationButton } from './settings-confirmation';
 import { Button } from './components/ui/button';
+import { NativeSelect } from './components/ui/native-select';
 import { Icon } from '../shared/icons/react';
 import type { CodexHostStatus } from '../shared/codex-host';
 import { CodexHostPreview } from './codex-host-preview';
@@ -181,6 +182,21 @@ export function CodexHostSettings({
       )}
       {state && (
         <div className="compatibility-management">
+          <Field id="codex-host-startup-update" label={tr('启动时检查 CodexHost 更新')}>
+            <NativeSelect
+              id="codex-host-startup-update"
+              controlWidth="medium"
+              disabled={disabled}
+              value={state.startupUpdate}
+              onChange={(event) =>
+                void command('set-startup-update', { startupUpdate: event.currentTarget.value })
+              }
+            >
+              <option value="notify">{tr('有更新时提醒')}</option>
+              <option value="automatic">{tr('静默更新')}</option>
+              <option value="off">{tr('不检查')}</option>
+            </NativeSelect>
+          </Field>
           <div className="compatibility-release">
             <dl className="compatibility-versions">
               <div>

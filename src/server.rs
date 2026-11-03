@@ -99,6 +99,20 @@ pub async fn serve(
     let watcher = app.clone().supervise();
     let task_watcher = app.tasks.start();
     let term_watcher = tokio::spawn(crate::terminology_import::watch(app.clone()));
+    let host_update = (!allow_fixture).then(|| {
+        let app = app.clone();
+        tokio::spawn(async move {
+            let mut closing = app.closing.subscribe();
+            tokio::select! {
+                _ = closing.wait_for(|closed| *closed) => {}
+                result = app.check_codex_host_on_startup() => {
+                    if let Err(error) = result {
+                        tracing::warn!(%error, "CodexHost 启动更新失败");
+                    }
+                }
+            }
+        })
+    });
     tracing::info!(port, "Palboo 本地服务启动");
     let shutdown_app = app.clone();
     let result = axum::serve(listener, router)
@@ -110,6 +124,9 @@ pub async fn serve(
     watcher.abort();
     task_watcher.abort();
     term_watcher.abort();
+    if let Some(update) = host_update {
+        update.abort();
+    }
     reader.abort();
     app.stop_features().await;
     app.tasks.stop().await;

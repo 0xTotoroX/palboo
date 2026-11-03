@@ -1,5 +1,5 @@
 // [INPUT]: CodexHost 独立安装、上游 runtime descriptor、Palboo 配置和只读宿主发现。
-// [OUTPUT]: 安装与实际运行身份（版本及路径）、当前Agent只读预览、启停意图、冷启动、显式重启停用及更新接入。
+// [OUTPUT]: 安装与实际运行身份、当前Agent只读预览、启停意图、冷启动及手动和启动更新策略。
 // [POS]: 独立后台功能适配；开关不退出当前会话，显式重启由独立协调进程接续；不复制上游业务或进入面板布局。
 // [PROTOCOL]: 变更时同步 codex_host/AGENTS.md。
 pub(crate) mod restart;
@@ -18,6 +18,15 @@ use std::{
 };
 use tokio::process::Command;
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum StartupUpdate {
+    Off,
+    #[default]
+    Notify,
+    Automatic,
+}
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct Options {
@@ -25,6 +34,7 @@ pub struct Options {
     pub executable: Option<PathBuf>,
     pub revision: u64,
     pub previous_executable: Option<PathBuf>,
+    pub startup_update: StartupUpdate,
 }
 #[derive(Deserialize)]
 struct Descriptor {
@@ -230,18 +240,21 @@ async fn status_with_running(
         false
     };
     Ok(
-        json!({"enabled":options.enabled,"revision":options.revision,"state":state,"executable":executable,
+        json!({"enabled":options.enabled,"revision":options.revision,"startupUpdate":options.startup_update,"state":state,"executable":executable,
         "version":installed,"runningVersion":running_version,"runningExecutable":running.map(|v|v.executable),"managed":owned,"error":error,"baseline":update::BASELINE,"canRestore":can_restore,"restart":restart::status(paths)}),
     )
 }
 
 // This function never asks the upstream launcher to take over a live ordinary Desktop.
 // lifecycle performs any explicitly requested restart using Palboo's existing policy first.
-pub async fn prepare(options: &Options, app: Option<&Path>) -> Result<(PathBuf, PathBuf, PathBuf)> {
+pub async fn prepare(
+    options: &Options,
+    app: Option<&Path>,
+) -> Result<(PathBuf, PathBuf, Option<PathBuf>)> {
     let executable = executable(options).context("未安装 CodexHost，请在设置中安装")?;
+    let installed = update::version_tuple(&version(&executable).await?)?;
     ensure!(
-        update::version_tuple(&version(&executable).await?)?
-            >= update::version_tuple(update::BASELINE)?,
+        installed >= update::version_tuple(update::BASELINE)?,
         "请先将 CodexHost 更新到 {} 或更新版本",
         update::BASELINE
     );
@@ -257,13 +270,21 @@ pub async fn prepare(options: &Options, app: Option<&Path>) -> Result<(PathBuf, 
             "CodexHost 不支持此自定义 Codex 路径"
         );
     }
+    if installed >= (0, 17, 0)
+        && desktop
+            .parent()
+            .is_some_and(|directory| directory.join("../Resources/cua_node/bin/node").is_file())
+    {
+        // Let the upstream launcher select Desktop's signed runtime.
+        return Ok((executable, desktop, None));
+    }
     let node = find_node().context("CodexHost 需要 Node.js 22 或更新版本")?;
     let node_version = output(&node, &["--version"], Duration::from_secs(5)).await?;
     ensure!(
         update::version_tuple(node_version.trim_start_matches('v'))?.0 >= 22,
         "需要 Node.js 22 或更新版本"
     );
-    Ok((executable, desktop, node))
+    Ok((executable, desktop, Some(node)))
 }
 
 pub async fn launch(paths: &Paths, options: &Options, app: Option<&Path>) -> Result<String> {
@@ -299,9 +320,11 @@ pub async fn launch(paths: &Paths, options: &Options, app: Option<&Path>) -> Res
     }
     let log = std::fs::OpenOptions::new().append(true).open(log_path)?;
     let mut command = std::process::Command::new(&executable);
+    command.arg("launch");
+    if let Some(node) = node {
+        command.arg("--node").arg(node);
+    }
     command
-        .args(["launch", "--node"])
-        .arg(node)
         .stdin(Stdio::null())
         .stdout(log.try_clone()?)
         .stderr(log);
@@ -351,6 +374,43 @@ pub fn find_tool(name: &str) -> Option<PathBuf> {
         .find(|p| p.is_file())
 }
 impl App {
+    pub(crate) async fn check_codex_host_on_startup(&self) -> Result<()> {
+        let options = self.config.lock().await.codex_host.clone();
+        if !options.enabled || options.startup_update == StartupUpdate::Off {
+            return Ok(());
+        }
+        let Some(path) = executable(&options) else {
+            return Ok(());
+        };
+        let current = version(&path).await?;
+        let release = update::check().await?;
+        let latest = release["version"].as_str().context("官方版本信息无效")?;
+        self.apply_startup_update(&options, &current, latest).await
+    }
+
+    async fn apply_startup_update(
+        &self,
+        options: &Options,
+        current: &str,
+        latest: &str,
+    ) -> Result<()> {
+        if update::version_tuple(latest)? <= update::version_tuple(current)? {
+            return Ok(());
+        }
+        let _guard = self.codex_host_operation.lock().await;
+        if self.config.lock().await.codex_host.revision != options.revision
+            || restart::busy(&self.paths)
+            || *self.closing.borrow()
+        {
+            return Ok(());
+        }
+        match options.startup_update {
+            StartupUpdate::Off => Ok(()),
+            StartupUpdate::Notify => update::notify(latest).await,
+            StartupUpdate::Automatic => self.install_codex_host(options.revision, latest).await,
+        }
+    }
+
     pub(crate) async fn codex_host_agents(&self) -> Result<Value> {
         let client = self.desktop_client().await.context("尚未连接 Codex")?;
         let snapshot = client
@@ -392,18 +452,19 @@ impl App {
                 })
                 .await?;
             }
+            Some("set-startup-update") => {
+                let mode = serde_json::from_value(input["startupUpdate"].clone())
+                    .context("CodexHost 启动更新选项无效")?;
+                self.save_codex_host(&input, |o| o.startup_update = mode)
+                    .await?;
+            }
             Some("install") => {
                 ensure!(
                     input["expectedRevision"].as_u64() == Some(options.revision),
                     "CodexHost 设置已更新，请刷新后重试"
                 );
                 let version = input["version"].as_str().context("缺少安装版本")?;
-                let path = update::install(&self.paths, version).await?;
-                self.save_codex_host(&input, |o| {
-                    o.previous_executable = executable(o);
-                    o.executable = Some(path);
-                })
-                .await?;
+                self.install_codex_host(options.revision, version).await?;
             }
             Some("restore") => {
                 let previous = options
@@ -439,6 +500,14 @@ impl App {
         let options = self.config.lock().await.codex_host.clone();
         status(&self.paths, &options).await
     }
+    async fn install_codex_host(&self, revision: u64, version: &str) -> Result<()> {
+        let path = update::install(&self.paths, version).await?;
+        self.save_codex_host(&json!({"expectedRevision": revision}), |o| {
+            o.previous_executable = executable(o);
+            o.executable = Some(path);
+        })
+        .await
+    }
     async fn save_codex_host(
         &self,
         input: &Value,
@@ -461,6 +530,83 @@ impl App {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::os::unix::fs::PermissionsExt;
+
+    fn fixture_install(root: &Path, version: &str, desktop: &Path) -> PathBuf {
+        std::fs::create_dir_all(root.join("bin")).unwrap();
+        std::fs::create_dir_all(root.join("app")).unwrap();
+        let executable = root.join("bin/codexhost");
+        std::fs::write(
+            &executable,
+            format!("#!/bin/sh\n[ \"$1\" = inspect ] || exit 1\nprintf '%s\\n' 'desktop_executable={}'\n", desktop.display()),
+        )
+        .unwrap();
+        std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o700)).unwrap();
+        std::fs::write(
+            root.join("app/codexhost-distribution.json"),
+            json!({"schemaVersion": 1, "version": version}).to_string(),
+        )
+        .unwrap();
+        executable
+    }
+
+    #[tokio::test]
+    async fn automatic_update_selects_validated_version_for_next_launch_and_preserves_rollback() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths::new(Some(dir.path().into())).unwrap();
+        let desktop = paths.root.join("Desktop.app/Contents/MacOS/Codex");
+        let node = desktop
+            .parent()
+            .unwrap()
+            .join("../Resources/cua_node/bin/node");
+        std::fs::create_dir_all(desktop.parent().unwrap()).unwrap();
+        std::fs::create_dir_all(node.parent().unwrap()).unwrap();
+        std::fs::write(&node, []).unwrap();
+        let previous = fixture_install(&paths.root.join("previous"), "0.16.1", &desktop);
+        let root = paths
+            .root
+            .join("codex-host-versions/0.17.0/node_modules/@codexhost/cli-darwin-arm64");
+        let updated = fixture_install(&root, "0.17.0", &desktop);
+        let config = crate::config::Config {
+            codex_host: Options {
+                enabled: true,
+                executable: Some(previous.clone()),
+                startup_update: StartupUpdate::Automatic,
+                ..Options::default()
+            },
+            ..Default::default()
+        };
+        let options = config.codex_host.clone();
+        let app = App::new(paths.clone(), config, None, true);
+        std::fs::write(root.join("app/codexhost-distribution.json"), b"invalid").unwrap();
+        assert!(
+            app.apply_startup_update(&options, "0.16.1", "0.17.0")
+                .await
+                .is_err()
+        );
+        assert_eq!(
+            app.config.lock().await.codex_host.executable.as_ref(),
+            Some(&previous)
+        );
+        fixture_install(&root, "0.17.0", &desktop);
+        app.apply_startup_update(&options, "0.16.1", "0.17.0")
+            .await
+            .unwrap();
+        let saved = paths.load().unwrap().codex_host;
+        assert_eq!(saved.executable.as_ref(), Some(&updated));
+        assert_eq!(saved.previous_executable, Some(previous));
+        assert_eq!(saved.revision, 1);
+        assert_eq!(
+            prepare(&saved, None).await.unwrap(),
+            (updated, desktop, None)
+        );
+        assert!(!paths.root.join("codex-host.log").exists());
+        app.apply_startup_update(&options, "0.16.1", "0.18.0")
+            .await
+            .unwrap();
+        assert_eq!(paths.load().unwrap().codex_host.revision, 1);
+    }
+
     #[tokio::test]
     async fn switches_preserve_legacy_config_and_do_not_launch_or_change_other_features() {
         let temp = tempfile::tempdir().unwrap();
@@ -468,6 +614,7 @@ mod tests {
         std::fs::write(paths.config(), br#"{"codexHost":{"enabled":false,"revision":7,"executable":"/tmp/retained-codexhost"},"stepwise":{"enabled":true,"maxItems":2},"customRetained":{"value":42}}"#).unwrap();
         let config = paths.load().unwrap();
         assert_eq!(config.codex_host.revision, 7);
+        assert_eq!(config.codex_host.startup_update, StartupUpdate::Notify);
         let app = App::new(paths.clone(), config, None, true);
         let before = app.settings().await;
         app.codex_host_command(json!({"op":"set-enabled","enabled":true,"expectedRevision":7}))
@@ -495,6 +642,19 @@ mod tests {
             .await
             .unwrap();
         assert!(!paths.load().unwrap().codex_host.enabled);
+        let status = app
+            .codex_host_command(json!({
+                "op":"set-startup-update","startupUpdate":"automatic","expectedRevision":9
+            }))
+            .await
+            .unwrap();
+        assert_eq!(status["startupUpdate"], "automatic");
+        assert_eq!(
+            paths.load().unwrap().codex_host.startup_update,
+            StartupUpdate::Automatic
+        );
+        assert!(!paths.load().unwrap().codex_host.enabled);
+        assert!(!paths.root.join("codex-host-versions").exists());
     }
 
     #[tokio::test]

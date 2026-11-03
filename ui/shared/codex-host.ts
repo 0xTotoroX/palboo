@@ -3,6 +3,7 @@
  * [PROTOCOL]: Keep shared/AGENTS.md in sync. */
 export type CodexHostStatus = {
   enabled: boolean;
+  startupUpdate: 'off' | 'notify' | 'automatic';
   revision: number;
   state:
     | 'disabled'

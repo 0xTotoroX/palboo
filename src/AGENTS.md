@@ -90,7 +90,7 @@ panel_window 使用透明原生标题栏与标准红黄绿按钮，由统一 Pal
 - codex_host.rs / [codex_host/AGENTS.md](codex_host/AGENTS.md)：独立CodexHost管理、更新/回退及显式重启协调，无MCP依赖。
 - host.rs：启动与重连共用只读宿主发现/动态端口，Dev及显式窗口保持绑定；lifecycle复用发现与现有退出策略。
 
-Config.codex_host兼容旧codexHost键，App.codex_host_operation串行管理，server提供认证GET/POST /api/codex-host。cdp先安装只读Agent兼容适配，再安装模型菜单适配。
+Config.codex_host 兼容旧 codexHost 键并保存启动更新策略，App.codex_host_operation 串行管理。server 提供认证 GET/POST /api/codex-host 并在后台启动时触发一次可取消的检查。cdp 先安装只读 Agent 兼容适配，再安装模型菜单适配。
 
 GET /api/codex-host/agents是独立按需只读投影，供兼容集成预览；不进入持久配置、模型选择命令或外部安装通道，不暴露聊天正文和输入内容。
 

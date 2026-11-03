@@ -1,5 +1,5 @@
 // [INPUT]: 官方 GitHub Release 元数据、npm 已校验完整性的原生分发包和独立版本目录。
-// [OUTPUT]: 检查更新、准备与验证固定版本；成功后由调用者切换配置，失败保留旧路径。
+// [OUTPUT]: 检查更新、发出启动提醒、准备与验证固定版本；成功后由调用者切换配置。
 // [POS]: 复用上游包，不调用会全局覆盖并重启 Codex 的上游 updater。
 // [PROTOCOL]: 变更时同步 codex_host/AGENTS.md。
 use super::{find_node, find_tool, output, version};
@@ -39,16 +39,27 @@ pub async fn check() -> Result<Value> {
         json!({"version":version,"url":format!("https://github.com/BytePioneer-AI/codex-host/releases/tag/v{version}")}),
     )
 }
+pub async fn notify(version: &str) -> Result<()> {
+    let title = crate::i18n::text("CodexHost 有新版本", "CodexHost update available");
+    let message = crate::i18n::text(
+        "在 Palboo 的「兼容集成」中检查并安装更新。",
+        "Check for updates in Compatibility integrations in Palboo.",
+    );
+    let script = r#"on run argv
+        display notification (item 2 of argv) with title (item 1 of argv)
+    end run"#;
+    output(
+        std::path::Path::new("/usr/bin/osascript"),
+        &["-e", script, "--", &format!("{title} · {version}"), message],
+        Duration::from_secs(5),
+    )
+    .await?;
+    Ok(())
+}
 pub async fn install(paths: &Paths, requested: &str) -> Result<PathBuf> {
     ensure!(
         version_tuple(requested)? >= version_tuple(BASELINE)?,
         "安装版本不能低于 {BASELINE}"
-    );
-    let node = find_node().context("安装 CodexHost 需要 Node.js 22 或更新版本")?;
-    let node_version = output(&node, &["--version"], Duration::from_secs(5)).await?;
-    ensure!(
-        version_tuple(node_version.trim_start_matches('v'))?.0 >= 22,
-        "需要 Node.js 22 或更新版本"
     );
     let root = paths.root.join("codex-host-versions");
     std::fs::create_dir_all(&root)?;
@@ -63,6 +74,12 @@ pub async fn install(paths: &Paths, requested: &str) -> Result<PathBuf> {
         output(&path, &["inspect"], Duration::from_secs(10)).await?;
         return Ok(path);
     }
+    let node = find_node().context("安装 CodexHost 需要 Node.js 22 或更新版本")?;
+    let node_version = output(&node, &["--version"], Duration::from_secs(5)).await?;
+    ensure!(
+        version_tuple(node_version.trim_start_matches('v'))?.0 >= 22,
+        "需要 Node.js 22 或更新版本"
+    );
     let stage = tempfile::Builder::new()
         .prefix("install-")
         .tempdir_in(&root)?;
