@@ -279,6 +279,7 @@ test('overdragging the divider merges the narrower column only when released bey
       return refresh();
     });
     const divider = page.locator('.csw-feature-split > [role="separator"]');
+    await divider.hover();
     const handle = await divider.boundingBox();
     const left = await page.locator('section[data-pane="next"]').boundingBox();
     const x = handle.x + handle.width / 2;

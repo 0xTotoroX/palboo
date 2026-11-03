@@ -383,6 +383,7 @@ export function installFeatureLayout(root, { save, error, inlineMenu = false }) 
           compact: container.dataset.sidebarCompact === 'true',
           header: Number(container.dataset.compactHeader) || 36,
           groups: groups.map((group) => group.original),
+          geometry: groups.map(({ original: { weight, collapsed } }) => ({ weight, collapsed })),
           branchMinimums: groups.map((group) => (group.groups ? layoutMinimum(group)[size] : 0)),
           sizes: groups.map(
             (_, i) => container.children[i * 2].getBoundingClientRect()[size] / scale,
@@ -410,18 +411,10 @@ export function installFeatureLayout(root, { save, error, inlineMenu = false }) 
         )
           return;
         if (start.compact) {
-          const cascade = start.axis === 'vertical';
           if (pointer) {
             const adjacent = delta < 0 ? index - 1 : index;
-            // Preserve cascading folding. An already folded row can be merged directly.
-            const room =
-              start.sizes[adjacent] <= start.header
-                ? 0
-                : start.sizes.reduce((sum, size, i) => {
-                    if (cascade ? (delta < 0 ? i >= index : i < index) : i !== adjacent) return sum;
-                    return sum + Math.max(0, size - (start.branchMinimums[i] || start.header));
-                  }, 0);
-            previewMerge(start, delta, room);
+            const floor = start.branchMinimums[adjacent] || start.header;
+            previewMerge(start, delta, Math.max(0, start.sizes[adjacent] - floor));
           }
           const sizes = transferRows(
             start.sizes,
@@ -429,14 +422,19 @@ export function installFeatureLayout(root, { save, error, inlineMenu = false }) 
             delta,
             start.header,
             start.branchMinimums,
-            cascade,
+            start.axis === 'vertical',
           );
+          const changed = sizes[index] !== start.sizes[index];
           const total = sizes.reduce((sum, size) => sum + size, 0);
-          const weight = start.groups.reduce((sum, group) => sum + group.weight, 0);
+          const weight = start.geometry.reduce((sum, group) => sum + group.weight, 0);
           start.groups.forEach((group, i) => {
-            group.weight = (weight * sizes[i]) / total;
-            if (start.branchMinimums[i]) return;
-            if (sizes[i] <= start.header) group.collapsed = true;
+            group.weight = changed ? (weight * sizes[i]) / total : start.geometry[i].weight;
+            const resized = i === index || i === index - 1;
+            const collapsed =
+              changed && resized && !start.branchMinimums[i]
+                ? sizes[i] <= start.header
+                : start.geometry[i].collapsed;
+            if (collapsed) group.collapsed = true;
             else delete group.collapsed;
           });
           render();

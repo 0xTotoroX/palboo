@@ -2,6 +2,8 @@
  * [OUTPUT]: Compact panes, readable expanded panes and separator transfers.
  * [POS]: Pure vertical-row geometry, also used by the settings demonstration.
  * [PROTOCOL]: Keep workspace/AGENTS.md in sync. */
+const rowContentMinimum = 84;
+
 export function compactRows(
   weights,
   height,
@@ -16,7 +18,7 @@ export function compactRows(
   const closed = new Set(indices.filter((i) => !branchMinimums[i] && collapsed[i]));
   if (closed.size === weights.length)
     return weights.map(() => ({ height: header, collapsed: true }));
-  const minimum = header + 84;
+  const minimum = header + rowContentMinimum;
   const fixed = new Map([...closed].map((i) => [i, header]));
   const floors = indices.map(
     (i) => branchMinimums[i] || (!closed.has(i) && columnMinimum) || header,
@@ -45,7 +47,7 @@ export function compactRows(
       fixed.set(branch, floors[branch]);
       continue;
     }
-    const leaves = open.filter((i) => !branchMinimums[i] && sizes[i] < minimum);
+    const leaves = open.filter((i) => !branchMinimums[i] && sizes[i] < minimum - 1e-8);
     if (columnMinimum || !leaves.length || (!hasBranches && open.length === 1)) break;
     const smallest = leaves.reduce((a, b) => (sizes[a] <= sizes[b] ? a : b));
     closed.add(smallest);
@@ -60,21 +62,22 @@ export function transferRows(
   delta,
   header = 36,
   branchMinimums = [],
-  cascade = true,
+  foldAtReadingMinimum = false,
 ) {
   const result = [...heights];
   const receiver = delta >= 0 ? boundary - 1 : boundary;
-  const donors = heights
-    .map((_, i) => i)
-    .filter((i) => (delta >= 0 ? i >= boundary : i < boundary));
-  if (delta < 0) donors.reverse();
-  let remaining = Math.abs(delta);
-  for (const i of donors) {
-    const amount = Math.min(remaining, Math.max(0, result[i] - (branchMinimums[i] || header)));
-    result[i] -= amount;
-    result[receiver] += amount;
-    remaining -= amount;
-    if (!cascade) break;
+  const donor = delta >= 0 ? boundary : boundary - 1;
+  const floor = branchMinimums[donor] || header;
+  const room = Math.max(0, heights[donor] - floor);
+  let amount = Math.min(Math.abs(delta), room);
+  if (!amount) return result;
+  if (foldAtReadingMinimum) {
+    const minimum = header + rowContentMinimum;
+    // Snap within the pair so the grid does not redistribute a folded row's space.
+    if (!branchMinimums[donor] && heights[donor] - amount < minimum) amount = room;
+    if (!branchMinimums[receiver] && heights[receiver] + amount < minimum) return result;
   }
+  result[donor] -= amount;
+  result[receiver] += amount;
   return result;
 }

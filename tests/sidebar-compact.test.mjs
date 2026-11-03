@@ -20,7 +20,9 @@ test('compact rows never crush a title, including very short containers', () => 
       );
       assert.ok(result.some((row) => !row.collapsed));
     }
-  assert.deepEqual(transferRows([150, 150, 150, 150], 1, 342), [492, 36, 36, 36]);
+  assert.deepEqual(transferRows([150, 150, 150, 150], 1, 342), [264, 36, 150, 150]);
+  assert.deepEqual(transferRows([150, 150, 150, 150], 3, -342), [150, 150, 36, 264]);
+  assert.deepEqual(transferRows([150, 150, 150, 150], 3, -32, 36, [], true), [150, 150, 36, 264]);
   assert.deepEqual(transferRows([200, 160], 1, -100, 36, [180]), [180, 180]);
   assert.deepEqual(
     compactRows([1, 1, 1, 1, 1, 1], 900, 36, 8, Array(6).fill(true)),
@@ -108,13 +110,49 @@ test(
       });
       const handle = page.getByRole('separator').first(),
         b = await handle.boundingBox();
-      await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+      const panes = page.locator('.csw-workbench-pane');
+      const heights = () =>
+        panes.evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height));
+      const before = await heights();
+      const header = await handle.evaluate((el) => Number(el.parentElement.dataset.compactHeader));
+      const foldDistance = before[1] - header;
+      const assertLocalFold = async () => {
+        const [receiver, donor, ...others] = await heights();
+        assert.ok(Math.abs(receiver - before[0] - foldDistance) < 0.1);
+        assert.equal(donor, header);
+        assert.deepEqual(others, before.slice(2));
+      };
+      const bottom = await page.getByRole('separator').last().boundingBox();
+      const bottomX = bottom.x + bottom.width / 2;
+      const bottomY = bottom.y + bottom.height / 2;
+      await page.mouse.move(bottomX, bottomY);
       await page.mouse.down();
-      await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2 + 420, { steps: 20 });
+      await page.mouse.move(bottomX, bottomY - (before[2] - header) - 64, { steps: 12 });
+      assert.deepEqual((await heights()).slice(0, 2), before.slice(0, 2));
+      assert.equal(await panes.nth(2).getAttribute('data-compact'), 'true');
+      await page.keyboard.press('Escape');
       await page.mouse.up();
-      await page.waitForFunction(
-        () => document.querySelectorAll('[data-compact="true"]').length === 3,
+      assert.deepEqual(await heights(), before);
+      const x = b.x + b.width / 2;
+      const y = b.y + b.height / 2;
+      await page.mouse.move(x, y);
+      await page.mouse.down();
+      await page.mouse.move(x, y + 60, { steps: 8 });
+      await assertLocalFold();
+      await page.mouse.move(x, y + foldDistance + 64, { steps: 12 });
+      assert.equal(await handle.getAttribute('data-merge-side'), 'next');
+      assert.deepEqual((await heights()).slice(2), before.slice(2));
+      await page.mouse.move(x, y + foldDistance, { steps: 6 });
+      await page.mouse.up();
+      await assertLocalFold();
+      assert.deepEqual(
+        await page
+          .locator('[data-compact="true"]')
+          .evaluateAll((els) => els.map((el) => el.dataset.pane)),
+        ['next'],
       );
+      for (const id of ['board', 'terms'])
+        await page.locator(`[data-pane-tab="${id}"]`).press('Enter');
       assert.equal(
         await page.evaluate(
           () => window.original.isConnected && window.original === window.items[1].node,
