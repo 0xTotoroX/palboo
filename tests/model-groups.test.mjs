@@ -231,7 +231,7 @@ test(
       state.snapshot.usage = null;
       await page.evaluate((state) => window.render(state), state);
       await view.locator('.model-usage').waitFor({ state: 'detached' });
-      assert.equal(await view.locator('.model-row').count(), 0);
+      assert.equal(await view.locator('.model-row:visible').count(), 1);
       assert.equal(await view.locator('[data-model-group]').count(), 0);
       await view.getByRole('button', { name: '所有模型', exact: true }).click();
       assert.equal(await view.locator('.model-tile').count(), 4);
@@ -242,7 +242,7 @@ test(
       assert.equal(await view.locator('.model-tile .model-route').count(), 2);
       await view.locator('[data-model-tile="route-b/claude-test"]').click();
       await view.getByRole('button', { name: '关闭所有模型' }).click();
-      await view.getByRole('button', { name: 'Claude test', exact: true }).click();
+      await view.locator('[data-model="route-b/claude-test"][data-reasoning="high"]').click();
       assert.equal(
         (await page.evaluate(() => window.applied)).selection.model,
         'route-b/claude-test',
@@ -516,8 +516,6 @@ test(
       const chooser = view.locator('.model-picker-toggle');
       if ((await chooser.getAttribute('aria-expanded')) === 'true')
         await view.getByRole('button', { name: '关闭所有模型' }).click();
-      await chooser.click();
-      await view.locator('.model-reasoning-directory summary').click();
       await view.locator('[data-model-row="favorite-4"] .model-route').waitFor();
       await page.mouse.move(850, 950);
       assert.equal(await view.locator('.model-visibility, hr, .model-group-label').count(), 0);
@@ -527,6 +525,7 @@ test(
       assert.ok(line.y >= head.y + head.height, 'divider starts below the Fast button');
       if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
         await view.screenshot({ path: 'target/reports/model-groups/model-compact.png' });
+      await chooser.click();
       const list = view.locator('.model-other-list');
       assert.ok(
         await list.evaluate((node) => node.scrollHeight > node.clientHeight),
@@ -562,13 +561,11 @@ test(
         await view.screenshot({ path: 'target/reports/model-groups/model-expanded.png' });
 
       await view.getByRole('button', { name: '关闭所有模型' }).click();
-      await chooser.click();
-      await view.locator('.model-reasoning-directory summary').click();
       const fixedFrame = await view.boundingBox();
       await view.evaluate((node, height) => (node.style.height = `${height}px`), fixedFrame.height);
       const separator = view.getByRole('button', { name: '调整模型名称宽度' });
       await separator.evaluate((n) => {
-        const list = n.closest('.model-other-list');
+        const list = n.closest('.model-favorites');
         list.scrollTop += n.getBoundingClientRect().top - list.getBoundingClientRect().top - 36;
       });
       const fixedFast = await view.locator('.model-fast').boundingBox();
@@ -582,7 +579,7 @@ test(
         { ...fixedFast, x: fixedFast.x - 145 },
         'Fast stays aligned above the divider',
       );
-      const scroller = view.locator('.model-other-list');
+      const scroller = view.locator('.model-favorites');
       assert.ok(
         await scroller.evaluate((n) => n.scrollHeight > n.clientHeight),
         'wrapped names scroll inside the fixed table',
@@ -612,7 +609,6 @@ test(
       await page.mouse.move(850, 950);
       if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
         await view.screenshot({ path: 'target/reports/model-groups/model-narrow-column.png' });
-      await view.getByRole('button', { name: '关闭所有模型' }).click();
       await chooser.click();
       assert.equal(
         await chooser.getAttribute('aria-expanded'),
@@ -750,8 +746,6 @@ test(
           .count(),
         1,
       );
-      await page.getByRole('button', { name: '所有模型', exact: true }).click();
-      await page.locator('.model-reasoning-directory summary').click();
       await fast.waitFor();
       const fillClip = () =>
         fast.locator('.model-fast-fill').evaluate((n) => getComputedStyle(n).clipPath);
@@ -931,10 +925,13 @@ test(
         'failed apply preserves actual state',
       );
       assert.match(await fillClip(), /^inset\(100%/, 'failure leaves the actual icon hollow');
-      await page.getByRole('button', { name: '关闭所有模型' }).click();
-      assert.equal(await fast.isVisible(), false);
+      assert.equal(await fast.isVisible(), true);
       await page.getByRole('button', { name: '所有模型', exact: true }).click();
-      assert.equal(await fast.isVisible(), false, 'the advanced matrix starts collapsed');
+      assert.equal(
+        await fast.isVisible(),
+        false,
+        'the matrix is hidden while the directory is open',
+      );
       assert.equal(
         await page.getByRole('button', { name: '模型快切', exact: true }).isVisible(),
         true,
@@ -985,7 +982,7 @@ test(
       );
       await page.getByRole('button', { name: '所有模型', exact: true }).click();
       await page.getByRole('button', { name: '关闭所有模型' }).click();
-      assert.equal(await fast.isVisible(), false);
+      assert.equal(await fast.isVisible(), true);
       assert.equal(
         await page.getByRole('button', { name: '模型快切', exact: true }).isVisible(),
         true,
@@ -1006,8 +1003,6 @@ test(
         window.state.snapshot.current.speed = 'fast';
         window.render();
       });
-      await page.getByRole('button', { name: '所有模型', exact: true }).click();
-      await page.locator('.model-reasoning-directory summary').click();
       await page.waitForFunction(() => document.querySelector('.model-fast')?.disabled);
       assert.equal(await fast.getAttribute('aria-pressed'), 'false');
       assert.match(

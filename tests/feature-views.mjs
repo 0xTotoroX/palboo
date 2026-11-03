@@ -203,7 +203,11 @@ try {
         value = structuredClone(model);
       } else {
         const e = entries.find((e) => e.id === p.id);
-        if (p.op === 'save') e.view = p.view;
+        if (p.op === 'save') {
+          if (!e)
+            return route.fulfill({ status: 409, json: { ok: false, message: '旧功能已卸载' } });
+          e.view = p.view;
+        }
         if (p.op === 'main-placement') {
           pendingPlacement = p.placement;
           for (const item of entries)
@@ -341,17 +345,13 @@ try {
     if ((await picker().getAttribute('aria-expanded')) === 'true')
       await page.getByRole('button', { name: '关闭所有模型' }).click();
   };
-  const showMatrix = async () => {
-    await showOthers();
-    const summary = view.locator('.model-reasoning-directory summary');
-    if (!(await summary.evaluate((n) => n.parentElement.open))) await summary.click();
-  };
   const expandedBefore = structuredClone(model.preferences.expandedGroups);
   await picker().waitFor();
   assert.equal(await picker().innerText(), '');
   assert.equal(await picker().locator('[data-icon="catalog"]').count(), 1);
   assert.equal(await view.locator('[data-model-group], .model-visibility').count(), 0);
-  assert.equal(await view.locator('.model-row, [data-refresh="model"]').count(), 0);
+  assert.equal(await view.locator('.model-row:visible').count(), 1);
+  assert.equal(await view.locator('[data-refresh="model"]').count(), 0);
   assert.equal(await view.locator('hr, .model-section-divider, .model-group-label').count(), 0);
   assert.equal(await view.locator('.model-column-resize.model-fast').count(), 0);
   assert.equal(await view.locator('.model-preset-actions [data-model-picker]').count(), 1);
@@ -371,8 +371,8 @@ try {
   await tile('a').click();
   await view.locator('[data-model-tile="a"][aria-pressed="true"]').waitFor();
   assert.equal(await view.locator('.model-tile').count(), 2, 'all includes pinned models');
-  await showMatrix();
-  assert.equal(await view.locator('.model-row').count(), 2);
+  await closeOthers();
+  assert.equal(await view.locator('.model-row').count(), 1);
   assert.equal(
     await view
       .locator('.model-name strong')
@@ -397,7 +397,7 @@ try {
   await showOthers();
   await tile('b').click();
   await view.locator('[data-model-tile="b"][aria-pressed="true"]').waitFor();
-  await showMatrix();
+  await closeOthers();
   await view
     .locator('[data-model-row="b"] strong')
     .dragTo(view.locator('[data-model-row="a"]'), { targetPosition: { x: 40, y: 2 } });
@@ -515,7 +515,7 @@ try {
   rejectPresetSave = false;
   // A host update while renaming must not replace the saved preset selection.
   model.snapshot.current = { model: 'b', reasoning: 'high', speed: 'standard' };
-  await view.getByRole('button', { name: 'Model B', exact: true, pressed: true }).waitFor();
+  await view.getByRole('button', { name: 'Model B · High', exact: true, pressed: true }).waitFor();
   await editor.getByRole('button', { name: '保存', exact: true }).click();
   await savedPreset('日常').waitFor();
   await editor.waitFor({ state: 'hidden' });
@@ -555,7 +555,7 @@ try {
   );
   assert.equal(await view.getByRole('searchbox').count(), 0);
   assert.equal(await view.getByRole('slider').count(), 0);
-  await showMatrix();
+  await closeOthers();
   const columnHandle = view.getByRole('button', { name: '调整模型名称宽度', exact: true });
   await columnHandle.scrollIntoViewIfNeeded();
   const handleBox = await columnHandle.boundingBox();
@@ -686,7 +686,7 @@ try {
   await showOthers();
   await tile('c').click();
   await tile('c').and(view.locator('[aria-pressed="true"]')).waitFor();
-  await showMatrix();
+  await closeOthers();
   await view.locator('[data-model="a"][data-reasoning="max"]').waitFor();
   await view.locator('.model-scroll').evaluate((node) => {
     node.scrollLeft = 160;
@@ -717,7 +717,7 @@ try {
     0,
     'remount opens fixed items only',
   );
-  await showMatrix();
+  await closeOthers();
   await view.locator('[data-model-row="a"]').waitFor();
   assert.equal(await view.locator('.model-row').first().getAttribute('data-model-row'), 'b');
   const restoredModelReading = await view.locator('.model-scroll').evaluate(async (node, saved) => {
@@ -737,6 +737,7 @@ try {
   await showOthers();
   assert.equal(await view.locator('[data-model-group="vendor:Google"] .model-tile').count(), 1);
   assert.equal(await tile('c').getAttribute('aria-pressed'), 'true');
+  await closeOthers();
   record('model tools, classification preferences and horizontal reading survive remount');
   const longName = view.locator('[data-model-row="c"] .model-name strong');
   const nameGeometry = await longName.evaluate((node) => {
@@ -895,7 +896,7 @@ try {
     () =>
       !!document
         .querySelector('.csw-feature-content > div:not([hidden])')
-        ?.shadowRoot.querySelector('.model-legacy-pin:enabled'),
+        ?.shadowRoot.querySelector('[data-model="a"]:enabled'),
   );
   const failedHandoffs = handoffs;
   assert.ok(failedHandoffs >= 1);

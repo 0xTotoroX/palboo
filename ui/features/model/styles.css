@@ -517,14 +517,3 @@
 .model-agents {
   margin: 0 0 12px;
 }
-.model-reasoning-directory {
-  margin-block: 12px 0;
-}
-.model-reasoning-directory > summary {
-  color: var(--muted);
-  cursor: pointer;
-  min-height: 28px;
-}
-.model-reasoning-directory > .model-scroll {
-  margin-top: 6px;
-}

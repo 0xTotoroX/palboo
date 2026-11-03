@@ -324,7 +324,7 @@ test('six icon tabs remain reachable beside model headings and catalog controls 
     assert.equal(icon.svg.height, 18);
     assert.ok(icon.reachable, icon.id + ' is directly clickable');
   }
-  assert.equal(await page.locator('.model-fast').count(), 0);
+  assert.equal(await page.locator('.model-fast').isVisible(), true);
   const head = await page.locator('#edge-panel > header').boundingBox();
   const body = await page.locator('#edge-views').boundingBox();
   assert.ok(Math.max(...icons.map((icon) => icon.box.bottom)) <= head.y + head.height);

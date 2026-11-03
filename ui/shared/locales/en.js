@@ -1,6 +1,6 @@
 // English interface copy. User-authored content is not translated.
 export default {
-  '在目录中固定常用模型或 CLI': 'Pin a model or CLI from the catalog',
+  在目录中固定常用模型: 'Pin a model from the catalog',
   新建聊天: 'New chat',
   推理档位: 'Reasoning levels',
   '固定 {{agent}}': 'Pin {{agent}}',

@@ -52,7 +52,6 @@ export function ModelView({
   useLocale();
   const [tools, setTools] = useState(reading.modelTools || false),
     [others, setOthers] = useState(false),
-    [matrixOpen, setMatrixOpen] = useState(false),
     [browserHeight, setBrowserHeight] = useState(0),
     [drop, setDrop] = useState(''),
     [dragging, setDragging] = useState(false),
@@ -149,7 +148,7 @@ export function ModelView({
     ...pinnedAgents
       .filter((id) => !agentOptions.some((option) => option.id === id))
       .map((id) => ({ id, label: id, available: false })),
-  ];
+  ].sort((a, b) => Number(pinnedAgents.includes(b.id)) - Number(pinnedAgents.includes(a.id)));
   const canSwitchAgent = (agent: string) =>
     !busy &&
     prefs.enabled &&
@@ -196,11 +195,17 @@ export function ModelView({
     const model = s.models.find((m) => m.id === id);
     return model ? [model] : [];
   });
-  const pinnedModels = models.filter((m) => prefs.pinned.includes(m.id));
-  const visible =
-    pinnedModels.length && currentAgent === 'codex'
-      ? [...pinnedModels, ...models.filter((model) => !prefs.pinned.includes(model.id))]
-      : models;
+  const fixedModels = models.filter(
+    (model) =>
+      (currentAgent === 'codex' && prefs.pinned.includes(model.id)) ||
+      prefs.presets.some(
+        (preset) =>
+          preset.catalogPin && preset.agent === currentAgent && preset.selection.model === model.id,
+      ),
+  );
+  const visible = fixedModels.length
+    ? fixedModels
+    : models.filter((model) => model.id === s.current?.model);
   const modelSelection = (model: ModelState['snapshot']['models'][number]): Selection =>
     s.current?.model === model.id
       ? { ...s.current }
@@ -268,7 +273,7 @@ export function ModelView({
     labels.forEach((label) => observer.observe(label));
     measure();
     return () => observer.disconnect();
-  }, [columns.join('|'), others, matrixOpen]);
+  }, [columns.join('|'), others]);
   const widths = columns.length ? columns.map((_, i) => metrics.widths[i] || 63) : [28];
   const reasoningWidth = widths.reduce((sum, width) => sum + width, 0) + (widths.length - 1) * 4;
   const maxNameWidth = metrics.available
@@ -281,10 +286,10 @@ export function ModelView({
     // Initial fallback column widths are replaced after measuring the heading.
     // Restoring sooner clamps the saved offset and the resulting scroll event
     // overwrites it before the final matrix width is available.
-    if (!node || !matrixOpen || !metrics.available || restoredReading.current) return;
+    if (!node || others || !metrics.available || restoredReading.current) return;
     node.scrollLeft = reading.modelLeft || 0;
     restoredReading.current = node.scrollWidth - node.clientWidth >= (reading.modelLeft || 0);
-  }, [metrics.available, nameWidth, widths.join('|'), reading, others, matrixOpen]);
+  }, [metrics.available, nameWidth, widths.join('|'), reading, others]);
   useLayoutEffect(() => {
     const node = matrix.current;
     if (!node) return;
@@ -524,43 +529,191 @@ export function ModelView({
     >
       <div className="model-main" ref={main} data-view={others ? 'all' : 'favorites'}>
         <div className="model-favorites" aria-hidden={others} inert={others}>
-          <section className="model-collections" aria-label={tr('收藏')}>
-            <div className="model-presets" data-editing={tools}>
-              {pinnedAgents.map((id) => (
+          <div
+            className="model-scroll"
+            ref={matrix}
+            onScroll={(event) => {
+              if (restoredReading.current && event.currentTarget.clientWidth)
+                reading.modelLeft = event.currentTarget.scrollLeft;
+            }}
+          >
+            <div className="model-matrix">
+              <div className="model-intrinsic-width" data-intrinsic-width hidden />
+              <ModelHeading
+                matrix={matrix}
+                headings={headings}
+                nameWidth={nameWidth}
+                widths={widths}
+                hidden={others}
+              >
                 <button
                   type="button"
-                  className="model-preset-choice"
-                  key={id}
-                  disabled={id === currentAgent || !canSwitchAgent(id)}
-                  aria-pressed={id === currentAgent}
-                  onClick={() => void applyAgent(id)}
+                  ref={fastButton}
+                  className="model-icon-button model-fast"
+                  aria-label="Fast"
+                  aria-pressed={fastActive}
+                  data-phase={motion.phase}
+                  data-filled={fastActive}
+                  style={{ left: nameWidth - 6 }}
+                  disabled={
+                    busy || motion.phase !== 'idle' || !allowed || !s.current || !currentModel?.fast
+                  }
+                  onClick={async () => {
+                    if (!s.current) return;
+                    const enabling = s.current.speed !== 'fast';
+                    if (!enabling) stopDischarge();
+                    const request = apply({
+                      ...s.current,
+                      speed: enabling ? 'fast' : 'standard',
+                    });
+                    if (enabling) {
+                      await motion.start(
+                        request.then(
+                          (result) =>
+                            result !== null &&
+                            (result as ModelState | undefined)?.snapshot?.current?.speed !==
+                              'standard',
+                        ),
+                      );
+                    } else await request;
+                  }}
                 >
-                  <span>
-                    {agentOptions.find((option) => option.id === id)?.label || id}
-                    {needsNewChat(id) && (
-                      <small className="model-preset-handoff">{handoffLabel}</small>
-                    )}
-                  </span>
+                  {icon('bolt')}
+                  <span
+                    ref={motion.fill}
+                    className="model-fast-fill"
+                    aria-hidden="true"
+                    dangerouslySetInnerHTML={{ __html: iconSvg('bolt-filled') }}
+                  />
                 </button>
-              ))}
-              {currentAgent === 'codex' &&
-                pinnedModels.map((model) => (
-                  <button
-                    type="button"
-                    className="model-preset-choice model-legacy-pin"
-                    key={`model:${model.id}`}
-                    disabled={busy || !allowed}
-                    aria-pressed={s.current?.model === model.id}
-                    onClick={() => void apply(modelSelection(model), true)}
-                  >
-                    <span>{model.label}</span>
-                  </button>
-                ))}
-              {!pinnedAgents.length &&
-                !prefs.presets.length &&
-                !(currentAgent === 'codex' && pinnedModels.length > 0) && (
-                  <p className="model-empty-favorites">{tr('在目录中固定常用模型或 CLI')}</p>
+                <div
+                  className="model-choices"
+                  style={{
+                    gridTemplateColumns: widths.map((width) => `minmax(${width}px, 1fr)`).join(' '),
+                  }}
+                >
+                  {columns.map((c) => (
+                    <span key={c}>
+                      <span data-reasoning-label>{label(c) || tr('选择')}</span>
+                    </span>
+                  ))}
+                </div>
+              </ModelHeading>
+              <div className="model-primary">
+                <button
+                  type="button"
+                  className="model-column-resize"
+                  aria-label={tr('调整模型名称宽度')}
+                  aria-description={tr('左右拖动或方向键调整，当前 {{nameWidth}}px', {
+                    nameWidth: nameWidth,
+                  })}
+                  data-column-min={100}
+                  data-column-max={maxNameWidth}
+                  data-column-width={nameWidth}
+                  aria-disabled={busy}
+                  tabIndex={busy ? -1 : 0}
+                  data-resizing={!!resize.current}
+                  data-dragging={dragging}
+                  onPointerDown={(event) => {
+                    if (event.button !== 0 || busy || resize.current) return;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    event.currentTarget.focus({ preventScroll: true });
+                    stopDischarge();
+                    setDragging(false);
+                    resize.current = {
+                      pointer: event.pointerId,
+                      x: event.clientX,
+                      y: event.clientY,
+                      moved: false,
+                      scale:
+                        matrix.current!.getBoundingClientRect().width /
+                          matrix.current!.offsetWidth || 1,
+                      width: nameWidth,
+                      value: nameWidth,
+                    };
+                    event.currentTarget.setPointerCapture(event.pointerId);
+                    setColumnWidth(nameWidth);
+                  }}
+                  onPointerMove={(event) => {
+                    const drag = resize.current;
+                    if (!drag || drag.pointer !== event.pointerId) return;
+                    const dx = event.clientX - drag.x;
+                    const dy = event.clientY - drag.y;
+                    if (!drag.moved && (Math.abs(dx) < 2 || Math.abs(dx) < Math.abs(dy))) return;
+                    if (!drag.moved) setDragging(true);
+                    drag.moved = true;
+                    drag.value = clampWidth(drag.width + (event.clientX - drag.x) / drag.scale);
+                    setColumnWidth(drag.value);
+                  }}
+                  onPointerUp={(event) => {
+                    const drag = resize.current;
+                    if (!drag || drag.pointer !== event.pointerId) return;
+                    setDragging(false);
+                    resize.current = null;
+                    event.currentTarget.releasePointerCapture(event.pointerId);
+                    if (drag.value !== drag.width) void saveWidth(drag.value);
+                    else setColumnWidth(null);
+                  }}
+                  onLostPointerCapture={() => {
+                    if (!resize.current) return;
+                    setDragging(false);
+                    resize.current = null;
+                    setColumnWidth(null);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Escape' && resize.current) {
+                      event.stopPropagation();
+                      setDragging(false);
+                      event.currentTarget.releasePointerCapture(resize.current.pointer);
+                      resize.current = null;
+                      setColumnWidth(null);
+                      return;
+                    }
+                    if (busy || resize.current || !['ArrowLeft', 'ArrowRight'].includes(event.key))
+                      return;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    const width = clampWidth(nameWidth + (event.key === 'ArrowLeft' ? -16 : 16));
+                    if (width === nameWidth) return;
+                    setColumnWidth(width);
+                    void saveWidth(width);
+                  }}
+                >
+                  <span className="model-divider-line" />
+                </button>
+                <div className="model-discharge" ref={discharge} aria-hidden="true">
+                  <svg viewBox="0 0 48 360" preserveAspectRatio="none">
+                    <g ref={dischargePath}>
+                      <path
+                        className="model-discharge-glow"
+                        d={dischargeShape}
+                        vectorEffect="non-scaling-stroke"
+                      />
+                      <path
+                        className="model-discharge-core"
+                        d={dischargeShape}
+                        vectorEffect="non-scaling-stroke"
+                      />
+                      <path
+                        className="model-discharge-branches"
+                        d="M20 122 L12 144 L15 158 M28 256 L35 270 L32 284"
+                        vectorEffect="non-scaling-stroke"
+                      />
+                    </g>
+                  </svg>
+                </div>
+
+                {rows(visible)}
+                {!!models.length && !visible.length && (
+                  <p className="model-empty-favorites">{tr('在目录中固定常用模型')}</p>
                 )}
+                {!models.length && <p>{tr('暂无可用模型')}</p>}
+              </div>
+            </div>
+          </div>
+          <section className="model-collections" aria-label={tr('收藏')}>
+            <div className="model-presets" data-editing={tools}>
               {prefs.presets.map((p) => (
                 <div className="model-preset-tag" key={p.id}>
                   {presetDraft?.id === p.id && !presetDraft.creating ? (
@@ -767,209 +920,6 @@ export function ModelView({
                   </div>
                 </section>
               ))}
-              {!!models.length && (
-                <details
-                  className="model-reasoning-directory"
-                  onToggle={(event) => setMatrixOpen(event.currentTarget.open)}
-                >
-                  <summary>{tr('推理档位')}</summary>
-                  <div
-                    className="model-scroll"
-                    ref={matrix}
-                    onScroll={(event) => {
-                      if (restoredReading.current && event.currentTarget.clientWidth)
-                        reading.modelLeft = event.currentTarget.scrollLeft;
-                    }}
-                  >
-                    <div className="model-matrix">
-                      <div className="model-intrinsic-width" data-intrinsic-width hidden />
-                      <ModelHeading
-                        matrix={matrix}
-                        headings={headings}
-                        nameWidth={nameWidth}
-                        widths={widths}
-                        hidden={false}
-                      >
-                        <button
-                          type="button"
-                          ref={fastButton}
-                          className="model-icon-button model-fast"
-                          aria-label="Fast"
-                          aria-pressed={fastActive}
-                          data-phase={motion.phase}
-                          data-filled={fastActive}
-                          style={{ left: nameWidth - 6 }}
-                          disabled={
-                            busy ||
-                            motion.phase !== 'idle' ||
-                            !allowed ||
-                            !s.current ||
-                            !currentModel?.fast
-                          }
-                          onClick={async () => {
-                            if (!s.current) return;
-                            const enabling = s.current.speed !== 'fast';
-                            if (!enabling) stopDischarge();
-                            const request = apply({
-                              ...s.current,
-                              speed: enabling ? 'fast' : 'standard',
-                            });
-                            if (enabling) {
-                              await motion.start(
-                                request.then(
-                                  (result) =>
-                                    result !== null &&
-                                    (result as ModelState | undefined)?.snapshot?.current?.speed !==
-                                      'standard',
-                                ),
-                              );
-                            } else await request;
-                          }}
-                        >
-                          {icon('bolt')}
-                          <span
-                            ref={motion.fill}
-                            className="model-fast-fill"
-                            aria-hidden="true"
-                            dangerouslySetInnerHTML={{ __html: iconSvg('bolt-filled') }}
-                          />
-                        </button>
-                        <div
-                          className="model-choices"
-                          style={{
-                            gridTemplateColumns: widths
-                              .map((width) => `minmax(${width}px, 1fr)`)
-                              .join(' '),
-                          }}
-                        >
-                          {columns.map((c) => (
-                            <span key={c}>
-                              <span data-reasoning-label>{label(c) || tr('选择')}</span>
-                            </span>
-                          ))}
-                        </div>
-                      </ModelHeading>
-                      <div className="model-primary">
-                        <button
-                          type="button"
-                          className="model-column-resize"
-                          aria-label={tr('调整模型名称宽度')}
-                          aria-description={tr('左右拖动或方向键调整，当前 {{nameWidth}}px', {
-                            nameWidth: nameWidth,
-                          })}
-                          data-column-min={100}
-                          data-column-max={maxNameWidth}
-                          data-column-width={nameWidth}
-                          aria-disabled={busy}
-                          tabIndex={busy ? -1 : 0}
-                          data-resizing={!!resize.current}
-                          data-dragging={dragging}
-                          onPointerDown={(event) => {
-                            if (event.button !== 0 || busy || resize.current) return;
-                            event.preventDefault();
-                            event.stopPropagation();
-                            event.currentTarget.focus({ preventScroll: true });
-                            stopDischarge();
-                            setDragging(false);
-                            resize.current = {
-                              pointer: event.pointerId,
-                              x: event.clientX,
-                              y: event.clientY,
-                              moved: false,
-                              scale:
-                                matrix.current!.getBoundingClientRect().width /
-                                  matrix.current!.offsetWidth || 1,
-                              width: nameWidth,
-                              value: nameWidth,
-                            };
-                            event.currentTarget.setPointerCapture(event.pointerId);
-                            setColumnWidth(nameWidth);
-                          }}
-                          onPointerMove={(event) => {
-                            const drag = resize.current;
-                            if (!drag || drag.pointer !== event.pointerId) return;
-                            const dx = event.clientX - drag.x;
-                            const dy = event.clientY - drag.y;
-                            if (!drag.moved && (Math.abs(dx) < 2 || Math.abs(dx) < Math.abs(dy)))
-                              return;
-                            if (!drag.moved) setDragging(true);
-                            drag.moved = true;
-                            drag.value = clampWidth(
-                              drag.width + (event.clientX - drag.x) / drag.scale,
-                            );
-                            setColumnWidth(drag.value);
-                          }}
-                          onPointerUp={(event) => {
-                            const drag = resize.current;
-                            if (!drag || drag.pointer !== event.pointerId) return;
-                            setDragging(false);
-                            resize.current = null;
-                            event.currentTarget.releasePointerCapture(event.pointerId);
-                            if (drag.value !== drag.width) void saveWidth(drag.value);
-                            else setColumnWidth(null);
-                          }}
-                          onLostPointerCapture={() => {
-                            if (!resize.current) return;
-                            setDragging(false);
-                            resize.current = null;
-                            setColumnWidth(null);
-                          }}
-                          onKeyDown={(event) => {
-                            if (event.key === 'Escape' && resize.current) {
-                              event.stopPropagation();
-                              setDragging(false);
-                              event.currentTarget.releasePointerCapture(resize.current.pointer);
-                              resize.current = null;
-                              setColumnWidth(null);
-                              return;
-                            }
-                            if (
-                              busy ||
-                              resize.current ||
-                              !['ArrowLeft', 'ArrowRight'].includes(event.key)
-                            )
-                              return;
-                            event.preventDefault();
-                            event.stopPropagation();
-                            const width = clampWidth(
-                              nameWidth + (event.key === 'ArrowLeft' ? -16 : 16),
-                            );
-                            if (width === nameWidth) return;
-                            setColumnWidth(width);
-                            void saveWidth(width);
-                          }}
-                        >
-                          <span className="model-divider-line" />
-                        </button>
-                        <div className="model-discharge" ref={discharge} aria-hidden="true">
-                          <svg viewBox="0 0 48 360" preserveAspectRatio="none">
-                            <g ref={dischargePath}>
-                              <path
-                                className="model-discharge-glow"
-                                d={dischargeShape}
-                                vectorEffect="non-scaling-stroke"
-                              />
-                              <path
-                                className="model-discharge-core"
-                                d={dischargeShape}
-                                vectorEffect="non-scaling-stroke"
-                              />
-                              <path
-                                className="model-discharge-branches"
-                                d="M20 122 L12 144 L15 158 M28 256 L35 270 L32 284"
-                                vectorEffect="non-scaling-stroke"
-                              />
-                            </g>
-                          </svg>
-                        </div>
-
-                        {rows(visible)}
-                        {!models.length && <p>{tr('暂无可用模型')}</p>}
-                      </div>
-                    </div>
-                  </div>
-                </details>
-              )}
               {!models.length && <p>{tr('暂无可用模型')}</p>}
             </div>
           </div>

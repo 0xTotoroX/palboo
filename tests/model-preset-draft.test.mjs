@@ -383,10 +383,11 @@ test('catalog pins CLI and its model, then one click requests both with a visibl
     });
     const preset = page.getByRole('button', { name: 'Beta · Low', exact: true });
     assert.equal(await preset.locator('small').last().innerText(), '新建聊天');
-    assert.match(
-      await page.locator('.model-preset-choice').filter({ hasText: 'Antigravity CLI' }).innerText(),
-      /新建聊天/,
-    );
+    assert.equal(await page.getByRole('button', { name: /Antigravity CLI/ }).count(), 0);
+    assert.ok(await page.locator('.model-row:visible').count());
+    await page.getByRole('button', { name: '所有模型', exact: true }).click();
+    assert.match(await page.locator('[data-agent-option="antigravity"]').innerText(), /新建聊天/);
+    await page.getByRole('button', { name: '关闭所有模型', exact: true }).click();
     await preset.click();
     const calls = await page.evaluate(() => window.calls.filter((c) => c.action === 'apply'));
     assert.equal(calls.length, 1);

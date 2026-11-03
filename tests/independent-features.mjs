@@ -705,7 +705,7 @@ export function independentFeatureCases({ mode, syncSettings }) {
         await outline.getByText('功能已停用，可在设置中重新开启。').waitFor({ state: 'detached' });
         await openFeature('model');
         const model = page.locator('[data-feature="model"]');
-        await model.locator('.model-legacy-pin').first().waitFor();
+        await model.locator('[data-model="a"][data-reasoning="low"]').waitFor();
         assert.equal(
           await page.locator('[data-feature]:visible').count(),
           1,
@@ -716,9 +716,9 @@ export function independentFeatureCases({ mode, syncSettings }) {
           0,
           'successful handoff has no rollback warning',
         );
-        await model.locator('.model-legacy-pin').first().click();
+        await model.locator('[data-model="a"][data-reasoning="low"]').click();
         await page.waitForFunction(() => window.workbenchFixture.featureActions.length === 1);
-        await model.locator('.model-legacy-pin[aria-pressed="true"]').waitFor();
+        await model.locator('[data-reasoning="low"][aria-pressed="true"]').waitFor();
         const action = await page.evaluate(() => window.workbenchFixture.featureActions[0]);
         assert.equal(action.data.expectedRevision, 'model-v1');
         assert.equal(action.data.preserveSpeed, true);
@@ -742,12 +742,19 @@ export function independentFeatureCases({ mode, syncSettings }) {
         assert.equal(await model.isVisible(), false);
         await page.setViewportSize({ width: 1500, height: 1000 });
         await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
-        await model.locator('.model-legacy-pin').first().waitFor();
+        await model.locator('[data-model="a"][data-reasoning="low"]').waitFor();
         await page.evaluate(() => {
           window.workbenchFixture.modelState.preferences.enabled = false;
         });
         await model.getByText('模型切换已停用，请在设置页开启。').waitFor();
-        assert.equal(await model.locator('.model-legacy-pin').first().isDisabled(), true);
+        assert.equal(
+          await page.getByRole('button', { name: 'Fast', exact: true }).isDisabled(),
+          true,
+        );
+        assert.equal(
+          await model.locator('[data-model="a"][data-reasoning="low"]').isDisabled(),
+          true,
+        );
         await page.setViewportSize({ width: 1500, height: 1000 });
         await configureFeature('model', 'sidebar');
         await page.waitForFunction(() => !window.workbenchFixture.features.get('model').pending);
