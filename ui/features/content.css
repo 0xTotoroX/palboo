@@ -876,6 +876,32 @@
   text-decoration: none;
   transition: none;
 }
+.csw-quick-area[data-expanded='true'][data-names-only='false']
+  .csw-quick-prompts[data-editing='false'] {
+  display: flex;
+  gap: 4px;
+  padding-bottom: 4px;
+}
+.csw-quick-area[data-expanded='true'][data-names-only='false']
+  [data-editing='false']
+  > .csw-quick-tag {
+  min-width: 0;
+  max-width: 100%;
+}
+.csw-quick-area[data-expanded='true'][data-names-only='false']
+  [data-editing='false']
+  > .csw-quick-tag:is([data-multiline='true'], [data-open='true']) {
+  flex-basis: 100%;
+}
+.csw-quick-area[data-expanded='true'][data-names-only='false']
+  [data-editing='false']
+  .csw-quick-prompt {
+  min-height: 28px;
+  padding: 4px 8px;
+}
+.csw-quick-area[data-expanded='true'] .csw-quick-text {
+  overflow-wrap: anywhere;
+}
 .csw-quick-area[data-expanded='true'] .csw-quick-prompt:hover:not(:disabled),
 .csw-quick-disclosure:hover:not(:disabled) {
   background: var(--csw-hover);
@@ -920,6 +946,7 @@
 }
 .csw-quick-area[data-expanded='true'] .csw-quick-actions {
   grid-column: 1 / -1;
+  flex-basis: 100%;
   justify-content: flex-end;
   gap: 8px;
   padding-top: 4px;

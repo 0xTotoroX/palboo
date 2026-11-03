@@ -153,6 +153,7 @@ test('content-first phrases separate reading from execution and retain disclosur
     snapshot.settings.quickPrompts = [
       { label: '审查', prompt },
       { label: '继续', prompt: '继续' },
+      { label: '执行', prompt: '执行' },
     ];
     mount();
   }, prompt);
@@ -170,6 +171,10 @@ test('content-first phrases separate reading from execution and retain disclosur
   assert.ok(
     (await page.getByRole('button', { name: '继续', exact: true }).boundingBox()).height < 60,
   );
+  const first = await page.getByRole('button', { name: '继续', exact: true }).boundingBox();
+  const second = await page.getByRole('button', { name: '执行', exact: true }).boundingBox();
+  assert.equal(first.y, second.y);
+  assert.ok(second.x >= first.x + first.width);
   const before = (await body.boundingBox()).height;
   await page.evaluate(() => disable(true));
   assert.equal(await phrase.isDisabled(), true);

@@ -71,7 +71,8 @@ export function createQuickPrompts({
         const disclosure = namesOnly
           ? ''
           : `<button type="button" class="csw-quick-disclosure" data-quick-expand="${index}" aria-controls="${bodyId}" aria-expanded="${open}" hidden>${open ? tr('收起内容') : tr('展开全文')}</button>`;
-        return `<div class="csw-quick-tag" data-open="${open}"><button type="button" class="csw-quick-prompt" data-quick-prompt="${index}" aria-label="${escapeAttr(name)}" ${description}>${content}</button>${disclosure}${remove}</div>`;
+        const multiline = !namesOnly && item.prompt.trim().includes('\n');
+        return `<div class="csw-quick-tag" data-open="${open}" data-multiline="${multiline}"><button type="button" class="csw-quick-prompt" data-quick-prompt="${index}" aria-label="${escapeAttr(name)}" ${description}>${content}</button>${disclosure}${remove}</div>`;
       })
       .join('');
     const actions = save
