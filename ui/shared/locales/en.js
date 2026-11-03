@@ -1918,17 +1918,18 @@ export default {
   图片无法显示: 'This image could not be displayed.',
   属性: 'Properties',
   搜索网站: 'Search websites',
-  '正在读取网站…': 'Loading websites…',
+  搜索笔记与网页: 'Search notes and web pages',
+  '正在读取笔记与网页…': 'Loading notes and web pages…',
   本地只读阅读器: 'Local read-only reader',
-  '在网站设置中选择 Obsidian 笔记库': 'Choose an Obsidian vault in Websites settings.',
-  '网站设置暂不可用，请更新或重新连接 Palboo。':
-    'Website settings are unavailable. Update or reconnect Palboo.',
+  '在网站设置中选择 Obsidian 笔记库': 'Choose an Obsidian vault in Notes & Web settings.',
+  '阅读与网页设置暂不可用，请更新或重新连接 Palboo。':
+    'Notes & Web settings are unavailable. Update or reconnect Palboo.',
   笔记库的完整目录路径: 'Full path to the vault directory',
   重新读取已保存目录: 'Reload saved directories',
-  网站: 'Websites',
+  阅读与网页: 'Notes & Web',
   '本地 Obsidian': 'Local Obsidian',
   已发现的笔记库: 'Detected vaults',
-  在网站设置中添加笔记文件夹: 'Add a notes folder in website settings',
+  在阅读与网页设置中添加笔记文件夹: 'Add a notes folder in Notes & Web settings',
   切换笔记文件夹: 'Switch notes folder',
   '笔记文件夹已移除，请从 Palboo 重新打开': 'This notes folder was removed. Reopen it from Palboo.',
   请分别保存笔记文件夹和旧版目录设置: 'Save folders separately from legacy directory settings.',
@@ -1997,8 +1998,8 @@ export default {
   请选择绝对目录路径: 'Choose an absolute folder path.',
   目录不存在或无法读取: 'Folder not found or unreadable.',
   请选择具体的笔记或附件目录: 'Choose a specific notes or attachments folder.',
-  '网站设置已在其他窗口更新，请刷新后重试':
-    'Website settings changed in another window. Refresh and try again.',
+  '阅读与网页设置已在其他窗口更新，请刷新后重试':
+    'Notes & Web settings changed in another window. Refresh and try again.',
   '最多授权 16 个附件目录': 'Authorize up to 16 attachment folders.',
   '最多保存 200 个网站': 'Save up to 200 websites.',
   网站标识无效或重复: 'Invalid or duplicate website ID.',
@@ -2006,7 +2007,7 @@ export default {
   'Palboo 数据目录不能位于笔记库内': 'The Palboo data directory must be outside the vault.',
   'Palboo 数据目录不能位于附件目录内':
     'The Palboo data directory must be outside the attachment folders.',
-  '请先在网站设置中选择 Obsidian 笔记库': 'First choose an Obsidian vault in Websites settings.',
+  '请先在网站设置中选择 Obsidian 笔记库': 'First choose an Obsidian vault in Notes & Web settings.',
   本地阅读器尚未就绪: 'The local reader is not ready.',
   '网站已被移除，请刷新后重试': 'This website was removed. Refresh and try again.',
   'ChatGPT 尚未连接，无法在应用内打开网页': 'Connect ChatGPT to open websites inside the app.',
@@ -2014,9 +2015,8 @@ export default {
   '未能在 ChatGPT 内打开网页，请重试': 'Could not open the page in ChatGPT. Try again.',
   '浏览器正在打开网页，请稍后重试': 'A page is already opening. Try again shortly.',
   '正在打开网页…': 'Opening page…',
-  请先在设置页开启网站: 'Enable Websites in settings first.',
-  网站功能已停用: 'Websites is disabled.',
-  阅读与网站: 'Reading & websites',
+  请先在设置页开启阅读与网页: 'Enable Notes & Web in settings first.',
+  阅读与网页功能已停用: 'Notes & Web is disabled.',
   选择笔记文件夹: 'Choose a notes folder',
   本地笔记: 'Local notes',
   笔记文件夹: 'Notes folder',
@@ -2030,7 +2030,7 @@ export default {
   '文件夹选择已超时，请重试': 'Folder selection timed out. Try again.',
   '无法打开文件夹选择窗口，请输入完整路径':
     'Could not open the folder picker. Enter the full path.',
-  阅读与网站入口暂不可用: 'Reading & websites is currently unavailable.',
+  阅读与网页入口暂不可用: 'Notes & Web is currently unavailable.',
   '本地服务暂时断开，请重试；若仍无法连接，请从 Palboo 重新打开':
     'The local service is disconnected. Retry, or reopen the reader from Palboo.',
   '文件已在其他地方修改，草稿已保留，请比较后重新读取':

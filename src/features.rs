@@ -516,7 +516,7 @@ impl App {
                 );
             }
             if id == "sites" {
-                ensure!(self.web_library.enabled(), "请先在设置页开启网站");
+                ensure!(self.web_library.enabled(), "请先在设置页开启阅读与网页");
             }
             if id == "model" {
                 ensure!(
@@ -702,7 +702,7 @@ impl App {
             "board" => self.tasks.view_command(data).await,
             "bots" => self.bot_view(Some(data)).await,
             "sites" => {
-                ensure!(self.web_library.enabled(), "网站功能已停用");
+                ensure!(self.web_library.enabled(), "阅读与网页功能已停用");
                 self.open_website(data["id"].as_str().unwrap_or("")).await
             }
             "model" => match input["action"].as_str().unwrap_or("") {

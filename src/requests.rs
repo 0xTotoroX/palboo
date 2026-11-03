@@ -95,7 +95,7 @@ pub(crate) async fn dispatch(
             if request.path == "/web-library/launcher" {
                 anyhow::ensure!(
                     app.web_library.enabled() && app.host_page_allowed().await,
-                    "阅读与网站入口暂不可用"
+                    "阅读与网页入口暂不可用"
                 );
                 return if let Some(id) = request.payload["id"].as_str() {
                     app.open_website(id).await

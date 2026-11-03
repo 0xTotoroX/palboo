@@ -24,7 +24,7 @@ export const titles = {
   },
   bots: 'Grok Bot',
   get sites() {
-    return tr('网站');
+    return tr('阅读与网页');
   },
 };
 export type FeatureId = keyof typeof titles;

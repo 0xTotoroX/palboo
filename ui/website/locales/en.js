@@ -8,7 +8,6 @@ export default {
   '模型、推理强度和常用预设，放在手边。': 'Models, reasoning levels and presets, close at hand.',
   '查看 Bot 的完整回复，也可以从近期回复接着追问。':
     'Read complete Bot replies and follow up on recent responses.',
-  阅读与网页: 'Notes & Web',
   '笔记、表格与常用网页，都在 ChatGPT 页签里。':
     'Your notes, spreadsheets, and favorite pages, in ChatGPT tabs.',
   作品集笔记: 'Portfolio notes',

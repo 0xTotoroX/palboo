@@ -1,4 +1,4 @@
-# sites/ — 网站与本地阅读入口
+# sites/ — 阅读与网页
 
 > L2 | 父级：[AGENTS.md](../AGENTS.md)
 

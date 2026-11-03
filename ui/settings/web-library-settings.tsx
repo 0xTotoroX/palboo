@@ -15,6 +15,7 @@ import { FeaturePreviewContent } from './feature-preview';
 import { PreviewFrame } from './preview-frame';
 import { tr } from '../shared/i18n.js';
 import { useLocale } from '../shared/use-locale';
+import { titles } from '../shared/features';
 import type { Site, WebLibrary } from '../shared/web-library';
 import { Icon } from '../shared/icons/react';
 import './web-library-settings.css';
@@ -38,7 +39,7 @@ function configuration(value: unknown): WebLibrary {
     (data.vaults !== undefined &&
       (!Array.isArray(data.vaults) || !data.vaults.every((path) => typeof path === 'string')))
   )
-    throw new Error(tr('网站设置暂不可用，请更新或重新连接 Palboo。'));
+    throw new Error(tr('阅读与网页设置暂不可用，请更新或重新连接 Palboo。'));
   if (
     data.folders !== undefined &&
     (!Array.isArray(data.folders) ||
@@ -52,7 +53,7 @@ function configuration(value: unknown): WebLibrary {
           folder.attachments.every((path) => typeof path === 'string'),
       ))
   )
-    throw new Error(tr('网站设置暂不可用，请更新或重新连接 Palboo。'));
+    throw new Error(tr('阅读与网页设置暂不可用，请更新或重新连接 Palboo。'));
   return {
     ...data,
     folders:
@@ -155,7 +156,7 @@ export function WebLibrarySettings({
     <>
       <FeatureSwitch
         portalTarget={enablementTarget}
-        name={tr('网站')}
+        name={titles.sites}
         checked={state?.enabled || false}
         disabled={disabled}
         onChange={(enabled) => void save({ enabled })}
@@ -166,7 +167,7 @@ export function WebLibrarySettings({
         hidden={!active}
         className="web-library-settings"
       >
-        <PreviewFrame title={tr('网站')}>
+        <PreviewFrame title={titles.sites}>
           <FeaturePreviewContent
             id="sites"
             sites={state}

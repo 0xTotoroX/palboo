@@ -52,8 +52,8 @@ export function SitesView({
       {(entries.length > 6 || !!search) && (
         <input
           type="search"
-          aria-label={tr('搜索网站')}
-          placeholder={tr('搜索网站')}
+          aria-label={tr('搜索笔记与网页')}
+          placeholder={tr('搜索笔记与网页')}
           value={search}
           onChange={(e) => {
             setSearch(e.target.value);
@@ -61,7 +61,7 @@ export function SitesView({
           }}
         />
       )}
-      {!state && <p role="status">{tr('正在读取网站…')}</p>}
+      {!state && <p role="status">{tr('正在读取笔记与网页…')}</p>}
       {error && <p role="alert">{error}</p>}
       <ul>
         {entries
@@ -82,7 +82,7 @@ export function SitesView({
             </li>
           ))}
       </ul>
-      {state && !state.configured && <p role="status">{tr('在网站设置中添加笔记文件夹')}</p>}
+      {state && !state.configured && <p role="status">{tr('在阅读与网页设置中添加笔记文件夹')}</p>}
     </div>
   );
 }

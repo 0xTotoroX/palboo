@@ -90,4 +90,4 @@ LayoutPreset.scope 为可选，缺省及旧 all 归入侧栏，overlay 与 deskt
 
 `host-fonts.ts`：不含 React 或认证凭据的文档字体加载器，消费有效字体族与 HostFontSource；本机 PostScript 别名走 local()，可确认的 App 字形按需读取。按字体族保留加载状态，普通轮询/未变备用字体不重复请求；替换或销毁取消请求、删除自有 FontFace，迟到结果不注册。PopoutBridge 只新增可选的受限 hostFonts 读取契约。
 
-- `web-library.ts`：网站条目、多个文件夹摘要/授权与独立修订 DTO，保留旧单目录字段兼容，不含访问凭证和笔记正文。features 增加可选 sites、feature-sites 图标和临时 siteSearch；contracts 的 webLibraryEnabled 允许独立启停。
+- `web-library.ts`：网站条目、多个文件夹摘要/授权与独立修订 DTO，保留旧单目录字段兼容，不含访问凭证和笔记正文。features 的 sites 显示名为“阅读与网页 / Notes & Web”，设置导航、功能开关及预览共用；保留 feature-sites 图标和临时 siteSearch；contracts 的 webLibraryEnabled 允许独立启停。

@@ -6,6 +6,7 @@ import { tr } from '../shared/i18n.js';
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { Icon } from '../shared/icons/react';
+import { titles } from '../shared/features';
 import {
   closeSettingsDrawers,
   revealSettingsDrawer,
@@ -38,7 +39,7 @@ export const pageTitles = {
   },
   bots: 'Grok Bot',
   get sites() {
-    return tr('网站');
+    return titles.sites;
   },
   get 'model-control'() {
     return tr('模型切换');

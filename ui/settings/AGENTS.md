@@ -82,7 +82,7 @@
 
 所有动作图标通过shared/icons/react读取同一公开SVG目录及18px共享变量。普通图标按钮复用components/ui/button的IconButton，确认操作继续由ConfirmationButton处理；原提交类型、焦点和保存通道不变。设置页内控件高度、圆角及开关几何统一由settings-controls.css管理，基础组件保留独立挂载所需的默认样式。页面保留桌面16px、窄屏12px额外顶部留白及底部边距。
 
-大纲、下一步、常用语、术语释义、任务看板、模型切换、Grok Bot、提示词优化和兼容集成各有独立预览子页，导航与主开关名称/顺序保持对应，兼容集成分类内的具体主开关称CodexHost；旧 settings-prompts 与 settings-quick-prompts 均定位到常用语页。旧锚点可进入对应详细分类并展开目标；Apple提醒事项继续隐藏。原settings-overview组件保留代码，但不作为当前页面入口。
+大纲、下一步、常用语、术语释义、任务看板、模型切换、Grok Bot、阅读与网页、提示词优化和兼容集成各有独立预览子页，导航与主开关名称/顺序保持对应，兼容集成分类内的具体主开关称CodexHost；旧 settings-prompts 与 settings-quick-prompts 均定位到常用语页。旧锚点可进入对应详细分类并展开目标；Apple提醒事项继续隐藏。原settings-overview组件保留代码，但不作为当前页面入口。
 
 设置凭据以同源localStorage共享并兼容迁移旧sessionStorage；入口hash令牌优先，读取后移出URL。storage/hashchange/focus触发SSE重连，不卸载表单或重放写入；新地址首次仍须通过眼睛菜单授权入口进入。开发来源请求实时读取共享凭据，不再固定旧令牌。
 
@@ -125,7 +125,7 @@ settings-search.tsx在页头提供本地设置搜索：从唯一挂载的标签/
 - `settings-drawer.tsx`：共用原生 dialog 右侧抽屉，支持固定工具栏和页脚，保留原 DOM/表单归属、草稿和内部滚动；关闭、Esc、背景点击及分类切换不增加保存。搜索/旧锚点可打开目标，重复定位仍有效；detail-reveal 事件在聚焦前揭示抽屉内部条目，初始深链接在提交后的微任务执行；关闭按钮与标题不进入搜索索引。窄屏占满宽度，键盘/减少动态效果即时完成，嵌套危险操作确认仍单独取消。
 - 抽屉中的保存状态/失败反馈读取既有 SettingsEditor；手动保存继续提交原 SettingsForm，同一串行队列与修订保护不变。模型分组和词库复用原操作反馈；模型/密钥/词库数据不迁移。样式归 settings-controls.css，常用配置仍直接显示。
 
-两级设置导航：settings-outline.tsx 集中维护界面、功能、系统三组/子页和旧锚点映射；界面在前，功能开关归入功能首位，兼容集成归功能末尾；中宽屏分组始终显示，窄屏以“分类 / 当前页”展开同一份完整目录，按分类直接选页；不再显示两行导航。main.tsx 及各设置表单只隐藏原节点：下一步与常用语独立成页，布局/外观分开，表单与草稿不重复创建。搜索索引补充页面及按需加载的词库入口，字段按最近 data-settings-page 定位；手动保存遇到隐藏的无效字段会切到所属页/抽屉并显示原生校验。预览按当前功能选取场景，术语使用本页卡片，兼容集成只读当前 CodexHost Agent 菜单，开发来源不挂无关预览。
+两级设置导航：settings-outline.tsx 集中维护界面、功能、系统三组/子页和旧锚点映射，同名功能引用 shared/features.ts 的名称；改名遵循根 DESIGN_SYSTEM.md 第6节的全入口核对；界面在前，功能开关归入功能首位，兼容集成归功能末尾；中宽屏分组始终显示，窄屏以“分类 / 当前页”展开同一份完整目录，按分类直接选页；不再显示两行导航。main.tsx 及各设置表单只隐藏原节点：下一步与常用语独立成页，布局/外观分开，表单与草稿不重复创建。搜索索引补充页面及按需加载的词库入口，字段按最近 data-settings-page 定位；手动保存遇到隐藏的无效字段会切到所属页/抽屉并显示原生校验。预览按当前功能选取场景，术语使用本页卡片，兼容集成只读当前 CodexHost Agent 菜单，开发来源不挂无关预览。
 
 设置模式合并：main.tsx 不再渲染模式入口或简易聚合表单；settings-outline 不读写模式偏好，仅维护分组子页、历史和逐页滚动；settings-preview 按子页选择预览。settings-layout.css 移除模式专用样式，分组目录复用于中宽屏侧栏与窄屏单行菜单，保留主题与表单节奏。
 
@@ -199,7 +199,7 @@ use-host-appearance 分别使用宿主 primary/navSelected/segmented/switchOn �
 
 use-host-fonts 是 shared/host-fonts 的 React 文档适配器，settings/api 提供认证 HostFontSource，供设置与独立窗口入口共用；有效字体族未变时不重复加载，销毁回收自有字形。字体与字号表单、外观修订和保存范围不变。
 
-- `web-library-settings.tsx` / `web-library-settings.css`：网站功能开关、列表增删改/搜索/排序及独立修订；功能预览固定在页面标题之后、配置之前。预览复用真实 SitesView，仅在内存操作；onSnapshot 与 previewActive 向布局/外观共享一次读取结果。配置先显示文件夹列表，再显示网站列表，细节表单复用保留草稿的共用抽屉。
+- `web-library-settings.tsx` / `web-library-settings.css`：阅读与网页功能开关、列表增删改/搜索/排序及独立修订；功能预览固定在页面标题之后、配置之前。预览复用真实 SitesView，仅在内存操作；onSnapshot 与 previewActive 向布局/外观共享一次读取结果。配置先显示文件夹列表，再显示网站列表，细节表单复用保留草稿的共用抽屉。
 - `reader-folder-settings.tsx`：多个笔记文件夹的添加/命名/编辑/移除与独立打开；检测到的 Obsidian 名单和系统选择器只填草稿，保存完整 folders 数组并校验原修订；关闭/切页/错误保留草稿，切换编辑对象前确认丢弃。附件授权属于各自文件夹，移除入口不删除原文件；旧单目录配置继续可读写。
 - `reader.html`：独立阅读网页构建入口，由 reader 服务单独提供，不复用设置页认证。
 

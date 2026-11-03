@@ -366,7 +366,7 @@ try {
   await settings
     .getByRole('dialog', { name: '编辑文件夹', exact: true })
     .getByRole('alert')
-    .filter({ hasText: '网站设置已在其他窗口更新，请刷新后重试' })
+    .filter({ hasText: '阅读与网页设置已在其他窗口更新，请刷新后重试' })
     .waitFor();
   assert.deepEqual((await api('web-library')).attachments, [join(vault, '其他')]);
   await settings.getByRole('button', { name: '重新读取已保存目录', exact: true }).click();

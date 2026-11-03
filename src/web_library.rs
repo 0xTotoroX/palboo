@@ -250,7 +250,7 @@ impl Library {
         let mut p = self.preferences.lock().unwrap();
         ensure!(
             p.revision == patch.expected_revision,
-            "网站设置已在其他窗口更新，请刷新后重试"
+            "阅读与网页设置已在其他窗口更新，请刷新后重试"
         );
         let mut next = p.clone();
         ensure!(
@@ -491,7 +491,8 @@ impl App {
         if before != enabled
             && let Err(error) = self.set_feature_enabled("sites", enabled).await
         {
-            value["presentationError"] = json!(format!("网站设置已保存，窗口更新失败：{error}"));
+            value["presentationError"] =
+                json!(format!("阅读与网页设置已保存，窗口更新失败：{error}"));
         }
         Ok(value)
     }
