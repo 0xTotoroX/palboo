@@ -1,5 +1,5 @@
 /* [INPUT]: 上游探针契约、合成多输入框 DOM、外部 CLI 模型菜单、多轮对话与新聊天按钮和实际适配脚本。
- * [OUTPUT]: Agent 隔离、缺失/未知/异常协议拒绝、外部 CLI 模型/思考快切、新会话 CLI 切换、已锁定会话新建聊天上下文交接切换及官方目录隔离。
+ * [OUTPUT]: 快切过滤未就绪候选并保留当前选择、Agent 隔离、缺失/未知/异常协议拒绝、外部 CLI 模型/思考快切、新会话 CLI 切换、已锁定会话新建聊天上下文交接切换及官方目录隔离。
  * [POS]: 不调用真实 CodexHost、不写聊天或模型。
  * [PROTOCOL]: 变更时同步 tests/AGENTS.md。 */
 import { test } from 'node:test';
@@ -65,6 +65,106 @@ test('CodexHost adapter keeps Agent capability scoped to each composer', async (
       document.querySelector('[data-codexhost-agent-control="b"]').remove();
     });
     assert.equal((await check('a')).officialModel, true);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('CLI quick switch lists ready Agents and the current selection without install candidates', async () => {
+  const browser = await chromium.launch({
+    executablePath: process.env.PALBOO_CHROME_BIN || undefined,
+    headless: true,
+  });
+  try {
+    const page = await browser.newPage();
+    await page.setContent(`
+      <section><textarea id="composer"></textarea>
+        <div data-codexhost-agent-control="composer"></div>
+      </section>
+      <div id="composer-agent-menu" role="menu">
+        <button role="menuitemradio" data-agent="codex">Codex</button>
+        <button role="menuitemradio" data-agent="opencode" disabled>OpenCode</button>
+        <button role="menuitemradio" data-agent="missing" disabled>Not installed</button>
+        <button role="menuitemradio" data-agent="unavailable" disabled>Unavailable</button>
+        <button role="menuitemradio" data-agent="checking" disabled>Checking</button>
+        <button role="menuitemradio" data-agent="failed" disabled>Failed</button>
+        <button role="menuitemradio" data-agent="claude">Claude Code</button>
+      </div>`);
+    await page.addScriptTag({ content: source });
+    await page.evaluate(() => {
+      window.agentStatus = {
+        version: 2,
+        enabledAgents: [
+          'codex',
+          'opencode',
+          'missing',
+          'unavailable',
+          'checking',
+          'failed',
+          'claude',
+        ],
+        availability: {
+          opencode: 'ready',
+          missing: 'notInstalled',
+          unavailable: 'unavailable',
+          checking: 'checking',
+          failed: 'error',
+          claude: 'ready',
+        },
+        selections: [{ composerId: 'composer', agent: 'codex', phase: 'draft' }],
+      };
+      window.__codexhostRendererBindingProbeV1 = { status: () => window.agentStatus };
+    });
+    const read = () =>
+      page.evaluate(
+        () =>
+          window.__palbooHostCompatibility.capability(document.getElementById('composer')).agent,
+      );
+    const initial = await read();
+    assert.deepEqual(
+      initial.options.map((option) => option.id),
+      ['codex', 'opencode', 'claude'],
+    );
+    // Temporary button disabling is separate from whether an Agent exists in the list.
+    assert.equal(initial.options.find((option) => option.id === 'opencode').available, false);
+    await page.evaluate(() => {
+      window.agentStatus.selections[0].phase = 'locked';
+      document.querySelectorAll('[data-agent]').forEach((button) => {
+        button.disabled = true;
+      });
+    });
+    const locked = await read();
+    assert.deepEqual(
+      locked.options.map((option) => option.id),
+      ['codex', 'opencode', 'claude'],
+    );
+    assert.ok(locked.options.every((option) => option.available));
+    await page.evaluate(() => {
+      window.agentStatus.availability.missing = 'ready';
+      window.agentStatus.selections[0].agent = 'failed';
+    });
+    const updated = await read();
+    assert.deepEqual(
+      updated.options.map((option) => option.id),
+      ['codex', 'opencode', 'missing', 'failed', 'claude'],
+    );
+    assert.equal(updated.current, 'failed');
+    assert.equal(updated.options.find((option) => option.id === 'failed').available, false);
+    // Probe-only fallback uses the same filter while the menu is remounting.
+    await page.evaluate(() => document.getElementById('composer-agent-menu').remove());
+    assert.deepEqual(
+      (await read()).options.map((option) => option.id),
+      updated.options.map((option) => option.id),
+    );
+    await page.evaluate(() => {
+      window.agentStatus.selections[0].agent = 'codex';
+      for (const id of window.agentStatus.enabledAgents)
+        window.agentStatus.availability[id] = 'notInstalled';
+    });
+    assert.deepEqual(
+      (await read()).options.map((option) => option.id),
+      ['codex'],
+    );
   } finally {
     await browser.close();
   }

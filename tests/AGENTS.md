@@ -208,7 +208,7 @@ settings-modes 使用真实键盘和鼠标验收原生定制菜单：Escape 取�
 
 settings-suggestions.test.mjs 使用真实 SuggestionInput 与合成数据，核对候选去重、底部向上展示、键盘/指针选择不提前失焦保存或提交、Esc 取消、自由输入失焦保留，以及输入法确认不误选；同时通过真实 ModelSettings/保存队列及合成接口核对显式下拉、当前 ID 不过滤其他候选、读取中/失败/空列表、连接变更拒绝旧结果和展开零写入；连接测试覆盖等待计时、成功/失败/未实际生成、重试、保存失败停止、先保存后测试及在途编辑拒绝旧成功；不访问真实模型或配置。
 
-codex-host-settings.test验证独立API、版本修订与开关不隐式启动；codex-host-compatibility.test验证输入框Agent隔离、缺失外部菜单时拒绝写入、已挂载外部CLI菜单时的模型/思考快切、新会话CLI切换、已锁定会话无交接时拒绝以及携带上下文新建聊天切换CLI与官方目录隔离。Rust codex_host验证旧配置/额外字段保留、过期写入拒绝、安装身份、取消不退出；host验证动态端口/固定绑定；dev-host验证仅显式Dev准备应用选择。本轮不自动执行真实宿主重启或安装。
+codex-host-settings.test验证独立API、版本修订与开关不隐式启动；codex-host-compatibility.test验证输入框Agent隔离、快切仅列Codex/就绪CLI/当前选择（菜单与探针回退一致，锁定会话不误隐藏，新安装状态动态回读）、缺失外部菜单时拒绝写入、已挂载外部CLI菜单时的模型/思考快切、新会话CLI切换、已锁定会话无交接时拒绝以及携带上下文新建聊天切换CLI与官方目录隔离。Rust codex_host验证旧配置/额外字段保留、过期写入拒绝、安装身份、取消不退出；host验证动态端口/固定绑定；dev-host验证仅显式Dev准备应用选择。本轮不自动执行真实宿主重启或安装。
 
 补齐项验证：Rust features用例覆盖模型排序持久化/过期版本/非法ID拒绝、首次接入补登记及既有关闭/旧窗口/布局保留；state.connection_tests用合成WebSocket检查超时不destroy、丢弃迟到响应、正常响应恢复、真实关闭与不兼容清理。dev-launcher新增合成进程退出/并发重开仅启动一次、身份复用和读取异常保留检查；不退出真实ChatGPT。
 

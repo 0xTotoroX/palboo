@@ -1,5 +1,5 @@
 /* [INPUT]: CodexHost 0.10.2 的版本化只读探针、输入框附近的 Agent 控件、外部模型菜单与当前聊天上下文。
- * [OUTPUT]: window.__palbooHostCompatibility，按输入框判断官方/外部模型与 Agent 切换能力，支持外部 CLI 模型快切、新会话直接切换 CLI，以及已锁定会话新建聊天并携带上下文交接切换 CLI。
+ * [OUTPUT]: window.__palbooHostCompatibility，按输入框判断官方/外部模型与 Agent 切换能力，仅列出 Codex、就绪 CLI 与当前选择，支持外部 CLI 模型快切、新会话直接切换 CLI，以及已锁定会话新建聊天并携带上下文交接切换 CLI。
  * [POS]: 上游适配边界；缺失或未知协议拒绝模型写入，不覆盖上游实现。
  * [PROTOCOL]: 变更时同步 codex/AGENTS.md。 */
 (() => {
@@ -93,13 +93,17 @@
     const options = [];
     const seen = new Set();
     const locked = selection?.phase === 'locked';
+    const current = String(selection?.agent || '').trim();
+    // 上游菜单包含尚未安装的候选；快切只列出已就绪项，并保留当前选择。
+    const listed = (id) =>
+      id === 'codex' || id === current || status?.availability?.[id] === 'ready';
     const enabled = Array.isArray(status?.enabledAgents) ? status.enabledAgents : [];
     // 宿主会禁用已锁定输入框的全部菜单项；接力的目标是另一个输入框。
     const canHandoff = (id) =>
       enabled.includes(id) && (id === 'codex' || status?.availability?.[id] === 'ready');
     for (const button of buttons) {
       const id = String(button.getAttribute('data-agent') || '').trim();
-      if (!id || seen.has(id)) continue;
+      if (!id || seen.has(id) || !listed(id)) continue;
       seen.add(id);
       const labelNode = button.querySelector('.codexhost-agent-picker__item-label');
       const label = clean(labelNode) || clean(button) || id;
@@ -109,7 +113,7 @@
     if (!options.length) {
       for (const raw of enabled) {
         const id = String(raw || '').trim();
-        if (!id || seen.has(id)) continue;
+        if (!id || seen.has(id) || !listed(id)) continue;
         seen.add(id);
         const availability = status?.availability?.[id];
         options.push({
@@ -121,7 +125,6 @@
         });
       }
     }
-    const current = String(selection?.agent || '').trim();
     const triggerLabel = clean(control?.querySelector('.codexhost-agent-picker__label'));
     const matched = options.find((item) => item.id === current);
     return {
