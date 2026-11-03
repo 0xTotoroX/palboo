@@ -135,6 +135,8 @@ export function startDesktop(request, lease, fontSource) {
     request,
     lease,
     layout: () => composition.snapshot(),
+    canUndo: () => composition.canUndo(),
+    undo: () => composition.undo(),
     pin: async (value) => {
       await call('pin', { value });
       native({ kind: 'pin', value });

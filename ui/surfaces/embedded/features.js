@@ -201,6 +201,8 @@ function frame(container, faceClick) {
   layoutMenu = installWindowMenu(root.querySelector('.csw-workbench-controls'), {
     request,
     layout: () => composition.snapshot(),
+    canUndo: () => composition.canUndo(),
+    undo: () => composition.undo(),
     settings: async () => {
       const result = await openSettings({ section: 'layout-presets' });
       if (!result.ok) throw Error(result.message || tr('设置打开已取消。'));

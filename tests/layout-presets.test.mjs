@@ -41,7 +41,7 @@ const request=async input=>{
  }
  return state;
 };
-const menu=installWindowMenu(root.querySelector('.csw-workbench-controls'),{request,...(placement==='desktop'?{lease:'test',pin:async value=>{pinned=value;pins.push(value)}}:{}),layout:()=>composition.snapshot(),settings:async()=>{window.settingsOpened=true},refresh,isBusy:()=>false});
+const menu=installWindowMenu(root.querySelector('.csw-workbench-controls'),{request,...(placement==='desktop'?{lease:'test',pin:async value=>{pinned=value;pins.push(value)}}:{}),layout:()=>composition.snapshot(),canUndo:()=>composition.canUndo(),undo:()=>composition.undo(),settings:async()=>{window.settingsOpened=true},refresh,isBusy:()=>false});
 window.refresh=refresh;window.switchSurface=surface=>composition.update(items,surface,state.layouts[placement],null,'next',1);refresh();
 `,
         loader: 'js',
@@ -263,20 +263,92 @@ test('overdragging the divider merges the narrower column only when released bey
     await page.mouse.move(x - left.width + 120, y, { steps: 12 });
     assert.equal(await divider.getAttribute('data-merge-preview'), '合并为标签');
     await page.mouse.move(x - left.width + 170, y);
-    assert.equal(await divider.getAttribute('data-merge-preview'), null);
+    assert.equal(await divider.getAttribute('data-merge-preview'), '继续拖动可合并');
+    assert.equal(await divider.getAttribute('data-merge-side'), null);
     await page.mouse.up();
     assert.equal(await divider.count(), 1);
     const minimum = await divider.boundingBox();
     await page.mouse.move(minimum.x + minimum.width / 2, y);
     await page.mouse.down();
+    await page.mouse.move(minimum.x + 80, y, { steps: 8 });
+    await page.mouse.up();
+    const before = await page.evaluate(() => structuredClone(state.layouts.desktop));
+    const widened = await divider.boundingBox();
+    assert.ok(widened.x > minimum.x + 50);
+    await page.mouse.move(widened.x + widened.width / 2, y);
+    await page.mouse.down();
     await page.mouse.move(minimum.x - 64, y, { steps: 8 });
     assert.equal(await divider.getAttribute('data-merge-preview'), '合并为标签');
+    assert.equal(await divider.getAttribute('data-merge-side'), 'previous');
+    assert.deepEqual(
+      await divider.evaluate((node) =>
+        [node.previousElementSibling, node.nextElementSibling].map(
+          (pane) => getComputedStyle(pane).outlineStyle,
+        ),
+      ),
+      ['dashed', 'solid'],
+    );
     await page.mouse.up();
     await page.waitForFunction(() => state.layouts.desktop.groups[1].ids?.length === 3);
     assert.deepEqual(await page.evaluate(() => state.layouts.desktop.groups), [
       { ids: ['outline'], active: 'outline', weight: 1 },
       { ids: ['bots', 'next', 'prompts'], active: 'bots', weight: 2 },
     ]);
+    await page.getByRole('button', { name: '窗口操作', exact: true }).click();
+    await page.getByRole('menuitem', { name: '撤销布局更改' }).click();
+    await divider.waitFor();
+    assert.deepEqual(await page.evaluate(() => state.layouts.desktop), before);
+    const restored = await divider.boundingBox();
+    assert.ok(Math.abs(restored.x - widened.x) < 1);
+    await page.getByRole('button', { name: '窗口操作', exact: true }).click();
+    assert.equal(await page.getByRole('menuitem', { name: '撤销布局更改' }).count(), 0);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('tab insertion and keyboard sorting work with both tab positions and the two-column preset', async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage({ viewport: { width: 900, height: 600 } });
+    page.setDefaultTimeout(5000);
+    await fixture(page);
+    const menu = page.getByRole('button', { name: '窗口操作', exact: true });
+    const preset = (name) => page.getByRole('menuitemradio', { name });
+    const tab = (id) => page.locator(`[data-pane-tab="${id}"]`);
+    await tab('prompts').click();
+    await menu.click();
+    assert.equal(await preset('对照 · 通用').getAttribute('aria-checked'), 'true');
+    await preset('双栏工作台').click();
+    await page.waitForFunction(() => state.layouts.desktop.axis === 'horizontal');
+    assert.deepEqual(await page.evaluate(() => state.layouts.desktop.groups), [
+      { ids: ['outline'], active: 'outline', weight: 0.45 },
+      { ids: ['next', 'prompts'], active: 'prompts', weight: 0.55 },
+    ]);
+    await menu.click();
+    assert.equal(await preset('双栏工作台').getAttribute('aria-checked'), 'true');
+    await page.getByRole('menuitem', { name: '撤销布局更改' }).click();
+    await page.waitForFunction(() => state.layouts.desktop.axis === 'vertical');
+    await menu.click();
+    await preset('全部标签在顶部').click();
+    await tab('prompts').click();
+    await tab('prompts').press('Alt+ArrowLeft');
+    await page.waitForFunction(() => state.layouts.desktop.groups[0].ids[1] === 'prompts');
+    assert.equal(await tab('prompts').getAttribute('aria-selected'), 'true');
+    await menu.click();
+    await preset('全部标签在左侧').click();
+    const source = await tab('next').boundingBox();
+    const target = await tab('prompts').boundingBox();
+    await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(target.x + target.width / 2, target.y + 4, { steps: 8 });
+    const marker = await page.locator('.csw-drop-preview[data-tab-insertion]').boundingBox();
+    assert.ok(marker.width > marker.height);
+    await page.mouse.up();
+    await page.waitForFunction(() => state.layouts.desktop.groups[0].ids[1] === 'next');
+    assert.equal(await tab('prompts').getAttribute('aria-selected'), 'true');
+    await tab('prompts').press('Alt+ArrowUp');
+    await page.waitForFunction(() => state.layouts.desktop.groups[0].ids[1] === 'prompts');
   } finally {
     await browser.close();
   }
@@ -453,6 +525,9 @@ createRoot(document.getElementById('root')).render(<App/>);
       'next',
       'prompts',
     ]);
+    await preset.selectOption('two-column');
+    await page.waitForFunction(() => server.layouts.desktop.groups.length === 2);
+    assert.equal(await preset.inputValue(), 'two-column');
     assert.equal(
       await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
       true,

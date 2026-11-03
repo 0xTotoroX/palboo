@@ -92,9 +92,15 @@ export function arrangeFeatureLayout(value, id, action, width, height, target, v
     source.active = id;
     return next;
   }
-  if (!['left', 'right', 'top', 'bottom', 'merge', 'before', 'after'].includes(action)) return null;
+  const insertTab = action === 'tab-before' || action === 'tab-after';
+  if (
+    !insertTab &&
+    !['left', 'right', 'top', 'bottom', 'merge', 'before', 'after'].includes(action)
+  )
+    return null;
   const destination = leaves.find((group) => group.ids.includes(target));
   if (!destination || (source === destination && source.ids.length === 1)) return null;
+  if (insertTab && id === target) return null;
   if (action === 'before' || action === 'after') {
     const parentOf = (node) =>
       node.groups.includes(source)
@@ -127,10 +133,13 @@ export function arrangeFeatureLayout(value, id, action, width, height, target, v
   };
   rememberVisible(next);
   source.ids = source.ids.filter((entry) => entry !== id);
-  if (source.active === id) source.active = source.ids[0];
-  if (action === 'merge') {
-    destination.ids.push(id);
-    destination.active = id;
+  if (source.active === id && (!insertTab || source !== destination)) source.active = source.ids[0];
+  if (action === 'merge' || insertTab) {
+    const index = insertTab
+      ? destination.ids.indexOf(target) + Number(action === 'tab-after')
+      : destination.ids.length;
+    destination.ids.splice(index, 0, id);
+    if (!insertTab || source !== destination) destination.active = id;
   } else {
     /** @param {FeatureLayout} parent */
     const split = (parent) => {
@@ -161,5 +170,7 @@ export function arrangeFeatureLayout(value, id, action, width, height, target, v
     next.groups = branch.groups;
   }
   const minimum = layoutMinimum(next, visibleIds);
-  return action !== 'merge' && (width < minimum.width || height < minimum.height) ? null : next;
+  return action !== 'merge' && !insertTab && (width < minimum.width || height < minimum.height)
+    ? null
+    : next;
 }

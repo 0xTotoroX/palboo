@@ -46,7 +46,8 @@ export function bindSeparator(handle, axis, read, change, save = () => {}) {
     )
       return;
     event.preventDefault();
-    change(read(), delta, false);
-    save();
+    const value = read();
+    change(value, delta, false);
+    save(value, false);
   });
 }

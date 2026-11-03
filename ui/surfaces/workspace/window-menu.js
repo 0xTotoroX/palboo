@@ -12,15 +12,26 @@ import {
   sortedLayoutPresets,
   layoutPresetLabel,
   builtinLayout,
+  builtinLayoutAvailable,
   builtinLayoutPresets,
   matchingBuiltinLayout,
 } from './layout-presets.js';
 
 export function installWindowMenu(
   container,
-  { request, lease = null, layout, pin = null, settings, refresh, isBusy },
+  {
+    request,
+    lease = null,
+    layout,
+    pin = null,
+    settings,
+    refresh,
+    isBusy,
+    canUndo = () => false,
+    undo,
+  },
 ) {
-  container.innerHTML = `<div class="csw-window-menu"><button type="button" class="csw-icon" data-window-menu aria-haspopup="menu" aria-expanded="false">${iconSvg('more')}</button><div class="csw-window-menu-panel" role="menu" hidden><button type="button" role="menuitemcheckbox" data-menu-pin aria-checked="true">${iconSvg('pin')}<span data-copy="窗口置顶"></span><span class="csw-menu-check">${iconSvg('check')}</span></button><div class="csw-menu-divider"></div><div class="csw-menu-caption" data-copy="布局预设"></div><div data-presets></div><button type="button" role="menuitem" data-save-preset>${iconSvg('plus')}<span data-copy="保存当前布局…"></span></button><button type="button" role="menuitem" data-manage-presets>${iconSvg('settings')}<span data-copy="管理布局预设…"></span></button></div><form class="csw-window-menu-panel csw-preset-save" hidden><label><span data-copy="预设名称"></span><input name="name" maxlength="40" autocomplete="off" required></label><div class="csw-preset-save-actions"><button type="button" data-cancel-save data-copy="取消"></button><button type="submit" data-copy="保存"></button></div></form><p class="csw-window-menu-error" role="alert" hidden></p></div>`;
+  container.innerHTML = `<div class="csw-window-menu"><button type="button" class="csw-icon" data-window-menu aria-haspopup="menu" aria-expanded="false">${iconSvg('more')}</button><div class="csw-window-menu-panel" role="menu" hidden><button type="button" role="menuitemcheckbox" data-menu-pin aria-checked="true">${iconSvg('pin')}<span data-copy="窗口置顶"></span><span class="csw-menu-check">${iconSvg('check')}</span></button><div class="csw-menu-divider"></div><div class="csw-menu-caption" data-copy="布局预设"></div><div data-presets></div><button type="button" role="menuitem" data-undo-layout><span data-copy="撤销布局更改"></span></button><button type="button" role="menuitem" data-save-preset>${iconSvg('plus')}<span data-copy="保存当前布局…"></span></button><button type="button" role="menuitem" data-manage-presets>${iconSvg('settings')}<span data-copy="管理布局预设…"></span></button></div><form class="csw-window-menu-panel csw-preset-save" hidden><label><span data-copy="预设名称"></span><input name="name" maxlength="40" autocomplete="off" required></label><div class="csw-preset-save-actions"><button type="button" data-cancel-save data-copy="取消"></button><button type="submit" data-copy="保存"></button></div></form><p class="csw-window-menu-error" role="alert" hidden></p></div>`;
   const root = container.firstElementChild;
   const trigger = root.querySelector('[data-window-menu]');
   const menu = root.querySelector('[role=menu]');
@@ -28,6 +39,7 @@ export function installWindowMenu(
   const name = form.querySelector('input');
   const message = root.querySelector('[role=alert]');
   const presets = root.querySelector('[data-presets]');
+  const undoButton = root.querySelector('[data-undo-layout]');
   root.querySelector('[data-menu-pin]').hidden = !pin;
   root.querySelector('.csw-menu-divider').hidden = !pin;
   const events = new AbortController();
@@ -54,6 +66,7 @@ export function installWindowMenu(
     if (!state || busy()) return;
     message.hidden = true;
     form.hidden = true;
+    render();
     menu.hidden = false;
     trigger.setAttribute('aria-expanded', 'true');
     container.dataset.menuOpen = 'true';
@@ -120,9 +133,10 @@ export function installWindowMenu(
     root.querySelectorAll('button,input').forEach((node) => {
       node.disabled = busy() || !state;
     });
+    undoButton.hidden = !canUndo();
     for (const button of presets.querySelectorAll('button')) {
       button.setAttribute('aria-checked', String(button.dataset.preset === selected));
-      button.disabled ||= !ids.length;
+      button.disabled ||= !builtinLayoutAvailable(button.dataset.preset, ids);
     }
   }
   trigger.addEventListener(
@@ -145,8 +159,9 @@ export function installWindowMenu(
     'click',
     (event) => {
       const button = event.target.closest('button');
-      if (!button || busy()) return;
-      if (button.hasAttribute('data-menu-pin')) void run(() => pin(!pinned));
+      if (!button || button.disabled || busy()) return;
+      if (button === undoButton && canUndo()) void run(undo);
+      else if (button.hasAttribute('data-menu-pin')) void run(() => pin(!pinned));
       else if (builtinLayoutPresets().some(({ id }) => id === button.dataset.preset)) {
         const ids = mainFeatureIds(state);
         const entry = state.features.find(({ id }) => ids.includes(id));

@@ -21,6 +21,7 @@ import {
   layoutPresetLabel,
   sortedLayoutPresets,
   builtinLayout,
+  builtinLayoutAvailable,
   builtinLayoutPresets,
   matchingBuiltinLayout,
 } from '../surfaces/workspace/layout-presets.js';
@@ -128,7 +129,7 @@ export function LayoutPresetSettings({
           </option>
           <optgroup label={tr('内置预设')}>
             {builtins.map(({ id, label }) => (
-              <option key={id} value={id}>
+              <option key={id} value={id} disabled={!builtinLayoutAvailable(id, ids)}>
                 {label}
               </option>
             ))}

@@ -6,12 +6,21 @@ import { layoutGroups } from './layout-tree.js';
 import { tr } from '../../shared/i18n.js';
 
 export const layoutPresetScopes = ['all', 'sidebar', 'overlay', 'desktop'];
+const readingFeatures = new Set(['outline', 'terms', 'sites']);
 
 export function builtinLayoutPresets() {
   return [
     { id: 'tabs-top', label: tr('全部标签在顶部') },
     { id: 'tabs-left', label: tr('全部标签在左侧') },
+    { id: 'two-column', label: tr('双栏工作台') },
   ];
+}
+
+export function builtinLayoutAvailable(id, ids) {
+  return id === 'two-column'
+    ? ids.some((entry) => readingFeatures.has(entry)) &&
+        ids.some((entry) => !readingFeatures.has(entry))
+    : ids.length > 0;
 }
 
 /** @param {import('../../shared/features').FeatureLayout} layout
@@ -22,6 +31,18 @@ export function builtinLayout(id, layout, ids, activeFeature) {
   const visible = ordered.filter((entry) => ids.includes(entry));
   const candidates = groups.map((group) => group.active);
   if (groups.length > 1) candidates.unshift(activeFeature);
+  if (id === 'two-column') {
+    const column = (reading, weight) => {
+      const members = ordered.filter((entry) => readingFeatures.has(entry) === reading);
+      const available = members.filter((entry) => ids.includes(entry));
+      return {
+        ids: members,
+        active: candidates.find((entry) => available.includes(entry)) || available[0],
+        weight,
+      };
+    };
+    return { axis: 'horizontal', groups: [column(true, 0.45), column(false, 0.55)] };
+  }
   const active = candidates.find((entry) => visible.includes(entry)) || visible[0];
   return {
     axis: 'auto',
@@ -32,6 +53,12 @@ export function builtinLayout(id, layout, ids, activeFeature) {
 
 /** @param {import('../../shared/features').FeatureLayout} layout */
 export function matchingBuiltinLayout(layout, ids) {
+  if (
+    layout.groups.length === 2 &&
+    builtinLayoutAvailable('two-column', ids) &&
+    layoutSignature(layout) === layoutSignature(builtinLayout('two-column', layout, ids))
+  )
+    return 'two-column';
   const group = layout.groups[0];
   if (
     !ids.length ||
@@ -84,13 +111,12 @@ export function layoutSnapshot(layout, ids) {
 }
 
 /** @param {import('../../shared/features').FeatureLayout} layout */
-function signature(layout) {
+export function layoutSignature(layout) {
   const node = (value) =>
     value.groups
       ? { axis: value.axis, groups: value.groups.map(node), weight: value.weight }
       : {
           ids: value.ids,
-          active: value.active,
           weight: value.weight,
           collapsed: !!value.collapsed,
         };
@@ -105,5 +131,5 @@ function signature(layout) {
  * @param {import('../../shared/features').FeatureLayout} layout
  * @param {string[]} ids */
 export function matchesLayoutPreset(preset, layout, ids) {
-  return signature(preset.layout) === signature(layoutSnapshot(layout, ids));
+  return layoutSignature(preset.layout) === layoutSignature(layoutSnapshot(layout, ids));
 }

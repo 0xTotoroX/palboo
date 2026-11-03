@@ -10,6 +10,7 @@ import { transferRows } from './compact-rows.js';
 import { installArrangement } from './arrangement.js';
 import { bindSeparator, elementScale } from './separator.js';
 import { readWorkbenchScroll, writeWorkbenchScroll } from '../../shared/scroll.js';
+import { layoutSignature } from './layout-presets.js';
 import {
   layoutGroups,
   layoutMinimum,
@@ -73,6 +74,12 @@ export function installFeatureLayout(root, { save, error }) {
   const cache = new Map();
   const inputs = new Map();
   const persisted = new Map();
+  const undoLayouts = new Map();
+  let shownMergeHint = false;
+  function rememberLayout(previous, next, surface = placement) {
+    if (previous && next && layoutSignature(previous) !== layoutSignature(next))
+      undoLayouts.set(surface, previous);
+  }
   function rememberReading(item) {
     if (item.node.hidden || !item.node.isConnected) return;
     const nodes = [
@@ -116,6 +123,7 @@ export function installFeatureLayout(root, { save, error }) {
       dirty = false;
       cache.delete(surface);
       inputs.delete(surface);
+      undoLayouts.delete(surface);
       if (placement === surface) placement = null;
       error(e);
     } finally {
@@ -163,6 +171,7 @@ export function installFeatureLayout(root, { save, error }) {
   const arrangement = installArrangement(root, {
     read: () => layout,
     write: (next) => {
+      rememberLayout(layout, next);
       layout = next;
       cache.set(placement, layout);
       render();
@@ -203,6 +212,28 @@ export function installFeatureLayout(root, { save, error }) {
                   : 'bottom';
         const target = section.dataset.pane;
         const source = panes.querySelector(`[data-pane-tab="${id}"]`)?.closest('[data-pane]');
+        const tab = document
+          .elementFromPoint(event.clientX, event.clientY)
+          ?.closest('[data-pane-tab]');
+        if (tab && section.contains(tab)) {
+          if (tab.dataset.paneTab === id) return null;
+          const rect = tab.getBoundingClientRect();
+          const vertical = panes.dataset.tabPosition === 'left';
+          const offset = vertical
+            ? (event.clientY - rect.top) / rect.height
+            : (event.clientX - rect.left) / rect.width;
+          const after = offset >= 0.5;
+          const action = after ? 'tab-after' : 'tab-before';
+          if (
+            (source === section || offset < 1 / 3 || offset > 2 / 3) &&
+            arrange(layout, id, action, width, height, tab.dataset.paneTab)
+          ) {
+            const marker = vertical
+              ? new DOMRect(rect.left, (after ? rect.bottom : rect.top) - 1, rect.width, 2)
+              : new DOMRect((after ? rect.right : rect.left) - 1, rect.top, 2, rect.height);
+            return { action, box: marker, id: tab.dataset.paneTab };
+          }
+        }
         const tabs = section.querySelector('[role="tablist"]').getBoundingClientRect();
         if (
           source !== section &&
@@ -273,6 +304,7 @@ export function installFeatureLayout(root, { save, error }) {
         return {
           surface: placement,
           layout,
+          before: structuredClone(layout),
           compact: container.dataset.sidebarCompact === 'true',
           header: Number(container.dataset.compactHeader) || 36,
           groups: groups.map((group) => group.original),
@@ -288,10 +320,12 @@ export function installFeatureLayout(root, { save, error }) {
           minimumSecond: layoutMinimum(groups[index])[size],
           axis,
           merge: 0,
+          hinted: false,
         };
       },
       (start, delta, pointer) => {
         delete separator.dataset.mergePreview;
+        delete separator.dataset.mergeSide;
         start.merge = 0;
         if (
           start.axis !== container.dataset.axis ||
@@ -318,7 +352,16 @@ export function installFeatureLayout(root, { save, error }) {
         if (pointer && start.axis === 'horizontal' && start.previous.ids && start.next.ids) {
           if (width <= start.minimumFirst - mergeOverdrag) start.merge = -1;
           if (total - width <= start.minimumSecond - mergeOverdrag) start.merge = 1;
-          if (start.merge) separator.dataset.mergePreview = tr('合并为标签');
+          if (start.merge) {
+            separator.dataset.mergePreview = tr('合并为标签');
+            separator.dataset.mergeSide = start.merge < 0 ? 'previous' : 'next';
+          } else if (
+            !shownMergeHint &&
+            (width <= start.minimumFirst || total - width <= start.minimumSecond)
+          ) {
+            start.hinted = true;
+            separator.dataset.mergePreview = tr('继续拖动可合并');
+          }
         }
         const ratio =
           Math.max(start.minimumFirst, Math.min(total - start.minimumSecond, width)) / total;
@@ -329,6 +372,8 @@ export function installFeatureLayout(root, { save, error }) {
       },
       (start, dropped) => {
         delete separator.dataset.mergePreview;
+        delete separator.dataset.mergeSide;
+        if (start?.hinted) shownMergeHint = true;
         if (start && (start.surface !== placement || start.layout !== layout)) return;
         if (dropped && start.merge && start.axis === container.dataset.axis) {
           const [source, target] =
@@ -349,6 +394,7 @@ export function installFeatureLayout(root, { save, error }) {
             render();
           }
         }
+        if (start) rememberLayout(start.before, layout);
         void persist();
       },
     );
@@ -504,8 +550,26 @@ export function installFeatureLayout(root, { save, error }) {
   }
   const observer = new ResizeObserver(render);
   observer.observe(panes);
+  function includeNewItems() {
+    const groups = layoutGroups(layout);
+    const known = new Set(groups.flatMap((group) => group.ids));
+    for (const item of items) if (item.active && !known.has(item.id)) groups[0].ids.push(item.id);
+  }
   return {
     snapshot: () => layout && structuredClone(layout),
+    canUndo: () => !saving && undoLayouts.has(placement),
+    async undo() {
+      const previous = undoLayouts.get(placement);
+      if (!previous || saving) return;
+      undoLayouts.delete(placement);
+      if (arrangement.focused) arrangement.command(arrangement.focused, 'focus');
+      layout = structuredClone(previous);
+      // A feature may have opened since the edit being undone.
+      includeNewItems();
+      cache.set(placement, layout);
+      render();
+      await persist();
+    },
     update(nextItems, surface, saved, legacy, reveal, revealVersion = 0) {
       items = nextItems;
       const changedSurface = placement !== surface;
@@ -521,6 +585,8 @@ export function installFeatureLayout(root, { save, error }) {
           (!saved &&
             JSON.stringify(JSON.parse(inputs.get(surface))[1]) !== JSON.stringify(legacy ?? null)))
       ) {
+        const ids = items.filter((item) => item.active).map((item) => item.id);
+        rememberLayout(cache.get(surface), resolveFeatureLayout(saved, legacy, ids), surface);
         cache.delete(surface);
         if (placement === surface) placement = null;
       }
@@ -541,12 +607,7 @@ export function installFeatureLayout(root, { save, error }) {
         }
         if (arrangement.focused) arrangement.command(arrangement.focused, 'focus');
       }
-      const known = new Set(layoutGroups(layout).flatMap((group) => group.ids));
-      for (const item of items)
-        if (item.active && !known.has(item.id)) {
-          layoutGroups(layout)[0].ids.push(item.id);
-          known.add(item.id);
-        }
+      includeNewItems();
       const selection = `${reveal}:${revealVersion}`;
       let revealed = false;
       if (

@@ -143,6 +143,18 @@ export function installArrangement(
       const previous = vertical ? 'ArrowUp' : 'ArrowLeft';
       const next = vertical ? 'ArrowDown' : 'ArrowRight';
       if (![previous, next, 'Home', 'End'].includes(event.key)) return;
+      if (event.altKey && targetAt && (event.key === previous || event.key === next)) {
+        event.preventDefault();
+        const id = tab.dataset.paneTab;
+        const siblings = [...list.querySelectorAll('[data-pane-tab]')];
+        const after = event.key === next;
+        const sibling = siblings[siblings.indexOf(tab) + (after ? 1 : -1)];
+        if (sibling && command(id, after ? 'tab-after' : 'tab-before', sibling.dataset.paneTab)) {
+          const moved = panes.querySelector(`[data-pane-tab="${id}"]`);
+          moved?.focus();
+        }
+        return;
+      }
       event.preventDefault();
       const tabs = [...(vertical ? list : panes).querySelectorAll('[data-pane-tab]')];
       const index =
@@ -250,6 +262,8 @@ export function installArrangement(
       preview.hidden = !drag.target;
       if (!drag.target) return;
       const { action, box } = drag.target;
+      const insertion = action === 'tab-before' || action === 'tab-after';
+      preview.toggleAttribute('data-tab-insertion', insertion);
       const parent = preview.offsetParent || root;
       const origin = parent.getBoundingClientRect();
       const scale = elementScale(parent);
@@ -274,11 +288,12 @@ export function installArrangement(
         width: `${width / scale.x}px`,
         height: `${height / scale.y}px`,
       });
-      preview.textContent = ['before', 'after'].includes(action)
-        ? ''
-        : action === 'merge'
-          ? tr('合并为标签')
-          : tr('分栏');
+      preview.textContent =
+        insertion || ['before', 'after'].includes(action)
+          ? ''
+          : action === 'merge'
+            ? tr('合并为标签')
+            : tr('分栏');
     },
     { signal: events.signal },
   );
