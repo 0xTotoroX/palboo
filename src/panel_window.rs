@@ -1,5 +1,5 @@
 // [INPUT]: Tao/Wry、Runtime、Preferences、Palboo.app 身份、共享 native_backdrop 与 AppKit 手势。
-// [OUTPUT]: 原生红黄绿、Palboo 应用身份、置顶/Spaces、共用可逆路径的跨屏往返/中断恢复、页面重载后的呈现确认与旧交接清理、双向短过渡回退及同帧缩放。
+// [OUTPUT]: 普通/全屏原生红黄绿、Palboo 应用身份、全屏前后置顶恢复、共用可逆路径的跨屏往返/中断恢复、页面重载后的呈现确认与旧交接清理、双向短过渡回退及同帧缩放。
 // [POS]: 窗口子进程实现；系统管理最小化/放大/全屏，关闭沿用收回，普通几何独立于临时窗口状态。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
@@ -178,6 +178,9 @@ impl WindowTransition {
 }
 
 mod macos {
+    use super::window_chrome::WindowChrome;
+    #[cfg(debug_assertions)]
+    use objc2::ClassType;
     use objc2::MainThreadMarker;
     use objc2_app_kit::{
         NSApplication, NSEvent, NSRunningApplication, NSScreen, NSWindow, NSWindowButton,
@@ -206,21 +209,9 @@ mod macos {
         window.fullscreen().is_some() || window.is_maximized()
     }
 
-    pub fn native_controls(
-        window: &Window,
-        fullscreen_exit: Option<&objc2_app_kit::NSButton>,
-    ) -> Value {
+    pub fn native_controls(window: &Window, chrome: &WindowChrome) -> Value {
         let native = native_window(window);
-        let standard = [
-            NSWindowButton::CloseButton,
-            NSWindowButton::MiniaturizeButton,
-            NSWindowButton::ZoomButton,
-        ]
-        .into_iter()
-        .filter_map(|kind| native.standardWindowButton(kind));
-        let fullscreen_exit_installed = fullscreen_exit.is_some();
-        let fullscreen = fullscreen_exit.map(objc2::Message::retain);
-        let buttons: Vec<_> = standard.filter(|_| !fullscreen_exit_installed).chain(fullscreen).map(|button| {
+        let buttons: Vec<_> = chrome.buttons().into_iter().map(|button| {
                 let frame = button.convertRect_toView(button.bounds(), None);
                 let reachable = native.contentView().and_then(|root| unsafe { root.superview() })
                     .and_then(|parent| parent.hitTest(NSPoint::new(frame.origin.x + frame.size.width / 2., frame.origin.y + frame.size.height / 2.)))
@@ -243,10 +234,41 @@ mod macos {
                 })
                 .is_some_and(|hit| hit.isDescendantOf(&root))
         });
-        serde_json::json!({"buttons":buttons,"activationPolicy":app.activationPolicy().0,
+        serde_json::json!({"buttons":buttons,"activationPolicy":app.activationPolicy().0,"level":native.level(),
             "hasAppIcon":app.applicationIconImage().is_some(),"headerContentReachable":header_reachable,
             "processId":std::process::id(),"bundleIdentifier":identity.bundleIdentifier().map(|s|s.to_string()),
             "bundlePath":identity.bundleURL().and_then(|url|url.path()).map(|s|s.to_string())})
+    }
+
+    #[cfg(debug_assertions)]
+    pub fn click_native_button(window: &Window, button: &objc2_app_kit::NSButton) {
+        use objc2_app_kit::{NSEventModifierFlags, NSEventType};
+        let native = native_window(window);
+        let frame = button.convertRect_toView(button.bounds(), None);
+        let point = NSPoint::new(
+            frame.origin.x + frame.size.width / 2.,
+            frame.origin.y + frame.size.height / 2.,
+        );
+        let app =
+            NSApplication::sharedApplication(MainThreadMarker::new().expect("window main thread"));
+        for kind in [NSEventType::LeftMouseDown, NSEventType::LeftMouseUp] {
+            let event: Option<objc2::rc::Retained<NSEvent>> = unsafe {
+                objc2::msg_send![NSEvent::class(),
+                    mouseEventWithType: kind,
+                    location: point,
+                    modifierFlags: NSEventModifierFlags::empty(),
+                    timestamp: objc2_foundation::NSProcessInfo::processInfo().systemUptime(),
+                    windowNumber: native.windowNumber(),
+                    context: std::ptr::null::<objc2::runtime::AnyObject>(),
+                    eventNumber: 0_isize,
+                    clickCount: 1_isize,
+                    pressure: 1.0_f32
+                ]
+            };
+            if let Some(event) = event {
+                app.postEvent_atStart(&event, false);
+            }
+        }
     }
 
     pub fn enable_window_controls(window: &Window, enabled: bool) {
@@ -262,7 +284,11 @@ mod macos {
     }
 
     #[cfg(debug_assertions)]
-    pub fn probe_window_controls(window: &Window, backdrop: &Backdrop) -> Value {
+    pub fn probe_window_controls(
+        window: &Window,
+        backdrop: &Backdrop,
+        chrome: &WindowChrome,
+    ) -> Value {
         let native = native_window(window);
         let original = native.frame();
         let mut samples = Vec::new();
@@ -290,7 +316,7 @@ mod macos {
             native.displayIfNeeded();
             // 提交 layer-backed view 的绘制后，同时检查标题栏与完整内容层。
             CATransaction::flush();
-            let mut sample = native_controls(window, None);
+            let mut sample = native_controls(window, chrome);
             sample["surface"] = backdrop.0.geometry(native);
             samples.push(sample);
         }
@@ -298,7 +324,7 @@ mod macos {
         drop(live_resize);
         native.displayIfNeeded();
         CATransaction::flush();
-        let mut sample = native_controls(window, None);
+        let mut sample = native_controls(window, chrome);
         sample["surface"] = backdrop.0.geometry(native);
         samples.push(sample);
         serde_json::json!(samples)
@@ -532,7 +558,7 @@ fn publish_window_controls(
     hidden: bool,
 ) {
     let frame = macos::pose(window);
-    let state = json!({"maximized":macos::maximized(window),"minimized":window.is_minimized(),"fullscreen":window.fullscreen().is_some(),"hidden":hidden,"nativeChrome":macos::native_controls(window, chrome.fullscreen_exit()),"collectionBehavior":macos::native_window(window).collectionBehavior().bits(),"normalFrame":normal.map(|p|json!({"x":p.x,"y":p.y,"width":p.width,"height":p.height}))});
+    let state = json!({"maximized":macos::maximized(window),"minimized":window.is_minimized(),"fullscreen":window.fullscreen().is_some(),"hidden":hidden,"nativeChrome":macos::native_controls(window, chrome),"collectionBehavior":macos::native_window(window).collectionBehavior().bits(),"normalFrame":normal.map(|p|json!({"x":p.x,"y":p.y,"width":p.width,"height":p.height}))});
     let mut state = state;
     state["visible"] = json!(window.is_visible());
     state["frame"] = json!({"X":frame.x,"Y":frame.y,"Width":frame.width,"Height":frame.height});
@@ -658,7 +684,8 @@ pub fn run_surface(
 
     let mut gesture: Option<macos::Gesture> = None;
     let backdrop = macos::Backdrop::new(&window);
-    let window_chrome = window_chrome::WindowChrome::install(macos::native_window(&window));
+    let window_chrome =
+        window_chrome::WindowChrome::install(macos::native_window(&window), prefs.always_on_top);
     let mut reported_glass_style = None;
     let mut window_transition: Option<WindowTransition> = None;
     let mut return_origin: Option<Pose> = None;
@@ -692,7 +719,7 @@ pub fn run_surface(
             Event::UserEvent(message) => match message["kind"].as_str().unwrap_or_default() {
                 "backdrop" => {
                     backdrop.update(&window, &message);
-                    window_chrome.keep_fullscreen_exit_above_content();
+                    window_chrome.keep_fullscreen_buttons_above_content();
                     let style = backdrop.style();
                     if reported_glass_style != style {
                         reported_glass_style = style;
@@ -711,9 +738,14 @@ pub fn run_surface(
                 }
                 "window-state" => publish_window_controls(&webview, &window, &window_chrome, normal_window_pose, window_hidden),
                 #[cfg(debug_assertions)]
-                "native-chrome-probe" if window_transition.is_none() && gesture.is_none() => {
-                    let samples = macos::probe_window_controls(&window, &backdrop);
+                "native-chrome-probe" if window_transition.is_none() && gesture.is_none() && window.fullscreen().is_none() => {
+                    let samples = macos::probe_window_controls(&window, &backdrop, &window_chrome);
                     let _ = webview.evaluate_script(&format!("window.__companionNativeChromeProbe = {samples};"));
+                }
+                #[cfg(debug_assertions)]
+                "native-foreign-window-probe" => {
+                    let untouched = window_chrome.probe_foreign_window();
+                    let _ = webview.evaluate_script(&format!("window.__companionForeignWindowUntouched = {untouched};"));
                 }
                 "hide" => {
                     if window_transition.is_none() && gesture.is_none() {
@@ -744,9 +776,9 @@ pub fn run_surface(
                     window.set_fullscreen(if window.fullscreen().is_some() { None } else { Some(tao::window::Fullscreen::Borderless(None)) });
                 }
                 #[cfg(debug_assertions)]
-                "native-fullscreen-exit" if !window_chrome.fullscreen_transitioning() => {
-                    if let Some(button) = window_chrome.fullscreen_exit() {
-                        unsafe { button.performClick(None); }
+                "native-green-click" if window_transition.is_none() && gesture.is_none() && !window_chrome.fullscreen_transitioning() => {
+                    if let Some(button) = window_chrome.button(objc2_app_kit::NSWindowButton::ZoomButton) {
+                        macos::click_native_button(&window, &button);
                     }
                 }
                 #[cfg(debug_assertions)]
@@ -758,9 +790,13 @@ pub fn run_surface(
                         Some("zoom") => Some(NSWindowButton::ZoomButton),
                         _ => None,
                     };
-                    if let Some(button) = button.and_then(|kind| macos::native_window(&window).standardWindowButton(kind)) {
-                        // 只调用本窗口已安装的三个标准系统按钮。
-                        unsafe { button.performClick(None); }
+                    if let Some(button) = button.and_then(|kind| window_chrome.button(kind)) {
+                        if window.fullscreen().is_some() {
+                            macos::click_native_button(&window, &button);
+                        } else {
+                            // 普通窗口保留 performClick 的 Option-zoom 验收。
+                            unsafe { button.performClick(None); }
+                        }
                     }
                 }
                 "reveal" => {
@@ -905,7 +941,7 @@ pub fn run_surface(
                         let _ = webview.evaluate_script("window.__companionFloatingPanel?.nativeGestureEnded();");
                     }
                 }
-                "pin" => window.set_always_on_top(message["value"] == true),
+                "pin" => window_chrome.set_pinned(message["value"] == true),
                 "position" if macos::maximized(&window) => {}
                 "position" => {
                     if let (Some(x), Some(y)) = (message["x"].as_f64(), message["y"].as_f64()) {

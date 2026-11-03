@@ -1,5 +1,5 @@
 /* [INPUT]: Current debug native window, production App entry and a synthetic local page/controller.
- * [OUTPUT]: Per-page presentation and repeatable return after reload, stable controls/content across three materials and native actions with unchanged draft/PID.
+ * [OUTPUT]: Stable controls/content, real native green clicks, fullscreen controls/pin restoration and foreign-titlebar isolation with unchanged draft/PID.
  * [POS]: Isolated temporary data and self-owned window, no screenshots or real host data.
  * [PROTOCOL]: Keep tests/AGENTS.md in sync. */
 import assert from 'node:assert/strict';
@@ -40,10 +40,11 @@ const update=controller.update;controller.update=value=>{state=value;update(valu
 post({kind:'show',anchor:null});
 backdrop();
 async function poll(){
- try{const response=await fetch('/probe',{method:'POST',body:JSON.stringify({instance,ready,presented,returned,state,chromeProbe:window.__companionNativeChromeProbe,probeMaterial,glassAvailable:window.__companionNativeGlass,draft:document.querySelector('#draft').value,width:innerWidth,height:innerHeight,error:window.failure,webControls:document.querySelectorAll('[data-window-control]').length,transient:controller.geometryTransient()})});
+ try{const response=await fetch('/probe',{method:'POST',body:JSON.stringify({instance,ready,presented,returned,state,chromeProbe:window.__companionNativeChromeProbe,foreignWindowUntouched:window.__companionForeignWindowUntouched,probeMaterial,glassAvailable:window.__companionNativeGlass,draft:document.querySelector('#draft').value,width:innerWidth,height:innerHeight,error:window.failure,webControls:document.querySelectorAll('[data-window-control]').length,transient:controller.geometryTransient()})});
  for(const action of await response.json()){
   if(typeof action==='object'){
-   material=action.material;probeMaterial=material;window.__companionNativeChromeProbe=null;backdrop();post({kind:'native-chrome-probe'});
+   if('pin' in action){post({kind:'pin',value:action.pin});post({kind:'window-state'});}
+   else {material=action.material;probeMaterial=material;window.__companionNativeChromeProbe=null;backdrop();post({kind:action.probe===false?'window-state':'native-chrome-probe'});}
   }
   else if(action==='hide'||action==='reveal'||action==='window-state')post({kind:action});
   else if(action==='close')post({kind:'close'});
@@ -51,7 +52,7 @@ async function poll(){
   else if(action==='return'){ready=false;returned=false;post({kind:'return',anchor:null});}
   else if(action==='cancel-return'){ready=false;post({kind:'cancel-return'});}
   else if(action==='maximize')post({kind:'toggle-maximize'});
-  else if(action==='fullscreen'||action==='fullscreen-exit')post({kind:'native-'+action});
+  else if(action==='fullscreen'||action==='green-click'||action==='foreign-window-probe')post({kind:'native-'+action});
   else post({kind:'native-window-button',button:action==='close-window'?'close':action});
  }
  }finally{setTimeout(poll,80)}
@@ -90,7 +91,8 @@ async function wait(read, label) {
     if (value) return value;
     await delay(80);
   }
-  throw Error(label + ': ' + JSON.stringify(latest));
+  const { chromeProbe, ...state } = latest || {};
+  throw Error(label + ': ' + JSON.stringify({ ...state, chromeSamples: chromeProbe?.length }));
 }
 function bounds() {
   return latest?.state?.visible && !latest.state.minimized ? latest.state.frame : undefined;
@@ -104,6 +106,20 @@ function restored(original) {
   return (
     current &&
     ['X', 'Y', 'Width', 'Height'].every((key) => Math.abs(current[key] - original[key]) <= 2)
+  );
+}
+function fullscreenControlsReady() {
+  const buttons = latest?.state?.nativeChrome?.buttons;
+  return (
+    latest?.state?.fullscreen &&
+    latest.transient &&
+    buttons?.length === 3 &&
+    buttons.every(
+      (button) => button.visible && button.reachable && button.width > 0 && button.height > 0,
+    ) &&
+    buttons[0].enabled &&
+    !buttons[1].enabled &&
+    buttons[2].enabled
   );
 }
 try {
@@ -175,6 +191,11 @@ try {
     'native titlebar does not cover the pin button',
   );
   assert.equal(latest.state.nativeChrome.buttons.length, 3);
+  commands.push('foreign-window-probe');
+  await wait(
+    () => latest?.foreignWindowUntouched === true,
+    'foreign titlebar notification leaves its window untouched',
+  );
   for (const button of latest.state.nativeChrome.buttons) {
     assert.ok(
       button.visible && button.reachable && button.width > 0 && button.height > 0,
@@ -283,24 +304,46 @@ try {
   );
   near(bounds(), original);
   const normalFrame = latest.state.normalFrame;
-  commands.push('fullscreen');
-  await wait(() => {
-    const buttons = latest?.state?.nativeChrome?.buttons;
-    return (
-      latest?.state?.fullscreen &&
-      latest.transient &&
-      buttons?.length === 1 &&
-      buttons[0].visible &&
-      buttons[0].enabled &&
-      buttons[0].reachable
+  const fullscreenCycles = [];
+  for (const material of ['matte', 'frosted', 'native-glass']) {
+    commands.push({ material, probe: false }, { pin: true }, 'green-click');
+    await wait(
+      fullscreenControlsReady,
+      `${material}: native green enters fullscreen with three reachable controls`,
     );
-  }, 'native green exit stays reachable in fullscreen');
-  assert.deepEqual(latest.state.normalFrame, normalFrame);
-  commands.push('fullscreen-exit');
-  await wait(
-    () => !latest?.state?.fullscreen && restored(original),
-    'native green exits fullscreen',
-  );
+    assert.equal(latest.state.nativeChrome.level, 0, 'fullscreen uses the normal window level');
+    assert.deepEqual(latest.state.normalFrame, normalFrame);
+    for (const [index, button] of latest.state.nativeChrome.buttons.entries()) {
+      assert.equal(button.x, originalButtons[index].x);
+      assert.equal(button.y, originalButtons[index].y);
+    }
+    // Reparent the content while fullscreen, then restore this cycle's material.
+    commands.push({ material: material === 'matte' ? 'frosted' : 'matte', probe: false });
+    await wait(
+      () => latest?.probeMaterial !== material && fullscreenControlsReady(),
+      'fullscreen controls survive a material switch',
+    );
+    commands.push({ material, probe: false }, 'minimize');
+    await wait(
+      () => latest?.probeMaterial === material && fullscreenControlsReady(),
+      'fullscreen yellow remains disabled',
+    );
+    await delay(250);
+    assert.equal(latest.state.minimized, false);
+    const pinnedOnExit = material !== 'frosted';
+    commands.push({ pin: pinnedOnExit }, 'green-click');
+    await wait(
+      () => !latest?.state?.fullscreen && restored(original),
+      `${material}: native green restores the window`,
+    );
+    assert.equal(
+      latest.state.nativeChrome.level,
+      pinnedOnExit ? 3 : 0,
+      'restore the latest pin choice after fullscreen',
+    );
+    assert.equal(latest.state.nativeChrome.processId, pid);
+    fullscreenCycles.push({ material, pinnedOnExit });
+  }
   assert.equal(latest.draft, '未保存的合成草稿');
   commands.push('maximize');
   await wait(() => latest?.state?.maximized && bounds()?.Width > original.Width, 'maximized');
@@ -328,8 +371,7 @@ try {
   );
   near(bounds(), original);
   commands.push('fullscreen');
-  await wait(() => latest?.state?.fullscreen && latest?.transient, 'system fullscreen');
-  await delay(800);
+  await wait(fullscreenControlsReady, 'programmatic fullscreen keeps the same controls');
   commands.push('close-window');
   await wait(
     () => latest?.returned && !latest?.state?.fullscreen,
@@ -359,7 +401,12 @@ try {
     materialVariants: ['matte', 'frosted', 'native-glass'],
     nativeMinimize: true,
     nativeGreen: true,
-    fullscreenExitButton: true,
+    nativeGreenClick: true,
+    fullscreenTrafficLights: true,
+    fullscreenYellowDisabled: true,
+    fullscreenCycles,
+    foreignWindowUntouched: true,
+    fullscreenPinRestored: true,
     fullscreenReturn: true,
     registeredAppBundle: true,
     dockReopen: true,

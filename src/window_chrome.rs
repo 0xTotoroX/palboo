@@ -1,12 +1,12 @@
 // [INPUT]: 主窗口的 AppKit 几何通知与标准红黄绿按钮。
-// [OUTPUT]: 普通窗口的标题栏定位、全屏过渡状态及全屏原生退出按钮。
+// [OUTPUT]: 原窗口的标题栏定位、全屏过渡与置顶状态及全屏原生红黄绿。
 // [POS]: panel_window 私有标题栏适配；沿用系统按钮、动作和全屏管理。
 // [PROTOCOL]: 变更时更新此头部，然后检查 src/AGENTS.md。
 
 use objc2::{DefinedClass, MainThreadOnly, define_class, msg_send, rc::Retained, sel};
 use objc2_app_kit::{
-    NSAutoresizingMaskOptions, NSButton, NSView, NSViewFrameDidChangeNotification, NSWindow,
-    NSWindowButton, NSWindowDidBecomeKeyNotification,
+    NSAutoresizingMaskOptions, NSButton, NSFloatingWindowLevel, NSNormalWindowLevel, NSView,
+    NSViewFrameDidChangeNotification, NSWindow, NSWindowButton, NSWindowDidBecomeKeyNotification,
     NSWindowDidChangeBackingPropertiesNotification, NSWindowDidDeminiaturizeNotification,
     NSWindowDidEndLiveResizeNotification, NSWindowDidEnterFullScreenNotification,
     NSWindowDidExitFullScreenNotification, NSWindowDidMoveNotification,
@@ -24,9 +24,11 @@ use std::{
 };
 
 pub struct ChromeState {
+    window: Retained<NSWindow>,
     updating: Cell<bool>,
+    pinned: Cell<bool>,
     fullscreen_transition_until: Cell<Option<Instant>>,
-    fullscreen_exit: Option<Retained<NSButton>>,
+    fullscreen_buttons: Vec<(NSWindowButton, Retained<NSButton>)>,
     frames: Vec<(Retained<NSView>, bool)>,
 }
 
@@ -40,9 +42,10 @@ define_class!(
     impl WindowChrome {
         #[unsafe(method(fullscreenChanged:))]
         fn fullscreen_changed(&self, notification: &NSNotification) {
-            let Some(window) = notification.object().and_then(|object| object.downcast::<NSWindow>().ok()) else {
+            if !self.owns_notification(notification) {
                 return;
-            };
+            }
+            let window = &self.ivars().window;
             let name = notification.name();
             let starting = unsafe {
                 name.isEqualToString(NSWindowWillEnterFullScreenNotification)
@@ -52,32 +55,33 @@ define_class!(
             self.ivars().fullscreen_transition_until.set(
                 starting.then(|| Instant::now() + Duration::from_secs(3)),
             );
-            if !starting && window.styleMask().contains(NSWindowStyleMask::FullScreen) {
-                self.show_fullscreen_exit(&window);
-            } else if !starting {
-                if let Some(button) = &self.ivars().fullscreen_exit {
+            if starting {
+                window.setLevel(NSNormalWindowLevel);
+                for (_, button) in &self.ivars().fullscreen_buttons {
+                    button.setEnabled(false);
+                }
+            } else if window.styleMask().contains(NSWindowStyleMask::FullScreen) {
+                self.show_fullscreen_buttons();
+            } else {
+                for (_, button) in &self.ivars().fullscreen_buttons {
                     button.removeFromSuperview();
                 }
-                self.layout(&window);
+                self.set_pinned(self.ivars().pinned.get());
+                self.layout();
             }
         }
 
         #[unsafe(method(windowGeometryChanged:))]
         fn geometry_changed(&self, notification: &NSNotification) {
-            let window = notification.object().and_then(|object| {
-                object.downcast::<NSWindow>().ok().or_else(|| {
-                    notification.object()?.downcast::<NSView>().ok()?.window()
-                })
-            });
-            if let Some(window) = window {
-                self.layout(&window);
+            if self.owns_notification(notification) {
+                self.layout();
             }
         }
     }
 );
 
 impl WindowChrome {
-    pub fn install(window: &NSWindow) -> Retained<Self> {
+    pub fn install(window: &NSWindow, pinned: bool) -> Retained<Self> {
         let mtm = MainThreadMarker::new().expect("window main thread");
         let mut frames = Vec::new();
         if let Some(parent) = window
@@ -93,13 +97,25 @@ impl WindowChrome {
             frames.push((parent.clone(), parent.postsFrameChangedNotifications()));
         }
         let this = Self::alloc(mtm).set_ivars(ChromeState {
+            window: objc2::Message::retain(window),
             updating: Cell::new(false),
+            pinned: Cell::new(pinned),
             fullscreen_transition_until: Cell::new(None),
-            fullscreen_exit: NSWindow::standardWindowButton_forStyleMask(
+            fullscreen_buttons: [
+                NSWindowButton::CloseButton,
+                NSWindowButton::MiniaturizeButton,
                 NSWindowButton::ZoomButton,
-                window.styleMask() | NSWindowStyleMask::FullScreen,
-                mtm,
-            ),
+            ]
+            .into_iter()
+            .filter_map(|kind| {
+                NSWindow::standardWindowButton_forStyleMask(
+                    kind,
+                    window.styleMask() | NSWindowStyleMask::FullScreen,
+                    mtm,
+                )
+                .map(|button| (kind, button))
+            })
+            .collect(),
             frames,
         });
         let this: Retained<Self> = unsafe { msg_send![super(this), init] };
@@ -153,8 +169,71 @@ impl WindowChrome {
                 );
             }
         }
-        this.layout(window);
+        this.layout();
         this
+    }
+
+    fn owns_notification(&self, notification: &NSNotification) -> bool {
+        // 全屏菜单栏会把原标题栏视图移到 AppKit 的 companion window。
+        // 保留的 view 仍会通知，不能把它的新 window 当作 Palboo 窗口排版。
+        notification
+            .object()
+            .and_then(|object| {
+                object
+                    .downcast::<NSWindow>()
+                    .ok()
+                    .or_else(|| notification.object()?.downcast::<NSView>().ok()?.window())
+            })
+            .is_some_and(|window| std::ptr::eq(&*window, &*self.ivars().window))
+    }
+
+    #[cfg(debug_assertions)]
+    pub fn probe_foreign_window(&self) -> bool {
+        use objc2_app_kit::NSBackingStoreType;
+        let mtm = MainThreadMarker::new().expect("window main thread");
+        let other = unsafe {
+            NSWindow::initWithContentRect_styleMask_backing_defer(
+                NSWindow::alloc(mtm),
+                NSRect::new(NSPoint::ZERO, NSSize::new(320., 240.)),
+                NSWindowStyleMask::Titled | NSWindowStyleMask::Closable,
+                NSBackingStoreType::Buffered,
+                false,
+            )
+        };
+        unsafe {
+            other.setReleasedWhenClosed(false);
+        }
+        let untouched = other
+            .standardWindowButton(NSWindowButton::CloseButton)
+            .and_then(|button| unsafe { button.superview() })
+            .and_then(|parent| unsafe { parent.superview() })
+            .is_some_and(|container| {
+                let frame = container.frame();
+                let notification = unsafe {
+                    NSNotification::notificationWithName_object(
+                        NSViewFrameDidChangeNotification,
+                        Some(&container),
+                    )
+                };
+                // 模拟已迁入系统全屏辅助窗口的标题栏视图继续发送通知。
+                self.geometry_changed(sel!(windowGeometryChanged:), &notification);
+                container.frame() == frame
+            });
+        other.close();
+        untouched
+    }
+
+    pub fn set_pinned(&self, pinned: bool) {
+        self.ivars().pinned.set(pinned);
+        let window = &self.ivars().window;
+        let floating = pinned
+            && !self.fullscreen_transitioning()
+            && !window.styleMask().contains(NSWindowStyleMask::FullScreen);
+        window.setLevel(if floating {
+            NSFloatingWindowLevel
+        } else {
+            NSNormalWindowLevel
+        });
     }
 
     pub fn fullscreen_transitioning(&self) -> bool {
@@ -164,52 +243,78 @@ impl WindowChrome {
             .is_some_and(|until| Instant::now() < until)
     }
 
-    pub fn fullscreen_exit(&self) -> Option<&NSButton> {
+    pub fn button(&self, kind: NSWindowButton) -> Option<Retained<NSButton>> {
         self.ivars()
-            .fullscreen_exit
-            .as_deref()
-            .filter(|button| button.window().is_some())
+            .fullscreen_buttons
+            .iter()
+            .find(|(button_kind, button)| *button_kind == kind && button.window().is_some())
+            .map(|(_, button)| button.clone())
+            .or_else(|| self.ivars().window.standardWindowButton(kind))
     }
 
-    pub fn keep_fullscreen_exit_above_content(&self) {
-        if let Some(button) = self.fullscreen_exit()
-            && let Some(root) = unsafe { button.superview() }
-            && root.subviews().lastObject().as_deref() != Some(button.as_ref())
+    pub fn buttons(&self) -> Vec<Retained<NSButton>> {
+        [
+            NSWindowButton::CloseButton,
+            NSWindowButton::MiniaturizeButton,
+            NSWindowButton::ZoomButton,
+        ]
+        .into_iter()
+        .filter_map(|kind| self.button(kind))
+        .collect()
+    }
+
+    pub fn keep_fullscreen_buttons_above_content(&self) {
+        if let Some((_, last)) = self.ivars().fullscreen_buttons.last()
+            && let Some(root) = unsafe { last.superview() }
+            && root.subviews().lastObject().as_deref() != Some(last.as_ref())
         {
+            for (_, button) in &self.ivars().fullscreen_buttons {
+                root.addSubview(button);
+            }
+        }
+    }
+
+    fn show_fullscreen_buttons(&self) {
+        let window = &self.ivars().window;
+        let Some(root) = window.contentView() else {
+            return;
+        };
+        for (index, (kind, button)) in self.ivars().fullscreen_buttons.iter().enumerate() {
+            let y = if root.isFlipped() {
+                27.
+            } else {
+                root.bounds().size.height - 27. - button.frame().size.height
+            };
+            button.setFrameOrigin(NSPoint::new(26. + index as f64 * 20., y));
+            button.setAutoresizingMask(if root.isFlipped() {
+                NSAutoresizingMaskOptions::ViewMaxYMargin
+            } else {
+                NSAutoresizingMaskOptions::ViewMinYMargin
+            });
+            unsafe {
+                button.setTarget(Some(&**window));
+                button.setAction(Some(match *kind {
+                    NSWindowButton::CloseButton => sel!(performClose:),
+                    NSWindowButton::MiniaturizeButton => sel!(miniaturize:),
+                    _ => sel!(toggleFullScreen:),
+                }));
+            }
+            let label = NSString::from_str(match *kind {
+                NSWindowButton::CloseButton => crate::i18n::text("收回聊天", "Return to Chat"),
+                NSWindowButton::MiniaturizeButton => crate::i18n::text("最小化", "Minimize"),
+                _ => crate::i18n::text("退出全屏", "Exit Full Screen"),
+            });
+            button.setToolTip(Some(&label));
+            unsafe {
+                let _: () = msg_send![button, setAccessibilityLabel: &*label];
+            }
+            button.setEnabled(*kind != NSWindowButton::MiniaturizeButton);
             root.addSubview(button);
         }
     }
 
-    fn show_fullscreen_exit(&self, window: &NSWindow) {
-        let (Some(button), Some(root)) = (&self.ivars().fullscreen_exit, window.contentView())
-        else {
-            return;
-        };
-        let y = if root.isFlipped() {
-            27.
-        } else {
-            root.bounds().size.height - 27. - button.frame().size.height
-        };
-        button.setFrameOrigin(NSPoint::new(66., y));
-        button.setAutoresizingMask(if root.isFlipped() {
-            NSAutoresizingMaskOptions::ViewMaxYMargin
-        } else {
-            NSAutoresizingMaskOptions::ViewMinYMargin
-        });
-        unsafe {
-            button.setTarget(Some(window));
-            button.setAction(Some(sel!(toggleFullScreen:)));
-        }
-        let label = NSString::from_str(crate::i18n::text("退出全屏", "Exit Full Screen"));
-        button.setToolTip(Some(&label));
-        unsafe {
-            let _: () = msg_send![button, setAccessibilityLabel: &*label];
-        }
-        button.setEnabled(true);
-        root.addSubview(button);
-    }
-
-    fn layout(&self, window: &NSWindow) {
+    fn layout(&self) {
+        let window = &self.ivars().window;
         if self.fullscreen_transitioning()
             || window.styleMask().contains(NSWindowStyleMask::FullScreen)
             || self.ivars().updating.get()
@@ -225,12 +330,15 @@ impl WindowChrome {
         let Some(container) = (unsafe { parent.superview() }) else {
             return;
         };
+        if !container
+            .window()
+            .is_some_and(|owner| std::ptr::eq(&*owner, &**window))
+        {
+            return;
+        }
         self.ivars().updating.set(true);
         CATransaction::begin();
         CATransaction::setDisableActions(true);
-        if let Some(frame_view) = unsafe { container.superview() } {
-            frame_view.layoutSubtreeIfNeeded();
-        }
         let frame = NSRect::new(
             NSPoint::new(0., window.frame().size.height - 56.),
             NSSize::new(100., 56.),
@@ -238,7 +346,6 @@ impl WindowChrome {
         if container.frame() != frame {
             container.setFrame(frame);
         }
-        container.layoutSubtreeIfNeeded();
         for (index, kind) in [
             NSWindowButton::CloseButton,
             NSWindowButton::MiniaturizeButton,
