@@ -260,10 +260,18 @@ test('the mascot leaves the screen, joins the backdrop, follows features and ret
           const top = scrollY + box.top;
           const points = [];
           let start;
+          let firstFrame;
           let interrupted = false;
+          const target = document.querySelectorAll('#features [role="tab"]')[3]?.id;
           scrollTo(0, top + ((box.height - innerHeight) * 3) / lastIndex);
           function sample(now) {
-            start ??= now;
+            firstFrame ??= now;
+            if (node.dataset.target === target) start ??= now;
+            if (start === undefined) {
+              if (now - firstFrame >= 3000) resolve(points);
+              else requestAnimationFrame(sample);
+              return;
+            }
             const matrix = new DOMMatrix(getComputedStyle(node).transform);
             points.push({ time: now - start, x: matrix.e, y: matrix.f, interrupted });
             if (!interrupted && now - start >= 120) {
@@ -277,6 +285,7 @@ test('the mascot leaves the screen, joins the backdrop, follows features and ret
         }),
       lastFeatureIndex,
     );
+    assert.ok(flight.length > 0, 'the mascot receives the new feature target');
     const firstY = flight[0].y;
     assert.ok(
       flight.some((p) => !p.interrupted && p.y > firstY + 2),
@@ -395,6 +404,11 @@ test('the mascot leaves the screen, joins the backdrop, follows features and ret
       await frames(page);
       await scrollScene(page, '#features', 0);
       await page.clock.runFor(500);
+      await page.waitForFunction(() => {
+        const face = document.querySelector('.brand-journey svg').getBoundingClientRect();
+        const tab = document.querySelector('#feature-tab-outline').getBoundingClientRect();
+        return face.left >= 0 && face.right < tab.left - 6;
+      });
       const face = await mascot.locator('svg').boundingBox();
       const icon = await page.locator('#feature-tab-outline svg').boundingBox();
       const tab = await page.locator('#feature-tab-outline').boundingBox();
@@ -510,6 +524,7 @@ test('the opening fits a complete display, retracts its stand and tours placemen
         await page.locator('.layout-demo-workspace').getAttribute('data-variant'),
         variant,
       );
+      await stand.and(page.locator('[data-progress="1"]')).waitFor();
       assert.equal(await stand.getAttribute('data-progress'), '1');
       assert.equal(
         await workspace.evaluate((node) => node === document.querySelector('.layout-demo-window')),

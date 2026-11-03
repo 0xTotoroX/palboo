@@ -73,13 +73,18 @@ window.destroy=()=>{motion.destroy();items.forEach(item=>item.mount.dispose());l
   assert.equal(await page.evaluate(() => items[0].node === originalNode), true);
   const after = await page.getByLabel('快捷指令内容', { exact: true }).boundingBox();
   assert.ok(Math.abs(before.height - after.height) < 5, 'pending state adds no text row');
-  await page.waitForTimeout(210);
+  await page.waitForFunction(
+    () => Number(getComputedStyle(document.querySelector('#workbench')).opacity) < 0.7,
+  );
   assert.ok(
     Number(await page.locator('#workbench').evaluate((node) => getComputedStyle(node).opacity)) <
       0.7,
   );
   await page.evaluate(() => cancel());
-  await page.waitForTimeout(260);
+  await page.waitForFunction(() => {
+    const node = document.querySelector('#workbench');
+    return !node.inert && getComputedStyle(node).transform === 'none';
+  });
   assert.equal(await page.locator('#workbench').evaluate((node) => node.inert), false);
   assert.equal(
     await page.getByLabel('快捷指令内容', { exact: true }).inputValue(),

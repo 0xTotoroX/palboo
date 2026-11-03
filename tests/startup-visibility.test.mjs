@@ -109,6 +109,7 @@ function App(){
   saved = { ...saved, revision: saved.revision + 1, startup: { mode: 'open', location: 'inside' } };
   await page.evaluate((value) => push(value), saved);
   await page.evaluate(() => capability(false));
+  await location.locator('option[value=outside][disabled]').waitFor({ state: 'attached' });
   assert.equal(await location.locator('option[value=outside]').isDisabled(), true);
   saved = {
     ...saved,

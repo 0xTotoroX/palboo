@@ -89,6 +89,7 @@ export function outlineCases({ mode }) {
         const oldButton = page.locator('[data-palboo-outline-reply="turn-0001"]');
         await oldButton.click();
         await outline.getByRole('button', { name: '旧回复的正式标题' }).waitFor();
+        await oldButton.and(page.locator('[aria-pressed="true"]')).waitFor();
         assert.equal(await oldButton.getAttribute('aria-pressed'), 'true');
         await checkTargets(page, await items(page));
 
