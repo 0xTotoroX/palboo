@@ -306,6 +306,17 @@ test('the mascot leaves the screen, joins the backdrop, follows features and ret
     await page.clock.runFor(500);
     assert.equal(await mascot.getAttribute('data-target'), 'feature-tab-model');
     await page.screenshot({ path: resolve(reports, 'journey-model.png') });
+    // Capture the first footer frame in the page, before tool round trips can
+    // consume the rest delay on a loaded runner.
+    await page.evaluate(() => {
+      const main = document.querySelector('#main');
+      const observer = new MutationObserver(() => {
+        if (main.dataset.brandPhase !== 'footer') return;
+        window.firstFooterRest = document.querySelector('#install').dataset.brandRest;
+        observer.disconnect();
+      });
+      observer.observe(main, { attributes: true, attributeFilter: ['data-brand-phase'] });
+    });
     await page.locator('#install').scrollIntoViewIfNeeded();
     await frames(page);
     await page.waitForFunction(
@@ -313,7 +324,7 @@ test('the mascot leaves the screen, joins the backdrop, follows features and ret
     );
     await page.clock.runFor(100);
     assert.equal(await phase(), 'footer');
-    assert.equal(await page.locator('#install').getAttribute('data-brand-rest'), 'false');
+    assert.equal(await page.evaluate(() => window.firstFooterRest), 'false');
     await page.screenshot({ path: resolve(reports, 'journey-footer-face.png') });
     await page.clock.runFor(3200);
     assert.equal(await page.locator('#install').getAttribute('data-brand-rest'), 'true');

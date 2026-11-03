@@ -141,7 +141,7 @@ try {
   // Use the current layout and opt into the new-chat scope exercised below.
   writeFileSync(
     join(directory, 'panel.json'),
-    JSON.stringify({ ui: { layoutMode: 'workbench', sidebarNewChat: true } }),
+    JSON.stringify({ language: 'zh-CN', ui: { layoutMode: 'workbench', sidebarNewChat: true } }),
     { mode: 0o600 },
   );
   writeFileSync(

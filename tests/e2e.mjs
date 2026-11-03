@@ -279,6 +279,7 @@ try {
   desktop = await context.newPage();
   desktop.on('pageerror', (error) => errors.push(`desktop: ${error.message}`));
   await desktop.goto(`http://127.0.0.1:${fixturePort}/fixture`);
+  writeFileSync(join(dataDir, 'panel.json'), JSON.stringify({ language: 'zh-CN' }));
   writeFileSync(
     join(dataDir, 'config.json'),
     JSON.stringify({

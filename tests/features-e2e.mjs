@@ -119,7 +119,7 @@ try {
   writeFileSync(join(directory, 'model-control.json'), JSON.stringify({ enabled: true }));
   writeFileSync(
     join(directory, 'panel.json'),
-    JSON.stringify({ ui: { layoutMode: 'workbench', dockOpen: true } }),
+    JSON.stringify({ language: 'zh-CN', ui: { layoutMode: 'workbench', dockOpen: true } }),
   );
   for (const key of Object.keys(env))
     if (/^(PALBOO_|CODEX_BUDDY_|COMPANION_)/.test(key)) delete env[key];

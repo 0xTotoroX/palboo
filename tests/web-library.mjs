@@ -30,6 +30,7 @@ mkdirSync(join(vault, '项目/附件'), { recursive: true });
 mkdirSync(join(vault, '其他'), { recursive: true });
 mkdirSync(join(vault, '.obsidian'), { recursive: true });
 mkdirSync(data);
+writeFileSync(join(data, 'panel.json'), JSON.stringify({ language: 'zh-CN' }));
 writeFileSync(
   join(vault, '首页.md'),
   '# 欢迎\n\n中文全文 needle\n\n[[项目/文章#章节|进入章节]]\n\n[[同名]]\n\n`[[代码链接]]`\n\n<script>window.noteInjected=true</script>\n\n![remote](https://tracking.example.invalid/image.png)\n',
