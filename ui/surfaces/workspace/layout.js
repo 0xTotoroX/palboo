@@ -212,6 +212,18 @@ export function installFeatureLayout(root, { save, error }) {
                   : 'bottom';
         const target = section.dataset.pane;
         const source = panes.querySelector(`[data-pane-tab="${id}"]`)?.closest('[data-pane]');
+        const rowEdge = Math.min(6, box.height / 4);
+        const fromTop = event.clientY - box.top;
+        if (
+          section.dataset.compact === 'true' &&
+          source?.parentElement === section.parentElement &&
+          source.querySelectorAll('[data-pane-tab]').length === 1 &&
+          (fromTop <= rowEdge || box.height - fromTop <= rowEdge)
+        ) {
+          const action = fromTop <= rowEdge ? 'before' : 'after';
+          if (arrange(layout, id, action, width, height, target))
+            return { action, box, id: target };
+        }
         const tab = document
           .elementFromPoint(event.clientX, event.clientY)
           ?.closest('[data-pane-tab]');
@@ -292,6 +304,17 @@ export function installFeatureLayout(root, { save, error }) {
     separator.setAttribute('role', 'separator');
     separator.tabIndex = 0;
     separator.setAttribute('aria-label', tr('调整分栏比例'));
+    function previewMerge(start, delta, room) {
+      if (!start.previous.ids || !start.next.ids || !delta || Math.abs(delta) < room) return;
+      if (Math.abs(delta) >= room + mergeOverdrag) {
+        start.merge = delta < 0 ? -1 : 1;
+        separator.dataset.mergePreview = tr('合并为标签');
+        separator.dataset.mergeSide = start.merge < 0 ? 'previous' : 'next';
+      } else if (!shownMergeHint) {
+        start.hinted = true;
+        separator.dataset.mergePreview = tr('继续拖动可合并');
+      }
+    }
     bindSeparator(
       separator,
       () => (container.dataset.axis === 'horizontal' ? 'x' : 'y'),
@@ -334,6 +357,16 @@ export function installFeatureLayout(root, { save, error }) {
         )
           return;
         if (start.compact) {
+          if (pointer) {
+            const adjacent = delta < 0 ? index - 1 : index;
+            const donors = delta < 0 ? start.heights.slice(0, index) : start.heights.slice(index);
+            // Preserve cascading folding. An already folded row can be merged directly.
+            const room =
+              start.heights[adjacent] <= start.header
+                ? 0
+                : donors.reduce((sum, height) => sum + Math.max(0, height - start.header), 0);
+            previewMerge(start, delta, room);
+          }
           const heights = transferRows(start.heights, index, delta, start.header);
           const total = heights.reduce((sum, height) => sum + height, 0);
           const weight = start.groups.reduce((sum, group) => sum + group.weight, 0);
@@ -348,21 +381,12 @@ export function installFeatureLayout(root, { save, error }) {
         const total = start.first + start.second;
         if (total < start.minimumFirst + start.minimumSecond) return;
         const width = start.first + delta;
-        // Leave room to stop at the minimum width without merging.
-        if (pointer && start.axis === 'horizontal' && start.previous.ids && start.next.ids) {
-          if (width <= start.minimumFirst - mergeOverdrag) start.merge = -1;
-          if (total - width <= start.minimumSecond - mergeOverdrag) start.merge = 1;
-          if (start.merge) {
-            separator.dataset.mergePreview = tr('合并为标签');
-            separator.dataset.mergeSide = start.merge < 0 ? 'previous' : 'next';
-          } else if (
-            !shownMergeHint &&
-            (width <= start.minimumFirst || total - width <= start.minimumSecond)
-          ) {
-            start.hinted = true;
-            separator.dataset.mergePreview = tr('继续拖动可合并');
-          }
-        }
+        if (pointer && start.axis === 'horizontal')
+          previewMerge(
+            start,
+            delta,
+            delta < 0 ? start.first - start.minimumFirst : start.second - start.minimumSecond,
+          );
         const ratio =
           Math.max(start.minimumFirst, Math.min(total - start.minimumSecond, width)) / total;
         const weight = start.previous.weight + start.next.weight;
@@ -385,7 +409,8 @@ export function installFeatureLayout(root, { save, error }) {
               : target.ids.find((id) => visibleIds.includes(id));
           const sourceIds = source.ids.filter((id) => visibleIds.includes(id));
           if (targetId && sourceIds.length) {
-            let next = layout;
+            // Discard temporary height transfers before merging vertical neighbors.
+            let next = start.compact ? start.before : layout;
             for (const id of sourceIds)
               next = arrangeFeatureLayout(next, id, 'merge', 0, 0, targetId, visibleIds);
             layoutGroups(next).find((group) => group.ids.includes(targetId)).active = targetId;

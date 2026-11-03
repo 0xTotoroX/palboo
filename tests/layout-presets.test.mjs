@@ -318,6 +318,57 @@ test('overdragging the divider merges the narrower column only when released bey
   }
 });
 
+test('dragging beyond a folded row merges it into its vertical neighbor and supports undo', async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage({ viewport: { width: 920, height: 650 } });
+    page.setDefaultTimeout(5000);
+    await fixture(page, 'desktop', ['outline', 'next', 'prompts', 'bots']);
+    const before = {
+      axis: 'horizontal',
+      groups: [
+        {
+          axis: 'vertical',
+          weight: 2,
+          groups: [
+            { ids: ['next'], active: 'next', weight: 0.2, collapsed: true },
+            { ids: ['prompts'], active: 'prompts', weight: 0.2, collapsed: true },
+            { ids: ['outline'], active: 'outline', weight: 1.6 },
+          ],
+        },
+        { ids: ['bots'], active: 'bots', weight: 1 },
+      ],
+    };
+    await page.evaluate((layout) => {
+      state.layouts.desktop = layout;
+      return refresh();
+    }, before);
+    const dividers = page.locator('.csw-feature-split > [role="separator"]');
+    const divider = dividers.nth(1);
+    const { x, y, width, height } = await divider.boundingBox();
+    const origin = [x + width / 2, y + height / 2];
+    await page.mouse.move(...origin);
+    await page.mouse.down();
+    await page.mouse.move(origin[0], origin[1] - 24);
+    assert.equal(await divider.getAttribute('data-merge-preview'), '继续拖动可合并');
+    await page.mouse.move(origin[0], origin[1] - 64, { steps: 8 });
+    assert.equal(await divider.getAttribute('data-merge-side'), 'previous');
+    await page.mouse.up();
+    await page.waitForFunction(() => state.layouts.desktop.groups[0].groups.length === 2);
+    const merged = await page.evaluate(() => state.layouts.desktop);
+    assert.deepEqual(merged.groups[0].groups, [
+      before.groups[0].groups[0],
+      { ids: ['outline', 'prompts'], active: 'outline', weight: 1.8 },
+    ]);
+    assert.deepEqual(merged.groups[1], before.groups[1]);
+    await page.getByRole('button', { name: '窗口操作', exact: true }).click();
+    await page.getByRole('menuitem', { name: '撤销布局', exact: true }).click();
+    assert.deepEqual(await page.evaluate(() => state.layouts.desktop), before);
+  } finally {
+    await browser.close();
+  }
+});
+
 test('tab insertion and keyboard sorting work with both tab positions and the two-column preset', async () => {
   const browser = await chromium.launch({ headless: true });
   try {
