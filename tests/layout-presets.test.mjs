@@ -29,7 +29,7 @@ window.state={mainPlacement:placement,layoutPresetsRevision:1,layouts:{[placemen
 window.requests=[];window.pins=[];window.pinned=true;window.rejectSave=false;
 const items=state.features.map(entry=>{const node=document.createElement('div');node.style.cssText='height:100%;min-height:0';const shadow=node.attachShadow({mode:'open'});shadow.innerHTML='<div data-scroll style="height:100%;overflow:auto"><input aria-label="'+entry.id+'草稿" value="未保存内容"><div style="height:900px">Synthetic content</div></div>';return {...entry,node,active:true}});
 window.originalNodes=items.map(item=>item.node);
-const composition=installFeatureLayout(root,{save:async(surface,next)=>{state.layouts[surface]=next},error:e=>{throw e}});
+const composition=installFeatureLayout(root,{inlineMenu:placement!=='desktop',save:async(surface,next)=>{state.layouts[surface]=next},error:e=>{throw e}});
 const refresh=async()=>{composition.update(items,placement,state.layouts[placement],null,'next',1);menu.update(state,pinned)};
 const request=async input=>{
  requests.push(structuredClone(input));
@@ -191,8 +191,19 @@ test('side-by-side tab bars merge at the header and built-in presets position al
     await page.mouse.down();
     await page.mouse.move(end.x + end.width / 2, end.y + end.height / 2, { steps: 12 });
     await page.locator('.csw-drop-preview').filter({ hasText: '合并为标签' }).waitFor();
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.evaluate(() => {
+      window.highlightedTabs = [];
+      const animate = Element.prototype.animate;
+      Element.prototype.animate = function (...args) {
+        if (this.dataset.paneTab) highlightedTabs.push(this.dataset.paneTab);
+        return animate.apply(this, args);
+      };
+    });
     await page.mouse.up();
     await page.waitForFunction(() => state.layouts.desktop.groups.length === 2);
+    assert.deepEqual(await page.evaluate(() => highlightedTabs), ['next']);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
     assert.deepEqual(
       await page.evaluate(() =>
         state.layouts.desktop.groups.map(({ ids, weight }) => ({ ids, weight })),
@@ -702,7 +713,7 @@ test('sidebar and floating menus filter saved presets while sharing the built-in
   try {
     for (const placement of ['sidebar', 'overlay']) {
       const page = await browser.newPage({
-        viewport: { width: 340, height: 650 },
+        viewport: { width: placement === 'sidebar' ? 340 : 500, height: 650 },
         reducedMotion: 'reduce',
       });
       await fixture(page, placement);
@@ -712,9 +723,16 @@ test('sidebar and floating menus filter saved presets while sharing the built-in
           { id: 'legacy', name: '旧侧栏', layout },
           { id: 'desktop', name: '桌面保存', scope: 'desktop', layout },
         );
+        if (state.mainPlacement === 'overlay')
+          state.layouts.overlay = { ...structuredClone(layout), axis: 'horizontal' };
         return refresh();
       });
       const trigger = page.getByRole('button', { name: '布局预设', exact: true });
+      const anchor = page.locator('[data-menu-anchor]').locator('..');
+      assert.equal(
+        await anchor.getAttribute('data-pane'),
+        placement === 'sidebar' ? 'outline' : 'next',
+      );
       await trigger.click();
       assert.equal(await page.getByRole('menuitemcheckbox').count(), 0);
       assert.equal(

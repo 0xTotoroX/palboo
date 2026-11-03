@@ -57,7 +57,7 @@ export function installArrangement(
     const { width, height } = bounds();
     const next = arrange(read(), pane, action, width, height, target);
     if (!next) return false;
-    write(next);
+    write(next, pane, action, target);
     return true;
   }
   function cancel() {

@@ -183,6 +183,7 @@ function frame(container, faceClick) {
   handoffMotion?.destroy();
   handoffMotion = installHandoffMotion(root);
   composition = installFeatureLayout(root, {
+    inlineMenu: true,
     save: async (placement, layout, expectedLayout) => {
       const entry = state.features.find((entry) => entry.open && entry.placement === placement);
       if (entry)

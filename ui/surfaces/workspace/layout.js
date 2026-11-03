@@ -51,7 +51,7 @@ export function resolveFeatureLayout(saved, legacy, ids) {
       };
 }
 
-export function installFeatureLayout(root, { save, error }) {
+export function installFeatureLayout(root, { save, error, inlineMenu = false }) {
   const panes = document.createElement('div');
   panes.className = 'csw-workbench-panes csw-feature-panes';
   root.append(panes);
@@ -76,6 +76,51 @@ export function installFeatureLayout(root, { save, error }) {
   const persisted = new Map();
   const undoLayouts = new Map();
   let shownMergeHint = false;
+  let menuAnchor;
+  function positionMenu(container = panes) {
+    if (!inlineMenu) return;
+    const children = [...container.children].filter(
+      (child) => !child.hidden && !child.matches('[role="separator"]'),
+    );
+    const topRight = container.dataset.axis === 'horizontal' ? children.at(-1) : children[0];
+    if (topRight?.classList.contains('csw-feature-split')) {
+      positionMenu(topRight);
+      return;
+    }
+    const header = topRight?.querySelector('.csw-feature-pane-head');
+    if (header !== menuAnchor) {
+      menuAnchor?.removeAttribute('data-menu-anchor');
+      menuAnchor = header;
+      menuAnchor?.setAttribute('data-menu-anchor', '');
+    }
+    root.toggleAttribute('data-inline-menu', !!header);
+    if (!header) return;
+    const box = root.getBoundingClientRect();
+    const scale = elementScale(root);
+    const pane = topRight.getBoundingClientRect();
+    const row = header.getBoundingClientRect();
+    const menuTop =
+      row.height &&
+      !(container.dataset.axis === 'horizontal' && topRight.dataset.compact === 'true')
+        ? (row.top - box.top + row.height / 2) / scale.y - 14
+        : (pane.top - box.top) / scale.y + 4;
+    root.style.setProperty('--csw-menu-top', `${Math.max(0, menuTop)}px`);
+    root.style.setProperty('--csw-menu-right', `${(box.right - pane.right) / scale.x + 8}px`);
+  }
+  function highlightMergedTabs(ids) {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    for (const id of ids) {
+      panes
+        .querySelector(`[data-pane-tab="${id}"]`)
+        ?.animate(
+          [
+            { backgroundColor: 'color-mix(in srgb, var(--csw-accent) 24%, transparent)' },
+            { backgroundColor: 'transparent' },
+          ],
+          { duration: 360, easing: 'ease-out' },
+        );
+    }
+  }
   function rememberLayout(previous, next, surface = placement) {
     if (previous && next && layoutSignature(previous) !== layoutSignature(next))
       undoLayouts.set(surface, previous);
@@ -170,11 +215,15 @@ export function installFeatureLayout(root, { save, error }) {
   }
   const arrangement = installArrangement(root, {
     read: () => layout,
-    write: (next) => {
+    write: (next, id, action, target) => {
+      const merged =
+        ['merge', 'tab-before', 'tab-after'].includes(action) &&
+        !layoutGroups(layout).some((group) => group.ids.includes(id) && group.ids.includes(target));
       rememberLayout(layout, next);
       layout = next;
       cache.set(placement, layout);
       render();
+      if (merged) highlightMergedTabs([id]);
       void persist();
     },
     update: () => {
@@ -410,6 +459,7 @@ export function installFeatureLayout(root, { save, error }) {
         render();
       },
       (start, dropped) => {
+        let mergedIds = [];
         delete separator.dataset.mergePreview;
         delete separator.dataset.mergeSide;
         if (start?.hinted) shownMergeHint = true;
@@ -431,11 +481,13 @@ export function installFeatureLayout(root, { save, error }) {
             layoutGroups(next).find((group) => group.ids.includes(targetId)).active = targetId;
             layout = flattenVerticalLayout(next);
             cache.set(placement, layout);
+            mergedIds = sourceIds;
           }
         } else if (dropped && start.compact && start.axis === 'horizontal') {
           compact.settle();
         }
         render();
+        if (mergedIds.length) highlightMergedTabs(mergedIds);
         if (start) rememberLayout(start.before, layout);
         void persist();
       },
@@ -575,6 +627,7 @@ export function installFeatureLayout(root, { save, error }) {
       observer.disconnect();
       observer.observe(panes);
       panes.replaceChildren();
+      positionMenu();
       shape = null;
       return;
     }
@@ -594,6 +647,7 @@ export function installFeatureLayout(root, { save, error }) {
     root.dataset.composition = focused ? 'focus' : merged ? 'tabs' : 'split';
     panes.dataset.tabPosition = merged && layout.tabPosition === 'left' ? 'left' : 'top';
     updateGrid(tree, panes, focused);
+    positionMenu();
     for (const item of items) {
       if (item.node.hidden || item.node.parentNode === parking) continue;
       const reading = parkedReading.get(item.node);
@@ -723,6 +777,7 @@ export function installFeatureLayout(root, { save, error }) {
       compact.destroy();
       panes.remove();
       parking.remove();
+      root.removeAttribute('data-inline-menu');
     },
   };
 }

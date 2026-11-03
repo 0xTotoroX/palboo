@@ -518,6 +518,31 @@ const cases = [
         assert.equal(await page.getByRole('menuitemcheckbox').count(), 0);
         const buttonBox = await trigger.boundingBox();
         assert.deepEqual([buttonBox.width, buttonBox.height], [28, 28]);
+        const titleRow = await page
+          .locator('.csw-feature-pane-head[data-menu-anchor]')
+          .boundingBox();
+        assert.ok(
+          Math.abs(buttonBox.y + buttonBox.height / 2 - (titleRow.y + titleRow.height / 2)) < 1,
+        );
+        assert.equal(
+          await page
+            .locator('.csw-workbench-head[data-window="embedded"]')
+            .evaluate((node) => node.getBoundingClientRect().height),
+          0,
+        );
+        if (placement === 'sidebar') {
+          const { lineTop, inset, handleTop } = await trigger.evaluate((button) => {
+            const workbench = button.closest('.csw-workbench');
+            const dock = workbench.closest('[data-palboo-dock]');
+            return {
+              lineTop: parseFloat(getComputedStyle(dock, '::after').top),
+              inset: parseFloat(getComputedStyle(dock).getPropertyValue('--csw-dock-inset')),
+              handleTop: getComputedStyle(workbench.querySelector('.csw-workbench-resize')).top,
+            };
+          });
+          assert.ok(Math.abs(lineTop - inset - 4) < 1);
+          assert.equal(handleTop, '0px');
+        }
         const menuBox = await page.getByRole('menu', { name: '布局预设' }).boundingBox();
         assert.ok(menuBox.x >= 0 && menuBox.x + menuBox.width <= wide.width);
         await page.getByRole('menuitemradio', { name: '阅读', exact: true }).click();

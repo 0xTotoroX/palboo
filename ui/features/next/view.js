@@ -73,7 +73,7 @@ export function createNextView({
   function nextSuggestionsHtml() {
     const progress = nextProgressState();
     if (progress) {
-      return `<div class="csw-progress" role="status" aria-label="${progress.title}">
+      return `<div class="csw-progress" role="status">
         <span class="csw-progress-ring" aria-hidden="true"></span>
         <span class="csw-progress-copy">
           <span class="csw-progress-title">${progress.title}</span>
@@ -135,7 +135,7 @@ export function createNextView({
       read().association?.available !== false
     ) {
       return {
-        title: tr('点击刷新生成建议'),
+        title: tr('暂无建议'),
         message: '',
         state: 'manual',
       };
