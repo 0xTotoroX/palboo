@@ -1,7 +1,7 @@
 import { tr } from '../shared/i18n.js';
 /*
  * [INPUT]: 当前回答 DOM、上下文、窗口投影与大纲状态。
- * [OUTPUT]: 本地大纲刷新和定位；聊天/回答身份、完整段落或位置不匹配时拒绝导航。
+ * [OUTPUT]: 本地大纲刷新和定位、复用宿主回答操作栏及按钮样式的目录入口；聊天/回答身份、完整段落或位置不匹配时拒绝导航。
  * [POS]: Codex 大纲协调；outline-parser 解析原文，features/outline 渲染列表。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -61,6 +61,18 @@ function clearOutlineReplyControls() {
   document.querySelectorAll(`[${REPLY_ACTION}]`).forEach((button) => button.remove());
 }
 
+function syncOutlineReplyStyle(button, row) {
+  const reference = row.querySelector(`button:not([${REPLY_ACTION}])`);
+  const className = reference?.getAttribute('class') || '';
+  if (button.className !== className) button.className = className;
+  const native = Boolean(className);
+  if (button.hasAttribute('data-palboo-outline-native') !== native)
+    button.toggleAttribute('data-palboo-outline-native', native);
+  const svg = button.querySelector('svg');
+  const iconClass = reference?.querySelector('svg')?.getAttribute('class') || '';
+  if (svg && svg.getAttribute('class') !== iconClass) svg.setAttribute('class', iconClass);
+}
+
 function syncOutlineReplyControls(reveal) {
   const root = chatRoot();
   document.querySelectorAll(`[${REPLY_ACTION}]`).forEach((button) => {
@@ -80,19 +92,26 @@ function syncOutlineReplyControls(reveal) {
       previous?.remove();
       continue;
     }
+    const row = actionRowForMessage(reply);
+    if (!row) {
+      previous?.remove();
+      continue;
+    }
     if (previous && reply.contains(previous) && previous.getAttribute(REPLY_ACTION) === key) {
+      if (previous.parentElement !== row) row.append(previous);
+      syncOutlineReplyStyle(previous, row);
       previous.setAttribute('aria-pressed', String(outlineState.outlineSelectedTurnKey === key));
       continue;
     }
     previous?.remove();
-    const row = actionRowForMessage(reply) || reply;
     const button = document.createElement('button');
     button.type = 'button';
     button.setAttribute(REPLY_ACTION, key);
     button.setAttribute('aria-pressed', String(outlineState.outlineSelectedTurnKey === key));
     button.title = tr('查看此回复的大纲');
     button.setAttribute('aria-label', button.title);
-    button.innerHTML = iconSvg('outline');
+    button.innerHTML = iconSvg('feature-outline');
+    syncOutlineReplyStyle(button, row);
     button.addEventListener('click', (event) => {
       event.stopPropagation();
       if (!outlineEnabled() || !bindingSourceReady() || !chatRoot()?.contains(turn)) return;

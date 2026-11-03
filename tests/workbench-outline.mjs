@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 工作台真实浏览器夹具与合成回答。
- * [OUTPUT]: 宿主角色兼容、标题分级回退、不均匀段落与同名前缀、去重、重挂载定位与过期拒绝回归。
+ * [OUTPUT]: 回答操作栏同排/样式/键盘入口、宿主角色兼容、标题分级回退、不均匀段落与同名前缀、去重、重挂载定位与过期拒绝回归。
  * [POS]: 由 workbench.mjs 执行；不读取真实聊天，不调用模型或外部服务。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -63,6 +63,107 @@ async function checkTargets(page, result) {
 
 export function outlineCases({ mode }) {
   return [
+    [
+      '大纲：目录入口与新版回答操作栏同排并沿用宿主按钮样式',
+      async (page) => {
+        await mode(page, true);
+        await setAnswer(page, '<h2>目录入口验收</h2><p>这是一条合成回答。</p>');
+        await page.addStyleTag({
+          content: `.fixture-actions{display:flex;align-items:center;gap:2px}
+            .fixture-actions .fixture-native-action{display:flex;align-items:center;justify-content:center;width:26px;height:26px;min-height:0;padding:4px;margin:0;border:1px solid transparent;border-radius:10px;background:transparent;color:var(--fixture-action-color);cursor:pointer}
+            .fixture-native-action:hover{background:var(--fixture-action-hover)}
+            .fixture-native-action:focus-visible{outline:2px solid currentColor}
+            @layer host{.fixture-native-icon{width:16px;height:16px}}`,
+        });
+        for (const english of [false, true]) {
+          for (const dark of [false, true]) {
+            await page.evaluate(
+              ({ english, dark }) => {
+                const reply = document.querySelector('[data-message-author-role="assistant"]');
+                reply.style.setProperty('--fixture-action-color', dark ? '#999' : '#666');
+                reply.style.setProperty('--fixture-action-hover', dark ? '#333' : '#eee');
+                reply.querySelector('.assistant-actions')?.remove();
+                const actions = document.createElement('div');
+                actions.className = 'assistant-actions turn-action-controls';
+                const labels = english
+                  ? ['Copy', 'Give feedback', 'Read aloud', 'More actions']
+                  : ['复制', '评价回复', '朗读', '更多操作'];
+                actions.innerHTML = `<div class="fixture-actions">${labels
+                  .map(
+                    (label) =>
+                      `<button class="fixture-native-action" aria-label="${label}"><svg class="fixture-native-icon" viewBox="0 0 24 24"></svg></button>`,
+                  )
+                  .join('')}</div><span>14:02</span>`;
+                reply.append(actions);
+                window.__companionFloatingPanel.scan();
+              },
+              { english, dark },
+            );
+            const button = page.locator('[data-palboo-outline-reply]');
+            await button.waitFor();
+            await button.scrollIntoViewIfNeeded();
+            const metrics = await button.evaluate((button) => {
+              const group = document.querySelector('.fixture-actions');
+              const buttons = [...group.querySelectorAll('button')];
+              const read = (node) => {
+                const r = node.getBoundingClientRect(),
+                  s = getComputedStyle(node);
+                const icon = node.querySelector('svg').getBoundingClientRect();
+                return {
+                  x: r.x,
+                  y: r.y,
+                  width: r.width,
+                  height: r.height,
+                  color: s.color,
+                  padding: s.padding,
+                  radius: s.borderRadius,
+                  icon: [icon.width, icon.height],
+                };
+              };
+              return {
+                sameRow: button.parentElement === group,
+                count: document.querySelectorAll('[data-palboo-outline-reply]').length,
+                glyph: button.querySelector('svg').getAttribute('data-icon'),
+                reference: read(buttons[0]),
+                previous: read(buttons.at(-2)),
+                actual: read(button),
+                next: read(buttons[1]),
+              };
+            });
+            assert.equal(metrics.sameRow, true);
+            assert.equal(metrics.count, 1);
+            assert.equal(metrics.glyph, 'feature-outline');
+            for (const key of ['y', 'width', 'height', 'color', 'padding', 'radius', 'icon'])
+              assert.deepEqual(metrics.actual[key], metrics.reference[key], key);
+            assert.ok(
+              Math.abs(
+                metrics.actual.x -
+                  metrics.previous.x -
+                  metrics.previous.width -
+                  (metrics.next.x - metrics.reference.x - metrics.reference.width),
+              ) < 0.5,
+            );
+            await button.hover();
+            assert.equal(
+              await button.evaluate((b) => getComputedStyle(b).backgroundColor),
+              dark ? 'rgb(51, 51, 51)' : 'rgb(238, 238, 238)',
+            );
+            await button.focus();
+            await button.press('Enter');
+            await page
+              .locator('[data-view-body="outline"]')
+              .getByRole('button', { name: '目录入口验收' })
+              .waitFor();
+          }
+        }
+        // A temporarily missing action row must not leave a separate line below the reply.
+        await page.evaluate(() => {
+          document.querySelector('.assistant-actions').remove();
+          window.__companionFloatingPanel.scan();
+        });
+        await page.waitForFunction(() => !document.querySelector('[data-palboo-outline-reply]'));
+      },
+    ],
     [
       '大纲：选择旧回复，定位原文，再恢复跟随最新回答',
       async (page) => {

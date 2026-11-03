@@ -882,7 +882,9 @@ function messageCandidates() {
 
 function actionButton(node) {
   const label = normalizeText(node.getAttribute('aria-label') || node.textContent || '');
-  return /^(复制|喜欢|不喜欢|从此处开始分叉|挂钩|copy|like|dislike|fork)/i.test(label);
+  return /^(复制|喜欢|不喜欢|评价回复|朗读|更多操作|从此处开始分叉|挂钩|copy|like|dislike|rate (?:this )?(?:response|reply)|give feedback|read aloud|more actions|fork)/i.test(
+    label,
+  );
 }
 
 function classTokenMatch(node, token) {
