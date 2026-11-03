@@ -109,10 +109,26 @@ function Sample({
         action={async (data, action) => {
           const payload = data as {
             selection?: Selection;
+            agent?: string;
             patch?: Partial<ModelState['preferences']>;
           };
           const next = structuredClone(current.current);
-          if (action === 'apply' && payload.selection) next.snapshot.current = payload.selection;
+          if (action === 'apply' && payload.agent) {
+            const agent = next.snapshot.agent;
+            const option = agent?.options.find(
+              (entry) => entry.id === payload.agent && entry.available,
+            );
+            if (!agent || !option) return null;
+            if (agent.current !== option.id) next.snapshot.models = [];
+            next.snapshot.agent = {
+              ...agent,
+              current: option.id,
+              label: option.label,
+              locked: false,
+            };
+            next.snapshot.current = payload.selection ?? null;
+          } else if (action === 'apply' && payload.selection)
+            next.snapshot.current = payload.selection;
           else if (action === 'preferences' && payload.patch)
             Object.assign(next.preferences, payload.patch);
           else if (action !== 'refresh') return null;
@@ -162,6 +178,7 @@ export function ModelPreview({
       revision: 'preview',
       status: mode === 'current' ? (model?.snapshot?.status ?? 'waiting') : 'ready',
       message: mode === 'current' ? (model?.snapshot?.message ?? '') : '',
+      ...(mode === 'current' && model?.snapshot.agent ? { agent: model.snapshot.agent } : {}),
       models: models.map(({ id, label, reasoning, fast }) => ({ id, label, reasoning, fast })),
       current:
         mode === 'current'

@@ -19,8 +19,15 @@ export type ModelPreferences = {
   showUsage?: boolean;
   modelColumnWidth?: number;
   pinned: string[];
+  pinnedAgents?: string[];
   modelOrder?: string[] | null;
-  presets: { id: string; name: string; selection: Selection }[];
+  presets: {
+    id: string;
+    name: string;
+    selection: Selection;
+    agent?: string;
+    catalogPin?: boolean;
+  }[];
   groups?: { id: string; name: string }[];
   modelOverrides?: Record<string, ModelOverride>;
   groupOrder?: string[];

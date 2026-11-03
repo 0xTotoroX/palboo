@@ -27,6 +27,10 @@ pub struct Preset {
     pub id: String,
     pub name: String,
     pub selection: Selection,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent: Option<String>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub catalog_pin: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -52,6 +56,7 @@ pub struct Preferences {
     pub show_usage: bool,
     pub model_column_width: f64,
     pub pinned: Vec<String>,
+    pub pinned_agents: Vec<String>,
     pub model_order: Option<Vec<String>>,
     pub presets: Vec<Preset>,
     pub groups: Vec<ModelGroup>,
@@ -67,6 +72,7 @@ impl Default for Preferences {
             show_usage: true,
             model_column_width: 140.,
             pinned: vec![],
+            pinned_agents: vec![],
             model_order: None,
             presets: vec![],
             groups: vec![],
@@ -130,6 +136,10 @@ impl Preferences {
                 || !ids.insert(&preset.id)
                 || preset.name.trim().is_empty()
                 || preset.name.len() > 256
+                || preset
+                    .agent
+                    .as_ref()
+                    .is_some_and(|id| id.trim().is_empty() || id.len() > 64)
             {
                 bail!("预设名称或标识无效");
             }
@@ -137,6 +147,7 @@ impl Preferences {
         }
         for (models, message) in [
             (self.pinned.as_slice(), "常用模型无效"),
+            (self.pinned_agents.as_slice(), "常用 CLI 无效"),
             (self.group_order.as_slice(), "分组顺序无效"),
             (
                 self.expanded_groups.as_deref().unwrap_or_default(),
@@ -324,7 +335,7 @@ impl App {
         if let Some(id) = agent {
             anyhow::ensure!(id.len() <= 64, "CLI 标识无效");
         }
-        let selection = if agent.is_none() {
+        let selection = if agent.is_none() || !command["selection"].is_null() {
             let parsed: Selection = serde_json::from_value(command["selection"].clone())
                 .context("请选择完整模型配置")?;
             parsed.validate()?;
@@ -360,6 +371,7 @@ impl App {
                     "target": command["target"],
                     "expectedRevision": command["expectedRevision"],
                     "agent": id,
+                    "selection": selection,
                     "handoffPrompt": prompt,
                     "sourceDraft": handoff["draft"],
                 })
@@ -368,6 +380,7 @@ impl App {
                     "target": command["target"],
                     "expectedRevision": command["expectedRevision"],
                     "agent": id,
+                    "selection": selection,
                 })
             }
         } else {
@@ -376,7 +389,7 @@ impl App {
         let response = client
             .evaluate_with_timeout(
                 format!("window.__palbooModelControl.apply({payload})"),
-                Duration::from_secs(20),
+                Duration::from_secs(33),
             )
             .await;
         let result = match response {
@@ -678,6 +691,8 @@ mod tests {
     fn preference_patches_preserve_unrelated_fields_and_validate() {
         let prefs = Preferences {
             presets: vec![Preset {
+                agent: None,
+                catalog_pin: false,
                 id: "a".into(),
                 name: "日常".into(),
                 selection: Selection {

@@ -337,7 +337,15 @@ try {
     if ((await picker().getAttribute('aria-expanded')) === 'false') await picker().click();
     await view.getByRole('region', { name: '所有模型' }).waitFor();
   };
-  const closeOthers = () => page.getByRole('button', { name: '关闭所有模型' }).click();
+  const closeOthers = async () => {
+    if ((await picker().getAttribute('aria-expanded')) === 'true')
+      await page.getByRole('button', { name: '关闭所有模型' }).click();
+  };
+  const showMatrix = async () => {
+    await showOthers();
+    const summary = view.locator('.model-reasoning-directory summary');
+    if (!(await summary.evaluate((n) => n.parentElement.open))) await summary.click();
+  };
   const expandedBefore = structuredClone(model.preferences.expandedGroups);
   await picker().waitFor();
   assert.equal(await picker().innerText(), '');
@@ -363,8 +371,8 @@ try {
   await tile('a').click();
   await view.locator('[data-model-tile="a"][aria-pressed="true"]').waitFor();
   assert.equal(await view.locator('.model-tile').count(), 2, 'all includes pinned models');
-  await closeOthers();
-  assert.equal(await view.locator('.model-row').count(), 1);
+  await showMatrix();
+  assert.equal(await view.locator('.model-row').count(), 2);
   assert.equal(
     await view
       .locator('.model-name strong')
@@ -389,7 +397,7 @@ try {
   await showOthers();
   await tile('b').click();
   await view.locator('[data-model-tile="b"][aria-pressed="true"]').waitFor();
-  await closeOthers();
+  await showMatrix();
   await view
     .locator('[data-model-row="b"] strong')
     .dragTo(view.locator('[data-model-row="a"]'), { targetPosition: { x: 40, y: 2 } });
@@ -403,7 +411,7 @@ try {
   await showOthers();
   await tile('a').click();
   await view.locator('[data-model-tile="a"][aria-pressed="false"]').waitFor();
-  assert.equal(await view.locator('[data-model-row="a"]').count(), 0);
+
   assert.deepEqual(
     model.snapshot.current,
     beforeToggle,
@@ -439,10 +447,12 @@ try {
   await closeOthers();
   assert.equal(await page.locator('#edge-panel > header [data-refresh="model"]').count(), 0);
   assert.equal(await view.getByRole('button', { name: '添加预设', exact: true }).innerText(), '');
+  await page.waitForFunction(
+    () => document.getElementById('edge-panel').getBoundingClientRect().height < 350,
+  );
   const compactModelHeight = await page
     .locator('#edge-panel')
     .evaluate((n) => n.getBoundingClientRect().height);
-  assert.ok(compactModelHeight < 350, 'few model rows keep the edge panel compact');
   record(
     'refresh lives beside picker close; independent Fast/divider controls and trailing edit/add/catalog actions',
   );
@@ -505,18 +515,14 @@ try {
   rejectPresetSave = false;
   // A host update while renaming must not replace the saved preset selection.
   model.snapshot.current = { model: 'b', reasoning: 'high', speed: 'standard' };
-  await view.locator('[data-model="b"][data-reasoning="high"][aria-pressed="true"]').waitFor();
+  await view.getByRole('button', { name: 'Model B', exact: true, pressed: true }).waitFor();
   await editor.getByRole('button', { name: '保存', exact: true }).click();
   await savedPreset('日常').waitFor();
   await editor.waitFor({ state: 'hidden' });
   assert.deepEqual(model.preferences.presets[0].selection, savedSelection);
   await view.getByRole('button', { name: '编辑预设', exact: true }).click();
   await savedPreset('日常').click();
-  await view
-    .locator(
-      `[data-model="${savedSelection.model}"][data-reasoning="${savedSelection.reasoning}"][aria-pressed="true"]`,
-    )
-    .waitFor();
+  await savedPreset('日常').and(view.locator('[aria-pressed="true"]')).waitFor();
   assert.deepEqual(model.snapshot.current, savedSelection);
   await view.getByRole('button', { name: '编辑预设', exact: true }).click();
   assert.equal(await view.locator('.model-preset-delete').count(), 1);
@@ -549,7 +555,9 @@ try {
   );
   assert.equal(await view.getByRole('searchbox').count(), 0);
   assert.equal(await view.getByRole('slider').count(), 0);
+  await showMatrix();
   const columnHandle = view.getByRole('button', { name: '调整模型名称宽度', exact: true });
+  await columnHandle.scrollIntoViewIfNeeded();
   const handleBox = await columnHandle.boundingBox();
   const preferenceCount = () => actions.filter((item) => item.action === 'preferences').length;
   const beforeResize = preferenceCount();
@@ -652,6 +660,7 @@ try {
     (height) => document.getElementById('edge-panel').getBoundingClientRect().height > height,
     compactModelHeight,
   );
+  await closeOthers();
   await view.getByRole('button', { name: '编辑预设', exact: true }).click();
   await view.getByLabel('删除预设 工作').click();
   await savedPreset('工作').waitFor({ state: 'detached' });
@@ -674,13 +683,11 @@ try {
     fast: false,
   });
   model.preferences.modelColumnWidth = 280;
-  await view.locator('[data-model="a"][data-reasoning="max"]').waitFor();
   await showOthers();
   await tile('c').click();
-  await view.locator('[data-model-row="c"]').waitFor({ state: 'attached' });
-  assert.equal(await view.locator('[data-model-row="c"]').isVisible(), false);
-  await closeOthers();
-  await view.locator('[data-model-row="c"]').waitFor();
+  await tile('c').and(view.locator('[aria-pressed="true"]')).waitFor();
+  await showMatrix();
+  await view.locator('[data-model="a"][data-reasoning="max"]').waitFor();
   await view.locator('.model-scroll').evaluate((node) => {
     node.scrollLeft = 160;
   });
@@ -704,15 +711,15 @@ try {
   await page.goto(
     'http://127.0.0.1:47991/feature.html?feature=main&lease=main-owner#token=fixture',
   );
-  await page.locator('[data-feature="model"] [data-model="a"]').first().waitFor();
-  await page.getByRole('button', { name: 'Fast', exact: true }).waitFor();
-  assert.equal(await view.locator('[data-refresh="model"]').count(), 0);
-  assert.equal(await view.locator('.model-row').first().getAttribute('data-model-row'), 'b');
+  await picker().waitFor();
   assert.equal(
     await view.locator('[data-model-group]').count(),
     0,
-    'remounted picker defaults to favorites only',
+    'remount opens fixed items only',
   );
+  await showMatrix();
+  await view.locator('[data-model-row="a"]').waitFor();
+  assert.equal(await view.locator('.model-row').first().getAttribute('data-model-row'), 'b');
   const restoredModelReading = await view.locator('.model-scroll').evaluate(async (node, saved) => {
     const deadline = performance.now() + 4000;
     let state;
@@ -730,7 +737,6 @@ try {
   await showOthers();
   assert.equal(await view.locator('[data-model-group="vendor:Google"] .model-tile').count(), 1);
   assert.equal(await tile('c').getAttribute('aria-pressed'), 'true');
-  await closeOthers();
   record('model tools, classification preferences and horizontal reading survive remount');
   const longName = view.locator('[data-model-row="c"] .model-name strong');
   const nameGeometry = await longName.evaluate((node) => {
@@ -887,9 +893,9 @@ try {
   await page.waitForFunction(() => window.nativeMessages.some((m) => m.kind === 'cancel-return'));
   await page.waitForFunction(
     () =>
-      !document
+      !!document
         .querySelector('.csw-feature-content > div:not([hidden])')
-        .shadowRoot.querySelector('[data-model="a"]').disabled,
+        ?.shadowRoot.querySelector('.model-legacy-pin:enabled'),
   );
   const failedHandoffs = handoffs;
   assert.ok(failedHandoffs >= 1);

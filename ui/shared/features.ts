@@ -58,6 +58,7 @@ export function featureFontSize(id: FeatureId, sizes?: FontSizes, legacySize?: n
 }
 export type Placement = 'sidebar' | 'overlay' | 'desktop' | 'edge';
 export type ModelPresetDraft = {
+  agent?: string;
   id: string;
   name: string;
   selection: { model: string; reasoning: string; speed: string };

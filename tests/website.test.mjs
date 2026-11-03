@@ -1057,12 +1057,15 @@ test('shared model choices, Bot messages and the isolated Agent menu remain inte
   try {
     await select(page, 'model');
     const model = panel(page, 'model');
+    assert.equal(await model.locator('.model-row').count(), 0);
+    await model.locator('.token-meter-readout').waitFor();
+    assert.match(await model.locator('.token-meter-readout').innerText(), /38.4/);
+    await model.locator('[data-model-picker]').click();
+    await model.locator('.model-reasoning-directory summary').click();
     assert.equal(await model.locator('.model-row').count(), 12);
     for (const level of ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'])
       assert.ok(await model.locator(`[data-reasoning="${level}"]`).count(), level);
     assert.doesNotMatch(await model.innerText(), /示例模型|均为示例|上次测速/);
-    await model.locator('.token-meter-readout').waitFor();
-    assert.match(await model.locator('.token-meter-readout').innerText(), /38.4/);
     const choice = model.locator('[data-model="example-c"][data-reasoning="high"]');
     await choice.click();
     assert.equal(await choice.getAttribute('aria-pressed'), 'true');
@@ -1100,6 +1103,8 @@ test('shared model choices, Bot messages and the isolated Agent menu remain inte
     await agents.locator('[role=menuitemradio][aria-checked=true]:focus').waitFor();
     assert.equal(await focused(promoted), true);
     await select(page, 'model');
+    await model.locator('[data-model-picker]').click();
+    await model.locator('.model-reasoning-directory summary').click();
     assert.equal(await choice.getAttribute('aria-pressed'), 'true');
   } finally {
     await page.close();
@@ -1223,25 +1228,37 @@ test('language changes translate sample labels while preserving model selection,
     const model = panel(page, 'model');
     const choice = model.locator('[data-model="example-c"][data-reasoning="high"]');
     const fast = model.getByRole('button', { name: 'Fast', exact: true });
+    await model.locator('[data-model-picker]').click();
+    await model.locator('.model-reasoning-directory summary').click();
     await choice.click();
     await fast.click();
+    await model.locator('.model-picker-actions button').last().click();
     await model.getByRole('button', { name: '编辑预设', exact: true }).click();
-    await model.locator('.model-preset-choice').first().click();
+    await model.locator('.model-preset-tag .model-preset-choice').first().click();
     await model.getByRole('textbox', { name: '预设名称', exact: true }).fill('我的保留预设');
     await model.getByRole('textbox', { name: '预设名称', exact: true }).press('Enter');
     await model.getByRole('button', { name: '编辑预设', exact: true }).click();
     await page.locator('.site-language').click();
     await select(page, 'model');
+    assert.match(
+      await model.locator('.model-preset-tag .model-preset-choice').first().innerText(),
+      /我的保留预设/,
+    );
+    assert.match(
+      await model.locator('.model-preset-tag .model-preset-choice').nth(1).innerText(),
+      /Deep analysis/,
+    );
+    await model.locator('[data-model-picker]').click();
+    await model.locator('.model-reasoning-directory summary').click();
     assert.equal(await choice.getAttribute('aria-pressed'), 'true');
     assert.equal(await fast.getAttribute('aria-pressed'), 'true');
     assert.match(await choice.getAttribute('aria-label'), /Model C/i);
-    assert.match(await model.locator('.model-preset-choice').first().innerText(), /我的保留预设/);
-    assert.match(await model.locator('.model-preset-choice').nth(1).innerText(), /Deep analysis/);
     await page.locator('.site-language').click();
     await select(page, 'model');
-    assert.equal(await choice.getAttribute('aria-pressed'), 'true');
-    assert.equal(await fast.getAttribute('aria-pressed'), 'true');
-    assert.match(await model.locator('.model-preset-choice').nth(1).innerText(), /深入分析/);
+    assert.match(
+      await model.locator('.model-preset-tag .model-preset-choice').nth(1).innerText(),
+      /深入分析/,
+    );
   } finally {
     await page.close();
   }

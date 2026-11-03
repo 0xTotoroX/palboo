@@ -588,7 +588,9 @@
       (node) =>
         isVisible(node) &&
         !node.closest(OWN_UI) &&
-        !node.closest('.messaging-root.messaging-embedded'),
+        (node.hasAttribute('data-codex-composer') ||
+          !!node.closest('[data-codex-composer-root]') ||
+          !node.closest('.messaging-root.messaging-embedded')),
     );
   }
 
@@ -785,7 +787,7 @@
     const handoffPrompt = typeof options?.handoffPrompt === 'string' ? options.handoffPrompt : '';
     if (!cap.agent.locked) {
       if (handoffPrompt) throw new Error(tr('目标聊天或 DOM 已变化'));
-      return switchDraftAgent(composer, desired, signal);
+      return { ...(await switchDraftAgent(composer, desired, signal)), composer };
     }
     if (!handoffPrompt) {
       throw new Error(tr('当前会话已锁定 CLI，请新建聊天后再切换'));
@@ -794,11 +796,17 @@
       throw new Error(tr('来源草稿已变化，请刷新后重试'));
     if (signal?.aborted) throw new Error(String(signal.reason || tr('操作已取消')));
     const { scope } = findAgentScope(composer);
-    const priorBindings = new Set(
-      [...document.querySelectorAll('[data-codexhost-agent-control]')].map((node) =>
-        node.getAttribute('data-codexhost-agent-control'),
-      ),
-    );
+    // A hidden draft can be mounted before navigation; only already visible drafts
+    // are ineligible. The locked source itself may be reused as a fresh composer.
+    const priorDrafts = new Set();
+    const priorDraftBindings = new Set();
+    for (const node of visibleComposers()) {
+      const before = capability(node);
+      if (!before.agent || !before.composerId || (node === composer && before.agent.locked))
+        continue;
+      priorDrafts.add(node);
+      priorDraftBindings.add(before.composerId);
+    }
     const newChatBtn = findNewChatButton(composer, scope);
     if (!(newChatBtn instanceof HTMLElement)) {
       throw new Error(tr('未找到宿主新聊天入口，请手动新建聊天后切换 CLI'));
@@ -808,7 +816,8 @@
         const current = capability(node);
         return (
           current.composerId &&
-          !priorBindings.has(current.composerId) &&
+          !priorDrafts.has(node) &&
+          !priorDraftBindings.has(current.composerId) &&
           current.agent &&
           !current.agent.locked
         );
@@ -817,10 +826,10 @@
     const newComposer = await waitCondition(
       () => {
         const drafts = newDrafts();
-        return drafts.length === 1 ? drafts[0] : null;
+        return drafts.length === 1 && readDraftText(drafts[0]) === '' ? drafts[0] : null;
       },
       signal,
-      5000,
+      10000,
       '等待新聊天输入框就绪超时',
     );
     const binding = capability(newComposer).composerId;
@@ -839,6 +848,8 @@
     const nextCap = await switchDraftAgent(newComposer, desired, signal);
     assertEmptyDraft();
     if (nextCap.agent?.current !== desired) throw new Error(tr('CLI 切换未生效'));
+    newComposer.focus();
+    assertEmptyDraft();
     fillComposerPrompt(newComposer, handoffPrompt);
     if (readDraftText(newComposer) !== handoffPrompt)
       throw new Error(tr('无法确认交接内容已填入，请核对新聊天'));

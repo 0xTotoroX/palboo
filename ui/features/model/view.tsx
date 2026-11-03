@@ -12,6 +12,7 @@ import {
   type CSSProperties,
   type ReactNode,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { ModelHeading } from './heading';
 import { useFastMotion } from './fast-motion';
 import { iconSvg } from '../../shared/icons/index.js';
@@ -51,7 +52,7 @@ export function ModelView({
   useLocale();
   const [tools, setTools] = useState(reading.modelTools || false),
     [others, setOthers] = useState(false),
-    [catalogGroup, setCatalogGroup] = useState(''),
+    [matrixOpen, setMatrixOpen] = useState(false),
     [browserHeight, setBrowserHeight] = useState(0),
     [drop, setDrop] = useState(''),
     [dragging, setDragging] = useState(false),
@@ -107,7 +108,7 @@ export function ModelView({
         setOthers(false);
     };
     const escape = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape' || event.isComposing) return;
+      if (event.key !== 'Escape' || event.isComposing || resize.current) return;
       event.stopPropagation();
       restorePickerFocus.current = true;
       setOthers(false);
@@ -138,8 +139,25 @@ export function ModelView({
   const allowed = !!s.target && ['ready', 'waiting'].includes(s.status) && prefs.enabled;
   const apply = (selection: Selection, preserveSpeed = false) =>
     action({ target: s.target, expectedRevision: s.revision, selection, preserveSpeed }, 'apply');
-  const applyAgent = (agent: string) =>
-    action({ target: s.target, expectedRevision: s.revision, agent }, 'apply');
+  const applyAgent = (agent: string, selection?: Selection) =>
+    action({ target: s.target, expectedRevision: s.revision, agent, selection }, 'apply');
+  const currentAgent = s.agent?.current || 'codex';
+  const agentOptions = s.agent?.options || [];
+  const pinnedAgents = prefs.pinnedAgents || [];
+  const directoryAgents = [
+    ...agentOptions,
+    ...pinnedAgents
+      .filter((id) => !agentOptions.some((option) => option.id === id))
+      .map((id) => ({ id, label: id, available: false })),
+  ];
+  const canSwitchAgent = (agent: string) =>
+    !busy &&
+    prefs.enabled &&
+    !!s.target &&
+    ['ready', 'waiting', 'unavailable'].includes(s.status) &&
+    agentOptions.some((option) => option.id === agent && option.available);
+  const needsNewChat = (agent?: string) => !!agent && agent !== currentAgent && !!s.agent?.locked;
+  const handoffLabel = tr('新建聊天');
   const save = (patch: object) => action({ revision: state.revision, patch }, 'preferences');
   const addPreset = async () => {
     if (busy || !allowed || !s.current) return;
@@ -153,6 +171,7 @@ export function ModelView({
         s.current.speed,
       ),
       selection: { ...s.current },
+      agent: currentAgent,
     };
     const result = await save({ presets: uniquePresetNames([...prefs.presets, preset]) });
     if (result !== null) setPresetDraft(null);
@@ -179,7 +198,46 @@ export function ModelView({
   });
   const pinnedModels = models.filter((m) => prefs.pinned.includes(m.id));
   const visible =
-    pinnedModels.length || !s.agent || s.agent.current === 'codex' ? pinnedModels : models;
+    pinnedModels.length && currentAgent === 'codex'
+      ? [...pinnedModels, ...models.filter((model) => !prefs.pinned.includes(model.id))]
+      : models;
+  const modelSelection = (model: ModelState['snapshot']['models'][number]): Selection =>
+    s.current?.model === model.id
+      ? { ...s.current }
+      : {
+          model: model.id,
+          reasoning: model.reasoning.includes('medium') ? 'medium' : model.reasoning[0] || '',
+          speed: 'standard',
+        };
+  const boundPreset = (model: ModelState['snapshot']['models'][number]) =>
+    prefs.presets.find(
+      (p) => p.catalogPin && p.agent === currentAgent && p.selection.model === model.id,
+    );
+  const toggleModel = async (model: ModelState['snapshot']['models'][number]) => {
+    if (!s.agent)
+      return save({
+        pinned: prefs.pinned.includes(model.id)
+          ? prefs.pinned.filter((id) => id !== model.id)
+          : [...prefs.pinned, model.id],
+      });
+    const preset = boundPreset(model);
+    const legacy = currentAgent === 'codex' && prefs.pinned.includes(model.id);
+    if (legacy) return save({ pinned: prefs.pinned.filter((id) => id !== model.id) });
+    if (preset) return save({ presets: prefs.presets.filter((p) => p.id !== preset.id) });
+    const selection = modelSelection(model);
+    return save({
+      presets: [
+        ...prefs.presets,
+        {
+          id: crypto.randomUUID(),
+          agent: currentAgent,
+          catalogPin: true,
+          selection,
+          name: uniquePresetName(model.label, prefs.presets, selection.speed),
+        },
+      ],
+    });
+  };
   const groups = groupedModels(models, prefs);
   const dragType = 'application/x-palboo-model';
   const order = ['off', 'none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'];
@@ -210,7 +268,7 @@ export function ModelView({
     labels.forEach((label) => observer.observe(label));
     measure();
     return () => observer.disconnect();
-  }, [columns.join('|'), headerActions]);
+  }, [columns.join('|'), others, matrixOpen]);
   const widths = columns.length ? columns.map((_, i) => metrics.widths[i] || 63) : [28];
   const reasoningWidth = widths.reduce((sum, width) => sum + width, 0) + (widths.length - 1) * 4;
   const maxNameWidth = metrics.available
@@ -223,10 +281,10 @@ export function ModelView({
     // Initial fallback column widths are replaced after measuring the heading.
     // Restoring sooner clamps the saved offset and the resulting scroll event
     // overwrites it before the final matrix width is available.
-    if (!node || !metrics.available || restoredReading.current) return;
+    if (!node || !matrixOpen || !metrics.available || restoredReading.current) return;
     node.scrollLeft = reading.modelLeft || 0;
     restoredReading.current = node.scrollWidth - node.clientWidth >= (reading.modelLeft || 0);
-  }, [metrics.available, nameWidth, widths.join('|'), reading]);
+  }, [metrics.available, nameWidth, widths.join('|'), reading, others, matrixOpen]);
   useLayoutEffect(() => {
     const node = matrix.current;
     if (!node) return;
@@ -240,7 +298,7 @@ export function ModelView({
       for (const event of ['wheel', 'pointerdown', 'keydown', 'touchstart'])
         node.removeEventListener(event, takeOver);
     };
-  }, [reading]);
+  }, [reading, others]);
   const rows = (items: typeof models) =>
     items.map((m) => (
       <div
@@ -337,7 +395,12 @@ export function ModelView({
           prefs.presets.filter((p) => p.id !== presetDraft.id),
           presetDraft.selection.speed,
         );
-        const preset = { id: presetDraft.id, name, selection: presetDraft.selection };
+        const preset = {
+          id: presetDraft.id,
+          name,
+          selection: presetDraft.selection,
+          ...(presetDraft.agent ? { agent: presetDraft.agent } : {}),
+        };
         const result = await save({
           presets: uniquePresetNames(
             presetDraft.creating
@@ -396,8 +459,8 @@ export function ModelView({
       aria-expanded={others}
       onClick={() => {
         if (!others) {
-          setBrowserHeight(main.current?.offsetHeight || 0);
-          setCatalogGroup('');
+          setBrowserHeight(Math.max(300, main.current?.offsetHeight || 0));
+          restoredReading.current = false;
         }
         setPresetDraft(null);
         setOthers(!others);
@@ -407,15 +470,20 @@ export function ModelView({
     </button>
   );
   const catalogControls = (
-    <div className="model-picker-actions" ref={pickerActions}>
+    <div className="model-picker-actions" ref={pickerActions} data-model-catalog-actions>
       {headerActions && (
-        <h3 className="model-catalog-title">
-          {(groups.find((group) => group.id === catalogGroup) || groups[0])?.name}
-        </h3>
+        <style>{`
+          [data-model-catalog-actions] { display: inline-flex; align-items: center; gap: 4px; margin: 0; }
+          [data-model-catalog-actions] > button { display: grid; place-items: center; flex: none; width: 28px; height: 28px; min-width: 28px; min-height: 28px; padding: 5px; border: 0; border-radius: 6px; color: inherit; background: transparent; cursor: pointer; }
+          [data-model-catalog-actions] > button:hover:not(:disabled) { background: color-mix(in srgb, currentColor 8%, transparent); }
+          [data-model-catalog-actions] > button:disabled { opacity: .45; cursor: default; }
+          [data-model-catalog-actions] svg { display: block; width: 18px; height: 18px; }
+        `}</style>
       )}
       <button
         className="model-icon-button"
         data-refresh="model"
+        style={{ '--feature-refresh-opacity': 1 } as CSSProperties}
         aria-label={tr('刷新可用模型')}
         disabled={busy || !prefs.enabled}
         onClick={() => void action({}, 'refresh')}
@@ -456,230 +524,43 @@ export function ModelView({
     >
       <div className="model-main" ref={main} data-view={others ? 'all' : 'favorites'}>
         <div className="model-favorites" aria-hidden={others} inert={others}>
-          <div
-            className="model-scroll"
-            ref={matrix}
-            onScroll={(event) => {
-              if (restoredReading.current && event.currentTarget.clientWidth)
-                reading.modelLeft = event.currentTarget.scrollLeft;
-            }}
-          >
-            <div className="model-matrix">
-              <div className="model-intrinsic-width" data-intrinsic-width hidden />
-              <ModelHeading
-                actions={headerActions}
-                matrix={matrix}
-                headings={headings}
-                nameWidth={nameWidth}
-                widths={widths}
-                hidden={others}
-                catalogActions={others ? catalogControls : undefined}
-              >
-                <button
-                  type="button"
-                  ref={fastButton}
-                  className="model-icon-button model-fast"
-                  aria-label="Fast"
-                  aria-pressed={fastActive}
-                  data-phase={motion.phase}
-                  data-filled={fastActive}
-                  style={{ left: nameWidth - 6 }}
-                  disabled={
-                    busy || motion.phase !== 'idle' || !allowed || !s.current || !currentModel?.fast
-                  }
-                  onClick={async () => {
-                    if (!s.current) return;
-                    const enabling = s.current.speed !== 'fast';
-                    if (!enabling) stopDischarge();
-                    const request = apply({
-                      ...s.current,
-                      speed: enabling ? 'fast' : 'standard',
-                    });
-                    if (enabling) {
-                      await motion.start(
-                        request.then(
-                          (result) =>
-                            result !== null &&
-                            (result as ModelState | undefined)?.snapshot?.current?.speed !==
-                              'standard',
-                        ),
-                      );
-                    } else await request;
-                  }}
-                >
-                  {icon('bolt')}
-                  <span
-                    ref={motion.fill}
-                    className="model-fast-fill"
-                    aria-hidden="true"
-                    dangerouslySetInnerHTML={{ __html: iconSvg('bolt-filled') }}
-                  />
-                </button>
-                <div
-                  className="model-choices"
-                  style={{
-                    gridTemplateColumns: widths.map((width) => `minmax(${width}px, 1fr)`).join(' '),
-                  }}
-                >
-                  {columns.map((c) => (
-                    <span key={c}>
-                      <span data-reasoning-label>{label(c) || tr('选择')}</span>
-                    </span>
-                  ))}
-                </div>
-              </ModelHeading>
-              <div className="model-primary">
-                <button
-                  type="button"
-                  className="model-column-resize"
-                  aria-label={tr('调整模型名称宽度')}
-                  aria-description={tr('左右拖动或方向键调整，当前 {{nameWidth}}px', {
-                    nameWidth: nameWidth,
-                  })}
-                  data-column-min={100}
-                  data-column-max={maxNameWidth}
-                  data-column-width={nameWidth}
-                  aria-disabled={busy}
-                  tabIndex={busy ? -1 : 0}
-                  data-resizing={!!resize.current}
-                  data-dragging={dragging}
-                  onPointerDown={(event) => {
-                    if (event.button !== 0 || busy || resize.current) return;
-                    event.preventDefault();
-                    event.stopPropagation();
-                    event.currentTarget.focus({ preventScroll: true });
-                    stopDischarge();
-                    setDragging(false);
-                    resize.current = {
-                      pointer: event.pointerId,
-                      x: event.clientX,
-                      y: event.clientY,
-                      moved: false,
-                      scale:
-                        matrix.current!.getBoundingClientRect().width /
-                          matrix.current!.offsetWidth || 1,
-                      width: nameWidth,
-                      value: nameWidth,
-                    };
-                    event.currentTarget.setPointerCapture(event.pointerId);
-                    setColumnWidth(nameWidth);
-                  }}
-                  onPointerMove={(event) => {
-                    const drag = resize.current;
-                    if (!drag || drag.pointer !== event.pointerId) return;
-                    const dx = event.clientX - drag.x;
-                    const dy = event.clientY - drag.y;
-                    if (!drag.moved && (Math.abs(dx) < 2 || Math.abs(dx) < Math.abs(dy))) return;
-                    if (!drag.moved) setDragging(true);
-                    drag.moved = true;
-                    drag.value = clampWidth(drag.width + (event.clientX - drag.x) / drag.scale);
-                    setColumnWidth(drag.value);
-                  }}
-                  onPointerUp={(event) => {
-                    const drag = resize.current;
-                    if (!drag || drag.pointer !== event.pointerId) return;
-                    setDragging(false);
-                    resize.current = null;
-                    event.currentTarget.releasePointerCapture(event.pointerId);
-                    if (drag.value !== drag.width) void saveWidth(drag.value);
-                    else setColumnWidth(null);
-                  }}
-                  onLostPointerCapture={() => {
-                    if (!resize.current) return;
-                    setDragging(false);
-                    resize.current = null;
-                    setColumnWidth(null);
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Escape' && resize.current) {
-                      event.stopPropagation();
-                      setDragging(false);
-                      event.currentTarget.releasePointerCapture(resize.current.pointer);
-                      resize.current = null;
-                      setColumnWidth(null);
-                      return;
-                    }
-                    if (busy || resize.current || !['ArrowLeft', 'ArrowRight'].includes(event.key))
-                      return;
-                    event.preventDefault();
-                    event.stopPropagation();
-                    const width = clampWidth(nameWidth + (event.key === 'ArrowLeft' ? -16 : 16));
-                    if (width === nameWidth) return;
-                    setColumnWidth(width);
-                    void saveWidth(width);
-                  }}
-                >
-                  <span className="model-divider-line" />
-                </button>
-                <div className="model-discharge" ref={discharge} aria-hidden="true">
-                  <svg viewBox="0 0 48 360" preserveAspectRatio="none">
-                    <g ref={dischargePath}>
-                      <path
-                        className="model-discharge-glow"
-                        d={dischargeShape}
-                        vectorEffect="non-scaling-stroke"
-                      />
-                      <path
-                        className="model-discharge-core"
-                        d={dischargeShape}
-                        vectorEffect="non-scaling-stroke"
-                      />
-                      <path
-                        className="model-discharge-branches"
-                        d="M20 122 L12 144 L15 158 M28 256 L35 270 L32 284"
-                        vectorEffect="non-scaling-stroke"
-                      />
-                    </g>
-                  </svg>
-                </div>
-                {!!models.length && !visible.length && (
-                  <p className="model-empty-favorites">{tr('暂无模型')}</p>
-                )}
-                {rows(visible)}
-                {!models.length && <p>{tr('暂无可用模型')}</p>}
-              </div>
-            </div>
-          </div>
-          {s.agent && s.agent.options.length > 1 && (
-            <section className="model-agents" aria-label="CLI">
-              {s.agent.options.map((opt) => {
-                const active = s.agent?.current === opt.id;
-                const canSwitch =
-                  !busy &&
-                  prefs.enabled &&
-                  !!s.target &&
-                  opt.available &&
-                  ['ready', 'waiting', 'unavailable'].includes(s.status);
-                return (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    className="model-agent-choice"
-                    data-agent-option={opt.id}
-                    data-handoff={s.agent?.locked && !active ? 'true' : undefined}
-                    disabled={!canSwitch && !active}
-                    aria-disabled={!canSwitch || active}
-                    aria-pressed={active}
-                    aria-label={opt.label}
-                    aria-description={
-                      !opt.available
-                        ? tr('暂不可用')
-                        : s.agent?.locked && !active
-                          ? tr('新建聊天并携带当前上下文切换到 {{agent}}', { agent: opt.label })
-                          : undefined
-                    }
-                    onClick={() => {
-                      if (canSwitch && !active) void applyAgent(opt.id);
-                    }}
-                  >
-                    <span>{opt.label}</span>
-                  </button>
-                );
-              })}
-            </section>
-          )}
           <section className="model-collections" aria-label={tr('收藏')}>
             <div className="model-presets" data-editing={tools}>
+              {pinnedAgents.map((id) => (
+                <button
+                  type="button"
+                  className="model-preset-choice"
+                  key={id}
+                  disabled={id === currentAgent || !canSwitchAgent(id)}
+                  aria-pressed={id === currentAgent}
+                  onClick={() => void applyAgent(id)}
+                >
+                  <span>
+                    {agentOptions.find((option) => option.id === id)?.label || id}
+                    {needsNewChat(id) && (
+                      <small className="model-preset-handoff">{handoffLabel}</small>
+                    )}
+                  </span>
+                </button>
+              ))}
+              {currentAgent === 'codex' &&
+                pinnedModels.map((model) => (
+                  <button
+                    type="button"
+                    className="model-preset-choice model-legacy-pin"
+                    key={`model:${model.id}`}
+                    disabled={busy || !allowed}
+                    aria-pressed={s.current?.model === model.id}
+                    onClick={() => void apply(modelSelection(model), true)}
+                  >
+                    <span>{model.label}</span>
+                  </button>
+                ))}
+              {!pinnedAgents.length &&
+                !prefs.presets.length &&
+                !(currentAgent === 'codex' && pinnedModels.length > 0) && (
+                  <p className="model-empty-favorites">{tr('在目录中固定常用模型或 CLI')}</p>
+                )}
               {prefs.presets.map((p) => (
                 <div className="model-preset-tag" key={p.id}>
                   {presetDraft?.id === p.id && !presetDraft.creating ? (
@@ -688,9 +569,16 @@ export function ModelView({
                     <button
                       className="model-preset-choice"
                       disabled={busy}
-                      aria-disabled={!tools && (!allowed || !valid(p.selection))}
+                      aria-disabled={
+                        !tools &&
+                        (p.agent && p.agent !== currentAgent
+                          ? !canSwitchAgent(p.agent)
+                          : !allowed || !valid(p.selection))
+                      }
                       aria-label={presetLabel(p.name, p.selection)}
-                      aria-description={tools ? tr('点击重命名') : undefined}
+                      aria-description={
+                        tools ? tr('点击重命名') : needsNewChat(p.agent) ? handoffLabel : undefined
+                      }
                       title={presetLabel(
                         s.models.find((m) => m.id === p.selection.model)?.label ||
                           p.selection.model,
@@ -698,13 +586,16 @@ export function ModelView({
                       )}
                       aria-pressed={
                         !tools &&
+                        (!p.agent || p.agent === currentAgent) &&
                         s.current?.model === p.selection.model &&
                         s.current.reasoning === p.selection.reasoning &&
                         s.current.speed === p.selection.speed
                       }
                       onClick={() => {
                         if (tools) renamePreset(p);
-                        else if (allowed && valid(p.selection)) void apply(p.selection);
+                        else if (p.agent && p.agent !== currentAgent) {
+                          if (canSwitchAgent(p.agent)) void applyAgent(p.agent, p.selection);
+                        } else if (allowed && valid(p.selection)) void apply(p.selection);
                       }}
                     >
                       {p.selection.speed === 'fast' && icon('bolt-filled')}
@@ -715,6 +606,21 @@ export function ModelView({
                             {' · '}
                             {label(p.selection.reasoning)}
                           </span>
+                        )}
+                        {p.agent &&
+                          prefs.presets.some(
+                            (other) =>
+                              other.id !== p.id &&
+                              other.agent !== p.agent &&
+                              other.selection.model === p.selection.model,
+                          ) && (
+                            <small className="model-preset-reasoning">
+                              {' '}
+                              · {agentOptions.find((opt) => opt.id === p.agent)?.label || p.agent}
+                            </small>
+                          )}
+                        {needsNewChat(p.agent) && (
+                          <small className="model-preset-handoff">{handoffLabel}</small>
                         )}
                       </span>
                     </button>
@@ -787,28 +693,53 @@ export function ModelView({
         </div>
         {others && (
           <div className="model-picker" ref={picker} role="region" aria-label={tr('所有模型')}>
-            {!headerActions && catalogControls}
-            <div
-              className="model-other-list"
-              onScroll={(event) => {
-                if (!headerActions) return;
-                const list = event.currentTarget;
-                const top = list.getBoundingClientRect().top;
-                const sections = [...list.querySelectorAll<HTMLElement>('.model-group')];
-                const current = sections
-                  .reverse()
-                  .find((section) => section.getBoundingClientRect().top <= top + 1);
-                setCatalogGroup(current?.dataset.modelGroup || '');
-              }}
-            >
-              {groups.map((group, index) => (
+            {headerActions ? createPortal(catalogControls, headerActions) : catalogControls}
+            <div className="model-other-list">
+              {directoryAgents.length > 0 && (
+                <section className="model-agents" aria-label="CLI">
+                  {directoryAgents.map((option) => (
+                    <div className="model-agent-entry" key={option.id}>
+                      <button
+                        type="button"
+                        className="model-agent-choice"
+                        data-agent-option={option.id}
+                        disabled={option.id === currentAgent || !canSwitchAgent(option.id)}
+                        aria-pressed={option.id === currentAgent}
+                        title={!option.available ? tr('暂不可用') : undefined}
+                        onClick={() => void applyAgent(option.id)}
+                      >
+                        {option.label}
+                        {needsNewChat(option.id) && <small>{handoffLabel}</small>}
+                      </button>
+                      <button
+                        type="button"
+                        className="model-icon-button"
+                        aria-label={tr('固定 {{agent}}', { agent: option.label })}
+                        title={tr('固定 {{agent}}', { agent: option.label })}
+                        aria-pressed={pinnedAgents.includes(option.id)}
+                        disabled={busy || !prefs.enabled}
+                        onClick={() =>
+                          void save({
+                            pinnedAgents: pinnedAgents.includes(option.id)
+                              ? pinnedAgents.filter((id) => id !== option.id)
+                              : [...pinnedAgents, option.id],
+                          })
+                        }
+                      >
+                        {icon(pinnedAgents.includes(option.id) ? 'bookmark-filled' : 'bookmark')}
+                      </button>
+                    </div>
+                  ))}
+                </section>
+              )}
+              {groups.map((group) => (
                 <section
                   className="model-group"
                   data-model-group={group.id}
                   key={group.id}
                   aria-label={group.name}
                 >
-                  <h3 hidden={!!headerActions && index === 0}>{group.name}</h3>
+                  <h3>{group.name}</h3>
                   <div className="model-tiles">
                     {group.models.map((m) => (
                       <button
@@ -816,15 +747,14 @@ export function ModelView({
                         key={m.id}
                         data-model-tile={m.id}
                         aria-label={m.label}
-                        aria-pressed={prefs.pinned.includes(m.id)}
+                        aria-pressed={
+                          !!boundPreset(m) ||
+                          (currentAgent === 'codex' && prefs.pinned.includes(m.id))
+                        }
                         disabled={busy || !prefs.enabled}
                         onClick={async (event) => {
                           const button = event.currentTarget;
-                          await save({
-                            pinned: prefs.pinned.includes(m.id)
-                              ? prefs.pinned.filter((id) => id !== m.id)
-                              : [...prefs.pinned, m.id],
-                          });
+                          await toggleModel(m);
                           if (button.isConnected) button.focus({ preventScroll: true });
                         }}
                       >
@@ -837,6 +767,209 @@ export function ModelView({
                   </div>
                 </section>
               ))}
+              {!!models.length && (
+                <details
+                  className="model-reasoning-directory"
+                  onToggle={(event) => setMatrixOpen(event.currentTarget.open)}
+                >
+                  <summary>{tr('推理档位')}</summary>
+                  <div
+                    className="model-scroll"
+                    ref={matrix}
+                    onScroll={(event) => {
+                      if (restoredReading.current && event.currentTarget.clientWidth)
+                        reading.modelLeft = event.currentTarget.scrollLeft;
+                    }}
+                  >
+                    <div className="model-matrix">
+                      <div className="model-intrinsic-width" data-intrinsic-width hidden />
+                      <ModelHeading
+                        matrix={matrix}
+                        headings={headings}
+                        nameWidth={nameWidth}
+                        widths={widths}
+                        hidden={false}
+                      >
+                        <button
+                          type="button"
+                          ref={fastButton}
+                          className="model-icon-button model-fast"
+                          aria-label="Fast"
+                          aria-pressed={fastActive}
+                          data-phase={motion.phase}
+                          data-filled={fastActive}
+                          style={{ left: nameWidth - 6 }}
+                          disabled={
+                            busy ||
+                            motion.phase !== 'idle' ||
+                            !allowed ||
+                            !s.current ||
+                            !currentModel?.fast
+                          }
+                          onClick={async () => {
+                            if (!s.current) return;
+                            const enabling = s.current.speed !== 'fast';
+                            if (!enabling) stopDischarge();
+                            const request = apply({
+                              ...s.current,
+                              speed: enabling ? 'fast' : 'standard',
+                            });
+                            if (enabling) {
+                              await motion.start(
+                                request.then(
+                                  (result) =>
+                                    result !== null &&
+                                    (result as ModelState | undefined)?.snapshot?.current?.speed !==
+                                      'standard',
+                                ),
+                              );
+                            } else await request;
+                          }}
+                        >
+                          {icon('bolt')}
+                          <span
+                            ref={motion.fill}
+                            className="model-fast-fill"
+                            aria-hidden="true"
+                            dangerouslySetInnerHTML={{ __html: iconSvg('bolt-filled') }}
+                          />
+                        </button>
+                        <div
+                          className="model-choices"
+                          style={{
+                            gridTemplateColumns: widths
+                              .map((width) => `minmax(${width}px, 1fr)`)
+                              .join(' '),
+                          }}
+                        >
+                          {columns.map((c) => (
+                            <span key={c}>
+                              <span data-reasoning-label>{label(c) || tr('选择')}</span>
+                            </span>
+                          ))}
+                        </div>
+                      </ModelHeading>
+                      <div className="model-primary">
+                        <button
+                          type="button"
+                          className="model-column-resize"
+                          aria-label={tr('调整模型名称宽度')}
+                          aria-description={tr('左右拖动或方向键调整，当前 {{nameWidth}}px', {
+                            nameWidth: nameWidth,
+                          })}
+                          data-column-min={100}
+                          data-column-max={maxNameWidth}
+                          data-column-width={nameWidth}
+                          aria-disabled={busy}
+                          tabIndex={busy ? -1 : 0}
+                          data-resizing={!!resize.current}
+                          data-dragging={dragging}
+                          onPointerDown={(event) => {
+                            if (event.button !== 0 || busy || resize.current) return;
+                            event.preventDefault();
+                            event.stopPropagation();
+                            event.currentTarget.focus({ preventScroll: true });
+                            stopDischarge();
+                            setDragging(false);
+                            resize.current = {
+                              pointer: event.pointerId,
+                              x: event.clientX,
+                              y: event.clientY,
+                              moved: false,
+                              scale:
+                                matrix.current!.getBoundingClientRect().width /
+                                  matrix.current!.offsetWidth || 1,
+                              width: nameWidth,
+                              value: nameWidth,
+                            };
+                            event.currentTarget.setPointerCapture(event.pointerId);
+                            setColumnWidth(nameWidth);
+                          }}
+                          onPointerMove={(event) => {
+                            const drag = resize.current;
+                            if (!drag || drag.pointer !== event.pointerId) return;
+                            const dx = event.clientX - drag.x;
+                            const dy = event.clientY - drag.y;
+                            if (!drag.moved && (Math.abs(dx) < 2 || Math.abs(dx) < Math.abs(dy)))
+                              return;
+                            if (!drag.moved) setDragging(true);
+                            drag.moved = true;
+                            drag.value = clampWidth(
+                              drag.width + (event.clientX - drag.x) / drag.scale,
+                            );
+                            setColumnWidth(drag.value);
+                          }}
+                          onPointerUp={(event) => {
+                            const drag = resize.current;
+                            if (!drag || drag.pointer !== event.pointerId) return;
+                            setDragging(false);
+                            resize.current = null;
+                            event.currentTarget.releasePointerCapture(event.pointerId);
+                            if (drag.value !== drag.width) void saveWidth(drag.value);
+                            else setColumnWidth(null);
+                          }}
+                          onLostPointerCapture={() => {
+                            if (!resize.current) return;
+                            setDragging(false);
+                            resize.current = null;
+                            setColumnWidth(null);
+                          }}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Escape' && resize.current) {
+                              event.stopPropagation();
+                              setDragging(false);
+                              event.currentTarget.releasePointerCapture(resize.current.pointer);
+                              resize.current = null;
+                              setColumnWidth(null);
+                              return;
+                            }
+                            if (
+                              busy ||
+                              resize.current ||
+                              !['ArrowLeft', 'ArrowRight'].includes(event.key)
+                            )
+                              return;
+                            event.preventDefault();
+                            event.stopPropagation();
+                            const width = clampWidth(
+                              nameWidth + (event.key === 'ArrowLeft' ? -16 : 16),
+                            );
+                            if (width === nameWidth) return;
+                            setColumnWidth(width);
+                            void saveWidth(width);
+                          }}
+                        >
+                          <span className="model-divider-line" />
+                        </button>
+                        <div className="model-discharge" ref={discharge} aria-hidden="true">
+                          <svg viewBox="0 0 48 360" preserveAspectRatio="none">
+                            <g ref={dischargePath}>
+                              <path
+                                className="model-discharge-glow"
+                                d={dischargeShape}
+                                vectorEffect="non-scaling-stroke"
+                              />
+                              <path
+                                className="model-discharge-core"
+                                d={dischargeShape}
+                                vectorEffect="non-scaling-stroke"
+                              />
+                              <path
+                                className="model-discharge-branches"
+                                d="M20 122 L12 144 L15 158 M28 256 L35 270 L32 284"
+                                vectorEffect="non-scaling-stroke"
+                              />
+                            </g>
+                          </svg>
+                        </div>
+
+                        {rows(visible)}
+                        {!models.length && <p>{tr('暂无可用模型')}</p>}
+                      </div>
+                    </div>
+                  </div>
+                </details>
+              )}
               {!models.length && <p>{tr('暂无可用模型')}</p>}
             </div>
           </div>

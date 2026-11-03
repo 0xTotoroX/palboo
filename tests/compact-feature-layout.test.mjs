@@ -131,19 +131,24 @@ window.show=async(width,height,language,font=16,theme='dark')=>{
       });
       const after = await meter();
       assert.ok(Math.abs(before.top - after.top) < 1, 'scrolling models does not move the footer');
-      const presetGeometry = await model.locator('.model-preset-choice').evaluateAll((buttons) =>
-        buttons.map((button) => {
-          const b = button.getBoundingClientRect(),
-            reason = button.querySelector('.model-preset-reasoning'),
-            r = reason.getBoundingClientRect();
-          return {
-            label: reason.textContent.trim(),
-            inside:
-              r.left >= b.left && r.right <= b.right + 1 && r.top >= b.top && r.bottom <= b.bottom,
-            fits: button.scrollWidth <= button.clientWidth + 1,
-          };
-        }),
-      );
+      const presetGeometry = await model
+        .locator('.model-preset-choice:has(.model-preset-reasoning)')
+        .evaluateAll((buttons) =>
+          buttons.map((button) => {
+            const b = button.getBoundingClientRect(),
+              reason = button.querySelector('.model-preset-reasoning'),
+              r = reason.getBoundingClientRect();
+            return {
+              label: reason.textContent.trim(),
+              inside:
+                r.left >= b.left &&
+                r.right <= b.right + 1 &&
+                r.top >= b.top &&
+                r.bottom <= b.bottom,
+              fits: button.scrollWidth <= button.clientWidth + 1,
+            };
+          }),
+        );
       assert.ok(
         presetGeometry.every((p) => p.inside && p.fits),
         JSON.stringify({ width, font, presetGeometry }),
@@ -155,7 +160,7 @@ window.show=async(width,height,language,font=16,theme='dark')=>{
       await model
         .getByRole('button', { name: language === 'en' ? 'Edit preset' : '编辑预设', exact: true })
         .click();
-      await model.locator('.model-preset-choice').first().click();
+      await model.locator('.model-preset-tag .model-preset-choice').first().click();
       const editor = model.locator('.model-preset-editor');
       assert.equal(await editor.locator('.model-preset-reasoning').innerText(), 'High');
       assert.ok(await editor.evaluate((node) => node.scrollWidth <= node.clientWidth + 1));

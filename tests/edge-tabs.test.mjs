@@ -283,10 +283,7 @@ test('six icon tabs remain reachable beside model headings and catalog controls 
   });
   await nav.getByRole('button', { name: 'Grok Bot', exact: true }).waitFor();
   await nav.getByRole('button', { name: '模型切换', exact: true }).click();
-  await page
-    .locator('.model-inline-heading:not([hidden]) [data-reasoning-label]')
-    .first()
-    .waitFor();
+  await page.getByRole('button', { name: '所有模型', exact: true }).waitFor();
   const inspect = () =>
     nav.locator('button').evaluateAll((nodes) =>
       nodes.map((node) => {
@@ -327,24 +324,17 @@ test('six icon tabs remain reachable beside model headings and catalog controls 
     assert.equal(icon.svg.height, 18);
     assert.ok(icon.reachable, icon.id + ' is directly clickable');
   }
-  const fast = await page.locator('header .model-fast').boundingBox();
-  assert.ok(
-    icons.every((icon) => icon.box.right <= fast.x),
-    'icons leave the Fast column clear',
-  );
+  assert.equal(await page.locator('.model-fast').count(), 0);
   const head = await page.locator('#edge-panel > header').boundingBox();
   const body = await page.locator('#edge-views').boundingBox();
   assert.ok(Math.max(...icons.map((icon) => icon.box.bottom)) <= head.y + head.height);
   assert.ok(body.y >= head.y + head.height, 'wrapping is included in native content height');
   await page.getByRole('button', { name: '所有模型', exact: true }).click();
-  await page.locator('.model-catalog-title').waitFor();
+  await page.getByRole('button', { name: '关闭所有模型', exact: true }).waitFor();
   assert.ok(
     (await inspect()).every((icon) => icon.reachable),
     'catalog retains every feature switch',
   );
-  const title = await page.locator('.model-catalog-title').boundingBox();
-  const catalogIcons = await inspect();
-  assert.ok(title.x >= Math.max(...catalogIcons.map((icon) => icon.box.right)));
   for (const label of ['Grok Bot', '术语', '下一步', '大纲', '看板', '模型切换']) {
     await nav.getByRole('button', { name: label, exact: true }).click();
     assert.equal(

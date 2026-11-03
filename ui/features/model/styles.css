@@ -43,7 +43,7 @@
   overflow: auto;
 }
 .model-main[data-view='all'] > :not(.model-picker) {
-  visibility: hidden;
+  display: none;
 }
 :host([data-measuring='true']) .model-main[data-view='all'] {
   height: var(--model-browser-height);
@@ -408,8 +408,10 @@
   flex: none;
 }
 .model-picker {
-  position: absolute;
-  inset: 0;
+  position: relative;
+  inset: auto;
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   padding: 0;
@@ -424,7 +426,14 @@
   flex: none;
   margin-bottom: 8px;
 }
-.feature-model .model-picker-actions button {
+.model-picker-actions .model-icon-button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 5px;
+  border: 0;
+  border-radius: 6px;
   color: var(--muted);
   background: transparent;
 }
@@ -432,8 +441,13 @@
   color: var(--ink);
   background: transparent;
 }
+.model-picker-actions .model-icon-button svg {
+  width: 18px;
+  height: 18px;
+}
 .model-other-list {
   min-height: 0;
+  max-height: min(440px, 60vh);
   overflow: auto;
   overscroll-behavior: contain;
 }
@@ -483,4 +497,34 @@
   flex: 1;
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+.model-preset-reasoning,
+.model-preset-handoff,
+.model-agent-choice > small {
+  font-size: 0.78em;
+  color: var(--muted);
+}
+.model-preset-handoff,
+.model-agent-choice > small {
+  margin-inline-start: 0.55em;
+}
+.model-agent-entry {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.model-agents {
+  margin: 0 0 12px;
+}
+.model-reasoning-directory {
+  margin-block: 12px 0;
+}
+.model-reasoning-directory > summary {
+  color: var(--muted);
+  cursor: pointer;
+  min-height: 28px;
+}
+.model-reasoning-directory > .model-scroll {
+  margin-top: 6px;
 }

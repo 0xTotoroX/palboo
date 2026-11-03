@@ -345,3 +345,58 @@ test('presets show and apply saved reasoning independently of the current model 
     await browser.close();
   }
 });
+
+test('catalog pins CLI and its model, then one click requests both with a visible handoff label', async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await fixture(browser);
+    await page.evaluate(() => {
+      window.root.unmount();
+      window.model.snapshot.current = window.beta;
+      window.model.snapshot.agent = {
+        current: 'antigravity',
+        label: 'Antigravity CLI',
+        locked: false,
+        options: [
+          { id: 'codex', label: 'Codex', available: true },
+          { id: 'antigravity', label: 'Antigravity CLI', available: true },
+        ],
+      };
+      window.mount();
+    });
+    assert.equal(await page.locator('.model-agents').count(), 0);
+    await page.getByRole('button', { name: '所有模型', exact: true }).click();
+    await page.getByRole('button', { name: '固定 Antigravity CLI', exact: true }).click();
+    await page.getByRole('button', { name: '固定 Antigravity CLI', pressed: true }).waitFor();
+    await page.locator('[data-model-tile="beta"]').click();
+    await page.locator('[data-model-tile="beta"][aria-pressed="true"]').waitFor();
+    await page.evaluate(() => {
+      window.root.unmount();
+      window.model.snapshot.current = window.alpha;
+      window.model.snapshot.models = window.model.snapshot.models.filter((m) => m.id === 'alpha');
+      Object.assign(window.model.snapshot.agent, {
+        current: 'codex',
+        label: 'Codex',
+        locked: true,
+      });
+      window.mount();
+    });
+    const preset = page.getByRole('button', { name: 'Beta · Low', exact: true });
+    assert.equal(await preset.locator('small').last().innerText(), '新建聊天');
+    assert.match(
+      await page.locator('.model-preset-choice').filter({ hasText: 'Antigravity CLI' }).innerText(),
+      /新建聊天/,
+    );
+    await preset.click();
+    const calls = await page.evaluate(() => window.calls.filter((c) => c.action === 'apply'));
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].data.agent, 'antigravity');
+    assert.deepEqual(calls[0].data.selection, {
+      model: 'beta',
+      reasoning: 'low',
+      speed: 'standard',
+    });
+  } finally {
+    await browser.close();
+  }
+});

@@ -1208,6 +1208,7 @@
   function begin(refresh = false, options = {}) {
     const target = resolveTarget(!options.agentSwitch);
     if (!target) throw new Error(tr('目标不可用'));
+    const budget = options.handoff ? 19000 : 11000;
     operation = {
       target,
       capabilityVersion,
@@ -1223,11 +1224,11 @@
       menus: new Set(),
       focus: document.activeElement,
       controller: new AbortController(),
-      deadline: performance.now() + 11000,
+      deadline: performance.now() + budget,
     };
     observeOperation();
     const active = operation;
-    active.timer = setTimeout(() => active.controller.abort(tr('操作超过 11 秒截止时间')), 11000);
+    active.timer = setTimeout(() => active.controller.abort(tr('模型切换操作超时')), budget);
     try {
       guard(operation);
     } catch (error) {
@@ -1366,7 +1367,8 @@
         return result('unavailable', cause.message);
       }
       let status = 'applied',
-        message = '';
+        message = '',
+        switchedComposer = null;
       try {
         phase(op, handoffPrompt ? tr('新建聊天并切换 CLI') : tr('切换 CLI'));
         op.mutated = true;
@@ -1378,10 +1380,18 @@
           handoffPrompt ? { handoffPrompt, sourceDraft: request.sourceDraft } : {},
         );
         if (switched?.composer) {
+          switchedComposer = switched.composer;
           const nextCandidate = one(
             candidates().filter((entry) => entry.composer === switched.composer),
           );
           if (nextCandidate) lastInteraction = nextCandidate;
+          if (request.selection && nextCandidate) {
+            const until = Math.min(op.deadline, performance.now() + 3000);
+            while (!passive().models.length && performance.now() + 80 < until) {
+              if (resolveTarget(false)?.composer !== switchedComposer) break;
+              await pause(op, 80);
+            }
+          }
         }
       } catch (cause) {
         status = op.aborted ? 'conflict' : 'unavailable';
@@ -1392,6 +1402,30 @@
       if (cleanupError && status === 'applied') {
         status = 'unavailable';
         message = cleanupError;
+      }
+      if (status === 'applied' && request.selection) {
+        const after = passive();
+        if (
+          !switchedComposer ||
+          resolveTarget(false)?.composer !== switchedComposer ||
+          after.agent?.current !== request.agent ||
+          !after.target?.id
+        )
+          return result('partial', tr('CLI 已切换，但无法确认模型操作的目标聊天'));
+        const selected = await apply({
+          target: after.target,
+          expectedRevision: after.revision,
+          selection: request.selection,
+        });
+        return selected.status === 'success'
+          ? selected
+          : {
+              ...selected,
+              status: 'partial',
+              message: [tr('CLI 已切换，但模型配置未完成'), selected.message]
+                .filter(Boolean)
+                .join(' · '),
+            };
       }
       return result(status, message);
     }

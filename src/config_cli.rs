@@ -415,18 +415,20 @@ fn dangerous(scope: Scope, patch: &Value, before: &Value) -> bool {
                 })
             })
         || matches!(scope, Scope::ModelControl)
-            && ["groups", "presets", "pinned"].iter().any(|key| {
-                patch["patch"][*key].as_array().is_some_and(|p| {
-                    before["preferences"][*key].as_array().is_some_and(|b| {
-                        b.iter().any(|old| {
-                            !p.iter().any(|new| {
-                                old.get("id")
-                                    .map_or(old == new, |id| new.get("id") == Some(id))
+            && ["groups", "presets", "pinned", "pinnedAgents"]
+                .iter()
+                .any(|key| {
+                    patch["patch"][*key].as_array().is_some_and(|p| {
+                        before["preferences"][*key].as_array().is_some_and(|b| {
+                            b.iter().any(|old| {
+                                !p.iter().any(|new| {
+                                    old.get("id")
+                                        .map_or(old == new, |id| new.get("id") == Some(id))
+                                })
                             })
                         })
                     })
                 })
-            })
 }
 pub async fn run(paths: &Paths, command: Command) -> Result<()> {
     let output = match command {

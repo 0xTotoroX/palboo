@@ -1,5 +1,14 @@
 // English interface copy. User-authored content is not translated.
 export default {
+  '在目录中固定常用模型或 CLI': 'Pin a model or CLI from the catalog',
+  新建聊天: 'New chat',
+  推理档位: 'Reasoning levels',
+  '固定 {{agent}}': 'Pin {{agent}}',
+  模型切换操作超时: 'Model switching timed out',
+  'CLI 已切换，但无法确认模型操作的目标聊天':
+    'CLI switched, but the chat for model selection could not be verified',
+  'CLI 已切换，但模型配置未完成': 'CLI switched, but model selection did not finish',
+
   '液态 Clear': 'Liquid Clear',
   整理三个代表作品: 'Organize three projects',
   记账应用: 'Expense tracker',

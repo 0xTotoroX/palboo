@@ -469,11 +469,17 @@ test('external CLI model picker and draft CLI switcher work through CodexHost DO
           target: s.target,
           expectedRevision: s.revision,
           agent: 'antigravity',
+          selection: { model: 'gemini-3-1-pro', reasoning: 'high', speed: 'standard' },
         }),
       switchedToCodex.snapshot,
     );
     assert.equal(switchedBack.status, 'success');
     assert.equal(switchedBack.snapshot.agent.current, 'antigravity');
+    assert.deepEqual(switchedBack.snapshot.current, {
+      model: 'gemini-3-1-pro',
+      reasoning: 'high',
+      speed: 'standard',
+    });
 
     await page.evaluate(() => {
       window.__extState.phase = 'locked';
@@ -499,18 +505,14 @@ test('external CLI model picker and draft CLI switcher work through CodexHost DO
       newChatBtn.onclick = () => {
         window.__newChatClicked = (window.__newChatClicked || 0) + 1;
         window.__extState.phase = 'draft';
-        window.__extState.composerId = 'new-draft';
-        composer.parentElement
-          .querySelector('[data-codexhost-agent-control]')
-          .setAttribute('data-codexhost-agent-control', 'new-draft');
+        // The host can reuse both the editor and its binding in an embedded draft.
+        composer.parentElement.classList.add('messaging-root', 'messaging-embedded');
+        composer.setAttribute('data-codex-composer', 'true');
         const menu = document.getElementById('ext-1-agent-menu');
-        menu.id = 'new-draft-agent-menu';
         menu.querySelectorAll('button').forEach((btn) => {
           btn.disabled = false;
         });
-        const next = composer.cloneNode(false);
-        next.innerHTML = '<p><br></p>';
-        composer.replaceWith(next);
+        composer.innerHTML = '<p><br></p>';
       };
       document.body.append(newChatBtn);
     });
@@ -601,6 +603,7 @@ test('external CLI model picker and draft CLI switcher work through CodexHost DO
           target: s.target,
           expectedRevision: s.revision,
           agent: 'codex',
+          selection: { model: 'beta', reasoning: 'high', speed: 'standard' },
           sourceDraft: '请继续完成方案 B',
           handoffPrompt:
             '[上下文交接] 前序会话完整记录：`/tmp/handoff.md`\n\n当前待处理输入：\n请继续完成方案 B',
@@ -610,6 +613,11 @@ test('external CLI model picker and draft CLI switcher work through CodexHost DO
     assert.equal(handoffSwitch.status, 'success');
     assert.equal(handoffSwitch.snapshot.agent.current, 'codex');
     assert.equal(handoffSwitch.snapshot.agent.locked, false);
+    assert.deepEqual(handoffSwitch.snapshot.current, {
+      model: 'beta',
+      reasoning: 'high',
+      speed: 'standard',
+    });
     assert.equal(await page.evaluate(() => window.__newChatClicked), 1);
     const composerAfter = await page.evaluate(
       () => document.querySelector('.ProseMirror').textContent,

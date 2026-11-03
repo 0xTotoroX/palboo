@@ -143,15 +143,21 @@ return <div className={'settings-app '+(dark?'dark':'')} style={{maxWidth:900,ma
       );
       await page.getByRole('button', { name: 'model-control', exact: true }).click();
       const model = preview.locator('.preview-model-control');
-      await model.locator('.model-row').first().waitFor();
-      assert.equal(await model.locator('.model-row').count(), 3, 'all pinned models, not only two');
+      await model.locator('.model-legacy-pin').first().waitFor();
       assert.equal(
-        await model.locator('.model-presets button.model-preset-choice').getAttribute('aria-label'),
+        await model.locator('.model-legacy-pin').count(),
+        3,
+        'all pinned models, not only two',
+      );
+      assert.equal(
+        await model
+          .locator('.model-preset-tag button.model-preset-choice')
+          .getAttribute('aria-label'),
         '日常检查 · High · Fast',
       );
       assert.equal(
         await model
-          .getByRole('button', { name: '当前模型 2 · High', exact: true })
+          .getByRole('button', { name: '当前模型 2', exact: true })
           .getAttribute('aria-pressed'),
         'true',
       );
@@ -179,8 +185,8 @@ return <div className={'settings-app '+(dark?'dark':'')} style={{maxWidth:900,ma
       await page.getByRole('button', { name: '同步配置', exact: true }).click();
       await bots.getByRole('button', { name: '已同步助手', exact: true }).waitFor();
       await page.getByRole('button', { name: 'model-control', exact: true }).click();
-      assert.equal(await model.locator('.model-row').count(), 1);
-      assert.equal(await model.locator('.model-presets button').count(), 0);
+      assert.equal(await model.locator('.model-legacy-pin').count(), 1);
+      assert.equal(await model.locator('.model-preset-tag').count(), 0);
       await page.getByRole('button', { name: 'board', exact: true }).click();
       await board.getByText('已同步任务', { exact: true }).waitFor();
       assert.equal(await board.getByText('仅预览任务', { exact: true }).count(), 0);
@@ -233,7 +239,7 @@ return <div className={'settings-app '+(dark?'dark':'')} style={{maxWidth:900,ma
         await workspace.getByRole('tab', { name: '看板', exact: true }).click();
         await workspace.getByText('已同步任务', { exact: true }).waitFor();
         await workspace.getByRole('tab', { name: '模型切换', exact: true }).click();
-        await workspace.locator('.model-row:visible').waitFor();
+        await workspace.locator('.model-legacy-pin:visible').waitFor();
         assert.equal(
           await workspace.locator('.csw-feature-pane-head:visible').count(),
           1,
