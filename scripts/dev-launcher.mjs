@@ -447,7 +447,7 @@ export async function revealDevelopment(
   );
 }
 
-export function developmentSettingsUrl(directory) {
+function developmentSettingsSession(directory) {
   const session = readJson(join(directory, 'target/dev/session.json'));
   if (!session?.url || !session.token || !hasDevelopmentOwner(directory))
     throw new Error('开发会话尚未运行，请先打开 Palboo.app 并切换到开发模式。');
@@ -461,15 +461,20 @@ export function developmentSettingsUrl(directory) {
   )
     throw new Error('开发设置地址无效。');
   url.hash = new URLSearchParams({ token: session.token }).toString();
-  return url.href;
+  return { url, token: session.token, sourceEpoch: session.sourceEpoch };
+}
+
+export function developmentSettingsUrl(directory) {
+  return developmentSettingsSession(directory).url.href;
 }
 
 export async function openDevelopmentSettings(directory) {
-  const url = new URL(developmentSettingsUrl(directory));
-  const token = new URLSearchParams(url.hash.slice(1)).get('token');
+  const { url, token, sourceEpoch } = developmentSettingsSession(directory);
+  const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+  if (sourceEpoch) headers['X-Palboo-Source'] = sourceEpoch;
   const response = await fetch(new URL('/api/settings/open', url), {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    headers,
     body: '{}',
     signal: AbortSignal.timeout(16000),
   });

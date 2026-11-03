@@ -78,7 +78,7 @@ dev-host 暂停安装版前将原先打开的 edge 功能 ID 写入恢复记录�
 
 - [app-mode.mjs](app-mode.mjs)：统一模式的一次性开发适配，按保存 worktree 编译再复用现有 Dev 监督进程；固定宿主目标、受限准备时间、私有请求/结果，不维护新常驻服务。Finder 启动补齐 Homebrew keg-only Rust 与 CARGO_HOME 工具路径，保留继承工具链优先级；准备或新建 Dev 前检查 npm/Cargo/rustc，不读取 shell 启动文件。
 
-开发设置入口保持宿主内：dev.mjs 初次打开和 dev-launcher --settings 都 POST 认证 `/api/settings/open`，等待宿主提交后返回，不调用系统 open；宿主不可用明确失败。稳定监督代理和来源校验保持原样。
+开发设置入口保持宿主内：dev.mjs 初次打开和 dev-launcher --settings 都 POST 认证 `/api/settings/open`，等待宿主提交后返回，不调用系统 open；宿主不可用明确失败。命令入口从同一份开发会话记录读取地址、凭据和来源标识，代理继续拒绝已过期的来源。
 
 app-launcher 在正式/开发模式的暂停状态只报告恢复入口，不打开系统浏览器、不调用 start/reconnect，也不提供无关的回正式模式按钮；原连接及模式不变。
 

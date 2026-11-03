@@ -777,11 +777,17 @@ test('Dev settings and reveal follow the selected source session without reopeni
 
 test('Dev settings use the authenticated host route and preserve failure without opening a browser', async (t) => {
   let failed = false;
-  const { root, requests } = await developmentFixture(t, (_req, res) => {
-    res.statusCode = failed ? 409 : 200;
+  const sourceEpoch = 'current-source';
+  const { root, requests } = await developmentFixture(t, (req, res) => {
+    const wrongSource = req.headers['x-palboo-source'] !== sourceEpoch;
+    res.statusCode = failed || wrongSource ? 409 : 200;
     res.end(
       JSON.stringify(
-        failed ? { ok: false, message: '宿主尚未就绪' } : { ok: true, status: 'submitted' },
+        wrongSource
+          ? { ok: false, message: '开发来源已改变' }
+          : failed
+            ? { ok: false, message: '宿主尚未就绪' }
+            : { ok: true, status: 'submitted' },
       ),
     );
   });
@@ -789,7 +795,7 @@ test('Dev settings use the authenticated host route and preserve failure without
   writeFileSync(join(root, 'target/dev/owner.json'), JSON.stringify({ pid: process.pid }));
   writeFileSync(
     join(root, 'target/dev/session.json'),
-    JSON.stringify({ url: `http://127.0.0.1:${runtime.port}`, token: runtime.token }),
+    JSON.stringify({ url: `http://127.0.0.1:${runtime.port}`, token: runtime.token, sourceEpoch }),
   );
   assert.deepEqual(await openDevelopmentSettings(root), { ok: true, status: 'submitted' });
   failed = true;
