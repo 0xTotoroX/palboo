@@ -625,22 +625,39 @@ const cases = [
           queueMicrotask(() => window.__companionDesktop.complete(id, structuredClone(reply)));
         };
         fixture.frames = [];
-        fixture.sampleHandoff = () => {
+        fixture.sampleHandoff = (sampleReturn = false) => {
           fixture.frames = [];
+          let sampledReturn = false;
           const sample = () => {
             const root = document.querySelector('.csw-workbench');
             if (root) {
-              const style = getComputedStyle(root);
               const rect = root.getBoundingClientRect();
+              const visible =
+                root.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) &&
+                rect.width > 0 &&
+                rect.height > 0;
+              // A slow runner can skip the short initial part of the easing.
+              // Sample its real animation on the visible shell at a known time.
+              const returning =
+                sampleReturn && !sampledReturn && visible && !root.dataset.handoff
+                  ? root.getAnimations().find((animation) => {
+                      const frames = animation.effect?.getKeyframes();
+                      return frames?.[0]?.opacity === '0.55' && frames.at(-1)?.opacity === '1';
+                    })
+                  : null;
+              if (returning) {
+                sampledReturn = true;
+                returning.pause();
+                returning.currentTime = 32;
+              }
+              const style = getComputedStyle(root);
               fixture.frames.push({
-                visible:
-                  root.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) &&
-                  rect.width > 0 &&
-                  rect.height > 0,
+                visible,
                 opacity: Number(style.opacity),
                 x: new DOMMatrixReadOnly(style.transform).m41,
                 scale: new DOMMatrixReadOnly(style.transform).m11,
               });
+              returning?.play();
             }
             fixture.sampleFrame = requestAnimationFrame(sample);
           };
@@ -700,10 +717,12 @@ const cases = [
           state.pendingPlacement = inside;
           state.features[0].pending = { owner: 'inside', placement: inside, ready: true };
         }, inside);
-        await page.waitForTimeout(850);
+        await page.waitForFunction(
+          () => document.querySelector('.csw-workbench')?.dataset.handoff === 'out',
+        );
         await page.evaluate((inside) => {
           const fixture = window.workbenchFixture;
-          fixture.sampleHandoff();
+          fixture.sampleHandoff(true);
           const state = fixture.handoff;
           state.mainPlacement = state.features[0].placement = inside;
           state.features[0].owner = 'inside';
@@ -717,7 +736,16 @@ const cases = [
             root.getAttribute('aria-busy') === 'false'
           );
         });
-        await page.waitForTimeout(280);
+        await page.waitForFunction(() => {
+          const { frames } = window.workbenchFixture;
+          const last = frames.at(-1);
+          return (
+            last?.visible &&
+            last.opacity === 1 &&
+            last.x === 0 &&
+            frames.some((frame) => frame.visible && frame.opacity < 0.95 && frame.x > 0)
+          );
+        });
         const returning = await samples();
         assert.ok(
           returning.some(
