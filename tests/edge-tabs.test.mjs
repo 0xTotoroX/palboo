@@ -225,7 +225,13 @@ test('edge tab saves serialize rapid selection and preserve absent feature prefe
 test('board keeps its reading size as tasks grow and uses tabs on a constrained display', async (t) => {
   const page = await fixture(t);
   const panel = page.locator('#edge-panel');
-  await page.waitForFunction(() => document.querySelector('#edge-panel').offsetHeight >= 480);
+  // Wait for the measured content size to reach the host projection before
+  // recording the baseline. The native fixture initially opens at 500px.
+  await page.waitForFunction(() => {
+    const measured = messages.filter((message) => message.action === 'content-size').at(-1);
+    const height = document.querySelector('#edge-panel').offsetHeight;
+    return measured && height === Math.min(innerHeight - 80, measured.height) && height >= 480;
+  });
   const initial = await panel.boundingBox();
   await page.evaluate(() => {
     const original = tasks.store.tasks[0];

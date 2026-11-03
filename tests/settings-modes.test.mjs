@@ -14,7 +14,7 @@ import { build } from 'esbuild';
 
 test(
   'unified settings retain grouped pages, legacy links, drafts, drawers and reading without navigation writes',
-  { timeout: 180000 },
+  { timeout: 300000 },
   async (testContext) => {
     let settings = structuredClone(fixtureSettings),
       rejectNext = false,

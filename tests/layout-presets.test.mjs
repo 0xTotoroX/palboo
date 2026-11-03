@@ -688,8 +688,14 @@ createRoot(document.getElementById('root')).render(<App/>);
     ]);
     await page.keyboard.press('Escape');
     const preset = page.locator('#current-layout-preset');
+    const waitForPreset = (value) =>
+      page.waitForFunction(
+        (expected) => document.querySelector('#current-layout-preset')?.value === expected,
+        value,
+      );
     await preset.selectOption('tabs-left');
     await page.waitForFunction(() => server.layouts.desktop.tabPosition === 'left');
+    await waitForPreset('tabs-left');
     assert.equal(await preset.inputValue(), 'tabs-left');
     assert.deepEqual(await page.evaluate(() => server.layouts.desktop.groups[0].ids), [
       'outline',
@@ -698,6 +704,7 @@ createRoot(document.getElementById('root')).render(<App/>);
     ]);
     await preset.selectOption('two-column');
     await page.waitForFunction(() => server.layouts.desktop.groups.length === 2);
+    await waitForPreset('two-column');
     assert.equal(await preset.inputValue(), 'two-column');
     assert.equal(
       await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),

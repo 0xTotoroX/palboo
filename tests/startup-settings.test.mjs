@@ -459,7 +459,7 @@ test(
       await tokenSwitch.click();
       await until(() => settings.tokenMeterEnabled === false && inFlight === 0);
       assert.deepEqual(Object.keys(saves.at(-1)).sort(), ['expectedRevision', 'tokenMeterEnabled']);
-      await page.reload();
+      await page.reload({ waitUntil: 'domcontentloaded', timeout: 15000 });
       await tokenSwitch.waitFor();
       assert.equal(await tokenSwitch.isChecked(), false);
       await tokenSwitch.click();

@@ -173,6 +173,8 @@ test('the mascot leaves the screen, joins the backdrop, follows features and ret
     const main = page.locator('#main');
     const mascot = page.locator('.brand-journey');
     const phase = () => main.getAttribute('data-brand-phase');
+    const waitForPhase = (expected) =>
+      main.and(page.locator(`[data-brand-phase="${expected}"]`)).waitFor();
     const position = () =>
       mascot.evaluate((node) => {
         const matrix = new DOMMatrix(getComputedStyle(node).transform);
@@ -181,11 +183,21 @@ test('the mascot leaves the screen, joins the backdrop, follows features and ret
     await page.screenshot({ path: resolve(reports, 'journey-opening.png') });
     await scrollScene(page, '.opening-story', 2.04 / 3.5);
     await page.clock.runFor(100);
+    await waitForPhase('opening');
     assert.equal(await phase(), 'opening');
     const route = [];
     for (const distance of [2.13, 2.2, 2.28, 2.4, 2.8, 3.4]) {
+      const previous = await mascot.getAttribute('style');
       await scrollScene(page, '.opening-story', distance / 3.5);
       await page.clock.runFor(100);
+      const expected = distance < 2.4 ? 'to-material' : 'material';
+      await waitForPhase(expected);
+      if (expected === 'to-material') {
+        await page.waitForFunction(
+          (style) => document.querySelector('.brand-journey')?.getAttribute('style') !== style,
+          previous,
+        );
+      }
       route.push({ distance, ...(await position()), phase: await phase() });
       await page.screenshot({ path: resolve(reports, `journey-material-${distance}.png`) });
     }
@@ -197,12 +209,27 @@ test('the mascot leaves the screen, joins the backdrop, follows features and ret
       .evaluate((el) => Number(getComputedStyle(el).opacity));
     await scrollScene(page, '.opening-story', 2.4 / 3.5);
     await page.clock.runFor(100);
+    await page.waitForFunction(
+      (before) =>
+        before -
+          Number(
+            getComputedStyle(document.querySelector('.layout-demo-material-backdrop svg')).opacity,
+          ) >
+        0.4,
+      deep,
+    );
     const light = await page
       .locator('.layout-demo-material-backdrop svg')
       .evaluate((el) => Number(getComputedStyle(el).opacity));
     assert.ok(deep - light > 0.4, 'backdrop deepens across the material tour');
     await scrollScene(page, '.opening-story', 2.2 / 3.5);
     await page.clock.runFor(100);
+    await page.waitForFunction(({ x, y }) => {
+      const matrix = new DOMMatrix(
+        getComputedStyle(document.querySelector('.brand-journey')).transform,
+      );
+      return Math.abs(matrix.e - x) < 2 && Math.abs(matrix.f - y) < 2;
+    }, route[1]);
     const reversed = await position();
     assert.ok(
       Math.abs(reversed.x - route[1].x) < 2 && Math.abs(reversed.y - route[1].y) < 2,
@@ -220,6 +247,7 @@ test('the mascot leaves the screen, joins the backdrop, follows features and ret
     await page.screenshot({ path: resolve(reports, 'journey-to-features.png') });
     await scrollScene(page, '#features', 0);
     await page.clock.runFor(500);
+    await waitForPhase('feature');
     assert.equal(await phase(), 'feature');
     await page.screenshot({ path: resolve(reports, 'journey-desktop.png') });
     // Sample the actual paint frames in one browser turn. Tool round trips and
@@ -1274,6 +1302,9 @@ test('entry demonstration only runs in view and manual interaction cancels it', 
     await panel(page, 'next').locator('.preview-composer textarea').waitFor();
     await select(page, 'prompts');
     const phrases = panel(page, 'prompts');
+    await phrases.evaluate((node) =>
+      Promise.all(node.getAnimations().map((animation) => animation.finished)),
+    );
     await phrases.getByRole('button', { name: '添加快捷指令', exact: true }).click();
     await phrases.getByLabel('快捷指令内容').click();
     await phrases.getByLabel('快捷指令内容').fill('手动接管');
