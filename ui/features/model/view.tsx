@@ -1,7 +1,7 @@
 import { useLocale } from '../../shared/use-locale';
 import { tr } from '../../shared/i18n.js';
 /* [INPUT]: Existing model control envelope and serialized actions.
- * [OUTPUT]: Title-aligned reasoning headings, content-sized favorites matrix, independent Fast charge/strike and divider controls, presets with saved reasoning and speed, a shared bottom row with lower-edge-aligned account usage, icons and an independent footer slot, in-panel catalog and wrapping presets with synchronous draft handoff, measured horizontal reading restoration and capability-driven selection.
+ * [OUTPUT]: Title-aligned reasoning headings, content-sized favorites matrix (auto-displaying active external CLI models when none are pinned), independent Fast charge/strike and divider controls, CodexHost CLI switcher bar (direct switch in draft chats, new-chat context handoff in locked chats), presets with saved reasoning and speed, a shared bottom row with lower-edge-aligned account usage, icons and an independent footer slot, in-panel catalog and wrapping presets with synchronous draft handoff, measured horizontal reading restoration and capability-driven selection.
  * [POS]: Reusable business view; surfaces own placement and theme.
  * [PROTOCOL]: Keep AGENTS.md in this module in sync. */
 import {
@@ -138,6 +138,8 @@ export function ModelView({
   const allowed = !!s.target && ['ready', 'waiting'].includes(s.status) && prefs.enabled;
   const apply = (selection: Selection, preserveSpeed = false) =>
     action({ target: s.target, expectedRevision: s.revision, selection, preserveSpeed }, 'apply');
+  const applyAgent = (agent: string) =>
+    action({ target: s.target, expectedRevision: s.revision, agent }, 'apply');
   const save = (patch: object) => action({ revision: state.revision, patch }, 'preferences');
   const addPreset = async () => {
     if (busy || !allowed || !s.current) return;
@@ -175,10 +177,12 @@ export function ModelView({
     const model = s.models.find((m) => m.id === id);
     return model ? [model] : [];
   });
-  const visible = models.filter((m) => prefs.pinned.includes(m.id));
+  const pinnedModels = models.filter((m) => prefs.pinned.includes(m.id));
+  const visible =
+    pinnedModels.length || !s.agent || s.agent.current === 'codex' ? pinnedModels : models;
   const groups = groupedModels(models, prefs);
   const dragType = 'application/x-palboo-model';
-  const order = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'];
+  const order = ['off', 'none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'];
   const columns = [
     ...new Set(visible.flatMap((m) => (m.reasoning.length ? m.reasoning : ['']))),
   ].sort((a, b) => order.indexOf(a) - order.indexOf(b));
@@ -635,6 +639,44 @@ export function ModelView({
               </div>
             </div>
           </div>
+          {s.agent && s.agent.options.length > 1 && (
+            <section className="model-agents" aria-label="CLI">
+              {s.agent.options.map((opt) => {
+                const active = s.agent?.current === opt.id;
+                const canSwitch =
+                  !busy &&
+                  prefs.enabled &&
+                  !!s.target &&
+                  opt.available &&
+                  ['ready', 'waiting', 'unavailable'].includes(s.status);
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    className="model-agent-choice"
+                    data-agent-option={opt.id}
+                    data-handoff={s.agent?.locked && !active ? 'true' : undefined}
+                    disabled={!canSwitch && !active}
+                    aria-disabled={!canSwitch || active}
+                    aria-pressed={active}
+                    aria-label={opt.label}
+                    aria-description={
+                      !opt.available
+                        ? tr('暂不可用')
+                        : s.agent?.locked && !active
+                          ? tr('新建聊天并携带当前上下文切换到 {{agent}}', { agent: opt.label })
+                          : undefined
+                    }
+                    onClick={() => {
+                      if (canSwitch && !active) void applyAgent(opt.id);
+                    }}
+                  >
+                    <span>{opt.label}</span>
+                  </button>
+                );
+              })}
+            </section>
+          )}
           <section className="model-collections" aria-label={tr('收藏')}>
             <div className="model-presets" data-editing={tools}>
               {prefs.presets.map((p) => (

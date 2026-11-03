@@ -335,12 +335,59 @@ declare global {
   const PALBOO_DEVELOPMENT: boolean;
   interface Window {
     __codexhostRendererBindingProbeV1?: {
-      status(): { version: number; selections?: { composerId: string; agent: string }[] };
+      status(): {
+        version: number;
+        enabledAgents?: string[];
+        availability?: Record<string, string>;
+        selections?: { composerId: string; agent: string; phase?: string }[];
+      };
     };
     __palbooHostCompatibility?: {
-      capability(composer?: Element | null): { officialModel: boolean; message: string };
+      capability(composer?: Element | null): {
+        officialModel: boolean;
+        externalModel?: boolean;
+        message: string;
+        composerId?: string;
+        agent?: {
+          current: string;
+          label: string;
+          locked: boolean;
+          options: { id: string; label: string; available: boolean }[];
+        } | null;
+      };
+      readExternal?(composer?: Element | null): {
+        status: string;
+        message: string;
+        models: { id: string; label: string; reasoning: string[]; fast: boolean }[];
+        current: { model: string; reasoning: string; speed: string } | null;
+        stamp: string;
+      };
+      selectExternal?(
+        composer: Element | null | undefined,
+        selection: { model: string; reasoning: string; speed: string },
+        signal?: AbortSignal,
+      ): Promise<unknown>;
+      selectAgent?(
+        composer: Element | null | undefined,
+        targetAgent: string,
+        signal?: AbortSignal,
+        options?: { handoffPrompt?: string },
+      ): Promise<unknown>;
+      collectHandoffContext?(
+        composer: Element | null | undefined,
+        scope?: Element | null,
+        target?: { id?: string; title?: string } | null,
+      ): {
+        locked: boolean;
+        sourceAgent: string;
+        title: string;
+        targetId: string;
+        turns: { user: string; assistant: string }[];
+        draft: string;
+      };
     };
     __palbooModelControl?: {
+      prepareHandoff?(request?: { target?: { id?: string }; expectedRevision?: string }): unknown;
       inputTarget(): {
         id: string;
         token?: string;

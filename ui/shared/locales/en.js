@@ -1683,6 +1683,33 @@ export default {
   '设置请求未收到响应，请重试': 'No response to the settings request. Try again.',
   '当前使用 {{agent}}，请通过 CodexHost 切换模型':
     '{{agent}} is active. Change its model in CodexHost.',
+  'CodexHost 模型菜单尚未就绪': 'The CodexHost model menu is not ready yet.',
+  '正在读取 {{agent}} 可用模型…': 'Loading available {{agent}} models…',
+  '当前 {{agent}} 暂无可切换的模型': 'No switchable models are available for {{agent}}.',
+  '等待 CodexHost 响应超时': 'Timed out waiting for CodexHost.',
+  '等待 CLI 模型列表超时': 'Timed out waiting for the CLI model list.',
+  '完整配置不受当前 CLI 支持，未做任何修改':
+    'This configuration is not supported by the current CLI. Nothing was changed.',
+  '当前 CLI 模型选项不可用': 'That CLI model option is unavailable.',
+  'CLI 模型切换未生效': 'The CLI model change did not take effect.',
+  '当前 CLI 思考强度选项不可用': 'That CLI thinking level is unavailable.',
+  'CLI 思考强度切换未生效': 'The CLI thinking level change did not take effect.',
+  '当前会话已锁定 CLI，请新建聊天后再切换':
+    'This chat is locked to its current CLI. Start a new chat to switch CLIs.',
+  '目标 CLI 当前不可用': 'The selected CLI is currently unavailable.',
+  '目标 CLI 切换入口不可用': 'The CLI switch control is unavailable.',
+  'CLI 切换未生效': 'The CLI change did not take effect.',
+  '当前 CLI 模型切换不可用': 'CLI model switching is currently unavailable.',
+  '切换 CLI': 'Switching CLI',
+  '新建聊天并切换 CLI': 'Starting a new chat and switching CLI',
+  '新建聊天并携带当前上下文切换到 {{agent}}':
+    'Start a new chat with the current context and switch to {{agent}}',
+  '未找到宿主新聊天入口，请手动新建聊天后切换 CLI':
+    'Could not find the host New chat button. Start a new chat manually to switch CLIs.',
+  等待新聊天输入框就绪超时: 'Timed out waiting for the new chat composer.',
+  '切换 CLI 模型': 'Switching CLI model',
+  'CLI 模型配置与请求不一致': 'The confirmed CLI model configuration does not match the request.',
+  'CLI 标识无效': 'Invalid CLI identifier.',
   聊天关联: 'Chat link',
   聊天关联模式: 'Chat link mode',
   跟随当前聊天: 'Follow current chat',

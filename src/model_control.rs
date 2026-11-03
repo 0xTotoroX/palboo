@@ -1,5 +1,5 @@
-// [INPUT]: 已连接的 CDP Client、宿主模型适配器及独立业务偏好。
-// [OUTPUT]: 设置页共用的宿主可选模型目录、模型状态、可关闭的账号额度投影、串行切换、常用、顺序、分类与预设保存与私有末次操作诊断；关闭功能回收目录/额度读取，呈现交给 features。
+// [INPUT]: 已连接的 CDP Client、宿主模型适配器（含 CodexHost 外部 CLI 模型与新会话/跨会话 CLI 切换）及独立业务偏好。
+// [OUTPUT]: 设置页共用的宿主可选模型目录、模型状态、可关闭的账号额度投影、串行模型/CLI切换（已锁定会话自动导出本地 Markdown 快照并新建聊天交接）、常用、顺序、分类与预设保存与私有末次操作诊断；关闭功能回收目录/额度读取，呈现交给 features。
 // [POS]: 宿主模型控制服务；不读写建议生成配置或工作台的来源/布局。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
@@ -233,7 +233,7 @@ impl App {
             .await
             .context("尚未连接 Codex；请先在设置中连接宿主")?;
         let snapshot = client.evaluate_with_timeout(
-            "(async () => { const control = window.__palbooModelControl; let value = await control?.snapshot(false); if (value && !value.models?.length) value = await control.snapshot(true); return value ?? null; })()".into(),
+            "(async () => { const control = window.__palbooModelControl; if (typeof control?.codexCatalog === 'function') return await control.codexCatalog(); let value = await control?.snapshot(false); if (value && !value.models?.length) value = await control.snapshot(true); return value ?? null; })()".into(),
             Duration::from_secs(20),
         ).await?;
         anyhow::ensure!(
@@ -317,9 +317,21 @@ impl App {
             self.model_control.lock().await.preferences.enabled,
             "模型快切已停用"
         );
-        let selection: Selection =
-            serde_json::from_value(command["selection"].clone()).context("请选择完整模型配置")?;
-        selection.validate()?;
+        let agent = command["agent"]
+            .as_str()
+            .map(str::trim)
+            .filter(|id| !id.is_empty());
+        if let Some(id) = agent {
+            anyhow::ensure!(id.len() <= 64, "CLI 标识无效");
+        }
+        let selection = if agent.is_none() {
+            let parsed: Selection = serde_json::from_value(command["selection"].clone())
+                .context("请选择完整模型配置")?;
+            parsed.validate()?;
+            Some(parsed)
+        } else {
+            None
+        };
         if command["target"]["id"].as_str().is_none_or(str::is_empty)
             || command["expectedRevision"]
                 .as_str()
@@ -328,7 +340,37 @@ impl App {
             bail!("聊天来源已过期，请刷新后重试");
         }
         let client = self.desktop_client().await.context("尚未连接 Codex")?;
-        let payload = json!({"target":command["target"],"expectedRevision":command["expectedRevision"],"selection":selection,"preserveSpeed":command["preserveSpeed"] == true});
+        let payload = if let Some(id) = agent {
+            let prep_arg = json!({
+                "target": command["target"],
+                "expectedRevision": command["expectedRevision"],
+            });
+            let handoff = client
+                .evaluate_with_timeout(
+                    format!("window.__palbooModelControl?.prepareHandoff?.({prep_arg}) ?? null"),
+                    Duration::from_secs(5),
+                )
+                .await
+                .unwrap_or(Value::Null);
+            if handoff["locked"] == true {
+                let path = self.write_cli_handoff_snapshot(&handoff, id)?;
+                let prompt = build_cli_handoff_prompt(&path, &handoff);
+                json!({
+                    "target": command["target"],
+                    "expectedRevision": command["expectedRevision"],
+                    "agent": id,
+                    "handoffPrompt": prompt,
+                })
+            } else {
+                json!({
+                    "target": command["target"],
+                    "expectedRevision": command["expectedRevision"],
+                    "agent": id,
+                })
+            }
+        } else {
+            json!({"target":command["target"],"expectedRevision":command["expectedRevision"],"selection":selection,"preserveSpeed":command["preserveSpeed"] == true})
+        };
         let response = client
             .evaluate_with_timeout(
                 format!("window.__palbooModelControl.apply({payload})"),
@@ -456,6 +498,131 @@ impl App {
     pub async fn model_control_window(&self, _lease: &str) -> Value {
         json!({"valid":false})
     }
+
+    fn write_cli_handoff_snapshot(
+        &self,
+        handoff: &Value,
+        target_agent: &str,
+    ) -> Result<std::path::PathBuf> {
+        let dir = self.paths.root.join("handoff");
+        std::fs::create_dir_all(&dir)?;
+        let raw_id = handoff["targetId"].as_str().unwrap_or("chat");
+        let safe_id: String = raw_id
+            .chars()
+            .filter(|ch| ch.is_ascii_alphanumeric() || *ch == '-' || *ch == '_')
+            .take(36)
+            .collect();
+        let slug = if safe_id.is_empty() {
+            "chat"
+        } else {
+            &safe_id
+        };
+        let millis = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| d.as_millis());
+        let path = dir.join(format!("handoff-{slug}-{millis}.md"));
+        let markdown = format_cli_handoff_markdown(handoff, target_agent);
+        write_private(&path, markdown.as_bytes())?;
+        Ok(path)
+    }
+}
+
+fn truncate_chars(text: &str, max_chars: usize) -> String {
+    let trimmed = text.trim();
+    if trimmed.chars().count() <= max_chars {
+        trimmed.to_owned()
+    } else {
+        let mut out: String = trimmed.chars().take(max_chars).collect();
+        out.push('…');
+        out
+    }
+}
+
+fn format_cli_handoff_markdown(handoff: &Value, target_agent: &str) -> String {
+    let source_agent = handoff["sourceAgent"]
+        .as_str()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .unwrap_or("CLI");
+    let title = handoff["title"]
+        .as_str()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .unwrap_or("未命名会话");
+    let target_id = handoff["targetId"].as_str().map(str::trim).unwrap_or("");
+    let draft = handoff["draft"].as_str().map(str::trim).unwrap_or("");
+    let mut out = format!(
+        "# 会话上下文交接\n\n- 来源会话：{title}{}\n- 原 CLI：{source_agent}\n- 目标 CLI：{target_agent}\n\n---\n",
+        if target_id.is_empty() {
+            String::new()
+        } else {
+            format!(" (`{target_id}`)")
+        }
+    );
+    if let Some(turns) = handoff["turns"].as_array()
+        && !turns.is_empty()
+    {
+        for (idx, turn) in turns.iter().enumerate() {
+            let user = turn["user"].as_str().map(str::trim).unwrap_or("");
+            let assistant = turn["assistant"].as_str().map(str::trim).unwrap_or("");
+            if user.is_empty() && assistant.is_empty() {
+                continue;
+            }
+            out.push_str(&format!("\n## 第 {} 轮\n", idx + 1));
+            if !user.is_empty() {
+                out.push_str(&format!("\n### 用户\n\n{user}\n"));
+            }
+            if !assistant.is_empty() {
+                out.push_str(&format!("\n### {source_agent}\n\n{assistant}\n"));
+            }
+        }
+    } else {
+        out.push_str("\n（原会话无历史问答记录）\n");
+    }
+    if !draft.is_empty() {
+        out.push_str(&format!("\n---\n\n## 原输入框未发送草稿\n\n{draft}\n"));
+    }
+    out
+}
+
+fn build_cli_handoff_prompt(path: &std::path::Path, handoff: &Value) -> String {
+    let source_agent = handoff["sourceAgent"]
+        .as_str()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .unwrap_or("CLI");
+    let draft = handoff["draft"].as_str().map(str::trim).unwrap_or("");
+    let mut lines = vec![format!(
+        "[上下文交接] 前序会话（来自 {source_agent}）完整记录已保存在本地文件：`{}`\n请先读取该文件了解完整上下文，再在此基础上继续处理。",
+        path.display()
+    )];
+    if let Some(turns) = handoff["turns"].as_array()
+        && let Some(last) = turns.iter().rev().find(|turn| {
+            turn["user"].as_str().is_some_and(|s| !s.trim().is_empty())
+                || turn["assistant"]
+                    .as_str()
+                    .is_some_and(|s| !s.trim().is_empty())
+        })
+    {
+        let mut summary = String::from("最近一轮摘要：");
+        if let Some(u) = last["user"].as_str().map(str::trim).filter(|s| !s.is_empty()) {
+            summary.push_str(&format!("\n- 用户：{}", truncate_chars(u, 400)));
+        }
+        if let Some(a) = last["assistant"]
+            .as_str()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        {
+            summary.push_str(&format!("\n- {source_agent}：{}", truncate_chars(a, 700)));
+        }
+        lines.push(summary);
+    }
+    if !draft.is_empty() {
+        lines.push(format!("当前待处理输入：\n{draft}"));
+    } else {
+        lines.push("请基于以上上下文继续：".into());
+    }
+    lines.join("\n\n")
 }
 
 fn catalog_model_ids(snapshot: &Value) -> Result<Vec<String>> {
@@ -633,5 +800,41 @@ mod tests {
         let prefs: Preferences = serde_json::from_value(json!({})).unwrap();
         assert!(!prefs.enabled);
         prefs.validate().unwrap();
+    }
+
+    #[test]
+    fn cli_handoff_snapshot_writes_markdown_and_builds_prompt() {
+        let temp = tempfile::tempdir().unwrap();
+        let paths = Paths::new(Some(temp.path().into())).unwrap();
+        let app = App::new(paths, Default::default(), None, false);
+        let handoff = json!({
+            "locked": true,
+            "sourceAgent": "Antigravity",
+            "title": "兼容性修复",
+            "targetId": "chat-01a191",
+            "turns": [
+                {
+                    "user": "先看下外部 CLI 的模型菜单",
+                    "assistant": "已定位到 data-codexhost-model-control"
+                },
+                {
+                    "user": "能在会话中切换 CLI 吗？",
+                    "assistant": "可以导出本地 Markdown 快照并在新会话填入交接块"
+                }
+            ],
+            "draft": "接着实现方案 B"
+        });
+        let path = app.write_cli_handoff_snapshot(&handoff, "codex").unwrap();
+        assert!(path.exists());
+        let saved = std::fs::read_to_string(&path).unwrap();
+        assert!(saved.contains("# 会话上下文交接"));
+        assert!(saved.contains("先看下外部 CLI 的模型菜单"));
+        assert!(saved.contains("可以导出本地 Markdown 快照并在新会话填入交接块"));
+        assert!(saved.contains("接着实现方案 B"));
+
+        let prompt = build_cli_handoff_prompt(&path, &handoff);
+        assert!(prompt.contains(&path.display().to_string()));
+        assert!(prompt.contains("能在会话中切换 CLI 吗？"));
+        assert!(prompt.contains("当前待处理输入：\n接着实现方案 B"));
     }
 }
