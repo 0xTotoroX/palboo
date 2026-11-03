@@ -399,10 +399,13 @@ test('compact pages keep normal flow and still finish the footer wordmark', asyn
     await page.clock.runFor(7200);
     assert.equal(await page.locator('#main').getAttribute('data-brand-journey'), 'static');
     await page.screenshot({ path: resolve(reports, 'journey-mobile.png') });
-    await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));
+    const footer = page.locator('#install');
+    await footer.evaluate((element) =>
+      element.scrollIntoView({ block: 'center', behavior: 'instant' }),
+    );
     await frames(page);
     await page.clock.runFor(3200);
-    assert.equal(await page.locator('#install').getAttribute('data-brand-rest'), 'true');
+    await page.locator('#install[data-brand-rest="true"]').waitFor();
     await page.waitForFunction(
       () =>
         new DOMMatrix(getComputedStyle(document.querySelector('.closing-counter')).transform).a >
