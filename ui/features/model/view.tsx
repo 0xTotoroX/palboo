@@ -143,12 +143,10 @@ export function ModelView({
   const currentAgent = s.agent?.current || 'codex';
   const agentOptions = s.agent?.options || [];
   const pinnedAgents = prefs.pinnedAgents || [];
-  const directoryAgents = [
-    ...agentOptions,
-    ...pinnedAgents
-      .filter((id) => !agentOptions.some((option) => option.id === id))
-      .map((id) => ({ id, label: id, available: false })),
-  ].sort((a, b) => Number(pinnedAgents.includes(b.id)) - Number(pinnedAgents.includes(a.id)));
+  const directoryAgents = [...agentOptions].sort(
+    (a, b) => Number(pinnedAgents.includes(b.id)) - Number(pinnedAgents.includes(a.id)),
+  );
+  const handoffNotice = tr('切换 Agent 会新建聊天');
   const canSwitchAgent = (agent: string) =>
     !busy &&
     prefs.enabled &&
@@ -849,40 +847,29 @@ export function ModelView({
             {headerActions ? createPortal(catalogControls, headerActions) : catalogControls}
             <div className="model-other-list">
               {directoryAgents.length > 0 && (
-                <section className="model-agents" aria-label="CLI">
-                  {directoryAgents.map((option) => (
-                    <div className="model-agent-entry" key={option.id}>
+                <section className="model-agents" aria-label="Agent">
+                  {directoryAgents.some(
+                    (option) => option.available && needsNewChat(option.id),
+                  ) && <p className="model-agent-notice">{handoffNotice}</p>}
+                  <div className="model-agent-options">
+                    {directoryAgents.map((option) => (
                       <button
+                        key={option.id}
                         type="button"
                         className="model-agent-choice"
                         data-agent-option={option.id}
                         disabled={option.id === currentAgent || !canSwitchAgent(option.id)}
                         aria-pressed={option.id === currentAgent}
+                        aria-description={
+                          needsNewChat(option.id) && option.available ? handoffNotice : undefined
+                        }
                         title={!option.available ? tr('暂不可用') : undefined}
                         onClick={() => void applyAgent(option.id)}
                       >
                         {option.label}
-                        {needsNewChat(option.id) && <small>{handoffLabel}</small>}
                       </button>
-                      <button
-                        type="button"
-                        className="model-icon-button"
-                        aria-label={tr('固定 {{agent}}', { agent: option.label })}
-                        title={tr('固定 {{agent}}', { agent: option.label })}
-                        aria-pressed={pinnedAgents.includes(option.id)}
-                        disabled={busy || !prefs.enabled}
-                        onClick={() =>
-                          void save({
-                            pinnedAgents: pinnedAgents.includes(option.id)
-                              ? pinnedAgents.filter((id) => id !== option.id)
-                              : [...pinnedAgents, option.id],
-                          })
-                        }
-                      >
-                        {icon(pinnedAgents.includes(option.id) ? 'bookmark-filled' : 'bookmark')}
-                      </button>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </section>
               )}
               {groups.map((group) => (

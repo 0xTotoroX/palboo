@@ -346,7 +346,7 @@ test('presets show and apply saved reasoning independently of the current model 
   }
 });
 
-test('catalog pins CLI and its model, then one click requests both with a visible handoff label', async () => {
+test('catalog pins a CLI model and labels locked Agent switching once', async () => {
   const browser = await chromium.launch({ headless: true });
   try {
     const page = await fixture(browser);
@@ -366,8 +366,8 @@ test('catalog pins CLI and its model, then one click requests both with a visibl
     });
     assert.equal(await page.locator('.model-agents').count(), 0);
     await page.getByRole('button', { name: '所有模型', exact: true }).click();
-    await page.getByRole('button', { name: '固定 Antigravity CLI', exact: true }).click();
-    await page.getByRole('button', { name: '固定 Antigravity CLI', pressed: true }).waitFor();
+    assert.equal(await page.locator('.model-agents button').count(), 2);
+    assert.equal(await page.locator('.model-agent-notice').count(), 0);
     await page.locator('[data-model-tile="beta"]').click();
     await page.locator('[data-model-tile="beta"][aria-pressed="true"]').waitFor();
     await page.evaluate(() => {
@@ -386,7 +386,15 @@ test('catalog pins CLI and its model, then one click requests both with a visibl
     assert.equal(await page.getByRole('button', { name: /Antigravity CLI/ }).count(), 0);
     assert.ok(await page.locator('.model-row:visible').count());
     await page.getByRole('button', { name: '所有模型', exact: true }).click();
-    assert.match(await page.locator('[data-agent-option="antigravity"]').innerText(), /新建聊天/);
+    assert.equal(await page.locator('.model-agent-notice').innerText(), '切换 Agent 会新建聊天');
+    assert.equal(
+      await page.locator('[data-agent-option="antigravity"]').innerText(),
+      'Antigravity CLI',
+    );
+    assert.equal(
+      await page.locator('[data-agent-option="antigravity"]').getAttribute('aria-description'),
+      '切换 Agent 会新建聊天',
+    );
     await page.getByRole('button', { name: '关闭所有模型', exact: true }).click();
     await preset.click();
     const calls = await page.evaluate(() => window.calls.filter((c) => c.action === 'apply'));

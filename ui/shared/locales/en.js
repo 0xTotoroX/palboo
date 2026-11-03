@@ -3,7 +3,7 @@ export default {
   在目录中固定常用模型: 'Pin a model from the catalog',
   新建聊天: 'New chat',
   推理档位: 'Reasoning levels',
-  '固定 {{agent}}': 'Pin {{agent}}',
+  '切换 Agent 会新建聊天': 'Switching agents opens a new chat',
   模型切换操作超时: 'Model switching timed out',
   'CLI 已切换，但无法确认模型操作的目标聊天':
     'CLI switched, but the chat for model selection could not be verified',

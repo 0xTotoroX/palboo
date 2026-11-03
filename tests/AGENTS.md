@@ -456,4 +456,4 @@ dev-launcher 以认证合成服务覆盖 --settings 成功/失败及零启动副
 
 - `reader-folders.mjs`：web-library 的多文件夹 UI 验收，覆盖新增只填草稿、前台分别打开、同名笔记双标签页隔离、切换前保存、刷新保持目录身份，以及移除单个入口不影响其他页面或删除文件。
 
-模型快切目录回归：model-preset-draft 验证目录内分别固定 CLI 和模型、已锁定会话的可见新建提示及一次点击提交完整配置；codex-host-compatibility 覆盖嵌入式新聊天复用编辑器和绑定，以及切 CLI 后确认目标再选模型。
+模型快切目录回归：model-preset-draft 验证目录内固定模型、锁定会话的单组新建提示及一次点击提交完整配置；codex-host-compatibility 覆盖嵌入式新聊天复用编辑器和绑定，以及切 CLI 后确认目标再选模型。
