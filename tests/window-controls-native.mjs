@@ -51,7 +51,7 @@ async function poll(){
   else if(action==='return'){ready=false;returned=false;post({kind:'return',anchor:null});}
   else if(action==='cancel-return'){ready=false;post({kind:'cancel-return'});}
   else if(action==='maximize')post({kind:'toggle-maximize'});
-  else if(action==='fullscreen')post({kind:'native-fullscreen'});
+  else if(action==='fullscreen'||action==='fullscreen-exit')post({kind:'native-'+action});
   else post({kind:'native-window-button',button:action==='close-window'?'close':action});
  }
  }finally{setTimeout(poll,80)}
@@ -282,6 +282,26 @@ try {
     'Dock reopen reveals existing window',
   );
   near(bounds(), original);
+  const normalFrame = latest.state.normalFrame;
+  commands.push('fullscreen');
+  await wait(() => {
+    const buttons = latest?.state?.nativeChrome?.buttons;
+    return (
+      latest?.state?.fullscreen &&
+      latest.transient &&
+      buttons?.length === 1 &&
+      buttons[0].visible &&
+      buttons[0].enabled &&
+      buttons[0].reachable
+    );
+  }, 'native green exit stays reachable in fullscreen');
+  assert.deepEqual(latest.state.normalFrame, normalFrame);
+  commands.push('fullscreen-exit');
+  await wait(
+    () => !latest?.state?.fullscreen && restored(original),
+    'native green exits fullscreen',
+  );
+  assert.equal(latest.draft, '未保存的合成草稿');
   commands.push('maximize');
   await wait(() => latest?.state?.maximized && bounds()?.Width > original.Width, 'maximized');
   await delay(600);
@@ -339,6 +359,7 @@ try {
     materialVariants: ['matte', 'frosted', 'native-glass'],
     nativeMinimize: true,
     nativeGreen: true,
+    fullscreenExitButton: true,
     fullscreenReturn: true,
     registeredAppBundle: true,
     dockReopen: true,

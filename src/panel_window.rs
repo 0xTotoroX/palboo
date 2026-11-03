@@ -203,18 +203,29 @@ mod macos {
     }
 
     pub fn maximized(window: &Window) -> bool {
-        window.is_maximized() || window.fullscreen().is_some()
+        window.fullscreen().is_some() || window.is_maximized()
     }
 
-    pub fn native_controls(window: &Window) -> Value {
+    pub fn native_controls(
+        window: &Window,
+        fullscreen_exit: Option<&objc2_app_kit::NSButton>,
+    ) -> Value {
         let native = native_window(window);
-        let buttons: Vec<_> = [NSWindowButton::CloseButton, NSWindowButton::MiniaturizeButton, NSWindowButton::ZoomButton]
-            .into_iter().filter_map(|kind| native.standardWindowButton(kind)).map(|button| {
+        let standard = [
+            NSWindowButton::CloseButton,
+            NSWindowButton::MiniaturizeButton,
+            NSWindowButton::ZoomButton,
+        ]
+        .into_iter()
+        .filter_map(|kind| native.standardWindowButton(kind));
+        let fullscreen_exit_installed = fullscreen_exit.is_some();
+        let fullscreen = fullscreen_exit.map(objc2::Message::retain);
+        let buttons: Vec<_> = standard.filter(|_| !fullscreen_exit_installed).chain(fullscreen).map(|button| {
                 let frame = button.convertRect_toView(button.bounds(), None);
                 let reachable = native.contentView().and_then(|root| unsafe { root.superview() })
                     .and_then(|parent| parent.hitTest(NSPoint::new(frame.origin.x + frame.size.width / 2., frame.origin.y + frame.size.height / 2.)))
                     .is_some_and(|hit| hit.isDescendantOf(&button));
-                serde_json::json!({"visible":!button.isHidden(),"enabled":button.isEnabled(),
+                serde_json::json!({"visible":!button.isHiddenOrHasHiddenAncestor(),"enabled":button.isEnabled(),
                     "reachable":reachable,
                     "x":frame.origin.x,"y":native.frame().size.height-frame.origin.y-frame.size.height,
                     "width":frame.size.width,"height":frame.size.height})
@@ -279,7 +290,7 @@ mod macos {
             native.displayIfNeeded();
             // 提交 layer-backed view 的绘制后，同时检查标题栏与完整内容层。
             CATransaction::flush();
-            let mut sample = native_controls(window);
+            let mut sample = native_controls(window, None);
             sample["surface"] = backdrop.0.geometry(native);
             samples.push(sample);
         }
@@ -287,7 +298,7 @@ mod macos {
         drop(live_resize);
         native.displayIfNeeded();
         CATransaction::flush();
-        let mut sample = native_controls(window);
+        let mut sample = native_controls(window, None);
         sample["surface"] = backdrop.0.geometry(native);
         samples.push(sample);
         serde_json::json!(samples)
@@ -516,11 +527,12 @@ mod macos {
 fn publish_window_controls(
     webview: &wry::WebView,
     window: &Window,
+    chrome: &window_chrome::WindowChrome,
     normal: Option<Pose>,
     hidden: bool,
 ) {
     let frame = macos::pose(window);
-    let state = json!({"maximized":macos::maximized(window),"minimized":window.is_minimized(),"fullscreen":window.fullscreen().is_some(),"hidden":hidden,"nativeChrome":macos::native_controls(window),"collectionBehavior":macos::native_window(window).collectionBehavior().bits(),"normalFrame":normal.map(|p|json!({"x":p.x,"y":p.y,"width":p.width,"height":p.height}))});
+    let state = json!({"maximized":macos::maximized(window),"minimized":window.is_minimized(),"fullscreen":window.fullscreen().is_some(),"hidden":hidden,"nativeChrome":macos::native_controls(window, chrome.fullscreen_exit()),"collectionBehavior":macos::native_window(window).collectionBehavior().bits(),"normalFrame":normal.map(|p|json!({"x":p.x,"y":p.y,"width":p.width,"height":p.height}))});
     let mut state = state;
     state["visible"] = json!(window.is_visible());
     state["frame"] = json!({"X":frame.x,"Y":frame.y,"Width":frame.width,"Height":frame.height});
@@ -673,8 +685,6 @@ pub fn run_surface(
     let mut scope_hidden = false;
     event_loop.run(move |event, _, control| {
         *control = ControlFlow::Wait;
-        // 通知观察者与原生窗口同寿命，不在普通事件或 drawRect 中布局标题栏。
-        let _ = &window_chrome;
         match event {
             Event::Reopen { .. } => {
                 let _ = event_loop_proxy.send_event(json!({"kind":"reveal"}));
@@ -682,6 +692,7 @@ pub fn run_surface(
             Event::UserEvent(message) => match message["kind"].as_str().unwrap_or_default() {
                 "backdrop" => {
                     backdrop.update(&window, &message);
+                    window_chrome.keep_fullscreen_exit_above_content();
                     let style = backdrop.style();
                     if reported_glass_style != style {
                         reported_glass_style = style;
@@ -698,7 +709,7 @@ pub fn run_surface(
                         window.set_visible(!scope_hidden && !window_hidden);
                     }
                 }
-                "window-state" => publish_window_controls(&webview, &window, normal_window_pose, window_hidden),
+                "window-state" => publish_window_controls(&webview, &window, &window_chrome, normal_window_pose, window_hidden),
                 #[cfg(debug_assertions)]
                 "native-chrome-probe" if window_transition.is_none() && gesture.is_none() => {
                     let samples = macos::probe_window_controls(&window, &backdrop);
@@ -709,7 +720,7 @@ pub fn run_surface(
                         window.set_visible(false);
                         window_hidden = true;
                     }
-                    publish_window_controls(&webview, &window, normal_window_pose, window_hidden);
+                    publish_window_controls(&webview, &window, &window_chrome, normal_window_pose, window_hidden);
                 }
                 "toggle-maximize" => {
                     if window_transition.is_none() && gesture.is_none() {
@@ -724,13 +735,19 @@ pub fn run_surface(
                             window.set_maximized(true);
                         }
                     }
-                    publish_window_controls(&webview, &window, normal_window_pose, window_hidden);
+                    publish_window_controls(&webview, &window, &window_chrome, normal_window_pose, window_hidden);
                 }
                 "minimize" if window_transition.is_none() && gesture.is_none() => window.set_minimized(true),
                 // 合成原生验收通过真实系统按钮发送动作，不申请鼠标/屏幕权限。
                 #[cfg(debug_assertions)]
                 "native-fullscreen" if window_transition.is_none() && gesture.is_none() => {
                     window.set_fullscreen(if window.fullscreen().is_some() { None } else { Some(tao::window::Fullscreen::Borderless(None)) });
+                }
+                #[cfg(debug_assertions)]
+                "native-fullscreen-exit" if !window_chrome.fullscreen_transitioning() => {
+                    if let Some(button) = window_chrome.fullscreen_exit() {
+                        unsafe { button.performClick(None); }
+                    }
                 }
                 #[cfg(debug_assertions)]
                 "native-window-button" if window_transition.is_none() && gesture.is_none() => {
@@ -751,7 +768,7 @@ pub fn run_surface(
                     window.set_visible(!scope_hidden);
                     if !scope_hidden { window.set_focus(); }
                     window_hidden = false;
-                    publish_window_controls(&webview, &window, normal_window_pose, window_hidden);
+                    publish_window_controls(&webview, &window, &window_chrome, normal_window_pose, window_hidden);
                 }
                 "show" => {
                     // 页面重载会替换 JS 回调；重新确认呈现，并退掉旧页面未完成的交接。
@@ -793,7 +810,7 @@ pub fn run_surface(
                     } else { macos::set_window_alpha(&window, from.alpha); }
                     window.set_visible(!scope_hidden);
                     window_hidden = false;
-                    publish_window_controls(&webview, &window, normal_window_pose, window_hidden);
+                    publish_window_controls(&webview, &window, &window_chrome, normal_window_pose, window_hidden);
                     if activate && !scope_hidden { window.set_focus(); }
                     if macos::reduce_motion() {
                         presentation_reported = true;
@@ -925,19 +942,21 @@ pub fn run_surface(
                 ..
             } => {
                 backdrop.resize_viewport(&window, true);
-                normal_pose_update = Some(std::time::Instant::now() + std::time::Duration::from_millis(200));
-                publish_window_controls(&webview, &window, normal_window_pose, window_hidden);
+                if !window_chrome.fullscreen_transitioning() {
+                    normal_pose_update = Some(std::time::Instant::now() + std::time::Duration::from_millis(200));
+                    publish_window_controls(&webview, &window, &window_chrome, normal_window_pose, window_hidden);
+                }
             }
             Event::WindowEvent {
                 event: WindowEvent::Moved(position),
                 ..
-            } => {
+            } if !window_chrome.fullscreen_transitioning() => {
                 normal_pose_update = Some(std::time::Instant::now() + std::time::Duration::from_millis(200));
                 let _ = webview.evaluate_script(&format!(
                     "window.__companionPopout?.moved({});",
                     json!({"x":position.x,"y":position.y})
                 ));
-                publish_window_controls(&webview, &window, normal_window_pose, window_hidden);
+                publish_window_controls(&webview, &window, &window_chrome, normal_window_pose, window_hidden);
             }
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
@@ -952,16 +971,21 @@ pub fn run_surface(
             }
             _ => {}
         }
-        let current_window_state = (macos::maximized(&window), window.is_minimized(), window.fullscreen().is_some());
-        if current_window_state != last_window_state {
-            last_window_state = current_window_state;
-            publish_window_controls(&webview, &window, normal_window_pose, window_hidden);
+        let fullscreen_transitioning = window_chrome.fullscreen_transitioning();
+        let fullscreen = window.fullscreen().is_some();
+        if !fullscreen_transitioning {
+            let current_window_state = (macos::maximized(&window), window.is_minimized(), fullscreen);
+            if current_window_state != last_window_state {
+                last_window_state = current_window_state;
+                publish_window_controls(&webview, &window, &window_chrome, normal_window_pose, window_hidden);
+            }
         }
-        if return_after_fullscreen && window.fullscreen().is_none() {
+        let windowed = !fullscreen_transitioning && !fullscreen;
+        if return_after_fullscreen && windowed {
             return_after_fullscreen = false;
             let _ = webview.evaluate_script("window.__companionPopout?.dock();");
         }
-        if window.fullscreen().is_none() && let Some(message) = deferred_return.take() {
+        if windowed && let Some(message) = deferred_return.take() {
             let _ = event_loop_proxy.send_event(message);
         }
         if !matches!(*control, ControlFlow::Exit)
@@ -1035,7 +1059,7 @@ pub fn run_surface(
             if std::time::Instant::now() >= deadline {
                 normal_pose_update = None;
                 // 系统 zoom 会逐步改变 frame；只在几何稳定后接纳普通尺寸。
-                if enabled && !macos::maximized(&window) && !window.is_minimized() {
+                if enabled && windowed && !macos::maximized(&window) && !window.is_minimized() {
                     normal_window_pose = Some(macos::pose(&window));
                 }
             } else if !matches!(*control, ControlFlow::Exit) {
