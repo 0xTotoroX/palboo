@@ -6,7 +6,14 @@ export default {
   '遇到陌生的词，就地看懂。': 'Understand unfamiliar terms as you read.',
   '把聊到的事情，变成看得见的进展。': 'Turn the things you discuss into visible progress.',
   '模型、推理强度和常用预设，放在手边。': 'Models, reasoning levels and presets, close at hand.',
-  '找到合适的帮手，查看进度和回复。': 'Find the right helper and follow its progress.',
+  '查看 Bot 的完整回复，也可以从近期回复接着追问。':
+    'Read complete Bot replies and follow up on recent responses.',
+  本地阅读与网页入口: 'Local Notes & Web Shortcuts',
+  '在 ChatGPT 页签里打开常用网页，阅读和编辑本地 Markdown 笔记，也可以预览表格。':
+    'Open saved web pages in ChatGPT tabs, read and edit local Markdown notes, and preview spreadsheets.',
+  作品集笔记: 'Portfolio notes',
+  设计参考: 'Design references',
+  '演示：在 ChatGPT 新页签打开「{{name}}」。': 'Preview: open “{{name}}” in a new ChatGPT tab.',
   '发送之前，把想法表达得更清楚。': 'Make your ideas clearer before you send.',
   '在当前聊天里，选择你要协作的 Agent。': 'Choose the Agent you want to work with in your chat.',
   '读懂，': 'Read it through.',

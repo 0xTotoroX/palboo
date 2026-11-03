@@ -146,6 +146,19 @@
   min-height: 0;
   --preview-conversation-height: 100%;
 }
+.feature-library-example {
+  --csw-hover: var(--site-input);
+}
+.feature-preview[data-preview-kind='sites'] {
+  flex: 0 1 auto;
+}
+.feature-library-example > p {
+  margin: 0 8px;
+  color: var(--site-muted);
+}
+.feature-library-example > p:not(:empty) {
+  margin-top: 12px;
+}
 .feature-preview {
   container-type: inline-size;
 }

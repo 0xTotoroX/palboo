@@ -25,7 +25,7 @@ import {
   portfolioPhrases,
   portfolioPrompt,
 } from './feature-examples';
-import { FeatureContentExample } from './feature-context';
+import { FeatureContentExample, LocalLibraryPreview } from './feature-context';
 import { useFeatureScroll } from './feature-scroll';
 
 type Page = (typeof featurePages)[number];
@@ -91,6 +91,7 @@ function FeaturePage({
           terms: '.term-brick',
           board: '',
           bots: '.palboo-bot-history',
+          sites: '',
         }[page.id];
         if (selector) sampleButton(root.current, selector)?.click();
       }
@@ -181,6 +182,8 @@ function FeaturePage({
           </div>
         ) : page.id === 'compatibility' ? (
           <CodexHostPreview live={false} example={agentExample} />
+        ) : page.id === 'sites' ? (
+          <LocalLibraryPreview />
         ) : (
           <FeatureContentExample id={page.id} form={form} active={active && inView} />
         )}

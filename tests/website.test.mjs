@@ -155,9 +155,11 @@ const ids = [
   'board',
   'model',
   'bots',
+  'sites',
   'prompt',
   'compatibility',
 ];
+const lastFeatureIndex = ids.length - 1;
 
 test('the mascot leaves the screen, joins the backdrop, follows features and returns as OO', async () => {
   const page = await newPage({
@@ -220,7 +222,7 @@ test('the mascot leaves the screen, joins the backdrop, follows features and ret
     // Sample the actual paint frames in one browser turn. Tool round trips and
     // screenshots can themselves outlast a short hop, so they are not a clock.
     const flight = await page.evaluate(
-      () =>
+      (lastIndex) =>
         new Promise((resolve) => {
           const node = document.querySelector('.brand-journey');
           const box = document.querySelector('#features').getBoundingClientRect();
@@ -228,20 +230,21 @@ test('the mascot leaves the screen, joins the backdrop, follows features and ret
           const points = [];
           let start;
           let interrupted = false;
-          scrollTo(0, top + ((box.height - innerHeight) * 3) / 8);
+          scrollTo(0, top + ((box.height - innerHeight) * 3) / lastIndex);
           function sample(now) {
             start ??= now;
             const matrix = new DOMMatrix(getComputedStyle(node).transform);
             points.push({ time: now - start, x: matrix.e, y: matrix.f, interrupted });
             if (!interrupted && now - start >= 120) {
               interrupted = true;
-              scrollTo(0, top + (box.height - innerHeight) / 8);
+              scrollTo(0, top + (box.height - innerHeight) / lastIndex);
             }
             if (now - start >= 700) resolve(points);
             else requestAnimationFrame(sample);
           }
           requestAnimationFrame(sample);
         }),
+      lastFeatureIndex,
     );
     const firstY = flight[0].y;
     assert.ok(
@@ -442,10 +445,10 @@ test('the opening fits a complete display, retracts its stand and tours placemen
     await page.screenshot({ path: resolve(reports, 'monitor-opening.png') });
     const workspace = await page.locator('.layout-demo-window').elementHandle();
     await scrollScene(page, '.opening-story', 0.3 / 3.5);
-    assert.ok(
-      Number(await stand.getAttribute('data-progress')) > 0 &&
-        Number(await stand.getAttribute('data-progress')) < 1,
-    );
+    await page.waitForFunction(() => {
+      const progress = Number(document.querySelector('.studio-display-frame').dataset.progress);
+      return progress > 0 && progress < 1;
+    });
     for (const [distance, placement, material, variant] of [
       [0.8, 'sidebar', 'matte', 'regular'],
       [1.05, 'overlay', 'matte', 'regular'],
@@ -581,6 +584,7 @@ const names = [
   '任务看板',
   '模型切换',
   'Grok Bot',
+  '本地阅读与网页入口',
   '提示词优化',
   '兼容集成',
 ];
@@ -755,7 +759,7 @@ async function select(page, id) {
   assert.equal(await page.locator(`#feature-tab-${id}`).getAttribute('aria-selected'), 'true');
 }
 
-test('one settings-based preview and the nine settings-ordered tabs replace the combined scenes', async () => {
+test('one settings-based preview and the settings-ordered tabs replace the combined scenes', async () => {
   const page = await site();
   try {
     assert.deepEqual(
@@ -798,8 +802,8 @@ test('native forward/reverse scrolling switches one page while the rail and fram
   const page = await site({ reducedMotion: 'no-preference' });
   try {
     const initial = await page.locator('.feature-navigation').boundingBox();
-    for (const index of [1, 2, 3, 4, 5, 6, 7, 8, 6, 4, 2, 0]) {
-      await scrollScene(page, '#features', index / 8);
+    for (const index of [1, 2, 3, 4, 5, 6, 7, 8, lastFeatureIndex, 6, 4, 2, 0]) {
+      await scrollScene(page, '#features', index / lastFeatureIndex);
       await page.locator(`#feature-tab-${ids[index]}[aria-selected=true]`).waitFor();
       await page.getByRole('tabpanel').waitFor({ state: 'visible' });
       const current = await page.locator('.feature-navigation').boundingBox();
@@ -838,7 +842,7 @@ test('click and keyboard navigation share selection without exposing hidden cont
     await page.keyboard.press('Home');
     await page.keyboard.press('Tab');
     assert.equal(await focused(panel(page, 'outline')), true);
-    assert.equal(await page.locator('.feature-panel[inert]').count(), 8);
+    assert.equal(await page.locator('.feature-panel[inert]').count(), lastFeatureIndex);
   } finally {
     await page.close();
   }
@@ -853,9 +857,9 @@ test('scrolling without wheel or keyboard input resumes after viewport resizing'
     await frames(page);
     assert.equal(await page.locator('#feature-tab-prompts').getAttribute('aria-selected'), 'true');
     // 原生滚动条只产生 scroll；不发送 wheel/touch/key 事件解除保护。
-    await scrollScene(page, '#features', 5 / 8);
+    await scrollScene(page, '#features', 5 / lastFeatureIndex);
     await page.locator('#feature-tab-model[aria-selected=true]').waitFor();
-    await scrollScene(page, '#features', 1 / 8);
+    await scrollScene(page, '#features', 1 / lastFeatureIndex);
     await page.locator('#feature-tab-next[aria-selected=true]').waitFor();
   } finally {
     await page.close();
@@ -991,6 +995,18 @@ test('shared model choices, Bot messages and the isolated Agent menu remain inte
     await bots.getByRole('button', { name: '最近消息', exact: true }).click();
     await bots
       .getByText('三个项目各保留两张关键截图；记账应用还缺一段个人贡献说明。', { exact: true })
+      .waitFor();
+    await select(page, 'sites');
+    const library = panel(page, 'sites');
+    await library.getByRole('button', { name: '作品集笔记' }).press('Enter');
+    await library
+      .getByRole('status')
+      .filter({ hasText: /打开「作品集笔记」/ })
+      .waitFor();
+    await library.getByRole('button', { name: '设计参考' }).click();
+    await library
+      .getByRole('status')
+      .filter({ hasText: /打开「设计参考」/ })
       .waitFor();
     await select(page, 'compatibility');
     const agent = panel(page, 'compatibility').getByRole('menuitemradio', {
@@ -1159,7 +1175,7 @@ test('term details close when scrolling to another feature and favorites survive
     const popup = page.locator('.term-popover[data-open=true]');
     await popup.waitFor();
     await popup.getByRole('button', { name: '收藏术语', exact: true }).click();
-    await scrollScene(page, '#features', 4 / 8);
+    await scrollScene(page, '#features', 4 / lastFeatureIndex);
     await page.locator('#feature-tab-board[aria-selected=true]').waitFor();
     await popup.waitFor({ state: 'hidden' });
     await select(page, 'terms');

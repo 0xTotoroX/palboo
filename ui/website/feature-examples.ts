@@ -1,5 +1,5 @@
 /* [INPUT]: Shared feature contracts, memory-only task adapter, Agent registry and website language.
- * [OUTPUT]: Nine settings-ordered pages and bounded portfolio examples for the real preview components.
+ * [OUTPUT]: Settings-ordered feature pages and bounded portfolio examples for the real preview components.
  * [POS]: Website-only examples; contains no host identity, provider promise or credential.
  * [PROTOCOL]: Keep website/AGENTS.md in sync. */
 import { tr } from '../shared/i18n.js';
@@ -53,7 +53,13 @@ export const featurePages = [
     id: 'bots',
     title: 'Grok Bot',
     icon: 'feature-bots',
-    description: '找到合适的帮手，查看进度和回复。',
+    description: '查看 Bot 的完整回复，也可以从近期回复接着追问。',
+  },
+  {
+    id: 'sites',
+    title: '本地阅读与网页入口',
+    icon: 'feature-sites',
+    description: '在 ChatGPT 页签里打开常用网页，阅读和编辑本地 Markdown 笔记，也可以预览表格。',
   },
   {
     id: 'prompt',
