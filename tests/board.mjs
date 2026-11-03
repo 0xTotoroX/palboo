@@ -11,6 +11,7 @@ import { chromium } from 'playwright';
 import { prepareTestBinary } from '../scripts/verify.mjs';
 const root = resolve(import.meta.dirname, '..');
 const data = mkdtempSync(join(tmpdir(), 'buddy-board-'));
+writeFileSync(join(data, 'panel.json'), JSON.stringify({ language: 'zh-CN' }));
 const report = join(root, 'target/reports/board');
 mkdirSync(report, { recursive: true });
 const artifact = prepareTestBinary();

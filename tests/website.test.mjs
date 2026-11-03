@@ -298,12 +298,22 @@ test('the mascot leaves the screen, joins the backdrop, follows features and ret
         'retargeting preserves frame-to-frame continuity',
       );
     }
+    await page.waitForFunction(() => {
+      const face = document.querySelector('.brand-journey');
+      const next = document.querySelector('#feature-tab-next').getBoundingClientRect();
+      const matrix = new DOMMatrix(getComputedStyle(face).transform);
+      return (
+        face.dataset.target === 'feature-tab-next' &&
+        Math.abs(matrix.f - (next.y + next.height / 2)) < 1
+      );
+    });
     const settled = await position();
     const next = await page.locator('#feature-tab-next').boundingBox();
     assert.ok(Math.abs(settled.y - (next.y + next.height / 2)) < 1);
     assert.ok(settled.x + 18 < next.x, 'mascot lands outside the feature label and icon');
     await page.getByRole('tab', { name: '模型切换', exact: true }).click();
     await page.clock.runFor(500);
+    await mascot.and(page.locator('[data-target="feature-tab-model"]')).waitFor();
     assert.equal(await mascot.getAttribute('data-target'), 'feature-tab-model');
     await page.screenshot({ path: resolve(reports, 'journey-model.png') });
     // Capture the first footer frame in the page, before tool round trips can
@@ -353,15 +363,19 @@ test('the mascot leaves the screen, joins the backdrop, follows features and ret
             const main = document.querySelector('#main');
             const points = [];
             let start;
+            let firstFrame;
             let before;
             let crossedAt;
-            document
-              .querySelector(
-                mode === 'footer' ? '#feature-tab-compatibility' : '#feature-tab-outline',
-              )
-              .click();
+            const target = mode === 'footer' ? 'feature-tab-compatibility' : 'feature-tab-outline';
+            document.getElementById(target).click();
             function record(now) {
-              start ??= now;
+              firstFrame ??= now;
+              if (node.dataset.target === target) start ??= now;
+              if (start === undefined) {
+                if (now - firstFrame >= 3000) resolve({ mode, before, crossedAt, points });
+                else requestAnimationFrame(record);
+                return;
+              }
               const matrix = new DOMMatrix(getComputedStyle(node).transform);
               const point = {
                 time: now - start,
@@ -389,12 +403,14 @@ test('the mascot leaves the screen, joins the backdrop, follows features and ret
           }),
         mode,
       );
-      const firstOutside = sample.points.find(
+      const outsideIndex = sample.points.findIndex(
         (p) => p.time > sample.crossedAt && p.phase !== 'feature',
       );
-      assert.ok(firstOutside, 'the native scroll crosses the feature boundary');
+      assert.ok(outsideIndex > 0, 'the native scroll crosses the feature boundary');
+      const firstOutside = sample.points[outsideIndex];
+      const lastInside = sample.points[outsideIndex - 1];
       assert.ok(
-        Math.hypot(firstOutside.x - sample.before.x, firstOutside.y - sample.before.y) < 35,
+        Math.hypot(firstOutside.x - lastInside.x, firstOutside.y - lastInside.y) < 35,
         `${mode}: crossing continues from the last painted position`,
       );
       assert.ok(firstOutside.opacity > 0.5, `${mode}: the in-flight face remains visible`);
@@ -409,6 +425,7 @@ test('the mascot leaves the screen, joins the backdrop, follows features and ret
     await page.clock.runFor(500);
     await page.getByRole('tab', { name: '兼容集成', exact: true }).press('Home');
     await page.clock.runFor(500);
+    await mascot.and(page.locator('[data-target="feature-tab-outline"]')).waitFor();
     assert.equal(await mascot.getAttribute('data-target'), 'feature-tab-outline');
     for (const width of [1063, 896]) {
       await page.setViewportSize({ width, height: width === 1063 ? 690 : 1079 });
