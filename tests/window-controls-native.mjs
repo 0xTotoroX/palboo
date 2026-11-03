@@ -1,5 +1,5 @@
 /* [INPUT]: Current debug native window, production App entry and a synthetic local page/controller.
- * [OUTPUT]: Stable controls/content, real native green clicks, fullscreen controls/pin restoration and foreign-titlebar isolation with unchanged draft/PID.
+ * [OUTPUT]: Native green maximize/restore, content resizing before event dispatch, fullscreen fallback controls and foreign-titlebar isolation with unchanged draft/PID.
  * [POS]: Isolated temporary data and self-owned window, no screenshots or real host data.
  * [PROTOCOL]: Keep tests/AGENTS.md in sync. */
 import assert from 'node:assert/strict';
@@ -112,14 +112,13 @@ function fullscreenControlsReady() {
   const buttons = latest?.state?.nativeChrome?.buttons;
   return (
     latest?.state?.fullscreen &&
+    latest.state.nativeChrome.fullscreenControls &&
     latest.transient &&
     buttons?.length === 3 &&
     buttons.every(
       (button) => button.visible && button.reachable && button.width > 0 && button.height > 0,
     ) &&
-    buttons[0].enabled &&
-    !buttons[1].enabled &&
-    buttons[2].enabled
+    buttons.every((button) => button.enabled)
   );
 }
 try {
@@ -247,6 +246,21 @@ try {
     surfaceSamples.push(...latest.chromeProbe);
     for (const [sampleIndex, sample] of latest.chromeProbe.entries()) {
       const surface = sample.surface;
+      if (sample.immediateSurface) {
+        const immediate = sample.immediateSurface;
+        assert.equal(
+          immediate.web.width,
+          immediate.viewport.width,
+          'AppKit resizes WebView before Tao dispatch',
+        );
+        assert.equal(immediate.web.height, immediate.viewport.height);
+        assert.equal(
+          immediate.boundary.width,
+          immediate.viewport.width - 24,
+          'material resizes with AppKit',
+        );
+        assert.equal(immediate.boundary.height, immediate.viewport.height - 24);
+      }
       assert.equal(surface.visible, true, 'WebView stays visible throughout resize');
       assert.equal(surface.alpha, 1);
       assert.equal(
@@ -304,12 +318,42 @@ try {
   );
   near(bounds(), original);
   const normalFrame = latest.state.normalFrame;
+  const maximizeCycles = [];
+  for (const material of ['matte', 'frosted', 'native-glass']) {
+    commands.push({ material, probe: false }, 'green-click');
+    await wait(
+      () => latest?.state?.maximized && bounds()?.Width > original.Width,
+      `${material}: green maximizes on the current desktop`,
+    );
+    assert.equal(latest.state.fullscreen, false);
+    assert.ok(
+      (latest.state.collectionBehavior & 512) !== 0,
+      'window stays outside a fullscreen Space',
+    );
+    assert.equal(latest.state.nativeChrome.level, 3, 'maximize preserves the pin level');
+    assert.ok(
+      latest.state.nativeChrome.buttons.every(
+        (button) => button.visible && button.reachable && button.enabled,
+      ),
+    );
+    assert.deepEqual(latest.state.normalFrame, normalFrame);
+    await delay(350);
+    const maximized = bounds();
+    commands.push('minimize');
+    await wait(() => latest?.state?.minimized, 'yellow minimizes a maximized window');
+    execFileSync('/usr/bin/open', [app]);
+    await wait(() => !latest?.state?.minimized && bounds(), 'Dock restores maximized window');
+    near(bounds(), maximized);
+    commands.push('green-click');
+    await wait(() => !latest?.state?.maximized && restored(original), 'green restores normal size');
+    maximizeCycles.push(material);
+  }
   const fullscreenCycles = [];
   for (const material of ['matte', 'frosted', 'native-glass']) {
-    commands.push({ material, probe: false }, { pin: true }, 'green-click');
+    commands.push({ material, probe: false }, { pin: true }, 'fullscreen');
     await wait(
       fullscreenControlsReady,
-      `${material}: native green enters fullscreen with three reachable controls`,
+      `${material}: legacy fullscreen keeps three reachable controls`,
     );
     assert.equal(latest.state.nativeChrome.level, 0, 'fullscreen uses the normal window level');
     assert.deepEqual(latest.state.normalFrame, normalFrame);
@@ -323,13 +367,11 @@ try {
       () => latest?.probeMaterial !== material && fullscreenControlsReady(),
       'fullscreen controls survive a material switch',
     );
-    commands.push({ material, probe: false }, 'minimize');
+    commands.push({ material, probe: false });
     await wait(
       () => latest?.probeMaterial === material && fullscreenControlsReady(),
-      'fullscreen yellow remains disabled',
+      'fullscreen traffic lights stay enabled',
     );
-    await delay(250);
-    assert.equal(latest.state.minimized, false);
     const pinnedOnExit = material !== 'frosted';
     commands.push({ pin: pinnedOnExit }, 'green-click');
     await wait(
@@ -344,6 +386,19 @@ try {
     assert.equal(latest.state.nativeChrome.processId, pid);
     fullscreenCycles.push({ material, pinnedOnExit });
   }
+  assert.equal(latest.draft, '未保存的合成草稿');
+  commands.push('fullscreen');
+  await wait(fullscreenControlsReady, 'fullscreen before minimize');
+  commands.push('minimize');
+  await wait(
+    () => latest?.state?.minimized && !latest.state.fullscreen,
+    'yellow exits fullscreen and minimizes',
+  );
+  execFileSync('/usr/bin/open', [app]);
+  await wait(
+    () => !latest?.state?.minimized && restored(original),
+    'restore fullscreen-minimized window',
+  );
   assert.equal(latest.draft, '未保存的合成草稿');
   commands.push('maximize');
   await wait(() => latest?.state?.maximized && bounds()?.Width > original.Width, 'maximized');
@@ -402,8 +457,11 @@ try {
     nativeMinimize: true,
     nativeGreen: true,
     nativeGreenClick: true,
+    greenMaximizesOnCurrentDesktop: true,
+    maximizeCycles,
     fullscreenTrafficLights: true,
-    fullscreenYellowDisabled: true,
+    fullscreenMinimize: true,
+    synchronizedBeforeEventDispatch: true,
     fullscreenCycles,
     foreignWindowUntouched: true,
     fullscreenPinRestored: true,

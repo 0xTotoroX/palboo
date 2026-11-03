@@ -13,7 +13,7 @@
 
 Keep Palboo in a sidebar, float it over the page, move it to the desktop, or tuck it into an edge/notch panel. Drag to arrange your workspace and choose matte, frosted, or liquid materials. The launcher menu marks the current location. Desktop windows can stay on top while appearing in Mission Control and moving between desktops.
 
-Desktop windows use native macOS traffic-light controls and reuse the existing Palboo App, Dock position, and icon. Close returns the workspace to the chat; minimize keeps its contents, and the green control provides the system window actions. All three controls remain in the upper left in full screen: green restores the previous window size, red exits full screen and returns to the chat, and yellow is disabled.
+Desktop windows use native macOS traffic-light controls and reuse the existing Palboo App, Dock position, and icon. Close returns the workspace to the chat; yellow minimizes it while keeping its contents; green maximizes it on the current desktop and restores its previous size on the next click. All three controls stay available, and the selected material is preserved.
 
 | Tool                      | What it does                                                                                                                            |
 | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |

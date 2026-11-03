@@ -1,5 +1,5 @@
 // [INPUT]: Tao/Wry、Runtime、Preferences、Palboo.app 身份、共享 native_backdrop 与 AppKit 手势。
-// [OUTPUT]: 普通/全屏原生红黄绿、Palboo 应用身份、全屏前后置顶恢复、共用可逆路径的跨屏往返/中断恢复、页面重载后的呈现确认与旧交接清理、双向短过渡回退及同帧缩放。
+// [OUTPUT]: 原生红黄绿、当前桌面最大化/恢复、Palboo 应用身份、旧全屏置顶恢复、共用可逆路径的跨屏往返/中断恢复、页面重载后的呈现确认与旧交接清理、双向短过渡回退及同帧缩放。
 // [POS]: 窗口子进程实现；系统管理最小化/放大/全屏，关闭沿用收回，普通几何独立于临时窗口状态。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
@@ -206,7 +206,31 @@ mod macos {
     }
 
     pub fn maximized(window: &Window) -> bool {
-        window.fullscreen().is_some() || window.is_maximized()
+        window.fullscreen().is_some()
+            || window.is_maximized()
+            || native_window(window).screen().is_some_and(|screen| {
+                let frame = native_window(window).frame();
+                let visible = screen.visibleFrame();
+                (frame.origin.x - visible.origin.x).abs() < 1.
+                    && (frame.origin.y - visible.origin.y).abs() < 1.
+                    && (frame.size.width - visible.size.width).abs() < 1.
+                    && (frame.size.height - visible.size.height).abs() < 1.
+            })
+    }
+
+    pub fn animate_window_frame(window: &Window, normal: Option<super::Pose>) {
+        let native = native_window(window);
+        let frame = normal
+            .map(|pose| {
+                NSRect::new(
+                    NSPoint::new(pose.x, pose.y),
+                    NSSize::new(pose.width, pose.height),
+                )
+            })
+            .or_else(|| native.screen().map(|screen| screen.visibleFrame()));
+        if let Some(frame) = frame {
+            native.setFrame_display_animate(frame, true, !reduce_motion());
+        }
     }
 
     pub fn native_controls(window: &Window, chrome: &WindowChrome) -> Value {
@@ -234,7 +258,7 @@ mod macos {
                 })
                 .is_some_and(|hit| hit.isDescendantOf(&root))
         });
-        serde_json::json!({"buttons":buttons,"activationPolicy":app.activationPolicy().0,"level":native.level(),
+        serde_json::json!({"buttons":buttons,"fullscreenControls":chrome.fullscreen_controls_visible(),"activationPolicy":app.activationPolicy().0,"level":native.level(),
             "hasAppIcon":app.applicationIconImage().is_some(),"headerContentReachable":header_reachable,
             "processId":std::process::id(),"bundleIdentifier":identity.bundleIdentifier().map(|s|s.to_string()),
             "bundlePath":identity.bundleURL().and_then(|url|url.path()).map(|s|s.to_string())})
@@ -312,11 +336,15 @@ mod macos {
                     frame.origin.x -= offset;
                 }
             }
+            // 先回读 AppKit 刚改完 frame、Tao 事件尚未补齐尺寸的内容层。
+            native.setFrame_display(frame, false);
+            let immediate_surface = backdrop.0.geometry(native);
             set_interactive_frame(window, frame, backdrop);
             native.displayIfNeeded();
             // 提交 layer-backed view 的绘制后，同时检查标题栏与完整内容层。
             CATransaction::flush();
             let mut sample = native_controls(window, chrome);
+            sample["immediateSurface"] = immediate_surface;
             sample["surface"] = backdrop.0.geometry(native);
             samples.push(sample);
         }
@@ -469,7 +497,9 @@ mod macos {
 
     impl Backdrop {
         pub fn new(window: &Window) -> Self {
-            Self(crate::native_backdrop::Backdrop::new(native_window(window)))
+            let backdrop = crate::native_backdrop::Backdrop::new(native_window(window));
+            backdrop.enable_window_autoresizing();
+            Self(backdrop)
         }
 
         pub fn style(&self) -> Option<&'static str> {
@@ -620,11 +650,13 @@ pub fn run_surface(
             & !(NSWindowCollectionBehavior::Transient
                 | NSWindowCollectionBehavior::Stationary
                 | NSWindowCollectionBehavior::CanJoinAllSpaces
-                | NSWindowCollectionBehavior::MoveToActiveSpace);
+                | NSWindowCollectionBehavior::MoveToActiveSpace
+                | NSWindowCollectionBehavior::FullScreenPrimary);
+        // 绿色按钮在当前桌面最大化；不切换 Space 或改变磨砂背后的环境。
         native.setCollectionBehavior(
             behavior
                 | NSWindowCollectionBehavior::Managed
-                | NSWindowCollectionBehavior::FullScreenPrimary,
+                | NSWindowCollectionBehavior::FullScreenNone,
         );
     }
     if let Some(position) = prefs.position {
@@ -684,8 +716,11 @@ pub fn run_surface(
 
     let mut gesture: Option<macos::Gesture> = None;
     let backdrop = macos::Backdrop::new(&window);
-    let window_chrome =
-        window_chrome::WindowChrome::install(macos::native_window(&window), prefs.always_on_top);
+    let window_chrome = window_chrome::WindowChrome::install(
+        macos::native_window(&window),
+        prefs.always_on_top,
+        event_loop.create_proxy(),
+    );
     let mut reported_glass_style = None;
     let mut window_transition: Option<WindowTransition> = None;
     let mut return_origin: Option<Pose> = None;
@@ -758,13 +793,14 @@ pub fn run_surface(
                     if window_transition.is_none() && gesture.is_none() {
                         if window.fullscreen().is_some() {
                             window.set_fullscreen(None);
-                        } else if window.is_maximized() {
+                        } else if macos::maximized(&window) {
                             if let Some(normal) = normal_window_pose {
-                                macos::apply_pose(&window, normal, &backdrop);
+                                macos::animate_window_frame(&window, Some(normal));
                                 keep_on_screen(&window);
                             }
                         } else {
-                            window.set_maximized(true);
+                            normal_window_pose = Some(macos::pose(&window));
+                            macos::animate_window_frame(&window, None);
                         }
                     }
                     publish_window_controls(&webview, &window, &window_chrome, normal_window_pose, window_hidden);
@@ -773,6 +809,12 @@ pub fn run_surface(
                 // 合成原生验收通过真实系统按钮发送动作，不申请鼠标/屏幕权限。
                 #[cfg(debug_assertions)]
                 "native-fullscreen" if window_transition.is_none() && gesture.is_none() => {
+                    // 仅供回归旧全屏恢复路径；产品绿色按钮只在当前桌面 zoom。
+                    if window.fullscreen().is_none() {
+                        use objc2_app_kit::NSWindowCollectionBehavior;
+                        let native = macos::native_window(&window);
+                        native.setCollectionBehavior((native.collectionBehavior() & !NSWindowCollectionBehavior::FullScreenNone) | NSWindowCollectionBehavior::FullScreenPrimary);
+                    }
                     window.set_fullscreen(if window.fullscreen().is_some() { None } else { Some(tao::window::Fullscreen::Borderless(None)) });
                 }
                 #[cfg(debug_assertions)]

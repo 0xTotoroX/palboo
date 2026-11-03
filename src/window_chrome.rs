@@ -1,5 +1,5 @@
-// [INPUT]: 主窗口的 AppKit 几何通知与标准红黄绿按钮。
-// [OUTPUT]: 原窗口的标题栏定位、全屏过渡与置顶状态及全屏原生红黄绿。
+// [INPUT]: 主窗口的 AppKit 几何通知、标准红黄绿按钮及窗口命令事件通道。
+// [OUTPUT]: 标题栏定位、绿色最大化/恢复请求、置顶状态及旧全屏三键恢复。
 // [POS]: panel_window 私有标题栏适配；沿用系统按钮、动作和全屏管理。
 // [PROTOCOL]: 变更时更新此头部，然后检查 src/AGENTS.md。
 
@@ -25,8 +25,10 @@ use std::{
 
 pub struct ChromeState {
     window: Retained<NSWindow>,
+    zoom_proxy: tao::event_loop::EventLoopProxy<serde_json::Value>,
     updating: Cell<bool>,
     pinned: Cell<bool>,
+    minimize_after_fullscreen: Cell<bool>,
     fullscreen_transition_until: Cell<Option<Instant>>,
     fullscreen_buttons: Vec<(NSWindowButton, Retained<NSButton>)>,
     frames: Vec<(Retained<NSView>, bool)>,
@@ -40,6 +42,11 @@ define_class!(
     pub struct WindowChrome;
 
     impl WindowChrome {
+        #[unsafe(method(zoomRequested:))]
+        fn zoom_requested(&self, _sender: Option<&objc2::runtime::AnyObject>) {
+            let _ = self.ivars().zoom_proxy.send_event(serde_json::json!({"kind":"toggle-maximize"}));
+        }
+
         #[unsafe(method(fullscreenChanged:))]
         fn fullscreen_changed(&self, notification: &NSNotification) {
             if !self.owns_notification(notification) {
@@ -68,6 +75,23 @@ define_class!(
                 }
                 self.set_pinned(self.ivars().pinned.get());
                 self.layout();
+                if self.ivars().minimize_after_fullscreen.replace(false) {
+                    window.miniaturize(None);
+                }
+            }
+        }
+
+        #[unsafe(method(minimizeRequested:))]
+        fn minimize_requested(&self, _sender: Option<&objc2::runtime::AnyObject>) {
+            let window = &self.ivars().window;
+            if self.fullscreen_transitioning() {
+                return;
+            }
+            if window.styleMask().contains(NSWindowStyleMask::FullScreen) {
+                self.ivars().minimize_after_fullscreen.set(true);
+                window.toggleFullScreen(None);
+            } else {
+                window.miniaturize(None);
             }
         }
 
@@ -81,7 +105,11 @@ define_class!(
 );
 
 impl WindowChrome {
-    pub fn install(window: &NSWindow, pinned: bool) -> Retained<Self> {
+    pub fn install(
+        window: &NSWindow,
+        pinned: bool,
+        zoom_proxy: tao::event_loop::EventLoopProxy<serde_json::Value>,
+    ) -> Retained<Self> {
         let mtm = MainThreadMarker::new().expect("window main thread");
         let mut frames = Vec::new();
         if let Some(parent) = window
@@ -98,8 +126,10 @@ impl WindowChrome {
         }
         let this = Self::alloc(mtm).set_ivars(ChromeState {
             window: objc2::Message::retain(window),
+            zoom_proxy,
             updating: Cell::new(false),
             pinned: Cell::new(pinned),
+            minimize_after_fullscreen: Cell::new(false),
             fullscreen_transition_until: Cell::new(None),
             fullscreen_buttons: [
                 NSWindowButton::CloseButton,
@@ -169,6 +199,7 @@ impl WindowChrome {
                 );
             }
         }
+        this.set_pinned(pinned);
         this.layout();
         this
     }
@@ -263,6 +294,15 @@ impl WindowChrome {
         .collect()
     }
 
+    pub fn fullscreen_controls_visible(&self) -> bool {
+        !self.fullscreen_transitioning()
+            && self
+                .ivars()
+                .fullscreen_buttons
+                .first()
+                .is_some_and(|(_, button)| button.window().is_some())
+    }
+
     pub fn keep_fullscreen_buttons_above_content(&self) {
         if let Some((_, last)) = self.ivars().fullscreen_buttons.last()
             && let Some(root) = unsafe { last.superview() }
@@ -292,10 +332,14 @@ impl WindowChrome {
                 NSAutoresizingMaskOptions::ViewMinYMargin
             });
             unsafe {
-                button.setTarget(Some(&**window));
+                button.setTarget(Some(if *kind == NSWindowButton::MiniaturizeButton {
+                    self.as_ref()
+                } else {
+                    window.as_ref()
+                }));
                 button.setAction(Some(match *kind {
                     NSWindowButton::CloseButton => sel!(performClose:),
-                    NSWindowButton::MiniaturizeButton => sel!(miniaturize:),
+                    NSWindowButton::MiniaturizeButton => sel!(minimizeRequested:),
                     _ => sel!(toggleFullScreen:),
                 }));
             }
@@ -308,7 +352,7 @@ impl WindowChrome {
             unsafe {
                 let _: () = msg_send![button, setAccessibilityLabel: &*label];
             }
-            button.setEnabled(*kind != NSWindowButton::MiniaturizeButton);
+            button.setEnabled(true);
             root.addSubview(button);
         }
     }
@@ -355,6 +399,14 @@ impl WindowChrome {
         .enumerate()
         {
             if let Some(button) = window.standardWindowButton(kind) {
+                if kind == NSWindowButton::ZoomButton
+                    && button.action() != Some(sel!(zoomRequested:))
+                {
+                    unsafe {
+                        button.setTarget(Some(self));
+                        button.setAction(Some(sel!(zoomRequested:)));
+                    }
+                }
                 let origin = parent.convertPoint_fromView(
                     NSPoint::new(
                         26. + index as f64 * 20.,

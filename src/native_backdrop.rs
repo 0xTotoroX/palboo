@@ -1,5 +1,5 @@
 // [INPUT]: Wry 所属 NSWindow、原生背景几何与共享材质偏好。
-// [OUTPUT]: 宿主主题、三种原生材质与同帧视口尺寸；相同尺寸不重复提交内容层布局。
+// [OUTPUT]: 宿主主题、三种原生材质与同帧视口尺寸；桌面内容随 AppKit 原生缩放，相同尺寸不重复提交布局。
 // [POS]: panel_window、feature_window 与 edge_window 共用的 AppKit 背景层。
 // [PROTOCOL]: 共享材质保持窗口无关；控制条在根视图统一裁切背景与网页，更新内容边缘和刘海两翼，工作台仍用圆角矩形。
 
@@ -26,6 +26,7 @@ pub struct Backdrop {
     boundary: Retained<NSView>,
     carrier: Retained<NSView>,
     web: Retained<NSView>,
+    window_autoresizing: std::cell::Cell<bool>,
     edge_mask: std::cell::OnceCell<Retained<CALayer>>,
 }
 
@@ -40,6 +41,21 @@ impl Drop for LiveResize {
 }
 
 impl Backdrop {
+    // 桌面工作台的边距固定，直接由 AppKit 同步内容与材质尺寸。
+    // 系统 zoom/fullscreen 的 frame 变化早于 Tao 事件派发，不能等事件回调再追赶。
+    // 贴边窗口仍保持稳定视口与原有轮廓动画，不启用此布局策略。
+    pub fn enable_window_autoresizing(&self) {
+        self.window_autoresizing.set(true);
+        let mask = NSAutoresizingMaskOptions::ViewWidthSizable
+            | NSAutoresizingMaskOptions::ViewHeightSizable;
+        for view in [&*self.boundary, &*self.frosted, &*self.carrier, &*self.web] {
+            view.setAutoresizingMask(mask);
+        }
+        if let Some(glass) = &self.glass {
+            glass.setAutoresizingMask(mask);
+        }
+    }
+
     pub fn begin_live_resize(&self) -> Option<LiveResize> {
         if self.web.inLiveResize() {
             return None;
@@ -83,6 +99,7 @@ impl Backdrop {
             boundary,
             carrier,
             web,
+            window_autoresizing: std::cell::Cell::new(false),
             edge_mask: std::cell::OnceCell::new(),
         }
     }
@@ -199,6 +216,11 @@ impl Backdrop {
     }
 
     pub fn resize_viewport(&self, window: &NSWindow, interactive: bool) {
+        if self.window_autoresizing.get() {
+            // 原生父视图还可能在本次布局事务中调整 contentView。
+            // 混用手动 WebView 尺寸会让稍后的 autoresizing 再加一次差值。
+            return;
+        }
         let root = window.contentView().expect("Wry content view");
         let mut frame = self.web.frame();
         let size = root.bounds().size;
@@ -293,6 +315,7 @@ impl Backdrop {
         let use_frosted = visible && message["material"] == "frosted";
         CATransaction::begin();
         CATransaction::setDisableActions(true);
+        let mut reparented = false;
         if use_glass {
             let glass = self.glass.as_ref().expect("available glass");
             let style = if message["liquidVariant"] == "clear" {
@@ -306,13 +329,17 @@ impl Backdrop {
             if unsafe { self.web.superview() }.as_deref() != Some(&*self.carrier) {
                 self.web.removeFromSuperview();
                 self.carrier.addSubview(&self.web);
+                reparented = true;
             }
         } else {
             if unsafe { self.web.superview() }.as_deref() != Some(&*root) {
                 self.web.removeFromSuperview();
                 root.addSubview(&self.web);
+                reparented = true;
             }
-            self.web.setFrame(bounds);
+            if reparented || !self.window_autoresizing.get() {
+                self.web.setFrame(bounds);
+            }
         }
         if let Some((x, y, width, height, radius)) = geometry {
             let origin_y = if root.isFlipped() {
@@ -336,10 +363,15 @@ impl Backdrop {
                 glass.setCornerRadius(radius);
                 if use_glass {
                     // 保持网页完整视口，只把当前胶囊区域放进玻璃容器。
-                    self.web.setFrame(NSRect::new(
-                        NSPoint::new(-x, -(bounds.size.height - y - height)),
-                        bounds.size,
-                    ));
+                    let origin = NSPoint::new(-x, -(bounds.size.height - y - height));
+                    if reparented || !self.window_autoresizing.get() {
+                        if self.window_autoresizing.get() {
+                            self.carrier.setFrame(local);
+                        }
+                        self.web.setFrame(NSRect::new(origin, bounds.size));
+                    } else if self.web.frame().origin != origin {
+                        self.web.setFrameOrigin(origin);
+                    }
                 }
             }
         }
