@@ -251,6 +251,9 @@ export function CodexHostSettings({
               {latest === state.version && <p role="status">{tr('已是最新版本')}</p>}
             </div>
           </div>
+          {state.state === 'pendingUpdate' && (
+            <p role="status">{tr('新版已安装。结束任务后，退出 Codex，再从 Palboo 打开。')}</p>
+          )}
           {(state.executable || state.runningExecutable) && (
             <dl className="compatibility-path">
               {state.executable && (

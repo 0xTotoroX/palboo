@@ -46,6 +46,30 @@ fn save(paths: &Paths, job: &Job) -> Result<()> {
         &serde_json::to_vec(job)?,
     )
 }
+pub(crate) async fn wait_for_exit(host: &super::Running) -> Result<()> {
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
+    loop {
+        match super::running().await {
+            Ok(None) => return Ok(()),
+            Ok(Some(current)) => ensure!(
+                current.pid == host.pid && current.executable == host.executable,
+                "CodexHost 实例已变化，未重开其他实例"
+            ),
+            // Controller closes before its launcher removes the descriptor.
+            Err(error) => {
+                if ps(host.pid, "comm=").ok().map(PathBuf::from) != Some(host.executable.clone()) {
+                    return Err(error);
+                }
+            }
+        }
+        ensure!(
+            tokio::time::Instant::now() < deadline,
+            "CodexHost 仍在退出，请稍后从 Palboo 重新打开"
+        );
+        tokio::time::sleep(Duration::from_millis(250)).await;
+    }
+}
+
 fn ps(pid: u32, format: &str) -> Result<String> {
     let output = Command::new("/bin/ps")
         .args(["-p", &pid.to_string(), "-o", format])
@@ -310,29 +334,7 @@ async fn execute(
             Duration::from_secs(30),
         )
         .await?;
-        let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
-        loop {
-            match super::running().await {
-                Ok(None) => break,
-                Ok(Some(current)) => ensure!(
-                    current.pid == job.host.pid && current.executable == job.host.executable,
-                    "CodexHost 实例已变化，未重开其他实例"
-                ),
-                // Controller closes before its launcher removes the descriptor.
-                Err(error) => {
-                    if ps(job.host.pid, "comm=").ok().map(PathBuf::from)
-                        != Some(job.host.executable.clone())
-                    {
-                        return Err(error);
-                    }
-                }
-            }
-            ensure!(
-                tokio::time::Instant::now() < deadline,
-                "CodexHost 仍在退出，请稍后从 Palboo 重新打开"
-            );
-            tokio::time::sleep(Duration::from_millis(250)).await;
-        }
+        wait_for_exit(&job.host).await?;
         check_config(paths, job.revision)?;
         // Do not reuse the old injection or invoke the upstream launcher.
         if let Some(dev) = &job.dev {

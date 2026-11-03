@@ -212,6 +212,8 @@ export default {
   有更新时提醒: 'Notify when available',
   静默更新: 'Update silently',
   不检查: 'Never check on startup',
+  '新版已安装。结束任务后，退出 Codex，再从 Palboo 打开。':
+    'The update is installed. Finish your tasks, quit Codex, then open it from Palboo.',
   '{{value1}} {{target}}': '{{value1}} {{target}}',
   启动: 'Launch',
   '恢复 CodexHost 上一版本？': 'Restore the previous CodexHost version?',

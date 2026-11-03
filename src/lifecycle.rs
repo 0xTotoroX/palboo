@@ -286,9 +286,14 @@ pub async fn launch(
     }
     if config.codex_host.enabled {
         anyhow::ensure!(!isolated, "CodexHost 不支持独立 profile 启动");
-        let (_, desktop, _) =
+        let (selected, desktop, _) =
             crate::codex_host::prepare(&config.codex_host, executable.as_deref()).await?;
-        if crate::codex_host::running().await?.is_none()
+        let running = crate::codex_host::running().await?;
+        let update = restart_running
+            && running.as_ref().is_some_and(|host| {
+                host.managed_by(paths) && !host.matches_installation(&selected)
+            });
+        if (running.is_none() || update)
             && let Some(pid) = desktop_process(&desktop)?
         {
             // Preserve the existing refusal to quit independent profiles.
@@ -298,10 +303,22 @@ pub async fn launch(
                 "启用 CodexHost 需要重开 Codex；请结束任务后从 Palboo 启动入口应用更改"
             );
             if !restart_approved(config.host_restart_policy, || {
-                confirm_codex_host_restart(true)
+                if update {
+                    confirm_restart(crate::i18n::text(
+                        "新版 CodexHost 已安装。是否退出并重开 Codex 以应用更新？请先结束正在执行的任务。",
+                        "A new CodexHost version is installed. Quit and reopen Codex to apply it? Finish running tasks first.",
+                    ))
+                } else {
+                    confirm_codex_host_restart(true)
+                }
             })? {
                 bail!("已取消重开，Codex 保持运行");
             }
+            anyhow::ensure!(
+                paths.load()?.codex_host.revision == config.codex_host.revision
+                    && crate::codex_host::running().await? == running,
+                "CodexHost 的设置或运行实例已变化，请重新打开 Palboo"
+            );
             quit_desktop(
                 &desktop,
                 pid,
@@ -309,6 +326,13 @@ pub async fn launch(
                 Duration::from_secs(30),
             )
             .await?;
+        }
+        if update && let Some(host) = &running {
+            crate::codex_host::restart::wait_for_exit(host).await?;
+            anyhow::ensure!(
+                paths.load()?.codex_host.revision == config.codex_host.revision,
+                "CodexHost 的设置已变化，请重新打开 Palboo"
+            );
         }
         let endpoint = crate::codex_host::launch(paths, &config.codex_host, Some(&desktop)).await?;
         return finish_launch(paths, &endpoint, no_open, host_only, true).await;

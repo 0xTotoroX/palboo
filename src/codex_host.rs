@@ -43,11 +43,29 @@ struct Descriptor {
     control_port: u16,
     nonce: String,
 }
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Running {
     pub pid: u32,
     pub executable: PathBuf,
+}
+
+impl Running {
+    pub(crate) fn matches_installation(&self, executable: &Path) -> bool {
+        std::fs::canonicalize(executable)
+            .ok()
+            .is_some_and(|selected| {
+                std::fs::canonicalize(&self.executable).is_ok_and(|actual| selected == actual)
+            })
+    }
+
+    pub(crate) fn managed_by(&self, paths: &Paths) -> bool {
+        std::fs::read(paths.root.join("codex-host-owned.json"))
+            .ok()
+            .and_then(|bytes| serde_json::from_slice::<Self>(&bytes).ok())
+            .as_ref()
+            == Some(self)
+    }
 }
 
 pub fn executable(options: &Options) -> Option<PathBuf> {
@@ -199,20 +217,13 @@ async fn status_with_running(
     } else {
         None
     };
-    let owned: Option<Running> = std::fs::read(paths.root.join("codex-host-owned.json"))
-        .ok()
-        .and_then(|b| serde_json::from_slice(&b).ok());
-    let owned = running.as_ref().is_some_and(|r| {
-        owned
-            .as_ref()
-            .is_some_and(|o| o.pid == r.pid && o.executable == r.executable)
-    });
+    let owned = running
+        .as_ref()
+        .is_some_and(|record| record.managed_by(paths));
     let same_installation = running.as_ref().is_some_and(|record| {
-        executable.as_ref().is_some_and(|selected| {
-            std::fs::canonicalize(selected).is_ok_and(|selected| {
-                std::fs::canonicalize(&record.executable).is_ok_and(|actual| selected == actual)
-            })
-        })
+        executable
+            .as_ref()
+            .is_some_and(|selected| record.matches_installation(selected))
     });
     let state = if error.is_some() {
         "error"
@@ -679,6 +690,14 @@ mod tests {
             pid: 1,
             executable: installs[0].clone(),
         };
+        assert!(!running.managed_by(&paths));
+        write_private(
+            &paths.root.join("codex-host-owned.json"),
+            &serde_json::to_vec(&running).unwrap(),
+        )
+        .unwrap();
+        assert!(running.managed_by(&paths));
+        assert!(!running.matches_installation(&installs[1]));
         let mut options = Options {
             enabled: true,
             executable: Some(installs[1].clone()),
@@ -689,6 +708,7 @@ mod tests {
             .unwrap();
         assert_eq!(snapshot["version"], snapshot["runningVersion"]);
         assert_eq!(snapshot["state"], "pendingUpdate");
+        assert_eq!(snapshot["managed"], true);
         assert_ne!(snapshot["executable"], snapshot["runningExecutable"]);
 
         let alias = dir.path().join("codexhost-link");
