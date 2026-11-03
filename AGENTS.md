@@ -92,7 +92,7 @@ Rust + Tokio/Axum + Tao/Wry + JavaScript 共享胶囊 + React/TypeScript/Vite + 
 - [ui/shared/AGENTS.md](ui/shared/AGENTS.md)：跨模块类型、受限通信、图标及纯资源。
 - `components.json`：shadcn/ui 的设置页路径与组件别名配置；保留 new-york/Radix 基础，上游生成的图标统一适配到 shared/icons。
 - [ui/settings/AGENTS.md](ui/settings/AGENTS.md)：React 配置页、基础组件与 Vite 入口，构建输出到 `target/web/`。
-- [ui/website/AGENTS.md](ui/website/AGENTS.md)：独立介绍页复用原版品牌、设置页 LayoutPreview 和各功能真实预览。显示器开场随滚动收起支架并遍历位置／材质，之后使用左侧固定目录、右侧单页展台，原生滚动、点选及键盘同步切换九项功能；预览持续挂载并保留草稿、任务和收藏。双眼从屏幕进入材质背景，再落到当前功能旁，最后回到页尾字标并变成双O。所有数据与操作留在本页内存，手动接管后不恢复自动示范；窄／矮屏改横向目录，减少动态效果不自动演示或跨区飞行。`dev:site` / `build:site` / `preview:site` 独立启动与输出 `target/site/`，不进入 App、设置页或自动发布流程。
+- [ui/website/AGENTS.md](ui/website/AGENTS.md)：独立介绍页复用原版品牌、设置页 LayoutPreview 和各功能真实预览。显示器开场随滚动收起支架并遍历位置／材质，之后使用左侧固定目录、右侧单页展台，原生滚动、点选及键盘同步切换十项功能；预览持续挂载并保留草稿、任务和收藏。双眼从屏幕进入材质背景，再落到当前功能旁，最后回到页尾字标并变成双O。所有数据与操作留在本页内存，手动接管后不恢复自动示范；窄／矮屏改横向目录，减少动态效果不自动演示或跨区飞行。`dev:site` / `build:site` / `preview:site` 独立启动与输出 `target/site/`，不进入 App、设置页或自动发布流程。
 - `ui/shared/contracts.ts`：设置、字体、上下文与投影命令的共享类型；保存版本和生成版本各司其职。
 - `ui/shared/tokens.css`：设置页与胶囊共享的颜色、间距、圆角和控件尺寸变量，动作图标与点击区统一使用18px/28px变量。
 - `ui/icon.png`：启动器图标唯一源图；安装时由系统工具生成多尺寸 ICNS，不修改原始构图。
@@ -258,6 +258,6 @@ Grok Bot 最近消息使用“目录 → 单 Bot 全文”：原 Bot 列表点�
 
 设置页、桌面浮窗和贴边／刘海按有效字体偏好共享按需字体加载器；旧浮窗与旧独立看板入口同样接入。贴边／刘海共用 edge 偏好，与 desktop 分开。加载已安装宿主包内可确认的 OpenAI Sans/Serif 字形，读取通过本机认证 API、固定字体白名单和 ASAR 边界/完整性校验，不安装或随 Palboo 分发字体。普通弹窗不附加整窗缩放；抽屉参考 App 侧面板已确认的400/40弹簧，不把映射宣称为官方设置抽屉完整复刻；保持原生控件、草稿、焦点与减少动态效果。
 
-本地阅读与网站入口：`src/web_library.rs` 保存独立修订的网站与目录授权，`src/reader/` 在独立 loopback 端口提供笔记检索、双链、图片与表格预览。`ui/reader/` 是内置浏览器中的阅读网页，`ui/features/sites/` 只负责打开入口；不向模型投影笔记正文；只在用户编辑 Markdown 后自动保存原文件，按内容版本拒绝外部冲突，不修改 `.obsidian` 或表格。
+本地阅读与网站入口：`src/web_library.rs` 保存独立修订的网站与目录授权，`src/reader/` 在独立 loopback 端口提供笔记检索、双链、图片与表格预览。`ui/reader/` 是内置浏览器中的阅读网页；纯Markdown/编辑/表格视图也供介绍页隔离示例复用，认证和文件读写留在正式阅读器；`ui/features/sites/` 只负责打开入口；不向模型投影笔记正文；只在用户编辑 Markdown 后自动保存原文件，按内容版本拒绝外部冲突，不修改 `.obsidian` 或表格。
 
 网站与本地文件夹统一通过已有 Palboo 网站面板进入，不新增独立左栏地球图标。用户可添加多个 Obsidian 或 Markdown 文件夹，前台逐项显示，分别在 ChatGPT 内打开阅读页；侧栏可切换已授权文件夹，切换前先保存当前编辑。目录以轻量开合图标表示，不使用实心三角；文件夹、下划线前缀优先，数字自然排序。系统选择器只填写草稿，保存才授权；移除入口不删除源文件。各文件夹的凭证、索引与阅读位置隔离，新增或移除其他文件夹不使已有有效页面失效；库名、刷新与设置保持在可折叠侧栏，不恢复全宽顶栏。端口与凭证只存 Palboo 私有数据目录。

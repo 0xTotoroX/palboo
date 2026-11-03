@@ -1,4 +1,4 @@
-/* [INPUT]: Reader-only API, safe Markdown renderer, note tree and browser navigation.
+/* [INPUT]: Reader-only API, safe Markdown with authenticated image rendering, note tree and browser navigation.
  * [OUTPUT]: Collapsible navigation, note reading/editing, spreadsheet previews, links and reading positions.
  * [POS]: Standalone document opened in ChatGPT; no settings token, composer access or AI calls.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
@@ -8,6 +8,7 @@ import { read, write, folderId, type Catalog, type Note, type Summary, type Sear
 import { NoteEditor, useNoteEditor } from './editor';
 import { Spreadsheet } from './spreadsheet';
 import { NoteMarkdown, anchorKey, decodeLink } from './markdown';
+import { ReaderPicture } from './picture';
 import { NoteTree } from './tree';
 import { Icon } from '../shared/icons/react';
 import { tr, setLocale } from '../shared/i18n.js';
@@ -476,6 +477,7 @@ function Reader() {
                 )}
                 <div className="reader-markdown" ref={content}>
                   <NoteMarkdown
+                    image={ReaderPicture}
                     id={note.id}
                     text={note.markdown}
                     follow={(target) => void follow(target)}

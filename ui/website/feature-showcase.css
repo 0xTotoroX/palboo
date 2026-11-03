@@ -146,18 +146,14 @@
   min-height: 0;
   --preview-conversation-height: 100%;
 }
-.feature-library-example {
-  --csw-hover: var(--site-input);
-}
 .feature-preview[data-preview-kind='sites'] {
-  flex: 0 1 auto;
+  padding: 0;
+  overflow: hidden;
 }
-.feature-library-example > p {
-  margin: 0 8px;
-  color: var(--site-muted);
-}
-.feature-library-example > p:not(:empty) {
-  margin-top: 12px;
+.feature-preview[data-preview-kind='sites'] > .site-real-feature {
+  height: 100%;
+  flex: 1;
+  min-height: 0;
 }
 .feature-preview {
   container-type: inline-size;
@@ -349,6 +345,10 @@
   }
   .feature-preview:has(.preview-conversation) {
     max-height: none;
+  }
+  .feature-preview[data-preview-kind='sites'] {
+    flex: none;
+    height: 580px;
   }
 }
 @container (max-width: 30em) {

@@ -8,12 +8,14 @@ export default {
   '模型、推理强度和常用预设，放在手边。': 'Models, reasoning levels and presets, close at hand.',
   '查看 Bot 的完整回复，也可以从近期回复接着追问。':
     'Read complete Bot replies and follow up on recent responses.',
-  本地阅读与网页入口: 'Local Notes & Web Shortcuts',
-  '在 ChatGPT 页签里打开常用网页，阅读和编辑本地 Markdown 笔记，也可以预览表格。':
-    'Open saved web pages in ChatGPT tabs, read and edit local Markdown notes, and preview spreadsheets.',
+  阅读与网页: 'Notes & Web',
+  '笔记、表格与常用网页，都在 ChatGPT 页签里。':
+    'Your notes, spreadsheets, and favorite pages, in ChatGPT tabs.',
   作品集笔记: 'Portfolio notes',
+  素材清单: 'Asset list',
+  上线检查: 'Launch checklist',
+  页面: 'Page',
   设计参考: 'Design references',
-  '演示：在 ChatGPT 新页签打开「{{name}}」。': 'Preview: open “{{name}}” in a new ChatGPT tab.',
   '发送之前，把想法表达得更清楚。': 'Make your ideas clearer before you send.',
   '在当前聊天里，选择你要协作的 Agent。': 'Choose the Agent you want to work with in your chat.',
   '读懂，': 'Read it through.',
@@ -506,4 +508,81 @@ export default {
     'A reading tool, an event registration page, and a budgeting app. Project descriptions and some screenshots are available; contributions and outcomes still need to be verified individually.',
   '两天完成第一版：简介、三个项目、联系方式。保留现有视觉风格，兼顾手机阅读，暂不增加博客。':
     'Two days for version one: introduction, three projects, and contact details. Keep the current visual style, make it readable on phones, and leave the blog for later.',
+  作品集计划: 'Portfolio plan',
+  '用三个作品，说明我怎样发现问题、做出取舍，再把方案落到细节。第一版先把内容讲清楚。':
+    'Three projects to show how I find problems, weigh tradeoffs, and work through the details. For version one, clarity comes first.',
+  '三个作品，一条主线': 'Three projects, one thread',
+  '：从收藏到找回，让重要内容不再沉底。':
+    ': from saving to finding, so useful ideas stay within reach.',
+  '：缩短填写路径，把提交结果说清楚。': ': a shorter form and a clear submission result.',
+  '：整理分类与统计，让收支更容易理解。':
+    ': categories and reports that make spending easier to understand.',
+  每个案例讲什么: 'What each case study covers',
+  '先交代背景和我的职责，再用两张关键截图说明设计取舍。结果只写能核实的内容，不用形容词代替证据。':
+    'Start with the context and my role, then use two key screenshots to explain the design decisions. Include only outcomes I can verify.',
+  '先读 [[reading-tool.md|阅读工具]] 的案例草稿，再对照 [[assets.xlsx|素材清单]] 补齐截图。':
+    'Read the [[reading-tool.md|reading tool]] draft, then check the [[assets.xlsx|asset list]] for missing screenshots.',
+  上线之前: 'Before launch',
+  '首页保留简介、作品和联系方式。手机上改为单列，保持文字可读；发布前逐项完成 [[launch.md|上线检查]]。':
+    'Keep the home page to an introduction, projects, and contact details. Use one column on phones with readable text, then complete the [[launch.md|launch checklist]].',
+  '收藏之后，仍然找得到。': 'Saved today. Still findable tomorrow.',
+  从一个具体问题开始: 'Start with a specific problem',
+  '阅读资料越来越多，真正需要时却只记得一个关键词。这个案例围绕检索、摘录和返回原文，整理一条连续的阅读路径。':
+    'The reading collection keeps growing, but often all I remember is a keyword. This case study connects search, excerpts, and the original article into one reading flow.',
+  设计取舍: 'Design decisions',
+  '搜索结果同时显示标题与命中段落，先判断是否相关，再进入正文。摘录保留来源，回到原文时继续上一次的阅读位置。':
+    'Search results show a title and a matching passage, so readers can judge relevance before opening an article. Excerpts keep their sources, and returning restores the reading position.',
+  需要补齐的材料: 'Materials still needed',
+  '检索页：展示关键词与命中段落。': 'Search screen: the keyword and matching passage.',
+  '摘录页：展示内容与原文的关系。': 'Excerpt screen: the connection to the original article.',
+  '个人贡献：写清自己负责的设计和实现。': 'My role: the design and implementation I owned.',
+  '回到 [[plan.md|作品集计划]]，继续整理其他案例。':
+    'Return to the [[plan.md|portfolio plan]] to work on the other case studies.',
+  '让填写、确认和提交连成一条清楚的路径。':
+    'A clear path from filling in the form to confirmation and submission.',
+  填写之前: 'Before the form',
+  '先展示活动时间、地点和报名条件，表单只保留本次活动确实需要的信息。':
+    'Show the date, venue, and registration requirements first. Ask only for information the event needs.',
+  提交之后: 'After submission',
+  '成功页明确说明报名结果和下一步；失败时保留已填写的内容，把问题放在对应字段旁边。':
+    'The success screen explains the result and next steps. On failure, keep the entered information and show each error beside its field.',
+  案例素材: 'Case study materials',
+  '用表单和提交结果两张截图说明整个流程，具体素材记录在 [[assets.xlsx|素材清单]]。':
+    'Use two screenshots to show the form and its result. Track the files in the [[assets.xlsx|asset list]].',
+  '发布前，按真实的阅读顺序走一遍。': 'Before publishing, walk through the actual reading flow.',
+  内容与链接: 'Content and links',
+  '- [ ] 每个作品都有背景、职责和设计取舍。\n- [ ] 截图与说明对应，替代文本清楚。\n- [ ] 项目链接与联系方式可以打开。':
+    '- [ ] Each project explains its context, role, and decisions.\n- [ ] Screenshots match the text and have clear alt text.\n- [ ] Project links and contact details work.',
+  '- [ ] 手机宽度下没有横向溢出。\n- [ ] 键盘可以完成所有操作，焦点可见。\n- [ ] 减少动态效果时，内容仍然完整。':
+    '- [ ] No horizontal overflow on phones.\n- [ ] Every action works by keyboard, with visible focus.\n- [ ] All content remains available with reduced motion.',
+  '范围有变化时，回到 [[plan.md|作品集计划]] 调整。':
+    'When the scope changes, update the [[plan.md|portfolio plan]].',
+  截图: 'Screenshots',
+  需要补充: 'To add',
+  背景与检索流程: 'Context and search flow',
+  表单与提交反馈: 'Form and submission feedback',
+  个人贡献: 'My contribution',
+  待核对: 'To review',
+  待补充: 'To add',
+  检索页: 'Search',
+  摘录页: 'Excerpts',
+  报名表: 'Registration form',
+  提交结果: 'Submission result',
+  分类页: 'Categories',
+  统计页: 'Reports',
+  让作品自己说话: 'Let the work speak',
+  '一份作品集的阅读笔记：把注意力留给项目，把解释留给关键取舍。':
+    'Notes on portfolios: let projects hold the attention, and use words to explain the decisions that matter.',
+  '先看见作品，再了解过程': 'See the work, then the process',
+  '首页用名称和一句用途帮助访客选择。进入案例后，按问题、职责、方案和结果展开，不让所有细节挤在同一层。':
+    'On the home page, a name and a brief purpose help visitors choose. In each case study, unfold the problem, role, approach, and outcome instead of presenting every detail at once.',
+  留白也是信息层级: 'Space creates hierarchy',
+  '相关内容靠近，不同话题留出间隔。标题与正文形成清楚的节奏，手机上保持阅读字号，而不是把桌面页面缩小。':
+    'Keep related content close and separate different topics with space. Give headings and body text a clear rhythm. On phones, retain readable type instead of shrinking the desktop page.',
+  用证据收尾: 'Finish with evidence',
+  '截图说明实际界面，文字解释为什么这样做。没有验证的结果先留空，个人贡献写到具体动作。':
+    'Screenshots show the interface; words explain the reasoning. Leave unverified results out and describe your contribution in concrete actions.',
+  仅保存在演示中: 'Saved in this demo only',
+  示例页签: 'Example tabs',
+  没有匹配的笔记: 'No matching notes',
 };

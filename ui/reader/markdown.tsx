@@ -1,11 +1,10 @@
-/* [INPUT]: Untrusted Obsidian Markdown, current note identity and authenticated image transport.
- * [OUTPUT]: Safe GFM, wikilinks, block/heading anchors, callouts and opt-in remote images.
+/* [INPUT]: Untrusted Obsidian Markdown, note identity and optional image/link adapters.
+ * [OUTPUT]: Safe GFM, wikilinks, block/heading anchors, callouts and injected image/link rendering.
  * [POS]: No raw HTML/plugin execution; notes and assets stay in this reader, never in model context.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
-import { useEffect, useRef, useState } from 'react';
+import type { ComponentType } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { raw } from './api';
 import { tr } from '../shared/i18n.js';
 type Node = {
   type: string;
@@ -110,89 +109,24 @@ function safeUrl(value: string) {
   if (value.startsWith('//') || /^[\s\S]*?:/.test(value)) return webUrl(value);
   return value;
 }
-function Picture({
-  from,
-  source,
-  alt,
-  width,
-  height,
-}: {
-  from: string;
-  source: string;
-  alt: string;
-  width?: string | number;
-  height?: string | number;
-}) {
-  const external = webUrl(source);
-  const [allowed, setAllowed] = useState(false);
-  const [url, setUrl] = useState('');
-  const [error, setError] = useState('');
-  const dialog = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    setUrl('');
-    setError('');
-    setAllowed(false);
-    if (!source || external) return;
-    const controller = new AbortController();
-    let blob = '';
-    void raw('image', { id: from, target: source }, controller.signal)
-      .then((r) => r.blob())
-      .then((value) => {
-        if (controller.signal.aborted) return;
-        blob = URL.createObjectURL(value);
-        setUrl(blob);
-      })
-      .catch((e) => {
-        if (!controller.signal.aborted) setError(e.message);
-      });
-    return () => {
-      controller.abort();
-      if (blob) URL.revokeObjectURL(blob);
-    };
-  }, [from, source, external]);
-  const displayed = external ? (allowed ? external : '') : url;
-  if (external && !allowed)
-    return (
-      <button className="reader-remote-image" onClick={() => setAllowed(true)} title={external}>
-        {tr('加载外部图片')} · {alt || new URL(external).hostname}
-      </button>
-    );
-  if (error)
-    return (
-      <span className="reader-image-error" role="status">
-        {alt} — {error}
-      </span>
-    );
-  if (!displayed) return <span role="status">{tr('正在读取图片…')}</span>;
-  return (
-    <span className="reader-picture">
-      <button type="button" aria-label={tr('放大图片')} onClick={() => dialog.current?.showModal()}>
-        <img
-          src={displayed}
-          alt={alt}
-          width={width}
-          height={height}
-          referrerPolicy="no-referrer"
-          onError={() => setError(tr('图片无法显示'))}
-        />
-      </button>
-      <dialog ref={dialog} className="reader-lightbox" onClick={() => dialog.current?.close()}>
-        <button type="button" aria-label={tr('关闭')} onClick={() => dialog.current?.close()}>
-          ×
-        </button>
-        <img src={displayed} alt={alt} referrerPolicy="no-referrer" />
-      </dialog>
-    </span>
-  );
-}
 export function NoteMarkdown({
   id,
   text,
   follow,
+  image: Picture,
+  openExternal,
 }: {
   id: string;
   text: string;
   follow: (target: string) => void;
+  image?: ComponentType<{
+    from: string;
+    source: string;
+    alt: string;
+    width?: string | number;
+    height?: string | number;
+  }>;
+  openExternal?: (url: string) => void;
 }) {
   const metadata = text.match(/^---\r?\n([\s\S]*?)\r?\n(?:---|\.\.\.)\s*(?:\r?\n|$)/);
   return (
@@ -212,7 +146,19 @@ export function NoteMarkdown({
             const external = webUrl(href);
             if (external)
               return (
-                <a href={external} target="_blank" rel="noopener noreferrer">
+                <a
+                  href={openExternal ? '#reference' : external}
+                  target={openExternal ? undefined : '_blank'}
+                  rel="noopener noreferrer"
+                  onClick={
+                    openExternal
+                      ? (event) => {
+                          event.preventDefault();
+                          openExternal(external);
+                        }
+                      : undefined
+                  }
+                >
                   {children}
                 </a>
               );
@@ -230,21 +176,24 @@ export function NoteMarkdown({
               </a>
             );
           },
-          img: ({ src, alt = '', width, height }) => (
-            <Picture
-              from={id}
-              source={
-                typeof src === 'string'
-                  ? src.startsWith('palboo-image:')
-                    ? decodeLink(src.slice(13))
-                    : src
-                  : ''
-              }
-              alt={alt}
-              width={width}
-              height={height}
-            />
-          ),
+          img: ({ src, alt = '', width, height }) =>
+            Picture ? (
+              <Picture
+                from={id}
+                source={
+                  typeof src === 'string'
+                    ? src.startsWith('palboo-image:')
+                      ? decodeLink(src.slice(13))
+                      : src
+                    : ''
+                }
+                alt={alt}
+                width={width}
+                height={height}
+              />
+            ) : (
+              <span>{alt}</span>
+            ),
         }}
       >
         {metadata ? text.slice(metadata[0].length) : text}

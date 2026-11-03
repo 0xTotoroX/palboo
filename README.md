@@ -26,7 +26,7 @@ Desktop windows use native macOS traffic-light controls and reuse the existing P
 | **Prompt enhancement**    | Refine a draft before sending, with the option to restore the original.                                                                 |
 | **Chat speed**            | Keep each model’s latest estimated speed across chats, labeled until a new reading arrives; inspect token usage when Codex provides it. |
 | **Grok Bot**              | Find your Bots and start a consultation in the current chat.                                                                            |
-| **Local Notes & Web Shortcuts** | Read and edit local Markdown, preview spreadsheets, and open saved web pages inside ChatGPT. |
+| **Notes & Web** | Read and edit local Markdown, preview spreadsheets, and open saved web pages inside ChatGPT. |
 
 ## Installation
 
@@ -127,7 +127,7 @@ Export includes personal additions, favorites, and mastered terms. Reset deletes
 
 </details>
 
-### Local Notes & Web Shortcuts
+### Notes & Web
 
 Enable **Features → Websites** to show folders and websites in the existing Palboo panel. In **Websites → Local notes → Add folder**, choose a detected Obsidian vault or any local Markdown folder, then save. Add up to 16 folders and open each in its own ChatGPT browser tab; the reader sidebar also switches between authorized folders. Picking a folder only fills the draft. Removing an entry keeps its files. Additional image folders belong to the selected notes folder. Custom HTTP(S) websites support editing and reordering. No separate rail icon, official plugin or public deployment is needed.
 

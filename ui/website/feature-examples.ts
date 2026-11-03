@@ -57,9 +57,9 @@ export const featurePages = [
   },
   {
     id: 'sites',
-    title: '本地阅读与网页入口',
+    title: '阅读与网页',
     icon: 'feature-sites',
-    description: '在 ChatGPT 页签里打开常用网页，阅读和编辑本地 Markdown 笔记，也可以预览表格。',
+    description: '笔记、表格与常用网页，都在 ChatGPT 页签里。',
   },
   {
     id: 'prompt',

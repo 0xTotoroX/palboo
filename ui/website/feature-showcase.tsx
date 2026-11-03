@@ -25,7 +25,8 @@ import {
   portfolioPhrases,
   portfolioPrompt,
 } from './feature-examples';
-import { FeatureContentExample, LocalLibraryPreview } from './feature-context';
+import { FeatureContentExample } from './feature-context';
+import { LocalLibraryPreview } from './library-preview';
 import { useFeatureScroll } from './feature-scroll';
 
 type Page = (typeof featurePages)[number];
@@ -33,7 +34,10 @@ type Page = (typeof featurePages)[number];
 function sampleButton(root: HTMLElement, selector: string) {
   return (
     root.querySelector<HTMLElement>(selector) ??
-    root.querySelector('[data-settings-feature]')?.shadowRoot?.querySelector<HTMLElement>(selector)
+    root
+      .querySelector('[data-settings-feature]')
+      ?.shadowRoot?.querySelector<HTMLElement>(selector) ??
+    root.querySelector('[data-real-feature]')?.shadowRoot?.querySelector<HTMLElement>(selector)
   );
 }
 
@@ -91,7 +95,7 @@ function FeaturePage({
           terms: '.term-brick',
           board: '',
           bots: '.palboo-bot-history',
-          sites: '',
+          sites: '.reader-sidebar button[title="reading-tool.md"]',
         }[page.id];
         if (selector) sampleButton(root.current, selector)?.click();
       }

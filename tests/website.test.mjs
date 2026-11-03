@@ -213,6 +213,9 @@ test('the mascot leaves the screen, joins the backdrop, follows features and ret
     );
     await frames(page);
     await page.clock.runFor(150);
+    await page.waitForFunction(
+      () => document.querySelector('#main').dataset.brandPhase === 'to-feature',
+    );
     assert.equal(await phase(), 'to-feature');
     await page.screenshot({ path: resolve(reports, 'journey-to-features.png') });
     await scrollScene(page, '#features', 0);
@@ -584,7 +587,7 @@ const names = [
   '任务看板',
   '模型切换',
   'Grok Bot',
-  '本地阅读与网页入口',
+  '阅读与网页',
   '提示词优化',
   '兼容集成',
 ];
@@ -772,14 +775,14 @@ test('one settings-based preview and the settings-ordered tabs replace the combi
       await page.locator('.reader-window,.writing-window,.coordination-window').count(),
       0,
     );
-    assert.equal(await page.getByRole('tabpanel').count(), 1);
+    assert.equal(await page.locator('.feature-panel:not([aria-hidden="true"])').count(), 1);
     assert.equal(await page.locator('[data-settings-feature]').count(), 6);
     assert.equal(await page.locator('.brand-opening').count(), 1);
     const bounds = await page.locator('.feature-pin').boundingBox();
     assert.ok(Math.abs(bounds.y) < 2, 'direct features link lands at the stage');
     for (const id of ids) {
       await select(page, id);
-      assert.equal(await page.getByRole('tabpanel').count(), 1);
+      assert.equal(await page.locator('.feature-panel:not([aria-hidden="true"])').count(), 1);
       assert.equal(await panel(page, id).getAttribute('inert'), null);
     }
     assert.ok(
@@ -805,10 +808,10 @@ test('native forward/reverse scrolling switches one page while the rail and fram
     for (const index of [1, 2, 3, 4, 5, 6, 7, 8, lastFeatureIndex, 6, 4, 2, 0]) {
       await scrollScene(page, '#features', index / lastFeatureIndex);
       await page.locator(`#feature-tab-${ids[index]}[aria-selected=true]`).waitFor();
-      await page.getByRole('tabpanel').waitFor({ state: 'visible' });
+      await page.locator('.feature-panel[data-active=true]').waitFor({ state: 'visible' });
       const current = await page.locator('.feature-navigation').boundingBox();
       assert.ok(Math.abs(current.y - initial.y) < 2 && Math.abs(current.x - initial.x) < 2);
-      assert.equal(await page.getByRole('tabpanel').count(), 1);
+      assert.equal(await page.locator('.feature-panel:not([aria-hidden="true"])').count(), 1);
     }
     await page.mouse.move(120, 400);
     await page.mouse.wheel(0, 300);
@@ -996,18 +999,6 @@ test('shared model choices, Bot messages and the isolated Agent menu remain inte
     await bots
       .getByText('三个项目各保留两张关键截图；记账应用还缺一段个人贡献说明。', { exact: true })
       .waitFor();
-    await select(page, 'sites');
-    const library = panel(page, 'sites');
-    await library.getByRole('button', { name: '作品集笔记' }).press('Enter');
-    await library
-      .getByRole('status')
-      .filter({ hasText: /打开「作品集笔记」/ })
-      .waitFor();
-    await library.getByRole('button', { name: '设计参考' }).click();
-    await library
-      .getByRole('status')
-      .filter({ hasText: /打开「设计参考」/ })
-      .waitFor();
     await select(page, 'compatibility');
     const agent = panel(page, 'compatibility').getByRole('menuitemradio', {
       name: 'Claude Code',
@@ -1031,6 +1022,95 @@ test('shared model choices, Bot messages and the isolated Agent menu remain inte
     assert.equal(await focused(promoted), true);
     await select(page, 'model');
     assert.equal(await choice.getAttribute('aria-pressed'), 'true');
+  } finally {
+    await page.close();
+  }
+});
+
+test('the reader preview opens linked notes, edits a draft and switches sheets without requests', async () => {
+  const page = await site({ viewport: { width: 1032, height: 1079 } });
+  try {
+    await select(page, 'sites');
+    const library = panel(page, 'sites');
+    await library.getByRole('heading', { name: '作品集计划', exact: true }).waitFor();
+    assert.equal(await library.locator('.reader-sidebar nav button').count(), 5);
+    const search = library.getByRole('searchbox', { name: '搜索笔记' });
+    await search.fill('不存在的笔记');
+    await library.getByRole('status').filter({ hasText: '没有匹配的笔记' }).waitFor();
+    await search.fill('');
+    await library.getByRole('link', { name: '阅读工具', exact: true }).press('Enter');
+    await library.getByRole('heading', { name: '阅读工具', exact: true }).waitFor();
+    await library.getByRole('button', { name: '编辑笔记' }).click();
+    const input = library.locator('.reader-editor textarea');
+    const draft = '# 我的案例草稿\n\n保留这段修改。\n\n![图片说明](http://127.0.0.1:9/private.png)';
+    await input.fill(draft);
+    await library.getByRole('tab', { name: '设计参考' }).click();
+    await library.getByRole('heading', { name: '让作品自己说话' }).waitFor();
+    assert.equal(await input.isVisible(), false);
+    await library.getByRole('tab', { name: '本地笔记' }).click();
+    await select(page, 'outline');
+    await select(page, 'sites');
+    assert.equal(await input.inputValue(), draft);
+    await page.locator('.site-language').click();
+    assert.equal(await input.inputValue(), draft);
+    await select(page, 'sites');
+    await library.getByRole('button', { name: 'Done editing' }).click();
+    await library.getByRole('heading', { name: '我的案例草稿' }).waitFor();
+    await library.getByText('图片说明', { exact: true }).waitFor();
+    await page.locator('.site-language').click();
+    await select(page, 'sites');
+    await library.getByRole('button', { name: '素材清单', exact: true }).click();
+    await library.getByRole('heading', { name: '素材清单.xlsx' }).waitFor();
+    assert.equal(await library.locator('.reader-sheet-scroll tbody tr').count(), 7);
+    await library.getByRole('combobox', { name: '工作表' }).selectOption('文字');
+    await library.getByRole('cell', { name: '个人贡献', exact: true }).waitFor();
+    assert.equal(await library.locator('.reader-sheet-scroll tbody tr').count(), 4);
+    await page.screenshot({ path: resolve(reports, 'library-workbook.png') });
+    await library.getByRole('button', { name: '阅读工具', exact: true }).click();
+    await library.getByRole('heading', { name: '我的案例草稿' }).waitFor();
+    await library.getByRole('button', { name: '作品集计划', exact: true }).click();
+    await library.getByRole('heading', { name: '作品集计划', exact: true }).waitFor();
+    await page.screenshot({ path: resolve(reports, 'library-user-1032.png') });
+    const nav = page.locator('#feature-tab-sites span').last();
+    assert.ok((await nav.boundingBox()).height < 25, 'short navigation label stays on one line');
+  } finally {
+    await page.close();
+  }
+});
+
+test('the narrow reader keeps navigation, editing and tab keyboard controls reachable', async () => {
+  const page = await site({ viewport: { width: 390, height: 844 } });
+  try {
+    await select(page, 'sites');
+    const library = panel(page, 'sites');
+    await library.getByRole('heading', { name: '作品集计划' }).waitFor();
+    assert.equal(await library.getByRole('searchbox').isVisible(), false);
+    await library.getByRole('button', { name: '目录与搜索', exact: true }).click();
+    await library.getByRole('searchbox').waitFor();
+    await library.getByRole('button', { name: '阅读工具', exact: true }).press('Enter');
+    await library.getByRole('heading', { name: '阅读工具', exact: true }).waitFor();
+    assert.equal(await library.getByRole('searchbox').isVisible(), false);
+    assert.equal(await focused(library.locator('.reader-main').first()), true);
+    await library.getByRole('button', { name: '编辑笔记' }).click();
+    await library
+      .getByRole('textbox', { name: '编辑 Markdown' })
+      .fill('# 手机草稿\n\n在窄屏里继续编辑。');
+    await library.getByRole('button', { name: '完成编辑' }).click();
+    await library.getByRole('heading', { name: '手机草稿' }).waitFor();
+    const notes = library.getByRole('tab', { name: '本地笔记' });
+    await notes.focus();
+    await page.keyboard.press('ArrowRight');
+    const reference = library.getByRole('tab', { name: '设计参考' });
+    assert.equal(await reference.getAttribute('aria-selected'), 'true');
+    assert.equal(await focused(reference), true);
+    await library.getByRole('heading', { name: '让作品自己说话' }).waitFor();
+    await page.screenshot({ path: resolve(reports, 'library-web-mobile.png') });
+    await page.keyboard.press('Home');
+    await library.getByRole('heading', { name: '手机草稿' }).waitFor();
+    await page.locator('.site-theme').click();
+    await select(page, 'sites');
+    await page.screenshot({ path: resolve(reports, 'library-mobile-dark.png') });
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   } finally {
     await page.close();
   }
@@ -1214,6 +1294,7 @@ for (const [width, height, language] of [
   [1440, 900, 'zh-CN'],
   [1024, 720, 'en'],
   [1063, 690, 'zh-CN'],
+  [1032, 1079, 'zh-CN'],
   [390, 844, 'zh-CN'],
   [320, 568, 'en'],
   [1280, 540, 'en'],
@@ -1248,6 +1329,15 @@ for (const [width, height, language] of [
             .evaluate((el) => getComputedStyle(el).fontSize),
           '14px',
         );
+        if (id === 'sites') {
+          const library = panel(page, id);
+          const heading = await library.locator('.reader-markdown h1').first().boundingBox();
+          assert.ok(
+            heading && heading.x >= b.x && heading.x + heading.width <= b.x + b.width,
+            'reader title fits inside the actual preview',
+          );
+          await page.screenshot({ path: resolve(reports, `library-${width}-${language}.png`) });
+        }
         if (width === 1609) await page.screenshot({ path: resolve(reports, `feature-${id}.png`) });
       }
       await select(page, 'prompts');
