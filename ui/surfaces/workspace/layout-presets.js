@@ -10,9 +10,19 @@ const readingFeatures = new Set(['outline', 'terms', 'sites']);
 
 export function builtinLayoutPresets() {
   return [
-    { id: 'tabs-top', label: tr('全部标签在顶部') },
-    { id: 'tabs-left', label: tr('全部标签在左侧') },
-    { id: 'two-column', label: tr('双栏工作台') },
+    {
+      id: 'tabs-top',
+      label: tr('全部标签在顶部'),
+      menuLabel: tr('顶部标签'),
+      icon: 'layout-tabs-top',
+    },
+    {
+      id: 'tabs-left',
+      label: tr('全部标签在左侧'),
+      menuLabel: tr('左侧标签'),
+      icon: 'layout-tabs-left',
+    },
+    { id: 'two-column', label: tr('双栏工作台'), menuLabel: tr('双栏'), icon: 'layout-two-column' },
   ];
 }
 

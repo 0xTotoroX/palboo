@@ -84,12 +84,25 @@ test('desktop presets preserve mounted drafts and reading through hide, restore 
     await page.getByRole('tab', { name: '大纲', exact: true }).dblclick();
     assert.equal(await page.locator('.csw-workbench').getAttribute('data-composition'), 'focus');
     await menu.click();
-    await page.getByRole('menuitemradio', { name: '专注 · 通用', exact: true }).click();
+    const system = page.getByRole('group', { name: '系统预设', exact: true });
+    const custom = page.getByRole('group', { name: '自定义预设', exact: true });
+    assert.deepEqual(
+      (await system.getByRole('menuitemradio').allTextContents()).map((label) => label.trim()),
+      ['顶部标签', '左侧标签', '双栏'],
+    );
+    assert.equal(
+      await custom
+        .getByRole('menuitemradio', { name: '专注', exact: true })
+        .locator('[data-icon="bookmark"]')
+        .count(),
+      1,
+    );
+    await page.getByRole('menuitemradio', { name: '专注', exact: true }).click();
     assert.equal(await page.locator('.csw-workbench').getAttribute('data-composition'), 'tabs');
     assert.equal(await page.getByLabel('next草稿').isVisible(), false);
     assert.equal(await page.getByLabel('next草稿').count(), 1);
     await menu.click();
-    await page.getByRole('menuitemradio', { name: '对照 · 通用', exact: true }).click();
+    await page.getByRole('menuitemradio', { name: '对照', exact: true }).click();
     assert.equal(await page.getByLabel('next草稿').inputValue(), '切换布局后保留');
     assert.equal(
       await page.getByLabel('next草稿').evaluate((node) => node.parentElement.scrollTop),
@@ -117,7 +130,7 @@ test('desktop presets preserve mounted drafts and reading through hide, restore 
     assert.deepEqual(await page.evaluate(() => pins), [false]);
     assert.equal(await menu.getAttribute('aria-expanded'), 'false');
     await menu.click();
-    await page.getByRole('menuitem', { name: '保存当前布局…', exact: true }).click();
+    await page.getByRole('menuitem', { name: '保存布局…', exact: true }).click();
     await page.getByLabel('预设名称', { exact: true }).fill('我的组合');
     await page.evaluate(() => (rejectSave = true));
     await page.getByRole('button', { name: '保存', exact: true }).click();
@@ -143,7 +156,7 @@ test('desktop presets preserve mounted drafts and reading through hide, restore 
       return refresh();
     });
     await page.getByRole('button', { name: 'Window actions', exact: true }).click();
-    await page.getByRole('menuitem', { name: 'Save current layout…', exact: true }).waitFor();
+    await page.getByRole('menuitem', { name: 'Save layout…', exact: true }).waitFor();
     assert.deepEqual(errors, []);
   } finally {
     await browser.close();
@@ -192,7 +205,7 @@ test('side-by-side tab bars merge at the header and built-in presets position al
 
     const menu = page.getByRole('button', { name: '窗口操作', exact: true });
     await menu.click();
-    await page.getByRole('menuitemradio', { name: '全部标签在左侧' }).click();
+    await page.getByRole('menuitemradio', { name: '左侧标签' }).click();
     const tabs = page.getByRole('tablist');
     await page.waitForFunction(() => state.layouts.desktop.tabPosition === 'left');
     assert.equal(await tabs.getAttribute('aria-orientation'), 'vertical');
@@ -208,12 +221,10 @@ test('side-by-side tab bars merge at the header and built-in presets position al
     assert.ok(await next.isVisible());
     await menu.click();
     assert.equal(
-      await page
-        .getByRole('menuitemradio', { name: '全部标签在左侧' })
-        .getAttribute('aria-checked'),
+      await page.getByRole('menuitemradio', { name: '左侧标签' }).getAttribute('aria-checked'),
       'true',
     );
-    await page.getByRole('menuitemradio', { name: '全部标签在顶部' }).click();
+    await page.getByRole('menuitemradio', { name: '顶部标签' }).click();
     await page.waitForFunction(() => !state.layouts.desktop.tabPosition);
     assert.equal(await tabs.getAttribute('aria-orientation'), 'horizontal');
     const topNext = await next.boundingBox();
@@ -295,13 +306,13 @@ test('overdragging the divider merges the narrower column only when released bey
       { ids: ['bots', 'next', 'prompts'], active: 'bots', weight: 2 },
     ]);
     await page.getByRole('button', { name: '窗口操作', exact: true }).click();
-    await page.getByRole('menuitem', { name: '撤销布局更改' }).click();
+    await page.getByRole('menuitem', { name: '撤销布局' }).click();
     await divider.waitFor();
     assert.deepEqual(await page.evaluate(() => state.layouts.desktop), before);
     const restored = await divider.boundingBox();
     assert.ok(Math.abs(restored.x - widened.x) < 1);
     await page.getByRole('button', { name: '窗口操作', exact: true }).click();
-    assert.equal(await page.getByRole('menuitem', { name: '撤销布局更改' }).count(), 0);
+    assert.equal(await page.getByRole('menuitem', { name: '撤销布局' }).count(), 0);
   } finally {
     await browser.close();
   }
@@ -318,25 +329,25 @@ test('tab insertion and keyboard sorting work with both tab positions and the tw
     const tab = (id) => page.locator(`[data-pane-tab="${id}"]`);
     await tab('prompts').click();
     await menu.click();
-    assert.equal(await preset('对照 · 通用').getAttribute('aria-checked'), 'true');
-    await preset('双栏工作台').click();
+    assert.equal(await preset('对照').getAttribute('aria-checked'), 'true');
+    await preset('双栏').click();
     await page.waitForFunction(() => state.layouts.desktop.axis === 'horizontal');
     assert.deepEqual(await page.evaluate(() => state.layouts.desktop.groups), [
       { ids: ['outline'], active: 'outline', weight: 0.45 },
       { ids: ['next', 'prompts'], active: 'prompts', weight: 0.55 },
     ]);
     await menu.click();
-    assert.equal(await preset('双栏工作台').getAttribute('aria-checked'), 'true');
-    await page.getByRole('menuitem', { name: '撤销布局更改' }).click();
+    assert.equal(await preset('双栏').getAttribute('aria-checked'), 'true');
+    await page.getByRole('menuitem', { name: '撤销布局' }).click();
     await page.waitForFunction(() => state.layouts.desktop.axis === 'vertical');
     await menu.click();
-    await preset('全部标签在顶部').click();
+    await preset('顶部标签').click();
     await tab('prompts').click();
     await tab('prompts').press('Alt+ArrowLeft');
     await page.waitForFunction(() => state.layouts.desktop.groups[0].ids[1] === 'prompts');
     assert.equal(await tab('prompts').getAttribute('aria-selected'), 'true');
     await menu.click();
-    await preset('全部标签在左侧').click();
+    await preset('左侧标签').click();
     const source = await tab('next').boundingBox();
     const target = await tab('prompts').boundingBox();
     await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2);
@@ -565,19 +576,19 @@ test('sidebar and overlay expose the same presets without desktop pin or lease',
       const trigger = page.getByRole('button', { name: '布局预设', exact: true });
       await trigger.click();
       assert.equal(await page.getByRole('menuitemcheckbox').count(), 0);
-      await page.getByRole('menuitemradio', { name: '专注 · 通用', exact: true }).click();
+      await page.getByRole('menuitemradio', { name: '专注', exact: true }).click();
       const applied = await page.evaluate(() => requests.at(-1));
       assert.equal(applied.placement, placement);
       assert.equal('lease' in applied, false);
       assert.equal(applied.expectedLayout.groups.length, 2);
       await trigger.click();
-      await page.getByRole('menuitem', { name: '保存当前布局…', exact: true }).click();
+      await page.getByRole('menuitem', { name: '保存布局…', exact: true }).click();
       await page.getByLabel('预设名称', { exact: true }).fill('当前阅读');
       await page.getByRole('button', { name: '保存', exact: true }).click();
       await page.waitForFunction(() => state.layoutPresets.some((p) => p.name === '当前阅读'));
       assert.equal((await page.evaluate(() => requests.at(-1))).placement, placement);
       await trigger.click();
-      await page.getByRole('menuitem', { name: '管理布局预设…', exact: true }).click();
+      await page.getByRole('menuitem', { name: '管理预设…', exact: true }).click();
       assert.equal(await page.evaluate(() => settingsOpened), true);
       await page.close();
     }

@@ -516,7 +516,7 @@ const cases = [
         assert.deepEqual([buttonBox.width, buttonBox.height], [28, 28]);
         const menuBox = await page.getByRole('menu', { name: '布局预设' }).boundingBox();
         assert.ok(menuBox.x >= 0 && menuBox.x + menuBox.width <= wide.width);
-        await page.getByRole('menuitemradio', { name: '阅读 · 通用', exact: true }).click();
+        await page.getByRole('menuitemradio', { name: '阅读', exact: true }).click();
         await page.waitForFunction(
           () =>
             document.querySelector('[data-window-menu]')?.getAttribute('aria-expanded') === 'false',
@@ -530,7 +530,7 @@ const cases = [
         assert.equal(applied.placement, placement);
         assert.equal('lease' in applied, false);
         await trigger.click();
-        await page.getByRole('menuitem', { name: '保存当前布局…', exact: true }).click();
+        await page.getByRole('menuitem', { name: '保存布局…', exact: true }).click();
         await page.getByLabel('预设名称', { exact: true }).fill(`阅读-${placement}`);
         await page.getByRole('button', { name: '保存', exact: true }).click();
         await page.waitForFunction(
@@ -539,7 +539,7 @@ const cases = [
         );
       }
       await trigger.click();
-      await page.getByRole('menuitem', { name: '管理布局预设…', exact: true }).click();
+      await page.getByRole('menuitem', { name: '管理预设…', exact: true }).click();
       await page
         .getByRole('menu', { name: '布局预设' })
         .getByRole('alert')

@@ -815,7 +815,7 @@
 .csw-window-menu-panel button:disabled {
   opacity: 0.45;
 }
-.csw-window-menu-panel button > span:first-child {
+.csw-window-menu-panel button > span:not(.csw-menu-check) {
   overflow-wrap: anywhere;
   min-width: 0;
 }
@@ -839,6 +839,9 @@
 .csw-menu-caption {
   padding: 5px 8px;
   color: var(--csw-muted);
+}
+.csw-window-menu-panel [role='group'] + [role='group'] {
+  margin-top: 4px;
 }
 .csw-preset-save {
   padding: 12px;

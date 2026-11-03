@@ -10,7 +10,7 @@ import {
   layoutSnapshot,
   matchesLayoutPreset,
   sortedLayoutPresets,
-  layoutPresetLabel,
+  presetScopeLabel,
   builtinLayout,
   builtinLayoutAvailable,
   builtinLayoutPresets,
@@ -31,7 +31,7 @@ export function installWindowMenu(
     undo,
   },
 ) {
-  container.innerHTML = `<div class="csw-window-menu"><button type="button" class="csw-icon" data-window-menu aria-haspopup="menu" aria-expanded="false">${iconSvg('more')}</button><div class="csw-window-menu-panel" role="menu" hidden><button type="button" role="menuitemcheckbox" data-menu-pin aria-checked="true">${iconSvg('pin')}<span data-copy="窗口置顶"></span><span class="csw-menu-check">${iconSvg('check')}</span></button><div class="csw-menu-divider"></div><div class="csw-menu-caption" data-copy="布局预设"></div><div data-presets></div><button type="button" role="menuitem" data-undo-layout><span data-copy="撤销布局更改"></span></button><button type="button" role="menuitem" data-save-preset>${iconSvg('plus')}<span data-copy="保存当前布局…"></span></button><button type="button" role="menuitem" data-manage-presets>${iconSvg('settings')}<span data-copy="管理布局预设…"></span></button></div><form class="csw-window-menu-panel csw-preset-save" hidden><label><span data-copy="预设名称"></span><input name="name" maxlength="40" autocomplete="off" required></label><div class="csw-preset-save-actions"><button type="button" data-cancel-save data-copy="取消"></button><button type="submit" data-copy="保存"></button></div></form><p class="csw-window-menu-error" role="alert" hidden></p></div>`;
+  container.innerHTML = `<div class="csw-window-menu"><button type="button" class="csw-icon" data-window-menu aria-haspopup="menu" aria-expanded="false">${iconSvg('more')}</button><div class="csw-window-menu-panel" role="menu" hidden><button type="button" role="menuitemcheckbox" data-menu-pin aria-checked="true">${iconSvg('pin')}<span data-copy="窗口置顶"></span><span class="csw-menu-check">${iconSvg('check')}</span></button><div class="csw-menu-divider"></div><div data-presets></div><div class="csw-menu-divider" role="separator"></div><button type="button" role="menuitem" data-undo-layout>${iconSvg('return')}<span data-copy="撤销布局"></span></button><button type="button" role="menuitem" data-save-preset>${iconSvg('plus')}<span data-copy="保存布局…"></span></button><button type="button" role="menuitem" data-manage-presets>${iconSvg('settings')}<span data-copy="管理预设…"></span></button></div><form class="csw-window-menu-panel csw-preset-save" hidden><label><span data-copy="预设名称"></span><input name="name" maxlength="40" autocomplete="off" required></label><div class="csw-preset-save-actions"><button type="button" data-cancel-save data-copy="取消"></button><button type="submit" data-copy="保存"></button></div></form><p class="csw-window-menu-error" role="alert" hidden></p></div>`;
   const root = container.firstElementChild;
   const trigger = root.querySelector('[data-window-menu]');
   const menu = root.querySelector('[role=menu]');
@@ -41,7 +41,7 @@ export function installWindowMenu(
   const presets = root.querySelector('[data-presets]');
   const undoButton = root.querySelector('[data-undo-layout]');
   root.querySelector('[data-menu-pin]').hidden = !pin;
-  root.querySelector('.csw-menu-divider').hidden = !pin;
+  root.querySelector('[data-menu-pin] + .csw-menu-divider').hidden = !pin;
   const events = new AbortController();
   let state,
     pinned = true,
@@ -101,27 +101,57 @@ export function installWindowMenu(
       state?.layoutPresets || [],
       state?.mainPlacement || 'sidebar',
     );
-    const options = [
-      ...builtinLayoutPresets(),
-      ...entries.map((preset) => ({ id: preset.id, label: layoutPresetLabel(preset) })),
+    const groups = [
+      {
+        label: tr('系统预设'),
+        options: builtinLayoutPresets().map(({ id, menuLabel, icon }) => ({
+          id,
+          label: menuLabel,
+          icon,
+        })),
+      },
+      {
+        label: tr('自定义预设'),
+        options: entries.map(({ id, name, scope }) => ({
+          id,
+          label: name,
+          icon: 'bookmark',
+          hint: presetScopeLabel(scope),
+        })),
+      },
     ];
-    const next = JSON.stringify(options);
+    const next = JSON.stringify(groups);
     if (signature !== next) {
       signature = next;
       presets.replaceChildren(
-        ...options.map((preset) => {
-          const button = document.createElement('button');
-          button.type = 'button';
-          button.setAttribute('role', 'menuitemradio');
-          button.dataset.preset = preset.id;
-          const label = document.createElement('span');
-          label.textContent = preset.label;
-          const check = document.createElement('span');
-          check.className = 'csw-menu-check';
-          check.innerHTML = iconSvg('check');
-          button.append(label, check);
-          return button;
-        }),
+        ...groups
+          .filter(({ options }) => options.length)
+          .map(({ label, options }) => {
+            const group = document.createElement('div');
+            group.setAttribute('role', 'group');
+            group.setAttribute('aria-label', label);
+            const caption = document.createElement('div');
+            caption.className = 'csw-menu-caption';
+            caption.setAttribute('aria-hidden', 'true');
+            caption.textContent = label;
+            group.append(caption);
+            for (const preset of options) {
+              const button = document.createElement('button');
+              button.type = 'button';
+              button.setAttribute('role', 'menuitemradio');
+              button.dataset.preset = preset.id;
+              if (preset.hint) button.title = preset.hint;
+              button.innerHTML = iconSvg(preset.icon);
+              const label = document.createElement('span');
+              label.textContent = preset.label;
+              const check = document.createElement('span');
+              check.className = 'csw-menu-check';
+              check.innerHTML = iconSvg('check');
+              button.append(label, check);
+              group.append(button);
+            }
+            return group;
+          }),
       );
     }
     const current = layout();
