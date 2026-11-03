@@ -1,10 +1,12 @@
-/* [INPUT]: Existing mounted panes, vertical leaf groups, saved collapse flags and shared reading helpers.
- * [OUTPUT]: Independent title-row folding including all-closed, restored reading and interruptible grid motion.
+/* [INPUT]: Existing mounted panes, split axis, saved collapse flags and shared reading helpers.
+ * [OUTPUT]: Title rows or icon columns, restored reading and interruptible grid motion.
  * [POS]: Workspace presentation; does not store bodies or create owners.
  * [PROTOCOL]: Keep workspace/AGENTS.md in sync. */
 import { compactRows } from './compact-rows.js';
 import { layoutMinimum } from './layout-tree.js';
 import { readWorkbenchScroll, writeWorkbenchScroll } from '../../shared/scroll.js';
+
+export const compactColumnWidth = 44;
 
 export function installSidebarCompact(panes) {
   const held = new Map();
@@ -46,6 +48,9 @@ export function installSidebarCompact(panes) {
       body.style.flex = `0 0 ${Math.max(84, body.offsetHeight)}px`;
     }
     section.dataset.compact = String(closed);
+    const tabs = section.querySelector('[role="tablist"]');
+    if (closed && section.parentElement?.dataset.axis === 'horizontal')
+      tabs?.setAttribute('aria-orientation', 'vertical');
     body.inert = closed;
     body.setAttribute('aria-hidden', String(closed));
     for (const tab of section.querySelectorAll('[data-pane-tab]'))
@@ -67,11 +72,10 @@ export function installSidebarCompact(panes) {
   }
   function stop(freeze = false) {
     for (const [container, animation] of animations) {
-      const current = freeze
-        ? getComputedStyle(container).gridTemplateRows
-        : targets.get(container);
+      const { property, tracks } = targets.get(container);
+      const current = freeze ? getComputedStyle(container)[property] : tracks;
       animation.cancel();
-      if (current) container.style.gridTemplateRows = current;
+      if (current) container.style[property] = current;
     }
     animations.clear();
   }
@@ -84,6 +88,9 @@ export function installSidebarCompact(panes) {
         if (!panes.contains(body)) collapse(body.parentElement, false);
     },
     stop,
+    settle() {
+      animateNext = true;
+    },
     apply(node, container, enabled, previous) {
       const eligible = enabled;
       container.dataset.sidebarCompact = String(eligible);
@@ -100,21 +107,32 @@ export function installSidebarCompact(panes) {
         }
         return null;
       }
-      const header = Math.max(
-        36,
-        ...sections.map((section) => section.querySelector('.csw-feature-pane-head').offsetHeight),
-      );
+      const horizontal = container.dataset.axis === 'horizontal';
+      const property = horizontal ? 'gridTemplateColumns' : 'gridTemplateRows';
+      const header = horizontal
+        ? compactColumnWidth
+        : Math.max(
+            36,
+            ...sections.map(
+              (section) => section.querySelector('.csw-feature-pane-head').offsetHeight,
+            ),
+          );
       container.dataset.compactHeader = String(header);
       const style = getComputedStyle(container);
-      const height =
-        container.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+      const size = horizontal
+        ? container.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
+        : container.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+      const dragging = horizontal && container.querySelector(':scope > [data-resizing="true"]');
       const rows = compactRows(
         node.groups.map((group) => group.weight),
-        height,
+        size,
         header,
         8,
         node.groups.map((group) => group.collapsed === true),
-        node.groups.map((group) => (group.groups ? layoutMinimum(group).height : 0)),
+        node.groups.map((group) =>
+          group.groups ? layoutMinimum(group)[horizontal ? 'width' : 'height'] : 0,
+        ),
+        horizontal ? (dragging ? compactColumnWidth : 180) : 0,
       );
       rows.forEach((row, i) => {
         if (!node.groups[i].groups) collapse(container.children[i * 2], row.collapsed);
@@ -123,21 +141,22 @@ export function installSidebarCompact(panes) {
         .flatMap((row, i) => (i ? ['8px', `${row.height}px`] : [`${row.height}px`]))
         .join(' ');
       const existing = animations.get(container);
-      container.style.gridTemplateRows = tracks;
-      if (targets.get(container) !== tracks) {
+      container.style[property] = tracks;
+      const last = targets.get(container);
+      if (last?.tracks !== tracks || last.property !== property) {
         existing?.cancel();
         animations.delete(container);
-        targets.set(container, tracks);
+        targets.set(container, { property, tracks });
         if (
           animateNext &&
           !reduced.matches &&
           previous !== 'none' &&
           previous.split(' ').length === tracks.split(' ').length
         ) {
-          const animation = container.animate(
-            [{ gridTemplateRows: previous }, { gridTemplateRows: tracks }],
-            { duration: 200, easing: 'cubic-bezier(.22,1,.36,1)' },
-          );
+          const animation = container.animate([{ [property]: previous }, { [property]: tracks }], {
+            duration: 200,
+            easing: 'cubic-bezier(.22,1,.36,1)',
+          });
           animations.set(container, animation);
           animation.finished
             .then(() => {
@@ -163,6 +182,7 @@ export function installSidebarCompact(panes) {
             return;
           }
           delete node.groups[index].collapsed;
+          if (section.parentElement?.dataset.axis === 'horizontal') return;
           const total = node.groups.reduce((sum, group) => sum + group.weight, 0);
           node.groups.forEach((group, i) => {
             group.weight = total * (i === index ? 0.9 : 0.1 / (node.groups.length - 1));

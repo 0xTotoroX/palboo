@@ -5,7 +5,7 @@ import { tr, getLocale } from '../../shared/i18n.js';
  * [PROTOCOL]: Keep AGENTS.md in this module in sync. */
 import { featureIcons, titles } from '../../shared/features';
 import { iconSvg } from '../../shared/icons/index.js';
-import { installSidebarCompact } from './sidebar-compact.js';
+import { compactColumnWidth, installSidebarCompact } from './sidebar-compact.js';
 import { transferRows } from './compact-rows.js';
 import { installArrangement } from './arrangement.js';
 import { bindSeparator, elementScale } from './separator.js';
@@ -216,6 +216,7 @@ export function installFeatureLayout(root, { save, error }) {
         const fromTop = event.clientY - box.top;
         if (
           section.dataset.compact === 'true' &&
+          section.parentElement.dataset.axis === 'vertical' &&
           source?.parentElement === section.parentElement &&
           source.querySelectorAll('[data-pane-tab]').length === 1 &&
           (fromTop <= rowEdge || box.height - fromTop <= rowEdge)
@@ -230,7 +231,8 @@ export function installFeatureLayout(root, { save, error }) {
         if (tab && section.contains(tab)) {
           if (tab.dataset.paneTab === id) return null;
           const rect = tab.getBoundingClientRect();
-          const vertical = panes.dataset.tabPosition === 'left';
+          const vertical =
+            tab.closest('[role="tablist"]').getAttribute('aria-orientation') === 'vertical';
           const offset = vertical
             ? (event.clientY - rect.top) / rect.height
             : (event.clientX - rect.left) / rect.width;
@@ -258,6 +260,7 @@ export function installFeatureLayout(root, { save, error }) {
           return { action: 'merge', box, id: target };
         if (
           ['top', 'bottom'].includes(action) &&
+          section.parentElement.dataset.axis === 'vertical' &&
           section.parentElement.dataset.sidebarCompact === 'true' &&
           source?.parentElement === section.parentElement &&
           source.querySelectorAll('[data-pane-tab]').length === 1
@@ -331,9 +334,9 @@ export function installFeatureLayout(root, { save, error }) {
           compact: container.dataset.sidebarCompact === 'true',
           header: Number(container.dataset.compactHeader) || 36,
           groups: groups.map((group) => group.original),
-          branchMinimums: groups.map((group) => (group.groups ? layoutMinimum(group).height : 0)),
-          heights: groups.map(
-            (_, i) => container.children[i * 2].getBoundingClientRect().height / scale,
+          branchMinimums: groups.map((group) => (group.groups ? layoutMinimum(group)[size] : 0)),
+          sizes: groups.map(
+            (_, i) => container.children[i * 2].getBoundingClientRect()[size] / scale,
           ),
           first: container.children[(index - 1) * 2].getBoundingClientRect()[size] / scale,
           second: container.children[index * 2].getBoundingClientRect()[size] / scale,
@@ -358,31 +361,33 @@ export function installFeatureLayout(root, { save, error }) {
         )
           return;
         if (start.compact) {
+          const cascade = start.axis === 'vertical';
           if (pointer) {
             const adjacent = delta < 0 ? index - 1 : index;
             // Preserve cascading folding. An already folded row can be merged directly.
             const room =
-              start.heights[adjacent] <= start.header
+              start.sizes[adjacent] <= start.header
                 ? 0
-                : start.heights.reduce((sum, height, i) => {
-                    if (delta < 0 ? i >= index : i < index) return sum;
-                    return sum + Math.max(0, height - (start.branchMinimums[i] || start.header));
+                : start.sizes.reduce((sum, size, i) => {
+                    if (cascade ? (delta < 0 ? i >= index : i < index) : i !== adjacent) return sum;
+                    return sum + Math.max(0, size - (start.branchMinimums[i] || start.header));
                   }, 0);
             previewMerge(start, delta, room);
           }
-          const heights = transferRows(
-            start.heights,
+          const sizes = transferRows(
+            start.sizes,
             index,
             delta,
             start.header,
             start.branchMinimums,
+            cascade,
           );
-          const total = heights.reduce((sum, height) => sum + height, 0);
+          const total = sizes.reduce((sum, size) => sum + size, 0);
           const weight = start.groups.reduce((sum, group) => sum + group.weight, 0);
           start.groups.forEach((group, i) => {
-            group.weight = (weight * heights[i]) / total;
+            group.weight = (weight * sizes[i]) / total;
             if (start.branchMinimums[i]) return;
-            if (heights[i] <= start.header) group.collapsed = true;
+            if (sizes[i] <= start.header) group.collapsed = true;
             else delete group.collapsed;
           });
           render();
@@ -419,18 +424,28 @@ export function installFeatureLayout(root, { save, error }) {
               : target.ids.find((id) => visibleIds.includes(id));
           const sourceIds = source.ids.filter((id) => visibleIds.includes(id));
           if (targetId && sourceIds.length) {
-            // Discard temporary height transfers before merging vertical neighbors.
+            // Discard temporary size transfers before merging compact neighbors.
             let next = start.compact ? start.before : layout;
             for (const id of sourceIds)
               next = arrangeFeatureLayout(next, id, 'merge', 0, 0, targetId, visibleIds);
             layoutGroups(next).find((group) => group.ids.includes(targetId)).active = targetId;
             layout = flattenVerticalLayout(next);
             cache.set(placement, layout);
-            render();
           }
+        } else if (dropped && start.compact && start.axis === 'horizontal') {
+          compact.settle();
         }
+        render();
         if (start) rememberLayout(start.before, layout);
         void persist();
+      },
+      (start) => {
+        if (start.surface !== placement || start.layout !== layout) return;
+        delete separator.dataset.mergePreview;
+        delete separator.dataset.mergeSide;
+        layout = start.before;
+        cache.set(placement, layout);
+        render();
       },
     );
     return separator;
@@ -480,7 +495,6 @@ export function installFeatureLayout(root, { save, error }) {
     }
   }
   function updateGrid(node, container, focused) {
-    const previousRows = getComputedStyle(container).gridTemplateRows;
     containers.set(container, node);
     const included = (group) =>
       !focused ||
@@ -488,12 +502,22 @@ export function installFeatureLayout(root, { save, error }) {
         ? layoutGroups(group).some((g) => g.ids.includes(focused))
         : group.ids.includes(focused));
     const shown = node.groups.filter(included);
-    const horizontalMinimum = layoutMinimum({ ...node, axis: 'horizontal', groups: shown }).width;
+    const horizontalMinimum =
+      Math.max(0, shown.length - 1) * 8 +
+      shown.reduce(
+        (sum, group) =>
+          sum +
+          (!group.groups && group.collapsed ? compactColumnWidth : layoutMinimum(group).width),
+        0,
+      );
     const axis =
       node.axis !== 'vertical' && container.clientWidth >= horizontalMinimum
         ? 'horizontal'
         : 'vertical';
     container.dataset.axis = axis;
+    const computed = getComputedStyle(container);
+    const previous =
+      axis === 'horizontal' ? computed.gridTemplateColumns : computed.gridTemplateRows;
     const tracks = [];
     node.groups.forEach((group, index) => {
       const element = container.children[index * 2];
@@ -515,24 +539,25 @@ export function installFeatureLayout(root, { save, error }) {
         tracks.push(`minmax(${shown.length === 1 ? 0 : minimum}px, ${group.weight}fr)`);
       }
     });
-    container.style.gridTemplateColumns =
-      axis === 'horizontal' ? tracks.join(' ') : 'minmax(0,1fr)';
     const compactEnabled =
       ['sidebar', 'overlay', 'desktop'].includes(placement) &&
-      axis === 'vertical' &&
+      (axis === 'vertical' || node.groups.length > 1) &&
       panes.dataset.tabPosition !== 'left' &&
       !focused &&
       node.groups.some((group) => !group.groups);
     // Capture live content before shrinking rows; an intermediate minimum-sized
     // grid could clamp a scroller before the compaction controller remembers it.
-    if (!compactEnabled)
+    if (!compactEnabled || axis === 'vertical')
+      container.style.gridTemplateColumns =
+        axis === 'horizontal' ? tracks.join(' ') : 'minmax(0,1fr)';
+    if (!compactEnabled || axis === 'horizontal')
       container.style.gridTemplateRows = axis === 'vertical' ? tracks.join(' ') : 'minmax(0,1fr)';
     node.groups.forEach((group, index) => {
       const element = container.children[index * 2];
       if (group.groups) updateGrid(group, element, focused);
       else updateSection(element, group, focused);
     });
-    compact.apply(node, container, compactEnabled, previousRows);
+    compact.apply(node, container, compactEnabled, previous);
   }
   function render() {
     if (!layout) return;

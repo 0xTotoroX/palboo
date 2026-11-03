@@ -9,7 +9,7 @@ export function elementScale(element) {
   };
 }
 
-export function bindSeparator(handle, axis, read, change, save = () => {}) {
+export function bindSeparator(handle, axis, read, change, save = () => {}, cancel) {
   handle.addEventListener('pointerdown', (event) => {
     if (event.button !== 0) return;
     event.preventDefault();
@@ -29,11 +29,25 @@ export function bindSeparator(handle, axis, read, change, save = () => {}) {
       handle.removeEventListener('pointermove', move);
       handle.removeEventListener('pointerup', finish);
       handle.removeEventListener('lostpointercapture', finish);
+      window.removeEventListener('keydown', escape, true);
+      if (event.type === 'keydown') {
+        if (handle.hasPointerCapture(pointerId)) handle.releasePointerCapture(pointerId);
+        cancel(value);
+        return;
+      }
       save(value, event.type === 'pointerup');
+    };
+    const pointerId = event.pointerId;
+    const escape = (event) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      finish(event);
     };
     handle.addEventListener('pointermove', move);
     handle.addEventListener('pointerup', finish);
     handle.addEventListener('lostpointercapture', finish);
+    if (cancel) window.addEventListener('keydown', escape, true);
   });
   handle.addEventListener('keydown', (event) => {
     const direction = typeof axis === 'function' ? axis() : axis;

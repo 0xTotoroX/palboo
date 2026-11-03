@@ -244,7 +244,10 @@ test('side-by-side tab bars merge at the header and built-in presets position al
 test('overdragging the divider merges the narrower column only when released beyond the minimum', async () => {
   const browser = await chromium.launch({ headless: true });
   try {
-    const page = await browser.newPage({ viewport: { width: 1100, height: 680 } });
+    const page = await browser.newPage({
+      viewport: { width: 1100, height: 680 },
+      reducedMotion: 'reduce',
+    });
     page.setDefaultTimeout(5000);
     await fixture(page, 'desktop', ['outline', 'next', 'prompts', 'bots']);
     await page.evaluate(() => {
@@ -271,13 +274,20 @@ test('overdragging the divider merges the narrower column only when released bey
     const y = handle.y + handle.height / 2;
     await page.mouse.move(x, y);
     await page.mouse.down();
-    await page.mouse.move(x - left.width + 120, y, { steps: 12 });
+    await page.mouse.move(x - left.width - 16, y, { steps: 12 });
     assert.equal(await divider.getAttribute('data-merge-preview'), '合并为标签');
-    await page.mouse.move(x - left.width + 170, y);
+    await page.mouse.move(x - left.width + 34, y);
     assert.equal(await divider.getAttribute('data-merge-preview'), '继续拖动可合并');
     assert.equal(await divider.getAttribute('data-merge-side'), null);
     await page.mouse.up();
     assert.equal(await divider.count(), 1);
+    assert.equal(
+      await page.locator('section[data-pane="next"]').getAttribute('data-compact'),
+      'true',
+    );
+    assert.ok(
+      Math.abs((await page.locator('section[data-pane="next"]').boundingBox()).width - 44) < 1,
+    );
     const minimum = await divider.boundingBox();
     await page.mouse.move(minimum.x + minimum.width / 2, y);
     await page.mouse.down();
@@ -299,6 +309,13 @@ test('overdragging the divider merges the narrower column only when released bey
       ),
       ['dashed', 'solid'],
     );
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+    assert.deepEqual(await page.evaluate(() => state.layouts.desktop), before);
+    assert.ok(Math.abs((await divider.boundingBox()).x - widened.x) < 1);
+    await page.mouse.move(widened.x + widened.width / 2, y);
+    await page.mouse.down();
+    await page.mouse.move(minimum.x - 64, y, { steps: 8 });
     await page.mouse.up();
     await page.waitForFunction(() => state.layouts.desktop.groups[1].ids?.length === 3);
     assert.deepEqual(await page.evaluate(() => state.layouts.desktop.groups), [
@@ -358,6 +375,29 @@ test('standalone rows still fold when their vertical stack includes a split', as
     );
     await page.locator('[data-pane-tab="prompts"]').click();
     assert.equal(await pane.getAttribute('data-compact'), 'false');
+    await page.locator('[data-layout-saving="true"]').waitFor({ state: 'detached' });
+    await page.evaluate(() => {
+      const layout = structuredClone(state.layouts.desktop);
+      layout.axis = 'horizontal';
+      layout.groups[0].axis = 'vertical';
+      for (const group of layout.groups) group.weight = 1;
+      state.layouts.desktop = layout;
+      return refresh();
+    });
+    const horizontal = await divider.boundingBox();
+    const column = await pane.boundingBox();
+    assert.equal(await divider.getAttribute('aria-orientation'), 'vertical');
+    const startX = horizontal.x + horizontal.width / 2;
+    const startY = horizontal.y + horizontal.height / 2;
+    await page.mouse.move(startX, startY);
+    await page.mouse.down();
+    await page.mouse.move(startX + column.width - 32, startY, { steps: 12 });
+    await page.mouse.up();
+    assert.equal(await pane.getAttribute('data-compact'), 'true');
+    assert.ok(Math.abs((await pane.boundingBox()).width - 44) < 1);
+    assert.ok(
+      (await page.locator('.csw-feature-panes > .csw-feature-split').boundingBox()).width >= 180,
+    );
   } finally {
     await browser.close();
   }
