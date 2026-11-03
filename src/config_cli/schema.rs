@@ -176,6 +176,7 @@ impl Scope {
                 "install",
                 "restore",
                 "start",
+                "restart",
                 "restart-disabled",
             ],
             _ => &[],
@@ -377,7 +378,7 @@ pub(super) fn schema(scope: Scope) -> Value {
                 "notes":{
                     "enabled":"set-enabled 保存启动意愿；不改写官方 CodexHost、供应商 Agent 或它们的模型配置",
                     "startupUpdate":"set-startup-update 保存启动更新策略，默认 notify；automatic 安装后在下次启动 CodexHost 时生效",
-                    "operations":"start/install/restore/restart-disabled 需 --confirm；读取状态不重启宿主"
+                    "operations":"start/install/restore/restart/restart-disabled 需 --confirm；读取状态不重启宿主"
                 }
             })
         }

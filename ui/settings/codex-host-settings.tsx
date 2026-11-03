@@ -251,9 +251,6 @@ export function CodexHostSettings({
               {latest === state.version && <p role="status">{tr('已是最新版本')}</p>}
             </div>
           </div>
-          {state.state === 'pendingUpdate' && (
-            <p role="status">{tr('新版已安装。结束任务后，退出 Codex，再从 Palboo 打开。')}</p>
-          )}
           {(state.executable || state.runningExecutable) && (
             <dl className="compatibility-path">
               {state.executable && (
@@ -274,6 +271,15 @@ export function CodexHostSettings({
             <p>{tr('需要重开 Codex 才能启用时，请先结束任务，再打开 Palboo。')}</p>
           )}
           <div className="settings-actions compatibility-runtime-actions">
+            {['running', 'pendingUpdate'].includes(state.state) && (
+              <Button variant="outline" disabled={disabled} onClick={() => void command('restart')}>
+                {restarting
+                  ? tr('正在重启…')
+                  : state.state === 'pendingUpdate'
+                    ? tr('重启并应用更新')
+                    : tr('重启 Codex')}
+              </Button>
+            )}
             {state.state === 'pendingDisable' && (
               <ConfirmationButton
                 disabled={disabled}

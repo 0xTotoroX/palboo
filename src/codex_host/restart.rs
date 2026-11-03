@@ -1,5 +1,5 @@
-// [INPUT]: 已关闭的 CodexHost 配置、当前宿主身份与 Dev 会话记录。
-// [OUTPUT]: 显式重启停用的私有进度；独立协调进程跨越 Dev 的退出清理。
+// [INPUT]: CodexHost 配置、当前宿主身份与 Dev 会话记录。
+// [OUTPUT]: 显式重启与应用所选安装的私有进度；独立协调进程跨越 Dev 的退出清理。
 // [POS]: 只协调 Palboo 现有退出/启动入口，不修改上游代码或执行热卸载。
 // [PROTOCOL]: 变更时同步 codex_host/AGENTS.md、src/AGENTS.md 与共享状态类型。
 use crate::{
@@ -23,6 +23,8 @@ struct Job {
     state: String,
     message: String,
     revision: u64,
+    #[serde(default)]
+    keep_enabled: bool,
     policy: HostRestartPolicy,
     desktop: PathBuf,
     pid: i32,
@@ -101,9 +103,17 @@ pub fn status(paths: &Paths) -> Value {
         }
     })
 }
-fn check_config(paths: &Paths, revision: u64) -> Result<()> {
+fn check_config(paths: &Paths, revision: u64, keep_enabled: bool) -> Result<()> {
     let config = paths.load()?;
-    ensure!(!config.codex_host.enabled, "请先关闭 CodexHost，再重启停用");
+    if keep_enabled {
+        ensure!(config.codex_host.enabled, "CodexHost 已关闭，请刷新后重试");
+        ensure!(
+            config.performance.integration_enabled,
+            "请先恢复 Codex 连接"
+        );
+    } else {
+        ensure!(!config.codex_host.enabled, "请先关闭 CodexHost，再重启停用");
+    }
     ensure!(
         config.codex_host.revision == revision,
         "CodexHost 设置已更新，请刷新后重试"
@@ -166,11 +176,15 @@ pub async fn schedule(app: &App, input: &Value) -> Result<()> {
     let revision = input["expectedRevision"]
         .as_u64()
         .context("缺少 CodexHost 设置版本")?;
-    check_config(&app.paths, revision)?;
+    let keep_enabled = input["op"] == "restart";
+    check_config(&app.paths, revision, keep_enabled)?;
     let running = super::running()
         .await?
         .context("CodexHost 已停用，无需重启")?;
     let desktop = host::find_desktop().context("找不到 Codex 程序")?;
+    if keep_enabled {
+        super::prepare(&app.paths.load()?.codex_host, Some(&desktop)).await?;
+    }
     let pid = host::desktop_process(&desktop)?.context("Codex 已退出，请从 Palboo 重新打开")?;
     let view = app.view();
     let endpoint = view
@@ -203,6 +217,7 @@ pub async fn schedule(app: &App, input: &Value) -> Result<()> {
         state: "queued".into(),
         message: "正在准备重启…".into(),
         revision,
+        keep_enabled,
         policy: app.paths.load()?.host_restart_policy,
         identity: ps(pid as u32, "lstart=,comm=")?,
         desktop,
@@ -282,7 +297,7 @@ async fn execute(
         job.message = "已取消重启，当前会话继续运行。".into();
         return Ok(());
     }
-    check_config(paths, job.revision)?;
+    check_config(paths, job.revision, job.keep_enabled)?;
     ensure!(
         ps(job.pid as u32, "lstart=,comm=")? == job.identity,
         "Codex 进程已变化，请重试；未退出其他实例"
@@ -295,7 +310,7 @@ async fn execute(
         "CodexHost 运行实例已变化"
     );
     job.state = "restarting".into();
-    job.message = "正在重启 Codex 并停用…".into();
+    job.message = "正在重启 Codex…".into();
     save(paths, job)?;
     if let Some(dev) = &job.dev {
         let record: Value = serde_json::from_slice(&std::fs::read(
@@ -322,7 +337,7 @@ async fn execute(
         }
     }
     let result = async {
-        check_config(paths, job.revision)?;
+        check_config(paths, job.revision, job.keep_enabled)?;
         ensure!(
             ps(job.pid as u32, "lstart=,comm=")? == job.identity,
             "Codex 进程已变化，请重试"
@@ -335,17 +350,26 @@ async fn execute(
         )
         .await?;
         wait_for_exit(&job.host).await?;
-        check_config(paths, job.revision)?;
-        // Do not reuse the old injection or invoke the upstream launcher.
+        check_config(paths, job.revision, job.keep_enabled)?;
         if let Some(dev) = &job.dev {
             dev_command(dev, "--open").await?;
         } else {
             lifecycle::launch(paths, Some(job.desktop.clone()), false, true, false, false).await?;
         }
-        ensure!(
-            super::running().await?.is_none(),
-            "Codex 已重开，但 CodexHost 仍在运行，请检查运行状态"
-        );
+        let running = super::running().await?;
+        if job.keep_enabled {
+            let selected =
+                super::executable(&paths.load()?.codex_host).context("找不到所选安装")?;
+            ensure!(
+                running.is_some_and(|host| host.matches_installation(&selected)),
+                "Codex 已重开，但所选 CodexHost 安装尚未运行"
+            );
+        } else {
+            ensure!(
+                running.is_none(),
+                "Codex 已重开，但 CodexHost 仍在运行，请检查运行状态"
+            );
+        }
         Ok::<_, anyhow::Error>(())
     }
     .await;
@@ -360,7 +384,12 @@ async fn execute(
     }
     result?;
     job.state = "completed".into();
-    job.message = "Codex 已重启，CodexHost 已停用。".into();
+    job.message = if job.keep_enabled {
+        "Codex 已重启，所选 CodexHost 已生效。"
+    } else {
+        "Codex 已重启，CodexHost 已停用。"
+    }
+    .into();
     Ok(())
 }
 pub async fn run(paths: &Paths, lease: &str) -> Result<()> {
@@ -372,13 +401,14 @@ pub async fn run(paths: &Paths, lease: &str) -> Result<()> {
         "重启操作身份已变化"
     );
     let policy = job.policy;
+    let keep_enabled = job.keep_enabled;
     if let Err(error) = execute(paths, &mut job, || {
-        lifecycle::approve_codex_host_disable(policy)
+        lifecycle::approve_codex_host_restart(policy, keep_enabled)
     })
     .await
     {
         job.state = "failed".into();
-        job.message = format!("重启停用失败：{error}");
+        job.message = format!("重启失败：{error}");
         eprintln!("{}", job.message);
     }
     save(paths, &job)
@@ -424,6 +454,7 @@ mod tests {
             state: "queued".into(),
             message: String::new(),
             revision: 0,
+            keep_enabled: false,
             policy: HostRestartPolicy::Ask,
             desktop: PathBuf::from("missing"),
             pid: -1,

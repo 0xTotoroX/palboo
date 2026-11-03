@@ -452,7 +452,7 @@ impl App {
         let options = self.config.lock().await.codex_host.clone();
         ensure!(!restart::busy(&self.paths), "Codex 正在重启，请稍后再操作");
         match input["op"].as_str() {
-            Some("restart-disabled") => {
+            Some("restart" | "restart-disabled") => {
                 restart::schedule(self, &input).await?;
             }
             Some("check-update") => return update::check().await,
@@ -505,7 +505,7 @@ impl App {
             }
             _ => bail!("未知 CodexHost 操作"),
         }
-        if input["op"] != "restart-disabled" {
+        if !matches!(input["op"].as_str(), Some("restart" | "restart-disabled")) {
             restart::clear(&self.paths)?;
         }
         let options = self.config.lock().await.codex_host.clone();

@@ -437,8 +437,20 @@ fn confirm_desktop_restart() -> Result<bool> {
     ))
 }
 
-pub(crate) fn approve_codex_host_disable(policy: config::HostRestartPolicy) -> Result<bool> {
-    restart_approved(policy, || confirm_codex_host_restart(false))
+pub(crate) fn approve_codex_host_restart(
+    policy: config::HostRestartPolicy,
+    keep_enabled: bool,
+) -> Result<bool> {
+    restart_approved(policy, || {
+        if keep_enabled {
+            confirm_restart(crate::i18n::text(
+                "是否重启 Codex？请先保存草稿并结束正在执行的任务。",
+                "Restart Codex? Save drafts and finish running tasks first.",
+            ))
+        } else {
+            confirm_codex_host_restart(false)
+        }
+    })
 }
 
 fn confirm_codex_host_restart(enabled: bool) -> Result<bool> {

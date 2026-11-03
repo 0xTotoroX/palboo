@@ -29,7 +29,7 @@ test('CodexHost settings use their own authenticated endpoint and preserve expli
             namespace: 'api-fixture',
           }));
           b.onLoad({ filter: /.*/, namespace: 'api-fixture' }, () => ({
-            contents: `window.commands=[];let state={enabled:false,revision:9,startupUpdate:'notify',state:'disabled',version:'0.10.2',executable:'/tmp/fixture',baseline:'0.10.2',canRestore:false};export async function request(path,body){if(path==='codex-host/agents'&&!body)return {status:'unavailable',message:'当前宿主未接入 CodexHost',current:null,agents:[]};if(path!=='codex-host')throw Error('wrong endpoint');window.commands.push({path,body});if(body){if(window.fail)throw Error('合成保存失败');if(body.expectedRevision!==state.revision)throw Error('stale');if(body.op==='set-enabled'){state={...state,enabled:body.enabled,state:body.enabled?'pendingEnable':'disabled',revision:state.revision+1}}else if(body.op==='set-startup-update'){state={...state,startupUpdate:body.startupUpdate,revision:state.revision+1}}else throw Error('unexpected side effect')}return state;}`,
+            contents: `window.commands=[];let state={enabled:false,revision:9,startupUpdate:'notify',state:'disabled',version:'0.10.2',executable:'/tmp/fixture',baseline:'0.10.2',canRestore:false};window.stageUpdate=()=>{state={...state,enabled:true,state:'pendingUpdate',runningVersion:'0.10.1'}};export async function request(path,body){if(path==='codex-host/agents'&&!body)return {status:'unavailable',message:'当前宿主未接入 CodexHost',current:null,agents:[]};if(path!=='codex-host')throw Error('wrong endpoint');window.commands.push({path,body});if(body){if(window.fail)throw Error('合成保存失败');if(body.expectedRevision!==state.revision)throw Error('stale');if(body.op==='set-enabled'){state={...state,enabled:body.enabled,state:body.enabled?'pendingEnable':'disabled',revision:state.revision+1}}else if(body.op==='set-startup-update'){state={...state,startupUpdate:body.startupUpdate,revision:state.revision+1}}else if(body.op==='restart'){state={...state,restart:{state:'queued',message:'正在准备重启…'}}}else throw Error('unexpected side effect')}return state;}`,
           }));
         },
       },
@@ -79,6 +79,16 @@ test('CodexHost settings use their own authenticated endpoint and preserve expli
         return control?.value === value && !control.disabled;
       }, mode);
     }
+    await page.evaluate(() => {
+      window.stageUpdate();
+      window.dispatchEvent(new Event('focus'));
+    });
+    await page.getByRole('button', { name: '重启并应用更新', exact: true }).click();
+    await page.getByText('正在准备重启…', { exact: true }).waitFor();
+    assert.equal(
+      await page.getByRole('button', { name: '正在重启…', exact: true }).isDisabled(),
+      true,
+    );
     const writes = await page.evaluate(() => window.commands.filter((x) => x.body));
     assert.deepEqual(
       writes.map((x) => [
@@ -91,6 +101,7 @@ test('CodexHost settings use their own authenticated endpoint and preserve expli
         ['set-enabled', 10, false],
         ['set-startup-update', 11, 'automatic'],
         ['set-startup-update', 12, 'off'],
+        ['restart', 13, undefined],
       ],
     );
     assert.deepEqual(errors, []);

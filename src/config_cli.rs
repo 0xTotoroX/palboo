@@ -392,6 +392,7 @@ fn dangerous(scope: Scope, patch: &Value, before: &Value) -> bool {
         || [
             "remove",
             "restore",
+            "restart",
             "restart-disabled",
             "install",
             "start",
