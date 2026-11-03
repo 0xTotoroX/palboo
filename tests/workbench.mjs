@@ -971,9 +971,16 @@ const cases = [
         near((grown.height - first.height) / zoom, 16, 'keyboard resize uses CSS pixels');
         await divider.press('ArrowUp');
         const handle = await divider.boundingBox();
+        const donor = await scope.locator('[data-pane="next"]').boundingBox();
+        // Cross the reading minimum while leaving room above the merge gesture.
+        const foldDistance = donor.height - 76 * zoom;
         await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
         await page.mouse.down();
-        await page.mouse.move(handle.x + handle.width / 2, handle.y + 400 * zoom, { steps: 10 });
+        await page.mouse.move(
+          handle.x + handle.width / 2,
+          handle.y + handle.height / 2 + foldDistance,
+          { steps: 10 },
+        );
         await page.mouse.up();
         const minimum = await scope.locator('[data-pane="next"]').boundingBox();
         near(minimum.height / zoom, 36, 'pointer resize preserves the complete folded row');
