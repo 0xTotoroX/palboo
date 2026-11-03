@@ -19,7 +19,7 @@ import {FeatureView} from './ui/surfaces/workspace/feature-session';
 window.calls=[]; window.failSave=false; window.sequence=1;
 window.alpha={model:'alpha',reasoning:'high',speed:'fast'};
 window.beta={model:'beta',reasoning:'low',speed:'standard'};
-window.model={revision:1,preferences:{enabled:true,pinned:['alpha','beta'],presets:[{id:'existing',name:'原名称',selection:window.alpha}]},snapshot:{target:{id:'chat'},revision:'r1',status:'ready',message:'',current:window.alpha,models:[{id:'alpha',label:'Alpha',reasoning:['high'],fast:true},{id:'beta',label:'Beta',reasoning:['low'],fast:false}]}};
+window.model={revision:1,preferences:{enabled:true,pinned:['alpha','beta'],presets:[{id:'existing',name:'原名称',agent:'codex',selection:window.alpha}]},snapshot:{target:{id:'chat'},revision:'r1',status:'ready',message:'',current:window.alpha,models:[{id:'alpha',label:'Alpha',reasoning:['high'],fast:true},{id:'beta',label:'Beta',reasoning:['low'],fast:false}]}};
 window.entry={id:'model',owner:'owner-1',placement:'sidebar',open:true,pending:null,view:{},size:[500,400],reveal:0};
 if(window.legacyDraft) window.entry.view.modelPresetDraft={id:'legacy-create',name:'',selection:window.alpha,creating:true};
 const notify=()=>{};
@@ -29,7 +29,9 @@ const request=async(input)=>{
   if(input.op==='read') return structuredClone(window.model);
   if(input.op==='action') {
     if(input.action==='apply') {
-      window.model.snapshot.current=structuredClone(input.data.selection);
+      if (input.data.agent && window.agentSnapshots) {
+        window.model.snapshot = structuredClone(window.agentSnapshots[input.data.agent]);
+      } else window.model.snapshot.current=structuredClone(input.data.selection);
       window.model.snapshot.revision+='-applied';
       return structuredClone(window.model);
     }
@@ -150,6 +152,7 @@ test('rename draft retains identity and captured selection; cancel and Escape cl
     assert.deepEqual(draft, {
       id: 'existing',
       name: '改名草稿',
+      agent: 'codex',
       selection: { model: 'alpha', reasoning: 'high', speed: 'fast' },
       creating: false,
     });
@@ -179,7 +182,7 @@ test('rename draft retains identity and captured selection; cancel and Escape cl
     await page.getByRole('button', { name: '保存', exact: true }).click();
     await input.waitFor({ state: 'detached' });
     assert.deepEqual(await page.evaluate(() => window.model.preferences.presets), [
-      { id: 'existing', name: '保存改名', selection: draft.selection },
+      { id: 'existing', name: '保存改名', agent: 'codex', selection: draft.selection },
     ]);
     assert.equal((await move(page)).modelPresetDraft, undefined);
   } finally {
@@ -216,6 +219,7 @@ test('preset rename and add distinguish the Fast marker from a standard preset',
     await page.evaluate(() => {
       window.model.preferences.presets.push({
         id: 'standard',
+        agent: 'codex',
         name: 'Alpha',
         selection: { ...window.alpha, speed: 'standard' },
       });
@@ -253,29 +257,39 @@ test('presets show and apply saved reasoning independently of the current model 
       window.model.snapshot.models[0].reasoning.push('low', 'none');
       window.model.snapshot.models.push({
         id: 'basic',
+        agent: 'codex',
         label: 'Basic',
         reasoning: [],
         fast: false,
       });
       window.model.preferences.presets.push(
-        { id: 'high', name: 'Alpha', selection: { ...window.alpha, speed: 'standard' } },
+        {
+          id: 'high',
+          agent: 'codex',
+          name: 'Alpha',
+          selection: { ...window.alpha, speed: 'standard' },
+        },
         {
           id: 'low',
+          agent: 'codex',
           name: 'Alpha',
           selection: { ...window.alpha, reasoning: 'low', speed: 'standard' },
         },
         {
           id: 'none',
+          agent: 'codex',
           name: 'Alpha',
           selection: { ...window.alpha, reasoning: 'none', speed: 'standard' },
         },
         {
           id: 'basic',
+          agent: 'codex',
           name: 'Basic',
           selection: { model: 'basic', reasoning: '', speed: 'standard' },
         },
         {
           id: 'missing',
+          agent: 'codex',
           name: '旧模型',
           selection: { model: 'missing', reasoning: 'ultra', speed: 'fast' },
         },
@@ -346,65 +360,72 @@ test('presets show and apply saved reasoning independently of the current model 
   }
 });
 
-test('catalog pins a CLI model and labels locked Agent switching once', async () => {
+test('switching CLI returns to the target matrix and isolates presets, pins and manufacturers', async () => {
   const browser = await chromium.launch({ headless: true });
   try {
     const page = await fixture(browser);
     await page.evaluate(() => {
       window.root.unmount();
-      window.model.snapshot.current = window.beta;
-      window.model.snapshot.agent = {
-        current: 'antigravity',
-        label: 'Antigravity CLI',
-        locked: false,
-        options: [
-          { id: 'codex', label: 'Codex', available: true },
-          { id: 'antigravity', label: 'Antigravity CLI', available: true },
-        ],
+      const options = [
+        { id: 'codex', label: 'Codex', available: true },
+        { id: 'antigravity', label: 'Antigravity CLI', available: true },
+      ];
+      window.model.snapshot.agent = { current: 'codex', label: 'Codex', locked: true, options };
+      window.model.preferences.modelOverrides = { beta: { manufacturer: 'Codex Vendor' } };
+      window.model.preferences.presets.push(
+        { id: 'unknown', name: '来源未知', selection: window.beta },
+        { id: 'external', name: 'Antigravity 专用', agent: 'antigravity', selection: window.beta },
+      );
+      window.model.preferences.agentOrganizations = {
+        antigravity: {
+          pinned: ['beta'],
+          modelOverrides: { beta: { manufacturer: 'Antigravity Vendor' } },
+        },
+      };
+      window.agentSnapshots = {
+        antigravity: {
+          ...window.model.snapshot,
+          target: { id: 'fresh-chat' },
+          current: window.beta,
+          models: [{ id: 'beta', label: 'External Beta', reasoning: ['low'], fast: false }],
+          agent: { current: 'antigravity', label: 'Antigravity CLI', locked: false, options },
+        },
       };
       window.mount();
     });
-    assert.equal(await page.locator('.model-agents').count(), 0);
+    await page.getByRole('button', { name: '原名称 · High · Fast', exact: true }).waitFor();
+    assert.equal(await page.getByRole('button', { name: /Antigravity 专用|来源未知/ }).count(), 0);
     await page.getByRole('button', { name: '所有模型', exact: true }).click();
-    assert.equal(await page.locator('.model-agents button').count(), 2);
-    assert.equal(await page.locator('.model-agent-notice').count(), 0);
+    await page.getByRole('region', { name: 'Codex Vendor' }).waitFor();
+    await page.getByText('切换 Agent 会新建聊天', { exact: true }).waitFor();
+    await page.locator('[data-agent-option="antigravity"]').click();
+    await page
+      .locator('.model-current-agent')
+      .getByText('Antigravity CLI', { exact: true })
+      .waitFor();
+    await page.getByRole('button', { name: 'Antigravity 专用 · Low', exact: true }).waitFor();
+    assert.equal(await page.getByRole('region', { name: '所有模型' }).count(), 0);
+    assert.equal(await page.getByRole('button', { name: /原名称|来源未知/ }).count(), 0);
+    assert.deepEqual(
+      await page.locator('.model-row').evaluateAll((nodes) => nodes.map((n) => n.dataset.modelRow)),
+      ['beta'],
+    );
+    await page.getByRole('button', { name: '所有模型', exact: true }).click();
+    await page.getByRole('region', { name: 'Antigravity Vendor' }).waitFor();
+    assert.equal(await page.getByRole('region', { name: 'Codex Vendor' }).count(), 0);
     await page.locator('[data-model-tile="beta"]').click();
-    await page.locator('[data-model-tile="beta"][aria-pressed="true"]').waitFor();
-    await page.evaluate(() => {
-      window.root.unmount();
-      window.model.snapshot.current = window.alpha;
-      window.model.snapshot.models = window.model.snapshot.models.filter((m) => m.id === 'alpha');
-      Object.assign(window.model.snapshot.agent, {
-        current: 'codex',
-        label: 'Codex',
-        locked: true,
-      });
-      window.mount();
-    });
-    const preset = page.getByRole('button', { name: 'Beta · Low', exact: true });
-    assert.equal(await preset.locator('small').last().innerText(), '新建聊天');
-    assert.equal(await page.getByRole('button', { name: /Antigravity CLI/ }).count(), 0);
-    assert.ok(await page.locator('.model-row:visible').count());
-    await page.getByRole('button', { name: '所有模型', exact: true }).click();
-    assert.equal(await page.locator('.model-agent-notice').innerText(), '切换 Agent 会新建聊天');
-    assert.equal(
-      await page.locator('[data-agent-option="antigravity"]').innerText(),
-      'Antigravity CLI',
+    await page.locator('[data-model-tile="beta"][aria-pressed="false"]').waitFor();
+    const stored = await page.evaluate(() => window.model.preferences);
+    assert.deepEqual(stored.pinned, ['alpha', 'beta']);
+    assert.deepEqual(stored.agentOrganizations.antigravity.pinned, []);
+    assert.deepEqual(
+      stored.presets.find((p) => p.id === 'unknown'),
+      {
+        id: 'unknown',
+        name: '来源未知',
+        selection: { model: 'beta', reasoning: 'low', speed: 'standard' },
+      },
     );
-    assert.equal(
-      await page.locator('[data-agent-option="antigravity"]').getAttribute('aria-description'),
-      '切换 Agent 会新建聊天',
-    );
-    await page.getByRole('button', { name: '关闭所有模型', exact: true }).click();
-    await preset.click();
-    const calls = await page.evaluate(() => window.calls.filter((c) => c.action === 'apply'));
-    assert.equal(calls.length, 1);
-    assert.equal(calls[0].data.agent, 'antigravity');
-    assert.deepEqual(calls[0].data.selection, {
-      model: 'beta',
-      reasoning: 'low',
-      speed: 'standard',
-    });
   } finally {
     await browser.close();
   }

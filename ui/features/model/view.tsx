@@ -19,9 +19,10 @@ import { iconSvg } from '../../shared/icons/index.js';
 import type { ModelPresetDraft, Reading } from '../../shared/features';
 import {
   groupedModels,
+  scopedModelPreferences,
+  organizationPatch,
   orderedModelIds,
   uniquePresetName,
-  uniquePresetNames,
   type ModelState,
   type Selection,
 } from './catalog';
@@ -131,16 +132,23 @@ export function ModelView({
     scale: number;
   } | null>(null);
   const restoredReading = useRef(false);
-  const s = state.snapshot,
-    prefs = state.preferences;
+  const s = state.snapshot;
+  const currentAgent = s.agent?.current || 'codex';
+  const prefs = scopedModelPreferences(state.preferences, currentAgent);
+  const scopedPresets = prefs.presets.filter((preset) => preset.agent === currentAgent);
   const currentModel = s.models.find((model) => model.id === s.current?.model);
   const fastActive = !!currentModel?.fast && s.current?.speed === 'fast';
   const allowed = !!s.target && ['ready', 'waiting'].includes(s.status) && prefs.enabled;
   const apply = (selection: Selection, preserveSpeed = false) =>
     action({ target: s.target, expectedRevision: s.revision, selection, preserveSpeed }, 'apply');
-  const applyAgent = (agent: string, selection?: Selection) =>
-    action({ target: s.target, expectedRevision: s.revision, agent, selection }, 'apply');
-  const currentAgent = s.agent?.current || 'codex';
+  const applyAgent = async (agent: string) => {
+    const result = await action({ target: s.target, expectedRevision: s.revision, agent }, 'apply');
+    if ((result as ModelState | null)?.snapshot?.agent?.current === agent) {
+      setOthers(false);
+      closeTools();
+      setPresetDraft(null);
+    }
+  };
   const agentOptions = s.agent?.options || [];
   const pinnedAgents = prefs.pinnedAgents || [];
   const directoryAgents = [...agentOptions].sort(
@@ -154,8 +162,20 @@ export function ModelView({
     ['ready', 'waiting', 'unavailable'].includes(s.status) &&
     agentOptions.some((option) => option.id === agent && option.available);
   const needsNewChat = (agent?: string) => !!agent && agent !== currentAgent && !!s.agent?.locked;
-  const handoffLabel = tr('新建聊天');
   const save = (patch: object) => action({ revision: state.revision, patch }, 'preferences');
+  const saveOrganization = (patch: Parameters<typeof organizationPatch>[2]) =>
+    save(organizationPatch(state.preferences, currentAgent, patch));
+  const priorAgent = useRef(currentAgent);
+  useEffect(() => {
+    if (priorAgent.current === currentAgent) return;
+    priorAgent.current = currentAgent;
+    delete reading.modelLeft;
+    restoredReading.current = false;
+    if (matrix.current) matrix.current.scrollLeft = 0;
+    setOthers(false);
+    closeTools();
+    setPresetDraft(null);
+  }, [currentAgent]);
   const addPreset = async () => {
     if (busy || !allowed || !s.current) return;
     closeTools();
@@ -166,16 +186,17 @@ export function ModelView({
         s.models.find((m) => m.id === s.current?.model)?.label || s.current.model,
         prefs.presets,
         s.current.speed,
+        currentAgent,
       ),
       selection: { ...s.current },
       agent: currentAgent,
     };
-    const result = await save({ presets: uniquePresetNames([...prefs.presets, preset]) });
+    const result = await save({ presets: [...prefs.presets, preset] });
     if (result !== null) setPresetDraft(null);
   };
   const saveWidth = async (width: number) => {
     try {
-      await save({ modelColumnWidth: width });
+      await saveOrganization({ modelColumnWidth: width });
     } finally {
       setColumnWidth(null);
     }
@@ -195,7 +216,7 @@ export function ModelView({
   });
   const fixedModels = models.filter(
     (model) =>
-      (currentAgent === 'codex' && prefs.pinned.includes(model.id)) ||
+      prefs.pinned.includes(model.id) ||
       prefs.presets.some(
         (preset) =>
           preset.catalogPin && preset.agent === currentAgent && preset.selection.model === model.id,
@@ -218,14 +239,14 @@ export function ModelView({
     );
   const toggleModel = async (model: ModelState['snapshot']['models'][number]) => {
     if (!s.agent)
-      return save({
+      return saveOrganization({
         pinned: prefs.pinned.includes(model.id)
           ? prefs.pinned.filter((id) => id !== model.id)
           : [...prefs.pinned, model.id],
       });
     const preset = boundPreset(model);
-    const legacy = currentAgent === 'codex' && prefs.pinned.includes(model.id);
-    if (legacy) return save({ pinned: prefs.pinned.filter((id) => id !== model.id) });
+    if (prefs.pinned.includes(model.id))
+      return saveOrganization({ pinned: prefs.pinned.filter((id) => id !== model.id) });
     if (preset) return save({ presets: prefs.presets.filter((p) => p.id !== preset.id) });
     const selection = modelSelection(model);
     return save({
@@ -236,7 +257,7 @@ export function ModelView({
           agent: currentAgent,
           catalogPin: true,
           selection,
-          name: uniquePresetName(model.label, prefs.presets, selection.speed),
+          name: uniquePresetName(model.label, prefs.presets, selection.speed, currentAgent),
         },
       ],
     });
@@ -326,7 +347,11 @@ export function ModelView({
           event.preventDefault();
           event.stopPropagation();
           const id = event.dataTransfer.getData(dragType);
-          if (id === m.id || !models.some((model) => model.id === id) || !prefs.pinned.includes(id))
+          if (
+            id === m.id ||
+            !models.some((model) => model.id === id) ||
+            !fixedModels.some((item) => item.id === id)
+          )
             return;
           const next = modelOrder.filter((item) => item !== id);
           const rect = event.currentTarget.getBoundingClientRect();
@@ -335,7 +360,7 @@ export function ModelView({
             0,
             id,
           );
-          void save({ modelOrder: next });
+          void saveOrganization({ modelOrder: next });
         }}
       >
         <div className="model-name">
@@ -397,6 +422,7 @@ export function ModelView({
           requestedName,
           prefs.presets.filter((p) => p.id !== presetDraft.id),
           presetDraft.selection.speed,
+          presetDraft.agent,
         );
         const preset = {
           id: presetDraft.id,
@@ -405,11 +431,9 @@ export function ModelView({
           ...(presetDraft.agent ? { agent: presetDraft.agent } : {}),
         };
         const result = await save({
-          presets: uniquePresetNames(
-            presetDraft.creating
-              ? [...prefs.presets, preset]
-              : prefs.presets.map((item) => (item.id === preset.id ? { ...item, name } : item)),
-          ),
+          presets: presetDraft.creating
+            ? [...prefs.presets, preset]
+            : prefs.presets.map((item) => (item.id === preset.id ? { ...item, name } : item)),
         });
         if (result !== null) setPresetDraft(null);
       }}
@@ -525,6 +549,19 @@ export function ModelView({
         } as CSSProperties
       }
     >
+      {s.agent?.label &&
+        (headerActions ? (
+          createPortal(
+            <span className="model-current-agent" title={s.agent.label}>
+              {s.agent.label}
+            </span>,
+            headerActions,
+          )
+        ) : (
+          <span className="model-current-agent" title={s.agent.label}>
+            {s.agent.label}
+          </span>
+        ))}
       <div className="model-main" ref={main} data-view={others ? 'all' : 'favorites'}>
         <div className="model-favorites" aria-hidden={others} inert={others}>
           <div
@@ -712,7 +749,7 @@ export function ModelView({
           </div>
           <section className="model-collections" aria-label={tr('收藏')}>
             <div className="model-presets" data-editing={tools}>
-              {prefs.presets.map((p) => (
+              {scopedPresets.map((p) => (
                 <div className="model-preset-tag" key={p.id}>
                   {presetDraft?.id === p.id && !presetDraft.creating ? (
                     presetEditor
@@ -720,16 +757,9 @@ export function ModelView({
                     <button
                       className="model-preset-choice"
                       disabled={busy}
-                      aria-disabled={
-                        !tools &&
-                        (p.agent && p.agent !== currentAgent
-                          ? !canSwitchAgent(p.agent)
-                          : !allowed || !valid(p.selection))
-                      }
+                      aria-disabled={!tools && (!allowed || !valid(p.selection))}
                       aria-label={presetLabel(p.name, p.selection)}
-                      aria-description={
-                        tools ? tr('点击重命名') : needsNewChat(p.agent) ? handoffLabel : undefined
-                      }
+                      aria-description={tools ? tr('点击重命名') : undefined}
                       title={presetLabel(
                         s.models.find((m) => m.id === p.selection.model)?.label ||
                           p.selection.model,
@@ -737,16 +767,13 @@ export function ModelView({
                       )}
                       aria-pressed={
                         !tools &&
-                        (!p.agent || p.agent === currentAgent) &&
                         s.current?.model === p.selection.model &&
                         s.current.reasoning === p.selection.reasoning &&
                         s.current.speed === p.selection.speed
                       }
                       onClick={() => {
                         if (tools) renamePreset(p);
-                        else if (p.agent && p.agent !== currentAgent) {
-                          if (canSwitchAgent(p.agent)) void applyAgent(p.agent, p.selection);
-                        } else if (allowed && valid(p.selection)) void apply(p.selection);
+                        else if (allowed && valid(p.selection)) void apply(p.selection);
                       }}
                     >
                       {p.selection.speed === 'fast' && icon('bolt-filled')}
@@ -757,21 +784,6 @@ export function ModelView({
                             {' · '}
                             {label(p.selection.reasoning)}
                           </span>
-                        )}
-                        {p.agent &&
-                          prefs.presets.some(
-                            (other) =>
-                              other.id !== p.id &&
-                              other.agent !== p.agent &&
-                              other.selection.model === p.selection.model,
-                          ) && (
-                            <small className="model-preset-reasoning">
-                              {' '}
-                              · {agentOptions.find((opt) => opt.id === p.agent)?.label || p.agent}
-                            </small>
-                          )}
-                        {needsNewChat(p.agent) && (
-                          <small className="model-preset-handoff">{handoffLabel}</small>
                         )}
                       </span>
                     </button>
@@ -822,7 +834,7 @@ export function ModelView({
               aria-label={tr('编辑预设')}
               title={tr('编辑预设')}
               aria-pressed={tools}
-              disabled={busy || !prefs.presets.length}
+              disabled={busy || !scopedPresets.length}
               onClick={() => {
                 setTools((reading.modelTools = !tools));
                 if (tools) setPresetDraft(null);
@@ -887,10 +899,7 @@ export function ModelView({
                         key={m.id}
                         data-model-tile={m.id}
                         aria-label={m.label}
-                        aria-pressed={
-                          !!boundPreset(m) ||
-                          (currentAgent === 'codex' && prefs.pinned.includes(m.id))
-                        }
+                        aria-pressed={!!boundPreset(m) || prefs.pinned.includes(m.id)}
                         disabled={busy || !prefs.enabled}
                         onClick={async (event) => {
                           const button = event.currentTarget;

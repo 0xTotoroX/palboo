@@ -51,12 +51,39 @@ pub struct ModelOverride {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(default, rename_all = "camelCase", deny_unknown_fields)]
+pub struct AgentOrganization {
+    pub model_column_width: f64,
+    pub pinned: Vec<String>,
+    pub model_order: Option<Vec<String>>,
+    pub groups: Vec<ModelGroup>,
+    pub model_overrides: BTreeMap<String, ModelOverride>,
+    pub group_order: Vec<String>,
+    pub expanded_groups: Option<Vec<String>>,
+}
+
+impl Default for AgentOrganization {
+    fn default() -> Self {
+        Self {
+            model_column_width: 140.,
+            pinned: vec![],
+            model_order: None,
+            groups: vec![],
+            model_overrides: BTreeMap::new(),
+            group_order: vec![],
+            expanded_groups: None,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 pub struct Preferences {
     pub enabled: bool,
     pub show_usage: bool,
     pub model_column_width: f64,
     pub pinned: Vec<String>,
     pub pinned_agents: Vec<String>,
+    pub agent_organizations: BTreeMap<String, AgentOrganization>,
     pub model_order: Option<Vec<String>>,
     pub presets: Vec<Preset>,
     pub groups: Vec<ModelGroup>,
@@ -73,6 +100,7 @@ impl Default for Preferences {
             model_column_width: 140.,
             pinned: vec![],
             pinned_agents: vec![],
+            agent_organizations: BTreeMap::new(),
             model_order: None,
             presets: vec![],
             groups: vec![],
@@ -165,6 +193,22 @@ impl Preferences {
             {
                 bail!(message);
             }
+        }
+        for (id, organization) in &self.agent_organizations {
+            if id.is_empty() || id.len() > 64 || id == "codex" || id.trim() != id {
+                bail!("CLI 分组标识无效");
+            }
+            Self {
+                model_column_width: organization.model_column_width,
+                pinned: organization.pinned.clone(),
+                model_order: organization.model_order.clone(),
+                groups: organization.groups.clone(),
+                model_overrides: organization.model_overrides.clone(),
+                group_order: organization.group_order.clone(),
+                expanded_groups: organization.expanded_groups.clone(),
+                ..Self::default()
+            }
+            .validate()?;
         }
         Ok(())
     }
@@ -810,6 +854,40 @@ mod tests {
             removed.model_overrides["offline"].manufacturer.as_deref(),
             Some("自定义厂家")
         );
+    }
+
+    #[test]
+    fn cli_organization_keeps_shared_model_ids_and_legacy_presets_separate() {
+        let original: Preferences = serde_json::from_value(json!({
+            "pinned":["shared"],
+            "modelOverrides":{"shared":{"manufacturer":"OpenAI"}},
+            "presets":[{"id":"legacy","name":"旧预设","selection":{"model":"shared","reasoning":"high","speed":"standard"}}]
+        }))
+        .unwrap();
+        let updated = original
+            .patched(&json!({
+                "agentOrganizations": {
+                    "antigravity": {
+                        "groups":[{"id":"work","name":"工作"}],
+                        "modelOverrides":{"shared":{"manufacturer":"Google","groupId":"work"}},
+                        "modelOrder":["shared"]
+                    }
+                }
+            }))
+            .unwrap();
+        assert_eq!(updated.pinned, original.pinned);
+        assert_eq!(updated.model_overrides, original.model_overrides);
+        assert_eq!(updated.presets, original.presets);
+        assert_eq!(updated.presets[0].agent, None);
+        let external = &updated.agent_organizations["antigravity"];
+        assert!(external.pinned.is_empty());
+        assert_eq!(
+            external.model_overrides["shared"].manufacturer.as_deref(),
+            Some("Google")
+        );
+        assert!(updated.patched(&json!({
+            "agentOrganizations":{"antigravity":{"modelOverrides":{"shared":{"groupId":"missing"}}}}
+        })).is_err());
     }
 
     #[test]

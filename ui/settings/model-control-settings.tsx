@@ -9,7 +9,12 @@ import { FeatureSwitch, Feedback } from './settings-controls';
 import { useFeedbackTarget } from './settings-feedback';
 import { request } from './api';
 import { ModelOrganization } from './model-organization';
-import type { ModelState, ModelPreferences } from '../features/model/catalog';
+import {
+  scopedModelPreferences,
+  organizationPatch,
+  type ModelState,
+  type ModelPreferences,
+} from '../features/model/catalog';
 export function ModelControlSettings({
   live,
   active = true,
@@ -120,6 +125,7 @@ export function ModelControlSettings({
     }
   }
 
+  const agent = state?.snapshot?.agent?.current || 'codex';
   return (
     <section
       id="settings-model-control"
@@ -153,9 +159,16 @@ export function ModelControlSettings({
         {state?.snapshot?.models && (
           <ModelOrganization
             feedback={message}
-            state={state}
+            key={agent}
+            state={{
+              ...state,
+              preferences: {
+                ...scopedModelPreferences(state.preferences, agent),
+                presets: state.preferences.presets.filter((preset) => preset.agent === agent),
+              },
+            }}
             busy={busy || !live}
-            save={(patch) => operate(patch)}
+            save={(patch) => operate(organizationPatch(state.preferences, agent, patch))}
             refresh={() => operate()}
           />
         )}

@@ -415,20 +415,43 @@ fn dangerous(scope: Scope, patch: &Value, before: &Value) -> bool {
                 })
             })
         || matches!(scope, Scope::ModelControl)
-            && ["groups", "presets", "pinned", "pinnedAgents"]
-                .iter()
-                .any(|key| {
-                    patch["patch"][*key].as_array().is_some_and(|p| {
-                        before["preferences"][*key].as_array().is_some_and(|b| {
-                            b.iter().any(|old| {
-                                !p.iter().any(|new| {
-                                    old.get("id")
-                                        .map_or(old == new, |id| new.get("id") == Some(id))
+            && ({
+                let prefs = &before["preferences"];
+                let updates = &patch["patch"];
+                let removes_items = |old: &Value, new: &Value| {
+                    old.as_array().is_some_and(|items| {
+                        items.iter().any(|item| {
+                            !new.as_array().is_some_and(|next| {
+                                next.iter().any(|replacement| {
+                                    item.get("id").map_or(item == replacement, |id| {
+                                        replacement.get("id") == Some(id)
+                                    })
                                 })
                             })
                         })
                     })
-                })
+                };
+                ["groups", "presets", "pinned", "pinnedAgents"]
+                    .iter()
+                    .any(|key| {
+                        updates[*key].is_array() && removes_items(&prefs[*key], &updates[*key])
+                    })
+                    || updates["agentOrganizations"]
+                        .as_object()
+                        .is_some_and(|updated| {
+                            prefs["agentOrganizations"]
+                                .as_object()
+                                .is_some_and(|previous| {
+                                    previous.iter().any(|(id, org)| {
+                                        updated.get(id).is_none_or(|next| {
+                                            ["groups", "pinned"]
+                                                .iter()
+                                                .any(|key| removes_items(&org[*key], &next[*key]))
+                                        })
+                                    })
+                                })
+                        })
+            })
 }
 pub async fn run(paths: &Paths, command: Command) -> Result<()> {
     let output = match command {

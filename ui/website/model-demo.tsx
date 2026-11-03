@@ -64,11 +64,26 @@ const selection = (model: string, reasoning = '', speed = 'standard'): Selection
   speed,
 });
 const presets = [
-  { id: 'example-standard', name: 'GPT-6-Astra', selection: selection('gpt-6-astra', 'high') },
-  { id: 'example-fast', name: 'GPT-6-Astra', selection: selection('gpt-6-astra', 'high', 'fast') },
-  { id: 'example-code', name: '编码', selection: selection('qwen3-coder-plus') },
-  { id: 'example-research', name: '深入分析', selection: selection('deepseek-v4-pro') },
-  { id: 'example-writing', name: '写作', selection: selection('claude-sonnet-5') },
+  {
+    id: 'example-standard',
+    agent: 'codex',
+    name: 'GPT-6-Astra',
+    selection: selection('gpt-6-astra', 'high'),
+  },
+  {
+    id: 'example-fast',
+    agent: 'codex',
+    name: 'GPT-6-Astra',
+    selection: selection('gpt-6-astra', 'high', 'fast'),
+  },
+  { id: 'example-code', agent: 'codex', name: '编码', selection: selection('qwen3-coder-plus') },
+  {
+    id: 'example-research',
+    agent: 'codex',
+    name: '深入分析',
+    selection: selection('deepseek-v4-pro'),
+  },
+  { id: 'example-writing', agent: 'codex', name: '写作', selection: selection('claude-sonnet-5') },
 ];
 const initial = (): ModelState => ({
   revision: 0,

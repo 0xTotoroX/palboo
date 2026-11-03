@@ -115,6 +115,7 @@ test(
         presets: [
           {
             id: 'p',
+            agent: 'codex',
             name: '旧预设',
             selection: { model: 'gpt-test', reasoning: 'high', speed: 'standard' },
           },
@@ -618,6 +619,7 @@ test(
       await view.getByRole('button', { name: '关闭所有模型' }).click();
       state.preferences.presets = Array.from({ length: 24 }, (_, index) => ({
         id: `wrapping-${index}`,
+        agent: 'codex',
         name: `收藏快捷组合 ${index + 1}`,
         selection: { ...state.snapshot.current },
       }));
@@ -714,7 +716,7 @@ test(
       stdin: {
         contents: `import React from 'react'; import {createRoot} from 'react-dom/client'; import {ModelView} from './ui/features/model/view';
       const root = createRoot(document.getElementById('view')); const reading = {};
-      window.calls = []; window.state = {revision: 1, preferences: {enabled: true, pinned: ['gpt-test'], modelColumnWidth: 220, presets: [{id:'kept',name:'旧预设',selection:{model:'gpt-test',reasoning:'high',speed:'standard'}},{id:'fast-kept',name:'快速预设',selection:{model:'gpt-test',reasoning:'high',speed:'fast'}}]}, snapshot: {target:{id:'fixture'},revision:'v1',status:'ready',models:[{id:'gpt-test',label:'GPT test',reasoning:['low','high'],fast:true}],current:{model:'gpt-test',reasoning:'high',speed:'standard'}}};
+      window.calls = []; window.state = {revision: 1, preferences: {enabled: true, pinned: ['gpt-test'], modelColumnWidth: 220, presets: [{id:'kept',agent:'codex',name:'旧预设',selection:{model:'gpt-test',reasoning:'high',speed:'standard'}},{id:'fast-kept',agent:'codex',name:'快速预设',selection:{model:'gpt-test',reasoning:'high',speed:'fast'}}]}, snapshot: {target:{id:'fixture'},revision:'v1',status:'ready',models:[{id:'gpt-test',label:'GPT test',reasoning:['low','high'],fast:true}],current:{model:'gpt-test',reasoning:'high',speed:'standard'}}};
       window.render = () => root.render(<ModelView headerActions={document.getElementById("model-header")} state={window.state} reading={reading} busy={false} action={async(data,action)=>{window.calls.push({data,action}); if(action==='apply' && window.delay) await new Promise(resolve=>setTimeout(resolve,window.delay)); if(window.fail) return null; if(action==='apply')window.state.snapshot.current={...data.selection};else Object.assign(window.state.preferences,data.patch);window.render();return window.state;}}/>); window.render();`,
         resolveDir: process.cwd(),
         loader: 'tsx',
@@ -1220,14 +1222,14 @@ test(
       release();
       await page.waitForFunction(
         () =>
-          document.querySelector('[aria-label="启用模型切换"]').getAttribute('aria-checked') ===
+          document.querySelector('[aria-label="启用模型切换"]')?.getAttribute('aria-checked') ===
           'true',
       );
       assert.equal(await control.isEnabled(), true);
       await control.click();
       await page.waitForFunction(
         () =>
-          document.querySelector('[aria-label="启用模型切换"]').getAttribute('aria-checked') ===
+          document.querySelector('[aria-label="启用模型切换"]')?.getAttribute('aria-checked') ===
             'false' && !document.querySelector('[aria-label="启用模型切换"]').disabled,
       );
       assert.equal(enabled, false);

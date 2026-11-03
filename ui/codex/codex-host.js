@@ -826,33 +826,58 @@
     const newComposer = await waitCondition(
       () => {
         const drafts = newDrafts();
-        return drafts.length === 1 && readDraftText(drafts[0]) === '' ? drafts[0] : null;
+        return drafts.length === 1 ? drafts[0] : null;
       },
       signal,
       10000,
       '等待新聊天输入框就绪超时',
     );
     const binding = capability(newComposer).composerId;
-    const assertEmptyDraft = () => {
+    const originalDraft = readDraftText(newComposer);
+    const assertDraft = () => {
       if (signal?.aborted) throw new Error(String(signal.reason || tr('操作已取消')));
       const drafts = newDrafts();
       if (
         drafts.length !== 1 ||
         drafts[0] !== newComposer ||
         capability(newComposer).composerId !== binding ||
-        readDraftText(newComposer) !== ''
+        readDraftText(newComposer) !== originalDraft
       )
-        throw new Error(tr('无法确认新聊天为空，已停止交接'));
+        throw new Error(tr('新聊天草稿或输入目标已变化，已停止交接'));
     };
-    assertEmptyDraft();
+    assertDraft();
+    // The host may reopen an unsent draft for the project. Only reuse occupied
+    // drafts already bound to the requested CLI; never change their CLI or replace their content.
+    if (originalDraft && capability(newComposer).agent?.current !== desired)
+      throw new Error(tr('新聊天有其他 CLI 的未发送草稿，已保留原内容'));
     const nextCap = await switchDraftAgent(newComposer, desired, signal);
-    assertEmptyDraft();
+    assertDraft();
     if (nextCap.agent?.current !== desired) throw new Error(tr('CLI 切换未生效'));
     newComposer.focus();
-    assertEmptyDraft();
-    fillComposerPrompt(newComposer, handoffPrompt);
-    if (readDraftText(newComposer) !== handoffPrompt)
-      throw new Error(tr('无法确认交接内容已填入，请核对新聊天'));
+    assertDraft();
+    if (originalDraft === handoffPrompt || originalDraft.endsWith(`\n\n${handoffPrompt}`))
+      return { ...nextCap, composer: newComposer };
+    if (originalDraft) {
+      const suffix = `${originalDraft.endsWith('\n\n') ? '' : originalDraft.endsWith('\n') ? '\n' : '\n\n'}${handoffPrompt}`;
+      if (newComposer instanceof HTMLTextAreaElement || newComposer instanceof HTMLInputElement) {
+        fillComposerPrompt(newComposer, originalDraft + suffix);
+      } else {
+        const selection = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(newComposer);
+        range.collapse(false);
+        selection?.removeAllRanges();
+        selection?.addRange(range);
+        if (!selection || !document.execCommand?.('insertText', false, suffix))
+          throw new Error(tr('CLI 已切换，但无法追加交接草稿'));
+      }
+      if (readDraftText(newComposer) !== originalDraft + suffix)
+        throw new Error(tr('无法确认交接内容已填入，请核对新聊天'));
+    } else {
+      fillComposerPrompt(newComposer, handoffPrompt);
+      if (readDraftText(newComposer) !== handoffPrompt)
+        throw new Error(tr('无法确认交接内容已填入，请核对新聊天'));
+    }
     return { ...nextCap, composer: newComposer };
   }
 

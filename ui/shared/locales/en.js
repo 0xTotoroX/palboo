@@ -3,6 +3,11 @@ export default {
   在目录中固定常用模型: 'Pin a model from the catalog',
   新建聊天: 'New chat',
   推理档位: 'Reasoning levels',
+  '新聊天草稿或输入目标已变化，已停止交接':
+    'The destination draft or composer changed; handoff stopped',
+  '新聊天有其他 CLI 的未发送草稿，已保留原内容':
+    'The new chat has an unsent draft for another CLI. The draft was kept',
+  'CLI 已切换，但无法追加交接草稿': 'CLI switched, but the handoff could not be appended',
   '切换 Agent 会新建聊天': 'Switching agents opens a new chat',
   模型切换操作超时: 'Model switching timed out',
   'CLI 已切换，但无法确认模型操作的目标聊天':

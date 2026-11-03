@@ -120,16 +120,19 @@ export function modelExample(): ModelState {
       presets: [
         {
           id: 'example-writing',
+          agent: 'codex',
           name: tr('写作'),
           selection: { model: 'example-a', reasoning: 'medium', speed: 'standard' },
         },
         {
           id: 'example-analysis',
+          agent: 'codex',
           name: tr('深入分析'),
           selection: { model: 'example-b', reasoning: 'high', speed: 'standard' },
         },
         {
           id: 'example-code',
+          agent: 'codex',
           name: tr('编码'),
           selection: { model: 'example-c', reasoning: 'high', speed: 'fast' },
         },

@@ -199,6 +199,12 @@ test('official model adapter refuses external Agent without touching its menus',
         }),
       };
     });
+    const waitingForExternal = await page.evaluate(() =>
+      window.__palbooModelControl.snapshot(false),
+    );
+    assert.equal(waitingForExternal.agent.current, 'claude');
+    assert.deepEqual(waitingForExternal.models, [], 'never display the cached Codex catalog');
+    assert.equal(waitingForExternal.current, null);
     const value = await page.evaluate(() => window.__palbooModelControl.snapshot(true));
     assert.equal(value.status, 'unavailable');
     assert.match(value.message, /claude/);
@@ -512,7 +518,9 @@ test('external CLI model picker and draft CLI switcher work through CodexHost DO
         menu.querySelectorAll('button').forEach((btn) => {
           btn.disabled = false;
         });
-        composer.innerHTML = '<p><br></p>';
+        window.__extState.agent = 'codex';
+        window.__syncExternalDom();
+        composer.innerHTML = '<p>目标聊天原草稿</p>';
       };
       document.body.append(newChatBtn);
     });
@@ -622,6 +630,7 @@ test('external CLI model picker and draft CLI switcher work through CodexHost DO
     const composerAfter = await page.evaluate(
       () => document.querySelector('.ProseMirror').textContent,
     );
+    assert.ok(composerAfter.startsWith('目标聊天原草稿'));
     assert.match(composerAfter, /\/tmp\/handoff\.md/);
     assert.match(composerAfter, /请继续完成方案 B/);
     assert.equal(await page.locator('#unrelated-draft').inputValue(), '保留另一条草稿');

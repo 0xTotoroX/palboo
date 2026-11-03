@@ -14,13 +14,20 @@ export type AgentInfo = {
   options: AgentOption[];
 };
 export type ModelOverride = { manufacturer?: string; groupId?: string };
-export type ModelPreferences = {
-  enabled: boolean;
-  showUsage?: boolean;
+export type AgentOrganization = {
   modelColumnWidth?: number;
   pinned: string[];
-  pinnedAgents?: string[];
   modelOrder?: string[] | null;
+  groups?: { id: string; name: string }[];
+  modelOverrides?: Record<string, ModelOverride>;
+  groupOrder?: string[];
+  expandedGroups?: string[] | null;
+};
+export type ModelPreferences = AgentOrganization & {
+  enabled: boolean;
+  showUsage?: boolean;
+  pinnedAgents?: string[];
+  agentOrganizations?: Record<string, AgentOrganization>;
   presets: {
     id: string;
     name: string;
@@ -28,11 +35,39 @@ export type ModelPreferences = {
     agent?: string;
     catalogPin?: boolean;
   }[];
-  groups?: { id: string; name: string }[];
-  modelOverrides?: Record<string, ModelOverride>;
-  groupOrder?: string[];
-  expandedGroups?: string[] | null;
 };
+const emptyOrganization = (): AgentOrganization => ({
+  modelColumnWidth: 140,
+  pinned: [],
+  modelOrder: null,
+  groups: [],
+  modelOverrides: {},
+  groupOrder: [],
+  expandedGroups: null,
+});
+export function scopedModelPreferences(prefs: ModelPreferences, agent: string): ModelPreferences {
+  return agent === 'codex'
+    ? prefs
+    : { ...prefs, ...emptyOrganization(), ...prefs.agentOrganizations?.[agent] };
+}
+export function organizationPatch(
+  prefs: ModelPreferences,
+  agent: string,
+  patch: Partial<AgentOrganization>,
+): Partial<ModelPreferences> {
+  return agent === 'codex'
+    ? patch
+    : {
+        agentOrganizations: {
+          ...prefs.agentOrganizations,
+          [agent]: {
+            ...emptyOrganization(),
+            ...prefs.agentOrganizations?.[agent],
+            ...patch,
+          },
+        },
+      };
+}
 export type ModelState = {
   revision: number;
   snapshot: {
@@ -59,12 +94,15 @@ const presetNameLimit = (name: string, suffix = '') => {
 };
 export function uniquePresetName(
   name: string,
-  existing: readonly { name: string; selection?: Pick<Selection, 'speed'> }[],
+  existing: readonly { name: string; selection?: Pick<Selection, 'speed'>; agent?: string }[],
   speed = 'standard',
+  agent?: string,
 ): string {
   const used = new Set(
     existing
-      .filter((p) => presetSpeedKey(p.selection?.speed) === presetSpeedKey(speed))
+      .filter(
+        (p) => p.agent === agent && presetSpeedKey(p.selection?.speed) === presetSpeedKey(speed),
+      )
       .map((p) => presetNameKey(p.name)),
   );
   const base = presetNameLimit(name);
@@ -80,9 +118,9 @@ export function uniquePresetNames(
   const result: ModelPreferences['presets'] = [];
   for (const preset of presets) {
     const key = (name: string) =>
-      `${presetSpeedKey(preset.selection.speed)}:${presetNameKey(name)}`;
+      `${preset.agent || ''}:${presetSpeedKey(preset.selection.speed)}:${presetNameKey(name)}`;
     const name = seen.has(key(preset.name))
-      ? uniquePresetName(preset.name, [...presets, ...result], preset.selection.speed)
+      ? uniquePresetName(preset.name, [...presets, ...result], preset.selection.speed, preset.agent)
       : preset.name;
     seen.add(key(name));
     result.push(name === preset.name ? preset : { ...preset, name });

@@ -16,7 +16,7 @@ test('token module plugs into model footer and unplugs without changing model co
     import React from 'react';import {createRoot} from 'react-dom/client';
     import {FeatureContent} from './ui/features/content';
     const root=createRoot(document.getElementById('root').attachShadow({mode:'open'}));const reading={};window.calls=[];window.connected=true;
-    window.state={revision:1,preferences:{enabled:true,pinned:['gpt-test'],presets:[{id:'p',name:'测试预设',selection:{model:'gpt-test',reasoning:'high',speed:'standard'}}]},snapshot:{target:{id:'a'},revision:'host',status:'ready',message:'',current:{model:'gpt-test',reasoning:'high',speed:'standard'},usage:[{minutes:300,remainingPercent:60,resetsAt:null},{minutes:10080,remainingPercent:86,resetsAt:null}],models:[{id:'gpt-test',label:'Test model',reasoning:['high'],fast:true}]}};
+    window.state={revision:1,preferences:{enabled:true,pinned:['gpt-test'],presets:[{id:'p',agent:'codex',name:'测试预设',selection:{model:'gpt-test',reasoning:'high',speed:'standard'}}]},snapshot:{target:{id:'a'},revision:'host',status:'ready',message:'',current:{model:'gpt-test',reasoning:'high',speed:'standard'},usage:[{minutes:300,remainingPercent:60,resetsAt:null},{minutes:10080,remainingPercent:86,resetsAt:null}],models:[{id:'gpt-test',label:'Test model',reasoning:['high'],fast:true}]}};
     window.render=()=>root.render(<FeatureContent id="model" reading={reading} value={window.state} locked={false} connected={window.connected} call={async(op,data)=>{window.calls.push({op,data});return window.state}} operation={async fn=>fn()} update={()=>{}}/>);window.render();
   `,
     },

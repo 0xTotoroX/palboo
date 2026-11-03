@@ -608,8 +608,13 @@
     const external = isExternal
       ? window.__palbooHostCompatibility?.readExternal?.(target?.composer)
       : null;
-    const current = isExternal ? external?.current || null : currentSelection(target);
-    const activeModels = isExternal ? external?.models || [] : models;
+    const official = compatibility?.officialModel !== false;
+    const current = isExternal
+      ? external?.current || null
+      : official
+        ? currentSelection(target)
+        : null;
+    const activeModels = isExternal ? external?.models || [] : official ? models : [];
     const agent = compatibility?.agent || null;
     const stateKey = JSON.stringify([
       target?.id,

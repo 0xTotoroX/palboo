@@ -339,9 +339,9 @@ pub(super) fn schema(scope: Scope) -> Value {
             "examples":[{"op":"main-preset-save","placement":"sidebar","name":"阅读","scope":"sidebar","layout":{"axis":"vertical","groups":[{"ids":["outline"],"active":"outline","weight":1}],"visible":["outline"]}},{"op":"main-preset-apply","placement":"sidebar","id":"<preset-id>"},{"op":"main-preset-update","id":"<preset-id>","name":"新名称"},{"op":"main-preset-rename","id":"<preset-id>","name":"新名称"},{"op":"main-preset-delete","id":"<preset-id>"},{"op":"edge-tabs","tabs":{"order":["model","board"],"selected":"board"}},{"op":"main-layout","placement":"sidebar","layout":{"axis":"vertical","groups":[{"ids":["outline","next"],"active":"next","weight":1,"collapsed":true},{"ids":["terms"],"active":"terms","weight":1}]}}],
         }),
         Scope::ModelControl => json!({
-            "nestedFields":{"patch":keys(crate::model_control::Preferences::default()),"patch.presets[]":["id","name","selection","agent","catalogPin"],"patch.presets[].selection":["model","reasoning","speed"],"patch.groups[]":["id","name"],"patch.modelOverrides.<model-id>":["manufacturer","groupId"]},
+            "nestedFields":{"patch":keys(crate::model_control::Preferences::default()),"patch.presets[]":["id","name","selection","agent","catalogPin"],"patch.agentOrganizations.<agent>":["modelColumnWidth","pinned","modelOrder","groups","modelOverrides","groupOrder","expandedGroups"],"patch.presets[].selection":["model","reasoning","speed"],"patch.groups[]":["id","name"],"patch.modelOverrides.<model-id>":["manufacturer","groupId"]},
             "choices":{"patch.presets[].selection.speed":["standard","fast"]},
-            "notes":{"models":"实际模型/推理档来自 config get model-control 的 snapshot；未连接时可能为空，不使用示例名称代替真实模型 id","showUsage":"账号额度显示开关","collections":"pinned/pinnedAgents/modelOrder/groups/groupOrder/presets/expandedGroups 为完整列表；modelOverrides 为完整字典；删除常用、分组、预设需 --confirm"},
+            "notes":{"models":"实际模型/推理档来自 config get model-control 的 snapshot；未连接时可能为空，不使用示例名称代替真实模型 id","showUsage":"账号额度显示开关","collections":"pinned/pinnedAgents/modelOrder/groups/groupOrder/presets/expandedGroups 为完整列表；modelOverrides 与 agentOrganizations 为完整字典，非 Codex 的分组按 CLI 标识独立保存；删除常用、分组、预设需 --confirm"},
             "examples":[{"patch":{"showUsage":false,"modelColumnWidth":240}}],
         }),
         Scope::Tasks => json!({
