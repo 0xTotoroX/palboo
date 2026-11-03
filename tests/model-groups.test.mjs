@@ -269,7 +269,16 @@ test(
         .getByRole('region', { name: '分组：Anthropic' })
         .locator('[data-model-id]');
       const orderBeforeDrag = [...state.preferences.modelOrder];
-      await claudeRows.first().dragTo(claudeRows.last(), { targetPosition: { x: 90, y: 36 } });
+      await claudeRows.last().scrollIntoViewIfNeeded();
+      const source = await claudeRows.first().boundingBox();
+      const target = await claudeRows.last().boundingBox();
+      await page.mouse.move(source.x + 48, source.y + 12);
+      await page.mouse.down();
+      await page.mouse.move(source.x + 56, source.y + 20, { steps: 4 });
+      await claudeRows.first().and(page.locator('[data-dragging="true"]')).waitFor();
+      await page.mouse.move(target.x + 90, target.y + target.height * 0.8, { steps: 8 });
+      await claudeRows.last().and(page.locator('[data-drop-edge="after"]')).waitFor();
+      await page.mouse.up();
       await page.waitForFunction(
         () =>
           document.querySelector('#settings [aria-label="分组：Anthropic"] [data-model-id]')

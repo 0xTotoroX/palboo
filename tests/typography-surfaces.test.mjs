@@ -113,10 +113,12 @@ createRoot(document.querySelector('#root')).render(<App/>);`,
           .locator('#typography-' + surface + '-family')
           .selectOption('ui-monospace,monospace');
         await page.waitForFunction(
-          ({ surface, size }) =>
-            getComputedStyle(document.querySelector('#view-' + surface + ' .feature-view'))
-              .fontSize ===
-            size + 'px',
+          ({ surface, size }) => {
+            const style = getComputedStyle(
+              document.querySelector('#view-' + surface + ' .feature-view'),
+            );
+            return style.fontSize === size + 'px' && style.fontFamily.includes('monospace');
+          },
           { surface, size },
         );
         assert.equal(

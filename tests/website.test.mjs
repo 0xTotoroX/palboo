@@ -350,59 +350,63 @@ test('the mascot leaves the screen, joins the backdrop, follows features and ret
     await page.screenshot({ path: resolve(reports, 'journey-footer-name.png') });
     await scrollScene(page, '#features', 1);
     await page.clock.runFor(100);
+    await page.locator('#install[data-brand-rest="false"]').waitFor();
+    await waitForPhase('feature');
     assert.equal(await page.locator('#install').getAttribute('data-brand-rest'), 'false');
     assert.equal(await phase(), 'feature');
     const handoffs = [];
     for (const mode of ['footer', 'reverse']) {
       await scrollScene(page, '#features', mode === 'footer' ? 0 : 1);
       await page.clock.runFor(500);
-      const sample = await page.evaluate(
-        (mode) =>
-          new Promise((resolve) => {
-            const node = document.querySelector('.brand-journey');
-            const main = document.querySelector('#main');
-            const points = [];
-            let start;
-            let firstFrame;
-            let before;
-            let crossedAt;
-            const target = mode === 'footer' ? 'feature-tab-compatibility' : 'feature-tab-outline';
-            document.getElementById(target).click();
-            function record(now) {
-              firstFrame ??= now;
-              if (node.dataset.target === target) start ??= now;
-              if (start === undefined) {
-                if (now - firstFrame >= 3000) resolve({ mode, before, crossedAt, points });
-                else requestAnimationFrame(record);
-                return;
-              }
-              const matrix = new DOMMatrix(getComputedStyle(node).transform);
-              const point = {
-                time: now - start,
-                x: matrix.e,
-                y: matrix.f,
-                opacity: Number(getComputedStyle(node).opacity),
-                phase: main.dataset.brandPhase,
-              };
-              points.push(point);
-              if (!before && now - start >= 96) {
-                before = point;
-                crossedAt = point.time;
-                const section = document.querySelector('#features');
-                scrollTo(
-                  0,
-                  mode === 'footer'
-                    ? document.documentElement.scrollHeight
-                    : scrollY + section.getBoundingClientRect().top - innerHeight * 0.5,
-                );
-              }
-              if (now - start >= 800) resolve({ mode, before, crossedAt, points });
+      await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 5000);
+      await page.evaluate((mode) => {
+        window.handoffFrames = new Promise((resolve) => {
+          const node = document.querySelector('.brand-journey');
+          const main = document.querySelector('#main');
+          const points = [];
+          let start;
+          let firstFrame;
+          let before;
+          let crossedAt;
+          const target = mode === 'footer' ? 'feature-tab-compatibility' : 'feature-tab-outline';
+          document.getElementById(target).click();
+          function record(now) {
+            firstFrame ??= now;
+            if (node.dataset.target === target) start ??= now;
+            if (start === undefined) {
+              if (now - firstFrame >= 3000) resolve({ mode, before, crossedAt, points });
               else requestAnimationFrame(record);
+              return;
             }
-            requestAnimationFrame(record);
-          }),
-        mode,
-      );
+            const matrix = new DOMMatrix(getComputedStyle(node).transform);
+            const point = {
+              time: now - start,
+              x: matrix.e,
+              y: matrix.f,
+              opacity: Number(getComputedStyle(node).opacity),
+              phase: main.dataset.brandPhase,
+            };
+            points.push(point);
+            if (!before && now - start >= 96) {
+              before = point;
+              crossedAt = point.time;
+              const section = document.querySelector('#features');
+              scrollTo(
+                0,
+                mode === 'footer'
+                  ? document.documentElement.scrollHeight
+                  : scrollY + section.getBoundingClientRect().top - innerHeight * 0.5,
+              );
+            }
+            if (now - start >= 800) resolve({ mode, before, crossedAt, points });
+            else requestAnimationFrame(record);
+          }
+          requestAnimationFrame(record);
+        });
+      }, mode);
+      await page.clock.runFor(4000);
+      const sample = await page.evaluate(() => window.handoffFrames);
+      await page.clock.resume();
       const outsideIndex = sample.points.findIndex(
         (p) => p.time > sample.crossedAt && p.phase !== 'feature',
       );
