@@ -8,7 +8,7 @@ import { build } from 'esbuild';
 import { chromium } from 'playwright';
 import { readFile } from 'node:fs/promises';
 
-async function fixture(page, placement = 'desktop') {
+async function fixture(page, placement = 'desktop', ids = ['outline', 'next', 'prompts']) {
   const script = (
     await build({
       stdin: {
@@ -25,7 +25,7 @@ const host=document.querySelector('#root');host.innerHTML='<div class="csw-workb
 const root=host.firstElementChild;
 const paired={axis:'vertical',groups:[{ids:['outline'],active:'outline',weight:1},{ids:['next','prompts'],active:'next',weight:1}],visible:['outline','next','prompts']};
 const focused={...structuredClone(paired),visible:['outline']};
-window.state={mainPlacement:placement,layoutPresetsRevision:1,layouts:{[placement]:paired},layoutPresets:[{id:'paired',name:'对照',layout:paired},{id:'focused',name:'专注',layout:focused}],features:['outline','next','prompts'].map(id=>({id,open:true,placement,owner:id}))};
+window.state={mainPlacement:placement,layoutPresetsRevision:1,layouts:{[placement]:paired},layoutPresets:[{id:'paired',name:'对照',layout:paired},{id:'focused',name:'专注',layout:focused}],features:${JSON.stringify(ids)}.map(id=>({id,open:true,placement,owner:id}))};
 window.requests=[];window.pins=[];window.pinned=true;window.rejectSave=false;
 const items=state.features.map(entry=>{const node=document.createElement('div');node.style.cssText='height:100%;min-height:0';const shadow=node.attachShadow({mode:'open'});shadow.innerHTML='<div data-scroll style="height:100%;overflow:auto"><input aria-label="'+entry.id+'草稿" value="未保存内容"><div style="height:900px">Synthetic content</div></div>';return {...entry,node,active:true}});
 window.originalNodes=items.map(item=>item.node);
@@ -224,6 +224,58 @@ test('side-by-side tab bars merge at the header and built-in presets position al
     assert.deepEqual(await page.evaluate(() => state.layoutPresets.map(({ id }) => id)), [
       'paired',
       'focused',
+    ]);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('overdragging the divider merges the narrower column only when released beyond the minimum', async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage({ viewport: { width: 1100, height: 680 } });
+    page.setDefaultTimeout(5000);
+    await fixture(page, 'desktop', ['outline', 'next', 'prompts', 'bots']);
+    await page.evaluate(() => {
+      state.layouts.desktop = {
+        axis: 'horizontal',
+        groups: [
+          { ids: ['outline'], active: 'outline', weight: 1 },
+          {
+            axis: 'horizontal',
+            weight: 2,
+            groups: [
+              { ids: ['next', 'prompts'], active: 'next', weight: 1 },
+              { ids: ['bots'], active: 'bots', weight: 1 },
+            ],
+          },
+        ],
+      };
+      return refresh();
+    });
+    const divider = page.locator('.csw-feature-split > [role="separator"]');
+    const handle = await divider.boundingBox();
+    const left = await page.locator('section[data-pane="next"]').boundingBox();
+    const x = handle.x + handle.width / 2;
+    const y = handle.y + handle.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x - left.width + 120, y, { steps: 12 });
+    assert.equal(await divider.getAttribute('data-merge-preview'), '合并为标签');
+    await page.mouse.move(x - left.width + 170, y);
+    assert.equal(await divider.getAttribute('data-merge-preview'), null);
+    await page.mouse.up();
+    assert.equal(await divider.count(), 1);
+    const minimum = await divider.boundingBox();
+    await page.mouse.move(minimum.x + minimum.width / 2, y);
+    await page.mouse.down();
+    await page.mouse.move(minimum.x - 64, y, { steps: 8 });
+    assert.equal(await divider.getAttribute('data-merge-preview'), '合并为标签');
+    await page.mouse.up();
+    await page.waitForFunction(() => state.layouts.desktop.groups[1].ids?.length === 3);
+    assert.deepEqual(await page.evaluate(() => state.layouts.desktop.groups), [
+      { ids: ['outline'], active: 'outline', weight: 1 },
+      { ids: ['bots', 'next', 'prompts'], active: 'bots', weight: 2 },
     ]);
   } finally {
     await browser.close();

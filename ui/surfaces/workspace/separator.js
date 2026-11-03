@@ -22,13 +22,14 @@ export function bindSeparator(handle, axis, read, change, save = () => {}) {
       change(
         value,
         ((direction === 'x' ? event.clientX : event.clientY) - origin) / (value.scale || 1),
+        true,
       );
-    const finish = () => {
+    const finish = (event) => {
       delete handle.dataset.resizing;
       handle.removeEventListener('pointermove', move);
       handle.removeEventListener('pointerup', finish);
       handle.removeEventListener('lostpointercapture', finish);
-      save();
+      save(value, event.type === 'pointerup');
     };
     handle.addEventListener('pointermove', move);
     handle.addEventListener('pointerup', finish);
@@ -45,7 +46,7 @@ export function bindSeparator(handle, axis, read, change, save = () => {}) {
     )
       return;
     event.preventDefault();
-    change(read(), delta);
+    change(read(), delta, false);
     save();
   });
 }

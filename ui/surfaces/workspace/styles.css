@@ -177,6 +177,21 @@
   width: 1px;
   height: auto;
 }
+.csw-workbench-split[data-merge-preview]::before {
+  content: attr(data-merge-preview);
+  position: absolute;
+  z-index: 25;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 6px 10px;
+  border: 1px solid var(--csw-divider);
+  border-radius: 8px;
+  background: var(--csw-surface-opaque);
+  color: var(--csw-text);
+  white-space: nowrap;
+  pointer-events: none;
+}
 .csw-layout-menu {
   position: relative;
 }

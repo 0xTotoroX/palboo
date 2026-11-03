@@ -17,6 +17,8 @@ import {
   flattenVerticalLayout,
 } from './layout-tree.js';
 
+const mergeOverdrag = 48;
+
 // Settings and the workspace must interpret an old two-feature layout identically.
 /** @returns {import('../../shared/features').FeatureLayout} */
 export function resolveFeatureLayout(saved, legacy, ids) {
@@ -285,9 +287,12 @@ export function installFeatureLayout(root, { save, error }) {
           minimumFirst: layoutMinimum(groups[index - 1])[size],
           minimumSecond: layoutMinimum(groups[index])[size],
           axis,
+          merge: 0,
         };
       },
-      (start, delta) => {
+      (start, delta, pointer) => {
+        delete separator.dataset.mergePreview;
+        start.merge = 0;
         if (
           start.axis !== container.dataset.axis ||
           start.surface !== placement ||
@@ -308,15 +313,44 @@ export function installFeatureLayout(root, { save, error }) {
         }
         const total = start.first + start.second;
         if (total < start.minimumFirst + start.minimumSecond) return;
+        const width = start.first + delta;
+        // Leave room to stop at the minimum width without merging.
+        if (pointer && start.axis === 'horizontal' && start.previous.ids && start.next.ids) {
+          if (width <= start.minimumFirst - mergeOverdrag) start.merge = -1;
+          if (total - width <= start.minimumSecond - mergeOverdrag) start.merge = 1;
+          if (start.merge) separator.dataset.mergePreview = tr('合并为标签');
+        }
         const ratio =
-          Math.max(start.minimumFirst, Math.min(total - start.minimumSecond, start.first + delta)) /
-          total;
+          Math.max(start.minimumFirst, Math.min(total - start.minimumSecond, width)) / total;
         const weight = start.previous.weight + start.next.weight;
         start.previous.weight = weight * ratio;
         start.next.weight = weight * (1 - ratio);
         render();
       },
-      () => void persist(),
+      (start, dropped) => {
+        delete separator.dataset.mergePreview;
+        if (start && (start.surface !== placement || start.layout !== layout)) return;
+        if (dropped && start.merge && start.axis === container.dataset.axis) {
+          const [source, target] =
+            start.merge < 0 ? [start.previous, start.next] : [start.next, start.previous];
+          const visibleIds = items.filter(isShown).map((item) => item.id);
+          const targetId =
+            target.ids.includes(target.active) && visibleIds.includes(target.active)
+              ? target.active
+              : target.ids.find((id) => visibleIds.includes(id));
+          const sourceIds = source.ids.filter((id) => visibleIds.includes(id));
+          if (targetId && sourceIds.length) {
+            let next = layout;
+            for (const id of sourceIds)
+              next = arrangeFeatureLayout(next, id, 'merge', 0, 0, targetId, visibleIds);
+            layoutGroups(next).find((group) => group.ids.includes(targetId)).active = targetId;
+            layout = flattenVerticalLayout(next);
+            cache.set(placement, layout);
+            render();
+          }
+        }
+        void persist();
+      },
     );
     return separator;
   }
