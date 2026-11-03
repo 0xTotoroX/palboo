@@ -373,9 +373,27 @@ declare global {
         composer: Element | null | undefined,
         targetAgent: string,
         signal?: AbortSignal,
+        options?: { handoffPrompt?: string; sourceDraft?: string },
       ): Promise<unknown>;
+      collectHandoffContext?(
+        composer: Element | null | undefined,
+        scroll?: Element | null,
+        target?: { id?: string; title?: string } | null,
+      ): {
+        locked: boolean;
+        sourceAgent: string;
+        title: string;
+        targetId: string;
+        turns: { user: string; assistant: string }[];
+        draft: string;
+      } | null;
     };
     __palbooModelControl?: {
+      prepareHandoff?(request?: {
+        target?: { id?: string };
+        expectedRevision?: string;
+        agent?: string;
+      }): unknown;
       inputTarget(): {
         id: string;
         token?: string;

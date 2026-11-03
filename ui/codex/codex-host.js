@@ -1,5 +1,5 @@
-/* [INPUT]: CodexHost 0.10.2 的版本化只读探针、输入框附近的 Agent 控件与外部模型菜单。
- * [OUTPUT]: window.__palbooHostCompatibility，按输入框判断官方/外部模型与新会话 Agent 切换能力，并只读回读或触发上游既有菜单项。
+/* [INPUT]: CodexHost 0.10.2 的版本化只读探针、输入框附近的 Agent 控件、外部模型菜单与当前聊天上下文。
+ * [OUTPUT]: window.__palbooHostCompatibility，按输入框判断官方/外部模型与 Agent 切换能力，支持外部 CLI 模型快切、新会话直接切换 CLI，以及已锁定会话新建聊天并携带上下文交接切换 CLI。
  * [POS]: 上游适配边界；缺失或未知协议拒绝模型写入，不覆盖上游实现。
  * [PROTOCOL]: 变更时同步 codex/AGENTS.md。 */
 (() => {
@@ -8,6 +8,9 @@
     window['__companionFloatingPanel']?.translate?.(source, values) ??
     source.replace(/\{\{(\w+)\}\}/g, (match, key) => String(values[key] ?? match));
 
+  const OWN_UI =
+    '[data-companion-stepwise-root],[data-palboo-dock],[data-codexpp-qmp-root],[data-palboo-prompt],[data-palboo-features-root],[data-palboo-launcher]';
+
   /** @param {Element | null | undefined} node */
   const clean = (node) =>
     String(node?.getAttribute?.('aria-label') || node?.textContent || '')
@@ -15,10 +18,31 @@
       .trim();
 
   /** @param {Element | null | undefined} node */
+  const isVisible = (node) =>
+    node instanceof HTMLElement &&
+    node.isConnected &&
+    !node.closest('[hidden],[inert],[aria-hidden="true"]') &&
+    getComputedStyle(node).visibility === 'visible' &&
+    node.getBoundingClientRect().width > 0 &&
+    node.getBoundingClientRect().height > 0;
+
+  /** @param {Element | null | undefined} node */
   const isButtonEnabled = (node) =>
     node instanceof HTMLButtonElement &&
     !node.disabled &&
     node.getAttribute('aria-disabled') !== 'true';
+
+  /**
+   * @param {Element | null | undefined} node
+   * @returns {node is HTMLElement}
+   */
+  const isActionable = (node) =>
+    node instanceof HTMLElement &&
+    isVisible(node) &&
+    !node.closest(OWN_UI) &&
+    !(node instanceof HTMLButtonElement && node.disabled) &&
+    node.getAttribute('aria-disabled') !== 'true' &&
+    !node.hasAttribute('data-disabled');
 
   const esc = (value) =>
     typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
@@ -135,7 +159,12 @@
         const selections = Array.isArray(status.selections)
           ? status.selections.filter((item) => item.composerId === id)
           : null;
-        if (!id || selections?.length !== 1 || !selections[0]?.agent)
+        if (
+          !id ||
+          selections?.length !== 1 ||
+          !selections[0]?.agent ||
+          !['draft', 'locked'].includes(selections[0].phase)
+        )
           return {
             officialModel: false,
             externalModel: false,
@@ -429,7 +458,265 @@
     return readExternal(composer);
   }
 
-  async function selectAgent(composer, targetAgent, signal) {
+  /** @param {Element | null | undefined} target */
+  function readDraftText(target) {
+    if (target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement) {
+      return target.value;
+    }
+    const isBlock = (node) =>
+      node instanceof Element && /^(P|DIV|LI|UL|OL|PRE|BLOCKQUOTE|H[1-6])$/.test(node.tagName);
+    const readNode = (node, trailingBreak = null) => {
+      if (node.nodeType === Node.TEXT_NODE) return node.nodeValue || '';
+      if (!(node instanceof Element)) return '';
+      if (node.tagName === 'BR') return node === trailingBreak ? '' : '\n';
+      if (node === target || isBlock(node)) {
+        let tail = node.lastChild;
+        while (tail instanceof Element && !isBlock(tail) && tail.lastChild) tail = tail.lastChild;
+        trailingBreak = tail instanceof Element && tail.tagName === 'BR' ? tail : null;
+      }
+      let value = '';
+      let previousBlock = false;
+      let seen = false;
+      for (const child of node.childNodes) {
+        const block = isBlock(child);
+        const text = readNode(child, trailingBreak);
+        if (!block && !text) continue;
+        if (seen && (previousBlock || (block && !value.endsWith('\n')))) value += '\n';
+        value += text;
+        previousBlock = block;
+        seen = true;
+      }
+      return value;
+    };
+    return target ? readNode(target) : '';
+  }
+
+  /** @param {Element | null | undefined} node */
+  function extractReadableText(node) {
+    if (!(node instanceof Element)) return '';
+    const clone = /** @type {Element} */ (node.cloneNode(true));
+    clone
+      .querySelectorAll(`h4.sr-only,button,[role="button"],svg,[aria-hidden="true"],${OWN_UI}`)
+      .forEach((item) => item.remove());
+    clone.querySelectorAll('br').forEach((br) => br.replaceWith('\n'));
+    clone
+      .querySelectorAll('p,li,pre,h1,h2,h3,h4,h5,h6,blockquote,tr')
+      .forEach((block) => block.append('\n\n'));
+    return String(clone.textContent || '')
+      .replace(/\r\n?/g, '\n')
+      .replace(/[ \t]+\n/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  }
+
+  /**
+   * @param {Element | null | undefined} composer
+   * @param {Element | null | undefined} [scroll]
+   * @param {{ id?: string, title?: string } | null} [target]
+   */
+  function collectHandoffContext(composer, scroll, target = null) {
+    const cap = capability(composer);
+    if (!cap.agent?.locked || !scroll?.matches('.thread-scroll-container') || !isVisible(scroll))
+      return null;
+    const turns = [];
+    if (scroll) {
+      const turnNodes = [...scroll.querySelectorAll('[data-content-search-turn-key]')];
+      for (const turn of turnNodes) {
+        const readRole = (role) => {
+          const labels = [...turn.querySelectorAll('h4.sr-only')];
+          const label = labels.find((item) => {
+            const explicit = String(item.getAttribute('data-conversation-role') || '')
+              .trim()
+              .toLowerCase();
+            if (explicit) return explicit === role;
+            const txt = String(item.textContent || '').trim();
+            return role === 'user'
+              ? /^(你说|you said|user)/i.test(txt)
+              : /^(chatgpt|assistant|codex)/i.test(txt);
+          });
+          let text = extractReadableText(label?.parentElement);
+          if (role === 'user') text = text.replace(/\s*\b\d{1,2}:\d{2}$/, '').trim();
+          return text;
+        };
+        const user = readRole('user');
+        const assistant = readRole('assistant');
+        if (user || assistant) turns.push({ user, assistant });
+      }
+      if (!turns.length) {
+        const roleNodes = [...scroll.querySelectorAll('[data-message-author-role]')];
+        let pendingUser = '';
+        for (const item of roleNodes) {
+          const role = String(item.getAttribute('data-message-author-role') || '')
+            .trim()
+            .toLowerCase();
+          const content = extractReadableText(item);
+          if (!content) continue;
+          if (role === 'user') {
+            if (pendingUser) turns.push({ user: pendingUser, assistant: '' });
+            pendingUser = content.replace(/\s*\b\d{1,2}:\d{2}$/, '').trim();
+          } else if (role === 'assistant') {
+            turns.push({ user: pendingUser, assistant: content });
+            pendingUser = '';
+          }
+        }
+        if (pendingUser) turns.push({ user: pendingUser, assistant: '' });
+      }
+    }
+    const draft = readDraftText(composer);
+    return {
+      locked: true,
+      sourceAgent: cap?.agent?.label || cap?.agent?.current || 'CLI',
+      title: String(target?.title || '').trim(),
+      targetId: String(target?.id || '').trim(),
+      turns,
+      draft,
+    };
+  }
+
+  function visibleComposers() {
+    return [...document.querySelectorAll('.ProseMirror,[contenteditable="true"],textarea')].filter(
+      (node) =>
+        isVisible(node) &&
+        !node.closest(OWN_UI) &&
+        !node.closest('.messaging-root.messaging-embedded'),
+    );
+  }
+
+  /** @param {Element | null | undefined} composer @param {Element | null | undefined} scope */
+  function findNewChatButton(composer, scope) {
+    const explicit = [
+      ...document.querySelectorAll(
+        '[data-codexhost-new-thread],[data-testid*="new-chat" i],[data-testid*="new-thread" i]',
+      ),
+    ].filter(isActionable);
+
+    const leftPanel = document.querySelector('aside.app-shell-left-panel');
+    if (leftPanel) {
+      const convId =
+        scope
+          ?.querySelector?.('[data-above-composer-conversation-id]')
+          ?.getAttribute('data-above-composer-conversation-id') ||
+        composer
+          ?.closest?.('[data-conversation-id],[data-thread-id],[data-session-id]')
+          ?.getAttribute('data-conversation-id') ||
+        '';
+      const rows = [...leftPanel.querySelectorAll('[data-app-action-sidebar-thread-row]')];
+      const activeRow =
+        (convId &&
+          rows.find((r) => r.getAttribute('data-app-action-sidebar-thread-id') === convId)) ||
+        rows.find(
+          (r) =>
+            r.getAttribute('data-app-action-sidebar-thread-selected') === 'true' ||
+            r.getAttribute('aria-current') === 'page',
+        );
+      if (activeRow) {
+        let cur = activeRow.parentElement;
+        while (cur && cur !== leftPanel && cur !== document.body) {
+          const btns = [...cur.querySelectorAll('button')].filter(
+            (b) =>
+              isActionable(b) &&
+              /开始新聊天|创建新聊天|new chat in|start a new chat/i.test(
+                b.getAttribute('aria-label') || b.getAttribute('title') || '',
+              ),
+          );
+          if (btns.length === 1) return btns[0];
+          cur = cur.parentElement;
+        }
+      }
+      const pageRoot =
+        composer?.closest?.('[data-app-shell-active-page]') || scope || composer?.parentElement;
+      const headings = pageRoot
+        ? [...pageRoot.querySelectorAll('header,[role="heading"],h1,h2')]
+            .map((h) =>
+              String(h.textContent || '')
+                .trim()
+                .toLowerCase(),
+            )
+            .filter(Boolean)
+        : [];
+      if (headings.length) {
+        const projectBtn = [...leftPanel.querySelectorAll('button')].find((b) => {
+          if (!isActionable(b)) return false;
+          const label = String(b.getAttribute('aria-label') || '')
+            .trim()
+            .toLowerCase();
+          return headings.some(
+            (name) =>
+              label === `在 ${name} 中开始新聊天` ||
+              label === `start a new chat in ${name}` ||
+              label === `new chat in ${name}`,
+          );
+        });
+        if (projectBtn) return projectBtn;
+      }
+    }
+
+    if (explicit.length) return explicit.length === 1 ? explicit[0] : null;
+    const candidates = [
+      ...document.querySelectorAll('aside.app-shell-left-panel button, nav button'),
+    ];
+    const actions = candidates.filter((node) => {
+      if (!isActionable(node)) return false;
+      const label = String(
+        node.getAttribute('aria-label') || node.textContent || node.getAttribute('title') || '',
+      )
+        .replace(/\s+/g, ' ')
+        .trim();
+      return /^(?:新聊天|新建聊天|新线程|新建线程|new chat|new thread|start new chat)$/i.test(
+        label,
+      );
+    });
+    return actions.length === 1 ? actions[0] : null;
+  }
+
+  /** @param {Element} target @param {string} prompt */
+  function fillComposerPrompt(target, prompt) {
+    if (!(target instanceof HTMLElement)) return;
+    target.focus();
+    if (target instanceof HTMLTextAreaElement || target instanceof HTMLInputElement) {
+      const proto = Object.getPrototypeOf(target);
+      const desc = Object.getOwnPropertyDescriptor(proto, 'value');
+      if (desc && typeof desc.set === 'function') desc.set.call(target, prompt);
+      else target.value = prompt;
+      target.dispatchEvent(
+        new InputEvent('input', { bubbles: true, inputType: 'insertText', data: prompt }),
+      );
+      target.dispatchEvent(new Event('change', { bubbles: true }));
+      return;
+    }
+    const selection = window.getSelection?.();
+    if (selection) {
+      const range = document.createRange();
+      range.selectNodeContents(target);
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
+    let inserted = false;
+    try {
+      inserted = document.execCommand?.('insertText', false, prompt) === true;
+    } catch {
+      inserted = false;
+    }
+    if (!inserted || !readDraftText(target).trim()) {
+      if (target.classList.contains('ProseMirror')) {
+        target.innerHTML = '';
+        for (const line of String(prompt).split('\n')) {
+          const p = document.createElement('p');
+          if (line) p.textContent = line;
+          else p.appendChild(document.createElement('br'));
+          target.appendChild(p);
+        }
+      } else {
+        target.textContent = prompt;
+      }
+    }
+    target.dispatchEvent(
+      new InputEvent('input', { bubbles: true, inputType: 'insertText', data: prompt }),
+    );
+    target.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  async function switchDraftAgent(composer, desired, signal) {
     const cap = capability(composer);
     if (!cap.agent || !cap.composerId) {
       throw new Error(cap.message || tr('无法确认当前 CodexHost Agent'));
@@ -437,7 +724,6 @@
     if (cap.agent.locked) {
       throw new Error(tr('当前会话已锁定 CLI，请新建聊天后再切换'));
     }
-    const desired = String(targetAgent || '').trim();
     const option = cap.agent.options?.find((item) => item.id === desired);
     if (!option || !option.available) {
       throw new Error(tr('目标 CLI 当前不可用'));
@@ -448,6 +734,7 @@
     if (!(btn instanceof HTMLButtonElement) || !isButtonEnabled(btn)) {
       throw new Error(tr('目标 CLI 切换入口不可用'));
     }
+    if (signal?.aborted) throw new Error(String(signal.reason || tr('操作已取消')));
     btn.click();
     await waitCondition(
       () => {
@@ -475,10 +762,84 @@
     return capability(composer);
   }
 
+  async function selectAgent(composer, targetAgent, signal, options = {}) {
+    const cap = capability(composer);
+    if (!cap.agent || !cap.composerId) {
+      throw new Error(cap.message || tr('无法确认当前 CodexHost Agent'));
+    }
+    const desired = String(targetAgent || '').trim();
+    const option = cap.agent.options?.find((item) => item.id === desired);
+    if (!option || !option.available) {
+      throw new Error(tr('目标 CLI 当前不可用'));
+    }
+    const handoffPrompt = typeof options?.handoffPrompt === 'string' ? options.handoffPrompt : '';
+    if (!cap.agent.locked) {
+      if (handoffPrompt) throw new Error(tr('目标聊天或 DOM 已变化'));
+      return switchDraftAgent(composer, desired, signal);
+    }
+    if (!handoffPrompt) {
+      throw new Error(tr('当前会话已锁定 CLI，请新建聊天后再切换'));
+    }
+    if (desired === cap.agent.current || readDraftText(composer) !== options.sourceDraft)
+      throw new Error(tr('来源草稿已变化，请刷新后重试'));
+    if (signal?.aborted) throw new Error(String(signal.reason || tr('操作已取消')));
+    const { scope } = findAgentScope(composer);
+    const priorBindings = new Set(
+      [...document.querySelectorAll('[data-codexhost-agent-control]')].map((node) =>
+        node.getAttribute('data-codexhost-agent-control'),
+      ),
+    );
+    const newChatBtn = findNewChatButton(composer, scope);
+    if (!(newChatBtn instanceof HTMLElement)) {
+      throw new Error(tr('未找到宿主新聊天入口，请手动新建聊天后切换 CLI'));
+    }
+    const newDrafts = () =>
+      visibleComposers().filter((node) => {
+        const current = capability(node);
+        return (
+          current.composerId &&
+          !priorBindings.has(current.composerId) &&
+          current.agent &&
+          !current.agent.locked
+        );
+      });
+    newChatBtn.click();
+    const newComposer = await waitCondition(
+      () => {
+        const drafts = newDrafts();
+        return drafts.length === 1 ? drafts[0] : null;
+      },
+      signal,
+      5000,
+      '等待新聊天输入框就绪超时',
+    );
+    const binding = capability(newComposer).composerId;
+    const assertEmptyDraft = () => {
+      if (signal?.aborted) throw new Error(String(signal.reason || tr('操作已取消')));
+      const drafts = newDrafts();
+      if (
+        drafts.length !== 1 ||
+        drafts[0] !== newComposer ||
+        capability(newComposer).composerId !== binding ||
+        readDraftText(newComposer) !== ''
+      )
+        throw new Error(tr('无法确认新聊天为空，已停止交接'));
+    };
+    assertEmptyDraft();
+    const nextCap = await switchDraftAgent(newComposer, desired, signal);
+    assertEmptyDraft();
+    if (nextCap.agent?.current !== desired) throw new Error(tr('CLI 切换未生效'));
+    fillComposerPrompt(newComposer, handoffPrompt);
+    if (readDraftText(newComposer) !== handoffPrompt)
+      throw new Error(tr('无法确认交接内容已填入，请核对新聊天'));
+    return { ...nextCap, composer: newComposer };
+  }
+
   window.__palbooHostCompatibility = {
     capability,
     readExternal,
     selectExternal,
     selectAgent,
+    collectHandoffContext,
   };
 })();

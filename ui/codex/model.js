@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 官方 DOM 菜单、CodexHost 兼容适配、稳定聊天标记/新聊天输入区和关联的 model/list 消息；缺失目录时通过本机 electronBridge 只读补取，不依赖工作台锁定。
- * [OUTPUT]: window.__palbooModelControl 的异步 snapshot/apply/codexCatalog 和同步 presence/cancel/dispose/inputTarget，dispose同时回收独立额度读取；inputTarget只读当前唯一输入目标及已校验的模型选择。
+ * [OUTPUT]: window.__palbooModelControl 的异步 snapshot/apply/codexCatalog 和同步 presence/cancel/dispose/inputTarget/prepareHandoff，dispose同时回收独立额度读取；inputTarget只读当前唯一输入目标及已校验的模型选择，prepareHandoff只读提取跨CLI交接所需的当前会话上下文与草稿。
  * [POS]: include_str / Page.addScriptToEvaluateOnNewDocument 可独立安装的宿主边界。
  * [PROTOCOL]: 父任务维护集成和地图；本文件不写 React、持久存储或发送模型生成请求。
  * snapshot(false) 不操作 DOM；目录缺失时合并、限频读取 model/list。refresh=true 显式重试目录并探测菜单、完整回读。target 无法确认时 id/title 为空。
@@ -547,9 +547,11 @@
     if (disposed) operation.aborted = tr('适配器已销毁');
     else if (window.__codexPlusQuickModelPresets) operation.aborted = tr('Model Deck 正在运行');
     else if (
-      operation.agentSwitch
-        ? !sameComposerTarget(operation.target, resolveTarget(false))
-        : !sameTarget(operation.target, resolveTarget())
+      operation.handoff
+        ? false
+        : operation.agentSwitch
+          ? !sameComposerTarget(operation.target, resolveTarget(false))
+          : !sameTarget(operation.target, resolveTarget())
     )
       operation.aborted = tr('目标聊天或 DOM 已变化');
     else if (
@@ -564,6 +566,7 @@
   observer = new MutationObserver((records) => {
     if (
       operation &&
+      !operation.handoff &&
       records.some(
         (record) =>
           [...record.removedNodes].some((node) =>
@@ -671,7 +674,9 @@
   function guard(op, node) {
     checkLive();
     const compatibility = window.__palbooHostCompatibility?.capability(op.target?.composer);
-    if (op.agentSwitch) {
+    if (op.handoff) {
+      if (!window.__palbooHostCompatibility) op.aborted ||= tr('无法确认当前 CodexHost Agent');
+    } else if (op.agentSwitch) {
       if (!compatibility?.agent)
         op.aborted ||= compatibility?.message || tr('无法确认当前 CodexHost Agent');
     } else if (op.external) {
@@ -1209,6 +1214,7 @@
       refresh,
       external: Boolean(options.external),
       agentSwitch: Boolean(options.agentSwitch),
+      handoff: Boolean(options.handoff),
       phase: tr('准备'),
       steps: [],
       mutated: false,
@@ -1242,6 +1248,7 @@
     }
     clearTimeout(op.timer);
     if (
+      !op.handoff &&
       !op.aborted &&
       !op.controller.signal.aborted &&
       (op.agentSwitch
@@ -1352,22 +1359,30 @@
         );
       if (request?.target?.id !== before.target.id || request?.expectedRevision !== before.revision)
         return result('conflict', tr('目标或修订号已过期，请刷新后重试'));
+      const handoffPrompt = typeof request?.handoffPrompt === 'string' ? request.handoffPrompt : '';
       try {
-        op = begin(false, { agentSwitch: true });
+        op = begin(false, { agentSwitch: true, handoff: Boolean(handoffPrompt) });
       } catch (cause) {
         return result('unavailable', cause.message);
       }
       let status = 'applied',
         message = '';
       try {
-        phase(op, tr('切换 CLI'));
+        phase(op, handoffPrompt ? tr('新建聊天并切换 CLI') : tr('切换 CLI'));
         op.mutated = true;
         cache = null;
-        await window.__palbooHostCompatibility.selectAgent(
+        const switched = await window.__palbooHostCompatibility.selectAgent(
           op.target.composer,
           request.agent.trim(),
           op.controller.signal,
+          handoffPrompt ? { handoffPrompt, sourceDraft: request.sourceDraft } : {},
         );
+        if (switched?.composer) {
+          const nextCandidate = one(
+            candidates().filter((entry) => entry.composer === switched.composer),
+          );
+          if (nextCandidate) lastInteraction = nextCandidate;
+        }
       } catch (cause) {
         status = op.aborted ? 'conflict' : 'unavailable';
         message = failure(op, cause);
@@ -1521,10 +1536,38 @@
       message: models.length ? '' : tr('尚未读取到 Codex 可选模型，请打开宿主模型菜单后重试'),
     });
   }
+  function prepareHandoff(request = {}) {
+    if (disposed || operation) return null;
+    const before = passive();
+    const target = resolveTarget(false);
+    if (
+      !target ||
+      !before.target?.id ||
+      target.id !== before.target.id ||
+      request?.target?.id !== before.target.id ||
+      request?.expectedRevision !== before.revision ||
+      ['busy', 'conflict'].includes(before.status)
+    )
+      return null;
+    const agent = before.agent;
+    if (
+      !agent?.locked ||
+      agent.current === request.agent ||
+      !agent.options?.some((option) => option.id === request.agent && option.available)
+    )
+      return null;
+    const context = window.__palbooHostCompatibility?.collectHandoffContext?.(
+      target.composer,
+      target.root,
+      { id: target.id, title: target.title },
+    );
+    return context ? clone(context) : null;
+  }
   const api = {
     snapshot,
     apply,
     codexCatalog,
+    prepareHandoff,
     cancel,
     dispose,
     presence,

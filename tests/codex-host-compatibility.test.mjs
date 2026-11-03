@@ -1,5 +1,5 @@
-/* [INPUT]: 上游探针契约、合成多输入框 DOM、外部 CLI 模型菜单和实际适配脚本。
- * [OUTPUT]: Agent 隔离、缺失/未知/异常协议拒绝、外部 CLI 模型/思考快切、新会话 CLI 切换及官方目录隔离。
+/* [INPUT]: 上游探针契约、合成多输入框 DOM、外部 CLI 模型菜单、多轮对话与新聊天按钮和实际适配脚本。
+ * [OUTPUT]: Agent 隔离、缺失/未知/异常协议拒绝、外部 CLI 模型/思考快切、新会话 CLI 切换、已锁定会话新建聊天上下文交接切换及官方目录隔离。
  * [POS]: 不调用真实 CodexHost、不写聊天或模型。
  * [PROTOCOL]: 变更时同步 tests/AGENTS.md。 */
 import { test } from 'node:test';
@@ -31,8 +31,8 @@ test('CodexHost adapter keeps Agent capability scoped to each composer', async (
         status: () => ({
           version: 2,
           selections: [
-            { composerId: 'a', agent: 'codex' },
-            { composerId: 'b', agent: 'claude' },
+            { composerId: 'a', agent: 'codex', phase: 'draft' },
+            { composerId: 'b', agent: 'claude', phase: 'locked' },
           ],
         }),
       };
@@ -93,7 +93,10 @@ test('official model adapter refuses external Agent without touching its menus',
       control.innerHTML = '<i data-agent="claude"></i>';
       document.querySelector('.ProseMirror').parentElement.append(control);
       window.__codexhostRendererBindingProbeV1 = {
-        status: () => ({ version: 2, selections: [{ composerId: 'external', agent: 'claude' }] }),
+        status: () => ({
+          version: 2,
+          selections: [{ composerId: 'external', agent: 'claude', phase: 'locked' }],
+        }),
       };
     });
     const value = await page.evaluate(() => window.__palbooModelControl.snapshot(true));
@@ -159,6 +162,7 @@ test('external CLI model picker and draft CLI switcher work through CodexHost DO
       const state = {
         agent: 'antigravity',
         phase: 'draft',
+        composerId: 'ext-1',
         model: 'gemini-3-1-pro',
         thinking: 'high',
         models: [
@@ -274,7 +278,10 @@ test('external CLI model picker and draft CLI switcher work through CodexHost DO
           version: 2,
           enabledAgents: ['codex', 'antigravity'],
           availability: { codex: 'ready', antigravity: 'ready' },
-          selections: [{ composerId: 'ext-1', agent: state.agent, phase: state.phase }],
+          selections: [
+            { composerId: state.composerId, agent: state.agent, phase: state.phase },
+            { composerId: 'unrelated-draft', agent: 'codex', phase: 'draft' },
+          ],
         }),
       };
       syncExternalDom();
@@ -370,6 +377,35 @@ test('external CLI model picker and draft CLI switcher work through CodexHost DO
 
     await page.evaluate(() => {
       window.__extState.phase = 'locked';
+      const scroll = document.querySelector('.thread-scroll-container');
+      if (scroll) {
+        const turn = document.createElement('div');
+        turn.setAttribute('data-content-search-turn-key', 'turn-1');
+        turn.innerHTML = [
+          '<div class="flex flex-col items-end gap-2"><h4 class="sr-only" data-conversation-role="user"><span>你说：</span><span aria-hidden="true">You</span></h4><p>为什么外部 CLI 不能快切？ 19:50</p></div>',
+          '<div class="group flex min-w-0 flex-col"><h4 class="sr-only" data-conversation-role="assistant"><span>ChatGPT 说：</span><span aria-hidden="true">ChatGPT</span></h4><p>需要读取 data-codexhost-model-control 菜单。</p></div>',
+        ].join('');
+        scroll.append(turn);
+      }
+      const composer = document.querySelector('.ProseMirror');
+      composer.innerHTML = '<p>请继续完成方案 B</p>';
+      const newChatBtn = document.createElement('button');
+      newChatBtn.type = 'button';
+      newChatBtn.setAttribute('data-codexhost-new-thread', '');
+      newChatBtn.textContent = '新聊天';
+      newChatBtn.onclick = () => {
+        window.__newChatClicked = (window.__newChatClicked || 0) + 1;
+        window.__extState.phase = 'draft';
+        window.__extState.composerId = 'new-draft';
+        composer.parentElement
+          .querySelector('[data-codexhost-agent-control]')
+          .setAttribute('data-codexhost-agent-control', 'new-draft');
+        document.getElementById('ext-1-agent-menu').id = 'new-draft-agent-menu';
+        const next = composer.cloneNode(false);
+        next.innerHTML = '<p><br></p>';
+        composer.replaceWith(next);
+      };
+      document.body.append(newChatBtn);
     });
     const lockedSnap = await page.evaluate(() => window.__palbooModelControl.snapshot(false));
     assert.equal(lockedSnap.agent.locked, true);
@@ -384,6 +420,95 @@ test('external CLI model picker and draft CLI switcher work through CodexHost DO
     );
     assert.equal(lockedSwitch.status, 'failed');
     assert.match(lockedSwitch.message, /锁定/);
+
+    // Prepare handoff extracts full turns and unsent draft from locked chat.
+    const handoffData = await page.evaluate(
+      (s) =>
+        window.__palbooModelControl.prepareHandoff({
+          target: s.target,
+          expectedRevision: s.revision,
+          agent: 'codex',
+        }),
+      lockedSnap,
+    );
+    assert.equal(handoffData.locked, true);
+    assert.equal(handoffData.sourceAgent, 'Antigravity');
+    assert.equal(handoffData.draft, '请继续完成方案 B');
+    assert.deepEqual(handoffData.turns, [
+      {
+        user: '为什么外部 CLI 不能快切？',
+        assistant: '需要读取 data-codexhost-model-control 菜单。',
+      },
+    ]);
+
+    await page.evaluate(() => {
+      const unrelated = document.createElement('aside');
+      unrelated.innerHTML =
+        '<textarea id="unrelated-draft">保留另一条草稿</textarea><div data-codexhost-agent-control="unrelated-draft"></div>';
+      document.body.prepend(unrelated);
+    });
+    const staleDraft = await page.evaluate(
+      (s) =>
+        window.__palbooModelControl.apply({
+          target: s.target,
+          expectedRevision: s.revision,
+          agent: 'codex',
+          sourceDraft: '过期草稿',
+          handoffPrompt: '不得填入',
+        }),
+      lockedSnap,
+    );
+    assert.equal(staleDraft.status, 'failed');
+    assert.match(staleDraft.message, /草稿已变化/);
+    assert.equal(await page.evaluate(() => window.__newChatClicked || 0), 0);
+
+    const cancelled = await page.evaluate(async () => {
+      const button = document.querySelector('[data-codexhost-new-thread]');
+      const open = button.onclick;
+      button.onclick = () => {};
+      const controller = new AbortController();
+      const cancel = setTimeout(() => controller.abort('测试取消'), 100);
+      try {
+        await window.__palbooHostCompatibility.selectAgent(
+          document.querySelector('.ProseMirror'),
+          'codex',
+          controller.signal,
+          { sourceDraft: '请继续完成方案 B', handoffPrompt: '不得填入' },
+        );
+        return '';
+      } catch (error) {
+        return error.message;
+      } finally {
+        clearTimeout(cancel);
+        button.onclick = open;
+      }
+    });
+    assert.match(cancelled, /测试取消/);
+    assert.equal(await page.locator('#unrelated-draft').inputValue(), '保留另一条草稿');
+
+    // Mid-conversation CLI switch with handoffPrompt opens a new chat, switches CLI, and fills composer.
+    const handoffSwitch = await page.evaluate(
+      (s) =>
+        window.__palbooModelControl.apply({
+          target: s.target,
+          expectedRevision: s.revision,
+          agent: 'codex',
+          sourceDraft: '请继续完成方案 B',
+          handoffPrompt:
+            '[上下文交接] 前序会话完整记录：`/tmp/handoff.md`\n\n当前待处理输入：\n请继续完成方案 B',
+        }),
+      lockedSnap,
+    );
+    assert.equal(handoffSwitch.status, 'success');
+    assert.equal(handoffSwitch.snapshot.agent.current, 'codex');
+    assert.equal(handoffSwitch.snapshot.agent.locked, false);
+    assert.equal(await page.evaluate(() => window.__newChatClicked), 1);
+    const composerAfter = await page.evaluate(
+      () => document.querySelector('.ProseMirror').textContent,
+    );
+    assert.match(composerAfter, /\/tmp\/handoff\.md/);
+    assert.match(composerAfter, /请继续完成方案 B/);
+    assert.equal(await page.locator('#unrelated-draft').inputValue(), '保留另一条草稿');
   } finally {
     await browser.close();
   }

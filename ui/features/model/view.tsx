@@ -1,7 +1,7 @@
 import { useLocale } from '../../shared/use-locale';
 import { tr } from '../../shared/i18n.js';
 /* [INPUT]: Existing model control envelope and serialized actions.
- * [OUTPUT]: Title-aligned reasoning headings, content-sized favorites matrix (auto-displaying active external CLI models when none are pinned), independent Fast charge/strike and divider controls, CodexHost CLI switcher bar for draft chats, presets with saved reasoning and speed, a shared bottom row with lower-edge-aligned account usage, icons and an independent footer slot, in-panel catalog and wrapping presets with synchronous draft handoff, measured horizontal reading restoration and capability-driven selection.
+ * [OUTPUT]: Title-aligned reasoning headings, content-sized favorites matrix (auto-displaying active external CLI models when none are pinned), independent Fast charge/strike and divider controls, CodexHost CLI switcher bar (direct switch in draft chats, new-chat context handoff in locked chats), presets with saved reasoning and speed, a shared bottom row with lower-edge-aligned account usage, icons and an independent footer slot, in-panel catalog and wrapping presets with synchronous draft handoff, measured horizontal reading restoration and capability-driven selection.
  * [POS]: Reusable business view; surfaces own placement and theme.
  * [PROTOCOL]: Keep AGENTS.md in this module in sync. */
 import {
@@ -648,7 +648,6 @@ export function ModelView({
                   !busy &&
                   prefs.enabled &&
                   !!s.target &&
-                  !s.agent?.locked &&
                   opt.available &&
                   ['ready', 'waiting', 'unavailable'].includes(s.status);
                 return (
@@ -657,15 +656,16 @@ export function ModelView({
                     type="button"
                     className="model-agent-choice"
                     data-agent-option={opt.id}
+                    data-handoff={s.agent?.locked && !active ? 'true' : undefined}
                     disabled={!canSwitch && !active}
-                    aria-disabled={!canSwitch}
+                    aria-disabled={!canSwitch || active}
                     aria-pressed={active}
                     aria-label={opt.label}
                     aria-description={
-                      s.agent?.locked && !active
-                        ? tr('当前会话已锁定 CLI，请新建聊天后再切换')
-                        : !opt.available
-                          ? tr('暂不可用')
+                      !opt.available
+                        ? tr('暂不可用')
+                        : s.agent?.locked && !active
+                          ? tr('新建聊天并携带当前上下文切换到 {{agent}}', { agent: opt.label })
                           : undefined
                     }
                     onClick={() => {

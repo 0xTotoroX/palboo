@@ -1791,6 +1791,16 @@ export default {
   'CLI 切换未生效': 'The CLI change did not take effect.',
   '当前 CLI 模型切换不可用': 'CLI model switching is currently unavailable.',
   '切换 CLI': 'Switching CLI',
+  '来源草稿已变化，请刷新后重试': 'The source draft changed. Refresh and try again.',
+  '无法确认新聊天为空，已停止交接':
+    'Handoff stopped because the new draft could not be confirmed empty.',
+  '无法确认交接内容已填入，请核对新聊天': 'Could not verify the handoff text. Check the new chat.',
+  '新建聊天并切换 CLI': 'Starting a new chat and switching CLI',
+  '新建聊天并携带当前上下文切换到 {{agent}}':
+    'Start a new chat with the current context and switch to {{agent}}',
+  '未找到宿主新聊天入口，请手动新建聊天后切换 CLI':
+    'Could not find the host New chat button. Start a new chat manually to switch CLIs.',
+  等待新聊天输入框就绪超时: 'Timed out waiting for the new chat composer.',
   '切换 CLI 模型': 'Switching CLI model',
   'CLI 模型配置与请求不一致': 'The confirmed CLI model configuration does not match the request.',
   'CLI 标识无效': 'Invalid CLI identifier.',
