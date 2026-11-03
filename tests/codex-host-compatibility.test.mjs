@@ -377,6 +377,9 @@ test('external CLI model picker and draft CLI switcher work through CodexHost DO
 
     await page.evaluate(() => {
       window.__extState.phase = 'locked';
+      document.querySelectorAll('#ext-1-agent-menu button').forEach((btn) => {
+        btn.disabled = true;
+      });
       const scroll = document.querySelector('.thread-scroll-container');
       if (scroll) {
         const turn = document.createElement('div');
@@ -400,7 +403,11 @@ test('external CLI model picker and draft CLI switcher work through CodexHost DO
         composer.parentElement
           .querySelector('[data-codexhost-agent-control]')
           .setAttribute('data-codexhost-agent-control', 'new-draft');
-        document.getElementById('ext-1-agent-menu').id = 'new-draft-agent-menu';
+        const menu = document.getElementById('ext-1-agent-menu');
+        menu.id = 'new-draft-agent-menu';
+        menu.querySelectorAll('button').forEach((btn) => {
+          btn.disabled = false;
+        });
         const next = composer.cloneNode(false);
         next.innerHTML = '<p><br></p>';
         composer.replaceWith(next);
@@ -409,6 +416,7 @@ test('external CLI model picker and draft CLI switcher work through CodexHost DO
     });
     const lockedSnap = await page.evaluate(() => window.__palbooModelControl.snapshot(false));
     assert.equal(lockedSnap.agent.locked, true);
+    assert.equal(lockedSnap.agent.options.find((option) => option.id === 'codex').available, true);
     const lockedSwitch = await page.evaluate(
       (s) =>
         window.__palbooModelControl.apply({

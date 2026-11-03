@@ -92,17 +92,22 @@
       : [];
     const options = [];
     const seen = new Set();
+    const locked = selection?.phase === 'locked';
+    const enabled = Array.isArray(status?.enabledAgents) ? status.enabledAgents : [];
+    // 宿主会禁用已锁定输入框的全部菜单项；接力的目标是另一个输入框。
+    const canHandoff = (id) =>
+      enabled.includes(id) && (id === 'codex' || status?.availability?.[id] === 'ready');
     for (const button of buttons) {
       const id = String(button.getAttribute('data-agent') || '').trim();
       if (!id || seen.has(id)) continue;
       seen.add(id);
       const labelNode = button.querySelector('.codexhost-agent-picker__item-label');
       const label = clean(labelNode) || clean(button) || id;
-      const available = isButtonEnabled(button);
+      const available = locked ? canHandoff(id) : isButtonEnabled(button);
       options.push({ id, label, available });
     }
-    if (!options.length && Array.isArray(status?.enabledAgents)) {
-      for (const raw of status.enabledAgents) {
+    if (!options.length) {
+      for (const raw of enabled) {
         const id = String(raw || '').trim();
         if (!id || seen.has(id)) continue;
         seen.add(id);
@@ -110,7 +115,9 @@
         options.push({
           id,
           label: id === 'codex' ? 'Codex' : id,
-          available: id === 'codex' || !availability || availability === 'ready',
+          available: locked
+            ? canHandoff(id)
+            : id === 'codex' || !availability || availability === 'ready',
         });
       }
     }
@@ -120,7 +127,7 @@
     return {
       current,
       label: matched?.label || triggerLabel || (current === 'codex' ? 'Codex' : current),
-      locked: selection?.phase === 'locked',
+      locked,
       options,
     };
   }
