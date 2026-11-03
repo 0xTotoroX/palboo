@@ -449,7 +449,7 @@ dev-launcher 以认证合成服务覆盖 --settings 成功/失败及零启动副
 
 - `settings-workspace-preview.test.mjs`：合成网站快照进入布局与外观预览；验证单屏取景、连续副屏圆角、搜索/草稿与额外示例保留，以及预览零写入和窄屏边界。
 
-- `sites-view.test.mjs`：在已有 SitesView 中分别打开多个文件夹、少量条目隐藏搜索、过滤和错误反馈；official-launcher 验证只有 Palboo 入口，不再创建地球入口。web-library 覆盖预览置顶、文件夹列表、编辑抽屉草稿和修订冲突；settings-select 核对各字号/明暗/宽度下箭头真实中心，避免共享 CSS 与 Tailwind 位移叠加。
+- `sites-view.test.mjs`：在已有 SitesView 中分别打开多个文件夹、少量条目隐藏搜索、过滤和错误反馈；official-launcher 验证只有 Palboo 入口，不再创建地球入口。web-library 覆盖预览置顶、文件夹列表、编辑抽屉草稿和修订冲突；settings-select 核对各字号/明暗/宽度下箭头在收起、向下展开、向上弹出和再次关闭时的真实中心与水平位置；覆盖附属星星、键盘取消和普通/减少动态效果下反复开合，候选框同样核对上下弹出。避免共享 CSS 与 Tailwind 位移叠加，以及旋转反转居中位移。
 
 - `reader-editing.mjs`：web-library验收的侧栏、配置跳转、XLSX/CSV/分页/错误及Markdown串行自动保存、中文组合输入、导航/冲突/断线草稿回归；仅写合成笔记。
 - `reader-fixtures.mjs`：自有合成OOXML工作簿，两个工作表、126行、公式缓存和不执行的HTML文本，不依赖外部表格工具。

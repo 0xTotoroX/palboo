@@ -25,7 +25,8 @@
   position: absolute;
   right: 11px;
   top: 50%;
-  transform: translateY(-50%);
+  /* 独立位移先于 rotate 合成，展开旋转不会把居中偏移翻到底部。 */
+  translate: 0 -50%;
   color: var(--buddy-muted);
   pointer-events: none;
 }
