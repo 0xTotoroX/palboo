@@ -454,7 +454,10 @@ const cases = [
           mainPlacement: 'sidebar',
           pendingPlacement: null,
           layoutPresetsRevision: 1,
-          layoutPresets: [{ id: 'reading', name: '阅读', layout }],
+          layoutPresets: [
+            { id: 'reading', name: '阅读', scope: 'sidebar', layout },
+            { id: 'reading-overlay', name: '阅读', scope: 'overlay', layout },
+          ],
           layouts: { sidebar: layout, overlay: layout },
           features: [
             {
@@ -494,6 +497,7 @@ const cases = [
             state.layoutPresets.push({
               id: payload.name,
               name: payload.name,
+              scope: payload.placement,
               layout: payload.layout,
             });
             state.layoutPresetsRevision++;

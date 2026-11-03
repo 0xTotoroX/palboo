@@ -25,7 +25,7 @@ const host=document.querySelector('#root');host.innerHTML='<div class="csw-workb
 const root=host.firstElementChild;
 const paired={axis:'vertical',groups:[{ids:['outline'],active:'outline',weight:1},{ids:['next','prompts'],active:'next',weight:1}],visible:['outline','next','prompts']};
 const focused={...structuredClone(paired),visible:['outline']};
-window.state={mainPlacement:placement,layoutPresetsRevision:1,layouts:{[placement]:paired},layoutPresets:[{id:'paired',name:'对照',layout:paired},{id:'focused',name:'专注',layout:focused}],features:${JSON.stringify(ids)}.map(id=>({id,open:true,placement,owner:id}))};
+window.state={mainPlacement:placement,layoutPresetsRevision:1,layouts:{[placement]:paired},layoutPresets:[{id:'paired',name:'对照',scope:placement,layout:paired},{id:'focused',name:'专注',scope:placement,layout:focused}],features:${JSON.stringify(ids)}.map(id=>({id,open:true,placement,owner:id}))};
 window.requests=[];window.pins=[];window.pinned=true;window.rejectSave=false;
 const items=state.features.map(entry=>{const node=document.createElement('div');node.style.cssText='height:100%;min-height:0';const shadow=node.attachShadow({mode:'open'});shadow.innerHTML='<div data-scroll style="height:100%;overflow:auto"><input aria-label="'+entry.id+'草稿" value="未保存内容"><div style="height:900px">Synthetic content</div></div>';return {...entry,node,active:true}});
 window.originalNodes=items.map(item=>item.node);
@@ -37,7 +37,7 @@ const request=async input=>{
  else if(input.op==='layout')state.layouts[placement]=structuredClone(input.layout);
  else if(input.op==='main-preset-save'){
   if(rejectSave)throw Error('保存失败，请重试');
-  state.layoutPresets.push({id:'saved',name:input.name,layout:input.layout});state.layoutPresetsRevision++;
+  state.layoutPresets.push({id:'saved',name:input.name,scope:input.placement==='sidebar'?'sidebar':'overlay',layout:input.layout});state.layoutPresetsRevision++;
  }
  return state;
 };
@@ -522,12 +522,12 @@ window.fetch=async(url,options)=>{
  else if(input.op==='main-preset-save' && failSave)error='保存失败，请重试';
  else if(input.op==='main-layout')server.layouts.desktop=input.layout;
  else if(input.op==='main-preset-save'){
-  const preset={id:input.id||'saved',name:input.name,scope:input.scope,layout:input.layout};
+  const preset={id:input.id||'saved',name:input.name,scope:input.placement==='sidebar'?'sidebar':'overlay',layout:input.layout};
   const index=server.layoutPresets.findIndex(p=>p.id===preset.id);
   if(index<0)server.layoutPresets.push(preset);else server.layoutPresets[index]=preset;
   server.layoutPresetsRevision++;
  }else if(input.op==='main-preset-update'){
-  Object.assign(server.layoutPresets.find(p=>p.id===input.id),{name:input.name,scope:input.scope});server.layoutPresetsRevision++;
+  Object.assign(server.layoutPresets.find(p=>p.id===input.id),{name:input.name});server.layoutPresetsRevision++;
  }else if(input.op==='main-preset-delete'){
   server.layoutPresets=server.layoutPresets.filter(p=>p.id!==input.id);server.layoutPresetsRevision++;
  }else if(input.op==='main-preset-apply')server.layouts.desktop=structuredClone(server.layoutPresets.find(p=>p.id===input.id).layout);
@@ -597,7 +597,7 @@ createRoot(document.getElementById('root')).render(<App/>);
     assert.equal(await drawer.getByRole('textbox').count(), 0);
     assert.equal(await drawer.getByRole('checkbox').count(), 0);
     await drawer.getByRole('button', { name: '保存新预设' }).click();
-    assert.equal(await drawer.locator('#new-layout-preset-scope').inputValue(), 'desktop');
+    assert.equal(await drawer.getByLabel('适用形式').count(), 0);
     await drawer.getByRole('checkbox', { name: '常用语', exact: true }).click();
     await page.waitForFunction(() => server.layouts.desktop.visible?.length === 2);
     assert.deepEqual(await page.evaluate(() => server.layouts.desktop.visible), [
@@ -619,10 +619,7 @@ createRoot(document.getElementById('root')).render(<App/>);
     assert.equal(await drawer.getByRole('textbox').count(), 0);
     await editPreset('阅读对照').click();
     assert.equal(await drawer.getByRole('checkbox').count(), 0);
-    assert.equal(await drawer.locator('#layout-preset-scope').inputValue(), 'desktop');
-    await drawer.locator('#layout-preset-scope').selectOption('all');
-    await drawer.getByRole('button', { name: '保存更改', exact: true }).click();
-    await page.waitForFunction(() => server.layoutPresets[0].scope === 'all');
+    assert.equal(await page.evaluate(() => server.layoutPresets[0].scope), 'overlay');
     const rename = drawer.locator('#layout-preset-rename');
     await rename.fill('我正在编辑');
     await page.evaluate(() => {
@@ -657,7 +654,7 @@ createRoot(document.getElementById('root')).render(<App/>);
     await drawer.getByRole('checkbox', { name: '常用语', exact: true }).click();
     await page.waitForFunction(() => server.layouts.desktop.visible.length === 3);
     await drawer.getByRole('button', { name: '返回', exact: true }).click();
-    await drawer.getByRole('button', { name: '我的布局 通用', exact: true }).click();
+    await drawer.getByRole('button', { name: '我的布局', exact: true }).click();
     await page.waitForFunction(() => server.layouts.desktop.visible.length === 2);
     await editPreset('我的布局').click();
     await drawer.getByRole('button', { name: '用当前布局更新', exact: true }).click();
@@ -700,7 +697,7 @@ createRoot(document.getElementById('root')).render(<App/>);
   }
 });
 
-test('sidebar and overlay expose the same presets without desktop pin or lease', async () => {
+test('sidebar and floating menus filter saved presets while sharing the built-in choices', async () => {
   const browser = await chromium.launch();
   try {
     for (const placement of ['sidebar', 'overlay']) {
@@ -709,9 +706,25 @@ test('sidebar and overlay expose the same presets without desktop pin or lease',
         reducedMotion: 'reduce',
       });
       await fixture(page, placement);
+      await page.evaluate(() => {
+        const layout = state.layoutPresets[0].layout;
+        state.layoutPresets.push(
+          { id: 'legacy', name: '旧侧栏', layout },
+          { id: 'desktop', name: '桌面保存', scope: 'desktop', layout },
+        );
+        return refresh();
+      });
       const trigger = page.getByRole('button', { name: '布局预设', exact: true });
       await trigger.click();
       assert.equal(await page.getByRole('menuitemcheckbox').count(), 0);
+      assert.equal(
+        await page.getByRole('menuitemradio', { name: '旧侧栏' }).count(),
+        Number(placement === 'sidebar'),
+      );
+      assert.equal(
+        await page.getByRole('menuitemradio', { name: '桌面保存' }).count(),
+        Number(placement === 'overlay'),
+      );
       await page.getByRole('menuitemradio', { name: '专注', exact: true }).click();
       const applied = await page.evaluate(() => requests.at(-1));
       assert.equal(applied.placement, placement);

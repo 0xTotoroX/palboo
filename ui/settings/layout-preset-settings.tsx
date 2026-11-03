@@ -5,21 +5,13 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { tr } from '../shared/i18n.js';
 import { useLocale } from '../shared/use-locale';
-import {
-  titles,
-  featureIcons,
-  type FeatureLayout,
-  type FeatureState,
-  type LayoutPresetScope,
-} from '../shared/features';
+import { titles, featureIcons, type FeatureLayout, type FeatureState } from '../shared/features';
 import {
   layoutSnapshot,
   mainFeatureIds,
   matchesLayoutPreset,
-  layoutPresetScopes,
-  presetScopeLabel,
-  layoutPresetLabel,
-  sortedLayoutPresets,
+  layoutPresetsForPlacement,
+  presetGroup,
   builtinLayout,
   builtinLayoutAvailable,
   builtinLayoutPresets,
@@ -47,26 +39,29 @@ export function LayoutPresetSettings({
   renderControls: (controls: { selector: ReactNode; manager: ReactNode }) => ReactNode;
 }) {
   useLocale();
-  const [name, setName] = useState('');
-  const [view, setView] = useState<{ kind: 'new' } | { kind: 'edit'; id: string } | null>(null);
+  const [names, setNames] = useState({ sidebar: '', overlay: '' });
+  const [view, setView] = useState<
+    { kind: 'new'; group: 'sidebar' | 'overlay' } | { kind: 'edit'; id: string } | null
+  >(null);
   const backButton = useRef<HTMLButtonElement>(null);
   const newButton = useRef<HTMLButtonElement>(null);
   const editButtons = useRef(new Map<string, HTMLButtonElement>());
   const lastView = useRef(view);
-  const [scope, setScope] = useState<LayoutPresetScope | null>(null);
-  const [drafts, setDrafts] = useState<
-    Record<string, { name: string; scope: LayoutPresetScope; revision: number }>
-  >({});
+  const [drafts, setDrafts] = useState<Record<string, { name: string; revision: number }>>({});
   const ids = mainFeatureIds(state);
   const current = layoutSnapshot(layout, ids);
   const placement = state.mainPlacement || 'sidebar';
-  const presets = sortedLayoutPresets(state.layoutPresets || [], placement);
+  const group = presetGroup(placement);
+  const name = names[group];
+  const setName = (value: string) => setNames((previous) => ({ ...previous, [group]: value }));
+  const presets = layoutPresetsForPlacement(state.layoutPresets || [], placement);
   const active = presets.find((preset) => matchesLayoutPreset(preset, layout, ids));
   const builtins = builtinLayoutPresets();
   const revision = state.layoutPresetsRevision || 0;
   const chosen =
     view?.kind === 'edit' ? presets.find((preset) => preset.id === view.id) : undefined;
-  const editing = Boolean(chosen) || view?.kind === 'new';
+  const creating = view?.kind === 'new' && view.group === group;
+  const editing = Boolean(chosen) || creating;
   useLayoutEffect(() => {
     const previous = lastView.current;
     lastView.current = view;
@@ -89,11 +84,9 @@ export function LayoutPresetSettings({
         ...context,
         layout: current,
         name: name.trim(),
-        scope: scope || placement,
       })
     ) {
       setName('');
-      setScope(null);
       setView(null);
     }
   }
@@ -108,19 +101,18 @@ export function LayoutPresetSettings({
       layout: { ...current, visible },
     });
   }
-  function edit(value: Partial<{ name: string; scope: LayoutPresetScope }>) {
+  function edit(name: string) {
     if (!chosen) return;
     setDrafts((previous) => ({
       ...previous,
       [chosen.id]: {
-        ...(previous[chosen.id] || { name: chosen.name, scope: chosen.scope || 'all', revision }),
-        ...value,
+        ...(previous[chosen.id] || { revision }),
+        name,
       },
     }));
   }
   const draft = chosen && drafts[chosen.id];
-  const changed =
-    draft && (draft.name.trim() !== chosen.name || draft.scope !== (chosen.scope || 'all'));
+  const changed = draft && draft.name.trim() !== chosen.name;
   return renderControls({
     selector: (
       <Field id="current-layout-preset" label={tr('当前预设')}>
@@ -152,7 +144,7 @@ export function LayoutPresetSettings({
           </optgroup>
           {presets.map((preset) => (
             <option key={preset.id} value={preset.id}>
-              {layoutPresetLabel(preset)}
+              {preset.name}
             </option>
           ))}
         </NativeSelect>
@@ -187,7 +179,7 @@ export function LayoutPresetSettings({
                 variant="outline"
                 size="sm"
                 disabled={busy || !ids.length}
-                onClick={() => setView({ kind: 'new' })}
+                onClick={() => setView({ kind: 'new', group })}
               >
                 <Icon name="plus" />
                 {tr('保存新预设')}
@@ -213,9 +205,6 @@ export function LayoutPresetSettings({
                         }}
                       >
                         <span>{preset.name}</span>
-                        <span className="layout-preset-scope">
-                          {presetScopeLabel(preset.scope)}
-                        </span>
                         {current && <Icon name="check" />}
                       </Button>
                       <IconButton
@@ -239,7 +228,7 @@ export function LayoutPresetSettings({
             )}
           </>
         )}
-        {view?.kind === 'new' && (
+        {creating && (
           <section className="layout-preset-form">
             <Field id="new-layout-preset-name" label={tr('预设名称')}>
               <Input
@@ -249,20 +238,6 @@ export function LayoutPresetSettings({
                 disabled={busy || !ids.length}
                 onChange={(event) => setName(event.target.value)}
               />
-            </Field>
-            <Field id="new-layout-preset-scope" label={tr('适用形式')}>
-              <NativeSelect
-                id="new-layout-preset-scope"
-                value={scope || placement}
-                disabled={busy}
-                onChange={(event) => setScope(event.target.value as LayoutPresetScope)}
-              >
-                {layoutPresetScopes.map((value) => (
-                  <option key={value} value={value}>
-                    {presetScopeLabel(value)}
-                  </option>
-                ))}
-              </NativeSelect>
             </Field>
             <fieldset className="layout-preset-membership">
               <legend>{tr('包含的功能')}</legend>
@@ -302,22 +277,8 @@ export function LayoutPresetSettings({
                 value={drafts[chosen.id]?.name ?? chosen.name}
                 maxLength={40}
                 disabled={busy}
-                onChange={(event) => edit({ name: event.target.value })}
+                onChange={(event) => edit(event.target.value)}
               />
-            </Field>
-            <Field id="layout-preset-scope" label={tr('适用形式')}>
-              <NativeSelect
-                id="layout-preset-scope"
-                value={draft?.scope ?? chosen.scope ?? 'all'}
-                disabled={busy}
-                onChange={(event) => edit({ scope: event.target.value as LayoutPresetScope })}
-              >
-                {layoutPresetScopes.map((value) => (
-                  <option key={value} value={value}>
-                    {presetScopeLabel(value)}
-                  </option>
-                ))}
-              </NativeSelect>
             </Field>
             <div className="settings-actions">
               {drafts[chosen.id] && (
@@ -348,7 +309,6 @@ export function LayoutPresetSettings({
                       id: chosen.id,
                       expectedRevision: draft.revision,
                       name: draft.name.trim(),
-                      scope: draft.scope,
                     }))
                   )
                     setDrafts((previous) => {
@@ -377,7 +337,6 @@ export function LayoutPresetSettings({
                         ...context,
                         id: chosen.id,
                         name: chosen.name,
-                        scope: chosen.scope || 'all',
                         layout: current,
                       }),
                   })

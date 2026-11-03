@@ -5,7 +5,6 @@
 import { layoutGroups } from './layout-tree.js';
 import { tr } from '../../shared/i18n.js';
 
-export const layoutPresetScopes = ['all', 'sidebar', 'overlay', 'desktop'];
 const readingFeatures = new Set(['outline', 'terms', 'sites']);
 
 export function builtinLayoutPresets() {
@@ -81,25 +80,14 @@ export function matchingBuiltinLayout(layout, ids) {
   return layout.tabPosition === 'left' ? 'tabs-left' : 'tabs-top';
 }
 
-export function presetScopeLabel(scope = 'all') {
-  return (
-    { all: tr('通用'), sidebar: tr('侧栏推荐'), overlay: tr('浮层推荐'), desktop: tr('桌面推荐') }[
-      scope
-    ] || tr('通用')
-  );
+export function presetGroup(placement) {
+  return placement === 'overlay' || placement === 'desktop' ? 'overlay' : 'sidebar';
 }
 
 /** @param {import('../../shared/features').LayoutPreset[]} presets
  * @param {string} placement */
-export function sortedLayoutPresets(presets, placement) {
-  const rank = (preset) =>
-    preset.scope === placement ? 0 : !preset.scope || preset.scope === 'all' ? 1 : 2;
-  return [...presets].sort((a, b) => rank(a) - rank(b));
-}
-
-/** @param {import('../../shared/features').LayoutPreset} preset */
-export function layoutPresetLabel(preset) {
-  return `${preset.name} · ${presetScopeLabel(preset.scope)}`;
+export function layoutPresetsForPlacement(presets, placement) {
+  return presets.filter((preset) => presetGroup(preset.scope) === presetGroup(placement));
 }
 
 /** @param {import('../../shared/features').FeatureState} state */

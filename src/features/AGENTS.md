@@ -18,13 +18,13 @@ bots 使用现有主界面与 owner，独立 grokbotEnabled 开关控制；已�
 
 Bot 的 open-app 动作沿用功能 owner 和开关校验，通过 LaunchServices 按固定 bundle ID 打开 Grok Bot，不接受任意路径或 URL；不依赖 Codex 连接或有效目录，不调用咨询、不改变 stale 状态、不消费回复。
 
-- `layout_presets.rs`：命名主布局预设的保存、覆盖、名称/推荐形式更新、删除和应用；独立 layoutPresetsRevision 拒绝过期管理请求，应用同时校验 expectedLayout、当前位置、桌面 lease 与功能交接状态。仅修改主布局可见组合和分栏，不改变业务开关/owner/视图或其他形式偏好；主布局及命名预设共用可选 tabPosition，缺省为顶部，left 表示合并后左侧显示。文件保存失败回滚内存，旧配置默认空列表。
+- `layout_presets.rs`：命名主布局预设的保存、覆盖、改名、删除和应用；独立 layoutPresetsRevision 拒绝过期管理请求，应用同时校验 expectedLayout、当前位置、桌面 lease 与功能交接状态。仅修改主布局可见组合和分栏，不改变业务开关/owner/视图或其他形式偏好；主布局及命名预设共用可选 tabPosition，缺省为顶部，left 表示合并后左侧显示。文件保存失败回滚内存，旧配置默认空列表。
 
 main-placement 对相同目标的在途整组交接返回原快照，不新建 owner、不重置超时或草稿；不同目标及其他业务操作继续按原交接互斥和归属校验拒绝。
 
 主窗口 `main-settings` 与独立功能 `settings` 经共享 `settings_navigation` 在 ChatGPT 内打开完整设置及预设目的地，原 lease/owner 校验保留。预设保存/应用/改名/删除同时提供 `config layout` 写入，复用上述事务；CLI 删除及覆盖需确认。
 
-LayoutPreset.scope 缺省 all，允许 sidebar/overlay/desktop；推荐标签不限制应用位置。main-preset-update 支持名称/标记局部更新，与旧 rename 共用修订和保存回滚；覆盖未传 scope 时保留原值。应用只替换 placement 对应布局，不覆盖其他形式。
+LayoutPreset.scope 兼容旧 all/sidebar/overlay/desktop。新建按主界面位置写入 sidebar 或 overlay；旧 all 缺省视为侧栏，旧 desktop 视为悬浮。应用和覆盖校验归属，名称在组内唯一，改名保留归属。应用只替换当前 placement 对应布局。
 
 - `bot_reply.rs`：显式阅读时从本机当前账号的 transcript.replicas 读取所选 Bot，使用已验证目录的账号摘要、稳定 ID、名称和修订核对身份；校验 schema、roster 最新 entry 标记、消息顺序、回答分段边界和文件一致性。同次 request 的 send-message 正文完整拼接，附件单独标记；缓存缺失、过期或不完整时返回同步提示，不用摘要降级冒充全文。目录轮询不读取聊天，正文不写盘、不记录日志、不访问凭据或调用 BDK check。
 

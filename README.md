@@ -223,7 +223,7 @@ Use `config schema <scope>` for nested fields, choices, and examples covering St
 
 Names and files (up to 8 MB) wait for the current chat's Agent on your next message. Exports contain only personal additions, favorites, and mastered terms. `config set terminology --json '{"action":"reset-library"}' --confirm` removes personal content and import jobs while keeping the base glossary and its favorites and mastery records.
 
-The current preset and management entry sit with the main workspace layout in **Layout & position**. Presets share one library, labeled General, Sidebar, Overlay, or Desktop; these are recommendations, so a preset can be used in another form. Each form keeps its own layout. `scope` accepts `all`, `sidebar`, `overlay`, or `desktop`; `main-preset-update` edits a name or recommendation without replacing the saved layout.
+The current preset and management entry sit with the main workspace layout in **Layout & position**. Presets saved in the sidebar appear there. Page overlays and desktop windows share their saved presets. Each form keeps its own active layout. Legacy General presets appear in the sidebar.
 
 Agents can manage layout presets too: `config get layout` reads presets and the current layout; `config schema layout` lists fields and examples for `main-preset-save`, `main-preset-apply`, `main-preset-update`, `main-preset-rename`, and `main-preset-delete`. Execute them with `config set layout --json`. Overwriting and deleting require `--confirm`, with the same revision and layout checks as the UI.
 

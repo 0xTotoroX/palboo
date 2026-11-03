@@ -409,11 +409,8 @@
     background: var(--settings-control-hover);
   }
 }
-.layout-preset-scope {
-  flex: 0 0 auto;
+.layout-preset-apply > .buddy-icon {
   margin-inline-start: auto;
-  color: var(--buddy-muted);
-  font-size: 0.9em;
 }
 .layout-preset-navigation {
   margin-bottom: 16px;
@@ -478,10 +475,6 @@
   margin-top: 16px;
 }
 @media (max-width: 420px) {
-  .layout-preset-scope {
-    flex: 0 1 auto;
-    text-align: end;
-  }
   .layout-preset-features {
     gap: 4px 8px;
   }

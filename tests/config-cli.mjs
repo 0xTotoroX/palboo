@@ -340,7 +340,7 @@ try {
     id: preset.id,
     scope: 'all',
   });
-  assert.equal(updatedPreset.current.layoutPresets[0].scope, 'all');
+  assert.equal(updatedPreset.current.layoutPresets[0].scope, 'sidebar');
   assert.equal(updatedPreset.current.layoutPresets[0].name, '阅读');
   assert.deepEqual(updatedPreset.current.layoutPresets[0].layout, presetLayout);
   await assert.rejects(
@@ -385,7 +385,7 @@ try {
   );
   assert.equal(
     (await cli('get', 'layout')).layoutPresets[0].scope,
-    'all',
+    'sidebar',
     'overwrite retains scope',
   );
   await assert.rejects(

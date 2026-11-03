@@ -1,5 +1,5 @@
 // [INPUT]: Checked feature layouts, current surface membership and preset revisions.
-// [OUTPUT]: Shared named layouts with recommendation tags and atomic apply/save/update/delete; independent surface layouts and feature owners stay intact.
+// [OUTPUT]: Named layouts scoped to the sidebar or floating windows and atomic apply/save/update/delete; independent surface layouts and feature owners stay intact.
 // [POS]: Main-surface presentation preferences; persists inside features.json.
 // [PROTOCOL]: Keep features/AGENTS.md in sync.
 use super::*;
@@ -19,16 +19,27 @@ fn default_scope() -> String {
     "all".into()
 }
 
-fn preset_scope(input: &Value, fallback: &str) -> Result<String> {
-    let scope = match input.get("scope") {
-        Some(value) => value.as_str().context("布局预设适用形式无效")?,
-        None => fallback,
+fn preset_group(scope: &str) -> &str {
+    match scope {
+        "overlay" | "desktop" => "overlay",
+        _ => "sidebar",
+    }
+}
+
+fn check_preset_scope(input: &Value, scope: &str) -> Result<()> {
+    let Some(value) = input.get("scope") else {
+        return Ok(());
     };
+    let requested = value.as_str().context("布局预设适用形式无效")?;
     ensure!(
-        ["all", "sidebar", "overlay", "desktop"].contains(&scope),
+        ["all", "sidebar", "overlay", "desktop"].contains(&requested),
         "布局预设适用形式无效"
     );
-    Ok(scope.into())
+    ensure!(
+        preset_group(requested) == preset_group(scope),
+        "布局预设只能用于所属窗口形式"
+    );
+    Ok(())
 }
 
 fn valid_name(name: &str) -> bool {
@@ -50,7 +61,10 @@ pub(super) fn sanitize(presets: &mut Vec<LayoutPreset>) {
             && preset.layout.valid()
             && preset.layout.visible.is_some()
             && ids.insert(preset.id.clone())
-            && names.insert(preset.name.trim().to_lowercase())
+            && names.insert((
+                preset_group(&preset.scope).to_owned(),
+                preset.name.trim().to_lowercase(),
+            ))
     });
     presets.truncate(32);
 }
@@ -94,6 +108,14 @@ impl App {
                 placement == features.main.pref.placement,
                 "主界面位置已变化，请刷新后重试"
             );
+            let group = preset_group(placement);
+            check_preset_scope(input, group)?;
+            if let Some(i) = index {
+                ensure!(
+                    preset_group(&features.main.pref.layout_presets[i].scope) == group,
+                    "布局预设只能用于所属窗口形式"
+                );
+            }
             if let Some(lease) = input.get("lease") {
                 ensure!(
                     placement == "desktop"
@@ -140,13 +162,11 @@ impl App {
                 let name = input["name"].as_str().context("缺少预设名称")?.trim();
                 ensure!(valid_name(name), "预设名称需为 1–40 个字");
                 ensure!(
-                    !features
-                        .main
-                        .pref
-                        .layout_presets
-                        .iter()
-                        .any(|preset| Some(preset.id.as_str()) != id
-                            && preset.name.to_lowercase() == name.to_lowercase()),
+                    !features.main.pref.layout_presets.iter().any(|preset| Some(
+                        preset.id.as_str()
+                    ) != id
+                        && preset_group(&preset.scope) == group
+                        && preset.name.to_lowercase() == name.to_lowercase()),
                     "已存在同名布局预设"
                 );
                 let preset = LayoutPreset {
@@ -154,12 +174,7 @@ impl App {
                         .map(str::to_owned)
                         .unwrap_or_else(|| uuid::Uuid::new_v4().to_string()),
                     name: name.into(),
-                    scope: preset_scope(
-                        input,
-                        index.map_or("all", |i| {
-                            features.main.pref.layout_presets[i].scope.as_str()
-                        }),
-                    )?,
+                    scope: group.into(),
                     layout,
                 };
                 if let Some(index) = index {
@@ -189,25 +204,20 @@ impl App {
                         .unwrap_or(&old.name)
                         .trim()
                         .to_owned();
-                    let scope = if op == "main-preset-update" {
-                        preset_scope(input, &old.scope)?
-                    } else {
-                        old.scope.clone()
-                    };
+                    if op == "main-preset-update" {
+                        check_preset_scope(input, &old.scope)?;
+                    }
+                    let group = preset_group(&old.scope);
                     ensure!(valid_name(&name), "预设名称需为 1–40 个字");
                     ensure!(
-                        !features
-                            .main
-                            .pref
-                            .layout_presets
-                            .iter()
-                            .enumerate()
-                            .any(|(other, preset)| other != index
-                                && preset.name.to_lowercase() == name.to_lowercase()),
+                        !features.main.pref.layout_presets.iter().enumerate().any(
+                            |(other, preset)| other != index
+                                && preset_group(&preset.scope) == group
+                                && preset.name.to_lowercase() == name.to_lowercase()
+                        ),
                         "已存在同名布局预设"
                     );
                     features.main.pref.layout_presets[index].name = name;
-                    features.main.pref.layout_presets[index].scope = scope;
                 }
                 "main-preset-delete" => {
                     features.main.pref.layout_presets.remove(index);
@@ -347,7 +357,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn shared_scopes_preserve_legacy_presets_and_independent_surface_layouts() {
+    async fn floating_presets_share_a_group_and_reject_sidebar_access() {
         let legacy: LayoutPreset = serde_json::from_value(
             json!({"id":"old","name":"旧预设","layout":layout(json!(["outline"]))}),
         )
@@ -390,15 +400,28 @@ mod tests {
                 entry.pref.placement = "overlay".into();
             }
         }
-        let applied = app.feature_request(json!({"op":"main-preset-apply","id":id,"placement":"overlay","expectedRevision":2,"expectedLayout":null})).await.unwrap();
+        assert!(app.feature_request(json!({"op":"main-preset-apply","id":id,"placement":"overlay","expectedRevision":2,"expectedLayout":null})).await.is_err());
+        assert!(
+            app.feature_request(
+                json!({"op":"main-preset-update","id":id,"scope":"overlay","expectedRevision":2})
+            )
+            .await
+            .is_err()
+        );
+        let floating = app.feature_request(json!({"op":"main-preset-save","placement":"overlay","expectedRevision":2,"expectedLayout":null,"name":"对照","layout":layout(json!(["outline","next"]))})).await.unwrap();
+        assert_eq!(floating["layoutPresets"][1]["scope"], "overlay");
+        {
+            let mut features = app.features.lock().await;
+            features.main.pref.placement = "desktop".into();
+            for entry in features.entries.values_mut() {
+                entry.pref.placement = "desktop".into();
+            }
+        }
+        let applied = app.feature_request(json!({"op":"main-preset-apply","id":floating["layoutPresets"][1]["id"],"placement":"desktop","expectedRevision":3,"expectedLayout":null})).await.unwrap();
         assert_eq!(applied["layouts"]["sidebar"], sidebar);
         assert_eq!(
-            applied["layouts"]["overlay"],
-            saved["layoutPresets"][0]["layout"]
-        );
-        assert_eq!(
-            applied["layoutPresets"][0]["scope"], "sidebar",
-            "scope is a recommendation, not an application restriction"
+            applied["layouts"]["desktop"],
+            floating["layoutPresets"][1]["layout"]
         );
         let restored = Features::load(&app.paths).snapshot();
         assert_eq!(restored["layouts"], applied["layouts"]);

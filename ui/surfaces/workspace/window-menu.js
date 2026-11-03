@@ -9,8 +9,7 @@ import {
   mainFeatureIds,
   layoutSnapshot,
   matchesLayoutPreset,
-  sortedLayoutPresets,
-  presetScopeLabel,
+  layoutPresetsForPlacement,
   builtinLayout,
   builtinLayoutAvailable,
   builtinLayoutPresets,
@@ -97,7 +96,7 @@ export function installWindowMenu(
       node.textContent = tr(node.dataset.copy);
     });
     root.querySelector('[data-menu-pin]').setAttribute('aria-checked', String(pinned));
-    const entries = sortedLayoutPresets(
+    const entries = layoutPresetsForPlacement(
       state?.layoutPresets || [],
       state?.mainPlacement || 'sidebar',
     );
@@ -112,11 +111,10 @@ export function installWindowMenu(
       },
       {
         label: tr('自定义预设'),
-        options: entries.map(({ id, name, scope }) => ({
+        options: entries.map(({ id, name }) => ({
           id,
           label: name,
           icon: 'bookmark',
-          hint: presetScopeLabel(scope),
         })),
       },
     ];
@@ -140,7 +138,6 @@ export function installWindowMenu(
               button.type = 'button';
               button.setAttribute('role', 'menuitemradio');
               button.dataset.preset = preset.id;
-              if (preset.hint) button.title = preset.hint;
               button.innerHTML = iconSvg(preset.icon);
               const label = document.createElement('span');
               label.textContent = preset.label;
@@ -215,7 +212,6 @@ export function installWindowMenu(
       else if (button.hasAttribute('data-save-preset')) {
         saveContext = {
           ...context(),
-          scope: state.mainPlacement,
           layout: layoutSnapshot(layout(), mainFeatureIds(state)),
         };
         menu.hidden = true;
