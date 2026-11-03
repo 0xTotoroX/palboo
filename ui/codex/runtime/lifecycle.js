@@ -24,6 +24,7 @@ import {
   featurePlacement,
   featureTransitioning,
   revealMainFeature,
+  revealFeature,
   reopenMainFeatures,
 } from '../../surfaces/embedded/features.js';
 import { syncLauncher, stopLauncher } from '../../surfaces/embedded/launcher.js';
@@ -129,10 +130,12 @@ import {
 import { fallbackHostTypography, readSettingsAppearance } from '../appearance.js';
 import { installStyle } from '../../surfaces/embedded/shell/install-styles.js';
 import {
+  clearOutlineReplyControls,
   invalidateOutline,
-  outlineClearMarks,
   refreshOutline,
   resetOutlineFeature,
+  syncOutlineReplyControls,
+  syncSelectedOutline,
 } from '../outline.js';
 import { nativeGestureEnded, panelPreferences } from '../../surfaces/desktop/legacy/transport.js';
 import {
@@ -181,12 +184,18 @@ function scanCurrent(generation, timerId) {
   }
 
   if (!bindingSourceReady()) {
+    clearOutlineReplyControls();
     setScanStatus('source-unavailable', {});
     renderFloat();
     return;
   }
   if (!chatSurfaceReady()) {
-    if (outlineActive && (outlineState.outlineItems.length || outlineState.outlineMessage))
+    clearOutlineReplyControls();
+    if (
+      outlineActive &&
+      !outlineState.outlineHistorical &&
+      (outlineState.outlineItems.length || outlineState.outlineMessage)
+    )
       invalidateOutline();
     const busy = chatBusy();
     const statusChanged = setScanStatus('not-ready', { busy });
@@ -195,6 +204,9 @@ function scanCurrent(generation, timerId) {
     if (busy) scheduleScan(STREAM_IDLE_MS);
     return;
   }
+  const followLatest = outlineActive && !outlineState.outlineHistorical;
+  if (outlineActive) syncOutlineReplyControls(revealReplyOutline);
+  if (outlineActive && outlineState.outlineHistorical) syncSelectedOutline();
   if (contextState.scanBusy) contextState.lastAssistantAt = Date.now();
 
   const message = findLatestAssistantMessage();
@@ -204,7 +216,7 @@ function scanCurrent(generation, timerId) {
       contextState.activeContext.assistantMessageId = '';
       clearPromptsForNewAssistant('');
     }
-    if (outlineActive && (outlineState.outlineItems.length || outlineState.outlineMessage))
+    if (followLatest && (outlineState.outlineItems.length || outlineState.outlineMessage))
       invalidateOutline();
     const statusChanged = setScanStatus('no-assistant-message', {});
     if (statusChanged) renderFloat();
@@ -214,7 +226,7 @@ function scanCurrent(generation, timerId) {
   const nextAssistantMessageId = assistantMessageId(message);
   if (contextState.activeContext.assistantMessageId !== nextAssistantMessageId) {
     contextState.activeContext.assistantMessageId = nextAssistantMessageId;
-    if (outlineActive) invalidateOutline(message);
+    if (followLatest) invalidateOutline(message);
   }
 
   const sourceText = normalizeText(message.text);
@@ -228,7 +240,7 @@ function scanCurrent(generation, timerId) {
     shellState.surpriseUntil = now + NEW_ANSWER_EXPRESSION_MS;
     scheduleExpressionRefresh(NEW_ANSWER_EXPRESSION_MS);
     setScanStatus('assistant-changed', { hash, textLength: assistantText.length });
-    if (outlineActive) invalidateOutline(message, hash);
+    if (followLatest) invalidateOutline(message, hash);
     if (stepwiseActive) {
       clearPromptsForNewAssistant(hash);
     } else {
@@ -245,7 +257,7 @@ function scanCurrent(generation, timerId) {
   }
 
   if (
-    outlineActive &&
+    followLatest &&
     (outlineState.outlineSourceHash !== hash || !outlineState.outlineMessage?.isConnected) &&
     !outlineState.outlineRefreshPromise
   ) {
@@ -339,7 +351,13 @@ function installObserver() {
           mutation.target.closest('[data-palboo-features-root],[data-palboo-token-meter]'))
       )
         return false;
-      return mutation.addedNodes.length || mutation.type === 'characterData';
+      return (
+        mutation.addedNodes.length ||
+        mutation.type === 'characterData' ||
+        (outlineState.outlineHistorical &&
+          outlineState.outlineMessage &&
+          !outlineState.outlineMessage.isConnected)
+      );
     });
     if (relevant) scheduleScan();
   });
@@ -421,17 +439,8 @@ function stopRuntime() {
   shellState.typographyObserver = null;
   disposePopoutFonts();
   clearPromptInteractionTimers();
-  outlineClearMarks();
-  outlineState.outlineItems = [];
-  outlineState.outlineRefreshPromise = null;
-  outlineState.outlineMessage = null;
-  outlineState.outlineScrollCleanup?.();
-  outlineState.outlineScrollCleanup = null;
-  outlineState.outlineSourceHash = '';
-  outlineState.outlineContext = null;
-  outlineState.outlineFingerprint = '';
-  outlineState.outlineStatus = 'idle';
-  outlineState.outlineError = '';
+  clearOutlineReplyControls();
+  resetOutlineFeature();
   shellState.featureCleanup?.();
   shellState.root?.remove();
   shellState.root = null;
@@ -536,6 +545,22 @@ async function start() {
     activateRuntime();
   })();
   return runtimeState.startupPromise;
+}
+
+function revealReplyOutline() {
+  if (independentFeatures()) {
+    const epoch = outlineState.outlineEpoch;
+    void revealFeature('outline').catch((error) => {
+      if (outlineState.outlineEpoch !== epoch) return;
+      outlineState.outlineError = String(error);
+      outlineState.outlineStatus = 'error';
+      emitSignal('render', undefined);
+    });
+    return;
+  }
+  shellState.activeTab = 'outline';
+  setOpen(true, 'panel');
+  emitSignal('render', { preserveMorph: true });
 }
 
 async function launcherAction(action, toggle = false) {

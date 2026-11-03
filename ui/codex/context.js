@@ -1188,6 +1188,7 @@ function findPreviousUserText(message) {
 }
 
 export {
+  actionRowForMessage,
   bindingSourceReady,
   chatBindingStatus,
   changeChatBinding,
@@ -1202,6 +1203,7 @@ export {
   composerCandidates,
   contextMatches,
   contextSnapshot,
+  conversationTurn,
   disabledButton,
   findLatestAssistantMessage,
   terminologyExchange,

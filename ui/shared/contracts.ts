@@ -230,6 +230,7 @@ export interface PanelSnapshot {
   prompts: PromptItem[];
   outlineItems: OutlineItem[];
   outlineStatus: string;
+  outlineHistorical?: boolean;
   outlineError: string;
   bridgeStatus: string;
   bridgeError: string;
@@ -265,7 +266,8 @@ export interface PanelCommand {
     | 'generate'
     | 'outline-refresh'
     | 'outline-jump'
-    | 'outline-anchor';
+    | 'outline-anchor'
+    | 'outline-latest';
   instanceId: string;
   viewToken: string;
   context: ContextSnapshot;

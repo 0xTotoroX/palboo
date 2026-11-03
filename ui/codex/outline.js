@@ -21,11 +21,14 @@ import {
   STREAM_IDLE_MS,
 } from '../shared/constants.js';
 import {
+  actionRowForMessage,
   assistantMessageId,
   chatBusy,
+  chatRoot,
   bindingSourceReady,
   contextMatches,
   contextSnapshot,
+  conversationTurn,
   findLatestAssistantMessage,
   labeledMessageContainer,
 } from './context.js';
@@ -42,6 +45,92 @@ import { outlineCollectItems } from './outline-parser.js';
 import { contentSafeBounds } from './appearance.js';
 import { emitSignal } from './runtime/signals.js';
 import { remotePanelAction } from '../surfaces/desktop/legacy/transport.js';
+import { iconSvg } from '../shared/icons/index.js';
+
+const REPLY_ACTION = 'data-palboo-outline-reply';
+
+function selectedOutlineMessage() {
+  const key = outlineState.outlineSelectedTurnKey;
+  const turns = Array.from(chatRoot()?.querySelectorAll(CONVERSATION_TURN_SELECTOR) || []).filter(
+    (turn) => turn.getAttribute('data-content-search-turn-key') === key,
+  );
+  return turns.length === 1 ? conversationTurn(turns[0])?.assistantMessage : null;
+}
+
+function clearOutlineReplyControls() {
+  document.querySelectorAll(`[${REPLY_ACTION}]`).forEach((button) => button.remove());
+}
+
+function syncOutlineReplyControls(reveal) {
+  const root = chatRoot();
+  document.querySelectorAll(`[${REPLY_ACTION}]`).forEach((button) => {
+    if (!root?.contains(button)) button.remove();
+  });
+  const turns = Array.from(root?.querySelectorAll(CONVERSATION_TURN_SELECTOR) || []);
+  const newest = turns.reduce((key, turn) => {
+    const current = turn.getAttribute('data-content-search-turn-key') || '';
+    return current > key ? current : key;
+  }, '');
+  for (const turn of turns) {
+    const key = turn.getAttribute('data-content-search-turn-key');
+    if (!key) continue;
+    const reply = labeledMessageContainer(turn, 'assistant');
+    const previous = turn.querySelector(`[${REPLY_ACTION}]`);
+    if (!reply || (key === newest && chatBusy())) {
+      previous?.remove();
+      continue;
+    }
+    if (previous && reply.contains(previous) && previous.getAttribute(REPLY_ACTION) === key) {
+      previous.setAttribute('aria-pressed', String(outlineState.outlineSelectedTurnKey === key));
+      continue;
+    }
+    previous?.remove();
+    const row = actionRowForMessage(reply) || reply;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.setAttribute(REPLY_ACTION, key);
+    button.setAttribute('aria-pressed', String(outlineState.outlineSelectedTurnKey === key));
+    button.title = tr('查看此回复的大纲');
+    button.setAttribute('aria-label', button.title);
+    button.innerHTML = iconSvg('outline');
+    button.addEventListener('click', (event) => {
+      event.stopPropagation();
+      if (!outlineEnabled() || !bindingSourceReady() || !chatRoot()?.contains(turn)) return;
+      if (conversationTurn(turn)?.assistantMessage?.node !== reply) return;
+      const latest = findLatestAssistantMessage();
+      if (chatBusy() && latest?.turnKey === key) return;
+      resetOutlineFeature();
+      outlineState.outlineSelectedTurnKey = latest?.turnKey === key ? '' : key;
+      outlineState.outlineHistorical = Boolean(outlineState.outlineSelectedTurnKey);
+      void refreshOutline();
+      reveal();
+      emitSignal('scan', 0);
+    });
+    row.append(button);
+  }
+}
+
+function followLatestOutline() {
+  if (IS_POPOUT) return remotePanelAction('outline-latest');
+  if (!outlineState.outlineSelectedTurnKey || !bindingSourceReady()) return false;
+  resetOutlineFeature();
+  void refreshOutline();
+  emitSignal('scan', 0);
+  return true;
+}
+
+function syncSelectedOutline() {
+  const message = selectedOutlineMessage();
+  if (message) {
+    if (
+      outlineState.outlineMessage !== message.node ||
+      outlineState.outlineSourceHash !== hashText(message.text)
+    )
+      void refreshOutline();
+  } else if (outlineState.outlineStatus !== 'unavailable') {
+    void refreshOutline();
+  }
+}
 
 function outlineMarkItems(items, sourceHash) {
   items.forEach((item, index) => {
@@ -185,11 +274,23 @@ function outlineScrollToElement(element) {
   return true;
 }
 
-function outlineScrollToEnd(fromElement) {
+function outlineScrollToEnd(fromElement, historical) {
   const container = outlineFindScrollContainer(fromElement);
   if (!(container instanceof Element)) return false;
   outlineState.outlineScrollCleanup?.();
-  const targetTop = outlineScrollBounds(container).max;
+  const bounds = outlineScrollBounds(container);
+  const viewportBottom = outlineIsDocumentScroller(container)
+    ? window.innerHeight
+    : container.getBoundingClientRect().bottom;
+  const targetTop = historical
+    ? clamp(
+        container.scrollTop +
+          (fromElement.getBoundingClientRect().bottom - viewportBottom) /
+            outlineScrollScale(container),
+        bounds.min,
+        bounds.max,
+      )
+    : bounds.max;
   if (Math.abs(container.scrollTop - targetTop) < 0.5) return true;
   try {
     container.scrollTo({ top: targetTop, behavior: 'smooth' });
@@ -201,8 +302,9 @@ function outlineScrollToEnd(fromElement) {
 
 function outlineResolveElement(id) {
   const item = outlineState.outlineItems.find((entry) => entry.id === id) || null;
-  if (!item || !contextMatches(outlineState.outlineContext)) return null;
-  const message = findLatestAssistantMessage();
+  const historical = Boolean(outlineState.outlineSelectedTurnKey);
+  if (!item || !contextMatches(outlineState.outlineContext, { answer: !historical })) return null;
+  const message = historical ? selectedOutlineMessage() : findLatestAssistantMessage();
   if (
     !message?.node?.isConnected ||
     assistantMessageId(message) !== outlineState.outlineContext.assistantMessageId ||
@@ -249,7 +351,12 @@ function outlineJumpTo(id) {
     });
     return true;
   }
-  if (contextState.chatBinding.mode === 'locked' && !contextMatches(contextSnapshot()))
+  if (
+    contextState.chatBinding.mode === 'locked' &&
+    !contextMatches(contextSnapshot(), {
+      answer: !outlineState.outlineHistorical,
+    })
+  )
     return false;
   const element = outlineResolveElement(id);
   if (!(element instanceof Element)) return false;
@@ -260,6 +367,14 @@ function outlineJumpTo(id) {
 }
 
 function outlineCurrentMessageElement() {
+  if (outlineState.outlineSelectedTurnKey) {
+    const selected = selectedOutlineMessage();
+    return selected &&
+      contextMatches(outlineState.outlineContext, { answer: false }) &&
+      hashText(selected.text) === outlineState.outlineSourceHash
+      ? selected.node
+      : null;
+  }
   if (outlineState.outlineMessage?.isConnected) return outlineState.outlineMessage;
   const latest = findLatestAssistantMessage();
   return latest?.node instanceof Element ? latest.node : null;
@@ -283,7 +398,12 @@ function outlineJumpToAnchor(anchor) {
     });
     return true;
   }
-  if (contextState.chatBinding.mode === 'locked' && !contextMatches(contextSnapshot()))
+  if (
+    contextState.chatBinding.mode === 'locked' &&
+    !contextMatches(contextSnapshot(), {
+      answer: !outlineState.outlineHistorical,
+    })
+  )
     return false;
   const message = outlineCurrentMessageElement();
   if (!(message instanceof Element)) return false;
@@ -297,7 +417,7 @@ function outlineJumpToAnchor(anchor) {
   }
   if (anchor === 'end') {
     outlineSetActiveTarget({ anchor });
-    return outlineScrollToEnd(message);
+    return outlineScrollToEnd(message, Boolean(outlineState.outlineSelectedTurnKey));
   }
   return false;
 }
@@ -317,7 +437,7 @@ function outlineBuild(message, sourceHash) {
   ) {
     return { items: [], fingerprint: `${sourceHash}|empty`, message: message.node };
   }
-  outlineMarkItems(items, sourceHash);
+  outlineMarkItems(items, `${assistantMessageId(message)}:${sourceHash}`);
   return {
     items,
     fingerprint: `${sourceHash}|${hashText(items.map((item) => `${item.level}:${item.text}`).join('|'))}`,
@@ -348,10 +468,11 @@ async function refreshOutline(options = {}) {
   if (outlineState.outlineRefreshPromise) return outlineState.outlineRefreshPromise;
   const requestContext = contextSnapshot();
   const requestEpoch = outlineState.outlineEpoch;
+  const historical = Boolean(outlineState.outlineSelectedTurnKey);
   const requestCurrent = () =>
     outlineEnabled() &&
     requestEpoch === outlineState.outlineEpoch &&
-    contextMatches(requestContext);
+    contextMatches(requestContext, { answer: !historical });
   outlineState.outlineStatus = 'pending';
   outlineState.outlineError = '';
   if (shellState.layoutMode === 'workbench' || shellState.activeTab === 'outline')
@@ -360,9 +481,16 @@ async function refreshOutline(options = {}) {
   const task = Promise.resolve()
     .then(() => {
       if (!requestCurrent()) return;
-      const message = options.message || findLatestAssistantMessage();
-      const sourceHash = options.assistantHash || hashText(message?.text || '');
-      if (chatBusy()) {
+      const message = historical
+        ? selectedOutlineMessage()
+        : options.message || findLatestAssistantMessage();
+      const sourceHash = (historical ? '' : options.assistantHash) || hashText(message?.text || '');
+      if (historical && !message) {
+        invalidateOutline();
+        outlineState.outlineStatus = 'unavailable';
+        return;
+      }
+      if (!historical && chatBusy()) {
         outlineState.outlineError = tr('回答尚未完成，完成后再试');
         outlineState.outlineStatus = 'pending';
         emitSignal('scan', STREAM_IDLE_MS);
@@ -389,8 +517,8 @@ async function refreshOutline(options = {}) {
       outlineState.outlineError = error?.message || tr('大纲暂不可用');
     })
     .finally(() => {
-      if (!requestCurrent()) return;
       if (outlineState.outlineRefreshPromise === task) outlineState.outlineRefreshPromise = null;
+      if (!requestCurrent()) return;
       if (shellState.layoutMode === 'workbench' || shellState.activeTab === 'outline')
         emitSignal('render', { preserveMorph: true });
     });
@@ -406,6 +534,8 @@ function resetOutlineFeature() {
   outlineState.outlineItems = [];
   outlineState.outlineRefreshPromise = null;
   outlineState.outlineMessage = null;
+  outlineState.outlineSelectedTurnKey = '';
+  outlineState.outlineHistorical = false;
   outlineState.outlineSourceHash = '';
   outlineState.outlineContext = null;
   outlineState.outlineFingerprint = '';
@@ -414,10 +544,14 @@ function resetOutlineFeature() {
 }
 
 export {
+  clearOutlineReplyControls,
+  followLatestOutline,
   invalidateOutline,
   outlineClearMarks,
   outlineJumpTo,
   outlineJumpToAnchor,
   refreshOutline,
   resetOutlineFeature,
+  syncOutlineReplyControls,
+  syncSelectedOutline,
 };

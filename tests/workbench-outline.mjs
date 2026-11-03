@@ -64,6 +64,68 @@ async function checkTargets(page, result) {
 export function outlineCases({ mode }) {
   return [
     [
+      '大纲：选择旧回复，定位原文，再恢复跟随最新回答',
+      async (page) => {
+        await mode(page, true);
+        await setAnswer(
+          page,
+          '<h2 data-outline-fixture="old">旧回复的正式标题</h2>' + paragraphs(4),
+        );
+        await page.evaluate(() => {
+          const turn = document.querySelector('[data-content-search-turn-key]');
+          const newer = turn.cloneNode(true);
+          newer.setAttribute('data-content-search-turn-key', 'turn-0002');
+          newer
+            .querySelectorAll('[data-palboo-outline-reply]')
+            .forEach((button) => button.remove());
+          const answer = newer.querySelector('#answer');
+          answer.id = 'answer-new';
+          answer.innerHTML = '<h2>新回复的正式标题</h2><p>这是一条较新的合成回答。</p>';
+          turn.after(newer);
+          window.__companionFloatingPanel.scan();
+        });
+        const outline = page.locator('[data-view-body="outline"]');
+        await outline.getByRole('button', { name: '新回复的正式标题' }).waitFor();
+        const oldButton = page.locator('[data-palboo-outline-reply="turn-0001"]');
+        await oldButton.click();
+        await outline.getByRole('button', { name: '旧回复的正式标题' }).waitFor();
+        assert.equal(await oldButton.getAttribute('aria-pressed'), 'true');
+        await checkTargets(page, await items(page));
+
+        await page.evaluate(() => {
+          document.querySelector('#answer-new h2').textContent = '更新后的最新回答';
+          window.__companionFloatingPanel.scan();
+        });
+        await page.waitForFunction(() => {
+          const view = window.__companionFloatingPanel.exportPanelState();
+          return (
+            view.context.assistantMessageId === 'turn:turn-0002' &&
+            view.outlineHistorical &&
+            view.outlineItems[0]?.text === '旧回复的正式标题'
+          );
+        });
+        await page.evaluate(() => {
+          const old = document.querySelector('[data-content-search-turn-key="turn-0001"]');
+          const next = old.nextElementSibling;
+          old.remove();
+          window.addEventListener(
+            'fixture-remount-old-reply',
+            () => {
+              next.before(old);
+              window.__companionFloatingPanel.scan();
+            },
+            { once: true },
+          );
+        });
+        await outline.getByText('所选回复未显示，请滚动到原文。').waitFor();
+        await page.evaluate(() => window.dispatchEvent(new Event('fixture-remount-old-reply')));
+        await outline.getByRole('button', { name: '旧回复的正式标题' }).waitFor();
+        await outline.getByRole('button', { name: '跟随最新回答' }).click();
+        await outline.getByRole('button', { name: '更新后的最新回答' }).waitFor();
+        assert.equal(await outline.getByRole('button', { name: '跟随最新回答' }).count(), 0);
+      },
+    ],
+    [
       '大纲：新版角色属性和隐藏打印标签、旧版中英文标签均识别回答',
       async (page) => {
         await mode(page, true);

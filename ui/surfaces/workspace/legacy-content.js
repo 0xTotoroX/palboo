@@ -18,7 +18,7 @@ import {
   stepwiseState,
   contextState,
 } from '../../codex/runtime/state.js';
-import { outlineJumpTo, outlineJumpToAnchor } from '../../codex/outline.js';
+import { followLatestOutline, outlineJumpTo, outlineJumpToAnchor } from '../../codex/outline.js';
 import { fillComposer } from '../../codex/next.js';
 import { syncSettings } from '../../codex/runtime/settings-sync.js';
 import { emitSignal } from '../../codex/runtime/signals.js';
@@ -69,6 +69,10 @@ export const outlineHtml = () => markup(outlineState);
 export const alignOutlineNestedText = () => align(shellState.panel);
 export const attachOutlineEvents = (root = shellState.panel) =>
   bind(root, (kind, data) => {
+    if (kind === 'outline-latest') {
+      void followLatestOutline();
+      return;
+    }
     const ok = kind === 'outline-jump' ? outlineJumpTo(data.id) : outlineJumpToAnchor(data.anchor);
     if (!ok) {
       outlineState.outlineStatus = 'error';

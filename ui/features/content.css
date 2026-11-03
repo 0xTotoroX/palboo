@@ -281,6 +281,43 @@
   min-height: 100%;
 }
 
+[data-palboo-outline-reply],
+.csw-outline-source button {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  min-height: 28px;
+  padding: 0 6px;
+}
+
+[data-palboo-outline-reply] {
+  align-self: flex-start;
+  display: inline-grid;
+  min-width: 28px;
+  place-items: center;
+}
+
+[data-palboo-outline-reply] svg {
+  width: 18px;
+  height: 18px;
+}
+
+[data-palboo-outline-reply]:hover,
+[data-palboo-outline-reply][aria-pressed='true'],
+.csw-outline-source button:hover {
+  background: var(--csw-hover, var(--color-background-surface-secondary, transparent));
+}
+
+.csw-outline-source {
+  color: var(--csw-muted);
+  display: flex;
+  justify-content: flex-end;
+}
+
 .csw-outline-toolbar {
   align-items: center;
   display: flex;

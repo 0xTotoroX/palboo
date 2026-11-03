@@ -26,7 +26,7 @@ import { mainChatSessionId } from '../context.js';
 import { emitSignal } from './signals.js';
 import { resetStepwiseFeature } from '../next.js';
 import { pushDiagnostic } from './diagnostics.js';
-import { resetOutlineFeature } from '../outline.js';
+import { clearOutlineReplyControls, resetOutlineFeature } from '../outline.js';
 
 function applyRuntimeSettings(nextSettings) {
   const hadStepwise = stepwiseEnabled();
@@ -37,7 +37,10 @@ function applyRuntimeSettings(nextSettings) {
   runtimeState.settingsFingerprint = settingsFingerprint(nextSettings);
   emitSignal('tools', undefined);
   if (hadStepwise && !stepwiseEnabled()) resetStepwiseFeature();
-  if (hadOutline && !outlineEnabled()) resetOutlineFeature();
+  if (hadOutline && !outlineEnabled()) {
+    resetOutlineFeature();
+    clearOutlineReplyControls();
+  }
   if (
     hadStepwise &&
     stepwiseEnabled() &&

@@ -193,6 +193,8 @@ function createOutlineState(preferences) {
     outlineContext: null,
     outlineRefreshPromise: null,
     outlineMessage: null,
+    outlineSelectedTurnKey: '',
+    outlineHistorical: false,
     outlineScrollCleanup: null,
     outlineEpoch: 0,
   };

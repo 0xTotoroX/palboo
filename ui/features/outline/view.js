@@ -35,23 +35,26 @@ export function alignOutlineNestedText(root) {
 }
 
 export function outlineHtml(snapshot) {
+  const source = snapshot.outlineHistorical
+    ? `<div class="csw-outline-source"><button type="button" data-outline-latest>${tr('跟随最新回答')}</button></div>`
+    : '';
   if (snapshot.outlineStatus === 'pending' && !snapshot.outlineItems.length) {
-    return `<div class="csw-progress" data-kind="outline" role="status" aria-label="${tr('等待回答完成')}">
+    return `${source}<div class="csw-progress" data-kind="outline" role="status" aria-label="${tr('等待回答完成')}">
         <span class="csw-progress-ring" aria-hidden="true"></span>
         <span class="csw-progress-copy"><span class="csw-progress-title">${tr('等待回答完成')}</span></span>
       </div>`;
   }
   if (snapshot.outlineStatus === 'error') {
-    return `<div class="csw-empty" data-kind="outline">
+    return `${source}<div class="csw-empty" data-kind="outline">
         <div class="csw-empty-title">${escapeHtml(outlineErrorTitle(snapshot.outlineError))}</div>
       </div>`;
   }
   if (!snapshot.outlineItems.length) {
-    return `<div class="csw-empty" data-kind="outline">
-        <div class="csw-empty-title">${tr('暂无大纲')}</div>
+    return `${source}<div class="csw-empty" data-kind="outline">
+        <div class="csw-empty-title">${tr(snapshot.outlineStatus === 'unavailable' ? '所选回复未显示，请滚动到原文。' : '暂无大纲')}</div>
       </div>`;
   }
-  return `<div class="csw-outline-view">
+  return `<div class="csw-outline-view">${source}
       <div class="csw-outline-list" role="list">${snapshot.outlineItems
         .map((item) => {
           const displayLevel = item.displayLevel ?? 0;
@@ -84,6 +87,9 @@ function outlineErrorTitle(error = '') {
 }
 
 export function attachOutlineEvents(root, command) {
+  root
+    .querySelector('[data-outline-latest]')
+    ?.addEventListener('click', () => command('outline-latest', {}));
   root.querySelectorAll('[data-outline-id]').forEach((button) => {
     button.addEventListener('click', () =>
       command('outline-jump', { id: button.dataset.outlineId }),

@@ -68,7 +68,12 @@ import {
   normalizePromptState,
   quickInputTarget,
 } from '../next.js';
-import { outlineJumpTo, outlineJumpToAnchor, refreshOutline } from '../outline.js';
+import {
+  followLatestOutline,
+  outlineJumpTo,
+  outlineJumpToAnchor,
+  refreshOutline,
+} from '../outline.js';
 import { panelPreferences, sizeNativePanel } from '../../surfaces/desktop/legacy/transport.js';
 
 let preferencesRevision = -1;
@@ -464,7 +469,13 @@ function exportPanelState() {
       runtimeState.settings?.quickPrompts,
     ]),
   );
-  const outlineToken = hashText(JSON.stringify(outline));
+  const outlineToken = hashText(
+    JSON.stringify([
+      outlineState.outlineContext?.assistantMessageId,
+      outlineState.outlineHistorical,
+      outline,
+    ]),
+  );
   const panelReading = readingState(viewToken);
   return {
     instanceId: INSTANCE_ID,
@@ -483,6 +494,7 @@ function exportPanelState() {
     prompts: stepwiseState.prompts,
     outlineItems: outline,
     outlineStatus: outlineState.outlineStatus,
+    outlineHistorical: outlineState.outlineHistorical,
     outlineError: outlineState.outlineError,
     bridgeStatus: stepwiseState.bridgeStatus,
     bridgeError: stepwiseState.bridgeError,
@@ -520,6 +532,7 @@ function panelCommand(command) {
       'outline-refresh',
       'outline-jump',
       'outline-anchor',
+      'outline-latest',
     ].includes(command?.kind)
   )
     return { ok: false, message: tr('不支持的浮窗操作。') };
@@ -528,15 +541,22 @@ function panelCommand(command) {
   if (!current || command.instanceId !== INSTANCE_ID || command.viewToken !== current.viewToken)
     return { ok: false, message: tr('回答或任务已经变化，请刷新后重试。') };
   if (command.kind === 'association') return changeChatBinding(command.action, command.sessionId);
+  const historicalOutline = command.kind.startsWith('outline-') && outlineState.outlineHistorical;
   if (
     !bindingSourceReady() ||
-    (!contextMatches(command.context, { answer: command.kind !== 'quick-fill' }) &&
+    (!contextMatches(command.context, {
+      answer: command.kind !== 'quick-fill' && !historicalOutline,
+    }) &&
       !(command.kind === 'quick-fill' && quickInputTarget()))
   )
     return { ok: false, message: tr('聊天来源暂不可用或已变化，请重新确认。') };
   if (['fill', 'generate'].includes(command.kind) && command.promptToken !== current.promptToken)
     return { ok: false, message: tr('建议或生成配置已经更新，请刷新后重试。') };
-  if (chatBusy() && (command.kind !== 'quick-fill' || command.submit === true))
+  if (
+    chatBusy() &&
+    !historicalOutline &&
+    (command.kind !== 'quick-fill' || command.submit === true)
+  )
     return { ok: false, message: tr('回答正在生成，请等待完成。') };
   if (command.kind === 'generate') {
     forceRefreshStepwise();
@@ -548,6 +568,7 @@ function panelCommand(command) {
   }
   if (command.kind.startsWith('outline-') && command.outlineToken !== current.outlineToken)
     return { ok: false, message: tr('大纲已经更新，请重新选择小节。') };
+  if (command.kind === 'outline-latest') return { ok: followLatestOutline() === true };
   if (command.kind === 'outline-jump')
     return outlineJumpTo(command.id)
       ? { ok: true }
@@ -624,6 +645,7 @@ async function receivePanelState(result, initial) {
   normalizePromptState(source.prompts);
   outlineState.outlineItems = source.outlineItems;
   outlineState.outlineStatus = source.outlineStatus;
+  outlineState.outlineHistorical = source.outlineHistorical === true;
   outlineState.outlineError = source.outlineError;
   stepwiseState.bridgeStatus = source.bridgeStatus;
   stepwiseState.bridgeError = source.bridgeError;

@@ -198,7 +198,9 @@ export function FeatureContent({
           locked ||
           !connected ||
           !enabled ||
-          (id !== 'prompts' && snapshot.scanBusy) ||
+          (id !== 'prompts' &&
+            !(id === 'outline' && snapshot.outlineHistorical) &&
+            snapshot.scanBusy) ||
           snapshot.association?.available === false
         }
         command={command}
