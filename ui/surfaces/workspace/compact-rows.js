@@ -2,31 +2,53 @@
  * [OUTPUT]: Complete title rows, readable expanded rows and cascading separator transfers.
  * [POS]: Pure vertical-row geometry, also used by the settings demonstration.
  * [PROTOCOL]: Keep workspace/AGENTS.md in sync. */
-export function compactRows(weights, height, header = 36, gap = 8, collapsed = []) {
+export function compactRows(
+  weights,
+  height,
+  header = 36,
+  gap = 8,
+  collapsed = [],
+  branchMinimums = [],
+) {
   if (!weights.length) return [];
-  const closed = new Set(weights.map((_, i) => i).filter((i) => collapsed[i]));
+  const indices = weights.map((_, i) => i);
+  const closed = new Set(indices.filter((i) => !branchMinimums[i] && collapsed[i]));
   if (closed.size === weights.length)
     return weights.map(() => ({ height: header, collapsed: true }));
   const minimum = header + 84;
+  const fixed = new Map([...closed].map((i) => [i, header]));
+  const firstBranch = branchMinimums.findIndex(Boolean);
+  const hasBranches = firstBranch !== -1;
   const available = Math.max(
     height - gap * (weights.length - 1),
-    header * (weights.length - 1) + minimum,
+    weights.reduce((sum, _, i) => sum + (branchMinimums[i] || header), 0) +
+      (hasBranches ? 0 : minimum - header),
   );
   let sizes;
   for (;;) {
-    const open = weights.map((_, i) => i).filter((i) => !closed.has(i));
+    const open = indices.filter((i) => !fixed.has(i));
     const total = open.reduce((sum, i) => sum + weights[i], 0);
-    sizes = weights.map((weight, i) =>
-      closed.has(i) ? header : ((available - closed.size * header) * weight) / total,
-    );
-    const smallest = open.reduce((a, b) => (sizes[a] <= sizes[b] ? a : b));
-    if (open.length === 1 || sizes[smallest] >= minimum) break;
+    const remaining = available - [...fixed.values()].reduce((sum, size) => sum + size, 0);
+    if (!open.length) {
+      sizes = indices.map((i) => fixed.get(i) + (i === firstBranch ? remaining : 0));
+      break;
+    }
+    sizes = weights.map((weight, i) => fixed.get(i) ?? (remaining * weight) / total);
+    const branch = open.find((i) => branchMinimums[i] && sizes[i] < branchMinimums[i]);
+    if (branch !== undefined) {
+      fixed.set(branch, branchMinimums[branch]);
+      continue;
+    }
+    const leaves = open.filter((i) => !branchMinimums[i] && sizes[i] < minimum);
+    if (!leaves.length || (!hasBranches && open.length === 1)) break;
+    const smallest = leaves.reduce((a, b) => (sizes[a] <= sizes[b] ? a : b));
     closed.add(smallest);
+    fixed.set(smallest, header);
   }
   return sizes.map((height, i) => ({ height, collapsed: closed.has(i) }));
 }
 
-export function transferRows(heights, boundary, delta, header = 36) {
+export function transferRows(heights, boundary, delta, header = 36, branchMinimums = []) {
   const result = [...heights];
   const receiver = delta >= 0 ? boundary - 1 : boundary;
   const donors = heights
@@ -35,7 +57,7 @@ export function transferRows(heights, boundary, delta, header = 36) {
   if (delta < 0) donors.reverse();
   let remaining = Math.abs(delta);
   for (const i of donors) {
-    const amount = Math.min(remaining, Math.max(0, result[i] - header));
+    const amount = Math.min(remaining, Math.max(0, result[i] - (branchMinimums[i] || header)));
     result[i] -= amount;
     result[receiver] += amount;
     remaining -= amount;

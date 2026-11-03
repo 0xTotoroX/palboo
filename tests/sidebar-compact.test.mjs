@@ -21,6 +21,7 @@ test('compact rows never crush a title, including very short containers', () => 
       assert.ok(result.some((row) => !row.collapsed));
     }
   assert.deepEqual(transferRows([150, 150, 150, 150], 1, 342), [492, 36, 36, 36]);
+  assert.deepEqual(transferRows([200, 160], 1, -100, 36, [180]), [180, 180]);
   assert.deepEqual(
     compactRows([1, 1, 1, 1, 1, 1], 900, 36, 8, Array(6).fill(true)),
     Array(6).fill({ height: 36, collapsed: true }),

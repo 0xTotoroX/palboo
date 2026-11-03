@@ -318,6 +318,51 @@ test('overdragging the divider merges the narrower column only when released bey
   }
 });
 
+test('standalone rows still fold when their vertical stack includes a split', async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage({
+      viewport: { width: 920, height: 720 },
+      reducedMotion: 'reduce',
+    });
+    page.setDefaultTimeout(5000);
+    await fixture(page, 'desktop', ['outline', 'next', 'prompts', 'bots']);
+    await page.evaluate(() => {
+      const row = (id) => ({ ids: [id], active: id, weight: 1 });
+      state.layouts.desktop = {
+        axis: 'vertical',
+        groups: [
+          { axis: 'horizontal', weight: 1, groups: [row('outline'), row('bots')] },
+          row('next'),
+          row('prompts'),
+        ],
+      };
+      return refresh();
+    });
+    const pane = page.locator('section[data-pane="prompts"]');
+    const divider = page.locator('.csw-feature-panes > [role="separator"]').last();
+    const handle = await divider.boundingBox();
+    const row = await pane.boundingBox();
+    const header = await pane.locator('.csw-feature-pane-head').boundingBox();
+    const x = handle.x + handle.width / 2;
+    const y = handle.y + handle.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x, y + row.height - header.height + 12, { steps: 12 });
+    await page.mouse.up();
+    assert.equal(await pane.getAttribute('data-compact'), 'true');
+    assert.ok(Math.abs((await pane.boundingBox()).height - header.height) < 1);
+    assert.equal(await divider.count(), 1);
+    assert.ok(
+      (await page.locator('.csw-feature-panes > .csw-feature-split').boundingBox()).height >= 180,
+    );
+    await page.locator('[data-pane-tab="prompts"]').click();
+    assert.equal(await pane.getAttribute('data-compact'), 'false');
+  } finally {
+    await browser.close();
+  }
+});
+
 test('dragging beyond a folded row merges it into its vertical neighbor and supports undo', async () => {
   const browser = await chromium.launch({ headless: true });
   try {

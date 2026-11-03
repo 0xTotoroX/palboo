@@ -3,6 +3,7 @@
  * [POS]: Workspace presentation; does not store bodies or create owners.
  * [PROTOCOL]: Keep workspace/AGENTS.md in sync. */
 import { compactRows } from './compact-rows.js';
+import { layoutMinimum } from './layout-tree.js';
 import { readWorkbenchScroll, writeWorkbenchScroll } from '../../shared/scroll.js';
 
 export function installSidebarCompact(panes) {
@@ -84,7 +85,7 @@ export function installSidebarCompact(panes) {
     },
     stop,
     apply(node, container, enabled, previous) {
-      const eligible = enabled && node.groups.every((group) => !group.groups);
+      const eligible = enabled;
       container.dataset.sidebarCompact = String(eligible);
       const sections = [...container.children].filter((el) => el.matches('section[data-pane]'));
       if (!eligible) {
@@ -113,8 +114,11 @@ export function installSidebarCompact(panes) {
         header,
         8,
         node.groups.map((group) => group.collapsed === true),
+        node.groups.map((group) => (group.groups ? layoutMinimum(group).height : 0)),
       );
-      rows.forEach((row, i) => collapse(sections[i], row.collapsed));
+      rows.forEach((row, i) => {
+        if (!node.groups[i].groups) collapse(container.children[i * 2], row.collapsed);
+      });
       const tracks = rows
         .flatMap((row, i) => (i ? ['8px', `${row.height}px`] : [`${row.height}px`]))
         .join(' ');
@@ -153,7 +157,7 @@ export function installSidebarCompact(panes) {
       if (!closed && !wasActive) return;
       function visit(node) {
         const index = node.groups.findIndex((group) => !group.groups && group.ids.includes(id));
-        if (index >= 0 && node.groups.every((group) => !group.groups)) {
+        if (index >= 0) {
           if (!closed) {
             node.groups[index].collapsed = true;
             return;

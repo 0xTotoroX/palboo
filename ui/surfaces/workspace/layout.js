@@ -331,6 +331,7 @@ export function installFeatureLayout(root, { save, error }) {
           compact: container.dataset.sidebarCompact === 'true',
           header: Number(container.dataset.compactHeader) || 36,
           groups: groups.map((group) => group.original),
+          branchMinimums: groups.map((group) => (group.groups ? layoutMinimum(group).height : 0)),
           heights: groups.map(
             (_, i) => container.children[i * 2].getBoundingClientRect().height / scale,
           ),
@@ -359,19 +360,28 @@ export function installFeatureLayout(root, { save, error }) {
         if (start.compact) {
           if (pointer) {
             const adjacent = delta < 0 ? index - 1 : index;
-            const donors = delta < 0 ? start.heights.slice(0, index) : start.heights.slice(index);
             // Preserve cascading folding. An already folded row can be merged directly.
             const room =
               start.heights[adjacent] <= start.header
                 ? 0
-                : donors.reduce((sum, height) => sum + Math.max(0, height - start.header), 0);
+                : start.heights.reduce((sum, height, i) => {
+                    if (delta < 0 ? i >= index : i < index) return sum;
+                    return sum + Math.max(0, height - (start.branchMinimums[i] || start.header));
+                  }, 0);
             previewMerge(start, delta, room);
           }
-          const heights = transferRows(start.heights, index, delta, start.header);
+          const heights = transferRows(
+            start.heights,
+            index,
+            delta,
+            start.header,
+            start.branchMinimums,
+          );
           const total = heights.reduce((sum, height) => sum + height, 0);
           const weight = start.groups.reduce((sum, group) => sum + group.weight, 0);
           start.groups.forEach((group, i) => {
             group.weight = (weight * heights[i]) / total;
+            if (start.branchMinimums[i]) return;
             if (heights[i] <= start.header) group.collapsed = true;
             else delete group.collapsed;
           });
@@ -512,7 +522,7 @@ export function installFeatureLayout(root, { save, error }) {
       axis === 'vertical' &&
       panes.dataset.tabPosition !== 'left' &&
       !focused &&
-      node.groups.every((group) => !group.groups);
+      node.groups.some((group) => !group.groups);
     // Capture live content before shrinking rows; an intermediate minimum-sized
     // grid could clamp a scroller before the compaction controller remembers it.
     if (!compactEnabled)
