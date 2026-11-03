@@ -20,6 +20,9 @@ import {
   presetScopeLabel,
   layoutPresetLabel,
   sortedLayoutPresets,
+  builtinLayout,
+  builtinLayoutPresets,
+  matchingBuiltinLayout,
 } from '../surfaces/workspace/layout-presets.js';
 import { SettingsDrawer } from './settings-drawer';
 import { Field } from './settings-controls';
@@ -54,6 +57,7 @@ export function LayoutPresetSettings({
   const placement = state.mainPlacement || 'sidebar';
   const presets = sortedLayoutPresets(state.layoutPresets || [], placement);
   const active = presets.find((preset) => matchesLayoutPreset(preset, layout, ids));
+  const builtins = builtinLayoutPresets();
   const revision = state.layoutPresetsRevision || 0;
   const chosen = presets.find((preset) => preset.id === selected) || active || presets[0];
   const confirmation = useConfirmation(revision, busy);
@@ -105,15 +109,30 @@ export function LayoutPresetSettings({
       <Field id="current-layout-preset" label={tr('当前预设')}>
         <NativeSelect
           id="current-layout-preset"
-          value={active?.id || ''}
-          disabled={busy || !ids.length || !presets.length}
-          onChange={(event) =>
-            void change({ op: 'main-preset-apply', ...context, id: event.target.value })
-          }
+          value={active?.id || matchingBuiltinLayout(layout, ids)}
+          disabled={busy || !ids.length}
+          onChange={(event) => {
+            const id = event.target.value;
+            if (builtins.some((preset) => preset.id === id))
+              void change({
+                op: 'main-layout',
+                placement: context.placement,
+                expectedLayout: context.expectedLayout,
+                layout: builtinLayout(id, layout, ids, state.activeFeature),
+              });
+            else void change({ op: 'main-preset-apply', ...context, id });
+          }}
         >
           <option value="" disabled>
             {tr('自定义布局')}
           </option>
+          <optgroup label={tr('内置预设')}>
+            {builtins.map(({ id, label }) => (
+              <option key={id} value={id}>
+                {label}
+              </option>
+            ))}
+          </optgroup>
           {presets.map((preset) => (
             <option key={preset.id} value={preset.id}>
               {layoutPresetLabel(preset)}

@@ -105,7 +105,12 @@ export type Entry = {
 };
 export type LayoutGroup = { ids: string[]; active: string; weight: number; collapsed?: boolean };
 export type LayoutNode = LayoutGroup | (FeatureLayout & { weight: number });
-export type FeatureLayout = { axis: string; groups: LayoutNode[]; visible?: string[] };
+export type FeatureLayout = {
+  axis: string;
+  groups: LayoutNode[];
+  visible?: string[];
+  tabPosition?: 'left';
+};
 export type LayoutPresetScope = 'all' | 'sidebar' | 'overlay' | 'desktop';
 export type LayoutPreset = {
   id: string;

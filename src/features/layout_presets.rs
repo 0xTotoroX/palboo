@@ -406,6 +406,20 @@ mod tests {
     }
 
     #[test]
+    fn left_tab_position_round_trips_and_defaults_to_top() {
+        let top = layout(json!(["outline", "next"]));
+        let parsed: FeatureLayout = serde_json::from_value(top.clone()).unwrap();
+        assert_eq!(serde_json::to_value(parsed).unwrap(), top);
+        let mut left = top;
+        left["tabPosition"] = json!("left");
+        let parsed: FeatureLayout = serde_json::from_value(left.clone()).unwrap();
+        assert!(parsed.valid());
+        assert_eq!(serde_json::to_value(parsed).unwrap(), left);
+        left["tabPosition"] = json!("right");
+        assert!(serde_json::from_value::<FeatureLayout>(left).is_err());
+    }
+
+    #[test]
     fn visible_membership_is_nonempty_unique_and_part_of_the_layout() {
         for visible in [
             json!([]),

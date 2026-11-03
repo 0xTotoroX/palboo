@@ -27,12 +27,19 @@ pub(super) enum LayoutNode {
     Split(LayoutSplit),
 }
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) enum TabPosition {
+    Left,
+}
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(super) struct FeatureLayout {
     pub axis: String,
     pub groups: Vec<LayoutNode>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub visible: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tab_position: Option<TabPosition>,
 }
 impl FeatureLayout {
     pub fn valid(&self) -> bool {

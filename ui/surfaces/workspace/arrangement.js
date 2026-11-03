@@ -137,16 +137,20 @@ export function installArrangement(
     'keydown',
     (event) => {
       const tab = event.target.closest('[data-pane-tab]');
-      if (!tab || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+      if (!tab) return;
+      const list = tab.closest('[role="tablist"]');
+      const vertical = list?.getAttribute('aria-orientation') === 'vertical';
+      const previous = vertical ? 'ArrowUp' : 'ArrowLeft';
+      const next = vertical ? 'ArrowDown' : 'ArrowRight';
+      if (![previous, next, 'Home', 'End'].includes(event.key)) return;
       event.preventDefault();
-      const tabs = [...panes.querySelectorAll('[data-pane-tab]')];
+      const tabs = [...(vertical ? list : panes).querySelectorAll('[data-pane-tab]')];
       const index =
         event.key === 'Home'
           ? 0
           : event.key === 'End'
             ? tabs.length - 1
-            : (tabs.indexOf(tab) + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) %
-              tabs.length;
+            : (tabs.indexOf(tab) + (event.key === next ? 1 : -1) + tabs.length) % tabs.length;
       tabs.forEach((button, i) => {
         button.tabIndex = i === index ? 0 : -1;
       });

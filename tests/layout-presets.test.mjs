@@ -34,6 +34,7 @@ const refresh=async()=>{composition.update(items,placement,state.layouts[placeme
 const request=async input=>{
  requests.push(structuredClone(input));
  if(input.op==='main-preset-apply')state.layouts[placement]=structuredClone(state.layoutPresets.find(p=>p.id===input.id).layout);
+ else if(input.op==='layout')state.layouts[placement]=structuredClone(input.layout);
  else if(input.op==='main-preset-save'){
   if(rejectSave)throw Error('保存失败，请重试');
   state.layoutPresets.push({id:'saved',name:input.name,layout:input.layout});state.layoutPresetsRevision++;
@@ -144,6 +145,86 @@ test('desktop presets preserve mounted drafts and reading through hide, restore 
     await page.getByRole('button', { name: 'Window actions', exact: true }).click();
     await page.getByRole('menuitem', { name: 'Save current layout…', exact: true }).waitFor();
     assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('side-by-side tab bars merge at the header and built-in presets position all tabs', async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage({
+      viewport: { width: 920, height: 680 },
+      reducedMotion: 'reduce',
+    });
+    page.setDefaultTimeout(5000);
+    await fixture(page);
+    await page.evaluate(() => {
+      state.layouts.desktop = {
+        axis: 'horizontal',
+        groups: [
+          { ids: ['outline'], active: 'outline', weight: 2 },
+          { ids: ['next'], active: 'next', weight: 1 },
+          { ids: ['prompts'], active: 'prompts', weight: 2.4 },
+        ],
+      };
+      return refresh();
+    });
+    const next = page.locator('[data-pane-tab="next"]');
+    const prompts = page.locator('[data-pane-tab="prompts"]');
+    const start = await next.boundingBox();
+    const end = await prompts.boundingBox();
+    await page.mouse.move(start.x + start.width / 2, start.y + start.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(end.x + end.width / 2, end.y + end.height / 2, { steps: 12 });
+    await page.locator('.csw-drop-preview').filter({ hasText: '合并为标签' }).waitFor();
+    await page.mouse.up();
+    await page.waitForFunction(() => state.layouts.desktop.groups.length === 2);
+    assert.deepEqual(
+      await page.evaluate(() =>
+        state.layouts.desktop.groups.map(({ ids, weight }) => ({ ids, weight })),
+      ),
+      [
+        { ids: ['outline'], weight: 2 },
+        { ids: ['prompts', 'next'], weight: 3.4 },
+      ],
+    );
+
+    const menu = page.getByRole('button', { name: '窗口操作', exact: true });
+    await menu.click();
+    await page.getByRole('menuitemradio', { name: '全部标签在左侧' }).click();
+    const tabs = page.getByRole('tablist');
+    await page.waitForFunction(() => state.layouts.desktop.tabPosition === 'left');
+    assert.equal(await tabs.getAttribute('aria-orientation'), 'vertical');
+    const leftNext = await next.boundingBox();
+    const leftPrompts = await prompts.boundingBox();
+    assert.equal(leftNext.x, leftPrompts.x);
+    assert.ok(leftNext.y > leftPrompts.y);
+    const body = page.locator('.csw-feature-content');
+    assert.ok((await body.boundingBox()).x >= leftNext.x + leftNext.width);
+    await prompts.press('ArrowDown');
+    assert.equal(await next.evaluate((tab) => tab === document.activeElement), true);
+    await page.setViewportSize({ width: 324, height: 364 });
+    assert.ok(await next.isVisible());
+    await menu.click();
+    assert.equal(
+      await page
+        .getByRole('menuitemradio', { name: '全部标签在左侧' })
+        .getAttribute('aria-checked'),
+      'true',
+    );
+    await page.getByRole('menuitemradio', { name: '全部标签在顶部' }).click();
+    await page.waitForFunction(() => !state.layouts.desktop.tabPosition);
+    assert.equal(await tabs.getAttribute('aria-orientation'), 'horizontal');
+    const topNext = await next.boundingBox();
+    const topPrompts = await prompts.boundingBox();
+    assert.equal(topNext.y, topPrompts.y);
+    assert.ok(topNext.x > topPrompts.x);
+    assert.ok((await body.boundingBox()).y >= topNext.y + topNext.height);
+    assert.deepEqual(await page.evaluate(() => state.layoutPresets.map(({ id }) => id)), [
+      'paired',
+      'focused',
+    ]);
   } finally {
     await browser.close();
   }
@@ -309,6 +390,16 @@ createRoot(document.getElementById('root')).render(<App/>);
     assert.deepEqual(await page.evaluate(() => server.layouts.desktop.visible), [
       'outline',
       'next',
+    ]);
+    await page.keyboard.press('Escape');
+    const preset = page.locator('#current-layout-preset');
+    await preset.selectOption('tabs-left');
+    await page.waitForFunction(() => server.layouts.desktop.tabPosition === 'left');
+    assert.equal(await preset.inputValue(), 'tabs-left');
+    assert.deepEqual(await page.evaluate(() => server.layouts.desktop.groups[0].ids), [
+      'outline',
+      'next',
+      'prompts',
     ]);
     assert.equal(
       await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),

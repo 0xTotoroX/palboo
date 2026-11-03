@@ -78,7 +78,7 @@ Settings.terminologyImportsPending 为只读待处理状态；__palbooTerminolog
 
 EditableSettings.quickPromptsEnabled/quickPromptClickMode/quickPromptLabelOnly 声明独立开关、可空点击模式与默认关闭的仅名称显示；显示偏好不进入 quickPromptToken。PanelSnapshot/PanelCommand.quickPromptToken 独立于建议生成版本，旧命令仍兼容 promptToken。features.ts 的 prompts 与 feature-prompts 使用同一位置、字号和草稿交接协议。
 
-`features.ts` 的 FeatureLayout.visible 是可选的主界面显示组合，缺省保留全部已打开功能；LayoutPreset 与 layoutPresetsRevision 描述命名布局和并发版本，独立于模型预设及业务配置。
+`features.ts` 的 FeatureLayout.visible 是可选的主界面显示组合，缺省保留全部已打开功能；可选 tabPosition 为 left 时将合并后的标签置于左侧，缺省为顶部。LayoutPreset 与 layoutPresetsRevision 描述命名布局和并发版本，独立于模型预设及业务配置。
 
 contracts.ts 的 HostSettingsAppearance 仅传递宿主界面语义色、字体和可选 geometry 尺寸/状态表现变量、reducedMotion 及可选双色 palettes；可选导航/标题字号行高、toolbarRadius、菜单尺寸和 inputBorder/segmented/ghost/slider 颜色按控件角色补充，旧快照保持回退，不含正文；AppearanceSettings.settingsStyle 为 chatgpt/palboo/null，缺省采用跟随，独立于 settingsTheme 明暗选择。
 

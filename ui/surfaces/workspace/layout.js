@@ -201,6 +201,16 @@ export function installFeatureLayout(root, { save, error }) {
                   : 'bottom';
         const target = section.dataset.pane;
         const source = panes.querySelector(`[data-pane-tab="${id}"]`)?.closest('[data-pane]');
+        const tabs = section.querySelector('[role="tablist"]').getBoundingClientRect();
+        if (
+          source !== section &&
+          event.clientX >= tabs.left &&
+          event.clientX <= tabs.right &&
+          event.clientY >= tabs.top &&
+          event.clientY <= tabs.bottom &&
+          arrange(layout, id, 'merge', width, height, target)
+        )
+          return { action: 'merge', box, id: target };
         if (
           ['top', 'bottom'].includes(action) &&
           section.parentElement.dataset.sidebarCompact === 'true' &&
@@ -325,7 +335,12 @@ export function installFeatureLayout(root, { save, error }) {
   }
   function updateSection(section, group, focused) {
     root.lang = getLocale();
-    section.querySelector('[role=tablist]')?.setAttribute('aria-label', tr('工作台面板'));
+    const tabs = section.querySelector('[role=tablist]');
+    tabs.setAttribute('aria-label', tr('工作台面板'));
+    tabs.setAttribute(
+      'aria-orientation',
+      panes.dataset.tabPosition === 'left' ? 'vertical' : 'horizontal',
+    );
     const active = group.ids.includes(group.active) ? group.active : group.ids[0];
     section.dataset.pane = active;
     section.setAttribute('aria-label', title(active));
@@ -390,6 +405,7 @@ export function installFeatureLayout(root, { save, error }) {
     const compactEnabled =
       ['sidebar', 'overlay', 'desktop'].includes(placement) &&
       axis === 'vertical' &&
+      panes.dataset.tabPosition !== 'left' &&
       !focused &&
       node.groups.every((group) => !group.groups);
     // Capture live content before shrinking rows; an intermediate minimum-sized
@@ -434,7 +450,9 @@ export function installFeatureLayout(root, { save, error }) {
       for (const head of panes.querySelectorAll('.csw-feature-pane-head')) observer.observe(head);
     }
     const focused = arrangement.focused;
-    root.dataset.composition = focused ? 'focus' : layoutGroups(tree).length > 1 ? 'split' : 'tabs';
+    const merged = layoutGroups(tree).length === 1;
+    root.dataset.composition = focused ? 'focus' : merged ? 'tabs' : 'split';
+    panes.dataset.tabPosition = merged && layout.tabPosition === 'left' ? 'left' : 'top';
     updateGrid(tree, panes, focused);
     for (const item of items) {
       if (item.node.hidden || item.node.parentNode === parking) continue;
