@@ -358,6 +358,8 @@ test('the mascot leaves the screen, joins the backdrop, follows features and ret
     for (const mode of ['footer', 'reverse']) {
       await scrollScene(page, '#features', mode === 'footer' ? 0 : 1);
       await page.clock.runFor(500);
+      const origin = mode === 'footer' ? 'feature-tab-outline' : 'feature-tab-compatibility';
+      await mascot.and(page.locator(`[data-target="${origin}"]`)).waitFor();
       await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 5000);
       await page.evaluate((mode) => {
         window.handoffFrames = new Promise((resolve) => {
@@ -397,6 +399,8 @@ test('the mascot leaves the screen, joins the backdrop, follows features and ret
                   ? document.documentElement.scrollHeight
                   : scrollY + section.getBoundingClientRect().top - innerHeight * 0.5,
               );
+              // Deliver the scroll notification before advancing the fake clock.
+              dispatchEvent(new Event('scroll'));
             }
             if (now - start >= 800) resolve({ mode, before, crossedAt, points });
             else requestAnimationFrame(record);
@@ -415,7 +419,7 @@ test('the mascot leaves the screen, joins the backdrop, follows features and ret
       const lastInside = sample.points[outsideIndex - 1];
       assert.ok(
         Math.hypot(firstOutside.x - lastInside.x, firstOutside.y - lastInside.y) < 35,
-        `${mode}: crossing continues from the last painted position`,
+        `${mode}: crossing continues from the last painted position ${JSON.stringify({ lastInside, firstOutside })}`,
       );
       assert.ok(firstOutside.opacity > 0.5, `${mode}: the in-flight face remains visible`);
       assert.equal(sample.points.at(-1).phase, mode === 'footer' ? 'footer' : 'to-feature');

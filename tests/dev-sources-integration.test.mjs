@@ -369,7 +369,10 @@ test(
         } catch (error) {
           // Vite may replace our navigation with its own reload. Require a new,
           // loaded document below rather than treating the aborted request as success.
-          if (!String(error).includes('net::ERR_ABORTED')) throw error;
+          if (
+            !/net::ERR_ABORTED|Page\.reload\): Not attached to an active page/.test(String(error))
+          )
+            throw error;
         }
         await page.waitForFunction(
           (previous) => performance.timeOrigin !== previous && document.readyState !== 'loading',
