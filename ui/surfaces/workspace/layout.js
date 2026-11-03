@@ -77,12 +77,14 @@ export function installFeatureLayout(root, { save, error, inlineMenu = false }) 
   const undoLayouts = new Map();
   let shownMergeHint = false;
   let menuAnchor;
+  /** @param {Element} [container] */
   function positionMenu(container = panes) {
     if (!inlineMenu) return;
     const children = [...container.children].filter(
-      (child) => !child.hidden && !child.matches('[role="separator"]'),
+      (child) => !child.matches('[hidden], [role="separator"]'),
     );
-    const topRight = container.dataset.axis === 'horizontal' ? children.at(-1) : children[0];
+    const horizontal = container.getAttribute('data-axis') === 'horizontal';
+    const topRight = horizontal ? children.at(-1) : children[0];
     if (topRight?.classList.contains('csw-feature-split')) {
       positionMenu(topRight);
       return;
@@ -100,8 +102,7 @@ export function installFeatureLayout(root, { save, error, inlineMenu = false }) 
     const pane = topRight.getBoundingClientRect();
     const row = header.getBoundingClientRect();
     const menuTop =
-      row.height &&
-      !(container.dataset.axis === 'horizontal' && topRight.dataset.compact === 'true')
+      row.height && !(horizontal && topRight.matches('[data-compact="true"]'))
         ? (row.top - box.top + row.height / 2) / scale.y - 14
         : (pane.top - box.top) / scale.y + 4;
     root.style.setProperty('--csw-menu-top', `${Math.max(0, menuTop)}px`);
@@ -277,7 +278,7 @@ export function installFeatureLayout(root, { save, error, inlineMenu = false }) 
         const tab = document
           .elementFromPoint(event.clientX, event.clientY)
           ?.closest('[data-pane-tab]');
-        if (tab && section.contains(tab)) {
+        if (tab instanceof HTMLElement && section.contains(tab)) {
           if (tab.dataset.paneTab === id) return null;
           const rect = tab.getBoundingClientRect();
           const vertical =

@@ -9,7 +9,11 @@ export function elementScale(element) {
   };
 }
 
-export function bindSeparator(handle, axis, read, change, save = () => {}, cancel) {
+/**
+ * @param {(value: any, dropped: boolean) => void} [save]
+ * @param {(value: any) => void} [cancel]
+ */
+export function bindSeparator(handle, axis, read, change, save, cancel) {
   handle.addEventListener('pointerdown', (event) => {
     if (event.button !== 0) return;
     event.preventDefault();
@@ -35,7 +39,7 @@ export function bindSeparator(handle, axis, read, change, save = () => {}, cance
         cancel(value);
         return;
       }
-      save(value, event.type === 'pointerup');
+      save?.(value, event.type === 'pointerup');
     };
     const pointerId = event.pointerId;
     const escape = (event) => {
@@ -62,6 +66,6 @@ export function bindSeparator(handle, axis, read, change, save = () => {}, cance
     event.preventDefault();
     const value = read();
     change(value, delta, false);
-    save(value, false);
+    save?.(value, false);
   });
 }

@@ -51,13 +51,19 @@ test(
       await page.getByLabel('下一步示例草稿', { exact: true }).fill('保留的示例草稿');
       const separator = page.getByRole('separator').first(),
         b = await separator.boundingBox();
+      const foldDistance = await separator.evaluate((handle) => {
+        const stack = handle.parentElement;
+        const scale = stack.getBoundingClientRect().height / stack.offsetHeight;
+        const header = Number(stack.dataset.compactHeader);
+        return handle.nextElementSibling.getBoundingClientRect().height - (header + 40) * scale;
+      });
       await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
       await page.mouse.down();
-      await page.mouse.move(b.x + b.width / 2, b.y + 250, { steps: 20 });
+      await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2 + foldDistance, { steps: 20 });
       await page.mouse.up();
-      await page.waitForFunction(
-        () => document.querySelectorAll('[data-compact="true"]').length === 3,
-      );
+      const folded = page.locator('.csw-workbench-pane[data-compact="true"]');
+      await folded.getByRole('tab', { name: '下一步', exact: true }).waitFor();
+      assert.equal(await folded.count(), 1);
       if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
         await page.screenshot({
           path: 'target/reports/sidebar-layout-preview.png',
