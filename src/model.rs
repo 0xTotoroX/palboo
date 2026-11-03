@@ -1,5 +1,5 @@
 // [INPUT]: 模型配置、受限 Codex CLI 或 HTTP 结构化接口。
-// [OUTPUT]: Model、ModelInfo、Suggestion；保留原 Codex 服务路由，关闭无关 Skill/插件/Hook/终端初始化的结构化补全与生成/测试/模型查询。
+// [OUTPUT]: Model、ModelInfo、Suggestion；保留原 Codex 服务路由，识别登录模式不支持模型的错误，并隔离无关 Agent 配置。
 // [POS]: 模型适配层，三种方向来源共用生成与总超时，常用语呈现偏好不使生成失效；智谱请求/最终回答适配，保留方向和数量校验。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
@@ -422,7 +422,7 @@ impl Model {
             .arg("-")
             .current_dir(dir.path())
             .stdin(Stdio::piped())
-            .stdout(Stdio::null())
+            .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .kill_on_drop(true);
         if !self.name.is_empty() {
@@ -477,16 +477,18 @@ impl Model {
         let output = child.wait_with_output().await?;
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            let reason =
-                if stderr.contains("401") || stderr.contains("login") || stderr.contains("auth") {
-                    "请检查 Codex 登录状态"
-                } else if stderr.contains("429") || stderr.contains("usage") {
-                    "请检查 Codex 配额或稍后重试"
-                } else if stderr.contains("unexpected argument") || stderr.contains("unknown") {
-                    "当前 Codex CLI 版本不支持所需参数，请升级或使用 API 模式"
-                } else {
-                    "请运行 doctor 检查 Codex CLI 和网络"
-                };
+            let reason = if codex_chatgpt_model_rejected(&output.stdout) {
+                "当前 ChatGPT 登录不支持此模型。若模型由第三方网关提供，请在模型来源选择「指定 API」并测试连接"
+            } else if stderr.contains("401") || stderr.contains("login") || stderr.contains("auth")
+            {
+                "请检查 Codex 登录状态"
+            } else if stderr.contains("429") || stderr.contains("usage") {
+                "请检查 Codex 配额或稍后重试"
+            } else if stderr.contains("unexpected argument") || stderr.contains("unknown") {
+                "当前 Codex CLI 版本不支持所需参数，请升级或使用 API 模式"
+            } else {
+                "请运行 doctor 检查 Codex CLI 和网络"
+            };
             bail!("Codex 生成失败：{reason}");
         }
         std::fs::read_to_string(output_path).context("Codex 未返回可读取的建议")
@@ -677,6 +679,23 @@ fn toml_string(value: &str) -> String {
     toml::Value::String(value.to_owned()).to_string()
 }
 
+// Codex exec --json reports model routing failures on stdout, often with empty stderr.
+fn codex_chatgpt_model_rejected(events: &[u8]) -> bool {
+    events.split(|byte| *byte == b'\n').any(|line| {
+        let Ok(event) = serde_json::from_slice::<Value>(line) else {
+            return false;
+        };
+        let message = match event["type"].as_str() {
+            Some("error") => event["message"].as_str(),
+            Some("turn.failed") => event["error"]["message"].as_str(),
+            _ => None,
+        };
+        message.is_some_and(|message| {
+            message.contains("model is not supported when using Codex with a ChatGPT account")
+        })
+    })
+}
+
 pub fn schema_for(max_items: usize, directions: &[String]) -> Value {
     let mut schema = json!({"type":"object","additionalProperties":false,"required":["suggestions"],"properties":{"suggestions":{"type":"array","minItems":0,"maxItems":max_items,"items":{"type":"object","additionalProperties":false,"required":["title","detail","prompt"],"properties":{"title":{"type":"string"},"detail":{"type":"string"},"prompt":{"type":"string"}}}}}});
     if !directions.is_empty() {
@@ -860,6 +879,27 @@ pub fn parse_suggestions(text: &str) -> Result<Vec<Suggestion>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn codex_model_rejection_is_read_only_from_error_events() {
+        let message =
+            "The 'example/model' model is not supported when using Codex with a ChatGPT account.";
+        assert!(codex_chatgpt_model_rejected(
+            json!({"type":"error","message":message})
+                .to_string()
+                .as_bytes()
+        ));
+        assert!(codex_chatgpt_model_rejected(
+            json!({"type":"turn.failed","error":{"message":message}})
+                .to_string()
+                .as_bytes()
+        ));
+        assert!(!codex_chatgpt_model_rejected(
+            json!({"type":"item.completed","item":{"type":"agent_message","text":message}})
+                .to_string()
+                .as_bytes()
+        ));
+    }
 
     #[cfg(unix)]
     #[tokio::test]
