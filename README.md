@@ -190,6 +190,8 @@ Development configuration is isolated from the everyday installation. UI changes
 
 The standalone website shares the settings previews, native select menus, and segmented controls. Its host sidebar and conversation use synthetic content; preview actions remain local.
 
+CI runs the full suite on one current macOS runner with the minimum Node.js and Rust versions. Release binaries continue to target macOS 14.0.
+
 Frontend checks can run on Linux with Chromium and Cargo, but exclude native verification and do not imply Linux App support. Building and packaging do not publish or update an installed App.
 
 See the [project map](AGENTS.md#架构地图l1) for code organization and the [design system](DESIGN_SYSTEM.md) for UI conventions. Keep both README editions in sync. Include the version, OS, and reproduction steps in issues; leave out credentials and private conversations.

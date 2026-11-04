@@ -190,6 +190,8 @@ npm run install:dev
 
 独立介绍网站与设置页共用功能预览、原生下拉菜单和分段控件。网站的宿主侧栏与对话使用合成内容，预览操作仅保存在当前页面。
 
+CI 在单一当前 macOS runner 上使用最低 Node.js 和 Rust 版本运行完整检查。发布程序的最低部署目标仍为 macOS 14.0。
+
 前端检查可在配有 Chromium 与 Cargo 的 Linux 环境运行，但不含原生验收，不代表 App 支持 Linux。构建和打包不会发布或更新已安装 App。
 
 代码组织见[项目地图](AGENTS.md#架构地图l1)，界面约定见[设计系统](DESIGN_SYSTEM.md)。请保持两版 README 同步。反馈问题时附版本、系统和复现步骤，不附凭据或私人对话。

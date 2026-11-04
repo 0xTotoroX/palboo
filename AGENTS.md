@@ -40,7 +40,7 @@ Map 系统用项目地图、模块地图和文件契约说明职责与依赖；�
 - 多 worktree 调试由一个 Dev 监督进程交接来源；左侧图标右键与 `npm run dev:settings` 共用一个稳定的开发设置页，普通设置和来源选择在同页；后台通过 PALBOO_DEV_SETTINGS 接收地址，正式构建忽略它。各来源隔离 Vite 缓存并去重 React；来源区域以单选列表显示分支、路径和未提交状态，不展示提交与资源哈希；实际资源回读仅用于确认切换结果。选择器由监督进程注入设置页，旧源码分支不必先合并管理器。先编译再交接，失败恢复原来源；同一宿主目标使用跨 worktree 的独占记录，旧独立 Dev 会话需正常退出后再用统一入口。每个来源保留独立配置和构建目录，不迁移运行期建议缓存。设置地址与令牌在切换期间保持，旧标签页写入通过来源标识拒绝；切换不重启 Codex、不合并代码。来源选择存于 Git 公共目录，源码归档仅提供当前目录；`--source WORKTREE_PATH` 可显式覆盖启动来源。开发脚本升级仍需一次正常重开 Palboo，日常来源切换不需重新安装。异常退出后仅在监督进程与关联后台都确认退出时自动恢复租约；恢复串行互斥，活动、损坏或无法确认的记录保留并显示具体原因。
 - `npm run dev` 只连接已开启调试端口的真实 Codex，默认内嵌；开发配置在 target/dev/real，首次复制日常模型配置并采用手动生成，不写回日常配置。占用同一窗口的安装版连接会暂停，退出后恢复；不重启或另开 ChatGPT。CSS 原位更新，胶囊逻辑清理后重新加载，Rust 编译成功后重启开发后台；release 忽略开发资源环境变量。示例宿主和模拟数据仅用于 tests 下的自动测试。
 - 应用最低目标为 macOS 14.0+ Apple Silicon；桌面弹出功能由后台单独检测 macOS 15.0+ Apple Silicon。不满足弹出条件时禁用界面入口、拒绝弹出请求及窗口子进程启动，并跳过旧弹出偏好的自动恢复，内嵌面板仍可使用。Windows 暂不适配，其他平台不宣称已支持。最低版本与实测版本分开记录。
-- 源码构建最低 Rust 1.88、Node.js 22.16；分别由 Cargo `rust-version` 和 npm `engines.node` 声明，CI 覆盖最低组合。release 的构建辅助库不 strip，避免 macOS 加载失败；最终程序仍 strip。
+- 源码构建最低 Rust 1.88、Node.js 22.16；分别由 Cargo `rust-version` 和 npm `engines.node` 声明，CI 在单一 `macos-latest` runner 验证最低工具链，不再按 macOS 版本展开矩阵；程序最低部署目标仍为 macOS 14.0，系统功能继续按能力检测。release 的构建辅助库不 strip，避免 macOS 加载失败；最终程序仍 strip。
 - 自有源码采用 GPL-3.0-only（固定第三版）；第三方保留各自版权与许可原文。旧 MIT 授权不追溯撤回，历史原文保存在 licenses/LICENSE-MIT-legacy；LICENSING.md 定义适用范围。维护者的来源审计记录保持原样，不随包公开。
 - 应用独立构建与运行，通过本机协议连接宿主，不修改官方应用包。macOS 本地安装生成自包含 Palboo.app 作为双击入口，按保存模式调用包内 CLI 或已登记的开发源码；宿主 App 经 macOS LaunchServices 启动，保留自身隐私权限归属，不直接运行其内部程序。已有普通宿主无可用连接时，启动器通过 --restart-running 按 hostRestartPolicy 处理：默认 ask 询问后正常退出，force 显式保存后直接强制退出；两者都等待旧进程退出后再重开。取消、拒绝退出、超时或身份变化停止，不从正常退出升级为强退；不创建隔离实例。先从现有进程参数发现调试端口，不能因保存端口过期就重启。此策略独立于模型配置，不取消生成；Dev App 冷启动复用此策略；普通 npm run dev 仍仅接入现有调试连接，显式 --restart-running 才启用宿主准备。
 - 产品名称为 Palboo，源码目录、Cargo/npm 包、CLI 和分发前缀为 `palboo`。默认数据目录为 `palboo`，环境变量使用 `PALBOO_*`；安装器迁移旧默认目录并保留配置，内部页面存储键暂保持兼容。启动器默认安装到 `/Applications/Palboo.app`。
@@ -117,9 +117,9 @@ Rust + Tokio/Axum + Tao/Wry + JavaScript 共享胶囊 + React/TypeScript/Vite + 
 - `tsconfig.json`：网页、共享类型与 Vite 配置的 TypeScript 检查范围。
 - `.prettierrc.json`：JS/TS/CSS 与验收脚本的统一格式配置。
 - `.cargo/config.toml`：macOS 14.0 最低部署目标。
-- `.github/workflows/ci.yml`：main 推送直接运行全部兼容组合，PR 运行 macOS 26 全套检查，手动 full 可选完整矩阵；按触发事件隔离并发，手动任务不取消提交页的自动检查，不生成发布包。
+- `.github/workflows/ci.yml`：main 推送、PR 与手动运行共用单一 macOS 完整验证；按触发事件隔离并发，手动任务不取消提交页的自动检查，不生成发布包。
 - `.github/workflows/site.yml`：手动选择已审核修订，验证交互后只上传 `target/site/`；默认仅构建，明确选择 publish 才部署 GitHub Pages，不绑定自定义域名，不随 push 自动上线。
-- `.github/workflows/verify.yml`：CI/CD 共用验证矩阵；完整模式覆盖 macOS 14 最低工具链、macOS 15 浮窗与 macOS 26，全部通过才允许发布。
+- `.github/workflows/verify.yml`：CI/CD 共用完整验证，在单一 `macos-latest` Apple Silicon runner 使用最低 Node/Rust 工具链；保留系统能力与最低部署目标检查，通过后才允许发布。
 - `.github/workflows/release.yml`：先核对标签、Cargo/npm及锁文件版本和已审核说明，再触发共用完整验证；X.Y.0 打包并只上传 macOS arm64 DMG，补丁版跳过打包与附件；正文直接使用双语说明，自动流程在草稿处停止；获得用户对具体版本、说明与附件的审核后才单独公开，拒绝覆盖已有 Release。
 - `.github/release-notes/v*.md`：对应标签的公开发行说明；CD 要求版本、标签和说明文件一致。
 - `.gitignore`：隔离构建产物、测试证据和私有运行数据。
