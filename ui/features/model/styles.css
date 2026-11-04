@@ -10,7 +10,7 @@
   min-height: 0;
   --model-tile: color-mix(in srgb, var(--paper) 86%, var(--ink));
   --model-tile-on: color-mix(in srgb, var(--paper) 78%, var(--ink));
-  --model-preset-height: max(28px, calc(1.4em + 10px));
+  --model-preset-height: max(28px, calc(1.3em + 6px));
 }
 .feature-model button {
   border: 0;
@@ -272,15 +272,17 @@
   opacity: 0.55;
 }
 .model-collections {
-  margin-top: 16px;
+  margin-top: 12px;
   padding: 2px 0 0;
 }
 .model-presets {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 6px;
   min-width: 0;
+  font-size: 0.875em;
+  line-height: 1.3;
 }
 .model-preset-tag {
   position: relative;
@@ -294,8 +296,9 @@
   gap: 6px;
   max-width: 100%;
   min-height: var(--model-preset-height);
-  padding: 6px 14px;
-  border-radius: 18px;
+  padding: 3px 9px;
+  border-radius: 14px;
+  font: inherit;
   color: var(--ink);
   background: color-mix(in srgb, var(--paper) 92%, var(--ink));
   box-shadow:
@@ -316,13 +319,14 @@
 }
 .model-preset-reasoning {
   color: var(--muted);
+  font-size: 0.875em;
   white-space: nowrap;
 }
 .feature-model .model-preset-choice[aria-disabled='true'] {
   opacity: 0.45;
 }
 .model-presets[data-editing='true'] .model-preset-tag {
-  padding-top: 10px;
+  padding-top: 8px;
 }
 .model-presets[data-editing='true'] .model-preset-choice,
 .model-presets[data-editing='true'] .model-preset-editor {

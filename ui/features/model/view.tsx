@@ -1,7 +1,7 @@
 import { useLocale } from '../../shared/use-locale';
 import { tr } from '../../shared/i18n.js';
 /* [INPUT]: Existing model control envelope and serialized actions.
- * [OUTPUT]: Title-aligned reasoning headings, content-sized favorites matrix (auto-displaying active external CLI models when none are pinned), independent Fast charge/strike and divider controls, CodexHost CLI switcher bar (direct switch in draft chats, new-chat context handoff in locked chats), presets with saved reasoning and speed, a shared bottom row with lower-edge-aligned account usage, icons and an independent footer slot, in-panel catalog and wrapping presets with synchronous draft handoff, measured horizontal reading restoration and capability-driven selection.
+ * [OUTPUT]: Title-aligned reasoning headings, content-sized favorites matrix (auto-displaying active external CLI models when none are pinned), independent Fast charge/strike and divider controls, CodexHost CLI switcher bar (direct switch in draft chats, new-chat context handoff in locked chats), explicitly bookmarked presets separated from catalog pins, with saved reasoning and speed, a shared bottom row with lower-edge-aligned account usage, icons and an independent footer slot, in-panel catalog and wrapping presets with synchronous draft handoff, measured horizontal reading restoration and capability-driven selection.
  * [POS]: Reusable business view; surfaces own placement and theme.
  * [PROTOCOL]: Keep AGENTS.md in this module in sync. */
 import {
@@ -135,7 +135,9 @@ export function ModelView({
   const s = state.snapshot;
   const currentAgent = s.agent?.current || 'codex';
   const prefs = scopedModelPreferences(state.preferences, currentAgent);
-  const scopedPresets = prefs.presets.filter((preset) => preset.agent === currentAgent);
+  const scopedPresets = prefs.presets.filter(
+    (preset) => preset.agent === currentAgent && !preset.catalogPin,
+  );
   const currentModel = s.models.find((model) => model.id === s.current?.model);
   const fastActive = !!currentModel?.fast && s.current?.speed === 'fast';
   const allowed = !!s.target && ['ready', 'waiting'].includes(s.status) && prefs.enabled;
@@ -184,7 +186,7 @@ export function ModelView({
       id: crypto.randomUUID(),
       name: uniquePresetName(
         s.models.find((m) => m.id === s.current?.model)?.label || s.current.model,
-        prefs.presets,
+        scopedPresets,
         s.current.speed,
         currentAgent,
       ),
@@ -225,41 +227,26 @@ export function ModelView({
   const visible = fixedModels.length
     ? fixedModels
     : models.filter((model) => model.id === s.current?.model);
-  const modelSelection = (model: ModelState['snapshot']['models'][number]): Selection =>
-    s.current?.model === model.id
-      ? { ...s.current }
-      : {
-          model: model.id,
-          reasoning: model.reasoning.includes('medium') ? 'medium' : model.reasoning[0] || '',
-          speed: 'standard',
-        };
   const boundPreset = (model: ModelState['snapshot']['models'][number]) =>
     prefs.presets.find(
       (p) => p.catalogPin && p.agent === currentAgent && p.selection.model === model.id,
     );
   const toggleModel = async (model: ModelState['snapshot']['models'][number]) => {
-    if (!s.agent)
-      return saveOrganization({
-        pinned: prefs.pinned.includes(model.id)
+    const preset = boundPreset(model);
+    const wasPinned = prefs.pinned.includes(model.id) || !!preset;
+    return save({
+      ...organizationPatch(state.preferences, currentAgent, {
+        pinned: wasPinned
           ? prefs.pinned.filter((id) => id !== model.id)
           : [...prefs.pinned, model.id],
-      });
-    const preset = boundPreset(model);
-    if (prefs.pinned.includes(model.id))
-      return saveOrganization({ pinned: prefs.pinned.filter((id) => id !== model.id) });
-    if (preset) return save({ presets: prefs.presets.filter((p) => p.id !== preset.id) });
-    const selection = modelSelection(model);
-    return save({
-      presets: [
-        ...prefs.presets,
-        {
-          id: crypto.randomUUID(),
-          agent: currentAgent,
-          catalogPin: true,
-          selection,
-          name: uniquePresetName(model.label, prefs.presets, selection.speed, currentAgent),
-        },
-      ],
+      }),
+      ...(preset
+        ? {
+            presets: prefs.presets.filter(
+              (p) => !(p.catalogPin && p.agent === currentAgent && p.selection.model === model.id),
+            ),
+          }
+        : {}),
     });
   };
   const groups = groupedModels(models, prefs);
@@ -420,7 +407,7 @@ export function ModelView({
         if (busy || !prefs.enabled || !requestedName) return;
         const name = uniquePresetName(
           requestedName,
-          prefs.presets.filter((p) => p.id !== presetDraft.id),
+          prefs.presets.filter((p) => !p.catalogPin && p.id !== presetDraft.id),
           presetDraft.selection.speed,
           presetDraft.agent,
         );

@@ -1,5 +1,5 @@
 /* [INPUT]: Real FeatureView/ModelView with synthetic owner handoff and model preferences.
- * [OUTPUT]: Saved reasoning/Fast remain visible and apply together; immediate preset creation and legacy creation/rename drafts survive remount, failed saves and current-model changes; clearing is synchronous.
+ * [OUTPUT]: Catalog pins stay in the matrix until the user explicitly bookmarks a configuration; saved reasoning/Fast remain visible and apply together; immediate preset creation and legacy creation/rename drafts survive remount, failed saves and current-model changes; clearing is synchronous.
  * [POS]: Isolated browser regression; no native windows, real host or model requests.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import test from 'node:test';
@@ -355,6 +355,67 @@ test('presets show and apply saved reasoning independently of the current model 
     assert.equal(await fast.getAttribute('aria-pressed'), 'true');
     assert.equal(await low.getAttribute('aria-pressed'), 'false');
     assert.deepEqual(await page.evaluate(() => window.model.preferences.presets), initial);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('catalog pins stay in the matrix and only the bookmark creates visible presets', async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    for (const agent of ['codex', 'antigravity']) {
+      const page = await fixture(browser);
+      await page.evaluate((agent) => {
+        window.root.unmount();
+        window.model.preferences.pinned = [];
+        window.model.preferences.presets = [
+          { id: 'unknown', name: '来源未知', selection: window.beta },
+          { id: 'old-pin', name: 'Alpha', agent, catalogPin: true, selection: window.alpha },
+        ];
+        window.model.snapshot.agent = { current: agent, label: agent, locked: false, options: [] };
+        window.mount();
+      }, agent);
+      assert.equal(await page.locator('.model-preset-choice').count(), 0);
+      const before = await page.evaluate(() => window.model.preferences.presets);
+      await page.getByRole('button', { name: '所有模型', exact: true }).click();
+      await page.locator('[data-model-tile="beta"]').click();
+      await page.locator('[data-model-tile="beta"][aria-pressed="true"]').waitFor();
+      assert.deepEqual(await page.evaluate(() => window.model.preferences.presets), before);
+      const pins = await page.evaluate((agent) => {
+        const prefs = window.model.preferences;
+        return agent === 'codex' ? prefs.pinned : prefs.agentOrganizations[agent].pinned;
+      }, agent);
+      assert.deepEqual(pins, ['beta']);
+      await page.getByRole('button', { name: '关闭所有模型', exact: true }).click();
+      assert.deepEqual(
+        await page
+          .locator('.model-row')
+          .evaluateAll((rows) => rows.map((row) => row.dataset.modelRow).sort()),
+        ['alpha', 'beta'],
+      );
+      assert.equal(await page.locator('.model-preset-choice').count(), 0);
+      await page.locator('[data-model="alpha"][data-reasoning="high"]').click();
+      assert.deepEqual(await page.evaluate(() => window.model.preferences.presets), before);
+      await page.getByRole('button', { name: '添加预设', exact: true }).click();
+      await page
+        .locator('.model-presets')
+        .getByRole('button', { name: 'Alpha · High', exact: true })
+        .waitFor();
+      const saved = await page.evaluate(() => window.model.preferences.presets);
+      assert.deepEqual(saved.slice(0, 2), before, 'legacy and catalog records stay unchanged');
+      assert.equal(saved[2].agent, agent);
+      assert.equal(saved[2].catalogPin, undefined);
+      assert.equal(saved[2].name, 'Alpha', 'hidden catalog pins do not number saved preset names');
+      await page.getByRole('button', { name: '所有模型', exact: true }).click();
+      await page.locator('[data-model-tile="alpha"]').click();
+      await page.locator('[data-model-tile="alpha"][aria-pressed="false"]').waitFor();
+      assert.deepEqual(
+        await page.evaluate(() => window.model.preferences.presets.map((p) => p.id)),
+        ['unknown', saved[2].id],
+        'unpinning an old catalog entry preserves the explicitly saved preset',
+      );
+      await page.close();
+    }
   } finally {
     await browser.close();
   }
