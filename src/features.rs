@@ -719,6 +719,7 @@ impl App {
                         data["patch"].as_object().is_some_and(|p| p.keys().all(|k| [
                             "pinned",
                             "presets",
+                            "agentOrganizations",
                             "modelOrder",
                             "modelColumnWidth",
                             "expandedGroups"
@@ -726,6 +727,23 @@ impl App {
                         .contains(&k.as_str()))),
                         "此视图只能调整模型显示和预设"
                     );
+                    if let Some(organizations) = data["patch"].get("agentOrganizations") {
+                        let next: BTreeMap<String, crate::model_control::AgentOrganization> =
+                            serde_json::from_value(organizations.clone())?;
+                        let control = self.model_control.lock().await;
+                        let previous = &control.preferences.agent_organizations;
+                        let empty = crate::model_control::AgentOrganization::default();
+                        ensure!(
+                            previous.keys().chain(next.keys()).all(|id| {
+                                let before = previous.get(id).unwrap_or(&empty);
+                                let after = next.get(id).unwrap_or(&empty);
+                                before.groups == after.groups
+                                    && before.model_overrides == after.model_overrides
+                                    && before.group_order == after.group_order
+                            }),
+                            "此视图只能调整模型显示和预设"
+                        );
+                    }
                     self.model_control_preferences(data).await
                 }
                 _ => bail!("未知模型操作"),
@@ -1563,6 +1581,80 @@ mod tests {
             assert_eq!(app.features.lock().await.entries[id].view["top"], 42);
         }
     }
+    #[tokio::test]
+    async fn model_view_saves_cli_pins_without_changing_groups_or_other_cli_preferences() {
+        let (_dir, app) = app().await;
+        app.model_control.lock().await.preferences = serde_json::from_value(json!({
+            "enabled":true,
+            "pinned":["shared"],
+            "presets":[{"id":"legacy","name":"来源未知","selection":{"model":"shared","reasoning":"high","speed":"standard"}}],
+            "agentOrganizations":{
+                "antigravity":{
+                    "groups":[{"id":"work","name":"工作"}],
+                    "modelOverrides":{"shared":{"manufacturer":"Google","groupId":"work"}},
+                    "groupOrder":["custom:work"]
+                }
+            }
+        })).unwrap();
+        let owner = open(&app, "model").await;
+        let before = app.model_control.lock().await.preferences.clone();
+        let revision = app.model_control.lock().await.revision;
+        let mut organizations = serde_json::to_value(&before.agent_organizations).unwrap();
+        organizations["antigravity"]["pinned"] = json!(["shared"]);
+        let saved = app
+            .feature_request(json!({
+                "op":"action","id":"model","owner":owner,"action":"preferences",
+                "data":{"revision":revision,"patch":{"agentOrganizations":organizations}}
+            }))
+            .await
+            .unwrap();
+        let preferences = app.model_control.lock().await.preferences.clone();
+        assert_eq!(preferences.pinned, before.pinned);
+        assert_eq!(preferences.presets, before.presets);
+        assert_eq!(
+            preferences.agent_organizations["antigravity"].pinned,
+            vec!["shared"]
+        );
+        assert_eq!(
+            preferences.agent_organizations["antigravity"].groups,
+            before.agent_organizations["antigravity"].groups
+        );
+        let revision = saved["revision"].as_u64().unwrap();
+        let mut invalid = organizations.clone();
+        invalid["antigravity"]["groups"][0]["name"] = json!("不允许改名");
+        let mut unknown = organizations.clone();
+        unknown["antigravity"]["enabled"] = json!(false);
+        for (lease, version, replacement) in [
+            ("stale", revision, organizations.clone()),
+            (owner.as_str(), revision - 1, organizations.clone()),
+            (owner.as_str(), revision, invalid),
+            (owner.as_str(), revision, unknown),
+            (owner.as_str(), revision, json!({})),
+        ] {
+            assert!(
+                app.feature_request(json!({
+                    "op":"action","id":"model","owner":lease,"action":"preferences",
+                    "data":{"revision":version,"patch":{"agentOrganizations":replacement}}
+                }))
+                .await
+                .is_err()
+            );
+        }
+        assert_eq!(app.model_control.lock().await.preferences, preferences);
+        organizations["antigravity"]["pinned"] = json!([]);
+        app.feature_request(json!({
+            "op":"action","id":"model","owner":owner,"action":"preferences",
+            "data":{"revision":revision,"patch":{"agentOrganizations":organizations}}
+        }))
+        .await
+        .unwrap();
+        let persisted: crate::model_control::Preferences = serde_json::from_slice(
+            &std::fs::read(app.paths.root.join("model-control.json")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(persisted, before);
+    }
+
     #[tokio::test]
     async fn model_view_order_saves_through_owner_guard_and_rejects_invalid_updates() {
         let (_dir, app) = app().await;

@@ -202,6 +202,7 @@ try {
     assert.equal(response.status, 200, JSON.stringify(response.body));
     return response.body;
   }
+  let checkedCliPreferences = false;
   async function closeModelSurface() {
     // Enabling the feature reveals a real view whose passive polls share the operation lock.
     // Return to this fixture's API-only setup before testing explicit refresh/apply calls.
@@ -210,6 +211,45 @@ try {
       const model = state.body.features.find(({ id }) => id === 'model');
       return model?.open && !model.closing && !model.pending ? model : null;
     }, 'model surface did not finish opening');
+    if (!checkedCliPreferences) {
+      const before = await api('state');
+      const response = await request('features', {
+        op: 'action',
+        id: 'model',
+        owner: entry.owner,
+        action: 'preferences',
+        data: {
+          revision: before.revision,
+          patch: {
+            agentOrganizations: {
+              ...before.preferences.agentOrganizations,
+              antigravity: { pinned: ['external-alpha'], modelColumnWidth: 180 },
+            },
+          },
+        },
+      });
+      assert.equal(response.status, 200, JSON.stringify(response.body));
+      const persisted = await api('state');
+      assert.deepEqual(persisted.preferences.agentOrganizations.antigravity.pinned, [
+        'external-alpha',
+      ]);
+      assert.deepEqual(persisted.preferences.pinned, before.preferences.pinned);
+      assert.deepEqual(persisted.preferences.presets, before.preferences.presets);
+      const restored = await request('features', {
+        op: 'action',
+        id: 'model',
+        owner: entry.owner,
+        action: 'preferences',
+        data: {
+          revision: persisted.revision,
+          patch: { agentOrganizations: before.preferences.agentOrganizations },
+        },
+      });
+      assert.equal(restored.status, 200, JSON.stringify(restored.body));
+      assert.deepEqual(restored.body.preferences, before.preferences);
+      checkedCliPreferences = true;
+      record('real feature owner route saves external CLI pins and preserves other preferences');
+    }
     const closed = await request('features', { op: 'close', id: 'model', owner: entry.owner });
     assert.equal(closed.status, 200, JSON.stringify(closed.body));
     assert.equal(closed.body.features.find(({ id }) => id === 'model').open, false);

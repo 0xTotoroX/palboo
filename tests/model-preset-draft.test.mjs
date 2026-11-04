@@ -365,7 +365,11 @@ test('selected presets and pins have clear contrast in each theme and reasoning 
   const browser = await chromium.launch({ headless: true });
   try {
     const page = await fixture(browser);
-    await page.addStyleTag({ content: readFileSync('ui/features/model/styles.css', 'utf8') });
+    await page.addStyleTag({
+      content:
+        readFileSync('ui/surfaces/workspace/content.css', 'utf8') +
+        readFileSync('ui/features/model/styles.css', 'utf8'),
+    });
     await page.evaluate(() => {
       window.root.unmount();
       window.model.snapshot.models.push({
@@ -374,6 +378,15 @@ test('selected presets and pins have clear contrast in each theme and reasoning 
         reasoning: ['low'],
         fast: false,
       });
+      window.model.snapshot.agent = {
+        current: 'codex',
+        label: 'Codex',
+        locked: false,
+        options: [
+          { id: 'codex', label: 'Codex', available: true },
+          { id: 'antigravity', label: 'Antigravity CLI', available: true },
+        ],
+      };
       window.model.preferences.presets.push({
         id: 'second',
         name: '备用',
@@ -445,6 +458,15 @@ test('selected presets and pins have clear contrast in each theme and reasoning 
       }, palette);
       const current = view.locator('.model-preset-choice[aria-pressed="true"]');
       assertDistinct(await colors('.model-preset-choice'));
+      await current.evaluate((node) => {
+        node.disabled = true;
+        node.setAttribute('aria-disabled', 'true');
+      });
+      assert.equal(await current.evaluate((node) => getComputedStyle(node).opacity), '1');
+      await current.evaluate((node) => {
+        node.disabled = false;
+        node.setAttribute('aria-disabled', 'false');
+      });
       await current.hover();
       assertDistinct(await colors('.model-preset-choice'));
       assert.equal(
@@ -457,7 +479,18 @@ test('selected presets and pins have clear contrast in each theme and reasoning 
         ).includes('○'),
       );
       await page.getByRole('button', { name: '所有模型', exact: true }).click();
+      const currentAgent = view.locator('.model-agent-choice[aria-pressed="true"]');
+      assert.equal(await currentAgent.isDisabled(), true);
+      assert.equal(await currentAgent.evaluate((node) => getComputedStyle(node).opacity), '1');
       assertDistinct(await colors('.model-tile'));
+      const pinned = view.locator('.model-tile[aria-pressed="true"]').first();
+      await pinned.evaluate((node) => (node.disabled = true));
+      assert.equal(
+        await pinned.evaluate((node) => getComputedStyle(node).opacity),
+        '1',
+        'shared disabled styling must not dim the selected model',
+      );
+      await pinned.evaluate((node) => (node.disabled = false));
       await view.locator('.model-tile[aria-pressed="true"]').first().hover();
       assertDistinct(await colors('.model-tile'));
       await page.getByRole('button', { name: '关闭所有模型', exact: true }).click();

@@ -103,7 +103,7 @@ settings.Options/Update支持promptEnhancementEnabled，默认true并沿原修�
 
 模型分类扩展 model_control::Preferences：Codex 继续使用原有组织字段，其他 CLI 各自在 agentOrganizations 保存常用、模型排序、列宽、自定义组、厂家/分组覆盖、组序与展开状态。无 agent 的旧预设原样保留。保存统一校验非空名称、重复组名、归属引用与修订号，不裁剪暂不可用模型，不改变常用、预设或宿主模型身份。
 
-模型功能视图的受限 preferences 白名单允许 expandedGroups，与常用/顺序/预设一样校验 owner 和 revision；厂家及自定义分组仍只经设置服务保存，视图不能写 enabled、groups 或 modelOverrides。
+模型功能视图的受限 preferences 白名单允许 expandedGroups 和 agentOrganizations 的显示偏好，与常用/顺序/预设一样校验 owner 和 revision；后者只允许改变各 CLI 的常用、模型顺序、列宽及展开状态，厂家、自定义组和组序必须与已保存值一致，不能通过替换整份字典删除这些管理数据。视图不能写 enabled 或根级 groups/modelOverrides。
 
 terminology 的 seen 文件只保存聊天身份、术语编号和分析状态；verifiedSessions 单独保留经语境确认的编号，旧字面 sessions 保留但不作为语义模式当前聊天结果；收藏与已掌握独立保存。features 增加 terms 业务分发与已有主界面缺失成员补登记，不覆盖关闭状态和布局。
 

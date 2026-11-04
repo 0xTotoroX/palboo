@@ -268,6 +268,7 @@
   background: var(--model-tile-on);
   color: var(--paper);
   font-weight: 500;
+  opacity: 1;
 }
 .feature-model .model-agent-choice:disabled:not([aria-pressed='true']) {
   opacity: 0.55;
@@ -310,6 +311,7 @@
   background: var(--model-tile-on);
   color: var(--paper);
   box-shadow: none;
+  opacity: 1;
 }
 .feature-model .model-preset-choice[aria-pressed='true']:hover:not(:disabled) {
   background: color-mix(in srgb, var(--ink) 88%, var(--paper));
@@ -331,7 +333,7 @@
   font-size: 0.875em;
   white-space: nowrap;
 }
-.feature-model .model-preset-choice[aria-disabled='true'] {
+.feature-model .model-preset-choice[aria-disabled='true']:not([aria-pressed='true']) {
   opacity: 0.45;
 }
 .model-presets[data-editing='true'] .model-preset-tag {
@@ -497,6 +499,7 @@
 .feature-model .model-tile[aria-pressed='true'] {
   background: var(--model-tile-on);
   color: var(--paper);
+  opacity: 1;
 }
 .model-tile[aria-pressed='true'] .model-route {
   color: inherit;
