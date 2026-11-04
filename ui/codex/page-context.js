@@ -5,7 +5,7 @@
  * [PROTOCOL]: 变更时检查 codex/AGENTS.md。
  */
 const MAIN =
-  '.app-shell-main-content-frame,[class*="_MainContentFrame_"],[data-app-shell-tab-panel-controller]';
+  '.app-shell-main-content-frame,[class*="_MainContentFrame_"],[data-app-shell-main-content-layout],[data-app-shell-tab-panel-controller]';
 const CHAT = 'section[role="dialog"][class*="floatingSurface"]';
 const OWN = '[data-companion-stepwise-root],[data-palboo-features-root],[data-palboo-launcher]';
 let selectedSurface = null;

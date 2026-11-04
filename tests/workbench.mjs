@@ -1363,17 +1363,27 @@ const cases = [
       assert.equal(await page.locator('[data-palboo-launcher]').count(), 0);
     },
   ],
-  [
-    'sidebar recognizes the current tabbed chat container',
+  ...['tabbed chat', 'thread-edge-scroll main chat'].map((layout) => [
+    `sidebar recognizes the current ${layout} container`,
     async (page) => {
-      await page.evaluate(() => {
+      await page.evaluate((layout) => {
         const frame = document.querySelector('.app-shell-main-content-frame');
         frame.classList.remove('app-shell-main-content-frame');
-        frame.setAttribute('data-app-shell-tabs', 'true');
-        document
-          .querySelector('#fixture-host-content')
-          .setAttribute('data-app-shell-tab-panel-controller', 'right');
-      });
+        if (layout === 'tabbed chat') {
+          frame.setAttribute('data-app-shell-tabs', 'true');
+          document
+            .querySelector('#fixture-host-content')
+            .setAttribute('data-app-shell-tab-panel-controller', 'right');
+        } else {
+          const viewport = document.createElement('div');
+          viewport.setAttribute('data-app-shell-main-content-layout', 'thread-edge-scroll');
+          frame.parentElement.insertBefore(viewport, frame);
+          viewport.append(frame);
+          frame.setAttribute('data-app-shell-thread-edge-divider', 'false');
+          viewport.style.cssText =
+            'flex:1;height:100%;min-width:0;display:flex;flex-direction:column';
+        }
+      }, layout);
       await mode(page, true);
       await page.waitForFunction(() => window.__companionFloatingPanel.state.dockStatus === 'open');
       const content = await box(page, '#fixture-host-content');
@@ -1385,7 +1395,7 @@ const cases = [
       await page.waitForFunction(() => window.__companionFloatingPanel.state.dockStatus === 'open');
       assert.equal(await page.locator(slotSelector).count(), 1);
     },
-  ],
+  ]),
   ...['new chat', 'Dots'].map((kind) => [
     `sidebar opts into ${kind} independently with one official composer marker and no message list`,
     async (page, baseline) => {

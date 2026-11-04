@@ -20,7 +20,7 @@ export function findDockHost() {
   const surface = foregroundSurface();
   if (surface) return surface.row ? surface : null;
   const frames = document.querySelectorAll(
-    '.app-shell-main-content-frame,[class*="_MainContentFrame_"],[data-app-shell-tabs]',
+    '.app-shell-main-content-frame,[class*="_MainContentFrame_"],[data-app-shell-thread-edge-divider],[data-app-shell-tabs]',
   );
   for (const frame of frames) {
     if (!visible(frame)) continue;
