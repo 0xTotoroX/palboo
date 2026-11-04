@@ -53,7 +53,7 @@ model-control-host 覆盖能力延迟到达、空列表刷新超时及重试、�
 - [dev-sources-integration.test.mjs](dev-sources-integration.test.mjs)：完整监督脚本、真实 Vite/浏览器、临时双 worktree 的进程级交接/回退、热更新、稳定设置地址、旧标签页写保护与重开恢复及失效 controller/target 租约启动；全部使用合成宿主。覆盖完整 React 设置表单与常驻展开的来源选择器、切换加载动画/减少动态效果/失败重试/刷新及额外 Vite 重载后回读成功，以及缺失/过期凭据提示；主动在切换请求返回前重载文档，验证目标意图接续与失败清理，不剥离主页面模块。
 - [dev-source-fixture.mjs](dev-source-fixture.mjs)：上项测试的可控编译器和单实例后台夹具，不连接用户应用。
 
-- [model-control-host.mjs](model-control-host.mjs)：官方能力响应关联、唯一输入目标、新聊天临时目标及其替换/身份建立/双聊天隔离、引用身份隔离、新旧菜单/内联/隐藏视图、菜单打开占位文字/速度可访问标签/高级视图返回、推理滑块、锁定选项、重复失败清理与完整回读、单次菜单事务、生成期间调整与官方禁用、迟到/部分失败及清理的合成宿主回归。
+- [model-control-host.mjs](model-control-host.mjs)：官方能力响应关联、唯一输入目标、新聊天临时目标及其替换/身份建立/双聊天隔离、引用身份隔离、新旧菜单/内联/隐藏视图、菜单打开占位文字/速度可访问标签/高级视图完整回读、推理滑块、锁定选项、重复失败清理与完整回读、单次菜单事务、生成期间调整与官方禁用、迟到/部分失败及清理的合成宿主回归；覆盖只能停留高级视图、已选项无动作或关闭菜单、共享根 Fast 语义状态及缺失/冲突/重复状态拒绝，不依赖返回简洁视图。
 - [feature-views.mjs](feature-views.mjs)：真实通用页面的贴边收起/标签草稿保留、模型回读、标题同行 Fast 与独立列宽控件、无文字目录入口与独立内凹预设标签、常用和预设增删/改名、禁用原生 prompt 时的名称输入/取消/失败重试与完整配置保留、四功能独立字号同步且不放大标签、桌面长模型名称完整换行及超280px列宽保存、原桌面头部、共享标签草稿、Shadow DOM 内真实鼠标拖放、原生唤起、纯黑切回宿主色及返回失败恢复/重试的浏览器验收。
 - [desktop-resize.mjs](desktop-resize.mjs)：feature-views 中的真实主浮窗缩放回归；左右角可信指针拖过正文并连续改变视口，验证默认拖选被阻止、Shadow DOM 禁选、轮询中正文节点持续存在且不替换；松手恢复正常选字，原生结束/失焦/取消清除手势状态。不宣称浏览器几何可替代 AppKit 像素验收。
 - [model-control-fixture.mjs](model-control-fixture.mjs)：共享的合成官方模型菜单与能力响应宿主。
@@ -194,7 +194,7 @@ workbench的closed independent views定向用例检查全部视图关闭后释�
 
 `prompt-enhancement.test.mjs`：隔离浏览器检查优化/还原、取消、用户输入/IME、会话或输入节点变化、复杂引用、错误、单实例清理；用实际 DOM 和键盘 Enter/Shift+Enter 验证裸文本与 P/DIV/BR 混排、首尾/连续空行、末尾占位及原始换行/$字符往返。列表只验证读取，不代表浏览器富文本列表写入验收。直接测试宿主inputTarget在无模型能力、新草稿和重复身份下的行为。Rust prompt_enhancement测试三种协议与完整输入、不依赖Stepwise开关/方向；ignored的live_prompt_enhancement需显式PALBOO_PROMPT_SMOKE_DATA，只用合成草稿调用配置模型，不接触真实输入框。
 
-- `model-preset-draft.test.mjs`：真实 FeatureView/ModelView 与合成 owner 交接/重新挂载，验证新增和改名草稿、捕获模型配置、保存失败、成功/取消/Esc 清空，以及输入后同一任务内卸载的同步 capture；不启动原生窗口或操作真实宿主。
+- `model-preset-draft.test.mjs`：真实 FeatureView/ModelView 与合成 owner 交接/重新挂载，验证新增和改名草稿、捕获模型配置、保存失败、成功/取消/Esc 清空，以及输入后同一任务内卸载的同步 capture；覆盖单条阻塞提示、无重复空态/忙碌文案、换聊天/CLI清除旧错误、操作前发起的被动回读不得覆盖新结果；不启动原生窗口或操作真实宿主。
 
 settings-connection.test.mjs验证多标签初次连接、旧页恢复、凭据轮换、关闭全部标签后重开、隔离浏览器存储、旧session迁移及写入不重试；响应头先到而快照延迟时保持离线，不使用真实凭据。
 

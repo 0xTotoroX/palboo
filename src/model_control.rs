@@ -325,7 +325,7 @@ impl App {
             let mut snapshot = control.snapshot.clone();
             snapshot["status"] = json!("busy");
             snapshot["tokenMeter"] = Value::Null;
-            snapshot["message"] = json!("正在核对并切换模型…");
+            snapshot["message"] = json!("");
             return Ok(control.envelope(snapshot));
         };
         let show_usage = self.model_control.lock().await.preferences.show_usage;
@@ -365,9 +365,10 @@ impl App {
     }
     pub async fn model_control_apply(&self, command: Value) -> Result<Value> {
         let operation = self.model_control.lock().await.operation.clone();
-        let _guard = operation
-            .try_lock()
-            .map_err(|_| anyhow::anyhow!("已有模型操作正在进行"))?;
+        // 用户点击可以排在短暂的被动回读之后，不能被正常轮询误判为重复操作。
+        let _guard = tokio::time::timeout(Duration::from_millis(400), operation.lock())
+            .await
+            .context("已有模型操作正在进行，请稍后重试")?;
         anyhow::ensure!(
             self.model_control.lock().await.preferences.enabled,
             "模型快切已停用"
@@ -776,6 +777,32 @@ mod tests {
             assert!(prefs.patched(&patch).is_err());
         }
     }
+    #[tokio::test]
+    async fn apply_waits_for_a_short_state_read_before_validating_the_command() {
+        let temp = tempfile::tempdir().unwrap();
+        let paths = Paths::new(Some(temp.path().into())).unwrap();
+        let app = App::new(paths, Default::default(), None, false);
+        app.model_control.lock().await.preferences.enabled = true;
+        let operation = app.model_control.lock().await.operation.clone();
+        let reading = operation.lock().await;
+        let mut apply = Box::pin(app.model_control_apply(json!({
+            "selection": {"model":"alpha", "reasoning":"high", "speed":"standard"}
+        })));
+        assert!(
+            tokio::time::timeout(Duration::from_millis(25), &mut apply)
+                .await
+                .is_err()
+        );
+        drop(reading);
+        assert!(
+            apply
+                .await
+                .unwrap_err()
+                .to_string()
+                .contains("聊天来源已过期")
+        );
+    }
+
     #[tokio::test]
     async fn preferences_conflict_cold_restore_and_model_settings_are_independent() {
         let temp = tempfile::tempdir().unwrap();

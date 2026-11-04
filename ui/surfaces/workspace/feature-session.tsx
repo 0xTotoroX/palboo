@@ -20,6 +20,11 @@ import { FeatureContent, contentToken, type FeatureData } from '../../features/c
 import type { PanelSnapshot } from '../../shared/contracts';
 import { surfaceStyle, type Appearance } from '../theme/appearance';
 import { featureFontSize, type Entry, type Request, type Reading } from '../../shared/features';
+function modelNoticeTarget(value: FeatureData | null) {
+  const snapshot = value?.snapshot as
+    { target?: { id?: string }; agent?: { current?: string } } | undefined;
+  return JSON.stringify([snapshot?.target?.id, snapshot?.agent?.current]);
+}
 export function FeatureView({
   entry,
   owner,
@@ -51,6 +56,13 @@ export function FeatureView({
   const [busy, setBusy] = useState(false),
     [error, setError] = useState('');
   const [value, setValue] = useState<FeatureData | null>(null);
+  const latestValue = useRef<FeatureData | null>(null);
+  const operationVersion = useRef(0);
+  const modelErrorTarget = useRef<string | null>(null);
+  const update = useCallback((next: FeatureData) => {
+    latestValue.current = next;
+    setValue(next);
+  }, []);
   const [connected, setConnected] = useState(true);
   const [appearance, setAppearance] = useState<Appearance>({});
   const active = entry.owner === owner && entry.open && !entry.pending;
@@ -136,9 +148,14 @@ export function FeatureView({
       )
         return;
       refreshing = true;
+      const version = operationVersion.current;
       try {
         const value = await call<FeatureData & { appearance?: Appearance }>('read');
-        if (stopped) return;
+        if (stopped || gate.current || version !== operationVersion.current) return;
+        if (modelErrorTarget.current && modelErrorTarget.current !== modelNoticeTarget(value)) {
+          modelErrorTarget.current = null;
+          setError('');
+        }
         setConnected(true);
         const nextFingerprint = JSON.stringify(value);
         if (nextFingerprint === fingerprint) {
@@ -165,11 +182,11 @@ export function FeatureView({
         }
         if (['outline', 'next', 'prompts'].includes(entry.id) && !value.snapshot)
           setConnected(false);
-        else setValue(value);
+        else update(value);
         await onReady?.();
         ready = true;
       } catch {
-        if (!stopped) setConnected(false);
+        if (!stopped && !gate.current && version === operationVersion.current) setConnected(false);
       } finally {
         refreshing = false;
       }
@@ -190,7 +207,7 @@ export function FeatureView({
       observer.disconnect();
       document.removeEventListener('visibilitychange', visible);
     };
-  }, [call, entry.id]);
+  }, [call, entry.id, update]);
   useEffect(() => {
     const node = body.current;
     if (!node) return;
@@ -236,11 +253,14 @@ export function FeatureView({
       return null;
     }
     gate.current = true;
+    operationVersion.current++;
+    modelErrorTarget.current = null;
     setBusy(true);
     setError('');
     try {
       return await fn();
     } catch (e) {
+      if (entry.id === 'model') modelErrorTarget.current = modelNoticeTarget(latestValue.current);
       setError(errorMessage(e));
       if (propagate) throw e;
       return null;
@@ -321,7 +341,7 @@ export function FeatureView({
       }
     >
       {error && <p role="alert">{error}</p>}
-      {!connected && value && entry.id !== 'board' && (
+      {!connected && value && entry.id !== 'board' && (entry.id !== 'model' || !error) && (
         <p role="status">{tr('连接已断开，保留上次内容。')}</p>
       )}
       <div
@@ -332,6 +352,7 @@ export function FeatureView({
       >
         <FeatureContent
           headerActions={headerActions}
+          hasNotice={!!error || !connected}
           id={entry.id}
           reading={reading.current}
           value={value}
@@ -339,7 +360,7 @@ export function FeatureView({
           connected={connected}
           call={call}
           operation={operation}
-          update={setValue}
+          update={update}
         />
       </div>
     </section>

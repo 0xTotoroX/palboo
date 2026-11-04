@@ -284,7 +284,7 @@ try {
     { modern: true, openPlaceholder: true, speedFlyout: true },
   );
   await check(
-    'already-open advanced picker returns through checked item without changing selection',
+    'already-open advanced picker reads configuration without selecting a model',
     async (page) => {
       await page.locator('form button').click();
       await page.locator('[data-model-picker-view-toggle]').click();
@@ -294,6 +294,95 @@ try {
       assert.equal(result.status, 'success', result.message);
     },
     { modern: true, openPlaceholder: true },
+  );
+  await check(
+    'newly opened menu uses its trigger label when aria-controls points inside the popup',
+    async (page) => {
+      const state = await snapshot(page, true);
+      assert.equal(state.status, 'ready', state.message);
+      const result = await apply(page, targetBeta);
+      assert.equal(result.status, 'success', result.message);
+      assert.deepEqual(result.snapshot.current, targetBeta);
+      assert.equal(await page.locator('[role="menu"]').count(), 0);
+    },
+    { modern: true, labelledMenu: true },
+  );
+  await check(
+    'advanced-only picker reads live hidden Fast metadata and switches without returning to simple',
+    async (page) => {
+      await page.evaluate(() => {
+        host.configs['chat-a'].speed = 'fast';
+      });
+      const state = await snapshot(page, true);
+      assert.equal(state.status, 'ready', state.message);
+      assert.deepEqual(state.current, { model: 'alpha', reasoning: 'low', speed: 'fast' });
+      assert.equal(state.diagnostic.mutated, false);
+      assert.equal(await page.evaluate(() => host.changes.length), 0);
+      const desired = { ...targetBeta, reasoning: 'medium' };
+      const result = await apply(page, desired);
+      assert.equal(result.status, 'success', result.message);
+      assert.deepEqual(result.snapshot.current, desired);
+      assert.equal(await page.evaluate(() => host.changes.length), 1);
+      assert.equal(await page.locator('[role="menu"]').count(), 0);
+    },
+    { modern: true, openPlaceholder: true, advancedOnly: true, checkedModelBehavior: 'stay' },
+  );
+  for (const checkedModelBehavior of ['stay', 'close']) {
+    await check(
+      `advanced picker with ${checkedModelBehavior} checked item does not block refresh or switching`,
+      async (page) => {
+        await page.locator('form button').click();
+        await page.locator('[data-model-picker-view-toggle]').click();
+        const state = await snapshot(page, true);
+        assert.equal(state.status, 'ready', state.message);
+        assert.equal(state.diagnostic.mutated, false);
+        assert.equal(await page.evaluate(() => host.changes.length), 0);
+        await page.locator('form button').click();
+        await page.locator('[data-model-picker-view-toggle]').click();
+        const result = await apply(page, targetBeta);
+        assert.equal(result.status, 'success', result.message);
+        assert.deepEqual(result.snapshot.current, targetBeta);
+        assert.equal(await page.locator('[role="menu"]').count(), 0);
+      },
+      {
+        modern: true,
+        openPlaceholder: true,
+        checkedModelBehavior,
+        modelViewAfterSelection: 'advanced',
+      },
+    );
+  }
+  for (const metadata of ['missing', 'conflicting', 'duplicate']) {
+    await check(
+      `advanced-only picker rejects ${metadata} Fast evidence without changing configuration`,
+      async (page) => {
+        await page.locator('form button').click();
+        await page.locator('[data-fast-mode-enabled]').evaluate((node, metadata) => {
+          if (metadata === 'missing') node.remove();
+          else if (metadata === 'conflicting') node.setAttribute('aria-checked', 'true');
+          else node.after(node.cloneNode(true));
+        }, metadata);
+        const state = await snapshot(page, true);
+        assert.equal(state.status, 'unavailable');
+        assert.match(state.message, /完整配置/);
+        assert.doesNotMatch(state.message, /读取当前配置|返回简洁/);
+        assert.equal(state.diagnostic.failure.phase, '读取当前配置');
+        assert.equal(await page.evaluate(() => host.changes.length), 0);
+        assert.equal(await page.locator('[role="menu"]').count(), 0);
+      },
+      { modern: true, openPlaceholder: true, advancedOnly: true },
+    );
+  }
+  await check(
+    'same model closing its picker confirms unchanged selection before adjusting reasoning',
+    async (page) => {
+      const desired = { model: 'alpha', reasoning: 'high', speed: 'standard' };
+      const result = await apply(page, desired);
+      assert.equal(result.status, 'success', result.message);
+      assert.deepEqual(result.snapshot.current, desired);
+      assert.equal(await page.locator('[role="menu"]').count(), 0);
+    },
+    { modern: true, checkedModelBehavior: 'close' },
   );
   await check(
     'inline model submenu without Model prefix and flat reasoning options',
@@ -1121,7 +1210,8 @@ try {
     const result = await apply(page, targetBeta);
     const elapsed = Date.now() - started;
     assert.equal(result.status, 'partial');
-    assert.match(result.message, /11 秒/);
+    assert.match(result.message, /模型切换超时/);
+    assert.doesNotMatch(result.message, /11 秒/);
     assert.ok(elapsed < 12000, `apply exceeded deadline: ${elapsed}ms`);
     assert.equal(result.snapshot.current, null);
     const clicks = await page.evaluate(

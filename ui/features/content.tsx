@@ -36,7 +36,9 @@ export function FeatureContent({
   operation,
   update,
   headerActions,
+  hasNotice = false,
 }: {
+  hasNotice?: boolean;
   headerActions?: HTMLElement;
   id: FeatureId;
   reading: Reading;
@@ -131,6 +133,7 @@ export function FeatureContent({
     return value ? (
       <ModelView
         headerActions={headerActions}
+        hasNotice={hasNotice}
         state={value as unknown as ModelState}
         footer={
           <TokenMeterView

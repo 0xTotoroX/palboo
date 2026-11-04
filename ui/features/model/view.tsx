@@ -43,7 +43,9 @@ export function ModelView({
   reading,
   headerActions,
   footer,
+  hasNotice = false,
 }: {
+  hasNotice?: boolean;
   footer?: ReactNode;
   headerActions?: HTMLElement;
   reading: Reading;
@@ -139,6 +141,17 @@ export function ModelView({
   const s = state.snapshot;
   const currentAgent = s.agent?.current || 'codex';
   const prefs = scopedModelPreferences(state.preferences, currentAgent);
+  const statusMessage = hasNotice
+    ? ''
+    : !prefs.enabled
+      ? tr('模型切换已停用，请在设置页开启。')
+      : s.status === 'busy'
+        ? ''
+        : tr(s.message);
+  const emptyMessage =
+    hasNotice || statusMessage || s.status === 'busy'
+      ? ''
+      : tr(s.status === 'waiting' ? '正在读取模型…' : '暂无可用模型');
   const scopedPresets = prefs.presets.filter(
     (preset) => preset.agent === currentAgent && !preset.catalogPin,
   );
@@ -529,6 +542,7 @@ export function ModelView({
     <section
       ref={root}
       className="feature-model"
+      aria-busy={busy || s.status === 'busy'}
       onPointerDownCapture={feedback.pointer}
       onKeyDown={(event) => {
         feedback.keyboard();
@@ -725,10 +739,10 @@ export function ModelView({
                 </div>
 
                 {rows(visible)}
-                {!!models.length && !visible.length && (
+                {!hasNotice && !statusMessage && !!models.length && !visible.length && (
                   <p className="model-empty-favorites">{tr('在目录中固定常用模型')}</p>
                 )}
-                {!models.length && <p>{tr('暂无可用模型')}</p>}
+                {!models.length && emptyMessage && <p role="status">{emptyMessage}</p>}
               </div>
             </div>
           </div>
@@ -907,16 +921,14 @@ export function ModelView({
                   </div>
                 </section>
               ))}
-              {!models.length && <p>{tr('暂无可用模型')}</p>}
+              {!models.length && emptyMessage && <p role="status">{emptyMessage}</p>}
             </div>
           </div>
         )}
       </div>
-      {(!prefs.enabled || s.message) && (
+      {statusMessage && (
         <footer className="model-footer">
-          <span role="status">
-            {!prefs.enabled ? tr('模型切换已停用，请在设置页开启。') : tr(s.message)}
-          </span>
+          <span role="status">{statusMessage}</span>
         </footer>
       )}
     </section>

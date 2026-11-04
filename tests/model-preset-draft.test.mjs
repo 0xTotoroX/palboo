@@ -27,9 +27,28 @@ const notify=()=>{};
 const request=async(input)=>{
   window.calls.push(structuredClone(input));
   if(input.owner!==window.entry.owner) throw Error('stale owner');
-  if(input.op==='read') return structuredClone(window.model);
+  if(input.op==='read') {
+    const captured=structuredClone(window.model);
+    const fail=window.failNextRead;
+    window.failNextRead=false;
+    if(window.delayRead) {
+      window.delayRead=false;
+      await new Promise(resolve=>window.releaseRead=resolve);
+      window.readReleased=true;
+    }
+    if(fail) {
+      window.readFailed=true;
+      throw Error('connection lost');
+    }
+    return captured;
+  }
   if(input.op==='action') {
     if(input.action==='apply') {
+      if(window.failApply) {
+        window.model.snapshot.message=window.failApply;
+        window.model.snapshot.models=[];
+        return {...structuredClone(window.model),result:{status:'failed',message:window.failApply}};
+      }
       if (input.data.agent && window.agentSnapshots) {
         window.model.snapshot = structuredClone(window.agentSnapshots[input.data.agent]);
       } else window.model.snapshot.current=structuredClone(input.data.selection);
@@ -100,6 +119,99 @@ async function move(page) {
   await page.getByRole('button', { name: '添加预设', exact: true }).waitFor();
   return captured.view;
 }
+
+test('model notices show one blocking reason without duplicate empty or footer messages', async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await fixture(browser);
+    await page.evaluate(() => {
+      window.failApply = '模型配置未能确认，请刷新后重试';
+    });
+    await page.locator('.model-preset-choice').click();
+    await page.getByRole('alert').waitFor();
+    assert.equal(await page.getByRole('alert').textContent(), '模型配置未能确认，请刷新后重试');
+    assert.equal(
+      await page.getByText('模型配置未能确认，请刷新后重试', { exact: true }).count(),
+      1,
+    );
+    assert.equal(await page.locator('.model-footer').count(), 0);
+    assert.equal(await page.getByText('暂无可用模型', { exact: true }).count(), 0);
+    await page.evaluate(() => {
+      window.failNextRead = true;
+    });
+    await page.waitForFunction(() => window.readFailed);
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
+    assert.equal(await page.getByText('连接已断开，保留上次内容。', { exact: true }).count(), 0);
+    await page.evaluate(() => {
+      window.model.snapshot.target = { id: 'other-chat' };
+      window.model.snapshot.agent = {
+        current: 'antigravity',
+        label: 'Antigravity CLI',
+        locked: false,
+        options: [],
+      };
+      window.model.snapshot.message = '';
+    });
+    await page.getByRole('alert').waitFor({ state: 'detached' });
+  } finally {
+    await browser.close();
+  }
+});
+
+for (const fails of [false, true]) {
+  test(`a passive read ${fails ? 'failure' : 'result'} started before a model action cannot overwrite its newer result`, async () => {
+    const browser = await chromium.launch({ headless: true });
+    try {
+      const page = await fixture(browser);
+      await page.evaluate((fails) => {
+        window.delayRead = true;
+        window.failNextRead = fails;
+      }, fails);
+      await page.waitForFunction(() => typeof window.releaseRead === 'function');
+      await page
+        .locator('[data-model-row="beta"] .model-choices button[data-reasoning="low"]')
+        .click();
+      await page
+        .locator('[data-model-row="beta"] .model-choices button[aria-pressed="true"]')
+        .waitFor();
+      await page.evaluate(() => window.releaseRead());
+      await page.waitForFunction(() => window.readReleased);
+      await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
+      assert.equal(
+        await page
+          .locator('[data-model-row="beta"] .model-choices button[aria-pressed="true"]')
+          .count(),
+        1,
+      );
+      assert.equal(await page.getByText('连接已断开，保留上次内容。', { exact: true }).count(), 0);
+    } finally {
+      await browser.close();
+    }
+  });
+}
+
+test('busy model operations use busy state and initial loading stays a single neutral notice', async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await fixture(browser);
+    await page.evaluate(() => {
+      window.model.snapshot.status = 'busy';
+      window.model.snapshot.message = '正在核对并切换模型…';
+    });
+    await page.locator('.feature-model[aria-busy="true"]').waitFor();
+    assert.equal(await page.getByText('正在核对并切换模型…', { exact: true }).count(), 0);
+    await page.evaluate(() => {
+      window.model.snapshot.status = 'waiting';
+      window.model.snapshot.models = [];
+      window.model.snapshot.message = '';
+    });
+    await page.getByText('正在读取模型…', { exact: true }).waitFor();
+    assert.equal(await page.getByRole('status').count(), 1);
+    assert.equal(await page.getByText('暂无可用模型', { exact: true }).count(), 0);
+  } finally {
+    await browser.close();
+  }
+});
 
 test('legacy preset creation draft survives owner handoff, failure, model changes and immediate unmount', async () => {
   const browser = await chromium.launch({ headless: true });

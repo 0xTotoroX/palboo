@@ -654,14 +654,13 @@
       message = compatibility.message;
     } else if (operation) {
       status = 'busy';
-      message = tr('模型菜单操作进行中');
     } else if (isExternal) {
       status = external?.status || 'unavailable';
       message = external?.message || '';
     } else if (!models.length) {
       void readCatalog();
       status = 'waiting';
-      message = tr('等待关联的官方 model/list 数据；可刷新官方模型菜单后重试，无需重启');
+      message = catalogRead ? '' : tr('暂未读取到模型，请刷新重试');
     } else if (!current) {
       status = 'waiting';
     }
@@ -691,7 +690,7 @@
       op.aborted ||= compatibility.message;
     }
     if (op.controller.signal.aborted || performance.now() >= op.deadline)
-      op.aborted ||= String(op.controller.signal.reason || tr('操作超过 11 秒截止时间'));
+      op.aborted ||= String(op.controller.signal.reason || tr('模型切换超时，请刷新后重试'));
     if (op.aborted) {
       op.controller.abort(op.aborted);
       throw new Error(op.aborted);
@@ -732,7 +731,8 @@
             .map((n) => n.getAttribute('data-model-picker-view'))
         : [],
     };
-    return `${cause.message}（${op.failure.phase}）`;
+    // 阶段只留在本机诊断，界面仅展示操作失败的原因。
+    return cause.message;
   }
   const diagnostic = (op) =>
     op
@@ -753,13 +753,14 @@
       await pause(op, 25);
       guard(op);
     } while (performance.now() < deadline);
-    throw new Error(tr('等待官方菜单或配置回读超时'));
+    throw new Error(tr('模型配置未能确认，请刷新后重试'));
   }
   function activate(op, node, mutation = false) {
     guard(op, node);
     if (mutation) {
       op.mutated = true;
       cache = null;
+      op.triggerModel = null;
     }
     const options = {
       bubbles: true,
@@ -914,24 +915,37 @@
   }
   const fastCheckbox = (main) =>
     one(all(main, '[role="menuitemcheckbox"][data-fast-mode-enabled]').filter(visible));
+  function readFastMode(main) {
+    const checkbox = fastCheckbox(main);
+    if (checkbox) return checkbox.getAttribute('aria-checked');
+    // 当前宿主在同一组件内保留两套视图；高级目录的隐藏控制区仍携带实时 Fast 状态。
+    // 只读该活动组件唯一的语义标记，不匹配另一隐藏视图或点击隐藏控件。
+    const view = one(all(main, '[data-model-picker-view="advanced"]').filter(visible));
+    const state = view && one(all(view, '[data-fast-mode-enabled]'));
+    if (!state) return null;
+    const value = state.getAttribute('data-fast-mode-enabled');
+    const checked = state.getAttribute('aria-checked');
+    return ['true', 'false'].includes(value) && (!checked || checked === value) ? value : null;
+  }
   function readMain(op, main) {
     guard(op, main);
     phase(op, tr('读取当前配置'));
     const modelRow = sectionRow(main, 'model');
+    const selected = one(all(main, '[data-model-selected="true"]').filter(visible));
     const model = modelRow
       ? matchModel(rowValue(modelRow, 'model'))
       : modelFromTrigger(op.target.trigger) ||
-        modelFromTrigger(one(all(main, '[data-model-picker-view-toggle]').filter(visible)));
+        modelFromTrigger(one(all(main, '[data-model-picker-view-toggle]').filter(visible))) ||
+        (selected && matchModel(label(selected))) ||
+        op.triggerModel;
     const reasoning = canonical(
       op.target.trigger.getAttribute('data-selected-reasoning-effort') ??
         rowValue(sectionRow(main, 'reasoning'), 'reasoning'),
     );
-    const selected = one(all(main, '[data-model-selected="true"]').filter(visible));
     if (selected && model && matchModel(label(selected))?.id !== model.id)
       throw new Error(tr('官方模型显示与选中状态不一致'));
-    const speedRow = sectionRow(main, 'speed'),
-      checkbox = fastCheckbox(main);
-    const checked = checkbox?.getAttribute('aria-checked');
+    const speedRow = sectionRow(main, 'speed');
+    const checked = readFastMode(main);
     const speed = speedRow
       ? speedValue(rowValue(speedRow, 'speed'))
       : checked === 'true'
@@ -941,7 +955,12 @@
           : model && !model.fast
             ? 'standard'
             : null;
-    if (!model || !model.reasoning.includes(reasoning) || !speed)
+    if (
+      !model ||
+      !model.reasoning.includes(reasoning) ||
+      !speed ||
+      (speed === 'fast' && !model.fast)
+    )
       throw new Error(tr('官方完整配置无法精确回读'));
     return { model: model.id, reasoning, speed };
   }
@@ -965,12 +984,11 @@
       return existing;
     }
     op.main = null;
+    op.triggerModel = modelFromTrigger(op.target.trigger);
     activate(op, op.target.trigger);
     const main = await waitFor(op, () => {
       const id = op.target.trigger.getAttribute('aria-controls');
-      const found = menus().filter(
-        (menu) => !id || references(op.target.trigger, 'aria-controls', menu.id),
-      );
+      const found = menus().filter((menu) => !id || linkedMenu(op.target.trigger, menu));
       const menu = one(found);
       if (menu) {
         op.main = menu;
@@ -1058,16 +1076,31 @@
   async function simpleMain(op) {
     const main = await openMain(op);
     if (one(all(main, '[data-model-picker-view="advanced"]').filter(visible))) {
-      // The host remembers this view across close/reopen. Selecting its already
-      // checked row is the official no-change return path to the simple view.
       const selected = one(
         all(main, '[role="menuitemradio"][aria-checked="true"]').filter(visible),
       );
-      if (!selected || disabled(selected) || selected.getAttribute('aria-describedby'))
-        throw new Error(tr('官方模型视图无法安全返回，请先切回简洁视图'));
-      phase(op, tr('返回简洁模型视图'));
-      activate(op, selected);
-      await waitFor(op, () => one(all(main, '[data-model-picker-view="simple"]').filter(visible)));
+      if (selected && !disabled(selected) && !selected.getAttribute('aria-describedby')) {
+        // 仅在确实需要强度/速度控件时尝试官方返回动作；读取配置及切模型不依赖它。
+        activate(op, selected);
+        try {
+          await waitFor(
+            op,
+            () =>
+              !menuOpen(main) ||
+              !one(all(main, '[data-model-picker-view="advanced"]').filter(visible)),
+            450,
+          );
+        } catch {
+          guard(op);
+        }
+        if (
+          menuOpen(main) &&
+          !one(all(main, '[data-model-picker-view="advanced"]').filter(visible))
+        )
+          return main;
+      }
+      await closeMenu(op);
+      return openMain(op);
     }
     return main;
   }
@@ -1076,6 +1109,7 @@
     if (mutation) {
       op.mutated = true;
       cache = null;
+      op.triggerModel = null;
     }
     dispatching = true;
     try {
@@ -1140,7 +1174,7 @@
     return main; // Current host can render reasoning choices directly in the main popup.
   }
   async function readOfficial(op, close = false) {
-    const main = await simpleMain(op);
+    const main = await openMain(op);
     guard(op, main);
     const current = readMain(op, main);
     if (close) {
@@ -1151,8 +1185,7 @@
     return current;
   }
   async function choose(op, section, wanted) {
-    let main = await simpleMain(op);
-    const priorStamp = triggerStamp(op.target);
+    let main = section === 'model' ? await openMain(op) : await simpleMain(op);
     guard(op, main);
     const checkbox = section === 'speed' && fastCheckbox(main);
     if (section === 'reasoning' && one(all(main, '[data-reasoning-slider]').filter(visible))) {
@@ -1187,8 +1220,7 @@
       activate(op, item, true);
       if (section === 'model') op.explicitModel = true;
     }
-    if (!menuOpen(op.main) && section !== 'speed' && triggerStamp(op.target) === priorStamp)
-      await waitFor(op, () => triggerStamp(op.target) !== priorStamp);
+    // 选择同一模型可以关闭菜单但不改变触发器文字，直接以完整配置回读确认。
     // Reuse the live menu. Reopen only if the official selection itself closed it.
     // Close an owned child popup without dismissing the parent.
     for (const menu of [...op.menus].reverse()) {
@@ -1233,7 +1265,10 @@
     };
     observeOperation();
     const active = operation;
-    active.timer = setTimeout(() => active.controller.abort(tr('模型切换操作超时')), budget);
+    active.timer = setTimeout(
+      () => active.controller.abort(tr('模型切换超时，请刷新后重试')),
+      budget,
+    );
     try {
       guard(operation);
     } catch (error) {
@@ -1317,7 +1352,7 @@
       // Modern hosts can bypass the old DOM request event, or cache the menu's fetch.
       if (!models.length) await readCatalog(true);
       guard(op);
-      const main = await simpleMain(op);
+      const main = await openMain(op);
       guard(op, main);
       if (!models.length) {
         phase(op, tr('等待可用模型'));
@@ -1352,7 +1387,10 @@
       op = null;
     const result = (status, message) => ({
       status: status === 'applied' ? 'success' : status === 'partial' ? 'partial' : 'failed',
-      message,
+      message:
+        status === 'partial'
+          ? tr('切换未完成，请核对当前模型：{{reason}}', { reason: message })
+          : message,
       snapshot: passive(),
       previous,
       diagnostic: diagnostic(op),

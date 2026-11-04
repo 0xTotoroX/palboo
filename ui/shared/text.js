@@ -38,6 +38,7 @@ export function escapeAttr(value) {
 export function errorMessage(error) {
   const message = error && typeof error === 'object' && 'message' in error ? error.message : error;
   const text = typeof message === 'string' ? message.replace(/^Error:\s*/, '').trim() : '';
+  if (text === 'model_control_conflict') return tr('模型设置已在其他窗口更新，请刷新后重试。');
   if (text === '当前聊天中未找到该术语的位置，聊天可能已切换或内容已更新')
     return tr('未找到原文，请刷新术语。');
   return tr(text || '操作失败，请重试。');

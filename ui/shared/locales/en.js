@@ -1346,12 +1346,16 @@ export default {
   'Model Deck 正在运行，请显式关闭后重试': 'Model Deck is running. Close it and retry.',
   '无法唯一确认聊天身份与输入框，请选择目标聊天':
     'The chat and input could not be uniquely identified. Select the target chat.',
-  模型菜单操作进行中: 'A model menu action is in progress',
-  '等待关联的官方 model/list 数据；可刷新官方模型菜单后重试，无需重启':
-    'Waiting for the host model list. Refresh the model menu and retry; a restart is not required.',
-  '操作超过 11 秒截止时间': 'The operation exceeded its 11-second deadline',
+  '暂未读取到模型，请刷新重试': 'Models could not be loaded. Refresh and retry.',
+  '模型设置已在其他窗口更新，请刷新后重试。':
+    'Model settings changed in another window. Refresh and retry.',
+  '已有模型操作正在进行，请稍后重试': 'Another model operation is in progress. Try again shortly.',
+  '模型配置未能确认，请刷新后重试':
+    'The model configuration could not be confirmed. Refresh and retry.',
+  '模型切换超时，请刷新后重试': 'The model switch timed out. Refresh and retry.',
+  '切换未完成，请核对当前模型：{{reason}}':
+    'The switch is incomplete. Check the current model: {{reason}}',
   官方控件已失效: 'The host control is no longer valid',
-  等待官方菜单或配置回读超时: 'Timed out waiting for the host menu or configuration confirmation',
   读取当前配置: 'Read current configuration',
   官方模型显示与选中状态不一致: 'The displayed model and host selection do not match',
   官方完整配置无法精确回读: 'The complete host configuration could not be confirmed',
@@ -1359,9 +1363,6 @@ export default {
   '另一个官方菜单仍然打开，请先关闭该菜单再选择模型':
     'Another host menu is open. Close it before selecting a model.',
   关闭自有菜单: 'Close this menu',
-  '官方模型视图无法安全返回，请先切回简洁视图':
-    'The model view could not be closed safely. Switch back to the compact view first.',
-  返回简洁模型视图: 'Return to the compact model view',
   '官方简洁滑块不提供持续强度，请在官方菜单选择':
     'This reasoning level is unavailable on the compact slider. Select it in the host menu.',
   官方推理滑块不可用: 'The host reasoning slider is unavailable',

@@ -113,12 +113,17 @@ export function installModelControlFixture({ records, options = {} }) {
       main.dataset.fixtureMenu = '';
       main.dataset.state = 'open';
       main.tabIndex = -1;
+      if (options.labelledMenu) {
+        trigger.id = `trigger-${id}`;
+        main.setAttribute('aria-labelledby', trigger.id);
+      }
       const config = state.configs[id];
       if (options.openPlaceholder) trigger.textContent = 'Select model';
       if (options.unknownMenu) {
         main.textContent = 'An unsupported future picker';
       } else if (options.modern) {
-        const draw = (view = 'simple') => {
+        const draw = (view = options.advancedOnly ? 'advanced' : 'simple') => {
+          if (options.advancedOnly) view = 'advanced';
           main.replaceChildren();
           const root = document.createElement('div');
           root.dataset.modelPickerView = view;
@@ -130,6 +135,11 @@ export function installModelControlFixture({ records, options = {} }) {
           inactive.innerHTML =
             '<div role="menuitemradio" data-model-selected="true">Hidden model</div>';
           main.append(inactive);
+          if (options.sharedViewRoot !== false && view === 'advanced') {
+            inactive.removeAttribute('data-model-picker-view');
+            inactive.innerHTML = `<div role="menuitemcheckbox" aria-checked="${config.speed === 'fast'}" data-fast-mode-enabled="${config.speed === 'fast'}"></div>`;
+            root.append(inactive);
+          }
           if (options.openPlaceholder) trigger.textContent = 'Select model';
           if (view === 'advanced') {
             for (const model of records) {
@@ -148,6 +158,12 @@ export function installModelControlFixture({ records, options = {} }) {
               choice.innerHTML = `<span>${model.displayName}</span>`;
               choice.addEventListener('click', () => {
                 if (choice.getAttribute('aria-checked') === 'true') {
+                  if (options.checkedModelBehavior === 'stay') return;
+                  if (options.checkedModelBehavior === 'close') {
+                    clearMenus();
+                    render();
+                    return;
+                  }
                   draw();
                   return;
                 }
@@ -159,7 +175,7 @@ export function installModelControlFixture({ records, options = {} }) {
                 config.speed = 'standard';
                 state.changes.push({ id, ...config });
                 render();
-                draw();
+                draw(options.modelViewAfterSelection || 'simple');
               });
               root.append(choice);
             }
@@ -325,7 +341,7 @@ export function installModelControlFixture({ records, options = {} }) {
         }
       });
       document.body.append(main);
-      trigger.setAttribute('aria-controls', main.id);
+      trigger.setAttribute('aria-controls', options.labelledMenu ? `${main.id}-content` : main.id);
       main.focus();
     };
     trigger.addEventListener('pointerdown', () => {
