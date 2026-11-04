@@ -546,7 +546,7 @@ test(
         colors.find((n) => n.pressed === 'true').bg,
         colors.find((n) => n.pressed === 'false').bg,
       );
-      assert.equal(
+      assert.notEqual(
         colors.find((n) => n.pressed === 'true').fg,
         colors.find((n) => n.pressed === 'false').fg,
       );

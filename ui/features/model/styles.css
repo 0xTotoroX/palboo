@@ -9,7 +9,7 @@
   flex: 1;
   min-height: 0;
   --model-tile: color-mix(in srgb, var(--paper) 86%, var(--ink));
-  --model-tile-on: color-mix(in srgb, var(--paper) 78%, var(--ink));
+  --model-tile-on: var(--ink);
   --model-preset-height: max(28px, calc(1.3em + 6px));
 }
 .feature-model button {
@@ -202,7 +202,7 @@
   color: var(--muted);
 }
 .model-choices button[aria-pressed='true'] {
-  color: var(--accent);
+  color: var(--ink);
   background: transparent;
 }
 .model-name strong[draggable='true'] {
@@ -265,7 +265,8 @@
   color: var(--ink);
 }
 .feature-model .model-agent-choice[aria-pressed='true'] {
-  background: var(--model-tile);
+  background: var(--model-tile-on);
+  color: var(--paper);
   font-weight: 500;
 }
 .feature-model .model-agent-choice:disabled:not([aria-pressed='true']) {
@@ -306,7 +307,15 @@
     inset -1px -1px 2px color-mix(in srgb, var(--paper) 80%, white);
 }
 .feature-model .model-preset-choice[aria-pressed='true'] {
-  background: color-mix(in srgb, var(--paper) 84%, var(--ink));
+  background: var(--model-tile-on);
+  color: var(--paper);
+  box-shadow: none;
+}
+.feature-model .model-preset-choice[aria-pressed='true']:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--ink) 88%, var(--paper));
+}
+.model-preset-choice[aria-pressed='true'] .model-preset-reasoning {
+  color: inherit;
 }
 .model-preset-choice > span:last-child {
   min-width: 0;
@@ -487,13 +496,16 @@
 }
 .feature-model .model-tile[aria-pressed='true'] {
   background: var(--model-tile-on);
-  color: var(--ink);
+  color: var(--paper);
+}
+.model-tile[aria-pressed='true'] .model-route {
+  color: inherit;
 }
 .feature-model .model-tile:hover:not(:disabled) {
   background: color-mix(in srgb, var(--model-tile) 80%, var(--ink));
 }
 .feature-model .model-tile[aria-pressed='true']:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--model-tile-on) 80%, var(--ink));
+  background: color-mix(in srgb, var(--ink) 88%, var(--paper));
 }
 .model-footer {
   display: flex;

@@ -4,6 +4,7 @@
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { build } from 'esbuild';
 import { chromium } from 'playwright';
 
@@ -355,6 +356,117 @@ test('presets show and apply saved reasoning independently of the current model 
     assert.equal(await fast.getAttribute('aria-pressed'), 'true');
     assert.equal(await low.getAttribute('aria-pressed'), 'false');
     assert.deepEqual(await page.evaluate(() => window.model.preferences.presets), initial);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('selected presets and pins have clear contrast in each theme and reasoning uses solid or hollow dots', async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await fixture(browser);
+    await page.addStyleTag({ content: readFileSync('ui/features/model/styles.css', 'utf8') });
+    await page.evaluate(() => {
+      window.root.unmount();
+      window.model.snapshot.models.push({
+        id: 'gamma',
+        label: 'Gamma',
+        reasoning: ['low'],
+        fast: false,
+      });
+      window.model.preferences.presets.push({
+        id: 'second',
+        name: '备用',
+        agent: 'codex',
+        selection: window.beta,
+      });
+      window.mount();
+    });
+    const view = page.locator('.feature-model');
+    await page.getByRole('button', { name: '编辑预设', exact: true }).click();
+    assert.equal(
+      await view.locator('.model-preset-choice').first().getAttribute('aria-pressed'),
+      'true',
+      'editing keeps the current configuration visibly selected',
+    );
+    await page.getByRole('button', { name: '编辑预设', exact: true }).click();
+    const contrast = (a, b) => {
+      const luminance = (rgb) =>
+        rgb
+          .map((v) => v / 255)
+          .map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4))
+          .reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0);
+      const values = [luminance(a), luminance(b)].sort((a, b) => b - a);
+      return (values[0] + 0.05) / (values[1] + 0.05);
+    };
+    const colors = async (kind) =>
+      view.evaluate((node, kind) => {
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = 1;
+        const context = canvas.getContext('2d');
+        const rgb = (value) => {
+          context.clearRect(0, 0, 1, 1);
+          context.fillStyle = value;
+          context.fillRect(0, 0, 1, 1);
+          return [...context.getImageData(0, 0, 1, 1).data].slice(0, 3);
+        };
+        return ['true', 'false'].map((pressed) => {
+          const button = node.querySelector(kind + '[aria-pressed="' + pressed + '"]');
+          const style = getComputedStyle(button);
+          return {
+            bg: rgb(style.backgroundColor),
+            fg: rgb(style.color),
+            reason: button.querySelector('.model-preset-reasoning')
+              ? rgb(getComputedStyle(button.querySelector('.model-preset-reasoning')).color)
+              : null,
+          };
+        });
+      }, kind);
+    const assertDistinct = (pair) => {
+      assert.ok(
+        contrast(pair[0].bg, pair[1].bg) >= 3,
+        'selected and unselected backgrounds differ: ' + JSON.stringify(pair),
+      );
+      assert.ok(contrast(pair[0].fg, pair[0].bg) >= 4.5, 'selected text remains readable');
+      if (pair[0].reason)
+        assert.ok(
+          contrast(pair[0].reason, pair[0].bg) >= 4.5,
+          'selected reasoning remains readable',
+        );
+    };
+    for (const palette of [
+      { paper: '#fafafa', ink: '#222222', muted: '#666666', hover: '#eeeeee' },
+      { paper: '#181818', ink: '#eeeeee', muted: '#aaaaaa', hover: '#333333' },
+      { paper: '#000000', ink: '#ffffff', muted: '#999999', hover: '#222222' },
+    ]) {
+      await view.evaluate((node, palette) => {
+        for (const [name, value] of Object.entries(palette))
+          node.style.setProperty('--' + name, value);
+      }, palette);
+      const current = view.locator('.model-preset-choice[aria-pressed="true"]');
+      assertDistinct(await colors('.model-preset-choice'));
+      await current.hover();
+      assertDistinct(await colors('.model-preset-choice'));
+      assert.equal(
+        await view.locator('.model-choices button[aria-pressed="true"]').innerText(),
+        '●',
+      );
+      assert.ok(
+        (
+          await view.locator('.model-choices button[aria-pressed="false"]').allTextContents()
+        ).includes('○'),
+      );
+      await page.getByRole('button', { name: '所有模型', exact: true }).click();
+      assertDistinct(await colors('.model-tile'));
+      await view.locator('.model-tile[aria-pressed="true"]').first().hover();
+      assertDistinct(await colors('.model-tile'));
+      await page.getByRole('button', { name: '关闭所有模型', exact: true }).click();
+    }
+    assert.equal(
+      await page.evaluate(() => window.calls.filter((call) => call.op === 'action').length),
+      0,
+      'checking and hovering selections never changes saved configuration',
+    );
   } finally {
     await browser.close();
   }

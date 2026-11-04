@@ -373,6 +373,8 @@ export function ModelView({
           {columns.map((reasoning) => {
             const supported =
               m.reasoning.includes(reasoning) || (!m.reasoning.length && !reasoning);
+            const selected =
+              supported && s.current?.model === m.id && s.current.reasoning === reasoning;
             return (
               <button
                 key={reasoning}
@@ -384,12 +386,10 @@ export function ModelView({
                 data-model={m.id}
                 data-reasoning={reasoning}
                 data-choice-label={label(reasoning) || tr('选择')}
-                aria-pressed={
-                  supported && s.current?.model === m.id && s.current.reasoning === reasoning
-                }
+                aria-pressed={selected}
                 onClick={() => void apply({ model: m.id, reasoning, speed: 'standard' }, true)}
               >
-                {supported ? '●' : '—'}
+                {supported ? (selected ? '●' : '○') : '—'}
               </button>
             );
           })}
@@ -753,7 +753,6 @@ export function ModelView({
                         p.selection,
                       )}
                       aria-pressed={
-                        !tools &&
                         s.current?.model === p.selection.model &&
                         s.current.reasoning === p.selection.reasoning &&
                         s.current.speed === p.selection.speed
