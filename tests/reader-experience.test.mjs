@@ -1,5 +1,5 @@
 /* [INPUT]: Production reader entry, synthetic API notes and isolated Chromium storage.
- * [OUTPUT]: Reader sidebar/search/home, preview and information focus, conflict-safe history, scroll restoration and responsive acceptance.
+ * [OUTPUT]: Reader navigation, settled focus restoration, conflict-safe history and responsive acceptance.
  * [POS]: No real files, host, credentials or model requests; screenshots contain synthetic notes only.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import test from 'node:test';
@@ -190,11 +190,10 @@ test('drawer keeps article geometry, restores focus and tree state, and only pin
   assert.equal(await page.locator('.reader-tree details[open]').count(), 3);
   await page.keyboard.press('Escape');
   assert.equal(await width(page), 0);
-  assert.equal(
-    await page
-      .getByRole('button', { name: '搜索笔记', exact: true })
-      .evaluate((node) => node === document.activeElement),
-    true,
+  // Closing removes inert before restoring focus on the next animation frame.
+  await page.waitForFunction(
+    (button) => button === document.activeElement,
+    await page.getByRole('button', { name: '搜索笔记', exact: true }).elementHandle(),
   );
   await page.keyboard.press('Control+o');
   await page.getByRole('searchbox').fill('来源');

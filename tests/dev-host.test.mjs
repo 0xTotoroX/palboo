@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 临时配置、含网页构建依赖的开发入口、合成本机 CDP/API 与开发常量构建。
- * [OUTPUT]: 真实目标选择、配置/存储隔离、安装版恢复、已退出后台的恢复记录归档及无宿主启动的错误/清理契约。
+ * [OUTPUT]: 真实目标选择、配置/存储隔离与恢复契约；日志走结构化诊断以兼容最低 Node 测试运行器。
  * [POS]: 开发宿主边界回归；不连接用户应用或读取真实聊天。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -21,7 +21,7 @@ import { join, resolve } from 'node:path';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
 import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
+import { format, promisify } from 'node:util';
 import { copyFileSync, symlinkSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import { build } from 'esbuild';
@@ -36,6 +36,12 @@ import {
   pauseInstallation,
   requestRuntime,
 } from '../scripts/dev-host.mjs';
+
+// Node 22.16 can misread raw UTF-8 stdout interleaved with its binary test reports.
+// Preserve the messages as structured diagnostics (nodejs/node#64706).
+test.beforeEach((t) => {
+  t.mock.method(console, 'log', (...args) => t.diagnostic(format(...args)));
+});
 
 const temporary = (t) => {
   const path = mkdtempSync(join(tmpdir(), 'buddy-real-dev-'));
