@@ -87,7 +87,7 @@ panel_window 使用透明原生标题栏与标准红黄绿按钮，由统一 Pal
 
 - `prompt_enhancement.rs`：受限/prompt/enhance请求；验证当前CDP连接及前端请求身份、配置版本，以单次结构化模型调用改写草稿，轮询取消并在返回前再校验，不写宿主、不经Stepwise方向/Jev。模型调用共用model.complete_json及原CLI/三协议实现；完整输入超过200KB报错，不截断。
 
-- codex_host.rs / [codex_host/AGENTS.md](codex_host/AGENTS.md)：独立CodexHost管理、更新/回退及显式重启协调，无MCP依赖。
+- codex_host.rs / [codex_host/AGENTS.md](codex_host/AGENTS.md)：独立CodexHost管理、更新/回退及显式重启协调；启动前准备项目维护的内存兼容控制器副本，更新验证通过才选择版本，不写官方包，无MCP依赖。
 - host.rs：启动与重连共用只读宿主发现/动态端口，Dev及显式窗口保持绑定；lifecycle复用发现与现有退出策略。
 
 Config.codex_host 兼容旧 codexHost 键并保存启动更新策略，App.codex_host_operation 串行管理。server 提供认证 GET/POST /api/codex-host 并在后台启动时触发一次可取消的检查。cdp 先安装只读 Agent 兼容适配，再安装模型菜单适配。

@@ -1,7 +1,8 @@
-// [INPUT]: CodexHost 独立安装、上游 runtime descriptor、Palboo 配置和只读宿主发现。
-// [OUTPUT]: 安装与实际运行身份、当前Agent只读预览、启停意图、冷启动及手动和启动更新策略。
+// [INPUT]: CodexHost 官方安装、runtime descriptor、Palboo 配置、控制器兼容缓存和宿主发现。
+// [OUTPUT]: 安装/运行身份、只读预览、启停及冷启动；更新/回退先验证控制器再选择版本。
 // [POS]: 独立后台功能适配；开关不退出当前会话，显式重启由独立协调进程接续；不复制上游业务或进入面板布局。
 // [PROTOCOL]: 变更时同步 codex_host/AGENTS.md。
+mod controller;
 pub(crate) mod restart;
 mod update;
 use crate::{
@@ -167,7 +168,8 @@ pub async fn running() -> Result<Option<Running>> {
         .await?;
         if let Some((parent, args)) = details.split_once(char::is_whitespace)
             && parent.parse::<u32>().ok() == Some(record.launcher_pid)
-            && args.contains(controller.to_string_lossy().as_ref())
+            && (args.contains(controller.to_string_lossy().as_ref())
+                || controller::matches_running(&controller, args))
         {
             verified = true;
         }
@@ -261,7 +263,7 @@ async fn status_with_running(
 pub async fn prepare(
     options: &Options,
     app: Option<&Path>,
-) -> Result<(PathBuf, PathBuf, Option<PathBuf>)> {
+) -> Result<(PathBuf, PathBuf, Option<PathBuf>, Option<PathBuf>)> {
     let executable = executable(options).context("未安装 CodexHost，请在设置中安装")?;
     let installed = update::version_tuple(&version(&executable).await?)?;
     ensure!(
@@ -281,26 +283,29 @@ pub async fn prepare(
             "CodexHost 不支持此自定义 Codex 路径"
         );
     }
-    if installed >= (0, 17, 0)
+    let node = if installed >= (0, 17, 0)
         && desktop
             .parent()
             .is_some_and(|directory| directory.join("../Resources/cua_node/bin/node").is_file())
     {
         // Let the upstream launcher select Desktop's signed runtime.
-        return Ok((executable, desktop, None));
-    }
-    let node = find_node().context("CodexHost 需要 Node.js 22 或更新版本")?;
-    let node_version = output(&node, &["--version"], Duration::from_secs(5)).await?;
-    ensure!(
-        update::version_tuple(node_version.trim_start_matches('v'))?.0 >= 22,
-        "需要 Node.js 22 或更新版本"
-    );
-    Ok((executable, desktop, Some(node)))
+        None
+    } else {
+        let node = find_node().context("CodexHost 需要 Node.js 22 或更新版本")?;
+        let node_version = output(&node, &["--version"], Duration::from_secs(5)).await?;
+        ensure!(
+            update::version_tuple(node_version.trim_start_matches('v'))?.0 >= 22,
+            "需要 Node.js 22 或更新版本"
+        );
+        Some(node)
+    };
+    let controller = controller::prepare(&executable, installed, &desktop, node.as_deref()).await?;
+    Ok((executable, desktop, node, controller))
 }
 
 pub async fn launch(paths: &Paths, options: &Options, app: Option<&Path>) -> Result<String> {
     ensure!(options.enabled, "CodexHost 尚未启用");
-    let (executable, desktop, node) = prepare(options, app).await?;
+    let (executable, desktop, node, controller) = prepare(options, app).await?;
     let lock_root = dirs::data_local_dir()
         .context("无法找到应用数据目录")?
         .join("palboo");
@@ -332,6 +337,9 @@ pub async fn launch(paths: &Paths, options: &Options, app: Option<&Path>) -> Res
     let log = std::fs::OpenOptions::new().append(true).open(log_path)?;
     let mut command = std::process::Command::new(&executable);
     command.arg("launch");
+    if let Some(controller) = controller {
+        command.arg("--desktop-controller").arg(controller);
+    }
     if let Some(node) = node {
         command.arg("--node").arg(node);
     }
@@ -513,6 +521,9 @@ impl App {
     }
     async fn install_codex_host(&self, revision: u64, version: &str) -> Result<()> {
         let path = update::install(&self.paths, version).await?;
+        let mut candidate = self.config.lock().await.codex_host.clone();
+        candidate.executable = Some(path.clone());
+        prepare(&candidate, None).await?;
         self.save_codex_host(&json!({"expectedRevision": revision}), |o| {
             o.previous_executable = executable(o);
             o.executable = Some(path);
@@ -609,13 +620,59 @@ mod tests {
         assert_eq!(saved.revision, 1);
         assert_eq!(
             prepare(&saved, None).await.unwrap(),
-            (updated, desktop, None)
+            (updated, desktop, None, None)
         );
         assert!(!paths.root.join("codex-host.log").exists());
         app.apply_startup_update(&options, "0.16.1", "0.18.0")
             .await
             .unwrap();
         assert_eq!(paths.load().unwrap().codex_host.revision, 1);
+    }
+
+    #[tokio::test]
+    async fn incompatible_controller_update_keeps_selected_version_and_rollback() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths::new(Some(dir.path().into())).unwrap();
+        let desktop = paths.root.join("Desktop.app/Contents/MacOS/Codex");
+        let node = desktop
+            .parent()
+            .unwrap()
+            .join("../Resources/cua_node/bin/node");
+        std::fs::create_dir_all(node.parent().unwrap()).unwrap();
+        std::fs::write(&node, []).unwrap();
+        let previous = fixture_install(&paths.root.join("previous"), "0.17.1", &desktop);
+        let target = paths
+            .root
+            .join("codex-host-versions/0.17.2/node_modules/@codexhost/cli-darwin-arm64");
+        fixture_install(&target, "0.17.2", &desktop);
+        std::fs::write(
+            target.join("app/desktop-controller.mjs"),
+            "// changed upstream structure",
+        )
+        .unwrap();
+        let config = crate::config::Config {
+            codex_host: Options {
+                enabled: true,
+                executable: Some(previous.clone()),
+                previous_executable: Some(paths.root.join("older/bin/codexhost")),
+                startup_update: StartupUpdate::Automatic,
+                revision: 7,
+            },
+            ..Default::default()
+        };
+        let options = config.codex_host.clone();
+        let app = App::new(paths.clone(), config, None, true);
+        assert!(
+            app.apply_startup_update(&options, "0.17.1", "0.17.2")
+                .await
+                .is_err()
+        );
+        let current = app.config.lock().await.codex_host.clone();
+        assert_eq!(current.executable, options.executable);
+        assert_eq!(current.previous_executable, options.previous_executable);
+        assert_eq!(current.revision, 7);
+        assert_eq!(version(&previous).await.unwrap(), "0.17.1");
+        assert!(!paths.root.join("codex-host.log").exists());
     }
 
     #[tokio::test]

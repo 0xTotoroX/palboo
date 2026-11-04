@@ -185,7 +185,7 @@ Web 设置只读对齐 ChatGPT.app 的颜色、字体、尺寸与控件状态；
 
 CodexHost管理迁回main：独立src/codex_host.rs及codex_host子模块、认证/codex-host API和设置“功能 → 兼容集成”独立页面。保留codexHost旧配置及独立revision；开关只保存意愿，显式启动/重启停用经身份校验与ask/force策略。不引入plugins聚合、MCP运行时或恢复官方插件入口。src/host.rs为启动与重连共用只读发现，Dev/显式窗口保持绑定。
 
-外部环境保持上游原样：CodexHost、各供应商 Agent CLI 及其模型与登录配置不由 Palboo 添加补丁、启动包装、模型别名或协议转换层。CodexHost 直接使用官方分发包；接入适配只修改 Palboo 项目自身代码。外部环境缺少依赖、认证或存在上游兼容问题时，显示真实状态，不自动改写外部环境绕过问题。
+外部环境保持上游原样：CodexHost 直接使用官方分发包，已确认的调试缓存与重复安装缺陷由 Palboo 项目维护独立控制器副本，通过上游既有参数加载，不改写官方包；具体校验、更新与回退边界见 src/codex_host/AGENTS.md。各供应商 Agent CLI、模型与登录配置不添加补丁、启动包装、模型别名或协议转换层。外部环境缺少依赖、认证或有未适配的上游兼容问题时，显示真实状态，不自动改写外部环境绕过问题。
 
 补齐四项工作台/Dev接续：模型排序通过原owner与revision校验保存modelOrder；已接管主界面只补登记未登记的已启用功能，不覆盖关闭状态、贴边归属、旧窗口或布局；CDP仍存活的响应超时进入unresponsive并保留界面，恢复响应回到connected，真正断线/不兼容才清理。Dev App新会话启用exit-with-host，按宿主PID/启动时间/路径观察退出并清理；断连不作为退出，终端Dev仍由Ctrl+C结束。
 
