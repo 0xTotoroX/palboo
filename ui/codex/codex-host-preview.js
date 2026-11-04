@@ -15,12 +15,15 @@
     const target = window.__palbooModelControl?.inputTarget();
     let matches = [];
     if (target?.composer?.isConnected) {
+      const boundary = target.composer.closest(
+        '[data-codex-composer-root],[data-chatgpt-composer]',
+      );
       let scope = target.composer.parentElement;
       while (scope && scope !== document.body) {
-        matches = controls.filter((control) => scope.contains(control));
-        if (matches.length) break;
         if (scope.querySelectorAll('.ProseMirror,textarea,[contenteditable="true"]').length > 1)
           break;
+        matches = controls.filter((control) => scope.contains(control));
+        if (matches.length || scope === boundary) break;
         scope = scope.parentElement;
       }
     } else if (status.selections.length === 1) {

@@ -61,13 +61,15 @@
   }
 
   function findAgentScope(composer) {
+    const boundary = composer?.closest?.('[data-codex-composer-root],[data-chatgpt-composer]');
     let scope = composer?.parentElement;
     while (scope && scope !== document.body) {
-      const controls = scope.querySelectorAll('[data-codexhost-agent-control]');
-      if (controls.length) return { scope, controls };
-      // Do not borrow controls from another composer's ancestor.
+      // Stop before another input area can lend us its retained Agent controls.
       if (scope.querySelectorAll('.ProseMirror,textarea,[contenteditable="true"]').length > 1)
         break;
+      const controls = scope.querySelectorAll('[data-codexhost-agent-control]');
+      if (controls.length) return { scope, controls };
+      if (scope === boundary) break;
       scope = scope.parentElement;
     }
     return { scope: null, controls: [] };
@@ -137,6 +139,17 @@
 
   /** @param {Element | null | undefined} composer */
   function capability(composer) {
+    if (
+      composer?.closest?.('[data-chatgpt-composer]') &&
+      !composer.closest('[data-codex-composer-root]')
+    ) {
+      return {
+        officialModel: false,
+        externalModel: false,
+        message: tr('当前是 ChatGPT 聊天，请切回 Codex 聊天后再切换 CLI'),
+        agent: null,
+      };
+    }
     const probe = window.__codexhostRendererBindingProbeV1;
     const { scope, controls } = findAgentScope(composer);
     if (controls.length) {
@@ -643,7 +656,14 @@
       }
     }
 
-    if (explicit.length) return explicit.length === 1 ? explicit[0] : null;
+    const combinedSidebar = !!leftPanel?.querySelector('[data-app-action-sidebar-section]');
+    const codexExplicit = explicit.filter(
+      (node) =>
+        !combinedSidebar ||
+        node.hasAttribute('data-codexhost-new-thread') ||
+        node.closest('[data-app-action-sidebar-section]'),
+    );
+    if (codexExplicit.length) return codexExplicit.length === 1 ? codexExplicit[0] : null;
     const candidates = [
       ...document.querySelectorAll('aside.app-shell-left-panel button, nav button'),
     ];
@@ -658,12 +678,35 @@
         label,
       );
     });
-    // Recent/custom sections can repeat “New chat”. The top navigation is the
-    // global entry, while section actions belong to their own groups.
-    const globalActions = actions.filter(
-      (node) => !node.closest('[data-app-action-sidebar-section]'),
+    // Combined hosts expose an explicit task-creation action for custom
+    // Codex sections, including tasks outside projects. Recents may be inert.
+    const taskActions = [
+      ...document.querySelectorAll(
+        'aside.app-shell-left-panel [data-app-action-sidebar-section] button',
+      ),
+    ].filter(
+      (node) =>
+        isActionable(node) &&
+        /^(?:在 .+ 中创建新聊天|create (?:a )?new (?:chat|thread) in .+)$/i.test(
+          node.getAttribute('aria-label') || node.getAttribute('title') || '',
+        ),
     );
-    if (globalActions.length) return globalActions.length === 1 ? globalActions[0] : null;
+    if (taskActions.length) return taskActions.length === 1 ? taskActions[0] : null;
+    // The top “New chat” opens ChatGPT in the combined app. Recents belongs
+    // to Codex tasks; never substitute the ChatGPT entry for CLI handoff.
+    const codexSections = [
+      ...document.querySelectorAll(
+        'aside.app-shell-left-panel [data-app-action-sidebar-section-heading="Recents"]',
+      ),
+    ].filter(isVisible);
+    if (codexSections.length) {
+      const codexActions = actions.filter((node) =>
+        codexSections.some((section) => section.contains(node)),
+      );
+      return codexActions.length === 1 ? codexActions[0] : null;
+    }
+    // Legacy Codex-only hosts have a single generic navigation action.
+    if (combinedSidebar) return null;
     return actions.length === 1 ? actions[0] : null;
   }
 

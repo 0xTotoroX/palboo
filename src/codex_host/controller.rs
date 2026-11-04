@@ -1,5 +1,5 @@
-// [INPUT]: 官方 CodexHost 控制器、版本与所选 Node；仅生成 Palboo 自有缓存。
-// [OUTPUT]: 经结构/语法校验的可选 --desktop-controller 路径与运行身份识别。
+// [INPUT]: 官方 CodexHost 控制器/Renderer、版本与所选 Node；仅生成 Palboo 自有缓存。
+// [OUTPUT]: 经结构/语法校验的控制器及 Renderer 缓存、可选 --desktop-controller 路径与运行身份识别。
 // [POS]: CodexHost 启动、更新和回退共用的内存兼容修复，不写官方安装。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md
 use anyhow::{Context, Result, ensure};
@@ -9,6 +9,11 @@ use std::{
     path::{Path, PathBuf},
     time::Duration,
 };
+
+#[path = "renderer.rs"]
+mod renderer;
+const RENDERER_LOAD: &str =
+    "const rendererSource = await dependencies.readRenderer(options.rendererPath);";
 
 const DIRECT: &str = r#"function installRendererDraftPrewarmPolicyDirect(renderer) {
   return waitForDraftPrewarmPolicy(
@@ -114,20 +119,55 @@ pub(super) async fn prepare(
 
 async fn prepare_in(cache: &Path, source: &Path, node: &Path) -> Result<Option<PathBuf>> {
     let original = std::fs::read_to_string(source).context("无法读取 CodexHost 控制器")?;
-    let Some(patched) = patch(&original)? else {
+    let mut patched = patch(&original)?.unwrap_or_else(|| original.clone());
+    let renderer_source = source.with_file_name("renderer-extension.js");
+    if original.contains(RENDERER_LOAD) || renderer_source.is_file() {
+        ensure!(
+            original.matches(RENDERER_LOAD).count() == 1,
+            STRUCTURE_ERROR
+        );
+        let renderer_original =
+            std::fs::read_to_string(renderer_source).context("无法读取 CodexHost Renderer")?;
+        if let Some(renderer_fixed) = renderer::patch(&renderer_original)? {
+            let directory = source_directory(cache, source)?
+                .join(format!("{:x}", Sha256::digest(renderer_fixed.as_bytes())));
+            let renderer_path =
+                write_validated(&directory, "renderer-extension.js", &renderer_fixed, node).await?;
+            replace_once(
+                &mut patched,
+                RENDERER_LOAD,
+                &format!(
+                    "const rendererSource = await dependencies.readRenderer({});",
+                    serde_json::to_string(&renderer_path)?
+                ),
+            )?;
+        }
+    }
+    if patched == original {
         return Ok(None);
-    };
+    }
     let directory =
         source_directory(cache, source)?.join(format!("{:x}", Sha256::digest(patched.as_bytes())));
-    let output = directory.join("desktop-controller.mjs");
-    if std::fs::read(&output).ok().as_deref() == Some(patched.as_bytes()) {
-        return Ok(Some(output));
+    Ok(Some(
+        write_validated(&directory, "desktop-controller.mjs", &patched, node).await?,
+    ))
+}
+
+async fn write_validated(
+    directory: &Path,
+    filename: &str,
+    content: &str,
+    node: &Path,
+) -> Result<PathBuf> {
+    let output = directory.join(filename);
+    if std::fs::read(&output).ok().as_deref() == Some(content.as_bytes()) {
+        return Ok(output);
     }
     std::fs::create_dir_all(&directory)?;
     let mut temporary = tempfile::Builder::new()
         .suffix(".mjs")
         .tempfile_in(&directory)?;
-    temporary.write_all(patched.as_bytes())?;
+    temporary.write_all(content.as_bytes())?;
     temporary.as_file().sync_all()?;
     super::output(
         node,
@@ -141,7 +181,7 @@ async fn prepare_in(cache: &Path, source: &Path, node: &Path) -> Result<Option<P
     .context("CodexHost 内存兼容补丁校验失败，原安装保持不变")?;
     // 校验完成后才发布；失败不改变官方包或已缓存的可用版本。
     temporary.persist(&output).map_err(|error| error.error)?;
-    Ok(Some(output))
+    Ok(output)
 }
 
 pub(super) fn matches_running(source: &Path, args: &str) -> bool {

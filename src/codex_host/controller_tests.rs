@@ -6,6 +6,55 @@ use super::*;
 
 const FIXTURE: &str = include_str!("../../tests/codex-host-controller-fixture.mjs");
 
+#[tokio::test]
+async fn renderer_override_is_validated_cached_and_keeps_official_files_unchanged() {
+    let directory = tempfile::tempdir().unwrap();
+    let original = directory.path().join("official.mjs");
+    let renderer_path = directory.path().join("renderer-extension.js");
+    let original_controller = format!("{FIXTURE}\n{RENDERER_LOAD}\n");
+    let original_renderer = renderer::tests::fixture();
+    std::fs::write(&original, &original_controller).unwrap();
+    std::fs::write(&renderer_path, &original_renderer).unwrap();
+    let node = super::super::find_node().unwrap();
+    let cache = directory.path().join("cache");
+    let controller = prepare_in(&cache, &original, &node).await.unwrap().unwrap();
+    let content = std::fs::read_to_string(&controller).unwrap();
+    let encoded_path = content
+        .lines()
+        .find_map(|line| {
+            line.strip_prefix("const rendererSource = await dependencies.readRenderer(")
+                .and_then(|path| path.strip_suffix(");"))
+        })
+        .unwrap();
+    let cached_renderer: PathBuf = serde_json::from_str(encoded_path).unwrap();
+    let expected = renderer::patch(&original_renderer).unwrap().unwrap();
+    assert_eq!(std::fs::read_to_string(&cached_renderer).unwrap(), expected);
+    assert_eq!(
+        std::fs::read_to_string(&original).unwrap(),
+        original_controller
+    );
+    assert_eq!(
+        std::fs::read_to_string(&renderer_path).unwrap(),
+        original_renderer
+    );
+    std::fs::write(&cached_renderer, "broken").unwrap();
+    assert_eq!(
+        prepare_in(&cache, &original, &node).await.unwrap(),
+        Some(controller.clone())
+    );
+    assert_eq!(std::fs::read_to_string(&cached_renderer).unwrap(), expected);
+    std::fs::write(&renderer_path, "unknown upstream renderer").unwrap();
+    assert!(prepare_in(&cache, &original, &node).await.is_err());
+    std::fs::write(&renderer_path, original_renderer).unwrap();
+    std::fs::write(
+        &original,
+        original_controller.replace(RENDERER_LOAD, "// unknown renderer loader"),
+    )
+    .unwrap();
+    assert!(prepare_in(&cache, &original, &node).await.is_err());
+    assert_eq!(std::fs::read_to_string(controller).unwrap(), content);
+}
+
 #[test]
 fn patches_known_shapes_once_and_accepts_upstream_fix() {
     let fixed = patch(FIXTURE).unwrap().unwrap();

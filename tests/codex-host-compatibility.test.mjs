@@ -8,23 +8,23 @@ import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { records, installModelControlFixture } from './model-control-fixture.mjs';
 const source = readFileSync(new URL('../ui/codex/codex-host.js', import.meta.url), 'utf8');
-test('CLI handoff chooses the source project or global navigation among repeated new-chat actions', async (t) => {
+test('CLI handoff chooses Codex entries without opening the ChatGPT new-chat action', async (t) => {
   const browser = await chromium.launch({
     executablePath: process.env.PALBOO_CHROME_BIN || undefined,
     headless: true,
   });
   const cases = [
     {
-      name: 'Chinese global and recent-section actions',
+      name: 'Chinese ChatGPT entry is excluded in favor of Codex Recents',
       sidebar:
-        '<button id="global">新聊天</button><section data-app-action-sidebar-section><button id="recent" aria-label="新聊天"></button></section>',
-      expected: 'global',
+        '<button id="global">新聊天</button><section data-app-action-sidebar-section data-app-action-sidebar-section-heading="Recents"><button id="recent" aria-label="新聊天"></button></section>',
+      expected: 'recent',
     },
     {
-      name: 'English global and recent-section actions',
+      name: 'English ChatGPT entry is excluded in favor of Codex Recents',
       sidebar:
-        '<button id="global">New chat</button><section data-app-action-sidebar-section><button id="recent" aria-label="New chat"></button></section>',
-      expected: 'global',
+        '<button id="global">New chat</button><section data-app-action-sidebar-section data-app-action-sidebar-section-heading="Recents"><button id="recent" aria-label="New chat"></button></section>',
+      expected: 'recent',
     },
     {
       name: 'host-prefixed source row takes precedence over another selected project',
@@ -35,14 +35,44 @@ test('CLI handoff chooses the source project or global navigation among repeated
     {
       name: 'missing source row never borrows another selected project',
       sidebar:
-        '<button id="global">新聊天</button><section><button id="wrong" aria-label="在 其他项目 中开始新聊天"></button><div data-app-action-sidebar-thread-row data-app-action-sidebar-thread-selected="true" data-app-action-sidebar-thread-id="local:other-chat"></div></section>',
-      expected: 'global',
+        '<button id="global">新聊天</button><section><button id="wrong" aria-label="在 其他项目 中开始新聊天"></button><div data-app-action-sidebar-thread-row data-app-action-sidebar-thread-selected="true" data-app-action-sidebar-thread-id="local:other-chat"></div></section><section data-app-action-sidebar-section data-app-action-sidebar-section-heading="Recents"><button id="recent">新聊天</button></section>',
+      expected: 'recent',
     },
     {
       name: 'recent source row never borrows a neighboring project action',
       sidebar:
-        '<button id="global">新聊天</button><div><section data-app-action-sidebar-section><button id="wrong" aria-label="在 其他项目 中开始新聊天"></button></section><section data-app-action-sidebar-section><button id="recent">新聊天</button><div data-app-action-sidebar-thread-row data-app-action-sidebar-thread-id="source-chat"></div></section></div>',
-      expected: 'global',
+        '<button id="global">新聊天</button><div><section data-app-action-sidebar-section><button id="wrong" aria-label="在 其他项目 中开始新聊天"></button></section><section data-app-action-sidebar-section data-app-action-sidebar-section-heading="Recents"><button id="recent">新聊天</button><div data-app-action-sidebar-thread-row data-app-action-sidebar-thread-id="source-chat"></div></section></div>',
+      expected: 'recent',
+    },
+    {
+      name: 'combined host without a Codex entry never opens ChatGPT',
+      sidebar:
+        '<button id="global">新聊天</button><section data-app-action-sidebar-section data-app-action-sidebar-section-heading="Projects"></section>',
+      expected: null,
+    },
+    {
+      name: 'explicit Codex section action precedes inert Recents and ChatGPT actions',
+      sidebar:
+        '<button id="global">新聊天</button><section data-app-action-sidebar-section><button id="task" aria-label="在 项目之外 中创建新聊天"></button></section><section data-app-action-sidebar-section data-app-action-sidebar-section-heading="Recents"><button id="recent">新聊天</button></section>',
+      expected: 'task',
+    },
+    {
+      name: 'generic new-chat test id does not turn ChatGPT into a Codex action',
+      sidebar:
+        '<button id="global" data-testid="new-chat">新聊天</button><section data-app-action-sidebar-section><button id="task" aria-label="在 项目之外 中创建新聊天"></button></section>',
+      expected: 'task',
+    },
+    {
+      name: 'ambiguous section creation actions never guess a task group',
+      sidebar:
+        '<button id="global">新聊天</button><section data-app-action-sidebar-section><button aria-label="在 A 中创建新聊天"></button><button aria-label="在 B 中创建新聊天"></button></section>',
+      expected: null,
+    },
+    {
+      name: 'ambiguous Codex entries never fall back to ChatGPT',
+      sidebar:
+        '<button id="global">新聊天</button><section data-app-action-sidebar-section data-app-action-sidebar-section-heading="Recents"><button>新聊天</button><button>新聊天</button></section>',
+      expected: null,
     },
     {
       name: 'hidden duplicate sidebar is ignored',
@@ -139,6 +169,42 @@ test('CLI handoff chooses the source project or global navigation among repeated
         }
       });
     }
+  } finally {
+    await browser.close();
+  }
+});
+
+test('Agent capability never borrows hidden controls from another composer or ChatGPT', async () => {
+  const browser = await chromium.launch({
+    executablePath: process.env.PALBOO_CHROME_BIN || undefined,
+    headless: true,
+  });
+  try {
+    const page = await browser.newPage();
+    await page.setContent(`
+      <div>
+        <form data-codex-composer-root><textarea id="current"></textarea></form>
+        <form data-codex-composer-root hidden><textarea></textarea><div data-codexhost-agent-control="old"></div></form>
+        <form data-chatgpt-composer><textarea id="chatgpt"></textarea></form>
+      </div>`);
+    await page.addScriptTag({ content: source });
+    await page.evaluate(() => {
+      window.__codexhostRendererBindingProbeV1 = {
+        status: () => ({
+          version: 2,
+          selections: [{ composerId: 'old', agent: 'antigravity', phase: 'locked' }],
+        }),
+      };
+    });
+    const states = await page.evaluate(() =>
+      ['current', 'chatgpt'].map((id) =>
+        window.__palbooHostCompatibility.capability(document.getElementById(id)),
+      ),
+    );
+    assert.equal(states[0].agent, null);
+    assert.match(states[0].message, /输入框尚未就绪/);
+    assert.equal(states[1].agent, null);
+    assert.match(states[1].message, /ChatGPT.*切回 Codex/);
   } finally {
     await browser.close();
   }

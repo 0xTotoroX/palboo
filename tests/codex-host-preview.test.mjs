@@ -76,6 +76,17 @@ test('Agent preview reads the mounted menu and probe without opening, selecting 
     assert.deepEqual(await page.evaluate(() => window.calls), []);
     assert.equal(await page.locator('#a-agent-menu').isVisible(), false);
 
+    await page.evaluate(() => {
+      const root = document.createElement('form');
+      root.setAttribute('data-chatgpt-composer', '');
+      root.innerHTML = '<textarea id="plain-chatgpt"></textarea>';
+      document.body.append(root);
+      window.__palbooModelControl.inputTarget = () => ({ composer: root.firstElementChild });
+    });
+    assert.equal((await page.evaluate(source)).status, 'unavailable');
+    assert.deepEqual((await page.evaluate(source)).agents, []);
+    await page.evaluate(() => document.getElementById('plain-chatgpt').parentElement.remove());
+
     // Ambiguous or stale input ownership must not borrow another composer's current Agent.
     await page.evaluate(() => {
       window.__palbooModelControl.inputTarget = () => null;

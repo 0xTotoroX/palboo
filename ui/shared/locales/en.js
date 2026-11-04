@@ -1348,6 +1348,8 @@ export default {
     'This CodexHost version does not support model switching yet',
   '无法读取 CodexHost Agent 状态': 'Could not read CodexHost Agent status',
   'CodexHost 输入框尚未就绪': 'The CodexHost input is not ready yet',
+  '当前是 ChatGPT 聊天，请切回 Codex 聊天后再切换 CLI':
+    'This is a ChatGPT chat. Open a Codex chat before switching CLI.',
   '不支持的聊天关联操作。': 'Unsupported chat association action.',
   '聊天来源已经变化或无法确认身份，请重新选择。':
     'The source chat changed or could not be verified. Select it again.',
