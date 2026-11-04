@@ -566,6 +566,137 @@ test('catalog pins stay in the matrix and only the bookmark creates visible pres
   }
 });
 
+test('CLI catalog choices stay compact and wrap within narrow views without a header indicator', async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await fixture(browser);
+    await page.addStyleTag({
+      content:
+        readFileSync('ui/surfaces/workspace/content.css', 'utf8') +
+        readFileSync('ui/features/model/styles.css', 'utf8'),
+    });
+    await page.evaluate(() => {
+      window.root.unmount();
+      window.model.snapshot.agent = {
+        current: 'codex',
+        label: 'Codex',
+        locked: false,
+        options: ['Codex', 'Antigravity CLI', 'WorkBuddy', 'OpenCode', 'Claude Code', 'Grok'].map(
+          (label, index) => ({ id: index ? 'agent-' + index : 'codex', label, available: true }),
+        ),
+      };
+      window.mount();
+    });
+    for (const [width, font] of [
+      [240, 16],
+      [520, 16],
+      [240, 32],
+    ]) {
+      await page
+        .locator('#root')
+        .evaluate((node, width) => (node.style.width = width + 'px'), width);
+      await page
+        .locator('.feature-model')
+        .evaluate((node, font) => (node.style.fontSize = font + 'px'), font);
+      assert.equal(await page.locator('.model-current-agent').count(), 0);
+      await page.getByRole('button', { name: '所有模型', exact: true }).click();
+      const geometry = await page
+        .getByRole('group', { name: 'CLI', exact: true })
+        .evaluate((node) => {
+          const bounds = node.getBoundingClientRect();
+          return [...node.querySelectorAll('button')].map((button) => {
+            const rect = button.getBoundingClientRect();
+            return {
+              inside: rect.left >= bounds.left - 1 && rect.right <= bounds.right + 1,
+              fits: button.scrollWidth <= button.clientWidth + 1,
+              height: rect.height,
+            };
+          });
+        });
+      assert.equal(geometry.length, 6);
+      assert.ok(geometry.every((item) => item.inside && item.fits && item.height >= 28));
+      await page.getByRole('button', { name: '关闭所有模型', exact: true }).click();
+    }
+    assert.equal(
+      await page.evaluate(() => window.calls.filter((call) => call.op === 'action').length),
+      0,
+    );
+  } finally {
+    await browser.close();
+  }
+});
+
+test('model motion acknowledges confirmed pointer actions and cancels for keyboard, reduced motion and teardown', async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await fixture(browser);
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.addStyleTag({
+      content:
+        readFileSync('ui/surfaces/workspace/content.css', 'utf8') +
+        readFileSync('ui/features/model/styles.css', 'utf8'),
+    });
+    await page.evaluate(() => {
+      window.root.unmount();
+      window.motionCalls = [];
+      const animate = Element.prototype.animate;
+      Element.prototype.animate = function (frames, options) {
+        if (this.closest('.feature-model'))
+          window.motionCalls.push({
+            className: this.className,
+            model: this.dataset.model,
+            options,
+          });
+        const animation = animate.call(this, frames, options);
+        animation.playbackRate = 0.1;
+        return animation;
+      };
+      window.mount();
+    });
+    const calls = () => page.evaluate(() => window.motionCalls);
+    assert.deepEqual(await calls(), [], 'mounting and passive state do not animate');
+    await page.evaluate(() => window.render());
+    assert.deepEqual(await calls(), []);
+    const catalog = page.getByRole('button', { name: '所有模型', exact: true });
+    await catalog.click();
+    assert.equal((await calls()).at(-1).className, 'model-picker');
+    await page.locator('[data-model-tile="beta"]').click();
+    await page.locator('[data-model-tile="beta"][aria-pressed="false"]').waitFor();
+    assert.equal((await calls()).at(-1).className, 'model-tile');
+    const confirmed = (await calls()).length;
+    await page.evaluate(() => (window.failSave = true));
+    await page.locator('[data-model-tile="beta"]').click();
+    await page.getByRole('alert').filter({ hasText: '模拟保存失败' }).waitFor();
+    assert.equal((await calls()).length, confirmed, 'failed saves have no success animation');
+    await page.evaluate(() => (window.failSave = false));
+    await page.keyboard.press('Escape');
+    assert.equal((await calls()).length, confirmed, 'keyboard close is immediate');
+    await catalog.focus();
+    await page.keyboard.press('Enter');
+    assert.equal((await calls()).length, confirmed, 'keyboard open is immediate');
+    await page.keyboard.press('Escape');
+    const selection = page.locator('[data-model="alpha"][data-reasoning="high"]');
+    await selection.focus();
+    await page.keyboard.press('Enter');
+    assert.equal((await calls()).length, confirmed, 'keyboard model selection is immediate');
+    await selection.click();
+    await page.waitForFunction(() => window.motionCalls.at(-1).model === 'alpha');
+    assert.ok((await calls()).every((call) => call.options.duration <= 160));
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.waitForFunction(() => document.getAnimations().length === 0);
+    const reducedCount = (await calls()).length;
+    await catalog.click();
+    await page.getByRole('button', { name: '关闭所有模型', exact: true }).click();
+    assert.equal((await calls()).length, reducedCount, 'reduced motion keeps immediate state');
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await catalog.click();
+    await page.evaluate(() => window.root.unmount());
+    assert.equal(await page.evaluate(() => document.getAnimations().length), 0);
+  } finally {
+    await browser.close();
+  }
+});
+
 test('switching CLI returns to the target matrix and isolates presets, pins and manufacturers', async () => {
   const browser = await chromium.launch({ headless: true });
   try {
@@ -605,11 +736,8 @@ test('switching CLI returns to the target matrix and isolates presets, pins and 
     await page.getByRole('region', { name: 'Codex Vendor' }).waitFor();
     await page.getByText('切换 Agent 会新建聊天', { exact: true }).waitFor();
     await page.locator('[data-agent-option="antigravity"]').click();
-    await page
-      .locator('.model-current-agent')
-      .getByText('Antigravity CLI', { exact: true })
-      .waitFor();
     await page.getByRole('button', { name: 'Antigravity 专用 · Low', exact: true }).waitFor();
+    assert.equal(await page.locator('.model-current-agent').count(), 0);
     assert.equal(await page.getByRole('region', { name: '所有模型' }).count(), 0);
     assert.equal(await page.getByRole('button', { name: /原名称|来源未知/ }).count(), 0);
     assert.deepEqual(

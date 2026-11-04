@@ -15,6 +15,7 @@ import {
 import { createPortal } from 'react-dom';
 import { ModelHeading } from './heading';
 import { useFastMotion } from './fast-motion';
+import { useModelMotion } from './interaction-motion';
 import { iconSvg } from '../../shared/icons/index.js';
 import type { ModelPresetDraft, Reading } from '../../shared/features';
 import {
@@ -77,6 +78,8 @@ export function ModelView({
   const main = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLElement>(null);
   const picker = useRef<HTMLDivElement>(null);
+  const favorites = useRef<HTMLDivElement>(null);
+  const feedback = useModelMotion({ root, favorites, picker, catalog: others });
   const pickerActions = useRef<HTMLDivElement>(null);
   const pickerToggle = useRef<HTMLButtonElement>(null);
   const restorePickerFocus = useRef(false);
@@ -110,6 +113,7 @@ export function ModelView({
     const escape = (event: KeyboardEvent) => {
       if (event.key !== 'Escape' || event.isComposing || resize.current) return;
       event.stopPropagation();
+      feedback.keyboard();
       restorePickerFocus.current = true;
       setOthers(false);
     };
@@ -387,7 +391,12 @@ export function ModelView({
                 data-reasoning={reasoning}
                 data-choice-label={label(reasoning) || tr('选择')}
                 aria-pressed={selected}
-                onClick={() => void apply({ model: m.id, reasoning, speed: 'standard' }, true)}
+                onClick={async (event) => {
+                  const button = event.currentTarget;
+                  const pointer = event.detail > 0;
+                  const result = await apply({ model: m.id, reasoning, speed: 'standard' }, true);
+                  feedback.confirm(result, button, pointer);
+                }}
               >
                 {supported ? (selected ? '●' : '○') : '—'}
               </button>
@@ -520,7 +529,9 @@ export function ModelView({
     <section
       ref={root}
       className="feature-model"
+      onPointerDownCapture={feedback.pointer}
       onKeyDown={(event) => {
+        feedback.keyboard();
         if (event.key === 'Escape' && !event.nativeEvent.isComposing && tools) {
           event.stopPropagation();
           closeTools();
@@ -536,21 +547,8 @@ export function ModelView({
         } as CSSProperties
       }
     >
-      {s.agent?.label &&
-        (headerActions ? (
-          createPortal(
-            <span className="model-current-agent" title={s.agent.label}>
-              {s.agent.label}
-            </span>,
-            headerActions,
-          )
-        ) : (
-          <span className="model-current-agent" title={s.agent.label}>
-            {s.agent.label}
-          </span>
-        ))}
       <div className="model-main" ref={main} data-view={others ? 'all' : 'favorites'}>
-        <div className="model-favorites" aria-hidden={others} inert={others}>
+        <div className="model-favorites" ref={favorites} aria-hidden={others} inert={others}>
           <div
             className="model-scroll"
             ref={matrix}
@@ -757,9 +755,14 @@ export function ModelView({
                         s.current.reasoning === p.selection.reasoning &&
                         s.current.speed === p.selection.speed
                       }
-                      onClick={() => {
+                      onClick={async (event) => {
                         if (tools) renamePreset(p);
-                        else if (allowed && valid(p.selection)) void apply(p.selection);
+                        else if (allowed && valid(p.selection)) {
+                          const button = event.currentTarget;
+                          const pointer = event.detail > 0;
+                          const result = await apply(p.selection);
+                          feedback.confirm(result, button, pointer);
+                        }
                       }}
                     >
                       {p.selection.speed === 'fast' && icon('bolt-filled')}
@@ -849,7 +852,7 @@ export function ModelView({
                   {directoryAgents.some(
                     (option) => option.available && needsNewChat(option.id),
                   ) && <p className="model-agent-notice">{handoffNotice}</p>}
-                  <div className="model-agent-options">
+                  <div className="model-agent-options" role="group" aria-label="CLI">
                     {directoryAgents.map((option) => (
                       <button
                         key={option.id}
@@ -889,7 +892,9 @@ export function ModelView({
                         disabled={busy || !prefs.enabled}
                         onClick={async (event) => {
                           const button = event.currentTarget;
-                          await toggleModel(m);
+                          const pointer = event.detail > 0;
+                          const result = await toggleModel(m);
+                          feedback.confirm(result, button, pointer);
                           if (button.isConnected) button.focus({ preventScroll: true });
                         }}
                       >
