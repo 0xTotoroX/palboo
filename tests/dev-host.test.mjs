@@ -1,5 +1,5 @@
 /*
- * [INPUT]: 临时配置、合成本机 CDP/API 与开发常量构建。
+ * [INPUT]: 临时配置、含网页构建依赖的开发入口、合成本机 CDP/API 与开发常量构建。
  * [OUTPUT]: 真实目标选择、配置/存储隔离、安装版恢复、已退出后台的恢复记录归档及无宿主启动的错误/清理契约。
  * [POS]: 开发宿主边界回归；不连接用户应用或读取真实聊天。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
@@ -167,6 +167,7 @@ test('no-host startup reports one useful error and leaves the old restoration jo
     'dev-sources.mjs',
     'dev-host.mjs',
     'dev-panel.mjs',
+    'dev-web.mjs',
     'dev-runtime.mjs',
     'build-panel.mjs',
   ])
@@ -480,6 +481,7 @@ test('an orphan development backend blocks startup before touching installation 
     'dev-sources.mjs',
     'dev-host.mjs',
     'dev-panel.mjs',
+    'dev-web.mjs',
     'dev-runtime.mjs',
     'build-panel.mjs',
   ])
