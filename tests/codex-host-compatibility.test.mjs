@@ -1,5 +1,5 @@
 /* [INPUT]: 上游探针契约、合成多输入框 DOM、外部 CLI 模型菜单、多轮对话与新聊天按钮和实际适配脚本。
- * [OUTPUT]: 快切过滤未就绪候选并保留当前选择、Agent 隔离、缺失/未知/异常协议拒绝、外部 CLI 模型/思考快切、新会话 CLI 切换、已锁定会话新建聊天上下文交接切换及官方目录隔离。
+ * [OUTPUT]: 快切过滤未就绪候选并保留当前选择、Agent 隔离、缺失/未知/异常协议拒绝、外部 CLI 模型/思考快切、新会话 CLI 切换、来源项目/全局新聊天入口消歧、已锁定会话新建聊天上下文交接切换及官方目录隔离。
  * [POS]: 不调用真实 CodexHost、不写聊天或模型。
  * [PROTOCOL]: 变更时同步 tests/AGENTS.md。 */
 import { test } from 'node:test';
@@ -8,6 +8,142 @@ import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { records, installModelControlFixture } from './model-control-fixture.mjs';
 const source = readFileSync(new URL('../ui/codex/codex-host.js', import.meta.url), 'utf8');
+test('CLI handoff chooses the source project or global navigation among repeated new-chat actions', async (t) => {
+  const browser = await chromium.launch({
+    executablePath: process.env.PALBOO_CHROME_BIN || undefined,
+    headless: true,
+  });
+  const cases = [
+    {
+      name: 'Chinese global and recent-section actions',
+      sidebar:
+        '<button id="global">新聊天</button><section data-app-action-sidebar-section><button id="recent" aria-label="新聊天"></button></section>',
+      expected: 'global',
+    },
+    {
+      name: 'English global and recent-section actions',
+      sidebar:
+        '<button id="global">New chat</button><section data-app-action-sidebar-section><button id="recent" aria-label="New chat"></button></section>',
+      expected: 'global',
+    },
+    {
+      name: 'host-prefixed source row takes precedence over another selected project',
+      sidebar:
+        '<button id="global">新聊天</button><section><button id="wrong" aria-label="在 其他项目 中开始新聊天"></button><div data-app-action-sidebar-thread-row data-app-action-sidebar-thread-selected="true" data-app-action-sidebar-thread-id="local:other-chat"></div></section><section><button id="project" aria-label="在 来源项目 中开始新聊天"></button><div data-app-action-sidebar-thread-row data-app-action-sidebar-thread-host-id="local" data-app-action-sidebar-thread-id="local:source-chat"></div></section>',
+      expected: 'project',
+    },
+    {
+      name: 'missing source row never borrows another selected project',
+      sidebar:
+        '<button id="global">新聊天</button><section><button id="wrong" aria-label="在 其他项目 中开始新聊天"></button><div data-app-action-sidebar-thread-row data-app-action-sidebar-thread-selected="true" data-app-action-sidebar-thread-id="local:other-chat"></div></section>',
+      expected: 'global',
+    },
+    {
+      name: 'recent source row never borrows a neighboring project action',
+      sidebar:
+        '<button id="global">新聊天</button><div><section data-app-action-sidebar-section><button id="wrong" aria-label="在 其他项目 中开始新聊天"></button></section><section data-app-action-sidebar-section><button id="recent">新聊天</button><div data-app-action-sidebar-thread-row data-app-action-sidebar-thread-id="source-chat"></div></section></div>',
+      expected: 'global',
+    },
+    {
+      name: 'hidden duplicate sidebar is ignored',
+      sidebar:
+        '<button id="global">新聊天</button><button hidden>新聊天</button><section hidden><button aria-label="在 来源项目 中开始新聊天"></button><div data-app-action-sidebar-thread-row data-app-action-sidebar-thread-id="source-chat"></div></section>',
+      expected: 'global',
+    },
+    {
+      name: 'legacy single navigation entry remains supported',
+      sidebar: '<nav><button id="legacy">New thread</button></nav>',
+      expected: 'legacy',
+    },
+    {
+      name: 'ambiguous global entries are refused',
+      sidebar: '<button id="global">新聊天</button><button id="duplicate">新聊天</button>',
+      expected: null,
+    },
+    {
+      name: 'ambiguous explicit entries are refused',
+      sidebar:
+        '<button id="global">新聊天</button><button data-codexhost-new-thread>新聊天</button><button data-codexhost-new-thread>新聊天</button>',
+      expected: null,
+    },
+  ];
+  try {
+    for (const scenario of cases) {
+      await t.test(scenario.name, async () => {
+        const page = await browser.newPage();
+        try {
+          await page.setContent(`
+            <style>[data-app-action-sidebar-thread-row]{min-height:20px}</style>
+            <aside class="app-shell-left-panel">${scenario.sidebar}</aside>
+            <section data-conversation-id="source-chat">
+              <textarea id="source">原草稿</textarea>
+              <div data-codexhost-agent-control="source"></div>
+            </section>
+            <div id="source-agent-menu">
+              <button role="menuitemradio" data-agent="codex">Codex</button>
+              <button role="menuitemradio" data-agent="antigravity">Antigravity CLI</button>
+            </div>`);
+          await page.addScriptTag({ content: source });
+          await page.evaluate(() => {
+            const selection = { composerId: 'source', agent: 'codex', phase: 'locked' };
+            window.__handoffClicks = [];
+            window.__codexhostRendererBindingProbeV1 = {
+              status: () => ({
+                version: 2,
+                selections: [selection],
+                enabledAgents: ['codex', 'antigravity'],
+                availability: { codex: 'ready', antigravity: 'ready' },
+              }),
+            };
+            document.querySelectorAll('aside button').forEach((button) => {
+              button.onclick = () => {
+                window.__handoffClicks.push(button.id);
+                selection.phase = 'draft';
+                document.getElementById('source').value = '';
+              };
+            });
+            document.querySelector('[data-agent="antigravity"]').onclick = () => {
+              selection.agent = 'antigravity';
+            };
+          });
+          const result = await page.evaluate(async () => {
+            try {
+              const switched = await window.__palbooHostCompatibility.selectAgent(
+                document.getElementById('source'),
+                'antigravity',
+                undefined,
+                {
+                  sourceTargetId: 'source-chat',
+                  sourceDraft: '原草稿',
+                  handoffPrompt: '交接内容，等待用户发送',
+                },
+              );
+              return { agent: switched.agent.current };
+            } catch (error) {
+              return { error: error.message };
+            }
+          });
+          assert.deepEqual(
+            await page.evaluate(() => window.__handoffClicks),
+            scenario.expected ? [scenario.expected] : [],
+          );
+          if (scenario.expected) {
+            assert.deepEqual(result, { agent: 'antigravity' });
+            assert.equal(await page.locator('#source').inputValue(), '交接内容，等待用户发送');
+          } else {
+            assert.match(result.error, /未找到宿主新聊天入口/);
+            assert.equal(await page.locator('#source').inputValue(), '原草稿');
+          }
+        } finally {
+          await page.close();
+        }
+      });
+    }
+  } finally {
+    await browser.close();
+  }
+});
+
 test('CodexHost adapter keeps Agent capability scoped to each composer', async () => {
   const browser = await chromium.launch({
     executablePath: process.env.PALBOO_CHROME_BIN || undefined,

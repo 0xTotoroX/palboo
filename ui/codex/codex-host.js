@@ -1,4 +1,4 @@
-/* [INPUT]: CodexHost 0.10.2 的版本化只读探针、输入框附近的 Agent 控件、外部模型菜单与当前聊天上下文。
+/* [INPUT]: CodexHost 0.10.2 的版本化只读探针、输入框附近的 Agent 控件、外部模型菜单、已校验的来源聊天ID与当前聊天上下文。
  * [OUTPUT]: window.__palbooHostCompatibility，按输入框判断官方/外部模型与 Agent 切换能力，仅列出 Codex、就绪 CLI 与当前选择，支持外部 CLI 模型快切、新会话直接切换 CLI，以及已锁定会话新建聊天并携带上下文交接切换 CLI。
  * [POS]: 上游适配边界；缺失或未知协议拒绝模型写入，不覆盖上游实现。
  * [PROTOCOL]: 变更时同步 codex/AGENTS.md。 */
@@ -595,7 +595,7 @@
   }
 
   /** @param {Element | null | undefined} composer @param {Element | null | undefined} scope */
-  function findNewChatButton(composer, scope) {
+  function findNewChatButton(composer, scope, sourceTargetId = '') {
     const explicit = [
       ...document.querySelectorAll(
         '[data-codexhost-new-thread],[data-testid*="new-chat" i],[data-testid*="new-thread" i]',
@@ -605,6 +605,7 @@
     const leftPanel = document.querySelector('aside.app-shell-left-panel');
     if (leftPanel) {
       const convId =
+        sourceTargetId ||
         scope
           ?.querySelector?.('[data-above-composer-conversation-id]')
           ?.getAttribute('data-above-composer-conversation-id') ||
@@ -612,15 +613,19 @@
           ?.closest?.('[data-conversation-id],[data-thread-id],[data-session-id]')
           ?.getAttribute('data-conversation-id') ||
         '';
-      const rows = [...leftPanel.querySelectorAll('[data-app-action-sidebar-thread-row]')];
-      const activeRow =
-        (convId &&
-          rows.find((r) => r.getAttribute('data-app-action-sidebar-thread-id') === convId)) ||
-        rows.find(
-          (r) =>
-            r.getAttribute('data-app-action-sidebar-thread-selected') === 'true' ||
-            r.getAttribute('aria-current') === 'page',
-        );
+      const rows = [...leftPanel.querySelectorAll('[data-app-action-sidebar-thread-row]')].filter(
+        isVisible,
+      );
+      const matchingRows = rows.filter((row) => {
+        const id = row.getAttribute('data-app-action-sidebar-thread-id') || '';
+        return convId
+          ? id === convId ||
+              id ===
+                `${row.getAttribute('data-app-action-sidebar-thread-host-id') || 'local'}:${convId}`
+          : row.getAttribute('data-app-action-sidebar-thread-selected') === 'true' ||
+              row.getAttribute('aria-current') === 'page';
+      });
+      const activeRow = matchingRows.length === 1 ? matchingRows[0] : null;
       if (activeRow) {
         let cur = activeRow.parentElement;
         while (cur && cur !== leftPanel && cur !== document.body) {
@@ -632,34 +637,9 @@
               ),
           );
           if (btns.length === 1) return btns[0];
+          if (cur.matches('[data-app-action-sidebar-section]')) break;
           cur = cur.parentElement;
         }
-      }
-      const pageRoot =
-        composer?.closest?.('[data-app-shell-active-page]') || scope || composer?.parentElement;
-      const headings = pageRoot
-        ? [...pageRoot.querySelectorAll('header,[role="heading"],h1,h2')]
-            .map((h) =>
-              String(h.textContent || '')
-                .trim()
-                .toLowerCase(),
-            )
-            .filter(Boolean)
-        : [];
-      if (headings.length) {
-        const projectBtn = [...leftPanel.querySelectorAll('button')].find((b) => {
-          if (!isActionable(b)) return false;
-          const label = String(b.getAttribute('aria-label') || '')
-            .trim()
-            .toLowerCase();
-          return headings.some(
-            (name) =>
-              label === `在 ${name} 中开始新聊天` ||
-              label === `start a new chat in ${name}` ||
-              label === `new chat in ${name}`,
-          );
-        });
-        if (projectBtn) return projectBtn;
       }
     }
 
@@ -678,6 +658,12 @@
         label,
       );
     });
+    // Recent/custom sections can repeat “New chat”. The top navigation is the
+    // global entry, while section actions belong to their own groups.
+    const globalActions = actions.filter(
+      (node) => !node.closest('[data-app-action-sidebar-section]'),
+    );
+    if (globalActions.length) return globalActions.length === 1 ? globalActions[0] : null;
     return actions.length === 1 ? actions[0] : null;
   }
 
@@ -807,7 +793,7 @@
       priorDrafts.add(node);
       priorDraftBindings.add(before.composerId);
     }
-    const newChatBtn = findNewChatButton(composer, scope);
+    const newChatBtn = findNewChatButton(composer, scope, options.sourceTargetId);
     if (!(newChatBtn instanceof HTMLElement)) {
       throw new Error(tr('未找到宿主新聊天入口，请手动新建聊天后切换 CLI'));
     }

@@ -1420,7 +1420,9 @@
           op.target.composer,
           request.agent.trim(),
           op.controller.signal,
-          handoffPrompt ? { handoffPrompt, sourceDraft: request.sourceDraft } : {},
+          handoffPrompt
+            ? { handoffPrompt, sourceDraft: request.sourceDraft, sourceTargetId: op.target.id }
+            : {},
         );
         if (switched?.composer) {
           switchedComposer = switched.composer;
