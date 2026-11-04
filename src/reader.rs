@@ -6,6 +6,7 @@ mod edit;
 mod files;
 mod http;
 mod index;
+mod preview;
 mod spreadsheet;
 pub use http::start;
 pub use index::Index;

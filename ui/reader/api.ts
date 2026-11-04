@@ -83,3 +83,10 @@ export type Catalog = {
 };
 export type Note = Summary & { markdown: string; backlinks: Summary[]; version: string };
 export type Search = { total: number; offset: number; results: (Summary & { snippet: string })[] };
+
+export type LinkPreview = {
+  candidates: Summary[];
+  total: number;
+  anchor: string;
+  excerpt: string | null;
+};

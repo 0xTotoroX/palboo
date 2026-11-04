@@ -1,5 +1,5 @@
 /* [INPUT]: Production reader entry, synthetic API notes and isolated Chromium storage.
- * [OUTPUT]: Resizable/drawer sidebar and focus, unified search, reading home, Markdown/outline and responsive acceptance.
+ * [OUTPUT]: Reader sidebar/search/home, preview and information focus, conflict-safe history, scroll restoration and responsive acceptance.
  * [POS]: No real files, host, credentials or model requests; screenshots contain synthetic notes only.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import test from 'node:test';
@@ -148,6 +148,8 @@ async function setup(t, options = {}) {
       };
     else if (url.pathname === '/api/note') value = notes.find((note) => note.id === id);
     else if (url.pathname === '/api/search') value = searchNotes(url.searchParams.get('q'));
+    else if (url.pathname === '/api/preview')
+      value = { candidates: [notes[1]], total: 1, anchor: '', excerpt: '来源摘要，支持悬停阅读。' };
     else if (url.pathname === '/api/resolve')
       value = {
         candidates: [notes[url.searchParams.get('target') === '来源' ? 1 : 0]],
@@ -351,7 +353,7 @@ test('title-above-properties hierarchy, callouts, safe markup, tags and code cli
   assert.equal(await page.locator('mark').first().textContent(), '重点内容');
   const topbarBox = await page.locator('.reader-topbar').boundingBox();
   const editBox = await page.getByRole('button', { name: '编辑笔记', exact: true }).boundingBox();
-  const outlineBox = await page.locator('.reader-outline').boundingBox();
+  const outlineBox = await page.locator('aside.reader-information').boundingBox();
   assert.equal(
     Math.round(topbarBox.x),
     Math.round(titleBox.x),
@@ -383,15 +385,16 @@ test('title-above-properties hierarchy, callouts, safe markup, tags and code cli
   assert.equal(await page.getByRole('heading', { name: '属性错误仍可阅读' }).isVisible(), true);
 });
 
-test('unified search keyboard, search reveal, backlink destinations and active sticky outline', async (t) => {
+test('unified search keyboard, search reveal, backlink destinations and active independent outline', async (t) => {
   const { page } = await setup(t);
   assert.ok(
     (await page.getByRole('navigation', { name: '笔记路径' }).textContent()).includes('项目'),
   );
-  assert.equal(
-    await page.locator('.reader-outline').evaluate((node) => getComputedStyle(node).position),
-    'sticky',
-  );
+  const informationBox = await page.locator('aside.reader-information').boundingBox();
+  await page.locator('.reader-main').evaluate((node) => {
+    node.scrollTop = 200;
+  });
+  assert.deepEqual(await page.locator('aside.reader-information').boundingBox(), informationBox);
   await page.locator('.reader-toc a').last().click();
   await page.waitForFunction(
     () =>
@@ -428,6 +431,7 @@ test('unified search keyboard, search reveal, backlink destinations and active s
   await page.getByRole('searchbox').fill('const value');
   await page.locator('.reader-results button').click();
   await page.locator('code [data-search-hit]').waitFor();
+  await page.getByRole('tab', { name: '反向链接' }).click();
   await page.locator('.reader-backlinks button').click();
   await page.locator('[data-backlink-hit]').waitFor();
   assert.equal(
@@ -475,4 +479,191 @@ test('narrow English dark reader, shortcut expands collapsed navigation, resize 
   assert.equal(await width(page), 520);
   for (let i = 0; i < 40; i++) await page.keyboard.press('ArrowLeft');
   assert.equal(await width(page), 180);
+});
+
+test('link preview preserves reading/history, stays open under the pointer, supports keyboard and opens explicitly', async (t) => {
+  const { page } = await setup(t);
+  const link = page.getByRole('link', { name: '打开来源', exact: true });
+  await link.scrollIntoViewIfNeeded();
+  const before = await page.evaluate(() => ({
+    url: location.href,
+    length: history.length,
+    recent: localStorage.getItem('palboo-reader-recent:obsidian'),
+  }));
+  await link.hover();
+  const card = page.getByRole('dialog', { name: '链接预览' });
+  await card.getByText('来源摘要，支持悬停阅读。').waitFor();
+  assert.deepEqual(
+    await page.evaluate(() => ({
+      url: location.href,
+      length: history.length,
+      recent: localStorage.getItem('palboo-reader-recent:obsidian'),
+    })),
+    before,
+  );
+  await card.hover();
+  await page.waitForTimeout(230);
+  assert.equal(await card.isVisible(), true);
+  assert.equal(await card.locator('img,script,iframe').count(), 0);
+  await page.screenshot({ path: resolve(reports, 'round2-link-preview.png') });
+  await card.getByRole('button', { name: '关闭预览' }).click();
+  assert.equal(await card.count(), 0);
+  assert.equal(await link.evaluate((node) => node === document.activeElement), true);
+  await page.keyboard.press('Tab');
+  await link.focus();
+  await card.waitFor();
+  await page.keyboard.press('Tab');
+  assert.equal(await card.evaluate((node) => node.contains(document.activeElement)), true);
+  await page.keyboard.press('Escape');
+  assert.equal(await card.count(), 0);
+  await link.hover();
+  await card.getByRole('button', { name: '打开笔记', exact: true }).click();
+  await page.getByRole('heading', { name: '来源', exact: true }).waitFor();
+  assert.equal(await card.count(), 0);
+  assert.equal(await page.getByRole('button', { name: '后退', exact: true }).isEnabled(), true);
+});
+
+test('preview cancellation, errors, missing and ambiguous targets never replace the current note', async (t) => {
+  const { page } = await setup(t);
+  const link = page.getByRole('link', { name: '打开来源', exact: true });
+  await page.route('**/api/preview?*', async (route) => {
+    await new Promise((done) => setTimeout(done, 450));
+    await route.fulfill({
+      json: { candidates: [notes[1]], total: 1, anchor: '', excerpt: '过期摘要' },
+    });
+  });
+  await link.scrollIntoViewIfNeeded();
+  await link.hover();
+  await page.getByText('正在读取预览…').waitFor();
+  await page.getByRole('button', { name: '阅读首页', exact: true }).click();
+  await page.getByRole('heading', { name: '继续阅读' }).waitFor();
+  await page.waitForTimeout(500);
+  assert.equal(await page.locator('.reader-link-preview').count(), 0);
+  await page.getByRole('button', { name: '后退', exact: true }).click();
+  await link.waitFor();
+  for (const [response, expected] of [
+    [{ status: 503, json: { message: '暂时不可用' } }, '暂时不可用'],
+    [{ json: { candidates: [], total: 0, anchor: '', excerpt: null } }, '链接指向的笔记不存在'],
+    [
+      { json: { candidates: [notes[1], notes[2]], total: 2, anchor: '章节', excerpt: null } },
+      '选择链接目标',
+    ],
+  ]) {
+    await page.route('**/api/preview?*', (route) => route.fulfill(response));
+    await link.scrollIntoViewIfNeeded();
+    await link.hover();
+    const card = page.getByRole('dialog', { name: '链接预览' });
+    await card.getByText(expected, { exact: true }).waitFor();
+    assert.equal(await page.getByRole('heading', { name: '阅读器示例', exact: true }).count(), 1);
+    if (expected === '选择链接目标') {
+      await card.getByRole('button', { name: '来源 来源.md' }).click();
+      await page.getByRole('heading', { name: '来源', exact: true }).waitFor();
+      assert.equal(new URL(page.url()).hash, `#${encodeURIComponent('章节')}`);
+    } else {
+      // Refresh changes the catalog generation and invalidates the transient preview cache.
+      await card.getByRole('button', { name: '关闭预览' }).click();
+      await page.reload();
+      await link.waitFor();
+    }
+  }
+});
+
+test('back/forward restores scroll, survives reload, truncates branches and retains history on an editor conflict', async (t) => {
+  const { page } = await setup(t);
+  const back = page.getByRole('button', { name: '后退', exact: true });
+  const forward = page.getByRole('button', { name: '前进', exact: true });
+  assert.equal(await back.isEnabled(), false);
+  assert.equal(await forward.isEnabled(), false);
+  await page.locator('.reader-main').evaluate((node) => {
+    node.scrollTop = 800;
+  });
+  await page.getByRole('button', { name: '阅读首页', exact: true }).click();
+  await page.locator('.reader-resume').waitFor();
+  await back.click();
+  await page.getByRole('heading', { name: '阅读器示例', exact: true }).waitFor();
+  await page.waitForFunction(() => document.querySelector('.reader-main').scrollTop === 800);
+  assert.equal(await forward.isEnabled(), true);
+  await page.reload();
+  await page.getByRole('heading', { name: '阅读器示例', exact: true }).waitFor();
+  assert.equal(await back.isEnabled(), false);
+  assert.equal(await forward.isEnabled(), true);
+  await forward.click();
+  await page.locator('.reader-resume').waitFor();
+  await back.click();
+  await page.getByRole('heading', { name: '阅读器示例', exact: true }).waitFor();
+  await page.getByRole('searchbox').fill('来源');
+  await page.keyboard.press('Enter');
+  await page.getByRole('heading', { name: '来源', exact: true }).waitFor();
+  assert.equal(await forward.isEnabled(), false);
+  await page.route('**/api/save', (route) =>
+    route.fulfill({ status: 409, json: { message: '文件已被其他程序修改' } }),
+  );
+  await page.getByRole('button', { name: '编辑笔记', exact: true }).click();
+  const editor = page.getByRole('textbox', { name: '编辑 Markdown' });
+  await editor.fill('# 保留的草稿');
+  await back.click();
+  await page.getByText('文件已被其他程序修改', { exact: true }).waitFor();
+  await page.waitForFunction(
+    () => !document.querySelector('.reader-history-actions button').disabled,
+  );
+  assert.equal(new URL(page.url()).searchParams.get('note'), '来源.md');
+  assert.equal(await editor.inputValue(), '# 保留的草稿');
+  // A second native Back must return to the same conflicted entry without adding entries.
+  const length = await page.evaluate(() => history.length);
+  await page.evaluate(() => history.back());
+  await page.waitForFunction(() => new URLSearchParams(location.search).get('note') === '来源.md');
+  assert.equal(await page.evaluate(() => history.length), length);
+  await page.route('**/api/save', (route) =>
+    route.fulfill({ json: { ...notes[1], markdown: '# 保留的草稿', version: 'v3' } }),
+  );
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: '重新读取', exact: true }).click();
+  await page.waitForFunction(() => !document.querySelector('.reader-save-error'));
+  await page.getByRole('button', { name: '完成编辑', exact: true }).click();
+  await back.click();
+  await page.getByRole('heading', { name: '阅读器示例', exact: true }).waitFor();
+  assert.equal(await forward.isEnabled(), true);
+});
+
+test('narrow reading information is one modal, retains tab choice and returns keyboard focus', async (t) => {
+  const { page } = await setup(t, {
+    locale: 'en',
+    viewport: { width: 390, height: 740 },
+    reducedMotion: 'reduce',
+    colorScheme: 'dark',
+  });
+  const main = await page.locator('.reader-main').boundingBox();
+  const trigger = page.getByRole('button', { name: 'Reading information', exact: true });
+  await trigger.click();
+  const panel = page.getByRole('dialog', { name: 'Reading information', exact: true });
+  await panel.waitFor();
+  assert.deepEqual(await page.locator('.reader-main').boundingBox(), main);
+  await panel.getByRole('tab', { name: 'Backlinks' }).click();
+  await page.screenshot({ path: resolve(reports, 'round2-info-narrow.png') });
+  assert.equal(await panel.locator('.reader-backlinks button').count(), 1);
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => !document.querySelector('dialog.reader-information').open);
+  assert.equal(await trigger.evaluate((node) => document.activeElement === node), true);
+  await trigger.click();
+  assert.equal(
+    await panel.getByRole('tab', { name: 'Backlinks' }).getAttribute('aria-selected'),
+    'true',
+  );
+  await page.keyboard.press('Home');
+  assert.equal(
+    await panel.getByRole('tab', { name: 'On this page' }).getAttribute('aria-selected'),
+    'true',
+  );
+  await panel.locator('.reader-toc a').last().click();
+  await page.waitForFunction(() => !document.querySelector('dialog.reader-information').open);
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.locator('aside.reader-information').waitFor();
+  await page.getByRole('button', { name: 'Close reading information', exact: true }).click();
+  await page.setViewportSize({ width: 390, height: 740 });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  assert.equal(await page.locator('aside.reader-information').isVisible(), false);
+  await trigger.click();
+  await page.locator('aside.reader-information').waitFor();
+  await page.screenshot({ path: resolve(reports, 'round2-info-dark.png') });
 });

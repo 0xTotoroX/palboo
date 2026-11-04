@@ -1,9 +1,11 @@
 /* [INPUT]: Untrusted Obsidian Markdown, note identity and optional image/link adapters.
- * [OUTPUT]: Safe GFM, structured YAML below H1, foldable callouts, tags/highlights, copyable code and navigation marks.
+ * [OUTPUT]: Stable safe GFM nodes, YAML below H1, foldable callouts, copyable code and internal preview/navigation marks.
  * [POS]: No raw HTML/plugin execution; notes and assets stay in this reader, never in model context.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import {
   isValidElement,
+  memo,
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -16,6 +18,7 @@ import Markdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Icon } from '../shared/icons/react';
 import { tr } from '../shared/i18n.js';
+import { useLocale } from '../shared/use-locale';
 type Node = {
   type: string;
   value?: string;
@@ -210,16 +213,7 @@ function safeUrl(value: string) {
   if (value.startsWith('//') || /^[\s\S]*?:/.test(value)) return webUrl(value);
   return value;
 }
-export function NoteMarkdown({
-  id,
-  text,
-  follow,
-  image: Picture,
-  openExternal,
-  onTag,
-  highlight = '',
-  backlink = '',
-}: {
+type MarkdownProps = {
   id: string;
   text: string;
   follow: (target: string) => void;
@@ -234,7 +228,35 @@ export function NoteMarkdown({
   onTag?: (tag: string) => void;
   highlight?: string;
   backlink?: string;
-}) {
+};
+export function NoteMarkdown(props: MarkdownProps) {
+  const locale = useLocale();
+  const adapters = useRef(props);
+  adapters.current = props;
+  const follow = useCallback((target: string) => adapters.current.follow(target), []);
+  const onTag = useCallback((tag: string) => adapters.current.onTag?.(tag), []);
+  const openExternal = useCallback((url: string) => adapters.current.openExternal?.(url), []);
+  return (
+    <StableMarkdown
+      {...props}
+      locale={locale}
+      follow={follow}
+      onTag={props.onTag ? onTag : undefined}
+      openExternal={props.openExternal ? openExternal : undefined}
+    />
+  );
+}
+const StableMarkdown = memo(MarkdownView);
+function MarkdownView({
+  id,
+  text,
+  follow,
+  image: Picture,
+  openExternal,
+  onTag,
+  highlight = '',
+  backlink = '',
+}: MarkdownProps & { locale: string }) {
   const metadata = text.match(/^---\r?\n([\s\S]*?)\r?\n(?:---|\.\.\.)\s*(?:\r?\n|$)/);
   const body = metadata ? text.slice(metadata[0].length) : text;
   const leadingH1 = metadata
@@ -294,6 +316,7 @@ export function NoteMarkdown({
       return (
         <a
           title={target}
+          data-note-target={target}
           data-backlink-hit={backlink && matchesBacklink(target, backlink, id) ? true : undefined}
           href={`?note=${encodeURIComponent(id)}#${encodeURIComponent(target)}`}
           onClick={(event) => {

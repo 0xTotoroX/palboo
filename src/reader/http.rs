@@ -1,5 +1,5 @@
 // [INPUT]: Reader-only token, explicit Library grants and compiled local web assets.
-// [OUTPUT]: A separate loopback origin for local reads, same-origin versioned saves and settings navigation.
+// [OUTPUT]: A separate loopback origin for reads/bounded link previews, versioned saves and settings navigation.
 // [POS]: No settings credential or configuration API; source writes are limited to existing Markdown.
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 use crate::web_library::{Folder, Library, Preferences};
@@ -187,7 +187,7 @@ async fn read(
     Query(input): Query<Input>,
 ) -> Response {
     let result = tokio::task::spawn_blocking(move || -> Result<Response> {
-        ensure!(matches!(operation.as_str(), "catalog" | "search" | "note" | "resolve" | "image" | "workbook"), "未知阅读请求");
+        ensure!(matches!(operation.as_str(), "catalog" | "search" | "note" | "resolve" | "preview" | "image" | "workbook"), "未知阅读请求");
         ensure!(input.q.len() <= 500 && input.id.len() <= 8192 && input.target.len() <= 8192 && input.sheet.len() <= 1024 && input.offset <= 100_000, "阅读请求过长");
         let preferences = access.preferences;
         let mut indexes = state.library.indexes.lock().unwrap();
@@ -213,6 +213,7 @@ async fn read(
                     result
                 },
                 "search" => index.search(&input.q, input.offset),
+                "preview" => index.preview(&input.id, &input.target)?,
                 "note" => index.note(&preferences, &input.id)?,
                 "workbook" => index.workbook(&preferences, &input.id, &input.sheet, input.offset)?,
                 "resolve" => { let (candidates, anchor) = index.resolve(&input.id, &input.target)?;

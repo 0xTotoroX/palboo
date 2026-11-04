@@ -1126,7 +1126,21 @@ test('the reader preview opens linked notes, edits a draft and switches sheets w
     await search.fill('不存在的笔记');
     await library.getByRole('status').filter({ hasText: '没有匹配的笔记' }).waitFor();
     await search.fill('');
-    await library.getByRole('link', { name: '阅读工具', exact: true }).press('Enter');
+    const linked = library.getByRole('link', { name: '阅读工具', exact: true });
+    await linked.hover();
+    const preview = library.getByRole('dialog', { name: '链接预览', exact: true });
+    await preview.getByRole('button', { name: '打开笔记', exact: true }).waitFor();
+    await preview.getByRole('button', { name: '打开笔记', exact: true }).click();
+    await library.getByRole('heading', { name: '阅读工具', exact: true }).waitFor();
+    await library.getByRole('button', { name: '后退', exact: true }).click();
+    await library.getByRole('heading', { name: '作品集计划', exact: true }).waitFor();
+    await library.getByRole('button', { name: '前进', exact: true }).click();
+    await library.getByRole('button', { name: '阅读信息', exact: true }).click();
+    const info = library.getByRole('dialog', { name: '阅读信息', exact: true });
+    await info.getByRole('tab', { name: '反向链接' }).click();
+    assert.ok((await info.locator('.reader-backlinks button').count()) > 0);
+    await page.keyboard.press('Escape');
+
     await library.getByRole('heading', { name: '阅读工具', exact: true }).waitFor();
     await library.getByRole('button', { name: '编辑笔记' }).click();
     const input = library.locator('.reader-editor textarea');

@@ -1,16 +1,27 @@
 /* [INPUT]: Reader-only API, safe Markdown with authenticated image rendering, note tree and browser navigation.
- * [OUTPUT]: Resizable navigation, unified instant/full-text search, breadcrumbs, active outline and safe note editing.
+ * [OUTPUT]: Unified search, guarded reader history, link previews, responsive reading information and safe editing.
  * [POS]: Standalone document opened in ChatGPT; no settings token, composer access or AI calls.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { createRoot } from 'react-dom/client';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { read, write, folderId, type Catalog, type Note, type Summary } from './api';
+import {
+  read,
+  write,
+  folderId,
+  type Catalog,
+  type Note,
+  type Summary,
+  type LinkPreview,
+} from './api';
 import { NoteEditor, useNoteEditor } from './editor';
 import { Spreadsheet } from './spreadsheet';
 import { NoteMarkdown, anchorKey, decodeLink } from './markdown';
 import { ReaderPicture } from './picture';
 import { Breadcrumbs, SidebarResize, useSidebarWidth } from './navigation';
-import { ReadingOutline, type Heading } from './outline';
+import type { Heading } from './outline';
+import { ReadingInfo, useReadingInfo } from './information';
+import { HistoryButtons, useReaderHistory } from './history';
+import { PreviewableMarkdown } from './link-preview';
 import { SearchText } from './search';
 import { useReaderSearch } from './search-state';
 import { useReaderSidebar } from './sidebar';
@@ -82,6 +93,8 @@ function Reader() {
   const selectedDocument = catalog?.notes.find((item) => item.id === selected);
   const [toc, setToc] = useState<Heading[]>([]);
   const [choices, setChoices] = useState<{ notes: Summary[]; anchor: string } | null>(null);
+  const app = useRef<HTMLDivElement>(null);
+  const information = useReadingInfo(app, nav.docked, Boolean(note) && !editor.active);
   const article = useRef<HTMLElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const chooser = useRef<HTMLDialogElement>(null);
@@ -135,16 +148,13 @@ function Reader() {
       linkRequest.current?.abort();
     };
   }, [refresh]);
-  useEffect(() => {
-    const change = async () => {
-      if (!(await editor.finish())) {
-        history.pushState(
-          null,
-          '',
-          `?${folderId ? `folder=${encodeURIComponent(folderId)}&` : ''}note=${encodeURIComponent(selectedRef.current)}`,
-        );
-        return;
-      }
+  const travel = useReaderHistory(
+    folderId,
+    async () => {
+      if (navigation.current) return false;
+      return editor.finish();
+    },
+    () => {
       remember();
       setDestination((value) => ({
         id: '',
@@ -160,13 +170,15 @@ function Reader() {
       }
       setSelected(id);
       setChoices(null);
-    };
-    window.addEventListener('popstate', change);
+      setError('');
+      linkRequest.current?.abort();
+      nav.dismiss();
+      information.dismiss();
+    },
+  );
+  useEffect(() => {
     window.addEventListener('pagehide', remember);
-    return () => {
-      window.removeEventListener('popstate', change);
-      window.removeEventListener('pagehide', remember);
-    };
+    return () => window.removeEventListener('pagehide', remember);
   }, [remember]);
   useEffect(() => {
     if (editor.activeRef.current) return;
@@ -233,6 +245,11 @@ function Reader() {
         level: Number(node.tagName.slice(1)),
       })),
     );
+    readingReady.current = false;
+  }, [note, editor.active]);
+  // Restore after the heading-derived filename header has settled, before paint.
+  useLayoutEffect(() => {
+    if (!note || !content.current || !article.current) return;
     const anchor = pendingAnchor.current;
     pendingAnchor.current = '';
     if (anchor) scrollAnchor(anchor);
@@ -241,10 +258,11 @@ function Reader() {
     readingReady.current = true;
     document.title = `${note.title} · Palboo`;
     recent.visit(note.id);
-  }, [note, editor.active]);
+  }, [toc, editor.active]);
   useLayoutEffect(() => {
     if (
       note?.id !== destination.id ||
+      !readingReady.current ||
       editor.active ||
       handledDestination.current === destination.revision
     )
@@ -255,13 +273,13 @@ function Reader() {
       article.current?.querySelector<HTMLElement>('.reader-breadcrumbs [data-search-hit]');
     if (target) revealTarget(target);
     updateHeading();
-  }, [note, destination, editor.active]);
+  }, [note, toc, destination, editor.active]);
   useEffect(() => {
     if (choices) chooser.current?.showModal();
     else chooser.current?.close();
   }, [choices]);
   async function open(id: string, anchor = '', searchQuery = '', backlink = '') {
-    if (navigation.current) return;
+    if (navigation.current || travel.busy()) return;
     navigation.current = true;
     const saved = await editor.finish();
     navigation.current = false;
@@ -272,9 +290,8 @@ function Reader() {
     setChoices(null);
     nav.dismiss();
     setError('');
-    history.pushState(
-      null,
-      '',
+    information.dismiss();
+    travel.push(
       `?${folderId ? `folder=${encodeURIComponent(folderId)}&` : ''}note=${encodeURIComponent(id)}${anchor ? `#${encodeURIComponent(anchor)}` : ''}`,
     );
     if (selected === id) {
@@ -325,7 +342,9 @@ function Reader() {
   };
   return (
     <div
+      ref={app}
       className="reader-app"
+      data-information={information.rail}
       data-menu={menu}
       data-docked={nav.docked}
       data-drawer={nav.overlay}
@@ -603,12 +622,13 @@ function Reader() {
         className="reader-main"
         inert={nav.overlay}
         onScroll={() => {
-          if (readingReady.current && note && article.current)
+          if (readingReady.current && note && note.id === selectedRef.current && article.current)
             positions.current[note.id] = article.current.scrollTop;
           updateHeading();
         }}
       >
         <div className="reader-topbar">
+          <HistoryButtons back={travel.back} forward={travel.forward} go={travel.go} />
           {!nav.docked && (
             <div className="reader-navigation-actions">
               <button
@@ -653,6 +673,19 @@ function Reader() {
             </>
           ) : (
             <span className="reader-library-name">{catalog?.name || 'Palboo'}</span>
+          )}
+          {note && !editor.active && (
+            <button
+              ref={information.trigger}
+              className="reader-tool-btn"
+              aria-label={tr('阅读信息')}
+              title={tr('阅读信息')}
+              aria-controls="reader-information"
+              aria-expanded={information.visible}
+              onClick={information.toggle}
+            >
+              <Icon name="dock" />
+            </button>
           )}
           {note && !editor.active && (
             <button
@@ -710,18 +743,16 @@ function Reader() {
                     <h1>{note.title}</h1>
                   </header>
                 )}
-                <ReadingOutline
-                  headings={toc}
-                  active={activeHeading}
-                  jump={(id) => {
-                    const target = content.current?.querySelector<HTMLElement>(`#${id}`);
-                    if (target) {
-                      revealTarget(target, 'start');
-                      updateHeading();
-                    }
-                  }}
-                />
-                <div className="reader-markdown" ref={content}>
+                <PreviewableMarkdown
+                  source={selected}
+                  revision={catalog?.revision || 0}
+                  contentRef={content}
+                  load={(target, signal) =>
+                    read<LinkPreview>('preview', { id: note.id, target }, signal)
+                  }
+                  open={(id, anchor) => void open(id, anchor)}
+                  follow={(target) => void follow(target)}
+                >
                   <NoteMarkdown
                     key={note.id}
                     highlight={destination.id === note.id ? destination.query : ''}
@@ -735,35 +766,27 @@ function Reader() {
                     text={note.markdown}
                     follow={(target) => void follow(target)}
                   />
-                </div>
-                <footer className="reader-backlinks">
-                  <div className="reader-backlinks-head">
-                    <h2>{tr('反向链接')}</h2>
-                    {note.backlinks.length > 0 && (
-                      <span className="reader-meta-count">{note.backlinks.length}</span>
-                    )}
-                  </div>
-                  {note.backlinks.length ? (
-                    <ul>
-                      {note.backlinks.map((item) => (
-                        <li key={item.id}>
-                          <button title={item.id} onClick={() => open(item.id, '', '', note.id)}>
-                            <Icon name="reader-note" />
-                            <span className="reader-backlink-title">{item.title}</span>
-                            <small>{item.id}</small>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p>{tr('暂无反向链接')}</p>
-                  )}
-                </footer>
+                </PreviewableMarkdown>
               </>
             )}
           </article>
         )}
       </main>
+      <ReadingInfo
+        state={information}
+        headings={toc}
+        active={activeHeading}
+        backlinks={note?.backlinks || []}
+        inert={nav.overlay}
+        jump={(id) => {
+          const target = content.current?.querySelector<HTMLElement>(`#${id}`);
+          if (target) {
+            revealTarget(target, 'start');
+            updateHeading();
+          }
+        }}
+        open={(id) => void open(id, '', '', note?.id || '')}
+      />
       <dialog className="reader-choices" ref={chooser} onClose={() => setChoices(null)}>
         <h2>{tr('选择链接目标')}</h2>
         <ul>

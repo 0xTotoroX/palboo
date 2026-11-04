@@ -1,5 +1,5 @@
 // [INPUT]: Authorized vault files and CommonMark/Obsidian links parsed without executing HTML.
-// [OUTPUT]: Bounded incremental text index, stable title/path-first paginated search, link resolution and backlinks.
+// [OUTPUT]: Bounded index/search, resolved plain-text hover previews, link resolution and backlinks.
 // [POS]: In-memory derived state; refreshed explicitly/on reader focus, never persisted into the vault.
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 use super::{edit, files, spreadsheet};
@@ -212,6 +212,20 @@ impl Index {
     }
     pub fn summary(&self, id: &str) -> Value {
         json!({"id":id,"title":self.notes.get(id).map(|n| &n.title).or_else(||self.documents.get(id)),"kind":if self.documents.contains_key(id) { "spreadsheet" } else { "markdown" }})
+    }
+    pub fn preview(&self, from: &str, target: &str) -> Result<Value> {
+        let (candidates, anchor) = self.resolve(from, target)?;
+        let excerpt = if candidates.len() == 1 {
+            self.notes
+                .get(&candidates[0])
+                .map(|note| super::preview::excerpt(&note.text, &anchor))
+        } else {
+            None
+        };
+        Ok(json!({
+            "candidates": candidates.iter().take(8).map(|id| self.summary(id)).collect::<Vec<_>>(),
+            "total": candidates.len(), "anchor": anchor, "excerpt": excerpt
+        }))
     }
     pub fn search(&self, query: &str, offset: usize) -> Value {
         let query = query.trim().to_lowercase();

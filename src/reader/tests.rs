@@ -88,6 +88,46 @@ fn search_pages_match_instant_title_order_before_body_matches() {
     );
 }
 #[test]
+fn previews_are_bounded_plain_text_and_respect_anchors_and_ambiguity() {
+    let f = Fixture::new();
+    let markdown = format!(
+        "---\nsecret: metadata\n---\n# Start\nBefore section.\n\n<script>alert('unsafe')</script>\n\n## Target heading\nAfter **bold** and [link](https://example.test).\n\n{}",
+        "中文🙂 ".repeat(1000)
+    );
+    std::fs::write(f.vault.join("preview.md"), markdown).unwrap();
+    let index = f.index();
+    let preview = index.preview("首页.md", "preview#target-heading").unwrap();
+    let excerpt = preview["excerpt"].as_str().unwrap();
+    assert!(excerpt.starts_with("Target heading\nAfter bold and link."));
+    assert!(excerpt.chars().count() <= 1200);
+    assert!(!excerpt.contains("metadata"));
+    assert!(!excerpt.contains("Before section"));
+    let full = index.preview("首页.md", "preview").unwrap();
+    assert!(!full["excerpt"].as_str().unwrap().contains("unsafe"));
+    assert!(!full["excerpt"].as_str().unwrap().contains("https://"));
+    let block = index.preview("首页.md", "项目/文章#^block").unwrap();
+    assert!(block["excerpt"].as_str().unwrap().starts_with("正文"));
+    assert_eq!(index.preview("首页.md", "同名").unwrap()["total"], 2);
+    assert!(index.preview("首页.md", "同名").unwrap()["excerpt"].is_null());
+    assert_eq!(index.preview("首页.md", "missing").unwrap()["total"], 0);
+    assert!(index.preview("missing.md", "preview").is_err());
+    assert!(
+        index.preview("首页.md", "../../outside").unwrap()["candidates"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    assert!(index.preview("首页.md", "https://evil.test").is_err());
+    for n in 0..12 {
+        let dir = f.vault.join(format!("duplicate-{n}"));
+        std::fs::create_dir(&dir).unwrap();
+        std::fs::write(dir.join("duplicate.md"), "content").unwrap();
+    }
+    let many = f.index().preview("首页.md", "duplicate").unwrap();
+    assert_eq!(many["total"], 12);
+    assert_eq!(many["candidates"].as_array().unwrap().len(), 8);
+}
+#[test]
 fn searches_chinese_content_paths_and_resolves_real_backlinks() {
     let f = Fixture::new();
     let index = f.index();
@@ -242,6 +282,30 @@ async fn reader_http_rejects_main_credentials_foreign_origins_and_unscoped_write
         app: None,
     });
     for (method, path, host, token, origin, status) in [
+        (
+            "GET",
+            "/api/preview?id=preview.md&target=missing",
+            "127.0.0.1:12345",
+            "main-token",
+            None,
+            401,
+        ),
+        (
+            "GET",
+            "/api/preview?id=preview.md&target=missing",
+            "127.0.0.1:12345",
+            "reader-only",
+            Some("https://evil.test"),
+            403,
+        ),
+        (
+            "GET",
+            "/api/preview?id=%E9%A6%96%E9%A1%B5.md&target=missing",
+            "127.0.0.1:12345",
+            "reader-only",
+            None,
+            200,
+        ),
         ("GET", "/api/catalog", "127.0.0.1:12345", "", None, 401),
         (
             "GET",
@@ -318,7 +382,11 @@ async fn reader_http_rejects_main_credentials_foreign_origins_and_unscoped_write
             assert_eq!(response.headers()["cache-control"], "no-store");
             let body = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
             let value: Value = serde_json::from_slice(&body).unwrap();
-            assert_eq!(value["notes"].as_array().unwrap().len(), 4);
+            if path == "/api/catalog" {
+                assert_eq!(value["notes"].as_array().unwrap().len(), 4);
+            } else {
+                assert_eq!(value["total"], 0);
+            }
         }
     }
 }
