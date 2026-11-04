@@ -1,5 +1,5 @@
 /* [INPUT]: Current CLI binary, isolated service and synthetic settings/tasks/glossary files.
- * [OUTPUT]: Latest settings discovery, partial writes, opaque imports, personal exports and revision/persistence checks.
+ * [OUTPUT]: Settings discovery, CLI-scoped model organization and deletion guards, imports, exports and persistence checks.
  * [POS]: Never reads installed configuration or connects to a real host or reminders account.
  * [PROTOCOL]: Keep tests/AGENTS.md in sync. */
 import assert from 'node:assert/strict';
@@ -56,6 +56,9 @@ try {
   const schemaFor = (scope) => schema.find((item) => item.scope === scope);
   assert.ok(schemaFor('appearance').nestedFields.ui.includes('promptClickMode'));
   assert.ok(schemaFor('model-control').nestedFields.patch.includes('showUsage'));
+  assert.ok(schemaFor('model-control').nestedFields.patch.includes('agentOrganizations'));
+  assert.ok(schemaFor('model-control').nestedFields['patch.presets[]'].includes('agent'));
+  assert.ok(schemaFor('model-control').nestedFields['patch.presets[]'].includes('catalogPin'));
   assert.ok(schemaFor('layout').operations.includes('edge-tabs'));
   assert.ok(schemaFor('terminology').operations.includes('reset-library'));
   const help = (await exec(binary, ['config', '--help'])).stdout;
@@ -292,6 +295,74 @@ try {
   assert.equal(modelWidth.current.preferences.showUsage, false);
   assert.deepEqual(modelWidth.current.preferences.presets, organization.presets);
   await assert.rejects(() => set('model-control', { patch: { presets: [] } }), /明确确认/);
+  const agentOrganizations = {
+    claude: {
+      modelColumnWidth: 190,
+      pinned: ['shared-model'],
+      modelOrder: ['shared-model'],
+      groups: [{ id: 'claude-group', name: 'Claude fixture' }],
+      modelOverrides: { 'shared-model': { groupId: 'claude-group' } },
+      groupOrder: ['claude-group'],
+      expandedGroups: ['claude-group'],
+    },
+    gemini: {
+      modelColumnWidth: 210,
+      pinned: ['shared-model'],
+      modelOrder: ['shared-model'],
+      groups: [],
+      modelOverrides: { 'shared-model': { manufacturer: 'Fixture' } },
+      groupOrder: [],
+      expandedGroups: [],
+    },
+  };
+  const scopedPresets = [
+    ...organization.presets,
+    { ...organization.presets[0], id: 'claude-preset', agent: 'claude' },
+    { ...organization.presets[0], id: 'claude-pin', agent: 'claude', catalogPin: true },
+  ];
+  await set('model-control', { patch: { agentOrganizations, presets: scopedPresets } });
+  const scoped = (await cli('get', 'model-control')).preferences;
+  assert.deepEqual(scoped.agentOrganizations, agentOrganizations);
+  assert.deepEqual(
+    scoped.presets,
+    scopedPresets,
+    'legacy and scoped presets retain their identities',
+  );
+  assert.deepEqual(scoped.pinned, organization.pinned, 'CLI edits preserve the Codex organization');
+  assert.deepEqual(scoped.groups, organization.groups);
+  assert.deepEqual(scoped.modelOverrides, organization.modelOverrides);
+  const unrelated = await set('model-control', { patch: { modelColumnWidth: 230 } });
+  assert.deepEqual(unrelated.current.preferences.agentOrganizations, agentOrganizations);
+  for (const key of ['pinned', 'groups']) {
+    const removed = structuredClone(agentOrganizations);
+    removed.claude[key] = [];
+    if (key === 'groups') {
+      removed.claude.modelOverrides = {};
+      removed.claude.groupOrder = [];
+      removed.claude.expandedGroups = [];
+    }
+    await assert.rejects(
+      () => set('model-control', { patch: { agentOrganizations: removed } }),
+      /明确确认/,
+    );
+    assert.deepEqual(
+      (await cli('get', 'model-control')).preferences.agentOrganizations,
+      agentOrganizations,
+    );
+  }
+  const onlyGemini = { gemini: agentOrganizations.gemini };
+  const removal = { patch: { agentOrganizations: onlyGemini } };
+  const removalPreview = await set('model-control', removal, '--dry-run');
+  assert.equal(removalPreview.confirmationRequired, true);
+  await assert.rejects(() => set('model-control', removal), /明确确认/);
+  assert.deepEqual(
+    (await cli('get', 'model-control')).preferences.agentOrganizations,
+    agentOrganizations,
+  );
+  const confirmedRemoval = await set('model-control', removal, '--confirm');
+  assert.deepEqual(confirmedRemoval.current.preferences.agentOrganizations, onlyGemini);
+  assert.deepEqual(confirmedRemoval.current.preferences.presets, scopedPresets);
+  assert.deepEqual(confirmedRemoval.current.preferences.pinned, organization.pinned);
   const layout = {
     axis: 'vertical',
     groups: [

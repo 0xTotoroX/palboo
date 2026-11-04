@@ -1,5 +1,5 @@
 /* [INPUT]: Shared header template, workspace CSS and synthetic source/state updates.
- * [OUTPUT]: Headers keep legacy text hidden; icon actions and drafts survive language and surface changes.
+ * [OUTPUT]: Headers keep legacy text hidden; icons and body controls stay reachable across layout changes.
  * [POS]: Isolated browser DOM/geometry checks; no screenshots, host data or native commands.
  * [PROTOCOL]: Keep tests/AGENTS.md in sync. */
 import test from 'node:test';
@@ -133,10 +133,27 @@ test('workspace icons share names and hit areas across surfaces, model catalog a
     };
     await checkIcons();
     const fast = await page.locator('.model-inline-heading .model-fast').boundingBox();
-    const maxRight = await page
+    const tabBoxes = await page
       .locator('[data-pane-tab]')
-      .evaluateAll((nodes) => Math.max(...nodes.map((n) => n.getBoundingClientRect().right)));
-    assert.ok(maxRight <= fast.x, 'wrapped icon rail leaves Fast clear');
+      .evaluateAll((nodes) => nodes.map((n) => n.getBoundingClientRect().toJSON()));
+    for (const box of tabBoxes)
+      assert.ok(
+        box.right <= fast.x ||
+          box.x >= fast.x + fast.width ||
+          box.bottom <= fast.y ||
+          box.y >= fast.y + fast.height,
+        'wrapped icon rail leaves the model-body Fast control clear',
+      );
+    assert.equal(
+      await page.locator('.model-inline-heading .model-fast').evaluate((button) => {
+        const box = button.getBoundingClientRect();
+        return button.contains(
+          document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2),
+        );
+      }),
+      true,
+      'Fast remains reachable in the main model view',
+    );
     await page.getByRole('button', { name: '所有模型', exact: true }).click();
     await checkIcons();
     await tab('下一步').click();
