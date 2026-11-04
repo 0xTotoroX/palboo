@@ -1112,7 +1112,16 @@ test('the reader preview opens linked notes, edits a draft and switches sheets w
     await select(page, 'sites');
     const library = panel(page, 'sites');
     await library.getByRole('heading', { name: '作品集计划', exact: true }).waitFor();
-    assert.equal(await library.locator('.reader-sidebar nav button').count(), 5);
+    assert.equal(await library.locator('.reader-tree li > button').count(), 5);
+    assert.equal(await library.locator('.reader-properties .reader-tag').count(), 2);
+    assert.equal(
+      await library.locator('details[data-callout=tip]').evaluate((node) => node.open),
+      true,
+    );
+    const resize = library.getByRole('separator');
+    await resize.focus();
+    await page.keyboard.press('ArrowRight');
+    assert.equal(await resize.getAttribute('aria-valuenow'), '244');
     const search = library.getByRole('searchbox', { name: '搜索笔记' });
     await search.fill('不存在的笔记');
     await library.getByRole('status').filter({ hasText: '没有匹配的笔记' }).waitFor();

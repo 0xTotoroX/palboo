@@ -54,7 +54,7 @@
 .reader-app[data-menu='false'],
 .reader-app[data-menu='true'] {
   height: 100%;
-  grid-template-columns: 180px minmax(0, 1fr);
+  grid-template-columns: min(var(--reader-sidebar-width, 232px), 45%) minmax(0, 1fr);
 }
 .reader-app[data-menu='true'] .reader-main {
   display: block;

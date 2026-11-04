@@ -1,5 +1,5 @@
 /* [INPUT]: Shared tokens, native color scheme and safe reader document structure.
- * [OUTPUT]: Responsive reading/sidebar layout, typography, search, images and focus states.
+ * [OUTPUT]: Resizable navigation, responsive outline, structured Markdown, search destinations and focus states.
  * [POS]: Isolated reader document; never injects styles into the host or settings.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 :root {
@@ -94,13 +94,14 @@ p {
 .reader-app {
   height: 100dvh;
   display: grid;
-  grid-template-columns: 232px minmax(0, 1fr);
+  grid-template-columns: min(var(--reader-sidebar-width, 232px), calc(100vw - 320px)) minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
 }
 .reader-app[data-menu='false'] {
   grid-template-columns: 44px minmax(0, 1fr);
 }
 .reader-sidebar {
+  position: relative;
   padding: 8px;
   border-right: 1px solid var(--reader-line);
   overflow: hidden;
@@ -200,7 +201,9 @@ p {
   text-align: start;
 }
 .reader-sidebar details > ul {
-  padding-left: 16px;
+  margin-left: 8px;
+  padding-left: 3px;
+  border-left: 1px solid var(--reader-line);
 }
 .reader-sidebar summary {
   cursor: pointer;
@@ -220,9 +223,17 @@ p {
   color: var(--reader-muted);
 }
 .reader-row-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  line-height: 1.5;
+}
+.reader-tree li > button,
+.reader-tree summary {
+  min-width: 100px;
+}
+.reader-tree .buddy-icon {
+  flex-shrink: 0;
 }
 .reader-search {
   display: flex;
@@ -272,6 +283,7 @@ p {
   scrollbar-gutter: stable;
   min-width: 0;
   scroll-behavior: auto;
+  container-type: inline-size;
 }
 .reader-main article {
   max-width: 72ch;
@@ -663,4 +675,288 @@ dialog::backdrop {
 }
 .reader-sheet-scroll .reader-number {
   text-align: right;
+}
+
+.reader-resize {
+  position: absolute;
+  z-index: 3;
+  inset: 0 0 0 auto;
+  width: 7px;
+  cursor: col-resize;
+  touch-action: none;
+}
+.reader-resize:hover,
+.reader-resize:focus-visible {
+  background: var(--reader-line);
+}
+.reader-resize:focus-visible {
+  outline: 2px solid var(--reader-muted);
+  outline-offset: -2px;
+}
+.reader-tree-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+.reader-tree-actions button {
+  display: grid;
+  place-items: center;
+}
+.reader-switcher-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 0.8rem;
+}
+.reader-switcher-trigger kbd {
+  margin-left: auto;
+  color: var(--reader-muted);
+  font: inherit;
+}
+.reader-breadcrumbs {
+  max-width: 72ch;
+  margin: 0 auto 20px;
+  color: var(--reader-muted);
+  font-size: 0.8rem;
+}
+.reader-breadcrumbs ol {
+  display: flex;
+  flex-wrap: wrap;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  gap: 6px;
+}
+.reader-breadcrumbs li {
+  display: flex;
+  min-width: 0;
+  gap: 6px;
+  overflow-wrap: anywhere;
+}
+.reader-switcher {
+  width: 540px;
+}
+.reader-switcher-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.reader-switcher h2 {
+  font-size: 1rem;
+  font-weight: 500;
+}
+.reader-switcher ul {
+  max-height: min(50dvh, 420px);
+  overflow: auto;
+  margin-bottom: 0;
+}
+.reader-switcher [role='option'] {
+  padding: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.reader-switcher [aria-selected='true'] {
+  background: var(--reader-hover);
+}
+.reader-switcher strong {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+.reader-properties dl {
+  margin: 12px 0;
+}
+.reader-properties dl > div {
+  display: grid;
+  grid-template-columns: minmax(80px, 1fr) minmax(0, 3fr);
+  gap: 12px;
+  padding: 5px 0;
+}
+.reader-properties :is(dt, dd) {
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.reader-properties dd {
+  color: var(--reader-ink);
+}
+.reader-tag {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 2px 8px;
+  margin: 2px 4px 2px 0;
+  background: var(--reader-hover);
+  font-size: 0.85em;
+  color: inherit;
+}
+.reader-main mark {
+  background: light-dark(#ffedaf, #655323);
+  color: inherit;
+  padding: 0 2px;
+  border-radius: 2px;
+}
+.reader-markdown [data-search-hit],
+.reader-markdown [data-backlink-hit] {
+  outline: 1px solid var(--reader-muted);
+  background: light-dark(#ffedaf, #655323);
+  scroll-margin-block: 80px;
+}
+.reader-callout {
+  --callout-color: light-dark(#39739b, #90b5d0);
+  margin: 1em 0;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border-left: 3px solid var(--callout-color);
+  background: color-mix(in srgb, var(--callout-color) 8%, var(--reader-paper));
+}
+.reader-callout:is(
+  [data-callout='tip'],
+  [data-callout='hint'],
+  [data-callout='important'],
+  [data-callout='success'],
+  [data-callout='check'],
+  [data-callout='done']
+) {
+  --callout-color: light-dark(#397b62, #8fc4ad);
+}
+.reader-callout:is(
+  [data-callout='warning'],
+  [data-callout='caution'],
+  [data-callout='attention'],
+  [data-callout='question'],
+  [data-callout='help'],
+  [data-callout='faq']
+) {
+  --callout-color: light-dark(#946a20, #d3b573);
+}
+.reader-callout:is(
+  [data-callout='danger'],
+  [data-callout='error'],
+  [data-callout='failure'],
+  [data-callout='fail'],
+  [data-callout='missing'],
+  [data-callout='bug']
+) {
+  --callout-color: light-dark(#a45353, #d69a9a);
+}
+.reader-callout:is(
+  [data-callout='example'],
+  [data-callout='abstract'],
+  [data-callout='summary'],
+  [data-callout='tldr']
+) {
+  --callout-color: light-dark(#796397, #baa5d3);
+}
+.reader-callout:is([data-callout='quote'], [data-callout='cite']) {
+  --callout-color: var(--reader-muted);
+}
+.reader-callout-title {
+  font-weight: 600;
+  color: var(--callout-color);
+  cursor: default;
+  overflow-wrap: anywhere;
+}
+summary.reader-callout-title {
+  cursor: pointer;
+}
+.reader-callout > :last-child {
+  margin-bottom: 0;
+}
+.reader-code-block {
+  position: relative;
+  margin-block: 1em;
+}
+.reader-code-block pre {
+  padding-top: 44px;
+  margin: 0;
+}
+.reader-copy-code {
+  font-size: 0.75rem;
+  position: absolute;
+  right: 8px;
+  top: 6px;
+  display: grid;
+  place-items: center;
+}
+.reader-copy-status {
+  position: absolute;
+  left: 16px;
+  top: 10px;
+  font-size: 0.75rem;
+  color: var(--reader-muted);
+}
+.reader-outline {
+  position: relative;
+}
+.reader-outline-pin {
+  display: none;
+}
+.reader-toc nav {
+  max-height: 45dvh;
+  overflow: auto;
+  margin-top: 8px;
+}
+.reader-toc a {
+  overflow-wrap: anywhere;
+}
+.reader-toc a[aria-current='location'] {
+  color: var(--reader-ink);
+  font-weight: 600;
+}
+@container (min-width: 920px) {
+  .reader-main > article {
+    position: relative;
+    max-width: calc(72ch + 232px);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 200px;
+    column-gap: 32px;
+    justify-content: center;
+  }
+  .reader-breadcrumbs {
+    max-width: calc(72ch + 232px);
+  }
+  .reader-note-header,
+  .reader-markdown,
+  .reader-backlinks {
+    grid-column: 1;
+  }
+  .reader-note-actions {
+    position: absolute;
+    right: 232px;
+    top: 0;
+  }
+  .reader-outline {
+    grid-column: 2;
+    grid-row: 2 / span 3;
+    align-self: start;
+  }
+  .reader-outline[data-pinned='true'] {
+    position: sticky;
+    top: 8px;
+  }
+  .reader-outline-pin {
+    display: grid;
+    place-items: center;
+    position: absolute;
+    right: 0;
+    top: -2px;
+  }
+  .reader-toc summary {
+    padding-right: 32px;
+  }
+  .reader-toc nav {
+    max-height: calc(100dvh - 160px);
+  }
+  .reader-main > article:has(.reader-editor) {
+    display: block;
+    max-width: 72ch;
+  }
+}
+@media (max-width: 640px) {
+  .reader-resize {
+    display: none;
+  }
 }

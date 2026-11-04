@@ -1,8 +1,9 @@
 /* [INPUT]: Transport-free reader components, original reader CSS and synthetic portfolio documents.
- * [OUTPUT]: A persistent reading/editing/workbook scene with an isolated web-reference tab.
+ * [OUTPUT]: An in-memory resizable reading/editing/workbook scene with structured Markdown with an isolated web-reference tab.
  * [POS]: Website adapter only; edits stay in memory and links never contact a backend or remote site.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { useLayoutEffect, useRef, useState } from 'react';
+import { Breadcrumbs, SidebarResize, useSidebarWidth } from '../reader/navigation';
 import { NoteTree } from '../reader/tree';
 import { NoteMarkdown } from '../reader/markdown';
 import { NoteEditor, type NoteEditorState } from '../reader/editor-view';
@@ -19,6 +20,7 @@ const styles = `${readerStyles}\n${previewStyles}`;
 
 export function LocalLibraryPreview() {
   useLocale();
+  const sidebar = useSidebarWidth();
   const [tab, setTab] = useState('notes');
   const [selected, setSelected] = useState('plan.md');
   const [menu, setMenu] = useState(false);
@@ -123,7 +125,7 @@ export function LocalLibraryPreview() {
           className="library-tab-panel"
           hidden={tab !== 'notes'}
         >
-          <div className="reader-app" data-menu={menu}>
+          <div className="reader-app" data-menu={menu} style={sidebar.style}>
             <aside className="reader-sidebar" aria-label={tr('目录与搜索')}>
               <div className="reader-library-row">
                 <strong>{tr('作品集笔记')}</strong>
@@ -137,6 +139,7 @@ export function LocalLibraryPreview() {
                   <Icon name="reader-sidebar" />
                 </button>
               </div>
+              <SidebarResize width={sidebar.width} setWidth={sidebar.setWidth} />
               <div className="reader-sidebar-body">
                 <label className="reader-search">
                   <Icon name="search" />
@@ -155,6 +158,7 @@ export function LocalLibraryPreview() {
               </div>
             </aside>
             <div className="reader-main" ref={content} tabIndex={-1}>
+              <Breadcrumbs id={selected} />
               {error && <p role="alert">{error}</p>}
               {selected === 'assets.xlsx' ? (
                 <WorkbookView
@@ -184,6 +188,8 @@ export function LocalLibraryPreview() {
                   </div>
                   <div className="reader-markdown">
                     <NoteMarkdown
+                      key={note.id}
+                      highlight={query}
                       id={note.id}
                       text={note.markdown}
                       follow={(target) => void open(target)}

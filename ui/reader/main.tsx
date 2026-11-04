@@ -1,5 +1,5 @@
 /* [INPUT]: Reader-only API, safe Markdown with authenticated image rendering, note tree and browser navigation.
- * [OUTPUT]: Collapsible navigation, note reading/editing, spreadsheet previews, links and reading positions.
+ * [OUTPUT]: Resizable navigation, quick switching, search/link destinations, active outline and safe note editing.
  * [POS]: Standalone document opened in ChatGPT; no settings token, composer access or AI calls.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { createRoot } from 'react-dom/client';
@@ -9,6 +9,8 @@ import { NoteEditor, useNoteEditor } from './editor';
 import { Spreadsheet } from './spreadsheet';
 import { NoteMarkdown, anchorKey, decodeLink } from './markdown';
 import { ReaderPicture } from './picture';
+import { Breadcrumbs, QuickSwitcher, SidebarResize, useSidebarWidth } from './navigation';
+import { ReadingOutline, type Heading } from './outline';
 import { NoteTree } from './tree';
 import { Icon } from '../shared/icons/react';
 import { tr, setLocale } from '../shared/i18n.js';
@@ -28,6 +30,27 @@ function savedPositions(): Record<string, number> {
 }
 function Reader() {
   useLocale();
+  const sidebar = useSidebarWidth('palboo-reader-sidebar-width');
+  const [switcher, setSwitcher] = useState(false);
+  const [destination, setDestination] = useState({ id: '', query: '', backlink: '', revision: 0 });
+  const handledDestination = useRef(-1);
+  const [activeHeading, setActiveHeading] = useState('');
+  useEffect(() => {
+    const shortcut = (event: KeyboardEvent) => {
+      if (
+        (event.metaKey || event.ctrlKey) &&
+        !event.altKey &&
+        !event.shiftKey &&
+        event.key.toLowerCase() === 'o' &&
+        !event.isComposing
+      ) {
+        event.preventDefault();
+        setSwitcher(true);
+      }
+    };
+    window.addEventListener('keydown', shortcut);
+    return () => window.removeEventListener('keydown', shortcut);
+  }, []);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [systemDark, setSystemDark] = useState(matchMedia('(prefers-color-scheme: dark)').matches);
   useEffect(() => {
@@ -65,7 +88,7 @@ function Reader() {
       sessionStorage.setItem('palboo-reader-sidebar', String(menu));
     } catch {}
   }, [menu]);
-  const [toc, setToc] = useState<{ id: string; text: string; level: number }[]>([]);
+  const [toc, setToc] = useState<Heading[]>([]);
   const [choices, setChoices] = useState<{ notes: Summary[]; anchor: string } | null>(null);
   const article = useRef<HTMLElement>(null);
   const content = useRef<HTMLDivElement>(null);
@@ -118,10 +141,20 @@ function Reader() {
   useEffect(() => {
     const change = async () => {
       if (!(await editor.finish())) {
-        history.pushState(null, '', `?note=${encodeURIComponent(selectedRef.current)}`);
+        history.pushState(
+          null,
+          '',
+          `?${folderId ? `folder=${encodeURIComponent(folderId)}&` : ''}note=${encodeURIComponent(selectedRef.current)}`,
+        );
         return;
       }
       remember();
+      setDestination((value) => ({
+        id: '',
+        query: '',
+        backlink: '',
+        revision: value.revision + 1,
+      }));
       pendingAnchor.current = decodeLink(location.hash.slice(1));
       const id = new URLSearchParams(location.search).get('note') || '';
       if (id === selectedRef.current && pendingAnchor.current) {
@@ -191,10 +224,31 @@ function Reader() {
         node.dataset.noteAnchor?.replace(/[^\p{L}\p{N}\s-]/gu, '').replace(/\s+/g, '-') === key,
     );
     if (target) {
-      target.scrollIntoView({ block: 'start' });
+      revealTarget(target, 'start');
       target.tabIndex = -1;
       target.focus({ preventScroll: true });
     } else if (anchor) setError(tr('未找到这个标题或段落'));
+  }
+  function revealTarget(target: HTMLElement, block: ScrollLogicalPosition = 'center') {
+    let parent = target.parentElement;
+    while (parent && parent !== content.current) {
+      if (parent instanceof HTMLDetailsElement) parent.open = true;
+      parent = parent.parentElement;
+    }
+    target.scrollIntoView({ block });
+  }
+  function updateHeading() {
+    if (!article.current || !content.current) return;
+    const top = article.current.getBoundingClientRect().top + 64;
+    const headings = [...content.current.querySelectorAll<HTMLElement>('h1,h2,h3,h4,h5,h6')].filter(
+      (node) => node.getClientRects().length,
+    );
+    const atEnd =
+      article.current.scrollTop + article.current.clientHeight >= article.current.scrollHeight - 2;
+    const current = atEnd
+      ? headings.at(-1)
+      : headings.filter((node) => node.getBoundingClientRect().top <= top).at(-1) || headings[0];
+    setActiveHeading(current?.id || '');
   }
   useLayoutEffect(() => {
     if (!note || !content.current || !article.current) return;
@@ -209,20 +263,36 @@ function Reader() {
     pendingAnchor.current = '';
     if (anchor) scrollAnchor(anchor);
     else article.current.scrollTop = positions.current[note.id] || 0;
+    updateHeading();
     readingReady.current = true;
     document.title = `${note.title} · Palboo`;
   }, [note, editor.active]);
+  useLayoutEffect(() => {
+    if (
+      note?.id !== destination.id ||
+      editor.active ||
+      handledDestination.current === destination.revision
+    )
+      return;
+    handledDestination.current = destination.revision;
+    const target =
+      content.current?.querySelector<HTMLElement>('[data-search-hit], [data-backlink-hit]') ||
+      article.current?.querySelector<HTMLElement>('.reader-breadcrumbs [data-search-hit]');
+    if (target) revealTarget(target);
+    updateHeading();
+  }, [note, destination, editor.active]);
   useEffect(() => {
     if (choices) chooser.current?.showModal();
     else chooser.current?.close();
   }, [choices]);
-  async function open(id: string, anchor = '') {
+  async function open(id: string, anchor = '', searchQuery = '', backlink = '') {
     if (navigation.current) return;
     navigation.current = true;
     const saved = await editor.finish();
     navigation.current = false;
     if (!saved) return;
     remember();
+    setDestination((value) => ({ id, query: searchQuery, backlink, revision: value.revision + 1 }));
     linkRequest.current?.abort();
     setChoices(null);
     if (matchMedia('(max-width: 640px)').matches) setMenu(false);
@@ -274,7 +344,7 @@ function Reader() {
     }
   }
   return (
-    <div className="reader-app" data-menu={menu}>
+    <div className="reader-app" data-menu={menu} style={sidebar.style}>
       <aside className="reader-sidebar" aria-label={tr('目录与搜索')}>
         <div className="reader-library-row">
           {menu &&
@@ -306,7 +376,13 @@ function Reader() {
             <Icon name="reader-sidebar" />
           </button>
         </div>
+        {menu && <SidebarResize width={sidebar.width} setWidth={sidebar.setWidth} />}
         <div className="reader-sidebar-body" hidden={!menu}>
+          <button className="reader-switcher-trigger" onClick={() => setSwitcher(true)}>
+            <Icon name="search" />
+            <span>{tr('快速切换笔记')}</span>
+            <kbd>⌘/Ctrl O</kbd>
+          </button>
           <label className="reader-search">
             <Icon name="search" />
             <input
@@ -335,7 +411,7 @@ function Reader() {
                       {search.results.map((item) => (
                         <li key={item.id}>
                           <button
-                            onClick={() => open(item.id)}
+                            onClick={() => open(item.id, '', query)}
                             aria-current={item.id === selected ? 'page' : undefined}
                           >
                             <strong>{item.title}</strong>
@@ -404,8 +480,12 @@ function Reader() {
         onScroll={() => {
           if (readingReady.current && note && article.current)
             positions.current[note.id] = article.current.scrollTop;
+          updateHeading();
         }}
       >
+        {selected && (
+          <Breadcrumbs id={selected} query={destination.id === selected ? destination.query : ''} />
+        )}
         {error && (
           <div role="alert" className="reader-error">
             {error}
@@ -450,33 +530,27 @@ function Reader() {
                 <header className="reader-note-header">
                   {!toc.some((item) => item.level === 1) && <h1>{note.title}</h1>}
                 </header>
-                {toc.length > 1 && (
-                  <details className="reader-toc">
-                    <summary>
-                      <Icon name="feature-outline" />
-                      <span>{tr('文章目录')}</span>
-                    </summary>
-                    <nav>
-                      {toc.map((item) => (
-                        <a
-                          key={item.id}
-                          href={`#${item.id}`}
-                          style={{ paddingInlineStart: (item.level - 1) * 12 }}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            content.current
-                              ?.querySelector(`#${item.id}`)
-                              ?.scrollIntoView({ block: 'start' });
-                          }}
-                        >
-                          {item.text}
-                        </a>
-                      ))}
-                    </nav>
-                  </details>
-                )}
+                <ReadingOutline
+                  headings={toc}
+                  active={activeHeading}
+                  jump={(id) => {
+                    const target = content.current?.querySelector<HTMLElement>(`#${id}`);
+                    if (target) {
+                      revealTarget(target, 'start');
+                      updateHeading();
+                    }
+                  }}
+                />
                 <div className="reader-markdown" ref={content}>
                   <NoteMarkdown
+                    key={note.id}
+                    highlight={destination.id === note.id ? destination.query : ''}
+                    backlink={destination.id === note.id ? destination.backlink : ''}
+                    onTag={(tag) => {
+                      setQuery(tag);
+                      setOffset(0);
+                      setMenu(true);
+                    }}
                     image={ReaderPicture}
                     id={note.id}
                     text={note.markdown}
@@ -489,7 +563,7 @@ function Reader() {
                     <ul>
                       {note.backlinks.map((item) => (
                         <li key={item.id}>
-                          <button title={item.id} onClick={() => open(item.id)}>
+                          <button title={item.id} onClick={() => open(item.id, '', '', note.id)}>
                             {item.title}
                             <small>{item.id}</small>
                           </button>
@@ -505,6 +579,12 @@ function Reader() {
           </article>
         )}
       </main>
+      <QuickSwitcher
+        notes={catalog?.notes || []}
+        visible={switcher}
+        close={() => setSwitcher(false)}
+        open={(id) => void open(id)}
+      />
       <dialog className="reader-choices" ref={chooser} onClose={() => setChoices(null)}>
         <h2>{tr('选择链接目标')}</h2>
         <ul>

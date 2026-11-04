@@ -174,7 +174,7 @@ try {
     0,
   );
   const folders = await page
-    .locator('.reader-sidebar nav > ul > li > details > summary')
+    .locator('.reader-tree > ul > li > details > summary')
     .allTextContents();
   assert.equal(folders[0], '_AI');
   assert.ok(

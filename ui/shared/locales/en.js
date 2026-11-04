@@ -1,5 +1,16 @@
 // English interface copy. User-authored content is not translated.
 export default {
+  调整侧栏宽度: 'Resize sidebar',
+  '拖动调整宽度，双击恢复默认': 'Drag to resize; double-click to reset',
+  笔记路径: 'Note path',
+  快速切换笔记: 'Quick switcher',
+  按标题或路径查找: 'Find by title or path',
+  全部折叠: 'Collapse all',
+  定位当前笔记: 'Reveal current note',
+  '属性无法解析，显示原文': 'Unable to parse properties; showing source',
+  常驻文章目录: 'Keep outline visible',
+  复制代码: 'Copy code',
+  '复制失败，请手动选择代码': 'Copy failed; select the code manually',
   在目录中固定常用模型: 'Pin a model from the catalog',
   新建聊天: 'New chat',
   推理档位: 'Reasoning levels',
