@@ -1,4 +1,4 @@
-// [INPUT]: 本机进程资源计数、已连接 CDP 与配置中的独立性能偏好。
+// [INPUT]: 本机进程资源计数、Mach 时间基准、已连接 CDP 与配置中的独立性能偏好。
 // [OUTPUT]: 按需采样后台 CPU/物理内存和宿主页指标；不启动常驻分析器，不保存正文。
 // [POS]: 设置诊断服务；CPU 100% 表示一个核心，宿主页内存和长任务不能归因于 Palboo。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
@@ -44,6 +44,14 @@ struct Usage {
     memory_bytes: u64,
 }
 
+#[cfg(any(target_os = "macos", test))]
+fn mach_ticks_to_ns(ticks: u64, numer: u32, denom: u32) -> Option<u64> {
+    if numer == 0 || denom == 0 {
+        return None;
+    }
+    u64::try_from(u128::from(ticks) * u128::from(numer) / u128::from(denom)).ok()
+}
+
 #[cfg(target_os = "macos")]
 fn usage() -> Option<Usage> {
     // 对应 macOS SDK sys/resource.h 的 rusage_info_v2，无需启动外部 ps 进程。
@@ -53,15 +61,35 @@ fn usage() -> Option<Usage> {
         uuid: [u8; 16],
         fields: [u64; 18],
     }
+    #[repr(C)]
+    #[derive(Default)]
+    struct Timebase {
+        numer: u32,
+        denom: u32,
+    }
     unsafe extern "C" {
         fn proc_pid_rusage(pid: i32, flavor: i32, buffer: *mut RUsage) -> i32;
+        fn mach_timebase_info(info: *mut Timebase) -> i32;
     }
+    static TIMEBASE: std::sync::OnceLock<Option<Timebase>> = std::sync::OnceLock::new();
+    let timebase = TIMEBASE
+        .get_or_init(|| {
+            let mut value = Timebase::default();
+            (unsafe { mach_timebase_info(&mut value) } == 0 && value.numer > 0 && value.denom > 0)
+                .then_some(value)
+        })
+        .as_ref()?;
     let mut info = RUsage::default();
     if unsafe { proc_pid_rusage(std::process::id() as i32, 2, &mut info) } != 0 {
         return None;
     }
     Some(Usage {
-        cpu_ns: info.fields[0].saturating_add(info.fields[1]),
+        // rusage 的 CPU 计数是 Mach ticks；Apple Silicon 上不能直接视为纳秒。
+        cpu_ns: mach_ticks_to_ns(
+            info.fields[0].saturating_add(info.fields[1]),
+            timebase.numer,
+            timebase.denom,
+        )?,
         memory_bytes: info.fields[7],
     })
 }
@@ -144,6 +172,42 @@ mod tests {
         assert_eq!(cpu_percent(after, before, 5.), None);
         assert_eq!(cpu_percent(before, after, 0.), None);
         assert_eq!(cpu_percent(before, after, 0.5), Some(200.));
+    }
+    #[test]
+    fn mach_cpu_time_uses_the_system_ratio_without_overflow() {
+        assert_eq!(mach_ticks_to_ns(24_000_000, 125, 3), Some(1_000_000_000));
+        assert_eq!(mach_ticks_to_ns(1_000_000_000, 1, 1), Some(1_000_000_000));
+        assert_eq!(mach_ticks_to_ns(3, 125, 3), Some(125));
+        assert_eq!(mach_ticks_to_ns(u64::MAX, 3, 3), Some(u64::MAX));
+        assert_eq!(mach_ticks_to_ns(u64::MAX, 125, 3), None);
+        assert_eq!(mach_ticks_to_ns(1, 0, 3), None);
+        assert_eq!(mach_ticks_to_ns(1, 125, 0), None);
+    }
+    #[test]
+    #[cfg(target_os = "macos")]
+    fn mach_cpu_time_matches_getrusage_microseconds() {
+        fn reference_cpu_ns() -> u64 {
+            let mut value = std::mem::MaybeUninit::<libc::rusage>::uninit();
+            assert_eq!(
+                unsafe { libc::getrusage(libc::RUSAGE_SELF, value.as_mut_ptr()) },
+                0
+            );
+            let value = unsafe { value.assume_init() };
+            let micros = value.ru_utime.tv_sec * 1_000_000
+                + i64::from(value.ru_utime.tv_usec)
+                + value.ru_stime.tv_sec * 1_000_000
+                + i64::from(value.ru_stime.tv_usec);
+            u64::try_from(micros).unwrap() * 1_000
+        }
+        // 累积足够的进程 CPU 时间，让错误的 1:1 换算不能落入采样容差。
+        for i in 0_u64..1_000_000 {
+            std::hint::black_box(i.wrapping_mul(i));
+        }
+        let before = reference_cpu_ns();
+        let actual = usage().unwrap().cpu_ns;
+        let after = reference_cpu_ns();
+        assert!(actual >= before.saturating_sub(1_000_000));
+        assert!(actual <= after.saturating_add(1_000_000));
     }
     #[test]
     #[cfg(target_os = "macos")]

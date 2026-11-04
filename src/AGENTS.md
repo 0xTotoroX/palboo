@@ -6,7 +6,7 @@ main → lifecycle/server；server → App；App → CDP/模型；panel 管理�
 
 panel::StartupPreferences 保存 restore/closed/open 与 inside/outside，旧配置默认 restore；save_appearance 仅保存下次启动意愿，不搬动现有窗口或影响生成修订。App::new 统一读取 panel/features/业务开关后应用一次启动状态，初始 View 使用同一有效偏好；重连和页面重载不重复应用。
 
-`performance.rs` 管理 config.performance 的独立偏好修订号与按需采样：默认集成开启、监测关闭；本机进程 CPU/物理内存使用 proc_pid_rusage，宿主指标通过短期计时租约读取；服务端至少4秒合并一次采样。`lifecycle.rs` 的普通 launch 在暂停时仅复用设置服务，不准备或重开宿主；`state.rs` 串行处理集成启停，关闭前保存内嵌草稿并确认脚本/导航注入清理，持久化暂停自动重连；后台设置、本地任务与独立提醒事项同步保留。`server.rs` 的认证 GET/POST /api/performance 提供读取/保存，GET ?sample=1 仅在监测开启时采样。`assets.rs` 按文件身份与修改时间复用 Arc 开发快照，文件替换后重新解析；release 不读取开发资源。
+`performance.rs` 管理 config.performance 的独立偏好修订号与按需采样：默认集成开启、监测关闭；本机进程 CPU/物理内存使用 proc_pid_rusage，CPU 按缓存的系统 Mach 时间基准先换算纳秒，宿主指标通过短期计时租约读取；服务端至少4秒合并一次采样。`lifecycle.rs` 的普通 launch 在暂停时仅复用设置服务，不准备或重开宿主；`state.rs` 串行处理集成启停，关闭前保存内嵌草稿并确认脚本/导航注入清理，持久化暂停自动重连；后台设置、本地任务与独立提醒事项同步保留。`server.rs` 的认证 GET/POST /api/performance 提供读取/保存，GET ?sample=1 仅在监测开启时采样。`assets.rs` 按文件身份与修改时间复用 Arc 开发快照，文件替换后重新解析；release 不读取开发资源。
 
 ui/codex 是宿主识别和写入的唯一实现，经受限请求桥请求模型；后台仅保留连接与胶囊状态摘要。HTTP 不再提供独立的建议、导航或草稿写入链。
 

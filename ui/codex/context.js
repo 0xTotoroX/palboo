@@ -2,7 +2,7 @@ import { tr } from '../shared/i18n.js';
 /*
  * [INPUT]: 宿主 DOM（角色属性及旧版可访问标签）、上下文状态和基础可见性工具。
  * [OUTPUT]: 宿主交互目标记录、工作台跟随/锁定策略、稳定聊天身份重绑与来源可用性、唯一可见主聊天身份；限定容器内的输入目标、包含关联输入区的忙碌状态、完整相邻问答及上下文变更通知；常用语可仅核验聊天身份而不依赖回答扫描。
- * [POS]: 宿主读取边界，不修改 Stepwise 或大纲的内部状态。
+ * [POS]: 宿主读取边界；候选循环复用本次前景快照，不跨调用缓存目标或修改 Stepwise/大纲状态。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
 
@@ -592,11 +592,10 @@ function horizontalOverlapRatio(left, right) {
   return overlap / Math.max(1, Math.min(left.width, right.width));
 }
 
-function ignoredComposerContainer(node, targetRoot = null) {
+function ignoredComposerContainer(node, targetRoot = null, surface = foregroundSurface()) {
   if (!(node instanceof Element)) return true;
   if (shellState.root?.contains(node)) return true;
   const activeRoot = targetRoot || chatRoot();
-  const surface = foregroundSurface();
   const allowedDialog = surface?.thread === activeRoot ? surface.dialog : null;
   if (surface && (!allowedDialog || !allowedDialog.contains(node))) return true;
   const blockedAncestor = node.closest(
@@ -622,12 +621,12 @@ function ignoredComposerContainer(node, targetRoot = null) {
   return !(activeAside && nodeAside === activeAside);
 }
 
-function composerCandidateScore(node, rootRect, targetRoot = null) {
+function composerCandidateScore(node, rootRect, targetRoot, surface) {
   const rect = visibleRect(node);
   if (!rect || !rootRect) return -Infinity;
   if (rect.width < 120 || rect.height < 20) return -Infinity;
   if (rect.bottom < window.innerHeight * 0.35) return -Infinity;
-  if (ignoredComposerContainer(node, targetRoot)) return -Infinity;
+  if (ignoredComposerContainer(node, targetRoot, surface)) return -Infinity;
 
   const overlap = horizontalOverlapRatio(rect, rootRect);
   const center = elementCenter(rect);
@@ -644,9 +643,10 @@ function composerCandidateScore(node, rootRect, targetRoot = null) {
 
 function mainComposerCandidate(candidates, targetRoot = null) {
   const root = targetRoot || chatRoot();
+  const surface = foregroundSurface();
   const rootRect = visibleRect(root);
   const ranked = candidates
-    .map((node) => ({ node, score: composerCandidateScore(node, rootRect, root) }))
+    .map((node) => ({ node, score: composerCandidateScore(node, rootRect, root, surface) }))
     .filter((item) => Number.isFinite(item.score))
     .sort((left, right) => right.score - left.score);
   if (ranked[0]?.node) return ranked[0].node;
@@ -654,7 +654,7 @@ function mainComposerCandidate(candidates, targetRoot = null) {
   if (targetRoot || threadRoots().length > 1) return null;
 
   const fallback = candidates
-    .map((node) => ({ node, score: globalComposerCandidateScore(node) }))
+    .map((node) => ({ node, score: globalComposerCandidateScore(node, root, surface) }))
     .filter((item) => Number.isFinite(item.score))
     .sort((left, right) => right.score - left.score)[0];
   if (fallback?.node) {
@@ -669,10 +669,11 @@ function mainComposerCandidate(candidates, targetRoot = null) {
   return fallback?.node || null;
 }
 
-function globalComposerCandidateScore(node) {
+function globalComposerCandidateScore(node, root, surface) {
   const rect = visibleRect(node);
   if (!rect || rect.width < 120 || rect.height < 20) return -Infinity;
-  if (rect.bottom < window.innerHeight * 0.35 || ignoredComposerContainer(node)) return -Infinity;
+  if (rect.bottom < window.innerHeight * 0.35 || ignoredComposerContainer(node, root, surface))
+    return -Infinity;
 
   const label = normalizeText(
     [
@@ -723,7 +724,7 @@ function composerCandidates(targetRoot = null) {
     if (rect.bottom < window.innerHeight * 0.35) return false;
     const owner = threadRootOf(node);
     if (targetRoot && owner && owner !== targetRoot) return false;
-    if (ignoredComposerContainer(node, targetRoot)) return false;
+    if (ignoredComposerContainer(node, targetRoot, surface)) return false;
     return true;
   });
 }
@@ -826,8 +827,13 @@ function chatBusy() {
   if (!root) return false;
 
   // The composer can be a sibling of the transcript. Keep the scope tied to this chat.
-  return Array.from(composerScope(root).querySelectorAll("button,[role='button']")).some(
-    (node) => !ignoredComposerContainer(node, root) && visibleElement(node) && stopButton(node),
+  const candidates = Array.from(
+    composerScope(root).querySelectorAll("button,[role='button']"),
+  ).filter(stopButton);
+  if (!candidates.length) return false;
+  const surface = foregroundSurface();
+  return candidates.some(
+    (node) => !ignoredComposerContainer(node, root, surface) && visibleElement(node),
   );
 }
 

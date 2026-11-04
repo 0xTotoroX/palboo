@@ -35,8 +35,8 @@ const bundle = (
     stdin: {
       resolveDir: process.cwd(),
       contents: `import {installTerminology} from './ui/terminology/host.js';
-window.state={preferences:{enabled:true,semantic:false,autoExpand:false,cardStyle:'plain',mastered:[],revision:0},entries:[${JSON.stringify(term)}]};window.calls=[];window.session='one';window.answer='这是竞态条件。';window.semanticReply=null;
-window.setup=()=>installTerminology({getRoot:()=>document.querySelector('main'),isBusy:()=>!!window.busy,getExchange:()=>({complete:window.complete,sessionId:window.session,title:'合成聊天',question:'旧请求回来覆盖新页面，该怎么处理？',answer:window.answer}),request:async(path,payload)=>{window.calls.push({path,payload});if(path.endsWith('/analyze'))return new Promise(r=>window.semanticReply=r);if(payload.action==='master')window.state.preferences.mastered.push(payload.id);return structuredClone(window.state);}});window.setup();`,
+window.state={preferences:{enabled:true,semantic:false,autoExpand:false,cardStyle:'plain',mastered:[],revision:0},entries:[${JSON.stringify(term)}]};window.calls=[];window.session='one';window.answer='这是竞态条件。';window.semanticReply=null;window.busyReads=0;
+window.setup=()=>installTerminology({getRoot:()=>document.querySelector('main'),isBusy:()=>{window.busyReads++;return !!window.busy;},getExchange:()=>({complete:window.complete,sessionId:window.session,title:'合成聊天',question:'旧请求回来覆盖新页面，该怎么处理？',answer:window.answer}),request:async(path,payload)=>{window.calls.push({path,payload});if(path.endsWith('/analyze'))return new Promise(r=>window.semanticReply=r);if(payload.action==='master')window.state.preferences.mastered.push(payload.id);return structuredClone(window.state);}});window.setup();`,
     },
     bundle: true,
     format: 'iife',
@@ -546,6 +546,7 @@ test('completed exchange keeps terminology analysis alive while a new answer str
       window.state.preferences.semantic = true;
       window.busy = true;
       window.complete = true;
+      window.busyReads = 0;
       await window.__palbooTerminology.refresh();
     });
     await page.waitForFunction(() => window.semanticReply !== null);
@@ -571,6 +572,11 @@ test('completed exchange keeps terminology analysis alive while a new answer str
       window.semanticReply({ matches: [{ id: 'TERM-1', quote: '这是竞态条件。' }] }),
     );
     await page.waitForFunction(() => CSS.highlights.get('palboo-terms')?.size === 1);
+    assert.equal(
+      await page.evaluate(() => window.busyReads),
+      0,
+      'a completed exchange skips redundant live-generation scans, including reply verification',
+    );
     await page.evaluate(() => window.__palbooTerminology.destroy());
   } finally {
     await browser.close();

@@ -11,6 +11,102 @@ import { chromium } from 'playwright';
 import { buildPanel } from '../scripts/build-panel.mjs';
 import { fixtureSettings } from './fixtures.mjs';
 
+test('chat status and composer reads stay bounded and revalidate changed targets', async () => {
+  const script = (
+    await build({
+      stdin: {
+        resolveDir: process.cwd(),
+        contents: `import{chatBusy,composerCandidates,mainComposerCandidate}from'./ui/codex/context.js';
+import{initializeState}from'./ui/codex/runtime/state.js';initializeState({diagnostics:[]});
+window.contextApi={chatBusy,composerCandidates,mainComposerCandidate};`,
+      },
+      bundle: true,
+      write: false,
+    })
+  ).outputFiles[0].text;
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage();
+    await page.route('http://context-performance.test/**', (route) =>
+      route.fulfill({ contentType: 'text/html', body: '<body></body>' }),
+    );
+    await page.goto('http://context-performance.test/');
+    await page.setContent(`<main style="width:700px">
+      <div class="thread-scroll-container" data-session-id="main" style="height:300px;overflow:auto"><div id="actions"></div></div>
+      <div style="position:absolute;top:400px;width:700px">
+        <div contenteditable="true" class="ProseMirror" style="width:600px;height:60px"></div>
+        <button aria-label="Send message">Send</button>
+        <nav><button aria-label="Stop">Unrelated</button></nav>
+        <span data-palboo-features-root><button aria-label="Stop">Palboo</button></span>
+        <button aria-label="Stop" hidden>Hidden</button>
+      </div></main>`);
+    await page.addScriptTag({ content: script });
+    const measure = (operation) =>
+      page.evaluate((operation) => {
+        let queries = 0;
+        const original = Document.prototype.querySelectorAll;
+        Document.prototype.querySelectorAll = function (selector) {
+          if (selector === '[role="dialog"],dialog[open]') queries++;
+          return original.call(this, selector);
+        };
+        try {
+          const api = window.contextApi;
+          const root = document.querySelector('.thread-scroll-container');
+          const value =
+            operation === 'busy'
+              ? api.chatBusy()
+              : !!api.mainComposerCandidate(api.composerCandidates(root), root);
+          return { value, queries };
+        } finally {
+          Document.prototype.querySelectorAll = original;
+        }
+      }, operation);
+    for (const count of [1, 500]) {
+      await page.locator('#actions').evaluate((node, count) => {
+        node.innerHTML = '<button>Ordinary action</button>'.repeat(count);
+      }, count);
+      const busy = await measure('busy');
+      assert.equal(busy.value, false, 'hidden, navigation and Palboo stops do not own the chat');
+      assert.ok(busy.queries <= 4, `${count} actions triggered ${busy.queries} page scans`);
+    }
+    await page.evaluate(() => {
+      const editor = document.querySelector('.ProseMirror');
+      for (let i = 0; i < 50; i++) {
+        const candidate = document.createElement('textarea');
+        candidate.style.cssText = 'position:absolute;top:0;width:600px;height:60px';
+        editor.parentElement.append(candidate);
+      }
+    });
+    const composer = await measure('composer');
+    assert.equal(composer.value, true);
+    assert.ok(composer.queries <= 4);
+    await page.evaluate(() => {
+      const stop = document.createElement('button');
+      stop.id = 'official-stop';
+      stop.setAttribute('aria-label', 'Stop generating');
+      stop.textContent = 'Stop generating';
+      document.querySelector('.ProseMirror').after(stop);
+    });
+    assert.equal((await measure('busy')).value, true);
+    await page.evaluate(() => {
+      const modal = document.createElement('div');
+      modal.id = 'blocking-dialog';
+      modal.setAttribute('role', 'dialog');
+      modal.setAttribute('aria-modal', 'true');
+      modal.style.cssText = 'position:fixed;inset:100px;background:white';
+      document.body.append(modal);
+    });
+    assert.equal((await measure('busy')).value, false, 'a new modal invalidates the prior scope');
+    assert.equal((await measure('composer')).value, false);
+    await page.locator('#blocking-dialog').evaluate((node) => node.remove());
+    assert.equal((await measure('busy')).value, true, 'closing the modal restores the real stop');
+    await page.locator('#official-stop').evaluate((node) => node.remove());
+    assert.equal((await measure('busy')).value, false);
+  } finally {
+    await browser.close();
+  }
+});
+
 test('monitor is inert by default, counts nested work once and releases its observer', () => {
   let now = 1,
     clockReads = 0,

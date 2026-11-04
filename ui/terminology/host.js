@@ -1,7 +1,7 @@
 import { measureWork } from '../shared/performance.js';
 /* [INPUT]: Palboo 已识别的聊天根节点、一问一答与受限后台请求。
  * [OUTPUT]: 术语标注与悬停释义；部分失败保留已确认范围并有限重试，销毁恢复自有高亮，不改变宿主正文。
- * [POS]: 术语显示旁路；不读取输入草稿、不向主聊天写内容。
+ * [POS]: 术语显示旁路；单次检查复用当前语境，异步结果重新核验，不读取草稿或写主聊天。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { readTypography } from '../codex/typography.js';
 import { textIndex, semanticSpans, scrollToRange } from './text-ranges.js';
@@ -215,9 +215,10 @@ export function installTerminology({ request, getRoot, getExchange, isBusy, isol
       terms = new Map(state.entries.map((t) => [t.id, t]));
     // 语义模式下字面命中只作候选，绝不盖过已核对的词义。
     const hits = state.preferences.semantic ? [] : createMatcher(state.entries)(index.text);
+    const context = state.preferences.semantic && cache.size ? contextKey() : '';
     const confirmed = state.preferences.semantic
       ? [...cache.values()]
-          .filter((entry) => entry.context === contextKey())
+          .filter((entry) => entry.context === context)
           .flatMap((entry) => entry.matches)
       : [];
     for (const hint of confirmed) {
@@ -276,18 +277,17 @@ export function installTerminology({ request, getRoot, getExchange, isBusy, isol
       loading = false;
     }
   }
-  function identity() {
-    if (!root || getRoot() !== root) return null;
+  function identity(currentRoot = getRoot()) {
+    if (!root || currentRoot !== root) return null;
     const exchange = getExchange();
-    if (!exchange?.answer || (isBusy() && !exchange.complete)) return null;
+    if (!exchange?.answer || (!exchange.complete && isBusy())) return null;
     return {
       ...exchange,
       key: JSON.stringify([exchange.sessionId, exchange.question, exchange.answer]),
     };
   }
-  async function analyze() {
+  async function analyze(exchange) {
     if (!state.preferences.enabled || !state.preferences.semantic || pending) return;
-    const exchange = identity();
     if (!exchange || exchange.key === lastAnalysis || Date.now() < retryAt) return;
     if (cache.has(exchange.key) && cache.get(exchange.key).complete !== false) {
       semanticMatches = cache.get(exchange.key).matches;
@@ -381,7 +381,7 @@ export function installTerminology({ request, getRoot, getExchange, isBusy, isol
         schedule();
       }
     }
-    const exchange = identity();
+    const exchange = identity(next);
     const key = exchange?.key || '';
     if (lastText !== key) {
       lastText = key;
@@ -391,7 +391,7 @@ export function installTerminology({ request, getRoot, getExchange, isBusy, isol
       failures = 0;
       retryAt = 0;
       schedule();
-    } else if (key) void analyze();
+    } else if (key) void analyze(exchange);
   }
   function move(e) {
     if (!annotations.length || document.hidden) return;
