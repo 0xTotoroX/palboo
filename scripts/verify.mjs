@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 当前源码、锁定依赖、Cargo 与隔离验收脚本。
- * [OUTPUT]: 统一验证流程及带源码/程序摘要的可复用构建证据。
+ * [OUTPUT]: 统一验证流程及源码/程序摘要；网页只构建一次供浏览器、debug 与 release 共用。
  * [POS]: 验证编排入口；测试开始前检查产物与源码一致。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -15,7 +15,9 @@ import { pathToFileURL } from 'node:url';
 const root = resolve(import.meta.dirname, '..');
 const hash = (bytes) => createHash('sha256').update(bytes).digest('hex');
 function run(command, args, env = process.env) {
+  if (process.env.GITHUB_ACTIONS) console.log(`::group::${command} ${args.join(' ')}`);
   const result = spawnSync(command, args, { cwd: root, stdio: 'inherit', env });
+  if (process.env.GITHUB_ACTIONS) console.log('::endgroup::');
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(`${command} ${args.join(' ')} 失败 (${result.status})`);
 }
@@ -29,6 +31,9 @@ function sourceFingerprint(env = process.env) {
     'scripts/build-panel.mjs',
     'scripts/verify.mjs',
     'scripts/artifact-audit.mjs',
+    'scripts/third-party-notices.mjs',
+    'scripts/license-texts.json',
+    'tsconfig.json',
   ];
   for (const dir of ['src', 'ui', '.cargo']) {
     for (const file of readdirSync(join(root, dir), { recursive: true, withFileTypes: true })) {
@@ -49,6 +54,30 @@ function sourceFingerprint(env = process.env) {
   for (const path of inputs.sort()) digest.update(path).update(readFileSync(join(root, path)));
   return digest.digest('hex');
 }
+function prepareWebBuild() {
+  const manifest = join(root, 'target/verified-web.json');
+  // Both Rust profiles embed the same web files. Keep their compiler flags out of this identity.
+  const source = sourceFingerprint({});
+  const output = () => {
+    const dir = join(root, 'target/web');
+    if (!existsSync(dir)) return '';
+    const digest = createHash('sha256');
+    for (const file of readdirSync(dir, { recursive: true, withFileTypes: true })
+      .filter((file) => file.isFile())
+      .map((file) => join(file.parentPath, file.name))
+      .sort())
+      digest.update(file.slice(dir.length)).update(readFileSync(file));
+    return digest.digest('hex');
+  };
+  let previous;
+  try {
+    previous = JSON.parse(readFileSync(manifest, 'utf8'));
+  } catch {}
+  if (previous?.source === source && previous.output && previous.output === output()) return;
+  run('npm', ['run', 'build:web']);
+  if (sourceFingerprint({}) !== source) throw new Error('网页构建期间源码发生变化');
+  writeFileSync(manifest, JSON.stringify({ source, output: output() }) + '\n');
+}
 export function prepareTestBinary(profile) {
   const explicit = process.env.PALBOO_TEST_BINARY;
   if (!profile && explicit) {
@@ -66,19 +95,16 @@ export function prepareTestBinary(profile) {
   const manifestPath = join(root, 'target', `verified-${profile}.json`);
   const env = profile === 'release' ? distributionEnvironment(root) : process.env;
   const source = sourceFingerprint(env);
+  prepareWebBuild();
   let previous;
   try {
     previous = JSON.parse(readFileSync(manifestPath, 'utf8'));
   } catch {}
   if (
     !existsSync(binary) ||
-    ['index.html', 'board.html', 'feature.html', 'reader.html'].some(
-      (file) => !existsSync(join(root, 'target/web', file)),
-    ) ||
     previous?.source !== source ||
     previous?.sha256 !== hash(readFileSync(binary))
   ) {
-    run('npm', ['run', 'build:web']);
     run('cargo', ['build', '--locked', ...(profile === 'release' ? ['--release'] : [])], env);
     if (sourceFingerprint(env) !== source)
       throw new Error('构建期间源码发生变化，请重新运行验证。');
@@ -101,7 +127,7 @@ async function verify() {
   rmSync(join(root, 'target/reports/verify.json'), { force: true });
   // 设置浏览器用例读取 target/web，必须先准备当前源码的网页与程序。
   const artifact = prepareTestBinary();
-  run('npm', ['run', 'check']);
+  run('npm', ['run', 'check'], { ...process.env, PALBOO_TEST_WEB_DIR: join(root, 'target/web') });
   run(process.execPath, ['tests/workbench.mjs']);
   run(process.execPath, ['tests/model-control-host.mjs']);
   run(process.execPath, ['tests/feature-views.mjs']);

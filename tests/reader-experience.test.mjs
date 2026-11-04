@@ -9,7 +9,8 @@ import { chromium } from 'playwright';
 import { resolve } from 'node:path';
 import { mkdir, rm } from 'node:fs/promises';
 const reports = resolve('target/reports/reader-experience');
-const output = resolve(reports, `web-${process.pid}`);
+const sharedOutput = process.env.PALBOO_TEST_WEB_DIR;
+const output = sharedOutput || resolve(reports, `web-${process.pid}`);
 const deep = '项目/研究/阅读器/这是一篇很长很长需要完整显示的笔记名称.md';
 const text = `---
 tags: [测试, 阅读/笔记]
@@ -94,14 +95,15 @@ function searchNotes(rawQuery) {
 let browser, server, base;
 test.before(async () => {
   await mkdir(reports, { recursive: true });
-  await build({
-    configFile: 'ui/settings/vite.config.ts',
-    logLevel: 'error',
-    build: {
-      outDir: output,
-      rollupOptions: { input: { reader: resolve('ui/settings/reader.html') } },
-    },
-  });
+  if (!sharedOutput)
+    await build({
+      configFile: 'ui/settings/vite.config.ts',
+      logLevel: 'error',
+      build: {
+        outDir: output,
+        rollupOptions: { input: { reader: resolve('ui/settings/reader.html') } },
+      },
+    });
   server = await preview({
     configFile: 'ui/settings/vite.config.ts',
     logLevel: 'error',
@@ -118,7 +120,7 @@ test.after(async () => {
     server.httpServer.close(done);
     server.httpServer.closeAllConnections();
   });
-  await rm(output, { recursive: true, force: true });
+  if (!sharedOutput) await rm(output, { recursive: true, force: true });
 });
 async function setup(t, options = {}) {
   const context = await browser.newContext({

@@ -1,11 +1,12 @@
 /*
  * [INPUT]: 当前源码、锁定依赖、release 计划、完整许可包与系统打包工具。
- * [OUTPUT]: patch=0 时生成完整 App 的 DMG；补丁版跳过，证据写入 target/reports。
+ * [OUTPUT]: 每个版本生成完整 App DMG；修订、摘要与检查结果写入 target/reports。
  * [POS]: 本地与 CI 共用的打包入口，不上传、不安装、不更改版本。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
 import { mkdirSync, readFileSync, writeFileSync, mkdtempSync, rmSync, renameSync } from 'node:fs';
 import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 import { resolve, join } from 'node:path';
 import { prepareTestBinary } from './verify.mjs';
 import { releasePlan } from './release-plan.mjs';
@@ -18,30 +19,27 @@ import { buildApplication, packageDmg } from './package-app.mjs';
 const root = resolve(import.meta.dirname, '..');
 const { version } = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
 const plan = releasePlan(version);
-if (!plan.installer) {
-  console.log(`${version} 为补丁版本，不生成安装文件。`);
-} else {
-  if (process.platform !== 'darwin' || process.arch !== 'arm64')
-    throw new Error('当前只打包 macOS 14.0+ Apple Silicon 产物');
-  auditSource(root);
-  if (!readFileSync(join(root, 'Cargo.toml'), 'utf8').includes(`version = "${version}"`))
-    throw new Error('Cargo 与网页版本不一致');
-  const started = Date.now();
-  const artifact = prepareTestBinary('release');
-  auditArtifact(artifact.binary);
-  const built = Date.now();
-  mkdirSync(join(root, 'target/package'), { recursive: true });
-  mkdirSync(join(root, 'target/reports'), { recursive: true });
-  mkdirSync(join(root, 'dist'), { recursive: true });
-  const staging = mkdtempSync(join(root, 'target/package/dmg-'));
-  try {
-    const resources = join(staging, 'resources');
-    mkdirSync(resources);
-    copyProjectLicenses(root, resources);
-    generateNotices(resources);
-    writeFileSync(
-      join(resources, 'INSTALL.txt'),
-      `Palboo ${version}
+if (process.platform !== 'darwin' || process.arch !== 'arm64')
+  throw new Error('当前只打包 macOS 14.0+ Apple Silicon 产物');
+auditSource(root);
+if (!readFileSync(join(root, 'Cargo.toml'), 'utf8').includes(`version = "${version}"`))
+  throw new Error('Cargo 与网页版本不一致');
+const started = Date.now();
+const artifact = prepareTestBinary('release');
+auditArtifact(artifact.binary);
+const built = Date.now();
+mkdirSync(join(root, 'target/package'), { recursive: true });
+mkdirSync(join(root, 'target/reports'), { recursive: true });
+mkdirSync(join(root, 'dist'), { recursive: true });
+const staging = mkdtempSync(join(root, 'target/package/dmg-'));
+try {
+  const resources = join(staging, 'resources');
+  mkdirSync(resources);
+  copyProjectLicenses(root, resources);
+  generateNotices(resources);
+  writeFileSync(
+    join(resources, 'INSTALL.txt'),
+    `Palboo ${version}
 
 English
 
@@ -73,37 +71,36 @@ Codex 桌面应用及可选 Agent 使用你自己的安装、登录与配置；�
 源码、使用说明与对应版本： https://github.com/0xTotoroX/palboo
 项目采用 GPL-3.0-only；完整许可与第三方声明在本 Resources 目录中。分发时需提供对应修订的完整源码与必要构建材料。
 `,
-    );
-    const app = join(staging, 'Palboo.app');
-    const inspection = buildApplication({
-      binary: artifact.binary,
-      version,
-      resources,
-      destination: app,
-      sourceFingerprint: artifact.source,
-    });
-    const candidate = join(staging, 'Palboo.dmg');
-    const image = packageDmg({ app, output: candidate, version, temporary: staging });
-    auditArtifact(candidate);
-    const sha256 = createHash('sha256').update(readFileSync(candidate)).digest('hex');
-    const output = join(root, plan.assets[0]);
-    renameSync(candidate, output);
-    const report = {
-      version,
-      artifact: plan.assets[0],
-      sha256,
-      app: inspection,
-      image,
-      buildSeconds: (built - started) / 1000,
-      packageSeconds: (Date.now() - built) / 1000,
-      notarized: false,
-    };
-    writeFileSync(
-      join(root, 'target/reports/package.json'),
-      JSON.stringify(report, null, 2) + '\n',
-    );
-    console.log(`产物：${output}\n${JSON.stringify(report)}`);
-  } finally {
-    rmSync(staging, { recursive: true, force: true });
-  }
+  );
+  const app = join(staging, 'Palboo.app');
+  const inspection = buildApplication({
+    binary: artifact.binary,
+    version,
+    resources,
+    destination: app,
+    sourceFingerprint: artifact.source,
+  });
+  const candidate = join(staging, 'Palboo.dmg');
+  const image = packageDmg({ app, output: candidate, version, temporary: staging });
+  auditArtifact(candidate);
+  const sha256 = createHash('sha256').update(readFileSync(candidate)).digest('hex');
+  const output = join(root, plan.assets[0]);
+  renameSync(candidate, output);
+  const report = {
+    version,
+    commit:
+      spawnSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).stdout?.trim() ||
+      null,
+    artifact: plan.assets[0],
+    sha256,
+    app: inspection,
+    image,
+    buildSeconds: (built - started) / 1000,
+    packageSeconds: (Date.now() - built) / 1000,
+    notarized: false,
+  };
+  writeFileSync(join(root, 'target/reports/package.json'), JSON.stringify(report, null, 2) + '\n');
+  console.log(`产物：${output}\n${JSON.stringify(report)}`);
+} finally {
+  rmSync(staging, { recursive: true, force: true });
 }

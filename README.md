@@ -42,7 +42,7 @@ The DMG contains the complete App. Everyday use needs no terminal commands, Node
 
 **Startup display:** under **System → Startup & connection → Launch behavior**, restore the last state, start collapsed, or start open. When starting open, choose the chat workspace or desktop window. The choice takes effect the next time Palboo starts; existing settings continue to restore the last state. The sidebar menu waits three seconds before closing when you move away; returning cancels the timer. Chat and desktop animate in both directions, with a short fade and scale transition when spatial motion is unavailable, instead of repeated progress messages.
 
-The published v1.2.0 and earlier do not contain this updater. Install the first version that includes it manually once. Source-only patch releases show their notes without an install button; an App in a read-only location must be moved to a writable Applications folder first.
+The published v1.2.0 and earlier do not contain this updater. Install the first version that includes it manually once. Older releases without an installer show their notes without an install button; an App in a read-only location must be moved to a writable Applications folder first.
 
 <details>
 <summary>Compatibility and first-launch help</summary>
@@ -50,7 +50,7 @@ The published v1.2.0 and earlier do not contain this updater. Install the first 
 - Desktop windows require macOS 15+; native Liquid Glass requires macOS 26. Windows and Intel Macs are not supported.
 - If macOS blocks the App, confirm you downloaded it from this repository, then choose **System Settings → Privacy & Security → Open Anyway**. Do not disable system security globally.
 - If Codex needs to restart, the default policy asks before quitting and reopening it. Cancel to keep it running. If macOS is still cleaning up the previous instance, Palboo briefly retries opening the app. The optional force-restart policy can interrupt tasks or lose unsaved work.
-- Releases ending in `.0` include a DMG. Patch releases contain notes and source archives only; an older DMG does not include newer patches.
+- All new releases, including patches, include their own complete App DMG.
 
 </details>
 
@@ -183,14 +183,14 @@ After opening Codex through Palboo:
 | `npm run verify`                                                | Run full verification, preparing required build outputs. |
 | `npm run verify:web`                                            | Run frontend and synthetic-browser checks.               |
 | `npm run build`                                                 | Build the release binary and settings web app.           |
-| `npm run package`                                               | Package a full-App DMG for X.Y.0; skip patch versions.   |
+| `npm run package`                                               | Package a full-App DMG for the current version.   |
 | `npm run dev:site` / `npm run build:site` / `npm run test:site` | Preview, build, or check the standalone website.         |
 
 Development configuration is isolated from the everyday installation. UI changes reload; Rust changes rebuild. Reopen Dev after changing launcher scripts, and recreate the launcher after moving the source or Node.js. Switching worktrees preserves their configurations and does not restart Codex.
 
 The standalone website shares the settings previews, native select menus, and segmented controls. Its host sidebar and conversation use synthetic content; preview actions remain local.
 
-CI runs the full suite on one current macOS runner with the minimum Node.js and Rust versions. Release binaries continue to target macOS 14.0.
+GitHub CI checks each main push and pull request, then builds a complete App DMG on the same Mac using the minimum Node.js and Rust versions. Download the build from the workflow artifacts. To release, commit the new version in Cargo/npm and both lockfiles with `.github/release-notes/vX.Y.Z.md`, then push main. After all checks pass, GitHub publishes that exact build automatically and creates its tag. An already published version is left untouched. Patch releases also include a DMG. Release binaries target macOS 14.0.
 
 Frontend checks can run on Linux with Chromium and Cargo, but exclude native verification and do not imply Linux App support. Building and packaging do not publish or update an installed App.
 

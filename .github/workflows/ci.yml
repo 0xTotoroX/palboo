@@ -1,4 +1,4 @@
-name: Verify
+name: CI / CD
 
 on:
   pull_request:
@@ -7,14 +7,91 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: verify-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
 
 jobs:
-  verify:
-    uses: ./.github/workflows/verify.yml
-    with:
-      ref: ${{ github.sha }}
+  build:
+    name: Build and check App
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22.16.0'
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.88.0'
+          components: rustfmt, clippy
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/debug
+            target/release
+            !target/**/incremental/**
+          key: cargo-${{ runner.os }}-${{ runner.arch }}-1.88-${{ hashFiles('Cargo.lock') }}-${{ github.sha }}
+          restore-keys: |
+            cargo-${{ runner.os }}-${{ runner.arch }}-1.88-${{ hashFiles('Cargo.lock') }}-
+            cargo-${{ runner.os }}-${{ runner.arch }}-1.88-
+      - name: Install dependencies
+        run: npm ci
+      - name: Check version and release notes
+        run: node scripts/release-plan.mjs
+      - name: Install browser
+        run: npx playwright install chromium
+      - name: Verify
+        run: npm run verify
+      - name: Check embedded glass
+        run: npm run test:glass
+      - name: Package verified App
+        run: npm run package
+      - name: Save App and build identity
+        uses: actions/upload-artifact@v7
+        with:
+          name: palboo-macos
+          path: |
+            dist/*.dmg
+            target/reports/package.json
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+      - name: Save verification reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: verification-reports
+          path: target/reports/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  publish:
+    name: Publish new version
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && github.repository == '0xTotoroX/palboo'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22.16.0'
+      - uses: actions/download-artifact@v8
+        with:
+          name: palboo-macos
+      - name: Publish if the version is new
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/release.mjs

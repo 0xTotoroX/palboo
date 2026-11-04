@@ -9,7 +9,8 @@ import { chromium } from 'playwright';
 import { resolve } from 'node:path';
 import { mkdir, rm } from 'node:fs/promises';
 const reports = resolve('target/reports/reader-rich-content');
-const output = resolve(reports, `web-${process.pid}`);
+const sharedOutput = process.env.PALBOO_TEST_WEB_DIR;
+const output = sharedOutput || resolve(reports, `web-${process.pid}`);
 const fence = (source) => `\n\n\`\`\`mermaid\n${source}\n\`\`\`\n`;
 const invalid = [
   'flowchart LR\n A --> [',
@@ -70,14 +71,15 @@ notes.push({ id: 'table.csv', title: '数据表', kind: 'spreadsheet' });
 let browser, server, base;
 test.before(async () => {
   await mkdir(reports, { recursive: true });
-  await build({
-    configFile: 'ui/settings/vite.config.ts',
-    logLevel: 'error',
-    build: {
-      outDir: output,
-      rollupOptions: { input: { reader: resolve('ui/settings/reader.html') } },
-    },
-  });
+  if (!sharedOutput)
+    await build({
+      configFile: 'ui/settings/vite.config.ts',
+      logLevel: 'error',
+      build: {
+        outDir: output,
+        rollupOptions: { input: { reader: resolve('ui/settings/reader.html') } },
+      },
+    });
   server = await preview({
     configFile: 'ui/settings/vite.config.ts',
     logLevel: 'error',
@@ -94,7 +96,7 @@ test.after(async () => {
     server.httpServer.close(done);
     server.httpServer.closeAllConnections();
   });
-  await rm(output, { recursive: true, force: true });
+  if (!sharedOutput) await rm(output, { recursive: true, force: true });
 });
 async function setup(t, id = notes[0].id, options = {}) {
   const context = await browser.newContext({

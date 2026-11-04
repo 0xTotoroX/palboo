@@ -21,14 +21,15 @@ npm 命令进入开发、构建、审计、安装和验证编排工具；具体�
 - [dev-panel.mjs](dev-panel.mjs)：原子发布开发资源快照（含术语目录指纹与监听），CSS 更新保留实例，逻辑更新销毁并恢复胶囊，页面引导变化重载窗口页面；共享 measurePanel 仅采集两端几何、材质能力和实例计数。
 - [dev-sources.mjs](dev-sources.mjs)：Git worktree 清单及启动来源记忆、独占进程/目标租约、串行切换和失败回退状态；通过独占恢复记录串行回收已退出监督进程的租约，检查关联 worktree 与上次会话的后台，损坏记录或状态不明时保留并报错；不自行操作宿主或结束其他进程。
 - [dev-runtime.mjs](dev-runtime.mjs)：受控子进程与稳定鉴权代理，开发来源 API 在后台切换时仍可用，切换中请求暂停、旧设置页写入按来源标识拒绝；可捕获宿主准备命令的端点及具体失败原因；后台重启后设置页会话保持有效；模型超时由后台控制，客户端断开时取消上游代理请求。
-- [verify.mjs](verify.mjs)：统一检查、工作台/模型控制浏览器行为、构建、模型控制 HTTP/CDP 链路、端到端与生命周期验收；先按源码/工具链摘要准备当前网页与程序，release 自动加入路径映射并将最终编译参数与审计器计入缓存身份；再运行读取 target/web 的浏览器用例，排除 Markdown 与 Finder 的 .DS_Store；原生检查显式选择。
+- [verify.mjs](verify.mjs)：统一检查、浏览器行为、Rust、端到端与生命周期验收；按源码/工具链摘要复用程序，同一份已核验网页供浏览器、debug 和 release 共用，产物被覆盖或缺失时重建；release 加入路径映射；GitHub 日志按命令分组，原生检查显式选择。
 - [verify-web.mjs](verify-web.mjs)：`npm run verify:web` 执行前端构建、格式/源码检查、Node 测试和合成工作台/液态/模型宿主测试，逐项记录失败并返回非零；支持两种现有浏览器路径变量，Linux 优先复用系统 Chromium。结果位于 `target/reports/web-pilot/`，明确排除原生与完整发布验收；Node 许可集成测试仍需 Cargo，不因缺失而跳过。
 
 - [build-panel.mjs](build-panel.mjs)：从 ui/codex/runtime/lifecycle.js 入口解析 ES modules，输出可重复注入的脚本，供 Cargo 内嵌。
 - [install.mjs](install.mjs)：先构建/签名/验收完整 App，再取得统一模式锁、重新核验后台、迁移独立旧数据及替换 App/兼容 CLI；保留配置与旧程序，启动失败回滚并读回身份。不覆盖未知后台，不更新被活动 Dev 接管的安装版；归档失败保留恢复路径。
 - [launcher.mjs](launcher.mjs)：为安装器生成带本地签名的 Palboo.app；从 ui/icon.png 生成多尺寸 ICNS 并绑定应用图标；双击调用 launch --restart-running 按设置处理缺少连接的宿主，取消不再弹错误；连接后在受支持系统弹出，以后台应用方式运行、不显示运行中的 Dock 图标；macOS 14 遇到浮窗门槛时保留内嵌，其他错误用系统对话框显示。
-- [package.mjs](package.mjs)：本地/CI 共用打包入口；补丁版本在编译前退出，X.Y.0 构建并审计 release、收集完整许可与中英文 `INSTALL.txt`，再以临时目录组装 App/DMG，全部检查通过后原子写入 dist。只输出 DMG，证据在 target/reports/package.json，不安装、不发布、不清理历史发行包。GitHub 标签源码必须与发布程序精确修订对应。
-- [release-plan.mjs](release-plan.mjs)：严格解析 SemVer，统一 X.Y.0 的 DMG 计划、补丁无附件和预发布状态；CI 核对标签、Cargo/npm及锁文件版本、已审核说明，不接触远端。
+- [package.mjs](package.mjs)：每个版本打包完整 App DMG，复用已验证 release 程序，收集许可和安装帮助，检查签名、包身份与可运行性后写入 dist；target/reports/package.json 记录提交、版本和摘要。只打包，不安装、不发布、不清理历史发行包。
+- [release-plan.mjs](release-plan.mjs)：严格解析 SemVer，统一 DMG 名称及预发布状态，核对 Cargo/npm 及锁文件版本、发行说明，不接触远端。
+- [release.mjs](release.mjs)：官方 main 的 CI 发布入口，校验同次云端 DMG 的提交、版本和摘要，创建对应标签并自动发布；已发布版本或落后于 main 的任务正常跳过，API/上传错误、标签冲突和产物不一致时报错。
 - [artifact-audit.mjs](artifact-audit.mjs)：release 编译路径映射及成品字节扫描，包含二进制、常见凭据/个人目录、UTF-16主目录与禁止文件；错误只输出文件和问题类型。它是有限检查，不证明不存在所有敏感内容或漏洞。
 - [package-app.mjs](package-app.mjs)：编译最低 macOS 14 arm64 Swift 入口、复制包内 CLI/资源、清理扩展属性与本地签名；校验系统动态库、最低版本和程序摘要，以普通用户权限创建 HFS+ DMG，避免 tar 的属主名称字段和设置 root 引发的授权；挂载读回并复制到新位置验证，成功后卸载镜像。
 - [app-launcher.swift](app-launcher.swift)：从 Bundle 定位 CLI，按用户模式记录启动正式或开发，读取正式数据目录关联；开发前台沿 AppKit 交接，失败去除重复 Error 前缀并提供安全回正式入口；只读镜像提示复制，--check 只检查包内版本；--open-window 经 LaunchServices 启动同一个 App，--palboo-window 用原 PID 进入当前模式窗口程序，以私有短期回执返回真实窗口 PID，保持原 Dock 身份。
@@ -73,7 +74,7 @@ verify 追加 config-cli.mjs，以隔离真实后台验证配置命令与数据�
 
 开发目标独占记录保留原 codex-buddy 缓存命名空间，确保旧源码 worktree 和 Palboo 共享同一把锁；它不属于产品显示名。
 
-发布流程在完整验证、打包及建立草稿后停止，公开须由用户审阅具体说明与附件后单独授权；历史版本仅准备标题和说明修订，安装附件与标签保持。Dev 监督进程将 dev-sources.js 打包为独立 IIFE，再注入跨来源的稳定设置页面；先完成运行中后台与宿主发现检查，保持原有失败边界。原生 App 启动器读取已保存界面语言，缺省按系统语言显示错误与按钮。
+发布版本与说明在提交前确认；main 检查及云端打包通过后自动发布，不停在人工草稿阶段；历史发行包与标签保持。Dev 监督进程将 dev-sources.js 打包为独立 IIFE，再注入跨来源的稳定设置页面；先完成运行中后台与宿主发现检查，保持原有失败边界。原生 App 启动器读取已保存界面语言，缺省按系统语言显示错误与按钮。
 
 dev-host 暂停安装版前将原先打开的 edge 功能 ID 写入恢复记录，以 owner 校验关闭；停止 Dev 后仅在原连接 reveal 原功能，保留关闭/位置/业务偏好，不把已关闭功能一起打开。涉及 edge 的在途交接阻止接管；恢复须等功能 ready 后才删除记录，失败或异常中断保留恢复记录。
 

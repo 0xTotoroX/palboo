@@ -1,12 +1,13 @@
 /*
- * [INPUT]: 发布计划、成品审计、Swift 启动器与真实 Release shell；隔离合成目录。
- * [OUTPUT]: 版本筛选、隐私拒绝、启动器移动/失败语义和发布附件回归。
+ * [INPUT]: 发布脚本、成品审计、Swift 启动器与隔离的 GitHub CLI 替身。
+ * [OUTPUT]: 自动发布、重跑跳过、修订/摘要错误拒绝与启动器回归。
  * [POS]: 分发单元与合成集成测试，不启动真实后台或访问 GitHub。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
   mkdtempSync,
   mkdirSync,
@@ -31,15 +32,19 @@ function fixture(t) {
   return path;
 }
 
-test('only a zero patch produces a DMG, including prerelease candidates', () => {
-  for (const version of ['0.9.0', '1.0.0', '1.12.0', '2.0.0', '1.0.0-rc.1', '1.0.0+build.42']) {
+test('every version produces one DMG, including patches and prereleases', () => {
+  for (const version of [
+    '0.9.0',
+    '1.0.1',
+    '1.12.0',
+    '2.0.3-beta.1',
+    '1.0.0-rc.1',
+    '1.0.0+build.42',
+  ]) {
     const plan = releasePlan(version);
     assert.deepEqual(plan.assets, [`dist/palboo-${version}-darwin-arm64.dmg`]);
-    assert.equal(plan.installer, true);
-    assert.equal(plan.prerelease, version.includes('-rc.'));
+    assert.equal(plan.prerelease, /-(rc|beta)\./.test(version));
   }
-  for (const version of ['1.0.1', '1.2.10', '2.0.3-beta.1'])
-    assert.deepEqual(releasePlan(version).assets, []);
   for (const version of [
     'v1.0.0',
     '01.0.0',
@@ -109,86 +114,132 @@ function releaseFixture(t, version) {
   return dir;
 }
 
-test('patch packaging exits before compilation and does not use a stale installer', (t) => {
-  const dir = releaseFixture(t, '1.0.1');
-  for (const file of readdirSync(join(root, 'scripts')).filter((name) => name.endsWith('.mjs')))
-    copyFileSync(join(root, 'scripts', file), join(dir, 'scripts', file));
-  writeFileSync(join(dir, 'dist/old.dmg'), 'preserve');
-  const result = spawnSync(process.execPath, ['scripts/package.mjs'], {
-    cwd: dir,
-    encoding: 'utf8',
-  });
-  assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /补丁版本/);
-  assert.deepEqual(readdirSync(join(dir, 'dist')), ['old.dmg']);
-  assert.equal(existsSync(join(dir, 'target')), false);
-});
-
-test('the release shell creates only a draft, attaches the planned DMG and refuses overwrites', (t) => {
-  const workflow = readFileSync(join(root, '.github/workflows/release.yml'), 'utf8');
-  const shell = workflow
-    .split('      - name: Create a release draft for review\n')[1]
-    .split('        run: |\n')[1]
-    .split('\n      - name:')[0]
-    .split('\n')
-    .map((line) => line.replace(/^          /, ''))
-    .join('\n');
-  for (const version of ['1.0.0', '1.0.1', '1.0.0-rc.1']) {
-    const dir = releaseFixture(t, version),
-      plan = releasePlan(version);
-    const bin = join(dir, 'bin');
-    mkdirSync(bin);
-    writeFileSync(
-      join(bin, 'gh'),
-      '#!/bin/sh\nif [ "$2" = view ]; then [ "$EXISTING" = 1 ]; exit $?; fi\nprintf "%s\\n" "$@" >> "$CALLS"\n',
-      { mode: 0o755 },
-    );
-    for (const asset of plan.assets) writeFileSync(join(dir, asset), 'dmg-fixture');
-    const calls = join(dir, 'calls.txt');
-    const env = {
-      ...process.env,
-      PATH: `${bin}:${process.env.PATH}`,
-      RELEASE_TAG: plan.tag,
-      INSTALLER: String(plan.installer),
-      PRERELEASE: String(plan.prerelease),
-      CALLS: calls,
-    };
-    const run = (extra = {}) =>
-      spawnSync('/bin/bash', ['-c', shell], {
+function publishFixture(t, version = '1.0.1') {
+  const dir = releaseFixture(t, version);
+  const sha = 'a'.repeat(40);
+  copyFileSync(join(root, 'scripts/release.mjs'), join(dir, 'scripts/release.mjs'));
+  mkdirSync(join(dir, 'bin'));
+  mkdirSync(join(dir, 'target/reports'), { recursive: true });
+  const plan = releasePlan(version);
+  const bytes = Buffer.from('checked-dmg-fixture');
+  const metadata = {
+    version,
+    commit: sha,
+    artifact: plan.assets[0],
+    sha256: createHash('sha256').update(bytes).digest('hex'),
+  };
+  writeFileSync(join(dir, plan.assets[0]), bytes);
+  writeFileSync(join(dir, 'target/reports/package.json'), JSON.stringify(metadata));
+  writeFileSync(join(dir, 'bin/git'), '#!/bin/sh\nprintf "%s" "$CHECKOUT_SHA"\n', { mode: 0o755 });
+  writeFileSync(
+    join(dir, 'bin/gh'),
+    `#!${process.execPath}
+const fs = require('node:fs');
+const args = process.argv.slice(2), env = process.env;
+if (args[0] === 'api') {
+  if (env.API_ERROR) { console.error('gh: API unavailable (HTTP 503)'); process.exit(1); }
+  const path = args[1];
+  if (path.includes('/releases/tags/') && env.EXISTING) {
+    console.log(JSON.stringify({draft: env.EXISTING === 'draft'}));
+  } else if (path.endsWith('/commits/main')) {
+    console.log(JSON.stringify({sha: env.MAIN_SHA}));
+  } else if (path.includes('/commits/') && env.TAG_SHA) {
+    console.log(JSON.stringify({sha: env.TAG_SHA}));
+  } else { console.error('gh: Not Found (HTTP 404)'); process.exit(1); }
+} else {
+  fs.writeFileSync(env.CALLS, JSON.stringify(args));
+  if (env.UPLOAD_ERROR) process.exit(1);
+}
+`,
+    { mode: 0o755 },
+  );
+  const calls = join(dir, 'calls.json');
+  const env = {
+    ...process.env,
+    PATH: `${join(dir, 'bin')}:${process.env.PATH}`,
+    GITHUB_ACTIONS: 'true',
+    GITHUB_REF: 'refs/heads/main',
+    GITHUB_EVENT_NAME: 'push',
+    GITHUB_REPOSITORY: '0xTotoroX/palboo',
+    GITHUB_SHA: sha,
+    GITHUB_STEP_SUMMARY: '',
+    CHECKOUT_SHA: sha,
+    MAIN_SHA: sha,
+    CALLS: calls,
+  };
+  return {
+    dir,
+    plan,
+    metadata,
+    calls,
+    sha,
+    run: (extra = {}) =>
+      spawnSync(process.execPath, ['scripts/release.mjs'], {
         cwd: dir,
         env: { ...env, ...extra },
         encoding: 'utf8',
-      });
-    let result = run();
+      }),
+  };
+}
+
+test('main publishes the checked DMG and exact commit without a manual draft stage', (t) => {
+  for (const version of ['1.0.0', '1.0.1', '1.0.1-rc.1']) {
+    const f = publishFixture(t, version);
+    const result = f.run();
     assert.equal(result.status, 0, result.stderr);
-    const args = readFileSync(calls, 'utf8').split('\n');
-    assert.deepEqual(
-      args.filter((s) => s.endsWith('.dmg')),
-      plan.assets,
-    );
-    assert.ok(!args.some((s) => /\.(zip|gz)$/.test(s)));
-    assert.equal(args.includes('--prerelease'), plan.prerelease);
-    assert.ok(args.includes('--draft'));
-    assert.ok(!args.includes('edit'));
-    assert.ok(!args.some((arg) => arg.startsWith('--latest') || arg === '--draft=false'));
-    rmSync(calls);
-    result = run({ EXISTING: '1' });
-    assert.notEqual(result.status, 0);
-    assert.equal(existsSync(calls), false);
-    if (plan.installer) {
-      rmSync(join(dir, plan.assets[0]));
-      assert.notEqual(run().status, 0);
-      assert.equal(existsSync(calls), false);
-    }
-    assert.notEqual(
-      spawnSync(process.execPath, ['scripts/release-plan.mjs', 'v9.9.0'], { cwd: dir }).status,
-      0,
-    );
-    writeFileSync(join(dir, 'Cargo.lock'), '[[package]]\nname = "palboo"\nversion = "9.9.9"\n');
-    assert.notEqual(
-      spawnSync(process.execPath, ['scripts/release-plan.mjs', plan.tag], { cwd: dir }).status,
-      0,
-    );
+    const args = JSON.parse(readFileSync(f.calls));
+    assert.deepEqual(args.slice(0, 4), ['release', 'create', f.plan.tag, f.plan.assets[0]]);
+    assert.equal(args[args.indexOf('--target') + 1], f.sha);
+    assert.equal(args.includes('--prerelease'), f.plan.prerelease);
+    assert.equal(args.includes('--draft'), false);
+    assert.equal(args.includes('--clobber'), false);
+  }
+});
+
+test('published versions and superseded main builds skip; API failure is not a new version', (t) => {
+  const f = publishFixture(t);
+  for (const extra of [{ EXISTING: 'published' }, { MAIN_SHA: 'b'.repeat(40) }]) {
+    const result = f.run(extra);
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(existsSync(f.calls), false);
+  }
+  for (const extra of [
+    { API_ERROR: '1' },
+    { EXISTING: 'draft' },
+    { TAG_SHA: 'b'.repeat(40) },
+    { CHECKOUT_SHA: 'b'.repeat(40) },
+    { GITHUB_EVENT_NAME: 'pull_request' },
+    { GITHUB_REF: 'refs/heads/other' },
+    { GITHUB_REPOSITORY: 'someone/fork' },
+  ]) {
+    assert.notEqual(f.run(extra).status, 0, JSON.stringify(extra));
+    assert.equal(existsSync(f.calls), false);
+  }
+  assert.notEqual(f.run({ UPLOAD_ERROR: '1' }).status, 0);
+});
+
+test('publication rejects mismatched versions, missing notes and altered or missing App bytes', (t) => {
+  for (const edit of [
+    (f) =>
+      writeFileSync(join(f.dir, 'Cargo.lock'), '[[package]]\nname = "palboo"\nversion = "9.9.9"\n'),
+    (f) => rmSync(join(f.dir, `.github/release-notes/${f.plan.tag}.md`)),
+    (f) => writeFileSync(join(f.dir, f.plan.assets[0]), 'altered'),
+    (f) => rmSync(join(f.dir, f.plan.assets[0])),
+    (f) =>
+      writeFileSync(
+        join(f.dir, 'target/reports/package.json'),
+        JSON.stringify({ ...f.metadata, commit: 'b'.repeat(40) }),
+      ),
+    (f) =>
+      writeFileSync(
+        join(f.dir, 'target/reports/package.json'),
+        JSON.stringify({ ...f.metadata, version: '9.9.9' }),
+      ),
+  ]) {
+    const f = publishFixture(t);
+    edit(f);
+    assert.notEqual(f.run().status, 0);
+    assert.equal(existsSync(f.calls), false);
   }
 });
 
