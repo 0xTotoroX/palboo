@@ -2,7 +2,7 @@
 
 > L2 | 父级：[AGENTS.md](../AGENTS.md)
 
-- `reader-experience.test.mjs`：真实阅读器构建与隔离合成API，验证侧栏拖动/键盘/双击/持久化、44px收起、长名称/折叠/定位、Quick Switcher、搜索与反链定位、目录跟读、结构化属性/恶意YAML回退、Callout折叠与嵌套、标签/代码复制、脚本安全，以及中英文/明暗/窄屏/减少动态效果；产物与截图在target/reports/reader-experience，不接触用户笔记。
+- `reader-experience.test.mjs`：真实阅读器构建与隔离合成API，验证侧栏268px默认宽度与拖动/键盘/双击/持久化、44px收起及Cmd/Ctrl+O唤醒单搜索框、单行目录/折叠/定位及面包屑点击展开、搜索高亮与反链定位、右侧常驻目录跟读、首行标题先于结构化属性卡/恶意YAML回退、Callout折叠与嵌套、标签/带语言头栏代码复制、脚本安全，以及中英文/明暗/窄屏/减少动态效果；产物与截图在target/reports/reader-experience，不接触用户笔记。
 
 - `startup-visibility.test.mjs`：真实启动设置与构建 CSS，验证默认兼容、仅保存外观、打开位置记忆、冲突/离线/桌面能力、中英文320px及键盘；Rust startup 用例覆盖下一次 App 初始化、新旧主界面、业务开关及贴边隔离。
 - `handoff-motion.test.mjs`：真实多功能工作台与草稿，验证统一切换动效、无重复提示行、节点/草稿保留、交互锁及取消恢复、缩窗清理、键盘和减少动态效果；launcher-menu 另验3000ms离开缓冲与重新进入取消。

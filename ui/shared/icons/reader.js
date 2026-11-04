@@ -25,4 +25,13 @@ export const readerGlyphs = {
     'reader-note',
     '<path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8Zm0 0v5h5M9 12h6M9 16h6"/>',
   ),
+  'reader-locate': svg(
+    'reader-locate',
+    '<circle cx="12" cy="12" r="6.5"/><circle cx="12" cy="12" r="2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3"/>',
+  ),
+  'reader-collapse': svg('reader-collapse', '<path d="m8 5 4 4 4-4M8 19l4-4 4 4M4 12h16"/>'),
+  'reader-copy': svg(
+    'reader-copy',
+    '<rect x="9" y="9" width="10" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>',
+  ),
 };

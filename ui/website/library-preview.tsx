@@ -20,7 +20,7 @@ const styles = `${readerStyles}\n${previewStyles}`;
 
 export function LocalLibraryPreview() {
   useLocale();
-  const sidebar = useSidebarWidth();
+  const sidebar = useSidebarWidth(undefined, 232);
   const [tab, setTab] = useState('notes');
   const [selected, setSelected] = useState('plan.md');
   const [menu, setMenu] = useState(false);
@@ -139,7 +139,11 @@ export function LocalLibraryPreview() {
                   <Icon name="reader-sidebar" />
                 </button>
               </div>
-              <SidebarResize width={sidebar.width} setWidth={sidebar.setWidth} />
+              <SidebarResize
+                width={sidebar.width}
+                defaultWidth={sidebar.defaultWidth}
+                setWidth={sidebar.setWidth}
+              />
               <div className="reader-sidebar-body">
                 <label className="reader-search">
                   <Icon name="search" />
@@ -158,24 +162,36 @@ export function LocalLibraryPreview() {
               </div>
             </aside>
             <div className="reader-main" ref={content} tabIndex={-1}>
-              <Breadcrumbs id={selected} />
               {error && <p role="alert">{error}</p>}
               {selected === 'assets.xlsx' ? (
-                <WorkbookView
-                  id={`${tr('素材清单')}.xlsx`}
-                  workbook={workbook}
-                  sheet={workbook.sheet}
-                  offset={0}
-                  selectSheet={(value) => setSheet(value === tr('文字') ? 'copy' : 'screenshots')}
-                  selectOffset={() => {}}
-                  retry={() => {}}
-                />
+                <div className="reader-sheet-shell">
+                  <div className="reader-topbar">
+                    <Breadcrumbs id={selected} title={tr('素材清单')} />
+                  </div>
+                  <WorkbookView
+                    id={`${tr('素材清单')}.xlsx`}
+                    workbook={workbook}
+                    sheet={workbook.sheet}
+                    offset={0}
+                    selectSheet={(value) => setSheet(value === tr('文字') ? 'copy' : 'screenshots')}
+                    selectOffset={() => {}}
+                    retry={() => {}}
+                  />
+                </div>
               ) : editing ? (
-                <NoteEditor editor={editor} />
+                <article>
+                  <div className="reader-topbar">
+                    <Breadcrumbs id={selected} title={note.title} />
+                  </div>
+                  <NoteEditor editor={editor} />
+                </article>
               ) : (
                 <article>
-                  <div className="reader-note-actions">
+                  <div className="reader-topbar">
+                    <Breadcrumbs id={selected} title={note.title} query={query} />
                     <button
+                      type="button"
+                      className="reader-edit-btn"
                       aria-label={tr('编辑笔记')}
                       title={tr('编辑笔记')}
                       onClick={() => {

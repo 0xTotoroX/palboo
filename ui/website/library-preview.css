@@ -87,9 +87,6 @@
 .reader-markdown p {
   margin-block: 12px;
 }
-.reader-note-actions {
-  margin-right: -8px;
-}
 .reader-edit-actions {
   top: -24px;
 }

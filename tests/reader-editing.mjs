@@ -1,5 +1,5 @@
 /* [INPUT]: Synthetic reader/browser fixture, filesystem and isolated authorization.
- * [OUTPUT]: Rendered sidebar, spreadsheet and conflict-safe autosave including Quick Switcher navigation.
+ * [OUTPUT]: Rendered sidebar, spreadsheet and conflict-safe autosave including unified shortcut search navigation.
  * [POS]: Called by web-library.mjs; changes synthetic notes only.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import assert from 'node:assert/strict';
@@ -108,10 +108,12 @@ export async function exerciseReaderEditing({ page, vault, url, record }) {
   assert.equal(readFileSync(file, 'utf8'), '# 自动保存\n\n中文输入中');
   await input.fill('# 自动保存\n\n切换前的最后修改');
   await page.keyboard.press('Control+o');
-  await page.getByRole('combobox', { name: '按标题或路径查找' }).fill('代码笔记');
+  const search = page.getByRole('searchbox', { name: '搜索笔记' });
+  await search.fill('代码笔记');
   await page.keyboard.press('Enter');
   await page.getByRole('heading', { name: '代码笔记', exact: true }).waitFor();
   assert.equal(readFileSync(file, 'utf8'), '# 自动保存\n\n切换前的最后修改');
+  await page.getByRole('button', { name: '清除搜索', exact: true }).click();
   record(
     'no write on edit entry; serialized autosave keeps in-flight typing and IME; navigation flushes',
   );

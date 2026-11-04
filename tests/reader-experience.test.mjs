@@ -1,5 +1,5 @@
 /* [INPUT]: Production reader entry, synthetic API notes and isolated Chromium storage.
- * [OUTPUT]: Sidebar, navigation, Markdown safety, outline and responsive behavior acceptance.
+ * [OUTPUT]: Resizable sidebar, single unified search, Markdown hierarchy/safety, scrollspy outline and responsive acceptance.
  * [POS]: No real files, host, credentials or model requests; screenshots contain synthetic notes only.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import test from 'node:test';
@@ -23,6 +23,9 @@ owner:
 # 阅读器示例
 
 ==重点内容== 和 #阅读/笔记，普通数字 #123，\`==code== #code\`。
+
+- [x] 已整理目录层级
+- [ ] 待补充截图
 
 > [!note]+ **提示标题**
 > 默认展开的正文。
@@ -74,6 +77,20 @@ const notes = [
   },
   { id: '其他/空白.md', title: '空白', markdown: '', backlinks: [], version: 'v1' },
 ];
+function searchNotes(rawQuery) {
+  const words = (rawQuery || '').trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+  const results = notes
+    .filter((note) =>
+      words.every((w) => `${note.id} ${note.markdown}`.toLocaleLowerCase().includes(w)),
+    )
+    .map((note) => ({
+      id: note.id,
+      title: note.title,
+      kind: 'markdown',
+      snippet: note.markdown.toLocaleLowerCase().includes(words[0] || '') ? 'needle 正文' : '',
+    }));
+  return { total: results.length, offset: 0, results };
+}
 let browser, server, base;
 test.before(async () => {
   await mkdir(reports, { recursive: true });
@@ -130,8 +147,7 @@ async function setup(t, options = {}) {
         skipped: 0,
       };
     else if (url.pathname === '/api/note') value = notes.find((note) => note.id === id);
-    else if (url.pathname === '/api/search')
-      value = { total: 1, offset: 0, results: [{ ...notes[0], snippet: 'needle 正文' }] };
+    else if (url.pathname === '/api/search') value = searchNotes(url.searchParams.get('q'));
     else if (url.pathname === '/api/resolve')
       value = {
         candidates: [notes[url.searchParams.get('target') === '来源' ? 1 : 0]],
@@ -153,31 +169,40 @@ async function setup(t, options = {}) {
 const width = (page) =>
   page.locator('.reader-sidebar').evaluate((node) => node.getBoundingClientRect().width);
 
-test('resizable persisted sidebar, collapsed rail, wrapped names and tree reveal', async (t) => {
+test('resizable persisted sidebar, collapsed rail, neat single-line tree and folder/note reveal', async (t) => {
   const { page } = await setup(t);
+  assert.equal(await page.locator('.reader-sidebar input[type="search"]').count(), 1);
+  assert.equal(await page.locator('.reader-switcher-trigger').count(), 0);
+  assert.equal(await width(page), 268);
   const handle = page.getByRole('separator');
   const box = await handle.boundingBox();
   await page.mouse.move(box.x + 3, box.y + 100);
   await page.mouse.down();
-  await page.mouse.move(box.x + 173, box.y + 100);
+  await page.mouse.move(box.x + 153, box.y + 100);
   await page.mouse.up();
-  assert.equal(await width(page), 402);
+  assert.equal(await width(page), 418);
   await page.reload();
   await handle.waitFor();
-  assert.equal(await width(page), 402);
-  await handle.focus();
-  await page.keyboard.press('ArrowRight');
-  assert.equal(await width(page), 414);
-  await handle.dblclick();
-  assert.equal(await width(page), 232);
+  assert.equal(await width(page), 418);
   const current = page.locator('.reader-tree button[aria-current="page"] .reader-row-name');
   assert.ok(
     await current.evaluate(
-      (node) => node.offsetHeight > 32 && node.scrollWidth <= node.clientWidth,
+      (node) => node.offsetHeight <= 30 && node.scrollWidth <= node.clientWidth,
     ),
+    'widened sidebar reveals full single-line note title cleanly',
   );
+  await handle.focus();
+  await page.keyboard.press('ArrowRight');
+  assert.equal(await width(page), 430);
+  await handle.dblclick();
+  assert.equal(await width(page), 268);
   await page.getByRole('button', { name: '全部折叠', exact: true }).click();
   assert.equal(await page.locator('.reader-tree details[open]').count(), 0);
+  await page
+    .getByRole('navigation', { name: '笔记路径' })
+    .getByRole('button', { name: '研究', exact: true })
+    .click();
+  assert.equal(await page.locator('.reader-tree details[open]').count(), 2);
   await page.getByRole('button', { name: '定位当前笔记', exact: true }).click();
   await current.waitFor();
   assert.equal(await page.locator('.reader-tree details[open]').count(), 3);
@@ -187,13 +212,25 @@ test('resizable persisted sidebar, collapsed rail, wrapped names and tree reveal
   assert.equal(await width(page), 44);
 });
 
-test('structured properties, callouts, safe markup, tags and code clipboard', async (t) => {
+test('title-above-properties hierarchy, callouts, safe markup, tags and code clipboard', async (t) => {
   const { page, context } = await setup(t);
+  const titleBox = await page
+    .getByRole('heading', { name: '阅读器示例', exact: true })
+    .boundingBox();
+  const propsBox = await page.locator('.reader-properties').boundingBox();
+  assert.ok(titleBox.y < propsBox.y, 'H1 note title renders above properties');
   assert.equal(await page.locator('.reader-properties dt').count(), 5);
   assert.equal(await page.locator('.reader-properties .reader-tag').count(), 2);
+  assert.ok((await page.locator('.reader-properties').textContent()).includes('name: Palboo'));
   assert.equal(await page.locator('mark').first().textContent(), '重点内容');
+  const topbarBox = await page.locator('.reader-topbar').boundingBox();
   const editBox = await page.getByRole('button', { name: '编辑笔记', exact: true }).boundingBox();
   const outlineBox = await page.locator('.reader-outline').boundingBox();
+  assert.equal(
+    Math.round(topbarBox.x),
+    Math.round(titleBox.x),
+    'topbar aligns with article column',
+  );
   assert.ok(editBox.x + editBox.width <= outlineBox.x, 'edit action stays clear of outline');
   await page.screenshot({ path: resolve(reports, 'markdown.png') });
   assert.equal(await page.locator('details[data-callout="tip"]').getAttribute('open'), null);
@@ -201,6 +238,7 @@ test('structured properties, callouts, safe markup, tags and code clipboard', as
   await page.locator('details[data-callout="tip"] > summary').click();
   assert.equal(await page.getByText('隐藏命中 hiddenneedle。', { exact: true }).isVisible(), true);
   assert.equal(await page.locator('code').first().textContent(), '==code== #code');
+  assert.equal(await page.locator('.reader-code-lang').textContent(), 'js');
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await page.getByRole('button', { name: '复制代码', exact: true }).click();
   await page.getByText('已复制', { exact: true }).waitFor();
@@ -213,13 +251,13 @@ test('structured properties, callouts, safe markup, tags and code clipboard', as
   await page.locator('.reader-properties .reader-tag').first().click();
   assert.equal(await page.getByRole('searchbox').inputValue(), '测试');
   await page.keyboard.press('Control+o');
-  await page.getByRole('combobox').fill('错误属性');
+  await page.getByRole('searchbox').fill('错误属性');
   await page.keyboard.press('Enter');
   await page.getByText('属性无法解析，显示原文').waitFor();
   assert.equal(await page.getByRole('heading', { name: '属性错误仍可阅读' }).isVisible(), true);
 });
 
-test('quick switcher keyboard, search reveal, backlink destinations and active pinned outline', async (t) => {
+test('unified search keyboard, search reveal, backlink destinations and active sticky outline', async (t) => {
   const { page } = await setup(t);
   assert.ok(
     (await page.getByRole('navigation', { name: '笔记路径' }).textContent()).includes('项目'),
@@ -236,6 +274,7 @@ test('quick switcher keyboard, search reveal, backlink destinations and active p
   await page.getByRole('searchbox').fill('hiddenneedle');
   await page.locator('.reader-results button').click();
   await page.locator('mark[data-search-hit]').waitFor();
+  assert.equal(await page.locator('.reader-pagination').count(), 0);
   assert.equal(
     await page.locator('details[data-callout="tip"]').evaluate((node) => node.open),
     true,
@@ -273,19 +312,19 @@ test('quick switcher keyboard, search reveal, backlink destinations and active p
     true,
   );
   await page.keyboard.press('Meta+o');
-  await page.getByRole('combobox').fill('项目 阅读器');
-  assert.equal(await page.getByRole('option').count(), 1);
+  await page.getByRole('searchbox').fill('项目 阅读器');
+  assert.equal(await page.locator('.reader-results button').count(), 1);
   await page.keyboard.press('Enter');
   await page.getByRole('heading', { name: '阅读器示例', exact: true }).waitFor();
-  await page.keyboard.press('Control+o');
-  await page.getByRole('combobox').fill('notfound');
+  await page.keyboard.press('Control+k');
+  await page.getByRole('searchbox').fill('notfound');
   await page.getByText('没有匹配的笔记').waitFor();
   await page.keyboard.press('Escape');
-  assert.equal(await page.getByRole('dialog').count(), 0);
+  assert.equal(await page.getByRole('searchbox').inputValue(), '');
   await page.screenshot({ path: resolve(reports, 'wide.png') });
 });
 
-test('narrow English dark reader, empty note, resize limits and reduced motion', async (t) => {
+test('narrow English dark reader, shortcut expands collapsed rail, resize limits and reduced motion', async (t) => {
   const { page } = await setup(t, {
     locale: 'en',
     colorScheme: 'dark',
@@ -295,10 +334,11 @@ test('narrow English dark reader, empty note, resize limits and reduced motion',
   assert.equal(await width(page), 44);
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
   await page.keyboard.press('Control+o');
-  await page.getByRole('combobox').fill('空白');
+  await page.getByRole('searchbox', { name: 'Search notes' }).fill('空白');
   await page.keyboard.press('Enter');
   await page.getByRole('heading', { name: '空白' }).waitFor();
   await page.getByRole('button', { name: 'Notes and search', exact: true }).click();
+  await page.getByRole('button', { name: 'Clear search', exact: true }).click();
   await page.getByRole('button', { name: 'Collapse all', exact: true }).waitFor();
   await page.screenshot({ path: resolve(reports, 'narrow-dark.png') });
   await page.setViewportSize({ width: 1440, height: 900 });

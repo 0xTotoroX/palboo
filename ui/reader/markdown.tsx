@@ -1,12 +1,20 @@
 /* [INPUT]: Untrusted Obsidian Markdown, note identity and optional image/link adapters.
- * [OUTPUT]: Safe GFM, structured YAML, foldable callouts, tags/highlights, copyable code and navigation marks.
+ * [OUTPUT]: Safe GFM, structured YAML below H1, foldable callouts, tags/highlights, copyable code and navigation marks.
  * [POS]: No raw HTML/plugin execution; notes and assets stay in this reader, never in model context.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
-import { useRef, useState, type ComponentType, type ReactNode } from 'react';
+import {
+  isValidElement,
+  useEffect,
+  useRef,
+  useState,
+  type ComponentType,
+  type ReactNode,
+} from 'react';
 import { SearchText } from './search';
 import { NoteProperties } from './properties';
-import Markdown from 'react-markdown';
+import Markdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { Icon } from '../shared/icons/react';
 import { tr } from '../shared/i18n.js';
 type Node = {
   type: string;
@@ -27,9 +35,12 @@ export function decodeLink(text: string) {
     return text;
   }
 }
-export function obsidianMarkdown({ highlight = '' }: { highlight?: string } = {}) {
+export function obsidianMarkdown({
+  highlight = '',
+  startSerial = 0,
+}: { highlight?: string; startSerial?: number } = {}) {
   return (root: Node) => {
-    let serial = 0;
+    let serial = startSerial;
     function walk(node: Node) {
       if (['code', 'inlineCode', 'html', 'link', 'image'].includes(node.type)) return;
       if (!node.children) return;
@@ -225,89 +236,114 @@ export function NoteMarkdown({
   backlink?: string;
 }) {
   const metadata = text.match(/^---\r?\n([\s\S]*?)\r?\n(?:---|\.\.\.)\s*(?:\r?\n|$)/);
+  const body = metadata ? text.slice(metadata[0].length) : text;
+  const leadingH1 = metadata
+    ? body.match(/^(?:[ \t]*\r?\n)*(#[ \t]+[^\r\n]+(?:\r?\n|$)|[^\r\n]+\r?\n=+[ \t]*(?:\r?\n|$))/)
+    : null;
+  const splitH1 = Boolean(leadingH1 && !leadingH1[0].includes(']['));
+  const components: Components = {
+    pre: CodeBlock,
+    summary: ({ children, className, ...props }) =>
+      className === 'reader-callout-title' ? (
+        <summary className={className} {...props}>
+          <span className="reader-callout-heading">{children}</span>
+          <Icon name="chevron-right" />
+        </summary>
+      ) : (
+        <summary className={className} {...props}>
+          {children}
+        </summary>
+      ),
+    code: ({ children, className }) => (
+      <code className={className}>
+        <SearchText text={String(children ?? '')} query={highlight} />
+      </code>
+    ),
+    a: ({ href = '', children }) => {
+      if (href.startsWith('palboo-tag:')) {
+        const tag = decodeLink(href.slice(11));
+        return onTag ? (
+          <button type="button" className="reader-tag" onClick={() => onTag(tag)}>
+            {children}
+          </button>
+        ) : (
+          <span className="reader-tag">{children}</span>
+        );
+      }
+      const external = webUrl(href);
+      if (external)
+        return (
+          <a
+            href={openExternal ? '#reference' : external}
+            target={openExternal ? undefined : '_blank'}
+            rel="noopener noreferrer"
+            onClick={
+              openExternal
+                ? (event) => {
+                    event.preventDefault();
+                    openExternal(external);
+                  }
+                : undefined
+            }
+          >
+            {children}
+          </a>
+        );
+      if (!href) return <span>{children}</span>;
+      const target = href.startsWith('palboo-note:') ? decodeLink(href.slice(12)) : href;
+      return (
+        <a
+          title={target}
+          data-backlink-hit={backlink && matchesBacklink(target, backlink, id) ? true : undefined}
+          href={`?note=${encodeURIComponent(id)}#${encodeURIComponent(target)}`}
+          onClick={(event) => {
+            event.preventDefault();
+            follow(target);
+          }}
+        >
+          {children}
+        </a>
+      );
+    },
+    img: ({ src, alt = '', width, height }) =>
+      Picture ? (
+        <Picture
+          from={id}
+          source={
+            typeof src === 'string'
+              ? src.startsWith('palboo-image:')
+                ? decodeLink(src.slice(13))
+                : src
+              : ''
+          }
+          alt={alt}
+          width={width}
+          height={height}
+        />
+      ) : (
+        <span>{alt}</span>
+      ),
+  };
   return (
     <>
+      {splitH1 && leadingH1 && (
+        <Markdown
+          skipHtml
+          remarkPlugins={[remarkGfm, [obsidianMarkdown, { highlight, startSerial: 0 }]]}
+          urlTransform={safeUrl}
+          components={components}
+        >
+          {leadingH1[0]}
+        </Markdown>
+      )}
       {metadata && <NoteProperties source={metadata[1]} onTag={onTag} query={highlight} />}
       <Markdown
         skipHtml
-        remarkPlugins={[remarkGfm, [obsidianMarkdown, { highlight }]]}
+        remarkPlugins={[remarkGfm, [obsidianMarkdown, { highlight, startSerial: splitH1 ? 1 : 0 }]]}
         urlTransform={safeUrl}
-        components={{
-          pre: CodeBlock,
-          code: ({ children, className }) => (
-            <code className={className}>
-              <SearchText text={String(children ?? '')} query={highlight} />
-            </code>
-          ),
-          a: ({ href = '', children }) => {
-            if (href.startsWith('palboo-tag:')) {
-              const tag = decodeLink(href.slice(11));
-              return onTag ? (
-                <button className="reader-tag" onClick={() => onTag(tag)}>
-                  {children}
-                </button>
-              ) : (
-                <span className="reader-tag">{children}</span>
-              );
-            }
-            const external = webUrl(href);
-            if (external)
-              return (
-                <a
-                  href={openExternal ? '#reference' : external}
-                  target={openExternal ? undefined : '_blank'}
-                  rel="noopener noreferrer"
-                  onClick={
-                    openExternal
-                      ? (event) => {
-                          event.preventDefault();
-                          openExternal(external);
-                        }
-                      : undefined
-                  }
-                >
-                  {children}
-                </a>
-              );
-            if (!href) return <span>{children}</span>;
-            const target = href.startsWith('palboo-note:') ? decodeLink(href.slice(12)) : href;
-            return (
-              <a
-                title={target}
-                data-backlink-hit={
-                  backlink && matchesBacklink(target, backlink, id) ? true : undefined
-                }
-                href={`?note=${encodeURIComponent(id)}#${encodeURIComponent(target)}`}
-                onClick={(event) => {
-                  event.preventDefault();
-                  follow(target);
-                }}
-              >
-                {children}
-              </a>
-            );
-          },
-          img: ({ src, alt = '', width, height }) =>
-            Picture ? (
-              <Picture
-                from={id}
-                source={
-                  typeof src === 'string'
-                    ? src.startsWith('palboo-image:')
-                      ? decodeLink(src.slice(13))
-                      : src
-                    : ''
-                }
-                alt={alt}
-                width={width}
-                height={height}
-              />
-            ) : (
-              <span>{alt}</span>
-            ),
-        }}
+        components={components}
       >
-        {metadata ? text.slice(metadata[0].length) : text}
+        {splitH1 && leadingH1 ? body.slice(leadingH1[0].length) : body}
       </Markdown>
     </>
   );
@@ -332,27 +368,50 @@ function matchesBacklink(target: string, id: string, from: string) {
 }
 function CodeBlock({ children }: { children?: ReactNode }) {
   const code = useRef<HTMLPreElement>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [status, setStatus] = useState('');
+  const [copied, setCopied] = useState(false);
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+    },
+    [],
+  );
+  const className =
+    isValidElement<{ className?: string }>(children) && typeof children.props.className === 'string'
+      ? children.props.className
+      : '';
+  const lang = className.match(/language-([\w-]+)/)?.[1] || '';
   return (
     <div className="reader-code-block">
-      <button
-        className="reader-copy-code"
-        aria-label={tr('复制代码')}
-        title={tr('复制代码')}
-        onClick={async () => {
-          try {
-            await navigator.clipboard.writeText(code.current?.textContent || '');
-            setStatus(tr('已复制'));
-          } catch {
-            setStatus(tr('复制失败，请手动选择代码'));
-          }
-        }}
-      >
-        {tr('复制代码')}
-      </button>
-      <span className="reader-copy-status" role="status">
-        {status}
-      </span>
+      <div className="reader-code-bar">
+        <span className="reader-code-lang">{lang}</span>
+        <button
+          type="button"
+          className="reader-copy-code"
+          data-copied={copied || undefined}
+          aria-label={tr('复制代码')}
+          title={tr('复制代码')}
+          onClick={async () => {
+            if (timer.current) clearTimeout(timer.current);
+            try {
+              await navigator.clipboard.writeText(code.current?.textContent || '');
+              setCopied(true);
+              setStatus(tr('已复制'));
+              timer.current = setTimeout(() => {
+                setCopied(false);
+                setStatus('');
+              }, 2000);
+            } catch {
+              setCopied(false);
+              setStatus(tr('复制失败，请手动选择代码'));
+            }
+          }}
+        >
+          <Icon name={copied ? 'check' : 'reader-copy'} />
+          <span role="status">{status || tr('复制代码')}</span>
+        </button>
+      </div>
       <pre ref={code}>{children}</pre>
     </div>
   );

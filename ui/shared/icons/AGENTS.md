@@ -43,6 +43,6 @@ website 为 Palboo 自绘地球；github 复用官网已引入的 Octicons mark-
 
 官网与设置的合成宿主侧栏复用公开控件：home→Home、folder→Folder、chats→Chats、history→Clock、compose→ComposeEditSquare、notification→NotificationBell，均来自上述固定OpenAI公开提交；20px源画布等比规范到24px。缩比设备内统一随整个示意缩放，不改变产品18px动作图标标准。
 
-- `reader.js`：Palboo 自绘的轻量文件夹、打开文件夹、文档、表格及侧栏图标，GPL-3.0-only；统一24px画布/18px显示，不复制 Notebook Navigator 素材。
+- `reader.js`：Palboo 自绘的轻量文件夹、打开文件夹、文档、表格、侧栏、定位、折叠及代码复制图标，GPL-3.0-only；统一24px画布/18px显示，不复制 Notebook Navigator 素材。
 
 顶部标签、左侧标签和双栏的布局图标由 Palboo 自绘，遵循项目 GPL-3.0-only 许可，统一为24px画布、18px显示。
