@@ -1,11 +1,19 @@
 /* [INPUT]: Authorized document identity and paginated local workbook API.
- * [OUTPUT]: Workbook request state and sheet/page selection, rendered by the shared WorkbookView.
+ * [OUTPUT]: Workbook request state, sheet/page selection and successful-read callback for recent navigation.
  * [POS]: Reader attachment view; does not evaluate formulas or change spreadsheet files.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { useEffect, useState } from 'react';
 import { read } from './api';
 import { WorkbookView, type Workbook } from './spreadsheet-view';
-export function Spreadsheet({ id, revision }: { id: string; revision: number }) {
+export function Spreadsheet({
+  id,
+  revision,
+  onRead,
+}: {
+  id: string;
+  revision: number;
+  onRead?: (id: string) => void;
+}) {
   const [sheet, setSheet] = useState('');
   const [offset, setOffset] = useState(0);
   const [workbook, setWorkbook] = useState<Workbook | null>(null);
@@ -18,7 +26,10 @@ export function Spreadsheet({ id, revision }: { id: string; revision: number }) 
     setError('');
     void read<Workbook>('workbook', { id, sheet, offset }, controller.signal)
       .then((value) => {
-        if (!controller.signal.aborted) setWorkbook(value);
+        if (!controller.signal.aborted) {
+          setWorkbook(value);
+          onRead?.(id);
+        }
       })
       .catch((e) => {
         if (!controller.signal.aborted) setError(e.message);
@@ -27,7 +38,7 @@ export function Spreadsheet({ id, revision }: { id: string; revision: number }) 
         if (!controller.signal.aborted) setBusy(false);
       });
     return () => controller.abort();
-  }, [id, sheet, offset, revision, retry]);
+  }, [id, sheet, offset, revision, retry, onRead]);
   return (
     <WorkbookView
       id={id}

@@ -1,10 +1,12 @@
 /* [INPUT]: Transport-free reader components, original reader CSS and synthetic portfolio documents.
- * [OUTPUT]: In-memory reading/editing/workbooks with previews, outline/backlinks, reading history and an isolated web-reference tab.
+ * [OUTPUT]: In-memory files/recents, rich Markdown, editing/workbooks, reading information/history and an isolated web-reference tab.
  * [POS]: Website adapter only; edits stay in memory and links never contact a backend or remote site.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { useLayoutEffect, useRef, useState } from 'react';
 import { Breadcrumbs, SidebarResize, useSidebarWidth } from '../reader/navigation';
 import { NoteTree } from '../reader/tree';
+import { LibraryNavigation, type LibraryTab } from '../reader/library-navigation';
+import { useSiteTheme } from './theme';
 import { PreviewableMarkdown } from '../reader/link-preview';
 import { ReadingInfo, useReadingInfo } from '../reader/information';
 import { HistoryButtons } from '../reader/history';
@@ -24,6 +26,9 @@ const styles = `${readerStyles}\n${previewStyles}`;
 
 export function LocalLibraryPreview() {
   const locale = useLocale();
+  const tone = useSiteTheme();
+  const [libraryTab, setLibraryTab] = useState<LibraryTab>('files');
+  const [recent, setRecent] = useState(['plan.md']);
   const sidebar = useSidebarWidth(undefined, 232);
   const [tab, setTab] = useState('notes');
   const [selected, setSelected] = useState('plan.md');
@@ -121,6 +126,7 @@ export function LocalLibraryPreview() {
     information.dismiss();
     focusContent.current = true;
     setSelected(id);
+    setRecent((current) => [id, ...current.filter((item) => item !== id)].slice(0, 8));
     setMenu(false);
     setError('');
   }
@@ -235,10 +241,23 @@ export function LocalLibraryPreview() {
                     onChange={(event) => setQuery(event.target.value)}
                   />
                 </label>
-                <nav aria-label={tr('笔记目录')}>
-                  <NoteTree notes={filtered} selected={selected} open={(id) => void open(id)} />
+                <nav aria-label={tr('搜索结果')} hidden={!query.trim()}>
+                  {query.trim() && (
+                    <NoteTree notes={filtered} selected={selected} open={(id) => void open(id)} />
+                  )}
                   {!filtered.length && <p role="status">{tr('没有匹配的笔记')}</p>}
                 </nav>
+                <LibraryNavigation
+                  tab={libraryTab}
+                  setTab={setLibraryTab}
+                  searching={!!query.trim()}
+                  notes={catalog}
+                  recent={recent}
+                  selected={selected}
+                  open={(id) => void open(id)}
+                >
+                  <NoteTree notes={catalog} selected={selected} open={(id) => void open(id)} />
+                </LibraryNavigation>
               </div>
             </aside>
             <div
@@ -340,6 +359,7 @@ export function LocalLibraryPreview() {
                     follow={(target) => void open(target)}
                   >
                     <NoteMarkdown
+                      tone={tone}
                       key={note.id}
                       highlight={query}
                       id={note.id}

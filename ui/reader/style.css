@@ -1,5 +1,5 @@
 /* [INPUT]: Shared tokens, native color scheme and safe reader document structure.
- * [OUTPUT]: Unified navigation, responsive outline/backlink information, link previews, safe Markdown and focus states.
+ * [OUTPUT]: Files/recents navigation, reading information, link previews, math/diagram views and focus states.
  * [POS]: Isolated reader document; never injects styles into the host or settings.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 :root {
@@ -1001,6 +1001,128 @@ details.reader-callout[open] > summary.reader-callout-title > .buddy-icon {
   padding: 14px 16px;
   border-radius: 0;
   background: transparent;
+}
+
+.reader-code-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.reader-diagram-source {
+  min-height: 28px;
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  color: var(--reader-muted);
+  border-radius: 5px;
+}
+.reader-diagram-source[aria-pressed='true'] {
+  color: var(--reader-ink);
+  background: var(--reader-hover);
+}
+.reader-diagram-zoom {
+  display: block;
+  width: 100%;
+  padding: 18px;
+  background: var(--reader-paper);
+  cursor: zoom-in;
+}
+.reader-diagram-zoom img {
+  display: block;
+  width: 100%;
+  max-height: 560px;
+  object-fit: contain;
+  margin: 0 auto;
+}
+.reader-diagram-dialog {
+  max-width: calc(100vw - 40px);
+  max-height: calc(100vh - 40px);
+  width: max-content;
+  padding: 48px 24px 24px;
+  border: 1px solid var(--reader-line);
+  border-radius: 12px;
+  color: var(--reader-ink);
+  background: var(--reader-paper);
+}
+.reader-diagram-dialog::backdrop {
+  background: rgb(0 0 0 / 45%);
+}
+.reader-diagram-dialog > button {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}
+.reader-diagram-dialog > img {
+  display: block;
+  max-width: 100%;
+  max-height: calc(100vh - 140px);
+  min-width: min(640px, 70vw);
+  margin: 0;
+}
+.reader-rich-error {
+  padding: 10px 16px 0;
+  margin: 0;
+  color: var(--reader-muted);
+  font-size: 0.8125rem;
+}
+.reader-math-display {
+  margin: 1.15em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 4px 0;
+}
+.reader-math-display .katex-display {
+  margin: 0;
+}
+.reader-math[data-state='error'] {
+  overflow-wrap: anywhere;
+}
+.reader-library-tabs {
+  display: flex;
+  gap: 4px;
+  margin: 0 0 6px;
+  flex: none;
+}
+.reader-library-navigation {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.reader-library-navigation[hidden],
+.reader-library-navigation > [hidden] {
+  display: none;
+}
+.reader-library-navigation > [role='tabpanel'] {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+}
+.reader-library-tabs > button {
+  min-height: 30px;
+  padding: 4px 12px;
+  border-radius: 6px;
+  color: var(--reader-muted);
+  font-size: 0.8125rem;
+}
+.reader-library-tabs > [aria-selected='true'] {
+  color: var(--reader-ink);
+  background: var(--reader-hover);
+}
+.reader-sidebar-recent {
+  margin: 0;
+}
+.reader-sidebar-recent button {
+  width: 100%;
+  padding: 9px 8px;
+}
+.reader-sidebar-recent button[aria-current='page'] {
+  background: var(--reader-hover);
+}
+.reader-sidebar-recent strong {
+  font-size: 0.8125rem;
+}
+.reader-sidebar-recent small {
+  font-size: 0.6875rem;
 }
 
 /* Both reading-information layouts share the same section navigation. */

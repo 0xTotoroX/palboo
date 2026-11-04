@@ -1,5 +1,5 @@
 /* [INPUT]: Reader-only API, safe Markdown with authenticated image rendering, note tree and browser navigation.
- * [OUTPUT]: Unified search, guarded reader history, link previews, responsive reading information and safe editing.
+ * [OUTPUT]: Unified search and files/recents, guarded history, rich Markdown, link previews, reading information and safe editing.
  * [POS]: Standalone document opened in ChatGPT; no settings token, composer access or AI calls.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { createRoot } from 'react-dom/client';
@@ -26,6 +26,7 @@ import { SearchText } from './search';
 import { useReaderSearch } from './search-state';
 import { useReaderSidebar } from './sidebar';
 import { ReaderHome, useRecentNotes } from './home';
+import { LibraryNavigation, type LibraryTab } from './library-navigation';
 import { NoteTree, useTreeExpansion } from './tree';
 import { Icon } from '../shared/icons/react';
 import { tr, setLocale } from '../shared/i18n.js';
@@ -70,6 +71,7 @@ function Reader() {
   }, [theme, catalog?.language, catalog?.systemLanguage]);
   const [selected, setSelected] = useState(new URLSearchParams(location.search).get('note') || '');
   const tree = useTreeExpansion(selected);
+  const [libraryTab, setLibraryTab] = useState<LibraryTab>('files');
   const [note, setNote] = useState<Note | null>(null);
   const searching = useReaderSearch(catalog);
   const {
@@ -338,6 +340,7 @@ function Reader() {
   const selectFolderFromBreadcrumb = (folderPath: string) => {
     setQuery('');
     nav.show('tree');
+    setLibraryTab('files');
     tree.revealFolder(folderPath);
   };
   return (
@@ -391,7 +394,10 @@ function Reader() {
                   title={tr('定位当前笔记')}
                   aria-label={tr('定位当前笔记')}
                   disabled={!selected || !catalog?.notes.some((item) => item.id === selected)}
-                  onClick={() => tree.revealCurrent()}
+                  onClick={() => {
+                    setLibraryTab('files');
+                    tree.revealCurrent();
+                  }}
                 >
                   <Icon name="reader-locate" />
                 </button>
@@ -400,6 +406,7 @@ function Reader() {
                   className="reader-tool-btn"
                   title={tr('全部折叠')}
                   aria-label={tr('全部折叠')}
+                  disabled={libraryTab !== 'files'}
                   onClick={() => tree.collapseAll()}
                 >
                   <Icon name="reader-collapse" />
@@ -580,11 +587,19 @@ function Reader() {
               </>
             )}
           </nav>
-          <nav aria-label={tr('笔记目录')} hidden={!!query.trim()}>
+          <LibraryNavigation
+            tab={libraryTab}
+            setTab={setLibraryTab}
+            searching={!!query.trim()}
+            notes={catalog?.notes || []}
+            recent={recent.ids}
+            selected={selected}
+            open={open}
+          >
             {catalog && (
               <NoteTree notes={catalog.notes} selected={selected} open={open} expansion={tree} />
             )}
-          </nav>
+          </LibraryNavigation>
         </div>
         {menu && (
           <div className="reader-sidebar-actions">
@@ -727,7 +742,12 @@ function Reader() {
         )}
         {selectedDocument?.kind === 'spreadsheet' && (
           <div className="reader-sheet-shell">
-            <Spreadsheet key={selected} id={selected} revision={catalog?.revision || 0} />
+            <Spreadsheet
+              key={selected}
+              id={selected}
+              revision={catalog?.revision || 0}
+              onRead={recent.visit}
+            />
           </div>
         )}
         {note && (
@@ -754,6 +774,7 @@ function Reader() {
                   follow={(target) => void follow(target)}
                 >
                   <NoteMarkdown
+                    tone={theme}
                     key={note.id}
                     highlight={destination.id === note.id ? destination.query : ''}
                     backlink={destination.id === note.id ? destination.backlink : ''}

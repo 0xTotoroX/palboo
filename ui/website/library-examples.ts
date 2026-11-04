@@ -1,5 +1,5 @@
 /* [INPUT]: Website locale and the shared portfolio scenario.
- * [OUTPUT]: Synthetic notes, related links and workbook pages for the reader demonstration.
+ * [OUTPUT]: Synthetic notes with math/diagrams, related links and workbook pages for the reader demonstration.
  * [POS]: Website-only content; no filesystem paths, remote requests or user configuration.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { tr } from '../shared/i18n.js';
@@ -46,6 +46,16 @@ export function libraryNotes(): Note[] {
         tr(
           '搜索结果同时显示标题与命中段落，先判断是否相关，再进入正文。摘录保留来源，回到原文时继续上一次的阅读位置。',
         ),
+        '```mermaid\nflowchart LR\n  A["' +
+          tr('搜索') +
+          '"] --> B["' +
+          tr('阅读') +
+          '"] --> C["' +
+          tr('摘录') +
+          '"]\n  C --> B\n```',
+        `## ${tr('检索指标')}`,
+        tr('查准率表示找到的内容中，有多少与当前问题相关。'),
+        '$$\nP = \\frac{TP}{TP + FP}\n$$',
         `## ${tr('需要补齐的材料')}`,
         `- ${tr('检索页：展示关键词与命中段落。')}\n- ${tr('摘录页：展示内容与原文的关系。')}\n- ${tr('个人贡献：写清自己负责的设计和实现。')}`,
         tr('回到 [[plan.md|作品集计划]]，继续整理其他案例。'),

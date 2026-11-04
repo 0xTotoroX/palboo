@@ -59,6 +59,8 @@ export default defineConfig({
     },
   },
   build: {
+    // Keep every math font same-origin under the reader's existing CSP.
+    assetsInlineLimit: (path) => (/KaTeX_.*\.(?:woff2?|ttf)$/.test(path) ? false : undefined),
     rollupOptions: {
       input: {
         index: fileURLToPath(new URL('index.html', import.meta.url)),

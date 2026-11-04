@@ -406,6 +406,41 @@
           "text": "# This is the official list of fiat-crypto authors for copyright purposes.\n# This file is distinct from the CONTRIBUTORS files.\n# See the latter for an explanation.\n\n# Names should be added to this file as one of\n#     Organization's name\n#     Individual's name <submission email address>\n#     Individual's name <submission email address> <email2> <emailN>\n# See CONTRIBUTORS for the meaning of multiple email addresses.\n\n# Please keep the list sorted.\n\nAndres Erbsen <andreser@mit.edu>\nGoogle Inc.\nJade Philipoom <jadep@mit.edu> <jade.philipoom@gmail.com>\nMassachusetts Institute of Technology\nZoe Paraskevopoulou <zoe.paraskevopoulou@gmail.com>"
         }
       ]
+    },
+    {
+      "repo": "fabiospampinato/khroma",
+      "ref": "4968165afb0d3d09be66497e7985a34f7bfe6d42",
+      "packages": [
+        {
+          "name": "khroma",
+          "version": "2.1.0",
+          "license": "MIT"
+        }
+      ],
+      "files": [
+        {
+          "name": "license",
+          "url": "https://github.com/fabiospampinato/khroma/blob/4968165afb0d3d09be66497e7985a34f7bfe6d42/license",
+          "text": "The MIT License (MIT)\n\nCopyright (c) 2019-present Fabio Spampinato, Andrew Maney\n\nPermission is hereby granted, free of charge, to any person obtaining a\ncopy of this software and associated documentation files (the \"Software\"),\nto deal in the Software without restriction, including without limitation\nthe rights to use, copy, modify, merge, publish, distribute, sublicense,\nand/or sell copies of the Software, and to permit persons to whom the\nSoftware is furnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in\nall copies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING\nFROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER\nDEALINGS IN THE SOFTWARE.\n"
+        }
+      ]
+    },
+    {
+      "repo": "remarkjs/remark-math",
+      "ref": "d5d0660b150810a535bbb07eac6cc96a4510aa24",
+      "packages": [
+        {
+          "name": "remark-math",
+          "version": "6.0.0"
+        }
+      ],
+      "files": [
+        {
+          "name": "license",
+          "url": "https://github.com/remarkjs/remark-math/blob/d5d0660b150810a535bbb07eac6cc96a4510aa24/license",
+          "text": "(The MIT License)\n\nCopyright (c) 2017 Junyoung Choi <fluke8259@gmail.com>\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n"
+        }
+      ]
     }
   ]
 }

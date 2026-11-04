@@ -1132,6 +1132,15 @@ test('the reader preview opens linked notes, edits a draft and switches sheets w
     await preview.getByRole('button', { name: '打开笔记', exact: true }).waitFor();
     await preview.getByRole('button', { name: '打开笔记', exact: true }).click();
     await library.getByRole('heading', { name: '阅读工具', exact: true }).waitFor();
+    await library.locator('.reader-diagram').scrollIntoViewIfNeeded();
+    await library.locator('.reader-diagram[data-state=ready]').waitFor();
+    await library.locator('.reader-math-display').scrollIntoViewIfNeeded();
+    await library.locator('.reader-math-display[data-state=ready]').waitFor();
+    await page.evaluate(() => document.fonts.ready);
+    assert.equal(await page.evaluate(() => document.fonts.check('16px KaTeX_Main')), true);
+    await library.getByRole('tab', { name: '最近', exact: true }).click();
+    assert.equal(await library.locator('.reader-sidebar-recent button').count(), 2);
+    await library.getByRole('tab', { name: '文件', exact: true }).click();
     await library.getByRole('button', { name: '后退', exact: true }).click();
     await library.getByRole('heading', { name: '作品集计划', exact: true }).waitFor();
     await library.getByRole('button', { name: '前进', exact: true }).click();

@@ -22,7 +22,11 @@ import {
 } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
-import { collectLicenseFiles, generateNotices } from '../scripts/third-party-notices.mjs';
+import {
+  collectLicenseFiles,
+  generateNotices,
+  packageLicenses,
+} from '../scripts/third-party-notices.mjs';
 
 const root = resolve(import.meta.dirname, '..');
 const files = publicSourceFiles(root);
@@ -201,6 +205,24 @@ test('declared license files resolve relative to the package and missing declara
   );
 });
 
+test('upstream license metadata fills only an exact pinned package and does not replace declared terms', (t) => {
+  const directory = mkdtempSync(join(tmpdir(), 'buddy-license-metadata-'));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const item = { name: 'example', version: '1.0.0', directory };
+  const sources = [
+    {
+      packages: [{ name: 'example', version: '1.0.0', license: 'MIT' }],
+      files: [{ name: 'license', text: 'Fixture grant' }],
+    },
+  ];
+  assert.equal(packageLicenses(item, sources).license, 'MIT');
+  assert.equal(
+    packageLicenses({ ...item, license: 'BSD-3-Clause' }, sources).license,
+    'BSD-3-Clause',
+  );
+  assert.throws(() => packageLicenses({ ...item, version: '1.0.1' }, sources), /Missing license/);
+});
+
 test('generated notices preserve nested licenses and pinned authors alongside package root licenses', (t) => {
   const directory = mkdtempSync(join(tmpdir(), 'buddy-generated-notices-'));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
@@ -208,6 +230,14 @@ test('generated notices preserve nested licenses and pinned authors alongside pa
   const { components } = JSON.parse(readFileSync(join(directory, 'dependencies.json'), 'utf8'));
   const text = readFileSync(join(directory, 'THIRD_PARTY_NOTICES.md'), 'utf8');
   const component = (name) => components.find((item) => item.name === name);
+  assert.equal(component('khroma').license, 'MIT');
+  assert.ok(
+    component('khroma').upstreamFiles.some((url) =>
+      url.includes('4968165afb0d3d09be66497e7985a34f7bfe6d42'),
+    ),
+  );
+  assert.ok(component('remark-math').upstreamFiles.length);
+  assert.ok(component('mermaid').files.includes('LICENSE'));
   assert.ok(component('tracing-core').files.includes('src/spin/LICENSE'));
   assert.ok(component('regex-syntax').files.includes('src/unicode_tables/LICENSE-UNICODE'));
   assert.ok(component('ring').files.includes('third_party/fiat/LICENSE'));

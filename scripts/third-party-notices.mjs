@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 锁定 Cargo/npm 依赖、已安装包、本地 shadcn/ui、OpenAI/CodexHost 图标与上游许可原文。
- * [OUTPUT]: collectLicenseFiles 收集包内许可路径；generateNotices 生成 THIRD_PARTY_NOTICES.md 与 dependencies.json。
+ * [OUTPUT]: collectLicenseFiles 收集原文，packageLicenses 校验精确版本补充；generateNotices 输出 App 许可清单，网站复用解析。
  * [POS]: 递归收集包内许可与署名，保留相对路径；只合并完全相同的原文，保留组件归属和来源。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -47,6 +47,21 @@ export function collectLicenseFiles(directory, declaredFile) {
     files.add(file);
   }
   return [...files].sort();
+}
+
+export function packageLicenses(item, supplements) {
+  const source = supplements.find((source) =>
+    source.packages.some((p) => p.name === item.name && p.version === item.version),
+  );
+  const files = collectLicenseFiles(item.directory, item.licenseFile);
+  const extra = source?.files || [];
+  const license =
+    item.license ||
+    source?.packages.find((p) => p.name === item.name && p.version === item.version)?.license;
+  // A pinned upstream grant can fill missing registry metadata, never override it.
+  if (!license || (!files.length && !extra.length))
+    throw new Error(`Missing license metadata or text: ${item.name}@${item.version}`);
+  return { files, extra, license };
 }
 
 export function generateNotices(directory = join(root, 'dist/licenses')) {
@@ -145,20 +160,13 @@ export function generateNotices(directory = join(root, 'dist/licenses')) {
     return `[${name}](#${id})`;
   }
   for (const item of components) {
-    const files = collectLicenseFiles(item.directory, item.licenseFile);
-    const extra =
-      supplements.find((source) =>
-        source.packages.some((p) => p.name === item.name && p.version === item.version),
-      )?.files || [];
-    // Some packages (for example r-efi) include their complete license in AUTHORS.
-    if (!item.license || (!files.length && !extra.length))
-      throw new Error(`Missing license metadata or text: ${item.name}@${item.version}`);
+    const { files, extra, license } = packageLicenses(item, supplements);
     const packagePath = (file) => relative(item.directory, file).split(sep).join('/');
     inventory.push({
       ecosystem: item.ecosystem,
       name: item.name,
       version: item.version,
-      license: item.license,
+      license,
       source: item.source,
       files: files.map(packagePath),
       upstreamFiles: extra.map((file) => file.url),
@@ -166,7 +174,7 @@ export function generateNotices(directory = join(root, 'dist/licenses')) {
     text.push(
       `## ${item.ecosystem}: ${item.name} ${item.version}`,
       '',
-      `License expression: ${item.license}`,
+      `License expression: ${license}`,
       '',
       `Source: ${item.source}`,
       '',

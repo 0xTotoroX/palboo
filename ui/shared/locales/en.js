@@ -1,5 +1,21 @@
 // English interface copy. User-authored content is not translated.
 export default {
+  阅读: 'Read',
+  摘录: 'Excerpt',
+  检索指标: 'Retrieval metrics',
+  '查准率表示找到的内容中，有多少与当前问题相关。':
+    'Precision measures how much of the retrieved content is relevant to the current question.',
+  文件: 'Files',
+  浏览笔记: 'Browse notes',
+  尚未打开笔记: 'No recent notes',
+  '公式无法显示，已保留源码': 'Could not render this formula; source preserved',
+  '图表无法显示，已保留源码': 'Could not render this diagram; source preserved',
+  图表: 'Diagram',
+  源码: 'Source',
+  放大图表: 'Enlarge diagram',
+  关闭图表: 'Close diagram',
+  'Mermaid 图表': 'Mermaid diagram',
+
   调整侧栏宽度: 'Resize sidebar',
   '拖动调整宽度，双击恢复默认': 'Drag to resize; double-click to reset',
   笔记路径: 'Note path',

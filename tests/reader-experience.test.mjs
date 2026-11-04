@@ -238,7 +238,7 @@ test('home shows valid recent notes, preserves reading position and offers a fir
   );
   await page.reload();
   await page.locator('.reader-resume').waitFor();
-  assert.equal(await page.locator('.reader-recent button').count(), 1);
+  assert.equal(await page.locator('.reader-home .reader-recent button').count(), 1);
   assert.equal(await page.locator('.reader-resume strong').textContent(), '来源');
   await page.getByRole('button', { name: '收起侧栏', exact: true }).click();
   await page.screenshot({ path: resolve(reports, 'round1-home.png') });
@@ -526,8 +526,13 @@ test('link preview preserves reading/history, stays open under the pointer, supp
 test('preview cancellation, errors, missing and ambiguous targets never replace the current note', async (t) => {
   const { page } = await setup(t);
   const link = page.getByRole('link', { name: '打开来源', exact: true });
+  let releasePreview;
+  const pendingPreview = new Promise((done) => {
+    releasePreview = done;
+  });
+  t.after(() => releasePreview());
   await page.route('**/api/preview?*', async (route) => {
-    await new Promise((done) => setTimeout(done, 450));
+    await pendingPreview;
     await route.fulfill({
       json: { candidates: [notes[1]], total: 1, anchor: '', excerpt: '过期摘要' },
     });
@@ -537,6 +542,7 @@ test('preview cancellation, errors, missing and ambiguous targets never replace 
   await page.getByText('正在读取预览…').waitFor();
   await page.getByRole('button', { name: '阅读首页', exact: true }).click();
   await page.getByRole('heading', { name: '继续阅读' }).waitFor();
+  releasePreview();
   await page.waitForTimeout(500);
   assert.equal(await page.locator('.reader-link-preview').count(), 0);
   await page.getByRole('button', { name: '后退', exact: true }).click();

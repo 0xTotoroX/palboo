@@ -35,7 +35,7 @@ npm 命令进入开发、构建、审计、安装和验证编排工具；具体�
 - [project-licenses.mjs](project-licenses.mjs)：验证完整 GPL 原文、历史 MIT 原文及授权范围，并为主程序与独立材质工具复制统一许可包。
 - [source-audit.mjs](source-audit.mjs)：Git 与无 Git 源码目录共用文件清单，供审计、打包和测试复用；无 Git 时排除构建目录，拒绝私有文件与符号链接。核对包名、固定 GPL-3.0-only 元数据、完整许可与历史原文，并拒绝历史排除的上游诊断标记、私有文档、运行配置、凭据和个人绝对路径。
 - [license-texts.json](license-texts.json)：依赖包未附带的公开许可、署名原文与固定来源 URL，供许可生成器离线使用。
-- [third-party-notices.mjs](third-party-notices.mjs)：collectLicenseFiles 递归收集包内许可与署名；generateNotices 合入固定补充与本地 shadcn/ui、OpenAI apps-sdk-ui 图标、CodexHost Agent标识及 Model Deck 宿主适配许可并生成 THIRD_PARTY_NOTICES.md 和 dependencies.json，保留相对路径，只合并相同原文。
+- [third-party-notices.mjs](third-party-notices.mjs)：collectLicenseFiles 递归收集包内许可与署名；packageLicenses供App与网站共用，仅以精确名称/版本的固定上游许可补齐缺失元数据，不覆盖声明；generateNotices 合入固定补充与本地 shadcn/ui、OpenAI apps-sdk-ui 图标、CodexHost Agent标识及 Model Deck 宿主适配许可并生成 THIRD_PARTY_NOTICES.md 和 dependencies.json，保留相对路径，只合并相同原文。
 
 [PROTOCOL]: 变更时更新本文，然后检查父级 AGENTS.md。
 

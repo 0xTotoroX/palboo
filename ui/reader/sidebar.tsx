@@ -38,6 +38,12 @@ export function useReaderSidebar(search: RefObject<HTMLInputElement | null>) {
       sessionStorage.setItem('palboo-reader-sidebar', String(pinned));
     } catch {}
   }, [pinned]);
+  const navigationFocus = () =>
+    [
+      ...(panel.current?.querySelectorAll<HTMLElement>(
+        '[role="tabpanel"] [aria-current="page"], [role="tabpanel"] summary, [role="tabpanel"] button, [role="tab"][aria-selected="true"]',
+      ) || []),
+    ].find((node) => node.getClientRects().length);
   const show = useCallback(
     (kind: 'search' | 'tree' = 'tree') => {
       // A quick reopen must cancel the previous close's deferred focus restoration.
@@ -46,12 +52,7 @@ export function useReaderSidebar(search: RefObject<HTMLInputElement | null>) {
       if (!visible) trigger.current = document.activeElement as HTMLElement;
       pendingFocus.current = kind;
       if (visible) {
-        const node =
-          kind === 'search'
-            ? search.current
-            : panel.current?.querySelector<HTMLElement>(
-                '.reader-tree [aria-current="page"], .reader-tree summary, .reader-tree button',
-              );
+        const node = kind === 'search' ? search.current : navigationFocus();
         node?.focus();
         if (kind === 'search') search.current?.select();
         pendingFocus.current = null;
@@ -76,12 +77,7 @@ export function useReaderSidebar(search: RefObject<HTMLInputElement | null>) {
     if (!visible || !pendingFocus.current) return;
     const kind = pendingFocus.current;
     pendingFocus.current = null;
-    const target =
-      kind === 'search'
-        ? search.current
-        : panel.current?.querySelector<HTMLElement>(
-            '.reader-tree [aria-current="page"], .reader-tree summary, .reader-tree button',
-          );
+    const target = kind === 'search' ? search.current : navigationFocus();
     (target || search.current)?.focus();
     if (kind === 'search') search.current?.select();
   }, [visible, search]);

@@ -4,6 +4,7 @@
 
 - `codex-host-controller-fixture.mjs`：自有合成控制器，保留已验证上游的函数/安装器边界，供 Rust 控制器兼容测试验证缓存上限、延迟挂载、所有权重验与真正 document 重载；不含上游完整程序或用户数据。
 
+- `reader-rich-content.test.mjs`：真实构建下的文件/最近标签与全库搜索恢复、工作簿最近记录、懒加载公式与Mermaid、同源CSP/字体、源码复制/放大、错误与资源语法回退、宏上限、主题与窄屏、离页资源清理；仅使用合成内容与隔离浏览器。
 - `reader-experience.test.mjs`：真实阅读器构建与隔离合成API，验证侧栏268px默认宽度与拖动/键盘/双击/持久化、零占位收起、临时抽屉/固定偏好/焦点恢复及Cmd/Ctrl+O唤醒单搜索框、最近阅读首页/首用文件树/失效记录过滤与阅读位置恢复、迟到全文合并与键盘选中身份、单行目录/折叠/定位及面包屑点击展开、搜索高亮与反链定位、右侧目录/反链信息栏的独立滚动、窄屏模态焦点/键盘/响应式偏好，悬停摘要不导航/取消迟到/错误重试/同名选择/焦点恢复，自有前进后退的滚动位置/刷新/分支截断及保存冲突恢复、首行标题先于结构化属性卡/恶意YAML回退、Callout折叠与嵌套、标签/带语言头栏代码复制、脚本安全，以及中英文/明暗/窄屏/减少动态效果；产物与截图在target/reports/reader-experience，不接触用户笔记。
 
 - `startup-visibility.test.mjs`：真实启动设置与构建 CSS，验证默认兼容、仅保存外观、打开位置记忆、冲突/离线/桌面能力、中英文320px及键盘；Rust startup 用例覆盖下一次 App 初始化、新旧主界面、业务开关及贴边隔离。
@@ -101,7 +102,7 @@ model-control-host 覆盖能力延迟到达、空列表刷新超时及重试、�
 - [native-probe.swift](native-probe.swift)：原生验收的只读事件权限预检、合成背景窗口、指定测试进程窗口几何、合成窗口的真实鼠标拖拽及截图颜色读取器，只编译到临时目录。
 
 - [host-fixture.html](host-fixture.html)：e2e 和弹出测试的宿主 fixture，不包含真实聊天；包含新版角色属性及隐藏打印名称的共享胶囊桌面宿主 DOM。
-- [source-audit.test.mjs](source-audit.test.mjs)：公开边界、固定 GPL 元数据/正文、历史 MIT 保留、打包许可与真实依赖声明的行为测试；覆盖嵌套署名、显式路径、来源补充和原文引用，以及无 Git 源码清单和私有文件/符号链接拒绝。
+- [source-audit.test.mjs](source-audit.test.mjs)：公开边界、固定 GPL 元数据/正文、历史 MIT 保留、打包许可与真实依赖声明的行为测试；覆盖嵌套署名、显式路径、精确版本许可元数据补充和原文引用，以及无 Git 源码清单和私有文件/符号链接拒绝。
 
 - [popout-preferences.test.mjs](popout-preferences.test.mjs)：位置写入延迟时并发置顶/外观串行推进修订号，真实外部冲突仍拒绝。
 - [workbench-actions.mjs](workbench-actions.mjs)：端到端检查通过标题/标签双击或 Esc 选择内容；showRetainedSettings 显式调用隐藏旧入口，仅供保留模板的兼容回归，不代表产品入口。

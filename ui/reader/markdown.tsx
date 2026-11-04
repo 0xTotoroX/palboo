@@ -1,14 +1,12 @@
 /* [INPUT]: Untrusted Obsidian Markdown, note identity and optional image/link adapters.
- * [OUTPUT]: Stable safe GFM nodes, YAML below H1, foldable callouts, copyable code and internal preview/navigation marks.
+ * [OUTPUT]: Stable safe GFM/math nodes, YAML below H1, callouts, lazy diagrams, copyable code and internal preview/navigation marks.
  * [POS]: No raw HTML/plugin execution; notes and assets stay in this reader, never in model context.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import {
   isValidElement,
   memo,
   useCallback,
-  useEffect,
   useRef,
-  useState,
   type ComponentType,
   type ReactNode,
 } from 'react';
@@ -16,6 +14,9 @@ import { SearchText } from './search';
 import { NoteProperties } from './properties';
 import Markdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import { CodeFrame } from './code-block';
+import { MarkdownTone, MathFormula, MermaidDiagram } from './rich-content';
 import { Icon } from '../shared/icons/react';
 import { tr } from '../shared/i18n.js';
 import { useLocale } from '../shared/use-locale';
@@ -228,8 +229,9 @@ type MarkdownProps = {
   onTag?: (tag: string) => void;
   highlight?: string;
   backlink?: string;
+  tone?: string;
 };
-export function NoteMarkdown(props: MarkdownProps) {
+export function NoteMarkdown({ tone = 'light', ...props }: MarkdownProps) {
   const locale = useLocale();
   const adapters = useRef(props);
   adapters.current = props;
@@ -237,13 +239,15 @@ export function NoteMarkdown(props: MarkdownProps) {
   const onTag = useCallback((tag: string) => adapters.current.onTag?.(tag), []);
   const openExternal = useCallback((url: string) => adapters.current.openExternal?.(url), []);
   return (
-    <StableMarkdown
-      {...props}
-      locale={locale}
-      follow={follow}
-      onTag={props.onTag ? onTag : undefined}
-      openExternal={props.openExternal ? openExternal : undefined}
-    />
+    <MarkdownTone.Provider value={tone}>
+      <StableMarkdown
+        {...props}
+        locale={locale}
+        follow={follow}
+        onTag={props.onTag ? onTag : undefined}
+        openExternal={props.openExternal ? openExternal : undefined}
+      />
+    </MarkdownTone.Provider>
   );
 }
 const StableMarkdown = memo(MarkdownView);
@@ -276,11 +280,14 @@ function MarkdownView({
           {children}
         </summary>
       ),
-    code: ({ children, className }) => (
-      <code className={className}>
-        <SearchText text={String(children ?? '')} query={highlight} />
-      </code>
-    ),
+    code: ({ children, className }) =>
+      className?.includes('math-inline') ? (
+        <MathFormula source={String(children ?? '')} />
+      ) : (
+        <code className={className}>
+          <SearchText text={String(children ?? '')} query={highlight} />
+        </code>
+      ),
     a: ({ href = '', children }) => {
       if (href.startsWith('palboo-tag:')) {
         const tag = decodeLink(href.slice(11));
@@ -352,7 +359,7 @@ function MarkdownView({
       {splitH1 && leadingH1 && (
         <Markdown
           skipHtml
-          remarkPlugins={[remarkGfm, [obsidianMarkdown, { highlight, startSerial: 0 }]]}
+          remarkPlugins={[remarkGfm, remarkMath, [obsidianMarkdown, { highlight, startSerial: 0 }]]}
           urlTransform={safeUrl}
           components={components}
         >
@@ -362,7 +369,11 @@ function MarkdownView({
       {metadata && <NoteProperties source={metadata[1]} onTag={onTag} query={highlight} />}
       <Markdown
         skipHtml
-        remarkPlugins={[remarkGfm, [obsidianMarkdown, { highlight, startSerial: splitH1 ? 1 : 0 }]]}
+        remarkPlugins={[
+          remarkGfm,
+          remarkMath,
+          [obsidianMarkdown, { highlight, startSerial: splitH1 ? 1 : 0 }],
+        ]}
         urlTransform={safeUrl}
         components={components}
       >
@@ -390,52 +401,16 @@ function matchesBacklink(target: string, id: string, from: string) {
   );
 }
 function CodeBlock({ children }: { children?: ReactNode }) {
-  const code = useRef<HTMLPreElement>(null);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [status, setStatus] = useState('');
-  const [copied, setCopied] = useState(false);
-  useEffect(
-    () => () => {
-      if (timer.current) clearTimeout(timer.current);
-    },
-    [],
-  );
-  const className =
-    isValidElement<{ className?: string }>(children) && typeof children.props.className === 'string'
-      ? children.props.className
-      : '';
-  const lang = className.match(/language-([\w-]+)/)?.[1] || '';
+  const props = isValidElement<{ className?: string; children?: ReactNode }>(children)
+    ? children.props
+    : {};
+  const language = props.className?.match(/language-([\w-]+)/)?.[1] || '';
+  const source = String(props.children ?? '');
+  if (language.toLowerCase() === 'mermaid') return <MermaidDiagram source={source} />;
+  if (props.className?.includes('math-display')) return <MathFormula source={source} display />;
   return (
-    <div className="reader-code-block">
-      <div className="reader-code-bar">
-        <span className="reader-code-lang">{lang}</span>
-        <button
-          type="button"
-          className="reader-copy-code"
-          data-copied={copied || undefined}
-          aria-label={tr('复制代码')}
-          title={tr('复制代码')}
-          onClick={async () => {
-            if (timer.current) clearTimeout(timer.current);
-            try {
-              await navigator.clipboard.writeText(code.current?.textContent || '');
-              setCopied(true);
-              setStatus(tr('已复制'));
-              timer.current = setTimeout(() => {
-                setCopied(false);
-                setStatus('');
-              }, 2000);
-            } catch {
-              setCopied(false);
-              setStatus(tr('复制失败，请手动选择代码'));
-            }
-          }}
-        >
-          <Icon name={copied ? 'check' : 'reader-copy'} />
-          <span role="status">{status || tr('复制代码')}</span>
-        </button>
-      </div>
-      <pre ref={code}>{children}</pre>
-    </div>
+    <CodeFrame language={language} source={source}>
+      <pre>{children}</pre>
+    </CodeFrame>
   );
 }
