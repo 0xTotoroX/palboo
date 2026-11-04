@@ -1,5 +1,5 @@
 // [INPUT]: Synthetic vaults, local-only router and reader-specific authorization.
-// [OUTPUT]: Read hashes, search/link/image/spreadsheet, guarded edits and HTTP/endpoint regression tests.
+// [OUTPUT]: Read hashes, stable search pagination, links/images/spreadsheets, guarded edits and HTTP/endpoint tests.
 // [POS]: No real user notes, host, network websites or credentials.
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 use super::*;
@@ -55,6 +55,37 @@ impl Fixture {
             .unwrap();
         index
     }
+}
+#[test]
+fn search_pages_match_instant_title_order_before_body_matches() {
+    let f = Fixture::new();
+    for n in 0..60 {
+        std::fs::write(
+            f.vault.join(format!("zz-project-{n:02}-group.md")),
+            "# A note",
+        )
+        .unwrap();
+    }
+    std::fs::write(f.vault.join("a-body.md"), "# Body\nproject group").unwrap();
+    let index = f.index();
+    let first = index.search("project group", 0);
+    let second = index.search("project group", 50);
+    assert_eq!(first["total"], 61);
+    let first = first["results"].as_array().unwrap();
+    let second = second["results"].as_array().unwrap();
+    assert_eq!(first.len(), 50);
+    assert_eq!(second.len(), 11);
+    assert!(
+        first
+            .iter()
+            .all(|note| note["id"].as_str().unwrap().starts_with("zz-"))
+    );
+    assert_eq!(second.last().unwrap()["id"], "a-body.md");
+    assert!(
+        !first
+            .iter()
+            .any(|a| second.iter().any(|b| a["id"] == b["id"]))
+    );
 }
 #[test]
 fn searches_chinese_content_paths_and_resolves_real_backlinks() {

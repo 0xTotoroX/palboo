@@ -1,5 +1,5 @@
 // [INPUT]: scripts/build-panel.mjs、ui/panel ES modules 与 ui/shared/bridge/requests.js。
-// [OUTPUT]: 校验 macOS arm64 目标，生成 OUT_DIR/panel.js；模型控制资源变化触发 Cargo 重新内嵌。
+// [OUTPUT]: 校验 macOS arm64 目标，生成 OUT_DIR/panel.js；模型控制及 target/web 资源变化触发 Cargo 重新内嵌。
 // [POS]: Cargo 构建入口，调用项目已安装的 Node/esbuild 解析显式依赖。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
@@ -16,6 +16,7 @@ fn main() {
         "ui/surfaces",
         "ui/features",
         "ui/shared",
+        "target/web",
         "scripts/build-panel.mjs",
         "package-lock.json",
     ] {

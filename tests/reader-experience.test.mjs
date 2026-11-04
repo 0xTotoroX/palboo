@@ -1,5 +1,5 @@
 /* [INPUT]: Production reader entry, synthetic API notes and isolated Chromium storage.
- * [OUTPUT]: Resizable sidebar, single unified search, Markdown hierarchy/safety, scrollspy outline and responsive acceptance.
+ * [OUTPUT]: Resizable/drawer sidebar and focus, unified search, reading home, Markdown/outline and responsive acceptance.
  * [POS]: No real files, host, credentials or model requests; screenshots contain synthetic notes only.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import test from 'node:test';
@@ -169,7 +169,133 @@ async function setup(t, options = {}) {
 const width = (page) =>
   page.locator('.reader-sidebar').evaluate((node) => node.getBoundingClientRect().width);
 
-test('resizable persisted sidebar, collapsed rail, neat single-line tree and folder/note reveal', async (t) => {
+test('drawer keeps article geometry, restores focus and tree state, and only pinning saves layout', async (t) => {
+  const { page } = await setup(t);
+  await page.getByRole('button', { name: '收起侧栏', exact: true }).click();
+  const mainBox = await page.locator('.reader-main').boundingBox();
+  assert.equal(mainBox.x, 0);
+  await page.getByRole('button', { name: '搜索笔记', exact: true }).click();
+  assert.deepEqual(await page.locator('.reader-main').boundingBox(), mainBox);
+  assert.equal(
+    await page.getByRole('searchbox').evaluate((node) => node === document.activeElement),
+    true,
+  );
+  assert.equal(await page.locator('.reader-main').getAttribute('inert'), '');
+  assert.equal(await page.evaluate(() => sessionStorage.getItem('palboo-reader-sidebar')), 'false');
+  await page.getByRole('searchbox').fill('来源');
+  await page.keyboard.press('Escape');
+  assert.equal(await page.getByRole('searchbox').inputValue(), '');
+  assert.equal(await page.locator('.reader-tree details[open]').count(), 3);
+  await page.keyboard.press('Escape');
+  assert.equal(await width(page), 0);
+  assert.equal(
+    await page
+      .getByRole('button', { name: '搜索笔记', exact: true })
+      .evaluate((node) => node === document.activeElement),
+    true,
+  );
+  await page.keyboard.press('Control+o');
+  await page.getByRole('searchbox').fill('来源');
+  await page.keyboard.press('Enter');
+  await page.getByRole('heading', { name: '来源', exact: true }).waitFor();
+  assert.equal(await width(page), 0);
+  await page.getByRole('button', { name: '展开侧栏', exact: true }).click();
+  await page.getByRole('button', { name: '固定侧栏', exact: true }).click();
+  assert.equal(await page.evaluate(() => sessionStorage.getItem('palboo-reader-sidebar')), 'true');
+  assert.equal(await width(page), 268);
+  await page.reload();
+  await page.getByRole('searchbox').waitFor();
+  assert.equal(await width(page), 268);
+  await page.getByRole('button', { name: '收起侧栏', exact: true }).click();
+  await page.keyboard.press('Control+o');
+  await page.waitForFunction(() => document.activeElement?.matches('input[type="search"]'));
+  await page.keyboard.press('Escape');
+  await page.screenshot({ path: resolve(reports, 'round1-collapsed.png') });
+  await page.getByRole('button', { name: '展开侧栏', exact: true }).click();
+  await page.screenshot({ path: resolve(reports, 'round1-drawer.png') });
+});
+
+test('home shows valid recent notes, preserves reading position and offers a first-use tree', async (t) => {
+  const { page } = await setup(t);
+  await page.locator('.reader-main').evaluate((node) => {
+    node.scrollTop = 900;
+  });
+  await page.getByRole('button', { name: '阅读首页', exact: true }).click();
+  await page.getByRole('heading', { name: '继续阅读', exact: true }).waitFor();
+  assert.equal(await page.locator('.reader-resume strong').textContent(), notes[0].title);
+  await page.reload();
+  await page.locator('.reader-resume').click();
+  await page.getByRole('heading', { name: '阅读器示例', exact: true }).waitFor();
+  await page.waitForFunction(() => document.querySelector('.reader-main').scrollTop === 900);
+  await page.getByRole('button', { name: '阅读首页', exact: true }).click();
+  await page.evaluate(() =>
+    localStorage.setItem(
+      'palboo-reader-recent:obsidian',
+      JSON.stringify(['missing.md', '来源.md']),
+    ),
+  );
+  await page.reload();
+  await page.locator('.reader-resume').waitFor();
+  assert.equal(await page.locator('.reader-recent button').count(), 1);
+  assert.equal(await page.locator('.reader-resume strong').textContent(), '来源');
+  await page.getByRole('button', { name: '收起侧栏', exact: true }).click();
+  await page.screenshot({ path: resolve(reports, 'round1-home.png') });
+  await page.evaluate(() => localStorage.removeItem('palboo-reader-recent:obsidian'));
+  await page.reload();
+  await page.locator('.reader-home .reader-tree').waitFor();
+  assert.equal(await width(page), 0);
+  await page.locator('.reader-home').getByRole('button', { name: '来源', exact: true }).click();
+  await page.getByRole('heading', { name: '来源', exact: true }).waitFor();
+});
+
+test('late full-text results enrich title matches without duplicates or moving the keyboard selection', async (t) => {
+  const { page } = await setup(t);
+  const summaries = notes.map((note) =>
+    note.id === '来源.md' ? { ...note, title: '项目 来源' } : note,
+  );
+  await page.route('**/api/catalog?*', (route) =>
+    route.fulfill({
+      json: { name: '合成笔记', revision: 2, notes: summaries, skipped: 0, language: 'zh-CN' },
+    }),
+  );
+  await page.route('**/api/search?*', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    await route.fulfill({
+      json: {
+        total: 3,
+        offset: 0,
+        results: [
+          { ...notes[2], snippet: '项目 正文' },
+          { ...notes[0], snippet: '项目 摘要' },
+          { ...summaries[1], snippet: '项目 摘要' },
+        ],
+      },
+    });
+  });
+  await page.reload();
+  await page.getByRole('searchbox').fill('项目');
+  await page.waitForFunction(
+    () => document.querySelectorAll('.reader-results button').length === 2,
+  );
+  await page.keyboard.press('ArrowDown');
+  const before = await page.locator('.reader-results [data-active="true"] strong').textContent();
+  await page.waitForFunction(
+    () => document.querySelectorAll('.reader-results button').length === 3,
+  );
+  assert.equal(
+    await page.locator('.reader-results [data-active="true"] strong').textContent(),
+    before,
+  );
+  assert.deepEqual(await page.locator('.reader-results strong').allTextContents(), [
+    summaries[1].title,
+    notes[0].title,
+    notes[2].title,
+  ]);
+  await page.keyboard.press('Enter');
+  await page.getByRole('heading', { name: '阅读器示例', exact: true }).waitFor();
+});
+
+test('resizable persisted sidebar, collapsed navigation, neat single-line tree and folder/note reveal', async (t) => {
   const { page } = await setup(t);
   assert.equal(await page.locator('.reader-sidebar input[type="search"]').count(), 1);
   assert.equal(await page.locator('.reader-switcher-trigger').count(), 0);
@@ -206,10 +332,10 @@ test('resizable persisted sidebar, collapsed rail, neat single-line tree and fol
   await page.getByRole('button', { name: '定位当前笔记', exact: true }).click();
   await current.waitFor();
   assert.equal(await page.locator('.reader-tree details[open]').count(), 3);
-  await page.getByRole('button', { name: '目录与搜索', exact: true }).click();
-  assert.equal(await width(page), 44);
+  await page.getByRole('button', { name: '收起侧栏', exact: true }).click();
+  assert.equal(await width(page), 0);
   await page.reload();
-  assert.equal(await width(page), 44);
+  assert.equal(await width(page), 0);
 });
 
 test('title-above-properties hierarchy, callouts, safe markup, tags and code clipboard', async (t) => {
@@ -324,24 +450,25 @@ test('unified search keyboard, search reveal, backlink destinations and active s
   await page.screenshot({ path: resolve(reports, 'wide.png') });
 });
 
-test('narrow English dark reader, shortcut expands collapsed rail, resize limits and reduced motion', async (t) => {
+test('narrow English dark reader, shortcut expands collapsed navigation, resize limits and reduced motion', async (t) => {
   const { page } = await setup(t, {
     locale: 'en',
     colorScheme: 'dark',
     reducedMotion: 'reduce',
     viewport: { width: 390, height: 740 },
   });
-  assert.equal(await width(page), 44);
+  assert.equal(await width(page), 0);
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
   await page.keyboard.press('Control+o');
   await page.getByRole('searchbox', { name: 'Search notes' }).fill('空白');
   await page.keyboard.press('Enter');
   await page.getByRole('heading', { name: '空白' }).waitFor();
-  await page.getByRole('button', { name: 'Notes and search', exact: true }).click();
-  await page.getByRole('button', { name: 'Clear search', exact: true }).click();
+  await page.getByRole('button', { name: 'Expand sidebar', exact: true }).click();
   await page.getByRole('button', { name: 'Collapse all', exact: true }).waitFor();
   await page.screenshot({ path: resolve(reports, 'narrow-dark.png') });
   await page.setViewportSize({ width: 1440, height: 900 });
+  await page.getByRole('button', { name: 'Expand sidebar', exact: true }).click();
+  await page.getByRole('button', { name: 'Pin sidebar', exact: true }).click();
   const separator = page.getByRole('separator');
   await separator.focus();
   for (let i = 0; i < 40; i++) await page.keyboard.press('ArrowRight');

@@ -90,8 +90,14 @@ export async function exerciseReaderFolders({
   try {
     await page.goto(primary);
     await secondPage.goto(secondURL);
-    await page.getByRole('button', { name: '首页', exact: true }).click();
-    await secondPage.getByRole('button', { name: '首页', exact: true }).click();
+    await page
+      .locator('.reader-sidebar')
+      .getByRole('button', { name: '首页', exact: true })
+      .click();
+    await secondPage
+      .locator('.reader-sidebar')
+      .getByRole('button', { name: '首页', exact: true })
+      .click();
     await page.getByRole('heading', { name: '欢迎', exact: true }).waitFor();
     await secondPage.getByRole('heading', { name: '第二个文件夹', exact: true }).waitFor();
     assert.equal(new URL(secondPage.url()).searchParams.get('folder'), secondary.id);
@@ -107,7 +113,10 @@ export async function exerciseReaderFolders({
     await page.waitForURL((url) => url.searchParams.get('folder') === secondary.id);
     assert.equal(readFileSync(firstFile, 'utf8'), '# 第一个文件夹保存');
     assert.equal(readFileSync(join(secondPath, '首页.md'), 'utf8'), secondText);
-    await page.getByRole('button', { name: '首页', exact: true }).click();
+    await page
+      .locator('.reader-sidebar')
+      .getByRole('button', { name: '首页', exact: true })
+      .click();
     await page.getByRole('heading', { name: '第二个文件夹', exact: true }).waitFor();
     await secondPage.getByRole('button', { name: '编辑笔记', exact: true }).click();
     await secondPage
@@ -121,7 +130,10 @@ export async function exerciseReaderFolders({
       .getByRole('combobox', { name: '切换笔记文件夹', exact: true })
       .selectOption(configured.folders[0].id);
     await page.waitForURL((url) => url.searchParams.get('folder') === configured.folders[0].id);
-    await page.getByRole('button', { name: '首页', exact: true }).click();
+    await page
+      .locator('.reader-sidebar')
+      .getByRole('button', { name: '首页', exact: true })
+      .click();
     await page.getByRole('heading', { name: '第一个文件夹保存', exact: true }).waitFor();
     record(
       'two tabs with identical note names stay isolated; switching flushes edits to the original folder; reload retains folder identity',

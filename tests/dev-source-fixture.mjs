@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /*
  * [INPUT]: 隔离测试目录与开发编排传入的环境/命令参数。
- * [OUTPUT]: 可控构建失败及带单实例记录的合成后台。
+ * [OUTPUT]: 可控构建失败、设置/阅读入口产物及带单实例记录的合成后台。
  * [POS]: dev-sources-integration.test 的进程夹具；不连接或注入任何宿主。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -25,6 +25,7 @@ if (['cargo', 'npm'].includes(basename(process.argv[1]))) {
   } else {
     mkdirSync(join(root, 'target/web'), { recursive: true });
     writeFileSync(join(root, 'target/web/index.html'), '<p>fixture</p>');
+    writeFileSync(join(root, 'target/web/reader.html'), '<p>reader fixture</p>');
   }
 } else {
   if (existsSync(join(root, 'fail-connect'))) {

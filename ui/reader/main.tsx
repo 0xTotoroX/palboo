@@ -3,8 +3,8 @@
  * [POS]: Standalone document opened in ChatGPT; no settings token, composer access or AI calls.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { createRoot } from 'react-dom/client';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { read, write, folderId, type Catalog, type Note, type Summary, type Search } from './api';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { read, write, folderId, type Catalog, type Note, type Summary } from './api';
 import { NoteEditor, useNoteEditor } from './editor';
 import { Spreadsheet } from './spreadsheet';
 import { NoteMarkdown, anchorKey, decodeLink } from './markdown';
@@ -12,6 +12,9 @@ import { ReaderPicture } from './picture';
 import { Breadcrumbs, SidebarResize, useSidebarWidth } from './navigation';
 import { ReadingOutline, type Heading } from './outline';
 import { SearchText } from './search';
+import { useReaderSearch } from './search-state';
+import { useReaderSidebar } from './sidebar';
+import { ReaderHome, useRecentNotes } from './home';
 import { NoteTree, useTreeExpansion } from './tree';
 import { Icon } from '../shared/icons/react';
 import { tr, setLocale } from '../shared/i18n.js';
@@ -40,8 +43,6 @@ function Reader() {
   const [activeHeading, setActiveHeading] = useState('');
   const searchInput = useRef<HTMLInputElement>(null);
   const resultsList = useRef<HTMLUListElement>(null);
-  const pendingSearchFocus = useRef(false);
-  const [activeResult, setActiveResult] = useState(0);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [systemDark, setSystemDark] = useState(matchMedia('(prefers-color-scheme: dark)').matches);
   useEffect(() => {
@@ -59,56 +60,26 @@ function Reader() {
   const [selected, setSelected] = useState(new URLSearchParams(location.search).get('note') || '');
   const tree = useTreeExpansion(selected);
   const [note, setNote] = useState<Note | null>(null);
-  const [query, setQuery] = useState('');
-  const [search, setSearch] = useState<Search | null>(null);
-  const [offset, setOffset] = useState(0);
+  const searching = useReaderSearch(catalog);
+  const {
+    query,
+    offset,
+    search,
+    results: displayedResults,
+    active: activeResult,
+    error: searchError,
+  } = searching;
+  const setQuery = searching.change;
+  const setOffset = searching.page;
+  const setActiveResult = searching.setActive;
+  const nav = useReaderSidebar(searchInput);
+  const menu = nav.visible;
+  const recent = useRecentNotes(folderId);
   const [error, setError] = useState('');
-  const [searchError, setSearchError] = useState('');
   const [busy, setBusy] = useState(false);
-  const [menu, setMenu] = useState(() => {
-    try {
-      const saved = sessionStorage.getItem('palboo-reader-sidebar');
-      if (saved !== null) return saved === 'true';
-    } catch {}
-    return !matchMedia('(max-width: 640px)').matches;
-  });
-  useEffect(() => {
-    const shortcut = (event: KeyboardEvent) => {
-      if (
-        (event.metaKey || event.ctrlKey) &&
-        !event.altKey &&
-        !event.shiftKey &&
-        ['o', 'k'].includes(event.key.toLowerCase()) &&
-        !event.isComposing
-      ) {
-        event.preventDefault();
-        if (menu) {
-          searchInput.current?.focus();
-          searchInput.current?.select();
-        } else {
-          pendingSearchFocus.current = true;
-          setMenu(true);
-        }
-      }
-    };
-    window.addEventListener('keydown', shortcut);
-    return () => window.removeEventListener('keydown', shortcut);
-  }, [menu]);
-  useLayoutEffect(() => {
-    if (menu && pendingSearchFocus.current) {
-      pendingSearchFocus.current = false;
-      searchInput.current?.focus();
-      searchInput.current?.select();
-    }
-  }, [menu]);
   const editor = useNoteEditor(setNote);
   const navigation = useRef(false);
   const selectedDocument = catalog?.notes.find((item) => item.id === selected);
-  useEffect(() => {
-    try {
-      sessionStorage.setItem('palboo-reader-sidebar', String(menu));
-    } catch {}
-  }, [menu]);
   const [toc, setToc] = useState<Heading[]>([]);
   const [choices, setChoices] = useState<{ notes: Summary[]; anchor: string } | null>(null);
   const article = useRef<HTMLElement>(null);
@@ -121,28 +92,11 @@ function Reader() {
   const readingReady = useRef(false);
   const catalogRequest = useRef<AbortController | null>(null);
   const linkRequest = useRef<AbortController | null>(null);
-  const quickMatches = useMemo(() => {
-    const trimmed = query.trim().toLocaleLowerCase();
-    if (!trimmed || !catalog) return [];
-    const terms = trimmed.split(/\s+/).filter(Boolean);
-    return catalog.notes
-      .filter((item) =>
-        terms.every((term) => `${item.title} ${item.id}`.toLocaleLowerCase().includes(term)),
-      )
-      .sort(
-        (a, b) =>
-          Number(b.title.toLocaleLowerCase().startsWith(trimmed)) -
-          Number(a.title.toLocaleLowerCase().startsWith(trimmed)),
-      )
-      .slice(0, 50)
-      .map((item) => ({ ...item, snippet: '' }));
-  }, [catalog, query]);
-  const displayedResults = search ? search.results : offset === 0 ? quickMatches : [];
   useLayoutEffect(() => {
     resultsList.current
       ?.querySelector('[data-active="true"]')
       ?.scrollIntoView({ block: 'nearest' });
-  }, [activeResult]);
+  }, [activeResult, query, displayedResults.length]);
   const remember = useCallback(() => {
     if (readingReady.current && note && article.current && note.id === selectedRef.current) {
       positions.current[note.id] = article.current.scrollTop;
@@ -233,29 +187,6 @@ function Reader() {
       });
     return () => controller.abort();
   }, [selected, catalog?.revision]);
-  useEffect(() => {
-    if (!query.trim() || !catalog) {
-      setSearch(null);
-      setSearchError('');
-      return;
-    }
-    const controller = new AbortController();
-    setSearch(null);
-    setSearchError('');
-    const timer = setTimeout(() => {
-      void read<Search>('search', { q: query, offset }, controller.signal)
-        .then((value) => {
-          if (!controller.signal.aborted) setSearch(value);
-        })
-        .catch((e) => {
-          if (!controller.signal.aborted) setSearchError(e.message);
-        });
-    }, 120);
-    return () => {
-      clearTimeout(timer);
-      controller.abort();
-    };
-  }, [query, offset, catalog?.revision]);
   function scrollAnchor(anchor: string) {
     const key = anchorKey(anchor);
     const target = [
@@ -309,6 +240,7 @@ function Reader() {
     updateHeading();
     readingReady.current = true;
     document.title = `${note.title} · Palboo`;
+    recent.visit(note.id);
   }, [note, editor.active]);
   useLayoutEffect(() => {
     if (
@@ -338,7 +270,7 @@ function Reader() {
     setDestination((value) => ({ id, query: searchQuery, backlink, revision: value.revision + 1 }));
     linkRequest.current?.abort();
     setChoices(null);
-    if (matchMedia('(max-width: 640px)').matches) setMenu(false);
+    nav.dismiss();
     setError('');
     history.pushState(
       null,
@@ -388,13 +320,29 @@ function Reader() {
   }
   const selectFolderFromBreadcrumb = (folderPath: string) => {
     setQuery('');
-    setOffset(0);
-    setMenu(true);
+    nav.show('tree');
     tree.revealFolder(folderPath);
   };
   return (
-    <div className="reader-app" data-menu={menu} style={sidebar.style}>
-      <aside className="reader-sidebar" aria-label={tr('目录与搜索')}>
+    <div
+      className="reader-app"
+      data-menu={menu}
+      data-docked={nav.docked}
+      data-drawer={nav.overlay}
+      style={sidebar.style}
+    >
+      {nav.overlay && (
+        <div className="reader-sidebar-scrim" onClick={nav.close} aria-hidden="true" />
+      )}
+      <aside
+        ref={nav.panel}
+        id="reader-navigation"
+        className="reader-sidebar"
+        hidden={!menu}
+        role={nav.overlay ? 'dialog' : undefined}
+        aria-modal={nav.overlay || undefined}
+        aria-label={tr('目录与搜索')}
+      >
         <div className="reader-library-row">
           {menu &&
             ((catalog?.folders?.length || 0) > 1 ? (
@@ -439,19 +387,30 @@ function Reader() {
                 </button>
               </>
             )}
+            {nav.overlay && !nav.narrow && (
+              <button
+                type="button"
+                className="reader-tool-btn"
+                onClick={nav.pin}
+                title={tr('固定侧栏')}
+                aria-label={tr('固定侧栏')}
+              >
+                <Icon name="pin" />
+              </button>
+            )}
             <button
               type="button"
               className="reader-nav-toggle"
-              title={tr(menu ? '收起侧栏' : '展开侧栏')}
-              aria-label={tr('目录与搜索')}
+              title={tr(nav.docked ? '收起侧栏' : '关闭目录')}
+              aria-label={tr(nav.docked ? '收起侧栏' : '关闭目录')}
               aria-expanded={menu}
-              onClick={() => setMenu(!menu)}
+              onClick={nav.close}
             >
               <Icon name="reader-sidebar" />
             </button>
           </div>
         </div>
-        {menu && (
+        {nav.docked && (
           <SidebarResize
             width={sidebar.width}
             defaultWidth={sidebar.defaultWidth}
@@ -470,20 +429,18 @@ function Reader() {
               value={query}
               onChange={(e) => {
                 setQuery(e.target.value);
-                setOffset(0);
-                setActiveResult(0);
               }}
               onKeyDown={(event) => {
                 if (event.nativeEvent.isComposing) return;
                 if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
                   if (!displayedResults.length) return;
                   event.preventDefault();
-                  setActiveResult((value) =>
+                  setActiveResult(
                     Math.max(
                       0,
                       Math.min(
                         displayedResults.length - 1,
-                        value + (event.key === 'ArrowDown' ? 1 : -1),
+                        activeResult + (event.key === 'ArrowDown' ? 1 : -1),
                       ),
                     ),
                   );
@@ -493,14 +450,16 @@ function Reader() {
                     displayedResults[Math.min(activeResult, displayedResults.length - 1)];
                   void open(picked.id, '', query);
                 } else if (event.key === 'Escape') {
-                  event.preventDefault();
                   if (query) {
+                    event.preventDefault();
+                    event.stopPropagation();
                     setQuery('');
-                    setOffset(0);
-                    setActiveResult(0);
                   } else {
                     event.currentTarget.blur();
-                    if (matchMedia('(max-width: 640px)').matches && selected) setMenu(false);
+                    if (nav.overlay) {
+                      event.preventDefault();
+                      nav.close();
+                    }
                   }
                 }
               }}
@@ -513,8 +472,6 @@ function Reader() {
                 title={tr('清除搜索')}
                 onClick={() => {
                   setQuery('');
-                  setOffset(0);
-                  setActiveResult(0);
                   searchInput.current?.focus();
                 }}
               >
@@ -526,8 +483,8 @@ function Reader() {
               </kbd>
             )}
           </label>
-          <nav aria-label={tr('笔记目录')}>
-            {query.trim() ? (
+          <nav aria-label={tr('搜索结果')} hidden={!query.trim()}>
+            {query.trim() && (
               <>
                 {searchError && <p role="alert">{searchError}</p>}
                 {!search && !searchError && !displayedResults.length && (
@@ -535,7 +492,7 @@ function Reader() {
                     {tr('正在搜索…')}
                   </p>
                 )}
-                {search && search.total === 0 && (
+                {search && displayedResults.length === 0 && (
                   <p className="reader-status" role="status">
                     {tr('没有匹配的笔记')}
                   </p>
@@ -585,7 +542,6 @@ function Reader() {
                           disabled={offset === 0}
                           onClick={() => {
                             setOffset(Math.max(0, offset - 50));
-                            setActiveResult(0);
                           }}
                         >
                           {tr('上一页')}
@@ -594,7 +550,6 @@ function Reader() {
                           disabled={offset + 50 >= search.total}
                           onClick={() => {
                             setOffset(offset + 50);
-                            setActiveResult(0);
                           }}
                         >
                           {tr('下一页')}
@@ -604,10 +559,11 @@ function Reader() {
                   </>
                 )}
               </>
-            ) : (
-              catalog && (
-                <NoteTree notes={catalog.notes} selected={selected} open={open} expansion={tree} />
-              )
+            )}
+          </nav>
+          <nav aria-label={tr('笔记目录')} hidden={!!query.trim()}>
+            {catalog && (
+              <NoteTree notes={catalog.notes} selected={selected} open={open} expansion={tree} />
             )}
           </nav>
         </div>
@@ -645,12 +601,71 @@ function Reader() {
       <main
         ref={article}
         className="reader-main"
+        inert={nav.overlay}
         onScroll={() => {
           if (readingReady.current && note && article.current)
             positions.current[note.id] = article.current.scrollTop;
           updateHeading();
         }}
       >
+        <div className="reader-topbar">
+          {!nav.docked && (
+            <div className="reader-navigation-actions">
+              <button
+                className="reader-tool-btn reader-open-directory"
+                aria-label={tr('展开侧栏')}
+                title={tr('展开侧栏')}
+                aria-controls="reader-navigation"
+                aria-expanded={menu}
+                onClick={() => {
+                  setQuery('');
+                  nav.show('tree');
+                }}
+              >
+                <Icon name="reader-sidebar" />
+              </button>
+              <button
+                className="reader-tool-btn"
+                aria-label={tr('搜索笔记')}
+                title={tr('搜索笔记')}
+                onClick={() => nav.show('search')}
+              >
+                <Icon name="search" />
+              </button>
+            </div>
+          )}
+          {selected ? (
+            <>
+              <button
+                className="reader-tool-btn"
+                aria-label={tr('阅读首页')}
+                title={tr('阅读首页')}
+                onClick={() => void open('')}
+              >
+                <Icon name="home" />
+              </button>
+              <Breadcrumbs
+                id={selected}
+                title={selectedDocument?.title}
+                query={destination.id === selected ? destination.query : ''}
+                onSelectFolder={editor.active ? undefined : selectFolderFromBreadcrumb}
+              />
+            </>
+          ) : (
+            <span className="reader-library-name">{catalog?.name || 'Palboo'}</span>
+          )}
+          {note && !editor.active && (
+            <button
+              type="button"
+              className="reader-edit-btn"
+              aria-label={tr('编辑笔记')}
+              title={tr('编辑 Markdown，自动保存到原文件')}
+              onClick={() => editor.begin(note)}
+            >
+              <Icon name="pencil" />
+            </button>
+          )}
+        </div>
         {error && (
           <div role="alert" className="reader-error">
             {error}
@@ -665,7 +680,10 @@ function Reader() {
             {tr('{{count}} 篇笔记未索引（无法读取或超过 8 MB）', { count: catalog.skipped })}
           </p>
         )}
-        {!note && selectedDocument?.kind !== 'spreadsheet' && (
+        {!selected && catalog && !error && (
+          <ReaderHome catalog={catalog} recent={recent.ids} open={open} />
+        )}
+        {!note && selectedDocument?.kind !== 'spreadsheet' && (selected || !catalog) && !error && (
           <p className="reader-empty" role="status">
             {busy
               ? tr('正在读取笔记目录…')
@@ -676,13 +694,6 @@ function Reader() {
         )}
         {selectedDocument?.kind === 'spreadsheet' && (
           <div className="reader-sheet-shell">
-            <div className="reader-topbar">
-              <Breadcrumbs
-                id={selected}
-                title={selectedDocument.title}
-                onSelectFolder={selectFolderFromBreadcrumb}
-              />
-            </div>
             <Spreadsheet key={selected} id={selected} revision={catalog?.revision || 0} />
           </div>
         )}
@@ -690,30 +701,10 @@ function Reader() {
           <article>
             {editor.active ? (
               <>
-                <div className="reader-topbar">
-                  <Breadcrumbs id={note.id} title={note.title} />
-                </div>
                 <NoteEditor editor={editor} />
               </>
             ) : (
               <>
-                <div className="reader-topbar">
-                  <Breadcrumbs
-                    id={note.id}
-                    title={note.title}
-                    query={destination.id === note.id ? destination.query : ''}
-                    onSelectFolder={selectFolderFromBreadcrumb}
-                  />
-                  <button
-                    type="button"
-                    className="reader-edit-btn"
-                    aria-label={tr('编辑笔记')}
-                    title={tr('编辑 Markdown，自动保存到原文件')}
-                    onClick={() => editor.begin(note)}
-                  >
-                    <Icon name="pencil" />
-                  </button>
-                </div>
                 {!toc.some((item) => item.level === 1) && (
                   <header className="reader-note-header">
                     <h1>{note.title}</h1>
@@ -737,9 +728,7 @@ function Reader() {
                     backlink={destination.id === note.id ? destination.backlink : ''}
                     onTag={(tag) => {
                       setQuery(tag);
-                      setOffset(0);
-                      setActiveResult(0);
-                      setMenu(true);
+                      nav.show('search');
                     }}
                     image={ReaderPicture}
                     id={note.id}

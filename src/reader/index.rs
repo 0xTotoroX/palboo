@@ -1,5 +1,5 @@
 // [INPUT]: Authorized vault files and CommonMark/Obsidian links parsed without executing HTML.
-// [OUTPUT]: Bounded incremental text index, paginated search, unambiguous link resolution and backlinks.
+// [OUTPUT]: Bounded incremental text index, stable title/path-first paginated search, link resolution and backlinks.
 // [POS]: In-memory derived state; refreshed explicitly/on reader focus, never persisted into the vault.
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 use super::{edit, files, spreadsheet};
@@ -218,10 +218,15 @@ impl Index {
         let words: Vec<_> = query.split_whitespace().collect();
         let mut matches = Vec::new();
         for (id, note) in &self.notes {
-            let name = id.to_lowercase();
+            let title = note.title.to_lowercase();
+            let name = format!("{title} {}", id.to_lowercase());
             let text = note.text.to_lowercase();
             if words.iter().all(|w| name.contains(w) || text.contains(w)) {
-                let rank = if name.contains(&query) { 0 } else { 1 };
+                let rank = if words.iter().all(|word| name.contains(word)) {
+                    usize::from(!title.starts_with(&query))
+                } else {
+                    2
+                };
                 // Snippet offsets use characters, not the lowercased UTF-8 byte offsets.
                 let chars: Vec<_> = note.text.chars().collect();
                 let position = words
@@ -234,16 +239,24 @@ impl Index {
                     .skip(position.saturating_sub(35))
                     .take(150)
                     .collect();
-                matches.push((rank, id, snippet));
+                matches.push((rank, 0, id, snippet));
             }
         }
-        for id in self.documents.keys() {
-            if words.iter().all(|w| id.to_lowercase().contains(w)) {
-                matches.push((0, id, String::new()));
+        for (id, title) in &self.documents {
+            let title = title.to_lowercase();
+            let name = format!("{title} {}", id.to_lowercase());
+            if words.iter().all(|word| name.contains(word)) {
+                matches.push((
+                    usize::from(!title.starts_with(&query)),
+                    1,
+                    id,
+                    String::new(),
+                ));
             }
         }
-        matches.sort_by(|a, b| (a.0, a.1).cmp(&(b.0, b.1)));
-        json!({"total":matches.len(),"offset":offset,"results":matches.iter().skip(offset).take(50).map(|(_,id,snippet)|{let mut value=self.summary(id);value["snippet"]=json!(snippet);value}).collect::<Vec<_>>()})
+        // Match the catalog's stable title-first ordering used by instant search.
+        matches.sort_by(|a, b| (a.0, a.1, a.2).cmp(&(b.0, b.1, b.2)));
+        json!({"total":matches.len(),"offset":offset,"results":matches.iter().skip(offset).take(50).map(|(_,_,id,snippet)|{let mut value=self.summary(id);value["snippet"]=json!(snippet);value}).collect::<Vec<_>>()})
     }
     pub fn resolve(&self, from: &str, raw: &str) -> Result<(Vec<String>, String)> {
         ensure!(self.notes.contains_key(from), "来源笔记已不存在，请刷新");

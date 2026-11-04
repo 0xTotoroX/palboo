@@ -188,7 +188,7 @@ try {
   await ai.press('Enter');
   assert.equal(await ai.evaluate((el) => getComputedStyle(el).listStyleType), 'none');
   record('folder icons, keyboard expansion, underscore-first and numeric natural order');
-  await page.getByRole('button', { name: '首页', exact: true }).click();
+  await page.locator('.reader-sidebar').getByRole('button', { name: '首页', exact: true }).click();
   await page.getByRole('heading', { name: '欢迎', exact: true }).waitFor();
   assert.equal(new URL(page.url()).hash, '');
   assert.equal(await page.evaluate(() => window.noteInjected), undefined);
@@ -203,7 +203,7 @@ try {
   await page.getByRole('button', { name: '另一文件名', exact: true }).click();
   await page.getByRole('heading', { name: '下划线标题', exact: true }).waitFor();
   assert.equal(await page.locator('h1').count(), 1, 'setext headings do not repeat the file title');
-  await page.getByRole('button', { name: '首页', exact: true }).click();
+  await page.locator('.reader-sidebar').getByRole('button', { name: '首页', exact: true }).click();
   await page.getByRole('heading', { name: '欢迎', exact: true }).waitFor();
   await page.getByRole('searchbox', { name: '搜索笔记' }).fill('needle');
   await page.locator('.reader-results button').first().waitFor();
@@ -258,18 +258,13 @@ try {
       false,
     );
     if (width === 390) {
-      if (
-        (await page
-          .getByRole('button', { name: '目录与搜索', exact: true })
-          .getAttribute('aria-expanded')) === 'true'
-      )
-        await page.getByRole('button', { name: '目录与搜索', exact: true }).click();
-      await page.getByRole('button', { name: '目录与搜索', exact: true }).click();
+      await page.getByRole('button', { name: '展开侧栏', exact: true }).click();
       assert.equal(await page.getByRole('searchbox', { name: '搜索笔记' }).isVisible(), true);
-      await page.getByRole('button', { name: '目录与搜索', exact: true }).click();
+      assert.equal(await page.locator('.reader-main').isVisible(), true);
+      await page.getByRole('button', { name: '关闭目录', exact: true }).click();
+      assert.equal(await page.locator('.reader-sidebar').isVisible(), false);
     }
   }
-  await page.getByRole('button', { name: '目录与搜索', exact: true }).click();
   await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce' });
   await page.waitForFunction(
     () => getComputedStyle(document.documentElement).colorScheme === 'dark',

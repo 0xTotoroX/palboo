@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 完整 dev.mjs、临时双 worktree、模拟编译器/CDP/后台及真实 Vite/Chromium。
- * [OUTPUT]: 固定地址下切换源码、回退、资源更新、前端选择器、失效租约恢复与有界清理的进程级验收及超时阶段诊断。
+ * [OUTPUT]: 固定地址下切换源码、回退、阅读器改动构建并重连、资源更新、前端选择器、失效租约恢复与有界清理的进程级验收及超时阶段诊断。
  * [POS]: 开发调试集成回归；所有端口、进程、配置均为隔离夹具。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -249,6 +249,21 @@ test(
       await until(
         async () => (await (await send('dev/sources')).json()).loaded === true,
         'selected worktree hot update applied',
+        45000,
+      );
+      const readerPid = readRecord(join(base, 'injection.json')).pid;
+      const readerBuild = readRecord(join(other, 'target/dev/web-build.json')).source;
+      appendFileSync(join(other, 'ui/reader/style.css'), '\n:root { --reader-fixture-change: 1; }');
+      await until(
+        () =>
+          readRecord(join(base, 'injection.json'))?.pid !== readerPid &&
+          readRecord(join(other, 'target/dev/web-build.json'))?.source !== readerBuild,
+        'reader-only edit builds web assets and reconnects the backend',
+        45000,
+      );
+      await until(
+        async () => (await (await send('dev/sources')).json()).loaded === true,
+        'reader-only edit applied',
         45000,
       );
       // Render the complete React page together with the injected source selector.

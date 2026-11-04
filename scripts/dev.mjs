@@ -1,6 +1,6 @@
 /*
  * [INPUT]: Git worktrees、Rust/Node、来源选择器与独立开发数据目录。
- * [OUTPUT]: 一条命令启动设置页热更新、胶囊热加载及 Rust/模型控制资源编译后自动重启；显式 --restart-running 复用共享宿主准备，安全恢复失效租约，含占用检查在内的启动错误传回 App；App 新会话按宿主进程身份退出清理，终端默认持续调试。
+ * [OUTPUT]: 设置页热更新、胶囊热加载及阅读器网页先构建后内嵌；Rust/内嵌资源编译成功后交接后台；显式 --restart-running 复用宿主准备，安全恢复失效租约，启动错误传回 App；App 会话按宿主身份退出清理。
  * [POS]: 持久开发编排与统一设置入口；先绑定稳定地址供后台齿轮打开，各来源隔离 Vite 缓存；持有目标租约并串行交接 worktree，管理开发进程，显式启用时委托共享宿主启动策略，暂停并恢复安装版连接，不改写官方应用包。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -23,6 +23,7 @@ import { randomUUID } from 'node:crypto';
 import { createServer as createHttpServer } from 'node:http';
 import { createServer } from 'vite';
 import { buildDevPanel, filesUnder, fingerprint } from './dev-panel.mjs';
+import { isWebInput, prepareWebAssets } from './dev-web.mjs';
 import { startGateway, command, stopChild, until } from './dev-runtime.mjs';
 import {
   sourcePreference,
@@ -129,6 +130,8 @@ let injectedSettings;
 let hostProcess, stopHostWatch, cleanupTask;
 const nativeInputs = (root) => [
   ...filesUnder(root, 'src'),
+  ...filesUnder(root, 'ui').filter(isWebInput),
+  ...filesUnder(root, 'target/web'),
   existsSync(join(root, 'ui/codex/model.js')) ? 'ui/codex/model.js' : 'ui/model-control/host.js',
   ...(existsSync(join(root, 'ui/codex/codex-host.js')) ? ['ui/codex/codex-host.js'] : []),
   ...(existsSync(join(root, 'ui/codex/codex-host-preview.js'))
@@ -219,6 +222,8 @@ async function startService() {
 }
 async function rebuildNative() {
   if (closing) return;
+  await prepareWebAssets(root, () => execute('npm', ['run', 'build:web']));
+  if (closing) return;
   const before = fingerprint(root, nativeInputs(root));
   if (before === nativeFingerprint && existsSync(binary)) return;
   console.log('正在编译 Rust；现有开发窗口保持运行…');
@@ -291,6 +296,7 @@ function changed(path) {
   )
     pendingPanel = true;
   if (
+    isWebInput(path) ||
     path.startsWith('src/') ||
     path === 'ui/codex/model.js' ||
     path.startsWith('ui/model-control/') ||
@@ -460,9 +466,11 @@ function createSourceSwitcher() {
           }
           if (alive) throw new Error('目标 worktree 的后台仍在运行，请先从原会话正常退出。');
         }
-        const before = fingerprint(next.root, nativeInputs(next.root));
         await buildDevPanel(next.root, next.snapshot);
-        await command('npm', ['run', 'build:web'], next.options, children);
+        await prepareWebAssets(next.root, () =>
+          command('npm', ['run', 'build:web'], next.options, children),
+        );
+        const before = fingerprint(next.root, nativeInputs(next.root));
         await command('cargo', ['build', '--locked'], next.options, children);
         if (closing) throw new Error('开发会话正在退出');
         if (before !== fingerprint(next.root, nativeInputs(next.root)))

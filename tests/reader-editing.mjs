@@ -8,17 +8,24 @@ import { join } from 'node:path';
 
 export async function exerciseReaderEditing({ page, vault, url, record }) {
   await page.goto(url);
-  const sidebar = page.getByRole('button', { name: '目录与搜索', exact: true });
-  if ((await sidebar.getAttribute('aria-expanded')) !== 'true') await sidebar.click();
+  const pinSidebar = async () => {
+    if (!(await page.locator('.reader-sidebar').isVisible()))
+      await page.getByRole('button', { name: '展开侧栏', exact: true }).click();
+    const pin = page.getByRole('button', { name: '固定侧栏', exact: true });
+    if (await pin.isVisible()) await pin.click();
+  };
+  const sidebar = page.getByRole('button', { name: '收起侧栏', exact: true });
+  await pinSidebar();
   await page.getByRole('searchbox', { name: '搜索笔记' }).waitFor();
   await sidebar.click();
   assert.equal(
     await page.locator('.reader-sidebar').evaluate((node) => node.getBoundingClientRect().width),
-    44,
+    0,
   );
   await page.reload();
-  assert.equal(await sidebar.getAttribute('aria-expanded'), 'false');
-  await sidebar.click();
+  await page.getByRole('button', { name: '展开侧栏', exact: true }).waitFor();
+  assert.equal(await page.locator('.reader-sidebar').isVisible(), false);
+  await pinSidebar();
   let settingsOpened = false;
   await page.route('**/api/settings-open', (route) => {
     settingsOpened = true;
@@ -29,7 +36,9 @@ export async function exerciseReaderEditing({ page, vault, url, record }) {
     page.getByRole('button', { name: '笔记文件夹设置' }).click(),
   ]);
   assert.equal(settingsOpened, true);
-  record('no top bar/read-only label; sidebar collapse persists; direct folder settings action');
+  record(
+    'compact reader toolbar; zero-width sidebar collapse persists; direct folder settings action',
+  );
 
   const folder = page.locator('.reader-sidebar summary').filter({ hasText: /^项目$/ });
   if (!(await folder.evaluate((node) => node.parentElement.open))) await folder.click();
@@ -58,7 +67,7 @@ export async function exerciseReaderEditing({ page, vault, url, record }) {
     'XLSX sheets, cached formulas and pagination; quoted CSV; inert HTML; corrupt workbook feedback',
   );
 
-  await page.getByRole('button', { name: '首页', exact: true }).click();
+  await page.locator('.reader-sidebar').getByRole('button', { name: '首页', exact: true }).click();
   await page.getByRole('heading', { name: '欢迎', exact: true }).waitFor();
   const file = join(vault, '首页.md');
   const original = readFileSync(file, 'utf8');
@@ -74,7 +83,7 @@ export async function exerciseReaderEditing({ page, vault, url, record }) {
   assert.equal(await input.isVisible(), true);
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
   await page.setViewportSize({ width: 1100, height: 820 });
-  await sidebar.click();
+  await pinSidebar();
   await page.waitForTimeout(850);
   assert.equal(saveRequests.length, 0, 'entering edit does not write');
   let release;
@@ -118,7 +127,7 @@ export async function exerciseReaderEditing({ page, vault, url, record }) {
     'no write on edit entry; serialized autosave keeps in-flight typing and IME; navigation flushes',
   );
 
-  await page.getByRole('button', { name: '首页', exact: true }).click();
+  await page.locator('.reader-sidebar').getByRole('button', { name: '首页', exact: true }).click();
   await page.getByRole('heading', { name: '自动保存', exact: true }).waitFor();
   await page.getByRole('button', { name: '编辑笔记' }).click();
   writeFileSync(file, '# 外部修改\n\n来自另一个编辑器');

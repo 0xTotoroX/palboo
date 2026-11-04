@@ -1,5 +1,5 @@
 // [INPUT]: App、Runtime、app_mode/app_update、本机认证令牌、target/web 与 ui/panel/popout 资源。
-// [OUTPUT]: serve、认证任务/宿主字体 API、HTTP/SSE API、设置页、看板和弹出页资源；含原生呈现确认的窗口协议及受鉴权的无正文开发状态与仅开发模式开放的工作台唤起接口。
+// [OUTPUT]: serve、认证任务/宿主字体 API、HTTP/SSE API、设置页、看板和弹出页资源及禁止缓存的阅读器资源；含原生呈现确认的窗口协议及受鉴权的无正文开发状态与仅开发模式开放的工作台唤起接口。
 // [POS]: 仅监听 loopback 的服务入口，公开状态剔除聊天正文并携带设置界面外观快照；认证状态携带 Dev 设置地址供旧入口跳转；更新读取/检查/安装和模型控制、窗口租约共用鉴权；操作锁由对应服务管理。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
@@ -441,7 +441,14 @@ pub(crate) fn reader_asset(path: &str) -> Response {
     } else {
         "application/octet-stream"
     };
-    ([(header::CONTENT_TYPE, mime)], asset.data.to_vec()).into_response()
+    (
+        [
+            (header::CONTENT_TYPE, mime),
+            (header::CACHE_CONTROL, "no-store"),
+        ],
+        asset.data.to_vec(),
+    )
+        .into_response()
 }
 
 async fn open_settings(

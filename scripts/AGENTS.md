@@ -13,6 +13,7 @@ npm 命令进入开发、构建、审计、安装和验证编排工具；具体�
 - [dev-dock.mjs](dev-dock.mjs)：可选统一目标，将已固定的旧 Dev/Palboo 图标原位指向 Palboo.app，丢弃书签并去重；未固定不新增，其余项目不变。私有备份、并发回读及刷新沿用。
 
 - [dev-launcher.mjs](dev-launcher.mjs)：install:dev 登记源码及 Node 到统一 App，入口能力不足时更新完整 App，迁移 Dock 后归档旧 Dev App；保留 open/stop/settings/run 兼容及真实宿主策略、进程身份/租约与焦点目标回读。固定连接不重开宿主，失败仅清理本次在 launcher 锁内创建的会话。
+- [dev-web.mjs](dev-web.mjs)：阅读器/共享依赖/构建配置的源码与产物指纹，启动/原生重建/来源切换前按需构建网页；失败或构建期间源码变化不登记成功，后台沿用上一版。
 - [dev.mjs](dev.mjs)：真实 Codex 开发入口，管理独立后台、源码监听和编译失败回退，独立模型控制资源变化随原生后台重建；持有宿主目标与所选 worktree 租约，先绑定统一设置服务地址再传给开发后台齿轮，每个来源独立 Vite 缓存并去重 React；先编译后交接来源、失败回退，切换 Vite/监听/后台而不重启宿主；启动前先发现可调试宿主；显式 --restart-running 时先构建当前 CLI，再通过 host-only 模式准备宿主，仅在接管安装版后启用退出恢复，含占用获取和初始化在内的失败原因与进程 ID 写入私有 launcher-error.json，退出只清理本次会话记录；Ctrl+C 清理自身进程并恢复安装版连接。
 - [material-preview.mjs](material-preview.mjs)：`dev:materials` 入口，将 Swift 对照工具编译到 target/material-preview 后打开；`--check` 验证同步控制，`--package` 在 dist/material-preview 生成自带程序和 GPL-3.0-only 完整许可包的独立 App，并输出 ZIP；source/ 同时导出源码、独立构建入口和说明，可脱离主仓库二次开发；不修改安装版或产品偏好。
 - [material-preview.swift](material-preview.swift)：14 种 NSVisualEffectView 材质的原生并排对照；独立背景窗口提供重复图案，统一切换外观、焦点状态与背景，支持真实桌面采样；标题栏固定不透明底色并跟随预览明暗。

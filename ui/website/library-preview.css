@@ -65,6 +65,9 @@
 .reader-nav-toggle {
   display: none;
 }
+.library-navigation-actions {
+  display: none;
+}
 .reader-library-row strong,
 .reader-sidebar nav,
 .reader-search input,
@@ -111,7 +114,14 @@
 @container library (max-width: 540px) {
   .reader-app,
   .reader-app[data-menu='false'] {
-    grid-template-columns: 44px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .reader-app[data-menu='false'] .reader-sidebar {
+    display: none;
+  }
+  .library-navigation-actions {
+    display: flex;
+    gap: 4px;
   }
   .reader-app[data-menu='true'] {
     grid-template-columns: minmax(0, 1fr);

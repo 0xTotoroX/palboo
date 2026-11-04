@@ -1,5 +1,5 @@
 /* [INPUT]: Transport-free reader components, original reader CSS and synthetic portfolio documents.
- * [OUTPUT]: An in-memory resizable reading/editing/workbook scene with structured Markdown with an isolated web-reference tab.
+ * [OUTPUT]: In-memory reading/editing/workbooks with resizable navigation, compact reopen actions and an isolated web-reference tab.
  * [POS]: Website adapter only; edits stay in memory and links never contact a backend or remote site.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { useLayoutEffect, useRef, useState } from 'react';
@@ -31,6 +31,8 @@ export function LocalLibraryPreview() {
   const [draft, setDraft] = useState('');
   const [error, setError] = useState('');
   const content = useRef<HTMLDivElement>(null);
+  const searchInput = useRef<HTMLInputElement>(null);
+  const focusSearch = useRef(false);
   const focusContent = useRef(false);
   const tabButtons = useRef<(HTMLButtonElement | null)[]>([]);
   const notes = libraryNotes().map((note) => ({
@@ -49,6 +51,10 @@ export function LocalLibraryPreview() {
       .includes(query.trim().toLocaleLowerCase()),
   );
   useLayoutEffect(() => {
+    if (menu && focusSearch.current) {
+      focusSearch.current = false;
+      searchInput.current?.focus();
+    }
     if (focusContent.current) {
       focusContent.current = false;
       content.current?.focus({ preventScroll: true });
@@ -89,6 +95,29 @@ export function LocalLibraryPreview() {
     { id: 'notes', label: tr('本地笔记'), icon: 'reader-folder' },
     { id: 'reference', label: tr('设计参考'), icon: 'feature-sites' },
   ];
+  const navigationActions = (
+    <div className="library-navigation-actions">
+      <button
+        className="reader-tool-btn"
+        aria-label={tr('目录与搜索')}
+        title={tr('目录与搜索')}
+        onClick={() => setMenu(true)}
+      >
+        <Icon name="reader-sidebar" />
+      </button>
+      <button
+        className="reader-tool-btn"
+        aria-label={tr('搜索笔记')}
+        title={tr('搜索笔记')}
+        onClick={() => {
+          focusSearch.current = true;
+          setMenu(true);
+        }}
+      >
+        <Icon name="search" />
+      </button>
+    </div>
+  );
   return (
     <DemoSurface kind="reader" styles={styles}>
       <div className="library-demo">
@@ -148,6 +177,7 @@ export function LocalLibraryPreview() {
                 <label className="reader-search">
                   <Icon name="search" />
                   <input
+                    ref={searchInput}
                     type="search"
                     aria-label={tr('搜索笔记')}
                     placeholder={tr('搜索笔记')}
@@ -166,6 +196,7 @@ export function LocalLibraryPreview() {
               {selected === 'assets.xlsx' ? (
                 <div className="reader-sheet-shell">
                   <div className="reader-topbar">
+                    {navigationActions}
                     <Breadcrumbs id={selected} title={tr('素材清单')} />
                   </div>
                   <WorkbookView
@@ -181,6 +212,7 @@ export function LocalLibraryPreview() {
               ) : editing ? (
                 <article>
                   <div className="reader-topbar">
+                    {navigationActions}
                     <Breadcrumbs id={selected} title={note.title} />
                   </div>
                   <NoteEditor editor={editor} />
@@ -188,6 +220,7 @@ export function LocalLibraryPreview() {
               ) : (
                 <article>
                   <div className="reader-topbar">
+                    {navigationActions}
                     <Breadcrumbs id={selected} title={note.title} query={query} />
                     <button
                       type="button"
