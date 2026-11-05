@@ -14,11 +14,12 @@ import { openSideChatAdapter } from './side-chat-native.js';
 const OWN = '[data-companion-stepwise-root],[data-palboo-features-root],[data-palboo-side-chat]';
 const EDITOR =
   '.ProseMirror[contenteditable="true"],[data-codex-composer][contenteditable="true"],textarea';
+const PANEL = '[role="tabpanel"][data-tab-id^="sidechat:"]';
 const visible = (node) =>
   node.isConnected &&
   node.getBoundingClientRect().width > 0 &&
   node.getBoundingClientRect().height > 0 &&
-  !node.closest('[hidden],[inert],[aria-hidden="true"]') &&
+  !node.closest('[hidden],[inert],[aria-hidden="true"],[data-app-shell-active-page="false"]') &&
   getComputedStyle(node).visibility !== 'hidden';
 const signature = (editor) =>
   editor instanceof HTMLTextAreaElement || editor instanceof HTMLInputElement
@@ -42,9 +43,9 @@ const unsupportedDraft = (target) =>
   );
 
 export function sideChatTarget() {
-  const panels = [
-    ...document.querySelectorAll('[role="tabpanel"][data-tab-id^="sidechat:"]'),
-  ].filter((panel) => visible(panel) && panel.closest('[data-app-shell-focus-area="right-panel"]'));
+  const panels = [...document.querySelectorAll(PANEL)].filter(
+    (panel) => visible(panel) && panel.closest('[data-app-shell-focus-area="right-panel"]'),
+  );
   const targets = panels.flatMap((panel) => {
     const editors = [...panel.querySelectorAll(EDITOR)].filter(
       (editor) => visible(editor) && !editor.closest(OWN),
@@ -118,7 +119,7 @@ export function installSideChatSwitcher({
     notice.hidden = !text && !recovery;
     const anchor =
       getTarget()?.composerRoot ||
-      document.querySelector('[data-app-shell-main-content-layout],main');
+      [...document.querySelectorAll('[data-app-shell-main-content-layout],main')].find(visible);
     if (anchor && notice.parentElement !== anchor) anchor.append(notice);
   }
   recover.addEventListener(
@@ -140,6 +141,20 @@ export function installSideChatSwitcher({
     if (disposed || !isEnabled()) {
       host.remove();
       return;
+    }
+    // 宿主保留未激活页面的 DOM；重新展开可能只改变祖先布局，不产生子树变化。
+    const panels = new Set(document.querySelectorAll(PANEL));
+    for (const panel of observedPanels) {
+      if (!panels.has(panel)) {
+        sizes.unobserve(panel);
+        observedPanels.delete(panel);
+      }
+    }
+    for (const panel of panels) {
+      if (!observedPanels.has(panel)) {
+        sizes.observe(panel);
+        observedPanels.add(panel);
+      }
     }
     const next = getTarget();
     if (mounted?.composer !== next?.composer) composing = false;
@@ -282,13 +297,7 @@ export function installSideChatSwitcher({
       } else {
         const state = await step(operation, native.localState());
         checkSource(operation);
-        if (
-          !state ||
-          state.id !== native.id ||
-          state.ephemeral !== false ||
-          state.busy ||
-          state.side !== true
-        )
+        if (!state || state.id !== native.id || state.ephemeral !== false || state.busy)
           throw Error(tr('此侧边聊天尚未就绪或仍在处理，请稍后重试。'));
         const first = await step(operation, native.firstQuestion());
         checkSource(operation);
@@ -310,7 +319,8 @@ export function installSideChatSwitcher({
         if (!ready || ready.busy || ready.ephemeral !== false)
           throw Error(tr('此侧边聊天尚未就绪或仍在处理，请稍后重试。'));
         if (!native.mainUnchanged()) throw Error(tr('草稿或聊天已变化，未继续切换。'));
-        await step(operation, native.reload());
+        // 已转正的会话也可重新附在侧栏；此时只切换视图，保留正在使用的正常缓存。
+        if (ready.side === true) await step(operation, native.reload());
         active(operation);
         if (!native.mainUnchanged()) throw Error(tr('草稿或聊天已变化，未继续切换。'));
         native.navigate();
@@ -321,10 +331,7 @@ export function installSideChatSwitcher({
       }
       await fill(operation, text);
       if (native.kind === 'local') {
-        await waitFor(operation, async () => {
-          const state = await native.localState();
-          return state?.id === native.id && state.side !== true;
-        });
+        await waitFor(operation, () => native.promoted(destination(native)));
       }
       recovery = null;
       status('');
@@ -348,6 +355,16 @@ export function installSideChatSwitcher({
       { capture: true, signal: life.signal },
     );
   let refreshTimer;
+  const scheduleRefresh = () => {
+    // 其他聊天持续流式更新时也必须按期挂载，不能被全页变更无限推迟。
+    if (refreshTimer) return;
+    refreshTimer = setTimeout(() => {
+      refreshTimer = null;
+      refresh();
+    }, 80);
+  };
+  const observedPanels = new Set();
+  const sizes = new ResizeObserver(scheduleRefresh);
   const observer = new MutationObserver((mutations) => {
     if (
       mutations.every(
@@ -355,8 +372,7 @@ export function installSideChatSwitcher({
       )
     )
       return;
-    clearTimeout(refreshTimer);
-    refreshTimer = setTimeout(refresh, 80);
+    scheduleRefresh();
   });
   observer.observe(document.body, {
     childList: true,
@@ -369,6 +385,8 @@ export function installSideChatSwitcher({
       'aria-hidden',
       'data-tab-id',
       'data-state',
+      'data-app-shell-active-page',
+      'data-app-shell-focus-area',
       'contenteditable',
       'readonly',
     ],
@@ -381,6 +399,8 @@ export function installSideChatSwitcher({
       disposed = true;
       pending = null;
       observer.disconnect();
+      sizes.disconnect();
+      observedPanels.clear();
       clearTimeout(refreshTimer);
       life.abort();
       host.remove();

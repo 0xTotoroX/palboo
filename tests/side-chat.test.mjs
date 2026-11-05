@@ -100,6 +100,7 @@ button{width:32px;height:32px}button[data-codexhost-agent-control]{width:80px}
           if (key === 'account') return window.account;
           if (key === 'user') return 'user';
           if (key === 'temporary') return false;
+          if (key === 'thread-host') return options.destinationHost ?? 'local';
         },
         set() {},
         query: { invalidate: (key) => window.log.push(['invalidate', key]) },
@@ -178,24 +179,37 @@ button{width:32px;height:32px}button[data-codexhost-agent-control]{width:80px}
             getThreadPanelTabController: (name) => controllers[name],
             W3: (_scope, name) => window.log.push(['hide', name]),
           },
-          Dgwo: { V: () => rpc },
+          Dgwo: {
+            V: (scope) =>
+              options.staleSource && scope.value.conversationId === 'parent'
+                ? {
+                    ...rpc,
+                    getConversation(id) {
+                      if (window.navigated) throw Error('Disposed source scope');
+                      return rpc.getConversation(id);
+                    },
+                  }
+                : rpc,
+          },
           TL6G: {
             O1: {
               handlers: new Set(['navigate-to-route']),
               dispatchHostMessage(message) {
                 window.log.push(['navigate', message.path]);
+                window.navigated = true;
                 if (window.hooks.navigate) return window.hooks.navigate();
                 main.textContent = options.destinationDraft || '';
                 const id = message.path.split('/').at(-1);
                 window.attachScope(main, {
                   routeKind: options.cloud ? 'chatgpt-thread' : 'local-thread',
                   conversationId: id,
-                  hostId: 'local',
+                  hostId: options.explicitDestinationHost ? 'local' : null,
                 });
               },
             },
           },
           DBCl: { _RT: (id) => `/local/${id}` },
+          tl5a: { qX: 'thread-host' },
           fKdM: { v: 'recents' },
           SPnB: { chatGptAuthenticatedAccountId$: 'account', o8: 'user' },
           OOaz: { co: () => 'new-cloud-id' },
@@ -271,6 +285,25 @@ test('persistent local promotion preserves id, ancestry and exact draft, uses ac
   }
 });
 
+test('an already surfaced persistent conversation switches without discarding its cache', async () => {
+  const page = await fixture({ meta: { sideConversation: undefined } });
+  try {
+    await click(page);
+    await settled(page);
+    assert.equal(
+      (await actions(page)).some(([kind]) => kind === 'reload'),
+      false,
+    );
+    assert.equal(
+      (await actions(page)).some(([kind]) => kind === 'navigate'),
+      true,
+    );
+    assert.equal(await page.evaluate(() => window.__palbooSideChat.recovery()), null);
+  } finally {
+    await page.close();
+  }
+});
+
 test('title precedence, default labels, stored names and Unicode cap', async () => {
   const page = await fixture();
   try {
@@ -283,6 +316,19 @@ test('title precedence, default labels, stored names and Unicode cap', async () 
       ]),
       ['Actual tab', 'stored', 'question', 60],
     );
+  } finally {
+    await page.close();
+  }
+});
+
+test('completion reads the destination scope after the source RPC is disposed', async () => {
+  const page = await fixture({ staleSource: true });
+  try {
+    await click(page);
+    await settled(page);
+    assert.equal(await page.evaluate(() => window.__palbooSideChat.recovery()), null);
+    assert.equal(await page.locator('[data-palboo-side-chat=status]:visible').count(), 0);
+    assert.equal(await page.evaluate(() => window.meta.sideConversation), false);
   } finally {
     await page.close();
   }
@@ -331,6 +377,56 @@ test('entry is only in one visible right side composer, matches native geometry 
     assert.equal(await page.locator('[data-palboo-side-chat=true]').count(), 0);
     assert.deepEqual(await actions(page), []);
   } finally {
+    await page.close();
+  }
+});
+
+test('a retained side chat mounts after becoming visible without a subtree mutation', async () => {
+  const page = await fixture();
+  try {
+    await page.evaluate(() => {
+      window.__palbooSideChat.destroy();
+      document.querySelector('aside').style.display = 'none';
+      window.setup();
+    });
+    assert.equal(await page.locator('[data-palboo-side-chat=true]').count(), 0);
+    // Allow the hidden initial layout to settle; reveal changes only an ancestor's style.
+    await page.waitForTimeout(120);
+    await page.evaluate(() => {
+      document.querySelector('aside').style.display = '';
+    });
+    await page.getByRole('button', { name: '切至主聊天', exact: true }).waitFor({ timeout: 2000 });
+    await page.evaluate(() => {
+      document.querySelector('aside').dataset.appShellActivePage = 'false';
+    });
+    await page.waitForFunction(() => !document.querySelector('[data-palboo-side-chat=true]'));
+    await page.evaluate(() => {
+      document.querySelector('aside').dataset.appShellActivePage = 'true';
+    });
+    await page.getByRole('button', { name: '切至主聊天', exact: true }).waitFor();
+  } finally {
+    await page.close();
+  }
+});
+
+test('continuous mutations in another chat cannot starve side-chat mounting', async () => {
+  const page = await fixture();
+  try {
+    await page.evaluate(() => {
+      window.__palbooSideChat.destroy();
+      document.querySelector('aside').hidden = true;
+      window.setup();
+      const noise = document.createElement('span');
+      document.querySelector('main').append(noise);
+      window.noiseTimer = setInterval(() => noise.replaceChildren(document.createElement('i')), 20);
+    });
+    await page.waitForTimeout(120);
+    await page.evaluate(() => {
+      document.querySelector('aside').hidden = false;
+    });
+    await page.getByRole('button', { name: '切至主聊天', exact: true }).waitFor({ timeout: 1500 });
+  } finally {
+    await page.evaluate(() => clearInterval(window.noiseTimer));
     await page.close();
   }
 });
@@ -535,21 +631,35 @@ test('unknown host, account changes, rich source draft and attachments fail with
   }
 });
 
-test('unrelated destination is never filled; timeout keeps recoverable draft', async () => {
-  const page = await fixture();
-  try {
-    await page.clock.install();
-    await page.evaluate(() => {
-      window.hooks.navigate = () => {};
+test('unrelated conversation or host is never filled; recovery stays in the active page', async () => {
+  for (const wrongHost of [false, true]) {
+    const page = await fixture({
+      destinationHost: wrongHost ? 'remote-other' : 'local',
+      destinationDraft: 'parent draft',
     });
-    await click(page);
-    await page.waitForFunction(() => window.log.some(([kind]) => kind === 'navigate'));
-    await page.clock.runFor(20100);
-    await settled(page);
-    assert.equal(await page.locator('main .ProseMirror').textContent(), 'parent draft');
-    assert.ok(await page.evaluate(() => !!window.__palbooSideChat.recovery()));
-  } finally {
-    await page.close();
+    try {
+      await page.clock.install();
+      await page.evaluate((wrongHost) => {
+        if (!wrongHost) window.hooks.navigate = () => {};
+        const inactive = document.createElement('main');
+        inactive.dataset.appShellActivePage = 'false';
+        inactive.style.cssText = 'width:100px;height:100px';
+        document.body.prepend(inactive);
+      }, wrongHost);
+      await click(page);
+      await page.waitForFunction(() => window.log.some(([kind]) => kind === 'navigate'));
+      await page.clock.runFor(20100);
+      await settled(page);
+      assert.equal(await page.locator('main .ProseMirror').textContent(), 'parent draft');
+      assert.ok(await page.evaluate(() => !!window.__palbooSideChat.recovery()));
+      assert.equal(
+        await page.locator('[data-app-shell-active-page=false] [data-palboo-side-chat]').count(),
+        0,
+      );
+      assert.equal(await page.locator('[data-palboo-side-chat=status]:visible').count(), 1);
+    } finally {
+      await page.close();
+    }
   }
 });
 

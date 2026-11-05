@@ -85,6 +85,7 @@ export function sideChatAdapter(target, runtime) {
   // 此接口组合由随包源码与只读实机探针核对；符号或形状变化时停止，不能猜测另一会话。
   const panels = runtime.c.XXJV?.exports;
   const manager = runtime.c.Dgwo?.exports;
+  const threadHosts = runtime.c.tl5a?.exports;
   const bus = runtime.c.TL6G?.exports?.O1;
   const route = runtime.c.DBCl?.exports?._RT;
   if (
@@ -105,6 +106,7 @@ export function sideChatAdapter(target, runtime) {
   if (
     !cloud &&
     (typeof manager?.V !== 'function' ||
+      !threadHosts?.qX ||
       typeof route !== 'function' ||
       route('palboo-probe') !== '/local/palboo-probe')
   )
@@ -157,7 +159,9 @@ export function sideChatAdapter(target, runtime) {
       .filter(
         (editor) =>
           editor.getBoundingClientRect().width > 0 &&
-          !editor.closest('[hidden],[inert],[aria-hidden="true"]') &&
+          !editor.closest(
+            '[hidden],[inert],[aria-hidden="true"],[data-app-shell-active-page="false"]',
+          ) &&
           !editor.closest(
             '[data-app-shell-focus-area="right-panel"],[data-app-shell-focus-area="bottom-panel"],[data-palboo-features-root],[data-companion-stepwise-root],[data-palboo-prompt],[data-palboo-side-chat],section[role="dialog"]',
           ),
@@ -177,8 +181,12 @@ export function sideChatAdapter(target, runtime) {
   )
     throw unsupported();
   let destinationId = cloud ? null : id;
-  const readLocal = async () => {
-    const conversation = await rpc.getConversation(id);
+  // /local/:id 路由通常不含 hostId，使用宿主与 durable-side-chat 相同的归属查询。
+  const localHost = (scope) =>
+    scope?.value.hostId ??
+    (threadHosts?.qX ? scope?.get(threadHosts.qX, scope.value.conversationId) : null);
+  const readLocal = async (client = rpc) => {
+    const conversation = await client.getConversation(id);
     try {
       return conversation
         ? {
@@ -206,6 +214,19 @@ export function sideChatAdapter(target, runtime) {
       return state && typeof execution?.inProgress === 'boolean'
         ? { ...state, busy: execution.inProgress || state.requests > 0 }
         : null;
+    },
+    async promoted(editor) {
+      const destinationScope = nativeScope(editor);
+      if (
+        !editor?.isConnected ||
+        destinationScope?.value.routeKind !== 'local-thread' ||
+        destinationScope.value.conversationId !== id ||
+        localHost(destinationScope) !== content.hostId
+      )
+        return false;
+      // 主路由接手后旧页面的 RPC lease 可能只保留过期缓存，必须从目标页面重新取连接。
+      const state = await readLocal(manager.V(destinationScope, content.hostId));
+      return state?.id === id && state.ephemeral === false && state.side !== true;
     },
     async firstQuestion() {
       const input = await rpc.getConversationTitleInput(id);
@@ -261,7 +282,8 @@ export function sideChatAdapter(target, runtime) {
     },
     matchesDestination(editor) {
       if (!currentAccount()) return false;
-      const value = nativeScope(editor)?.value;
+      const destinationScope = nativeScope(editor);
+      const value = destinationScope?.value;
       if (
         !value ||
         value.workSideChat ||
@@ -272,7 +294,7 @@ export function sideChatAdapter(target, runtime) {
         ? value.conversationId === destinationId && value.routeKind === 'chatgpt-thread'
         : value.routeKind === 'local-thread' &&
             value.conversationId === id &&
-            value.hostId === content.hostId;
+            localHost(destinationScope) === content.hostId;
     },
   };
 }
