@@ -604,7 +604,7 @@ test('context adapter uses the preceding completed turn and never another chat w
     const turn = (key, q, a) =>
       `<div class="contents" data-content-search-turn-key="${key}"><div class="items-end"><h4 class="sr-only">你说：</h4><p>${q}</p></div><div class="group"><h4 class="sr-only">ChatGPT 说：</h4><p>${a}</p></div></div>`;
     await page.setContent(
-      `<div class="thread-scroll-container" data-session-id="one">${turn('001', '解释竞态条件', '竞态条件是结果依赖多个操作的完成顺序。')}${turn('002', '正在输入新问题', '正在生成的新回答，不应该被读取。')}<button aria-label="停止">停止</button></div>`,
+      `<div class="thread-scroll-container" data-session-id="one">${turn('ffffffff-ffff-4fff-8fff-ffffffffffff', '解释竞态条件', '竞态条件是结果依赖多个操作的完成顺序。')}${turn('11111111-1111-4111-8111-111111111111', '正在输入新问题', '正在生成的新回答，不应该被读取。')}<button aria-label="停止">停止</button></div>`,
     );
     await page.addScriptTag({ content: script });
     const previous = await page.evaluate(() => window.readExchange());
@@ -612,7 +612,12 @@ test('context adapter uses the preceding completed turn and never another chat w
     assert.ok(previous.answer.includes('完成顺序'));
     assert.equal(previous.complete, true);
     await page.locator('[aria-label=停止]').evaluate((e) => e.remove());
-    assert.ok((await page.evaluate(() => window.readExchange())).answer.includes('正在生成'));
+    const completed = await page.evaluate(() => window.readExchange());
+    assert.equal(completed.question, '解释竞态条件\n\n正在输入新问题');
+    assert.equal(
+      completed.answer,
+      '竞态条件是结果依赖多个操作的完成顺序。\n\n正在生成的新回答，不应该被读取。',
+    );
     await page.locator('.thread-scroll-container').evaluate(
       (e, html) => {
         e.dataset.sessionId = 'two';

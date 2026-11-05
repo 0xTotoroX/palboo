@@ -8,7 +8,7 @@ settings-sync 的 tools 通知按独立开关安装/销毁提示词优化和术�
 
 shared/constants 与 state 为下层基础；Codex 适配和功能模块各自工作；settings-sync 协调开关，presentation 生成投影，lifecycle 订阅通知并组合运行。状态分为 runtime、context、stepwise、outline、shell 五组；旧调试 state 只提供兼容投影。
 
-presentation 投影历史回复模式并核对目录命令的内容 token；lifecycle 扫描时同步回复按钮与所选回复，聊天切换恢复跟随最新。
+presentation 投影历史回复模式并核对目录命令的内容 token；lifecycle 每轮扫描共用 context 已读取的最新轮次身份同步回复按钮，避免为按钮重复采集正文，再同步所选回复，聊天切换恢复跟随最新。
 
 presentation 的 panelReadingState 由 lifecycle 导出，记录标签、预览条目及滚动位置；工作台额外记录 outline/next 各自的内容 token 与滚动位置，通过 surfaces/workspace/reading 保存隐藏标签的滚动意图，并以任务/内容 token 校验；只在初次呈现或收回时恢复。panelWindowAnchor 提供临时屏幕矩形，隐藏内嵌或宿主页面不可见时由 shellLayout 计算，按出发形态返回胶囊或展开矩形；blinkHandoff 在交接结束眨眼一次。setDetached 是可等待、可反向中断的淡化交接，shell 保存临时动画与完成 promise，lifecycle 停用时回收。后台不可见页面或减少动态效果时立即交接，避免等待被浏览器暂停的帧；常规投影不重置阅读位置。
 

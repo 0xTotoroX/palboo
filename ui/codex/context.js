@@ -1,7 +1,7 @@
 import { tr } from '../shared/i18n.js';
 /*
  * [INPUT]: 宿主 DOM（角色属性及旧版可访问标签）、上下文状态和基础可见性工具。
- * [OUTPUT]: 宿主交互目标记录、工作台跟随/锁定策略、稳定聊天身份重绑与来源可用性、唯一可见主聊天身份；限定容器内的输入目标、包含关联输入区的忙碌状态、完整相邻问答及上下文变更通知；常用语可仅核验聊天身份而不依赖回答扫描。
+ * [OUTPUT]: 宿主交互目标记录、工作台跟随/锁定策略、稳定聊天身份重绑与来源可用性、唯一可见主聊天身份；按 DOM 轮次顺序读取并缓存最新问答，统一最新轮次身份；限定容器内的输入目标、包含关联输入区的忙碌状态、完整相邻问答及上下文变更通知；常用语可仅核验聊天身份而不依赖回答扫描。
  * [POS]: 宿主读取边界；候选循环复用本次前景快照，不跨调用缓存目标或修改 Stepwise/大纲状态。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -991,31 +991,38 @@ function conversationTurns() {
     .filter(Boolean);
 }
 
-function compareConversationTurnKeys(left, right) {
-  if (left === right) return 0;
-  return left < right ? -1 : 1;
-}
-
-function latestConversationTurnByKey(turns) {
-  return turns.reduce((latest, turn) => {
-    if (!turn?.turnKey) return latest;
-    if (!latest || compareConversationTurnKeys(latest.turnKey, turn.turnKey) < 0) return turn;
-    return latest;
-  }, null);
-}
-
 function nextLatestTurnAnchor(previous, turns, sessionId) {
-  const mounted = latestConversationTurnByKey(turns);
-  if (!mounted) return previous;
   const sameSession = Boolean(sessionId) && previous?.sessionId === sessionId;
-  if (sameSession && compareConversationTurnKeys(mounted.turnKey, previous.turnKey) < 0)
-    return previous;
+  // turnKey 包含随机 UUID，只能校验身份；querySelectorAll 已按聊天中的 DOM 顺序返回。
+  const mounted = turns.findLast((turn) => turn?.turnKey);
+  if (!mounted) return sameSession ? previous : null;
+  const previousTurnKeys = (sameSession && previous.previousTurnKeys) || new Set();
+  const latestStillMounted = sameSession && turns.some((turn) => turn.turnKey === previous.turnKey);
+  // 最新轮次卸载后，已确认在它之前的历史轮次不能接管缓存；重挂载也按 ID 保留关系。
+  if (sameSession && !latestStillMounted && previousTurnKeys.has(mounted.turnKey)) {
+    turns.forEach((turn) => {
+      if (turn.turnKey) previousTurnKeys.add(turn.turnKey);
+    });
+    return { ...previous, previousTurnKeys };
+  }
+  if (sameSession && !latestStillMounted && previous.turnNode !== mounted.node) {
+    const root = chatRoot();
+    // 没有共同轮次的窗口可能是刚上翻加载的旧历史；到聊天末尾才接纳未知轮次。
+    if (!root || root.scrollTop + root.clientHeight < root.scrollHeight - 2) return previous;
+  }
+
+  if (sameSession && previous.turnKey !== mounted.turnKey) previousTurnKeys.add(previous.turnKey);
+  turns.forEach((turn) => {
+    if (turn.turnKey && turn !== mounted) previousTurnKeys.add(turn.turnKey);
+  });
+  previousTurnKeys.delete(mounted.turnKey);
 
   const sameTurn = sameSession && previous?.turnKey === mounted.turnKey;
   const assistant = mounted.assistantMessage;
   return {
     sessionId,
     turnKey: mounted.turnKey,
+    previousTurnKeys,
     userText: mounted.userText || (sameTurn ? previous.userText : ''),
     // An empty mounted answer invalidates old text; only virtualized/unmounted content keeps its anchor.
     assistantText:
@@ -1038,7 +1045,7 @@ function assistantMessageFromTurnAnchor(anchor) {
   };
 }
 
-function updateLatestTurnAnchor(turns) {
+function latestConversationTurn(turns = conversationTurns()) {
   contextState.latestTurnAnchor = nextLatestTurnAnchor(
     contextState.latestTurnAnchor,
     turns,
@@ -1128,7 +1135,7 @@ function allActionRows() {
 function findLatestAssistantMessage() {
   const turns = conversationTurns();
   if (turns.length || contextState.latestTurnAnchor) {
-    return assistantMessageFromTurnAnchor(updateLatestTurnAnchor(turns));
+    return assistantMessageFromTurnAnchor(latestConversationTurn(turns));
   }
 
   const candidates = [];
@@ -1148,10 +1155,9 @@ function findLatestAssistantMessage() {
 function terminologyExchange() {
   const turns = conversationTurns();
   const busy = chatBusy();
-  const newest = latestConversationTurnByKey(turns);
+  const newest = latestConversationTurn(turns);
   const completed = turns
-    .filter((turn) => turn.assistantMessage?.text && (!busy || turn !== newest))
-    .sort((a, b) => compareConversationTurnKeys(a.turnKey, b.turnKey))
+    .filter((turn) => turn.assistantMessage?.text && (!busy || turn.turnKey !== newest?.turnKey))
     .slice(-3);
   if (completed.length)
     return {
@@ -1219,6 +1225,7 @@ export {
   iconPathData,
   installContextTracking,
   labeledMessageContainer,
+  latestConversationTurn,
   mainChatSessionId,
   mainComposerCandidate,
   nearbySubmitButton,

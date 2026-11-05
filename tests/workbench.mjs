@@ -2043,7 +2043,7 @@ const cases = [
   ],
 
   ...chatBindingCases({ mode, settle, chooseLayout, createPopout, project, bundle, output }),
-  ...outlineCases({ mode }),
+  ...outlineCases({ mode, createPopout, project }),
   [
     'arrangement menus tabs focus and hidden reading retain the same business nodes',
     async (host) => {

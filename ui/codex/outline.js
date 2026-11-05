@@ -1,6 +1,6 @@
 import { tr } from '../shared/i18n.js';
 /*
- * [INPUT]: 当前回答 DOM、上下文、窗口投影与大纲状态。
+ * [INPUT]: 当前回答 DOM、context 的统一最新轮次身份与上下文、窗口投影和大纲状态。
  * [OUTPUT]: 本地大纲刷新和定位、复用宿主回答操作栏及按钮样式的目录入口；聊天/回答身份、完整段落或位置不匹配时拒绝导航。
  * [POS]: Codex 大纲协调；outline-parser 解析原文，features/outline 渲染列表。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
@@ -31,6 +31,7 @@ import {
   conversationTurn,
   findLatestAssistantMessage,
   labeledMessageContainer,
+  latestConversationTurn,
 } from './context.js';
 import {
   clamp,
@@ -73,16 +74,12 @@ function syncOutlineReplyStyle(button, row) {
   if (svg && svg.getAttribute('class') !== iconClass) svg.setAttribute('class', iconClass);
 }
 
-function syncOutlineReplyControls(reveal) {
+function syncOutlineReplyControls(reveal, newest) {
   const root = chatRoot();
   document.querySelectorAll(`[${REPLY_ACTION}]`).forEach((button) => {
     if (!root?.contains(button)) button.remove();
   });
   const turns = Array.from(root?.querySelectorAll(CONVERSATION_TURN_SELECTOR) || []);
-  const newest = turns.reduce((key, turn) => {
-    const current = turn.getAttribute('data-content-search-turn-key') || '';
-    return current > key ? current : key;
-  }, '');
   for (const turn of turns) {
     const key = turn.getAttribute('data-content-search-turn-key');
     if (!key) continue;
@@ -116,7 +113,7 @@ function syncOutlineReplyControls(reveal) {
       event.stopPropagation();
       if (!outlineEnabled() || !bindingSourceReady() || !chatRoot()?.contains(turn)) return;
       if (conversationTurn(turn)?.assistantMessage?.node !== reply) return;
-      const latest = findLatestAssistantMessage();
+      const latest = latestConversationTurn();
       if (chatBusy() && latest?.turnKey === key) return;
       resetOutlineFeature();
       outlineState.outlineSelectedTurnKey = latest?.turnKey === key ? '' : key;

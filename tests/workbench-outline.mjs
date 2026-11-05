@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 工作台真实浏览器夹具与合成回答。
- * [OUTPUT]: 回答操作栏同排/样式/键盘入口、宿主角色兼容、标题分级回退、不均匀段落与同名前缀、去重、重挂载定位与过期拒绝回归。
+ * [OUTPUT]: 回答操作栏同排/样式/键盘入口、乱序 UUID 的跟随/手选/缓存与浮窗命令、宿主角色兼容、标题分级回退、不均匀段落与同名前缀、去重、重挂载定位与过期拒绝回归。
  * [POS]: 由 workbench.mjs 执行；不读取真实聊天，不调用模型或外部服务。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -32,6 +32,55 @@ async function setAnswer(page, html) {
   });
 }
 
+const replyKeys = [
+  'ffffffff-ffff-4fff-8fff-ffffffffffff',
+  '11111111-1111-4111-8111-111111111111',
+  '00000000-0000-4000-8000-000000000000',
+];
+
+async function setReplyTimeline(page, count) {
+  await page.evaluate(
+    (keys) => {
+      const root = document.querySelector('.thread-scroll-container');
+      const template = root.querySelector('[data-content-search-turn-key]').cloneNode(true);
+      root.dataset.threadId = 'outline-order-fixture';
+      const turns = keys.map((key, index) => {
+        const turn = template.cloneNode(true);
+        turn.setAttribute('data-content-search-turn-key', key);
+        turn.querySelectorAll('[data-palboo-outline-reply]').forEach((node) => node.remove());
+        turn
+          .querySelector('[data-response-annotation-conversation]')
+          .setAttribute('data-response-annotation-conversation', 'outline-order-fixture');
+        const answer = turn.querySelector('[data-markdown-text-style="assistant-message"]');
+        answer.id = index ? `answer-${index}` : 'answer';
+        answer.innerHTML = `<h2>第 ${index + 1} 条合成回复</h2><p>回答标识只用于身份校验，不代表回答出现的先后顺序。</p>`;
+        return turn;
+      });
+      root.replaceChildren(...turns);
+      window.__companionFloatingPanel.scan();
+    },
+    replyKeys.slice(0, count),
+  );
+}
+
+async function expectReplySource(page, index, historical = false, mounted = true) {
+  await page.waitForFunction(
+    ({ key, historical, mounted }) => {
+      const state = window.__companionFloatingPanel.state;
+      return (
+        state.outlineStatus === (mounted ? 'ready' : 'empty') &&
+        state.outlineContext?.assistantMessageId === `turn:${key}` &&
+        state.outlineHistorical === historical
+      );
+    },
+    { key: replyKeys[index], historical, mounted },
+  );
+  const outline = page.locator('[data-view-body="outline"]');
+  if (mounted) await outline.getByRole('button', { name: `第 ${index + 1} 条合成回复` }).waitFor();
+  else assert.equal(await outline.locator('[data-outline-id]').count(), 0);
+  assert.equal(await outline.locator('[data-outline-latest]').count(), historical ? 1 : 0);
+}
+
 const items = (page) =>
   page.evaluate(() =>
     window.__companionFloatingPanel.state.outlineItems.map((item) => ({
@@ -61,7 +110,7 @@ async function checkTargets(page, result) {
   }
 }
 
-export function outlineCases({ mode }) {
+export function outlineCases({ mode, createPopout, project }) {
   return [
     [
       '大纲：目录入口与新版回答操作栏同排并沿用宿主按钮样式',
@@ -225,6 +274,174 @@ export function outlineCases({ mode }) {
         await outline.getByRole('button', { name: '跟随最新回答' }).click();
         await outline.getByRole('button', { name: '更新后的最新回答' }).waitFor();
         assert.equal(await outline.getByRole('button', { name: '跟随最新回答' }).count(), 0);
+      },
+    ],
+    [
+      '大纲：乱序 UUID 的自动跟随、手选最新与历史返回使用相同轮次',
+      async (page) => {
+        await mode(page, true);
+        await setReplyTimeline(page, 2);
+        await expectReplySource(page, 1);
+        await page.locator(`[data-palboo-outline-reply="${replyKeys[1]}"]`).click();
+        await expectReplySource(page, 1);
+        await page.locator(`[data-palboo-outline-reply="${replyKeys[0]}"]`).click();
+        await expectReplySource(page, 0, true);
+        await page.locator('[data-view-body="outline"] [data-outline-latest]').click();
+        await expectReplySource(page, 1);
+
+        // 在已有缓存之后出现更小的 ID，也必须继续自动跟随。
+        await setReplyTimeline(page, 3);
+        await expectReplySource(page, 2);
+        const projected = await page.evaluate(() => {
+          const panel = window.__companionFloatingPanel;
+          const state = panel.exportPanelState();
+          return {
+            historical: state.outlineHistorical,
+            result: panel.panelCommand({
+              ...state,
+              kind: 'outline-jump',
+              id: state.outlineItems[0].id,
+            }),
+          };
+        });
+        assert.equal(projected.historical, false);
+        assert.equal(projected.result.ok, true);
+
+        const popout = await createPopout(page, true);
+        try {
+          const view = popout.page.locator('[data-view-body="outline"]');
+          assert.equal(await view.locator('[data-outline-latest]').count(), 0);
+          await page.locator(`[data-palboo-outline-reply="${replyKeys[0]}"]`).click();
+          await expectReplySource(page, 0, true);
+          popout.projection.snapshot = await page.evaluate(() =>
+            window.__companionFloatingPanel.exportPanelState(),
+          );
+          await project(popout.page, popout.projection, false);
+          await popout.page.exposeFunction('outlineHostCommand', (command) =>
+            page.evaluate(
+              (command) => window.__companionFloatingPanel.panelCommand(command),
+              command,
+            ),
+          );
+          await popout.page.evaluate(() => {
+            window.__companionPopout.request = async (path, { command }) =>
+              path === 'command' ? window.outlineHostCommand(command) : { ok: false };
+          });
+          await view.locator('[data-outline-latest]').click();
+          await expectReplySource(page, 2);
+          popout.projection.snapshot = await page.evaluate(() =>
+            window.__companionFloatingPanel.exportPanelState(),
+          );
+          await project(popout.page, popout.projection, false);
+          await view.getByRole('button', { name: '第 3 条合成回复' }).waitFor();
+          assert.equal(await view.locator('[data-outline-latest]').count(), 0);
+          assert.deepEqual(popout.errors, []);
+        } finally {
+          await popout.page.close();
+        }
+      },
+    ],
+    [
+      '大纲：乱序 UUID 的最新回复卸载、历史回挂载及正文重新加载',
+      async (page) => {
+        await mode(page, true);
+        await setReplyTimeline(page, 2);
+        await expectReplySource(page, 1);
+        await page.evaluate(() => {
+          const root = document.querySelector('.thread-scroll-container');
+          window.outlineUnmountedHeading = window.__companionFloatingPanel.state.outlineItems[0].id;
+          window.outlineUnmountedTurn = root.lastElementChild;
+          window.outlineUnmountedTurn.remove();
+          const old = root.firstElementChild.cloneNode(true);
+          old.querySelectorAll('[data-palboo-outline-reply]').forEach((node) => node.remove());
+          root.firstElementChild.replaceWith(old);
+          window.__companionFloatingPanel.scan();
+        });
+        await expectReplySource(page, 1, false, false);
+        const unavailableJump = await page.evaluate(() => {
+          const panel = window.__companionFloatingPanel;
+          const state = panel.exportPanelState();
+          return panel.panelCommand({
+            ...state,
+            kind: 'outline-jump',
+            id: window.outlineUnmountedHeading,
+          });
+        });
+        assert.equal(unavailableJump.ok, false, '卸载的最新回复不能定位到旧回复');
+        await page.locator(`[data-palboo-outline-reply="${replyKeys[0]}"]`).click();
+        await expectReplySource(page, 0, true);
+        await page.locator('[data-view-body="outline"] [data-outline-latest]').click();
+        await expectReplySource(page, 1, false, false);
+
+        await page.evaluate(() => {
+          const root = document.querySelector('.thread-scroll-container');
+          const turn = window.outlineUnmountedTurn.cloneNode(true);
+          turn.querySelectorAll('[data-palboo-outline-reply]').forEach((node) => node.remove());
+          window.outlineUnmountedTurn = null;
+          root.append(turn);
+          window.__companionFloatingPanel.scan();
+        });
+        await expectReplySource(page, 1);
+        await page.locator(`[data-palboo-outline-reply="${replyKeys[1]}"]`).click();
+        await expectReplySource(page, 1);
+        await page.evaluate(() => {
+          const turn = document.querySelector('.thread-scroll-container').lastElementChild;
+          window.outlineUnmountedAnswer = turn.querySelector(
+            '[data-message-author-role="assistant"]',
+          );
+          window.outlineUnmountedAnswer.remove();
+          window.__companionFloatingPanel.scan();
+        });
+        await expectReplySource(page, 1, false, false);
+        await page.evaluate(() => {
+          const reply = window.outlineUnmountedAnswer;
+          reply.querySelector('[data-markdown-text-style]').replaceChildren();
+          document.querySelector('.thread-scroll-container').lastElementChild.append(reply);
+          window.outlineUnmountedAnswer = null;
+          window.__companionFloatingPanel.scan();
+        });
+        await page.waitForFunction(
+          () => window.__companionFloatingPanel.state.scanStatus === 'no-assistant-message',
+        );
+        assert.equal(await page.locator('[data-view-body="outline"] [data-outline-id]').count(), 0);
+        await setReplyTimeline(page, 3);
+        await expectReplySource(page, 2);
+      },
+    ],
+    [
+      '大纲：乱序 UUID 的未知历史窗口不替换已确认最新回复',
+      async (page) => {
+        await mode(page, true);
+        await setReplyTimeline(page, 2);
+        await expectReplySource(page, 1);
+        await page.evaluate(() => {
+          const root = document.querySelector('.thread-scroll-container');
+          const historical = root.firstElementChild.cloneNode(true);
+          historical.setAttribute(
+            'data-content-search-turn-key',
+            '77777777-7777-4777-8777-777777777777',
+          );
+          historical
+            .querySelectorAll('[data-palboo-outline-reply]')
+            .forEach((node) => node.remove());
+          const virtualSpace = document.createElement('div');
+          virtualSpace.style.height = '4000px';
+          root.replaceChildren(historical, virtualSpace);
+          root.scrollTop = 0;
+          window.__companionFloatingPanel.scan();
+        });
+        await expectReplySource(page, 1, false, false);
+        await page.evaluate((key) => {
+          const root = document.querySelector('.thread-scroll-container');
+          const latest = root.firstElementChild.cloneNode(true);
+          latest.setAttribute('data-content-search-turn-key', key);
+          latest.querySelectorAll('[data-palboo-outline-reply]').forEach((node) => node.remove());
+          latest.querySelector('h2').textContent = '第 3 条合成回复';
+          root.replaceChildren(latest);
+          root.scrollTop = root.scrollHeight;
+          window.__companionFloatingPanel.scan();
+        }, replyKeys[2]);
+        await expectReplySource(page, 2);
       },
     ],
     [
