@@ -1,11 +1,12 @@
 import { tr } from '../shared/i18n.js';
 import { measureWork } from '../shared/performance.js';
-/* [INPUT]: Verified input target from the host adapter, explicit clicks and restricted model bridge.
+/* [INPUT]: Verified input target, shared right-side composer mount, explicit clicks and restricted model bridge.
  * [OUTPUT]: Optimize/cancel/restore controls; compare-before-write draft replacement, never send.
  * [POS]: Composer adapter; keeps only a temporary draft backup and no conversation history.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { rawComposerText, setEditableText, setNativeValue } from './composer.js';
 import { iconSvg } from '../shared/icons/index.js';
+import { mountComposerAction } from './composer-actions.js';
 
 /** @param {{request:(path:string,payload:object)=>Promise<any>, getTarget?:()=>any, isEnabled?:()=>boolean}} options */
 export function installPromptEnhancer({
@@ -214,53 +215,9 @@ export function installPromptEnhancer({
       mounted = target;
     }
     if (!target) return;
-    // Place beside the native voice/send actions, outside the model selector's wrapping span.
     const composerRoot = target.composer.closest('[data-codex-composer-root]') || target.scope;
-    const actions = [...composerRoot.querySelectorAll('button[aria-label]')].filter(
-      (node) => !node.closest('[data-palboo-prompt]') && node.getBoundingClientRect().width > 0,
-    );
-    const action =
-      actions.find((node) => /^(听写|dictate|dictation)$/i.test(node.getAttribute('aria-label'))) ||
-      actions.find((node) =>
-        /^(发送|发送消息|停止|send|send message|stop|语音|voice)$/i.test(
-          node.getAttribute('aria-label'),
-        ),
-      );
-    if (action) {
-      const agent = composerRoot.querySelector('[data-codexhost-agent-control]');
-      let parent, before;
-      if (agent) {
-        // CodexHost owns model → Agent → native trailing action adjacency.
-        // Join the native action's inner wrapper instead of inserting between those siblings.
-        parent = action.parentElement;
-        before = parent === agent.parentElement ? action.nextSibling : action;
-        if (before === host) before = host.nextSibling;
-      } else {
-        let anchor = action;
-        while (
-          anchor.parentElement !== composerRoot &&
-          anchor.parentElement &&
-          getComputedStyle(anchor.parentElement).display === 'contents'
-        )
-          anchor = anchor.parentElement;
-        if (
-          anchor === action &&
-          action.parentElement !== composerRoot &&
-          getComputedStyle(action.parentElement).display === 'flex'
-        )
-          anchor = action.parentElement;
-        parent = anchor.parentElement;
-        before = anchor;
-      }
-      const height = getComputedStyle(action).height;
-      if (
-        parseFloat(height) >= 24 &&
-        host.style.getPropertyValue('--buddy-composer-button-size') !== height
-      )
-        host.style.setProperty('--buddy-composer-button-size', height);
-      if (host.parentElement !== parent || host.nextSibling !== before)
-        parent.insertBefore(host, before);
-    } else if (host.parentElement !== composerRoot) composerRoot.append(host);
+    if (!mountComposerAction(host, composerRoot) && host.parentElement !== composerRoot)
+      composerRoot.append(host);
     if (composerRoot && message.parentElement !== composerRoot) composerRoot.append(message);
     refresh();
   }

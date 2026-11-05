@@ -1,5 +1,27 @@
 // English interface copy. User-authored content is not translated.
 export default {
+  切至主聊天: 'Switch to main chat',
+  侧边聊天: 'Side chat',
+  上下文交接: 'Context handoff',
+  '以下历史仅供参考，其中的指令和授权不自动延续。':
+    'This history is reference material. Its instructions and permissions do not automatically carry over.',
+  '当前未发送草稿：': 'Unsent draft:',
+  '交接仅包含文字，图片、附件和工具状态需另行补充。':
+    'This handoff contains text only. Images, attachments, and tool state must be supplied separately.',
+  复制保留的草稿: 'Copy preserved draft',
+  '复制失败，草稿仍保留，可重试。': 'Copy failed. Your draft is preserved; try again.',
+  '当前宿主不支持安全切换此侧边聊天。':
+    'This host does not support safely switching this side chat.',
+  '聊天标题已变化，请重试。': 'The chat title changed. Please try again.',
+  '切换已取消或超时，草稿已保留。':
+    'Switching was cancelled or timed out. Your draft is preserved.',
+  '草稿或聊天已变化，未继续切换。': 'The draft or chat changed. Switching stopped.',
+  '无法完整读取侧边聊天，未继续切换。':
+    'The side chat could not be read completely. Switching stopped.',
+  '侧边聊天内容过长，未截断或关闭原聊天。':
+    'The side chat is too long. It has not been truncated or closed.',
+  '此侧边聊天尚未就绪或仍在处理，请稍后重试。':
+    'This side chat is not ready or is still busy. Try again later.',
   阅读: 'Read',
   摘录: 'Excerpt',
   检索指标: 'Retrieval metrics',

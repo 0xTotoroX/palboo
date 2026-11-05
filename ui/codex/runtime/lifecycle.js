@@ -4,6 +4,7 @@ import { measureWork, samplePerformance, stopPerformance } from '../../shared/pe
 import { bridgeCall } from './state.js';
 import { installNextDrop } from '../next-drop.js';
 import { installPromptEnhancer } from '../prompt-enhancement.js';
+import { installSideChatSwitcher } from '../side-chat.js';
 import { installTokenMeter } from '../token-meter.js';
 import { installBots } from '../bots.js';
 import { installTerminologyImports } from '../terminology-import.js';
@@ -12,7 +13,7 @@ import { installTerminology } from '../../terminology/host.js';
 /*
  * [INPUT]: 宿主上下文、独立功能、设置协调、外壳与通知。
  * [OUTPUT]: 只读 panelAppearance 接口； 回答结束且文本稳定后扫描生成、启停与通知订阅，连接胶囊/左侧图标入口与停靠开合，主功能交接中禁用重复内外操作，Dev 插件页签选中后收起旧侧栏；切换聊天恢复有效建议缓存，来源失联保留只读结果并使异步请求失效。
- * [POS]: 模块组合入口；统一初始化并回收观察器、定时器、订阅与旧浮窗字体资源。
+ * [POS]: 模块组合入口；含独立侧边聊天入口，统一回收观察器、定时器、订阅与旧浮窗字体资源。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
 import {
@@ -508,6 +509,7 @@ function destroy() {
   stopNextDrop = null;
   stopPerformance();
   if (!IS_POPOUT) window.__palbooPromptEnhancer?.destroy();
+  if (!IS_POPOUT) window.__palbooSideChat?.destroy();
   if (!IS_POPOUT) window.__palbooTokenMeter?.destroy();
   if (!IS_POPOUT) window.__palbooTerminology?.destroy();
   if (!IS_POPOUT) window.__palbooTerminologyImports?.destroy();
@@ -602,6 +604,8 @@ async function launcherAction(action, toggle = false) {
 let stopNextDrop = null;
 function syncTools() {
   if (IS_POPOUT || !isCurrentInstance() || !runtimeState.settingsLoaded) return;
+  if (!window.__palbooSideChat) installSideChatSwitcher({ isEnabled: isCurrentInstance });
+  else window.__palbooSideChat.refresh();
   if (stepwiseEnabled()) {
     if (!stopNextDrop)
       stopNextDrop = installNextDrop({ read: exportPanelState, command: panelCommand });

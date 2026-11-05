@@ -1,6 +1,6 @@
 /* [INPUT]: CodexHost 0.10.2 的版本化只读探针、输入框附近的 Agent 控件、外部模型菜单、已校验的来源聊天ID与当前聊天上下文。
  * [OUTPUT]: window.__palbooHostCompatibility，按输入框判断官方/外部模型与 Agent 切换能力，仅列出 Codex、就绪 CLI 与当前选择，支持外部 CLI 模型快切、新会话直接切换 CLI，以及已锁定会话新建聊天并携带上下文交接切换 CLI。
- * [POS]: 上游适配边界；缺失或未知协议拒绝模型写入，不覆盖上游实现。
+ * [POS]: 上游适配边界；接力采集可接收已核验的云端文字历史，缺失或未知协议拒绝写入。
  * [PROTOCOL]: 变更时同步 codex/AGENTS.md。 */
 (() => {
   // Remains a standalone CDP script; the mounted workspace supplies UI localization.
@@ -537,12 +537,34 @@
    * @param {Element | null | undefined} [scroll]
    * @param {{ id?: string, title?: string } | null} [target]
    */
-  function collectHandoffContext(composer, scroll, target = null) {
+  function collectHandoffContext(composer, scroll, target = null, history = null) {
     const cap = capability(composer);
-    if (!cap.agent?.locked || !scroll?.matches('.thread-scroll-container') || !isVisible(scroll))
+    const cloud = Array.isArray(history);
+    if (
+      !cloud &&
+      (!cap.agent?.locked || !scroll?.matches('.thread-scroll-container') || !isVisible(scroll))
+    )
       return null;
     const turns = [];
-    if (scroll) {
+    if (cloud) {
+      for (const message of history) {
+        if (!['user', 'assistant'].includes(message.role) || !Array.isArray(message.content))
+          return null;
+        if (
+          message.content.some(
+            (item) => item.content_type !== 'text' || typeof item.text !== 'string',
+          )
+        )
+          return null;
+        const text = message.content
+          .filter((item) => item.content_type === 'text')
+          .map((item) => item.text)
+          .join('\n');
+        if (message.role === 'user') turns.push({ user: text, assistant: '' });
+        else if (turns.length && !turns.at(-1).assistant) turns.at(-1).assistant = text;
+        else turns.push({ user: '', assistant: text });
+      }
+    } else if (scroll) {
       const turnNodes = [...scroll.querySelectorAll('[data-content-search-turn-key]')];
       for (const turn of turnNodes) {
         const readRole = (role) => {
@@ -587,8 +609,8 @@
     }
     const draft = readDraftText(composer);
     return {
-      locked: true,
-      sourceAgent: cap?.agent?.label || cap?.agent?.current || 'CLI',
+      locked: !cloud,
+      sourceAgent: cloud ? 'ChatGPT' : cap?.agent?.label || cap?.agent?.current || 'CLI',
       title: String(target?.title || '').trim(),
       targetId: String(target?.id || '').trim(),
       turns,

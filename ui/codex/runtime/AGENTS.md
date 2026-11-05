@@ -2,6 +2,8 @@
 
 > L2 | 父级：[AGENTS.md](../AGENTS.md)
 
+lifecycle 在宿主安装独立侧边聊天入口，不受提示词优化开关影响，不在桌面投影安装；销毁回收观察器、事件及在途后续写入，已关闭来源的失败草稿由同页内存接续。
+
 settings-sync 的 tools 通知按独立开关安装/销毁提示词优化和术语实例；关闭时取消其监听、轮询及未完成结果，重新开启按当前上下文恢复。presentation 相同偏好与 detached 状态不发重绘/外观通知；恢复心跳仍保留。lifecycle 公开按需 samplePerformance/stopPerformance，计时实现在 shared/performance，销毁时清理采样租约。
 
 shared/constants 与 state 为下层基础；Codex 适配和功能模块各自工作；settings-sync 协调开关，presentation 生成投影，lifecycle 订阅通知并组合运行。状态分为 runtime、context、stepwise、outline、shell 五组；旧调试 state 只提供兼容投影。

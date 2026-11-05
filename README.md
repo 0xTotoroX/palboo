@@ -28,6 +28,8 @@ Desktop windows use native macOS traffic-light controls and reuse the existing P
 | **Grok Bot**              | Find your Bots and start a consultation in the current chat.                                                                            |
 | **Notes & Web** | Read and edit local Markdown, preview spreadsheets, and open saved web pages inside ChatGPT. |
 
+In a right-side Side Chat, **Switch to main chat** moves an idle, persistent local conversation to the main view, keeps its history and ID, and carries over the unsent text. Cloud ChatGPT side chats open a new main-chat draft with the current branch's text history and draft; images, attachments and tool state are not transferred. Neither path sends a message. Unsupported host interfaces or drafts with attachments leave the source in place.
+
 ## Installation
 
 Requires **macOS 14+ on Apple Silicon** and the **Codex / ChatGPT desktop app**.
