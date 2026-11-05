@@ -163,10 +163,10 @@ async fn write_validated(
     if std::fs::read(&output).ok().as_deref() == Some(content.as_bytes()) {
         return Ok(output);
     }
-    std::fs::create_dir_all(&directory)?;
+    std::fs::create_dir_all(directory)?;
     let mut temporary = tempfile::Builder::new()
         .suffix(".mjs")
-        .tempfile_in(&directory)?;
+        .tempfile_in(directory)?;
     temporary.write_all(content.as_bytes())?;
     temporary.as_file().sync_all()?;
     super::output(

@@ -146,6 +146,9 @@ async function verify() {
   try {
     run('npm', ['run', 'format:check']);
     run('cargo', ['fmt', '--check']);
+    prepareWebBuild();
+    run('cargo', ['clippy', '--locked', '--', '-D', 'warnings']);
+    run('cargo', ['test', '--locked']);
     // build:web already checks TypeScript. Test the same release binary that will be packaged.
     artifact = prepareTestBinary('release');
     run('npm', ['run', 'test:node'], {
@@ -156,8 +159,6 @@ async function verify() {
     run(process.execPath, ['tests/workbench.mjs']);
     run(process.execPath, ['tests/model-control-host.mjs']);
     run(process.execPath, ['tests/feature-views.mjs']);
-    run('cargo', ['test', '--locked']);
-    run('cargo', ['clippy', '--locked', '--', '-D', 'warnings']);
     const env = { ...process.env, PALBOO_TEST_BINARY: artifact.binary };
     run(process.execPath, ['tests/model-control-e2e.mjs'], env);
     run(process.execPath, ['tests/board.mjs'], env);
