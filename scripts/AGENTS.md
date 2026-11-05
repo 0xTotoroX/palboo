@@ -21,7 +21,7 @@ npm 命令进入开发、构建、审计、安装和验证编排工具；具体�
 - [dev-panel.mjs](dev-panel.mjs)：原子发布开发资源快照（含术语目录指纹与监听），CSS 更新保留实例，逻辑更新销毁并恢复胶囊，页面引导变化重载窗口页面；共享 measurePanel 仅采集两端几何、材质能力和实例计数。
 - [dev-sources.mjs](dev-sources.mjs)：Git worktree 清单及启动来源记忆、独占进程/目标租约、串行切换和失败回退状态；通过独占恢复记录串行回收已退出监督进程的租约，检查关联 worktree 与上次会话的后台，损坏记录或状态不明时保留并报错；不自行操作宿主或结束其他进程。
 - [dev-runtime.mjs](dev-runtime.mjs)：受控子进程与稳定鉴权代理，开发来源 API 在后台切换时仍可用，切换中请求暂停、旧设置页写入按来源标识拒绝；可捕获宿主准备命令的端点及具体失败原因；后台重启后设置页会话保持有效；模型超时由后台控制，客户端断开时取消上游代理请求。
-- [verify.mjs](verify.mjs)：统一检查、浏览器行为、Rust、端到端与生命周期验收；完整流程只构建 release 程序供端到端、生命周期与打包共用，独立开发测试仍支持 debug。按源码/工具链及产物摘要复用网页和程序，类型检查随网页构建执行一次；release 加入路径映射；逐项耗时和失败结果写入 verify.json 与 GitHub 摘要，原生检查显式选择。
+- [verify.mjs](verify.mjs)：统一检查、浏览器行为、Rust、端到端与生命周期验收；常规端到端、生命周期与打包共用 release 程序；features-e2e 的隔离 Bot 夹具明确使用 debug（复用 Rust 单元测试编译结果），不放开正式程序的模拟接口。按源码/工具链及产物摘要复用网页和程序，类型检查随网页构建执行一次；release 加入路径映射；逐项耗时和失败结果写入 verify.json 与 GitHub 摘要，原生检查显式选择。
 - [verify-web.mjs](verify-web.mjs)：`npm run verify:web` 执行前端构建、格式/源码检查、Node 测试和合成工作台/液态/模型宿主测试，复用已构建网页及共享 Node 测试入口，逐项记录失败并返回非零；官网另由 test:site 验证；支持两种现有浏览器路径变量，Linux 优先复用系统 Chromium。结果位于 `target/reports/web-pilot/`，明确排除原生与完整发布验收；Node 许可集成测试仍需 Cargo，不因缺失而跳过。
 
 - [build-panel.mjs](build-panel.mjs)：从 ui/codex/runtime/lifecycle.js 入口解析 ES modules，输出可重复注入的脚本，供 Cargo 内嵌。

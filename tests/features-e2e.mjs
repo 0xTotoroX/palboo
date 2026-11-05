@@ -1,4 +1,4 @@
-/* [INPUT]: Matching test binary, isolated Chrome fixture and optional AppKit window probe.
+/* [INPUT]: Matching debug binary (isolated Bot fixtures), Chrome and optional AppKit window probe.
  * [OUTPUT]: Real HTTP/CDP ownership, capability-gated recovery, draft handoff and task independence.
  * [POS]: Isolated end-to-end acceptance; no real chat, model requests or EventKit writes.
  * [PROTOCOL]: Keep tests/AGENTS.md in sync. */
@@ -24,7 +24,8 @@ import { createHash } from 'node:crypto';
 import { chromium } from 'playwright';
 import { prepareTestBinary } from '../scripts/verify.mjs';
 const root = resolve(import.meta.dirname, '..'),
-  artifact = prepareTestBinary(),
+  // Bot URL/cache overrides are deliberately absent from release builds.
+  artifact = prepareTestBinary('debug'),
   native = process.argv.includes('--native');
 const directory = mkdtempSync(join(tmpdir(), 'buddy-features-')),
   output = join(root, 'target/reports', native ? 'independent-native' : 'features-e2e');
