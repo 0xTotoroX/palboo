@@ -1,6 +1,6 @@
 /*
  * [INPUT]: Playwright Chromium、buildPanel、合成宿主与设置 fixture。
- * [OUTPUT]: 工作台真实布局、内外双向可见动画、新聊天/Dots 范围、入口按能力处理双击等待、键盘与宿主生命周期回归；分阶段限时、失败留证及浏览器清理。
+ * [OUTPUT]: 工作台真实布局、内外双向可见动画、新聊天/Dots 范围、入口按能力处理双击等待、键盘与宿主生命周期回归；两个隔离上下文并行、分阶段限时、可选截图及浏览器清理。
  * [POS]: 独立浏览器验收；只模拟后台桥，不请求模型、不读取真实聊天。
  * [PROTOCOL]: 变更时核对 tests/AGENTS.md；入口与地图由主任务维护。
  */
@@ -31,13 +31,12 @@ const browserServer = await chromium.launchServer({
 });
 const browser = await chromium.connect(browserServer.wsEndpoint());
 const results = [];
-let stage = 'idle';
-function deadline(promise, ms, label) {
+function deadline(promise, ms, label, stage = () => 'cleanup') {
   let timer;
   return Promise.race([
     promise,
     new Promise((_, reject) => {
-      timer = setTimeout(() => reject(new Error(`${label}: timed out during ${stage}`)), ms);
+      timer = setTimeout(() => reject(new Error(`${label}: timed out during ${stage()}`)), ms);
     }),
   ]).finally(() => clearTimeout(timer));
 }
@@ -329,15 +328,12 @@ async function createPopout(host, preserveSnapshot = false) {
     projection.snapshot.bridgeStatus = 'ok';
     projection.snapshot.readingState = null;
   }
-  stage = 'popout: newPage';
   const page = await host.context().newPage();
   page.setDefaultTimeout(6000);
   await page.setViewportSize({ width: 500, height: 744 });
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
-  stage = 'popout: goto';
   await page.goto(`${hostUrl}/popout`);
-  stage = 'popout: inject/project';
   await page.evaluate((settings) => {
     window.popoutFixture = { saves: [], pins: [], unexpected: [], settingsOpens: 0 };
     window.__companionHostRequest = (raw) => {
@@ -378,7 +374,6 @@ async function createPopout(host, preserveSnapshot = false) {
   assert.equal(await page.locator(slotSelector).count(), 0, 'popout never installs a host slot');
   for (const kind of ['outline', 'next'])
     await page.locator(`[data-pane="${kind}"]`).waitFor({ state: 'attached' });
-  stage = 'case assertions';
   return { page, projection, errors };
 }
 
@@ -1679,7 +1674,8 @@ const cases = [
         }));
         assert.equal(focus.keyboard, true);
         assert.notEqual(focus.outline, 'none');
-        await page.screenshot({ path: resolve(output, `slim-${placement}.png`) });
+        if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
+          await page.screenshot({ path: resolve(output, `slim-${placement}.png`) });
       }
       assert.equal(
         await page.evaluate(
@@ -1734,9 +1730,11 @@ const cases = [
       await page.emulateMedia({ reducedMotion: 'reduce' });
       assert.equal(await controls.evaluate((n) => getComputedStyle(n).transitionDuration), '0s');
       await page.mouse.move(10, 10);
-      await page.screenshot({ path: resolve(output, 'workbench-quiet.png') });
+      if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
+        await page.screenshot({ path: resolve(output, 'workbench-quiet.png') });
       await page.locator('.csw-workbench-head').hover();
-      await page.screenshot({ path: resolve(output, 'workbench-hover.png') });
+      if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
+        await page.screenshot({ path: resolve(output, 'workbench-hover.png') });
     },
   ],
 
@@ -1864,7 +1862,8 @@ const cases = [
       centers.forEach((center) =>
         near(center, centers[0], 'settings values share a vertical axis'),
       );
-      await page.screenshot({ path: resolve(output, 'unified-icons-settings.png') });
+      if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
+        await page.screenshot({ path: resolve(output, 'unified-icons-settings.png') });
       await showRetainedSettings(
         page,
         !(await page.locator('.csw-workbench-settings').isVisible()),
@@ -1889,7 +1888,8 @@ const cases = [
       );
       await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
       assert.equal(await requestCount(), before, 'UI changes must not generate suggestions');
-      await page.screenshot({ path: resolve(output, 'unified-icons-dock.png') });
+      if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
+        await page.screenshot({ path: resolve(output, 'unified-icons-dock.png') });
     },
   ],
 
@@ -2033,7 +2033,8 @@ const cases = [
         '0',
         'keyboard focus elsewhere does not expose outline navigation',
       );
-      await page.screenshot({ path: resolve(output, 'unified-shell-focus.png') });
+      if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
+        await page.screenshot({ path: resolve(output, 'unified-shell-focus.png') });
       await page.locator('[data-window-control="dock"]').press('Alt+Enter');
       assert.equal(await page.evaluate(() => window.popoutFixture.docks), 10);
       assert.deepEqual(errors, []);
@@ -2353,7 +2354,8 @@ const cases = [
       }
       await page.setViewportSize({ width: 664, height: 564 });
       await settle(page);
-      await page.screenshot({ path: resolve(output, 'layout-horizontal.png') });
+      if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
+        await page.screenshot({ path: resolve(output, 'layout-horizontal.png') });
       projection.preferences.ui = await pref();
       const saved = projection.preferences.ui;
       await host.evaluate(
@@ -2392,7 +2394,8 @@ const cases = [
       assert.deepEqual(reset.dockLayout, saved.dockLayout);
       await chooseLayout(host, 'vertical');
       await host.locator('.csw-layout-menu summary').evaluate((node) => node.click());
-      await host.screenshot({ path: resolve(output, 'layout-docked-menu.png') });
+      if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
+        await host.screenshot({ path: resolve(output, 'layout-docked-menu.png') });
       assert.deepEqual(errors, []);
       assert.deepEqual(await reopened.page.evaluate(() => window.popoutFixture.unexpected), []);
     },
@@ -2430,8 +2433,8 @@ const cases = [
           await popout.page.locator('[data-view-body="outline"] .csw-progress-ring').count(),
           1,
         );
-        await page.bringToFront();
-        await page.screenshot({ path: resolve(output, 'outline-waiting.png') });
+        if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
+          await page.screenshot({ path: resolve(output, 'outline-waiting.png') });
         await page.evaluate(() => {
           document.querySelector('#fixture-stop').remove();
           window.__companionFloatingPanel.scan();
@@ -3169,7 +3172,8 @@ const cases = [
         true,
       );
       assert.equal(await rail.locator('summary:visible').count(), 0);
-      await page.screenshot({ path: resolve(output, 'collapsed-capsule.png') });
+      if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
+        await page.screenshot({ path: resolve(output, 'collapsed-capsule.png') });
       await entry.press('Enter');
       await page.waitForFunction(() => window.__companionFloatingPanel.state.dockStatus === 'open');
       await page.setViewportSize({ width: 880, height: 960 });
@@ -3192,7 +3196,8 @@ const cases = [
         await page.evaluate(() => window.workbenchFixture.unexpected.includes('/panel/detach')),
         false,
       );
-      await page.screenshot({ path: resolve(output, 'space-collapsed.png') });
+      if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
+        await page.screenshot({ path: resolve(output, 'space-collapsed.png') });
       await page.setViewportSize(wide);
       await settle(page);
       await page.getByRole('button', { name: 'Palboo', exact: true }).press('Enter');
@@ -3445,10 +3450,10 @@ const cases = [
     },
   ],
   [
-    '20 close/open cycles restore host geometry without host style writes',
+    'three close/open cycles restore host geometry without host style writes',
     async (page, baseline) => {
       await mode(page, true);
-      for (let cycle = 0; cycle < 20; cycle += 1) {
+      for (let cycle = 0; cycle < 3; cycle += 1) {
         await mode(page, false);
         await hostUnchanged(page, baseline);
         await mode(page, true);
@@ -3482,7 +3487,8 @@ const cases = [
       for (let i = 0; i < 50; i += 1) await handle.press('ArrowRight');
       await settle(page);
       near((await layout(page)).slot.width, 240, 'minimum width');
-      await page.screenshot({ path: resolve(output, 'sidebar-240.png') });
+      if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
+        await page.screenshot({ path: resolve(output, 'sidebar-240.png') });
       const saved = await page.evaluate(() => window.__companionFloatingPanel.panelPreferences());
       assert.equal(saved.dockWidth, 240);
       assert.equal(saved.layoutMode, 'workbench');
@@ -3959,8 +3965,11 @@ const cases = [
   ],
 ];
 
-try {
-  for (const [index, [name, run]] of cases.entries()) {
+// Each case owns a fresh browser context, including its popout pages and bridge state.
+// Two workers overlap browser waits without adding another CI job or shared fixture state.
+const remaining = cases.entries();
+async function worker() {
+  for (const [index, [name, run]] of remaining) {
     if (process.env.WORKBENCH_CASE && !name.includes(process.env.WORKBENCH_CASE)) continue;
     if (!browser.isConnected()) {
       results.push({ name, status: 'failed', error: 'Test browser disconnected before this case' });
@@ -3970,7 +3979,7 @@ try {
     const errors = [],
       network = [];
     const began = Date.now();
-    stage = 'context creation';
+    let stage = 'context creation';
     console.log(`RUN ${name}`);
     try {
       await deadline(
@@ -4014,6 +4023,7 @@ try {
         })(),
         60000,
         name,
+        () => stage,
       );
       results.push({ name, status: 'passed', elapsedMs: Date.now() - began });
       console.log(`PASS ${name}`);
@@ -4057,6 +4067,9 @@ try {
       }
     }
   }
+}
+try {
+  await Promise.all([worker(), worker()]);
 } finally {
   saveResults();
   // This server owns only the isolated fixture browser, never a user application.

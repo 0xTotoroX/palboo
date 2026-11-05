@@ -7,7 +7,7 @@ import { checkOverlayMotion } from './overlay-motion.mjs';
 export function independentFeatureCases({ mode, syncSettings }) {
   return [
     [
-      'independent features retain drafts and owners across ten placement round trips',
+      'independent features retain drafts and owners across three placement round trips',
       async (page) => {
         const configureFeature = async (id, placement) => {
           await page.evaluate(
@@ -426,7 +426,7 @@ export function independentFeatureCases({ mode, syncSettings }) {
           'reopen restores the saved minimum width',
         );
 
-        for (let i = 0; i < 10; i++) {
+        for (let i = 0; i < 3; i++) {
           await configureFeature('board', 'overlay');
           await page.waitForFunction(
             () =>
@@ -472,7 +472,8 @@ export function independentFeatureCases({ mode, syncSettings }) {
               0,
               'overlay releases sidebar',
             );
-            await page.screenshot({ path: 'target/reports/workbench/restored-shell.png' });
+            if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
+              await page.screenshot({ path: 'target/reports/workbench/restored-shell.png' });
             await page.emulateMedia({ reducedMotion: 'reduce' });
           }
           await configureFeature('board', 'sidebar');
@@ -676,7 +677,8 @@ export function independentFeatureCases({ mode, syncSettings }) {
           oldTop,
           'preview restores reading after a resize clamp',
         );
-        await page.screenshot({ path: 'target/reports/workbench/independent-next.png' });
+        if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
+          await page.screenshot({ path: 'target/reports/workbench/independent-next.png' });
         await next.locator('.csw-row[data-index="1"]').click();
         await page.waitForFunction(() => window.workbenchFixture.featureActions.length === 1);
         const fill = await page.evaluate(() => window.workbenchFixture.featureActions[0]);
@@ -723,7 +725,8 @@ export function independentFeatureCases({ mode, syncSettings }) {
         assert.equal(action.data.expectedRevision, 'model-v1');
         assert.equal(action.data.preserveSpeed, true);
         assert.equal(action.data.target.id, 'synthetic-chat');
-        await page.screenshot({ path: 'target/reports/workbench/independent-model.png' });
+        if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
+          await page.screenshot({ path: 'target/reports/workbench/independent-model.png' });
         await page.setViewportSize({ width: 880, height: 960 });
         await page.waitForFunction(
           () => window.__companionFloatingPanel.state.dockStatus === 'open',

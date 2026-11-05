@@ -180,7 +180,7 @@ After opening Codex through Palboo:
 | `npm run install:dev`                                           | Register development in the unified Palboo.app.          |
 | `npm run dev:settings`                                          | Open development settings and choose a worktree.         |
 | `npm run dev:stop`                                              | Stop background development.                             |
-| `npm run verify`                                                | Run full verification, preparing required build outputs. |
+| `npm run verify`                                                | Verify the release binary and report each check’s duration. |
 | `npm run verify:web`                                            | Run frontend and synthetic-browser checks.               |
 | `npm run build`                                                 | Build the release binary and settings web app.           |
 | `npm run package`                                               | Package a full-App DMG for the current version.   |

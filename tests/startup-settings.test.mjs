@@ -170,7 +170,7 @@ test(
         executablePath: process.env.PALBOO_CHROME_BIN || undefined,
       });
       const browser = await chromium.connect(browserServer.wsEndpoint());
-      page = await browser.newPage();
+      page = await browser.newPage({ reducedMotion: 'reduce' });
       page.setDefaultTimeout(5000);
       page.on('pageerror', (error) => {
         errors.push(error.message);

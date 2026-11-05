@@ -186,8 +186,10 @@ export function featureSurfaceCases({ mode, createPopout, settle, output, bundle
           0,
         );
         assert.equal(await page.locator('iframe[src*="token="]').count(), 0);
-        await page.screenshot({ path: `${output}/pilot-sidebar.png` });
-        await desktop.screenshot({ path: `${output}/pilot-desktop.png` });
+        if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
+          await page.screenshot({ path: `${output}/pilot-sidebar.png` });
+        if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
+          await desktop.screenshot({ path: `${output}/pilot-desktop.png` });
         await desktop.close();
         await page.evaluate(async () => {
           window.workbenchFixture.settings.taskBoardEnabled = false;

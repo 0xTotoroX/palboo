@@ -1,20 +1,12 @@
 /*
  * [INPUT]: 已安装的 npm 依赖、Chromium、当前 Git 工作树。
- * [OUTPUT]: target/reports/web-pilot 下的逐项日志与非原生验证报告。
+ * [OUTPUT]: target/reports/web-pilot 下的逐项日志与非原生验证报告；复用网页及 test:node。
  * [POS]: 可在 Linux 运行的前端试点；不替代 verify、原生验收或发布门禁。
  * [PROTOCOL]: 变更时核对 scripts/AGENTS.md 与根地图。
  */
 import './brand.mjs';
 import { spawnSync } from 'node:child_process';
-import {
-  existsSync,
-  mkdirSync,
-  openSync,
-  closeSync,
-  readdirSync,
-  readFileSync,
-  writeFileSync,
-} from 'node:fs';
+import { existsSync, mkdirSync, openSync, closeSync, readFileSync, writeFileSync } from 'node:fs';
 import { cpus, totalmem } from 'node:os';
 import { resolve } from 'node:path';
 
@@ -35,7 +27,7 @@ const browser =
   (process.platform === 'linux' && existsSync('/usr/bin/chromium')
     ? '/usr/bin/chromium'
     : undefined);
-const env = { ...process.env };
+const env = { ...process.env, PALBOO_TEST_WEB_DIR: resolve(root, 'target/web') };
 if (browser) {
   env.CHROME_PATH = browser;
   env.PALBOO_CHROME_BIN = browser;
@@ -57,6 +49,7 @@ const report = {
   browserVersion: browser ? readCommand(browser, ['--version']) : null,
   cargoAvailable: readCommand('cargo', ['--version']) !== null,
   excluded: [
+    'Standalone website (npm run test:site / Website workflow)',
     'Rust build/test/clippy and full build/verify',
     'Rust-backed HTTP/CDP, lifecycle and feature-views acceptance',
     'AppKit/EventKit/native window acceptance and macOS arm64 packaging',
@@ -67,17 +60,7 @@ const steps = [
   ['build-web', 'npm', ['run', 'build:web']],
   ['format-check', 'npm', ['run', 'format:check']],
   ['audit-source', 'npm', ['run', 'audit:source']],
-  [
-    'node-tests',
-    process.execPath,
-    [
-      '--test',
-      ...readdirSync(resolve(root, 'tests'))
-        .filter((name) => name.endsWith('.test.mjs'))
-        .sort()
-        .map((name) => `tests/${name}`),
-    ],
-  ],
+  ['node-tests', 'npm', ['run', 'test:node']],
   ['workbench', process.execPath, ['tests/workbench.mjs']],
   ['glass', process.execPath, ['tests/embedded-glass.mjs']],
   ['model-control-host', process.execPath, ['tests/model-control-host.mjs']],

@@ -63,121 +63,125 @@ function App(){const [material,setMaterial]=useState('black');const [model,setMo
       await page.addStyleTag({ content: css });
       await page.addScriptTag({ content: bundle.outputFiles[0].text });
       const placements = { above: 0, below: 0 };
-      for (const width of [360, 390, 641, 740, 1360])
-        for (const base of [16, 17.6, 20, 32])
-          for (const theme of ['light', 'dark']) {
-            await page.setViewportSize({ width, height: 900 });
-            await page.evaluate(
-              ({ base, theme }) => {
-                document.documentElement.style.fontSize = base + 'px';
-                document.documentElement.style.setProperty('--buddy-type-size', base + 'px');
-                document.documentElement.dataset.settingsTheme = theme;
-              },
-              { base, theme },
-            );
-            const geometry = await page.evaluate(() => {
-              const rect = (s) => {
-                const r = document.querySelector(s).getBoundingClientRect();
-                return { right: r.right, top: r.top, width: r.width, height: r.height };
-              };
-              return {
-                short: rect('#material'),
-                medium: rect('#mode'),
-                full: rect('#screen'),
-                input: rect('#address'),
-                toggle: rect('[role=switch]'),
-                material: rect('#theme'),
-                variant: rect('#variant'),
-                overflow: document.documentElement.scrollWidth > innerWidth,
-                clipped: [...document.querySelectorAll('select')]
-                  .filter((e) => e.scrollHeight > e.clientHeight + 2)
-                  .map((e) => e.id),
-                arrows: [...document.querySelectorAll('.settings-native-select')].map((wrapper) => {
-                  const select = wrapper.querySelector('select').getBoundingClientRect();
-                  const icon = wrapper
-                    .querySelector(':scope > .buddy-icon')
-                    .getBoundingClientRect();
-                  return Math.abs(select.y + select.height / 2 - icon.y - icon.height / 2);
-                }),
-              };
-            });
-            assert.equal(geometry.overflow, false, `${width}/${base}/${theme}`);
-            assert.deepEqual(geometry.clipped, [], JSON.stringify(geometry));
-            assert.ok(
-              geometry.arrows.every((offset) => offset < 1),
-              'select chevrons remain vertically centered: ' + JSON.stringify(geometry),
-            );
-            for (const name of ['short', 'medium', 'full', 'input'])
-              assert.ok(
-                Math.abs(geometry[name].right - geometry.toggle.right) < 1,
-                JSON.stringify(geometry),
-              );
-            assert.equal(geometry.short.width, geometry.medium.width);
-            assert.equal(geometry.medium.width, geometry.full.width);
-            assert.ok(geometry.input.width >= geometry.full.width);
-            assert.ok(geometry.variant.width < geometry.short.width, JSON.stringify(geometry));
-            assert.ok(
-              Math.abs(geometry.variant.right - geometry.toggle.right) < 1,
-              JSON.stringify(geometry),
-            );
-            if ((width <= 390 && base <= 17.6) || (width === 390 && base === 20))
-              assert.ok(
-                Math.abs(geometry.material.top - geometry.variant.top) < 1,
-                'compact liquid controls fit on one row: ' + JSON.stringify(geometry),
-              );
-            for (const id of ['material', 'mode', 'screen', 'variant', 'action']) {
-              const select = page.locator('#' + id);
-              const closed = await assertCenteredArrow(select, `${width}/${base}/${theme}/closed`);
-              await select.click();
-              await page.waitForFunction((id) => document.getElementById(id).matches(':open'), id);
-              const opened = await assertCenteredArrow(select, `${width}/${base}/${theme}/open`);
-              assert.ok(
-                Math.abs(opened.right - closed.right) < 1,
-                'opening does not shift the arrow sideways',
-              );
-              const menu = await select.evaluate((e) => {
-                const s = getComputedStyle(e, '::picker(select)');
-                const o = e.querySelector('option').getBoundingClientRect();
-                const r = e.getBoundingClientRect();
-                return {
-                  width: parseFloat(s.width),
-                  control: r.width,
-                  color: s.backgroundColor,
-                  optionLeft: o.left,
-                  optionRight: o.right,
-                  controlLeft: r.left,
-                  controlRight: r.right,
-                  placement: o.top < r.top ? 'above' : 'below',
-                };
-              });
-              placements[menu.placement]++;
-              assert.ok(
-                Math.abs(menu.width - menu.control) < 1,
-                JSON.stringify({ width, base, id, menu }),
-              );
-              assert.ok(
-                menu.optionLeft >= menu.controlLeft && menu.optionRight <= menu.controlRight + 1,
-                JSON.stringify(menu),
-              );
-              assert.equal(
-                menu.color,
-                theme === 'light' ? 'rgb(244, 244, 246)' : 'rgb(33, 33, 36)',
-              );
-              await page.keyboard.press('Escape');
-              await page.waitForFunction((id) => !document.getElementById(id).matches(':open'), id);
-              const dismissed = await assertCenteredArrow(
-                select,
-                `${width}/${base}/${theme}/closed again`,
-              );
-              assert.ok(
-                Math.abs(dismissed.right - closed.right) < 1,
-                'closing restores the same arrow center',
-              );
-              assert.equal(await select.evaluate((e) => e.matches(':open')), false);
-              assert.equal(await select.evaluate((e) => document.activeElement === e), true);
-            }
-            t.diagnostic(`${width}/${base}/${theme}: centered before, during and after opening`);
-          }
+      // Cover narrow/wide layouts, the breakpoint, fractional/large text and both palettes.
+      // Reopening all five controls for the full Cartesian product adds no distinct behavior.
+      for (const [width, base, theme] of [
+        [360, 16, 'light'],
+        [360, 32, 'dark'],
+        [390, 17.6, 'dark'],
+        [390, 20, 'light'],
+        [641, 16, 'dark'],
+        [740, 20, 'light'],
+        [1360, 16, 'light'],
+        [1360, 32, 'dark'],
+      ]) {
+        await page.setViewportSize({ width, height: 900 });
+        await page.evaluate(
+          ({ base, theme }) => {
+            document.documentElement.style.fontSize = base + 'px';
+            document.documentElement.style.setProperty('--buddy-type-size', base + 'px');
+            document.documentElement.dataset.settingsTheme = theme;
+          },
+          { base, theme },
+        );
+        const geometry = await page.evaluate(() => {
+          const rect = (s) => {
+            const r = document.querySelector(s).getBoundingClientRect();
+            return { right: r.right, top: r.top, width: r.width, height: r.height };
+          };
+          return {
+            short: rect('#material'),
+            medium: rect('#mode'),
+            full: rect('#screen'),
+            input: rect('#address'),
+            toggle: rect('[role=switch]'),
+            material: rect('#theme'),
+            variant: rect('#variant'),
+            overflow: document.documentElement.scrollWidth > innerWidth,
+            clipped: [...document.querySelectorAll('select')]
+              .filter((e) => e.scrollHeight > e.clientHeight + 2)
+              .map((e) => e.id),
+            arrows: [...document.querySelectorAll('.settings-native-select')].map((wrapper) => {
+              const select = wrapper.querySelector('select').getBoundingClientRect();
+              const icon = wrapper.querySelector(':scope > .buddy-icon').getBoundingClientRect();
+              return Math.abs(select.y + select.height / 2 - icon.y - icon.height / 2);
+            }),
+          };
+        });
+        assert.equal(geometry.overflow, false, `${width}/${base}/${theme}`);
+        assert.deepEqual(geometry.clipped, [], JSON.stringify(geometry));
+        assert.ok(
+          geometry.arrows.every((offset) => offset < 1),
+          'select chevrons remain vertically centered: ' + JSON.stringify(geometry),
+        );
+        for (const name of ['short', 'medium', 'full', 'input'])
+          assert.ok(
+            Math.abs(geometry[name].right - geometry.toggle.right) < 1,
+            JSON.stringify(geometry),
+          );
+        assert.equal(geometry.short.width, geometry.medium.width);
+        assert.equal(geometry.medium.width, geometry.full.width);
+        assert.ok(geometry.input.width >= geometry.full.width);
+        assert.ok(geometry.variant.width < geometry.short.width, JSON.stringify(geometry));
+        assert.ok(
+          Math.abs(geometry.variant.right - geometry.toggle.right) < 1,
+          JSON.stringify(geometry),
+        );
+        if ((width <= 390 && base <= 17.6) || (width === 390 && base === 20))
+          assert.ok(
+            Math.abs(geometry.material.top - geometry.variant.top) < 1,
+            'compact liquid controls fit on one row: ' + JSON.stringify(geometry),
+          );
+        for (const id of ['material', 'mode', 'screen', 'variant', 'action']) {
+          const select = page.locator('#' + id);
+          const closed = await assertCenteredArrow(select, `${width}/${base}/${theme}/closed`);
+          await select.click();
+          await page.waitForFunction((id) => document.getElementById(id).matches(':open'), id);
+          const opened = await assertCenteredArrow(select, `${width}/${base}/${theme}/open`);
+          assert.ok(
+            Math.abs(opened.right - closed.right) < 1,
+            'opening does not shift the arrow sideways',
+          );
+          const menu = await select.evaluate((e) => {
+            const s = getComputedStyle(e, '::picker(select)');
+            const o = e.querySelector('option').getBoundingClientRect();
+            const r = e.getBoundingClientRect();
+            return {
+              width: parseFloat(s.width),
+              control: r.width,
+              color: s.backgroundColor,
+              optionLeft: o.left,
+              optionRight: o.right,
+              controlLeft: r.left,
+              controlRight: r.right,
+              placement: o.top < r.top ? 'above' : 'below',
+            };
+          });
+          placements[menu.placement]++;
+          assert.ok(
+            Math.abs(menu.width - menu.control) < 1,
+            JSON.stringify({ width, base, id, menu }),
+          );
+          assert.ok(
+            menu.optionLeft >= menu.controlLeft && menu.optionRight <= menu.controlRight + 1,
+            JSON.stringify(menu),
+          );
+          assert.equal(menu.color, theme === 'light' ? 'rgb(244, 244, 246)' : 'rgb(33, 33, 36)');
+          await page.keyboard.press('Escape');
+          await page.waitForFunction((id) => !document.getElementById(id).matches(':open'), id);
+          const dismissed = await assertCenteredArrow(
+            select,
+            `${width}/${base}/${theme}/closed again`,
+          );
+          assert.ok(
+            Math.abs(dismissed.right - closed.right) < 1,
+            'closing restores the same arrow center',
+          );
+          assert.equal(await select.evaluate((e) => e.matches(':open')), false);
+          assert.equal(await select.evaluate((e) => document.activeElement === e), true);
+        }
+        t.diagnostic(`${width}/${base}/${theme}: centered before, during and after opening`);
+      }
       assert.ok(placements.above > 0 && placements.below > 0, JSON.stringify(placements));
       console.log('Native picker placements:', placements);
 

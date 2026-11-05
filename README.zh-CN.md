@@ -180,7 +180,7 @@ npm run install:dev
 | `npm run install:dev`                                           | 登记开发环境并准备统一 Palboo.app。       |
 | `npm run dev:settings`                                          | 打开开发设置并选择 worktree。             |
 | `npm run dev:stop`                                              | 停止后台开发会话。                        |
-| `npm run verify`                                                | 完整验证，自动准备必要构建产物。          |
+| `npm run verify`                                                | 验证待打包程序，记录各项检查耗时。          |
 | `npm run verify:web`                                            | 前端与合成浏览器检查。                    |
 | `npm run build`                                                 | 构建发布程序与设置网页。                  |
 | `npm run package`                                               | 为当前版本打包完整 App DMG。 |

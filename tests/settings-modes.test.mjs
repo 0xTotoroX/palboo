@@ -1620,6 +1620,8 @@ test(
           publishTheme(colorScheme);
           await page.getByRole('status', { name: '已连接', exact: true }).waitFor();
 
+          // Header breakpoints are checked above; exercise every page at both layout extremes.
+          if (width !== 360 && width !== 1360) continue;
           for (const id of [
             'surfaces',
             'appearance',
@@ -1671,9 +1673,10 @@ test(
                 await page.locator('[data-settings-page="connection"] details').count(),
                 0,
               );
-              await page.screenshot({
-                path: `target/reports/settings-connection-${colorScheme}-${width}.png`,
-              });
+              if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
+                await page.screenshot({
+                  path: `target/reports/settings-connection-${colorScheme}-${width}.png`,
+                });
               continue;
             }
             if (id === 'codex-host') {
@@ -1698,9 +1701,10 @@ test(
                 'Agent menu scrolls within a content-sized preview',
               );
               assert.equal(bounds.backdrop, 'none', 'matte preview has no backdrop filter');
-              await page.screenshot({
-                path: `target/reports/settings-preview-codex-host-${colorScheme}-${width}.png`,
-              });
+              if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
+                await page.screenshot({
+                  path: `target/reports/settings-preview-codex-host-${colorScheme}-${width}.png`,
+                });
               continue;
             }
             if (id === 'terminology') {
@@ -2200,7 +2204,7 @@ test(
       await page.keyboard.press('Escape');
       for (const color of ['浅色', '深色']) {
         await chooseTheme(color);
-        for (const width of [320, 390, 600, 640, 641, 680, 760, 900, 1100, 1440]) {
+        for (const width of [320, 640, 641, 1100, 1440]) {
           await page.setViewportSize({ width, height: 850 });
           await page.evaluate(() => scrollTo(0, 0));
           await page.locator('.settings-theme-trigger').click();

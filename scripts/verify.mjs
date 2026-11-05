@@ -1,22 +1,36 @@
 /*
  * [INPUT]: 当前源码、锁定依赖、Cargo 与隔离验收脚本。
- * [OUTPUT]: 统一验证流程及源码/程序摘要；网页只构建一次供浏览器、debug 与 release 共用。
+ * [OUTPUT]: 统一验证流程、逐项耗时及源码/程序摘要；端到端与打包共用 release 程序。
  * [POS]: 验证编排入口；测试开始前检查产物与源码一致。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
 import './brand.mjs';
 import { distributionEnvironment } from './artifact-audit.mjs';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
+import {
+  readFileSync,
+  writeFileSync,
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  rmSync,
+} from 'node:fs';
 import { createHash } from 'node:crypto';
 import { resolve, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const root = resolve(import.meta.dirname, '..');
 const hash = (bytes) => createHash('sha256').update(bytes).digest('hex');
+const steps = [];
 function run(command, args, env = process.env) {
+  const started = Date.now();
+  const name = `${command === process.execPath ? 'node' : command} ${args.join(' ')}`;
   if (process.env.GITHUB_ACTIONS) console.log(`::group::${command} ${args.join(' ')}`);
   const result = spawnSync(command, args, { cwd: root, stdio: 'inherit', env });
+  const durationMs = Date.now() - started;
+  steps.push({ name, durationMs, passed: !result.error && result.status === 0 });
+  console.log(`${name}: ${(durationMs / 1000).toFixed(1)}s`);
   if (process.env.GITHUB_ACTIONS) console.log('::endgroup::');
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(`${command} ${args.join(' ')} 失败 (${result.status})`);
@@ -125,43 +139,70 @@ export function prepareTestBinary(profile) {
 }
 async function verify() {
   rmSync(join(root, 'target/reports/verify.json'), { force: true });
-  // 设置浏览器用例读取 target/web，必须先准备当前源码的网页与程序。
-  const artifact = prepareTestBinary();
-  run('npm', ['run', 'check'], { ...process.env, PALBOO_TEST_WEB_DIR: join(root, 'target/web') });
-  run(process.execPath, ['tests/workbench.mjs']);
-  run(process.execPath, ['tests/model-control-host.mjs']);
-  run(process.execPath, ['tests/feature-views.mjs']);
-  run('cargo', ['fmt', '--check']);
-  run('cargo', ['test', '--locked']);
-  run('cargo', ['clippy', '--locked', '--', '-D', 'warnings']);
-  const env = { ...process.env, PALBOO_TEST_BINARY: artifact.binary };
-  run(process.execPath, ['tests/model-control-e2e.mjs'], env);
-  run(process.execPath, ['tests/board.mjs'], env);
-  run(process.execPath, ['tests/config-cli.mjs'], env);
-  run(process.execPath, ['tests/features-e2e.mjs'], env);
-  run(process.execPath, ['tests/web-library.mjs'], env);
-  run(process.execPath, ['tests/e2e.mjs'], env);
-  run(process.execPath, ['tests/lifecycle-test.mjs'], env);
-  if (process.argv.includes('--native')) run(process.execPath, ['tests/native-check.mjs'], env);
-  else if (process.argv.includes('--native-appearance'))
-    run(process.execPath, ['tests/native-check.mjs', '--appearance-only'], env);
-  mkdirSync(join(root, 'target/reports'), { recursive: true });
-  writeFileSync(
-    join(root, 'target/reports/verify.json'),
-    JSON.stringify(
-      {
-        passed: true,
-        artifact,
-        native: process.argv.includes('--native')
-          ? 'full'
-          : process.argv.includes('--native-appearance')
-            ? 'appearance'
-            : 'not-run',
-      },
-      null,
-      2,
-    ) + '\n',
-  );
+  const started = Date.now();
+  let artifact,
+    passed = false,
+    native = 'not-run';
+  try {
+    run('npm', ['run', 'format:check']);
+    run('cargo', ['fmt', '--check']);
+    // build:web already checks TypeScript. Test the same release binary that will be packaged.
+    artifact = prepareTestBinary('release');
+    run('npm', ['run', 'test:node'], {
+      ...process.env,
+      PALBOO_TEST_WEB_DIR: join(root, 'target/web'),
+    });
+    run('npm', ['run', 'audit:source']);
+    run(process.execPath, ['tests/workbench.mjs']);
+    run(process.execPath, ['tests/model-control-host.mjs']);
+    run(process.execPath, ['tests/feature-views.mjs']);
+    run('cargo', ['test', '--locked']);
+    run('cargo', ['clippy', '--locked', '--', '-D', 'warnings']);
+    const env = { ...process.env, PALBOO_TEST_BINARY: artifact.binary };
+    run(process.execPath, ['tests/model-control-e2e.mjs'], env);
+    run(process.execPath, ['tests/board.mjs'], env);
+    run(process.execPath, ['tests/config-cli.mjs'], env);
+    run(process.execPath, ['tests/features-e2e.mjs'], env);
+    run(process.execPath, ['tests/web-library.mjs'], env);
+    run(process.execPath, ['tests/e2e.mjs'], env);
+    run(process.execPath, ['tests/lifecycle-test.mjs'], env);
+    if (process.argv.includes('--native')) {
+      run(process.execPath, ['tests/native-check.mjs'], env);
+      native = 'full';
+    } else if (process.argv.includes('--native-appearance')) {
+      run(process.execPath, ['tests/native-check.mjs', '--appearance-only'], env);
+      native = 'appearance';
+    }
+    passed = true;
+  } finally {
+    mkdirSync(join(root, 'target/reports'), { recursive: true });
+    writeFileSync(
+      join(root, 'target/reports/verify.json'),
+      JSON.stringify(
+        {
+          passed,
+          durationMs: Date.now() - started,
+          steps,
+          artifact,
+          native,
+        },
+        null,
+        2,
+      ) + '\n',
+    );
+    if (process.env.GITHUB_STEP_SUMMARY)
+      appendFileSync(
+        process.env.GITHUB_STEP_SUMMARY,
+        `### Verification timings\n\n| Check | Seconds | Result |\n| --- | ---: | --- |\n` +
+          steps
+            .map(
+              ({ name, durationMs, passed }) =>
+                `| ${name} | ${(durationMs / 1000).toFixed(1)} | ${passed ? 'Passed' : 'Failed'} |`,
+            )
+            .join('\n') +
+          '\n',
+      );
+  }
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href)
   await verify();

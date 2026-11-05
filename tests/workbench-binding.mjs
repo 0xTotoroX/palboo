@@ -350,7 +350,8 @@ export function chatBindingCases({
       async (page) => {
         await mode(page, true);
         await page.locator('[data-quick-prompt="0"]').waitFor();
-        await page.screenshot({ path: resolve(output, 'quick-prompts.png') });
+        if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
+          await page.screenshot({ path: resolve(output, 'quick-prompts.png') });
         const before = await page.evaluate(
           () =>
             window.workbenchFixture.requests.filter((r) => r.path === '/stepwise/generate').length,
@@ -631,14 +632,16 @@ export function chatBindingCases({
         assert.equal(await page.locator('.csw-association-menu').isHidden(), true);
         assert.equal(await page.locator('.csw-workbench-source').isHidden(), true);
         assert.match(await page.locator('.csw-workbench-source').innerText(), /已锁定/);
-        await page
-          .locator('.csw-workbench')
-          .screenshot({ path: resolve(output, 'binding-light.png') });
+        if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
+          await page
+            .locator('.csw-workbench')
+            .screenshot({ path: resolve(output, 'binding-light.png') });
         await page.evaluate(() => document.documentElement.classList.add('dark'));
         await settle(page);
-        await page
-          .locator('.csw-workbench')
-          .screenshot({ path: resolve(output, 'binding-dark.png') });
+        if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
+          await page
+            .locator('.csw-workbench')
+            .screenshot({ path: resolve(output, 'binding-dark.png') });
         assert.equal(await page.evaluate(() => window.workbenchFixture.deferred.length), 1);
       },
     ],

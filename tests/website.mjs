@@ -2,6 +2,7 @@
  * [OUTPUT]: Feature/state, surface geometry, theme, motion and responsive acceptance.
  * [POS]: Isolated public-page tests and synthetic browser captures; no host, model or real configuration.
  * [PROTOCOL]: Keep tests/AGENTS.md and website/AGENTS.md in sync. */
+// Run with test:site in the Website workflow; App verification covers shared components separately.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { build, preview } from 'vite';
