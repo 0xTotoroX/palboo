@@ -1,12 +1,13 @@
 /*
  * [INPUT]: 当前宿主已加载的 Rspack 模块、已提交的 React 输入区、侧边标签控制器。
- * [OUTPUT]: 受限侧边/父聊天身份、完整文字历史、忙碌回读与父聊天显现；不关闭或迁移会话。
+ * [OUTPUT]: 父聊天追加、持久侧聊转正、截至指定轮次的独立分支及云端接力的原生接口。
  * [POS]: ChatGPT 私有接口兼容边界；未知结构拒绝，不修改 App 包或 CodexHost 文件。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
 import { tr } from '../shared/i18n.js';
+import { localSideHistory, cloudSideHistory } from './side-chat-history.js';
 
-const unsupported = () => Error(tr('当前宿主不支持将此侧聊带回原主聊天。'));
+const unsupported = () => Error(tr('当前宿主不支持此侧聊操作。'));
 let loader;
 async function loadedRuntime() {
   if (!loader)
@@ -156,13 +157,50 @@ export function sideChatAdapter(target, runtime) {
       '[role="tabpanel"][data-tab-id^="sidechat:"],[data-app-shell-active-page="false"]',
     ) &&
     sameParent(nativeScope(editor));
+  const mainEditors = () =>
+    [
+      ...document.querySelectorAll(
+        '.ProseMirror[contenteditable="true"],[data-codex-composer][contenteditable="true"],textarea',
+      ),
+    ].filter(
+      (editor) =>
+        editor.getBoundingClientRect().width > 0 &&
+        !editor.closest(
+          '[hidden],[inert],[aria-hidden="true"],[data-app-shell-active-page="false"],[data-app-shell-focus-area="right-panel"],[data-app-shell-focus-area="bottom-panel"],[data-palboo-features-root],[data-companion-stepwise-root],section[role="dialog"]',
+        ),
+    );
+  const mainUnchanged = () => {
+    const editors = mainEditors();
+    return editors.length === 1 && matchesDestination(editors[0]);
+  };
+  let independentId = null,
+    navigated = false;
+  const bus = runtime.c.TL6G?.exports?.O1;
+  const route = runtime.c.DBCl?.exports?._RT;
+  const cloudState = runtime.c.MrGp?.exports;
+  const independentMatches = (editor) => {
+    const next = nativeScope(editor);
+    return (
+      editor?.isConnected &&
+      currentAccount() &&
+      !next?.value.workSideChat &&
+      !editor.closest(
+        '[role="tabpanel"][data-tab-id^="sidechat:"],[data-app-shell-active-page="false"]',
+      ) &&
+      next?.value.conversationId === independentId &&
+      next.value.routeKind === parent.routeKind &&
+      (cloud || localHost(next) === content.hostId)
+    );
+  };
   return {
     kind: cloud ? 'cloud' : 'local',
     id,
     title: tab.title || '',
     parentId: parent.conversationId,
     current,
-    matchesDestination,
+    matchesDestination: (editor) =>
+      navigated ? independentMatches(editor) : matchesDestination(editor),
+    mainUnchanged,
     async localState() {
       const conversation = await rpc.getConversation(id);
       let state;
@@ -170,8 +208,9 @@ export function sideChatAdapter(target, runtime) {
         state = conversation
           ? {
               id: conversation.id,
-              title: conversation.title ?? '',
+              title: conversation.title ?? null,
               ephemeral: conversation.ephemeral,
+              side: conversation.sideConversation,
               requests: conversation.requests?.length || 0,
             }
           : null;
@@ -183,10 +222,25 @@ export function sideChatAdapter(target, runtime) {
         ? { ...state, busy: execution.inProgress || state.requests > 0 }
         : null;
     },
-    async history(check = () => {}) {
+    async history(check = () => {}, cutoff = null) {
       check();
       if (!current()) throw unsupported();
       if (cloud) {
+        if (cutoff) {
+          const key = runtime.c.ISgP?.exports?.O;
+          if (!key) throw unsupported();
+          // 与宿主展示/接力共用的当前分支，保留 turn.id，不以文本或 DOM 顺序猜历史边界。
+          let turns = scope.get(key, id);
+          if (turns == null) {
+            const query = runtime.c.lBzi?.exports?.chatGptConversationQueryById$;
+            const convert = runtime.c.zyJC?.exports?.hd;
+            const orders = runtime.c.zbjM?.exports?.B;
+            const data = query && scope.query.getData(query, id);
+            if (!data || typeof convert !== 'function' || !orders) throw unsupported();
+            turns = convert(data, { streamingOrders: scope.get(orders, id) });
+          }
+          return cloudSideHistory(turns, runtime.c.kkdx?.exports?.o, cutoff);
+        }
         const read = runtime.c.k675?.exports?.I;
         if (typeof read !== 'function') throw unsupported();
         // 空选项取消默认三轮/2000字截断；读取当前分支而不是虚拟滚动 DOM。
@@ -198,63 +252,146 @@ export function sideChatAdapter(target, runtime) {
           throw unsupported();
         return history.priorConversation.conversation;
       }
-      const history = [],
-        cursors = new Set(),
-        turns = new Set();
-      let cursor = null,
-        size = 0;
-      do {
-        check();
-        if (!current()) throw unsupported();
-        // full + itemLimit:null 让原生分页器也读完每轮的 items；CodexHost 同样支持此接口。
-        const { response } = await rpc.listThreadTurns(id, {
-          cursor,
-          limit: 100,
-          sortDirection: 'asc',
-          itemsView: 'full',
-          itemLimit: null,
-          requestOptions: { timeoutMs: 15000 },
+      return localSideHistory(
+        rpc,
+        id,
+        () => {
+          check();
+          if (!current()) throw unsupported();
+        },
+        cutoff,
+      );
+    },
+    prepareIndependent(cutoff) {
+      if (
+        !current() ||
+        typeof bus?.dispatchHostMessage !== 'function' ||
+        !bus.handlers?.has('navigate-to-route') ||
+        typeof controller.closeTab !== 'function'
+      )
+        throw unsupported();
+      // Do not close the side tab while another main editor (for example an
+      // in-place message edit) would make navigation/draft ownership ambiguous.
+      const editors = mainEditors();
+      if (editors.length && (editors.length !== 1 || !matchesDestination(editors[0])))
+        throw Error(tr('无法确认原主聊天输入框。'));
+      if (cloud) {
+        if (
+          typeof runtime.c.OOaz?.exports?.co !== 'function' ||
+          typeof cloudState?.iF !== 'function' ||
+          typeof runtime.c.jAnS?.exports?.mv !== 'function'
+        )
+          throw unsupported();
+      } else if (
+        typeof route !== 'function' ||
+        route('palboo-probe') !== '/local/palboo-probe' ||
+        ['setThreadTitle', 'discardConversationFromCache'].some(
+          (key) => typeof rpc[key] !== 'function',
+        ) ||
+        (cutoff && typeof runtime.c.IhcX?.exports?.y !== 'function')
+      )
+        throw unsupported();
+    },
+    async rename(title, previousTitle) {
+      if (!current()) throw unsupported();
+      if (
+        !(await rpc.setThreadTitle(id, title, {
+          expectedTitle: previousTitle,
+          requireAcknowledgement: true,
+        }))
+      )
+        throw Error(tr('聊天标题已变化，请重试。'));
+    },
+    close() {
+      if (!current()) throw unsupported();
+      controller.closeTab(scope, target.tabId, { recordCloseUndo: false });
+    },
+    isClosed: () =>
+      scope.get(controller.tabById$, target.tabId) == null && !target.panel.isConnected,
+    closedParent() {
+      panels.W3(scope, 'right');
+      if (!mainUnchanged()) throw Error(tr('草稿或聊天已变化，未继续带回。'));
+    },
+    reload: () => rpc.discardConversationFromCache(id),
+    async fork(cutoff, title, expectedHistory, check) {
+      if (!current()) throw unsupported();
+      const result = await runtime.c.IhcX.exports.y(scope, content.hostId, {
+        sourceConversationId: id,
+        sourceTitle: title,
+        targetTurnId: cutoff.turnKey,
+        beforeTargetTurn: false,
+        threadSource: 'user',
+      });
+      // 不回滚源会话；旧服务端的截取也由原生 helper 仅对新分支执行。
+      if (
+        !result?.conversationId ||
+        result.conversationId === id ||
+        result.synchronization?.status !== 'complete'
+      )
+        throw Error(tr('独立聊天未完整准备，原侧聊已保留。'));
+      independentId = result.conversationId;
+      check();
+      const copied = await localSideHistory(rpc, independentId, check);
+      if (JSON.stringify(copied) !== JSON.stringify(expectedHistory))
+        throw Error(tr('独立聊天的截取范围不一致，未切换，原侧聊已保留。'));
+      const conversation = await rpc.getConversation(independentId);
+      let previousTitle;
+      try {
+        if (
+          conversation?.id !== independentId ||
+          conversation.ephemeral !== false ||
+          conversation.sideConversation === true
+        )
+          throw unsupported();
+        previousTitle = conversation.title ?? null;
+      } finally {
+        conversation?.[Symbol.dispose]?.();
+      }
+      check();
+      if (
+        previousTitle !== title &&
+        !(await rpc.setThreadTitle(independentId, title, {
+          expectedTitle: previousTitle,
+          requireAcknowledgement: true,
+        }))
+      )
+        throw Error(tr('聊天标题已变化，请重试。'));
+      check();
+    },
+    navigateIndependent() {
+      if (!currentAccount()) throw unsupported();
+      panels.W3(scope, 'right');
+      if (!mainUnchanged()) throw Error(tr('草稿或聊天已变化，未继续带回。'));
+      if (cloud) {
+        independentId = runtime.c.OOaz.exports.co();
+        cloudState.iF(scope, independentId, {
+          hideFromHistory: false,
+          isDoNotRemember: scope.get(cloudState.Ik, id),
         });
-        check();
-        if (!Array.isArray(response?.data)) throw unsupported();
-        for (const turn of response.data) {
-          if (
-            !turn.id ||
-            turns.has(turn.id) ||
-            turn.itemsView !== 'full' ||
-            !Array.isArray(turn.items)
-          )
-            throw unsupported();
-          turns.add(turn.id);
-          for (const item of turn.items) {
-            let role, text;
-            if (item.type === 'userMessage') {
-              if (!Array.isArray(item.content)) throw unsupported();
-              role = 'user';
-              text = item.content
-                .filter((part) => part.type === 'text')
-                .map((part) => {
-                  if (typeof part.text !== 'string') throw unsupported();
-                  return part.text;
-                })
-                .join('\n');
-            } else if (item.type === 'agentMessage') {
-              role = 'assistant';
-              text = item.text;
-              if (typeof text !== 'string') throw unsupported();
-            } else continue; // 工具输出、思考和附件不冒充问答；交接正文明确文字范围。
-            size += text.length;
-            if (size > 2_000_000) throw Error(tr('侧边聊天内容过长，未截断或关闭原聊天。'));
-            history.push({ role, content: [{ content_type: 'text', text }] });
-          }
-        }
-        cursor = response.nextCursor;
-        if (cursor != null) {
-          if (typeof cursor !== 'string' || cursors.has(cursor)) throw unsupported();
-          cursors.add(cursor);
-        }
-      } while (cursor != null);
-      return history;
+      } else independentId ||= id;
+      navigated = true;
+      bus.dispatchHostMessage({
+        type: 'navigate-to-route',
+        path: cloud ? runtime.c.jAnS.exports.mv(independentId) : route(independentId),
+      });
+      const recent = runtime.c.fKdM?.exports?.v;
+      if (recent) scope.query.invalidate(recent);
+    },
+    async promoted(editor) {
+      if (!independentMatches(editor)) return false;
+      if (cloud) return true;
+      const conversation = await manager
+        .V(nativeScope(editor), content.hostId)
+        .getConversation(independentId);
+      try {
+        return (
+          conversation?.id === independentId &&
+          conversation.ephemeral === false &&
+          conversation.sideConversation !== true
+        );
+      } finally {
+        conversation?.[Symbol.dispose]?.();
+      }
     },
     revealParent() {
       if (!current()) throw unsupported();

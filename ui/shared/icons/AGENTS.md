@@ -3,7 +3,7 @@
 > L2 | 父级：[AGENTS.md](../AGENTS.md)
 
 - `features.js`：Palboo 自绘的八个功能图标，使用项目 GPL-3.0-only 许可；24×24 画布、1.8px 圆角描边，Bot 双眼为2.5px，颜色继承 currentColor。
-- `index.js`：统一导出自绘功能与第三方控件的静态 SVG，供外壳、工作台、宿主窄入口与窗口控件使用；bolt 对应公开 Bolt.tsx，用于模型快切 Fast；side-chat-handoff 为 GPL-3.0-only 自绘双聊天气泡与汇入箭头，用于带回原主聊天，与提示词优化笔形及还原回转箭头区分。
+- `index.js`：统一导出自绘功能与第三方控件的静态 SVG，供外壳、工作台、宿主窄入口与窗口控件使用；bolt 对应公开 Bolt.tsx，用于模型快切 Fast；side-chat-handoff 为 GPL-3.0-only 自绘双聊天气泡与汇入箭头，用于带回原主聊天，side-chat-independent 为单气泡与向外箭头，用于独立主聊天；两者与提示词优化笔形及还原回转箭头区分。
 - `index.d.ts`：共享 SVG 入口的 TypeScript 类型，供独立功能视图复用。
 - `LICENSE`：仅适用于 OpenAI 来源控件图标的原始 MIT 许可；分发许可生成器收集原文，自绘 features.js 遵循项目根许可。
 

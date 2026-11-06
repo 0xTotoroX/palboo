@@ -1,6 +1,19 @@
 // English interface copy. User-authored content is not translated.
 export default {
   带回原主聊天: 'Bring to original chat',
+  转为独立主聊天: 'Make independent main chat',
+  '带回原主聊天（截至此处）': 'Bring to original chat through this reply',
+  '创建独立聊天（截至此处）': 'Create independent chat through this reply',
+  '范围：从侧聊开头到所选回答，不含后续消息和当前草稿。':
+    'Range: from the beginning through the selected reply, excluding later messages and the current draft.',
+  '当前宿主不支持此侧聊操作。': 'This host does not support this side chat action.',
+  '无法确认所选回答或完整聊天记录，请重新选择。':
+    'The selected reply or complete history could not be verified. Please select it again.',
+  '所选回答已变化，请重新选择。': 'The selected reply has changed. Please select it again.',
+  '独立聊天未完整准备，原侧聊已保留。':
+    'The independent chat is not fully ready. The original side chat is preserved.',
+  '独立聊天的截取范围不一致，未切换，原侧聊已保留。':
+    'The independent chat has a different history range. Navigation was stopped and the original side chat is preserved.',
   '无法确认原主聊天输入框。': 'The original chat composer could not be verified.',
   '侧聊未发送草稿：': 'Unsent side-chat draft:',
   '原主聊天仍在输入或生成，请稍后重试。':

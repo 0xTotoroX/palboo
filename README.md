@@ -28,7 +28,12 @@ Desktop windows use native macOS traffic-light controls and reuse the existing P
 | **Grok Bot**              | Find your Bots and start a consultation in the current chat.                                                                            |
 | **Notes & Web** | Read and edit local Markdown, preview spreadsheets, and open saved web pages inside ChatGPT. |
 
-In a right-side Side Chat, hover the two-chat-bubble icon beside the voice/send controls to find **Bring to original chat**. Once the side chat has finished responding, click to append its complete text conversation and unsent text to the original parent chat's existing draft. **Nothing is sent automatically.** Local and cloud ChatGPT side chats share this behavior. After the append is confirmed, the right panel collapses while the side chat is retained. Handoff and prompt optimization/restore cannot run together. Images, attachments and tool state are not transferred; drafts with attachments or special references, unsupported hosts and uncertain parent identities stop the operation and preserve the source.
+A right-side Side Chat has two actions beside the voice/send controls. Hover each icon for its name:
+
+- **Bring to original chat** (two chat bubbles with an inward arrow): append the complete text conversation and unsent text to the original chat, preserving its existing draft. The side panel collapses after success and the side chat is retained.
+- **Make independent main chat** (one chat bubble with an outward arrow): promote a persistent local side chat with the same conversation ID, a proper title and its draft. Hidden cloud side chats continue as a handoff draft in a new main chat.
+
+The same icons appear beside Outline under completed replies. Choose one to bring back or independently save **the conversation from its beginning through that reply**, excluding later messages and the current draft. Local chats create a new branch; cloud chats prefill a new chat. The original side chat and later content remain intact. **Nothing is sent automatically**, and these actions cannot overlap with prompt optimization/restore. Text handoffs do not include images, attachments or tool state. Uncertain identities, incomplete history, changed ranges or unsupported Agent fork capabilities stop the operation and preserve the source.
 
 ## Installation
 

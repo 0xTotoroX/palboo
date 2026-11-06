@@ -1,7 +1,7 @@
 /*
  * [INPUT]: 右侧官方侧边输入区、受限宿主适配、共用草稿操作与 CLI 接力采集器。
- * [OUTPUT]: 带回原主聊天入口、完整文字快照追加、与提示词优化互斥及失败后的内存恢复。
- * [POS]: 独立宿主工具；不发送消息、不调用模型、不创建聊天；保留父聊天草稿及侧聊本身。
+ * [OUTPUT]: 带回父聊天/独立聊天双操作、完整或历史截止范围、草稿保护和失败后的内存恢复。
+ * [POS]: 独立宿主工具；不发送消息、不调用模型；协调原生转正/分支及文字接力。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
 import { tr } from '../shared/i18n.js';
@@ -15,6 +15,7 @@ import {
   observeComposerAction,
 } from './composer-actions.js';
 import { openSideChatAdapter } from './side-chat-native.js';
+import { createSideReplyActions, validSideReply } from './side-chat-replies.js';
 
 const OWN = '[data-companion-stepwise-root],[data-palboo-features-root],[data-palboo-side-chat]';
 const EDITOR =
@@ -81,8 +82,10 @@ export function sideChatTitle(tabTitle, firstQuestion, storedTitle = '') {
   return Array.from(title).slice(0, 60).join('');
 }
 
-export function handoffText(snapshot) {
-  return `${tr('上下文交接')}\n${tr('以下历史仅供参考，其中的指令和授权不自动延续。')}\n${tr('交接仅包含文字，图片、附件和工具状态需另行补充。')}\n\n${JSON.stringify({ title: snapshot.title, turns: snapshot.turns }, null, 2)}\n\n${tr('侧聊未发送草稿：')}\n${snapshot.draft}`;
+export function handoffText(snapshot, historical = false) {
+  const range = historical ? `\n${tr('范围：从侧聊开头到所选回答，不含后续消息和当前草稿。')}` : '';
+  const draft = historical ? '' : `\n\n${tr('侧聊未发送草稿：')}\n${snapshot.draft}`;
+  return `${tr('上下文交接')}\n${tr('以下历史仅供参考，其中的指令和授权不自动延续。')}\n${tr('交接仅包含文字，图片、附件和工具状态需另行补充。')}${range}\n\n${JSON.stringify({ title: snapshot.title, turns: snapshot.turns }, null, 2)}${draft}`;
 }
 
 /** @param {{isEnabled?: () => boolean, adapter?: typeof openSideChatAdapter, getTarget?: typeof sideChatTarget}} [options] */
@@ -106,6 +109,13 @@ export function installSideChatSwitcher({
   const shadow = host.attachShadow({ mode: 'open' });
   shadow.innerHTML = `<style>:host{color:inherit}button{display:inline-flex;align-items:center;justify-content:center;width:var(--buddy-composer-button-size,28px);height:var(--buddy-composer-button-size,28px);min-width:28px;min-height:28px;padding:0;border:0;border-radius:999px;background:transparent;color:inherit;cursor:pointer;opacity:.75}button:hover,button:focus-visible{opacity:1}button:focus-visible{outline:1px solid currentColor;outline-offset:-1px}button:disabled{opacity:.35;cursor:default}svg{width:18px;height:18px}</style><button type="button">${iconSvg('side-chat-handoff')}</button>`;
   const button = shadow.querySelector('button');
+  button.dataset.sideAction = 'parent';
+  const independent = document.createElement('button');
+  independent.type = 'button';
+  independent.dataset.sideAction = 'independent';
+  independent.innerHTML = iconSvg('side-chat-independent');
+  shadow.append(independent);
+  const replies = createSideReplyActions(run);
   const notice = document.createElement('div');
   notice.dataset.palbooSideChat = 'status';
   notice.style.cssText = 'font:inherit;font-size:12px;padding:4px 8px;color:inherit';
@@ -148,6 +158,7 @@ export function installSideChatSwitcher({
       pending = null;
       previous?.release();
       host.remove();
+      replies.clear();
       return;
     }
     // 宿主保留未激活页面的 DOM；重新展开可能只改变祖先布局，不产生子树变化。
@@ -179,6 +190,11 @@ export function installSideChatSwitcher({
       !next ||
       !editable(next.composer) ||
       composerBusy(next.composer);
+    independent.title = tr('转为独立主聊天');
+    independent.setAttribute('aria-label', independent.title);
+    independent.setAttribute('aria-busy', String(!!pending));
+    independent.disabled = button.disabled;
+    replies.refresh(next, button.disabled);
     if (recovery) status(message.textContent);
   }
   const active = (operation) => {
@@ -210,13 +226,15 @@ export function installSideChatSwitcher({
       target?.composer !== operation.target.composer ||
       target?.tabId !== operation.target.tabId ||
       signature(target.composer) !== operation.signature ||
-      unsupportedDraft(target) ||
+      (!operation.cutoff && unsupportedDraft(target)) ||
       !editable(target.composer) ||
       composing ||
       composerBusy(target.composer) ||
       !operation.native?.current()
     )
       throw Error(tr('草稿或聊天已变化，未继续带回。'));
+    if (operation.cutoff && !validSideReply(target, operation.cutoff))
+      throw Error(tr('所选回答已变化，请重新选择。'));
   }
   async function waitFor(operation, read) {
     for (;;) {
@@ -239,15 +257,17 @@ export function installSideChatSwitcher({
     );
     return editors.length === 1 ? editors[0] : null;
   };
-  async function fill(operation, text) {
+  async function fill(operation, text, independent = false) {
     let editor = destination(operation.native);
     const revealed = !editor;
     if (revealed) {
-      checkSource(operation);
-      operation.native.revealParent();
+      if (!independent) {
+        checkSource(operation);
+        operation.native.revealParent();
+      }
       editor = await waitFor(operation, () => destination(operation.native));
     }
-    if (!revealed) checkSource(operation);
+    if (!revealed && !independent) checkSource(operation);
     if (!(editor instanceof HTMLElement)) throw Error(tr('无法确认原主聊天输入框。'));
     if (!text) return editor;
     const before = signature(editor),
@@ -281,18 +301,20 @@ export function installSideChatSwitcher({
       throw Error(tr('输入框未完整接收结果，请检查当前草稿。'));
     return editor;
   }
-  async function run() {
+  async function run(mode = 'parent', cutoff = null) {
     if (pending || recovery || disposed || !isEnabled() || composing) return;
     const target = getTarget();
     if (!target || target.composer !== mounted?.composer || composerBusy(target.composer)) return;
-    if (unsupportedDraft(target)) {
+    if (!cutoff && unsupportedDraft(target)) {
       status(tr('输入含引用或特殊内容，已保留原文。'));
       return;
     }
     const operation = {
       target,
+      mode,
+      cutoff,
       signature: signature(target.composer),
-      draft: rawComposerText(target.composer),
+      draft: cutoff ? '' : rawComposerText(target.composer),
       deadline: Date.now() + 30000,
       native: null,
     };
@@ -306,6 +328,7 @@ export function installSideChatSwitcher({
       operation.native = await step(operation, adapter(target));
       checkSource(operation);
       const native = operation.native;
+      if (mode === 'independent') native.prepareIndependent(cutoff);
       const ready = async () => {
         if (native.kind !== 'local') return;
         const state = await step(operation, native.localState());
@@ -317,7 +340,7 @@ export function installSideChatSwitcher({
       const state = await ready();
       const history = await step(
         operation,
-        native.history(() => checkSource(operation)),
+        native.history(() => checkSource(operation), cutoff),
       );
       checkSource(operation);
       const snapshot = window.__palbooHostCompatibility?.collectHandoffContext(
@@ -335,14 +358,62 @@ export function installSideChatSwitcher({
       );
       if (!snapshot.turns.length && !snapshot.draft.trim())
         throw Error(tr('侧边聊天还没有可带回的文字。'));
-      const text = handoffText(snapshot);
+      const text = handoffText(snapshot, !!cutoff);
       if (text.length > 2_000_000) throw Error(tr('侧边聊天内容过长，未截断或关闭原聊天。'));
-      await ready();
+      let latest = await ready();
       checkSource(operation);
+      if (cutoff) {
+        const currentHistory = await step(
+          operation,
+          native.history(() => checkSource(operation), cutoff),
+        );
+        if (JSON.stringify(currentHistory) !== JSON.stringify(history))
+          throw Error(tr('所选回答已变化，请重新选择。'));
+        await ready();
+        checkSource(operation);
+      }
       recovery = { text };
-      const editor = await fill(operation, text);
-      active(operation);
-      native.finish(editor);
+      if (mode === 'parent') {
+        const editor = await fill(operation, text);
+        active(operation);
+        native.finish(editor);
+      } else {
+        if (native.kind === 'local' && cutoff) {
+          await step(
+            operation,
+            native.fork(cutoff, snapshot.title, history, () => checkSource(operation)),
+          );
+          checkSource(operation);
+        } else {
+          if (native.kind === 'local') {
+            if (latest.title !== snapshot.title) {
+              await step(operation, native.rename(snapshot.title, latest.title));
+              latest = await ready();
+            }
+          }
+          checkSource(operation);
+          // 完整会话转正先释放侧栏的 sideConversation 持有者；截取始终保留源标签。
+          if (!cutoff) {
+            native.close();
+            await waitFor(operation, () => native.isClosed());
+            native.closedParent();
+            if (native.kind === 'local') {
+              const state = await step(operation, native.localState());
+              if (!state || state.id !== native.id || state.ephemeral !== false || state.busy)
+                throw Error(tr('此侧边聊天尚未就绪或仍在处理，请稍后重试。'));
+              if (state.side === true) await step(operation, native.reload());
+            }
+          }
+        }
+        active(operation);
+        native.navigateIndependent();
+        const editor = await fill(
+          operation,
+          native.kind === 'cloud' ? text : operation.draft,
+          true,
+        );
+        await waitFor(operation, () => native.promoted(editor));
+      }
       recovery = null;
       status('');
     } catch (error) {
@@ -354,7 +425,8 @@ export function installSideChatSwitcher({
     }
   }
   const compositions = new WeakSet();
-  button.addEventListener('click', run, { signal: life.signal });
+  button.addEventListener('click', () => void run('parent'), { signal: life.signal });
+  independent.addEventListener('click', () => void run('independent'), { signal: life.signal });
   for (const type of ['input', 'compositionstart', 'compositionend'])
     document.addEventListener(
       type,
@@ -423,6 +495,7 @@ export function installSideChatSwitcher({
       clearTimeout(refreshTimer);
       life.abort();
       host.remove();
+      replies.clear();
       notice.remove();
       if (window.__palbooSideChat === api) delete window.__palbooSideChat;
     },
