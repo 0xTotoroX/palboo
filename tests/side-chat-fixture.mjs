@@ -1,5 +1,5 @@
 /* [INPUT]: Real Palboo browser modules and synthetic native chat state.
- * [OUTPUT]: Isolated side-chat/parent editors, history pages, native routing and mutation hooks.
+ * [OUTPUT]: Isolated editors/history/routing, optional managed-text cards and async mutation hooks.
  * [POS]: Shared browser fixture for side-chat append, promotion and history-range regressions.
  * [PROTOCOL]: Keep tests/AGENTS.md in sync. */
 import { readFile } from 'node:fs/promises';
@@ -25,6 +25,12 @@ Object.assign(window,{side,native,rawComposerText,setLocale,mountComposerAction,
 const compatibility = await readFile('ui/codex/codex-host.js', 'utf8');
 export async function sideChatFixture(browser, options = {}) {
   const page = await browser.newPage();
+  if (options.pastedCards) {
+    await page.route('http://127.0.0.1/palboo-side-chat-fixture', (route) =>
+      route.fulfill({ contentType: 'text/html', body: '<!doctype html>' }),
+    );
+    await page.goto('http://127.0.0.1/palboo-side-chat-fixture');
+  }
   await page.setContent(`<style>
 body{display:flex;gap:20px}main,aside{width:420px}form{padding:8px}.ProseMirror{min-height:60px;white-space:break-spaces}
 .footer{display:flex;align-items:center;justify-content:flex-end}.native{display:flex}
@@ -61,6 +67,11 @@ button{width:32px;height:32px}button[data-codexhost-agent-control]{width:80px}
     window.execution = { inProgress: !!options.busy };
     window.forkSource = { parentId: 'parent', turnId: 'turn-1' };
     window.hooks = {};
+    window.cardFiles = {};
+    window.cards = [];
+    window.cardGeneration = 0;
+    window.cardMode = 'local';
+    window.cardSubmitting = false;
     window.pages = options.pages || [
       {
         data: [
@@ -133,6 +144,19 @@ button{width:32px;height:32px}button[data-codexhost-agent-control]{width:80px}
         query: { invalidate: (key) => window.log.push(['invalidate', key]) },
       };
       const fiber = { memoizedState: { memoizedState: { current: scope } } };
+      if (options.pastedCards && element.matches('main .ProseMirror')) {
+        const composer = {
+          ...scope,
+          value: { kind: 'local', placement: 'main', conversationId: value.conversationId },
+          get(key) {
+            if (key === 'pasted-cards') return window.cards;
+            if (key === 'card-generation') return window.cardGeneration;
+            if (key === 'card-mode') return window.cardMode;
+            if (key === 'card-submitting') return window.cardSubmitting;
+          },
+        };
+        fiber.memoizedState.next = { memoizedState: { current: composer } };
+      }
       const root = { child: fiber };
       root.stateNode = { current: root };
       fiber.return = root;
@@ -173,6 +197,17 @@ button{width:32px;height:32px}button[data-codexhost-agent-control]{width:80px}
     };
     stores.right.set(panel.dataset.tabId, window.tab);
     const rpc = {
+      async createPastedTextAttachment(text, label, filename) {
+        await window.hooks.createAttachment?.();
+        const path = `/fixture/attachments/${window.log.length}/${filename}`;
+        window.cardFiles[path] = text;
+        window.log.push(['create-card-file', path]);
+        return { path, fsPath: path, label };
+      },
+      async removePastedTextAttachment(path) {
+        window.log.push(['remove-card-file', path]);
+        delete window.cardFiles[path];
+      },
       async getConversation(id) {
         return {
           ...(id === 'fork-a' ? window.forkMeta : window.meta),
@@ -215,6 +250,22 @@ button{width:32px;height:32px}button[data-codexhost-agent-control]{width:80px}
     window.runtime = {
       c: Object.fromEntries(
         Object.entries({
+          ...(options.pastedCards
+            ? {
+                TSib: {
+                  VH: 'pasted-cards',
+                  kV: 'card-generation',
+                  YH: 'card-mode',
+                  TQ: 'card-submitting',
+                  Rh(_scope, name, update) {
+                    if (name !== 'pastedTextAttachments') throw Error('Unexpected native field');
+                    window.hooks.attachCard?.();
+                    // 原生更新器提供 Immer 代理，并保留未改动项的最终引用。
+                    window.cards = update(new Proxy(window.cards, {}));
+                  },
+                },
+              }
+            : {}),
           XXJV: {
             getThreadPanelTabController: (name) => controllers[name],
             W3: (_scope, name) => {

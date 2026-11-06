@@ -1,5 +1,13 @@
-// English interface copy. User-authored content is not translated.
+/* [INPUT]: Chinese interface keys, including side-chat snapshot/card labels.
+ * [OUTPUT]: English product copy; user-authored content is not translated.
+ * [POS]: Shared interface dictionary consumed by shared/i18n.js.
+ * [PROTOCOL]: Keep ui/shared/AGENTS.md in sync. */
 export default {
+  侧聊记录: 'Side-chat transcript',
+  截至所选回答: 'Through selected reply',
+  '第 {{number}} 轮': 'Turn {{number}}',
+  用户: 'User',
+  助手: 'Assistant',
   带回原主聊天: 'Bring to original chat',
   转为独立主聊天: 'Make independent main chat',
   '带回原主聊天（截至此处）': 'Bring to original chat through this reply',

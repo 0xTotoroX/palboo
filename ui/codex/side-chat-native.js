@@ -1,11 +1,12 @@
 /*
- * [INPUT]: 当前宿主已加载的 Rspack 模块、已提交的 React 输入区、侧边标签控制器。
- * [OUTPUT]: 父聊天追加、持久侧聊转正、截至指定轮次的独立分支及云端接力的原生接口。
+ * [INPUT]: 已加载 Rspack 模块、已提交 React 树、标签控制器和 side-chat-attachment 适配。
+ * [OUTPUT]: 可按谓词寻找的 nativeScope；父聊天卡片/文字、原位转正、历史分支与云端接力接口。
  * [POS]: ChatGPT 私有接口兼容边界；未知结构拒绝，不修改 App 包或 CodexHost 文件。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
 import { tr } from '../shared/i18n.js';
 import { localSideHistory, cloudSideHistory } from './side-chat-history.js';
+import { attachLocalSideChatText } from './side-chat-attachment.js';
 
 const unsupported = () => Error(tr('当前宿主不支持此侧聊操作。'));
 let loader;
@@ -28,7 +29,7 @@ async function loadedRuntime() {
 }
 
 // DOM 指针可能指向 alternate。沿当前发布树验证每条父子边，不使用过期 hook。
-export function nativeScope(element) {
+export function nativeScope(element, accepts = (value) => !!value.value?.routeKind) {
   // ProseMirror 自己创建 editor DOM；从最近的 React 承载节点开始。
   let first;
   for (let node = element, depth = 0; node && depth < 30; node = node.parentElement, depth++) {
@@ -69,7 +70,7 @@ export function nativeScope(element) {
         Object.hasOwn(value, 'scope') &&
         typeof value.get === 'function' &&
         typeof value.set === 'function' &&
-        value.value?.routeKind
+        accepts(value)
       )
         return value;
     }
@@ -201,6 +202,20 @@ export function sideChatAdapter(target, runtime) {
     matchesDestination: (editor) =>
       navigated ? independentMatches(editor) : matchesDestination(editor),
     mainUnchanged,
+    async attachText(editor, text, preview, guard) {
+      if (cloud) return false;
+      const accepts = (value) => value.value?.kind === 'local';
+      const composer = nativeScope(editor, accepts);
+      return attachLocalSideChatText(runtime, composer, text, preview, () => {
+        guard();
+        if (
+          nativeScope(editor, accepts) !== composer ||
+          !(navigated ? independentMatches(editor) : matchesDestination(editor)) ||
+          composer?.value.conversationId !== (navigated ? independentId : parentId)
+        )
+          throw unsupported();
+      });
+    },
     async localState() {
       const conversation = await rpc.getConversation(id);
       let state;
