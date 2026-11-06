@@ -1,9 +1,33 @@
 /*
  * [INPUT]: 已确认的输入区与宿主语音/发送按钮。
- * [OUTPUT]: 共用右侧操作挂载位置和原生按钮尺寸，不写宿主样式。
- * [POS]: 提示词优化与侧边聊天转正共用的布局边界。
+ * [OUTPUT]: 共用右侧操作挂载位置、原生按钮尺寸及输入操作互斥锁。
+ * [POS]: 提示词优化与侧聊带回共用的布局和写入边界；不写宿主样式。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
+let owner = null;
+const listeners = new Set();
+const notify = () => {
+  for (const listener of listeners) listener();
+};
+export const composerActionBusy = () => owner !== null;
+export function observeComposerAction(listener) {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+// 页面内两个功能可能操作来源和父聊天，必须覆盖整个异步读取/写入过程。
+// 每次持有独立令牌，取消后的迟到回调不能解开另一项操作的锁。
+export function acquireComposerAction() {
+  if (owner) return null;
+  const token = {};
+  owner = token;
+  notify();
+  return () => {
+    if (owner !== token) return;
+    owner = null;
+    notify();
+  };
+}
+
 export function mountComposerAction(host, composerRoot) {
   if (!composerRoot) return false;
   const actions = [...composerRoot.querySelectorAll('button[aria-label]')].filter(

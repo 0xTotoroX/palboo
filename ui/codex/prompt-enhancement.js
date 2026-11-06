@@ -1,12 +1,17 @@
 import { tr } from '../shared/i18n.js';
 import { measureWork } from '../shared/performance.js';
 /* [INPUT]: Verified input target, shared right-side composer mount, explicit clicks and restricted model bridge.
- * [OUTPUT]: Optimize/cancel/restore controls; compare-before-write draft replacement, never send.
+ * [OUTPUT]: Optimize/cancel/restore controls; serialized with side-chat handoff, compare-before-write replacement, never send.
  * [POS]: Composer adapter; keeps only a temporary draft backup and no conversation history.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { rawComposerText, setEditableText, setNativeValue } from './composer.js';
 import { iconSvg } from '../shared/icons/index.js';
-import { mountComposerAction } from './composer-actions.js';
+import {
+  mountComposerAction,
+  acquireComposerAction,
+  composerActionBusy,
+  observeComposerAction,
+} from './composer-actions.js';
 
 /** @param {{request:(path:string,payload:object)=>Promise<any>, getTarget?:()=>any, isEnabled?:()=>boolean}} options */
 export function installPromptEnhancer({
@@ -69,7 +74,9 @@ export function installPromptEnhancer({
     return sameTarget(snapshot) && !composing && signature(snapshot.editor) === snapshot.signature;
   }
   function cancel(text = '') {
+    const previous = pending;
     pending = null;
+    previous?.release();
     status(text);
     refresh();
   }
@@ -77,7 +84,8 @@ export function installPromptEnhancer({
     if (!mounted) return;
     button.disabled =
       !pending &&
-      (composing ||
+      (composerActionBusy() ||
+        composing ||
         !editable(mounted.composer) ||
         !rawComposerText(mounted.composer)
           .replace(/\u200b/g, '')
@@ -87,6 +95,7 @@ export function installPromptEnhancer({
       'aria-label',
       pending ? tr('取消优化') : undo ? tr('恢复原提示词') : tr('优化提示词'),
     );
+    button.title = button.getAttribute('aria-label');
     const icon = pending ? 'close' : undo ? 'return' : 'prompt-improve';
     if (button.querySelector('svg')?.dataset.icon !== icon) button.innerHTML = iconSvg(icon);
     button.setAttribute('aria-busy', String(!!pending));
@@ -115,12 +124,16 @@ export function installPromptEnhancer({
       return;
     }
     if (undo) {
+      const release = acquireComposerAction();
+      if (!release) return;
       try {
         write(undo, undo.original);
         undo = null;
         status('');
       } catch (error) {
         status(String(error.message || error));
+      } finally {
+        release();
       }
       refresh();
       return;
@@ -142,6 +155,9 @@ export function installPromptEnhancer({
       requestId: Array.from(crypto.getRandomValues(new Uint32Array(4))).join('-'),
     };
     if (!snapshot.text.replace(/\u200b/g, '').trim()) return;
+    const release = acquireComposerAction();
+    if (!release) return;
+    snapshot.release = release;
     undo = null;
     pending = snapshot;
     status('');
@@ -175,6 +191,7 @@ export function installPromptEnhancer({
       }
     } finally {
       if (pending === snapshot) pending = null;
+      release();
       refresh();
     }
   });
@@ -194,7 +211,9 @@ export function installPromptEnhancer({
   function checkComposer() {
     if (document.hidden) return;
     if (!isEnabled()) {
+      const previous = pending;
       pending = null;
+      previous?.release();
       undo = null;
       mounted = null;
       composing = false;
@@ -222,11 +241,15 @@ export function installPromptEnhancer({
     refresh();
   }
   const timer = window.setInterval(tick, 300);
+  const unobserve = observeComposerAction(refresh);
   const api = {
     verify: (requestId) => !!pending && pending.requestId === requestId && matches(pending),
     destroy() {
       disposed = true;
+      const previous = pending;
       pending = null;
+      unobserve();
+      previous?.release();
       undo = null;
       clearInterval(timer);
       life.abort();

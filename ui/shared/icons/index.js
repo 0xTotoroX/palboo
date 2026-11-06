@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 语义图标名；Palboo 自绘功能 SVG 与 OpenAI apps-sdk-ui 的公开 MIT 控件 SVG。
- * [OUTPUT]: 无框架依赖、统一 24px 画布的静态 SVG，含切至主聊天的左箭头语义。
+ * [OUTPUT]: 无框架依赖、统一 24px 画布的静态 SVG，含侧聊汇入原主聊天的独立气泡图标。
  * [POS]: 共享纯资源；不读取状态，不包含官方应用私有资源。
  * [PROTOCOL]: 更新时核对 AGENTS.md 中的固定来源与 LICENSE。
  */
@@ -76,7 +76,8 @@ for (const [name, divider] of Object.entries({
 }
 
 export function iconSvg(name) {
-  if (name === 'switch-main-chat')
-    return icons.back.replace('data-icon="back"', 'data-icon="switch-main-chat"');
+  // Palboo 自绘（GPL-3.0-only）：两个聊天气泡与汇入箭头，区别于提示词还原的回转箭头。
+  if (name === 'side-chat-handoff')
+    return '<svg aria-hidden="true" data-icon="side-chat-handoff" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3h5a2 2 0 0 1 2 2v5l-3-2h-4M9 8H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h9l4 2V12a2 2 0 0 0-2-2h-1M17 5h-5v10m-3-3 3 3 3-3"/></svg>';
   return featureGlyphs[name] || readerGlyphs[name] || icons[name] || icons.close;
 }

@@ -2,7 +2,7 @@
 
 > L2 | 父级：[AGENTS.md](../AGENTS.md)
 
-- `side-chat.test.mjs`：真实侧边聊天控制器、原生兼容适配和共用接力采集器，配合已核对接口形状的合成宿主；覆盖本地同 ID 转正及标题确认、关闭/缓存/导航顺序、精确空行与已有草稿追加、分叉来源保留、云端长历史/新主聊天预填、流式/IME/防重入/未知接口拒绝、途中草稿/账号/导航变化、错误恢复及重注入清理。主路由默认无 hostId，核对归属查询、跨主机拒绝、来源连接失效后的目标回读及已转正会话重新附入侧栏。实际渲染验证保留页面重显、其他聊天持续变更时及时挂载、恢复入口归属可见页面、双语18px图标和原生同高热区；React scope 覆盖 ProseMirror 最近承载、深层树与已提交 alternate。合成通过不代表真实账户已执行转正，不操作用户聊天。
+- `side-chat.test.mjs`：真实侧聊/提示词控制器、原生适配及接力采集器的隔离 Chromium 回归。覆盖本地完整分页/每轮 items、云端长历史、原父聊天身份与 client/server 别名、精确空行和最新主草稿追加、同内容去重、全宽侧栏显现及保留标签、不发送或迁移；来源/目标/账号变化、流式/IME/复杂草稿、分页异常/超限、销毁和恢复。双控制器检验互斥、取消/还原、迟到结果及重注入，实际渲染检验双语图标区分、同高与不重叠、保留页面重显和持续更新下挂载；React scope 覆盖深层树和已提交 alternate。合成通过不代替真实宿主验收。
 
 - `codex-host-controller-fixture.mjs`：自有合成控制器，保留已验证上游的函数/安装器边界，供 Rust 控制器兼容测试验证缓存上限、延迟挂载、所有权重验与真正 document 重载；不含上游完整程序或用户数据。
 
@@ -199,7 +199,7 @@ workbench的closed independent views定向用例检查全部视图关闭后释�
 
 设置导航用例改为总览承载大纲/模型快切开关，保留草稿切换及保存并发检查；旧分类锚点仍需定位到总览相应控件。
 
-`prompt-enhancement.test.mjs`：隔离浏览器检查优化/还原、取消、用户输入/IME、会话或输入节点变化、复杂引用、错误、单实例清理；用实际 DOM 和键盘 Enter/Shift+Enter 验证裸文本与 P/DIV/BR 混排、首尾/连续空行、末尾占位及原始换行/$字符往返。列表只验证读取，不代表浏览器富文本列表写入验收。直接测试宿主inputTarget在无模型能力、新草稿和重复身份下的行为。Rust prompt_enhancement测试三种协议与完整输入、不依赖Stepwise开关/方向；ignored的live_prompt_enhancement需显式PALBOO_PROMPT_SMOKE_DATA，只用合成草稿调用配置模型，不接触真实输入框。
+`prompt-enhancement.test.mjs`：隔离浏览器检查优化/还原、取消、用户输入/IME、会话或输入节点变化、复杂引用、错误、单实例清理及随状态更新的双语悬停名称；用实际 DOM 和键盘 Enter/Shift+Enter 验证裸文本与 P/DIV/BR 混排、首尾/连续空行、末尾占位及原始换行/$字符往返。列表只验证读取，不代表浏览器富文本列表写入验收。直接测试宿主inputTarget在无模型能力、新草稿和重复身份下的行为。Rust prompt_enhancement测试三种协议与完整输入、不依赖Stepwise开关/方向；ignored的live_prompt_enhancement需显式PALBOO_PROMPT_SMOKE_DATA，只用合成草稿调用配置模型，不接触真实输入框。
 
 - `model-preset-draft.test.mjs`：真实 FeatureView/ModelView 与合成 owner 交接/重新挂载，验证新增和改名草稿、捕获模型配置、保存失败、成功/取消/Esc 清空，以及输入后同一任务内卸载的同步 capture；覆盖单条阻塞提示、无重复空态/忙碌文案、换聊天/CLI清除旧错误、操作前发起的被动回读不得覆盖新结果；不启动原生窗口或操作真实宿主。
 

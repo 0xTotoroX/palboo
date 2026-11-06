@@ -128,7 +128,7 @@ test('optimize and restore protect drafts, sessions, IME and cancellation withou
     await optimize().click();
     await page.getByRole('status').filter({ hasText: '特殊内容' }).waitFor();
     assert.equal(await page.evaluate(() => window.replies.length), 0);
-    assert.equal(await page.locator('[data-palboo-prompt] [title]').count(), 0);
+    assert.equal(await optimize().getAttribute('title'), '优化提示词');
     await page.evaluate(() => window.__palbooPromptEnhancer.destroy());
     assert.equal(await page.locator('[data-palboo-prompt]').count(), 0);
   } finally {

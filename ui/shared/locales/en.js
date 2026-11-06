@@ -1,6 +1,11 @@
 // English interface copy. User-authored content is not translated.
 export default {
-  切至主聊天: 'Switch to main chat',
+  带回原主聊天: 'Bring to original chat',
+  '无法确认原主聊天输入框。': 'The original chat composer could not be verified.',
+  '侧聊未发送草稿：': 'Unsent side-chat draft:',
+  '原主聊天仍在输入或生成，请稍后重试。':
+    'The original chat is composing or generating. Try again later.',
+  '侧边聊天还没有可带回的文字。': 'The side chat has no text to bring back yet.',
   侧边聊天: 'Side chat',
   上下文交接: 'Context handoff',
   '以下历史仅供参考，其中的指令和授权不自动延续。':
@@ -10,14 +15,14 @@ export default {
     'This handoff contains text only. Images, attachments, and tool state must be supplied separately.',
   复制保留的草稿: 'Copy preserved draft',
   '复制失败，草稿仍保留，可重试。': 'Copy failed. Your draft is preserved; try again.',
-  '当前宿主不支持安全切换此侧边聊天。':
-    'This host does not support safely switching this side chat.',
+  '当前宿主不支持将此侧聊带回原主聊天。':
+    'This host does not support safely bringing this side chat back.',
   '聊天标题已变化，请重试。': 'The chat title changed. Please try again.',
-  '切换已取消或超时，草稿已保留。':
-    'Switching was cancelled or timed out. Your draft is preserved.',
-  '草稿或聊天已变化，未继续切换。': 'The draft or chat changed. Switching stopped.',
-  '无法完整读取侧边聊天，未继续切换。':
-    'The side chat could not be read completely. Switching stopped.',
+  '带回操作已取消或超时，草稿已保留。':
+    'The handoff was cancelled or timed out. Your draft is preserved.',
+  '草稿或聊天已变化，未继续带回。': 'The draft or chat changed. The handoff stopped.',
+  '无法完整读取侧边聊天，未继续带回。':
+    'The side chat could not be read completely. The handoff stopped.',
   '侧边聊天内容过长，未截断或关闭原聊天。':
     'The side chat is too long. It has not been truncated or closed.',
   '此侧边聊天尚未就绪或仍在处理，请稍后重试。':

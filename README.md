@@ -28,7 +28,7 @@ Desktop windows use native macOS traffic-light controls and reuse the existing P
 | **Grok Bot**              | Find your Bots and start a consultation in the current chat.                                                                            |
 | **Notes & Web** | Read and edit local Markdown, preview spreadsheets, and open saved web pages inside ChatGPT. |
 
-In a right-side Side Chat, hover the left-arrow icon beside the voice/send controls to find **Switch to main chat**, then click once the side chat has finished responding. It moves an idle, persistent local conversation to the main view, keeps its history and ID, and carries over the unsent text. Cloud ChatGPT side chats open a new main-chat draft with the current branch's text history and draft; images, attachments and tool state are not transferred. Neither path sends a message. Unsupported host interfaces or drafts with attachments leave the source in place.
+In a right-side Side Chat, hover the two-chat-bubble icon beside the voice/send controls to find **Bring to original chat**. Once the side chat has finished responding, click to append its complete text conversation and unsent text to the original parent chat's existing draft. **Nothing is sent automatically.** Local and cloud ChatGPT side chats share this behavior. After the append is confirmed, the right panel collapses while the side chat is retained. Handoff and prompt optimization/restore cannot run together. Images, attachments and tool state are not transferred; drafts with attachments or special references, unsupported hosts and uncertain parent identities stop the operation and preserve the source.
 
 ## Installation
 
