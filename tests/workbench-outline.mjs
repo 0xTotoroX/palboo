@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 工作台真实浏览器夹具与合成回答。
- * [OUTPUT]: 回答操作栏同排/样式/键盘入口、乱序 UUID 的跟随/手选/缓存与浮窗命令、宿主角色兼容、标题分级回退、不均匀段落与同名前缀、去重、重挂载定位与过期拒绝回归。
+ * [OUTPUT]: 生成中保留历史大纲入口、云端轮次和侧聊双操作共存、操作栏同排/样式/键盘入口、乱序 UUID 的跟随/手选/缓存与浮窗命令、角色兼容、标题分级回退、去重与原文定位回归。
  * [POS]: 由 workbench.mjs 执行；不读取真实聊天，不调用模型或外部服务。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -112,6 +112,85 @@ async function checkTargets(page, result) {
 
 export function outlineCases({ mode, createPopout, project }) {
   return [
+    [
+      '大纲：生成新回答时保留历史入口并允许阅读旧回答',
+      async (page) => {
+        await mode(page, true);
+        await setReplyTimeline(page, 3);
+        await expectReplySource(page, 2);
+        await page.evaluate(() => {
+          const stop = document.createElement('button');
+          stop.id = 'outline-streaming-stop';
+          stop.setAttribute('aria-label', '停止生成');
+          stop.textContent = '停止生成';
+          document.querySelector('.thread-scroll-container').append(stop);
+          window.__companionFloatingPanel.scan();
+        });
+        await page.waitForFunction(
+          () => window.__companionFloatingPanel.state.scanStatus === 'not-ready',
+        );
+        assert.equal(await page.locator('[data-palboo-outline-reply]').count(), 2);
+        assert.equal(
+          await page.locator(`[data-palboo-outline-reply="${replyKeys[2]}"]`).count(),
+          0,
+        );
+        await page.locator(`[data-palboo-outline-reply="${replyKeys[0]}"]`).click();
+        await expectReplySource(page, 0, true);
+        await page.evaluate(() => {
+          document.querySelector('#outline-streaming-stop').remove();
+          window.__companionFloatingPanel.scan();
+        });
+        await page.waitForFunction(
+          () => document.querySelectorAll('[data-palboo-outline-reply]').length === 3,
+        );
+        await page.locator('[data-view-body="outline"] [data-outline-latest]').click();
+        await expectReplySource(page, 2);
+      },
+    ],
+    [
+      '大纲：云端普通容器与侧聊双操作共存且忽略重复正文子单元',
+      async (page) => {
+        await mode(page, true);
+        await setReplyTimeline(page, 2);
+        await page.evaluate(() => {
+          const root = document.querySelector('.thread-scroll-container');
+          const panel = root.parentElement;
+          panel.dataset.appShellFocusArea = 'right-panel';
+          panel.setAttribute('role', 'tabpanel');
+          panel.dataset.tabId = 'sidechat:outline-fixture';
+          for (const turn of root.querySelectorAll('[data-content-search-turn-key]')) {
+            turn.classList.remove('contents');
+            turn.querySelector('h2').dataset.contentSearchTurnKey =
+              turn.dataset.contentSearchTurnKey;
+          }
+          panel.querySelector('.ProseMirror').textContent = 'preserved draft';
+          window.__palbooSideChat.refresh();
+          window.__companionFloatingPanel.scan();
+        });
+        await page.waitForFunction(
+          () => document.querySelectorAll('[data-palboo-side-chat=reply]').length === 4,
+        );
+        assert.equal(await page.locator('[data-palboo-outline-reply]').count(), 2);
+        assert.equal(
+          await page.evaluate(() =>
+            [...document.querySelectorAll('[data-palboo-outline-reply]')].every(
+              (b) => b.parentElement.querySelectorAll('[data-palboo-side-chat=reply]').length === 2,
+            ),
+          ),
+          true,
+        );
+        await page.locator(`[data-palboo-outline-reply="${replyKeys[0]}"]`).click();
+        await expectReplySource(page, 0, true);
+        assert.equal(await page.locator('.ProseMirror').innerText(), 'preserved draft');
+        await page.evaluate(() => {
+          document.querySelectorAll('h4.sr-only').forEach((node) => node.remove());
+          window.__palbooSideChat.refresh();
+          window.__companionFloatingPanel.scan();
+        });
+        assert.equal(await page.locator('[data-palboo-outline-reply]').count(), 0);
+        assert.equal(await page.locator('[data-palboo-side-chat=reply]').count(), 0);
+      },
+    ],
     [
       '大纲：目录入口与新版回答操作栏同排并沿用宿主按钮样式',
       async (page) => {

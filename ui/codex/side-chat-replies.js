@@ -1,19 +1,17 @@
-/* [INPUT]: The confirmed right-side chat and native answer action rows used by Outline.
+/* [INPUT]: The confirmed right-side chat, shared turn identity filter and native answer rows used by Outline.
  * [OUTPUT]: Two per-answer actions with a stable cutoff identity and content-change validation.
  * [POS]: Side-chat UI only; no history reads, routing or global outline selection changes.
  * [PROTOCOL]: Keep ui/codex/AGENTS.md in sync. */
-import { labeledMessageContainer, actionRowForMessage } from './context.js';
+import {
+  labeledMessageContainer,
+  actionRowForMessage,
+  conversationTurnElements,
+} from './context.js';
 import { iconSvg } from '../shared/icons/index.js';
 import { tr } from '../shared/i18n.js';
 
 const SELECTOR = 'button[data-palboo-side-chat="reply"]';
-// Local uses div.contents; cloud renders a plain div. Markdown sub-units may repeat
-// the same key, so count only the nearest keyed owner of the labeled answer.
-const TURN_SELECTOR = '[data-content-search-turn-key]';
-const turnsIn = (target) =>
-  [...(target?.panel.querySelectorAll(TURN_SELECTOR) || [])].filter(
-    (turn) => labeledMessageContainer(turn, 'assistant')?.closest(TURN_SELECTOR) === turn,
-  );
+const turnsIn = (target) => (target ? conversationTurnElements(target.panel) : []);
 const contentSignature = (reply) => {
   const clone = reply.cloneNode(true);
   clone.querySelectorAll('button,[role="button"],svg').forEach((node) => node.remove());
@@ -49,11 +47,11 @@ export function createSideReplyActions(run) {
       document.querySelectorAll(SELECTOR).forEach((button) => button.remove());
     },
     refresh(target, disabled) {
+      const turns = turnsIn(target);
       document.querySelectorAll(SELECTOR).forEach((button) => {
-        if (!target?.panel.contains(button)) button.remove();
+        if (!turns.some((turn) => turn.contains(button))) button.remove();
       });
       if (!target) return;
-      const turns = turnsIn(target);
       const counts = new Map();
       for (const turn of turns) {
         const key = turn.getAttribute('data-content-search-turn-key');

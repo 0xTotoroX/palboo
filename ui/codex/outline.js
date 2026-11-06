@@ -1,7 +1,7 @@
 import { tr } from '../shared/i18n.js';
 /*
  * [INPUT]: 当前回答 DOM、context 的统一最新轮次身份与上下文、窗口投影和大纲状态。
- * [OUTPUT]: 本地大纲刷新和定位、复用宿主回答操作栏及按钮样式的目录入口；聊天/回答身份、完整段落或位置不匹配时拒绝导航。
+ * [OUTPUT]: 本地大纲刷新和定位、本地/云端回复操作栏的目录入口，与侧聊控件共存；聊天/回答身份、完整段落或位置不匹配时拒绝导航。
  * [POS]: Codex 大纲协调；outline-parser 解析原文，features/outline 渲染列表。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -29,6 +29,7 @@ import {
   contextMatches,
   contextSnapshot,
   conversationTurn,
+  conversationTurnElements,
   findLatestAssistantMessage,
   labeledMessageContainer,
   latestConversationTurn,
@@ -52,7 +53,7 @@ const REPLY_ACTION = 'data-palboo-outline-reply';
 
 function selectedOutlineMessage() {
   const key = outlineState.outlineSelectedTurnKey;
-  const turns = Array.from(chatRoot()?.querySelectorAll(CONVERSATION_TURN_SELECTOR) || []).filter(
+  const turns = conversationTurnElements().filter(
     (turn) => turn.getAttribute('data-content-search-turn-key') === key,
   );
   return turns.length === 1 ? conversationTurn(turns[0])?.assistantMessage : null;
@@ -63,7 +64,7 @@ function clearOutlineReplyControls() {
 }
 
 function syncOutlineReplyStyle(button, row) {
-  const reference = row.querySelector(`button:not([${REPLY_ACTION}])`);
+  const reference = row.querySelector(`button:not([${REPLY_ACTION}]):not([data-palboo-side-chat])`);
   const className = reference?.getAttribute('class') || '';
   if (button.className !== className) button.className = className;
   const native = Boolean(className);
@@ -76,10 +77,11 @@ function syncOutlineReplyStyle(button, row) {
 
 function syncOutlineReplyControls(reveal, newest) {
   const root = chatRoot();
+  const turns = conversationTurnElements(root);
+  const turnSet = new Set(turns);
   document.querySelectorAll(`[${REPLY_ACTION}]`).forEach((button) => {
-    if (!root?.contains(button)) button.remove();
+    if (!turnSet.has(button.closest(CONVERSATION_TURN_SELECTOR))) button.remove();
   });
-  const turns = Array.from(root?.querySelectorAll(CONVERSATION_TURN_SELECTOR) || []);
   for (const turn of turns) {
     const key = turn.getAttribute('data-content-search-turn-key');
     if (!key) continue;

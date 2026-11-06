@@ -1,7 +1,7 @@
 import { tr } from '../shared/i18n.js';
 /*
  * [INPUT]: 宿主 DOM（角色属性及旧版可访问标签）、上下文状态和基础可见性工具。
- * [OUTPUT]: 宿主交互目标记录、工作台跟随/锁定策略、稳定聊天身份重绑与来源可用性、唯一可见主聊天身份；按 DOM 轮次顺序读取并缓存最新问答，统一最新轮次身份；限定容器内的输入目标、包含关联输入区的忙碌状态、完整相邻问答及上下文变更通知；常用语可仅核验聊天身份而不依赖回答扫描。
+ * [OUTPUT]: 宿主交互目标记录、工作台跟随/锁定策略、稳定聊天身份重绑与来源可用性、唯一可见主聊天身份；本地/云端共用轮次节点识别，排除重复正文子单元，按 DOM 顺序读取并缓存最新问答，生成期间可只刷新身份；限定容器内的输入目标、忙碌状态、完整相邻问答及上下文变更通知；常用语可仅核验聊天身份而不依赖回答扫描。
  * [POS]: 宿主读取边界；候选循环复用本次前景快照，不跨调用缓存目标或修改 Stepwise/大纲状态。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -983,12 +983,18 @@ function conversationTurn(turn) {
   };
 }
 
+function conversationTurnElements(root = chatRoot()) {
+  // 云端普通 div 与本地 contents 共用身份；正文子单元可能重复 key，
+  // 只接受拥有角色标签的最近轮次，不把代码块/段落当成另一条回复。
+  return Array.from(root?.querySelectorAll(CONVERSATION_TURN_SELECTOR) || []).filter((turn) =>
+    ['user', 'assistant'].some(
+      (role) => labeledMessageContainer(turn, role)?.closest(CONVERSATION_TURN_SELECTOR) === turn,
+    ),
+  );
+}
+
 function conversationTurns() {
-  const root = chatRoot();
-  if (!root) return [];
-  return Array.from(root.querySelectorAll(CONVERSATION_TURN_SELECTOR))
-    .map(conversationTurn)
-    .filter(Boolean);
+  return conversationTurnElements().map(conversationTurn).filter(Boolean);
 }
 
 function nextLatestTurnAnchor(previous, turns, sessionId) {
@@ -1052,6 +1058,19 @@ function latestConversationTurn(turns = conversationTurns()) {
     contextState.activeContext.sessionId,
   );
   return contextState.latestTurnAnchor;
+}
+
+function latestConversationTurnIdentity() {
+  // 生成期间只刷新轮次身份；不读取正文，也不覆盖同轮已确认的文字缓存。
+  return latestConversationTurn(
+    conversationTurnElements().map((node) => ({
+      node,
+      turnKey: normalizeText(node.getAttribute('data-content-search-turn-key') || ''),
+      userText: '',
+      assistantMounted: false,
+      assistantMessage: null,
+    })),
+  );
 }
 
 function latestMessageByDocumentOrder(candidates) {
@@ -1218,6 +1237,7 @@ export {
   contextMatches,
   contextSnapshot,
   conversationTurn,
+  conversationTurnElements,
   disabledButton,
   findLatestAssistantMessage,
   terminologyExchange,
@@ -1226,6 +1246,7 @@ export {
   installContextTracking,
   labeledMessageContainer,
   latestConversationTurn,
+  latestConversationTurnIdentity,
   mainChatSessionId,
   mainComposerCandidate,
   nearbySubmitButton,

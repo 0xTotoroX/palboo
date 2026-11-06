@@ -12,7 +12,7 @@ import { createTypographyTracker } from '../typography.js';
 import { installTerminology } from '../../terminology/host.js';
 /*
  * [INPUT]: 宿主上下文及统一最新轮次身份、独立功能、设置协调、外壳与通知。
- * [OUTPUT]: 只读 panelAppearance 接口； 回答结束且文本稳定后扫描生成、启停与通知订阅，连接胶囊/左侧图标入口与停靠开合，主功能交接中禁用重复内外操作，Dev 插件页签选中后收起旧侧栏；切换聊天恢复有效建议缓存，来源失联保留只读结果并使异步请求失效。
+ * [OUTPUT]: 只读 panelAppearance 接口；生成期间仍维护历史回答的大纲入口，最新回答等待完成；文本稳定后扫描生成、启停与通知订阅，连接入口与停靠开合，交接防重入；切换聊天恢复有效建议缓存，来源失联保留只读结果并使异步请求失效。
  * [POS]: 模块组合入口；含独立侧边聊天入口，统一回收观察器、定时器、订阅与旧浮窗字体资源。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -57,6 +57,7 @@ import {
   contextMatches,
   contextSnapshot,
   findLatestAssistantMessage,
+  latestConversationTurnIdentity,
   terminologyExchange,
   findPreviousUserText,
   installContextTracking,
@@ -190,8 +191,17 @@ function scanCurrent(generation, timerId) {
     renderFloat();
     return;
   }
-  if (!chatSurfaceReady()) {
-    clearOutlineReplyControls();
+  const ready = chatSurfaceReady();
+  let message;
+  if (outlineActive) {
+    // 操作入口属于已完成的回答；当前一轮生成不能清掉历史回答的入口。
+    // 生成期间只核对轮次身份，不为挂载按钮反复解析全部正文。
+    if (ready) message = findLatestAssistantMessage();
+    else latestConversationTurnIdentity();
+    syncOutlineReplyControls(revealReplyOutline, contextState.latestTurnAnchor?.turnKey || '');
+    if (outlineState.outlineHistorical) syncSelectedOutline();
+  } else clearOutlineReplyControls();
+  if (!ready) {
     if (
       outlineActive &&
       !outlineState.outlineHistorical &&
@@ -206,10 +216,7 @@ function scanCurrent(generation, timerId) {
     return;
   }
   const followLatest = outlineActive && !outlineState.outlineHistorical;
-  const message = findLatestAssistantMessage();
-  if (outlineActive)
-    syncOutlineReplyControls(revealReplyOutline, contextState.latestTurnAnchor?.turnKey || '');
-  if (outlineActive && outlineState.outlineHistorical) syncSelectedOutline();
+  if (!outlineActive) message = findLatestAssistantMessage();
   if (contextState.scanBusy) contextState.lastAssistantAt = Date.now();
 
   if (!message) {

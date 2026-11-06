@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 注入环境与兼容标识。
- * [OUTPUT]: 稳定 DOM、按构建环境隔离的存储键、尺寸及收放/完成反馈时间参数。
+ * [OUTPUT]: 本地/云端轮次的 DOM 身份候选、按构建环境隔离的存储键、尺寸及收放/完成反馈时间参数。
  * [POS]: 无业务依赖的运行常量。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -18,7 +18,7 @@ const MARK_ATTR = 'data-companion-stepwise-outline-id';
 const HIGHLIGHT_CLASS = 'companion-stepwise-outline-target-flash';
 const SCRIPT_VERSION = 'palboo-0.9.0';
 const PAGE_BRIDGE = '__companionDesktopRequest';
-const CONVERSATION_TURN_SELECTOR = 'div.contents[data-content-search-turn-key]';
+const CONVERSATION_TURN_SELECTOR = '[data-content-search-turn-key]';
 const POPOVER_ID = 'companion-stepwise-popover';
 const DEVELOPMENT = typeof PALBOO_DEVELOPMENT !== 'undefined' && PALBOO_DEVELOPMENT;
 const storageKey = (name) => (DEVELOPMENT ? 'palboo-dev:' : '') + name;
