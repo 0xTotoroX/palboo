@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 语义图标名；Palboo 自绘功能 SVG 与 OpenAI apps-sdk-ui 的公开 MIT 控件 SVG。
- * [OUTPUT]: 无框架依赖、统一 24px 画布的静态 SVG，含侧聊汇入与向外独立的不同气泡图标。
+ * [OUTPUT]: 无框架依赖、统一 24px 画布的静态 SVG，含侧聊向左进入与向外打开的独立操作图标。
  * [POS]: 共享纯资源；不读取状态，不包含官方应用私有资源。
  * [PROTOCOL]: 更新时核对 AGENTS.md 中的固定来源与 LICENSE。
  */
@@ -76,10 +76,10 @@ for (const [name, divider] of Object.entries({
 }
 
 export function iconSvg(name) {
-  // Palboo 自绘（GPL-3.0-only）：两个聊天气泡与汇入箭头，区别于提示词还原的回转箭头。
+  // Palboo 自绘（GPL-3.0-only）：向左进入／向外打开，区别于大纲及提示词优化／还原。
   if (name === 'side-chat-handoff')
-    return '<svg aria-hidden="true" data-icon="side-chat-handoff" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3h5a2 2 0 0 1 2 2v5l-3-2h-4M9 8H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h9l4 2V12a2 2 0 0 0-2-2h-1M17 5h-5v10m-3-3 3 3 3-3"/></svg>';
+    return '<svg aria-hidden="true" data-icon="side-chat-handoff" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5v14M20 12H9m5-5-5 5 5 5"/></svg>';
   if (name === 'side-chat-independent')
-    return '<svg aria-hidden="true" data-icon="side-chat-independent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5H5a2 2 0 0 0-2 2v12l4-3h10a2 2 0 0 0 2-2v-3M14 3h7v7M21 3l-9 9"/></svg>';
+    return '<svg aria-hidden="true" data-icon="side-chat-independent" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M10 5H5v14h14v-5"/></svg>';
   return featureGlyphs[name] || readerGlyphs[name] || icons[name] || icons.close;
 }
