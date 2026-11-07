@@ -1,13 +1,14 @@
 /* [INPUT]: Ordinary Chat webview DOM, stable conversation route and shared latest-turn cache.
  * [OUTPUT]: Read-only Chat outline context; roles may be nested inside content units, unlike Work.
- * [POS]: Chat-only adapter. No composer, model or host bridge operations.
+ * [POS]: Embedded Chat web adapter sharing message-dom with App Chat. No composer, model or host bridge operations.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import {
-  actionRowForMessage as nativeActionRow,
+  actionRowForMessage,
   assistantMessageFromTurnAnchor,
   labeledMessageText,
   nextLatestTurnAnchor,
 } from './context.js';
+import { explicitMessageContainer as messageContainer } from './message-dom.js';
 
 const TURN = '[data-content-search-turn-key]';
 const ROLE = 'h4[data-conversation-role]';
@@ -22,39 +23,6 @@ function chatRoot() {
     return rect.width > 0 && rect.height > 0 && getComputedStyle(node).visibility !== 'hidden';
   });
   return roots.length === 1 ? roots[0] : null;
-}
-
-function messageContainer(turn, role) {
-  if (!(turn instanceof Element)) return null;
-  const labels = [...turn.querySelectorAll(ROLE)].filter(
-    (node) => node.getAttribute('data-conversation-role') === role && node.closest(TURN) === turn,
-  );
-  if (labels.length !== 1) return null;
-  const label = labels[0];
-  if (role === 'user') return label.parentElement;
-  // User and assistant can share the outer group in Chat. Keep the answer-only
-  // subtree; its controls may be outside that subtree, following the shared group.
-  let node = label.parentElement;
-  while (node.parentElement && node.parentElement !== turn) {
-    const parent = node.parentElement;
-    if (parent.querySelector(`${ROLE}[data-conversation-role="user"]`)) break;
-    node = parent;
-  }
-  return node;
-}
-
-function actionRowForMessage(message) {
-  const turn = message.closest(TURN);
-  const rows = [...(turn?.querySelectorAll('.turn-action-controls') || [])]
-    .filter(
-      (row) =>
-        row.closest(TURN) === turn &&
-        (message.contains(row) ||
-          Boolean(message.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING)),
-    )
-    .map(nativeActionRow)
-    .filter(Boolean);
-  return rows.length === 1 ? rows[0] : null;
 }
 
 function turnElements(root = chatRoot()) {

@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 工作台真实浏览器夹具、合成回答与 outline-cache 的卸载缓存回归。
- * [OUTPUT]: 生成中保留历史大纲入口、云端轮次和侧聊双操作共存、操作栏同排/样式/键盘入口、乱序 UUID 的跟随/手选/缓存与浮窗命令、角色兼容、标题分级回退、去重与原文定位回归。
+ * [OUTPUT]: App 普通 Chat 嵌套角色/正文外操作栏与 Work 切换、历史缓存/定位/草稿保护；生成中保留历史大纲入口、云端轮次和侧聊双操作共存、操作栏同排/样式/键盘入口、乱序 UUID 的跟随/手选/缓存与浮窗命令、角色兼容、标题分级回退、去重与原文定位回归。
  * [POS]: 由 workbench.mjs 执行；不读取真实聊天，不调用模型或外部服务。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -117,6 +117,98 @@ async function checkTargets(page, result) {
 export function outlineCases({ mode, createPopout, project }) {
   return [
     ...outlineCacheCases({ mode, setAnswer }),
+    [
+      '大纲：App 普通 Chat 的嵌套角色和正文外操作栏复用现有工作台',
+      async (page) => {
+        await mode(page, true);
+        await setReplyTimeline(page, 2);
+        await page.evaluate(() => {
+          const root = document.querySelector('.thread-scroll-container');
+          window.nativeChatOriginal = root.innerHTML;
+          root.removeAttribute('data-thread-id');
+          [...root.querySelectorAll('[data-content-search-turn-key]')].forEach((turn, index) => {
+            const row = turn.querySelector('.assistant-actions').cloneNode(true);
+            row.classList.add('turn-action-controls');
+            row.querySelectorAll('[data-palboo-outline-reply]').forEach((node) => node.remove());
+            turn.className = '';
+            turn.innerHTML = `<div class="group"><div class="shared-chat-messages">
+              <div class="chat-user-block"><h4 class="sr-only" data-conversation-role="user">You said:</h4><h2>用户问题的标题不得进入回答目录</h2><p>问题 ${index + 1}</p><div class="turn-action-controls"><button aria-label="复制消息"></button><button aria-label="共享提示"></button><button aria-label="编辑消息"></button></div></div>
+              <div class="chat-answer-block"><div data-chatgpt-search-unit-key="unit-${index}"><h4 class="sr-only" data-conversation-role="assistant">ChatGPT said:</h4><div class="markdownContent-native-chat"><h2>第 ${index + 1} 条合成回复</h2><p style="min-height:320px">原生普通 Chat 的回答正文，控制栏位于正文外，用户与回答共享 group。</p></div></div></div>
+            </div></div>`;
+            turn.firstElementChild.append(row);
+          });
+          const marker = document.createElement('div');
+          marker.dataset.aboveComposerConversationId = 'native-chat-fixture';
+          root.append(marker);
+          document.querySelector('.ProseMirror').textContent = 'preserved native Chat draft';
+          window.__companionFloatingPanel.scan();
+        });
+        await page.waitForFunction(
+          () => document.querySelectorAll('[data-palboo-outline-reply]').length === 2,
+          null,
+          { timeout: 3000 },
+        );
+        assert.equal(await page.evaluate(() => Boolean(window.__palbooChatOutline)), false);
+        assert.equal(
+          await page.evaluate(() => window.__companionFloatingPanel.state.activeContext.sessionId),
+          'native-chat-fixture',
+        );
+        assert.equal(
+          await page.evaluate(() =>
+            [...document.querySelectorAll('[data-palboo-outline-reply]')].every(
+              (button) =>
+                button.parentElement.querySelector('[aria-label="复制"]') &&
+                !button.closest('.chat-answer-block'),
+            ),
+          ),
+          true,
+        );
+        await page.locator(`[data-palboo-outline-reply="${replyKeys[1]}"]`).click();
+        await expectReplySource(page, 1, false);
+        assert.equal((await items(page)).length, 1);
+        await page.locator(`[data-palboo-outline-reply="${replyKeys[0]}"]`).click();
+        await expectReplySource(page, 0, true);
+        await page.evaluate((key) => {
+          window.nativeCachedRow = document.querySelector(
+            '[data-view-body="outline"] [data-outline-id]',
+          );
+          window.nativeDetachedTurn = document.querySelector(
+            `[data-content-search-turn-key="${key}"]`,
+          );
+          window.nativeDetachedTurn.remove();
+          window.__companionFloatingPanel.scan();
+        }, replyKeys[0]);
+        await expectReplySource(page, 0, true, false);
+        assert.equal(
+          await page.evaluate(
+            () =>
+              window.nativeCachedRow ===
+              document.querySelector('[data-view-body="outline"] [data-outline-id]'),
+          ),
+          true,
+        );
+        await page.evaluate(() => {
+          document.querySelector('.thread-scroll-container').prepend(window.nativeDetachedTurn);
+          window.__companionFloatingPanel.scan();
+        });
+        await expectReplySource(page, 0, true);
+        await page.locator('[data-view-body="outline"] [data-outline-id]').click();
+        await page.waitForFunction(() =>
+          document.querySelector('.chat-answer-block .companion-stepwise-outline-target-flash'),
+        );
+        assert.equal(await page.locator('.ProseMirror').innerText(), 'preserved native Chat draft');
+        // Switching back to a local Work answer keeps the original adapter and native controls.
+        await page.evaluate(() => {
+          const root = document.querySelector('.thread-scroll-container');
+          root.innerHTML = window.nativeChatOriginal;
+          root.querySelectorAll('[data-palboo-outline-reply]').forEach((node) => node.remove());
+          window.__companionFloatingPanel.scan();
+        });
+        await page.locator(`[data-palboo-outline-reply="${replyKeys[1]}"]`).click();
+        await expectReplySource(page, 1, false);
+        assert.equal(await page.locator('.ProseMirror').innerText(), 'preserved native Chat draft');
+      },
+    ],
     [
       '大纲：生成新回答时保留历史入口并允许阅读旧回答',
       async (page) => {

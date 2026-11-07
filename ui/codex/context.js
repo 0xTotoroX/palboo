@@ -1,8 +1,8 @@
 import { tr } from '../shared/i18n.js';
 /*
- * [INPUT]: 宿主 DOM（角色属性及旧版可访问标签）、上下文状态和基础可见性工具。
+ * [INPUT]: 宿主 DOM（角色属性及旧版可访问标签）、共享嵌套角色/正文外操作栏边界、上下文状态和基础可见性工具。
  * [OUTPUT]: 供 Chat 复用的纯轮次缓存与正文读取；宿主交互目标记录、工作台跟随/锁定策略、稳定聊天身份重绑与来源可用性、唯一可见主聊天身份；本地/云端共用轮次节点识别，排除重复正文子单元，按 DOM 顺序读取并缓存最新问答，生成期间可只刷新身份；限定容器内的输入目标、忙碌状态、完整相邻问答及上下文变更通知；常用语可仅核验聊天身份而不依赖回答扫描。
- * [POS]: 宿主读取边界；候选循环复用本次前景快照，不跨调用缓存目标或修改 Stepwise/大纲状态。
+ * [POS]: App 普通 Chat 与 Work 的宿主读取边界；保留 Work 直接父级规则，Chat 回退只读正文与同轮次操作栏；候选循环复用本次前景快照，不跨调用缓存目标或修改 Stepwise/大纲状态。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
 
@@ -30,6 +30,7 @@ import { emitSignal } from './runtime/signals.js';
 import { pushDiagnostic, rectSummary, visibleElement, visibleRect } from './runtime/diagnostics.js';
 
 import { foregroundSurface, rememberChatTarget } from './page-context.js';
+import { explicitMessageContainer, siblingReplyActionRow } from './message-dom.js';
 
 function roleFromElement(node) {
   if (!(node instanceof Element)) return '';
@@ -947,7 +948,7 @@ function labeledMessageContainer(turn, role) {
     if (role === 'assistant' && !classTokenMatch(container, 'group')) continue;
     return container;
   }
-  return null;
+  return explicitMessageContainer(turn, role);
 }
 
 function labeledMessageText(container) {
@@ -1089,7 +1090,7 @@ function latestMessageByDocumentOrder(candidates) {
   );
 }
 
-function actionRowForMessage(root) {
+function nativeActionRowForMessage(root) {
   const buttons = Array.from(root.querySelectorAll("button,[role='button']")).filter(actionButton);
   for (const button of buttons) {
     let current = button.parentElement;
@@ -1103,6 +1104,10 @@ function actionRowForMessage(root) {
     }
   }
   return null;
+}
+
+function actionRowForMessage(root) {
+  return nativeActionRowForMessage(root) || siblingReplyActionRow(root, nativeActionRowForMessage);
 }
 
 function containsActionRow(node) {
