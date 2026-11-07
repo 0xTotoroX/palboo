@@ -120,6 +120,45 @@ fn check_config(paths: &Paths, revision: u64, keep_enabled: bool) -> Result<()> 
     );
     Ok(())
 }
+fn valid_target_id(id: &str) -> bool {
+    (1..=256).contains(&id.len())
+        && id
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
+}
+fn valid_loopback_endpoint(endpoint: &str) -> Option<String> {
+    let url = reqwest::Url::parse(endpoint).ok()?;
+    if url.scheme() != "http"
+        || !matches!(url.host_str(), Some("127.0.0.1" | "localhost"))
+        || url.port().is_none()
+        || !url.username().is_empty()
+        || url.password().is_some()
+        || url.path() != "/"
+        || url.query().is_some()
+        || url.fragment().is_some()
+    {
+        return None;
+    }
+    Some(format!("http://127.0.0.1:{}", url.port()?))
+}
+fn supervisor_args_allowed(expected: &str, record: &Value, args: &str) -> bool {
+    if args == expected || args == format!("{expected} --exit-with-host") {
+        return true;
+    }
+    let Some(endpoint) = record["launchConnection"]["endpoint"]
+        .as_str()
+        .and_then(valid_loopback_endpoint)
+    else {
+        return false;
+    };
+    let Some(target) = record["launchConnection"]["targetId"]
+        .as_str()
+        .filter(|id| valid_target_id(id))
+    else {
+        return false;
+    };
+    args == format!("{expected} --exit-with-host --cdp {endpoint} --target {target}")
+}
 fn dev_context(paths: &Paths) -> Result<Option<Dev>> {
     if crate::assets::development().is_none() {
         return Ok(None);
@@ -155,7 +194,7 @@ fn dev_context(paths: &Paths) -> Result<Option<Dev>> {
         controller.join("scripts/dev.mjs").display()
     );
     ensure!(
-        [expected.clone(), format!("{expected} --exit-with-host")].contains(&args),
+        supervisor_args_allowed(&expected, &record, &args),
         "此操作需要由 Palboo Dev.app 启动的会话；终端 Dev 请先退出后重新打开"
     );
     ensure!(
@@ -474,5 +513,48 @@ mod tests {
                 .await
                 .is_err()
         );
+    }
+    #[test]
+    fn accepts_mode_switched_dev_supervisor_args_only_when_launch_connection_matches() {
+        let expected = "/opt/node /repo/scripts/dev.mjs --no-open --restart-running";
+        assert!(supervisor_args_allowed(expected, &json!({}), expected));
+        assert!(supervisor_args_allowed(
+            expected,
+            &json!({}),
+            &format!("{expected} --exit-with-host"),
+        ));
+        let pinned =
+            format!("{expected} --exit-with-host --cdp http://127.0.0.1:9333 --target window_1-ok");
+        assert!(!supervisor_args_allowed(expected, &json!({}), &pinned));
+        assert!(supervisor_args_allowed(
+            expected,
+            &json!({
+                "launchConnection": {
+                    "endpoint": "http://localhost:9333",
+                    "targetId": "window_1-ok"
+                }
+            }),
+            &pinned,
+        ));
+        assert!(!supervisor_args_allowed(
+            expected,
+            &json!({
+                "launchConnection": {
+                    "endpoint": "http://127.0.0.1:9333",
+                    "targetId": "different-target"
+                }
+            }),
+            &pinned,
+        ));
+        assert!(!supervisor_args_allowed(
+            expected,
+            &json!({
+                "launchConnection": {
+                    "endpoint": "https://127.0.0.1:9333",
+                    "targetId": "window_1-ok"
+                }
+            }),
+            &pinned,
+        ));
     }
 }

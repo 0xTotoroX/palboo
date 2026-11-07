@@ -1,5 +1,5 @@
 // [INPUT]: 包内 CLI、共享模式记录、各模式既有配置与 AppKit。
-// [OUTPUT]: 按模式启动工作台/设置；经本 App 登记桌面窗口、回执真实 PID；启动错误去除重复 Error 前缀；--check 只检查包内程序。
+// [OUTPUT]: 按模式启动工作台/设置；经本 App 登记桌面窗口、回执真实 PID；启动错误去除重复 Error 前缀并在活动空间置顶提示、支持重开唤起；--check 只检查包内程序。
 // [POS]: 统一的可移动 App 入口；正式模式独立运行，开发模式使用已登记的源码与 Node。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 import AppKit
@@ -172,6 +172,28 @@ do {
 }
 #else
 final class Launcher: NSObject, NSApplicationDelegate {
+    private weak var activeAlertWindow: NSWindow?
+
+    private func runAlert(_ alert: NSAlert) -> NSApplication.ModalResponse {
+        let window = alert.window
+        window.level = .floating
+        window.collectionBehavior.insert(.moveToActiveSpace)
+        activeAlertWindow = window
+        defer { activeAlertWindow = nil }
+        NSApp.activate(ignoringOtherApps: true)
+        window.orderFrontRegardless()
+        return alert.runModal()
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if let window = activeAlertWindow {
+            NSApp.activate(ignoringOtherApps: true)
+            window.makeKeyAndOrderFront(nil)
+            window.orderFrontRegardless()
+        }
+        return false
+    }
+
     private func finishDevelopment(attempt: Int = 0, requested: Bool = false) {
         let targets = NSRunningApplication.runningApplications(withBundleIdentifier: "com.openai.codex")
         let target = developmentTarget.flatMap { NSRunningApplication(processIdentifier: $0) }
@@ -217,13 +239,12 @@ final class Launcher: NSObject, NSApplicationDelegate {
             let canRecover = allowsRecovery
             DispatchQueue.main.async {
                 if let message {
-                    NSApp.activate(ignoringOtherApps: true)
                     let alert = NSAlert()
                     alert.messageText = "Palboo"
                     alert.informativeText = message
                     alert.addButton(withTitle: localized("好", "OK"))
                     if canRecover { alert.addButton(withTitle: localized("使用正式模式", "Use release mode")) }
-                    if alert.runModal() == .alertSecondButtonReturn && canRecover {
+                    if self.runAlert(alert) == .alertSecondButtonReturn && canRecover {
                         DispatchQueue.global(qos: .userInitiated).async {
                             do {
                                 let cli = try bundledCLI()
@@ -232,7 +253,7 @@ final class Launcher: NSObject, NSApplicationDelegate {
                             } catch {
                                 DispatchQueue.main.sync {
                                     let failed = NSAlert(); failed.messageText = "Palboo"
-                                    failed.informativeText = error.localizedDescription; failed.runModal()
+                                    failed.informativeText = error.localizedDescription; _ = self.runAlert(failed)
                                 }
                             }
                             DispatchQueue.main.async { NSApp.terminate(nil) }

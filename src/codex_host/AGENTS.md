@@ -6,7 +6,7 @@ src/codex_host.rs管理Options、安装/运行身份、启停选择、有界冷�
 
 认证GET /codex-host/agents按需在当前CDP连接执行ui/codex/codex-host-preview.js，3秒超时；只返回Agent名单、分组、可用性与当前选择，不打开菜单、不写配置、不安装或切换Agent，不依赖模型快切开关。无连接或探针不支持时明确失败，不提供合成状态。
 
-- restart.rs：显式重启的独立协调进程，按开关应用所选安装或停用。复核修订、宿主进程、窗口探针和 Dev 来源，重开后验证运行身份。取消不退出宿主。旧 Dev 记录可从 owner 读取监督 PID，仍核对准确命令、当前占用和 sourceEpoch。
+- restart.rs：显式重启的独立协调进程，按开关应用所选安装或停用。复核修订、宿主进程、窗口探针和 Dev 来源，重开后验证运行身份。取消不退出宿主。旧 Dev 记录可从 owner 读取监督 PID，兼容从设置切换模式时与 `launchConnection` 一致的 `--cdp / --target` 固定连接参数，仍核对准确命令、当前占用和 sourceEpoch。
 - controller.rs：项目内维护已验证的调试源码缓存/重复安装修复。对 0.17.1 起的官方控制器校验已知结构，仅在 Palboo 自有 `palboo/codex-host-controllers/` 缓存生成控制器及所需 Renderer 副本，经 Node 语法检查后通过上游 `--desktop-controller` 加载；控制器从经验证的缓存 Renderer 路径读取，不改官方文件；目录绑定官方文件规范路径和修复内容哈希。启动、安装更新与回退共用准备；新版本结构不兼容时不改变所选版本，已识别上游修复后不生成副本。运行识别支持同一官方安装的旧修复副本继续工作，不接管其他安装，不热换活动控制器。
 - renderer.rs：对已验证的 0.17.1/0.17.2 Renderer 形状修正只读探针的控件ID，使用同一 mounted composer 的实际 DOM control.composerId，保留真实 Agent/锁定状态；0.17.1 原生模型识别补齐新版 onCommitPower/powerSelections 回调，0.17.2 已有实现沿用；未知或重复结构拒绝，不改变模型、权限或发送行为。
 - controller_tests.rs：合成控制器及 Renderer 的结构校验、幂等、双文件缓存/更新隔离、损坏修复与失败保留，以及 VM 中的所有权重验、延迟挂载和 document 重载；显式 ignored 用例只验证指定本机官方文件，不启动宿主。

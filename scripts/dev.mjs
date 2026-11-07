@@ -141,6 +141,7 @@ const nativeInputs = (root) => [
   ...filesUnder(root, 'ui').filter(isWebInput),
   ...filesUnder(root, 'target/web'),
   existsSync(join(root, 'ui/codex/model.js')) ? 'ui/codex/model.js' : 'ui/model-control/host.js',
+  ...(existsSync(join(root, 'ui/codex/model-usage.js')) ? ['ui/codex/model-usage.js'] : []),
   ...(existsSync(join(root, 'ui/codex/codex-host.js')) ? ['ui/codex/codex-host.js'] : []),
   ...(existsSync(join(root, 'ui/codex/codex-host-preview.js'))
     ? ['ui/codex/codex-host-preview.js']
@@ -324,7 +325,12 @@ function changed(path) {
   if (
     isWebInput(path) ||
     path.startsWith('src/') ||
-    path === 'ui/codex/model.js' ||
+    [
+      'ui/codex/model.js',
+      'ui/codex/model-usage.js',
+      'ui/codex/codex-host.js',
+      'ui/codex/codex-host-preview.js',
+    ].includes(path) ||
     path.startsWith('ui/model-control/') ||
     [
       'ui/shared/tokens.css',

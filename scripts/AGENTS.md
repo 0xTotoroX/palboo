@@ -2,7 +2,7 @@
 
 > L2 | 父级：[AGENTS.md](../AGENTS.md)
 
-dev.mjs的原生资源指纹包含ui/codex/codex-host-preview.js，保证该按需内嵌表达式修改后先编译再交接后台；不重启ChatGPT。
+dev.mjs的原生资源指纹与文件监听同时覆盖ui/codex/{codex-host.js,codex-host-preview.js,model.js,model-usage.js}，保证所有Rust编译期内嵌脚本修改后先编译再交接后台；不重启ChatGPT。
 
 Dev 后台启动接受 performance.integrationEnabled=false 的暂停状态，不等待宿主注入；重新唤起入口时保留暂停，不自动 connect。日常 App 检测暂停后只打开设置，不请求弹出窗口。暂停的 Dev 只复用现有可调试宿主，缺失时明确停止启动，不委托宿主重开。稳定设置服务继续提供恢复开关，`npm run dev:settings` 可打开。脚本升级后正常重开一次 Dev 会话，保持原 Codex 进程与目标。
 
@@ -32,7 +32,7 @@ npm 命令进入开发、构建、审计、安装和验证编排工具；具体�
 - [release.mjs](release.mjs)：官方 main 的 CI 发布入口，校验同次云端 DMG 的提交、版本和摘要，创建对应标签并自动发布；已发布版本或落后于 main 的任务正常跳过，API/上传错误、标签冲突和产物不一致时报错。
 - [artifact-audit.mjs](artifact-audit.mjs)：release 编译路径映射及成品字节扫描，包含二进制、常见凭据/个人目录、UTF-16主目录与禁止文件；错误只输出文件和问题类型。它是有限检查，不证明不存在所有敏感内容或漏洞。
 - [package-app.mjs](package-app.mjs)：编译最低 macOS 14 arm64 Swift 入口、复制包内 CLI/资源、清理扩展属性与本地签名；校验系统动态库、最低版本和程序摘要，以普通用户权限创建 HFS+ DMG，避免 tar 的属主名称字段和设置 root 引发的授权；挂载读回并复制到新位置验证，成功后卸载镜像。
-- [app-launcher.swift](app-launcher.swift)：从 Bundle 定位 CLI，按用户模式记录启动正式或开发，读取正式数据目录关联；开发前台沿 AppKit 交接，失败去除重复 Error 前缀并提供安全回正式入口；只读镜像提示复制，--check 只检查包内版本；--open-window 经 LaunchServices 启动同一个 App，--palboo-window 用原 PID 进入当前模式窗口程序，以私有短期回执返回真实窗口 PID，保持原 Dock 身份。
+- [app-launcher.swift](app-launcher.swift)：从 Bundle 定位 CLI，按用户模式记录启动正式或开发，读取正式数据目录关联；开发前台沿 AppKit 交接，失败去除重复 Error 前缀、以当前活动空间置顶弹窗提示并在重复点击图标时重新唤起弹窗，提供安全回正式入口；只读镜像提示复制，--check 只检查包内版本；--open-window 经 LaunchServices 启动同一个 App，--palboo-window 用原 PID 进入当前模式窗口程序，以私有短期回执返回真实窗口 PID，保持原 Dock 身份。
 - [project-licenses.mjs](project-licenses.mjs)：验证完整 GPL 原文、历史 MIT 原文及授权范围，并为主程序与独立材质工具复制统一许可包。
 - [source-audit.mjs](source-audit.mjs)：Git 与无 Git 源码目录共用文件清单，供审计、打包和测试复用；无 Git 时排除构建目录，拒绝私有文件与符号链接。核对包名、固定 GPL-3.0-only 元数据、完整许可与历史原文，并拒绝历史排除的上游诊断标记、私有文档、运行配置、凭据和个人绝对路径。
 - [license-texts.json](license-texts.json)：依赖包未附带的公开许可、署名原文与固定来源 URL，供许可生成器离线使用。
