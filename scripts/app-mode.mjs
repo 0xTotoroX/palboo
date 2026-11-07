@@ -1,5 +1,5 @@
 /* [INPUT]: Unified App's private request file and the registered local development source.
- * [OUTPUT]: Resolve and check Finder/Homebrew development tools, then prepare/open/stop the existing Dev supervisor with a private JSON result.
+ * [OUTPUT]: Resolve and check Finder/Homebrew development tools, prebuild web/Rust assets for cold-start or mode-switch preparation, then open/stop the Dev supervisor with a private JSON result.
  * [POS]: One-shot adapter for app_mode.rs; no new persistent manager or copied user data.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
@@ -14,6 +14,7 @@ import {
   developmentSettingsUrl,
 } from './dev-launcher.mjs';
 import { readJson, requestRuntime } from './dev-host.mjs';
+import { prepareWebAssets } from './dev-web.mjs';
 import { sourcePreference, selectSource } from './dev-sources.mjs';
 
 export function developmentEnvironment(inherited = process.env) {
@@ -68,23 +69,23 @@ export async function developmentAction(root, action, connection) {
     throw new Error('请选择 Palboo 源码目录。');
   // Finder has no login-shell PATH. Preserve the environment for the supervisor as well.
   process.env.PATH = env.PATH;
+  const coldOpen = action === 'open' && !connection && !hasDevelopmentOwner(root);
   if (action === 'prepare' || (action === 'open' && !hasDevelopmentOwner(root)))
     checkDevelopmentTools(env);
-  if (action === 'prepare') {
+  if (action === 'prepare' || coldOpen) {
     const deadline = Date.now() + 900000;
+    const suffix = action === 'prepare' ? '；当前模式保持不变。' : '，请查看 app-mode.log。';
     const remembered = readJson(sourcePreference(root))?.path || root;
     const source = remembered === root ? root : selectSource(root, remembered).path;
     if (!existsSync(join(source, 'node_modules/vite/package.json')))
       throw new Error('缺少开发依赖，请在源码目录运行 npm ci。');
-    for (const [file, args] of [
-      ['npm', ['run', 'build:web']],
-      ['cargo', ['build', '--locked']],
-    ]) {
-      await new Promise((done, fail) => {
+    const buildEnv = { ...env, CARGO_TARGET_DIR: join(source, 'target') };
+    const runBuild = (file, args) =>
+      new Promise((done, fail) => {
         const child = spawn(file, args, {
           detached: true,
           cwd: source,
-          env,
+          env: buildEnv,
           stdio: ['ignore', 'inherit', 'inherit'],
         });
         const stop = () => {
@@ -99,7 +100,7 @@ export async function developmentAction(root, action, connection) {
             try {
               process.kill(-child.pid, 'SIGTERM');
             } catch {}
-            fail(new Error('开发源码构建超时；当前模式保持不变。'));
+            fail(new Error(`开发源码构建超时${suffix}`));
           },
           Math.max(1, deadline - Date.now()),
         );
@@ -113,11 +114,12 @@ export async function developmentAction(root, action, connection) {
           process.removeListener('SIGTERM', stop);
         });
         child.once('exit', (code) =>
-          code === 0 ? done() : fail(new Error('开发源码构建失败；当前模式保持不变。')),
+          code === 0 ? done() : fail(new Error(`开发源码构建失败${suffix}`)),
         );
       });
-    }
-    return { ready: true };
+    await prepareWebAssets(source, () => runBuild('npm', ['run', 'build:web']));
+    await runBuild('cargo', ['build', '--locked']);
+    if (action === 'prepare') return { ready: true };
   }
   if (action === 'stop') {
     await stopBackgroundDevelopment(root);

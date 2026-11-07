@@ -407,7 +407,7 @@ Fast/普通预设按闪电标记独立消歧：model-groups 覆盖同组编号�
 
 - `app-update-settings.test.mjs`：真实启动设置及构建 CSS，验证进入页面零自动检查/下载、晚到读取、重复点击、主表单与模式草稿保护、失败重试、纯身份提交、源码版/Dev/只读原因；断线不展示旧成功消息、版本及候选，迟到检查失效，重连只重新读取本机版本；覆盖 320px 中英文完整承载、开发抽屉节点/草稿和键盘焦点。网络全部为合成响应。App 替换及回滚由 `src/app_update/tests.rs` 的隔离后台/真实文件系统测试覆盖，显式 DMG 用例只验证包，不安装到真实位置。
 
-模式恢复回归覆盖 HTTP 已就绪但宿主延迟连接、端点/窗口不匹配和有界超时，真实 CLI 在确认连接后才改写模式；实际正式/偏好开发的纠正与旧修订拒绝继续保留。app-mode-environment.test.mjs 用合成 Homebrew/CARGO_HOME 可执行文件验证 Finder 路径、继承优先级和工具缺失预检。Bot 浏览器回归验证过期/断连可打开应用、交接禁用且零填入，Rust 验证打开失败；功能端到端拒绝旧 owner 的打开请求，不在合成测试中启动真实 Grok Bot。
+模式恢复回归覆盖 HTTP 已就绪但宿主延迟连接、端点/窗口不匹配和有界超时，真实 CLI 在确认连接后才改写模式；实际正式/偏好开发的纠正与旧修订拒绝继续保留。app-mode-environment.test.mjs 用合成 Homebrew/CARGO_HOME 可执行文件验证 Finder 路径、继承优先级、工具缺失预检及冷启动打开前复用网页产物并预构建 Rust；dev-host.test.mjs 覆盖冷启动宿主初始页面替换后的未固定目标更新与固定目标拒绝。Bot 浏览器回归验证过期/断连可打开应用、交接禁用且零填入，Rust 验证打开失败；功能端到端拒绝旧 owner 的打开请求，不在合成测试中启动真实 Grok Bot。
 
 常用语拆分回归：quick-prompts-editor 使用独立视图覆盖增删改、冲突草稿、三种点击模式及建议刷新隔离；quick-prompts-runtime 覆盖延迟点击换目标和只开常用语的锁定来源。features-e2e 验证保存后立即填入、Stepwise/大纲关闭时独立工作、已有草稿不发送；合成 composer 保持真实输入框宽度。settings-modes/startup-settings 验独立设置页与旧锚点、开关和保存队列。model-control-e2e 验设置目录与快切一致、快切停用时可读、读取不改选择，并覆盖开关保存不重复加锁。
 

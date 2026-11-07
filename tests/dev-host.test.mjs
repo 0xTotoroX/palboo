@@ -611,3 +611,54 @@ test('Dev closes installed edge views and restores them only on their original c
   await restoreInstallation(journal);
   assert.equal(entries[0].open, false, 'do not reopen on another chat');
 });
+
+test('cold-started host replacing its initial page target updates the unpinned Dev target before handoff', async (t) => {
+  const journal = join(temporary(t), 'paused.json');
+  const cdp = await server(t, (_, res) =>
+    res.end(
+      JSON.stringify([
+        {
+          id: 'main-window',
+          type: 'page',
+          url: 'app://-/index.html',
+          webSocketDebuggerUrl: 'ws://127.0.0.1:9229/main',
+        },
+      ]),
+    ),
+  );
+  t.mock.method(globalThis, 'WebSocket', function (url) {
+    const socket = {
+      send() {
+        queueMicrotask(() =>
+          socket.onmessage({
+            data: JSON.stringify({
+              id: 1,
+              result: { result: { value: { occupied: false, focused: true } } },
+            }),
+          }),
+        );
+      },
+      close() {},
+    };
+    queueMicrotask(() =>
+      String(url).endsWith('/initial') ? socket.onerror(new Error('closed')) : socket.onopen(),
+    );
+    return socket;
+  });
+  const unpinned = {
+    endpoint: cdp.origin,
+    target: { id: 'initial-window', webSocketDebuggerUrl: 'ws://127.0.0.1:9229/initial' },
+    retryInterval: 5,
+  };
+  await pauseInstallation(unpinned, journal);
+  assert.equal(unpinned.target.id, 'main-window');
+
+  const pinned = {
+    endpoint: cdp.origin,
+    target: { id: 'initial-window', webSocketDebuggerUrl: 'ws://127.0.0.1:9229/initial' },
+    pinnedTarget: true,
+    retryInterval: 5,
+  };
+  await assert.rejects(pauseInstallation(pinned, journal), /无法连接宿主调试窗口/);
+  assert.equal(pinned.target.id, 'initial-window');
+});

@@ -1,6 +1,6 @@
 /*
  * [INPUT]: Git worktrees、Rust/Node、来源选择器与独立开发数据目录。
- * [OUTPUT]: 设置页热更新、胶囊热加载及阅读器网页先构建后内嵌；Rust/内嵌资源编译成功后交接后台；显式 --restart-running 复用宿主准备，安全恢复失效租约，启动错误传回 App；App 会话按宿主身份退出清理。
+ * [OUTPUT]: 设置页热更新、胶囊热加载及阅读器网页先构建后内嵌；宿主准备与内嵌资源共用单次预构建，冷启动目标替换时同步刷新租约与配置，Rust/内嵌资源编译成功后交接后台；显式 --restart-running 复用宿主准备，安全恢复失效租约，启动错误传回 App；App 会话按宿主身份退出清理。
  * [POS]: 持久开发编排与统一设置入口；先绑定稳定地址供后台齿轮打开，各来源隔离 Vite 缓存；持有目标租约并串行交接 worktree，管理开发进程，显式启用时委托共享宿主启动策略，暂停并恢复安装版连接，不改写官方应用包。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -38,6 +38,7 @@ import {
   findDevelopmentHost,
   hostSettingsDirectory,
   initializeData,
+  inspectLiveHost,
   pauseInstallation,
   restoreInstallation,
   findHostProcess,
@@ -103,6 +104,13 @@ function context(path) {
 }
 function useContext(value) {
   ({ root, directory, data, binary, snapshot, options, env } = value);
+  preparedNative = undefined;
+}
+function syncHostTarget() {
+  const nextTarget = claimTarget(host, controllerRoot);
+  releaseTarget();
+  releaseTarget = nextTarget;
+  initializeData(source, data, host);
 }
 const children = new Set();
 const watchers = [];
@@ -123,7 +131,7 @@ const execute = (program, args) => {
   return command(program, args, options, children);
 };
 const token = randomUUID();
-let nativeFingerprint, switcher, settingsUrl, switchTask;
+let nativeFingerprint, preparedNative, switcher, settingsUrl, switchTask;
 let buildError = '';
 let sourceEpoch = randomUUID();
 let injectedSettings;
@@ -203,6 +211,18 @@ async function startService() {
       } catch {
         /* Older sources still use the connected-state handshake. */
       }
+      if (!paused && !host.pinnedTarget) {
+        const previousTarget = host.target.id;
+        try {
+          await inspectLiveHost(host);
+        } catch {}
+        if (host.target.id !== previousTarget) {
+          syncHostTarget();
+          await api('connect', { endpoint: host.endpoint, targetId: host.target.id }).catch(
+            () => {},
+          );
+        }
+      }
       return paused;
     }
     if (state.connection.endpoint !== host.endpoint || state.connection.targetId !== host.target.id)
@@ -226,19 +246,25 @@ async function rebuildNative() {
   if (closing) return;
   const before = fingerprint(root, nativeInputs(root));
   if (before === nativeFingerprint && existsSync(binary)) return;
-  console.log('正在编译 Rust；现有开发窗口保持运行…');
-  await execute('cargo', ['build', '--locked']);
-  if (closing) return;
-  if (before !== fingerprint(root, nativeInputs(root))) {
-    pendingNative = true;
-    return;
+  const sourceBinary = join(root, 'target/debug', sourceBinaryName(root));
+  if (before !== preparedNative || !existsSync(sourceBinary)) {
+    console.log('正在编译 Rust；现有开发窗口保持运行…');
+    await execute('cargo', ['build', '--locked']);
+    if (closing) return;
+    if (before !== fingerprint(root, nativeInputs(root))) {
+      pendingNative = true;
+      return;
+    }
   }
+  preparedNative = undefined;
   const previous = binary + '.previous';
   if (existsSync(binary)) copyFileSync(binary, previous);
-  copyFileSync(join(root, 'target/debug', sourceBinaryName(root)), binary + '.next');
+  copyFileSync(sourceBinary, binary + '.next');
   if (!service) {
     canRestore = true;
+    const previousTarget = host.target.id;
     await pauseInstallation(host, journal);
+    if (host.target.id !== previousTarget) syncHostTarget();
   }
   await stopChild(service);
   runtime = undefined;
@@ -597,10 +623,11 @@ try {
     async () => {
       // Build before any host restart; use current source, not an older installed CLI.
       console.log('正在准备宿主启动器；将按「启动行为」设置处理没有调试连接的应用…');
-      if (!existsSync(join(root, 'target/web/index.html')))
-        await execute('npm', ['run', 'build:web']);
+      await prepareWebAssets(root, () => execute('npm', ['run', 'build:web']));
+      const before = fingerprint(root, nativeInputs(root));
       await execute('cargo', ['build', '--locked']);
       if (closing) throw new Error('开发模式退出中');
+      if (before === fingerprint(root, nativeInputs(root))) preparedNative = before;
       return command(
         join(root, 'target/debug', sourceBinaryName(root)),
         [
@@ -675,7 +702,6 @@ try {
   env.PALBOO_DEV_SETTINGS = `${settingsUrl}/#token=${encodeURIComponent(token)}`;
   Object.assign(env, compatibleEnvironment(env));
   await buildDevPanel(root, snapshot);
-  if (!existsSync(join(root, 'target/web/index.html'))) await execute('npm', ['run', 'build:web']);
   await rebuildNative();
   if (closing) throw new Error('开发模式退出中');
   saveSession();
