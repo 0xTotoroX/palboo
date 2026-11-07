@@ -38,9 +38,10 @@ panel 的 settingsAccent 默认跟随宿主，独立保存来源及自定义 #RR
 - [edge_geometry.rs](edge_geometry.rs)：逻辑点布局、精确凹角点击与稳定悬停区域、安全区、固定屏幕选择与 CDP 顶部坐标转换后的宿主最大相交屏幕选择及可反向连续阻尼开合的纯计算及测试。
 
 
-- [assets.rs](assets.rs)：正式内嵌与开发快照的资源边界；只有 debug 程序接受显式 PALBOO_DEV_ASSETS，release 始终使用内嵌资源；debug 通过 PALBOO_DEV_SETTINGS 接收经验证的本机统一设置地址。
+- [assets.rs](assets.rs)：正式内嵌与开发快照的资源边界；额外提供独立 Chat 大纲脚本及修订；只有 debug 程序接受显式 PALBOO_DEV_ASSETS，release 始终使用内嵌资源；debug 通过 PALBOO_DEV_SETTINGS 接收经验证的本机统一设置地址。
 
-- [cdp.rs](cdp.rs)：宿主连接基础层，被 state.rs 和 requests.rs 使用；目标发现与 Client 请求/事件/注入生命周期，内嵌共享胶囊，开发时检查胶囊归属并更新当前与导航后的脚本，将存活、显示同步和不含正文的状态摘要合并读取。
+- [chat_outline.rs](chat_outline.rs)：在已连接宿主端点独立监督官方 ChatGPT webview 的只读大纲；限定 HTTPS 官方来源，维护导航脚本和租约、开发资源修订及语言，暂停/失联/退出清理，不替换 Work 连接或安装请求绑定。
+- [cdp.rs](cdp.rs)：discover_all 只供独立 Chat 筛选复用，主连接发现仍排除 Chat webview；宿主连接基础层，被 state.rs 和 requests.rs 使用；目标发现与 Client 请求/事件/注入生命周期，内嵌共享胶囊，开发时检查胶囊归属并更新当前与导航后的脚本，将存活、显示同步和不含正文的状态摘要合并读取。
 - [config.rs](config.rs)：Rust 配置基础层，以 PALBOO_HOME 或 palboo 默认目录管理独立数据；Config、HostRestartPolicy（旧配置默认 ask）、Paths、默认参数及私有文件读写；Codex CLI 发现兼容新版包内 CodexCLI.app 与旧版资源路径，Finder 启动不依赖终端 PATH，显式配置仍优先。
 - [requests.rs](requests.rs)：renderer 与独立后台的受限操作边界，生成前后校验上下文；按 maxInputChars=0 传递完整最近一问一答，正数预算由 Exchange 优先保留用户问题并标记截断，生成请求豁免普通设置请求的字节上限；桌面请求分发、建议 items 转换及结果回送。
 - [host_launch.rs](host_launch.rs)：完整宿主 App 的 LaunchServices 启动与包路径识别；退出后应用记录尚未清理的 -600 最多尝试3次，间隔750/1500ms，等待前后核对唯一主进程；出现新实例即交由 lifecycle 核验连接，其他错误、身份不明和独立 profile 不重试，不退出新实例或绕过 App 启动。

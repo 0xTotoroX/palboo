@@ -1,5 +1,5 @@
 // [INPUT]: 正式内嵌资源；debug 程序可显式读取开发资源快照。
-// [OUTPUT]: 按路径/inode/大小/修改时间缓存的共享开发快照，panel_script、页面/引导替换与受限设置地址。
+// [OUTPUT]: 按路径/inode/大小/修改时间缓存的共享开发快照，panel_script、chat_outline_script、页面/引导替换与受限设置地址。
 // [POS]: 开发/正式资源边界，release 不读取开发环境变量或磁盘快照。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
@@ -9,6 +9,10 @@ use std::sync::Arc;
 #[derive(Deserialize)]
 pub struct Development {
     pub revision: String,
+    #[serde(default, rename = "chatOutlineScript")]
+    pub chat_outline_script: String,
+    #[serde(default, rename = "chatOutlineRevision")]
+    pub chat_outline_revision: String,
     #[serde(default, rename = "featureRevision")]
     pub feature_revision: String,
     #[serde(default, rename = "featureScript")]
@@ -103,6 +107,21 @@ pub fn panel_script() -> String {
     development().map_or_else(
         || crate::cdp::PANEL_SCRIPT.to_owned(),
         |dev| dev.script.clone(),
+    )
+}
+
+pub fn chat_outline_script() -> (String, String) {
+    if let Some(dev) = development()
+        && !dev.chat_outline_script.is_empty()
+    {
+        return (
+            dev.chat_outline_revision.clone(),
+            dev.chat_outline_script.clone(),
+        );
+    }
+    (
+        "embedded".into(),
+        include_str!(concat!(env!("OUT_DIR"), "/chat-outline.js")).into(),
     )
 }
 

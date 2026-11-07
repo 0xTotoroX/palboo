@@ -1,5 +1,5 @@
 // [INPUT]: App、Runtime、app_mode/app_update、本机认证令牌、target/web 与 ui/panel/popout 资源。
-// [OUTPUT]: serve、认证任务/宿主字体 API、HTTP/SSE API、设置页、看板和弹出页资源及禁止缓存的阅读器资源；含原生呈现确认的窗口协议及受鉴权的无正文开发状态与仅开发模式开放的工作台唤起接口。
+// [OUTPUT]: 独立 Chat 大纲监督随后台启动/退出； serve、认证任务/宿主字体 API、HTTP/SSE API、设置页、看板和弹出页资源及禁止缓存的阅读器资源；含原生呈现确认的窗口协议及受鉴权的无正文开发状态与仅开发模式开放的工作台唤起接口。
 // [POS]: 仅监听 loopback 的服务入口，公开状态剔除聊天正文并携带设置界面外观快照；认证状态携带 Dev 设置地址供旧入口跳转；更新读取/检查/安装和模型控制、窗口租约共用鉴权；操作锁由对应服务管理。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
@@ -97,6 +97,7 @@ pub async fn serve(
         app.disconnect().await;
     }
     let watcher = app.clone().supervise();
+    let chat_outline_watcher = tokio::spawn(crate::chat_outline::watch(app.clone()));
     let task_watcher = app.tasks.start();
     let term_watcher = tokio::spawn(crate::terminology_import::watch(app.clone()));
     let host_update = (!allow_fixture).then(|| {
@@ -121,6 +122,7 @@ pub async fn serve(
             shutdown_app.closing.send_replace(true);
         })
         .await;
+    app.closing.send_replace(true);
     watcher.abort();
     task_watcher.abort();
     term_watcher.abort();
@@ -131,6 +133,7 @@ pub async fn serve(
     app.stop_features().await;
     app.tasks.stop().await;
     app.disconnect().await;
+    let _ = chat_outline_watcher.await;
     if let Ok(current) = Runtime::read(&paths)
         && current.token == runtime.token
     {

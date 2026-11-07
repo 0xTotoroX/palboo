@@ -1,0 +1,69 @@
+/* [INPUT]: Shared outline content in a Chat-only shadow root and host semantic colors.
+ * [OUTPUT]: Compact read-only outline surface, responsive to narrow and short Chat windows.
+ * [POS]: Ordinary Chat container; native reply controls keep host classes.
+ * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
+:host {
+  --paper: var(--bg-primary, var(--color-background-surface-primary, light-dark(#fff, #212121)));
+  --ink: var(--text-primary, var(--color-text-primary, light-dark(#222, #eee)));
+  --muted: var(--text-secondary, var(--color-text-secondary, light-dark(#666, #aaa)));
+  --line: color-mix(in srgb, var(--ink) 14%, transparent);
+  --hover: color-mix(in srgb, var(--ink) 7%, transparent);
+  --accent: var(--ink);
+  --csw-fg: var(--ink);
+  --csw-muted: var(--muted);
+  --csw-line: var(--line);
+  --csw-hover: var(--hover);
+  --csw-accent: var(--accent);
+  --csw-item-font: 15px;
+  --csw-item-line: 1.5;
+  --buddy-space-1: 4px;
+  position: fixed;
+  z-index: 100;
+  top: 64px;
+  right: 16px;
+  width: min(320px, calc(100vw - 32px));
+  height: min(560px, calc(100vh - 160px));
+  max-height: calc(100vh - 80px);
+  min-height: 0;
+  color-scheme: inherit;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px #0002;
+}
+:host([hidden]) {
+  display: none;
+}
+.feature-view {
+  border-radius: inherit;
+}
+.feature-head {
+  gap: 4px;
+}
+.feature-head button {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+}
+.feature-head button:hover {
+  background: var(--hover);
+}
+.feature-head svg {
+  width: 18px;
+  height: 18px;
+}
+.csw-outline-toolbar {
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
+  background: var(--paper);
+}
+@media (max-height: 360px) {
+  :host {
+    top: 8px;
+    height: calc(100vh - 16px);
+    max-height: none;
+  }
+}

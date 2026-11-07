@@ -1,6 +1,6 @@
 /*
  * [INPUT]: lifecycle 模块入口、显式 ES module 依赖与受限请求桥。
- * [OUTPUT]: 正式/开发存储域独立的单个胶囊脚本，两种构建均包含内嵌 SVG 液态；可选输出到 Cargo OUT_DIR。
+ * [OUTPUT]: 独立普通 Chat 大纲脚本及正式/开发存储域独立的单个胶囊脚本，两种构建均包含内嵌 SVG 液态；可选输出到 Cargo OUT_DIR。
  * [POS]: Node/esbuild 构建入口；Rust 与契约测试共用，不依赖私有文档。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -44,7 +44,25 @@ export async function buildPanel(projectRoot = root, development = false) {
   const bridge = readFileSync(resolve(projectRoot, 'ui/shared/bridge/requests.js'), 'utf8');
   return `(() => { const install = () => {\n${bridge}\n${result.outputFiles[0].text}\nif (!window.__companionPopout) {${glass.outputFiles[0].text}}\n}; if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', install, {once:true}); else install(); })();`;
 }
+export async function buildChatOutline(projectRoot = root) {
+  const result = await build({
+    absWorkingDir: projectRoot,
+    nodePaths: [resolve(root, 'node_modules')],
+    entryPoints: ['ui/codex/chat-outline.js'],
+    loader: { '.css': 'text' },
+    bundle: true,
+    format: 'iife',
+    target: 'safari17',
+    write: false,
+    legalComments: 'inline',
+    logLevel: 'silent',
+  });
+  return result.outputFiles[0].text;
+}
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const script = await buildPanel();
-  if (process.argv[2]) writeFileSync(process.argv[2], script);
+  if (process.argv[2]) {
+    writeFileSync(process.argv[2], script);
+    writeFileSync(resolve(process.argv[2], '..', 'chat-outline.js'), await buildChatOutline());
+  }
 }

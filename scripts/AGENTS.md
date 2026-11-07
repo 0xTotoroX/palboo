@@ -18,13 +18,13 @@ npm 命令进入开发、构建、审计、安装和验证编排工具；具体�
 - [material-preview.mjs](material-preview.mjs)：`dev:materials` 入口，将 Swift 对照工具编译到 target/material-preview 后打开；`--check` 验证同步控制，`--package` 在 dist/material-preview 生成自带程序和 GPL-3.0-only 完整许可包的独立 App，并输出 ZIP；source/ 同时导出源码、独立构建入口和说明，可脱离主仓库二次开发；不修改安装版或产品偏好。
 - [material-preview.swift](material-preview.swift)：14 种 NSVisualEffectView 材质的原生并排对照；独立背景窗口提供重复图案，统一切换外观、焦点状态与背景，支持真实桌面采样；标题栏固定不透明底色并跟随预览明暗。
 - [dev-host.mjs](dev-host.mjs)：选择真实窗口与宿主启动配置（开发优先、首次继承日常），仅无宿主且显式授权自动准备时调用共享启动器，指定目标或歧义不触发重开；首次复制独立开发配置，暂停并恢复安装版连接；新目标已发现且旧目标不可用，或安装版 API 不可达且其原 PID 明确退出时，将旧恢复记录原样保留为带唯一后缀的归档，不启动安装版或将它改连新聊天；API 失败但进程存活、身份缺失或无法确认退出时仍保留并停止，不将断连当成退出；退出清理没有新宿主时不归档；API 错误保留后端原因；不创建浏览器或修改官方应用。
-- [dev-panel.mjs](dev-panel.mjs)：原子发布开发资源快照（含术语目录指纹与监听），CSS 更新保留实例，逻辑更新销毁并恢复胶囊，页面引导变化重载窗口页面；共享 measurePanel 仅采集两端几何、材质能力和实例计数。
+- [dev-panel.mjs](dev-panel.mjs)：原子发布开发资源快照（含术语目录指纹与监听、独立 chatOutlineScript/chatOutlineRevision），CSS 更新保留实例，逻辑更新销毁并恢复胶囊，页面引导变化重载窗口页面；共享 measurePanel 仅采集两端几何、材质能力和实例计数。
 - [dev-sources.mjs](dev-sources.mjs)：Git worktree 清单及启动来源记忆、独占进程/目标租约、串行切换和失败回退状态；通过独占恢复记录串行回收已退出监督进程的租约，检查关联 worktree 与上次会话的后台，损坏记录或状态不明时保留并报错；不自行操作宿主或结束其他进程。
 - [dev-runtime.mjs](dev-runtime.mjs)：受控子进程与稳定鉴权代理，开发来源 API 在后台切换时仍可用，切换中请求暂停、旧设置页写入按来源标识拒绝；可捕获宿主准备命令的端点及具体失败原因；后台重启后设置页会话保持有效；模型超时由后台控制，客户端断开时取消上游代理请求。
 - [verify.mjs](verify.mjs)：统一检查、浏览器行为、Rust、端到端与生命周期验收；常规端到端、生命周期与打包共用 release 程序；features-e2e 的隔离 Bot 夹具明确使用 debug（复用 Rust 单元测试编译结果），不放开正式程序的模拟接口。按源码/工具链及产物摘要复用网页和程序，类型检查随网页构建执行一次；release 加入路径映射；逐项耗时和失败结果写入 verify.json 与 GitHub 摘要，原生检查显式选择。
 - [verify-web.mjs](verify-web.mjs)：`npm run verify:web` 执行前端构建、格式/源码检查、Node 测试和合成工作台/液态/模型宿主测试，复用已构建网页及共享 Node 测试入口，逐项记录失败并返回非零；官网另由 test:site 验证；支持两种现有浏览器路径变量，Linux 优先复用系统 Chromium。结果位于 `target/reports/web-pilot/`，明确排除原生与完整发布验收；Node 许可集成测试仍需 Cargo，不因缺失而跳过。
 
-- [build-panel.mjs](build-panel.mjs)：从 ui/codex/runtime/lifecycle.js 入口解析 ES modules，输出可重复注入的脚本，供 Cargo 内嵌。
+- [build-panel.mjs](build-panel.mjs)：从 ui/codex/runtime/lifecycle.js 入口解析 ES modules，输出可重复注入的脚本，供 Cargo 内嵌；buildChatOutline 单独构建普通 Chat 的只读大纲脚本，不包含 Work 入口或请求桥。
 - [install.mjs](install.mjs)：先构建/签名/验收完整 App，再取得统一模式锁、重新核验后台、迁移独立旧数据及替换 App/兼容 CLI；保留配置与旧程序，启动失败回滚并读回身份。不覆盖未知后台，不更新被活动 Dev 接管的安装版；归档失败保留恢复路径。
 - [launcher.mjs](launcher.mjs)：为安装器生成带本地签名的 Palboo.app；从 ui/icon.png 生成多尺寸 ICNS 并绑定应用图标；双击调用 launch --restart-running 按设置处理缺少连接的宿主，取消不再弹错误；连接后在受支持系统弹出，以后台应用方式运行、不显示运行中的 Dock 图标；macOS 14 遇到浮窗门槛时保留内嵌，其他错误用系统对话框显示。
 - [package.mjs](package.mjs)：每个版本打包完整 App DMG，复用已验证 release 程序，收集许可和安装帮助，检查签名、包身份与可运行性后写入 dist；target/reports/package.json 记录提交、版本和摘要。只打包，不安装、不发布、不清理历史发行包。

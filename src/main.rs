@@ -9,6 +9,7 @@ mod app_update;
 mod assets;
 mod brand;
 mod cdp;
+mod chat_outline;
 mod codex_host;
 mod config;
 mod config_cli;

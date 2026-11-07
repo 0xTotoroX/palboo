@@ -1,5 +1,5 @@
 // [INPUT]: CDP Client、Config、Model、主界面启动偏好与胶囊状态摘要。
-// [OUTPUT]: App、View、连接与无正文胶囊状态、共享字体与设置界面外观快照；临时响应超时保留会话并恢复连接状态；退出信号取消模型请求，开发模式锁定启动窗口。
+// [OUTPUT]: 独立 Chat 大纲连接/清理及只读来源偏好；App、View、连接与无正文胶囊状态、共享字体与设置界面外观快照；临时响应超时保留会话并恢复连接状态；退出信号取消模型请求，开发模式锁定启动窗口。
 // [POS]: 持有独立 tasks 服务； 后台业务状态层，为 server、requests 与 panel 提供一致状态；独立维护模型控制条服务及窗口监督。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
@@ -70,6 +70,7 @@ pub struct App {
     pub(crate) model_requests: crate::model_requests::Requests,
     pub(crate) performance: Mutex<crate::performance::Monitor>,
     pub(crate) surfaces: Mutex<crate::surfaces::Surfaces>,
+    pub(crate) chat_outline: Mutex<crate::chat_outline::Connections>,
     pub(crate) features: Mutex<crate::features::Features>,
     pub(crate) feature_operation: Mutex<()>,
     pub(crate) codex_host_operation: Mutex<()>,
@@ -177,6 +178,7 @@ impl App {
             views,
             shutdown: Notify::new(),
             closing: watch::channel(false).0,
+            chat_outline: Mutex::new(crate::chat_outline::Connections::default()),
             panel: Mutex::new(panel),
             model_control: Mutex::new(model_control),
             paths,
@@ -384,11 +386,31 @@ impl App {
         }
     }
 
+    pub(crate) async fn chat_outline_source(&self) -> Option<(String, String)> {
+        if *self.closing.borrow()
+            || !self.desired.read().await.enabled
+            || !self.model.read().await.options.answer_outline_enabled
+            || self
+                .session
+                .read()
+                .await
+                .as_ref()
+                .is_none_or(|s| s.client.is_closed())
+        {
+            return None;
+        }
+        Some((
+            self.view().connection.endpoint?,
+            self.appearance().await.language,
+        ))
+    }
+
     async fn clear_connection(&self, status: &str, message: &str) {
         let old = self.session.write().await.take();
         if let Some(old) = old {
             old.client.close().await;
         }
+        self.chat_outline.lock().await.clear().await;
         self.views.send_modify(|view| {
             view.connection.status = status.into();
             view.connection.message = message.into();

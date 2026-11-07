@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 共享胶囊源码、esbuild 与现有 buildPanel。
- * [OUTPUT]: 原子发布开发资源快照，区分 CSS、逻辑与页面引导版本；测量几何与实验后端耗时。
+ * [OUTPUT]: 原子发布开发资源快照，区分 CSS、逻辑与页面引导版本、独立 Chat 大纲脚本修订；测量几何与实验后端耗时。
  * [POS]: dev.mjs 的界面构建层；正式产物不加载开发快照。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -9,7 +9,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync, writeFileSync, renameSync, existsSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { buildPanel } from './build-panel.mjs';
+import { buildPanel, buildChatOutline } from './build-panel.mjs';
 
 const hash = (text) => createHash('sha256').update(text).digest('hex');
 export function filesUnder(root, directory) {
@@ -245,7 +245,10 @@ export async function buildDevPanel(root, output) {
   })();`;
   // Include the dev client so geometry/readback changes also reload the native page.
   const featureRevision = hash(featureCode + featureClient);
+  const chatOutlineScript = await buildChatOutline(root);
   const snapshot = {
+    chatOutlineScript,
+    chatOutlineRevision: hash(chatOutlineScript),
     revision,
     featureRevision,
     featureScript:

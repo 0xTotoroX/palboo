@@ -1,5 +1,5 @@
 // [INPUT]: 本机 CDP 端点、WebSocket、assets 胶囊脚本与受限 binding。
-// [OUTPUT]: 目标发现、无正文设置外观采样、Client 请求/事件/注入及开发实例归属检查及宿主窗口只读逻辑坐标；独立模型及额度适配器的文档生命周期与有界执行。
+// [OUTPUT]: 全目标只读发现供 Chat 独立筛选，主 Work 目标范围不变； 目标发现、无正文设置外观采样、Client 请求/事件/注入及开发实例归属检查及宿主窗口只读逻辑坐标；独立模型及额度适配器的文档生命周期与有界执行。
 // [POS]: 宿主连接基础层，被 state.rs 和 requests.rs 使用。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
@@ -33,6 +33,14 @@ pub struct Target {
 }
 
 pub async fn discover(endpoint: &str, allow_fixture: bool) -> Result<Vec<Target>> {
+    Ok(discover_all(endpoint)
+        .await?
+        .into_iter()
+        .filter(|t| is_codex_target(t, allow_fixture))
+        .collect())
+}
+
+pub(crate) async fn discover_all(endpoint: &str) -> Result<Vec<Target>> {
     let endpoint = crate::config::local_endpoint(endpoint)?;
     let response = crate::config::local_client()
         .get(format!("{endpoint}/json/list"))
@@ -44,10 +52,7 @@ pub async fn discover(endpoint: &str, allow_fixture: bool) -> Result<Vec<Target>
         .json()
         .await
         .context("该端口没有返回 CDP 窗口列表")?;
-    Ok(targets
-        .into_iter()
-        .filter(|t| is_codex_target(t, allow_fixture))
-        .collect())
+    Ok(targets)
 }
 
 fn is_codex_target(target: &Target, allow_fixture: bool) -> bool {

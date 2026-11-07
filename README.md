@@ -28,6 +28,8 @@ Desktop windows use native macOS traffic-light controls and reuse the existing P
 | **Grok Bot**              | Find your Bots and start a consultation in the current chat.                                                                            |
 | **Notes & Web** | Read and edit local Markdown, preview spreadsheets, and open saved web pages inside ChatGPT. |
 
+In ordinary Chat mode, use the outline icon beside **Copy / Read aloud** under a completed reply. It opens a local outline for that reply; older replies remain selectable and scrolling keeps the cached outline visible. It leaves the draft unchanged and never sends a message.
+
 A right-side Side Chat has two actions beside Outline under completed replies. Hover each icon for its name:
 
 - **Bring to original chat through this reply** (left arrow entering a vertical line): bring the selected history to the original chat, preserving its draft. Local chats use a native text card when supported; cloud chats use a readable text handoff. The side panel collapses after success and the side chat is retained.

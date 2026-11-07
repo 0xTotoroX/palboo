@@ -1,0 +1,9 @@
+/* [INPUT]: Temporary outline marks on the selected Chat answer.
+ * [OUTPUT]: Source-location highlight outside the outline's shadow root.
+ * [POS]: Chat-only host style, installed and removed with the leased adapter.
+ * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
+[data-companion-stepwise-outline-id].companion-stepwise-outline-target-flash {
+  outline: 2px solid color-mix(in srgb, currentColor 70%, transparent) !important;
+  outline-offset: 4px !important;
+  border-radius: 6px !important;
+}

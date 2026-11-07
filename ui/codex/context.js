@@ -1,7 +1,7 @@
 import { tr } from '../shared/i18n.js';
 /*
  * [INPUT]: 宿主 DOM（角色属性及旧版可访问标签）、上下文状态和基础可见性工具。
- * [OUTPUT]: 宿主交互目标记录、工作台跟随/锁定策略、稳定聊天身份重绑与来源可用性、唯一可见主聊天身份；本地/云端共用轮次节点识别，排除重复正文子单元，按 DOM 顺序读取并缓存最新问答，生成期间可只刷新身份；限定容器内的输入目标、忙碌状态、完整相邻问答及上下文变更通知；常用语可仅核验聊天身份而不依赖回答扫描。
+ * [OUTPUT]: 供 Chat 复用的纯轮次缓存与正文读取；宿主交互目标记录、工作台跟随/锁定策略、稳定聊天身份重绑与来源可用性、唯一可见主聊天身份；本地/云端共用轮次节点识别，排除重复正文子单元，按 DOM 顺序读取并缓存最新问答，生成期间可只刷新身份；限定容器内的输入目标、忙碌状态、完整相邻问答及上下文变更通知；常用语可仅核验聊天身份而不依赖回答扫描。
  * [POS]: 宿主读取边界；候选循环复用本次前景快照，不跨调用缓存目标或修改 Stepwise/大纲状态。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -997,7 +997,7 @@ function conversationTurns() {
   return conversationTurnElements().map(conversationTurn).filter(Boolean);
 }
 
-function nextLatestTurnAnchor(previous, turns, sessionId) {
+function nextLatestTurnAnchor(previous, turns, sessionId, root = chatRoot()) {
   const sameSession = Boolean(sessionId) && previous?.sessionId === sessionId;
   // turnKey 包含随机 UUID，只能校验身份；querySelectorAll 已按聊天中的 DOM 顺序返回。
   const mounted = turns.findLast((turn) => turn?.turnKey);
@@ -1012,7 +1012,6 @@ function nextLatestTurnAnchor(previous, turns, sessionId) {
     return { ...previous, previousTurnKeys };
   }
   if (sameSession && !latestStillMounted && previous.turnNode !== mounted.node) {
-    const root = chatRoot();
     // 没有共同轮次的窗口可能是刚上翻加载的旧历史；到聊天末尾才接纳未知轮次。
     if (!root || root.scrollTop + root.clientHeight < root.scrollHeight - 2) return previous;
   }
@@ -1221,6 +1220,9 @@ function findPreviousUserText(message) {
 }
 
 export {
+  nextLatestTurnAnchor,
+  assistantMessageFromTurnAnchor,
+  labeledMessageText,
   actionRowForMessage,
   bindingSourceReady,
   chatBindingStatus,
