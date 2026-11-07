@@ -1,6 +1,6 @@
 import { tr } from '../../shared/i18n.js';
 /* [INPUT]: Outline projection and guarded navigation callback.
- * [OUTPUT]: Borderless dotted outline rows, hanging numbering and turn navigation shared by all surfaces.
+ * [OUTPUT]: Borderless dotted outline rows and navigation; source availability updates controls in place without replacing cached rows.
  * [POS]: Content only; Codex parsing and scrolling stay in the adapter.
  * [PROTOCOL]: Keep features/outline/AGENTS.md in sync. */
 import { escapeAttr, escapeHtml, normalizeText } from '../../shared/text.js';
@@ -99,5 +99,13 @@ export function attachOutlineEvents(root, command) {
     button.addEventListener('click', () =>
       command('outline-anchor', { anchor: button.dataset.outlineAnchor }),
     );
+  });
+}
+
+export function syncOutlineAvailability(root, snapshot, disabled = false) {
+  const unavailable = snapshot.outlineStatus === 'unavailable';
+  root.querySelectorAll('[data-outline-id],[data-outline-anchor]').forEach((button) => {
+    button.disabled = disabled || unavailable;
+    button.title = unavailable ? tr('所选回复未显示，请滚动到原文。') : '';
   });
 }

@@ -1,6 +1,6 @@
 import { tr } from '../../shared/i18n.js';
 /*
- * [INPUT]: 共享功能图标、大纲与 Stepwise 视图、当前聊天身份、工作台布局偏好。
+ * [INPUT]: 共享功能图标、大纲视图及原位导航可用性同步、Stepwise 视图、当前聊天身份、工作台布局偏好。
  * [OUTPUT]: 唯一展开外壳、居中共享表情、来源及布局位置菜单、快捷词配置同步、双面板图标编排和表情单击收放/双击窗口往返、桌面置顶及外部网页设置入口；保留无公开入口的旧设置模板。
  * [POS]: 工作台组合视图；复用业务状态和写入校验，不创建第二套运行时。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
@@ -24,6 +24,7 @@ import {
 import { emitSignal } from '../../codex/runtime/signals.js';
 import { refreshOutline } from '../../codex/outline.js';
 import { outlineHtml, attachOutlineEvents, alignOutlineNestedText } from './legacy-content.js';
+import { syncOutlineAvailability } from '../../features/outline/view.js';
 import { forceRefreshStepwise } from '../../codex/next.js';
 import { settingsHtml, attachSettingsEvents } from '../embedded/shell/settings-view.js';
 import { iconSvg, applyMaterial } from '../embedded/shell/panel-appearance.js';
@@ -358,8 +359,8 @@ export function renderWorkbench(nextHtml, attachNextEvents, clearPromptTimers) {
       const nextPreview = body.querySelector('.csw-prompt-preview-scroll');
       writeWorkbenchScroll(nextPreview, previewTop);
     }
-    for (const button of pane.querySelectorAll('[data-outline-id],[data-outline-anchor]'))
-      button.disabled = source?.association?.available === false;
+    if (kind === 'outline')
+      syncOutlineAvailability(pane, outlineState, source?.association?.available === false);
     if (moved && restored) {
       writeWorkbenchScroll(body, restored.top);
       const preview = body.querySelector('.csw-prompt-preview-scroll');

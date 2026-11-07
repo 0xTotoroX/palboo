@@ -1,7 +1,7 @@
 import { tr } from '../shared/i18n.js';
 /*
  * [INPUT]: 当前回答 DOM、context 的统一最新轮次身份与上下文、窗口投影和大纲状态。
- * [OUTPUT]: 本地大纲刷新和定位、本地/云端回复操作栏的目录入口，与侧聊控件共存；聊天/回答身份、完整段落或位置不匹配时拒绝导航。
+ * [OUTPUT]: 本地大纲刷新和定位、回复操作栏目录入口；虚拟卸载保留只读目录，重挂载核验身份和原文后恢复导航，真实变更使旧刷新失效。
  * [POS]: Codex 大纲协调；outline-parser 解析原文，features/outline 渲染列表。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -51,12 +51,16 @@ import { iconSvg } from '../shared/icons/index.js';
 
 const REPLY_ACTION = 'data-palboo-outline-reply';
 
-function selectedOutlineMessage() {
+function selectedOutlineTurn() {
   const key = outlineState.outlineSelectedTurnKey;
   const turns = conversationTurnElements().filter(
     (turn) => turn.getAttribute('data-content-search-turn-key') === key,
   );
-  return turns.length === 1 ? conversationTurn(turns[0])?.assistantMessage : null;
+  return turns.length === 1 ? conversationTurn(turns[0]) : null;
+}
+
+function selectedOutlineMessage() {
+  return selectedOutlineTurn()?.assistantMessage || null;
 }
 
 function clearOutlineReplyControls() {
@@ -138,14 +142,16 @@ function followLatestOutline() {
 }
 
 function syncSelectedOutline() {
-  const message = selectedOutlineMessage();
+  const turn = selectedOutlineTurn();
+  const message = turn?.assistantMessage;
   if (message) {
     if (
       outlineState.outlineMessage !== message.node ||
-      outlineState.outlineSourceHash !== hashText(message.text)
+      outlineState.outlineSourceHash !== hashText(message.text) ||
+      outlineState.outlineStatus === 'unavailable'
     )
       void refreshOutline();
-  } else if (outlineState.outlineStatus !== 'unavailable') {
+  } else if (outlineState.outlineStatus !== (turn?.assistantMounted ? 'empty' : 'unavailable')) {
     void refreshOutline();
   }
 }
@@ -318,10 +324,9 @@ function outlineScrollToEnd(fromElement, historical) {
   return true;
 }
 
-function outlineResolveElement(id) {
-  const item = outlineState.outlineItems.find((entry) => entry.id === id) || null;
+function outlineCurrentMessage() {
   const historical = Boolean(outlineState.outlineSelectedTurnKey);
-  if (!item || !contextMatches(outlineState.outlineContext, { answer: !historical })) return null;
+  if (!contextMatches(outlineState.outlineContext, { answer: !historical })) return null;
   const message = historical ? selectedOutlineMessage() : findLatestAssistantMessage();
   if (
     !message?.node?.isConnected ||
@@ -329,6 +334,13 @@ function outlineResolveElement(id) {
     hashText(message.text) !== outlineState.outlineSourceHash
   )
     return null;
+  return message;
+}
+
+function outlineResolveElement(id) {
+  const item = outlineState.outlineItems.find((entry) => entry.id === id) || null;
+  const message = item && outlineCurrentMessage();
+  if (!message) return null;
   // 标签可能截断或重复；重挂载后按原回答中的次序和完整锚点文本核验，不猜匹配。
   const candidate = outlineCollectItems(message.node)[item.anchorIndex];
   if (!candidate || candidate.kind !== item.kind || candidate.anchorText !== item.anchorText)
@@ -384,20 +396,6 @@ function outlineJumpTo(id) {
   return true;
 }
 
-function outlineCurrentMessageElement() {
-  if (outlineState.outlineSelectedTurnKey) {
-    const selected = selectedOutlineMessage();
-    return selected &&
-      contextMatches(outlineState.outlineContext, { answer: false }) &&
-      hashText(selected.text) === outlineState.outlineSourceHash
-      ? selected.node
-      : null;
-  }
-  if (outlineState.outlineMessage?.isConnected) return outlineState.outlineMessage;
-  const latest = findLatestAssistantMessage();
-  return latest?.node instanceof Element ? latest.node : null;
-}
-
 function outlineTurnStartElement(message) {
   const turn =
     message?.closest?.(CONVERSATION_TURN_SELECTOR) ||
@@ -423,7 +421,7 @@ function outlineJumpToAnchor(anchor) {
     })
   )
     return false;
-  const message = outlineCurrentMessageElement();
+  const message = outlineCurrentMessage()?.node;
   if (!(message instanceof Element)) return false;
   if (anchor === 'start') {
     const startElement = outlineTurnStartElement(message);
@@ -463,7 +461,11 @@ function outlineBuild(message, sourceHash) {
   };
 }
 
-function invalidateOutline(message = null, sourceHash = '') {
+function invalidateOutline(message = null) {
+  outlineState.outlineEpoch += 1;
+  outlineState.outlineRefreshPromise = null;
+  outlineState.outlineScrollCleanup?.();
+  outlineState.outlineScrollCleanup = null;
   outlineClearMarks();
   outlineState.outlineItems = [];
   outlineState.outlineStatus = chatBusy() ? 'pending' : 'idle';
@@ -499,12 +501,28 @@ async function refreshOutline(options = {}) {
   const task = Promise.resolve()
     .then(() => {
       if (!requestCurrent()) return;
+      const selected = historical ? selectedOutlineTurn() : null;
       const message = historical
-        ? selectedOutlineMessage()
+        ? selected?.assistantMessage
         : options.message || findLatestAssistantMessage();
       const sourceHash = (historical ? '' : options.assistantHash) || hashText(message?.text || '');
-      if (historical && !message) {
-        invalidateOutline();
+      const sourceId = historical
+        ? `turn:${outlineState.outlineSelectedTurnKey}`
+        : assistantMessageId(message);
+      if (historical ? !selected?.assistantMounted : message?.node && !message.node.isConnected) {
+        // 滚动虚拟卸载不等于回答被删除。保留同一来源的目录，禁止用零尺寸节点的空解析覆盖它。
+        const cached =
+          contextMatches(outlineState.outlineContext, { answer: !historical }) &&
+          outlineState.outlineContext.assistantMessageId === sourceId &&
+          (!message || outlineState.outlineSourceHash === sourceHash);
+        if (!cached) {
+          outlineClearMarks();
+          outlineState.outlineItems = [];
+          outlineState.outlineFingerprint = '';
+          outlineState.outlineSourceHash = sourceHash;
+          outlineState.outlineMessage = message?.node || null;
+        }
+        outlineState.outlineContext = { ...requestContext, assistantMessageId: sourceId };
         outlineState.outlineStatus = 'unavailable';
         return;
       }
@@ -521,7 +539,7 @@ async function refreshOutline(options = {}) {
       outlineState.outlineSourceHash = sourceHash;
       outlineState.outlineContext = {
         ...requestContext,
-        assistantMessageId: assistantMessageId(message),
+        assistantMessageId: sourceId,
       };
       outlineState.outlineMessage = result.message;
       outlineState.outlineStatus = result.items.length ? 'ready' : 'empty';

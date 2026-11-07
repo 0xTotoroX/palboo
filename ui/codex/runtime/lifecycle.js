@@ -12,7 +12,7 @@ import { createTypographyTracker } from '../typography.js';
 import { installTerminology } from '../../terminology/host.js';
 /*
  * [INPUT]: 宿主上下文及统一最新轮次身份、独立功能、设置协调、外壳与通知。
- * [OUTPUT]: 只读 panelAppearance 接口；生成期间仍维护历史回答的大纲入口，最新回答等待完成；文本稳定后扫描生成、启停与通知订阅，连接入口与停靠开合，交接防重入；切换聊天恢复有效建议缓存，来源失联保留只读结果并使异步请求失效。
+ * [OUTPUT]: 只读 panelAppearance 接口；生成期间维护历史大纲入口，最新回答等待完成；虚拟卸载与回挂载只更新目录可用性，不反复解析缺失节点；文本稳定后扫描生成、启停与通知订阅，连接入口与停靠开合，交接防重入；切换聊天恢复有效建议缓存，来源失联保留只读结果并使异步请求失效。
  * [POS]: 模块组合入口；含独立侧边聊天入口，统一回收观察器、定时器、订阅与旧浮窗字体资源。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -249,7 +249,7 @@ function scanCurrent(generation, timerId) {
     shellState.surpriseUntil = now + NEW_ANSWER_EXPRESSION_MS;
     scheduleExpressionRefresh(NEW_ANSWER_EXPRESSION_MS);
     setScanStatus('assistant-changed', { hash, textLength: assistantText.length });
-    if (followLatest) invalidateOutline(message, hash);
+    if (followLatest) invalidateOutline(message);
     if (stepwiseActive) {
       clearPromptsForNewAssistant(hash);
     } else {
@@ -267,7 +267,11 @@ function scanCurrent(generation, timerId) {
 
   if (
     followLatest &&
-    (outlineState.outlineSourceHash !== hash || !outlineState.outlineMessage?.isConnected) &&
+    (outlineState.outlineSourceHash !== hash ||
+      outlineState.outlineMessage !== message.node ||
+      (outlineState.outlineStatus === 'unavailable'
+        ? message.node?.isConnected
+        : !message.node?.isConnected)) &&
     !outlineState.outlineRefreshPromise
   ) {
     void refreshOutline({ message, assistantHash: hash });
@@ -363,7 +367,7 @@ function installObserver() {
       return (
         mutation.addedNodes.length ||
         mutation.type === 'characterData' ||
-        (outlineState.outlineHistorical &&
+        (outlineState.outlineStatus !== 'unavailable' &&
           outlineState.outlineMessage &&
           !outlineState.outlineMessage.isConnected)
       );

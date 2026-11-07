@@ -1,9 +1,10 @@
 /* [INPUT]: Synthetic host runtime and feature transport fixture.
- * [OUTPUT]: Independent sidebar/overlay views, drafts and owner handoff acceptance.
+ * [OUTPUT]: Independent sidebar/overlay views, cached outline availability without DOM replacement, drafts and owner handoff acceptance.
  * [POS]: Browser regression; no live tasks or Apple lists.
  * [PROTOCOL]: Keep tests/AGENTS.md in sync. */
 import assert from 'node:assert/strict';
 import { checkOverlayMotion } from './overlay-motion.mjs';
+import { checkCachedOutlineProjection } from './workbench-outline-cache.mjs';
 export function independentFeatureCases({ mode, syncSettings }) {
   return [
     [
@@ -215,6 +216,7 @@ export function independentFeatureCases({ mode, syncSettings }) {
         const outline = page.locator('[data-feature="outline"]');
         await outline.getByRole('navigation', { name: '大纲' }).waitFor();
         await outline.getByRole('button', { name: '定位到本轮开头' }).waitFor();
+        await checkCachedOutlineProjection(page, outline);
         await page.evaluate(() => {
           const fixture = window.workbenchFixture;
           fixture.populatedOutline = fixture.outlineProjection;

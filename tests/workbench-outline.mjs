@@ -1,10 +1,11 @@
 /*
- * [INPUT]: 工作台真实浏览器夹具与合成回答。
+ * [INPUT]: 工作台真实浏览器夹具、合成回答与 outline-cache 的卸载缓存回归。
  * [OUTPUT]: 生成中保留历史大纲入口、云端轮次和侧聊双操作共存、操作栏同排/样式/键盘入口、乱序 UUID 的跟随/手选/缓存与浮窗命令、角色兼容、标题分级回退、去重与原文定位回归。
  * [POS]: 由 workbench.mjs 执行；不读取真实聊天，不调用模型或外部服务。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
 import assert from 'node:assert/strict';
+import { outlineCacheCases } from './workbench-outline-cache.mjs';
 
 const body = '这里使用合成材料说明当前段落，保留自然段边界与完整的原文定位。'.repeat(9);
 const paragraphs = (count = 12, english = false) =>
@@ -63,12 +64,12 @@ async function setReplyTimeline(page, count) {
   );
 }
 
-async function expectReplySource(page, index, historical = false, mounted = true) {
+async function expectReplySource(page, index, historical = false, mounted = true, cached = true) {
   await page.waitForFunction(
     ({ key, historical, mounted }) => {
       const state = window.__companionFloatingPanel.state;
       return (
-        state.outlineStatus === (mounted ? 'ready' : 'empty') &&
+        state.outlineStatus === (mounted ? 'ready' : 'unavailable') &&
         state.outlineContext?.assistantMessageId === `turn:${key}` &&
         state.outlineHistorical === historical
       );
@@ -76,8 +77,11 @@ async function expectReplySource(page, index, historical = false, mounted = true
     { key: replyKeys[index], historical, mounted },
   );
   const outline = page.locator('[data-view-body="outline"]');
-  if (mounted) await outline.getByRole('button', { name: `第 ${index + 1} 条合成回复` }).waitFor();
-  else assert.equal(await outline.locator('[data-outline-id]').count(), 0);
+  if (mounted || cached) {
+    const row = outline.getByRole('button', { name: `第 ${index + 1} 条合成回复` });
+    await row.waitFor();
+    assert.equal(await row.isDisabled(), !mounted);
+  } else assert.equal(await outline.locator('[data-outline-id]').count(), 0);
   assert.equal(await outline.locator('[data-outline-latest]').count(), historical ? 1 : 0);
 }
 
@@ -112,6 +116,7 @@ async function checkTargets(page, result) {
 
 export function outlineCases({ mode, createPopout, project }) {
   return [
+    ...outlineCacheCases({ mode, setAnswer }),
     [
       '大纲：生成新回答时保留历史入口并允许阅读旧回答',
       async (page) => {
@@ -347,7 +352,13 @@ export function outlineCases({ mode, createPopout, project }) {
             { once: true },
           );
         });
-        await outline.getByText('所选回复未显示，请滚动到原文。').waitFor();
+        await page.waitForFunction(
+          () => window.__companionFloatingPanel.state.outlineStatus === 'unavailable',
+        );
+        assert.equal(
+          await outline.getByRole('button', { name: '旧回复的正式标题' }).isDisabled(),
+          true,
+        );
         await page.evaluate(() => window.dispatchEvent(new Event('fixture-remount-old-reply')));
         await outline.getByRole('button', { name: '旧回复的正式标题' }).waitFor();
         await outline.getByRole('button', { name: '跟随最新回答' }).click();
@@ -450,7 +461,7 @@ export function outlineCases({ mode, createPopout, project }) {
         await page.locator(`[data-palboo-outline-reply="${replyKeys[0]}"]`).click();
         await expectReplySource(page, 0, true);
         await page.locator('[data-view-body="outline"] [data-outline-latest]').click();
-        await expectReplySource(page, 1, false, false);
+        await expectReplySource(page, 1, false, false, false);
 
         await page.evaluate(() => {
           const root = document.querySelector('.thread-scroll-container');

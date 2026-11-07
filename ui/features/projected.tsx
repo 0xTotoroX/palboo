@@ -1,14 +1,19 @@
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: A Codex projection, transient reading state, guarded actions and a surface header slot.
- * [OUTPUT]: Shared outline/next/quick-phrase content inside an isolated mount, preserving DOM, quick-prompt drafts and preview reading.
+ * [OUTPUT]: Shared outline/next/quick-phrase content, preserving DOM and reading while cached outline navigation changes availability in place.
  * [POS]: Mount adapter; feature modules own content and gestures, containers own arrangement.
  * [PROTOCOL]: Keep AGENTS.md in this module in sync. */
 import { useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import type { PanelSnapshot, PanelCommand } from '../shared/contracts';
 import type { Reading } from '../shared/features';
-import { outlineHtml, alignOutlineNestedText, attachOutlineEvents } from './outline/view.js';
+import {
+  outlineHtml,
+  alignOutlineNestedText,
+  attachOutlineEvents,
+  syncOutlineAvailability,
+} from './outline/view.js';
 import { createNextView } from './next/view.js';
 import { createQuickPromptsView } from './quick-prompts.js';
 import { readWorkbenchScroll, writeWorkbenchScroll } from '../shared/scroll.js';
@@ -105,8 +110,11 @@ export function ProjectedContent({
       .querySelectorAll<HTMLButtonElement>('button')
       .forEach((button) => (button.disabled = disabled));
     if (id !== 'outline') next.current?.setDisabled(disabled);
-    if (id === 'outline') alignOutlineNestedText(node);
-  }, [contentKey, html, disabled, id, reading]);
+    if (id === 'outline') {
+      syncOutlineAvailability(node, snapshot, disabled);
+      alignOutlineNestedText(node);
+    }
+  }, [contentKey, html, disabled, id, reading, snapshot.outlineStatus]);
   useLayoutEffect(
     () => () => {
       next.current?.clear();

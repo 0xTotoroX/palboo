@@ -1,6 +1,6 @@
 import { tr } from '../../shared/i18n.js';
 /* [INPUT]: Legacy runtime state and shared feature content.
- * [OUTPUT]: Legacy views share feature renderers and revision-checked quick-prompt settings saves.
+ * [OUTPUT]: Shared feature renderers and revision-checked quick-prompt saves; missing outline sources trigger guarded refresh without replacing cached rows with an error.
  * [POS]: Compatibility only; remove after legacy panel leases/configuration are retired.
  * [PROTOCOL]: Keep workspace/AGENTS.md in sync. */
 import {
@@ -18,7 +18,12 @@ import {
   stepwiseState,
   contextState,
 } from '../../codex/runtime/state.js';
-import { followLatestOutline, outlineJumpTo, outlineJumpToAnchor } from '../../codex/outline.js';
+import {
+  followLatestOutline,
+  outlineJumpTo,
+  outlineJumpToAnchor,
+  refreshOutline,
+} from '../../codex/outline.js';
 import { fillComposer } from '../../codex/next.js';
 import { syncSettings } from '../../codex/runtime/settings-sync.js';
 import { emitSignal } from '../../codex/runtime/signals.js';
@@ -75,6 +80,10 @@ export const attachOutlineEvents = (root = shellState.panel) =>
     }
     const ok = kind === 'outline-jump' ? outlineJumpTo(data.id) : outlineJumpToAnchor(data.anchor);
     if (!ok) {
+      if (!outlineState.outlineMessage?.isConnected) {
+        void refreshOutline();
+        return;
+      }
       outlineState.outlineStatus = 'error';
       outlineState.outlineError = tr('找不到对应的小节，刷新后再试。');
       emitSignal('render', { preserveMorph: true });
