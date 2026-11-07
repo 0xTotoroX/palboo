@@ -1,5 +1,5 @@
 /* [INPUT]: Real Palboo browser modules and synthetic native chat state.
- * [OUTPUT]: Isolated editors/history/routing, optional managed-text cards and async mutation hooks.
+ * [OUTPUT]: Isolated editors/history/routing, showSideReply, optional text cards and async mutation hooks.
  * [POS]: Shared browser fixture for side-chat append, promotion and history-range regressions.
  * [PROTOCOL]: Keep tests/AGENTS.md in sync. */
 import { readFile } from 'node:fs/promises';
@@ -13,9 +13,9 @@ import * as side from './ui/codex/side-chat.js';
 import * as native from './ui/codex/side-chat-native.js';
 import {rawComposerText} from './ui/codex/composer.js';
 import {setLocale} from './ui/shared/i18n.js';
-import {mountComposerAction,composerActionBusy} from './ui/codex/composer-actions.js';
+import {composerActionBusy} from './ui/codex/composer-actions.js';
 import {installPromptEnhancer} from './ui/codex/prompt-enhancement.js';
-Object.assign(window,{side,native,rawComposerText,setLocale,mountComposerAction,composerActionBusy,installPromptEnhancer});`,
+Object.assign(window,{side,native,rawComposerText,setLocale,composerActionBusy,installPromptEnhancer});`,
     },
     bundle: true,
     write: false,
@@ -350,12 +350,17 @@ button{width:32px;height:32px}button[data-codexhost-agent-control]{width:80px}
       });
     window.setLocale(options.locale || 'zh-CN');
     window.setup();
-    window.control = document
-      .querySelector('[data-palboo-side-chat=true]')
-      .shadowRoot.querySelector('button');
-    window.independentControl = document
-      .querySelector('[data-palboo-side-chat=true]')
-      .shadowRoot.querySelector('[data-side-action=independent]');
   }, options);
   return page;
+}
+
+export async function showSideReply(page) {
+  await page.evaluate(() => {
+    const panel = document.querySelector('[role=tabpanel]');
+    panel.insertAdjacentHTML(
+      'afterbegin',
+      '<div class="contents" data-content-search-turn-key="turn-1"><div class="group"><h4 class="sr-only" data-conversation-role="assistant">Assistant</h4><p>first local answer</p><div class="answer-actions" style="display:flex;gap:4px"><button aria-label="Copy"></button><button aria-label="Read aloud"></button><button aria-label="Like"></button><button data-palboo-outline-reply="outline" aria-label="Outline"></button></div></div></div>',
+    );
+    window.__palbooSideChat.refresh();
+  });
 }

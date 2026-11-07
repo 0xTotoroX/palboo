@@ -1,10 +1,10 @@
 /* [INPUT]: Real side-chat controller, native adapter and composer helpers with a synthetic host runtime.
- * [OUTPUT]: Parent append/handoff, identity and draft guards, toolbar geometry and disposal regressions.
+ * [OUTPUT]: Parent handoff guards, reply-only entries, empty composer action slot and disposal regressions.
  * [POS]: Isolated Chromium only; no real conversations, files, models or host processes are changed.
  * [PROTOCOL]: Keep tests/AGENTS.md in sync. */
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { sideChatFixture } from './side-chat-fixture.mjs';
+import { sideChatFixture, showSideReply } from './side-chat-fixture.mjs';
 import { chromium } from 'playwright';
 
 let browser;
@@ -16,9 +16,8 @@ after(async () => {
 });
 
 const fixture = (options) => sideChatFixture(browser, options);
-const click = (page) => page.evaluate(() => window.control.click());
-const settled = (page) =>
-  page.waitForFunction(() => window.control.getAttribute('aria-busy') === 'false');
+const click = (page) => page.evaluate(() => void window.__palbooSideChat.bringToParent());
+const settled = (page) => page.waitForFunction(() => !window.composerActionBusy());
 const actions = (page) => page.evaluate(() => window.log.filter(([kind]) => kind !== 'dispose'));
 
 test('title precedence, default labels, stored names and Unicode cap', async () => {
@@ -38,56 +37,62 @@ test('title precedence, default labels, stored names and Unicode cap', async () 
   }
 });
 
-test('entry is only in one visible right side composer, matches native geometry and coexists with optimization', async () => {
+test('composer has no side-chat buttons or spacing; reply actions and optimizer remain after reinjection', async () => {
   const page = await fixture({ locale: 'en' });
   try {
+    await showSideReply(page);
     await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce' });
-    await page.evaluate(() => {
+    const geometry = await page.evaluate(() => {
       document.querySelector('aside').style.width = '240px';
-    });
-    const button = page.getByRole('button', { name: 'Bring to original chat' });
-    assert.equal(await button.getAttribute('title'), 'Bring to original chat');
-    assert.equal((await button.textContent()).trim(), '');
-    const geometry = await button.evaluate((node) => ({
-      hit: node.getBoundingClientRect().height,
-      icon: node.querySelector('svg').getBoundingClientRect().width,
-    }));
-    assert.deepEqual(geometry, { hit: 32, icon: 18 });
-    await page.evaluate(() => {
-      const form = document.querySelector('aside [data-codex-composer-root]');
-      const host = document.createElement('span');
-      host.dataset.palbooPrompt = 'true';
-      window.mountComposerAction(host, form);
+      window.__palbooSideChat.destroy();
+      window.installOptimizer();
+      const positions = () =>
+        [window.promptButton, document.querySelector('[aria-label=Dictate]')].map((node) => {
+          const r = node.getBoundingClientRect();
+          return { x: r.x, y: r.y, width: r.width, height: r.height };
+        });
+      const before = positions();
+      // Simulate an orphaned legacy input control before updating the runtime.
+      const old = document.createElement('span');
+      old.dataset.palbooSideChat = 'true';
+      old.style.cssText = 'display:inline-flex;width:64px;height:32px';
+      document.querySelector('aside .footer').prepend(old);
+      window.setup();
+      window.setup();
       window.__palbooSideChat.refresh();
-      window.mountComposerAction(host, form);
+      return { before, after: positions() };
     });
-    assert.equal(await page.locator('[data-palboo-prompt]').count(), 1);
-    assert.equal(await page.locator('[data-palboo-side-chat=true]').count(), 1);
+    assert.deepEqual(geometry.after, geometry.before);
+    assert.equal(await page.locator('span[data-palboo-prompt]').count(), 1);
+    assert.equal(await page.locator('[data-palboo-side-chat=true]').count(), 0);
+    assert.equal(await page.locator('form [data-palboo-side-chat]').count(), 0);
+    assert.equal(await page.locator('[data-palboo-side-chat=reply]').count(), 2);
+    assert.equal(await page.locator('[data-palboo-outline-reply]').count(), 1);
+    assert.equal(
+      await page.getByRole('button', { name: 'Bring to original chat', exact: true }).count(),
+      0,
+    );
     await page.evaluate(() => {
       document.querySelector('aside').dataset.appShellFocusArea = 'bottom-panel';
       window.__palbooSideChat.refresh();
     });
-    assert.equal(await page.locator('[data-palboo-side-chat=true]').count(), 0);
+    assert.equal(await page.locator('[data-palboo-side-chat=reply]').count(), 0);
     await page.evaluate(() => {
       document.querySelector('aside').dataset.appShellFocusArea = 'right-panel';
       document.querySelector('[role=tabpanel]').hidden = true;
       window.__palbooSideChat.refresh();
     });
-    assert.equal(await page.locator('[data-palboo-side-chat=true]').count(), 0);
-    await page.evaluate(() => {
-      document.querySelector('[role=tabpanel]').remove();
-      window.__palbooSideChat.refresh();
-    });
-    assert.equal(await page.locator('[data-palboo-side-chat=true]').count(), 0);
+    assert.equal(await page.locator('[data-palboo-side-chat=reply]').count(), 0);
     assert.deepEqual(await actions(page), []);
   } finally {
     await page.close();
   }
 });
 
-test('a retained side chat mounts after becoming visible without a subtree mutation', async () => {
+test('a retained side chat reply row mounts after becoming visible without a subtree mutation', async () => {
   const page = await fixture();
   try {
+    await showSideReply(page);
     await page.evaluate(() => {
       window.__palbooSideChat.destroy();
       document.querySelector('aside').style.display = 'none';
@@ -100,16 +105,16 @@ test('a retained side chat mounts after becoming visible without a subtree mutat
       document.querySelector('aside').style.display = '';
     });
     await page
-      .getByRole('button', { name: '带回原主聊天', exact: true })
+      .getByRole('button', { name: '带回原主聊天（截至此处）', exact: true })
       .waitFor({ timeout: 2000 });
     await page.evaluate(() => {
       document.querySelector('aside').dataset.appShellActivePage = 'false';
     });
-    await page.waitForFunction(() => !document.querySelector('[data-palboo-side-chat=true]'));
+    await page.waitForFunction(() => !document.querySelector('[data-palboo-side-chat=reply]'));
     await page.evaluate(() => {
       document.querySelector('aside').dataset.appShellActivePage = 'true';
     });
-    await page.getByRole('button', { name: '带回原主聊天', exact: true }).waitFor();
+    await page.getByRole('button', { name: '带回原主聊天（截至此处）', exact: true }).waitFor();
   } finally {
     await page.close();
   }
@@ -118,6 +123,7 @@ test('a retained side chat mounts after becoming visible without a subtree mutat
 test('continuous mutations in another chat cannot starve side-chat mounting', async () => {
   const page = await fixture();
   try {
+    await showSideReply(page);
     await page.evaluate(() => {
       window.__palbooSideChat.destroy();
       document.querySelector('aside').hidden = true;
@@ -131,7 +137,7 @@ test('continuous mutations in another chat cannot starve side-chat mounting', as
       document.querySelector('aside').hidden = false;
     });
     await page
-      .getByRole('button', { name: '带回原主聊天', exact: true })
+      .getByRole('button', { name: '带回原主聊天（截至此处）', exact: true })
       .waitFor({ timeout: 1500 });
   } finally {
     await page.evaluate(() => clearInterval(window.noiseTimer));
@@ -142,11 +148,15 @@ test('continuous mutations in another chat cannot starve side-chat mounting', as
 test('streaming, IME, backend busy, ephemeral and unknown execution never close the source', async () => {
   const page = await fixture();
   try {
+    await showSideReply(page);
     await page.evaluate(() => {
       document.querySelector('[aria-label=Dictate]').setAttribute('aria-label', 'Stop');
       window.__palbooSideChat.refresh();
     });
-    assert.equal(await page.evaluate(() => window.control.disabled), true);
+    assert.equal(
+      (await page.locator('[data-palboo-side-chat=reply]:disabled').count()) === 2,
+      true,
+    );
     await click(page);
     assert.deepEqual(await actions(page), []);
     await page.evaluate(() => {
@@ -155,7 +165,10 @@ test('streaming, IME, backend busy, ephemeral and unknown execution never close 
         .querySelector('aside .ProseMirror')
         .dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true }));
     });
-    assert.equal(await page.evaluate(() => window.control.disabled), true);
+    assert.equal(
+      (await page.locator('[data-palboo-side-chat=reply]:disabled').count()) === 2,
+      true,
+    );
     await page.evaluate(() => {
       document
         .querySelector('aside .ProseMirror')
@@ -280,8 +293,7 @@ test('local handoff appends full paginated questions, answers and exact side dra
   }));
   const page = await fixture({ pages });
   try {
-    await page.getByRole('button', { name: '带回原主聊天', exact: true }).focus();
-    await page.keyboard.press('Enter');
+    await click(page);
     await settled(page);
     const text = await mainText(page);
     assert.ok(text.startsWith('parent draft\n\n'));
@@ -477,12 +489,16 @@ test('malformed, repeating, incomplete or oversized history fails without trunca
 test('optimizer cancel/restore and handoff share an immediate lock; late optimization cannot unlock or overwrite a handoff', async () => {
   const page = await fixture();
   try {
+    await showSideReply(page);
     await page.evaluate(() => {
       window.installOptimizer();
       window.promptButton.click();
     });
     await page.waitForFunction(() => !!window.resolvePrompt);
-    assert.equal(await page.evaluate(() => window.control.disabled), true);
+    assert.equal(
+      (await page.locator('[data-palboo-side-chat=reply]:disabled').count()) === 2,
+      true,
+    );
     assert.equal(await page.evaluate(() => window.promptButton.disabled), false); // cancel remains usable
     await click(page);
     assert.equal(
@@ -492,7 +508,7 @@ test('optimizer cancel/restore and handoff share an immediate lock; late optimiz
     await page.evaluate(() => {
       window.promptButton.click();
       window.hooks.history = () => new Promise((resolve) => (window.release = resolve));
-      window.control.click();
+      void window.__palbooSideChat.bringToParent();
     });
     await page.waitForFunction(() => !!window.release);
     assert.equal(await page.evaluate(() => window.promptButton.disabled), true);
@@ -517,9 +533,10 @@ test('optimizer cancel/restore and handoff share an immediate lock; late optimiz
   }
 });
 
-test('restore icon differs from handoff and the two real controls align without overlap; reinjection releases pending locks', async () => {
+test('restore stays in the composer while side-chat actions stay in the reply row; reinjection releases pending locks', async () => {
   const page = await fixture();
   try {
+    await showSideReply(page);
     await page.evaluate(() => {
       window.installOptimizer();
       window.promptButton.click();
@@ -528,28 +545,26 @@ test('restore icon differs from handoff and the two real controls align without 
     await page.waitForFunction(
       () => window.promptButton.getAttribute('aria-label') === '恢复原提示词',
     );
-    const geometry = await page.evaluate(() => {
-      const a = window.control.getBoundingClientRect(),
-        b = window.promptButton.getBoundingClientRect();
-      return {
-        icons: [
-          window.control.querySelector('svg').dataset.icon,
-          window.promptButton.querySelector('svg').dataset.icon,
-        ],
-        sameY: a.y === b.y,
-        apart: a.right <= b.left || b.right <= a.left,
-        heights: [a.height, b.height],
-      };
-    });
-    assert.deepEqual(geometry, {
+    const controls = await page.evaluate(() => ({
+      icons: [
+        document.querySelector('[data-palboo-side-chat=reply] svg').dataset.icon,
+        window.promptButton.querySelector('svg').dataset.icon,
+      ],
+      replyOutsideComposer: !document
+        .querySelector('[data-palboo-side-chat=reply]')
+        .closest('form'),
+      optimizerInComposer: !!document.querySelector('[data-palboo-prompt]').closest('form'),
+      composerSideActions: document.querySelectorAll('form [data-palboo-side-chat]').length,
+    }));
+    assert.deepEqual(controls, {
       icons: ['side-chat-handoff', 'return'],
-      sameY: true,
-      apart: true,
-      heights: [32, 32],
+      replyOutsideComposer: true,
+      optimizerInComposer: true,
+      composerSideActions: 0,
     });
     await page.evaluate(() => {
       window.hooks.history = () => new Promise((resolve) => (window.release = resolve));
-      window.control.click();
+      void window.__palbooSideChat.bringToParent();
     });
     await page.waitForFunction(() => !!window.release);
     assert.equal(await page.evaluate(() => window.promptButton.disabled), true);

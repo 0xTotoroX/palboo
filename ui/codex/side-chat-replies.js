@@ -1,6 +1,6 @@
 /* [INPUT]: The confirmed right-side chat, shared turn identity filter and native answer rows used by Outline.
  * [OUTPUT]: Two per-answer actions with a stable cutoff identity and content-change validation.
- * [POS]: Side-chat UI only; no history reads, routing or global outline selection changes.
+ * [POS]: Sole side-chat action entry in the reply row; no composer controls, history reads or routing.
  * [PROTOCOL]: Keep ui/codex/AGENTS.md in sync. */
 import {
   labeledMessageContainer,

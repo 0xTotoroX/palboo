@@ -28,12 +28,12 @@ Desktop windows use native macOS traffic-light controls and reuse the existing P
 | **Grok Bot**              | Find your Bots and start a consultation in the current chat.                                                                            |
 | **Notes & Web** | Read and edit local Markdown, preview spreadsheets, and open saved web pages inside ChatGPT. |
 
-A right-side Side Chat has two actions beside the voice/send controls. Hover each icon for its name:
+A right-side Side Chat has two actions beside Outline under completed replies. Hover each icon for its name:
 
-- **Bring to original chat** (two chat bubbles with an inward arrow): append the complete text conversation and unsent text to the original chat, preserving its existing draft. The side panel collapses after success and the side chat is retained.
-- **Make independent main chat** (one chat bubble with an outward arrow): promote a persistent local side chat with the same conversation ID, a proper title and its draft. Hidden cloud side chats continue as a handoff draft in a new main chat.
+- **Bring to original chat through this reply** (left arrow entering a vertical line): bring the selected history to the original chat, preserving its draft. Local chats use a native text card when supported; cloud chats use a readable text handoff. The side panel collapses after success and the side chat is retained.
+- **Create independent chat through this reply** (arrow opening out of a square): create a local branch or prefill a new cloud chat with the selected history.
 
-The same icons appear beside Outline under completed replies. Choose one to bring back or independently save **the conversation from its beginning through that reply**, excluding later messages and the current draft. Local chats create a new branch; cloud chats prefill a new chat. The original side chat and later content remain intact. **Nothing is sent automatically**, and these actions cannot overlap with prompt optimization/restore. Text handoffs do not include images, attachments or tool state. Uncertain identities, incomplete history, changed ranges or unsupported Agent fork capabilities stop the operation and preserve the source.
+Both actions include **the conversation from its beginning through that reply**, excluding later messages and the current draft. The original side chat and later content remain intact. The composer has no duplicate side-chat buttons. **Nothing is sent automatically**, and these actions cannot overlap with prompt optimization/restore. Text handoffs do not include images, attachments or tool state. Uncertain identities, incomplete history, changed ranges or unsupported Agent fork capabilities stop the operation and preserve the source.
 
 ## Installation
 

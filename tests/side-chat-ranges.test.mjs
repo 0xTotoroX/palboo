@@ -85,7 +85,7 @@ test('whole local side chat keeps its ID, acknowledges title, closes tab, reload
     destinationDraft: 'target saved draft',
   });
   try {
-    await page.evaluate(() => window.independentControl.click());
+    await page.evaluate(() => void window.__palbooSideChat.makeIndependent());
     await settle(page);
     const r = await result(page);
     assert.equal(r.text, 'target saved draft\n\n  local draft\n\n');
@@ -107,7 +107,7 @@ test('whole local side chat keeps its ID, acknowledges title, closes tab, reload
 test('whole cloud side chat opens a visible-history main draft with all text and side draft', async () => {
   const page = await fixture({ cloud: true, destinationDraft: 'existing new draft' });
   try {
-    await page.evaluate(() => window.independentControl.click());
+    await page.evaluate(() => void window.__palbooSideChat.makeIndependent());
     await settle(page);
     const r = await result(page);
     assert.ok(r.text.startsWith('existing new draft\n\n'));
@@ -130,7 +130,7 @@ test('an ambiguous parent editor stops independent promotion before renaming or 
     await page.evaluate(() => {
       const extra = document.querySelector('main form').cloneNode(true);
       document.querySelector('main').append(extra);
-      window.independentControl.click();
+      void window.__palbooSideChat.makeIndependent();
     });
     await settle(page);
     const r = await result(page);
@@ -231,7 +231,7 @@ test('native reply controls align beside Outline, use distinct icons and disappe
       window.installOptimizer();
     });
     const controls = await page.evaluate(() => {
-      const nodes = [window.control, window.independentControl, window.promptButton];
+      const nodes = [...document.querySelectorAll('[data-palboo-side-chat=reply]')];
       return nodes.map((n) => ({
         icon: n.querySelector('svg').dataset.icon,
         label: n.getAttribute('aria-label'),
@@ -243,7 +243,9 @@ test('native reply controls align beside Outline, use distinct icons and disappe
         svg: n.querySelector('svg').getBoundingClientRect().width,
       }));
     });
-    assert.equal(new Set(controls.map((c) => c.icon)).size, 3);
+    assert.equal(new Set(controls.map((c) => c.icon)).size, 2);
+    assert.equal(await page.locator('form [data-palboo-side-chat]').count(), 0);
+    assert.equal(await page.locator('span[data-palboo-prompt]').count(), 1);
     for (const c of controls) {
       assert.ok(c.w >= 28 && c.h >= 28);
       assert.equal(c.svg, 18);
@@ -384,11 +386,10 @@ test('promotion stops on title conflict or source change; all side actions share
           window.installOptimizer();
           window.promptButton.click();
         }
-        window.independentControl.click();
+        void window.__palbooSideChat.makeIndependent();
       }, variant);
       if (variant === 'optimizer') {
         assert.equal(await page.locator('[data-palboo-side-chat=reply]:disabled').count(), 2);
-        assert.equal(await page.evaluate(() => window.independentControl.disabled), true);
         await page.evaluate(() => window.promptButton.click());
       }
       await settle(page);

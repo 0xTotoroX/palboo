@@ -1,7 +1,7 @@
 /*
  * [INPUT]: 已确认的输入区与宿主语音/发送按钮。
  * [OUTPUT]: 共用右侧操作挂载位置、原生按钮尺寸及输入操作互斥锁。
- * [POS]: 提示词优化与侧聊带回共用的布局和写入边界；不写宿主样式。
+ * [POS]: 提示词优化使用布局挂载；回答行侧聊操作仅共用写入互斥，不写宿主样式。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
 let owner = null;
@@ -48,7 +48,7 @@ export function mountComposerAction(host, composerRoot) {
   if (agent) {
     parent = action.parentElement;
     before = parent === agent.parentElement ? action.nextSibling : action;
-    // 两个自有控件作为一组，不互相搬动，避免干扰 CodexHost 的相邻节点观察。
+    // 保留自有控件次序并兼容热更新前旧入口，避免干扰 CodexHost 的相邻节点观察。
     while (before?.matches?.('[data-palboo-prompt],[data-palboo-side-chat]'))
       before = before.nextSibling;
   } else {

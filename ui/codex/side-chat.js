@@ -1,15 +1,13 @@
 /*
  * [INPUT]: 右侧官方侧边输入区、受限宿主适配、共用草稿操作与 CLI 接力采集器。
- * [OUTPUT]: 双操作与完整/历史范围；可读问答快照、本地原生文本卡片、文字回退和草稿保护。
+ * [OUTPUT]: 回答行双操作与完整/历史范围命令；原生文本卡片、文字回退和草稿保护，无输入框入口。
  * [POS]: 不发送或调用模型；协调原生转正/分支、保留目标草稿的接力及失败内存恢复。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
 import { tr } from '../shared/i18n.js';
-import { iconSvg } from '../shared/icons/index.js';
 import { rawComposerText, setEditableText, setNativeValue } from './composer.js';
 import { composerBusy } from './context.js';
 import {
-  mountComposerAction,
   acquireComposerAction,
   composerActionBusy,
   observeComposerAction,
@@ -106,24 +104,14 @@ export function installSideChatSwitcher({
   const previous = window.__palbooSideChat;
   let recovery = previous?.recovery?.() || window.__palbooSideChatRecovery || null;
   previous?.destroy();
+  // 热更新时一并清理旧版输入框入口，不留下布局占位。
+  document.querySelectorAll('span[data-palboo-side-chat="true"]').forEach((node) => node.remove());
   delete window.__palbooSideChatRecovery;
   const life = new AbortController();
   let pending = null,
     disposed = false,
     composing = false,
     mounted = null;
-  const host = document.createElement('span');
-  host.dataset.palbooSideChat = 'true';
-  host.style.cssText = 'display:inline-flex;align-items:center;flex:none;margin-inline-end:4px';
-  const shadow = host.attachShadow({ mode: 'open' });
-  shadow.innerHTML = `<style>:host{color:inherit}button{display:inline-flex;align-items:center;justify-content:center;width:var(--buddy-composer-button-size,28px);height:var(--buddy-composer-button-size,28px);min-width:28px;min-height:28px;padding:0;border:0;border-radius:999px;background:transparent;color:inherit;cursor:pointer;opacity:.75}button:hover,button:focus-visible{opacity:1}button:focus-visible{outline:1px solid currentColor;outline-offset:-1px}button:disabled{opacity:.35;cursor:default}svg{width:18px;height:18px}</style><button type="button">${iconSvg('side-chat-handoff')}</button>`;
-  const button = shadow.querySelector('button');
-  button.dataset.sideAction = 'parent';
-  const independent = document.createElement('button');
-  independent.type = 'button';
-  independent.dataset.sideAction = 'independent';
-  independent.innerHTML = iconSvg('side-chat-independent');
-  shadow.append(independent);
   const replies = createSideReplyActions(run);
   const notice = document.createElement('div');
   notice.dataset.palbooSideChat = 'status';
@@ -166,7 +154,6 @@ export function installSideChatSwitcher({
       const previous = pending;
       pending = null;
       previous?.release();
-      host.remove();
       replies.clear();
       return;
     }
@@ -187,11 +174,7 @@ export function installSideChatSwitcher({
     const next = getTarget();
     if (mounted?.composer !== next?.composer) composing = false;
     mounted = next;
-    if (!next || !mountComposerAction(host, next.composerRoot)) host.remove();
-    button.title = tr('带回原主聊天');
-    button.setAttribute('aria-label', button.title);
-    button.setAttribute('aria-busy', String(!!pending));
-    button.disabled =
+    const disabled =
       composerActionBusy() ||
       !!pending ||
       !!recovery ||
@@ -199,11 +182,7 @@ export function installSideChatSwitcher({
       !next ||
       !editable(next.composer) ||
       composerBusy(next.composer);
-    independent.title = tr('转为独立主聊天');
-    independent.setAttribute('aria-label', independent.title);
-    independent.setAttribute('aria-busy', String(!!pending));
-    independent.disabled = button.disabled;
-    replies.refresh(next, button.disabled);
+    replies.refresh(next, disabled);
     if (recovery) status(message.textContent);
   }
   const active = (operation) => {
@@ -456,8 +435,6 @@ export function installSideChatSwitcher({
     }
   }
   const compositions = new WeakSet();
-  button.addEventListener('click', () => void run('parent'), { signal: life.signal });
-  independent.addEventListener('click', () => void run('independent'), { signal: life.signal });
   for (const type of ['input', 'compositionstart', 'compositionend'])
     document.addEventListener(
       type,
@@ -512,6 +489,8 @@ export function installSideChatSwitcher({
   const unobserve = observeComposerAction(refresh);
   const api = {
     refresh,
+    bringToParent: () => run('parent'),
+    makeIndependent: () => run('independent'),
     recovery: () => recovery,
     destroy() {
       if (recovery) window.__palbooSideChatRecovery = recovery;
@@ -525,7 +504,6 @@ export function installSideChatSwitcher({
       observedPanels.clear();
       clearTimeout(refreshTimer);
       life.abort();
-      host.remove();
       replies.clear();
       notice.remove();
       if (window.__palbooSideChat === api) delete window.__palbooSideChat;

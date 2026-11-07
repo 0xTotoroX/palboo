@@ -5,7 +5,7 @@
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
-import { sideChatFixture } from './side-chat-fixture.mjs';
+import { sideChatFixture, showSideReply } from './side-chat-fixture.mjs';
 
 let browser;
 before(async () => {
@@ -15,7 +15,7 @@ after(async () => {
   await browser.close();
 });
 const fixture = (options) => sideChatFixture(browser, { pastedCards: true, ...options });
-const click = (page) => page.evaluate(() => window.control.click());
+const click = (page) => page.evaluate(() => void window.__palbooSideChat.bringToParent());
 const settled = (page) => page.waitForFunction(() => !window.composerActionBusy());
 const result = (page) =>
   page.evaluate(() => ({
@@ -302,6 +302,7 @@ test('changes during file creation cancel late cards, retain concurrent edits an
   ]) {
     const page = await fixture();
     try {
+      await showSideReply(page);
       await page.evaluate(() => {
         window.installOptimizer();
         window.hooks.createAttachment = () =>
@@ -313,8 +314,10 @@ test('changes during file creation cancel late cards, retain concurrent edits an
       await page.waitForFunction(() => !!window.release);
       assert.deepEqual(
         await page.evaluate(() => [
-          window.control.disabled,
-          window.independentControl.disabled,
+          ...Array.from(
+            document.querySelectorAll('[data-palboo-side-chat=reply]'),
+            (node) => node.disabled,
+          ),
           window.promptButton.disabled,
         ]),
         [true, true, true],
