@@ -105,6 +105,8 @@ function Reader() {
   selectedRef.current = selected;
   const pendingAnchor = useRef(decodeLink(location.hash.slice(1)));
   const readingReady = useRef(false);
+  const tocSettled = useRef(false);
+  const loadedRevision = useRef<{ id: string; revision: number }>({ id: '', revision: -1 });
   const catalogRequest = useRef<AbortController | null>(null);
   const linkRequest = useRef<AbortController | null>(null);
   useLayoutEffect(() => {
@@ -113,7 +115,13 @@ function Reader() {
       ?.scrollIntoView({ block: 'nearest' });
   }, [activeResult, query, displayedResults.length]);
   const remember = useCallback(() => {
-    if (readingReady.current && note && article.current && note.id === selectedRef.current) {
+    if (
+      readingReady.current &&
+      !editor.activeRef.current &&
+      note &&
+      article.current &&
+      note.id === selectedRef.current
+    ) {
       positions.current[note.id] = article.current.scrollTop;
       try {
         sessionStorage.setItem(
@@ -124,7 +132,7 @@ function Reader() {
         /* Session persistence is optional. */
       }
     }
-  }, [note]);
+  }, [note, editor.activeRef]);
   const refresh = useCallback(async (rescan = true) => {
     catalogRequest.current?.abort();
     const controller = new AbortController();
@@ -183,24 +191,34 @@ function Reader() {
     return () => window.removeEventListener('pagehide', remember);
   }, [remember]);
   useEffect(() => {
-    if (editor.activeRef.current) return;
+    if (editor.active || editor.activeRef.current) return;
     if (!selected || !catalog || selectedDocument?.kind === 'spreadsheet') {
+      loadedRevision.current = { id: '', revision: -1 };
       setNote(null);
       return;
     }
+    if (
+      note?.id === selected &&
+      loadedRevision.current.id === selected &&
+      loadedRevision.current.revision === catalog.revision
+    )
+      return;
     const controller = new AbortController();
     readingReady.current = false;
     setError('');
     setNote((current) => (current?.id === selected ? current : null));
     void read<Note>('note', { id: selected }, controller.signal)
       .then((value) => {
-        if (!controller.signal.aborted) setNote(value);
+        if (!controller.signal.aborted) {
+          loadedRevision.current = { id: selected, revision: catalog.revision };
+          setNote(value);
+        }
       })
       .catch((e) => {
         if (!controller.signal.aborted) setError(e.message);
       });
     return () => controller.abort();
-  }, [selected, catalog?.revision]);
+  }, [selected, catalog?.revision, editor.active]);
   function scrollAnchor(anchor: string) {
     const key = anchorKey(anchor);
     const target = [
@@ -239,19 +257,27 @@ function Reader() {
     setActiveHeading(current?.id || '');
   }
   useLayoutEffect(() => {
-    if (!note || !content.current || !article.current) return;
-    setToc(
-      [...content.current.querySelectorAll('h1,h2,h3,h4,h5,h6')].map((node) => ({
-        id: node.id,
-        text: node.textContent || '',
-        level: Number(node.tagName.slice(1)),
-      })),
-    );
     readingReady.current = false;
+    if (editor.active || !note || !content.current || !article.current) return;
+    const nextToc = [...content.current.querySelectorAll('h1,h2,h3,h4,h5,h6')].map((node) => ({
+      id: node.id,
+      text: node.textContent || '',
+      level: Number(node.tagName.slice(1)),
+    }));
+    if (JSON.stringify(nextToc) !== JSON.stringify(toc)) {
+      tocSettled.current = false;
+      setToc(nextToc);
+      return;
+    }
+    tocSettled.current = true;
   }, [note, editor.active]);
   // Restore after the heading-derived filename header has settled, before paint.
   useLayoutEffect(() => {
-    if (!note || !content.current || !article.current) return;
+    if (editor.active || !note || !content.current || !article.current) return;
+    if (!tocSettled.current) {
+      tocSettled.current = true;
+      return;
+    }
     const anchor = pendingAnchor.current;
     pendingAnchor.current = '';
     if (anchor) scrollAnchor(anchor);
@@ -260,7 +286,7 @@ function Reader() {
     readingReady.current = true;
     document.title = `${note.title} · Palboo`;
     recent.visit(note.id);
-  }, [toc, editor.active]);
+  }, [note, toc, editor.active]);
   useLayoutEffect(() => {
     if (
       note?.id !== destination.id ||
@@ -297,7 +323,10 @@ function Reader() {
       `?${folderId ? `folder=${encodeURIComponent(folderId)}&` : ''}note=${encodeURIComponent(id)}${anchor ? `#${encodeURIComponent(anchor)}` : ''}`,
     );
     if (selected === id) {
-      if (anchor) scrollAnchor(anchor);
+      if (anchor) {
+        if (content.current) scrollAnchor(anchor);
+        else pendingAnchor.current = anchor;
+      }
       return;
     }
     pendingAnchor.current = anchor;
@@ -637,7 +666,13 @@ function Reader() {
         className="reader-main"
         inert={nav.overlay}
         onScroll={() => {
-          if (readingReady.current && note && note.id === selectedRef.current && article.current)
+          if (
+            readingReady.current &&
+            !editor.activeRef.current &&
+            note &&
+            note.id === selectedRef.current &&
+            article.current
+          )
             positions.current[note.id] = article.current.scrollTop;
           updateHeading();
         }}
@@ -708,7 +743,11 @@ function Reader() {
               className="reader-edit-btn"
               aria-label={tr('编辑笔记')}
               title={tr('编辑 Markdown，自动保存到原文件')}
-              onClick={() => editor.begin(note)}
+              onClick={() => {
+                remember();
+                readingReady.current = false;
+                editor.begin(note);
+              }}
             >
               <Icon name="pencil" />
             </button>

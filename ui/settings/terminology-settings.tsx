@@ -94,10 +94,12 @@ function download(text: string, name: string, type = 'text/markdown;charset=utf-
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 export function TerminologySettings({
+  live = true,
   active,
   detailsVisible = true,
   enablementTarget,
 }: {
+  live?: boolean;
   active: boolean;
   detailsVisible?: boolean;
   enablementTarget?: HTMLElement | null;
@@ -145,8 +147,8 @@ export function TerminologySettings({
       .then(setData)
       .catch((e) => setError(e.message));
   useEffect(() => {
-    if (active) void load();
-  }, [active]);
+    if (active && live) void load();
+  }, [active, live]);
   const hasPending = data?.imports?.jobs.some((job) => job.status === 'prepared');
   useEffect(() => {
     if (!active || !hasPending) return;

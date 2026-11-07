@@ -506,6 +506,10 @@ impl Service {
             .store(inner.store.sync_enabled, Ordering::SeqCst);
         if !inner.store.board_enabled {
             inner.lease.clear();
+            if let Some(mut child) = inner.window.take() {
+                let _ = child.kill();
+                let _ = child.wait();
+            }
         }
         if !inner.store.sync_enabled {
             bridge::stop(&self.paths);

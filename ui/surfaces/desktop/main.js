@@ -353,8 +353,12 @@ export function startDesktop(request, lease, fontSource) {
       if (++failures >= 3) {
         stopped = true;
         fonts?.destroy();
-        handoffMotion.destroy();
         nativeResize.destroy();
+        windowMenu.destroy();
+        composition.destroy();
+        handoffMotion.destroy();
+        for (const item of mounts.values()) item.mount.dispose();
+        mounts.clear();
         native({ kind: 'close' });
       }
     } finally {

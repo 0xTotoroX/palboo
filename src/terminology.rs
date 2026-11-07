@@ -246,6 +246,26 @@ pub(crate) fn known<'a>(terms: &'a [Term], query: &str) -> Option<&'a Term> {
             || t.aliases.iter().any(|a| a.to_lowercase() == q)
     })
 }
+fn base_sense_name(name: &str) -> &str {
+    let trimmed = name.trim();
+    for (open, close) in [('（', '）'), ('(', ')')] {
+        if let Some(stem) = trimmed.strip_suffix(close)
+            && let Some((base, qualifier)) = stem.rsplit_once(open)
+            && !base.trim().is_empty()
+            && !qualifier.trim().is_empty()
+        {
+            return base.trim();
+        }
+    }
+    trimmed
+}
+fn qualified_sense_pair(a: &str, b: &str) -> bool {
+    let a_trim = a.trim().to_lowercase();
+    let b_trim = b.trim().to_lowercase();
+    a_trim != b_trim
+        && base_sense_name(&a_trim) == base_sense_name(&b_trim)
+        && (base_sense_name(&a_trim) != a_trim || base_sense_name(&b_trim) != b_trim)
+}
 pub(crate) fn enabled(root: &Path) -> Result<bool> {
     Ok(read::<Preferences>(root, "terminology-settings.json")?.enabled)
 }
@@ -519,7 +539,7 @@ pub(crate) async fn command(app: &App, mut input: Value) -> Result<Value> {
                 {
                     ensure!(
                         (existing.id == term.id && stored.iter().any(|t| t.id == term.id))
-                            || existing.name != term.name,
+                            || qualified_sense_pair(&existing.name, &term.name),
                         "术语或别名已存在：{}",
                         term.name
                     );
@@ -911,6 +931,22 @@ mod tests {
         .await
         .unwrap();
         assert_eq!(library(dir.path()).unwrap().len(), 2);
+        assert!(
+            command(
+                &app,
+                json!({"action":"import","entries":[{"id":"case-dup","name":"background material","definition":"仅大小写不同的重复词条","category":["物理"]}]})
+            )
+            .await
+            .is_err()
+        );
+        assert!(
+            command(
+                &app,
+                json!({"action":"import","entries":[{"id":"alias-dup","name":"不相关词条","english":"Background Material","definition":"英文名撞车的词条","category":["物理"]}]})
+            )
+            .await
+            .is_err()
+        );
     }
     #[test]
     fn separate_storage_and_chinese_export() {

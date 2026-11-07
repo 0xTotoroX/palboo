@@ -109,36 +109,39 @@ export function DirectionLibrary({ editor }: { editor: SettingsEditor }) {
             ))}
           </SegmentedGroup>
           <div className="direction-library-list" role="region" aria-label={groupName}>
-            {items.map((item) => (
-              <div className="direction-library-row" key={item.id}>
-                {form!.directionSource === 'smart' && (
-                  <input
-                    type="checkbox"
-                    aria-label={tr('启用方向 {{value1}}', { value1: item.name })}
-                    checked={item.enabled}
-                    onChange={(event) => {
-                      change(
-                        'directionLibrary',
-                        library.map((d) =>
-                          d.id === item.id ? { ...d, enabled: event.target.checked } : d,
-                        ),
-                      );
-                      schedule();
-                    }}
-                  />
-                )}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  data-settings-navigation
-                  data-direction-open={item.id}
-                  onClick={() => openItem(item.id)}
-                >
-                  <span>{directionCopy(item, saved!.builtInDirections) || tr('未命名方向')}</span>
-                  <Icon name="chevron-right" />
-                </Button>
-              </div>
-            ))}
+            {items.map((item) => {
+              const displayName = directionCopy(item, saved!.builtInDirections);
+              return (
+                <div className="direction-library-row" key={item.id}>
+                  {form!.directionSource === 'smart' && (
+                    <input
+                      type="checkbox"
+                      aria-label={tr('启用方向 {{value1}}', { value1: displayName })}
+                      checked={item.enabled}
+                      onChange={(event) => {
+                        change(
+                          'directionLibrary',
+                          library.map((d) =>
+                            d.id === item.id ? { ...d, enabled: event.target.checked } : d,
+                          ),
+                        );
+                        schedule();
+                      }}
+                    />
+                  )}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    data-settings-navigation
+                    data-direction-open={item.id}
+                    onClick={() => openItem(item.id)}
+                  >
+                    <span>{displayName || tr('未命名方向')}</span>
+                    <Icon name="chevron-right" />
+                  </Button>
+                </div>
+              );
+            })}
             {group === 'custom' && (
               <Button
                 type="button"
@@ -174,6 +177,7 @@ export function DirectionLibrary({ editor }: { editor: SettingsEditor }) {
           </Button>
           {library.map((item, index) => {
             const original = originals.get(item.id);
+            const displayName = directionCopy(item, saved!.builtInDirections);
             const modified =
               original &&
               (original.name !== item.name || original.instruction !== item.instruction);
@@ -185,7 +189,7 @@ export function DirectionLibrary({ editor }: { editor: SettingsEditor }) {
                     aria-label={tr('方向名称 {{value1}}', { value1: index + 1 })}
                     required
                     maxLength={40}
-                    value={directionCopy(item, saved!.builtInDirections)}
+                    value={displayName}
                     onChange={(event) =>
                       change(
                         'directionLibrary',
@@ -219,7 +223,7 @@ export function DirectionLibrary({ editor }: { editor: SettingsEditor }) {
                     <Button
                       type="button"
                       variant="ghost"
-                      aria-label={tr('恢复方向 {{value1}} 的默认内容', { value1: item.name })}
+                      aria-label={tr('恢复方向 {{value1}} 的默认内容', { value1: displayName })}
                       onClick={() => {
                         change(
                           'directionLibrary',
@@ -240,10 +244,10 @@ export function DirectionLibrary({ editor }: { editor: SettingsEditor }) {
                     type="button"
                     variant="ghost"
                     size="icon"
-                    aria-label={tr('删除方向 {{value1}}', { value1: item.name })}
+                    aria-label={tr('删除方向 {{value1}}', { value1: displayName })}
                     revision={saved!.configurationRevision}
                     disabled={editor.saving || editor.remoteChanged}
-                    title={tr('删除方向“{{value1}}”？', { value1: item.name || tr('未命名') })}
+                    title={tr('删除方向“{{value1}}”？', { value1: displayName || tr('未命名') })}
                     description={tr('会删除名称和说明，并从已选方向中移除；不会删除已生成的建议。')}
                     confirmLabel={tr('确认删除')}
                     onConfirm={() =>

@@ -40,8 +40,9 @@ pub(super) fn excerpt(markdown: &str, anchor: &str) -> String {
         }
         if let Some(block) = anchor.strip_prefix('^') {
             let mut offset = 0;
+            let suffix = format!("^{block}");
             for line in markdown.split_inclusive('\n') {
-                if line.trim_end().ends_with(&format!("^{block}")) {
+                if line.trim_end().to_lowercase().ends_with(&suffix) {
                     start = offset;
                     break;
                 }

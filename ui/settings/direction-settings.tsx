@@ -148,7 +148,7 @@ export function DirectionSettings({ editor }: { editor: SettingsEditor }) {
                 checked={form.jev.consent}
                 onChange={(e) => {
                   change('jev', { ...form.jev, consent: e.target.checked });
-                  schedule();
+                  if (e.target.checked) schedule();
                 }}
               />
               {tr(

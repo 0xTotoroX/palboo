@@ -371,9 +371,7 @@ function fillComposer(prompt, submit = false, options = {}) {
   const quickVersion = JSON.stringify(runtimeState.settings.quickPrompts);
   const intent = {
     context,
-    resolveTarget: options.quick
-      ? () => (matches() ? quickTarget?.composer || target : null)
-      : undefined,
+    resolveTarget: quickTarget ? () => (matches() ? quickTarget.composer : null) : undefined,
     isCurrent: () =>
       isCurrentRuntime(generation) &&
       enabled() &&

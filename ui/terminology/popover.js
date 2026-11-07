@@ -18,6 +18,7 @@ export function createTermPopover({
     disposed = false,
     resize = null,
     returnFocus = null,
+    scrollRoot = null,
     settle = null;
   const layer = document.createElement('div');
   layer.dataset.buddyTerms = 'true';
@@ -52,6 +53,8 @@ export function createTermPopover({
     box.style.transformOrigin = above ? 'left bottom' : 'left top';
   }
   function release() {
+    scrollRoot?.removeEventListener('scroll', scroll, true);
+    scrollRoot = null;
     resize?.disconnect();
     resize = null;
     card?.dispose();
@@ -158,6 +161,13 @@ export function createTermPopover({
         card.update(nextTerm, options);
       }
       document.dispatchEvent(new CustomEvent('buddy-term-popover-open', { detail: layer }));
+      const rootNode = returnFocus?.getRootNode?.();
+      const nextScrollRoot = rootNode instanceof ShadowRoot ? rootNode : null;
+      if (scrollRoot !== nextScrollRoot) {
+        scrollRoot?.removeEventListener('scroll', scroll, true);
+        scrollRoot = nextScrollRoot;
+        scrollRoot?.addEventListener('scroll', scroll, true);
+      }
       box.inert = false;
       box.setAttribute('aria-hidden', 'false');
       place();

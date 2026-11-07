@@ -130,9 +130,11 @@ export function installTerminology({ request, getRoot, getExchange, isBusy, isol
       mastered: state.preferences.mastered.includes(a.term.id),
       onFavorite: async (id, value) => {
         state = await api({ action: value ? 'favorite' : 'unfavorite', id });
+        syncActivity();
       },
       onMaster: async (id, value) => {
         state = await api({ action: value ? 'master' : 'restore', id });
+        syncActivity();
         window.setTimeout(() => {
           if (!alive) return;
           if (popup.termId === id)
@@ -332,6 +334,8 @@ export function installTerminology({ request, getRoot, getExchange, isBusy, isol
       const updated = await api({ action: 'state' });
       if (!alive || pending !== id) return;
       state = updated;
+      syncActivity();
+      if (!state.preferences.enabled) return;
       scan();
     } catch (e) {
       if (alive && pending === id) {
@@ -390,7 +394,8 @@ export function installTerminology({ request, getRoot, getExchange, isBusy, isol
       phase = exchange ? 'ready' : 'waiting';
       failures = 0;
       retryAt = 0;
-      schedule();
+      if (key && state.preferences.semantic && Date.now() >= retryAt) void analyze(exchange);
+      else schedule();
     } else if (key) void analyze(exchange);
   }
   function move(e) {

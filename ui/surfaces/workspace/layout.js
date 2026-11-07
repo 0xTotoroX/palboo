@@ -160,7 +160,7 @@ export function installFeatureLayout(root, { save, error, inlineMenu = false }) 
       while (dirty) {
         const current = revision;
         surface = placement;
-        const next = structuredClone(layout);
+        const next = structuredClone(cache.get(surface) ?? layout);
         await save(surface, next, structuredClone(persisted.get(surface) ?? null));
         persisted.set(surface, next);
         if (current === revision) dirty = false;

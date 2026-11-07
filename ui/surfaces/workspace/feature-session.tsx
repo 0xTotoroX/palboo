@@ -283,7 +283,7 @@ export function FeatureView({
       window.removeEventListener('feature-close', closing);
       window.removeEventListener('feature-size', resize);
     };
-  });
+  }, [active, call, capture]);
   // Save transient drafts/read position in memory; never persist task text in preferences.
   useEffect(() => {
     let saved = '',

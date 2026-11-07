@@ -61,6 +61,12 @@ export function BotMessages({
     root.current?.closest<HTMLElement>('.feature-body') ||
     (document.scrollingElement as HTMLElement | null);
   useLayoutEffect(() => {
+    const savedTop = reading?.top;
+    return () => {
+      if (reading && savedTop !== undefined) reading.top = savedTop;
+    };
+  }, [reading]);
+  useLayoutEffect(() => {
     const node = scrollNode();
     const save = () => {
       if (node?.clientHeight && (key === 'directory' || active?.reply))

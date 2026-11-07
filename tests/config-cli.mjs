@@ -249,6 +249,10 @@ try {
   assert.equal(edited.current.store.tasks[0].fields.priority, 5);
   assert.equal(edited.current.store.tasks[0].fields.notes, '保留说明');
   assert.equal(edited.current.store.tasks[0].fields.due.timeZone, 'Asia/Shanghai');
+  const archivedUpdate = await set('tasks', { op: 'update', id: task.id, archived: true });
+  assert.equal(archivedUpdate.current.store.tasks[0].archived, true);
+  assert.equal(archivedUpdate.current.store.tasks[0].fields.priority, 5);
+  await set('tasks', { op: 'update', id: task.id, archived: false });
   await assert.rejects(
     () =>
       set('tasks', { op: 'update', id: task.id, expectedTask: task, fields: { title: 'stale' } }),

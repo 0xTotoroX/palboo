@@ -313,6 +313,8 @@ export function startEdge(request: Request, fontSource?: HostFontSource) {
       cancelAnimationFrame(measureFrame);
       contentChanges.disconnect();
       contentResize.disconnect();
+      for (const item of mounts.values()) item.mount.dispose();
+      mounts.clear();
       clearTimeout(enter);
       clearTimeout(leave);
     },

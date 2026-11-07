@@ -139,7 +139,13 @@ export function installTokenMeter({
     if (data?.type !== 'mcp-notification') return;
     const n = data.method ? data : data.notification;
     if (!METHODS.has(n?.method) || typeof data.hostId !== 'string') return;
-    if (target && n.params?.threadId !== target.id) return;
+    if (
+      n.method === 'turn/started' &&
+      !document.hidden &&
+      (!target || n.params?.threadId !== target.id)
+    )
+      lastTarget = -Infinity;
+    if (target && n.params?.threadId !== target.id && n.method !== 'turn/started') return;
     if (!document.hidden) refresh();
     if (
       !target ||

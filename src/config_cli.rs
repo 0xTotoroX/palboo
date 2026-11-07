@@ -324,12 +324,17 @@ fn prepare(scope: Scope, mut patch: Value, before: &Value) -> Result<Value> {
                 // Task edits are partial at the CLI boundary; preserve every unmentioned field.
                 if patch["op"] == "update" {
                     let mut fields = task["fields"].clone();
-                    for (k, v) in patch["fields"]
-                        .as_object()
-                        .context("缺少任务 fields 补丁")?
-                    {
-                        ensure!(fields.get(k).is_some(), "未知任务字段：{k}");
-                        fields[k] = v.clone();
+                    if let Some(patch_fields) = patch.get("fields") {
+                        for (k, v) in patch_fields.as_object().context("缺少任务 fields 补丁")?
+                        {
+                            ensure!(fields.get(k).is_some(), "未知任务字段：{k}");
+                            fields[k] = v.clone();
+                        }
+                    } else {
+                        ensure!(
+                            patch.get("archived").is_some() || patch.get("before").is_some(),
+                            "缺少任务 fields 补丁"
+                        );
                     }
                     patch["fields"] = fields;
                 }

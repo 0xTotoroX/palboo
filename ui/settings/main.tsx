@@ -374,6 +374,7 @@ function App() {
               </section>
               <div data-settings-page="terminology" hidden={page !== 'terminology'}>
                 <TerminologySettings
+                  live={live}
                   active={common || page === 'terminology'}
                   detailsVisible={page === 'terminology'}
                   enablementTarget={termEnablement}
