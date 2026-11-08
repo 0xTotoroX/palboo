@@ -303,6 +303,86 @@ pub async fn prepare(
     Ok((executable, desktop, node, controller))
 }
 
+async fn cleanup_orphaned_controller() {
+    let root = match dirs::data_local_dir() {
+        Some(dir) => dir.join("codexhost"),
+        None => return,
+    };
+    let descriptor_path = root.join("desktop-runtime-v1.json");
+    let bytes = match std::fs::read(&descriptor_path) {
+        Ok(bytes) => bytes,
+        Err(_) => return,
+    };
+    let record: Descriptor = match serde_json::from_slice(&bytes) {
+        Ok(rec) => rec,
+        Err(_) => {
+            let _ = std::fs::remove_file(&descriptor_path);
+            return;
+        }
+    };
+    let launcher_alive = Command::new("/bin/ps")
+        .args(["-p", &record.launcher_pid.to_string(), "-o", "comm="])
+        .output()
+        .await
+        .map(|out| out.status.success())
+        .unwrap_or(false);
+
+    if !launcher_alive {
+        if record.control_port > 0 {
+            if let Ok(listening) = Command::new("/usr/sbin/lsof")
+                .args([
+                    "-nP",
+                    &format!("-iTCP:{}", record.control_port),
+                    "-sTCP:LISTEN",
+                    "-t",
+                ])
+                .output()
+                .await
+            {
+                for pid_str in String::from_utf8_lossy(&listening.stdout).lines() {
+                    if let Ok(pid) = pid_str.trim().parse::<i32>() {
+                        let details = Command::new("/bin/ps")
+                            .args(["-p", &pid.to_string(), "-o", "args="])
+                            .output()
+                            .await
+                            .map(|out| String::from_utf8_lossy(&out.stdout).to_string())
+                            .unwrap_or_default();
+                        if details.contains("desktop-controller") || details.contains("codexhost") {
+                            unsafe {
+                                libc::kill(pid, libc::SIGTERM);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        let _ = std::fs::remove_file(&descriptor_path);
+    }
+    if let Some(home) = dirs::home_dir() {
+        let store_lock = home.join(".codexhost/mapping-store/store.lock");
+        if store_lock.exists() {
+            if let Ok(content) = std::fs::read_to_string(&store_lock) {
+                if let Ok(val) = serde_json::from_str::<Value>(&content) {
+                    if let Some(pid) = val.get("pid").and_then(|v| v.as_i64()) {
+                        let details = Command::new("/bin/ps")
+                            .args(["-p", &pid.to_string(), "-o", "args="])
+                            .output()
+                            .await
+                            .map(|out| String::from_utf8_lossy(&out.stdout).to_string())
+                            .unwrap_or_default();
+                        if details.contains("codexhost") || details.contains("host-runtime") {
+                            unsafe {
+                                libc::kill(pid as i32, libc::SIGTERM);
+                            }
+                        }
+                    }
+                }
+            }
+            let _ = std::fs::remove_file(&store_lock);
+        }
+    }
+}
+
 pub async fn launch(paths: &Paths, options: &Options, app: Option<&Path>) -> Result<String> {
     ensure!(options.enabled, "CodexHost 尚未启用");
     let (executable, desktop, node, controller) = prepare(options, app).await?;
@@ -325,6 +405,7 @@ pub async fn launch(paths: &Paths, options: &Options, app: Option<&Path>) -> Res
         );
         return ready_endpoint(&desktop).await;
     }
+    cleanup_orphaned_controller().await;
     // Refuse to start a second controller if a previous one is still shutting down.
     ensure!(
         running().await?.is_none(),

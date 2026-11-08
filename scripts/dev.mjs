@@ -186,7 +186,9 @@ async function startService() {
   const log = join(directory, 'service.log');
   const { openSync, closeSync } = await import('node:fs');
   const fd = openSync(log, 'a', 0o600);
-  service = spawn(binary, ['--data-dir', data, 'serve', '--port', '0'], {
+  const args = ['--data-dir', data, 'serve', '--port', '0'];
+  if (host?.endpoint) args.push('--cdp', host.endpoint);
+  service = spawn(binary, args, {
     ...options,
     stdio: ['ignore', fd, fd],
   });
@@ -212,24 +214,24 @@ async function startService() {
       } catch {
         /* Older sources still use the connected-state handshake. */
       }
-      if (!paused && !host.pinnedTarget) {
-        const previousTarget = host.target.id;
-        try {
-          await inspectLiveHost(host);
-        } catch {}
-        if (host.target.id !== previousTarget) {
-          syncHostTarget();
-          await api('connect', { endpoint: host.endpoint, targetId: host.target.id }).catch(
-            () => {},
-          );
+      if (!paused) {
+        if (!host.pinnedTarget) {
+          const previousTarget = host.target.id;
+          try {
+            await inspectLiveHost(host);
+          } catch {}
+          if (host.target.id !== previousTarget) syncHostTarget();
         }
+        await api('connect', { endpoint: host.endpoint, targetId: host.target.id }).catch(
+          () => {},
+        );
       }
       return paused;
     }
     if (state.connection.endpoint !== host.endpoint || state.connection.targetId !== host.target.id)
       throw new Error('开发后台连接了不同的宿主目标，停止此次交接。');
     return true;
-  }, `真实 Codex 连接超时，请查看 ${log}`);
+  }, `真实 Codex 连接超时，请查看 ${log}`, 45000);
   if (paused) return;
   await until(async () => {
     if (closing) throw new Error('开发模式退出中');
