@@ -1,8 +1,8 @@
 // [INPUT]: 官方 GitHub Release 元数据、npm 已校验完整性的原生分发包和独立版本目录。
-// [OUTPUT]: 检查更新、发出启动提醒、准备与验证固定版本；成功后由调用者切换配置。
+// [OUTPUT]: 检查更新、发出启动提醒、准备与验证固定版本；按已保存选择和活动进程清理历史版本。
 // [POS]: 复用上游包，不调用会全局覆盖并重启 Codex 的上游 updater。
 // [PROTOCOL]: 变更时同步 codex_host/AGENTS.md。
-use super::{find_node, find_tool, output, version};
+use super::{Options, executable, find_node, find_tool, output, version};
 use crate::config::Paths;
 use anyhow::{Context, Result, ensure};
 use serde_json::{Value, json};
@@ -111,4 +111,174 @@ pub async fn install(paths: &Paths, requested: &str) -> Result<PathBuf> {
         .context("新版本无法识别当前 Codex，原安装保持不变")?;
     std::fs::rename(stage.path(), &target).context("无法保存下载版本，原安装保持不变")?;
     Ok(target.join(relative))
+}
+
+pub(super) async fn cleanup(paths: &Paths, options: &Options) -> Result<()> {
+    let root = paths.root.join("codex-host-versions");
+    if !root.exists() {
+        return Ok(());
+    }
+    // 更新只选择下次启动版本；旧启动器或控制器仍可能使用安装内的资源。
+    let processes = output(
+        std::path::Path::new("/bin/ps"),
+        &["-axww", "-o", "comm=,args="],
+        Duration::from_secs(5),
+    )
+    .await?;
+    cleanup_with_processes(paths, options, &processes)
+}
+
+fn cleanup_with_processes(paths: &Paths, options: &Options, processes: &str) -> Result<()> {
+    let root = paths.root.join("codex-host-versions");
+    let metadata = std::fs::symlink_metadata(&root)?;
+    ensure!(
+        metadata.is_dir(),
+        "CodexHost 版本目录不是普通目录，跳过清理"
+    );
+    let root = std::fs::canonicalize(root)?;
+    let retained: Vec<_> = [executable(options), options.previous_executable.clone()]
+        .into_iter()
+        .flatten()
+        .flat_map(|path| {
+            let resolved = std::fs::canonicalize(&path).ok();
+            std::iter::once(path).chain(resolved)
+        })
+        .collect();
+    for entry in std::fs::read_dir(&root)? {
+        let entry = entry?;
+        let name = entry.file_name();
+        if !entry.file_type()?.is_dir()
+            || name
+                .to_str()
+                .is_none_or(|name| version_tuple(name).is_err())
+        {
+            continue;
+        }
+        let directory = entry.path();
+        let original = paths.root.join("codex-host-versions").join(&name);
+        if retained
+            .iter()
+            .any(|path| path.starts_with(&directory) || path.starts_with(&original))
+            || [directory.as_path(), original.as_path()]
+                .iter()
+                .any(|path| processes.contains(&format!("{}/", path.display())))
+        {
+            continue;
+        }
+        std::fs::remove_dir_all(&directory).context("无法清理 CodexHost 历史版本")?;
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::os::unix::fs::symlink;
+
+    fn installation(paths: &Paths, version: &str) -> PathBuf {
+        let executable = paths.root.join(format!(
+            "codex-host-versions/{version}/node_modules/@codexhost/cli-darwin-arm64/bin/codexhost"
+        ));
+        std::fs::create_dir_all(executable.parent().unwrap()).unwrap();
+        std::fs::write(&executable, []).unwrap();
+        executable
+    }
+
+    #[test]
+    fn cleanup_retains_selected_previous_and_running_until_next_pass() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths::new(Some(dir.path().into())).unwrap();
+        let obsolete = installation(&paths, "0.10.2");
+        let running = installation(&paths, "0.16.1");
+        let previous = installation(&paths, "0.17.3");
+        let selected = installation(&paths, "0.17.4");
+        let options = Options {
+            executable: Some(selected.clone()),
+            previous_executable: Some(previous.clone()),
+            ..Default::default()
+        };
+        let controller = running
+            .parent()
+            .unwrap()
+            .join("../app/desktop-controller.mjs");
+        cleanup_with_processes(&paths, &options, &format!("node {}", controller.display()))
+            .unwrap();
+        assert!(!obsolete.exists());
+        assert!(running.exists());
+        assert!(previous.exists());
+        assert!(selected.exists());
+        cleanup_with_processes(&paths, &options, "").unwrap();
+        assert!(!running.exists());
+        assert!(previous.exists());
+        assert!(selected.exists());
+    }
+
+    #[test]
+    fn cleanup_preserves_external_installs_symlinks_and_staging_directories() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths::new(Some(dir.path().join("palboo"))).unwrap();
+        let selected = installation(&paths, "0.17.4");
+        let external = dir.path().join("external");
+        std::fs::create_dir(&external).unwrap();
+        let marker = external.join("keep");
+        std::fs::write(&marker, "untouched").unwrap();
+        let root = paths.root.join("codex-host-versions");
+        symlink(&external, root.join("0.10.2")).unwrap();
+        let stage = tempfile::Builder::new()
+            .prefix("install-")
+            .tempdir_in(&root)
+            .unwrap();
+        let unknown = root.join("custom");
+        std::fs::create_dir(&unknown).unwrap();
+        // 配置通过符号链接指向私有版本时也必须保留该版本。
+        let alias = dir.path().join("selected");
+        symlink(&selected, &alias).unwrap();
+        cleanup_with_processes(
+            &paths,
+            &Options {
+                executable: Some(alias),
+                previous_executable: Some(marker.clone()),
+                ..Default::default()
+            },
+            "",
+        )
+        .unwrap();
+        assert!(selected.exists());
+        assert!(marker.exists());
+        assert!(root.join("0.10.2").is_symlink());
+        assert!(stage.path().exists());
+        assert!(unknown.exists());
+    }
+
+    #[test]
+    fn cleanup_refuses_a_symlinked_versions_root() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths::new(Some(dir.path().join("palboo"))).unwrap();
+        let external = dir.path().join("external");
+        std::fs::create_dir_all(external.join("0.10.2")).unwrap();
+        symlink(&external, paths.root.join("codex-host-versions")).unwrap();
+        assert!(cleanup_with_processes(&paths, &Options::default(), "").is_err());
+        assert!(external.join("0.10.2").exists());
+    }
+
+    #[tokio::test]
+    async fn cleanup_protects_a_real_running_executable() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths::new(Some(dir.path().into())).unwrap();
+        let running = installation(&paths, "0.16.1");
+        std::fs::copy("/bin/sleep", &running).unwrap();
+        let mut child = tokio::process::Command::new(&running)
+            .arg("30")
+            .kill_on_drop(true)
+            .spawn()
+            .unwrap();
+        // exec 完成后再采样进程列表。
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        cleanup(&paths, &Options::default()).await.unwrap();
+        assert!(running.exists());
+        child.kill().await.unwrap();
+        child.wait().await.unwrap();
+        cleanup(&paths, &Options::default()).await.unwrap();
+        assert!(!running.exists());
+    }
 }

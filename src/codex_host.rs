@@ -394,6 +394,10 @@ pub fn find_tool(name: &str) -> Option<PathBuf> {
 }
 impl App {
     pub(crate) async fn check_codex_host_on_startup(&self) -> Result<()> {
+        {
+            let _guard = self.codex_host_operation.lock().await;
+            self.cleanup_codex_host_versions().await;
+        }
         let options = self.config.lock().await.codex_host.clone();
         if !options.enabled || options.startup_update == StartupUpdate::Off {
             return Ok(());
@@ -498,6 +502,7 @@ impl App {
                     o.executable = Some(previous);
                 })
                 .await?;
+                self.cleanup_codex_host_versions().await;
             }
             Some("start") => {
                 ensure!(
@@ -520,15 +525,35 @@ impl App {
         status(&self.paths, &options).await
     }
     async fn install_codex_host(&self, revision: u64, version: &str) -> Result<()> {
-        let path = update::install(&self.paths, version).await?;
-        let mut candidate = self.config.lock().await.codex_host.clone();
-        candidate.executable = Some(path.clone());
-        prepare(&candidate, None).await?;
-        self.save_codex_host(&json!({"expectedRevision": revision}), |o| {
-            o.previous_executable = executable(o);
-            o.executable = Some(path);
-        })
-        .await
+        let result = async {
+            let path = update::install(&self.paths, version).await?;
+            let mut candidate = self.config.lock().await.codex_host.clone();
+            candidate.executable = Some(path.clone());
+            prepare(&candidate, None).await?;
+            self.save_codex_host(&json!({"expectedRevision": revision}), |o| {
+                let current = executable(o);
+                let same = current.as_ref().is_some_and(|current| {
+                    current == &path
+                        || std::fs::canonicalize(current).is_ok_and(|current| {
+                            std::fs::canonicalize(&path).is_ok_and(|next| current == next)
+                        })
+                });
+                if !same {
+                    o.previous_executable = current;
+                }
+                o.executable = Some(path);
+            })
+            .await
+        }
+        .await;
+        self.cleanup_codex_host_versions().await;
+        result
+    }
+    async fn cleanup_codex_host_versions(&self) {
+        let options = self.config.lock().await.codex_host.clone();
+        if let Err(error) = update::cleanup(&self.paths, &options).await {
+            tracing::warn!(%error, "CodexHost 版本清理未完成，将在下次启动或更新时重试");
+        }
     }
     async fn save_codex_host(
         &self,
@@ -585,6 +610,8 @@ mod tests {
         std::fs::create_dir_all(node.parent().unwrap()).unwrap();
         std::fs::write(&node, []).unwrap();
         let previous = fixture_install(&paths.root.join("previous"), "0.16.1", &desktop);
+        let obsolete = paths.root.join("codex-host-versions/0.10.2");
+        std::fs::create_dir_all(&obsolete).unwrap();
         let root = paths
             .root
             .join("codex-host-versions/0.17.0/node_modules/@codexhost/cli-darwin-arm64");
@@ -618,6 +645,12 @@ mod tests {
         assert_eq!(saved.executable.as_ref(), Some(&updated));
         assert_eq!(saved.previous_executable, Some(previous));
         assert_eq!(saved.revision, 1);
+        assert!(!obsolete.exists());
+        app.install_codex_host(1, "0.17.0").await.unwrap();
+        assert_eq!(
+            paths.load().unwrap().codex_host.previous_executable,
+            saved.previous_executable
+        );
         assert_eq!(
             prepare(&saved, None).await.unwrap(),
             (updated, desktop, None, None)
@@ -626,7 +659,7 @@ mod tests {
         app.apply_startup_update(&options, "0.16.1", "0.18.0")
             .await
             .unwrap();
-        assert_eq!(paths.load().unwrap().codex_host.revision, 1);
+        assert_eq!(paths.load().unwrap().codex_host.revision, 2);
     }
 
     #[tokio::test]
@@ -672,6 +705,73 @@ mod tests {
         assert_eq!(current.previous_executable, options.previous_executable);
         assert_eq!(current.revision, 7);
         assert_eq!(version(&previous).await.unwrap(), "0.17.1");
+        assert!(!target.exists());
+        assert!(!paths.root.join("codex-host.log").exists());
+    }
+
+    #[tokio::test]
+    async fn updates_rotate_one_rollback_and_startup_cleans_even_when_disabled() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths::new(Some(dir.path().into())).unwrap();
+        let desktop = paths.root.join("Desktop.app/Contents/MacOS/Codex");
+        let node = desktop
+            .parent()
+            .unwrap()
+            .join("../Resources/cua_node/bin/node");
+        std::fs::create_dir_all(node.parent().unwrap()).unwrap();
+        std::fs::write(&node, []).unwrap();
+        let installations: Vec<_> = ["0.17.0", "0.16.2", "0.16.1"]
+            .iter()
+            .map(|version| {
+                fixture_install(
+                    &paths.root.join(format!(
+                        "codex-host-versions/{version}/node_modules/@codexhost/cli-darwin-arm64"
+                    )),
+                    version,
+                    &desktop,
+                )
+            })
+            .collect();
+        let app = App::new(
+            paths.clone(),
+            crate::config::Config {
+                codex_host: Options {
+                    executable: Some(installations[2].clone()),
+                    startup_update: StartupUpdate::Off,
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            None,
+            true,
+        );
+        app.install_codex_host(0, "0.16.2").await.unwrap();
+        assert!(installations[1].exists());
+        assert!(installations[2].exists());
+        // 下一版本是在上次清理后下载的。
+        let updated = fixture_install(
+            &paths
+                .root
+                .join("codex-host-versions/0.17.0/node_modules/@codexhost/cli-darwin-arm64"),
+            "0.17.0",
+            &desktop,
+        );
+        app.install_codex_host(1, "0.17.0").await.unwrap();
+        assert!(!installations[2].exists());
+        assert!(installations[1].exists());
+        assert!(updated.exists());
+        app.codex_host_command(json!({"op":"restore","expectedRevision":2}))
+            .await
+            .unwrap();
+        let restored = paths.load().unwrap().codex_host;
+        assert_eq!(restored.executable, Some(installations[1].clone()));
+        assert_eq!(restored.previous_executable, Some(updated.clone()));
+        let stale = paths.root.join("codex-host-versions/0.10.2");
+        std::fs::create_dir_all(&stale).unwrap();
+        app.check_codex_host_on_startup().await.unwrap();
+        assert!(!stale.exists());
+        assert!(installations[1].exists());
+        assert!(updated.exists());
         assert!(!paths.root.join("codex-host.log").exists());
     }
 
