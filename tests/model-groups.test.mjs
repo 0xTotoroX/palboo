@@ -518,6 +518,29 @@ test(
       if ((await chooser.getAttribute('aria-expanded')) === 'true')
         await view.getByRole('button', { name: '关闭所有模型' }).click();
       await view.locator('[data-model-row="favorite-4"] .model-route').waitFor();
+      // 140px is also a valid saved choice; reopening either CLI must preserve it.
+      for (const agent of ['codex', 'synthetic-external']) {
+        const saved = structuredClone(state);
+        saved.snapshot.agent = { current: agent, label: agent, locked: false, options: [] };
+        if (agent === 'codex') saved.preferences.modelColumnWidth = 140;
+        else
+          saved.preferences.agentOrganizations = {
+            [agent]: { pinned: [...state.preferences.pinned], modelColumnWidth: 140 },
+          };
+        await page.evaluate((saved) => {
+          window.viewRoot.unmount();
+          window.viewRoot = null;
+          window.render(saved);
+        }, saved);
+        await page.waitForFunction(
+          () => document.querySelector('#view .model-name')?.getBoundingClientRect().width === 140,
+          undefined,
+          { timeout: 1500 },
+        );
+        assert.equal((await view.locator('.model-name').first().boundingBox()).width, 140);
+      }
+      await page.evaluate((state) => window.render(state), state);
+      await view.locator('[data-model-row="favorite-4"] .model-route').waitFor();
       await page.mouse.move(850, 950);
       assert.equal(await view.locator('.model-visibility, hr, .model-group-label').count(), 0);
       assert.equal(await view.locator('.model-inline-heading > .model-fast').count(), 1);

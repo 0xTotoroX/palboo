@@ -11,6 +11,7 @@ import modelStyles from '../../features/model/styles.css?inline';
 import { Board, type BoardView } from '../../features/board/app';
 import type { TaskRequest } from '../../features/board/api';
 import boardStyles from '../../features/board/styles.css?inline';
+const EDGE_BOARD_SIZE = { width: 920, height: 620 };
 const reloaders = new Map<HTMLElement, () => Promise<boolean>>();
 Object.assign(window, {
   __buddyFeatureFlush: async () => {
@@ -131,14 +132,15 @@ export function mountFeature(
       const intrinsic = body.querySelector<HTMLElement>('[data-intrinsic-width]');
       const bodyStyle = getComputedStyle(body);
       const padding = parseFloat(bodyStyle.paddingLeft) + parseFloat(bodyStyle.paddingRight);
+      const edgeBoard = initial.id === 'board' && placement === 'edge';
       // Features may expose their minimum readable width; text/list views keep the existing width.
       const width = Math.ceil(
         Math.min(
-          initial.id === 'board' && placement === 'edge' ? 976 : intrinsic ? 976 : 696,
+          edgeBoard || intrinsic ? 976 : 696,
           Math.max(
             296,
-            initial.id === 'board' && placement === 'edge'
-              ? 720
+            edgeBoard
+              ? EDGE_BOARD_SIZE.width
               : intrinsic
                 ? parseFloat(getComputedStyle(intrinsic).minWidth) + padding
                 : 456,
@@ -164,9 +166,7 @@ export function mountFeature(
           width,
           height: Math.ceil(
             Math.max(
-              initial.id === 'board' && placement === 'edge'
-                ? 440
-                : view.getBoundingClientRect().height,
+              edgeBoard ? EDGE_BOARD_SIZE.height : view.getBoundingClientRect().height,
               editorHeight,
             ),
           ),

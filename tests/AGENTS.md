@@ -231,7 +231,7 @@ codex-host-settings.test验证独立API、版本修订与开关不隐式启动�
 
 settings-search.test检查跨隐藏分类定位/展开、草稿保持及不索引凭据；prompt-enhancement.test增加关闭即取消，以及CodexHost相邻顺序/菜单保持展开检查。settings-modes核对含聊天测速的6项常用开关；标准fixture补齐新布尔字段。Rust设置测试确认保存/并发校验且不推进Stepwise生成版本。target/reports/optimizer-codex-host-layout.json记录旧/新复现场景的重排4→0与菜单状态。
 
-- `model-groups.test.mjs`：保守厂家识别、渠道身份隔离、分组设置真实组件及矩阵联动；验证批量归属/恢复、增删改名/顺序、失败草稿与并发冲突、刷新保留手动值、暂不可用模型和窄屏布局。新增独立Fast/分隔线用例，核对标题同行和列中轴对齐、充电后放电及实心状态、失败回读、减少动态效果、拖动/键盘调整与图标尺寸；多行预设按真实屏幕坐标计行，避免相对标签自身的offsetTop误报。Rust model_control 单测验证旧配置兼容、引用校验及冷启动恢复。
+- `model-groups.test.mjs`：保守厂家识别、渠道身份隔离、分组设置真实组件及矩阵联动；验证批量归属/恢复、增删改名/顺序、失败草稿与并发冲突、刷新保留手动值、暂不可用模型和窄屏布局。新增独立Fast/分隔线用例，核对标题同行和列中轴对齐、充电后放电及实心状态、失败回读、减少动态效果、拖动/键盘调整与图标尺寸；多行预设按真实屏幕坐标计行，避免相对标签自身的offsetTop误报；Codex与外部CLI重新挂载后以实际名称列几何核对已保存140px不被估算默认值覆盖。Rust model_control 单测验证旧配置兼容、引用校验及冷启动恢复。
 
 model-control-e2e 通过真实 feature owner 路由验证 agentOrganizations 的其他 CLI 固定保存/回读及恢复，并使用当前简易/详细设置导航，并通过真实 Rust/HTTP 保存厂家和自定义组，重载后确认恢复、删除后回到厂家、恢复自动，以及常用/预设/原顺序保持。
 

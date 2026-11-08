@@ -2,7 +2,7 @@ import { useLocale } from '../../shared/use-locale';
 import { tr } from '../../shared/i18n.js';
 /* [INPUT]: Existing model control envelope and serialized actions.
  * [OUTPUT]: Title-aligned reasoning headings, content-sized favorites matrix (auto-displaying active external CLI models when none are pinned), independent Fast charge/strike and divider controls, CodexHost CLI switcher bar (direct switch in draft chats, new-chat context handoff in locked chats), explicitly bookmarked presets separated from catalog pins, with saved reasoning and speed, a shared bottom row with lower-edge-aligned account usage, icons and an independent footer slot, in-panel catalog and wrapping presets with synchronous draft handoff, measured horizontal reading restoration and capability-driven selection.
- * [POS]: Reusable business view; surfaces own placement and theme.
+ * [POS]: Reusable business view; surfaces own placement and theme; saved column widths override estimated defaults.
  * [PROTOCOL]: Keep AGENTS.md in this module in sync. */
 import {
   useEffect,
@@ -31,6 +31,12 @@ export type { ModelState } from './catalog';
 const dischargeShape =
   'M24 0 L23 43 L27 86 L20 122 L26 166 L23 209 L28 256 L21 295 L25 328 L24 360';
 const label = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
+// 只估算自然宽度预算；实际名称仍由网格宽度和换行布局决定。
+function estimateTextWidth(text: string) {
+  let width = 16;
+  for (const character of text) width += character.charCodeAt(0) > 0x2e7f ? 16.5 : 8.8;
+  return Math.ceil(width);
+}
 const presetLabel = (name: string, selection: Selection) =>
   [name, label(selection.reasoning), selection.speed === 'fast' ? 'Fast' : '']
     .filter(Boolean)
@@ -299,11 +305,33 @@ export function ModelView({
   }, [columns.join('|'), others]);
   const widths = columns.length ? columns.map((_, i) => metrics.widths[i] || 63) : [28];
   const reasoningWidth = widths.reduce((sum, width) => sum + width, 0) + (widths.length - 1) * 4;
+  const naturalNameWidth = Math.max(
+    140,
+    ...visible.map((m) => {
+      const full = label(m.label);
+      const [primary = '', ...rest] = full.split(' · ');
+      const route = rest.join(' · ');
+      const duplicate = models.some((other) => other.id !== m.id && other.label === m.label)
+        ? m.id
+        : '';
+      return Math.max(
+        estimateTextWidth(primary),
+        route ? estimateTextWidth(route) : 0,
+        duplicate ? estimateTextWidth(duplicate) : 0,
+      );
+    }),
+  );
+  const defaultNameWidth = Math.min(260, naturalNameWidth);
+  const intrinsicNameWidth = Math.max(196, Math.min(340, naturalNameWidth + 52));
   const maxNameWidth = metrics.available
     ? Math.max(100, Math.min(560, Math.floor(metrics.available - 16 - reasoningWidth)))
     : 560;
   const clampWidth = (width: number) => Math.max(100, Math.min(maxNameWidth, Math.round(width)));
-  const nameWidth = clampWidth(columnWidth ?? prefs.modelColumnWidth ?? 140);
+  const savedNameWidth =
+    currentAgent === 'codex'
+      ? state.preferences.modelColumnWidth
+      : state.preferences.agentOrganizations?.[currentAgent]?.modelColumnWidth;
+  const nameWidth = clampWidth(columnWidth ?? savedNameWidth ?? defaultNameWidth);
   useLayoutEffect(() => {
     const node = matrix.current;
     // Initial fallback column widths are replaced after measuring the heading.
@@ -554,6 +582,7 @@ export function ModelView({
       style={
         {
           '--name-width': `${nameWidth}px`,
+          '--intrinsic-name-width': `${intrinsicNameWidth}px`,
           '--model-browser-height': `${browserHeight}px`,
           '--columns': Math.max(1, columns.length),
           '--reasoning-min-width': `${reasoningWidth}px`,

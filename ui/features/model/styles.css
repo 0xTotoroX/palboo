@@ -220,9 +220,12 @@
   font-weight: normal;
   overflow-wrap: anywhere;
 }
-/* 外框宽度使用稳定预算，高度按实际名称列宽及换行测量。 */
+/* 外框宽度按当前 CLI 模型名称与推理档位自适应，高度按实际名称列宽及换行测量。 */
 .model-intrinsic-width {
-  min-width: max(432px, calc(420px + 16px + var(--reasoning-min-width)));
+  min-width: max(
+    312px,
+    calc(var(--intrinsic-name-width, 240px) + 16px + var(--reasoning-min-width))
+  );
 }
 :host([data-measuring='true']) .feature-model {
   flex: none;

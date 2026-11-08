@@ -121,11 +121,11 @@ test('edge board uses columns and an opaque detail surface within native bounds 
   });
   await board.locator('.board-app[data-view-mode="expanded"]').waitFor();
   await page.waitForFunction(
-    () => document.querySelector('.edge-view').getBoundingClientRect().width >= 720,
+    () => document.querySelector('.edge-view').getBoundingClientRect().width >= 920,
   );
   assert.equal(await board.locator('.board-column:visible').count(), 3);
   const boardSize = await board.boundingBox();
-  assert.ok(boardSize.height >= 440, 'few tasks retain a full reading surface');
+  assert.ok(boardSize.height >= 620, 'few tasks retain a full reading surface');
   await board.getByRole('button', { name: '任务详情：测试任务', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: '任务详情' });
   await dialog.waitFor();
