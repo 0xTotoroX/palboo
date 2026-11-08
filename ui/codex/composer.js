@@ -117,7 +117,7 @@ function submitComposerWhenReady(target, intent, expectedText = '', attempt = 0)
   let currentTarget = target;
   if (!intent.isCurrent()) return false;
   if (intent.resolveTarget) {
-    // 空聊天仅接受发起时的同一编辑器；节点替换后不能重新绑定发送。
+    // 常用语仅接受发起时的同一编辑器；节点替换后不能重新绑定发送。
     if (intent.resolveTarget() !== target || !target.isConnected) return false;
   } else if (!intent.context || !contextMatches(intent.context)) return false;
   if (!(currentTarget instanceof HTMLElement)) return false;

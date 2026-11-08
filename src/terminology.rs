@@ -262,9 +262,8 @@ fn base_sense_name(name: &str) -> &str {
 fn qualified_sense_pair(a: &str, b: &str) -> bool {
     let a_trim = a.trim().to_lowercase();
     let b_trim = b.trim().to_lowercase();
-    a_trim != b_trim
-        && base_sense_name(&a_trim) == base_sense_name(&b_trim)
-        && (base_sense_name(&a_trim) != a_trim || base_sense_name(&b_trim) != b_trim)
+    // 领域限定也用于英文同名、中文异名的词义，导出恢复不能要求中文词干相同。
+    a_trim != b_trim && (base_sense_name(&a_trim) != a_trim || base_sense_name(&b_trim) != b_trim)
 }
 pub(crate) fn enabled(root: &Path) -> Result<bool> {
     Ok(read::<Preferences>(root, "terminology-settings.json")?.enabled)
@@ -947,6 +946,61 @@ mod tests {
             .await
             .is_err()
         );
+    }
+    #[tokio::test]
+    async fn differently_named_senses_round_trip_through_a_fresh_library() {
+        let source = tempfile::tempdir().unwrap();
+        let app = App::new(
+            crate::config::Paths::new(Some(source.path().into())).unwrap(),
+            Default::default(),
+            None,
+            false,
+        );
+        let mut store = crate::terminology_import::Store::load(source.path()).unwrap();
+        store.personal.push(
+            serde_json::from_value(json!({
+                "id":"token", "name":"令牌", "english":"Token",
+                "definition":"用于身份验证的凭证", "category":["身份认证"]
+            }))
+            .unwrap(),
+        );
+        // 自动补词保留候选中文名，用领域限定区分英文同名的其他词义。
+        store.discovered.push(
+            serde_json::from_value(json!({
+                "id":"AUTO-coin", "name":"代币（区块链）", "english":"Token",
+                "aliases":["代币"], "definition":"区块链上表示权益的数字单位", "category":["区块链"]
+            }))
+            .unwrap(),
+        );
+        store.persist(source.path()).unwrap();
+        for id in ["token", "AUTO-coin"] {
+            command(&app, json!({"action":"favorite", "id":id}))
+                .await
+                .unwrap();
+        }
+        let exported = command(&app, json!({"action":"export"})).await.unwrap();
+        let entries = exported["entries"].as_array().unwrap();
+        assert_eq!(entries.len(), 2);
+        for reverse in [false, true] {
+            let destination = tempfile::tempdir().unwrap();
+            let restored = App::new(
+                crate::config::Paths::new(Some(destination.path().into())).unwrap(),
+                Default::default(),
+                None,
+                false,
+            );
+            let mut incoming = entries.clone();
+            if reverse {
+                incoming.reverse();
+            }
+            command(&restored, json!({"action":"import", "entries":incoming}))
+                .await
+                .unwrap();
+            let result = command(&restored, json!({"action":"export"}))
+                .await
+                .unwrap();
+            assert_eq!(result["entries"], exported["entries"]);
+        }
     }
     #[test]
     fn separate_storage_and_chinese_export() {
