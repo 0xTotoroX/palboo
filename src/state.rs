@@ -1,5 +1,5 @@
 // [INPUT]: CDP Client、Config、Model、主界面启动偏好与胶囊状态摘要。
-// [OUTPUT]: 独立 Chat 大纲连接/清理及只读来源偏好；App、View、连接与无正文胶囊状态、共享字体与设置界面外观快照；临时响应超时保留会话并恢复连接状态；退出信号取消模型请求，开发模式锁定启动窗口。
+// [OUTPUT]: 独立 Chat 大纲连接/清理及只读来源偏好；App、View、连接与无正文胶囊状态、共享字体与设置界面外观快照；临时响应超时保留会话并恢复连接状态；退出信号取消模型请求，开发模式锁定启动窗口；暂停清理或配置保存失败时恢复完整注入，恢复失败则重建连接。
 // [POS]: 持有独立 tasks 服务； 后台业务状态层，为 server、requests 与 panel 提供一致状态；独立维护模型控制条服务及窗口监督。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
@@ -457,6 +457,7 @@ impl App {
         if preferences == previous {
             return Ok(self.performance_state(false).await);
         }
+        let mut suspended = None;
         if previous.integration_enabled
             && !preferences.integration_enabled
             && let Some(client) = self.desktop_client().await
@@ -466,14 +467,24 @@ impl App {
                 ready == true,
                 "工作台正在编辑或交接，请稍后关闭连接；当前草稿已保留"
             );
-            client.suspend_desktop().await?;
+            if let Err(error) = client.suspend_desktop().await {
+                self.restore_failed_pause(&client).await;
+                return Err(error);
+            }
+            suspended = Some(client);
         }
         preferences.revision += 1;
         {
             let mut config = self.config.lock().await;
             let mut next = config.clone();
             next.performance = preferences.clone();
-            self.paths.save(&next)?;
+            if let Err(error) = self.paths.save(&next) {
+                drop(config);
+                if let Some(client) = suspended {
+                    self.restore_failed_pause(&client).await;
+                }
+                return Err(error);
+            }
             *config = next;
         }
         self.desired.write().await.enabled = preferences.integration_enabled;
@@ -500,6 +511,14 @@ impl App {
             result["connectionError"] = json!(error);
         }
         Ok(result)
+    }
+
+    async fn restore_failed_pause(&self, client: &Client) {
+        if client.restore_desktop().await.is_err() {
+            // 保留原启用意愿；不把残缺注入报告为已连接，由监督循环重新建立完整连接。
+            self.clear_connection("disconnected", "暂停未完成，正在恢复原 Codex 连接…")
+                .await;
+        }
     }
 
     pub(crate) async fn sync_desktop_settings(&self, settings: &Value) {
@@ -584,6 +603,130 @@ mod connection_tests {
     use futures_util::{SinkExt, StreamExt};
     use tokio::net::TcpListener;
     use tokio_tungstenite::{accept_async, tungstenite::Message};
+
+    #[tokio::test]
+    async fn failed_pause_restores_all_scripts_or_releases_the_session() {
+        for (fail_restore, fail_cleanup) in [(false, false), (true, false), (false, true)] {
+            let temp = tempfile::tempdir().unwrap();
+            let paths = Paths::new(Some(temp.path().into())).unwrap();
+            let config = Config::default();
+            paths.save(&config).unwrap();
+            let app = App::new(paths.clone(), config, None, true);
+            let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let endpoint = format!("ws://{}", listener.local_addr().unwrap());
+            let installs = Arc::new(std::sync::Mutex::new(Vec::new()));
+            let observed = installs.clone();
+            let replies = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+            let observed_replies = replies.clone();
+            let peer = tokio::spawn(async move {
+                let (stream, _) = listener.accept().await.unwrap();
+                let mut socket = accept_async(stream).await.unwrap();
+                let mut count = 0;
+                let mut cleanup_failed = false;
+                while let Some(Ok(message)) = socket.next().await {
+                    if !message.is_text() {
+                        break;
+                    }
+                    let request: Value = serde_json::from_str(message.to_text().unwrap()).unwrap();
+                    if fail_cleanup
+                        && !cleanup_failed
+                        && request["method"] == "Page.removeScriptToEvaluateOnNewDocument"
+                    {
+                        cleanup_failed = true;
+                        socket.send(Message::Text(json!({"id":request["id"],"error":{"message":"synthetic cleanup failure"}}).to_string().into())).await.unwrap();
+                        continue;
+                    }
+                    if request["method"] == "Runtime.evaluate" {
+                        let expression = request["params"]["expression"].as_str().unwrap_or("");
+                        if expression == "synthetic post-restore binding probe" {
+                            socket.send(Message::Text(json!({"method":"Runtime.bindingCalled","params":{"name":"__companionHostRequest","executionContextId":7,"payload":json!({"id":"after-restore","path":"/stepwise/settings"}).to_string()}}).to_string().into())).await.unwrap();
+                        }
+                        if expression.starts_with("window.__companionDesktop?.complete(") {
+                            observed_replies.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                        }
+                    }
+                    let result = if request["method"] == "Page.addScriptToEvaluateOnNewDocument" {
+                        count += 1;
+                        let kind = if request["params"]["source"]
+                            .as_str()
+                            .is_some_and(|source| source.contains(crate::cdp::PANEL_SCRIPT))
+                        {
+                            "panel"
+                        } else {
+                            "model"
+                        };
+                        observed.lock().unwrap().push(kind);
+                        if fail_restore && count > 2 {
+                            socket.send(Message::Text(json!({"id":request["id"],"error":{"message":"synthetic restore failure"}}).to_string().into())).await.unwrap();
+                            continue;
+                        }
+                        json!({"identifier":count.to_string()})
+                    } else if request["method"] == "Runtime.evaluate" {
+                        json!({"result":{"value":true}})
+                    } else {
+                        json!({})
+                    };
+                    socket
+                        .send(Message::Text(
+                            json!({"id":request["id"],"result":result})
+                                .to_string()
+                                .into(),
+                        ))
+                        .await
+                        .unwrap();
+                }
+            });
+            let client = Client::connect(&endpoint).await.unwrap();
+            *app.session.write().await = Some(Session {
+                client: client.clone(),
+            });
+            client.install_desktop(Arc::downgrade(&app)).await.unwrap();
+            app.views
+                .send_modify(|view| view.connection.status = "connected".into());
+            // A directory at the atomic-save destination forces a real filesystem failure.
+            std::fs::remove_file(paths.config()).unwrap();
+            std::fs::create_dir(paths.config()).unwrap();
+            let result = app
+                .update_performance(crate::performance::Update {
+                    expected_revision: 0,
+                    integration_enabled: Some(false),
+                    monitoring_enabled: None,
+                })
+                .await;
+            assert!(result.is_err());
+            assert!(app.config.lock().await.performance.integration_enabled);
+            assert_eq!(app.config.lock().await.performance.revision, 0);
+            assert!(app.desired.read().await.enabled);
+            if fail_restore {
+                assert!(app.desktop_client().await.is_none());
+                assert_eq!(app.view().connection.status, "disconnected");
+            } else {
+                assert!(Arc::ptr_eq(&app.desktop_client().await.unwrap(), &client));
+                assert_eq!(
+                    *installs.lock().unwrap(),
+                    vec!["model", "panel", "model", "panel"]
+                );
+                assert_eq!(app.view().connection.status, "connected");
+                client
+                    .evaluate("synthetic post-restore binding probe".into())
+                    .await
+                    .unwrap();
+                tokio::time::timeout(Duration::from_secs(2), async {
+                    while replies.load(std::sync::atomic::Ordering::SeqCst) == 0 {
+                        tokio::task::yield_now().await;
+                    }
+                })
+                .await
+                .unwrap();
+                assert_eq!(replies.load(std::sync::atomic::Ordering::SeqCst), 1);
+            }
+            app.disconnect().await;
+            tokio::time::timeout(Duration::from_secs(2), peer)
+                .await
+                .unwrap()
+                .unwrap();
+        }
+    }
 
     #[tokio::test]
     async fn integration_pause_persists_without_touching_feature_data_and_monitoring_is_opt_in() {

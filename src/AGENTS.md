@@ -6,7 +6,7 @@ main → lifecycle/server；server → App；App → CDP/模型；panel 管理�
 
 panel::StartupPreferences 保存 restore/closed/open 与 inside/outside，旧配置默认 restore；save_appearance 仅保存下次启动意愿，不搬动现有窗口或影响生成修订。App::new 统一读取 panel/features/业务开关后应用一次启动状态，初始 View 使用同一有效偏好；重连和页面重载不重复应用。
 
-`performance.rs` 管理 config.performance 的独立偏好修订号与按需采样：默认集成开启、监测关闭；本机进程 CPU/物理内存使用 proc_pid_rusage，CPU 按缓存的系统 Mach 时间基准先换算纳秒，宿主指标通过短期计时租约读取；服务端至少4秒合并一次采样。`lifecycle.rs` 的普通 launch 在暂停时仅复用设置服务，不准备或重开宿主；`state.rs` 串行处理集成启停，关闭前保存内嵌草稿并确认脚本/导航注入清理，持久化暂停自动重连；后台设置、本地任务与独立提醒事项同步保留。`server.rs` 的认证 GET/POST /api/performance 提供读取/保存，GET ?sample=1 仅在监测开启时采样。`assets.rs` 按文件身份与修改时间复用 Arc 开发快照，文件替换后重新解析；release 不读取开发资源。
+`performance.rs` 管理 config.performance 的独立偏好修订号与按需采样：默认集成开启、监测关闭；本机进程 CPU/物理内存使用 proc_pid_rusage，CPU 按缓存的系统 Mach 时间基准先换算纳秒，宿主指标通过短期计时租约读取；服务端至少4秒合并一次采样。`lifecycle.rs` 的普通 launch 在暂停时仅复用设置服务，不准备或重开宿主；`state.rs` 串行处理集成启停，关闭前保存内嵌草稿并确认脚本/导航注入清理，持久化暂停自动重连；清理或配置保存失败时由 `cdp::restore_desktop` 在原连接恢复模型/额度、binding 与工作台及其后续文档注入，不重复创建请求监听器，恢复失败则释放残缺连接并沿原意愿重连；后台设置、本地任务与独立提醒事项同步保留。`server.rs` 的认证 GET/POST /api/performance 提供读取/保存，GET ?sample=1 仅在监测开启时采样。`assets.rs` 按文件身份与修改时间复用 Arc 开发快照，文件替换后重新解析；release 不读取开发资源。
 
 ui/codex 是宿主识别和写入的唯一实现，经受限请求桥请求模型；后台仅保留连接与胶囊状态摘要。HTTP 不再提供独立的建议、导航或草稿写入链。
 
@@ -41,7 +41,7 @@ panel 的 settingsAccent 默认跟随宿主，独立保存来源及自定义 #RR
 - [assets.rs](assets.rs)：正式内嵌与开发快照的资源边界；额外提供独立 Chat 大纲脚本及修订；只有 debug 程序接受显式 PALBOO_DEV_ASSETS，release 始终使用内嵌资源；debug 通过 PALBOO_DEV_SETTINGS 接收经验证的本机统一设置地址。
 
 - [chat_outline.rs](chat_outline.rs)：在已连接宿主端点独立监督官方 ChatGPT webview 的只读大纲；限定 HTTPS 官方来源，维护导航脚本和租约、开发资源修订及语言，暂停/失联/退出清理，不替换 Work 连接或安装请求绑定。
-- [cdp.rs](cdp.rs)：discover_all 只供独立 Chat 筛选复用，主连接发现仍排除 Chat webview；宿主连接基础层，被 state.rs 和 requests.rs 使用；目标发现与 Client 请求/事件/注入生命周期，内嵌共享胶囊，开发时检查胶囊归属并更新当前与导航后的脚本，将存活、显示同步和不含正文的状态摘要合并读取。
+- [cdp.rs](cdp.rs)：discover_all 只供独立 Chat 筛选复用，主连接发现仍排除 Chat webview；宿主连接基础层，被 state.rs 和 requests.rs 使用；目标发现与 Client 请求/事件/注入生命周期，内嵌共享胶囊，开发时以本进程随机标记核对实际注入对象，断线重连仅接续本进程残留，其他实例拒绝覆盖；正式模式保留旧接管语义，关闭/暂停只清理自有对象并取消等待 DOM 就绪的本实例注入；更新当前与导航后的脚本，将存活、显示同步和不含正文的状态摘要合并读取。
 - [config.rs](config.rs)：Rust 配置基础层，以 PALBOO_HOME 或 palboo 默认目录管理独立数据；Config、HostRestartPolicy（旧配置默认 ask）、Paths、默认参数及私有文件读写；Codex CLI 发现兼容新版包内 CodexCLI.app 与旧版资源路径，Finder 启动不依赖终端 PATH，显式配置仍优先。
 - [requests.rs](requests.rs)：renderer 与独立后台的受限操作边界，生成前后校验上下文；按 maxInputChars=0 传递完整最近一问一答，正数预算由 Exchange 优先保留用户问题并标记截断，生成请求豁免普通设置请求的字节上限；桌面请求分发、建议 items 转换及结果回送。
 - [host_launch.rs](host_launch.rs)：完整宿主 App 的 LaunchServices 启动与包路径识别；退出后应用记录尚未清理的 -600 最多尝试3次，间隔750/1500ms，等待前后核对唯一主进程；出现新实例即交由 lifecycle 核验连接，其他错误、身份不明和独立 profile 不重试，不退出新实例或绕过 App 启动。
@@ -148,7 +148,7 @@ settings 的 directionCatalogVersion 仅由后台维护并随常规保存持久�
 
 DesktopStatus.pageKind 接收共享宿主分类；host_page_allowed 读取旧 sidebarNewChat/sidebarDots 开关。features.scopeAllowed 与 surfaces/window 投影临时范围，桌面 scope-visible IPC 和贴边 scope_hidden 只控制可见性，不终止窗口或写回开合偏好。appearance 新增 launcherDoubleAction/launcherContextAction，默认 toggle/settings，沿原修订校验保存并与 launcherAction 一同投影宿主；config CLI 暴露同一白名单。
 
-- [app_mode.rs](app_mode.rs)：正式/开发模式私有记录、修订及跨安装/启动/切换互斥；临时 loopback 进度页在浏览器确认后交接，编译/启动失败回滚，保留两套业务数据；注册来源、完整 App 绑定与无活动 Dev 时的正式恢复。正式后台 HTTP 可用后仍等待 Codex connected（最多20秒），固定交接同时核对端点和窗口；成功才保存模式。实际模式和保存偏好不一致时允许按当前修订纠正，失败提示不预先声称已恢复。
+- [app_mode.rs](app_mode.rs)：正式/开发模式私有记录、修订及跨安装/启动/切换互斥；临时 loopback 进度页在浏览器确认后交接，编译/启动失败回滚，保留两套业务数据；注册来源、完整 App 绑定与无活动 Dev 时的正式恢复；替换来源前核对旧监督进程、owner PID、控制器及当前/会话/关联 worktree 后台；活动或损坏记录拒绝覆盖及恢复正式模式。正式后台 HTTP 可用后仍等待 Codex connected（最多20秒），固定交接同时核对端点和窗口；成功才保存模式。实际模式和保存偏好不一致时允许按当前修订纠正，失败提示不预先声称已恢复。
 
 - [app_transition.rs](app_transition.rs)：模式切换与 App 更新共用的短期 loopback 进度页；浏览器 POST 接手后才执行动作，保留旧模式 worker 的请求格式，失败可返回已恢复后台的设置地址。
 - [app_update.rs](app_update.rs) 及 [app_update/](app_update/AGENTS.md)：认证 GET `/api/app-update` 只读本地状态，POST `/api/app-update/check` 显式检查，POST `/api/app-update` 按模式修订和安装/附件身份启动独立 worker。正式模式完整 App 同卷替换、就绪/原连接确认及失败回滚；自建后台子进程按真实 PID 回收，不停止其他实例或重开宿主。清单与摘要验证见子模块，源码 CLI/Dev/不可写安装只读。

@@ -415,6 +415,52 @@ impl App {
 mod startup_tests {
     use super::*;
 
+    #[tokio::test]
+    async fn desktop_content_sizes_persist_at_the_native_minimum_and_large_sizes() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths::new(Some(dir.path().into())).unwrap();
+        write_private(
+            &paths.root.join("features.json"),
+            &serde_json::to_vec(&json!({
+                "main":{"placement":"desktop","size":[840,620]},
+                "features":{"outline":{"placement":"desktop","open":true}}
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+        let app = App::new(paths, Default::default(), None, false);
+        app.features.lock().await.main.lease = "size-fixture".into();
+        // 原生 344x364 扣除 24pt 留白后为 320x340；大尺寸仍沿用原上限。
+        for size in [[320, 340], [321, 340], [1896, 1176], [20000, 20000]] {
+            let saved = app
+                .main_surface_request(&json!({
+                    "op":"main-size","lease":"size-fixture","size":size
+                }))
+                .await
+                .unwrap();
+            assert_eq!(saved["mainWindow"]["size"], json!(size));
+            assert_eq!(Features::load(&app.paths).main.pref.size, size);
+        }
+        for size in [[300, 340], [319, 340], [320, 279], [20001, 340]] {
+            assert!(
+                app.main_surface_request(&json!({
+                    "op":"main-size","lease":"size-fixture","size":size
+                }))
+                .await
+                .is_err()
+            );
+            assert_eq!(Features::load(&app.paths).main.pref.size, [20000, 20000]);
+        }
+        assert!(
+            app.main_surface_request(&json!({
+                "op":"main-size","lease":"expired","size":[320,340]
+            }))
+            .await
+            .is_err()
+        );
+        assert_eq!(Features::load(&app.paths).main.pref.size, [20000, 20000]);
+    }
+
     #[test]
     fn startup_preserves_old_defaults_and_only_changes_enabled_main_views() {
         let dir = tempfile::tempdir().unwrap();

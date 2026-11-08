@@ -1,5 +1,5 @@
 // [INPUT]: CodexHost 官方安装、runtime descriptor、Palboo 配置、控制器兼容缓存和宿主发现。
-// [OUTPUT]: 安装/运行身份、只读预览、启停及冷启动；更新/回退先验证控制器再选择版本。
+// [OUTPUT]: 安装/运行身份、只读预览、启停及冷启动；只读核验进程与端口，不删除上游记录或终止活动/未知进程；更新/回退先验证控制器再选择版本。
 // [POS]: 独立后台功能适配；开关不退出当前会话，显式重启由独立协调进程接续；不复制上游业务或进入面板布局。
 // [PROTOCOL]: 变更时同步 codex_host/AGENTS.md。
 mod controller;
@@ -303,84 +303,88 @@ pub async fn prepare(
     Ok((executable, desktop, node, controller))
 }
 
-async fn cleanup_orphaned_controller() {
-    let root = match dirs::data_local_dir() {
-        Some(dir) => dir.join("codexhost"),
-        None => return,
-    };
-    let descriptor_path = root.join("desktop-runtime-v1.json");
-    let bytes = match std::fs::read(&descriptor_path) {
-        Ok(bytes) => bytes,
-        Err(_) => return,
-    };
-    let record: Descriptor = match serde_json::from_slice(&bytes) {
-        Ok(rec) => rec,
-        Err(_) => {
-            let _ = std::fs::remove_file(&descriptor_path);
-            return;
-        }
-    };
-    let launcher_alive = Command::new("/bin/ps")
-        .args(["-p", &record.launcher_pid.to_string(), "-o", "comm="])
-        .output()
-        .await
-        .map(|out| out.status.success())
-        .unwrap_or(false);
+fn process_alive(pid: u32) -> Result<bool> {
+    ensure!(
+        pid > 0 && pid <= i32::MAX as u32,
+        "CodexHost 进程编号无效，记录已保留"
+    );
+    // 信号 0 只检查存在性；权限不足也视为活动，不发送终止信号。
+    if unsafe { libc::kill(pid as i32, 0) } == 0 {
+        return Ok(true);
+    }
+    match std::io::Error::last_os_error().raw_os_error() {
+        Some(libc::ESRCH) => Ok(false),
+        Some(libc::EPERM) => Ok(true),
+        _ => bail!("无法确认 CodexHost 进程状态，记录已保留"),
+    }
+}
 
-    if !launcher_alive {
-        if record.control_port > 0 {
-            if let Ok(listening) = Command::new("/usr/sbin/lsof")
-                .args([
-                    "-nP",
-                    &format!("-iTCP:{}", record.control_port),
-                    "-sTCP:LISTEN",
-                    "-t",
-                ])
-                .output()
-                .await
-            {
-                for pid_str in String::from_utf8_lossy(&listening.stdout).lines() {
-                    if let Ok(pid) = pid_str.trim().parse::<i32>() {
-                        let details = Command::new("/bin/ps")
-                            .args(["-p", &pid.to_string(), "-o", "args="])
-                            .output()
-                            .await
-                            .map(|out| String::from_utf8_lossy(&out.stdout).to_string())
-                            .unwrap_or_default();
-                        if details.contains("desktop-controller") || details.contains("codexhost") {
-                            unsafe {
-                                libc::kill(pid, libc::SIGTERM);
-                            }
-                        }
-                    }
-                }
-            }
+fn check_controller_records(descriptor_path: &Path, store_lock: &Path) -> Result<()> {
+    let read = |path: &Path| -> Result<Option<Vec<u8>>> {
+        match std::fs::read(path) {
+            Ok(bytes) => Ok(Some(bytes)),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(error) => Err(error.into()),
         }
-        let _ = std::fs::remove_file(&descriptor_path);
+    };
+    let descriptor_bytes = read(descriptor_path)?;
+    let lock_bytes = read(store_lock)?;
+    let descriptor = descriptor_bytes
+        .as_deref()
+        .map(serde_json::from_slice::<Descriptor>)
+        .transpose()
+        .context("CodexHost 运行记录损坏，未清理")?;
+    if let Some(record) = &descriptor {
+        ensure!(
+            record.schema_version == 1
+                && record.control_port > 0
+                && record.nonce.len() == 32
+                && record.nonce.bytes().all(|b| b.is_ascii_hexdigit()),
+            "CodexHost 运行身份无法确认，未清理"
+        );
+        ensure!(
+            !process_alive(record.launcher_pid)?,
+            "CodexHost 启动器仍在运行，请等待正常退出后重试"
+        );
     }
-    if let Some(home) = dirs::home_dir() {
-        let store_lock = home.join(".codexhost/mapping-store/store.lock");
-        if store_lock.exists() {
-            if let Ok(content) = std::fs::read_to_string(&store_lock) {
-                if let Ok(val) = serde_json::from_str::<Value>(&content) {
-                    if let Some(pid) = val.get("pid").and_then(|v| v.as_i64()) {
-                        let details = Command::new("/bin/ps")
-                            .args(["-p", &pid.to_string(), "-o", "args="])
-                            .output()
-                            .await
-                            .map(|out| String::from_utf8_lossy(&out.stdout).to_string())
-                            .unwrap_or_default();
-                        if details.contains("codexhost") || details.contains("host-runtime") {
-                            unsafe {
-                                libc::kill(pid as i32, libc::SIGTERM);
-                            }
-                        }
-                    }
-                }
-            }
-            let _ = std::fs::remove_file(&store_lock);
-        }
-    }
+    lock_bytes
+        .as_deref()
+        .map(|bytes| -> Result<u32> {
+            let value: Value =
+                serde_json::from_slice(bytes).context("CodexHost 存储锁损坏，未清理")?;
+            let pid = value["pid"]
+                .as_u64()
+                .and_then(|pid| u32::try_from(pid).ok())
+                .context("CodexHost 存储锁身份无法确认，未清理")?;
+            ensure!(
+                !process_alive(pid)?,
+                "CodexHost 存储锁仍由活动进程持有，请等待正常退出后重试"
+            );
+            Ok(pid)
+        })
+        .transpose()?;
+    // 无法从旧记录证明仍监听的进程归属，不接管或终止它。
+    // 只检查端口，不清理外部记录或终止进程。
+    let _port = descriptor
+        .as_ref()
+        .map(|record| {
+            std::net::TcpListener::bind(("127.0.0.1", record.control_port))
+                .context("CodexHost 控制端口仍被占用，运行记录已保留")
+        })
+        .transpose()?;
+    // 记录由上游写入，Palboo 没有其互斥锁。即使 PID 已退出，按路径删除也
+    // 可能撞上另一启动器刚写入的新记录；旧记录的恢复留给记录所属的启动器。
+    Ok(())
+}
+
+fn check_controller_state() -> Result<()> {
+    let descriptor = dirs::data_local_dir()
+        .context("无法找到应用数据目录")?
+        .join("codexhost/desktop-runtime-v1.json");
+    let store_lock = dirs::home_dir()
+        .context("无法找到用户目录")?
+        .join(".codexhost/mapping-store/store.lock");
+    check_controller_records(&descriptor, &store_lock)
 }
 
 pub async fn launch(paths: &Paths, options: &Options, app: Option<&Path>) -> Result<String> {
@@ -405,7 +409,7 @@ pub async fn launch(paths: &Paths, options: &Options, app: Option<&Path>) -> Res
         );
         return ready_endpoint(&desktop).await;
     }
-    cleanup_orphaned_controller().await;
+    check_controller_state()?;
     // Refuse to start a second controller if a previous one is still shutting down.
     ensure!(
         running().await?.is_none(),
@@ -658,6 +662,55 @@ impl App {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn controller_preflight_preserves_all_external_records() {
+        let dir = tempfile::tempdir().unwrap();
+        let descriptor = dir.path().join("runtime.json");
+        let lock = dir.path().join("store.lock");
+        let mut child = std::process::Command::new("/usr/bin/true").spawn().unwrap();
+        let dead = child.id();
+        child.wait().unwrap();
+        assert!(!process_alive(dead).unwrap());
+        let listener = std::net::TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let port = listener.local_addr().unwrap().port();
+        drop(listener);
+        let record = |pid| {
+            json!({"schema_version":1,"launcher_pid":pid,
+            "control_port":port,"nonce":"00000000000000000000000000000000"})
+            .to_string()
+        };
+        let assert_preserved = |runtime: &str, owner: &str| {
+            std::fs::write(&descriptor, runtime).unwrap();
+            std::fs::write(&lock, owner).unwrap();
+            assert!(check_controller_records(&descriptor, &lock).is_err());
+            assert_eq!(std::fs::read_to_string(&descriptor).unwrap(), runtime);
+            assert_eq!(std::fs::read_to_string(&lock).unwrap(), owner);
+        };
+        let stale_lock = json!({"pid":dead}).to_string();
+        let active_lock = json!({"pid":std::process::id()}).to_string();
+        assert_preserved(&record(std::process::id()), &stale_lock);
+        assert_preserved(&record(dead), &active_lock);
+        assert_preserved("{incomplete", &stale_lock);
+        assert_preserved(&record(dead), "{incomplete");
+        assert_preserved(&record(dead), "{\"pid\":-1}");
+        assert_preserved(&record(dead), "{\"pid\":0}");
+        // Keep the port free above so it cannot mask the process/record checks.
+        let listener = std::net::TcpListener::bind(("127.0.0.1", port)).unwrap();
+        assert_preserved(&record(dead), &stale_lock);
+        drop(listener);
+        check_controller_records(&descriptor, &lock).unwrap();
+        assert_eq!(std::fs::read_to_string(&descriptor).unwrap(), record(dead));
+        assert_eq!(std::fs::read_to_string(&lock).unwrap(), stale_lock);
+        std::fs::remove_file(&descriptor).unwrap();
+        // A missing descriptor cannot make an active storage lock stale.
+        std::fs::write(&lock, &active_lock).unwrap();
+        assert!(check_controller_records(&descriptor, &lock).is_err());
+        assert_eq!(std::fs::read_to_string(&lock).unwrap(), active_lock);
+        std::fs::write(&lock, &stale_lock).unwrap();
+        check_controller_records(&descriptor, &lock).unwrap();
+        assert_eq!(std::fs::read_to_string(&lock).unwrap(), stale_lock);
+    }
     use std::os::unix::fs::PermissionsExt;
 
     fn fixture_install(root: &Path, version: &str, desktop: &Path) -> PathBuf {

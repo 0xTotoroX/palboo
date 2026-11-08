@@ -4,7 +4,7 @@ import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: 现有设置表单、认证 API 与共用设置控件。
  * [OUTPUT]: 连接状态与操作、下次启动显示/位置和宿主启动策略、应用更新和运行模式；断线不展示过期连接消息，Dev 保留固定目标。
- * [POS]: 设置展示层，不执行后台业务或读取聊天正文。
+ * [POS]: 设置展示层；桌面连接控件独立于模型自动保存，不执行后台业务或读取聊天正文。
  * [PROTOCOL]: 变更时同步 settings/AGENTS.md。 */
 import { useState, useEffect } from 'react';
 import { ConfirmationButton, useConfirmation } from './settings-confirmation';
@@ -65,7 +65,21 @@ export function ConnectionSettings({
   return (
     <>
       {confirmation}
-      <Card tabIndex={-1} id="settings-connection" aria-labelledby="connection-title">
+      <Card
+        tabIndex={-1}
+        id="settings-connection"
+        aria-labelledby="connection-title"
+        data-settings-navigation
+        onChange={(event) => event.stopPropagation()}
+        onKeyDown={(event) => {
+          if (
+            event.key === 'Enter' &&
+            !event.nativeEvent.isComposing &&
+            event.target instanceof HTMLInputElement
+          )
+            event.preventDefault();
+        }}
+      >
         <div className="settings-section-heading">
           <h2 id="connection-title">{tr('桌面连接')}</h2>
           <span role="status" className="text-sm text-muted-foreground">

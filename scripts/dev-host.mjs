@@ -1,6 +1,6 @@
 /*
- * [INPUT]: 已安装配置、真实 Codex CDP 元数据与本机 API。
- * [OUTPUT]: 暂停时禁止准备或重开宿主；窗口选择、显式启用时使用开发配置（首次回退日常配置）委托共享宿主准备、开发配置初始化、未固定目标冷启动页面替换时重查实时宿主、安装版连接与贴边窗口暂停、按原位置恢复；新宿主已确认时归档失效旧目标或确认退出的安装版后台恢复记录，保留 API 错误原因；按调试端口定位宿主主进程，以 PID/启动时间/路径观察退出，不以断连代替进程退出。
+ * [INPUT]: 独立开发配置、已安装配置与恢复记录、真实 Codex CDP 元数据与本机 API；显式端点不受无关保存地址的格式错误影响。
+ * [OUTPUT]: 开发窗口身份绑定其保存端点，显式端点/目标优先；暂停时禁止准备或重开宿主；窗口选择、显式启用时使用开发配置（首次回退日常配置）委托共享宿主准备、开发配置初始化、未固定目标冷启动页面替换时重查实时宿主、安装版连接与贴边窗口暂停、按原位置恢复；新宿主已确认时归档失效旧目标或确认退出的安装版后台恢复记录，保留 API 错误原因；按调试端口定位宿主主进程，以 PID/启动时间/路径观察退出，不以断连代替进程退出。
  * [POS]: 真实宿主开发边界；不启动浏览器、不记录聊天、不修改官方应用。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -192,8 +192,10 @@ export async function inspectHost(target) {
     socket.onerror = () => finish(new Error('无法连接宿主调试窗口'));
   });
 }
-export async function findHost(source, options = {}) {
+export async function findHost(source, options = {}, settingsDirectory = source) {
   const config = readJson(join(source, 'config.json'), {});
+  const development =
+    settingsDirectory === source ? null : readJson(join(settingsDirectory, 'config.json'), {});
   const installation = readJson(join(source, 'runtime.json'));
   let state;
   if (installation) {
@@ -201,21 +203,41 @@ export async function findHost(source, options = {}) {
       state = await requestRuntime(installation, 'state');
     } catch {}
   }
-  const endpoints = options.cdp
-    ? [endpointUrl(options.cdp)]
-    : [
-        ...new Set(
-          [
-            state?.connection.endpoint,
-            config.cdpEndpoint,
-            'http://127.0.0.1:9229',
-            'http://127.0.0.1:9231',
-            'http://127.0.0.1:9329',
-          ]
-            .filter(Boolean)
-            .map(endpointUrl),
-        ),
-      ];
+  const explicitEndpoint = options.cdp ? endpointUrl(options.cdp) : null;
+  const savedEndpoint = (value) => {
+    if (!value) return null;
+    try {
+      return endpointUrl(value);
+    } catch (error) {
+      // 显式地址可恢复坏配置，但只有有效的同端点地址才可继承窗口身份。
+      if (explicitEndpoint) return null;
+      throw error;
+    }
+  };
+  const developmentEndpoint = savedEndpoint(development?.cdpEndpoint);
+  const installedEndpoint = savedEndpoint(state?.connection?.endpoint);
+  const configuredEndpoint = savedEndpoint(config.cdpEndpoint);
+  // 保存的开发窗口只属于这个端点；端口失效时，不能自动接管其他端口的窗口。
+  const boundDevelopment = developmentEndpoint && development.targetId && !options.target;
+  const endpoints = explicitEndpoint
+    ? [explicitEndpoint]
+    : boundDevelopment
+      ? [developmentEndpoint]
+      : [
+          ...new Set(
+            [
+              developmentEndpoint,
+              installedEndpoint,
+              configuredEndpoint,
+              'http://127.0.0.1:9229',
+              'http://127.0.0.1:9231',
+              'http://127.0.0.1:9329',
+            ]
+              .filter(Boolean)
+              .map(endpointUrl),
+          ),
+        ];
+  let sawTargets = false;
   for (const endpoint of endpoints) {
     let targets;
     try {
@@ -225,9 +247,16 @@ export async function findHost(source, options = {}) {
       continue;
     }
     if (!targets.length) continue;
-    const preferred = options.target || state?.connection.targetId || config.targetId;
+    sawTargets = true;
+    const preferred =
+      options.target ||
+      (endpoint === developmentEndpoint ? development.targetId : null) ||
+      (endpoint === installedEndpoint ? state.connection.targetId : null) ||
+      (endpoint === configuredEndpoint || (!config.cdpEndpoint && !development)
+        ? config.targetId
+        : null);
     let target = targets.find((target) => target.id === preferred);
-    if (options.target && !target) throw new Error('指定的真实 Codex 窗口不存在。');
+    if (options.target && !target) continue;
     if (!target && targets.length === 1) target = targets[0];
     if (!target) {
       const focused = await Promise.all(
@@ -248,6 +277,7 @@ export async function findHost(source, options = {}) {
       ...(options.target ? { pinnedTarget: true } : {}),
     };
   }
+  if (options.target && sawTargets) throw new Error('指定的真实 Codex 窗口不存在。');
   throw Object.assign(
     new Error(
       '没有找到可调试的真实 Codex。请通过现有 Palboo 启动入口打开 Codex，再运行 npm run dev；已有端口可用 --cdp 指定。不会打开示例页面或另建 ChatGPT 实例。',
@@ -265,7 +295,7 @@ export async function findDevelopmentHost(
   const paused = settings.performance?.integrationEnabled === false;
   let host;
   try {
-    host = await findHost(source, options);
+    host = await findHost(source, options, settingsDirectory);
   } catch (error) {
     // Never turn an ambiguous/explicit target selection failure into a host restart.
     if (
@@ -277,7 +307,7 @@ export async function findDevelopmentHost(
     )
       throw error;
     const endpoint = endpointUrl((await prepareHost()).trim());
-    return findHost(source, { ...options, cdp: endpoint });
+    return findHost(source, { ...options, cdp: endpoint }, settingsDirectory);
   }
   if (
     !paused &&
@@ -287,7 +317,7 @@ export async function findDevelopmentHost(
     !options.target
   ) {
     const endpoint = endpointUrl((await prepareHost()).trim());
-    return findHost(source, { ...options, cdp: endpoint });
+    return findHost(source, { ...options, cdp: endpoint }, settingsDirectory);
   }
   return host;
 }

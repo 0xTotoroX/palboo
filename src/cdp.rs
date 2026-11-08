@@ -1,5 +1,5 @@
 // [INPUT]: 本机 CDP 端点、WebSocket、assets 胶囊脚本与受限 binding。
-// [OUTPUT]: 全目标只读发现供 Chat 独立筛选，主 Work 目标范围不变； 目标发现、无正文设置外观采样、Client 请求/事件/注入及开发实例归属检查及宿主窗口只读逻辑坐标；独立模型及额度适配器的文档生命周期与有界执行。
+// [OUTPUT]: 全目标只读发现供 Chat 独立筛选，主 Work 目标范围不变； 目标发现、无正文设置外观采样、Client 请求/事件/注入及开发实例归属检查及宿主窗口只读逻辑坐标；独立模型及额度适配器的文档生命周期与有界执行；暂停失败恢复完整脚本，开发重连仅回收本进程注入对象、正式注入保留接管语义，关闭只清理本实例。
 // [POS]: 宿主连接基础层，被 state.rs 和 requests.rs 使用。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
@@ -74,6 +74,75 @@ fn is_codex_target(target: &Target, allow_fixture: bool) -> bool {
 }
 
 type Pending = Arc<Mutex<HashMap<u64, oneshot::Sender<Result<Value, String>>>>>;
+
+// 归属只存于本进程和实际注入对象；跨连接恢复不复用其他进程或旧全局标记。
+fn desktop_owner() -> &'static str {
+    static OWNER: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    OWNER.get_or_init(|| uuid::Uuid::new_v4().to_string())
+}
+
+const DESKTOP_AVAILABLE: &str = r#"![window.__companionDesktop, window.__companionFloatingPanel, window.__palbooModelControl].some(api => api && api.__palbooOwner !== __PALBOO_OWNER__)"#;
+const DESKTOP_CLEANUP: &str = r#"(() => {
+  const pending = window.__palbooPendingDesktop, owner = __PALBOO_OWNER__;
+  pending?.get(owner)?.abort();
+  pending?.delete(owner);
+  if (pending?.size === 0) delete window.__palbooPendingDesktop;
+  if (!(__PALBOO_AVAILABLE__)) return false;
+  window.__companionDesktop?.destroy(); window.__companionFloatingPanel?.destroy(); window.__palbooModelControl?.dispose();
+  return true;
+})()"#;
+
+const OWNED_SCRIPT: &str = r#"(() => {
+  const owner = __PALBOO_OWNER__;
+  const install = () => {
+    if (__PALBOO_PROTECT__ && !(__PALBOO_AVAILABLE__)) throw new Error('目标窗口已有其他胶囊实例，未覆盖它');
+    const before = [window.__companionDesktop, window.__companionFloatingPanel, window.__palbooModelControl];
+    try {
+      __PALBOO_SOURCE__
+    } finally {
+      // 即使后续初始化抛错，也保留已创建对象的真实归属。
+      [window.__companionDesktop, window.__companionFloatingPanel, window.__palbooModelControl].forEach((api, index) => {
+        if (api && api !== before[index]) Object.defineProperty(api, '__palbooOwner', {value: owner});
+      });
+    }
+  };
+  // 面板本身也等待 DOMContentLoaded；在其真正执行前重新校验并标记对象。
+  if (__PALBOO_PANEL__ && document.readyState === 'loading') {
+    const pending = window.__palbooPendingDesktop ||= new Map();
+    pending.get(owner)?.abort();
+    const controller = new AbortController();
+    pending.set(owner, controller);
+    document.addEventListener('DOMContentLoaded', () => {
+      pending.delete(owner);
+      if (!pending.size && window.__palbooPendingDesktop === pending) delete window.__palbooPendingDesktop;
+      install();
+    }, {once: true, signal: controller.signal});
+  } else install();
+  return true;
+})()"#;
+
+fn desktop_available() -> String {
+    DESKTOP_AVAILABLE.replace("__PALBOO_OWNER__", &json!(desktop_owner()).to_string())
+}
+
+fn owned_script(source: &str, panel: bool, protect_existing: bool) -> String {
+    OWNED_SCRIPT
+        .replace("__PALBOO_AVAILABLE__", DESKTOP_AVAILABLE)
+        .replace("__PALBOO_OWNER__", &json!(desktop_owner()).to_string())
+        .replace("__PALBOO_PANEL__", if panel { "true" } else { "false" })
+        .replace(
+            "__PALBOO_PROTECT__",
+            if protect_existing { "true" } else { "false" },
+        )
+        .replace("__PALBOO_SOURCE__", source)
+}
+
+fn desktop_cleanup() -> String {
+    DESKTOP_CLEANUP
+        .replace("__PALBOO_AVAILABLE__", &desktop_available())
+        .replace("__PALBOO_OWNER__", &json!(desktop_owner()).to_string())
+}
+
 enum Outbound {
     Request(Value),
     Close,
@@ -89,6 +158,8 @@ pub struct Client {
     model_control_script_id: Mutex<Option<String>>,
     dev_revision: Mutex<String>,
     desktop_installed: AtomicBool,
+    // 仅开发连接拒绝接管其他实例；正式模式保留旧版本及崩溃残留的既有接管语义。
+    protect_existing: bool,
 }
 
 impl Client {
@@ -122,6 +193,7 @@ impl Client {
             model_control_script_id: Mutex::new(None),
             dev_revision: Mutex::new(String::new()),
             desktop_installed: AtomicBool::new(false),
+            protect_existing: crate::assets::development().is_some(),
         });
         tokio::spawn(async move {
             loop {
@@ -239,7 +311,7 @@ impl Client {
         typography: Value,
     ) -> Result<Value> {
         if let Some(dev) = crate::assets::development() {
-            if self.evaluate("Boolean(window.__companionFloatingPanel && !window.__companionFloatingPanel.development)".into()).await? == true {
+            if self.evaluate(desktop_available()).await? != true {
                 bail!("窗口已由其他胶囊接管，开发版停止覆盖");
             }
             let mut revision = self.dev_revision.lock().await;
@@ -252,14 +324,15 @@ impl Client {
                     )
                     .await?;
                 }
+                let script = owned_script(&dev.script, true, true);
                 let result = self
                     .request(
                         "Page.addScriptToEvaluateOnNewDocument",
-                        json!({"source":dev.script}),
+                        json!({"source":script}),
                     )
                     .await?;
                 *installed = result["identifier"].as_str().map(str::to_owned);
-                self.evaluate(dev.script.clone()).await?;
+                self.evaluate(script).await?;
                 *revision = dev.revision.clone();
             }
         }
@@ -268,7 +341,12 @@ impl Client {
         );
         let mut value = self.evaluate(expression.clone()).await?;
         if value.is_null() {
-            self.evaluate(crate::assets::panel_script()).await?;
+            self.evaluate(owned_script(
+                &crate::assets::panel_script(),
+                true,
+                self.protect_existing,
+            ))
+            .await?;
             value = self.evaluate(expression).await?;
         }
         Ok(value)
@@ -278,32 +356,12 @@ impl Client {
         self: &Arc<Self>,
         app: std::sync::Weak<crate::state::App>,
     ) -> Result<()> {
-        if crate::assets::development().is_some()
-            && self
-                .evaluate("Boolean(window.__companionDesktop)".into())
-                .await?
-                == true
-        {
-            bail!("目标窗口已有胶囊实例，开发版未覆盖它");
+        if self.protect_existing && self.evaluate(desktop_available()).await? != true {
+            bail!("目标窗口已有其他胶囊实例，未覆盖它");
         }
         self.request("Runtime.enable", json!({})).await?;
         self.request("Page.enable", json!({})).await?;
-        let model_script = concat!(
-            include_str!("../ui/codex/codex-host.js"),
-            "\n",
-            include_str!("../ui/codex/model.js"),
-            "\n",
-            include_str!("../ui/codex/model-usage.js")
-        );
-        let installed_model = self
-            .request(
-                "Page.addScriptToEvaluateOnNewDocument",
-                json!({"source":model_script}),
-            )
-            .await?;
-        *self.model_control_script_id.lock().await =
-            installed_model["identifier"].as_str().map(str::to_owned);
-        self.evaluate(model_script.into()).await?;
+        self.install_model_script().await?;
         self.request(
             "Runtime.addBinding",
             json!({"name":"__companionHostRequest"}),
@@ -317,19 +375,70 @@ impl Client {
             .take()
             .context("桌面连接已经安装")?;
         crate::requests::listen(Arc::downgrade(self), app, events);
-        let installed = self
+        self.install_panel_script().await
+    }
+
+    async fn install_model_script(&self) -> Result<()> {
+        let model_script = concat!(
+            include_str!("../ui/codex/codex-host.js"),
+            "\n",
+            include_str!("../ui/codex/model.js"),
+            "\n",
+            include_str!("../ui/codex/model-usage.js")
+        );
+        let model_script = owned_script(model_script, false, self.protect_existing);
+        let installed_model = self
             .request(
                 "Page.addScriptToEvaluateOnNewDocument",
-                json!({"source":crate::assets::panel_script()}),
+                json!({"source":model_script}),
             )
             .await?;
-        *self.script_id.lock().await = installed["identifier"].as_str().map(str::to_owned);
-        self.evaluate(crate::assets::panel_script()).await?;
+        *self.model_control_script_id.lock().await =
+            installed_model["identifier"].as_str().map(str::to_owned);
+        self.evaluate(model_script).await?;
         Ok(())
     }
 
+    async fn install_panel_script(&self) -> Result<()> {
+        let script = owned_script(&crate::assets::panel_script(), true, self.protect_existing);
+        let installed = self
+            .request(
+                "Page.addScriptToEvaluateOnNewDocument",
+                json!({"source":script}),
+            )
+            .await?;
+        *self.script_id.lock().await = installed["identifier"].as_str().map(str::to_owned);
+        self.evaluate(script).await?;
+        Ok(())
+    }
+
+    pub(crate) async fn restore_desktop(&self) -> Result<()> {
+        // 同一连接的 binding 事件监听器仍然有效；只恢复脚本，不再接管事件接收器。
+        for installed in [&self.script_id, &self.model_control_script_id] {
+            let mut identifier = installed.lock().await;
+            if let Some(value) = identifier.as_ref() {
+                self.request(
+                    "Page.removeScriptToEvaluateOnNewDocument",
+                    json!({"identifier":value}),
+                )
+                .await?;
+                *identifier = None;
+            }
+        }
+        self.install_model_script().await?;
+        self.request(
+            "Runtime.addBinding",
+            json!({"name":"__companionHostRequest"}),
+        )
+        .await?;
+        self.install_panel_script().await
+    }
+
     pub(crate) async fn suspend_desktop(&self) -> Result<()> {
-        self.evaluate("window.__companionDesktop?.destroy(); window.__companionFloatingPanel?.destroy(); window.__palbooModelControl?.dispose(); true".into()).await?;
+        anyhow::ensure!(
+            self.evaluate(desktop_cleanup()).await? == true,
+            "目标窗口归属已变化，未清理其他实例"
+        );
         for installed in [&self.script_id, &self.model_control_script_id] {
             let mut identifier = installed.lock().await;
             if let Some(value) = identifier.as_ref() {
@@ -348,32 +457,23 @@ impl Client {
 
     pub async fn close(&self) {
         if !self.is_closed() {
-            if let Some(identifier) = self.model_control_script_id.lock().await.take() {
-                let _ = self
-                    .evaluate("window.__palbooModelControl?.dispose(); true".into())
-                    .await;
-                let _ = self
-                    .request(
-                        "Page.removeScriptToEvaluateOnNewDocument",
-                        json!({"identifier":identifier}),
-                    )
-                    .await;
+            let installed = self.desktop_installed.swap(false, Ordering::SeqCst);
+            let owned = if installed || self.model_control_script_id.lock().await.is_some() {
+                self.evaluate(desktop_cleanup()).await.ok() == Some(json!(true))
+            } else {
+                false
+            };
+            for script in [&self.model_control_script_id, &self.script_id] {
+                if let Some(identifier) = script.lock().await.take() {
+                    let _ = self
+                        .request(
+                            "Page.removeScriptToEvaluateOnNewDocument",
+                            json!({"identifier":identifier}),
+                        )
+                        .await;
+                }
             }
-            if let Some(identifier) = self.script_id.lock().await.take() {
-                let _ = self
-                    .request(
-                        "Page.removeScriptToEvaluateOnNewDocument",
-                        json!({"identifier":identifier}),
-                    )
-                    .await;
-            }
-            let owned = self.desktop_installed.swap(false, Ordering::SeqCst)
-                && (crate::assets::development().is_none()
-                    || self.evaluate("!window.__companionFloatingPanel || window.__companionFloatingPanel.development === true".into()).await.ok() == Some(json!(true)));
-            if owned {
-                let _ = self
-                    .evaluate("window.__companionDesktop?.destroy(); true".into())
-                    .await;
+            if installed && owned {
                 let _ = self
                     .request(
                         "Runtime.removeBinding",
@@ -395,6 +495,95 @@ impl Drop for Client {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn reconnect_recovers_owned_page_after_lost_restore_reply_and_rejects_foreign() {
+        use std::process::Stdio;
+        use tokio::io::{AsyncBufReadExt, BufReader};
+
+        // Node 夹具在隔离 Chromium 中执行真实脚本，再丢弃恢复应答；不连接真实宿主。
+        let mut peer = tokio::process::Command::new("node")
+            .arg("tests/cdp-ownership-peer.mjs")
+            .current_dir(env!("CARGO_MANIFEST_DIR"))
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::inherit())
+            .kill_on_drop(true)
+            .spawn()
+            .unwrap();
+        let mut stdout = BufReader::new(peer.stdout.take().unwrap());
+        let mut endpoint = String::new();
+        tokio::time::timeout(Duration::from_secs(20), stdout.read_line(&mut endpoint))
+            .await
+            .unwrap()
+            .unwrap();
+        let mut first = Client::connect(endpoint.trim()).await.unwrap();
+        // 独立测试选择开发保护，不修改影响并行用例的进程环境变量。
+        Arc::get_mut(&mut first).unwrap().protect_existing = true;
+        first.install_desktop(std::sync::Weak::new()).await.unwrap();
+        first.suspend_desktop().await.unwrap();
+        first
+            .request("Fixture.dropAfterNextPanel", json!({}))
+            .await
+            .unwrap();
+        assert!(first.restore_desktop().await.is_err());
+        assert!(first.is_closed());
+        first.close().await;
+
+        let mut second = Client::connect(endpoint.trim()).await.unwrap();
+        Arc::get_mut(&mut second).unwrap().protect_existing = true;
+        assert_eq!(
+            second
+                .evaluate("window.__companionDesktop.__palbooOwner".into())
+                .await
+                .unwrap(),
+            desktop_owner()
+        );
+        second
+            .install_desktop(std::sync::Weak::new())
+            .await
+            .unwrap();
+        assert_eq!(second.evaluate(desktop_available()).await.unwrap(), true);
+        second.evaluate("window.__companionDesktop = {__palbooOwner:'foreign', destroy(){window.foreignDestroyed=true}}; true".into()).await.unwrap();
+        // 旧连接关闭也不能销毁已被其他实例替换的对象。
+        second.close().await;
+        let mut third = Client::connect(endpoint.trim()).await.unwrap();
+        Arc::get_mut(&mut third).unwrap().protect_existing = true;
+        assert!(third.install_desktop(std::sync::Weak::new()).await.is_err());
+        assert_eq!(
+            third
+                .evaluate("Boolean(window.foreignDestroyed)".into())
+                .await
+                .unwrap(),
+            false
+        );
+        third.close().await;
+        // 正式模式仍按已有流程接管旧实例；只有 close/suspend 保持严格归属清理。
+        let mut release = Client::connect(endpoint.trim()).await.unwrap();
+        Arc::get_mut(&mut release).unwrap().protect_existing = false;
+        release
+            .install_desktop(std::sync::Weak::new())
+            .await
+            .unwrap();
+        assert_eq!(release.evaluate(desktop_available()).await.unwrap(), true);
+        assert_eq!(
+            release
+                .evaluate("Boolean(window.foreignDestroyed)".into())
+                .await
+                .unwrap(),
+            true
+        );
+        release.close().await;
+        drop(peer.stdin.take());
+        assert!(
+            tokio::time::timeout(Duration::from_secs(10), peer.wait())
+                .await
+                .unwrap()
+                .unwrap()
+                .success()
+        );
+    }
+
     #[test]
     fn excludes_avatar_and_unrelated_pages() {
         let target = |url: &str| Target {

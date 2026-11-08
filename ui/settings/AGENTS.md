@@ -24,7 +24,7 @@
 - [direction-settings.tsx](direction-settings.tsx)：主页面统一展示生成时机、方向来源和有序名称列表；整行原生拖动排序显示插入线，落点确认才保存，取消或未改变顺序不写入，保留 Alt+上下方向键及移动后的焦点，行内只显示移除按钮；方向库为标题右侧的轻入口，选择方向使用独立小面板，Jev 同意及凭据只在智能模式下直接显示，仍共用模型保存队列。
 - [direction-picker.tsx](direction-picker.tsx)：排除已选项的小型分类选择面板，优先可选自定义方向，搜索跨内置和自定义名称/说明；点选只追加已有 ID，编辑留在方向库。支持键盘选择、Esc 返回、外点/移出焦点关闭、上下避让与内部滚动；页面滚动时重新计算避让，入口离开视口后关闭，避免点击入口后的滚动事件误关面板；导航和搜索不触发表单保存。
 - [direction-library.tsx](direction-library.tsx)：单个右侧抽屉中的“内置方向 / 我的方向”目录，选择条目后进入名称/说明编辑，返回恢复目录焦点与滚动；字段持续挂载，关闭与分级导航不触发保存。后台只读目录确定来源，修改过的内置文案可恢复默认并保留勾选及顺序。无效字段及深链接通过 detail-reveal 事件同步打开对应条目；私有条目名称不进入全局设置搜索。
-- [connection-settings.tsx](connection-settings.tsx)：依次展示桌面连接、启动行为、应用更新和运行模式；连接状态就近显示，不重复挂概览卡。断线隐藏旧成功消息，Dev 固定启动时的目标，重连和断开不提交模型表单。
+- [connection-settings.tsx](connection-settings.tsx)：依次展示桌面连接、启动行为、应用更新和运行模式；连接状态就近显示，不重复挂概览卡。断线隐藏旧成功消息，Dev 固定启动时的目标，重连和断开不提交模型表单；连接输入失焦与目标选择也不冒泡到模型自动保存，端口输入的 Enter 不提交模型表单。
 - [use-settings-form.ts](use-settings-form.ts)：模型及两套独立密钥的草稿、修订校验、保存队列及在途编辑合并；记录编辑来源并在请求期间固定反馈位置；大纲、下一步与常用语开关单独提交，不携带其他字段或密钥草稿；删除 API 密钥复用串行队列，仅发送 clearApiKey 与修订号，不携带其他草稿或将删除意图留在自动保存中；导出 SettingsEditor 供展示模块组合。
 - [panel-settings.tsx](panel-settings.tsx)：有效旧字段的分区适配；下一步显示及推荐指令点击行为，常用语未独立选择模式时兼容继承、按窗口的字体族、跟随来源、比例及固定字号、侧栏宽度以整数显示和提交，仅读取/聚焦不改写已有小数几何；桌面置顶逐项保存；旧 fontOffset 作为大纲与下一步的兼容回退。不再编辑旧 dockLayout/popoutLayout、位置或主题。
 - [feature-settings.tsx](feature-settings.tsx)：唯一主界面形式、每个功能加入主界面或贴边、四功能布局；与工作台共用 resolveFeatureLayout 读取旧布局，嵌套布局显示为自定义分栏、预设重排保留全部叶子功能，通过 main-layout 校验原快照后保存，未读取配置前禁用操作。
@@ -199,7 +199,7 @@ use-host-appearance 分别使用宿主 primary/navSelected/segmented/switchOn �
 
 use-host-fonts 是 shared/host-fonts 的 React 文档适配器，settings/api 提供认证 HostFontSource，供设置与独立窗口入口共用；有效字体族未变时不重复加载，销毁回收自有字形。字体与字号表单、外观修订和保存范围不变。
 
-- `web-library-settings.tsx` / `web-library-settings.css`：阅读与网页功能开关、列表增删改/搜索/排序及独立修订；功能预览固定在页面标题之后、配置之前。预览复用真实 SitesView，仅在内存操作；onSnapshot 与 previewActive 向布局/外观共享一次读取结果。配置先显示文件夹列表，再显示网站列表，细节表单复用保留草稿的共用抽屉。
+- `web-library-settings.tsx` / `web-library-settings.css`：阅读与网页功能开关、列表增删改/搜索/排序及独立修订；功能预览固定在页面标题之后、配置之前。预览复用真实 SitesView，仅在内存操作；onSnapshot 与 previewActive 向布局/外观共享一次读取结果。配置先显示文件夹列表，再显示网站列表，细节表单复用保留草稿的共用抽屉。网站草稿绑定原网站列表快照与修订，远端变更保留草稿并拒绝覆盖，允许重新载入或取消；仅文件夹/开关变更可沿用未变化的网站快照。
 - `reader-folder-settings.tsx`：多个笔记文件夹的添加/命名/编辑/移除与独立打开；检测到的 Obsidian 名单和系统选择器只填草稿，保存完整 folders 数组并校验原修订；关闭/切页/错误保留草稿，切换编辑对象前确认丢弃。附件授权属于各自文件夹，移除入口不删除原文件；旧单目录配置继续可读写。
 - `reader.html`：独立阅读网页构建入口，由 reader 服务单独提供，不复用设置页认证。
 

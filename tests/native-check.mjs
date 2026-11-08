@@ -913,7 +913,7 @@ try {
         [924, 824],
         [664, 564],
         [524, 624],
-        [324, 464],
+        [344, 464],
       ]) {
         await command({ kind: 'viewport', width, height });
         await waitFor(
@@ -926,7 +926,7 @@ try {
           'native workbench viewport resize',
         );
         const resized = assertLayout();
-        if (width === 324) {
+        if (width === 344) {
           const viewport = resized.panesViewport;
           await command({ kind: 'panes-scroll', top: viewport.scrollHeight });
           await waitFor(

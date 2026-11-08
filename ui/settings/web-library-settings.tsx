@@ -1,6 +1,6 @@
 /* [INPUT]: Local revisioned website/vault grants and existing settings controls/preview.
  * [OUTPUT]: Preview-first settings, visible folders/sites and retained detail editors.
- * [POS]: Settings only; user drafts survive failures, previews never navigate or read notes.
+ * [POS]: Settings only; drafts bind a website snapshot/revision and survive conflicts; previews never navigate or read notes.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { useEffect, useRef, useState } from 'react';
 import { request } from './api';
@@ -19,6 +19,8 @@ import { titles } from '../shared/features';
 import type { Site, WebLibrary } from '../shared/web-library';
 import { Icon } from '../shared/icons/react';
 import './web-library-settings.css';
+const emptySite = (): Site => ({ id: '', name: '', url: '' });
+const siteSignature = (value: WebLibrary) => JSON.stringify(value.sites);
 function configuration(value: unknown): WebLibrary {
   const data = value as WebLibrary | null;
   if (
@@ -86,7 +88,8 @@ export function WebLibrarySettings({
   useLocale();
   const [state, setState] = useState<WebLibrary | null>(null);
   useEffect(() => onSnapshot?.(state), [state, onSnapshot]);
-  const [site, setSite] = useState<Site>({ id: '', name: '', url: '' });
+  const [site, setSite] = useState<Site>(emptySite);
+  const siteDraft = useRef<{ revision: number; signature: string } | null>(null);
   const [filter, setFilter] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -97,6 +100,49 @@ export function WebLibrarySettings({
     const next = configuration(value);
     setState((previous) => ({ ...previous, ...next }));
     return next;
+  }
+  function loadSite(value?: Site) {
+    siteDraft.current = null;
+    setError('');
+    setSite(value ? { ...value } : emptySite());
+  }
+  useEffect(() => {
+    if (!state) return;
+    if (siteDraft.current) {
+      // 网站内容未变时，文件夹或开关的独立保存不使网站草稿过期。
+      if (
+        siteDraft.current.signature === siteSignature(state) &&
+        siteDraft.current.revision !== state.revision
+      ) {
+        siteDraft.current.revision = state.revision;
+        setSite((previous) => ({ ...previous }));
+      }
+    } else if (site.id) {
+      const saved = state.sites.find((value) => value.id === site.id);
+      setSite(saved ? { ...saved } : emptySite());
+    }
+  }, [state]);
+  function editSite(patch: Partial<Site>) {
+    if (state && !siteDraft.current)
+      siteDraft.current = { revision: state.revision, signature: siteSignature(state) };
+    setSite((previous) => ({ ...previous, ...patch }));
+  }
+  function startSite(value: Site) {
+    const show = () => {
+      loadSite(value);
+      if (siteName.current) revealSettingsDrawer(siteName.current);
+    };
+    if (siteDraft.current) {
+      if (site.id === value.id) {
+        if (siteName.current) revealSettingsDrawer(siteName.current);
+      } else {
+        confirmation.confirm({
+          title: tr('放弃未保存的修改？'),
+          description: site.name || site.url,
+          action: show,
+        });
+      }
+    } else show();
   }
   useEffect(() => {
     if (!live || (!active && !previewActive && !enablementTarget)) return;
@@ -152,6 +198,7 @@ export function WebLibrarySettings({
     }
   }
   const disabled = !live || !state || busy;
+  const siteConflict = !!siteDraft.current && siteDraft.current.revision !== state?.revision;
   return (
     <>
       <FeatureSwitch
@@ -203,7 +250,7 @@ export function WebLibrarySettings({
                     key={preset.url}
                     variant="outline"
                     disabled={disabled}
-                    onClick={() => setSite({ id: '', ...preset })}
+                    onClick={() => editSite({ id: '', ...preset })}
                   >
                     {preset.name}
                   </Button>
@@ -212,16 +259,19 @@ export function WebLibrarySettings({
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
-                  if (!state) return;
+                  if (!state || disabled || siteConflict) return;
                   const next = { ...site, id: site.id || crypto.randomUUID() };
-                  void save({
-                    sites: site.id
-                      ? state.sites.map((s) => (s.id === site.id ? next : s))
-                      : [...state.sites, next],
-                  }).then((ok) => {
+                  void save(
+                    {
+                      sites: site.id
+                        ? state.sites.map((s) => (s.id === site.id ? next : s))
+                        : [...state.sites, next],
+                    },
+                    siteDraft.current?.revision ?? state.revision,
+                  ).then((ok) => {
                     if (ok) {
                       closeSettingsDrawers();
-                      setSite({ id: '', name: '', url: '' });
+                      loadSite();
                     }
                   });
                 }}
@@ -234,7 +284,7 @@ export function WebLibrarySettings({
                     maxLength={120}
                     required
                     disabled={disabled}
-                    onChange={(e) => setSite({ ...site, name: e.target.value })}
+                    onChange={(e) => editSite({ name: e.target.value })}
                   />
                 </Field>
                 <Field label={tr('网址')} id="website-url">
@@ -245,26 +295,40 @@ export function WebLibrarySettings({
                     required
                     disabled={disabled}
                     placeholder="https://"
-                    onChange={(e) => setSite({ ...site, url: e.target.value })}
+                    onChange={(e) => editSite({ url: e.target.value })}
                   />
                 </Field>
                 <div className="settings-actions">
+                  {siteConflict && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={disabled}
+                      onClick={() => loadSite(state?.sites.find((value) => value.id === site.id))}
+                    >
+                      {tr('重新载入设置')}
+                    </Button>
+                  )}
                   <Button
                     type="button"
                     variant="ghost"
+                    disabled={disabled}
                     onClick={() => {
                       closeSettingsDrawers();
-                      setSite({ id: '', name: '', url: '' });
+                      loadSite();
                     }}
                   >
                     {tr('取消')}
                   </Button>
-                  <Button type="submit" disabled={disabled}>
+                  <Button type="submit" disabled={disabled || siteConflict}>
                     {site.id ? tr('保存') : tr('添加网站')}
                   </Button>
                 </div>
               </form>
-              <Feedback text={error} failed />
+              <Feedback
+                text={siteConflict ? tr('设置已在其他窗口更新，当前编辑已保留。') : error}
+                failed
+              />
             </SettingsDrawer>
           </div>
           {((state?.sites.length || 0) >= 7 || filter) && (
@@ -302,10 +366,7 @@ export function WebLibrarySettings({
                         aria-label={tr('编辑{{name}}', { name: item.name })}
                         disabled={disabled}
                         variant="ghost"
-                        onClick={() => {
-                          setSite({ ...item });
-                          if (siteName.current) revealSettingsDrawer(siteName.current);
-                        }}
+                        onClick={() => startSite(item)}
                       >
                         <Icon name="pencil" />
                       </IconButton>

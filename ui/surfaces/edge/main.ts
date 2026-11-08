@@ -1,7 +1,7 @@
 import { tr } from '../../shared/i18n.js';
 import { setLocale, getLocale } from '../../shared/i18n.js';
 /* [INPUT]: Native edge geometry/events, effective fonts and feature owners. [OUTPUT]: Persisted reorderable icon tabs with stable measured wrapping, bounded dialogs and per-view header slots.
- * [POS]: Keeps mounted views alive while collapsed or in another tab; no business state.
+ * [POS]: Keeps mounted views alive while collapsed or in another tab; retries held collapse on the existing state poll; no business state.
  * [PROTOCOL]: Keep AGENTS.md in this module in sync. */
 import { createEdgeTabs } from './tabs';
 import { mountFeature } from '../workspace/mount';
@@ -44,7 +44,8 @@ export function startEdge(request: Request, fontSource?: HostFontSource) {
     leave = 0,
     measureFrame = 0,
     measured = '',
-    pointerInteraction = false;
+    pointerInteraction = false,
+    collapsePending = false;
   const navigation = createEdgeTabs(
     tabs,
     request,
@@ -105,21 +106,27 @@ export function startEdge(request: Request, fontSource?: HostFontSource) {
   function collapse() {
     clearTimeout(enter);
     clearTimeout(leave);
+    leave = 0;
+    collapsePending = false;
+    if (stopped) return;
     ipc({ action: 'collapse' });
   }
+  const canCollapse = () =>
+    !stopped &&
+    !inside &&
+    expanded &&
+    !buttons &&
+    !native.keepOpen &&
+    (!native.keyboard || pointerInteraction) &&
+    !tabs.dataset.dragging &&
+    !held();
   function scheduleCollapse() {
+    if (stopped) return;
     clearTimeout(leave);
+    collapsePending = true;
     leave = window.setTimeout(() => {
-      if (
-        !inside &&
-        expanded &&
-        !buttons &&
-        !native.keepOpen &&
-        (!native.keyboard || pointerInteraction) &&
-        !tabs.dataset.dragging &&
-        !held()
-      )
-        collapse();
+      leave = 0;
+      if (canCollapse()) collapse();
     }, 450);
   }
   function visibility() {
@@ -238,9 +245,15 @@ export function startEdge(request: Request, fontSource?: HostFontSource) {
     }
   }
   window.addEventListener('edge-native', (event) => {
+    if (stopped) return;
     native = (event as CustomEvent).detail;
     expanded = !!native.expanded;
-    if (!expanded) pointerInteraction = false;
+    if (!expanded) {
+      pointerInteraction = false;
+      collapsePending = false;
+      clearTimeout(leave);
+      leave = 0;
+    }
     window.__buddyNativeSurface = true;
     window.__buddyNativeGlass = !!native.nativeGlassAvailable;
     panel.style.left = `${native.layoutX || 0}px`;
@@ -279,12 +292,15 @@ export function startEdge(request: Request, fontSource?: HostFontSource) {
     }
   });
   window.addEventListener('edge-pointer', (event) => {
+    if (stopped) return;
     const detail = (event as CustomEvent).detail;
     inside = detail.inside;
     buttons = detail.buttons;
     clearTimeout(enter);
     if (inside) {
       clearTimeout(leave);
+      leave = 0;
+      collapsePending = false;
       if (!expanded && !detail.hoverSuppressed && !buttons)
         enter = window.setTimeout(() => ipc({ action: 'expand', keyboard: false }), 100);
     } else scheduleCollapse();
@@ -303,11 +319,16 @@ export function startEdge(request: Request, fontSource?: HostFontSource) {
     if (event.key === 'Escape' && !held()) collapse();
   });
   void refresh();
-  const timer = setInterval(() => void refresh(), 600);
+  const timer = setInterval(() => {
+    void refresh();
+    // 业务忙碌、编辑或拖动结束后重试；复用低频回读，不另建持续计时器。
+    if (collapsePending && !leave && canCollapse()) scheduleCollapse();
+  }, 600);
   window.addEventListener(
     'pagehide',
     () => {
       stopped = true;
+      collapsePending = false;
       fonts?.destroy();
       clearInterval(timer);
       cancelAnimationFrame(measureFrame);

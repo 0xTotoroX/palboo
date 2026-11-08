@@ -198,40 +198,48 @@ async function startService() {
     spawnError = error;
   });
   let paused = false;
-  await until(async () => {
-    if (closing) throw new Error('开发模式退出中');
-    if (spawnError || service.exitCode !== null) throw new Error(`开发后台启动失败，请查看 ${log}`);
-    let state;
-    try {
-      runtime = JSON.parse(readFileSync(join(data, 'runtime.json')));
-      state = await api('state');
-    } catch {
-      return false;
-    }
-    if (state.connection.status !== 'connected') {
+  await until(
+    async () => {
+      if (closing) throw new Error('开发模式退出中');
+      if (spawnError || service.exitCode !== null)
+        throw new Error(`开发后台启动失败，请查看 ${log}`);
+      let state;
       try {
-        paused = (await api('performance'))?.preferences?.integrationEnabled === false;
+        runtime = JSON.parse(readFileSync(join(data, 'runtime.json')));
+        state = await api('state');
       } catch {
-        /* Older sources still use the connected-state handshake. */
+        return false;
       }
-      if (!paused) {
-        if (!host.pinnedTarget) {
-          const previousTarget = host.target.id;
-          try {
-            await inspectLiveHost(host);
-          } catch {}
-          if (host.target.id !== previousTarget) syncHostTarget();
+      if (state.connection.status !== 'connected') {
+        try {
+          paused = (await api('performance'))?.preferences?.integrationEnabled === false;
+        } catch {
+          /* Older sources still use the connected-state handshake. */
         }
-        await api('connect', { endpoint: host.endpoint, targetId: host.target.id }).catch(
-          () => {},
-        );
+        if (!paused) {
+          if (!host.pinnedTarget) {
+            const previousTarget = host.target.id;
+            try {
+              await inspectLiveHost(host);
+            } catch {}
+            if (host.target.id !== previousTarget) syncHostTarget();
+          }
+          await api('connect', { endpoint: host.endpoint, targetId: host.target.id }).catch(
+            () => {},
+          );
+        }
+        return paused;
       }
-      return paused;
-    }
-    if (state.connection.endpoint !== host.endpoint || state.connection.targetId !== host.target.id)
-      throw new Error('开发后台连接了不同的宿主目标，停止此次交接。');
-    return true;
-  }, `真实 Codex 连接超时，请查看 ${log}`, 45000);
+      if (
+        state.connection.endpoint !== host.endpoint ||
+        state.connection.targetId !== host.target.id
+      )
+        throw new Error('开发后台连接了不同的宿主目标，停止此次交接。');
+      return true;
+    },
+    `真实 Codex 连接超时，请查看 ${log}`,
+    45000,
+  );
   if (paused) return;
   await until(async () => {
     if (closing) throw new Error('开发模式退出中');

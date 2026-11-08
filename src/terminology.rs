@@ -1,5 +1,5 @@
 // [INPUT]: 私有术语文件、认证命令与独立检索结果。
-// [OUTPUT]: 自动分类按术语租约取消；词库与偏好分别校验显式修订。词库、收藏/掌握、语境与外观管理；导出仅包含自定义、收藏、已掌握。
+// [OUTPUT]: 自动分类按术语租约取消；词库与偏好分别校验显式修订；导入逐项核验全部名称/英文碰撞并原子保存，保留领域词义。导出仅包含自定义、收藏、已掌握。
 // [POS]: 本机知识服务；任务文件委托 terminology_import，主聊天发送由宿主适配处理。完整词库不随源码或安装包分发。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 use crate::{config::write_private, state::App};
@@ -239,11 +239,15 @@ fn personal_export(root: &Path) -> Result<Value> {
     )
 }
 pub(crate) fn known<'a>(terms: &'a [Term], query: &str) -> Option<&'a Term> {
+    matching(terms, query).next()
+}
+fn matching<'a>(terms: &'a [Term], query: &str) -> impl Iterator<Item = &'a Term> {
     let q = query.trim().to_lowercase();
-    terms.iter().find(|t| {
-        t.name.to_lowercase() == q
-            || (!t.english.is_empty() && t.english.to_lowercase() == q)
-            || t.aliases.iter().any(|a| a.to_lowercase() == q)
+    terms.iter().filter(move |t| {
+        !q.is_empty()
+            && (t.name.to_lowercase() == q
+                || (!t.english.is_empty() && t.english.to_lowercase() == q)
+                || t.aliases.iter().any(|a| a.to_lowercase() == q))
     })
 }
 fn base_sense_name(name: &str) -> &str {
@@ -533,8 +537,8 @@ pub(crate) async fn command(app: &App, mut input: Value) -> Result<Value> {
                     term.id = format!("USER-{}", uuid::Uuid::new_v4().simple());
                 }
                 validate(&term)?;
-                if let Some(existing) =
-                    known(&terms, &term.name).or_else(|| known(&terms, &term.english))
+                // 首个领域词义可共存，不代表后续命中的同名词条也可共存。
+                for existing in matching(&terms, &term.name).chain(matching(&terms, &term.english))
                 {
                     ensure!(
                         (existing.id == term.id && stored.iter().any(|t| t.id == term.id))
@@ -1000,6 +1004,107 @@ mod tests {
                 .await
                 .unwrap();
             assert_eq!(result["entries"], exported["entries"]);
+        }
+    }
+    #[tokio::test]
+    async fn every_collision_is_checked_regardless_of_library_order() {
+        let entries = vec![
+            json!({"id":"physical","name":"背景材质","english":"Background Material","definition":"物理材料","category":["物理"]}),
+            json!({"id":"interface","name":"背景材质（界面设计）","english":"Background Material","aliases":["背景材质"],"definition":"界面的透明与模糊","category":["界面设计"]}),
+        ];
+        for reverse in [false, true] {
+            let dir = tempfile::tempdir().unwrap();
+            let app = App::new(
+                crate::config::Paths::new(Some(dir.path().into())).unwrap(),
+                Default::default(),
+                None,
+                false,
+            );
+            let mut incoming = entries.clone();
+            if reverse {
+                incoming.reverse();
+            }
+            command(&app, json!({"action":"import", "entries":incoming}))
+                .await
+                .unwrap();
+            // 原个人编号更新仍然允许，不被另一领域词义的别名/英文名挡住。
+            for entry in &mut incoming {
+                entry["definition"] = json!("更新后的合成释义");
+            }
+            command(&app, json!({"action":"import", "entries":incoming}))
+                .await
+                .unwrap();
+            let state = command(&app, json!({"action":"state"})).await.unwrap();
+            let exported = command(&app, json!({"action":"export"})).await.unwrap();
+            assert_eq!(state["entries"].as_array().unwrap().len(), 2);
+            assert!(
+                state["entries"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .all(|term| term["definition"] == "更新后的合成释义")
+            );
+            let store = std::fs::read(dir.path().join("terminology-store.json")).unwrap();
+            let markdown = std::fs::read(dir.path().join("我的术语.md")).unwrap();
+            for action in ["import", "manual"] {
+                for duplicate in [
+                    json!({"id":"duplicate","name":"背景材质","english":"Different English","definition":"同名重复","category":["物理"]}),
+                    json!({"id":"duplicate","name":"背景材质（界面设计）","definition":"限定名称重复","category":["界面设计"]}),
+                    json!({"id":"duplicate","name":"其他中文名","english":"BACKGROUND MATERIAL","definition":"英文重复","category":["物理"]}),
+                    // 同编号更新也必须检查另外的同名词条。
+                    json!({"id":"physical","name":"背景材质（界面设计）","definition":"错误更新","category":["界面设计"]}),
+                ] {
+                    let result =
+                        command(&app, json!({"action":action,"entries":[duplicate]})).await;
+                    assert!(
+                        result.unwrap_err().to_string().contains("已存在"),
+                        "{action}, reverse={reverse}"
+                    );
+                    assert_eq!(
+                        command(&app, json!({"action":"state"})).await.unwrap(),
+                        state
+                    );
+                    assert_eq!(
+                        command(&app, json!({"action":"export"})).await.unwrap(),
+                        exported
+                    );
+                    assert_eq!(
+                        std::fs::read(dir.path().join("terminology-store.json")).unwrap(),
+                        store
+                    );
+                    assert_eq!(
+                        std::fs::read(dir.path().join("我的术语.md")).unwrap(),
+                        markdown
+                    );
+                }
+            }
+            // 批量中合法新增位于冲突之前/之后时，都不能部分写入或增加修订号。
+            for duplicate_first in [false, true] {
+                let mut batch = vec![
+                    json!({"id":"new","name":"独立新词","definition":"合法新增","category":["工程"]}),
+                    json!({"id":"duplicate","name":"背景材质","definition":"同名重复","category":["物理"]}),
+                ];
+                if duplicate_first {
+                    batch.reverse();
+                }
+                assert!(
+                    command(&app, json!({"action":"import","entries":batch}))
+                        .await
+                        .is_err()
+                );
+                assert_eq!(
+                    command(&app, json!({"action":"state"})).await.unwrap(),
+                    state
+                );
+                assert_eq!(
+                    std::fs::read(dir.path().join("terminology-store.json")).unwrap(),
+                    store
+                );
+                assert_eq!(
+                    std::fs::read(dir.path().join("我的术语.md")).unwrap(),
+                    markdown
+                );
+            }
         }
     }
     #[test]

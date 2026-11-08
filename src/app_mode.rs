@@ -1,5 +1,5 @@
 // [INPUT]: Private mode preferences, bundled release CLI, registered Dev supervisor and app_transition.
-// [OUTPUT]: Unified App launch, connection-confirmed mode handover and revision-checked preference recovery.
+// [OUTPUT]: Unified App launch, connection-confirmed mode handover, supervisor/orphan-backend registration protection and revision-checked preference recovery.
 // [POS]: One-shot mode worker; shares launch/install lock and preference helpers with App updates; keeps release and per-source Dev data in place.
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 use crate::{
@@ -12,6 +12,7 @@ use fs2::FileExt;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::{
+    collections::BTreeSet,
     path::{Path, PathBuf},
     process::Stdio,
     sync::Arc,
@@ -353,19 +354,146 @@ pub(crate) async fn wait_for_release(
         .context("正式模式连接超时，请检查 Codex 是否就绪；运行模式设置未更改")?
 }
 
+fn development_record(path: &Path) -> Result<Option<Value>> {
+    let bytes = match std::fs::read(path) {
+        Ok(bytes) => bytes,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => {
+            return Err(error).with_context(|| {
+                format!("开发运行记录无法读取，未更改运行模式：{}", path.display())
+            });
+        }
+    };
+    let value: Value = serde_json::from_slice(&bytes)
+        .with_context(|| format!("开发运行记录无法读取，未更改运行模式：{}", path.display()))?;
+    ensure!(
+        value.is_object(),
+        "开发运行记录无效，未更改运行模式：{}",
+        path.display()
+    );
+    Ok(Some(value))
+}
+
+fn development_pid(record: &Value, path: &Path) -> Result<u64> {
+    record["pid"]
+        .as_u64()
+        .filter(|pid| *pid > 0 && *pid <= i32::MAX as u64)
+        .with_context(|| format!("开发进程记录无效，未更改运行模式：{}", path.display()))
+}
+
+fn development_path(record: &Value, key: &str, path: &Path) -> Result<Option<PathBuf>> {
+    record
+        .get(key)
+        .map(|value| {
+            value
+                .as_str()
+                .map(PathBuf::from)
+                .filter(|path| path.is_absolute())
+                .with_context(|| {
+                    format!(
+                        "开发路径记录无效，未更改运行模式：{} ({key})",
+                        path.display()
+                    )
+                })
+        })
+        .transpose()
+}
+
 pub(crate) async fn development_running(prefs: &Preferences) -> Result<bool> {
     let Some(source) = prefs.source.as_ref() else {
         return Ok(false);
     };
-    let needle = source.join("scripts/dev.mjs");
+    let owner_path = source.join("target/dev/owner.json");
+    let owner = development_record(&owner_path)?;
+    let controller = owner
+        .as_ref()
+        .map(|owner| development_path(owner, "controller", &owner_path))
+        .transpose()?
+        .flatten()
+        .unwrap_or_else(|| source.clone());
+    let mut sources = BTreeSet::from([source.clone(), controller.clone()]);
+    let mut pids = BTreeSet::new();
+    for root in &sources {
+        let path = root.join("target/dev/owner.json");
+        if let Some(owner) = development_record(&path)? {
+            pids.insert(development_pid(&owner, &path)?);
+        }
+    }
+    // 交接期间 session 尚未发布；同一监督进程持有的 worktree 也可能已有后台。
+    // 源码归档没有 .git 时只检查已记录来源；存在 Git 身份却无法枚举时不猜测退出。
+    if controller
+        .join(".git")
+        .try_exists()
+        .context("无法核对开发来源，未更改运行模式")?
+    {
+        let output = tokio::process::Command::new("git")
+            .arg("-C")
+            .arg(&controller)
+            .args(["worktree", "list", "--porcelain", "-z"])
+            .output()
+            .await
+            .context("无法核对开发 worktree，未更改运行模式")?;
+        ensure!(
+            output.status.success(),
+            "无法核对开发 worktree，未更改运行模式"
+        );
+        let listing = std::str::from_utf8(&output.stdout)
+            .context("开发 worktree 路径无法读取，未更改运行模式")?;
+        for field in listing.split('\0') {
+            let Some(root) = field.strip_prefix("worktree ") else {
+                continue;
+            };
+            let root = PathBuf::from(root);
+            ensure!(root.is_absolute(), "开发 worktree 路径无效，未更改运行模式");
+            let path = root.join("target/dev/owner.json");
+            if let Some(owner) = development_record(&path)?
+                && pids.contains(&development_pid(&owner, &path)?)
+            {
+                development_path(&owner, "controller", &path)?;
+                sources.insert(root);
+            }
+        }
+    }
+    let scripts: Vec<_> = sources
+        .iter()
+        .map(|root| root.join("scripts/dev.mjs"))
+        .collect();
+    let mut data_directories = BTreeSet::new();
+    for root in &sources {
+        data_directories.insert(root.join("target/dev/real"));
+        let path = root.join("target/dev/session.json");
+        if let Some(session) = development_record(&path)? {
+            let data = development_path(&session, "runtime", &path)?.with_context(|| {
+                format!(
+                    "开发会话记录缺少后台身份，未更改运行模式：{}",
+                    path.display()
+                )
+            })?;
+            data_directories.insert(data);
+        }
+    }
+    for data in data_directories {
+        let path = data.join("runtime.json");
+        if let Some(runtime) = development_record(&path)? {
+            pids.insert(development_pid(&runtime, &path)?);
+        }
+    }
     let output = tokio::process::Command::new("/bin/ps")
-        .args(["-axo", "command="])
+        .args(["-axo", "pid=,command="])
         .output()
         .await?;
     ensure!(output.status.success(), "无法核对开发进程，未切换模式");
-    Ok(String::from_utf8_lossy(&output.stdout)
-        .lines()
-        .any(|line| line.contains(&needle.to_string_lossy().to_string())))
+    Ok(String::from_utf8_lossy(&output.stdout).lines().any(|line| {
+        let pid = line
+            .split_whitespace()
+            .next()
+            .and_then(|pid| pid.parse::<u64>().ok());
+        // 监督进程和关联后台均须退出；身份不明的存活 PID 也不能覆盖。
+        pid.is_some_and(|pid| pids.contains(&pid))
+            || scripts
+                .iter()
+                .any(|script| line.contains(script.to_string_lossy().as_ref()))
+    }))
 }
 async fn switch(paths: &Paths, request: &Handover, progress: &Arc<RwLock<Value>>) -> Result<Value> {
     let old = read(paths)?;
@@ -588,12 +716,23 @@ pub async fn run(data_paths: &Paths, command: Command) -> Result<()> {
             active,
         } => {
             let _guard = mode_lock(paths)?;
-            let mut prefs = read(paths)?;
+            let old = read(paths)?;
+            let mut prefs = old.clone();
             prefs.release_data = Some(data_paths.root.clone());
             prefs.revision += 1;
             prefs.source = Some(source);
             prefs.node = Some(node);
             validate_development(&mut prefs)?;
+            let old_source = old
+                .source
+                .as_ref()
+                .map(|path| path.canonicalize().unwrap_or_else(|_| path.clone()));
+            if old_source != prefs.source {
+                ensure!(
+                    !development_running(&old).await?,
+                    "原开发会话仍在运行，请先正常退出；worktree 请在开发来源页切换，未更改登记来源"
+                );
+            }
             prefs.executable = Some(release_executable(&prefs)?);
             if active {
                 dev(paths, &prefs, "status", None).await?;

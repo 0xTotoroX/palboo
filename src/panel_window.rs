@@ -1,6 +1,6 @@
 // [INPUT]: Tao/Wry、Runtime、Preferences、Palboo.app 身份、共享 native_backdrop 与 AppKit 手势。
 // [OUTPUT]: 原生红黄绿、当前桌面最大化/恢复、Palboo 应用身份、旧全屏置顶恢复、共用可逆路径的跨屏往返/中断恢复、页面重载后的呈现确认与旧交接清理、双向短过渡回退及同帧缩放。
-// [POS]: 窗口子进程实现；系统管理最小化/放大/全屏，关闭沿用收回，普通几何独立于临时窗口状态。
+// [POS]: 窗口子进程实现；原生最小宽度包含 320pt 内容与 24pt 外框，系统管理最小化/放大/全屏，关闭沿用收回，普通几何独立于临时窗口状态。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
 #[path = "window_chrome.rs"]
@@ -20,6 +20,10 @@ use tao::{
 };
 use wry::WebViewBuilder;
 
+// 桌面内容扣除两侧各 12pt 留白后，仍须满足 main-size 的 320pt 宽度下限。
+const MIN_WINDOW_WIDTH: f64 = 320. + 24.;
+const MIN_WINDOW_HEIGHT: f64 = 340. + 24.;
+
 #[derive(Clone, Copy, Debug)]
 struct Pose {
     x: f64,
@@ -28,6 +32,12 @@ struct Pose {
     width: f64,
     height: f64,
     alpha: f64,
+}
+
+impl Pose {
+    fn meets_window_minimum(&self) -> bool {
+        self.width >= MIN_WINDOW_WIDTH && self.height >= MIN_WINDOW_HEIGHT
+    }
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -179,6 +189,7 @@ impl WindowTransition {
 
 mod macos {
     use super::window_chrome::WindowChrome;
+    use super::{MIN_WINDOW_HEIGHT, MIN_WINDOW_WIDTH};
     #[cfg(debug_assertions)]
     use objc2::ClassType;
     use objc2::MainThreadMarker;
@@ -548,8 +559,9 @@ mod macos {
             let (dx, dy) = (mouse.x - self.mouse.x, mouse.y - self.mouse.y);
             let mut frame = self.frame;
             if let Some(left) = self.resize_left {
-                frame.size.width = (self.frame.size.width + if left { -dx } else { dx }).max(324.);
-                frame.size.height = (self.frame.size.height - dy).max(364.);
+                frame.size.width =
+                    (self.frame.size.width + if left { -dx } else { dx }).max(MIN_WINDOW_WIDTH);
+                frame.size.height = (self.frame.size.height - dy).max(MIN_WINDOW_HEIGHT);
                 frame.origin.y += self.frame.size.height - frame.size.height;
                 if left {
                     frame.origin.x += self.frame.size.width - frame.size.width;
@@ -619,7 +631,10 @@ pub fn run_surface(
         });
     }
     crate::window_process::ready()?;
-    let size = (prefs.ui.width + 24., prefs.ui.height + 24.);
+    let size = (
+        (prefs.ui.width + 24.).max(MIN_WINDOW_WIDTH),
+        (prefs.ui.height + 24.).max(MIN_WINDOW_HEIGHT),
+    );
     let window = WindowBuilder::new()
         .with_title(if crate::assets::development().is_some() {
             crate::i18n::text("Palboo · 开发版", "Palboo · Dev")
@@ -636,7 +651,7 @@ pub fn run_surface(
         .with_visible(false)
         .with_always_on_top(prefs.always_on_top)
         .with_inner_size(LogicalSize::new(size.0, size.1))
-        .with_min_inner_size(LogicalSize::new(324., 364.))
+        .with_min_inner_size(LogicalSize::new(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT))
         .build(&event_loop)?;
     {
         use objc2_app_kit::NSWindowCollectionBehavior;
@@ -864,7 +879,7 @@ pub fn run_surface(
                     target.alpha = 1.;
                     target.scale = 1.;
                     let mut anchor = macos::anchor_pose(&window, &message["anchor"])
-                        .filter(|p| p.height >= 364. || warp.as_ref().is_some_and(|w| w.available()));
+                        .filter(|p| p.meets_window_minimum() || warp.as_ref().is_some_and(|w| w.available()));
                     let mut from = anchor.unwrap_or(target);
                     from.alpha = if anchor.is_some() { 1. } else { 0. };
                     if anchor.is_none() { from.scale = 0.98; }
@@ -880,7 +895,7 @@ pub fn run_surface(
                         }
                     }
                     if !genie_entry {
-                        if anchor.is_some_and(|p| p.height < 364.) {
+                        if anchor.is_some_and(|p| !p.meets_window_minimum()) {
                             anchor = None;
                             from = Pose { scale: 0.98, alpha: 0., ..target };
                         }
@@ -916,7 +931,7 @@ pub fn run_surface(
                         let _ = webview.evaluate_script("window.__companionPopout?.returned(true);");
                     } else {
                         let target = macos::anchor_pose(&window, &message["anchor"])
-                            .filter(|p| p.height >= 364. || warp.as_ref().is_some_and(|w| w.available()));
+                            .filter(|p| p.meets_window_minimum() || warp.as_ref().is_some_and(|w| w.available()));
                         // 小入口、无效坐标或私有曲面不可用时，沿入场的短缩放/淡入反向收回。
                         // 动画完成后才交还内容；取消或交接失败仍可从当前帧恢复原窗口。
                         window_transition = Some(match active {
@@ -994,9 +1009,9 @@ pub fn run_surface(
                     let _ = webview.evaluate_script(&format!("window.__companionPopout?.resized({});", message["id"]));
                 }
                 "size" => {
-                    let width = message["width"].as_f64().filter(|n| n.is_finite()).unwrap_or(428.).max(324.);
-                    let height = message["height"].as_f64().filter(|n| n.is_finite()).unwrap_or(444.).max(364.);
-                    window.set_min_inner_size(Some(LogicalSize::new(324., 364.)));
+                    let width = message["width"].as_f64().filter(|n| n.is_finite()).unwrap_or(428.).max(MIN_WINDOW_WIDTH);
+                    let height = message["height"].as_f64().filter(|n| n.is_finite()).unwrap_or(444.).max(MIN_WINDOW_HEIGHT);
+                    window.set_min_inner_size(Some(LogicalSize::new(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT)));
                     let old = window.outer_size();
                     let position = window.outer_position().ok();
                     window.set_inner_size(LogicalSize::new(width, height));
@@ -1184,6 +1199,24 @@ fn keep_on_screen(window: &Window) {
 #[cfg(test)]
 mod motion_tests {
     use super::*;
+
+    #[test]
+    fn legacy_narrow_anchors_do_not_rely_on_native_frame_clamping() {
+        let pose = |width, height| Pose {
+            x: 0.,
+            y: 0.,
+            width,
+            height,
+            scale: 1.,
+            alpha: 1.,
+        };
+        for size in [(324., 364.), (343., 600.), (500., 363.)] {
+            assert!(!pose(size.0, size.1).meets_window_minimum());
+        }
+        for size in [(344., 364.), (345., 364.), (20024., 20024.)] {
+            assert!(pose(size.0, size.1).meets_window_minimum());
+        }
+    }
 
     #[test]
     fn anchors_can_cross_screens_but_not_target_disconnected_displays() {

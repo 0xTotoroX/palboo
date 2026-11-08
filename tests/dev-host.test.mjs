@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 临时配置、含网页构建依赖的开发入口、合成本机 CDP/API 与开发常量构建。
- * [OUTPUT]: 真实目标选择、配置/存储隔离与恢复契约；日志走结构化诊断以兼容最低 Node 测试运行器。
+ * [OUTPUT]: 开发端点/窗口绑定、显式选择优先、真实目标选择、配置/存储隔离与恢复契约；日志走结构化诊断以兼容最低 Node 测试运行器。
  * [POS]: 开发宿主边界回归；不连接用户应用或读取真实聊天。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -101,6 +101,169 @@ test('Dev startup reads its own force/ask setting and inherits installation only
       .hostRestartPolicy,
     'ask',
   );
+});
+
+function developmentDiscovery(t) {
+  const source = temporary(t),
+    data = join(source, 'dev');
+  mkdirSync(data);
+  const installed = 'http://127.0.0.1:41234',
+    endpoint = 'http://127.0.0.1:51952',
+    runtime = { port: 41235, token: 'synthetic-installation' },
+    state = { connection: { endpoint: installed, targetId: 'installed-window' } },
+    calls = [],
+    pages = new Map();
+  writeFileSync(join(source, 'config.json'), JSON.stringify({ cdpEndpoint: installed }));
+  writeFileSync(join(source, 'runtime.json'), JSON.stringify(runtime));
+  // A Dev runtime is deliberately unusable: restoration must retain the installation's runtime.
+  writeFileSync(join(data, 'runtime.json'), JSON.stringify({ port: 1, token: 'unused-dev' }));
+  const save = (extra = {}) =>
+    writeFileSync(
+      join(data, 'config.json'),
+      JSON.stringify({ cdpEndpoint: endpoint, targetId: 'dev-window', ...extra }),
+    );
+  const page = (id) => ({ id, type: 'page', url: 'app://-/index.html' });
+  t.mock.method(globalThis, 'fetch', async (url, options) => {
+    calls.push(String(url));
+    if (String(url) === `http://127.0.0.1:${runtime.port}/api/state`) {
+      assert.equal(options.headers.Authorization, 'Bearer synthetic-installation');
+      return Response.json(state);
+    }
+    const targets = pages.get(String(url));
+    if (targets) return Response.json(targets.map(page));
+    throw new Error('synthetic endpoint unavailable');
+  });
+  save();
+  return { source, data, installed, endpoint, runtime, state, calls, pages, save };
+}
+
+test('Dev discovers its saved dynamic port while preserving the installation recovery identity', async (t) => {
+  const f = developmentDiscovery(t);
+  f.pages.set(f.endpoint + '/json/list', ['another-window', 'dev-window']);
+  for (const paused of [false, true]) {
+    f.save({ performance: { integrationEnabled: !paused }, codexHost: { enabled: paused } });
+    const found = await findDevelopmentHost(
+      f.source,
+      paused ? { 'restart-running': true } : {},
+      () => assert.fail('the saved available endpoint must not need host preparation'),
+      f.data,
+    );
+    assert.equal(found.endpoint, f.endpoint);
+    assert.equal(found.target.id, 'dev-window');
+    assert.deepEqual(found.installation, f.runtime);
+    assert.deepEqual(found.installedState, f.state);
+  }
+  assert.equal(f.calls.includes(f.installed + '/json/list'), false);
+});
+
+test('a stale saved Dev endpoint cannot silently select another endpoint or replay its window ID', async (t) => {
+  const f = developmentDiscovery(t);
+  f.pages.set(f.installed + '/json/list', ['dev-window', 'installed-window']);
+  await assert.rejects(
+    findDevelopmentHost(f.source, {}, () => assert.fail('ordinary Dev cannot prepare'), f.data),
+    { code: 'NO_DEBUG_HOST' },
+  );
+  f.save({ performance: { integrationEnabled: false } });
+  await assert.rejects(
+    findDevelopmentHost(
+      f.source,
+      { 'restart-running': true },
+      () => assert.fail('paused Dev cannot prepare'),
+      f.data,
+    ),
+    { code: 'NO_DEBUG_HOST' },
+  );
+  assert.equal(f.calls.includes(f.installed + '/json/list'), false);
+  const explicit = await findDevelopmentHost(
+    f.source,
+    { cdp: f.installed },
+    () => assert.fail('explicit endpoint cannot prepare'),
+    f.data,
+  );
+  assert.equal(explicit.target.id, 'installed-window');
+});
+
+test('explicit target and endpoint override saved Dev choices and never fall back to another window', async (t) => {
+  const f = developmentDiscovery(t);
+  f.pages.set(f.endpoint + '/json/list', ['dev-window']);
+  f.pages.set(f.installed + '/json/list', ['explicit-window', 'installed-window']);
+  const prepare = () => assert.fail('explicit choices cannot prepare a host');
+  for (const options of [
+    { target: 'explicit-window' },
+    { target: 'explicit-window', cdp: f.installed, 'restart-running': true },
+  ]) {
+    const found = await findDevelopmentHost(f.source, options, prepare, f.data);
+    assert.equal(found.target.id, 'explicit-window');
+    assert.equal(found.endpoint, f.installed);
+    assert.equal(found.pinnedTarget, true);
+  }
+  await assert.rejects(
+    findDevelopmentHost(f.source, { cdp: f.endpoint, target: 'explicit-window' }, prepare, f.data),
+    /指定的真实 Codex 窗口不存在/,
+  );
+});
+
+test('explicit CDP overrides malformed unrelated saved addresses without losing recovery identity', async (t) => {
+  const f = developmentDiscovery(t);
+  const selected = 'http://127.0.0.1:51954';
+  f.pages.set(selected + '/json/list', ['chosen-window']);
+  const prepare = () => assert.fail('an explicit endpoint must not prepare a host');
+  for (const bad of ['config', 'development', 'runtime']) {
+    writeFileSync(
+      join(f.source, 'config.json'),
+      JSON.stringify({
+        cdpEndpoint: bad === 'config' ? 'http://127.0.0.1:9229/obsolete' : f.installed,
+      }),
+    );
+    f.save({ cdpEndpoint: bad === 'development' ? 'not-an-endpoint' : f.endpoint });
+    f.state.connection.endpoint = bad === 'runtime' ? 'https://localhost:9229' : f.installed;
+    for (const options of [
+      { cdp: selected },
+      { cdp: selected, target: 'chosen-window', 'restart-running': true },
+    ]) {
+      f.calls.length = 0;
+      const found = await findDevelopmentHost(f.source, options, prepare, f.data);
+      assert.equal(found.endpoint, selected);
+      assert.equal(found.target.id, 'chosen-window');
+      assert.deepEqual(found.installation, f.runtime);
+      assert.deepEqual(found.installedState, f.state);
+      assert.deepEqual(
+        f.calls.filter((url) => url.endsWith('/json/list')),
+        [selected + '/json/list'],
+      );
+    }
+    await assert.rejects(findDevelopmentHost(f.source, {}, prepare, f.data));
+    await assert.rejects(
+      findDevelopmentHost(f.source, { cdp: 'http://example.invalid:9229' }, prepare, f.data),
+      /本机 CDP/,
+    );
+  }
+  // 有效的同端点配置仍选择原窗口，而非退化到聚焦窗口或歧义错误。
+  f.state.connection.endpoint = f.installed;
+  f.save();
+  f.pages.set(f.endpoint + '/json/list', ['another-window', 'dev-window']);
+  const same = await findDevelopmentHost(f.source, { cdp: f.endpoint }, prepare, f.data);
+  assert.equal(same.target.id, 'dev-window');
+});
+
+test('authorized host preparation can replace an unavailable saved Dev port without reusing its target', async (t) => {
+  const f = developmentDiscovery(t);
+  const preparedEndpoint = 'http://127.0.0.1:51953';
+  f.pages.set(preparedEndpoint + '/json/list', ['replacement-window']);
+  let preparations = 0;
+  const found = await findDevelopmentHost(
+    f.source,
+    { 'restart-running': true },
+    () => {
+      preparations++;
+      return preparedEndpoint;
+    },
+    f.data,
+  );
+  assert.equal(preparations, 1);
+  assert.equal(found.endpoint, preparedEndpoint);
+  assert.equal(found.target.id, 'replacement-window');
+  assert.deepEqual(found.installation, f.runtime);
 });
 
 test('API failures retain the backend reason instead of only an HTTP status', async (t) => {

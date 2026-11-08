@@ -1,5 +1,5 @@
 /* [INPUT]: Explicit user send events, unique current composer and authenticated terminology queue.
- * [OUTPUT]: One append-only next-chat handoff; stale/edited composers are never submitted.
+ * [OUTPUT]: One append-only handoff per unchanged send intent; IME/edits cancel replay and release unappended tasks.
  * [POS]: Host adapter, no background model calls or Agent configuration changes.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { rawComposerText, setEditableText, setNativeValue } from './composer.js';
@@ -14,9 +14,15 @@ export function installTerminologyImports({
 }) {
   window.__palbooTerminologyImports?.destroy();
   const life = new AbortController();
+  const editing = new WeakMap();
   let disposed = false,
     working = null,
-    replaying = false;
+    replaying = false,
+    appending = null;
+  const editorState = (editor) => {
+    if (!editing.has(editor)) editing.set(editor, { revision: 0, composing: false });
+    return editing.get(editor);
+  };
   const signature = (el) => ('value' in el ? el.value : el.innerHTML);
   const same = (intent) => {
     const next = getTarget();
@@ -32,8 +38,29 @@ export function installTerminologyImports({
   };
   const ready = (intent) =>
     same(intent) &&
+    !editorState(intent.target.composer).composing &&
+    editorState(intent.target.composer).revision === intent.revision &&
     !isBusy(intent.target.composer) &&
     !intent.target.composer.matches(':disabled,[readonly],[aria-disabled="true"]');
+  function trackEditing(event) {
+    const editor =
+      event.composedPath().find((node) => editing.has(node)) ||
+      [working?.target.composer, getTarget()?.composer].find((candidate) =>
+        candidate?.contains(event.target),
+      );
+    if (!editor) return;
+    const state = editorState(editor);
+    if (event.type === 'compositionstart') state.composing = true;
+    else if (event.type === 'compositionend') state.composing = false;
+    else if (appending === editor) return;
+    // 开始组合输入或改后还原也会撤销旧发送；自己的追加输入不算新的用户编辑。
+    state.revision++;
+    if (working?.target.composer === editor) {
+      const intent = working;
+      working = null;
+      intent.interrupt?.();
+    }
+  }
   function resume(intent) {
     const button = getSubmit(intent.target.composer);
     if (
@@ -76,6 +103,7 @@ export function installTerminologyImports({
           expired = true;
           reject(Error('交接已取消'));
         };
+        intent.interrupt = interrupt;
         life.signal.addEventListener('abort', interrupt, { once: true });
         timer = window.setTimeout(interrupt, 2000);
       });
@@ -89,15 +117,21 @@ export function installTerminologyImports({
       const existing = rawComposerText(editor);
       const addition = `\n\n${batch.prompt}`;
       editor.focus();
-      if (editor instanceof HTMLTextAreaElement || editor instanceof HTMLInputElement) {
-        setNativeValue(editor, existing + addition);
-      } else if (editor.isContentEditable) {
-        setEditableText(editor, addition, true);
-      } else return;
-      editor.dispatchEvent(
-        new InputEvent('input', { bubbles: true, inputType: 'insertText', data: addition }),
-      );
-      editor.dispatchEvent(new Event('change', { bubbles: true }));
+      if (!ready(intent) || signature(editor) !== intent.signature) return;
+      appending = editor;
+      try {
+        if (editor instanceof HTMLTextAreaElement || editor instanceof HTMLInputElement) {
+          setNativeValue(editor, existing + addition);
+        } else if (editor.isContentEditable) {
+          setEditableText(editor, addition, true);
+        } else return;
+        editor.dispatchEvent(
+          new InputEvent('input', { bubbles: true, inputType: 'insertText', data: addition }),
+        );
+        editor.dispatchEvent(new Event('change', { bubbles: true }));
+      } finally {
+        appending = null;
+      }
       appended = rawComposerText(editor).includes(batch.prompt);
       if (!appended) return;
       intent.signature = signature(editor);
@@ -110,6 +144,7 @@ export function installTerminologyImports({
     } finally {
       clearTimeout(timer);
       life.signal.removeEventListener('abort', interrupt);
+      delete intent.interrupt;
       if (!appended) release(batch);
       if (working === intent) working = null;
     }
@@ -118,7 +153,14 @@ export function installTerminologyImports({
     if (disposed || replaying || !isEnabled() || event.defaultPrevented) return;
     const target = getTarget();
     const editor = target?.composer;
-    if (!target?.id || !editor?.isConnected || !target.scope?.isConnected || isBusy(editor)) return;
+    if (
+      !target?.id ||
+      !editor?.isConnected ||
+      !target.scope?.isConnected ||
+      editorState(editor).composing ||
+      isBusy(editor)
+    )
+      return;
     if (event.type === 'keydown') {
       if (
         event.key !== 'Enter' ||
@@ -141,13 +183,23 @@ export function installTerminologyImports({
     )
       return;
     // A failed official submit leaves the visible task in the draft for the user's retry.
-    if (rawComposerText(editor).includes('[Palboo 术语任务：')) return;
+    if (rawComposerText(editor).includes('[Palboo 术语任务：')) {
+      // 手动重试接管这次发送，撤销仍在等待下一帧的旧自动重放。
+      if (working?.target.composer === editor) {
+        editorState(editor).revision++;
+        const intent = working;
+        working = null;
+        intent.interrupt?.();
+      }
+      return;
+    }
     event.preventDefault();
     event.stopImmediatePropagation();
     if (working) return;
     working = {
       target,
       signature: signature(editor),
+      revision: editorState(editor).revision,
       route: location.href,
       token: crypto.randomUUID(),
     };
@@ -171,6 +223,9 @@ export function installTerminologyImports({
   };
   window.addEventListener('keydown', send, { capture: true, signal: life.signal });
   window.addEventListener('click', send, { capture: true, signal: life.signal });
+  for (const type of ['compositionstart', 'compositionend', 'beforeinput', 'input', 'change']) {
+    window.addEventListener(type, trackEditing, { capture: true, signal: life.signal });
+  }
   window.__palbooTerminologyImports = api;
   return api;
 }
