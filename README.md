@@ -201,6 +201,8 @@ The standalone website shares the settings previews, native select menus, and se
 
 GitHub CI checks each main push and pull request, then builds a complete App DMG on the same Mac using the minimum Node.js and Rust versions. Download the build from the workflow artifacts. To release, commit the new version in Cargo/npm and both lockfiles with `.github/release-notes/vX.Y.Z.md`, then push main. After all checks pass, GitHub publishes that exact build automatically and creates its tag. An already published version is left untouched. Patch releases also include a DMG. Release binaries target macOS 14.0.
 
+Publication resumes an owned draft after an interruption and verifies the uploaded DMG before making it public. If only publication tooling, tests, or documentation changed, run CI / CD manually with `reuse_run_id` set to the original verified run: it checks provenance and publishes the original candidate without rebuilding. Product, build-input, release-note, or workflow changes require a new full build. Artifacts are retained for 30 days.
+
 Frontend checks can run on Linux with Chromium and Cargo, but exclude native verification and do not imply Linux App support. Building and packaging do not publish or update an installed App.
 
 See the [project map](AGENTS.md#架构地图l1) for code organization and the [design system](DESIGN_SYSTEM.md) for UI conventions. Keep both README editions in sync. Include the version, OS, and reproduction steps in issues; leave out credentials and private conversations.

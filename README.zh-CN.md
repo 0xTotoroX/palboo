@@ -201,6 +201,8 @@ npm run install:dev
 
 GitHub CI 在每次 main 推送及 PR 中完成检查，并在同一台 Mac 上用最低 Node.js 和 Rust 版本生成完整 App DMG，可从工作流产物下载验收。发布时同步 Cargo/npm 及两份锁文件中的版本，提交 `.github/release-notes/vX.Y.Z.md` 后推送 main；检查通过就自动发布这份云端安装包并创建对应标签。已发布版本保持不动，补丁版本同样提供 DMG。程序最低支持 macOS 14.0。
 
+发布中断后会恢复归属明确的草稿，核对已上传 DMG 后再公开。仅发布工具、测试或文档变化时，可手动运行 CI / CD，将 `reuse_run_id` 填为原已验证运行：检查来源后直接发布原候选，无需重新构建。产品、构建输入、发布说明或 workflow 变化仍需新的完整构建。产物保留30天。
+
 前端检查可在配有 Chromium 与 Cargo 的 Linux 环境运行，但不含原生验收，不代表 App 支持 Linux。构建和打包不会发布或更新已安装 App。
 
 代码组织见[项目地图](AGENTS.md#架构地图l1)，界面约定见[设计系统](DESIGN_SYSTEM.md)。请保持两版 README 同步。反馈问题时附版本、系统和复现步骤，不附凭据或私人对话。

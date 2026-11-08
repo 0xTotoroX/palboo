@@ -23,13 +23,32 @@ import { pathToFileURL } from 'node:url';
 const root = resolve(import.meta.dirname, '..');
 const hash = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const steps = [];
+let progressFile;
 function run(command, args, env = process.env) {
   const started = Date.now();
   const name = `${command === process.execPath ? 'node' : command} ${args.join(' ')}`;
   if (process.env.GITHUB_ACTIONS) console.log(`::group::${command} ${args.join(' ')}`);
-  const result = spawnSync(command, args, { cwd: root, stdio: 'inherit', env });
+  if (progressFile)
+    writeFileSync(
+      progressFile,
+      JSON.stringify({ steps, running: { name, started } }, null, 2) + '\n',
+    );
+  const result = spawnSync(command, args, {
+    cwd: root,
+    stdio: 'inherit',
+    env,
+    timeout: 15 * 60_000,
+  });
   const durationMs = Date.now() - started;
   steps.push({ name, durationMs, passed: !result.error && result.status === 0 });
+  if (progressFile) {
+    writeFileSync(progressFile, JSON.stringify({ steps }, null, 2) + '\n');
+    if (process.env.GITHUB_STEP_SUMMARY)
+      appendFileSync(
+        process.env.GITHUB_STEP_SUMMARY,
+        `${steps.at(-1).passed ? '✓' : '✗'} ${name}: ${(durationMs / 1000).toFixed(1)}s\n\n`,
+      );
+  }
   console.log(`${name}: ${(durationMs / 1000).toFixed(1)}s`);
   if (process.env.GITHUB_ACTIONS) console.log('::endgroup::');
   if (result.error) throw result.error;
@@ -138,6 +157,9 @@ export function prepareTestBinary(profile) {
   return previous;
 }
 async function verify() {
+  mkdirSync(join(root, 'target/reports'), { recursive: true });
+  progressFile = join(root, 'target/reports/verify-progress.json');
+  writeFileSync(progressFile, JSON.stringify({ steps: [] }) + '\n');
   rmSync(join(root, 'target/reports/verify.json'), { force: true });
   const started = Date.now();
   let artifact,
@@ -146,6 +168,7 @@ async function verify() {
   try {
     run('npm', ['run', 'format:check']);
     run('cargo', ['fmt', '--check']);
+    run('npm', ['run', 'audit:source']);
     prepareWebBuild();
     run('cargo', ['clippy', '--locked', '--', '-D', 'warnings']);
     run('cargo', ['test', '--locked']);
@@ -155,7 +178,6 @@ async function verify() {
       ...process.env,
       PALBOO_TEST_WEB_DIR: join(root, 'target/web'),
     });
-    run('npm', ['run', 'audit:source']);
     run(process.execPath, ['tests/workbench.mjs']);
     run(process.execPath, ['tests/model-control-host.mjs']);
     run(process.execPath, ['tests/feature-views.mjs']);

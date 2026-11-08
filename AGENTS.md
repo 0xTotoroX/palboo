@@ -117,7 +117,7 @@ Rust + Tokio/Axum + Tao/Wry + JavaScript 共享胶囊 + React/TypeScript/Vite + 
 - `tsconfig.json`：网页、共享类型与 Vite 配置的 TypeScript 检查范围。
 - `.prettierrc.json`：JS/TS/CSS 与验收脚本的统一格式配置。
 - `.cargo/config.toml`：macOS 14.0 最低部署目标。
-- `.github/workflows/ci.yml`：main/PR/手动运行的唯一 App 工作流；同一 macOS Apple Silicon 机器完整验证并复用产物打包，缓存 npm/Rust；上传验收包后由只负责发布的 Linux job 自动发布 main 新版本。同版本或已过时的 main 运行正常跳过，不重复测试、不覆盖 Release；PR 无发布权限。
+- `.github/workflows/ci.yml`：main/PR/手动运行的唯一 App 工作流；Linux 先验证发布/恢复契约与只读远端条件，同一 macOS Apple Silicon 机器完成完整验证和打包，Linux 发布 job 回读并自动公开新版本。手动 reuse_run_id 可复用通过完整门禁的官方候选；产品、构建、版本说明或 workflow 已变则拒绝复用。已发布内容保持；PR 无发布权限。产物与回执保留30天。
 - `.github/workflows/site.yml`：手动选择已审核修订，验证交互后只上传 `target/site/`；默认仅构建，明确选择 publish 才部署 GitHub Pages，不绑定自定义域名，不随 push 自动上线。
 - `.github/release-notes/v*.md`：对应标签的公开发行说明；CD 要求版本、标签和说明文件一致。
 - `.gitignore`：隔离构建产物、测试证据和私有运行数据。

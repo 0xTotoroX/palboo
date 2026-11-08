@@ -21,7 +21,7 @@ npm 命令进入开发、构建、审计、安装和验证编排工具；具体�
 - [dev-panel.mjs](dev-panel.mjs)：原子发布开发资源快照（含术语目录指纹与监听、独立 chatOutlineScript/chatOutlineRevision），CSS 更新保留实例，逻辑更新销毁并恢复胶囊，页面引导变化重载窗口页面；共享 measurePanel 仅采集两端几何、材质能力和实例计数。
 - [dev-sources.mjs](dev-sources.mjs)：Git worktree 清单及启动来源记忆、独占进程/目标租约、串行切换和失败回退状态；通过独占恢复记录串行回收已退出监督进程的租约，检查关联 worktree 与上次会话的后台，损坏记录或状态不明时保留并报错；不自行操作宿主或结束其他进程。
 - [dev-runtime.mjs](dev-runtime.mjs)：受控子进程与稳定鉴权代理，开发来源 API 在后台切换时仍可用，切换中请求暂停、旧设置页写入按来源标识拒绝；可捕获宿主准备命令的端点及具体失败原因；后台重启后设置页会话保持有效；模型超时由后台控制，客户端断开时取消上游代理请求。
-- [verify.mjs](verify.mjs)：统一检查、浏览器行为、Rust、端到端与生命周期验收；常规端到端、生命周期与打包共用 release 程序；features-e2e 的隔离 Bot 夹具明确使用 debug（复用 Rust 单元测试编译结果），不放开正式程序的模拟接口。按源码/工具链及产物摘要复用网页和程序，类型检查随网页构建执行一次；release 加入路径映射；逐项耗时和失败结果写入 verify.json 与 GitHub 摘要，原生检查显式选择。
+- [verify.mjs](verify.mjs)：统一检查、浏览器行为、Rust、端到端与生命周期验收；常规端到端、生命周期与打包共用 release 程序；features-e2e 的隔离 Bot 夹具明确使用 debug（复用 Rust 单元测试编译结果），不放开正式程序的模拟接口。按源码/工具链及产物摘要复用网页和程序，类型检查随网页构建执行一次；release 加入路径映射；源码审计前置；每项检查有15分钟上限，逐阶段写 verify-progress.json 与 GitHub 摘要，最终写 verify.json，原生检查显式选择。
 - [verify-web.mjs](verify-web.mjs)：`npm run verify:web` 执行前端构建、格式/源码检查、Node 测试和合成工作台/液态/模型宿主测试，复用已构建网页及共享 Node 测试入口，逐项记录失败并返回非零；官网另由 test:site 验证；支持两种现有浏览器路径变量，Linux 优先复用系统 Chromium。结果位于 `target/reports/web-pilot/`，明确排除原生与完整发布验收；Node 许可集成测试仍需 Cargo，不因缺失而跳过。
 
 - [build-panel.mjs](build-panel.mjs)：从 ui/codex/runtime/lifecycle.js 入口解析 ES modules，输出可重复注入的脚本，供 Cargo 内嵌；buildChatOutline 单独构建普通 Chat 的只读大纲脚本，不包含 Work 入口或请求桥。
@@ -29,7 +29,9 @@ npm 命令进入开发、构建、审计、安装和验证编排工具；具体�
 - [launcher.mjs](launcher.mjs)：为安装器生成带本地签名的 Palboo.app；从 ui/icon.png 生成多尺寸 ICNS 并绑定应用图标；双击调用 launch --restart-running 按设置处理缺少连接的宿主，取消不再弹错误；连接后在受支持系统弹出，以后台应用方式运行、不显示运行中的 Dock 图标；macOS 14 遇到浮窗门槛时保留内嵌，其他错误用系统对话框显示。
 - [package.mjs](package.mjs)：每个版本打包完整 App DMG，复用已验证 release 程序，收集许可和安装帮助，检查签名、包身份与可运行性后写入 dist；target/reports/package.json 记录提交、版本和摘要。只打包，不安装、不发布、不清理历史发行包。
 - [release-plan.mjs](release-plan.mjs)：严格解析 SemVer，统一 DMG 名称及预发布状态，核对 Cargo/npm 及锁文件版本、发行说明，不接触远端。
-- [release.mjs](release.mjs)：官方 main 的 CI 发布入口，校验同次云端 DMG 的提交、版本和摘要，创建对应标签并自动发布；先用 Git 标签引用核对存在性，再解析已有轻量/附注标签的提交，不将 commits 查询缺失标签的422误作发布失败；已发布版本或落后于 main 的任务正常跳过，其他API/上传错误、标签冲突和产物不一致时报错。
+- [release.mjs](release.mjs)：官方 main 的只读预检查与发布入口；内部草稿保存候选归属，恢复已完成上传并回读公开状态，不删除 Release；仅清理自身草稿的空 starter 附件。发布前后核对标签、说明、DMG 摘要及 Latest，逐阶段保存 publication.json。
+- [release-api.mjs](release-api.mjs)：固定官方 GitHub REST 边界；GET 有界退避与分页，写请求只执行一次，由上层回读处理不确定响应。
+- [release-candidate.mjs](release-candidate.mjs)：校验官方 main 构建 run、完整门禁、不可变 artifact、Git 祖先与实际 DMG；仅发布工具/测试/文档变化允许复用，产品、构建、版本说明与 workflow 变化须完整重建。
 - [artifact-audit.mjs](artifact-audit.mjs)：release 编译路径映射及成品字节扫描，包含二进制、常见凭据/个人目录、UTF-16主目录与禁止文件；错误只输出文件和问题类型。它是有限检查，不证明不存在所有敏感内容或漏洞。
 - [package-app.mjs](package-app.mjs)：编译最低 macOS 14 arm64 Swift 入口、复制包内 CLI/资源、清理扩展属性与本地签名；校验系统动态库、最低版本和程序摘要，以普通用户权限创建 HFS+ DMG，避免 tar 的属主名称字段和设置 root 引发的授权；挂载读回并复制到新位置验证，成功后卸载镜像。
 - [app-launcher.swift](app-launcher.swift)：从 Bundle 定位 CLI，按用户模式记录启动正式或开发，读取正式数据目录关联；开发前台沿 AppKit 交接，失败去除重复 Error 前缀、以当前活动空间置顶弹窗提示并在重复点击图标时重新唤起弹窗，提供安全回正式入口；只读镜像提示复制，--check 只检查包内版本；--open-window 经 LaunchServices 启动同一个 App，--palboo-window 用原 PID 进入当前模式窗口程序，以私有短期回执返回真实窗口 PID，保持原 Dock 身份。

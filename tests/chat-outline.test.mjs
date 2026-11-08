@@ -1,9 +1,10 @@
 /* [INPUT]: Standalone Chat bundle, synthetic current Chat DOM and isolated Chromium.
- * [OUTPUT]: Chat reply-row placement, history, virtualization, identity, lease and cleanup regressions.
+ * [OUTPUT]: Chat reply-row placement, remount continuity, stable real-clock navigation and isolated lease regressions.
  * [POS]: Ordinary Chat behavior tests; no real conversations, model calls or composer writes.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
+import { setTimeout as delay } from 'node:timers/promises';
 import { chromium } from 'playwright';
 import { buildChatOutline } from '../scripts/build-panel.mjs';
 
@@ -27,7 +28,7 @@ before(async () => {
   });
 });
 after(async () => browser?.close());
-async function setup(t, language = 'en') {
+async function setup(t, language = 'en', { virtualClock = false } = {}) {
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
   await page.route('**/*', (route) => route.fulfill({ contentType: 'text/html', body: fixture }));
   await page.goto('https://chatgpt.com/c/synthetic');
@@ -36,7 +37,7 @@ async function setup(t, language = 'en') {
     document.querySelector('[aria-label="Send"]').onclick = () => window.sends++;
     document.querySelector('.thread-scroll-container').scrollTop = 1e6;
   });
-  await page.clock.install();
+  if (virtualClock) await page.clock.install();
   await page.evaluate(script);
   await page.evaluate(
     (language) => window.__palbooChatOutline.update({ enabled: true, language }),
@@ -61,6 +62,179 @@ async function openLatest(page) {
   await page.locator('[data-palboo-outline-reply="a-latest"]').click();
   await page.waitForFunction(() => window.__palbooChatOutline.status().items === 24);
 }
+
+// Fixture: safe top 56 - margin 12 + heading offset 28; no scale or scroll-bound clamping.
+const jumpTop = 72;
+const jumpRecheckMs = 140;
+const jumpStableMs = 2 * jumpRecheckMs;
+const jumpTimeoutMs = 3000;
+
+function advanceJumpStability(previous, sample, expectedScrollTop) {
+  const matches =
+    sample.identityMatches &&
+    sample.visible &&
+    Math.abs(sample.top - jumpTop) <= 1 &&
+    Math.abs(sample.scrollTop - expectedScrollTop) <= 1;
+  // A stalled sampler must not count its unobserved gap as stable geometry.
+  const continuous = previous?.since != null && sample.elapsed - previous.lastAt <= jumpRecheckMs;
+  const since = matches ? (continuous ? previous.since : sample.elapsed) : null;
+  const flashSeen = Boolean(previous?.flashSeen || sample.flashMatches);
+  return {
+    since,
+    lastAt: sample.elapsed,
+    flashSeen,
+    done: flashSeen && since !== null && sample.elapsed - since >= jumpStableMs,
+  };
+}
+
+async function jumpToFourthSection(page, key) {
+  const expected = await page.evaluate(
+    ({ key, jumpTop }) => {
+      const scroller = document.querySelector('.thread-scroll-container');
+      const root = document.querySelector('[data-palboo-chat-outline]').shadowRoot;
+      const row = root.querySelectorAll('[data-outline-id]')[3];
+      const target = document
+        .querySelector(`[data-content-search-turn-key="${key}"]`)
+        .querySelectorAll('h2')[3];
+      const started = performance.now();
+      const wallStarted = Date.now();
+      const expected = {
+        key,
+        title: `${key === 'z-old' ? 'Historical' : 'Latest'} section 4`,
+        id: row.dataset.outlineId,
+        startScrollTop: scroller.scrollTop,
+        scrollTop: scroller.scrollTop + target.getBoundingClientRect().top - jumpTop,
+        maxScrollTop: scroller.scrollHeight - scroller.clientHeight,
+      };
+      const sample = () => {
+        const marked = scroller.querySelectorAll(
+          `[data-companion-stepwise-outline-id="${expected.id}"]`,
+        );
+        const actual = marked[0];
+        const actualKey = actual
+          ?.closest('[data-content-search-turn-key]')
+          ?.getAttribute('data-content-search-turn-key');
+        const rect = target.getBoundingClientRect();
+        const viewport = scroller.getBoundingClientRect();
+        const status = window.__palbooChatOutline?.status();
+        return {
+          elapsed: performance.now() - started,
+          wallElapsed: Date.now() - wallStarted,
+          top: rect.top,
+          scrollTop: scroller.scrollTop,
+          key: actualKey,
+          title: actual?.textContent,
+          identityMatches:
+            marked.length === 1 &&
+            actual === target &&
+            actualKey === key &&
+            target.isConnected &&
+            target.textContent === expected.title &&
+            row.isConnected &&
+            row.getAttribute('aria-current') === 'location' &&
+            status?.status === 'ready' &&
+            status.historical === (key === 'z-old'),
+          visible:
+            rect.height > 0 &&
+            rect.top >= Math.max(0, viewport.top) &&
+            rect.bottom <= Math.min(innerHeight, viewport.bottom),
+          flashMatches:
+            actual === target &&
+            target.classList.contains('companion-stepwise-outline-target-flash'),
+          status,
+        };
+      };
+      const scrollends = [];
+      const onScrollEnd = () => scrollends.push(sample());
+      scroller.addEventListener('scrollend', onScrollEnd);
+      window.outlineJumpProbe = {
+        sample,
+        scrollends,
+        cleanup: () => scroller.removeEventListener('scrollend', onScrollEnd),
+      };
+      return expected;
+    },
+    { key, jumpTop },
+  );
+  const samples = [];
+  let progress;
+  const started = performance.now();
+  try {
+    assert.ok(expected.scrollTop > 0 && expected.scrollTop < expected.maxScrollTop);
+    assert.ok(
+      Math.abs(expected.startScrollTop - expected.scrollTop) > 1,
+      'navigation must move the real conversation scroller',
+    );
+    await page.locator(items).nth(3).click({ timeout: jumpTimeoutMs });
+    while (performance.now() - started < jumpTimeoutMs) {
+      const sample = await page.evaluate(() => window.outlineJumpProbe.sample());
+      samples.push(sample);
+      progress = advanceJumpStability(progress, sample, expected.scrollTop);
+      if (progress.done && performance.now() - started < jumpTimeoutMs) return;
+      await delay(25);
+    }
+    const scrollends = await page.evaluate(() => window.outlineJumpProbe.scrollends);
+    assert.fail(
+      `Outline navigation did not stabilize: ${JSON.stringify({
+        expected: { ...expected, top: jumpTop, stableMs: jumpStableMs },
+        elapsed: performance.now() - started,
+        progress,
+        samples,
+        scrollends,
+      })}`,
+    );
+  } finally {
+    await page.evaluate(() => {
+      window.outlineJumpProbe.cleanup();
+      delete window.outlineJumpProbe;
+    });
+  }
+}
+
+test('Chat navigation wait rejects transient alignment, wrong targets and incomplete observations', () => {
+  const sample = (elapsed, top = 72, overrides = {}) => ({
+    elapsed,
+    top,
+    scrollTop: 473 + 72 - top,
+    identityMatches: true,
+    visible: true,
+    flashMatches: true,
+    ...overrides,
+  });
+  let progress;
+  // Recorded shape: first correction reaches 72, first scrollend drifts to 117,
+  // then the 140ms recheck restores 72. Neither early alignment is completion.
+  for (const [elapsed, top] of [
+    [726, 72],
+    [731, 117],
+    [855, 117],
+    [868, 72],
+    [881, 72],
+    [1000, 72],
+    [1100, 72],
+  ]) {
+    progress = advanceJumpStability(progress, sample(elapsed, top), 473);
+    assert.equal(progress.done, false, `premature completion at ${elapsed}ms`);
+  }
+  progress = advanceJumpStability(progress, sample(1150), 473);
+  assert.equal(progress.done, true);
+  for (const invalid of [
+    { top: -10 },
+    { top: 117 },
+    { scrollTop: 480 },
+    { identityMatches: false },
+    { visible: false },
+    { flashMatches: false },
+  ]) {
+    let rejected;
+    for (const elapsed of [0, 100, 200, 300, jumpTimeoutMs]) {
+      rejected = advanceJumpStability(rejected, sample(elapsed, 72, invalid), 473);
+      assert.equal(rejected.done, false, JSON.stringify(invalid));
+    }
+  }
+  const first = advanceJumpStability(undefined, sample(0), 473);
+  assert.equal(advanceJumpStability(first, sample(300), 473).done, false);
+});
 
 test('Chat uses the native copy/read row, bilingual labels, theme, keyboard, and no composer actions', async (t) => {
   const page = await setup(t);
@@ -161,23 +335,16 @@ for (const historical of [false, true])
     );
     await page.waitForFunction(() => window.__palbooChatOutline.status().status === 'ready');
     assert.equal(
-      await page.evaluate(
-        () =>
-          document
-            .querySelector('[data-palboo-chat-outline]')
-            .shadowRoot.querySelector('[data-outline-id]') === window.savedRow,
-      ),
+      await page.evaluate(() => {
+        const root = document.querySelector('[data-palboo-chat-outline]').shadowRoot;
+        return (
+          root.querySelector('[data-outline-id]') === window.savedRow &&
+          root.querySelector('.feature-body').scrollTop === window.savedScroll
+        );
+      }),
       true,
     );
-    await page.locator(items).nth(3).click();
-    await page.waitForTimeout(850);
-    const jump = await page.evaluate(() => ({
-      top: document
-        .querySelector('.companion-stepwise-outline-target-flash')
-        ?.getBoundingClientRect().top,
-      status: window.__palbooChatOutline.status(),
-    }));
-    assert.ok(jump.top < 110, JSON.stringify(jump));
+    await jumpToFourthSection(page, historical ? 'z-old' : 'a-latest');
     if (historical) {
       await page.locator(`${surface} [data-outline-latest]`).click();
       await page.waitForFunction(() => !window.__palbooChatOutline.status().historical);
@@ -248,7 +415,7 @@ test('Chat retains completed reply buttons during streaming and waits for the ne
   await page.locator('[data-palboo-outline-reply="a-latest"]').waitFor();
 });
 
-test('Chat hot reload, disable, lease expiry and foreign origins clean up without a Work runtime', async (t) => {
+test('Chat hot reload, disable and foreign origins clean up without a Work runtime', async (t) => {
   const page = await setup(t);
   await openLatest(page);
   await page.evaluate(script);
@@ -266,12 +433,17 @@ test('Chat hot reload, disable, lease expiry and foreign origins clean up withou
   assert.equal(await page.locator(surface).count(), 0);
   await page.evaluate(() => window.__palbooChatOutline.update({ enabled: true, language: 'en' }));
   await page.locator('[data-palboo-outline-reply="a-latest"]').waitFor();
-  await page.clock.fastForward(10001);
-  assert.equal(await page.evaluate(() => Boolean(window.__palbooChatOutline)), false);
-  assert.equal(await page.locator('[data-palboo-outline-reply]').count(), 0);
   await page.goto('https://example.test/c/synthetic');
   await page.evaluate(script);
   assert.equal(await page.evaluate(() => Boolean(window.__palbooChatOutline)), false);
+});
+
+test('Chat lease expiry removes the runtime and controls with an isolated virtual clock', async (t) => {
+  const page = await setup(t, 'en', { virtualClock: true });
+  await page.clock.fastForward(10001);
+  assert.equal(await page.evaluate(() => Boolean(window.__palbooChatOutline)), false);
+  assert.equal(await page.locator('[data-palboo-outline-reply]').count(), 0);
+  assert.equal(await page.locator(surface).count(), 0);
 });
 
 test('Chat rejects old row identities for an identical new answer and respects reduced motion', async (t) => {

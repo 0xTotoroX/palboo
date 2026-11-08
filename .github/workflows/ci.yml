@@ -5,6 +5,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      reuse_run_id:
+        description: 'Resume publication from a verified official CI run (leave empty to build)'
+        required: false
+        type: string
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -12,10 +17,58 @@ concurrency:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
+  prepare:
+    name: Check publication contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22.16.0'
+      - name: Check publication and recovery contracts
+        run: node --test tests/release.test.mjs
+      - name: Check version and release notes
+        run: node scripts/release-plan.mjs
+
+  release-check:
+    name: Check remote release state
+    needs: prepare
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && github.repository == '0xTotoroX/palboo'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # GitHub only lists drafts for callers with push access. This job performs reads only.
+    permissions:
+      contents: write
+      actions: read
+    outputs:
+      publish: ${{ steps.release.outputs.publish }}
+      artifact-id: ${{ steps.release.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22.16.0'
+      - name: Check remote publication inputs
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PALBOO_RELEASE_RUN_ID: ${{ inputs.reuse_run_id }}
+        run: node scripts/release.mjs --preflight
+
   build:
     name: Build and check App
+    needs: [prepare, release-check]
+    if: always() && !cancelled() && needs.prepare.result == 'success' && (needs.release-check.result == 'success' || needs.release-check.result == 'skipped') && inputs.reuse_run_id == ''
     runs-on: macos-latest
     timeout-minutes: 60
     steps:
@@ -63,7 +116,7 @@ jobs:
             target/reports/package.json
           if-no-files-found: error
           compression-level: 0
-          retention-days: 7
+          retention-days: 30
       - name: Save verification reports
         if: always()
         uses: actions/upload-artifact@v7
@@ -71,27 +124,46 @@ jobs:
           name: verification-reports
           path: target/reports/
           if-no-files-found: ignore
-          retention-days: 7
+          retention-days: 30
 
   publish:
     name: Publish new version
-    needs: build
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && github.repository == '0xTotoroX/palboo'
+    needs: [release-check, build]
+    if: always() && !cancelled() && needs.release-check.result == 'success' && needs.release-check.outputs.publish == 'true' && (needs.build.result == 'success' || (needs.build.result == 'skipped' && inputs.reuse_run_id != ''))
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: write
+      actions: read
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: actions/setup-node@v7
         with:
           node-version: '22.16.0'
       - uses: actions/download-artifact@v8
+        if: inputs.reuse_run_id == ''
         with:
           name: palboo-macos
+      - name: Download the verified candidate
+        if: inputs.reuse_run_id != ''
+        uses: actions/download-artifact@v8
+        with:
+          artifact-ids: ${{ needs.release-check.outputs.artifact-id }}
+          run-id: ${{ inputs.reuse_run_id }}
+          github-token: ${{ github.token }}
       - name: Publish if the version is new
         env:
           GH_TOKEN: ${{ github.token }}
+          PALBOO_RELEASE_RUN_ID: ${{ inputs.reuse_run_id }}
         run: node scripts/release.mjs
+      - name: Save publication receipt
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: publication-receipt
+          path: target/reports/publication.json
+          if-no-files-found: ignore
+          retention-days: 30
