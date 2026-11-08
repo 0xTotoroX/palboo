@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 发布脚本、成品审计、Swift 启动器与隔离的 GitHub CLI 替身。
- * [OUTPUT]: 自动发布、重跑跳过、修订/摘要错误拒绝与启动器回归。
+ * [OUTPUT]: 新标签缺失/已有标签解析、自动发布、重跑跳过、修订/摘要错误拒绝与启动器回归。
  * [POS]: 分发单元与合成集成测试，不启动真实后台或访问 GitHub。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -143,8 +143,11 @@ if (args[0] === 'api') {
     console.log(JSON.stringify({draft: env.EXISTING === 'draft'}));
   } else if (path.endsWith('/commits/main')) {
     console.log(JSON.stringify({sha: env.MAIN_SHA}));
-  } else if (path.includes('/commits/') && env.TAG_SHA) {
-    console.log(JSON.stringify({sha: env.TAG_SHA}));
+  } else if (path.includes('/git/ref/tags/') && env.TAG_SHA) {
+    console.log(JSON.stringify({object:{sha: env.TAG_OBJECT_SHA || env.TAG_SHA, type: env.TAG_OBJECT_SHA ? 'tag' : 'commit'}}));
+  } else if (path.includes('/commits/')) {
+    if (env.TAG_SHA && !env.TAG_COMMIT_MISSING) console.log(JSON.stringify({sha: env.TAG_SHA}));
+    else { console.error('gh: No commit found for SHA: ' + path.split('/').at(-1) + ' (HTTP 422)'); process.exit(1); }
   } else { console.error('gh: Not Found (HTTP 404)'); process.exit(1); }
 } else {
   fs.writeFileSync(env.CALLS, JSON.stringify(args));
@@ -207,6 +210,7 @@ test('published versions and superseded main builds skip; API failure is not a n
     { API_ERROR: '1' },
     { EXISTING: 'draft' },
     { TAG_SHA: 'b'.repeat(40) },
+    { TAG_SHA: f.sha, TAG_COMMIT_MISSING: '1' },
     { CHECKOUT_SHA: 'b'.repeat(40) },
     { GITHUB_EVENT_NAME: 'pull_request' },
     { GITHUB_REF: 'refs/heads/other' },
@@ -216,6 +220,15 @@ test('published versions and superseded main builds skip; API failure is not a n
     assert.equal(existsSync(f.calls), false);
   }
   assert.notEqual(f.run({ UPLOAD_ERROR: '1' }).status, 0);
+});
+
+test('existing lightweight and annotated tags resolve to the verified commit before publication', (t) => {
+  for (const extra of [{}, { TAG_OBJECT_SHA: 'b'.repeat(40) }]) {
+    const f = publishFixture(t);
+    const result = f.run({ TAG_SHA: f.sha, ...extra });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(existsSync(f.calls), true);
+  }
 });
 
 test('publication rejects mismatched versions, missing notes and altered or missing App bytes', (t) => {

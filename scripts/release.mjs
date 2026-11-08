@@ -1,5 +1,5 @@
 /*
- * [INPUT]: 当前 main 修订、同次 CI 生成的 DMG/打包记录与 GitHub token。
+ * [INPUT]: 当前 main 修订、同次 CI 生成的 DMG/打包记录、Git 标签引用与 GitHub token。
  * [OUTPUT]: 新版本的公开 Release；已发布版本或过时的 main 运行正常跳过。
  * [POS]: CI 最后一步，仅上传已验证的云端产物，不构建、不替换已发布内容。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
@@ -51,7 +51,8 @@ function publish() {
   }
   const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
   if (head !== GITHUB_SHA) throw new Error('发布源码与已验证修订不一致');
-  const tag = api(`commits/${plan.tag}`);
+  const tagRef = api(`git/ref/tags/${plan.tag}`);
+  const tag = tagRef ? api(`commits/${plan.tag}`) : null;
   if (tag && tag.sha !== GITHUB_SHA) throw new Error('已有标签指向其他修订，拒绝发布或移动标签');
   const artifact = JSON.parse(readFileSync(join(root, 'target/reports/package.json'), 'utf8'));
   const bytes = readFileSync(join(root, plan.assets[0]));

@@ -29,7 +29,7 @@ npm 命令进入开发、构建、审计、安装和验证编排工具；具体�
 - [launcher.mjs](launcher.mjs)：为安装器生成带本地签名的 Palboo.app；从 ui/icon.png 生成多尺寸 ICNS 并绑定应用图标；双击调用 launch --restart-running 按设置处理缺少连接的宿主，取消不再弹错误；连接后在受支持系统弹出，以后台应用方式运行、不显示运行中的 Dock 图标；macOS 14 遇到浮窗门槛时保留内嵌，其他错误用系统对话框显示。
 - [package.mjs](package.mjs)：每个版本打包完整 App DMG，复用已验证 release 程序，收集许可和安装帮助，检查签名、包身份与可运行性后写入 dist；target/reports/package.json 记录提交、版本和摘要。只打包，不安装、不发布、不清理历史发行包。
 - [release-plan.mjs](release-plan.mjs)：严格解析 SemVer，统一 DMG 名称及预发布状态，核对 Cargo/npm 及锁文件版本、发行说明，不接触远端。
-- [release.mjs](release.mjs)：官方 main 的 CI 发布入口，校验同次云端 DMG 的提交、版本和摘要，创建对应标签并自动发布；已发布版本或落后于 main 的任务正常跳过，API/上传错误、标签冲突和产物不一致时报错。
+- [release.mjs](release.mjs)：官方 main 的 CI 发布入口，校验同次云端 DMG 的提交、版本和摘要，创建对应标签并自动发布；先用 Git 标签引用核对存在性，再解析已有轻量/附注标签的提交，不将 commits 查询缺失标签的422误作发布失败；已发布版本或落后于 main 的任务正常跳过，其他API/上传错误、标签冲突和产物不一致时报错。
 - [artifact-audit.mjs](artifact-audit.mjs)：release 编译路径映射及成品字节扫描，包含二进制、常见凭据/个人目录、UTF-16主目录与禁止文件；错误只输出文件和问题类型。它是有限检查，不证明不存在所有敏感内容或漏洞。
 - [package-app.mjs](package-app.mjs)：编译最低 macOS 14 arm64 Swift 入口、复制包内 CLI/资源、清理扩展属性与本地签名；校验系统动态库、最低版本和程序摘要，以普通用户权限创建 HFS+ DMG，避免 tar 的属主名称字段和设置 root 引发的授权；挂载读回并复制到新位置验证，成功后卸载镜像。
 - [app-launcher.swift](app-launcher.swift)：从 Bundle 定位 CLI，按用户模式记录启动正式或开发，读取正式数据目录关联；开发前台沿 AppKit 交接，失败去除重复 Error 前缀、以当前活动空间置顶弹窗提示并在重复点击图标时重新唤起弹窗，提供安全回正式入口；只读镜像提示复制，--check 只检查包内版本；--open-window 经 LaunchServices 启动同一个 App，--palboo-window 用原 PID 进入当前模式窗口程序，以私有短期回执返回真实窗口 PID，保持原 Dock 身份。
