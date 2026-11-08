@@ -73,18 +73,25 @@ if (name === 'npm') {
   assert.equal(result.status, 0, result.stderr);
   assert.equal(builds().length, 3);
 
+  // A cache may restore an ordinary CLI that cargo test did not rebuild.
+  writeFileSync(join(dir, 'target/debug/palboo'), '#!/bin/sh\nprintf "palboo stale"\n');
+  assert.equal(run().status, 0);
+  assert.equal(builds().filter((line) => line === 'cargo build --locked').length, 2);
+  assert.equal(builds().filter((line) => line === 'cargo build --locked --release').length, 1);
+  assert.match(readFileSync(join(dir, 'target/debug/palboo'), 'utf8'), /palboo 1\.0\.0/);
+
   writeFileSync(join(dir, 'target/web/reader.html'), 'corrupted');
   assert.equal(run().status, 0);
   assert.equal(readFileSync(join(dir, 'target/web/reader.html'), 'utf8'), '{}');
   rmSync(join(dir, 'target/web/index.html'));
   assert.equal(run().status, 0);
   assert.equal(builds().filter((line) => line.startsWith('npm')).length, 3);
-  assert.equal(builds().filter((line) => line.startsWith('cargo')).length, 2);
+  assert.equal(builds().filter((line) => line.startsWith('cargo')).length, 3);
 
   writeFileSync(join(dir, 'ui/entry.js'), 'new source');
   assert.notEqual(run({ BUILD_FAIL: '1' }).status, 0);
   result = run();
   assert.equal(result.status, 0, result.stderr);
   assert.equal(readFileSync(join(dir, 'target/web/reader.html'), 'utf8'), 'new source');
-  assert.equal(builds().filter((line) => line.startsWith('cargo')).length, 4);
+  assert.equal(builds().filter((line) => line.startsWith('cargo')).length, 5);
 });

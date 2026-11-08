@@ -1,4 +1,4 @@
-/* [INPUT]: Real CLI in a temporary App, synthetic Dev adapter and isolated mode/data directories.
+/* [INPUT]: Source-verified debug CLI in a temporary App, synthetic Dev adapter and isolated mode/data directories.
  * [OUTPUT]: Handover acknowledgment, active supervisor/controller/orphan-backend protection, conservative unknown-record handling, revision and data-preservation regression.
  * [POS]: No real host, developer source, user preferences or native windows are touched.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
@@ -16,13 +16,14 @@ import {
   symlinkSync,
 } from 'node:fs';
 import { spawn, execFileSync } from 'node:child_process';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
+import { prepareTestBinary } from '../scripts/verify.mjs';
 
-const binary = resolve('target/debug/palboo');
+const { binary } = prepareTestBinary('debug');
 function fixture(t) {
   const root = mkdtempSync(join(tmpdir(), 'palboo-modes-'));
   const control = join(root, 'launcher'),
