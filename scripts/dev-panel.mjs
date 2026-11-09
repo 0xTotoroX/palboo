@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 共享胶囊源码、esbuild 与现有 buildPanel。
- * [OUTPUT]: 原子发布开发资源快照，区分 CSS、逻辑与页面引导版本、独立 Chat 大纲脚本修订；测量几何与实验后端耗时。
+ * [OUTPUT]: 原子发布开发资源快照，异步换装保留真实连接归属并拒绝迟到接管；区分 CSS、逻辑与页面引导版本、独立 Chat 大纲脚本修订；测量几何与实验后端耗时。
  * [POS]: dev.mjs 的界面构建层；正式产物不加载开发快照。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -140,15 +140,28 @@ export async function buildDevPanel(root, output) {
     const next = ${JSON.stringify({ code, styles, revision, page })};
     const previous = window.__buddyDev;
     const old = window.__companionFloatingPanel;
+    const desktop = window.__companionDesktop;
+    const model = window.__palbooModelControl;
+    const owner = old?.__palbooOwner || desktop?.__palbooOwner || model?.__palbooOwner;
     if (previous?.code === next.code && old?.state.runtimeActive) {
       if (previous.styles !== next.styles) { ${style.outputFiles[0].text} }
       window.__buddyDev = next;
       return;
     }
     if (window.__buddyFeatureFlush && !(await window.__buddyFeatureFlush())) return;
+    // 保存可能异步等待；旧连接退出或其他连接接管后，不能继续销毁或重建。
+    if (window.__companionFloatingPanel !== old || window.__companionDesktop !== desktop ||
+        window.__palbooModelControl !== model) return;
     const ui = old?.panelPreferences();
     const detached = old?.state.detached;
-    ${panel}
+    try {
+      ${panel}
+    } finally {
+      // CDP 外层的同步 finally 已经结束，必须在真正创建新对象时保留归属。
+      if (owner) [window.__companionDesktop, window.__companionFloatingPanel].forEach((api, index) => {
+        if (api && api !== [desktop, old][index]) Object.defineProperty(api, '__palbooOwner', {value: owner});
+      });
+    }
     const current = window.__companionFloatingPanel;
     await current?.start();
     if (window.__companionPopout && current) {

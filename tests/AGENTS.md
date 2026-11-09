@@ -482,4 +482,4 @@ dev-launcher 以认证合成服务覆盖 --settings 成功/失败及零启动副
 - `edge-collapse.test.mjs`：真实贴边壳与合成时钟验证离开后业务/编辑/拖动保护解除时恢复收起，复用既有轮询，重新进入和退出取消待收起。
 - `desktop-size.test.mjs`：真实桌面尺寸回调验证原生344×364对应内容320×340、最小/大尺寸及临时几何保护；Rust main_surface 单测核对保存、磁盘回读与租约，panel_window 覆盖旧窄锚点回退。
 
-- `cdp-ownership.test.mjs` / `cdp-ownership-peer.mjs`：隔离 Chromium 执行 Rust 的真实归属包装与注入脚本，覆盖开发同进程恢复、foreign 拒绝、导航前保护、DOM 就绪前暂停取消延迟注入、正式模式旧接管兼容；Rust CDP 单测在面板执行后主动断开应答，再建立第二连接验证完整恢复，关闭不销毁已被其他实例替换的对象。
+- `cdp-ownership.test.mjs` / `cdp-ownership-peer.mjs`：隔离 Chromium 执行 Rust 的真实归属包装与注入脚本，覆盖开发同进程恢复、foreign 拒绝、导航前保护、DOM 就绪前暂停取消延迟注入、正式模式旧接管兼容；真实开发构建脚本覆盖异步草稿保存后重建的归属保留与等待期间实例替换的取消。Rust CDP 单测在面板执行后主动断开应答，再建立第二连接验证完整恢复，关闭不销毁已被其他实例替换的对象。

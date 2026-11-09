@@ -1,5 +1,5 @@
 /* [INPUT]: Ownership templates from src/cdp.rs and the real desktop request bridge.
- * [OUTPUT]: Same-process reconnect, foreign rejection, deferred installation and replacement safety.
+ * [OUTPUT]: Same-process reconnect, foreign rejection, deferred installation and real async hot-reload ownership.
  * [POS]: Isolated Chromium/CDP regression; no compilation or real host connection. */
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
@@ -27,7 +27,7 @@ const owned = (source, panel = true, token = owner, protect = true) =>
     .replaceAll('__PALBOO_OWNER__', JSON.stringify(token))
     .replaceAll('__PALBOO_PANEL__', String(panel))
     .replaceAll('__PALBOO_PROTECT__', String(protect))
-    .replace('__PALBOO_SOURCE__', source);
+    .replace('__PALBOO_SOURCE__', () => source);
 const bridge = readFileSync(new URL('../ui/shared/bridge/requests.js', import.meta.url), 'utf8');
 const panel = `${bridge}\nwindow.__companionFloatingPanel = {
   development: true,
@@ -181,5 +181,71 @@ test('release installation preserves takeover of legacy and other-process remnan
     client.close();
   } finally {
     await peer.close();
+  }
+});
+
+test('real development reload retains ownership after async flush and rejects a replaced owner', async () => {
+  const { buildDevPanel } = await import('../scripts/dev-panel.mjs');
+  const { mkdtempSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join, resolve } = await import('node:path');
+  const dir = mkdtempSync(join(tmpdir(), 'palboo-ownership-'));
+  const peer = await ownershipPeer();
+  try {
+    const snapshot = await buildDevPanel(
+      resolve(import.meta.dirname, '..'),
+      join(dir, 'panel.json'),
+    );
+    const client = await connection(peer.endpoint);
+    await client.evaluate(
+      owned(
+        `${panel}\nwindow.__companionFloatingPanel.panelPreferences = () => null; window.__companionFloatingPanel.state = {};`,
+      ),
+    );
+    await client.evaluate(
+      'window.__buddyFeatureFlush = () => new Promise(resolve => {window.finishFlush = resolve;}); true',
+    );
+    await client.evaluate(owned(snapshot.script));
+    await client.evaluate('window.finishFlush(true); window.__buddyDevUpdate');
+    assert.equal(
+      await client.evaluate(available()),
+      true,
+      'async replacement remains owned by this connection',
+    );
+    assert.equal(await client.evaluate('window.__companionDesktop.__palbooOwner'), owner);
+    assert.equal(await client.evaluate('window.__companionFloatingPanel.__palbooOwner'), owner);
+    assert.equal(
+      await client.evaluate(cleanup()),
+      true,
+      'normal shutdown can remove the new objects',
+    );
+    assert.equal(
+      await client.evaluate(
+        'Boolean(window.__companionDesktop || window.__companionFloatingPanel)',
+      ),
+      false,
+    );
+
+    await client.evaluate(
+      owned(
+        `${panel}\nwindow.__companionFloatingPanel.panelPreferences = () => null; window.__companionFloatingPanel.state = {};`,
+      ),
+    );
+    await client.evaluate(
+      'window.__buddyFeatureFlush = () => new Promise(resolve => {window.finishFlush = resolve;}); true',
+    );
+    await client.evaluate(owned(snapshot.script));
+    await client.evaluate(
+      'window.__companionDesktop = {__palbooOwner:"different-connection",destroy(){window.foreignDestroyed=true;}}; window.finishFlush(true); window.__buddyDevUpdate',
+    );
+    assert.equal(
+      await client.evaluate('window.__companionDesktop.__palbooOwner'),
+      'different-connection',
+    );
+    assert.equal(await client.evaluate('Boolean(window.foreignDestroyed)'), false);
+    client.close();
+  } finally {
+    await peer.close();
+    rmSync(dir, { recursive: true, force: true });
   }
 });
