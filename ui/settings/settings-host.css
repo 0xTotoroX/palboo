@@ -21,6 +21,9 @@ html[data-settings-style='chatgpt'] {
   .settings-app .compatibility-introduction {
     font-size: 0.875rem;
   }
+  .settings-model-editor {
+    margin-top: calc(var(--settings-space) * 4);
+  }
   .settings-nav .settings-nav-children a {
     min-height: calc(var(--settings-space) * 9);
     padding: calc(var(--settings-space) * 1.5) calc(var(--settings-space) * 3);
@@ -36,14 +39,8 @@ html[data-settings-style='chatgpt'] {
   .settings-control-group .settings-field {
     margin-bottom: 0;
     padding-block: calc(var(--settings-space) * 3);
-    border-top: 1px solid var(--settings-group-border);
   }
-  .settings-control-group > .settings-field:first-child,
-  .settings-control-group > :first-child > .settings-field:first-child {
-    border-top: 0;
-  }
-  .settings-app .settings-feature-list .settings-row,
-  .settings-surface-rows > .settings-surface-item:not(:last-child) {
+  .settings-app .settings-feature-list .settings-row {
     border-bottom: 1px solid var(--settings-group-border);
   }
   .settings-app .settings-feature-list > :last-child .settings-row:last-child,

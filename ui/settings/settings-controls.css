@@ -575,13 +575,9 @@ html:has(.settings-drawer[open]) {
 .settings-drawer-toolbar {
   flex: none;
   padding: 0 28px 8px;
-  border-bottom: 1px solid var(--buddy-border);
 }
 .settings-drawer-toolbar .settings-catalog-selection {
   margin-top: 4px;
-}
-#model-organization .settings-drawer-footer {
-  border-top: 1px solid var(--buddy-border);
 }
 #model-organization .settings-drawer-footer:not(:has(> fieldset:not([hidden]), > p)) {
   display: none;
@@ -927,8 +923,12 @@ html:has(.settings-drawer[open]) {
   border-radius: var(--buddy-radius-small, 12px);
   background: var(--buddy-surface);
   color: var(--buddy-text);
-  pointer-events: auto;
+  pointer-events: none;
   overflow-wrap: anywhere;
+}
+.settings-feedback-item[data-actionable='true'],
+.settings-feedback-dismiss {
+  pointer-events: auto;
 }
 .settings-feedback-item:not([data-failed='true']):not([data-actionable='true']):not(:last-child) {
   display: none;

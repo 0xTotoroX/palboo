@@ -41,6 +41,15 @@ const aliases: Record<string, string> = {
   get 'host-restart-policy'() {
     return tr('启动 重启 强制 询问');
   },
+  get 'settings-app-update'() {
+    return tr('检查更新 版本 更新应用');
+  },
+  get 'settings-performance'() {
+    return tr('性能与开关 性能监测 排查 卡顿');
+  },
+  get 'connection-pause'() {
+    return tr('连接到 Codex 暂停 恢复连接');
+  },
 };
 function indexSettings(): Entry[] {
   const content = document.querySelector('.settings-content');

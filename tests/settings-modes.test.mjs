@@ -2,6 +2,7 @@
  * [OUTPUT]: Shared drafts/DOM, aligned compact controls, loaded content-sized previews, compatibility overview and responsive navigation.
  * [POS]: No real user data, model requests or host restarts.
  * [PROTOCOL]: Keep tests/AGENTS.md in sync. */
+import { openSettingsPage } from './settings-navigation.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -217,7 +218,11 @@ test(
         let raw = '';
         for await (const chunk of req) raw += chunk;
         const body = raw ? JSON.parse(raw) : null;
-        if (body && body.op !== 'state' && !(body.op === 'bots-catalog' && !body.refresh))
+        if (
+          body &&
+          !['state', 'status'].includes(body.op) &&
+          !(body.op === 'bots-catalog' && !body.refresh)
+        )
           writes.push({ path, body });
         let value;
         if (path === '/api/app-mode') {
@@ -231,6 +236,14 @@ test(
           };
         } else if (path === '/api/app-update') {
           value = { currentVersion: '1.3.0', revision: 1, canInstall: false, checked: false };
+        } else if (path === '/api/backup') {
+          value = {
+            targets: [
+              { id: 'current', label: '当前运行环境', current: true, path: '/fixture/local' },
+            ],
+            sections: [],
+            canUndo: false,
+          };
         } else if (path === '/api/codex-host/agents') {
           assert.equal(req.method, 'GET');
           if (agentReadError) {
@@ -401,12 +414,14 @@ test(
     let browserServer, cleanupPromise;
     const cleanup = () =>
       (cleanupPromise ||= (async () => {
-        await browserServer?.kill();
         server.closeAllConnections();
-        await new Promise((r) => server.close(r));
+        await Promise.all([browserServer?.kill(), new Promise((r) => server.close(r))]);
       })());
     testContext.after(cleanup);
-    browserServer = await chromium.launchServer({ headless: true });
+    browserServer = await chromium.launchServer({
+      headless: true,
+      executablePath: process.env.PALBOO_CHROME_BIN || undefined,
+    });
     const browser = await chromium.connect(browserServer.wsEndpoint());
     const context = await browser.newContext({
       viewport: { width: 420, height: 800 },
@@ -417,12 +432,7 @@ test(
     page.setDefaultTimeout(8000);
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));
-    const category = async (id) => {
-      const link = page.locator(`.settings-nav a[href="#settings-${id}"]`);
-      await link.waitFor({ state: 'attached' });
-      if (!(await link.isVisible())) await page.locator('.settings-nav-trigger').click();
-      await link.click();
-    };
+    const category = (id) => openSettingsPage(page, id);
     const roundTrip = async () => {
       const current = await page.locator('.settings-app').getAttribute('data-settings-category');
       await category(current === 'features' ? 'model' : 'features');
@@ -460,7 +470,7 @@ test(
         0,
         'the header uses one integrated wordmark without a separate icon',
       );
-      assert.equal(await page.getByRole('link', { name: 'Palboo 设置', exact: true }).count(), 1);
+      assert.equal(await page.getByRole('link', { name: /^Palboo (设置|开发版)$/ }).count(), 1);
       await page.waitForFunction(
         (expected) => {
           const wordmark = document.querySelector('.settings-wordmark');
@@ -492,8 +502,25 @@ test(
         '布局与位置',
         '外观与字体',
       ]);
-      assert.ok(groups.find((group) => group.title === '功能').pages.includes('功能开关'));
-      assert.ok(groups.find((group) => group.title === '功能').pages.includes('兼容集成'));
+      assert.deepEqual(groups.find((group) => group.title === '功能').pages, [
+        '功能开关',
+        '大纲',
+        '下一步',
+        '常用语',
+        '术语释义',
+        '任务看板',
+        '模型切换',
+        'Grok Bot',
+        '阅读与网页',
+        '提示词优化',
+        '兼容集成',
+      ]);
+      assert.deepEqual(groups.find((group) => group.title === '系统').pages, [
+        '通用',
+        'Codex 连接',
+        '模型服务',
+        '备份与恢复',
+      ]);
       // 冷打开页面级链接包含预览；随后切页仍保留阅读位置，字段链接仍直接定位。
       const landing = await context.newPage();
       try {
@@ -551,6 +578,90 @@ test(
       await emulateMedia(page, { colorScheme: 'dark' });
       await expectTheme('light');
       assert.equal(writes.length, 0, 'theme subscription never writes business preferences');
+      await page.setViewportSize({ width: 620, height: 740 });
+      await category('general');
+      const updateButton = page.getByRole('button', { name: '检查更新', exact: true });
+      await updateButton.waitFor();
+      const updateBox = await updateButton.boundingBox();
+      assert.ok(
+        updateBox.y >= 0 && updateBox.y + updateBox.height < 740,
+        'update is on the first screen',
+      );
+      assert.equal(await page.locator('#app-mode').isVisible(), true);
+      await category('connection');
+      await page.getByRole('button', { name: '持续暂停', exact: true }).waitFor();
+      assert.equal(await page.locator('#cdp-endpoint').isVisible(), true);
+      await page.evaluate(() => {
+        location.hash = 'settings-performance';
+      });
+      await page.getByRole('switch', { name: '性能监测' }).waitFor();
+      assert.equal(await page.locator('#connection-diagnostics summary').count(), 0);
+      await category('backup');
+      const restore = page.getByLabel('备份文件', { exact: true });
+      await restore.waitFor();
+      const restoreBox = await restore.boundingBox();
+      assert.ok(
+        restoreBox.y >= 0 && restoreBox.y + restoreBox.height < 740,
+        'restore starts on the first screen',
+      );
+      assert.equal(await page.getByLabel('备份文件').isVisible(), true);
+      assert.equal(await page.getByRole('region', { name: '在本机环境间复制' }).count(), 0);
+      await page.setViewportSize({ width: 420, height: 800 });
+      assert.equal(writes.length, 0, 'the compact System and legacy routes never write');
+      await category('surfaces');
+      const eyes = page.locator('#settings-launcher');
+      await eyes.getByRole('heading', { name: '眼睛按钮', exact: true }).waitFor();
+      const eyeNode = await page.locator('#launcher-double-action').elementHandle();
+      assert.equal(await eyes.locator('select:visible').count(), 3);
+      await category('appearance');
+      assert.equal(await eyes.isVisible(), false);
+      assert.equal(await page.locator('#typography-surface').isVisible(), true);
+      assert.equal(await page.locator('#settings-fonts summary').count(), 0);
+      const hierarchy = await page.evaluate(() => {
+        const style = (selector) => getComputedStyle(document.querySelector(selector));
+        return {
+          pageWeight: style('.settings-page-title').fontWeight,
+          sectionWeight: style('#settings-fonts h2').fontWeight,
+          pageSize: parseFloat(style('.settings-page-title').fontSize),
+          rootSize: parseFloat(style('html').fontSize),
+          sectionLine: style('#settings-fonts').borderTopWidth,
+          fieldLines: [...document.querySelectorAll('#settings-fonts .settings-field')].map(
+            (n) => getComputedStyle(n).borderTopWidth,
+          ),
+          frame: style('#settings-fonts .settings-control-group').borderTopWidth,
+        };
+      });
+      assert.equal(hierarchy.pageWeight, '500');
+      assert.equal(hierarchy.sectionWeight, '600');
+      assert.equal(hierarchy.pageSize, hierarchy.rootSize * 1.5);
+      assert.equal(hierarchy.sectionLine, '0px');
+      assert.ok(hierarchy.fieldLines.every((n) => n === '0px'));
+      assert.equal(hierarchy.frame, '1px');
+      await page.evaluate(() => {
+        location.hash = 'settings-appearance/launcher-double-action';
+      });
+      await page.waitForFunction(
+        () => document.querySelector('.settings-app').dataset.settingsCategory === 'surfaces',
+      );
+      assert.equal(
+        await eyeNode.evaluate((n) => n === document.querySelector('#launcher-double-action')),
+        true,
+      );
+      assert.equal(await page.locator('#launcher-double-action').isVisible(), true);
+      await category('features');
+      assert.equal(
+        await page
+          .locator('.settings-feature-list .settings-row')
+          .first()
+          .evaluate((n) => getComputedStyle(n).borderBottomWidth),
+        '1px',
+      );
+      assert.equal(
+        writes.length,
+        0,
+        'moving controls and following old links never saves preferences',
+      );
+
       // Exercise the styled native picker through actual keyboard/pointer input, not selectOption.
       await category('next');
       // The page keeps frequent choices; the library is a directory, then one editor.
@@ -693,19 +804,32 @@ test(
       assert.equal(await page.locator('.settings-mode').count(), 0);
       assert.equal(await page.getByRole('navigation', { name: '设置分类' }).isVisible(), true);
       assert.equal(await page.getByRole('switch').count(), 10);
-      const featureNames = await page
-        .locator('.settings-feature-list .settings-feature-switch > label')
-        .allTextContents();
-      const featurePages = await page
-        .locator('.settings-nav-group')
-        .filter({ has: page.getByRole('heading', { name: '功能', exact: true }) })
-        .getByRole('link')
-        .allTextContents();
+      const featureLinks = page.locator('.settings-feature-list .settings-feature-link');
       assert.deepEqual(
-        featureNames,
-        featurePages.slice(1).map((name) => (name === '兼容集成' ? 'CodexHost' : name)),
-        'feature switches share page names and order, with CodexHost named inside integrations',
+        (await featureLinks.allTextContents()).map((name) => name.trim()),
+        [
+          '大纲',
+          '下一步',
+          '常用语',
+          '术语释义',
+          '任务看板',
+          '模型切换',
+          'Grok Bot',
+          '阅读与网页',
+          '提示词优化',
+          'CodexHost',
+        ],
       );
+      const featureMenu = page.locator('.settings-nav-group[aria-label="功能"] a');
+      const destinations = (links) => links.evaluateAll((nodes) => nodes.map((node) => node.hash));
+      assert.deepEqual(await destinations(featureMenu), [
+        '#settings-features',
+        ...(await destinations(featureLinks)),
+      ]);
+      await featureLinks.getByText('大纲', { exact: true }).click();
+      await page.getByRole('heading', { level: 1, name: '大纲', exact: true }).waitFor();
+      assert.equal(writes.length, 0, 'feature list links open details without toggling features');
+      await category('features');
       assert.equal(
         await page.getByRole('switch', { name: '启用聊天测速', exact: true }).count(),
         0,
@@ -789,6 +913,13 @@ test(
       assert.equal(codexHost.enabled, false);
       writes.length = 0;
       await category('model');
+      await page.getByRole('heading', { name: '当前模型', exact: true }).waitFor();
+      assert.equal(await page.locator('#model').isVisible(), true);
+      assert.equal(
+        await page.getByRole('button', { name: '测试连接', exact: true }).isVisible(),
+        true,
+      );
+      assert.equal(await page.locator('#protocol').isVisible(), false);
       await category('features');
       await page.goBack();
       await page.waitForFunction(
@@ -1222,7 +1353,7 @@ test(
       );
       rejectNext = true;
       await model.fill('失败后保留模型');
-      await page.getByRole('region', { name: '共享模型连接', exact: true }).click();
+      await page.getByRole('heading', { name: '当前模型', exact: true }).click();
       await page.locator('.settings-feedback').filter({ hasText: '合成保存失败' }).waitFor();
       await roundTrip();
       assert.equal(await model.inputValue(), '失败后保留模型');
@@ -1509,7 +1640,7 @@ test(
       );
       assert.equal(await preview.getByRole('tab', { name: '看板', exact: true }).count(), 0);
 
-      await page.getByRole('link', { name: '下一步', exact: true }).click();
+      await category('next');
       const demoWrites = writes.length;
       await preview.getByRole('button', { name: /拆解第一版/ }).click();
       await page.waitForFunction(
@@ -1521,11 +1652,15 @@ test(
       );
       assert.equal(writes.length, demoWrites, 'sample interactions do not write or send');
       await page.getByRole('link', { name: '模型服务', exact: true }).click();
+      const savedModel = await page.locator('.settings-current-model').textContent();
       await model.fill('新的预览模型草稿');
-      await preview.getByText('新的预览模型草稿', { exact: true }).waitFor();
-      assert.equal(await preview.locator('.preview-status').innerText(), '包含未保存的编辑');
+      assert.equal(
+        await page.locator('.settings-current-model').textContent(),
+        savedModel,
+        'summary identifies the saved connection',
+      );
       const draftWrites = writes.length;
-      await category('connection');
+      await category('general');
       await page.locator('#app-mode').selectOption('release');
       await page.locator('#app-mode').selectOption('development');
       await category('surfaces');
@@ -1537,7 +1672,13 @@ test(
       );
       await category('model');
       assert.equal(await model.inputValue(), '新的预览模型草稿');
-      assert.equal((await preview.textContent()).includes('fixture-unsaved-key'), false);
+      assert.equal(await preview.count(), 0);
+      assert.equal(
+        (await page.locator('.settings-current-model').textContent()).includes(
+          'fixture-unsaved-key',
+        ),
+        false,
+      );
 
       for (const colorScheme of ['light', 'dark']) {
         await emulateMedia(page, {
@@ -1635,6 +1776,7 @@ test(
             'terminology',
             'model',
             'connection',
+            'general',
           ]) {
             await category(id);
             assert.equal(
@@ -1657,20 +1799,12 @@ test(
               assert.ok(Math.abs(top.body - top.controls) < 1, 'no empty preview space remains');
               continue;
             }
-            if (id === 'connection') {
+            if (['connection', 'model', 'general'].includes(id)) {
               assert.equal(await page.locator('.settings-preview').count(), 0);
-              assert.deepEqual(
-                await page
-                  .locator(
-                    '[data-settings-page="connection"] > section > h2, [data-settings-page="connection"] > section > .settings-section-heading > h2',
-                  )
-                  .allTextContents(),
-                ['桌面连接', '启动行为', '应用更新', '运行模式'],
-              );
-              assert.equal(
-                await page.locator('[data-settings-page="connection"] details').count(),
-                0,
-              );
+              const heading = { connection: '桌面连接', model: '当前模型', general: '语言与启动' }[
+                id
+              ];
+              await page.getByRole('heading', { name: heading, exact: true }).waitFor();
               if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
                 await page.screenshot({
                   path: `target/reports/settings-connection-${colorScheme}-${width}.png`,
@@ -1771,15 +1905,22 @@ test(
               previewOrder.bottom <= previewOrder.controls.top,
               `${id}: preview above every setting`,
             );
+            const format = ['surfaces', 'appearance'].includes(id) ? 'interface' : 'feature';
+            const leftGap = previewOrder.left - previewOrder.controls.left;
+            const rightGap = previewOrder.controls.right - previewOrder.left - previewOrder.width;
             assert.ok(
-              Math.abs(previewOrder.left - previewOrder.controls.left) < 1,
-              `${id}: preview and controls align`,
+              format === 'interface' ? Math.abs(leftGap - rightGap) < 1 : Math.abs(leftGap) < 1,
+              `${id}: ${format === 'interface' ? 'equal preview side margins' : 'preview and controls align'}`,
             );
             assert.ok(
-              Math.abs(previewOrder.width - previewOrder.controls.width) < 1,
+              Math.abs(
+                previewOrder.width -
+                  (format === 'interface'
+                    ? Math.min(previewOrder.controls.width, 520)
+                    : previewOrder.controls.width),
+              ) < 1,
               `${id}: shared preview width`,
             );
-            const format = ['surfaces', 'appearance'].includes(id) ? 'interface' : 'feature';
             assert.equal(stage.format, format, `${id}: uses its shared preview family`);
             if (format === 'interface')
               assert.ok(
@@ -1998,6 +2139,8 @@ test(
         `${appearance.typography.customSize * 0.65}px`,
         'appearance preview scales saved typography to 65% without changing the preference',
       );
+      await preview.getByRole('button', { name: '演示页面浮层', exact: true }).click();
+      assert.equal(await page.getByLabel('侧栏主题', { exact: true }).isVisible(), false);
       await page.getByLabel('页面浮层主题', { exact: true }).selectOption('native-glass');
       await preview.locator('[data-preview-workspace][data-material="native-glass"]').waitFor();
       const regularColor = await preview
@@ -2216,7 +2359,7 @@ test(
               visible: !!n.getBoundingClientRect().height,
             })),
           );
-          assert.ok(links.length >= 12, 'all original settings leaves remain available');
+          assert.equal(links.length, 18, 'sidebar keeps all feature and System destinations');
           assert.ok(links.filter((n) => n.visible).every((n) => n.width >= n.content));
           assert.equal(links.filter((n) => n.visible).length, width <= 640 ? 0 : links.length);
           assert.equal(await page.locator('.settings-nav summary').count(), 0);
@@ -2294,6 +2437,13 @@ test(
       }
       await page.setViewportSize({ width: 390, height: 500 });
       await page.locator('.settings-nav-trigger').click();
+      const activeLink = await page
+        .locator('.settings-category-links a[aria-current="page"]')
+        .boundingBox();
+      assert.ok(
+        activeLink.y >= 0 && activeLink.y + activeLink.height <= 500,
+        'opening the short menu scrolls the active destination into view',
+      );
       await page.keyboard.press('End');
       const lastLink = await page.locator('.settings-category-links a').last().boundingBox();
       assert.ok(
@@ -2399,7 +2549,7 @@ test(
       const userTerms = structuredClone(terminology);
       const userLayouts = structuredClone(features.layouts);
       const languageWrites = writes.length;
-      await category('appearance');
+      await category('general');
       await page.locator('#interface-language').selectOption('en');
       await page.waitForFunction(() => document.documentElement.lang === 'en');
       await page.getByRole('link', { name: 'Palboo Settings', exact: true }).waitFor();
@@ -2419,7 +2569,7 @@ test(
           'bots',
           'model',
           'connection',
-          'performance',
+          'general',
           'codex-host',
         ]) {
           await category(id);
@@ -2456,10 +2606,10 @@ test(
       );
       await page.reload();
       await page.waitForFunction(() => document.documentElement.lang === 'en');
-      await category('appearance');
+      await category('general');
       await page.locator('#interface-language').selectOption('zh-CN');
       await page.waitForFunction(() => document.documentElement.lang === 'zh-CN');
-      await page.getByRole('link', { name: 'Palboo 设置', exact: true }).waitFor();
+      await page.getByRole('link', { name: /^Palboo (设置|开发版)$/ }).waitFor();
       assert.deepEqual(errors, []);
     } catch (error) {
       await page

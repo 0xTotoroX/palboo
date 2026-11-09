@@ -98,29 +98,26 @@ export function AppModeSettings({ live, editor }: { live: boolean; editor: Setti
   return (
     <>
       <AppUpdateSettings live={live} editor={editor} modeEditing={busy || edited} />
-      <Card
-        tabIndex={-1}
-        id="settings-app-mode"
-        aria-labelledby="app-mode-title"
-        data-settings-navigation
-      >
-        <h2 id="app-mode-title">{tr('运行模式')}</h2>
-        <Field id="app-mode" label={tr('启动时使用')}>
-          <NativeSelect
-            id="app-mode"
-            controlWidth="short"
-            value={mode}
-            disabled={!live || !ready || busy}
-            onChange={(event) => {
-              // 模式独立提交，不能触发外层模型表单的自动保存。
-              event.stopPropagation();
-              setMode(event.target.value as Mode);
-            }}
-          >
-            <option value="release">{tr('正式模式')}</option>
-            <option value="development">{tr('开发模式')}</option>
-          </NativeSelect>
-        </Field>
+      <Card id="settings-app-mode" data-settings-navigation>
+        <h2>{tr('运行模式')}</h2>
+        <div className="settings-control-group">
+          <Field id="app-mode" label={tr('启动时使用')}>
+            <NativeSelect
+              id="app-mode"
+              controlWidth="short"
+              value={mode}
+              disabled={!live || !ready || busy}
+              onChange={(event) => {
+                // 模式独立提交，不能触发外层模型表单的自动保存。
+                event.stopPropagation();
+                setMode(event.target.value as Mode);
+              }}
+            >
+              <option value="release">{tr('正式模式')}</option>
+              <option value="development">{tr('开发模式')}</option>
+            </NativeSelect>
+          </Field>
+        </div>
         <SettingsDrawer
           id="settings-app-development"
           title={tr('开发设置')}

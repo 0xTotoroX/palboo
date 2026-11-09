@@ -135,7 +135,6 @@
   grid-template-columns: 1fr auto;
   gap: 14px 20px;
   padding: 22px;
-  border-top: 1px solid var(--monitor-line);
   align-items: center;
 }
 .performance-work-value {
@@ -164,7 +163,6 @@
 .performance-host {
   padding: 20px 22px;
   background: transparent;
-  border-top: 1px solid var(--monitor-line);
 }
 .performance-host-heading {
   display: flex;
@@ -223,17 +221,10 @@
 }
 .performance-details {
   padding: 16px 22px 20px;
-  border-top: 1px solid var(--monitor-line);
   font-size: 13px;
 }
-.performance-details summary {
-  cursor: pointer;
-  width: fit-content;
-}
-.performance-details summary:focus-visible {
-  outline: 2px solid var(--buddy-focus);
-  outline-offset: 5px;
-  border-radius: 2px;
+.performance-details h3 {
+  margin: 0;
 }
 .performance-work-list {
   display: grid;
@@ -283,7 +274,6 @@
   }
   .performance-instrument + .performance-instrument {
     border-left: 0;
-    border-top: 1px solid var(--monitor-line);
   }
   .performance-host,
   .performance-host-work,

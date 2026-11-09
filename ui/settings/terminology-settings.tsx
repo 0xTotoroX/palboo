@@ -221,6 +221,7 @@ export function TerminologySettings({
       <style>{cardStyles}</style>
       <FeatureSwitch
         name={pageTitles.terminology}
+        featurePage="terminology"
         portalTarget={enablementTarget}
         checked={prefs?.enabled ?? false}
         disabled={busy || !prefs}

@@ -45,8 +45,8 @@
   flex: 1;
   min-height: 0;
 }
-.preview-generation .preview-frame-content {
-  justify-content: center;
+.settings-app .preview-chat-frame {
+  --preview-conversation-height: 356px;
 }
 /* Compatibility management uses an isolated Agent picker before the integration details. */
 .compatibility-heading {
@@ -236,7 +236,6 @@
   flex-direction: column;
   gap: 8px;
   padding: 12px 0;
-  border-bottom: 1px solid var(--buddy-border);
 }
 .preview-connection > .buddy-icon {
   color: var(--buddy-muted);

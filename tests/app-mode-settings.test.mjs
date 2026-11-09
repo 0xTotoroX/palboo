@@ -69,10 +69,14 @@ test('release settings can select development, retain edits on failure and hand 
       .end('<div id="root"></div><script>' + js.replaceAll('</script', '<\\/script') + '</script>');
   });
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({
+    executablePath: process.env.PALBOO_CHROME_BIN || undefined,
+  });
   try {
     const page = await browser.newPage({ viewport: { width: 390, height: 800 } });
     await page.goto(`http://127.0.0.1:${server.address().port}/#token=synthetic`);
+    await page.locator('#app-mode').waitFor();
+    assert.equal(await page.locator('#app-mode').isVisible(), true);
     await page.getByLabel('启动时使用', { exact: true }).selectOption('development');
     await page.getByRole('button', { name: '开发设置', exact: true }).click();
     const drawer = page.getByRole('dialog', { name: '开发设置', exact: true });

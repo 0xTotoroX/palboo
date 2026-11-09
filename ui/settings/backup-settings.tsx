@@ -1,5 +1,5 @@
 /* [INPUT]: Authenticated local backup API, current settings draft state and native file input.
- * [OUTPUT]: Local export, selected-module restore/copy, explicit difference review and undo.
+ * [OUTPUT]: 页内备份与恢复表单、按环境显示的复制表单；各自保留范围和目标，单独确认差异。
  * [POS]: Settings-only transfer controls; no cloud transport or automatic synchronization.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { useEffect, useRef, useState } from 'react';
@@ -70,17 +70,50 @@ export function BackupSettings({
   const [error, setError] = useState('');
   const [data, setData] = useState(false);
   const [secrets, setSecrets] = useState(false);
+  const [encrypt, setEncrypt] = useState(false);
   const [password, setPassword] = useState('');
   const [importPassword, setImportPassword] = useState('');
   const [file, setFile] = useState<File | null>(null);
+  const [encryptedFile, setEncryptedFile] = useState(false);
+  const [readingFile, setReadingFile] = useState(false);
+  useEffect(() => {
+    if (!file) return;
+    let canceled = false;
+    void file
+      .slice(0, 19)
+      .text()
+      .then((prefix) => {
+        if (!canceled) setEncryptedFile(prefix.startsWith('age-encryption.org/'));
+      })
+      .catch(() => {
+        if (!canceled) setEncryptedFile(file.name.toLowerCase().endsWith('.age'));
+      })
+      .finally(() => {
+        if (!canceled) setReadingFile(false);
+      });
+    return () => {
+      canceled = true;
+    };
+  }, [file]);
   const [source, setSource] = useState('current');
-  const [target, setTarget] = useState('current');
-  const [selected, setSelected] = useState<string[]>([]);
+  const [restoreTarget, setRestoreTarget] = useState('current');
+  const [copyTarget, setCopyTarget] = useState('current');
+  const [restoreSelection, setRestoreSelection] = useState<string[] | null>(null);
+  const [copySelection, setCopySelection] = useState<string[] | null>(null);
+  const restoreSections = restoreSelection || [];
+  const copySections = copySelection || [];
+  const reviewOpener = useRef('backup-preview-restore');
+  const targets = status?.targets || [];
+  const multipleTargets = targets.length > 1;
   const [preview, setPreview] = useState<Preview | null>(null);
   useEffect(() => {
+    if (!active) {
+      if (preview) setPreview(null);
+      return;
+    }
     const element = document.getElementById('backup-review');
     if (preview && element) revealSettingsDrawer(element);
-  }, [preview]);
+  }, [active, preview]);
   const mounted = useRef(true);
   useEffect(() => {
     mounted.current = true;
@@ -95,9 +128,14 @@ export function BackupSettings({
       .then((next) => {
         if (canceled) return;
         setStatus(next);
-        setSelected((current) =>
-          current.length ? current : next.sections.filter((s) => s.default).map((s) => s.id),
-        );
+        const defaults = next.sections.filter((item) => item.default).map((item) => item.id);
+        setRestoreSelection((current) => current ?? defaults);
+        setCopySelection((current) => current ?? defaults);
+        const validTarget = (id: string) =>
+          next.targets.some((item) => item.id === id) ? id : 'current';
+        setRestoreTarget(validTarget);
+        setCopyTarget(validTarget);
+        setSource(validTarget);
       })
       .catch((e) => {
         if (!canceled) setError(e.message);
@@ -130,7 +168,7 @@ export function BackupSettings({
       op: 'export',
       includeData: data,
       includeSecrets: secrets,
-      password,
+      password: encrypt || secrets ? password : '',
     });
     const blob = new Blob([Uint8Array.from(atob(result.data), (c) => c.charCodeAt(0))], {
       type: 'application/octet-stream',
@@ -147,6 +185,7 @@ export function BackupSettings({
     setMessage(tr('备份已生成，请保存下载文件。'));
   }
   async function inspect(copy = false) {
+    const selected = copy ? copySections : restoreSections;
     let encoded: string | undefined;
     if (!copy) {
       if (!file) throw Error(tr('请选择备份文件'));
@@ -156,13 +195,14 @@ export function BackupSettings({
     const next = await request<Preview>('backup', {
       op: copy ? 'copy' : 'preview',
       data: encoded,
-      password: importPassword,
-      source,
-      target,
+      password: copy || !encryptedFile ? undefined : importPassword,
+      source: copy ? source : undefined,
+      target: multipleTargets ? (copy ? copyTarget : restoreTarget) : 'current',
       sections: selected,
       includeData: selected.includes('data'),
       includeSecrets: selected.includes('secrets'),
     });
+    reviewOpener.current = copy ? 'backup-preview-copy' : 'backup-preview-restore';
     setPreview(next);
     setImportPassword('');
   }
@@ -209,165 +249,240 @@ export function BackupSettings({
       }
       throw Error(tr('恢复结果尚未确认，请重新打开设置页查看。'));
     }
-    setMessage(tr('配置已复制；目标下次启动时生效。'));
+    setMessage(tr('配置已应用；目标下次启动时生效。'));
     setStatus(await request<Status>('backup', { op: 'status' }));
   }
+  const passwordVisible = encrypt || secrets;
+  const scopeFields = (selected: string[], setSelection: typeof setRestoreSelection) => (
+    <div className="settings-backup-sections" role="group" aria-label={tr('恢复范围')}>
+      {status?.sections.map((item) => (
+        <label key={item.id}>
+          <input
+            type="checkbox"
+            checked={selected.includes(item.id)}
+            disabled={blocked}
+            onChange={(event) => {
+              const checked = event.target.checked;
+              setSelection((items) =>
+                checked
+                  ? [...(items || []), item.id]
+                  : (items || []).filter((id) => id !== item.id),
+              );
+              invalidate();
+            }}
+          />
+          <span>{targetLabel(item.label)}</span>
+        </label>
+      ))}
+    </div>
+  );
+  const targetField = (id: string, target: string, setTarget: (id: string) => void) =>
+    multipleTargets && (
+      <Field id={id} label={tr('目标环境')}>
+        <NativeSelect
+          id={id}
+          value={target}
+          disabled={blocked}
+          onChange={(event) => {
+            setTarget(event.target.value);
+            invalidate();
+          }}
+        >
+          {targets.map((item) => (
+            <option key={item.id} value={item.id}>
+              {targetLabel(item.label)}
+            </option>
+          ))}
+        </NativeSelect>
+      </Field>
+    );
+  const undo = (opener: string, environment: string) =>
+    void run('undo', async () => {
+      const value = await request<Preview>('backup', { op: 'undo', target: environment });
+      reviewOpener.current = opener;
+      setPreview(value);
+    });
   return (
     <section hidden={!active} data-settings-page="backup" className="settings-section">
       <Feedback text={error} failed />
       <Feedback text={message} />
       {dirty && <Feedback text={tr('请先保存或还原当前设置，再备份或恢复。')} failed />}
-      <Card>
-        <h2>{tr('导出备份')}</h2>
-        <Toggle
-          label={tr('包含任务与术语数据')}
-          checked={data}
-          disabled={blocked}
-          onChange={setData}
-        />
-        <Toggle
-          label={tr('包含 API 密钥')}
-          checked={secrets}
-          disabled={blocked}
-          onChange={setSecrets}
-        />
-        <Field id="backup-password" label={tr(secrets ? '备份密码' : '备份密码（选填）')}>
-          <Input
-            id="backup-password"
-            type="password"
-            autoComplete="new-password"
-            placeholder={tr('密码至少 10 个字符')}
-            value={password}
+      <Card id="backup-export" aria-labelledby="backup-export-title">
+        <h2 id="backup-export-title">{tr('备份到文件')}</h2>
+        <div className="settings-control-group">
+          <Toggle
+            label={tr('包含任务与术语数据')}
+            checked={data}
             disabled={blocked}
-            onChange={(e) => {
-              setPassword(e.target.value);
-              invalidate();
-            }}
+            onChange={setData}
           />
-        </Field>
-        <div className="settings-actions">
-          <Button
-            type="button"
-            disabled={blocked || (secrets && password.length < 10)}
-            onClick={() => void run('export', exportFile)}
-          >
-            {tr(busy === 'export' ? '正在导出…' : '导出备份')}
-          </Button>
-        </div>
-      </Card>
-      <Card>
-        <h2>{tr('恢复与复制')}</h2>
-        <Field id="backup-target" label={tr('目标环境')}>
-          <NativeSelect
-            id="backup-target"
-            value={target}
+          <Toggle
+            label={tr('包含 API 密钥')}
+            checked={secrets}
             disabled={blocked}
-            onChange={(e) => {
-              setTarget(e.target.value);
-              invalidate();
-            }}
-          >
-            {status?.targets.map((item) => (
-              <option key={item.id} value={item.id}>
-                {targetLabel(item.label)}
-              </option>
-            ))}
-          </NativeSelect>
-        </Field>
-        <div className="settings-backup-sections" role="group" aria-label={tr('恢复范围')}>
-          {status?.sections.map((item) => (
-            <label key={item.id}>
-              <input
-                type="checkbox"
-                checked={selected.includes(item.id)}
-                disabled={blocked}
-                onChange={(e) => {
-                  setSelected((items) =>
-                    e.target.checked ? [...items, item.id] : items.filter((id) => id !== item.id),
-                  );
-                  invalidate();
-                }}
-              />
-              <span>{targetLabel(item.label)}</span>
-            </label>
-          ))}
-        </div>
-        <Field id="backup-file" label={tr('备份文件')}>
-          <Input
-            className="h-auto py-2 file:mr-3 file:border-0 file:bg-transparent file:text-foreground"
-            id="backup-file"
-            type="file"
-            accept=".palboo,.age"
-            disabled={blocked}
-            onChange={(e) => {
-              setFile(e.target.files?.[0] || null);
-              invalidate();
-            }}
+            onChange={setSecrets}
           />
-        </Field>
-        <Field id="backup-import-password" label={tr('备份密码（加密文件）')}>
-          <Input
-            id="backup-import-password"
-            type="password"
-            autoComplete="off"
-            value={importPassword}
-            disabled={blocked}
-            onChange={(e) => {
-              setImportPassword(e.target.value);
-              invalidate();
-            }}
-          />
-        </Field>
-        <div className="settings-actions">
-          <Button
-            variant="outline"
-            disabled={blocked || !file || !selected.length}
-            onClick={() => void run('preview', () => inspect())}
-          >
-            {tr('预览导入')}
-          </Button>
-        </div>
-        <div className="mt-6">
-          <Field id="backup-source" label={tr('复制来源')}>
-            <NativeSelect
-              id="backup-source"
-              value={source}
+          {!secrets && (
+            <Toggle
+              label={tr('加密备份')}
+              checked={encrypt}
               disabled={blocked}
-              onChange={(e) => {
-                setSource(e.target.value);
-                invalidate();
-              }}
-            >
-              {status?.targets.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {targetLabel(item.label)}
-                </option>
-              ))}
-            </NativeSelect>
-          </Field>
+              onChange={setEncrypt}
+            />
+          )}
+          <div hidden={!passwordVisible}>
+            <Field id="backup-password" label={tr('备份密码')}>
+              <Input
+                id="backup-password"
+                type="password"
+                autoComplete="new-password"
+                placeholder={tr('密码至少 10 个字符')}
+                value={password}
+                disabled={blocked || !passwordVisible}
+                onChange={(event) => setPassword(event.target.value)}
+              />
+            </Field>
+          </div>
           <div className="settings-actions">
             <Button
-              variant="outline"
-              disabled={blocked || source === target || !selected.length}
-              onClick={() => void run('copy', () => inspect(true))}
+              type="button"
+              disabled={blocked || (passwordVisible && password.length < 10)}
+              onClick={() => void run('export', exportFile)}
             >
-              {tr('预览复制')}
-            </Button>
-            <Button
-              variant="ghost"
-              disabled={blocked || (target === 'current' && !status?.canUndo)}
-              onClick={() =>
-                void run('undo', async () => {
-                  setPreview(await request<Preview>('backup', { op: 'undo', target }));
-                })
-              }
-            >
-              {tr('恢复上次操作前的配置')}
+              {tr(busy === 'export' ? '正在导出…' : '导出备份')}
             </Button>
           </div>
         </div>
       </Card>
-      <SettingsDrawer id="backup-review" title={tr('确认恢复范围')} hidden={!preview}>
+      <Card id="backup-restore" aria-labelledby="backup-restore-title" tabIndex={-1}>
+        <h2 id="backup-restore-title">{tr('从文件恢复')}</h2>
+        <div className="settings-control-group">
+          <Field id="backup-file" label={tr('备份文件')}>
+            <Input
+              className="h-auto py-2 file:mr-3 file:border-0 file:bg-transparent file:text-foreground"
+              id="backup-file"
+              type="file"
+              accept=".palboo,.age"
+              disabled={blocked}
+              onChange={(event) => {
+                const next = event.target.files?.[0] || null;
+                setFile(next);
+                setReadingFile(!!next);
+                setEncryptedFile(false);
+                setImportPassword('');
+                invalidate();
+              }}
+            />
+          </Field>
+          {file && (
+            <>
+              {targetField('backup-target', restoreTarget, setRestoreTarget)}
+              {encryptedFile && (
+                <Field id="backup-import-password" label={tr('备份密码')}>
+                  <Input
+                    id="backup-import-password"
+                    type="password"
+                    autoComplete="off"
+                    value={importPassword}
+                    disabled={blocked}
+                    onChange={(event) => {
+                      setImportPassword(event.target.value);
+                      invalidate();
+                    }}
+                  />
+                </Field>
+              )}
+              {scopeFields(restoreSections, setRestoreSelection)}
+              <div className="settings-actions">
+                <Button
+                  id="backup-preview-restore"
+                  disabled={
+                    blocked ||
+                    readingFile ||
+                    !restoreSections.length ||
+                    (encryptedFile && !importPassword)
+                  }
+                  onClick={() => void run('preview', () => inspect())}
+                >
+                  {tr('预览恢复')}
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      </Card>
+      {multipleTargets && (
+        <Card id="backup-copy" aria-labelledby="backup-copy-title" tabIndex={-1}>
+          <h2 id="backup-copy-title">{tr('在本机环境间复制')}</h2>
+          <div className="settings-control-group">
+            <Field id="backup-source" label={tr('复制来源')}>
+              <NativeSelect
+                id="backup-source"
+                value={source}
+                disabled={blocked}
+                onChange={(event) => {
+                  setSource(event.target.value);
+                  invalidate();
+                }}
+              >
+                {targets.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {targetLabel(item.label)}
+                  </option>
+                ))}
+              </NativeSelect>
+            </Field>
+            {targetField('backup-copy-target', copyTarget, setCopyTarget)}
+            {scopeFields(copySections, setCopySelection)}
+            <div className="settings-actions">
+              {copyTarget !== 'current' && (
+                <Button
+                  id="backup-copy-undo"
+                  variant="ghost"
+                  disabled={blocked}
+                  onClick={() => undo('backup-copy-undo', copyTarget)}
+                >
+                  {tr('撤销上次恢复')}
+                </Button>
+              )}
+              <Button
+                id="backup-preview-copy"
+                disabled={blocked || source === copyTarget || !copySections.length}
+                onClick={() => void run('copy', () => inspect(true))}
+              >
+                {tr('预览复制')}
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
+      {status?.canUndo && (
+        <div className="settings-actions">
+          <Button
+            id="backup-undo"
+            variant="ghost"
+            disabled={blocked}
+            onClick={() => undo('backup-undo', 'current')}
+          >
+            {tr('撤销上次恢复')}
+          </Button>
+        </div>
+      )}
+      <SettingsDrawer
+        id="backup-review"
+        title={tr('确认恢复范围')}
+        hidden={!preview}
+        hideTrigger
+        onClose={() => {
+          setPreview(null);
+          const opener = document.getElementById(reviewOpener.current);
+          const section = opener?.closest<HTMLElement>('.settings-section');
+          const focus = opener?.matches(':enabled')
+            ? opener
+            : section?.querySelector<HTMLElement>('input[type="password"]:enabled') || section;
+          focus?.focus({ preventScroll: true });
+        }}
+      >
         {preview && (
           <>
             <dl>

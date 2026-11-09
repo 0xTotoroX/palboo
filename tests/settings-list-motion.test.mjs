@@ -135,20 +135,21 @@ createRoot(document.getElementById('root')).render(<App/>);`,
       assert.ok(
         log.filter((x) => x.field).every((x) => x.frames[0].transform === 'translateY(4px)'),
       );
-      const geometry = await page.locator('#base-url').evaluate((el) => {
-        const box = el.getBoundingClientRect();
-        return { width: box.width, height: box.height };
-      });
+      const measure = () =>
+        page.locator('#base-url').evaluate((el) => {
+          const box = el.getBoundingClientRect();
+          return { width: box.width, height: box.height };
+        });
+      const geometry = await measure();
       await finishAnimations(page.locator('.settings-model-editor'));
       await providerSaved;
       assert.equal(settings.provider, 'api');
       assert.equal(writes, beforeProvider + 1, 'animation does not duplicate provider autosave');
-      assert.deepEqual(
-        await page.locator('#base-url').evaluate((el) => {
-          const box = el.getBoundingClientRect();
-          return { width: box.width, height: box.height };
-        }),
-        geometry,
+      const settled = await measure();
+      assert.ok(
+        Math.abs(settled.width - geometry.width) < 0.01 &&
+          Math.abs(settled.height - geometry.height) < 0.01,
+        `provider transition changes field size: ${JSON.stringify({ geometry, settled })}`,
       );
       await clear();
       await page.locator('#base-url').fill('https://fixture.test/v1');

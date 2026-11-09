@@ -9,7 +9,7 @@ import { LayoutPreview } from './layout-preview';
 import { ModelPreview } from './model-preview';
 import { FeaturePreviewContent } from './feature-preview';
 import { FeatureChatPreview } from './feature-chat-preview';
-import { useCallback, useState, type ReactNode } from 'react';
+import { useCallback, useState } from 'react';
 import type { BotCatalog } from './bot-settings';
 import type { SettingsPage } from './settings-outline';
 import type { EditableSettings, View } from './api';
@@ -33,21 +33,9 @@ type PreviewProps = {
   sites?: WebLibrary | null;
   view: View | null;
   live: boolean;
+  appearancePlacement?: string;
+  onAppearancePlacement?: (placement: string) => void;
 };
-
-function Facts({ items }: { items: [string, ReactNode][] }) {
-  useLocale();
-  return (
-    <dl className="preview-facts">
-      {items.map(([label, value]) => (
-        <div key={label}>
-          <dt>{label}</dt>
-          <dd>{value}</dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
 
 function FeaturePreview({ form, tasks, model, bots, view, dirty, page }: PreviewProps) {
   useLocale();
@@ -141,29 +129,6 @@ function FeaturePreview({ form, tasks, model, bots, view, dirty, page }: Preview
   );
 }
 
-function GenerationPreview({ form, dirty }: PreviewProps) {
-  useLocale();
-  return (
-    <Frame
-      className="preview-generation"
-      title={tr('共享模型连接')}
-      status={dirty ? tr('包含未保存的编辑') : undefined}
-    >
-      <div className="preview-demo">
-        <div className="preview-model-name">
-          <strong>{form?.model || tr('尚未配置模型')}</strong>
-          <span>{form?.provider === 'codex' ? tr('Codex 登录') : form?.protocol || '—'}</span>
-        </div>
-        <Facts
-          items={[
-            [tr('输出上限'), `${form?.maxOutputTokens ?? '—'} tokens`],
-            [tr('请求超时'), tr('{{value1}} 秒', { value1: form ? form.timeoutMs / 1000 : '—' })],
-          ]}
-        />
-      </div>
-    </Frame>
-  );
-}
 export function SettingsPreview(props: PreviewProps) {
   useLocale();
   const { form, view, tasks, bots, model, sites } = props;
@@ -190,13 +155,24 @@ export function SettingsPreview(props: PreviewProps) {
       ) : null,
     [form, view, tasks, bots, model, sites],
   );
-  if (['connection', 'codex-host', 'prompt-enhancement', 'sites'].includes(props.page)) return null;
+  if (
+    [
+      'general',
+      'connection',
+      'backup',
+      'model',
+      'codex-host',
+      'prompt-enhancement',
+      'sites',
+    ].includes(props.page)
+  )
+    return null;
   const workspace = props.page === 'surfaces' || props.page === 'appearance';
   return (
     <aside
       className="settings-preview"
       aria-label={tr('联动预览')}
-      hidden={['performance', 'terminology', 'dev'].includes(props.page)}
+      hidden={['terminology', 'dev'].includes(props.page)}
       data-preview-kind={workspace ? 'workspace' : props.page}
     >
       {workspace ? (
@@ -206,6 +182,8 @@ export function SettingsPreview(props: PreviewProps) {
           live={props.live}
           sceneZoom={1}
           appearance={props.page === 'appearance'}
+          appearancePlacement={props.appearancePlacement}
+          onAppearancePlacement={props.onAppearancePlacement}
           typography={props.view?.panelTypography}
           typographyPreferences={props.view?.panelPreferences.typography}
           surfaceTypography={props.view?.panelPreferences.surfaceTypography}
@@ -215,8 +193,6 @@ export function SettingsPreview(props: PreviewProps) {
           props.page,
         ) ? (
         <FeaturePreview {...props} />
-      ) : props.page === 'model' ? (
-        <GenerationPreview {...props} />
       ) : null}
     </aside>
   );

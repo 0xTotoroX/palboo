@@ -4,9 +4,18 @@ import { tr } from '../shared/i18n.js';
  * [OUTPUT]: 统一设置行、功能开关、集中操作反馈及跨页无效字段定位；说明在编辑时出现，保存队列不变。
  * [POS]: 设置页组合组件，不持有业务数据或新增保存服务。
  * [PROTOCOL]: 变更时同步 settings/AGENTS.md。 */
-import { useId, useRef, useState, useEffect, type ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useId,
+  useRef,
+  useState,
+  useEffect,
+  type ReactNode,
+} from 'react';
 import { createPortal } from 'react-dom';
-import { revealSettingsField } from './settings-outline';
+import { revealSettingsField, type SettingsPage } from './settings-outline';
+import { Icon } from '../shared/icons/react';
 import { ConfirmationButton } from './settings-confirmation';
 import { Button } from './components/ui/button';
 import { ActionIcon, type ActionState } from './components/ui/action-feedback';
@@ -64,8 +73,10 @@ export function Toggle({
     </label>
   );
 }
+export const FeatureDetailsContext = createContext<((page: SettingsPage) => void) | null>(null);
 export function FeatureSwitch({
   name,
+  featurePage,
   checked,
   disabled,
   onChange,
@@ -73,6 +84,7 @@ export function FeatureSwitch({
   portalTarget,
 }: {
   name: string;
+  featurePage?: SettingsPage;
   actions?: ReactNode;
   portalTarget?: HTMLElement | null;
   checked: boolean;
@@ -81,9 +93,26 @@ export function FeatureSwitch({
 }) {
   useLocale();
   const id = useId();
+  const openFeature = useContext(FeatureDetailsContext);
   const control = (
     <div className="settings-row settings-feature-switch">
-      <label htmlFor={id}>{name}</label>
+      {featurePage && openFeature ? (
+        <a
+          className="settings-feature-link"
+          data-settings-navigation
+          href={`#settings-${featurePage}`}
+          onClick={(event) => {
+            if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+            event.preventDefault();
+            openFeature(featurePage);
+          }}
+        >
+          {name}
+          <Icon name="chevron-right" />
+        </a>
+      ) : (
+        <label htmlFor={id}>{name}</label>
+      )}
       <div className="flex shrink-0 items-center gap-4">
         {actions}
         <Switch

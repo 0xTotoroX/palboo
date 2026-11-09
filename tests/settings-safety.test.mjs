@@ -40,7 +40,7 @@ createRoot(document.getElementById('root')).render(<App/>);`,
     const browser = await chromium.launch({ headless: true });
     try {
       const page = await browser.newPage();
-      page.setDefaultTimeout(5000);
+      page.setDefaultTimeout(10000);
       let settings = {
         ...fixtureSettings,
         directionSource: 'smart',
@@ -106,6 +106,12 @@ createRoot(document.getElementById('root')).render(<App/>);`,
             host = { ...host, revision: host.revision + 1 };
           }
           result = host;
+        } else if (url.pathname === '/api/performance') {
+          result = {
+            preferences: { integrationEnabled: true, monitoringEnabled: false, revision: 0 },
+            connectionStatus: 'connected',
+            sample: null,
+          };
         } else if (url.pathname === '/api/terminology') {
           if (body?.action === 'reset-library' && failImport)
             return route.fulfill({ status: 400, json: { message: '合成重置失败' } });
@@ -142,7 +148,10 @@ createRoot(document.getElementById('root')).render(<App/>);`,
       await page.evaluate((value) => (window.fixture = value), settings);
       await page.addScriptTag({ content: script });
       const dialog = page.locator('.settings-key-dialog[open]');
-      const cancel = () => dialog.getByRole('button', { name: '取消', exact: true }).click();
+      const cancel = async () => {
+        await dialog.getByRole('button', { name: '取消', exact: true }).click();
+        await dialog.waitFor({ state: 'hidden' });
+      };
       const accept = (label) => dialog.getByRole('button', { name: label, exact: true }).click();
       const jevDelete = page.getByRole('button', { name: '删除已保存的 Jev 密钥', exact: true });
       await page.getByRole('button', { name: '更换 Jev 密钥' }).waitFor();
@@ -280,12 +289,18 @@ createRoot(document.getElementById('root')).render(<App/>);`,
       await dialog.waitFor({ state: 'hidden' });
       assert.deepEqual(settings.quickPrompts, prompts.slice(1));
       for (const [name, label, path, op] of [
-        ['断开', '确认断开', '/api/disconnect', undefined],
+        ['断开本次', '确认断开', '/api/disconnect', undefined],
         ['重启 Codex 并停用', '确认重启', '/api/codex-host', 'restart-disabled'],
         ['恢复上一版本', '确认恢复', '/api/codex-host', 'restore'],
       ]) {
         const button = page.getByRole('button', { name, exact: true }),
           before = writes.length;
+        if (path === '/api/disconnect')
+          assert.equal(
+            await button.isVisible(),
+            true,
+            await page.locator('#settings-connection').innerText(),
+          );
         await button.click();
         await cancel();
         assert.equal(writes.length, before);

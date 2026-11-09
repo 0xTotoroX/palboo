@@ -10,14 +10,15 @@ import { chromium } from 'playwright';
 
 const script = build({
   stdin: {
-    contents: `import React from 'react';import {createRoot} from 'react-dom/client';import {ConnectionSettings} from './ui/settings/connection-settings';import {setLocale} from './ui/shared/i18n.js';import {fixtureSettings} from './tests/fixtures.mjs';
+    contents: `import React from 'react';import {createRoot} from 'react-dom/client';import {ConnectionSettings} from './ui/settings/connection-settings';import {GeneralSettings} from './ui/settings/general-settings';import {setLocale} from './ui/shared/i18n.js';import {fixtureSettings} from './tests/fixtures.mjs';
     const view={connection:{status:'connected',message:'已连接桌面 Codex',endpoint:'http://127.0.0.1:9229',targetId:'fixture',targets:[]}};
-    window.locale=setLocale;function App(){const[flags,change]=React.useState({dirty:false,saving:false,remoteChanged:false});const[live,setLive]=React.useState(true);window.connection=setLive;window.flags=change;return <div className="settings-app"><main className="settings-content"><div className="settings-form-column"><ConnectionSettings live={live} view={view} notify={()=>{}} editor={{...flags,form:fixtureSettings,saved:fixtureSettings,change:()=>{}}}/></div></main></div>}createRoot(document.getElementById('root')).render(<App/>);`,
+    window.locale=setLocale;function App(){const[flags,change]=React.useState({dirty:false,saving:false,remoteChanged:false});const[live,setLive]=React.useState(true);window.connection=setLive;window.flags=change;return <div className="settings-app"><main className="settings-content"><div className="settings-form-column"><ConnectionSettings live={live} view={view} notify={()=>{}} editor={{...flags,form:fixtureSettings,saved:fixtureSettings,change:()=>{}}}/><GeneralSettings live={live} view={view} editor={{...flags,form:fixtureSettings,saved:fixtureSettings,change:()=>{}}}/></div></main></div>}createRoot(document.getElementById('root')).render(<App/>);`,
     resolveDir: process.cwd(),
     loader: 'tsx',
   },
   bundle: true,
   write: false,
+  loader: { '.css': 'empty' },
   format: 'iife',
   define: { 'import.meta.env.DEV': 'false' },
 }).then((result) => result.outputFiles[0].text);
@@ -35,7 +36,9 @@ const release = {
   asset: { id: 12 },
 };
 async function fixture(t, options = {}) {
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({
+    executablePath: process.env.PALBOO_CHROME_BIN || undefined,
+  });
   t.after(() => browser.close());
   const page = await browser.newPage({
     viewport: { width: 390, height: 844 },
@@ -62,6 +65,14 @@ async function fixture(t, options = {}) {
       });
     if (req.method() === 'POST') writes.push({ path: url.pathname, body: req.postDataJSON() });
     else reads.push(url.pathname);
+    if (url.pathname === '/api/performance')
+      return route.fulfill({
+        json: {
+          preferences: { integrationEnabled: true, monitoringEnabled: false, revision: 1 },
+          connectionStatus: 'connected',
+          sample: null,
+        },
+      });
     if (url.pathname === '/api/app-mode')
       return route.fulfill({
         json: {
@@ -271,7 +282,7 @@ test('startup updates fit a narrow layout in both languages with keyboard access
         name: language === 'en' ? 'Development settings' : '开发设置',
         exact: true,
       })
-      .click();
+      .press('Enter');
     const drawer = f.page.getByRole('dialog');
     await drawer.locator('#app-mode-source').fill('/tmp/a long development source folder/palboo');
     const source = await drawer.locator('#app-mode-source').elementHandle();
@@ -286,7 +297,7 @@ test('startup updates fit a narrow layout in both languages with keyboard access
         name: language === 'en' ? 'Development settings' : '开发设置',
         exact: true,
       })
-      .click();
+      .press('Enter');
     assert.equal(
       await drawer.locator('#app-mode-source').evaluate((node, old) => node === old, source),
       true,
@@ -320,7 +331,7 @@ test('disconnect invalidates versions and late checks; reconnect reads the insta
     .waitFor();
   assert.equal(await f.page.getByText('已连接桌面 Codex', { exact: true }).count(), 0);
   assert.equal(
-    await f.page.getByRole('button', { name: '连接 Codex', exact: true }).isDisabled(),
+    await f.page.getByRole('button', { name: '持续暂停', exact: true }).isDisabled(),
     true,
   );
   assert.equal(

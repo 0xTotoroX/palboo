@@ -26,7 +26,7 @@ Desktop windows use native macOS traffic-light controls and reuse the existing P
 | **Prompt enhancement**    | Refine a draft before sending, with the option to restore the original.                                                                 |
 | **Chat speed**            | Keep each model’s latest estimated speed across chats, labeled until a new reading arrives; inspect token usage when Codex provides it. |
 | **Grok Bot**              | Find your Bots and start a consultation in the current chat.                                                                            |
-| **Notes & Web** | Read and edit local Markdown, preview spreadsheets, and open saved web pages inside ChatGPT. |
+| **Notes & Web** | Read and edit local Markdown, preview spreadsheets and plain text files, and open saved web pages inside ChatGPT. |
 
 In ordinary Chat mode, use the outline icon beside **Copy / Read aloud** under a completed reply. It opens a local outline for that reply; older replies remain selectable and scrolling keeps the cached outline visible. It leaves the draft unchanged and never sends a message.
 
@@ -47,13 +47,13 @@ Requires **macOS 14+ on Apple Silicon** and the **Codex / ChatGPT desktop app**.
 
 The DMG contains the complete App. Everyday use needs no terminal commands, Node.js, or Rust. Optional Agents and model services use your existing installations and accounts.
 
-**Manual updates:** in **System → Startup & connection → App updates**, choose **Check for updates**, then **Update and restart**. Palboo verifies and replaces the complete App, keeps your settings, and restores the previous App if installation or startup fails. Codex stays running. Checks and downloads happen only when requested; save unfinished settings first. Development mode allows checks; switch to release mode to install.
+**Manual updates:** in **System → General → App updates**, choose **Check for updates**, then **Update and restart**. Palboo verifies and replaces the complete App, keeps your settings, and restores the previous App if installation or startup fails. Codex stays running. Checks and downloads happen only when requested; save unfinished settings first. Development mode allows checks; switch to release mode to install.
 
-**Local backup:** open **System → Backup & restore** to export settings, restore selected sections, or copy between registered Release and Development environments on this Mac. Each environment keeps its own data directory. Preview the destination and replacement scope before applying; Palboo saves a local recovery point and can undo the last restore if its files have not changed afterward. The service reloads without restarting Codex or reloading the settings page; save unfinished edits in feature windows first. Task/terminology data and API keys are optional; exports containing keys require a password of at least 10 characters. Restoring data pauses Reminders sync and leaves unfinished terminology jobs for manual retry. Machine folders and keys are not selected for restore by default. Active destinations need this backup API; older destinations must be updated or stopped first. No cloud or automatic bidirectional sync is included.
+**Local backup:** open **System → Backup & restore** and choose **Back up to a file** or **Restore from a file**. Copy between local environments appears when another environment is registered. Each environment keeps its own data directory. Preview the destination and replacement scope before applying; Palboo saves a local recovery point and can undo the last restore if its files have not changed afterward. The service reloads without restarting Codex or reloading the settings page; save unfinished edits in feature windows first. Task/terminology data and API keys are optional; exports containing keys require a password of at least 10 characters. Restoring data pauses Reminders sync and leaves unfinished terminology jobs for manual retry. Machine folders and keys are not selected for restore by default. Active destinations need this backup API; older destinations must be updated or stopped first. No cloud or automatic bidirectional sync is included.
 
 Backups cover Palboo preferences and optional Palboo-owned data, including terminology import originals. They do not include external note contents, chats, provider logins, environment-variable values, runtime tokens, logs or caches. API key export includes keys saved by Palboo. Current connection/program paths, pause state and local consent remain with the destination. Local recovery points are private files in its `backups/` directory and may contain its original API keys. Exported encrypted backups use the age format; keep their password separately. Settings feedback uses one fixed area, so results and errors do not shift the form.
 
-**Startup display:** under **System → Startup & connection → Launch behavior**, restore the last state, start collapsed, or start open. When starting open, choose the chat workspace or desktop window. The choice takes effect the next time Palboo starts; existing settings continue to restore the last state. The sidebar menu waits three seconds before closing when you move away; returning cancels the timer. Chat and desktop animate in both directions, with a short fade and scale transition when spatial motion is unavailable, instead of repeated progress messages.
+**Startup display:** under **System → General → Language and startup**, restore the last state, start collapsed, or start open. When starting open, choose the chat workspace or desktop window. The choice takes effect the next time Palboo starts; existing settings continue to restore the last state. The sidebar menu waits three seconds before closing when you move away; returning cancels the timer. Chat and desktop animate in both directions, with a short fade and scale transition when spatial motion is unavailable, instead of repeated progress messages.
 
 The published v1.2.0 and earlier do not contain this updater. Install the first version that includes it manually once. Older releases without an installer show their notes without an install button; an App in a read-only location must be moved to a writable Applications folder first.
 
@@ -70,7 +70,7 @@ The published v1.2.0 and earlier do not contain this updater. Install the first 
 ## Get started
 
 1. **Open the workbench:** click the eyes in Codex's left rail. Right-click for settings.
-2. **Choose your tools:** turn features on or off in **Features → Feature switches**. Each feature has a preview page and relevant settings; find chat speed under **Features → Model switching**. Set placement in **Layout & position**, and material and language in **Appearance & fonts**.
+2. **Choose your tools:** turn features on or off in **Features → Feature switches**. Select a feature name for its preview and settings. Chat speed is under **Model switching**. Set placement in **Layout & position**, material in **Appearance & fonts**, and language in **System → General**.
 3. **Set up suggestions:** in **System → Model service**, use your Codex CLI login or a model API, then test the connection. Choose manual or automatic generation in **Features → Next steps**.
 
 Suggestions fill the composer by default. If you already have a draft, Palboo appends to it without sending.
@@ -136,7 +136,7 @@ Export includes personal additions, favorites, and mastered terms. Reset deletes
 - With the existing Codex login selected, **System → Model service** uses the same available model catalog as quick switching. Reading the catalog leaves the chat’s model unchanged and works with quick switching disabled. Connection or catalog failures are shown and can be retried.
 - **Grok Bot** is optional and off by default. Copy the setup prompt from **Features → Grok Bot → Connect Grok Bot** to your Agent. BDK, MCP, and the Skill remain separately installed. The panel shortcut opens the Grok Bot app, including when profiles are stale. Consultations append to the composer without sending; closing the panel does not stop remote Bot work.
 - **Features → Compatibility integrations** includes an Agent-menu preview following CodexHost's current list, availability, grouping and selection, plus status, versions, update and restore actions. Preview interactions change only a temporary copy; reset it to return to the current configuration. When CodexHost is enabled and installed, Palboo checks once at startup and notifies you if a newer release is available. You can turn startup checks off or install updates silently for the next CodexHost launch. External hosts and Agents keep their own configuration. Palboo keeps the official CodexHost package intact and loads its checked memory compatibility fix from a separate controller cache. Updates validate the fix before selecting a new version; incompatible updates retain the current version. Palboo retains the selected installation and one rollback version, and removes older private installations at startup and after install or restore operations. Versions still used by running processes are kept until a later cleanup.
-- **System → Performance & switches** can pause the Codex connection while retaining settings, tasks, and drafts. Optional monitoring runs only while that page is visible.
+- **System → Codex connection** can pause integration while retaining settings, tasks, and drafts. Optional monitoring runs only while **Connection diagnostics** is open and visible.
 
 </details>
 
@@ -148,6 +148,8 @@ The reading home offers recent notes and a first-use folder tree. The reader sup
 
 The reader binds only to `127.0.0.1` on a separate port with a credential for each folder; unchanged grants reuse that origin and access across backend restarts when available. Changing or removing a folder's authorized paths invalidates only that folder's old access links. Hidden files, symbolic links and files outside the approved roots are refused. Remote images load only when clicked; raw HTML/scripts and Obsidian plugins do not execute. XLSX/XLS/XLSM/XLSB/ODS and UTF-8 CSV/TSV files have sheet selection and paginated previews. They show cached values (uncomputed XLSX formulas remain text); formulas/macros never execute, and spreadsheet files are not edited. Previews do not reproduce Excel charts or full styling. Note embeds open as links; Dataview/Canvas are not rendered. Limits: 8 MB per note, 32 MB per image/workbook and 128 MB of indexed note text. Workbook previews support up to 100,000 rows, 512 columns and 200 sheets; CSV and dense legacy ranges are limited to two million cells. Skipped notes are reported. Opening or searching does not invoke a model or attach note text to a chat.
 
+Click a JSON, JSONL, TXT, LOG, SRT or VTT file in the same directory tree to read its original text in place. These files are read-only, must use UTF-8, and are limited to 8 MiB each. Search matches their filenames and paths; the file body is loaded only when opened.
+
 The same configuration is available through `palboo config get web-library`, `palboo config schema web-library`, and `palboo config catalog vaults`. Save the complete `folders` array with `palboo config set web-library --json '{"folders":[{"id":"notes","name":"Notes","path":"/absolute/path/to/notes","attachments":[]}]}' --confirm`; retain existing entries when adding another folder. `palboo config open-website folder:notes` opens that folder. The legacy `vault`/`attachments` fields and `open-website obsidian` still address the first folder. Changing grants or removing saved websites requires `--confirm`. No files are installed in the vault.
 
 ## Maintenance and development
@@ -155,7 +157,7 @@ The same configuration is available through `palboo config get web-library`, `pa
 <details>
 <summary>Update or uninstall</summary>
 
-Use **System → Startup & connection → App updates** for updates. For manual replacement or uninstallation, stop Palboo first:
+Use **System → General → App updates** for updates. For manual replacement or uninstallation, stop Palboo first:
 
 ```sh
 "/Applications/Palboo.app/Contents/MacOS/palboo" stop
@@ -181,7 +183,7 @@ npm ci
 npm run install:dev
 ```
 
-`install:dev` registers the local development environment and installs the complete Palboo.app if needed. Open Palboo and choose Release or Development under System → Launch & connection → Run mode. Release settings and each source’s development settings, tasks, and data remain separate.
+`install:dev` registers the local development environment and installs the complete Palboo.app if needed. Open Palboo and choose Release or Development under System → General → Run mode. Release settings and each source’s development settings, tasks, and data remain separate.
 
 `npm run install:local` builds a complete App using the same structure as the DMG and retains the compatible CLI. Updates preserve data. Existing Dev Dock entries move to Palboo; the old Dev App is archived.
 

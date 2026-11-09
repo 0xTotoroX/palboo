@@ -4,6 +4,7 @@
  * [POS]: 端到端测试入口，委托 popout-checks 验证窗口协议；--native-popout 以真实 Wry 窗口验收大纲定位与往返，不截图。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
+import { openSettingsPage } from './settings-navigation.mjs';
 import { showWorkbenchView } from './workbench-actions.mjs';
 
 import assert from 'node:assert/strict';
@@ -54,12 +55,7 @@ async function waitFor(check, message, timeout = 12000) {
   }
   throw new Error(message);
 }
-async function selectSettingsCategory(page, id) {
-  const link = page.locator(`.settings-nav a[href="#settings-${id}"]`);
-  await link.waitFor({ state: 'attached' });
-  if (!(await link.isVisible())) await page.locator('.settings-nav-trigger').click();
-  await link.click();
-}
+const selectSettingsCategory = openSettingsPage;
 async function checkSettingsNavigation(page, context, base, runtime) {
   const writes = [];
   const recordWrite = (req) => {
@@ -89,7 +85,7 @@ async function checkSettingsNavigation(page, context, base, runtime) {
             features: '功能开关',
             model: '模型服务',
             surfaces: '布局与位置',
-            connection: '启动与连接',
+            connection: 'Codex 连接',
           }[id],
           exact: true,
         })
@@ -404,7 +400,7 @@ try {
     for (const [id, name] of [
       ['outline', '大纲'],
       ['next', '下一步'],
-      ['board', '看板'],
+      ['board', '任务看板'],
       ['model', '模型切换'],
     ]) {
       await nav.getByRole('link', { name: '功能开关', exact: true }).click();
@@ -455,17 +451,25 @@ try {
         `${name} did not return`,
       );
     }
-    await nav.getByRole('link', { name: '模型服务', exact: true }).click();
-    await page.goto(`${base}/#settings-next/max-output`);
     const limit = page.getByLabel('输出 token 上限', { exact: true });
+    const openLimit = async () => {
+      await page.evaluate(() => (location.hash = '#settings-next/max-output'));
+      await limit.waitFor();
+    };
+    const closeLimits = async () => {
+      await page.getByRole('button', { name: '关闭高级设置', exact: true }).click();
+      await limit.waitFor({ state: 'hidden' });
+    };
+    await openLimit();
     await limit.fill('1');
+    await closeLimits();
     await nav.getByRole('link', { name: '功能开关', exact: true }).click();
     await page.getByRole('switch', { name: '启用大纲', exact: true }).click();
     await waitFor(
       async () => !(await settings()).answerOutlineEnabled,
       'outline disable blocked by unrelated draft',
     );
-    await nav.getByRole('link', { name: '模型服务', exact: true }).click();
+    await openLimit();
     assert.equal(
       await limit.inputValue(),
       '1',
@@ -473,6 +477,7 @@ try {
     );
     await limit.fill(String((await settings()).maxOutputTokens));
     await limit.blur();
+    await closeLimits();
     await nav.getByRole('link', { name: '功能开关', exact: true }).click();
     await page.getByRole('switch', { name: '启用大纲', exact: true }).click();
     await waitFor(async () => (await settings()).answerOutlineEnabled, 'outline did not restore');
@@ -503,7 +508,7 @@ try {
       membership(before.features),
     );
     for (const [href, target] of [
-      ['#settings-surfaces/font-board', 'font-board'],
+      ['#settings-fonts', 'settings-fonts'],
       ['#settings-surfaces/main-layout', 'main-layout'],
       ['#settings-surfaces/theme-edge', 'theme-edge'],
       ['#settings-surfaces/edge-keep-open', 'edge-keep-open'],
@@ -1135,6 +1140,7 @@ try {
     const appearanceBefore = (await api('appearance')).body;
     // Themes belong to surfaces; legacy panel appearance remains compatible but is not edited here.
     await page.getByRole('link', { name: '外观与字体', exact: true }).click();
+    await page.getByRole('button', { name: '演示侧栏', exact: true }).click();
     const surfaceBefore = (await api('surfaces', { op: 'state' })).body;
     const theme = page.getByLabel('侧栏主题', { exact: true });
     await theme.selectOption('native-glass');

@@ -191,7 +191,7 @@ async fn read(
     Query(input): Query<Input>,
 ) -> Response {
     let result = tokio::task::spawn_blocking(move || -> Result<Response> {
-        ensure!(matches!(operation.as_str(), "catalog" | "search" | "note" | "resolve" | "preview" | "image" | "workbook"), "未知阅读请求");
+        ensure!(matches!(operation.as_str(), "catalog" | "search" | "note" | "resolve" | "preview" | "image" | "workbook" | "text"), "未知阅读请求");
         ensure!(input.q.len() <= 500 && input.id.len() <= 8192 && input.target.len() <= 8192 && input.sheet.len() <= 1024 && input.offset <= 100_000, "阅读请求过长");
         let preferences = access.preferences;
         let mut indexes = state.library.indexes.lock().unwrap();
@@ -220,6 +220,7 @@ async fn read(
                 "preview" => index.preview(&input.id, &input.target)?,
                 "note" => index.note(&preferences, &input.id)?,
                 "workbook" => index.workbook(&preferences, &input.id, &input.sheet, input.offset)?,
+                "text" => index.text(&preferences, &input.id)?,
                 "resolve" => { let (candidates, anchor) = index.resolve(&input.id, &input.target)?;
                     json!({"candidates":candidates.iter().map(|id|index.summary(id)).collect::<Vec<_>>(),"anchor":anchor}) },
                 _ => unreachable!(),

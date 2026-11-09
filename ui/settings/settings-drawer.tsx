@@ -36,6 +36,8 @@ export function SettingsDrawer({
   footer,
   hidden = false,
   triggerLabel,
+  hideTrigger = false,
+  onClose,
   compact = false,
 }: {
   id?: string;
@@ -45,6 +47,8 @@ export function SettingsDrawer({
   footer?: ReactNode;
   hidden?: boolean;
   triggerLabel?: string;
+  hideTrigger?: boolean;
+  onClose?: () => void;
   compact?: boolean;
 }) {
   useLocale();
@@ -57,6 +61,8 @@ export function SettingsDrawer({
   const heading = useRef<HTMLHeadingElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const scroll = useRef(0);
+  const afterClose = useRef(onClose);
+  afterClose.current = onClose;
   const [open, setOpen] = useState(false);
   const backdropDown = useRef(false);
   function show() {
@@ -79,6 +85,7 @@ export function SettingsDrawer({
     dialog.current.inert = true;
     setOpen(false);
     trigger.current?.focus({ preventScroll: true });
+    afterClose.current?.();
   }
   useLayoutEffect(() => {
     const root = wrapper.current;
@@ -111,21 +118,23 @@ export function SettingsDrawer({
       className="settings-drawer-entry"
       data-compact={compact || undefined}
     >
-      <Button
-        ref={trigger}
-        type="button"
-        variant="ghost"
-        className="settings-drawer-trigger"
-        data-settings-navigation
-        aria-label={triggerLabel || title}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        aria-controls={dialogId}
-        onClick={show}
-      >
-        <span>{triggerLabel || title}</span>
-        <Icon name="chevron-right" />
-      </Button>
+      {!hideTrigger && (
+        <Button
+          ref={trigger}
+          type="button"
+          variant="ghost"
+          className="settings-drawer-trigger"
+          data-settings-navigation
+          aria-label={triggerLabel || title}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          aria-controls={dialogId}
+          onClick={show}
+        >
+          <span>{triggerLabel || title}</span>
+          <Icon name="chevron-right" />
+        </Button>
+      )}
       <dialog
         ref={dialog}
         id={dialogId}

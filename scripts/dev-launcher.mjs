@@ -365,7 +365,7 @@ async function install() {
     mkdirSync(archive, { recursive: true, mode: 0o700 });
     renameSync(legacy, join(archive, `Palboo Dev-${Date.now()}.app`));
   }
-  console.log('开发环境已登记。打开 Palboo.app，在设置 → 启动与连接中切换模式。');
+  console.log('开发环境已登记。打开 Palboo.app，在设置 → 系统 → 通用 → 运行模式中切换。');
 }
 
 export async function revealDevelopment(

@@ -133,6 +133,7 @@ export function CodexHostSettings({
     >
       <FeatureSwitch
         name="CodexHost"
+        featurePage="codex-host"
         portalTarget={enablementTarget}
         actions={
           !detailsVisible && ['pendingEnable', 'pendingDisable'].includes(state?.state || '') ? (

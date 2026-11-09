@@ -24,7 +24,10 @@ window.contextApi={chatBusy,composerCandidates,mainComposerCandidate};`,
       write: false,
     })
   ).outputFiles[0].text;
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch({
+    headless: true,
+    executablePath: process.env.PALBOO_CHROME_BIN || undefined,
+  });
   try {
     const page = await browser.newPage();
     await page.route('http://context-performance.test/**', (route) =>
@@ -223,18 +226,21 @@ test('performance settings sample only while visible and preserve confirmed togg
       resolveDir: process.cwd(),
       loader: 'jsx',
       contents: `
-import React,{useState}from'react';import{createRoot}from'react-dom/client';import{PerformanceSettings}from'./ui/settings/performance-settings';
-function App(){const[active,setActive]=useState(true);window.setActive=setActive;return <PerformanceSettings live active={active}/>};createRoot(document.getElementById('root')).render(<App/>);`,
+import React,{useState}from'react';import{createRoot}from'react-dom/client';import{ConnectionSettings}from'./ui/settings/connection-settings';
+function App(){const[active,setActive]=useState(true);window.setActive=setActive;return <ConnectionSettings live active={active} view={{connection:{status:'connected',endpoint:'9229',targets:[]}}} editor={{form:null}} notify={()=>{}}/>};createRoot(document.getElementById('root')).render(<App/>);`,
     },
     bundle: true,
     write: false,
     outfile: 'target/reports/performance/settings-test.js',
     jsx: 'automatic',
-    define: { 'process.env.NODE_ENV': '"production"' },
+    define: { 'process.env.NODE_ENV': '"production"', 'import.meta.env.DEV': 'false' },
   });
   const script = bundle.outputFiles.find((file) => file.path.endsWith('.js')).text;
   const css = bundle.outputFiles.find((file) => file.path.endsWith('.css')).text;
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch({
+    headless: true,
+    executablePath: process.env.PALBOO_CHROME_BIN || undefined,
+  });
   try {
     const page = await browser.newPage();
     page.setDefaultTimeout(5000);
@@ -284,8 +290,9 @@ function App(){const[active,setActive]=useState(true);window.setActive=setActive
     await page.addStyleTag({ content: css });
     await page.addScriptTag({ content: script });
     const monitor = page.getByRole('switch', { name: '性能监测' }),
-      integration = page.getByRole('switch', { name: '连接到 Codex' });
-    await monitor.waitFor();
+      integration = page.getByRole('button', { name: '持续暂停' });
+    await integration.waitFor();
+    assert.equal(await monitor.isVisible(), true);
     await page.waitForFunction(() => !document.querySelector('[role=switch]').disabled);
     await page.clock.runFor(10000);
     assert.equal(samples, 0);
@@ -296,14 +303,15 @@ function App(){const[active,setActive]=useState(true);window.setActive=setActive
     );
     await monitor.click();
     await page.waitForFunction(
-      () => document.querySelectorAll('[role=switch]')[1].getAttribute('aria-checked') === 'true',
+      () =>
+        document.querySelector('#performance-monitoring').getAttribute('aria-checked') === 'true',
     );
     await page.getByText('10.0 MB', { exact: true }).waitFor();
     await page.clock.runFor(5100);
     await page.getByText('2.0%', { exact: true }).waitFor();
     await page.getByRole('img', { name: /Palboo 后台 CPU.*1个采样点/ }).waitFor();
     await page.getByRole('img', { name: /Palboo 后台物理内存.*2个采样点/ }).waitFor();
-    await page.getByText('工作明细', { exact: true }).click();
+    await page.getByRole('heading', { name: '工作明细', exact: true }).waitFor();
     await page.getByText('聊天检查', { exact: true }).waitFor();
     const beforeResize = requests;
     for (const width of [320, 680, 1100]) {
@@ -330,11 +338,13 @@ function App(){const[active,setActive]=useState(true);window.setActive=setActive
         .evaluate((element) => getComputedStyle(element).transitionDuration),
       '0s',
     );
+    const sampling = samples;
     await page.evaluate(() => window.setActive(false));
     await page.waitForTimeout(10);
     const count = requests;
     await page.clock.runFor(15000);
     assert.equal(requests, count);
+    assert.equal(samples, sampling, 'inactive connection page never samples');
     await page.evaluate(() => window.setActive(true));
     await page.waitForTimeout(10);
     reject = true;
@@ -345,13 +355,14 @@ function App(){const[active,setActive]=useState(true);window.setActive=setActive
       true,
       'failed toggle reports in the shared fixed region',
     );
-    assert.equal(await integration.getAttribute('aria-checked'), 'true');
+    assert.equal(await integration.isVisible(), true);
     reject = false;
     await integration.click();
-    await page.getByText('Codex 集成已暂停', { exact: true }).waitFor();
+    await page.getByText('已暂停', { exact: true }).waitFor();
     await monitor.click();
     await page.waitForFunction(
-      () => document.querySelectorAll('[role=switch]')[1].getAttribute('aria-checked') === 'false',
+      () =>
+        document.querySelector('#performance-monitoring').getAttribute('aria-checked') === 'false',
     );
     const end = samples;
     assert.equal(
@@ -361,6 +372,9 @@ function App(){const[active,setActive]=useState(true);window.setActive=setActive
     );
     await page.clock.runFor(15000);
     assert.equal(samples, end);
+    await page.getByRole('button', { name: '恢复连接', exact: true }).click();
+    await integration.waitFor();
+    assert.equal(state.preferences.integrationEnabled, true);
   } finally {
     await browser.close();
   }
@@ -368,7 +382,10 @@ function App(){const[active,setActive]=useState(true);window.setActive=setActive
 
 test('unchanged host sync does not redraw and disabled tools release timers and DOM listeners', async () => {
   const bundle = await buildPanel();
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch({
+    headless: true,
+    executablePath: process.env.PALBOO_CHROME_BIN || undefined,
+  });
   try {
     const page = await browser.newPage();
     page.setDefaultTimeout(7000);

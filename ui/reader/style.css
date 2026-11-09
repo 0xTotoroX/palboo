@@ -653,6 +653,17 @@ p {
   margin: 0 0 20px;
   overflow-wrap: anywhere;
 }
+.reader-source {
+  margin: 0;
+  font:
+    0.875rem/1.65 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  tab-size: 4;
+}
 .reader-main .reader-markdown > :first-child {
   margin-top: 0;
 }

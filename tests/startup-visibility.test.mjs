@@ -16,7 +16,7 @@ test('startup choices save independently and only affect the next launch', async
         loader: 'tsx',
         contents: `
 import React from 'react';import {createRoot} from 'react-dom/client';
-import {ConnectionSettings} from './ui/settings/connection-settings';
+import {GeneralSettings} from './ui/settings/general-settings';
 import {setLocale} from './ui/shared/i18n.js';import {fixtureSettings} from './tests/fixtures.mjs';
 window.locale=setLocale;window.outerChanges=0;
 function App(){
@@ -25,7 +25,7 @@ function App(){
  Object.assign(window,{push,connect,capability});
  return <div className="settings-app"><main className="settings-content"><form className="settings-form-column" onChange={()=>window.outerChanges++}>
  <input aria-label="模型草稿" defaultValue="尚未保存的配置"/>
- <ConnectionSettings live={live} view={{connection:{status:'connected',targets:[]},panelPreferences:appearance}} notify={()=>{}} editor={{form:fixtureSettings,saved:{...fixtureSettings,popoutSupported:capable},dirty:true,saving:false,remoteChanged:false,change:()=>{}}}/>
+ <GeneralSettings live={live} view={{connection:{status:'connected',targets:[]},panelPreferences:appearance}} editor={{form:fixtureSettings,saved:{...fixtureSettings,popoutSupported:capable},dirty:true,saving:false,remoteChanged:false,change:()=>{}}}/>
  </form></main></div>;
 }createRoot(document.getElementById('root')).render(<App/>);`,
       },

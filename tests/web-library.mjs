@@ -1,7 +1,8 @@
 /* [INPUT]: Matching backend/web artifacts, synthetic vault and isolated browser profile.
- * [OUTPUT]: Reader behavior and compact folder/site settings, retained drafts and revision-conflict acceptance.
+ * [OUTPUT]: Reader behavior including read-only previews, compact folder/site settings, retained drafts and revision conflicts.
  * [POS]: No real notes, external websites, host messages, model calls or credentials.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
+import { openSettingsPage } from './settings-navigation.mjs';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import {
@@ -73,6 +74,20 @@ for (const name of ['A10', 'A2', '_AI']) {
 writeFileSync(join(vault, '项目/表格.xlsx'), workbookFixture);
 writeFileSync(join(vault, '项目/数据.csv'), '名称,值\n"带逗号,文本",=1+1\n');
 writeFileSync(join(vault, '项目/损坏.xlsx'), 'not a workbook');
+const textFiles = {
+  '配置.JSON': '\uFEFF\r\n{ "broken": not valid JSON }  \r\n',
+  '记录.jsonl': '{"step":1}\n{"step":2}\n',
+  '说明.TXT':
+    '\t# 保留原文  \n<img src="https://tracking.example.invalid/raw.png">\n<script>window.textInjected=true</script>',
+  '运行.log': Array.from({ length: 80 }, (_, i) => `[INFO] job=${i} ${'x'.repeat(200)}\n`).join(''),
+  '中文字幕.srt': '1\n00:00:00,000 --> 00:00:01,000\n<i>字幕</i>\n',
+  'English.vtt': 'WEBVTT\n\n00:00:00.000 --> 00:00:01.000\nLine one\n',
+};
+mkdirSync(join(vault, '原文'));
+for (const [name, text] of Object.entries(textFiles))
+  writeFileSync(join(vault, '原文', name), text);
+writeFileSync(join(vault, '原文/空.txt'), '');
+writeFileSync(join(vault, '原文/坏编码.txt'), Buffer.from([0xff]));
 const before = hashes();
 const startBackend = () =>
   spawn(
@@ -156,8 +171,10 @@ try {
   });
   const page = await context.newPage();
   const outbound = [],
-    errors = [];
+    errors = [],
+    textRequests = [];
   page.on('request', (r) => {
+    if (new URL(r.url()).pathname === '/api/text') textRequests.push(r);
     if (
       !new URL(r.url()).hostname.match(/^(127\.0\.0\.1|localhost)$/) &&
       !r.url().startsWith('blob:')
@@ -251,11 +268,67 @@ try {
   assert.equal(await page.locator('.reader-choices li').count(), 2);
   await page.getByRole('button', { name: '取消', exact: true }).click();
   record('ambiguous links require a choice instead of silently choosing a note');
+
+  const sidebar = page.locator('.reader-sidebar');
+  const file = (name) => sidebar.getByRole('button', { name, exact: true });
+  const source = page.locator('.reader-source');
+  const expectSource = (text) =>
+    page.waitForFunction(
+      (expected) => document.querySelector('.reader-source')?.textContent === expected,
+      text,
+    );
+  await sidebar
+    .locator('summary')
+    .filter({ hasText: /^原文$/ })
+    .click();
+  assert.equal(textRequests.length, 0, 'the catalog does not load file bodies');
+  for (const [name, text] of Object.entries(textFiles)) {
+    await file(name).click();
+    await expectSource(text);
+    assert.equal(new URL(page.url()).origin, destination.origin);
+    assert.equal(await page.getByRole('button', { name: '编辑笔记' }).count(), 0);
+    assert.equal(await source.locator('*').count(), 0, 'markup stays literal');
+  }
+  assert.equal(await page.evaluate(() => window.textInjected), undefined);
+  assert.ok(textRequests.every((request) => request.method() === 'GET'));
+  await file('空.txt').click();
+  await page.getByText('文件为空', { exact: true }).waitFor();
+  await file('坏编码.txt').click();
+  await page.getByRole('alert').filter({ hasText: '文本文件需要 UTF-8 编码' }).waitFor();
+  const searchbox = page.getByRole('searchbox', { name: '搜索笔记' });
+  await searchbox.fill('原文/运行.log');
+  await page.locator('.reader-results button').filter({ hasText: '运行.log' }).click();
+  await expectSource(textFiles['运行.log']);
+  await searchbox.fill('');
+  await page.locator('.reader-main').evaluate((element) => (element.scrollTop = 500));
+  await file('首页').click();
+  await page.getByRole('button', { name: '编辑笔记' }).waitFor();
+  await page.goBack();
+  await expectSource(textFiles['运行.log']);
+  await page.waitForFunction(() => document.querySelector('.reader-main').scrollTop >= 490);
+  await page.getByRole('tab', { name: '最近', exact: true }).click();
+  assert.equal(
+    await sidebar
+      .locator('.reader-sidebar-recent button[aria-current="page"]')
+      .getAttribute('title'),
+    '原文/运行.log',
+  );
+  await page.getByRole('tab', { name: '文件', exact: true }).click();
+  record(
+    'on-demand literal previews for six formats; no edit; empty/encoding feedback; search and reading history',
+  );
+
   for (const width of [390, 780, 1280]) {
     await page.setViewportSize({ width, height: 720 });
     assert.equal(
       await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
       false,
+    );
+    assert.equal(
+      await page
+        .locator('.reader-main')
+        .evaluate((node) => node.scrollWidth <= node.clientWidth + 1),
+      true,
     );
     if (width === 390) {
       await page.getByRole('button', { name: '展开侧栏', exact: true }).click();
@@ -289,7 +362,7 @@ try {
     await route.fulfill({ response, json: { ...(await response.json()), vaults: [vault] } });
   });
   await settings.goto(`${base}/#token=${runtime.token}`);
-  await settings.locator('.settings-nav a[href="#settings-sites"]').click();
+  await openSettingsPage(settings, 'sites');
   assert.equal(await settings.locator('#reader-vault').isVisible(), false);
   assert.equal(await settings.locator('#website-name').isVisible(), false);
   assert.equal(await settings.locator('.reader-folder-list .web-library-row').count(), 1);
@@ -348,7 +421,7 @@ try {
     attachments: [join(vault, '其他')],
   });
   await settings.locator('.settings-nav a[href="#settings-features"]').click();
-  await settings.locator('.settings-nav a[href="#settings-sites"]').click();
+  await openSettingsPage(settings, 'sites');
   await settings.getByRole('button', { name: '编辑文件夹', exact: true }).click();
   await settings.getByRole('button', { name: '重新读取已保存目录', exact: true }).waitFor();
   assert.equal(
@@ -374,7 +447,7 @@ try {
   const current = await api('web-library');
   await api('web-library', { expectedRevision: current.revision, attachments: [] });
   await settings.locator('.settings-nav a[href="#settings-features"]').click();
-  await settings.locator('.settings-nav a[href="#settings-sites"]').click();
+  await openSettingsPage(settings, 'sites');
   await settings.getByRole('button', { name: '编辑中文笔记', exact: true }).click();
   await wait(
     async () => (await settings.locator('#reader-attachments').inputValue()) === '',

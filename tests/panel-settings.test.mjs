@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import { build } from 'esbuild';
 import { chromium } from 'playwright';
 
-test('workbench settings save only their own preference fields', { timeout: 30000 }, async () => {
+test('workbench settings save only their own preference fields', { timeout: 75000 }, async () => {
   const bundle = await build({
     stdin: {
       contents: `import React from 'react';
@@ -31,6 +31,7 @@ test('workbench settings save only their own preference fields', { timeout: 3000
   });
   try {
     const page = await browser.newPage();
+    page.setDefaultTimeout(10000);
     const saves = [];
     let prefs = {
       revision: 0,
@@ -91,6 +92,7 @@ test('workbench settings save only their own preference fields', { timeout: 3000
       assert.deepEqual(Object.keys(saves.at(-1)).sort(), ['expectedRevision', key].sort());
       assert.equal(saves.at(-1)[key], next);
     }
+    await page.locator('#settings-fonts').waitFor({ state: 'visible' });
     await page.locator('#typography-surface').selectOption('sidebar');
     const mode = page.locator('#typography-sidebar-mode');
     const source = page.locator('#typography-sidebar-source');

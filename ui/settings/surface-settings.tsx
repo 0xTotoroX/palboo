@@ -1,6 +1,6 @@
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
-/* [INPUT]: Independent surface preferences and display inventory. [OUTPUT]: Separate layout and host-styled appearance groups retaining their mounted controls and shared preview snapshots.
+/* [INPUT]: Independent surface preferences and display inventory. [OUTPUT]: 布局、眼睛按钮与宿主样式的外观分组，保留单份控件、草稿和共用预览快照。
  * [POS]: Presentation settings, no feature enable/disable or business state.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 import { useEffect, useRef, useState } from 'react';
@@ -11,6 +11,7 @@ import { request } from './api';
 import { NativeSelect } from './components/ui/native-select';
 import { LiquidVariantToggle } from './liquid-variant-toggle';
 import { PanelSettings } from './panel-settings';
+import { LauncherSettings } from './launcher-settings';
 import type { AppearanceSettings } from '../shared/contracts';
 import type { SurfaceTheme } from '../surfaces/theme/appearance';
 import type { FeatureState } from '../shared/features';
@@ -43,11 +44,13 @@ export function SurfaceSettings({
   fontBase,
   simple = false,
   page,
+  appearancePlacement,
   onFeatures,
   onSnapshot,
 }: {
   simple?: boolean;
   page?: 'surfaces' | 'appearance';
+  appearancePlacement?: string;
   live: boolean;
   active?: boolean;
   desktopSupported: boolean;
@@ -160,7 +163,8 @@ export function SurfaceSettings({
               <div
                 key={placement}
                 id={`theme-${placement}`}
-                hidden={simple && placement !== primary}
+                data-appearance-placement={placement}
+                hidden={placement !== (simple ? primary : appearancePlacement || placement)}
               >
                 <div className="settings-field">
                   <span className="text-sm">{simple ? tr('主界面材质') : label}</span>
@@ -199,6 +203,9 @@ export function SurfaceSettings({
         </div>
       </section>
       <div hidden={simple}>
+        <div hidden={page === 'appearance'} data-settings-page="surfaces">
+          <LauncherSettings value={appearance} outsideAvailable={desktopSupported} />
+        </div>
         <PanelSettings value={appearance} fontBase={fontBase} page={page} />
       </div>
       <section

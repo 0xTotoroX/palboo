@@ -1,5 +1,5 @@
 // [INPUT]: Authorized vault files and CommonMark/Obsidian links parsed without executing HTML.
-// [OUTPUT]: Bounded index/search, resolved plain-text hover previews, link resolution and backlinks.
+// [OUTPUT]: Bounded index/search, link resolution and backlinks, on-demand workbook and literal text reads.
 // [POS]: In-memory derived state; refreshed explicitly/on reader focus, never persisted into the vault.
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 use super::{edit, files, spreadsheet};
@@ -21,11 +21,43 @@ struct Note {
     size: u64,
     modified: Option<SystemTime>,
 }
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum DocumentKind {
+    Spreadsheet,
+    Text,
+}
+impl DocumentKind {
+    fn from_path(path: &Path) -> Option<Self> {
+        if spreadsheet::supported(path) {
+            Some(Self::Spreadsheet)
+        } else if ["json", "jsonl", "txt", "log", "srt", "vtt"]
+            .iter()
+            .any(|ext| {
+                path.extension()
+                    .is_some_and(|value| value.eq_ignore_ascii_case(ext))
+            })
+        {
+            Some(Self::Text)
+        } else {
+            None
+        }
+    }
+    fn name(self) -> &'static str {
+        match self {
+            Self::Spreadsheet => "spreadsheet",
+            Self::Text => "text",
+        }
+    }
+}
+struct Document {
+    title: String,
+    kind: DocumentKind,
+}
 #[derive(Default)]
 pub struct Index {
     vault: Option<PathBuf>,
     notes: BTreeMap<String, Note>,
-    documents: BTreeMap<String, String>,
+    documents: BTreeMap<String, Document>,
     names: BTreeMap<String, Vec<String>>,
     images: Vec<PathBuf>,
     backlinks: BTreeMap<String, BTreeSet<String>>,
@@ -107,13 +139,17 @@ impl Index {
         let mut skipped = 0;
         let mut total = 0usize;
         for path in paths {
-            if spreadsheet::supported(&path) {
+            if let Some(kind) = DocumentKind::from_path(&path) {
                 documents.insert(
                     path.strip_prefix(vault)?.to_string_lossy().into_owned(),
-                    path.file_name()
-                        .unwrap_or_default()
-                        .to_string_lossy()
-                        .into_owned(),
+                    Document {
+                        title: path
+                            .file_name()
+                            .unwrap_or_default()
+                            .to_string_lossy()
+                            .into_owned(),
+                        kind,
+                    },
                 );
                 continue;
             }
@@ -211,7 +247,14 @@ impl Index {
         json!({"name":self.vault.as_ref().and_then(|p|p.file_name()).map(|s|s.to_string_lossy()),"revision":self.revision,"skipped":self.skipped,"notes":self.notes.keys().chain(self.documents.keys()).map(|id|self.summary(id)).collect::<Vec<_>>()})
     }
     pub fn summary(&self, id: &str) -> Value {
-        json!({"id":id,"title":self.notes.get(id).map(|n| &n.title).or_else(||self.documents.get(id)),"kind":if self.documents.contains_key(id) { "spreadsheet" } else { "markdown" }})
+        let document = self.documents.get(id);
+        let title = self
+            .notes
+            .get(id)
+            .map(|n| &n.title)
+            .or_else(|| document.map(|d| &d.title));
+        let kind = document.map_or("markdown", |d| d.kind.name());
+        json!({"id": id, "title": title, "kind": kind})
     }
     pub fn preview(&self, from: &str, target: &str) -> Result<Value> {
         let (candidates, anchor) = self.resolve(from, target)?;
@@ -256,8 +299,8 @@ impl Index {
                 matches.push((rank, 0, id, snippet));
             }
         }
-        for (id, title) in &self.documents {
-            let title = title.to_lowercase();
+        for (id, document) in &self.documents {
+            let title = document.title.to_lowercase();
             let name = format!("{title} {}", id.to_lowercase());
             if words.iter().all(|word| name.contains(word)) {
                 matches.push((
@@ -373,7 +416,12 @@ impl Index {
         )
     }
     pub fn workbook(&self, p: &Preferences, id: &str, sheet: &str, offset: usize) -> Result<Value> {
-        ensure!(self.documents.contains_key(id), "表格不存在，请刷新目录");
+        ensure!(
+            self.documents
+                .get(id)
+                .is_some_and(|d| d.kind == DocumentKind::Spreadsheet),
+            "表格不存在，请刷新目录"
+        );
         let vault = p.vault.as_ref().context("尚未选择笔记库")?;
         let bytes = files::read(
             std::slice::from_ref(vault),
@@ -381,6 +429,21 @@ impl Index {
             spreadsheet::MAX_BYTES,
         )?;
         spreadsheet::preview(id, bytes, sheet, offset)
+    }
+    pub fn text(&self, p: &Preferences, id: &str) -> Result<Value> {
+        let document = self
+            .documents
+            .get(id)
+            .filter(|d| d.kind == DocumentKind::Text)
+            .context("文本文件不存在，请刷新目录")?;
+        let vault = p.vault.as_ref().context("尚未选择笔记库")?;
+        let text = String::from_utf8(files::read(
+            std::slice::from_ref(vault),
+            &vault.join(id),
+            files::MAX_TEXT,
+        )?)
+        .context("文本文件需要 UTF-8 编码")?;
+        Ok(json!({"id": id, "title": document.title, "text": text}))
     }
     pub fn image(&self, p: &Preferences, from: &str, raw: &str) -> Result<(Vec<u8>, &'static str)> {
         ensure!(self.notes.contains_key(from), "来源笔记不存在");

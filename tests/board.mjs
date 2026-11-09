@@ -2,6 +2,7 @@
  * [OUTPUT]: Board/API behavior assertions and light/dark screenshots.
  * [POS]: Isolated regression; never authorizes or writes Apple reminders.
  * [PROTOCOL]: Keep tests/AGENTS.md in sync. */
+import { openSettingsPage } from './settings-navigation.mjs';
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -240,7 +241,7 @@ try {
     viewport: { width: 980, height: 900 },
   });
   await settings.goto(`http://127.0.0.1:${runtime.port}/#token=${runtime.token}`);
-  await settings.getByRole('link', { name: '任务看板', exact: true }).click();
+  await openSettingsPage(settings, 'board');
   await settings.getByLabel('分组名称：待办', { exact: true }).fill('准备做');
   await settings.getByRole('button', { name: '保存分组：待办', exact: true }).click();
   await settings.getByLabel('分组名称：准备做', { exact: true }).waitFor();

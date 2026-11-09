@@ -326,7 +326,6 @@ html:root .settings-nav {
   > .settings-section:not([hidden])
   ~ .settings-section:not([hidden]),
 .settings-surface-group {
-  border-top: 1px solid var(--buddy-border);
   padding-top: 24px;
 }
 .settings-field {
@@ -361,6 +360,55 @@ html:root .settings-nav {
 }
 .settings-feature-switch > label {
   cursor: pointer;
+}
+.settings-feature-link,
+.settings-disclosure > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--settings-control-height);
+  color: inherit;
+  text-decoration: none;
+}
+.settings-feature-link:hover,
+.settings-disclosure > summary:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.settings-feature-link .buddy-icon,
+.settings-disclosure > summary .buddy-icon {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  color: var(--buddy-muted);
+}
+.settings-disclosure > summary {
+  justify-content: space-between;
+  list-style: none;
+  cursor: pointer;
+}
+.settings-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+.settings-disclosure[open] > summary .buddy-icon {
+  transform: rotate(180deg);
+}
+.settings-disclosure-content {
+  margin-top: 12px;
+}
+.settings-current-model {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 12px;
+  overflow-wrap: anywhere;
+}
+.settings-current-model span,
+.settings-help {
+  color: var(--buddy-muted);
+}
+.settings-help {
+  margin: 8px 0 0;
 }
 .settings-feature-list .settings-section {
   margin: 0;
@@ -522,7 +570,6 @@ html:root .settings-nav {
   display: flex;
   justify-content: space-between;
   gap: 16px;
-  border-top: 1px solid var(--settings-rule);
   padding-top: 18px;
   margin-top: 36px;
   font-size: 0.75rem;

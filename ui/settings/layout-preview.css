@@ -1,11 +1,14 @@
 /* [INPUT]: Frontal preview geometry, shared workspace classes and settings theme tokens.
- * [OUTPUT]: Scoped device finish, brand backdrops and compact settings sample text; website scale stays intact.
+ * [OUTPUT]: Centered, compact workspace frames, device finishes and brand backdrops; website scale stays intact.
  * [POS]: Settings illustration only; no styles applied to product workspaces.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 @import './layout-preview-scene.css';
 
 .settings-preview[data-preview-kind='workspace'] {
   --layout-preview-text-scale: 0.65;
+  width: 100%;
+  max-width: 520px;
+  margin-inline: auto;
 }
 .layout-demo {
   overflow: hidden;
@@ -22,7 +25,7 @@
   display: none;
 }
 .settings-preview .layout-demo-toolbar {
-  margin-block: 12px;
+  margin-block: 8px;
 }
 .layout-demo-toolbar .preview-selector {
   margin: 0;

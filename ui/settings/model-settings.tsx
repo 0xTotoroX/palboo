@@ -2,7 +2,7 @@ import { NearbyFeedback } from './settings-feedback';
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: Shared model editor, serialized save queue, saved-connection model API, credential controls and free-text dropdown.
- * [OUTPUT]: One directly visible model form in both modes, retaining credentials/drafts across navigation; advanced controls use a retained right-side drawer; connection tests use the shared fixed feedback region.
+ * [OUTPUT]: 已保存模型摘要与直接可见的连接表单；保留草稿、高级设置抽屉和显式连接测试。
  * [POS]: Settings presentation only; all enabled API-backed features share the configured model.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { SettingsDrawer } from './settings-drawer';
@@ -152,230 +152,233 @@ export function ModelSettings({ editor, simple }: { editor: SettingsEditor; simp
   return (
     <>
       <Card tabIndex={-1} id="settings-model" aria-labelledby="model-title">
-        <div ref={fieldsRef} className="settings-model-editor">
-          <div>
-            <h2 id="model-title" hidden>
-              {tr('模型服务')}
-            </h2>
-            {saved.environmentOverrides.length > 0 && (
-              <div className="mb-4 rounded-[9px] border border-notice-border bg-notice px-[13px] py-[11px] text-[14px] leading-[1.8] text-notice-foreground [overflow-wrap:anywhere]">
-                {tr('当前进程环境变量优先：')}
-                {saved.environmentOverrides.join('、')}
-                {tr('。修改对应字段后需去掉环境覆盖并重启。')}
-              </div>
-            )}
-            <Field id="provider" label={tr('模型来源')}>
-              <NativeSelect
-                id="provider"
-                controlWidth="short"
-                value={form.provider}
-                onChange={(e) => change('provider', e.target.value as 'codex' | 'api')}
-              >
-                <option value="codex">{tr('现有 Codex 登录')}</option>
-                <option value="api">{tr('指定 API')}</option>
-              </NativeSelect>
-            </Field>
-            {form.provider === 'api' && (
-              <>
-                <div hidden={simple}>
-                  <Field id="protocol" label={tr('API 协议')}>
-                    <NativeSelect
-                      id="protocol"
-                      controlWidth="medium"
-                      value={form.protocol}
-                      onChange={(e) =>
-                        change('protocol', e.target.value as EditableSettings['protocol'])
-                      }
-                    >
-                      <option value="responses">OpenAI Responses</option>
-                      <option value="chat_completions">Chat Completions</option>
-                      <option value="anthropic_messages">Anthropic Messages</option>
-                      <option value="auto">{tr('自动识别')}</option>
-                    </NativeSelect>
-                  </Field>
+        <h2 id="model-title">{tr('当前模型')}</h2>
+        <p className="settings-current-model">
+          {saved.model || tr(saved.provider === 'codex' ? '沿用当前模型' : '尚未配置模型')}
+          <span>{tr(saved.provider === 'codex' ? '现有 Codex 登录' : '指定 API')}</span>
+        </p>
+        <p className="settings-help">{tr('用于下一步建议和提示词优化等功能。')}</p>
+        <div className="settings-actions mt-4">
+          {!saved.available && (
+            <p className="settings-error mr-auto">{saved.reason || tr('等待配置')}</p>
+          )}
+          <Button
+            type="button"
+            variant="outline"
+            disabled={!!busy || remoteChanged}
+            onClick={() => void test()}
+            className="settings-connection-test"
+            data-connection-state={
+              busy
+                ? 'pending'
+                : testFeedback?.success
+                  ? 'success'
+                  : testFeedback?.failed
+                    ? 'error'
+                    : 'idle'
+            }
+            aria-busy={!!busy}
+            aria-describedby={busy || testFeedback ? 'model-test-feedback' : undefined}
+          >
+            <ActionIcon
+              name="connection"
+              retainSuccess
+              state={busy ? 'pending' : testFeedback?.success ? 'success' : 'idle'}
+            />
+            <ActionLabel
+              labels={[
+                tr('正在保存…'),
+                tr('正在测试…'),
+                tr('保存并测试'),
+                tr('测试连接'),
+                tr('连接成功'),
+                tr('重新测试'),
+              ]}
+              text={
+                busy === 'saving'
+                  ? tr('正在保存…')
+                  : busy
+                    ? tr('正在测试…')
+                    : dirty
+                      ? tr('保存并测试')
+                      : testFeedback?.success
+                        ? tr('连接成功')
+                        : testFeedback?.failed
+                          ? tr('重新测试')
+                          : tr('测试连接')
+              }
+            />
+          </Button>
+        </div>
+        {(busy || testFeedback) && (
+          <NearbyFeedback>
+            <p
+              id="model-test-feedback"
+              className={
+                testFeedback?.failed
+                  ? 'settings-feedback settings-error text-right'
+                  : 'settings-feedback text-right'
+              }
+              role={testFeedback?.failed ? 'alert' : 'status'}
+            >
+              {busy === 'saving'
+                ? tr('正在保存配置，随后测试连接。')
+                : busy
+                  ? tr('正在用固定示例请求模型…')
+                  : testFeedback?.text}
+              {busy && (
+                <span aria-hidden="true">
+                  {tr(' 已等待 ')}
+                  {elapsed}
+                  {tr(' 秒')}
+                </span>
+              )}
+            </p>
+          </NearbyFeedback>
+        )}
+        <div id="model-edit">
+          <div ref={fieldsRef} className="settings-model-editor settings-control-group">
+            <div>
+              {saved.environmentOverrides.length > 0 && (
+                <div className="mb-4 rounded-[9px] border border-notice-border bg-notice px-[13px] py-[11px] text-[14px] leading-[1.8] text-notice-foreground [overflow-wrap:anywhere]">
+                  {tr('当前进程环境变量优先：')}
+                  {saved.environmentOverrides.join('、')}
+                  {tr('。修改对应字段后需去掉环境覆盖并重启。')}
                 </div>
-                <Field id="base-url" label={tr('API 地址')}>
+              )}
+              <Field id="provider" label={tr('模型来源')}>
+                <NativeSelect
+                  id="provider"
+                  controlWidth="short"
+                  value={form.provider}
+                  onChange={(e) => change('provider', e.target.value as 'codex' | 'api')}
+                >
+                  <option value="codex">{tr('现有 Codex 登录')}</option>
+                  <option value="api">{tr('指定 API')}</option>
+                </NativeSelect>
+              </Field>
+              {form.provider === 'api' && (
+                <>
+                  <Field id="base-url" label={tr('API 地址')}>
+                    <Input
+                      id="base-url"
+                      type="url"
+                      value={form.baseUrl}
+                      onChange={(e) => change('baseUrl', e.target.value)}
+                      placeholder="https://api.openai.com/v1"
+                      spellCheck={false}
+                    />
+                  </Field>
+                  <ModelApiKey editor={editor} busy={!!busy} />
+                </>
+              )}
+              <Field id="model" label={tr('模型名称')}>
+                <SuggestionInput
+                  id="model"
+                  value={form.model}
+                  options={connectionDirty ? [] : currentCatalog?.models || []}
+                  onValueChange={(value) => change('model', value)}
+                  placeholder={form.provider === 'codex' ? tr('沿用当前模型') : tr('模型 ID')}
+                  spellCheck={false}
+                  dropdown={{
+                    label: tr('选择模型'),
+                    onOpen: () => void readModels(),
+                    loading: !connectionDirty && currentCatalog?.loading,
+                    success: !connectionDirty && currentCatalog?.success,
+                    message: connectionDirty
+                      ? tr('请先保存连接配置，再读取模型列表；也可直接输入模型 ID。')
+                      : currentCatalog?.message,
+                  }}
+                />
+              </Field>
+            </div>
+          </div>
+          <SettingsDrawer id="settings-limits" title={tr('高级设置')} hidden={simple}>
+            <section hidden={form.provider !== 'api'}>
+              <h3>{tr('连接与密钥')}</h3>
+              <Field id="protocol" label={tr('API 协议')}>
+                <NativeSelect
+                  id="protocol"
+                  controlWidth="medium"
+                  value={form.protocol}
+                  onChange={(e) =>
+                    change('protocol', e.target.value as EditableSettings['protocol'])
+                  }
+                >
+                  <option value="responses">OpenAI Responses</option>
+                  <option value="chat_completions">Chat Completions</option>
+                  <option value="anthropic_messages">Anthropic Messages</option>
+                  <option value="auto">{tr('自动识别')}</option>
+                </NativeSelect>
+              </Field>
+              <Field
+                id="api-key-env"
+                label={tr('密钥环境变量名（可选）')}
+                hint={tr('填变量名，不是密钥。后台读到非空值时优先使用；直接填写 API 密钥可留空。')}
+              >
+                <Input
+                  id="api-key-env"
+                  value={form.apiKeyEnv}
+                  onChange={(e) => change('apiKeyEnv', e.target.value)}
+                  placeholder="PALBOO_API_KEY"
+                  spellCheck={false}
+                />
+              </Field>
+              <DeleteModelApiKey editor={editor} busy={!!busy} />
+            </section>
+            <div className="space-y-5">
+              <Field id="context-scope" label={tr('输入上下文')}>
+                <NativeSelect
+                  id="context-scope"
+                  controlWidth="medium"
+                  value={form.maxInputChars === 0 ? 'latest' : 'limited'}
+                  onChange={(e) => change('maxInputChars', e.target.value === 'latest' ? 0 : 12000)}
+                >
+                  <option value="latest">{tr('最近一次聊天（完整）')}</option>
+                  <option value="limited">{tr('自定义字符上限')}</option>
+                </NativeSelect>
+              </Field>
+              {form.maxInputChars !== 0 && (
+                <Field id="max-input" label={tr('输入字符上限')}>
                   <Input
-                    id="base-url"
-                    type="url"
-                    value={form.baseUrl}
-                    onChange={(e) => change('baseUrl', e.target.value)}
-                    placeholder="https://api.openai.com/v1"
-                    spellCheck={false}
+                    id="max-input"
+                    type="number"
+                    min="500"
+                    max="32000"
+                    step="100"
+                    value={form.maxInputChars}
+                    onChange={(e) => change('maxInputChars', Number(e.target.value))}
                   />
                 </Field>
-                <ModelApiKey editor={editor} busy={!!busy} />
-              </>
-            )}
-            <Field id="model" label={tr('模型名称')}>
-              <SuggestionInput
-                id="model"
-                value={form.model}
-                options={connectionDirty ? [] : currentCatalog?.models || []}
-                onValueChange={(value) => change('model', value)}
-                placeholder={form.provider === 'codex' ? tr('沿用当前模型') : tr('模型 ID')}
-                spellCheck={false}
-                dropdown={{
-                  label: tr('选择模型'),
-                  onOpen: () => void readModels(),
-                  loading: !connectionDirty && currentCatalog?.loading,
-                  success: !connectionDirty && currentCatalog?.success,
-                  message: connectionDirty
-                    ? tr('请先保存连接配置，再读取模型列表；也可直接输入模型 ID。')
-                    : currentCatalog?.message,
-                }}
-              />
-            </Field>
-            <div className="settings-actions mt-5">
-              {!saved.available && (
-                <p className="settings-error mr-auto">{saved.reason || tr('等待配置')}</p>
               )}
-              <Button
-                type="button"
-                variant="outline"
-                disabled={!!busy || remoteChanged}
-                onClick={() => void test()}
-                className="settings-connection-test"
-                data-connection-state={
-                  busy
-                    ? 'pending'
-                    : testFeedback?.success
-                      ? 'success'
-                      : testFeedback?.failed
-                        ? 'error'
-                        : 'idle'
-                }
-                aria-busy={!!busy}
-                aria-describedby={busy || testFeedback ? 'model-test-feedback' : undefined}
-              >
-                <ActionIcon
-                  name="connection"
-                  retainSuccess
-                  state={busy ? 'pending' : testFeedback?.success ? 'success' : 'idle'}
+              {form.provider === 'api' && (
+                <Field id="max-output" label={tr('输出 token 上限')}>
+                  <Input
+                    id="max-output"
+                    type="number"
+                    min="128"
+                    max="16000"
+                    step="1"
+
+                    value={form.maxOutputTokens}
+                    onChange={(e) => change('maxOutputTokens', Number(e.target.value))}
+                  />
+                </Field>
+              )}
+              <Field id="timeout" label={tr('请求超时（秒）')}>
+                <Input
+                  id="timeout"
+                  type="number"
+                  min="1"
+                  max="300"
+                  value={form.timeoutMs / 1000}
+                  onChange={(e) => change('timeoutMs', Number(e.target.value) * 1000)}
                 />
-                <ActionLabel
-                  labels={[
-                    tr('正在保存…'),
-                    tr('正在测试…'),
-                    tr('保存并测试'),
-                    tr('测试连接'),
-                    tr('连接成功'),
-                    tr('重新测试'),
-                  ]}
-                  text={
-                    busy === 'saving'
-                      ? tr('正在保存…')
-                      : busy
-                        ? tr('正在测试…')
-                        : dirty
-                          ? tr('保存并测试')
-                          : testFeedback?.success
-                            ? tr('连接成功')
-                            : testFeedback?.failed
-                              ? tr('重新测试')
-                              : tr('测试连接')
-                  }
-                />
-              </Button>
+              </Field>
             </div>
-            {(busy || testFeedback) && (
-              <NearbyFeedback>
-                <p
-                  id="model-test-feedback"
-                  className={
-                    testFeedback?.failed
-                      ? 'settings-feedback settings-error text-right'
-                      : 'settings-feedback text-right'
-                  }
-                  role={testFeedback?.failed ? 'alert' : 'status'}
-                >
-                  {busy === 'saving'
-                    ? tr('正在保存配置，随后测试连接。')
-                    : busy
-                      ? tr('正在用固定示例请求模型…')
-                      : testFeedback?.text}
-                  {busy && (
-                    <span aria-hidden="true">
-                      {tr(' 已等待 ')}
-                      {elapsed}
-                      {tr(' 秒')}
-                    </span>
-                  )}
-                </p>
-              </NearbyFeedback>
-            )}
-          </div>
+          </SettingsDrawer>
         </div>
       </Card>
-      <SettingsDrawer id="settings-limits" title={tr('高级设置')} hidden={simple}>
-        <section hidden={form.provider !== 'api'}>
-          <h3>{tr('连接与密钥')}</h3>
-          <Field
-            id="api-key-env"
-            label={tr('密钥环境变量名（可选）')}
-            hint={tr('填变量名，不是密钥。后台读到非空值时优先使用；直接填写 API 密钥可留空。')}
-          >
-            <Input
-              id="api-key-env"
-              value={form.apiKeyEnv}
-              onChange={(e) => change('apiKeyEnv', e.target.value)}
-              placeholder="PALBOO_API_KEY"
-              spellCheck={false}
-            />
-          </Field>
-          <DeleteModelApiKey editor={editor} busy={!!busy} />
-        </section>
-        <div className="space-y-5">
-          <Field id="context-scope" label={tr('输入上下文')}>
-            <NativeSelect
-              id="context-scope"
-              controlWidth="medium"
-              value={form.maxInputChars === 0 ? 'latest' : 'limited'}
-              onChange={(e) => change('maxInputChars', e.target.value === 'latest' ? 0 : 12000)}
-            >
-              <option value="latest">{tr('最近一次聊天（完整）')}</option>
-              <option value="limited">{tr('自定义字符上限')}</option>
-            </NativeSelect>
-          </Field>
-          {form.maxInputChars !== 0 && (
-            <Field id="max-input" label={tr('输入字符上限')}>
-              <Input
-                id="max-input"
-                type="number"
-                min="500"
-                max="32000"
-                step="100"
-                value={form.maxInputChars}
-                onChange={(e) => change('maxInputChars', Number(e.target.value))}
-              />
-            </Field>
-          )}
-          {form.provider === 'api' && (
-            <Field id="max-output" label={tr('输出 token 上限')}>
-              <Input
-                id="max-output"
-                type="number"
-                min="128"
-                max="16000"
-                step="1"
-
-                value={form.maxOutputTokens}
-                onChange={(e) => change('maxOutputTokens', Number(e.target.value))}
-              />
-            </Field>
-          )}
-          <Field id="timeout" label={tr('请求超时（秒）')}>
-            <Input
-              id="timeout"
-              type="number"
-              min="1"
-              max="300"
-              value={form.timeoutMs / 1000}
-              onChange={(e) => change('timeoutMs', Number(e.target.value) * 1000)}
-            />
-          </Field>
-        </div>
-      </SettingsDrawer>
     </>
   );
 }

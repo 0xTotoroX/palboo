@@ -22,14 +22,16 @@ const script = build({
   stdin: {
     resolveDir: process.cwd(),
     loader: 'tsx',
-    contents: `import React from 'react';import{createRoot}from'react-dom/client';import{BackupSettings}from'./ui/settings/backup-settings';import{setLocale}from'./ui/shared/i18n.js';window.locale=setLocale;function App(){const[dirty,setDirty]=React.useState(false);window.dirty=setDirty;const[,render]=React.useState(0);window.repaint=()=>render(v=>v+1);return <div className="settings-app"><main className="settings-content"><div className="settings-form-column"><h1>Backup fixture</h1><BackupSettings active live dirty={dirty}/></div></main></div>}createRoot(document.getElementById('root')).render(<App/>);`,
+    contents: `import React from 'react';import{createRoot}from'react-dom/client';import{BackupSettings}from'./ui/settings/backup-settings';import{setLocale}from'./ui/shared/i18n.js';window.locale=setLocale;function App(){const[dirty,setDirty]=React.useState(false);window.dirty=setDirty;const[active,setActive]=React.useState(true);window.setBackupActive=setActive;const[,render]=React.useState(0);window.repaint=()=>render(v=>v+1);return <div className="settings-app"><main className="settings-content"><div className="settings-form-column"><h1>Backup fixture</h1><BackupSettings active={active} live dirty={dirty}/></div></main></div>}createRoot(document.getElementById('root')).render(<App/>);`,
   },
   bundle: true,
   write: false,
   jsx: 'automatic',
 }).then((r) => r.outputFiles[0].text);
 test('backup requires a reviewed operation and keeps feedback outside the form flow', async (t) => {
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({
+    executablePath: process.env.PALBOO_CHROME_BIN || undefined,
+  });
   t.after(() => browser.close());
   const page = await browser.newPage({
     viewport: { width: 1040, height: 1000 },
@@ -38,6 +40,7 @@ test('backup requires a reviewed operation and keeps feedback outside the form f
   page.setDefaultTimeout(5000);
   const writes = [],
     errors = [];
+  let visibleTargets = targets.slice(0, 1);
   page.on('pageerror', (e) => errors.push(e.message));
   await page.route('**/*', async (route) => {
     const url = new URL(route.request().url());
@@ -50,7 +53,7 @@ test('backup requires a reviewed operation and keeps feedback outside the form f
     const body = route.request().postDataJSON();
     writes.push(body);
     let result;
-    if (body.op === 'status') result = { targets, sections, canUndo: false };
+    if (body.op === 'status') result = { targets: visibleTargets, sections, canUndo: false };
     else if (body.op === 'export')
       result = {
         data: Buffer.from('synthetic-encrypted-archive').toString('base64'),
@@ -68,21 +71,30 @@ test('backup requires a reviewed operation and keeps feedback outside the form f
     return route.fulfill({ json: result });
   });
   await page.goto('https://backup.test/#token=fixture');
+  await page.evaluate(() => {
+    document.documentElement.dataset.settingsTheme = 'light';
+  });
   const html = await readFile('target/web/index.html', 'utf8');
   for (const [, href] of html.matchAll(/<link rel="stylesheet"[^>]*href="([^"]+)"/g))
     await page.addStyleTag({ content: await readFile(`target/web${href}`, 'utf8') });
   await page.addScriptTag({ content: await script });
-  await page.getByLabel('功能与模型服务', { exact: true }).waitFor();
-  assert.deepEqual(
-    writes.map((w) => w.op),
-    ['status'],
-  );
+  const backup = page.getByRole('region', { name: '备份到文件', exact: true });
+  const restore = page.getByRole('region', { name: '从文件恢复', exact: true });
+  const copy = page.getByRole('region', { name: '在本机环境间复制', exact: true });
+  await backup.waitFor();
+  await restore.waitFor();
+  await page.waitForFunction(() => document.querySelector('#backup-restore'));
+  assert.equal(await copy.count(), 0, 'one environment has no copy action');
+  assert.equal(await page.getByLabel('备份文件').isVisible(), true);
+  assert.equal(await page.getByRole('dialog').count(), 0, 'ordinary actions are inline');
   assert.equal(await page.locator('#settings-feedback-center').count(), 0);
-  await page.getByRole('switch', { name: '包含 API 密钥', exact: true }).click();
-  const exportButton = page.getByRole('button', { name: '导出备份', exact: true });
+  const exportForm = page.getByRole('region', { name: '备份到文件', exact: true });
+  assert.equal(await exportForm.getByLabel('备份密码').isVisible(), false);
+  await exportForm.getByRole('switch', { name: '包含 API 密钥', exact: true }).click();
+  const exportButton = exportForm.getByRole('button', { name: '导出备份', exact: true });
   assert.equal(await exportButton.isDisabled(), true);
-  await page.getByLabel('备份密码', { exact: true }).fill('synthetic backup password');
-  const before = await page.getByLabel('目标环境', { exact: true }).boundingBox();
+  await exportForm.getByLabel('备份密码', { exact: true }).fill('synthetic backup password');
+  const before = await restore.boundingBox();
   const download = page.waitForEvent('download');
   await exportButton.click();
   await download;
@@ -90,33 +102,69 @@ test('backup requires a reviewed operation and keeps feedback outside the form f
   assert.equal(exported.includeSecrets, true);
   assert.equal(exported.includeData, false);
   await page.getByRole('status').filter({ hasText: '备份已生成' }).waitFor();
-  assert.deepEqual(
-    await page.getByLabel('目标环境', { exact: true }).boundingBox(),
-    before,
-    'fixed feedback must not move form rows',
-  );
+  assert.deepEqual(await restore.boundingBox(), before, 'fixed feedback must not move the actions');
   const repaint = await page.evaluate(() => setInterval(window.repaint, 100));
   await page
     .getByRole('status')
     .filter({ hasText: '备份已生成' })
     .waitFor({ state: 'hidden', timeout: 7500 });
   await page.evaluate((timer) => clearInterval(timer), repaint);
-  await page.getByLabel('目标环境', { exact: true }).selectOption('release');
-  await page.getByRole('button', { name: '预览复制', exact: true }).click();
+
+  let restoreForm = page.getByRole('region', { name: '从文件恢复', exact: true });
+  assert.equal(await restoreForm.getByRole('group', { name: '恢复范围' }).count(), 0);
+  await restoreForm.getByLabel('备份文件').setInputFiles({
+    name: 'renamed.palboo',
+    mimeType: 'application/octet-stream',
+    buffer: Buffer.from('age-encryption.org/v1\n'),
+  });
+  await restoreForm.getByLabel('备份密码').waitFor();
+  assert.equal(await restoreForm.getByLabel('目标环境').count(), 0);
+  assert.equal(await restoreForm.getByRole('button', { name: '预览恢复' }).isDisabled(), true);
+  await restoreForm.getByLabel('备份密码').fill('synthetic import password');
+  await restoreForm.getByRole('button', { name: '预览恢复', exact: true }).click();
   const drawer = page.getByRole('dialog', { name: '确认恢复范围', exact: true });
   await drawer.waitFor();
+  assert.equal(writes.find((w) => w.op === 'preview').password, 'synthetic import password');
   assert.equal(writes.filter((w) => w.op === 'apply').length, 0);
-  assert.match(await drawer.innerText(), /正式版/);
-  assert.match(await drawer.innerText(), /自动保存恢复点/);
   await page.keyboard.press('Escape');
   assert.equal(await drawer.isVisible(), false);
-  await page.getByLabel('任务与术语数据', { exact: true }).check();
-  await page.getByLabel('备份文件', { exact: true }).setInputFiles({
+  assert.equal(
+    await restoreForm.getByLabel('备份密码').evaluate((node) => node === document.activeElement),
+    true,
+    'cleared password receives focus when the preview button is disabled',
+  );
+
+  visibleTargets = targets;
+  await page.evaluate(() => window.setBackupActive(false));
+  await backup.waitFor({ state: 'hidden' });
+  await page.evaluate(() => window.setBackupActive(true));
+  const copyForm = page.getByRole('region', { name: '在本机环境间复制', exact: true });
+  await copyForm.getByLabel('目标环境', { exact: true }).selectOption('release');
+  await copyForm.getByLabel('API 密钥', { exact: true }).check();
+  await copyForm.getByRole('button', { name: '预览复制', exact: true }).click();
+  await drawer.waitFor();
+  assert.match(await drawer.innerText(), /正式版/);
+  assert.match(await drawer.innerText(), /自动保存恢复点/);
+  assert.equal(writes.filter((w) => w.op === 'apply').length, 0);
+  await page.keyboard.press('Escape');
+  assert.equal(
+    await copyForm
+      .getByRole('button', { name: '预览复制', exact: true })
+      .evaluate((node) => node === document.activeElement),
+    true,
+  );
+
+  restoreForm = page.getByRole('region', { name: '从文件恢复', exact: true });
+  await restoreForm.getByLabel('备份文件', { exact: true }).setInputFiles({
     name: 'synthetic.palboo',
     mimeType: 'application/json',
     buffer: Buffer.from('{}'),
   });
-  await page.getByRole('button', { name: '预览导入', exact: true }).click();
+  await restoreForm.getByLabel('任务与术语数据', { exact: true }).check();
+  assert.equal(await restoreForm.getByLabel('目标环境').inputValue(), 'current');
+  assert.equal(await restoreForm.getByLabel('API 密钥', { exact: true }).isChecked(), false);
+  assert.equal(await restoreForm.getByLabel('备份密码').count(), 0);
+  await restoreForm.getByRole('button', { name: '预览恢复', exact: true }).click();
   await drawer.waitFor();
   assert.match(await drawer.innerText(), /同步保持暂停/);
   assert.equal(writes.filter((w) => w.op === 'apply').length, 0);
@@ -126,10 +174,8 @@ test('backup requires a reviewed operation and keeps feedback outside the form f
   assert.equal(writes.find((w) => w.op === 'apply').confirm, true);
   await page.evaluate(() => window.dirty(true));
   await page.getByRole('alert').waitFor();
-  assert.equal(
-    await page.getByRole('button', { name: '预览导入', exact: true }).isDisabled(),
-    true,
-  );
+  assert.equal(await restoreForm.getByLabel('备份文件').isDisabled(), true);
+  await page.keyboard.press('Escape');
   await page.evaluate(() => window.dirty(false));
   await mkdir('target/reports/local-backup', { recursive: true });
   for (const lang of ['zh-CN', 'en'])
@@ -144,7 +190,7 @@ test('backup requires a reviewed operation and keeps feedback outside the form f
       );
       if (lang === 'en')
         assert.equal(
-          await page.getByRole('button', { name: 'Preview import', exact: true }).count(),
+          await page.getByRole('region', { name: 'Restore from a file', exact: true }).count(),
           1,
         );
       await page.screenshot({
