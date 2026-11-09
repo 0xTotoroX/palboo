@@ -24,7 +24,10 @@ window.contextApi={chatBusy,composerCandidates,mainComposerCandidate};`,
       write: false,
     })
   ).outputFiles[0].text;
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch({
+    headless: true,
+    executablePath: process.env.PALBOO_CHROME_BIN || undefined,
+  });
   try {
     const page = await browser.newPage();
     await page.route('http://context-performance.test/**', (route) =>
@@ -234,7 +237,10 @@ function App(){const[active,setActive]=useState(true);window.setActive=setActive
   });
   const script = bundle.outputFiles.find((file) => file.path.endsWith('.js')).text;
   const css = bundle.outputFiles.find((file) => file.path.endsWith('.css')).text;
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch({
+    headless: true,
+    executablePath: process.env.PALBOO_CHROME_BIN || undefined,
+  });
   try {
     const page = await browser.newPage();
     page.setDefaultTimeout(5000);
@@ -286,7 +292,7 @@ function App(){const[active,setActive]=useState(true);window.setActive=setActive
     const monitor = page.getByRole('switch', { name: '性能监测' }),
       integration = page.getByRole('button', { name: '持续暂停' });
     await integration.waitFor();
-    assert.equal(await monitor.isVisible(), false);
+    assert.equal(await monitor.isVisible(), true);
     await page.waitForFunction(() => !document.querySelector('[role=switch]').disabled);
     await page.clock.runFor(10000);
     assert.equal(samples, 0);
@@ -295,7 +301,6 @@ function App(){const[active,setActive]=useState(true);window.setActive=setActive
       0,
       'disabled monitoring does not render empty instruments',
     );
-    await page.locator('#connection-diagnostics > summary').click();
     await monitor.click();
     await page.waitForFunction(
       () =>
@@ -306,7 +311,7 @@ function App(){const[active,setActive]=useState(true);window.setActive=setActive
     await page.getByText('2.0%', { exact: true }).waitFor();
     await page.getByRole('img', { name: /Palboo 后台 CPU.*1个采样点/ }).waitFor();
     await page.getByRole('img', { name: /Palboo 后台物理内存.*2个采样点/ }).waitFor();
-    await page.getByText('工作明细', { exact: true }).click();
+    await page.getByRole('heading', { name: '工作明细', exact: true }).waitFor();
     await page.getByText('聊天检查', { exact: true }).waitFor();
     const beforeResize = requests;
     for (const width of [320, 680, 1100]) {
@@ -334,15 +339,12 @@ function App(){const[active,setActive]=useState(true);window.setActive=setActive
       '0s',
     );
     const sampling = samples;
-    await page.locator('#connection-diagnostics > summary').click();
-    await page.clock.runFor(11000);
-    assert.equal(samples, sampling, 'closed diagnostics never samples');
-    await page.locator('#connection-diagnostics > summary').click();
     await page.evaluate(() => window.setActive(false));
     await page.waitForTimeout(10);
     const count = requests;
     await page.clock.runFor(15000);
     assert.equal(requests, count);
+    assert.equal(samples, sampling, 'inactive connection page never samples');
     await page.evaluate(() => window.setActive(true));
     await page.waitForTimeout(10);
     reject = true;
@@ -380,7 +382,10 @@ function App(){const[active,setActive]=useState(true);window.setActive=setActive
 
 test('unchanged host sync does not redraw and disabled tools release timers and DOM listeners', async () => {
   const bundle = await buildPanel();
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch({
+    headless: true,
+    executablePath: process.env.PALBOO_CHROME_BIN || undefined,
+  });
   try {
     const page = await browser.newPage();
     page.setDefaultTimeout(7000);

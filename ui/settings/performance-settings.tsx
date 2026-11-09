@@ -28,7 +28,7 @@ async function readState(path: string, body?: unknown): Promise<State> {
     throw Error(tr('当前后台尚未提供性能设置，请重新打开 Palboo 后再试。'));
   return value;
 }
-export function usePerformanceSettings(live: boolean, active: boolean, diagnosticsOpen: boolean) {
+export function usePerformanceSettings(live: boolean, active: boolean) {
   useLocale();
   const [state, setState] = useState<State | null>(null);
   const [message, setMessage] = useState('');
@@ -37,7 +37,7 @@ export function usePerformanceSettings(live: boolean, active: boolean, diagnosti
   const writing = useRef(false),
     generation = useRef(0);
   const monitoring = state?.preferences.monitoringEnabled === true;
-  const sampling = monitoring && diagnosticsOpen;
+  const sampling = monitoring;
   useEffect(() => {
     if (!live || !active) return;
     let stopped = false,

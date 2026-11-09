@@ -36,7 +36,9 @@ const release = {
   asset: { id: 12 },
 };
 async function fixture(t, options = {}) {
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({
+    executablePath: process.env.PALBOO_CHROME_BIN || undefined,
+  });
   t.after(() => browser.close());
   const page = await browser.newPage({
     viewport: { width: 390, height: 844 },
@@ -172,7 +174,6 @@ test('drafts and edited modes block installation; failures keep the release and 
     assert.equal(await install.isDisabled(), true);
   }
   await f.page.evaluate(() => window.flags({ dirty: false, saving: false, remoteChanged: false }));
-  await f.page.locator('#settings-app-mode > summary').click();
   await f.page.getByLabel('启动时使用', { exact: true }).selectOption('development');
   assert.equal(await install.isDisabled(), true);
   await f.page.getByLabel('启动时使用', { exact: true }).selectOption('release');
@@ -275,8 +276,6 @@ test('startup updates fit a narrow layout in both languages with keyboard access
       geometry.labels.every((v) => v.left >= 0 && v.right <= geometry.viewport + 1),
       JSON.stringify(geometry),
     );
-    if (!(await f.page.locator('#settings-app-mode').evaluate((node) => node.open)))
-      await f.page.locator('#settings-app-mode > summary').click();
     await f.page.locator('#app-mode').selectOption('development');
     await f.page
       .getByRole('button', {

@@ -605,6 +605,7 @@ export default {
   各功能位置: 'Feature positions',
   '{{title}}默认位置': 'Default position for {{title}}',
   '正在保存…': 'Saving…',
+  眼睛按钮: 'Eyes button',
   眼睛单击: 'Eyes button click',
   眼睛单击默认动作: 'Default action for the eyes button',
   '内 · 聊天内工作台': 'Chat workspace',

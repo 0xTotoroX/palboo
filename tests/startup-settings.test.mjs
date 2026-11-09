@@ -178,7 +178,6 @@ test(
       });
       await page.goto(`http://127.0.0.1:${server.address().port}/#token=fixture`);
       await openSettingsPage(page, 'connection');
-      await page.locator('#connection-diagnostics > summary').click();
       const policy = page.getByLabel('ChatGPT 已打开，但没有调试连接时');
       await policy.waitFor();
       assert.equal(await policy.inputValue(), 'ask');
@@ -197,19 +196,15 @@ test(
       await until(() => saves.length === 1);
       assert.equal(saves[0].hostRestartPolicy, 'force');
       await page.reload();
-      await page.locator('#connection-diagnostics > summary').click();
       await policy.waitFor();
       assert.equal(await policy.inputValue(), 'force');
       await openSettingsPage(page, 'model');
-      if (!(await page.locator('#model-edit').evaluate((node) => node.open)))
-        await page.locator('#model-edit > summary').click();
       await page.getByRole('button', { name: '高级设置', exact: true }).click();
       const context = page.getByLabel('输入上下文', { exact: true });
       await context.selectOption('latest');
       await until(() => settings.maxInputChars === 0);
       assert.equal(await page.getByLabel('输入字符上限', { exact: true }).count(), 0);
       await page.reload();
-      await page.locator('#model-edit > summary').click();
       await page.getByRole('button', { name: '高级设置', exact: true }).click();
       await context.waitFor();
       assert.equal(await context.inputValue(), 'latest');
@@ -235,8 +230,6 @@ test(
         .getByRole('link', { name: '功能开关', exact: true })
         .click();
       await openSettingsPage(page, 'model');
-      if (!(await page.locator('#model-edit').evaluate((node) => node.open)))
-        await page.locator('#model-edit > summary').click();
       await page.getByRole('button', { name: '高级设置', exact: true }).click();
       assert.equal(await input.inputValue(), '9000');
       await input.fill('10000');
@@ -314,7 +307,6 @@ test(
       await reloadDialog.waitFor({ state: 'hidden' });
       assert.equal(await input.inputValue(), '13000');
       await page.reload();
-      await page.locator('#model-edit > summary').click();
       await page.getByRole('button', { name: '高级设置', exact: true }).click();
       await input.waitFor();
       assert.equal(await input.inputValue(), '13000');

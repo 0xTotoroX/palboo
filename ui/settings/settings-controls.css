@@ -575,13 +575,9 @@ html:has(.settings-drawer[open]) {
 .settings-drawer-toolbar {
   flex: none;
   padding: 0 28px 8px;
-  border-bottom: 1px solid var(--buddy-border);
 }
 .settings-drawer-toolbar .settings-catalog-selection {
   margin-top: 4px;
-}
-#model-organization .settings-drawer-footer {
-  border-top: 1px solid var(--buddy-border);
 }
 #model-organization .settings-drawer-footer:not(:has(> fieldset:not([hidden]), > p)) {
   display: none;

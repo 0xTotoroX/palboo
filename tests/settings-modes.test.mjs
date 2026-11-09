@@ -470,7 +470,7 @@ test(
         0,
         'the header uses one integrated wordmark without a separate icon',
       );
-      assert.equal(await page.getByRole('link', { name: 'Palboo 设置', exact: true }).count(), 1);
+      assert.equal(await page.getByRole('link', { name: /^Palboo (设置|开发版)$/ }).count(), 1);
       await page.waitForFunction(
         (expected) => {
           const wordmark = document.querySelector('.settings-wordmark');
@@ -587,31 +587,80 @@ test(
         updateBox.y >= 0 && updateBox.y + updateBox.height < 740,
         'update is on the first screen',
       );
-      assert.equal(await page.locator('#app-mode').isVisible(), false);
+      assert.equal(await page.locator('#app-mode').isVisible(), true);
       await category('connection');
       await page.getByRole('button', { name: '持续暂停', exact: true }).waitFor();
-      assert.equal(await page.locator('#cdp-endpoint').isVisible(), false);
+      assert.equal(await page.locator('#cdp-endpoint').isVisible(), true);
       await page.evaluate(() => {
         location.hash = 'settings-performance';
       });
       await page.getByRole('switch', { name: '性能监测' }).waitFor();
-      assert.equal(
-        await page.locator('#connection-diagnostics').evaluate((node) => node.open),
-        true,
-      );
-      await page.locator('#connection-diagnostics > summary').click();
+      assert.equal(await page.locator('#connection-diagnostics summary').count(), 0);
       await category('backup');
-      const restore = page.getByRole('button', { name: '从文件恢复', exact: true });
+      const restore = page.getByLabel('备份文件', { exact: true });
       await restore.waitFor();
       const restoreBox = await restore.boundingBox();
       assert.ok(
         restoreBox.y >= 0 && restoreBox.y + restoreBox.height < 740,
         'restore starts on the first screen',
       );
-      assert.equal(await page.getByLabel('备份文件').isVisible(), false);
-      assert.equal(await page.getByRole('button', { name: '在本机环境间复制' }).count(), 0);
+      assert.equal(await page.getByLabel('备份文件').isVisible(), true);
+      assert.equal(await page.getByRole('region', { name: '在本机环境间复制' }).count(), 0);
       await page.setViewportSize({ width: 420, height: 800 });
       assert.equal(writes.length, 0, 'the compact System and legacy routes never write');
+      await category('surfaces');
+      const eyes = page.locator('#settings-launcher');
+      await eyes.getByRole('heading', { name: '眼睛按钮', exact: true }).waitFor();
+      const eyeNode = await page.locator('#launcher-double-action').elementHandle();
+      assert.equal(await eyes.locator('select:visible').count(), 3);
+      await category('appearance');
+      assert.equal(await eyes.isVisible(), false);
+      assert.equal(await page.locator('#typography-surface').isVisible(), true);
+      assert.equal(await page.locator('#settings-fonts summary').count(), 0);
+      const hierarchy = await page.evaluate(() => {
+        const style = (selector) => getComputedStyle(document.querySelector(selector));
+        return {
+          pageWeight: style('.settings-page-title').fontWeight,
+          sectionWeight: style('#settings-fonts h2').fontWeight,
+          pageSize: parseFloat(style('.settings-page-title').fontSize),
+          rootSize: parseFloat(style('html').fontSize),
+          sectionLine: style('#settings-fonts').borderTopWidth,
+          fieldLines: [...document.querySelectorAll('#settings-fonts .settings-field')].map(
+            (n) => getComputedStyle(n).borderTopWidth,
+          ),
+          frame: style('#settings-fonts .settings-control-group').borderTopWidth,
+        };
+      });
+      assert.equal(hierarchy.pageWeight, '500');
+      assert.equal(hierarchy.sectionWeight, '600');
+      assert.equal(hierarchy.pageSize, hierarchy.rootSize * 1.5);
+      assert.equal(hierarchy.sectionLine, '0px');
+      assert.ok(hierarchy.fieldLines.every((n) => n === '0px'));
+      assert.equal(hierarchy.frame, '1px');
+      await page.evaluate(() => {
+        location.hash = 'settings-appearance/launcher-double-action';
+      });
+      await page.waitForFunction(
+        () => document.querySelector('.settings-app').dataset.settingsCategory === 'surfaces',
+      );
+      assert.equal(
+        await eyeNode.evaluate((n) => n === document.querySelector('#launcher-double-action')),
+        true,
+      );
+      assert.equal(await page.locator('#launcher-double-action').isVisible(), true);
+      await category('features');
+      assert.equal(
+        await page
+          .locator('.settings-feature-list .settings-row')
+          .first()
+          .evaluate((n) => getComputedStyle(n).borderBottomWidth),
+        '1px',
+      );
+      assert.equal(
+        writes.length,
+        0,
+        'moving controls and following old links never saves preferences',
+      );
 
       // Exercise the styled native picker through actual keyboard/pointer input, not selectOption.
       await category('next');
@@ -865,12 +914,11 @@ test(
       writes.length = 0;
       await category('model');
       await page.getByRole('heading', { name: '当前模型', exact: true }).waitFor();
-      assert.equal(await page.locator('#model').isVisible(), false);
+      assert.equal(await page.locator('#model').isVisible(), true);
       assert.equal(
         await page.getByRole('button', { name: '测试连接', exact: true }).isVisible(),
         true,
       );
-      await page.locator('#model-edit > summary').click();
       assert.equal(await page.locator('#protocol').isVisible(), false);
       await category('features');
       await page.goBack();
@@ -1343,8 +1391,6 @@ test(
       assert.equal(await dockWidth.inputValue(), '701');
       assert.equal(appearance.ui.dockWidth, 701, 'settings edits save integer pixels');
       await category('appearance');
-      if (!(await page.locator('#settings-fonts details').evaluate((node) => node.open)))
-        await page.locator('#settings-fonts summary').click();
       await page.getByLabel('窗口', { exact: true }).selectOption('sidebar');
       const font = page.locator('#typography-sidebar-size');
       await font.waitFor();
@@ -1615,8 +1661,6 @@ test(
       );
       const draftWrites = writes.length;
       await category('general');
-      if (!(await page.locator('#settings-app-mode').evaluate((node) => node.open)))
-        await page.locator('#settings-app-mode > summary').click();
       await page.locator('#app-mode').selectOption('release');
       await page.locator('#app-mode').selectOption('development');
       await category('surfaces');
@@ -2168,8 +2212,6 @@ test(
       );
       const beforeMotion = writes.length;
       await page.getByRole('link', { name: '模型服务', exact: true }).click();
-      if (!(await page.locator('#model-edit').evaluate((node) => node.open)))
-        await page.locator('#model-edit > summary').click();
       const drawer = limits.locator('dialog.settings-drawer');
       const entryHeight = await limits.evaluate((n) => n.getBoundingClientRect().height);
       await page.getByRole('button', { name: '高级设置', exact: true }).click();
@@ -2199,8 +2241,6 @@ test(
         'keyboard navigation has no entry animation',
       );
       await page.getByRole('link', { name: '模型服务', exact: true }).click();
-      if (!(await page.locator('#model-edit').evaluate((node) => node.open)))
-        await page.locator('#model-edit > summary').click();
       await page.getByRole('button', { name: '高级设置', exact: true }).click();
       await emulateMedia(page, { reducedMotion: 'reduce' });
       assert.equal(await drawer.evaluate((n) => getComputedStyle(n).transitionDuration), '0s');
@@ -2569,7 +2609,7 @@ test(
       await category('general');
       await page.locator('#interface-language').selectOption('zh-CN');
       await page.waitForFunction(() => document.documentElement.lang === 'zh-CN');
-      await page.getByRole('link', { name: 'Palboo 设置', exact: true }).waitFor();
+      await page.getByRole('link', { name: /^Palboo (设置|开发版)$/ }).waitFor();
       assert.deepEqual(errors, []);
     } catch (error) {
       await page

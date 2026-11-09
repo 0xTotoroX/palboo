@@ -326,7 +326,6 @@ html:root .settings-nav {
   > .settings-section:not([hidden])
   ~ .settings-section:not([hidden]),
 .settings-surface-group {
-  border-top: 1px solid var(--buddy-border);
   padding-top: 24px;
 }
 .settings-field {
@@ -571,7 +570,6 @@ html:root .settings-nav {
   display: flex;
   justify-content: space-between;
   gap: 16px;
-  border-top: 1px solid var(--settings-rule);
   padding-top: 18px;
   margin-top: 36px;
   font-size: 0.75rem;

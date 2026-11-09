@@ -33,7 +33,6 @@ import { ModelControlSettings } from './model-control-settings';
 import { SurfaceSettings } from './surface-settings';
 import { NextSettings } from './next-settings';
 import { QuickPromptSettings } from './quick-prompt-settings';
-import { LauncherSettings } from './launcher-settings';
 import { ModelSettings } from './model-settings';
 import { useTasks } from '../features/board/api';
 import { ConnectionSettings } from './connection-settings';
@@ -391,12 +390,6 @@ function App() {
                   onFeatures={setFeatures}
                   onSnapshot={setSurfaces}
                 />
-                <div data-settings-page="appearance" hidden={page !== 'appearance'}>
-                  <LauncherSettings
-                    value={view?.panelPreferences}
-                    outsideAvailable={editor.saved?.popoutSupported === true}
-                  />
-                </div>
               </section>
               <div data-settings-page="terminology" hidden={page !== 'terminology'}>
                 <TerminologySettings
@@ -418,7 +411,7 @@ function App() {
                   <QuickPromptSettings editor={editor} appearance={view?.panelPreferences} />
                 </div>
                 <div data-settings-page="model" hidden={page !== 'model'}>
-                  <ModelSettings editor={editor} collapsed />
+                  <ModelSettings editor={editor} />
                 </div>
                 <div data-settings-page="connection" hidden={page !== 'connection'}>
                   <ConnectionSettings

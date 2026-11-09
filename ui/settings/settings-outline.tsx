@@ -127,6 +127,7 @@ const aliases: Record<string, SettingsPage> = {
   'settings-limits': 'model',
   'settings-capsule': 'surfaces',
   'settings-fonts': 'appearance',
+  'settings-launcher': 'surfaces',
   'settings-startup': 'general',
   'settings-app-mode': 'general',
   'settings-app-update': 'general',
@@ -143,7 +144,8 @@ function targetPage(field: string): SettingsPage | undefined {
     )
   )
     return 'model';
-  if (/^(font-|theme-|launcher-(click|double|context)-action)/.test(field)) return 'appearance';
+  if (/^(font-|theme-)/.test(field)) return 'appearance';
+  if (/^launcher-(click|double|context)-action$/.test(field)) return 'surfaces';
   if (
     /^(edge-|placement-|main-|dock-width|sidebar-|window-pinning|settings-window|settings-sidebar)/.test(
       field,

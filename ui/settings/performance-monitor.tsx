@@ -302,8 +302,8 @@ export function PerformanceMonitor({
       </section>
 
       {host && (
-        <details className="performance-details">
-          <summary>{tr('工作明细')}</summary>
+        <section className="performance-details">
+          <h3>{tr('工作明细')}</h3>
           <div className="performance-work-list">
             {work.map((item) => (
               <div className="performance-work-item" key={item.label}>
@@ -323,7 +323,7 @@ export function PerformanceMonitor({
               </div>
             ))}
           </div>
-        </details>
+        </section>
       )}
     </div>
   );

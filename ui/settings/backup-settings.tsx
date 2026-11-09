@@ -1,5 +1,5 @@
 /* [INPUT]: Authenticated local backup API, current settings draft state and native file input.
- * [OUTPUT]: Two task-first file actions, conditional environment transfer and undo, and explicit difference review.
+ * [OUTPUT]: 页内备份与恢复表单、按环境显示的复制表单；各自保留范围和目标，单独确认差异。
  * [POS]: Settings-only transfer controls; no cloud transport or automatic synchronization.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { useEffect, useRef, useState } from 'react';
@@ -102,7 +102,7 @@ export function BackupSettings({
   const [copySelection, setCopySelection] = useState<string[] | null>(null);
   const restoreSections = restoreSelection || [];
   const copySections = copySelection || [];
-  const reviewOpener = useRef('backup-restore');
+  const reviewOpener = useRef('backup-preview-restore');
   const targets = status?.targets || [];
   const multipleTargets = targets.length > 1;
   const [preview, setPreview] = useState<Preview | null>(null);
@@ -182,7 +182,6 @@ export function BackupSettings({
     link.remove();
     window.setTimeout(() => URL.revokeObjectURL(url), 30000);
     setPassword('');
-    closeSettingsDrawers();
     setMessage(tr('备份已生成，请保存下载文件。'));
   }
   async function inspect(copy = false) {
@@ -203,7 +202,7 @@ export function BackupSettings({
       includeData: selected.includes('data'),
       includeSecrets: selected.includes('secrets'),
     });
-    reviewOpener.current = copy ? 'backup-copy' : 'backup-restore';
+    reviewOpener.current = copy ? 'backup-preview-copy' : 'backup-preview-restore';
     setPreview(next);
     setImportPassword('');
   }
@@ -308,8 +307,9 @@ export function BackupSettings({
       <Feedback text={error} failed />
       <Feedback text={message} />
       {dirty && <Feedback text={tr('请先保存或还原当前设置，再备份或恢复。')} failed />}
-      <Card>
-        <SettingsDrawer id="backup-export" title={tr('备份到文件')}>
+      <Card id="backup-export" aria-labelledby="backup-export-title">
+        <h2 id="backup-export-title">{tr('备份到文件')}</h2>
+        <div className="settings-control-group">
           <Toggle
             label={tr('包含任务与术语数据')}
             checked={data}
@@ -352,8 +352,11 @@ export function BackupSettings({
               {tr(busy === 'export' ? '正在导出…' : '导出备份')}
             </Button>
           </div>
-        </SettingsDrawer>
-        <SettingsDrawer id="backup-restore" title={tr('从文件恢复')}>
+        </div>
+      </Card>
+      <Card id="backup-restore" aria-labelledby="backup-restore-title" tabIndex={-1}>
+        <h2 id="backup-restore-title">{tr('从文件恢复')}</h2>
+        <div className="settings-control-group">
           <Field id="backup-file" label={tr('备份文件')}>
             <Input
               className="h-auto py-2 file:mr-3 file:border-0 file:bg-transparent file:text-foreground"
@@ -392,6 +395,7 @@ export function BackupSettings({
               {scopeFields(restoreSections, setRestoreSelection)}
               <div className="settings-actions">
                 <Button
+                  id="backup-preview-restore"
                   disabled={
                     blocked ||
                     readingFile ||
@@ -405,9 +409,12 @@ export function BackupSettings({
               </div>
             </>
           )}
-        </SettingsDrawer>
-        {multipleTargets && (
-          <SettingsDrawer id="backup-copy" title={tr('在本机环境间复制')}>
+        </div>
+      </Card>
+      {multipleTargets && (
+        <Card id="backup-copy" aria-labelledby="backup-copy-title" tabIndex={-1}>
+          <h2 id="backup-copy-title">{tr('在本机环境间复制')}</h2>
+          <div className="settings-control-group">
             <Field id="backup-source" label={tr('复制来源')}>
               <NativeSelect
                 id="backup-source"
@@ -430,35 +437,37 @@ export function BackupSettings({
             <div className="settings-actions">
               {copyTarget !== 'current' && (
                 <Button
+                  id="backup-copy-undo"
                   variant="ghost"
                   disabled={blocked}
-                  onClick={() => undo('backup-copy', copyTarget)}
+                  onClick={() => undo('backup-copy-undo', copyTarget)}
                 >
                   {tr('撤销上次恢复')}
                 </Button>
               )}
               <Button
+                id="backup-preview-copy"
                 disabled={blocked || source === copyTarget || !copySections.length}
                 onClick={() => void run('copy', () => inspect(true))}
               >
                 {tr('预览复制')}
               </Button>
             </div>
-          </SettingsDrawer>
-        )}
-        {status?.canUndo && (
-          <div className="settings-actions">
-            <Button
-              id="backup-undo"
-              variant="ghost"
-              disabled={blocked}
-              onClick={() => undo('backup-undo', 'current')}
-            >
-              {tr('撤销上次恢复')}
-            </Button>
           </div>
-        )}
-      </Card>
+        </Card>
+      )}
+      {status?.canUndo && (
+        <div className="settings-actions">
+          <Button
+            id="backup-undo"
+            variant="ghost"
+            disabled={blocked}
+            onClick={() => undo('backup-undo', 'current')}
+          >
+            {tr('撤销上次恢复')}
+          </Button>
+        </div>
+      )}
       <SettingsDrawer
         id="backup-review"
         title={tr('确认恢复范围')}
@@ -467,9 +476,11 @@ export function BackupSettings({
         onClose={() => {
           setPreview(null);
           const opener = document.getElementById(reviewOpener.current);
-          (opener?.matches('button') ? opener : opener?.querySelector('button'))?.focus({
-            preventScroll: true,
-          });
+          const section = opener?.closest<HTMLElement>('.settings-section');
+          const focus = opener?.matches(':enabled')
+            ? opener
+            : section?.querySelector<HTMLElement>('input[type="password"]:enabled') || section;
+          focus?.focus({ preventScroll: true });
         }}
       >
         {preview && (
