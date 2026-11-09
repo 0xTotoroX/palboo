@@ -382,10 +382,11 @@ export function SettingsOutline({
   useLayoutEffect(() => {
     // Closing links stay painted for the fade but stop accepting focus or input immediately.
     if (links.current) links.current.inert = !open && matchMedia('(max-width: 640px)').matches;
-    if (open)
-      links.current?.querySelector<HTMLElement>('[aria-current="page"]')?.focus({
-        preventScroll: true,
-      });
+    if (open) {
+      const current = links.current?.querySelector<HTMLElement>('[aria-current="page"]');
+      current?.focus({ preventScroll: true });
+      current?.scrollIntoView({ block: 'nearest' });
+    }
   }, [open]);
   useEffect(() => setOpen(false), [page]);
   useEffect(() => {
@@ -492,9 +493,6 @@ export function SettingsOutline({
             <div className="settings-nav-children">
               {item.pages
                 .filter((id) => id !== 'dev' || dev || page === 'dev')
-                .filter(
-                  (id) => !item.pages.includes('features') || id === 'features' || id === page,
-                )
                 .map((id) => (
                   <a
                     key={id}

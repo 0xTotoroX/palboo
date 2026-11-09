@@ -502,7 +502,19 @@ test(
         '布局与位置',
         '外观与字体',
       ]);
-      assert.deepEqual(groups.find((group) => group.title === '功能').pages, ['功能开关']);
+      assert.deepEqual(groups.find((group) => group.title === '功能').pages, [
+        '功能开关',
+        '大纲',
+        '下一步',
+        '常用语',
+        '术语释义',
+        '任务看板',
+        '模型切换',
+        'Grok Bot',
+        '阅读与网页',
+        '提示词优化',
+        '兼容集成',
+      ]);
       assert.deepEqual(groups.find((group) => group.title === '系统').pages, [
         '通用',
         'Codex 连接',
@@ -759,7 +771,16 @@ test(
           'CodexHost',
         ],
       );
-      assert.equal(await page.locator('.settings-nav-group[aria-label="功能"] a').count(), 1);
+      const featureMenu = page.locator('.settings-nav-group[aria-label="功能"] a');
+      const destinations = (links) => links.evaluateAll((nodes) => nodes.map((node) => node.hash));
+      assert.deepEqual(await destinations(featureMenu), [
+        '#settings-features',
+        ...(await destinations(featureLinks)),
+      ]);
+      await featureLinks.getByText('大纲', { exact: true }).click();
+      await page.getByRole('heading', { level: 1, name: '大纲', exact: true }).waitFor();
+      assert.equal(writes.length, 0, 'feature list links open details without toggling features');
+      await category('features');
       assert.equal(
         await page.getByRole('switch', { name: '启用聊天测速', exact: true }).count(),
         0,
@@ -1840,20 +1861,22 @@ test(
               previewOrder.bottom <= previewOrder.controls.top,
               `${id}: preview above every setting`,
             );
+            const format = ['surfaces', 'appearance'].includes(id) ? 'interface' : 'feature';
+            const leftGap = previewOrder.left - previewOrder.controls.left;
+            const rightGap = previewOrder.controls.right - previewOrder.left - previewOrder.width;
             assert.ok(
-              Math.abs(previewOrder.left - previewOrder.controls.left) < 1,
-              `${id}: preview and controls align`,
+              format === 'interface' ? Math.abs(leftGap - rightGap) < 1 : Math.abs(leftGap) < 1,
+              `${id}: ${format === 'interface' ? 'equal preview side margins' : 'preview and controls align'}`,
             );
             assert.ok(
               Math.abs(
                 previewOrder.width -
-                  (['surfaces', 'appearance'].includes(id)
+                  (format === 'interface'
                     ? Math.min(previewOrder.controls.width, 520)
                     : previewOrder.controls.width),
               ) < 1,
               `${id}: shared preview width`,
             );
-            const format = ['surfaces', 'appearance'].includes(id) ? 'interface' : 'feature';
             assert.equal(stage.format, format, `${id}: uses its shared preview family`);
             if (format === 'interface')
               assert.ok(
@@ -2296,7 +2319,7 @@ test(
               visible: !!n.getBoundingClientRect().height,
             })),
           );
-          assert.equal(links.length, 8, 'sidebar keeps the feature list and System destinations');
+          assert.equal(links.length, 18, 'sidebar keeps all feature and System destinations');
           assert.ok(links.filter((n) => n.visible).every((n) => n.width >= n.content));
           assert.equal(links.filter((n) => n.visible).length, width <= 640 ? 0 : links.length);
           assert.equal(await page.locator('.settings-nav summary').count(), 0);
@@ -2374,6 +2397,13 @@ test(
       }
       await page.setViewportSize({ width: 390, height: 500 });
       await page.locator('.settings-nav-trigger').click();
+      const activeLink = await page
+        .locator('.settings-category-links a[aria-current="page"]')
+        .boundingBox();
+      assert.ok(
+        activeLink.y >= 0 && activeLink.y + activeLink.height <= 500,
+        'opening the short menu scrolls the active destination into view',
+      );
       await page.keyboard.press('End');
       const lastLink = await page.locator('.settings-category-links a').last().boundingBox();
       assert.ok(
