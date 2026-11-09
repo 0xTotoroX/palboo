@@ -990,12 +990,12 @@ export async function checkPopout({
       async () => !(await desktop.evaluate(() => window.__companionFloatingPanel.state.detached)),
       'chip dock not restored',
     );
-    assert.equal(await desktop.evaluate(() => window.__companionFloatingPanel.state.open), false);
-    // 宿主先恢复可见，后台随后才释放本次窗口；下一次打开等待交接真正结束。
+    // 宿主先恢复可见，后台确认交接并释放窗口后再核对最终开合状态。
     await waitFor(
       async () => (await api('panel/state', { lease: chipLease })).status === 400,
       'chip window lease was not released',
     );
+    assert.equal(await desktop.evaluate(() => window.__companionFloatingPanel.state.open), false);
     assert.equal(JSON.parse(readFileSync(join(dataDir, 'panel.json'))).ui.open, false);
     record('左栏入口慢双击保留首击前的收起状态，窗口收回到同一入口');
 

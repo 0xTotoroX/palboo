@@ -482,10 +482,12 @@ try {
     await nav.getByRole('link', { name: '功能开关', exact: true }).click();
     await page.getByRole('switch', { name: '启用大纲', exact: true }).click();
     await waitFor(async () => (await settings()).answerOutlineEnabled, 'outline did not restore');
-    await waitFor(
-      async () => (await api('features', { op: 'state' })).body.features.every((e) => !e.pending),
-      'feature reopen did not settle',
-    );
+    await waitFor(async () => {
+      const { features } = (await api('features', { op: 'state' })).body;
+      return (
+        features.every((e) => !e.pending) && features.some((e) => e.id === 'outline' && e.open)
+      );
+    }, 'outline reopen did not settle');
     record('四功能独立启停、原位置恢复、看板数据与同步保留、开关不提交无效草稿');
     await page.getByRole('link', { name: '布局与位置', exact: true }).click();
     const before = (await api('features', { op: 'state' })).body;

@@ -963,9 +963,15 @@ try {
   const settingsBot = settingsPage
     .locator('[data-settings-page="bots"]')
     .getByRole('button', { name: '手动新增 Bot', exact: true });
+  const profileDetail = settingsPage.getByRole('region', { name: '手动新增 Bot', exact: true });
+  const returnFromDetail = async (detail) => {
+    await detail.getByRole('button', { name: '返回设置', exact: true }).click();
+    await detail.waitFor({ state: 'hidden' });
+  };
   await settingsBot.click();
-  await settingsPage.getByText('仅在设置展示的简介', { exact: true }).waitFor();
+  await profileDetail.getByText('仅在设置展示的简介', { exact: true }).waitFor();
   await settingsPage.keyboard.press('Escape');
+  await profileDetail.waitFor({ state: 'hidden' });
   assert.equal(await settingsBot.evaluate((el) => document.activeElement === el), true);
   assert.equal(await page.getByText('仅在设置展示的简介', { exact: true }).count(), 0);
   const setupRow = await settingsPage
@@ -1010,22 +1016,26 @@ try {
     true,
   );
   await settingsBot.click();
-  await settingsPage.getByText('仅在设置展示的简介', { exact: true }).waitFor();
-  await settingsPage.keyboard.press('Escape');
+  await profileDetail.getByText('仅在设置展示的简介', { exact: true }).waitFor();
+  await returnFromDetail(profileDetail);
   await settingsPage.screenshot({ path: join(output, 'palboo-bot-settings-narrow.png') });
   await settingsPage.setViewportSize({ width: 1440, height: 960 });
   await settingsPage.getByRole('button', { name: '接入 Grok Bot', exact: true }).click();
-  const prompt = await settingsPage
+  const setupDetail = settingsPage.getByRole('region', { name: '接入 Grok Bot', exact: true });
+  const prompt = await setupDetail
     .getByRole('textbox', { name: 'Grok Bot 接入 Prompt' })
     .inputValue();
   assert.match(prompt, /当前官方文档|当前官方/);
   assert.match(prompt, /不新建 Bot/);
   assert.doesNotMatch(prompt, /Users\/Totoro|grokbot setup|0\.2\.27/);
   await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: base });
-  await settingsPage.getByRole('button', { name: '复制接入 Prompt', exact: true }).click();
-  await settingsPage.getByText('已复制', { exact: true }).waitFor();
+  await setupDetail.getByRole('button', { name: '复制接入 Prompt', exact: true }).click();
+  await settingsPage
+    .locator('#settings-feedback-center')
+    .getByText('已复制', { exact: true })
+    .waitFor();
   assert.equal(await settingsPage.evaluate(() => navigator.clipboard.readText()), prompt);
-  await settingsPage.getByRole('button', { name: '关闭接入 Grok Bot', exact: true }).click();
+  await returnFromDetail(setupDetail);
   await settingsPage.getByRole('switch', { name: '自动同步 Bot 资料', exact: true }).click();
   await wait(
     async () => (await api('settings')).grokbotAutoSync === true,
@@ -1073,8 +1083,9 @@ try {
     .locator('[data-settings-page="bots"]')
     .getByRole('button', { name: '自动同步新增', exact: true })
     .click();
-  await settingsPage.getByText('实时更新的资料', { exact: true }).waitFor();
-  await settingsPage.keyboard.press('Escape');
+  const updatedDetail = settingsPage.getByRole('region', { name: '自动同步新增', exact: true });
+  await updatedDetail.getByText('实时更新的资料', { exact: true }).waitFor();
+  await returnFromDetail(updatedDetail);
   record(
     'visible automatic settings recover from invalid identities and update file-driven catalog changes',
   );
