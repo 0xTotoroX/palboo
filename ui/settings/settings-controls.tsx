@@ -15,7 +15,6 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { revealSettingsField, type SettingsPage } from './settings-outline';
-import { Icon } from '../shared/icons/react';
 import { ConfirmationButton } from './settings-confirmation';
 import { Button } from './components/ui/button';
 import { ActionIcon, type ActionState } from './components/ui/action-feedback';
@@ -108,7 +107,6 @@ export function FeatureSwitch({
           }}
         >
           {name}
-          <Icon name="chevron-right" />
         </a>
       ) : (
         <label htmlFor={id}>{name}</label>
