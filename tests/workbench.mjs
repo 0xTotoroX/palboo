@@ -3411,6 +3411,54 @@ const cases = [
     },
   ],
   [
+    'saved open overlay survives preferences arriving before runtime startup',
+    async (page) => {
+      await page.evaluate(() => {
+        window.__companionFloatingPanel.destroy();
+        const fixture = window.workbenchFixture;
+        const original = window.__companionHostRequest;
+        fixture.heldStartupSettings = [];
+        window.__companionHostRequest = (raw) => {
+          if (JSON.parse(raw).path === '/stepwise/settings') fixture.heldStartupSettings.push(raw);
+          else original(raw);
+        };
+        fixture.releaseStartupSettings = () => {
+          window.__companionHostRequest = original;
+          for (const raw of fixture.heldStartupSettings.splice(0)) original(raw);
+        };
+      });
+      await page.evaluate(bundle);
+      await page.waitForFunction(() => window.workbenchFixture.heldStartupSettings.length > 0);
+      const before = await page.evaluate(() => {
+        const panel = window.__companionFloatingPanel;
+        panel.syncPanelPreferences(
+          {
+            ...panel.panelPreferences(),
+            layoutMode: 'capsule',
+            open: true,
+            width: 620,
+            height: 520,
+          },
+          0,
+          false,
+          { restoreSavedUi: true },
+        );
+        const restored = { active: panel.state.runtimeActive, open: panel.state.open };
+        window.workbenchFixture.releaseStartupSettings();
+        return restored;
+      });
+      assert.deepEqual(before, { active: false, open: true });
+      await page.waitForFunction(() => window.__companionFloatingPanel?.state.runtimeActive);
+      const restored = await page.evaluate(() =>
+        window.__companionFloatingPanel.panelPreferences(),
+      );
+      assert.equal(restored.open, true, 'installing the shell must not discard the restored state');
+      const panel = await box(page, panelSelector);
+      near(panel.width, 620, 'saved overlay width');
+      near(panel.height, 520, 'saved overlay height');
+    },
+  ],
+  [
     'initial webRevision zero restores workbench layout and exported preferences',
     async (page) => {
       const saved = await page.evaluate(() => ({

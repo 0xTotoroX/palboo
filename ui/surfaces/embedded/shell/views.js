@@ -538,7 +538,8 @@ function installFloat() {
   applyMaterial();
   installResize();
   applyPosition();
-  settleMorph(0);
+  // Saved preferences may arrive before the runtime mounts its first shell.
+  settleMorph(shellState.open ? 1 : 0);
 }
 
 export { cancelSourceCueAnimation, clearPromptInteractionTimers, installFloat, renderFloat };
