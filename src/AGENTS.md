@@ -168,7 +168,7 @@ panel_window::WindowPath 以0=聊天来源、1=桌面终点定义唯一空间路
 - `host_fonts.rs`：只读已安装 ChatGPT/Codex App 的受支持 OpenAI Sans/Serif 字形。核验 App 标识、资源在包内、ASAR 索引/成员边界、CSS 本地引用与 SHA-256；限制大小并按包文件身份缓存，不接受 HTTP 路径、不联网、不安装字体。server 的认证 GET /api/host-fonts 和 /api/host-fonts/{id} 仅暴露白名单元数据与 WOFF2，不支持的包安全回退。包内字体不属于 Palboo 分发产物。
 
 - `web_library.rs`：可选阅读与网页功能、独立 web-library.json 修订、多个文件夹授权和宿主打开动作；vault/attachments 兼容首个目录，folders 为完整列表。每个目录独立凭证和内存索引，重命名/排序/增删其他目录保留其凭证；变更或移除本目录即时撤销。记录均位于 Palboo 数据目录；reader-runtime.json 在同一授权下复用本机端口和各凭证，Obsidian 登记路径只供选择。
-- `reader.rs` / [reader/AGENTS.md](reader/AGENTS.md)：独立端口与凭证的 Obsidian 阅读、Markdown版本保护保存与表格预览服务；目录描述符拒绝符号链接、隐藏文件与越界；不共享设置页 origin 或凭证。
+- `reader.rs` / [reader/AGENTS.md](reader/AGENTS.md)：独立端口与凭证的 Obsidian 阅读、Markdown版本保护保存与表格/文本预览服务；目录描述符拒绝符号链接、隐藏文件与越界；不共享设置页 origin 或凭证。
 
 web_library::choose_directory 使用单飞/超时的系统文件夹选择器，只返回候选路径、不写授权；鉴权 API 的 choose-directory 和 vaults 供设置与CLI使用。settings_navigation 允许 sites 目的地。
 

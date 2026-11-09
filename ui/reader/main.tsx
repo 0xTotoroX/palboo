@@ -1,5 +1,5 @@
 /* [INPUT]: Reader-only API, safe Markdown with authenticated image rendering, note tree and browser navigation.
- * [OUTPUT]: Unified search and files/recents, guarded history, rich Markdown, link previews, reading information and safe editing.
+ * [OUTPUT]: Unified file navigation, Markdown editing and link previews, and read-only spreadsheet and literal text previews.
  * [POS]: Standalone document opened in ChatGPT; no settings token, composer access or AI calls.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { createRoot } from 'react-dom/client';
@@ -10,6 +10,7 @@ import {
   folderId,
   type Catalog,
   type Note,
+  type TextFile,
   type Summary,
   type LinkPreview,
 } from './api';
@@ -72,7 +73,7 @@ function Reader() {
   const [selected, setSelected] = useState(new URLSearchParams(location.search).get('note') || '');
   const tree = useTreeExpansion(selected);
   const [libraryTab, setLibraryTab] = useState<LibraryTab>('files');
-  const [note, setNote] = useState<Note | null>(null);
+  const [loaded, setLoaded] = useState<Note | TextFile | null>(null);
   const searching = useReaderSearch(catalog);
   const {
     query,
@@ -90,9 +91,15 @@ function Reader() {
   const recent = useRecentNotes(folderId);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const editor = useNoteEditor(setNote);
+  const editor = useNoteEditor(setLoaded);
   const navigation = useRef(false);
   const selectedDocument = catalog?.notes.find((item) => item.id === selected);
+  const selectedKind = selectedDocument?.kind;
+  const selectedFile = loaded?.id === selected ? loaded : null;
+  const note = selectedFile && 'markdown' in selectedFile ? selectedFile : null;
+  const source =
+    selectedKind === 'text' && selectedFile && 'text' in selectedFile ? selectedFile : null;
+  const readable = note || source;
   const [toc, setToc] = useState<Heading[]>([]);
   const [choices, setChoices] = useState<{ notes: Summary[]; anchor: string } | null>(null);
   const app = useRef<HTMLDivElement>(null);
@@ -118,11 +125,11 @@ function Reader() {
     if (
       readingReady.current &&
       !editor.activeRef.current &&
-      note &&
+      readable &&
       article.current &&
-      note.id === selectedRef.current
+      readable.id === selectedRef.current
     ) {
-      positions.current[note.id] = article.current.scrollTop;
+      positions.current[readable.id] = article.current.scrollTop;
       try {
         sessionStorage.setItem(
           positionKey,
@@ -132,7 +139,7 @@ function Reader() {
         /* Session persistence is optional. */
       }
     }
-  }, [note, editor.activeRef]);
+  }, [readable, editor.activeRef]);
   const refresh = useCallback(async (rescan = true) => {
     catalogRequest.current?.abort();
     const controller = new AbortController();
@@ -192,13 +199,13 @@ function Reader() {
   }, [remember]);
   useEffect(() => {
     if (editor.active || editor.activeRef.current) return;
-    if (!selected || !catalog || selectedDocument?.kind === 'spreadsheet') {
+    if (!selected || !catalog || selectedKind === 'spreadsheet') {
       loadedRevision.current = { id: '', revision: -1 };
-      setNote(null);
+      setLoaded(null);
       return;
     }
     if (
-      note?.id === selected &&
+      readable?.id === selected &&
       loadedRevision.current.id === selected &&
       loadedRevision.current.revision === catalog.revision
     )
@@ -206,19 +213,26 @@ function Reader() {
     const controller = new AbortController();
     readingReady.current = false;
     setError('');
-    setNote((current) => (current?.id === selected ? current : null));
-    void read<Note>('note', { id: selected }, controller.signal)
+    setLoaded((current) => (current?.id === selected ? current : null));
+    void read<Note | TextFile>(
+      selectedKind === 'text' ? 'text' : 'note',
+      { id: selected },
+      controller.signal,
+    )
       .then((value) => {
-        if (!controller.signal.aborted) {
+        if (!controller.signal.aborted && selectedRef.current === selected) {
           loadedRevision.current = { id: selected, revision: catalog.revision };
-          setNote(value);
+          setLoaded(value);
         }
       })
       .catch((e) => {
-        if (!controller.signal.aborted) setError(e.message);
+        if (!controller.signal.aborted && selectedRef.current === selected) {
+          if (selectedKind === 'text') setLoaded(null);
+          setError(e.message);
+        }
       });
     return () => controller.abort();
-  }, [selected, catalog?.revision, editor.active]);
+  }, [selected, selectedKind, catalog?.revision, editor.active]);
   function scrollAnchor(anchor: string) {
     const key = anchorKey(anchor);
     const target = [
@@ -270,23 +284,23 @@ function Reader() {
       return;
     }
     tocSettled.current = true;
-  }, [note, editor.active]);
-  // Restore after the heading-derived filename header has settled, before paint.
+  }, [readable, editor.active]);
+  // Restore before paint, once Markdown's heading-derived header has settled.
   useLayoutEffect(() => {
-    if (editor.active || !note || !content.current || !article.current) return;
-    if (!tocSettled.current) {
+    if (editor.active || !readable || !article.current) return;
+    if (note && !tocSettled.current) {
       tocSettled.current = true;
       return;
     }
     const anchor = pendingAnchor.current;
     pendingAnchor.current = '';
-    if (anchor) scrollAnchor(anchor);
-    else article.current.scrollTop = positions.current[note.id] || 0;
+    if (anchor && note) scrollAnchor(anchor);
+    else article.current.scrollTop = positions.current[readable.id] || 0;
     updateHeading();
     readingReady.current = true;
-    document.title = `${note.title} · Palboo`;
-    recent.visit(note.id);
-  }, [note, toc, editor.active]);
+    document.title = `${readable.title} · Palboo`;
+    recent.visit(readable.id);
+  }, [readable, toc, editor.active]);
   useLayoutEffect(() => {
     if (
       note?.id !== destination.id ||
@@ -669,11 +683,11 @@ function Reader() {
           if (
             readingReady.current &&
             !editor.activeRef.current &&
-            note &&
-            note.id === selectedRef.current &&
+            readable &&
+            readable.id === selectedRef.current &&
             article.current
           )
-            positions.current[note.id] = article.current.scrollTop;
+            positions.current[readable.id] = article.current.scrollTop;
           updateHeading();
         }}
       >
@@ -770,16 +784,16 @@ function Reader() {
         {!selected && catalog && !error && (
           <ReaderHome catalog={catalog} recent={recent.ids} open={open} />
         )}
-        {!note && selectedDocument?.kind !== 'spreadsheet' && (selected || !catalog) && !error && (
+        {!readable && selectedKind !== 'spreadsheet' && (selected || !catalog) && !error && (
           <p className="reader-empty" role="status">
             {busy
               ? tr('正在读取笔记目录…')
-              : selected && !error
-                ? tr('正在读取笔记…')
+              : selected
+                ? tr(selectedKind === 'text' ? '正在读取文本…' : '正在读取笔记…')
                 : tr('选择一篇笔记开始阅读')}
           </p>
         )}
-        {selectedDocument?.kind === 'spreadsheet' && (
+        {selectedKind === 'spreadsheet' && (
           <div className="reader-sheet-shell">
             <Spreadsheet
               key={selected}
@@ -788,6 +802,15 @@ function Reader() {
               onRead={recent.visit}
             />
           </div>
+        )}
+        {source && (
+          <article>
+            {source.text ? (
+              <pre className="reader-source">{source.text}</pre>
+            ) : (
+              <p className="reader-empty">{tr('文件为空')}</p>
+            )}
+          </article>
         )}
         {note && (
           <article>

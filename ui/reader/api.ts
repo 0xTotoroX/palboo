@@ -69,7 +69,7 @@ export async function write<T>(operation: string, body: unknown): Promise<T> {
     await request(`/api/${operation}`, { method: 'POST', body: JSON.stringify(body) })
   ).json();
 }
-export type Summary = { id: string; title: string; kind?: 'markdown' | 'spreadsheet' };
+export type Summary = { id: string; title: string; kind?: 'markdown' | 'spreadsheet' | 'text' };
 export type Catalog = {
   folder?: string;
   folders?: import('../shared/web-library').FolderSummary[];
@@ -82,6 +82,7 @@ export type Catalog = {
   systemLanguage?: string;
 };
 export type Note = Summary & { markdown: string; backlinks: Summary[]; version: string };
+export type TextFile = { id: string; title: string; text: string };
 export type Search = { total: number; offset: number; results: (Summary & { snippet: string })[] };
 
 export type LinkPreview = {

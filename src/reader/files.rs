@@ -1,4 +1,4 @@
-// [INPUT]: Canonical explicitly granted roots and relative note/image paths.
+// [INPUT]: Canonical explicitly granted roots and relative reader file paths.
 // [OUTPUT]: Bounded O_RDONLY reads through no-follow directory descriptors.
 // [POS]: The reader's only filesystem read boundary; refuses symlinks, hidden paths and special files.
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
@@ -12,6 +12,7 @@ use std::{
     path::{Component, Path, PathBuf},
 };
 pub const MAX_NOTE: u64 = 8 * 1024 * 1024;
+pub const MAX_TEXT: u64 = 8 * 1024 * 1024;
 pub const MAX_IMAGE: u64 = 32 * 1024 * 1024;
 
 pub fn normalized(path: &Path) -> Result<PathBuf> {

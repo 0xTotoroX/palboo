@@ -1,5 +1,5 @@
 // [INPUT]: Synthetic vaults, local-only router and reader-specific authorization.
-// [OUTPUT]: Read hashes, stable search pagination, links/images/spreadsheets, guarded edits and HTTP/endpoint tests.
+// [OUTPUT]: Read hashes, stable search pagination, text and spreadsheet previews, guarded edits and HTTP/endpoint tests.
 // [POS]: No real user notes, host, network websites or credentials.
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 use super::*;
@@ -270,6 +270,8 @@ fn sites_validate_schemes_credentials_identity_and_persist_order() {
 #[tokio::test]
 async fn reader_http_rejects_main_credentials_foreign_origins_and_unscoped_writes() {
     let f = Fixture::new();
+    let text = "\u{feff}\r\nnot JSON\t<script>literal</script>\r\n";
+    std::fs::write(f.vault.join("raw.JSON"), text).unwrap();
     *f.library.endpoint.lock().unwrap() = ReaderEndpoint {
         port: 12345,
         token: "reader-only".into(),
@@ -307,6 +309,30 @@ async fn reader_http_rejects_main_credentials_foreign_origins_and_unscoped_write
             200,
         ),
         ("GET", "/api/catalog", "127.0.0.1:12345", "", None, 401),
+        (
+            "GET",
+            "/api/text?id=raw.JSON",
+            "127.0.0.1:12345",
+            "main-token",
+            None,
+            401,
+        ),
+        (
+            "GET",
+            "/api/text?id=raw.JSON",
+            "127.0.0.1:12345",
+            "reader-only",
+            None,
+            200,
+        ),
+        (
+            "GET",
+            "/api/text?id=..%2Foutside.txt",
+            "127.0.0.1:12345",
+            "reader-only",
+            None,
+            400,
+        ),
         (
             "GET",
             "/api/catalog",
@@ -383,7 +409,12 @@ async fn reader_http_rejects_main_credentials_foreign_origins_and_unscoped_write
             let body = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
             let value: Value = serde_json::from_slice(&body).unwrap();
             if path == "/api/catalog" {
-                assert_eq!(value["notes"].as_array().unwrap().len(), 4);
+                assert_eq!(value["notes"].as_array().unwrap().len(), 5);
+            } else if path.starts_with("/api/text?") {
+                assert_eq!(
+                    value,
+                    json!({"id":"raw.JSON","title":"raw.JSON","text":text})
+                );
             } else {
                 assert_eq!(value["total"], 0);
             }
@@ -513,6 +544,45 @@ fn spreadsheet_catalog_resolution_and_csv_paging_are_inert() {
         std::fs::read_to_string(f.vault.join("项目/表格.csv")).unwrap(),
         csv
     );
+}
+
+#[test]
+fn text_previews_read_current_bytes_only_inside_the_catalog_and_size_limit() {
+    let f = Fixture::new();
+    let path = f.vault.join("项目/job.log");
+    std::fs::write(&path, "not-indexed-body").unwrap();
+    std::fs::write(f.vault.join("non-utf8.txt"), [0xff]).unwrap();
+    std::fs::write(f.vault.join(".obsidian/private.json"), "{}").unwrap();
+    std::fs::File::create(f.vault.join("too-large.log"))
+        .unwrap()
+        .set_len(files::MAX_TEXT + 1)
+        .unwrap();
+    let mut index = f.index();
+    let p = f.library.preferences.lock().unwrap().clone();
+    let id = "项目/job.log";
+    assert_eq!(index.search("job.log", 0)["results"][0]["kind"], "text");
+    assert_eq!(index.search("not-indexed-body", 0)["total"], 0);
+    assert_eq!(index.resolve("首页.md", id).unwrap().0, vec![id]);
+    let updated = "\r\nnew line\t中文  \r\n";
+    std::fs::write(&path, updated).unwrap();
+    assert_eq!(index.text(&p, id).unwrap()["text"], updated);
+    assert!(index.workbook(&p, id, "", 0).is_err());
+    assert!(index.note(&p, id).is_err());
+    assert!(
+        index
+            .save(&p, id, &edit::version(updated.as_bytes()), "overwrite")
+            .is_err()
+    );
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), updated);
+    assert!(index.text(&p, ".obsidian/private.json").is_err());
+    assert!(index.text(&p, "too-large.log").is_err());
+    assert_eq!(
+        index.text(&p, "non-utf8.txt").unwrap_err().to_string(),
+        "文本文件需要 UTF-8 编码"
+    );
+    std::fs::remove_file(&path).unwrap();
+    std::os::unix::fs::symlink(f.vault.join(".obsidian/private.json"), &path).unwrap();
+    assert!(index.text(&p, id).is_err());
 }
 
 #[tokio::test]
