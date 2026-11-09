@@ -20,6 +20,7 @@ test('reader preferences preserve edits during initial load and serialize newer 
   const browser = await chromium.launch();
   t.after(() => browser.close());
   const page = await browser.newPage();
+  await page.clock.install();
   let resolveRead,
     resolveWrite,
     reads = 0;
@@ -49,26 +50,30 @@ test('reader preferences preserve edits during initial load and serialize newer 
   await page.addScriptTag({ content: script.outputFiles[0].text });
   const input = page.getByLabel('width');
   await input.fill('300');
-  resolveRead();
-  await page.waitForResponse(
+  const loaded = page.waitForResponse(
     (r) => r.url().includes('/preferences') && r.request().method() === 'GET',
   );
+  const firstSave = page.waitForRequest(
+    (r) => r.url().includes('/preferences') && r.method() === 'POST',
+  );
+  resolveRead();
+  await loaded;
   assert.equal(await input.inputValue(), '300');
-  await page.waitForFunction(() => document.querySelector('input').value === '300');
-  await new Promise((r) => setTimeout(r, 300));
-  assert.equal(writes.length, 1);
+  assert.deepEqual((await firstSave).postDataJSON(), { sidebarWidth: 300 });
   await input.fill('420');
-  await new Promise((r) => setTimeout(r, 300));
+  await page.clock.runFor(300);
   assert.equal(writes.length, 1, 'the second write waits for the first');
-  resolveWrite();
-  await page.waitForResponse(
+  const secondSave = page.waitForResponse(
     (r) => r.request().method() === 'POST' && r.request().postDataJSON().sidebarWidth === 420,
   );
+  resolveWrite();
+  await secondSave;
   assert.equal(maximum, 1);
   assert.deepEqual(writes, [{ sidebarWidth: 300 }, { sidebarWidth: 420 }]);
   assert.equal(reads, 1);
   await page.evaluate(() => window.preview(320));
-  await new Promise((r) => setTimeout(r, 250));
+  await page.getByText('320', { exact: true }).waitFor();
+  await page.clock.runFor(250);
   assert.equal(reads, 1);
   assert.equal(writes.length, 2);
 });
