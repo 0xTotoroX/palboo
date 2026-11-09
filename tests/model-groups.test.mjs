@@ -270,15 +270,18 @@ test(
         .getByRole('region', { name: '分组：Anthropic' })
         .locator('[data-model-id]');
       const orderBeforeDrag = [...state.preferences.modelOrder];
-      await claudeRows.last().scrollIntoViewIfNeeded();
-      const source = await claudeRows.first().boundingBox();
-      const target = await claudeRows.last().boundingBox();
-      await page.mouse.move(source.x + 48, source.y + 12);
+      const source = claudeRows.first();
+      const target = claudeRows.last();
+      await source.hover({ position: { x: 48, y: 12 } });
+      const dragSourceBounds = await source.boundingBox();
       await page.mouse.down();
-      await page.mouse.move(source.x + 56, source.y + 20, { steps: 4 });
-      await claudeRows.first().and(page.locator('[data-dragging="true"]')).waitFor();
-      await page.mouse.move(target.x + 90, target.y + target.height * 0.8, { steps: 8 });
-      await claudeRows.last().and(page.locator('[data-drop-edge="after"]')).waitFor();
+      await page.mouse.move(dragSourceBounds.x + 56, dragSourceBounds.y + 20, { steps: 4 });
+      await source.and(page.locator('[data-dragging="true"]')).waitFor();
+      const position = { x: 90, y: await target.evaluate((row) => row.offsetHeight * 0.8) };
+      await target.hover({ position });
+      // Native dragging may only enter the row on the first move; the second sends dragover.
+      await target.hover({ position });
+      await target.and(page.locator('[data-drop-edge="after"]')).waitFor();
       await page.mouse.up();
       await page.waitForFunction(
         () =>
