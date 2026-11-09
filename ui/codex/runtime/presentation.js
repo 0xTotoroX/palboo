@@ -189,7 +189,7 @@ function applyPanelPreferences(ui) {
   emitSignal('render', undefined);
 }
 
-/** @param {string | {language?: string, systemLanguage?: string, action?: string, doubleAction?: string, contextAction?: string} | null} launcherAction */
+/** @param {string | {language?: string, systemLanguage?: string, action?: string, doubleAction?: string, contextAction?: string, restoreSavedUi?: boolean} | null} launcherAction */
 function syncPanelPreferences(ui, revision, detached, launcherAction = 'inside') {
   const previousLocale = getLocale();
   const gestures = typeof launcherAction === 'object' ? launcherAction : null;
@@ -217,12 +217,14 @@ function syncPanelPreferences(ui, revision, detached, launcherAction = 'inside')
   if (preferencesRevision !== revision) {
     const initial = preferencesRevision === -1;
     preferencesRevision = revision;
-    if (initial && revision === 0 && ui) {
+    // First read restores a saved host layout even if it has never been edited in Web settings.
+    if (revision > 0 || (initial && gestures?.restoreSavedUi === true)) {
+      if (ui && JSON.stringify(panelPreferences()) !== JSON.stringify(ui))
+        applyPanelPreferences(ui);
+    } else if (initial && ui) {
       applyWorkbenchPreferences(ui);
       emitSignal('render', undefined);
     }
-    if (revision > 0 && JSON.stringify(panelPreferences()) !== JSON.stringify(ui))
-      applyPanelPreferences(ui);
   }
   void setDetached(detached, ui, null);
 }

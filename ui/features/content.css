@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 大纲和建议 DOM、状态属性与共享变量。
- * [OUTPUT]: 无框建议列表、旧紧凑快捷标签与正文优先/仅名称的独立常用语列表及全文展开、大纲和内容状态的布局与外观，定位按钮透明无底块，鼠标离开后仅键盘聚焦保留导航。
+ * [OUTPUT]: 无框建议列表、旧紧凑快捷标签与独立常用语、大纲和内容状态样式；共享工作台空态顶对齐，定位操作紧随短目录。
  * [POS]: 功能内容样式，由 workspace/mount 与 shell/install-styles 共用。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -208,6 +208,13 @@
   text-align: center;
 }
 
+.feature-projection .csw-empty {
+  align-content: start;
+  justify-items: start;
+  padding: 4px 0;
+  text-align: start;
+}
+
 .csw-empty-title,
 .csw-progress-title {
   color: color-mix(in srgb, var(--csw-text) 62%, var(--csw-muted));
@@ -332,6 +339,10 @@
   bottom: 0;
   transform: translateY(4px);
   z-index: 2;
+}
+
+.feature-projection .csw-outline-toolbar {
+  margin-top: 0;
 }
 
 .csw-popover[data-open='true']:hover .csw-outline-toolbar,

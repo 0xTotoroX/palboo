@@ -1,5 +1,5 @@
 // [INPUT]: Fixed feature identities, authenticated UI requests and existing business services.
-// [OUTPUT]: Persisted edge navigation, one main placement, checked layouts/presets/view handoff and owner-guarded model preferences and quick-prompt settings edits.
+// [OUTPUT]: Embedded legacy workbench adoption, persisted edge navigation, one main placement, checked layout/view handoff and owner-guarded settings edits.
 // [POS]: Presentation lifecycle only; business validation remains in tasks/codex/model_control.
 // [PROTOCOL]: Keep src/AGENTS.md in sync.
 use crate::{
@@ -89,15 +89,32 @@ struct Entry {
     reveal: u64,
     closing: Option<Instant>,
 }
+impl Entry {
+    fn restored(pref: Preference) -> Self {
+        Self {
+            pref,
+            owner: uuid::Uuid::new_v4().to_string(),
+            view: json!({}),
+            pending: None,
+            reveal: 1,
+            closing: None,
+        }
+    }
+}
 pub struct Features {
     entries: BTreeMap<String, Entry>,
     main: MainSurface,
+    can_restore_missing: bool,
 }
 impl Features {
     pub fn load(paths: &Paths) -> Self {
-        let saved = std::fs::read(paths.root.join("features.json"))
-            .ok()
-            .and_then(|b| serde_json::from_slice::<SavedFeatures>(&b).ok());
+        let (saved, can_restore_missing) = match std::fs::read(paths.root.join("features.json")) {
+            Ok(bytes) => match serde_json::from_slice::<SavedFeatures>(&bytes) {
+                Ok(saved) => (Some(saved), true),
+                Err(_) => (None, false),
+            },
+            Err(error) => (None, error.kind() == std::io::ErrorKind::NotFound),
+        };
         let (mut main, mut prefs) = saved.map(SavedFeatures::parts).unwrap_or_default();
         if !["sidebar", "overlay", "desktop"].contains(&main.placement.as_str()) {
             main.placement = "sidebar".into();
@@ -111,12 +128,6 @@ impl Features {
             if pref.placement != "edge" {
                 pref.placement = main.placement.clone();
             }
-        }
-        // 原常用语跟随下一步的位置与开合意愿；已有独立偏好优先。
-        if !prefs.contains_key("prompts")
-            && let Some(next) = prefs.get("next").cloned()
-        {
-            prefs.insert("prompts".into(), next);
         }
         if !prefs.contains_key("model")
             && std::fs::read(paths.root.join("model-control.json"))
@@ -135,6 +146,7 @@ impl Features {
         }
         Self {
             main: MainSurface::new(main),
+            can_restore_missing,
             entries: IDS
                 .into_iter()
                 .filter_map(|id| {
@@ -147,21 +159,18 @@ impl Features {
                                 && p.size[0] <= 20000
                                 && p.size[1] <= 20000
                         })
-                        .map(|p| {
-                            (
-                                id.into(),
-                                Entry {
-                                    pref: p.clone(),
-                                    owner: uuid::Uuid::new_v4().to_string(),
-                                    view: json!({}),
-                                    pending: None,
-                                    reveal: 1,
-                                    closing: None,
-                                },
-                            )
-                        })
+                        .map(|p| (id.into(), Entry::restored(p.clone())))
                 })
                 .collect(),
+        }
+    }
+    pub(crate) fn restore_legacy_quick_prompts(&mut self, enabled: bool) {
+        // 仅接续仍启用的常用语；显式的独立位置和关闭状态优先。
+        if enabled
+            && !self.entries.contains_key("prompts")
+            && let Some(pref) = self.entries.get("next").map(|next| next.pref.clone())
+        {
+            self.entries.insert("prompts".into(), Entry::restored(pref));
         }
     }
     fn save(&self, paths: &Paths) -> Result<()> {
@@ -895,13 +904,16 @@ impl App {
         }
         Ok(result)
     }
-    // Called under feature_operation. Only fill missing registrations: explicit closed
-    // views, edge assignments and live legacy windows retain their existing ownership.
+    // Called under feature_operation. Adopt an embedded legacy workbench once; thereafter
+    // only fill missing registrations. Closed views and existing owners keep their state.
     async fn restore_unregistered_main_features(&self) -> Result<()> {
-        let appearance = self.appearance().await;
-        if appearance.detached {
-            return Ok(());
-        }
+        let (appearance, legacy_fixture) = {
+            let panel = self.panel.lock().await;
+            if panel.owns_legacy_window() {
+                return Ok(());
+            }
+            (panel.prefs.clone(), panel.legacy_workbench_fixture())
+        };
         let (outline, next, prompts, bots) = {
             let model = self.model.read().await;
             (
@@ -911,13 +923,11 @@ impl App {
                 model.options.grokbot_enabled,
             )
         };
-        let legacy = !self.main_features_managed().await;
-        if legacy && (next || !prompts) {
-            return Ok(());
-        }
         let board = self.tasks.board_enabled().await && !self.tasks.window_open().await;
         let mut f = self.features.lock().await;
-        if f.main.target.is_some()
+        let legacy = !f.main_managed();
+        if (legacy && (!f.can_restore_missing || legacy_fixture))
+            || f.main.target.is_some()
             || (f.main.pref.placement == "desktop" && !crate::panel::popout_supported())
         {
             return Ok(());
@@ -953,22 +963,17 @@ impl App {
         } else {
             true
         };
+        let placement = f.main.pref.placement.clone();
+        let return_placement = f.main.pref.return_placement.clone();
         for id in &missing {
-            let placement = f.main.pref.placement.clone();
             f.entries.insert(
                 (*id).into(),
-                Entry {
-                    pref: Preference {
-                        placement,
-                        open,
-                        ..Default::default()
-                    },
-                    owner: uuid::Uuid::new_v4().to_string(),
-                    view: json!({}),
-                    pending: None,
-                    reveal: 1,
-                    closing: None,
-                },
+                Entry::restored(Preference {
+                    placement: placement.clone(),
+                    return_placement: return_placement.clone(),
+                    open,
+                    ..Default::default()
+                }),
             );
         }
         if let Err(error) = f.save(&self.paths) {
@@ -1427,9 +1432,6 @@ mod tests {
         let (_dir, app) = app().await;
         app.model.write().await.options.enabled = true;
         app.tasks.inner.lock().await.store.board_enabled = true;
-        // Enabled services alone must not replace an unmigrated legacy workbench.
-        app.supervise_features().await;
-        assert!(!app.main_features_managed().await);
         let owner = open(&app, "outline").await;
         let layout =
             json!({"axis":"auto","groups":[{"ids":["outline"],"active":"outline","weight":1.0}]});
@@ -1517,28 +1519,74 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn legacy_quick_prompts_keep_placement_and_closed_state_without_stepwise() {
-        for (mode, placement, open) in [
-            ("capsule", "overlay", true),
-            ("workbench", "sidebar", false),
+    async fn legacy_embedded_workbench_keeps_placement_and_open_intent() {
+        for (mode, placement, open, next, prompts) in [
+            ("capsule", "overlay", true, true, true),
+            ("workbench", "sidebar", false, true, false),
+            ("capsule", "overlay", false, false, true),
         ] {
             let (_dir, app) = app().await;
-            app.save_settings(serde_json::from_value(json!({"enabled": false})).unwrap())
-                .await
-                .unwrap();
+            {
+                let mut model = app.model.write().await;
+                model.options.enabled = next;
+                model.options.quick_prompts_enabled = prompts;
+            }
             {
                 let mut panel = app.panel.lock().await;
                 panel.prefs.ui.layout_mode = mode.into();
-                panel.prefs.ui.open = open;
-                panel.prefs.ui.dock_open = open;
+                panel.prefs.ui.open = if mode == "capsule" { open } else { !open };
+                panel.prefs.ui.dock_open = if mode == "workbench" { open } else { !open };
             }
             assert!(!app.main_features_managed().await);
             app.restore_unregistered_main_features().await.unwrap();
             let restored = Features::load(&app.paths);
-            assert_eq!(restored.entries["prompts"].pref.placement, placement);
-            assert_eq!(restored.entries["prompts"].pref.open, open);
-            assert!(!restored.entries.contains_key("next"));
-            assert_eq!(restored.entries["outline"].pref.open, open);
+            assert_eq!(restored.main.pref.placement, placement);
+            assert!(restored.main_managed());
+            for (id, enabled) in [("outline", true), ("next", next), ("prompts", prompts)] {
+                if enabled {
+                    assert_eq!(restored.entries[id].pref.placement, placement);
+                    assert_eq!(restored.entries[id].pref.open, open);
+                } else {
+                    assert!(!restored.entries.contains_key(id));
+                }
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn automatic_adoption_does_not_replace_unreadable_feature_preferences() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths::new(Some(dir.path().into())).unwrap();
+        let path = paths.root.join("features.json");
+        let contents = b"{invalid";
+        std::fs::write(&path, contents).unwrap();
+        let app = App::new(paths, Default::default(), None, false);
+        app.restore_unregistered_main_features().await.unwrap();
+        assert!(!app.main_features_managed().await);
+        assert_eq!(std::fs::read(path).unwrap(), contents);
+    }
+
+    #[tokio::test]
+    async fn legacy_next_preferences_do_not_open_disabled_quick_phrases() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths::new(Some(dir.path().into())).unwrap();
+        std::fs::write(
+            paths.root.join("features.json"),
+            br#"{"next":{"placement":"edge","open":true}}"#,
+        )
+        .unwrap();
+        for enabled in [false, true] {
+            let mut config = crate::config::Config::default();
+            config.stepwise.quick_prompts_enabled = enabled;
+            let app = App::new(paths.clone(), config, None, false);
+            let features = app.features.lock().await;
+            assert!(features.entries["next"].pref.open);
+            if enabled {
+                assert!(features.entries["prompts"].pref.open);
+                assert_eq!(features.entries["prompts"].pref.placement, "edge");
+            } else {
+                assert!(!features.entries.contains_key("prompts"));
+            }
         }
     }
 

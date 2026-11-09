@@ -113,14 +113,29 @@ try {
     JSON.stringify({
       cdpEndpoint: `http://127.0.0.1:${debugPort}`,
       targetId: targetInfo.targetId,
-      stepwise: { enabled: false, answerOutlineEnabled: true, generationMode: 'manual' },
+      stepwise: {
+        enabled: true,
+        answerOutlineEnabled: true,
+        quickPromptsEnabled: true,
+        generationMode: 'manual',
+      },
     }),
   );
   const env = { ...process.env };
   writeFileSync(join(directory, 'model-control.json'), JSON.stringify({ enabled: true }));
   writeFileSync(
     join(directory, 'panel.json'),
-    JSON.stringify({ language: 'zh-CN', ui: { layoutMode: 'workbench', dockOpen: true } }),
+    JSON.stringify({
+      language: 'zh-CN',
+      revision: 1,
+      ui: {
+        layoutMode: 'capsule',
+        open: true,
+        width: 620,
+        height: 520,
+        dockLayout: { group: 'split', active: 'next', mode: 'horizontal', first: 'next' },
+      },
+    }),
   );
   for (const key of Object.keys(env))
     if (/^(PALBOO_|CODEX_BUDDY_|COMPANION_)/.test(key)) delete env[key];
@@ -154,12 +169,58 @@ try {
     entry = async (id) => (await state()).features.find((e) => e.id === id);
   await page.waitForFunction(() => window.__companionFloatingPanel?.state.runtimeActive);
   await page.waitForFunction(() => window.__companionFloatingPanel?.state.outlineItems.length > 0);
-  await page.waitForFunction(() => window.__companionFloatingPanel?.state.dockStatus === 'open');
-  assert.equal((await state()).mainManaged, false);
+  await wait(async () => {
+    const current = await state();
+    return (
+      current.mainManaged &&
+      current.mainPlacement === 'overlay' &&
+      ['outline', 'next', 'prompts'].every((id) =>
+        current.features.some((e) => e.id === id && e.open && e.placement === 'overlay'),
+      )
+    );
+  }, 'old overlay did not adopt the shared workspace with Stepwise still enabled');
+  const tabs = page.locator('.csw-feature-panes [data-pane-tab]');
+  const nextTab = tabs.and(page.locator('[data-pane-tab="next"]'));
+  const outlineTab = tabs.and(page.locator('[data-pane-tab="outline"]'));
+  await nextTab.waitFor();
+  const nextViewOnOpen = page.locator('[data-feature="next"]');
+  const empty = nextViewOnOpen.getByText('暂无建议', { exact: true });
+  await empty.waitFor();
+  const size = await page.locator('.csw-panel').boundingBox();
+  assert.ok(Math.abs(size.width - 620) < 2 && Math.abs(size.height - 520) < 2);
+  assert.equal(await page.locator('.csw-feature-controls').count(), 0);
+  assert.equal(await nextViewOnOpen.locator('.csw-quick-prompts').count(), 0);
+  assert.ok((await nextTab.boundingBox()).x < (await outlineTab.boundingBox()).x);
+  assert.ok(
+    (await empty.evaluate(
+      (el) =>
+        el.getBoundingClientRect().top - el.closest('.feature-body').getBoundingClientRect().top,
+    )) < 32,
+    'empty suggestions should sit directly below the pane header',
+  );
+  await tabs.and(page.locator('[data-pane-tab="prompts"]')).click();
+  await page
+    .locator('[data-feature="prompts"]')
+    .getByRole('button', { name: '继续', exact: true })
+    .waitFor();
   assert.equal((await entry('model')).placement, 'edge');
+  record(
+    'legacy floating layout, separate quick phrases and model edge survive cold startup with Stepwise enabled',
+  );
+  // The remaining ownership and Bot cases use the original fixture with Stepwise disabled.
+  await api('settings', { enabled: false });
+  await wait(async () => {
+    const next = await entry('next');
+    return !next.open && !next.pending;
+  }, 'Stepwise closes before the placement cases');
+  await api('features', { op: 'main-placement', placement: 'sidebar' });
+  await wait(async () => {
+    const current = await state();
+    return current.mainPlacement === 'sidebar' && !current.pendingPlacement;
+  }, 'adopted workspace did not move to the sidebar');
+  await page.waitForFunction(() => window.__companionFloatingPanel?.state.dockStatus === 'open');
   assert.equal(await page.locator('[data-palboo-dock]').count(), 1);
   assert.ok(await page.locator('.csw-panel').isVisible());
-  record('restored model edge window preserves the legacy sidebar before main content migration');
   let tasks = await api('tasks/state');
   await api('tasks/command', {
     op: 'modules',
@@ -180,11 +241,10 @@ try {
       completed: false,
     },
   });
-  await api('features', { op: 'move', id: 'outline', placement: 'sidebar' });
   await wait(async () => {
-    const e = await entry('outline');
-    return e?.open && !e.pending;
-  }, 'outline ready');
+    const e = await entry('board');
+    return e?.open && !e.pending && e.placement === 'sidebar';
+  }, 'enabled board joins the shared sidebar');
   await api('features', { op: 'move', id: 'board', placement: 'overlay' });
   await wait(async () => {
     const e = await entry('board');

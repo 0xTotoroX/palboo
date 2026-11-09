@@ -306,7 +306,7 @@ try {
       }),
     );
   }
-  const env = { ...process.env, PALBOO_PANEL_TEST: '1' };
+  const env = { ...process.env, PALBOO_PANEL_TEST: settingsOnly ? '1' : 'legacy' };
   for (const key of ['PALBOO_PROVIDER', 'PALBOO_MODEL', 'PALBOO_BASE_URL', 'PALBOO_API_KEY'])
     delete env[key];
   service = spawn(
@@ -1566,8 +1566,8 @@ try {
     assert.ok(Math.abs(upwardEnd.height - 340) < 2, 'Minimum height must stop at the dragged edge');
     record('向上展开的面板缩到最小高度后，松手不跳位');
 
-    // Disabling Stepwise now migrates enabled quick phrases into managed feature views.
-    // Finish retained legacy controls/popout checks before exercising that transition.
+    // The preceding fixture explicitly exercises the retained legacy window protocol.
+    // Switch to the shared workbench for the remaining feature lifecycle checks.
     const outlineBeforeDisable = (await panelState()).outline;
     await patch({ enabled: false });
     await waitFor(
@@ -1576,13 +1576,19 @@ try {
       'Stepwise setting did not reach host',
     );
     assert.deepEqual((await panelState()).outline, outlineBeforeDisable);
+    const revealPrompts = await api('features', {
+      op: 'move',
+      id: 'prompts',
+      placement: 'overlay',
+    });
+    assert.equal(revealPrompts.status, 200, JSON.stringify(revealPrompts.body));
     await waitFor(async () => {
       const state = (await api('features', { op: 'state' })).body;
       return (
         state.mainManaged && state.features.some((entry) => entry.id === 'prompts' && entry.open)
       );
     }, 'Enabled quick phrases did not migrate independently of Stepwise');
-    record('关闭 Stepwise 保留大纲，并将仍启用的常用语交给独立功能视图');
+    record('关闭 Stepwise 保留大纲，常用语仍可独立打开');
 
     await patch({ enabled: false, answerOutlineEnabled: false, quickPromptsEnabled: false });
     await waitFor(
