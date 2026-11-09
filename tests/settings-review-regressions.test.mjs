@@ -105,6 +105,7 @@ test('connection edits and reconnect do not save a retained model draft', async 
   await page.addScriptTag({ content: script });
   await page.getByRole('textbox', { name: '模型草稿' }).fill('unsaved-synthetic-model');
   await page.getByRole('button', { name: '连接页面', exact: true }).click();
+  await page.locator('#connection-diagnostics > summary').click();
   await page.clock.runFor(250);
   assert.deepEqual(writes, [], 'navigation retains the unsaved model');
   await page.locator('#cdp-endpoint').fill('http://127.0.0.1:9333');

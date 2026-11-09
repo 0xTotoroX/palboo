@@ -2,6 +2,7 @@
  * [OUTPUT]: Reader behavior including read-only previews, compact folder/site settings, retained drafts and revision conflicts.
  * [POS]: No real notes, external websites, host messages, model calls or credentials.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
+import { openSettingsPage } from './settings-navigation.mjs';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import {
@@ -361,7 +362,7 @@ try {
     await route.fulfill({ response, json: { ...(await response.json()), vaults: [vault] } });
   });
   await settings.goto(`${base}/#token=${runtime.token}`);
-  await settings.locator('.settings-nav a[href="#settings-sites"]').click();
+  await openSettingsPage(settings, 'sites');
   assert.equal(await settings.locator('#reader-vault').isVisible(), false);
   assert.equal(await settings.locator('#website-name').isVisible(), false);
   assert.equal(await settings.locator('.reader-folder-list .web-library-row').count(), 1);
@@ -420,7 +421,7 @@ try {
     attachments: [join(vault, '其他')],
   });
   await settings.locator('.settings-nav a[href="#settings-features"]').click();
-  await settings.locator('.settings-nav a[href="#settings-sites"]').click();
+  await openSettingsPage(settings, 'sites');
   await settings.getByRole('button', { name: '编辑文件夹', exact: true }).click();
   await settings.getByRole('button', { name: '重新读取已保存目录', exact: true }).waitFor();
   assert.equal(
@@ -446,7 +447,7 @@ try {
   const current = await api('web-library');
   await api('web-library', { expectedRevision: current.revision, attachments: [] });
   await settings.locator('.settings-nav a[href="#settings-features"]').click();
-  await settings.locator('.settings-nav a[href="#settings-sites"]').click();
+  await openSettingsPage(settings, 'sites');
   await settings.getByRole('button', { name: '编辑中文笔记', exact: true }).click();
   await wait(
     async () => (await settings.locator('#reader-attachments').inputValue()) === '',

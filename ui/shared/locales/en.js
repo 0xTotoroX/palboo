@@ -2347,4 +2347,33 @@ export default {
   工作表为空: 'This sheet is empty.',
   '仅本机访问。编辑 Markdown 后自动保存到原文件，表格仅供预览。':
     'Local access only. Markdown edits save automatically to the original file; spreadsheets are preview only.',
+  'Codex 连接': 'Codex connection',
+  已暂停: 'Paused',
+  '正在连接…': 'Connecting…',
+  持续暂停: 'Pause integration',
+  恢复连接: 'Resume connection',
+  断开本次: 'Disconnect this session',
+  '重启后仍保持暂停。': 'The connection stays paused after restarting.',
+  '首次接入：等待任务结束并完整退出 ChatGPT，再在终端运行启动命令。':
+    'First connection: wait for your tasks to finish, quit ChatGPT, then run the launch command in Terminal.',
+  已复制启动命令: 'Launch command copied',
+  '断开本次 Codex 连接？': 'Disconnect this Codex session?',
+  'Palboo 将停止跟随当前聊天并收回桌面浮窗，启动偏好不会改变。':
+    'Palboo will stop following this chat and close its floating window. Startup preferences stay the same.',
+  连接诊断: 'Connection diagnostics',
+  语言与启动: 'Language and startup',
+  '用于下一步建议和提示词优化等功能。':
+    'Used for next-step suggestions, prompt enhancement, and similar Palboo features.',
+  更改模型服务: 'Change model service',
+  备份到文件: 'Back up to a file',
+  从文件恢复: 'Restore from a file',
+  加密备份: 'Encrypt backup',
+  在本机环境间复制: 'Copy between local environments',
+  预览恢复: 'Preview restore',
+  撤销上次恢复: 'Undo last restore',
+  '配置已应用；目标下次启动时生效。':
+    'Configuration applied. It takes effect the next time the target starts.',
+  '检查更新 版本 更新应用': 'check update version app update',
+  '性能与开关 性能监测 排查 卡顿': 'performance switches monitor diagnostics lag',
+  '连接到 Codex 暂停 恢复连接': 'connect to Codex pause resume connection',
 };

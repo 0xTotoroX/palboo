@@ -4,6 +4,7 @@
  * [POS]: 设置页行为测试，不接触真实宿主或重启应用。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
+import { openSettingsPage } from './settings-navigation.mjs';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createServer } from 'node:http';
@@ -176,7 +177,8 @@ test(
         errors.push(error.message);
       });
       await page.goto(`http://127.0.0.1:${server.address().port}/#token=fixture`);
-      await page.getByRole('link', { name: '启动与连接', exact: true }).click();
+      await openSettingsPage(page, 'connection');
+      await page.locator('#connection-diagnostics > summary').click();
       const policy = page.getByLabel('ChatGPT 已打开，但没有调试连接时');
       await policy.waitFor();
       assert.equal(await policy.inputValue(), 'ask');
@@ -195,15 +197,19 @@ test(
       await until(() => saves.length === 1);
       assert.equal(saves[0].hostRestartPolicy, 'force');
       await page.reload();
+      await page.locator('#connection-diagnostics > summary').click();
       await policy.waitFor();
       assert.equal(await policy.inputValue(), 'force');
-      await page.getByRole('link', { name: '模型服务', exact: true }).click();
+      await openSettingsPage(page, 'model');
+      if (!(await page.locator('#model-edit').evaluate((node) => node.open)))
+        await page.locator('#model-edit > summary').click();
       await page.getByRole('button', { name: '高级设置', exact: true }).click();
       const context = page.getByLabel('输入上下文', { exact: true });
       await context.selectOption('latest');
       await until(() => settings.maxInputChars === 0);
       assert.equal(await page.getByLabel('输入字符上限', { exact: true }).count(), 0);
       await page.reload();
+      await page.locator('#model-edit > summary').click();
       await page.getByRole('button', { name: '高级设置', exact: true }).click();
       await context.waitFor();
       assert.equal(await context.inputValue(), 'latest');
@@ -228,7 +234,9 @@ test(
         .getByRole('navigation', { name: '设置分类' })
         .getByRole('link', { name: '功能开关', exact: true })
         .click();
-      await page.getByRole('link', { name: '模型服务', exact: true }).click();
+      await openSettingsPage(page, 'model');
+      if (!(await page.locator('#model-edit').evaluate((node) => node.open)))
+        await page.locator('#model-edit > summary').click();
       await page.getByRole('button', { name: '高级设置', exact: true }).click();
       assert.equal(await input.inputValue(), '9000');
       await input.fill('10000');
@@ -306,11 +314,12 @@ test(
       await reloadDialog.waitFor({ state: 'hidden' });
       assert.equal(await input.inputValue(), '13000');
       await page.reload();
+      await page.locator('#model-edit > summary').click();
       await page.getByRole('button', { name: '高级设置', exact: true }).click();
       await input.waitFor();
       assert.equal(await input.inputValue(), '13000');
       await page.getByRole('button', { name: '关闭高级设置', exact: true }).click();
-      await page.getByRole('link', { name: '常用语', exact: true }).click();
+      await openSettingsPage(page, 'prompts');
       const quick = page.getByLabel('常用提示词 1 内容', { exact: true });
       await quick.fill('请继续推进整体目标');
       // Blur onto the preview padding; preview buttons intentionally preserve unsaved drafts.
@@ -325,7 +334,7 @@ test(
       await page.reload();
       await quick.waitFor();
       assert.equal(await quick.inputValue(), '请继续推进整体目标');
-      await page.getByRole('link', { name: '下一步', exact: true }).click();
+      await openSettingsPage(page, 'next');
       const source = page.getByLabel('方向来源', { exact: true });
       await source.selectOption('manual');
       await until(() => settings.directionSource === 'manual');
@@ -453,7 +462,7 @@ test(
       await directionLibrary.waitFor({ state: 'visible' });
       assert.equal(await page.getByLabel('方向名称 5', { exact: true }).inputValue(), '');
       await closeLibrary();
-      await page.getByRole('link', { name: '模型切换', exact: true }).click();
+      await openSettingsPage(page, 'model-control');
       const tokenSwitch = page.getByRole('switch', { name: '启用聊天测速', exact: true });
       assert.equal(await tokenSwitch.isChecked(), true);
       await tokenSwitch.click();
@@ -496,7 +505,7 @@ test(
 
 test(
   'Dev source widget survives settings unmount and remount',
-  { timeout: 15000 },
+  { timeout: 45000 },
   async (testContext) => {
     const bundle = await build({
       stdin: {

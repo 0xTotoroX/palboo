@@ -5,6 +5,7 @@
  * [PROTOCOL]: Parent prepares the binary and integrates verify/maps. Only fixture setup uses page.evaluate;
  * adapter installation and every snapshot/apply under test must pass through the real backend.
  */
+import { openSettingsPage } from './settings-navigation.mjs';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -580,7 +581,7 @@ try {
   settingsPage.on('pageerror', (error) => pageErrors.push(error.stack || error.message));
   await settingsPage.goto(`${base}/#token=${runtime.token}`);
   {
-    await settingsPage.getByRole('link', { name: '模型切换', exact: true }).click();
+    await openSettingsPage(settingsPage, 'model-control');
     const modelSettings = settingsPage.locator('#settings-model-control');
     await modelSettings.getByRole('button', { name: '模型分组', exact: true }).click();
     const preserved = (await api('state')).preferences;

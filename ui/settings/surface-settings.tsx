@@ -43,11 +43,13 @@ export function SurfaceSettings({
   fontBase,
   simple = false,
   page,
+  appearancePlacement,
   onFeatures,
   onSnapshot,
 }: {
   simple?: boolean;
   page?: 'surfaces' | 'appearance';
+  appearancePlacement?: string;
   live: boolean;
   active?: boolean;
   desktopSupported: boolean;
@@ -160,7 +162,8 @@ export function SurfaceSettings({
               <div
                 key={placement}
                 id={`theme-${placement}`}
-                hidden={simple && placement !== primary}
+                data-appearance-placement={placement}
+                hidden={placement !== (simple ? primary : appearancePlacement || placement)}
               >
                 <div className="settings-field">
                   <span className="text-sm">{simple ? tr('主界面材质') : label}</span>

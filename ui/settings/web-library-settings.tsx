@@ -204,6 +204,7 @@ export function WebLibrarySettings({
       <FeatureSwitch
         portalTarget={enablementTarget}
         name={titles.sites}
+        featurePage="sites"
         checked={state?.enabled || false}
         disabled={disabled}
         onChange={(enabled) => void save({ enabled })}

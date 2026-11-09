@@ -1,12 +1,12 @@
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: 认证性能 API、页面可见性与独立偏好修订号。
- * [OUTPUT]: 集成/监测开关与实时仪表窗；隐藏页面不采样，展示历史有界且不持久化。
- * [POS]: 系统设置展示；宿主页指标与 Palboo 自身耗时明确区分。
+ * [OUTPUT]: 共用的连接暂停与诊断偏好、按需采样和实时仪表。
+ * [POS]: Codex 连接的诊断内容；宿主指标与 Palboo 自身耗时明确区分。
  * [PROTOCOL]: 变更时同步 settings/AGENTS.md。 */
 import { useEffect, useRef, useState } from 'react';
 import { request } from './api';
-import { Feedback, Toggle } from './settings-controls';
+import { Toggle } from './settings-controls';
 import { useFeedbackTarget } from './settings-feedback';
 import { PerformanceMonitor } from './performance-monitor';
 import type { PerformanceSample } from './performance-history';
@@ -28,7 +28,7 @@ async function readState(path: string, body?: unknown): Promise<State> {
     throw Error(tr('当前后台尚未提供性能设置，请重新打开 Palboo 后再试。'));
   return value;
 }
-export function PerformanceSettings({ live, active }: { live: boolean; active: boolean }) {
+export function usePerformanceSettings(live: boolean, active: boolean, diagnosticsOpen: boolean) {
   useLocale();
   const [state, setState] = useState<State | null>(null);
   const [message, setMessage] = useState('');
@@ -37,6 +37,7 @@ export function PerformanceSettings({ live, active }: { live: boolean; active: b
   const writing = useRef(false),
     generation = useRef(0);
   const monitoring = state?.preferences.monitoringEnabled === true;
+  const sampling = monitoring && diagnosticsOpen;
   useEffect(() => {
     if (!live || !active) return;
     let stopped = false,
@@ -46,7 +47,7 @@ export function PerformanceSettings({ live, active }: { live: boolean; active: b
       reading = true;
       const version = ++generation.current;
       try {
-        const next = await readState(`performance${monitoring ? '?sample=1' : ''}`);
+        const next = await readState(`performance${sampling ? '?sample=1' : ''}`);
         if (!stopped && version === generation.current) {
           setState(next);
           setMessage('');
@@ -65,9 +66,9 @@ export function PerformanceSettings({ live, active }: { live: boolean; active: b
       clearInterval(timer);
       document.removeEventListener('visibilitychange', load);
     };
-  }, [active, live, monitoring]);
+  }, [active, live, sampling]);
   async function save(patch: Partial<Preferences>) {
-    if (!state || writing.current) return;
+    if (!live || !active || !state || writing.current) return;
     feedback.capture();
     writing.current = true;
     generation.current++;
@@ -92,43 +93,39 @@ export function PerformanceSettings({ live, active }: { live: boolean; active: b
       setBusy(false);
     }
   }
-  const sample = monitoring && !message ? state?.sample : null;
+  return {
+    state,
+    monitoring,
+    message,
+    busy,
+    disabled: !live || !state || busy,
+    save,
+    target: feedback.target,
+  };
+}
+
+export function PerformanceSettings({
+  performance,
+  active,
+}: {
+  performance: ReturnType<typeof usePerformanceSettings>;
+  active: boolean;
+}) {
+  useLocale();
+  const { state, monitoring, message, disabled, save } = performance;
   return (
-    <section className="settings-section" aria-label={tr('性能与开关')}>
+    <section id="settings-performance" className="settings-section" aria-label={tr('性能监测')}>
       <div className="performance-controls">
-        <div>
-          <Toggle
-            label={tr('连接到 Codex')}
-            checked={state?.preferences.integrationEnabled ?? true}
-            disabled={!live || !state || busy}
-            onChange={(integrationEnabled) => void save({ integrationEnabled })}
-          />
-          {(!state ||
-            !state.preferences.integrationEnabled ||
-            state.connectionStatus !== 'connected') && (
-            <p className="performance-control-note" role="status">
-              {!state
-                ? tr('正在读取…')
-                : !state.preferences.integrationEnabled
-                  ? tr('Codex 集成已暂停')
-                  : tr('等待连接 Codex')}
-            </p>
-          )}
-        </div>
         <Toggle
+          id="performance-monitoring"
           label={tr('性能监测')}
           checked={monitoring}
-          disabled={!live || !state || busy}
+          disabled={disabled}
           onChange={(monitoringEnabled) => void save({ monitoringEnabled })}
         />
       </div>
-      <Feedback
-        text={message || (busy ? tr('正在保存…') : '')}
-        failed={!!message}
-        target={feedback.target}
-      />
       <PerformanceMonitor
-        sample={sample ?? null}
+        sample={active && monitoring && !message ? (state?.sample ?? null) : null}
         enabled={monitoring}
         active={active}
         connected={state?.connectionStatus === 'connected'}

@@ -73,6 +73,8 @@ test('release settings can select development, retain edits on failure and hand 
   try {
     const page = await browser.newPage({ viewport: { width: 390, height: 800 } });
     await page.goto(`http://127.0.0.1:${server.address().port}/#token=synthetic`);
+    assert.equal(await page.locator('#app-mode').isVisible(), false);
+    await page.locator('#settings-app-mode > summary').click();
     await page.getByLabel('启动时使用', { exact: true }).selectOption('development');
     await page.getByRole('button', { name: '开发设置', exact: true }).click();
     const drawer = page.getByRole('dialog', { name: '开发设置', exact: true });
@@ -136,6 +138,7 @@ test('release settings can select development, retain edits on failure and hand 
     assert.equal(writes.length, 2);
     preferredMode = 'development';
     await page.goto(`http://127.0.0.1:${server.address().port}/#token=synthetic`);
+    await page.locator('#settings-app-mode > summary').click();
     await page.getByText('Save fixture').click();
     await page.getByRole('button', { name: '切换模式', exact: true }).click();
     await page.waitForURL('**/progress');

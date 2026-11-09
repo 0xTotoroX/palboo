@@ -183,16 +183,21 @@ export function PanelSettings({
             data-settings-page="appearance"
             hidden={page === 'surfaces'}
           >
-            <h2>{tr('字体')}</h2>
-            <div className="settings-control-group">
-              <SurfaceTypographySettings
-                value={prefs.surfaceTypography}
-                legacy={prefs.typography}
-                save={(surface, typography) =>
-                  update({ surfaceTypography: { [surface]: typography } })
-                }
-              />
-            </div>
+            <details className="settings-disclosure">
+              <summary data-settings-navigation>
+                {tr('字体')}
+                <Icon name="chevron-down" />
+              </summary>
+              <div className="settings-control-group settings-disclosure-content">
+                <SurfaceTypographySettings
+                  value={prefs.surfaceTypography}
+                  legacy={prefs.typography}
+                  save={(surface, typography) =>
+                    update({ surfaceTypography: { [surface]: typography } })
+                  }
+                />
+              </div>
+            </details>
           </section>
           <section
             className="settings-section settings-surface-group"

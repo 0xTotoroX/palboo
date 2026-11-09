@@ -6,6 +6,7 @@
 
 .settings-preview[data-preview-kind='workspace'] {
   --layout-preview-text-scale: 0.65;
+  max-width: 520px;
 }
 .layout-demo {
   overflow: hidden;
@@ -22,7 +23,7 @@
   display: none;
 }
 .settings-preview .layout-demo-toolbar {
-  margin-block: 12px;
+  margin-block: 8px;
 }
 .layout-demo-toolbar .preview-selector {
   margin: 0;

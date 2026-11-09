@@ -927,8 +927,12 @@ html:has(.settings-drawer[open]) {
   border-radius: var(--buddy-radius-small, 12px);
   background: var(--buddy-surface);
   color: var(--buddy-text);
-  pointer-events: auto;
+  pointer-events: none;
   overflow-wrap: anywhere;
+}
+.settings-feedback-item[data-actionable='true'],
+.settings-feedback-dismiss {
+  pointer-events: auto;
 }
 .settings-feedback-item:not([data-failed='true']):not([data-actionable='true']):not(:last-child) {
   display: none;

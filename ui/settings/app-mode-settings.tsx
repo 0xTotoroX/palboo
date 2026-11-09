@@ -15,6 +15,7 @@ import { Field } from './settings-controls';
 import { SettingsDrawer } from './settings-drawer';
 import type { SettingsEditor } from './use-settings-form';
 import { AppUpdateSettings } from './app-update-settings';
+import { Icon } from '../shared/icons/react';
 
 type Mode = 'release' | 'development';
 type ModeState = {
@@ -98,57 +99,59 @@ export function AppModeSettings({ live, editor }: { live: boolean; editor: Setti
   return (
     <>
       <AppUpdateSettings live={live} editor={editor} modeEditing={busy || edited} />
-      <Card
-        tabIndex={-1}
-        id="settings-app-mode"
-        aria-labelledby="app-mode-title"
-        data-settings-navigation
-      >
-        <h2 id="app-mode-title">{tr('运行模式')}</h2>
-        <Field id="app-mode" label={tr('启动时使用')}>
-          <NativeSelect
-            id="app-mode"
-            controlWidth="short"
-            value={mode}
-            disabled={!live || !ready || busy}
-            onChange={(event) => {
-              // 模式独立提交，不能触发外层模型表单的自动保存。
-              event.stopPropagation();
-              setMode(event.target.value as Mode);
-            }}
-          >
-            <option value="release">{tr('正式模式')}</option>
-            <option value="development">{tr('开发模式')}</option>
-          </NativeSelect>
-        </Field>
-        <SettingsDrawer
-          id="settings-app-development"
-          title={tr('开发设置')}
-          hidden={mode !== 'development'}
-          footer={actions}
-        >
-          <Field id="app-mode-source" label={tr('源码目录')}>
-            <Input
-              id="app-mode-source"
-              value={source}
-              disabled={!live || !ready || busy}
-              spellCheck={false}
-              placeholder="/path/to/palboo"
-              onChange={(event) => setSource(event.target.value)}
-            />
-          </Field>
-          <Field id="app-mode-node" label="Node.js">
-            <Input
-              id="app-mode-node"
-              value={node}
-              disabled={!live || !ready || busy}
-              spellCheck={false}
-              placeholder={tr('自动查找')}
-              onChange={(event) => setNode(event.target.value)}
-            />
-          </Field>
-        </SettingsDrawer>
-        {actions}
+      <Card>
+        <details id="settings-app-mode" className="settings-disclosure" data-settings-navigation>
+          <summary>
+            {tr('运行模式')}
+            <Icon name="chevron-down" />
+          </summary>
+          <div className="settings-disclosure-content">
+            <Field id="app-mode" label={tr('启动时使用')}>
+              <NativeSelect
+                id="app-mode"
+                controlWidth="short"
+                value={mode}
+                disabled={!live || !ready || busy}
+                onChange={(event) => {
+                  // 模式独立提交，不能触发外层模型表单的自动保存。
+                  event.stopPropagation();
+                  setMode(event.target.value as Mode);
+                }}
+              >
+                <option value="release">{tr('正式模式')}</option>
+                <option value="development">{tr('开发模式')}</option>
+              </NativeSelect>
+            </Field>
+            <SettingsDrawer
+              id="settings-app-development"
+              title={tr('开发设置')}
+              hidden={mode !== 'development'}
+              footer={actions}
+            >
+              <Field id="app-mode-source" label={tr('源码目录')}>
+                <Input
+                  id="app-mode-source"
+                  value={source}
+                  disabled={!live || !ready || busy}
+                  spellCheck={false}
+                  placeholder="/path/to/palboo"
+                  onChange={(event) => setSource(event.target.value)}
+                />
+              </Field>
+              <Field id="app-mode-node" label="Node.js">
+                <Input
+                  id="app-mode-node"
+                  value={node}
+                  disabled={!live || !ready || busy}
+                  spellCheck={false}
+                  placeholder={tr('自动查找')}
+                  onChange={(event) => setNode(event.target.value)}
+                />
+              </Field>
+            </SettingsDrawer>
+            {actions}
+          </div>
+        </details>
       </Card>
     </>
   );

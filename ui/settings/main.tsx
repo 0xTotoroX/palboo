@@ -5,10 +5,9 @@ import { tr } from '../shared/i18n.js';
  * [POS]: 设置展示层，不执行后台业务或读取聊天正文。
  * [PROTOCOL]: 变更时同步 settings/AGENTS.md。 */
 import { BackupSettings } from './backup-settings';
-import { LanguageSettings } from './language-settings';
 import { setLocale, getLocale } from '../shared/i18n.js';
 import { useLocale } from '../shared/use-locale';
-import { StrictMode, useEffect, useState } from 'react';
+import { StrictMode, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { BotSettings, BotSetupInstructions, type BotCatalog } from './bot-settings';
 import { WebLibrarySettings } from './web-library-settings';
 import { TerminologySettings } from './terminology-settings';
@@ -28,7 +27,7 @@ import { PalbooWordmark } from '../shared/brand';
 import { useCompanion, type Settings, type EditableSettings } from './api';
 import { useSettingsForm } from './use-settings-form';
 import { SettingsOutline, useSettingsPage, pageTitles } from './settings-outline';
-import { SettingsForm, FeatureSwitch, Feedback } from './settings-controls';
+import { SettingsForm, FeatureSwitch, FeatureDetailsContext, Feedback } from './settings-controls';
 import { TaskSettings } from './task-settings';
 import { ModelControlSettings } from './model-control-settings';
 import { SurfaceSettings } from './surface-settings';
@@ -38,8 +37,8 @@ import { LauncherSettings } from './launcher-settings';
 import { ModelSettings } from './model-settings';
 import { useTasks } from '../features/board/api';
 import { ConnectionSettings } from './connection-settings';
+import { GeneralSettings } from './general-settings';
 import { CodexHostSettings } from './codex-host-settings';
-import { PerformanceSettings } from './performance-settings';
 import { SettingsSearch } from './settings-search';
 import { SettingsPreview } from './settings-preview';
 import { PreviewFrame } from './preview-frame';
@@ -122,8 +121,28 @@ function App() {
   const notify = (text: string, failed = false) => setNotice({ text, failed });
   const editor = useSettingsForm(live, view?.configurationRevision, editable, notify);
   const { page, dev, navigate } = useSettingsPage(!!editor.form);
+  const pageHeading = useRef<HTMLHeadingElement>(null);
+  const requestedFeature = useRef<typeof page | null>(null);
+  useLayoutEffect(() => {
+    if (requestedFeature.current !== page) return;
+    requestedFeature.current = null;
+    pageHeading.current?.focus({ preventScroll: true });
+  }, [page]);
   const [features, setFeatures] = useState<FeatureState | null>(null);
   const [surfaces, setSurfaces] = useState<SurfaceState | null>(null);
+  const [selectedAppearance, selectAppearance] = useState<string | null>(null);
+  const appearancePlacement = selectedAppearance || features?.mainPlacement || 'sidebar';
+  useEffect(() => {
+    const reveal = (event: Event) => {
+      const row =
+        event.target instanceof Element
+          ? event.target.closest<HTMLElement>('[data-appearance-placement]')
+          : null;
+      if (row?.dataset.appearancePlacement) selectAppearance(row.dataset.appearancePlacement);
+    };
+    document.addEventListener('buddy-settings-detail-reveal', reveal);
+    return () => document.removeEventListener('buddy-settings-detail-reveal', reveal);
+  }, []);
   const [model, setModel] = useState<ModelState | null>(null);
   const [bots, setBots] = useState<BotCatalog | null>(null);
   const [sites, setSites] = useState<WebLibrary | null>(null);
@@ -139,7 +158,7 @@ function App() {
     setNotice((current) => (current.failed ? current : { text: '', failed: false }));
   }, [page]);
   const connected = live && view?.connection.status === 'connected';
-  return (
+  const content = (
     <div className="settings-app" data-settings-category={page}>
       <header className="settings-header">
         <div className="settings-topline">
@@ -187,19 +206,21 @@ function App() {
                 </a>
               </nav>
             </div>
-            <span
-              className="settings-connection-status"
-              data-connected={connected}
-              role="status"
-              aria-label={connected ? tr('已连接') : undefined}
-            >
-              {!connected &&
-                (!live
-                  ? tr('未连接')
-                  : view?.connection.status === 'unresponsive'
-                    ? tr('页面暂未响应')
-                    : tr('等待连接'))}
-            </span>
+            {page !== 'connection' && (
+              <span
+                className="settings-connection-status"
+                data-connected={connected}
+                role="status"
+                aria-label={connected ? tr('已连接') : undefined}
+              >
+                {!connected &&
+                  (!live
+                    ? tr('未连接')
+                    : view?.connection.status === 'unresponsive'
+                      ? tr('页面暂未响应')
+                      : tr('等待连接'))}
+              </span>
+            )}
           </div>
         </div>
       </header>
@@ -211,7 +232,9 @@ function App() {
           aria-label={pageTitles[page]}
           ref={contentRef}
         >
-          <h1 className="settings-page-title">{pageTitles[page]}</h1>
+          <h1 className="settings-page-title" ref={pageHeading} tabIndex={-1}>
+            {pageTitles[page]}
+          </h1>
           <Feedback text={error} failed />
           {!editor.form && !error && <p role="status">{tr('正在读取设置…')}</p>}
           <Feedback
@@ -232,6 +255,8 @@ function App() {
                 tasks={tasks.state}
                 view={view}
                 live={live}
+                appearancePlacement={appearancePlacement}
+                onAppearancePlacement={selectAppearance}
               />
             )}
             <section
@@ -259,6 +284,7 @@ function App() {
                 <div id="settings-outline-enabled">
                   <FeatureSwitch
                     name={pageTitles.outline}
+                    featurePage="outline"
                     checked={editor.form?.answerOutlineEnabled ?? false}
                     disabled={!live || !editor.form}
                     onChange={(v) => editor.change('answerOutlineEnabled', v)}
@@ -267,6 +293,7 @@ function App() {
                 <div>
                   <FeatureSwitch
                     name={pageTitles.next}
+                    featurePage="next"
                     checked={editor.form?.enabled ?? false}
                     disabled={!live || !editor.form}
                     onChange={(v) => editor.change('enabled', v)}
@@ -275,6 +302,7 @@ function App() {
                 <div>
                   <FeatureSwitch
                     name={pageTitles.prompts}
+                    featurePage="prompts"
                     checked={editor.form?.quickPromptsEnabled ?? false}
                     disabled={!live || !editor.form}
                     onChange={(v) => editor.change('quickPromptsEnabled', v)}
@@ -284,6 +312,7 @@ function App() {
                 <div>
                   <FeatureSwitch
                     name={pageTitles.board}
+                    featurePage="board"
                     checked={tasks.state?.store.boardEnabled ?? false}
                     disabled={tasks.busy || !tasks.state || !!tasks.state.error}
                     onChange={(boardEnabled) => void tasks.command({ op: 'modules', boardEnabled })}
@@ -293,6 +322,7 @@ function App() {
                 <div id="settings-grokbot">
                   <FeatureSwitch
                     name={pageTitles.bots}
+                    featurePage="bots"
                     checked={editor.form?.grokbotEnabled ?? false}
                     disabled={!live || !editor.form}
                     onChange={(value) => editor.change('grokbotEnabled', value)}
@@ -302,6 +332,7 @@ function App() {
                   <div ref={setSiteEnablement} />
                   <FeatureSwitch
                     name={pageTitles['prompt-enhancement']}
+                    featurePage="prompt-enhancement"
                     checked={editor.form?.promptEnhancementEnabled ?? true}
                     disabled={!live || !editor.form}
                     onChange={(value) => editor.change('promptEnhancementEnabled', value)}
@@ -349,9 +380,6 @@ function App() {
                 hidden={!surfacesVisible}
                 className="settings-section settings-common-surface"
               >
-                <div hidden={page !== 'appearance'}>
-                  <LanguageSettings value={view?.panelPreferences} />
-                </div>
                 <SurfaceSettings
                   live={live}
                   active={surfacesVisible}
@@ -359,6 +387,7 @@ function App() {
                   appearance={view?.panelPreferences}
                   fontBase={view?.panelFontBase}
                   page={page === 'appearance' ? 'appearance' : 'surfaces'}
+                  appearancePlacement={appearancePlacement}
                   onFeatures={setFeatures}
                   onSnapshot={setSurfaces}
                 />
@@ -389,10 +418,16 @@ function App() {
                   <QuickPromptSettings editor={editor} appearance={view?.panelPreferences} />
                 </div>
                 <div data-settings-page="model" hidden={page !== 'model'}>
-                  <ModelSettings editor={editor} />
+                  <ModelSettings editor={editor} collapsed />
                 </div>
                 <div data-settings-page="connection" hidden={page !== 'connection'}>
-                  <ConnectionSettings editor={editor} view={view} live={live} notify={notify} />
+                  <ConnectionSettings
+                    editor={editor}
+                    view={view}
+                    live={live}
+                    active={page === 'connection'}
+                    notify={notify}
+                  />
                 </div>
               </SettingsForm>
               <div data-settings-page="board" hidden={page !== 'board'}>
@@ -406,8 +441,8 @@ function App() {
                   enablementTarget={hostEnablement}
                 />
               </div>
-              <div data-settings-page="performance" hidden={page !== 'performance'}>
-                <PerformanceSettings live={live} active={page === 'performance'} />
+              <div data-settings-page="general" hidden={page !== 'general'}>
+                <GeneralSettings live={live} view={view} editor={editor} />
               </div>
               <section
                 data-settings-page="dev"
@@ -420,10 +455,22 @@ function App() {
           </div>
         </main>
       </div>
-      <footer className="settings-footer">
-        <span>{live && view?.version ? `v${view.version}` : '—'}</span>
-      </footer>
+      {page !== 'general' && (
+        <footer className="settings-footer">
+          <span>{live && view?.version ? `v${view.version}` : '—'}</span>
+        </footer>
+      )}
     </div>
+  );
+  return (
+    <FeatureDetailsContext.Provider
+      value={(feature) => {
+        requestedFeature.current = feature;
+        navigate(feature, `#settings-${feature}`);
+      }}
+    >
+      {content}
+    </FeatureDetailsContext.Provider>
   );
 }
 // A Vite dependency update can re-evaluate this entry without replacing its container.

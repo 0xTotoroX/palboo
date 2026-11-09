@@ -4,6 +4,7 @@
  * [POS]: 端到端测试入口，委托 popout-checks 验证窗口协议；--native-popout 以真实 Wry 窗口验收大纲定位与往返，不截图。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
+import { openSettingsPage } from './settings-navigation.mjs';
 import { showWorkbenchView } from './workbench-actions.mjs';
 
 import assert from 'node:assert/strict';
@@ -54,12 +55,7 @@ async function waitFor(check, message, timeout = 12000) {
   }
   throw new Error(message);
 }
-async function selectSettingsCategory(page, id) {
-  const link = page.locator(`.settings-nav a[href="#settings-${id}"]`);
-  await link.waitFor({ state: 'attached' });
-  if (!(await link.isVisible())) await page.locator('.settings-nav-trigger').click();
-  await link.click();
-}
+const selectSettingsCategory = openSettingsPage;
 async function checkSettingsNavigation(page, context, base, runtime) {
   const writes = [];
   const recordWrite = (req) => {
@@ -89,7 +85,7 @@ async function checkSettingsNavigation(page, context, base, runtime) {
             features: '功能开关',
             model: '模型服务',
             surfaces: '布局与位置',
-            connection: '启动与连接',
+            connection: 'Codex 连接',
           }[id],
           exact: true,
         })

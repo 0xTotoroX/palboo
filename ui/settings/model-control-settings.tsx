@@ -136,6 +136,7 @@ export function ModelControlSettings({
     >
       <FeatureSwitch
         name={pageTitles['model-control']}
+        featurePage="model-control"
         portalTarget={enablementTarget}
         checked={enabled ?? false}
         disabled={!live || busy || enabled === null}

@@ -16,8 +16,8 @@ export const pageTitles = {
   get backup() {
     return tr('备份与恢复');
   },
-  get performance() {
-    return tr('性能与开关');
+  get general() {
+    return tr('通用');
   },
   get features() {
     return tr('功能开关');
@@ -57,7 +57,7 @@ export const pageTitles = {
     return tr('外观与字体');
   },
   get connection() {
-    return tr('启动与连接');
+    return tr('Codex 连接');
   },
   get 'codex-host'() {
     return tr('兼容集成');
@@ -96,7 +96,7 @@ export const pageGroups: { title: string; pages: SettingsPage[] }[] = [
     get title() {
       return tr('系统');
     },
-    pages: ['model', 'connection', 'backup', 'performance', 'dev'],
+    pages: ['general', 'connection', 'model', 'backup', 'dev'],
   },
 ];
 export const pageGroup = (page: SettingsPage) =>
@@ -127,10 +127,11 @@ const aliases: Record<string, SettingsPage> = {
   'settings-limits': 'model',
   'settings-capsule': 'surfaces',
   'settings-fonts': 'appearance',
-  'settings-startup': 'connection',
-  'settings-app-mode': 'connection',
-  'settings-app-update': 'connection',
-  'settings-app-development': 'connection',
+  'settings-startup': 'general',
+  'settings-app-mode': 'general',
+  'settings-app-update': 'general',
+  'settings-app-development': 'general',
+  'settings-performance': 'connection',
   'settings-codex-host': 'codex-host',
   'settings-dev': 'dev',
 };
@@ -150,7 +151,9 @@ function targetPage(field: string): SettingsPage | undefined {
   )
     return 'surfaces';
   if (/^quick-prompt/.test(field)) return 'prompts';
-  if (/^app-mode(?:-|$)|^app-update-|^startup-/.test(field)) return 'connection';
+  if (/^app-mode(?:-|$)|^app-update-|^startup-|^interface-language$/.test(field)) return 'general';
+  if (/^(cdp-endpoint|target|host-restart-policy|performance-monitoring)$/.test(field))
+    return 'connection';
   if (/^(generation-mode|direction-|jev-|suggestion-)/.test(field)) return 'next';
   return undefined;
 }
@@ -297,9 +300,9 @@ export function useSettingsPage(ready: boolean) {
       }
       revealSettingsDetail(node);
       if (node.closest('[hidden]')) return false;
-      node = revealSettingsDrawer(node);
       for (let parent: HTMLElement | null = node; parent; parent = parent.parentElement)
         if (parent instanceof HTMLDetailsElement) parent.open = true;
+      node = revealSettingsDrawer(node);
       if (!node.hasAttribute('tabindex') && !node.matches('input,select,button,a'))
         node.tabIndex = -1;
       node.focus({ preventScroll: true });
@@ -489,6 +492,9 @@ export function SettingsOutline({
             <div className="settings-nav-children">
               {item.pages
                 .filter((id) => id !== 'dev' || dev || page === 'dev')
+                .filter(
+                  (id) => !item.pages.includes('features') || id === 'features' || id === page,
+                )
                 .map((id) => (
                   <a
                     key={id}

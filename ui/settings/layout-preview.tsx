@@ -215,6 +215,8 @@ export function LayoutPreview({
   hostName,
   examples,
   onPlacementChange,
+  appearancePlacement,
+  onAppearancePlacement,
   sceneZoom,
   entryRef,
   onReset,
@@ -237,6 +239,8 @@ export function LayoutPreview({
   examples?: Record<string, string[]>;
   renderFeature?: (id: string, headerActions: HTMLElement) => ReactNode;
   onPlacementChange?: (placement: string) => void;
+  appearancePlacement?: string;
+  onAppearancePlacement?: (placement: string) => void;
   sceneZoom?: number;
   entryRef?: Ref<SVGGElement>;
   onReset?: () => void;
@@ -253,7 +257,8 @@ export function LayoutPreview({
     [demoLayout, setDemoLayout] = useState<FeatureLayout | null>(null);
   const [editing, setEditing] = useState(false);
   const source = features?.mainPlacement || 'sidebar',
-    location = mode || source;
+    location = (appearance && appearancePlacement) || mode || source;
+  const selectPlacement = appearance && onAppearancePlacement ? onAppearancePlacement : setMode;
   useEffect(() => onPlacementChange?.(location), [location, onPlacementChange]);
   const samples = useMemo(() => {
     const entries = [
@@ -374,6 +379,7 @@ export function LayoutPreview({
   );
   const reset = () => {
     setMode(null);
+    if (appearance) onAppearancePlacement?.(source);
     setExtra([]);
     setDemoLayout(null);
     onReset?.();
@@ -389,7 +395,7 @@ export function LayoutPreview({
         type="button"
         aria-label={tr('演示侧栏')}
         aria-pressed={location === 'sidebar'}
-        onClick={() => setMode('sidebar')}
+        onClick={() => selectPlacement('sidebar')}
       >
         {tr('侧栏')}
       </button>
@@ -397,7 +403,7 @@ export function LayoutPreview({
         type="button"
         aria-label={tr('演示页面浮层')}
         aria-pressed={location === 'overlay'}
-        onClick={() => setMode('overlay')}
+        onClick={() => selectPlacement('overlay')}
       >
         {tr('页面浮层')}
       </button>
@@ -405,11 +411,15 @@ export function LayoutPreview({
         type="button"
         aria-label={appearance ? tr('演示桌面窗口') : tr('演示移到副屏')}
         aria-pressed={location === 'desktop'}
-        onClick={() => setMode('desktop')}
+        onClick={() => selectPlacement('desktop')}
       >
         {appearance ? tr('桌面窗口') : tr('移到副屏')}
       </button>
-      <button type="button" aria-pressed={location === 'edge'} onClick={() => setMode('edge')}>
+      <button
+        type="button"
+        aria-pressed={location === 'edge'}
+        onClick={() => selectPlacement('edge')}
+      >
         {tr('贴边 / 刘海')}
       </button>
     </SegmentedGroup>
