@@ -116,6 +116,7 @@ impl App {
         let model_control = crate::model_control::Control::load(&paths);
         let mut panel = crate::panel::Panel::load(&paths, allow_fixture);
         let mut features = crate::features::Features::load(&paths);
+        features.restore_legacy_quick_prompts(model.options.quick_prompts_enabled);
         let web_library = crate::web_library::Library::load(&paths);
         if panel.prefs.startup.mode != "restore" {
             let terms = crate::terminology::library(&paths.root).is_ok_and(|v| !v.is_empty());
@@ -545,7 +546,7 @@ impl App {
         let client = self.desktop_client().await.context("尚未连接 Codex")?;
         let (detached, ui, revision, web_revision) = self.panel_host_state().await;
         let preferences = self.panel.lock().await.prefs.clone();
-        let launcher_action = json!({"action":preferences.launcher_action,"doubleAction":preferences.launcher_double_action,"contextAction":preferences.launcher_context_action,"language":preferences.language,"systemLanguage":crate::i18n::system_locale()});
+        let launcher_action = json!({"action":preferences.launcher_action,"doubleAction":preferences.launcher_double_action,"contextAction":preferences.launcher_context_action,"language":preferences.language,"systemLanguage":crate::i18n::system_locale(),"restoreSavedUi":revision > 0});
         let mut typography = json!(preferences.typography);
         typography["surfaces"] = json!(preferences.surface_typography);
         let result = client

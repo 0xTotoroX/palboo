@@ -410,6 +410,13 @@ impl Panel {
             test_window: allow_fixture && crate::brand::env_os("PALBOO_PANEL_TEST").is_some(),
         }
     }
+    // The legacy window protocol still has its own integration fixture.
+    pub(crate) fn legacy_workbench_fixture(&self) -> bool {
+        self.test_window && crate::brand::env("PALBOO_PANEL_TEST").as_deref() == Ok("legacy")
+    }
+    pub(crate) fn owns_legacy_window(&self) -> bool {
+        self.prefs.detached || !self.lease.is_empty()
+    }
     fn validate_lease(&self, lease: &str) -> Result<()> {
         if self.lease.is_empty() || lease != self.lease {
             bail!("浮窗已关闭或被新窗口替代");
@@ -561,6 +568,7 @@ impl App {
     }
 
     pub async fn detach_panel(&self, ui: Option<Ui>) -> Result<()> {
+        let _operation = self.feature_operation.lock().await;
         if self.main_features_managed().await {
             bail!("请在独立功能标题旁选择桌面窗口");
         }

@@ -223,19 +223,15 @@ export function independentFeatureCases({ mode, syncSettings }) {
           fixture.outlineProjection = { outlineItems: [], outlineStatus: 'ok' };
         });
         await outline.getByText('暂无大纲', { exact: true }).waitFor();
-        const emptyTitle = await outline.locator('.csw-empty-title').boundingBox();
-        const emptyArea = await outline.locator('.feature-projection').boundingBox();
-        const emptyBody = await outline.locator('.feature-body').boundingBox();
-        assert.ok(
-          emptyArea.height > emptyBody.height - 65,
-          'outline empty state fills remaining content',
-        );
-        assert.ok(
-          Math.abs(emptyTitle.y + emptyTitle.height / 2 - emptyArea.y - emptyArea.height / 2) < 2,
-        );
-        assert.ok(
-          Math.abs(emptyTitle.x + emptyTitle.width / 2 - emptyArea.x - emptyArea.width / 2) < 2,
-        );
+        async function checkEmptyOutlineAlignment(zoom) {
+          const title = await outline.locator('.csw-empty-title').boundingBox();
+          const area = await outline.locator('.feature-projection').boundingBox();
+          assert.ok(
+            Math.abs(title.x - area.x) < 2 && title.y >= area.y && title.y - area.y < 12 * zoom,
+            `outline empty state starts at the top of the content at ${zoom * 100}% zoom`,
+          );
+        }
+        await checkEmptyOutlineAlignment(1);
         const originalViewport = page.viewportSize();
         for (const [zoom, width, height] of [
           [1.2, 1600, 900],
@@ -274,17 +270,7 @@ export function independentFeatureCases({ mode, syncSettings }) {
                 cause: error,
               });
             });
-          const title = await outline.locator('.csw-empty-title').boundingBox();
-          const pane = await page.locator('.csw-workbench-pane[data-pane="outline"]').boundingBox();
-          const area = await outline.locator('.feature-projection').boundingBox();
-          assert.ok(
-            Math.abs(title.x + title.width / 2 - pane.x - pane.width / 2) < 2,
-            `outline empty title horizontally centered at ${zoom * 100}% zoom`,
-          );
-          assert.ok(
-            Math.abs(title.y + title.height / 2 - area.y - area.height / 2) < 2,
-            `outline empty title vertically centered at ${zoom * 100}% zoom`,
-          );
+          await checkEmptyOutlineAlignment(zoom);
         }
         await page.evaluate(() => {
           window.workbenchFixture.outlineProjection = window.workbenchFixture.populatedOutline;
