@@ -10,6 +10,7 @@ import { Icon } from '../shared/icons/react';
 
 const openEvent = 'buddy-settings-detail-open';
 const closeEvent = 'buddy-settings-detail-close';
+let mountedDetails = 0;
 export const settingsDetailRouteEvent = 'buddy-settings-detail-route';
 export type SettingsDetailRoute = {
   action: 'open' | 'back';
@@ -26,6 +27,17 @@ export function closeSettingsDetails({ except, focus = true, navigate = true }: 
     if (entry !== except)
       entry.dispatchEvent(new CustomEvent(closeEvent, { detail: { focus, navigate } }));
   }
+}
+function returnFromDetailOnEscape(event: KeyboardEvent) {
+  if (
+    event.key !== 'Escape' ||
+    event.defaultPrevented ||
+    !document.querySelector('[data-settings-detail-open]') ||
+    document.querySelector('dialog[open], .settings-nav[data-open="true"]')
+  )
+    return;
+  event.preventDefault();
+  closeSettingsDetails();
 }
 export function showSettingsDetail(target: HTMLElement, navigate = true) {
   revealSettingsDetail(target);
@@ -127,29 +139,17 @@ export function SettingsDetail({
     const closeListener = (event: Event) => close((event as CustomEvent<DetailClose>).detail);
     root?.addEventListener(openEvent, openListener);
     root?.addEventListener(closeEvent, closeListener);
+    // A detail can become visible before React commits its open state.
+    if (++mountedDetails === 1) document.addEventListener('keydown', returnFromDetailOnEscape);
     return () => {
       root?.removeEventListener(openEvent, openListener);
       root?.removeEventListener(closeEvent, closeListener);
+      if (--mountedDetails === 0) document.removeEventListener('keydown', returnFromDetailOnEscape);
     };
   }, []);
   useLayoutEffect(() => {
     if (hidden) close({ focus: false, navigate: false });
   }, [hidden]);
-  useLayoutEffect(() => {
-    if (!open) return;
-    const escape = (event: KeyboardEvent) => {
-      if (
-        event.key !== 'Escape' ||
-        event.defaultPrevented ||
-        document.querySelector('dialog[open]')
-      )
-        return;
-      event.preventDefault();
-      close();
-    };
-    document.addEventListener('keydown', escape);
-    return () => document.removeEventListener('keydown', escape);
-  }, [open]);
 
   return (
     <section

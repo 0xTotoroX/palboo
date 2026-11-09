@@ -108,6 +108,32 @@ test('detail navigation keeps one native form, drafts, history, focus and readin
     await browser.close();
   }
 });
+test('Escape can return as soon as the detail heading receives focus', async () => {
+  const { browser, page } = await fixture();
+  try {
+    const open = page.getByRole('button', { name: '高级设置', exact: true });
+    const detail = page.getByRole('region', { name: '高级设置', exact: true });
+    await page.evaluate(() => {
+      function escapeAtFirstFocus(event) {
+        const heading = event.target;
+        if (!heading.matches?.('#settings-limits-detail [data-settings-detail-heading]')) return;
+        document.removeEventListener('focusin', escapeAtFirstFocus);
+        window.earlyEscapeHandled = !heading.dispatchEvent(
+          new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+        );
+      }
+      document.addEventListener('focusin', escapeAtFirstFocus);
+    });
+    await open.evaluate((button) => button.click());
+    await page.waitForFunction(() => typeof window.earlyEscapeHandled === 'boolean');
+    assert.equal(await page.evaluate(() => window.earlyEscapeHandled), true);
+    await detail.waitFor({ state: 'hidden' });
+    assert.equal(await open.evaluate((node) => node === document.activeElement), true);
+    assert.equal(new URL(page.url()).hash, '#settings-model');
+  } finally {
+    await browser.close();
+  }
+});
 test('initial links and search open the right detail page and retain its fields', async () => {
   const { browser, page } = await fixture('settings-model/timeout');
   try {
