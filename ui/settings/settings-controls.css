@@ -320,31 +320,28 @@
 .settings-dialog-content {
   display: flow-root;
 }
-/* [INPUT]: Settings drawer markup, shared theme tokens and motion preferences.
- * [OUTPUT]: Quiet entry rows and a responsive right sheet without page reflow.
- * [POS]: Settings-only overlay styles; does not alter form data or host surfaces.
- * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
-.settings-drawer-entry {
+/* Entries and detail pages use the same settings surface and control geometry. */
+.settings-detail-entry {
   margin-block: 24px;
 }
-.settings-app .settings-drawer-trigger {
+.settings-app .settings-detail-trigger {
   width: 100%;
   justify-content: space-between;
-  padding: 14px 16px;
-  min-height: 48px;
+  padding: 0 8px 0 0;
+  min-height: var(--settings-control-height);
   border: 0;
-  background: var(--buddy-subtle);
+  background: transparent;
   text-align: left;
   color: var(--buddy-text);
   border-radius: var(--settings-control-radius);
 }
-.settings-drawer-trigger > span:first-child {
+.settings-detail-trigger > span:first-child {
   font-weight: 500;
 }
-.settings-drawer-entry[data-compact] {
+.settings-detail-entry[data-compact] {
   margin: 0 0 0 auto;
 }
-.settings-app .settings-drawer-entry[data-compact] > .settings-drawer-trigger {
+.settings-app .settings-detail-entry[data-compact] > .settings-detail-trigger {
   width: auto;
   min-height: var(--settings-control-height);
   padding: 0 8px;
@@ -352,21 +349,15 @@
   background: transparent;
   color: var(--settings-accent-text);
 }
-.settings-main-layout-heading .settings-drawer-entry[data-compact] > .settings-drawer-trigger {
+.settings-main-layout-heading .settings-detail-entry[data-compact] > .settings-detail-trigger {
   min-height: 28px;
   padding-inline: 0;
   color: var(--buddy-muted);
 }
 .settings-main-layout-heading
-  .settings-drawer-entry[data-compact]
-  > .settings-drawer-trigger:hover {
+  .settings-detail-entry[data-compact]
+  > .settings-detail-trigger:hover {
   color: var(--buddy-text);
-}
-#layout-presets-drawer {
-  width: min(100vw, 460px);
-}
-#layout-presets-drawer .settings-drawer-content {
-  padding-top: 8px;
 }
 .layout-preset-list-actions {
   display: flex;
@@ -378,7 +369,7 @@
   padding: 0;
   list-style: none;
 }
-#layout-presets-drawer .layout-preset-list {
+#layout-presets-detail .layout-preset-list {
   margin-top: 0;
 }
 .layout-preset-list > li,
@@ -390,7 +381,7 @@
 .layout-preset-list > li + li {
   border-top: 1px solid var(--buddy-border);
 }
-#layout-presets-drawer .layout-preset-apply {
+#layout-presets-detail .layout-preset-apply {
   flex: 1;
   min-width: 0;
   justify-content: flex-start;
@@ -405,7 +396,7 @@
   cursor: default;
 }
 @media (hover: hover) {
-  #layout-presets-drawer .layout-preset-apply:not([aria-current]):enabled:hover {
+  #layout-presets-detail .layout-preset-apply:not([aria-current]):enabled:hover {
     background: var(--settings-control-hover);
   }
 }
@@ -420,18 +411,18 @@
   font-size: 1em;
   font-weight: 500;
 }
-#layout-presets-drawer .layout-preset-form .settings-field {
+#layout-presets-detail .layout-preset-form .settings-field {
   grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
   align-items: center;
   gap: 8px;
 }
-#layout-presets-drawer .layout-preset-form .settings-field > * {
+#layout-presets-detail .layout-preset-form .settings-field > * {
   grid-column: auto;
 }
-#layout-presets-drawer .layout-preset-form .settings-native-select {
+#layout-presets-detail .layout-preset-form .settings-native-select {
   width: 100%;
 }
-#layout-presets-drawer .layout-preset-navigation + .layout-preset-form {
+#layout-presets-detail .layout-preset-navigation + .layout-preset-form {
   margin-top: 0;
 }
 .layout-preset-form .layout-preset-secondary {
@@ -482,7 +473,7 @@
 .settings-app #model-organization {
   margin-block: 12px 0;
 }
-.settings-app #model-organization > .settings-drawer-trigger {
+.settings-app #model-organization > .settings-detail-trigger {
   width: auto;
   margin-left: auto;
   min-height: var(--settings-control-height);
@@ -490,104 +481,72 @@
   gap: 8px;
   background: transparent;
 }
-.settings-drawer {
-  position: fixed;
-  /* Keep the top-layer edge at the viewport, beyond a reserved classic scrollbar gutter. */
-  inset: 0 calc(100% - 100vw) 0 auto;
+/* Show only the active branch of the mounted form. No reparenting or duplicated inputs. */
+:where(.settings-content, .settings-app > main):has([data-settings-detail-open])
+  > :not(:has([data-settings-detail-open])):not([data-settings-detail-open]),
+:where(.settings-content, .settings-app > main)
+  :has([data-settings-detail-open])
+  > :not(:has([data-settings-detail-open])):not([data-settings-detail-open]),
+[data-settings-detail-open] > .settings-detail-trigger {
+  display: none;
+}
+:where(.settings-content, .settings-app > main) :has([data-settings-detail-open]):not([hidden]) {
+  display: contents;
+}
+.settings-app .settings-detail-entry[data-settings-detail-open] {
   margin: 0;
-  padding: 0;
-  width: min(720px, calc(100vw - 80px));
-  max-width: 100vw;
-  height: 100dvh;
-  max-height: 100dvh;
-  border: 0;
-  border-radius: 0;
-  color: var(--buddy-text);
-  background: var(--buddy-page);
-  box-shadow: -12px 0 40px rgb(0 0 0 / 10%);
-  overflow: hidden;
 }
-.settings-drawer[open] {
-  display: flex;
-  flex-direction: column;
+.settings-detail {
+  min-width: 0;
 }
-.settings-drawer::backdrop {
-  background: rgb(0 0 0 / 22%);
+.settings-detail-header {
+  margin-bottom: calc(var(--settings-space, 4px) * 6);
 }
-.settings-drawer-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  flex-shrink: 0;
-  padding: 24px 28px 16px;
-}
-.settings-app .settings-drawer-header h2 {
+.settings-detail-header .settings-page-title {
   margin: 0;
-  font-size: var(--settings-title-size);
-  font-weight: 700;
-  letter-spacing: -0.035em;
   outline: none;
 }
-.settings-drawer-content {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 12px 28px 32px;
+.settings-app .settings-detail-back {
+  margin: 0 0 calc(var(--settings-space, 4px) * 3);
+  padding-inline: 0 8px;
+  justify-content: flex-start;
+  min-height: 28px;
+  color: var(--buddy-muted);
 }
-.settings-drawer-content > * + * {
-  margin-top: 24px;
+.settings-detail-back > .buddy-icon {
+  scale: -1 1;
 }
-.settings-app .settings-drawer .settings-field {
-  grid-template-columns: minmax(0, 1fr);
-  gap: 8px;
+.settings-detail-content > * + * {
+  margin-top: calc(var(--settings-space, 4px) * 6);
 }
-.settings-app .settings-drawer .settings-field > * {
-  grid-column: 1;
+.settings-detail-toolbar {
+  margin-bottom: calc(var(--settings-space, 4px) * 3);
 }
-.settings-app .settings-drawer .settings-field > label {
-  min-height: 0;
-}
-html:has(.settings-drawer[open]) {
-  overflow: hidden;
-  scrollbar-gutter: stable;
-}
-@media (max-width: 600px) {
-  .settings-drawer {
-    width: 100vw;
-  }
-  .settings-drawer-header {
-    padding: 20px 20px 12px;
-  }
-  .settings-drawer-content {
-    padding: 12px 20px 28px;
-  }
-}
-
-.settings-drawer-footer {
-  flex-shrink: 0;
-  padding: 16px 28px 24px;
-}
-.settings-drawer-footer:empty {
-  display: none;
-}
-.settings-drawer-toolbar {
-  flex: none;
-  padding: 0 28px 8px;
-}
-.settings-drawer-toolbar .settings-catalog-selection {
+.settings-detail-toolbar .settings-catalog-selection {
   margin-top: 4px;
 }
-#model-organization .settings-drawer-footer:not(:has(> fieldset:not([hidden]), > p)) {
+.settings-detail-footer {
+  margin-top: calc(var(--settings-space, 4px) * 4);
+}
+.settings-detail-footer:empty,
+#model-organization .settings-detail-footer:not(:has(> fieldset:not([hidden]), > p)) {
   display: none;
 }
+#model-organization-detail:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  max-height: max(440px, calc(100dvh - 9rem));
+}
+#model-organization-detail > .settings-detail-content {
+  min-height: 120px;
+  overflow-y: auto;
+}
 
-/* Stepwise keeps frequent controls inline and library management in one drawer. */
-.direction-section-heading .settings-drawer-entry {
+/* Stepwise keeps frequent controls inline and library management on a detail page. */
+.direction-section-heading .settings-detail-entry {
   margin: 0;
 }
-.settings-app .direction-section-heading .settings-drawer-trigger {
+.settings-app .direction-section-heading .settings-detail-trigger {
   width: auto;
   min-height: 28px;
   padding: 0;
@@ -595,7 +554,7 @@ html:has(.settings-drawer[open]) {
   background: transparent;
   color: var(--buddy-muted);
 }
-.settings-app .direction-section-heading .settings-drawer-trigger:hover {
+.settings-app .direction-section-heading .settings-detail-trigger:hover {
   color: var(--buddy-text);
 }
 .direction-selection-label {
@@ -698,12 +657,6 @@ html:has(.settings-drawer[open]) {
   display: none;
 }
 @media (max-width: 600px) {
-  .settings-drawer-toolbar {
-    padding-inline: 20px;
-  }
-  .settings-drawer-footer {
-    padding: 12px 20px 20px;
-  }
   .settings-catalog-bulk-controls {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -883,13 +836,8 @@ html:has(.settings-drawer[open]) {
   resize: vertical;
   min-height: 160px;
 }
-.settings-drawer-footer > * + * {
+.settings-detail-footer > * + * {
   margin-top: 12px;
-}
-@media (max-width: 600px) {
-  .settings-drawer-footer {
-    padding: 12px 20px 20px;
-  }
 }
 
 /* 独立操作区统一靠右，字段内编辑按钮继续跟随字段。 */

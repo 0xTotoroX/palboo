@@ -31,11 +31,11 @@ export async function exerciseReaderFolders({
     before.revision,
     'typing does not grant access',
   );
-  await settings.getByRole('dialog', { name: '添加文件夹', exact: true }).press('Escape');
+  await settings.getByRole('region', { name: '添加文件夹', exact: true }).press('Escape');
   await settings.getByRole('button', { name: '添加文件夹', exact: true }).click();
   assert.equal(await settings.locator('#reader-vault').inputValue(), secondPath);
   await settings
-    .getByRole('dialog', { name: '添加文件夹', exact: true })
+    .getByRole('region', { name: '添加文件夹', exact: true })
     .getByRole('button', { name: '保存', exact: true })
     .click();
   await settings
@@ -52,11 +52,11 @@ export async function exerciseReaderFolders({
   const secondary = configured.folders.find((item) => item.name === '项目笔记');
   await settings.getByRole('button', { name: '编辑项目笔记', exact: true }).click();
   await settings.locator('#reader-folder-name').fill('尚未保存的名称');
-  await settings.getByRole('dialog', { name: '编辑文件夹', exact: true }).press('Escape');
+  await settings.getByRole('region', { name: '编辑文件夹', exact: true }).press('Escape');
   await settings.getByRole('button', { name: '编辑项目笔记', exact: true }).click();
   assert.equal(await settings.locator('#reader-folder-name').inputValue(), '尚未保存的名称');
   await settings
-    .getByRole('dialog', { name: '编辑文件夹', exact: true })
+    .getByRole('region', { name: '编辑文件夹', exact: true })
     .getByRole('button', { name: '取消', exact: true })
     .click();
   let launched;

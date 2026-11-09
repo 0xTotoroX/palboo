@@ -273,7 +273,7 @@ createRoot(document.getElementById('root')).render(<App/>);`,
       await page.getByRole('button', { name: '添加方向', exact: true }).click();
       await page.getByRole('textbox', { name: '方向名称 4', exact: true }).fill('新增方向');
       await page.getByRole('textbox', { name: '倾向说明 4', exact: true }).fill('合成方向说明');
-      await page.getByRole('button', { name: '关闭方向库', exact: true }).click();
+      await page.getByRole('button', { name: '返回设置', exact: true }).click();
       // Board/model grouping use the same motion with successful synthetic persistence.
       await page.getByRole('textbox', { name: '新分组名称', exact: true }).fill('新看板分组');
       await clear();
@@ -295,7 +295,7 @@ createRoot(document.getElementById('root')).render(<App/>);`,
       await page.waitForFunction(() =>
         window.motion.some((x) => x.list === 'model-groups' && x.duration === 200),
       );
-      const closeGroups = page.getByRole('button', { name: '关闭模型分组', exact: true });
+      const closeGroups = page.getByRole('button', { name: '返回设置', exact: true });
       if (await closeGroups.count()) await closeGroups.click();
       // Reduced motion cancels in flight and performs future operations immediately.
       await emulateMedia(page, { reducedMotion: 'reduce' });

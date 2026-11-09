@@ -1,6 +1,6 @@
 import { Notice } from './settings-controls';
 /* [INPUT]: Authenticated App mode API, shared settings controls and existing form save state.
- * [OUTPUT]: Manual App updates, Release/Dev selection and a shared development drawer; retains mode drafts across reconnects and guards progress handoff.
+ * [OUTPUT]: Release/Dev selection and inline development fields; retains mode drafts across reconnects and guards progress handoff.
  * [POS]: Startup settings; saves no business data and does not duplicate Dev source management.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { useEffect, useRef, useState } from 'react';
@@ -12,7 +12,6 @@ import { Button } from './components/ui/button';
 import { Input } from './components/ui/input';
 import { NativeSelect } from './components/ui/native-select';
 import { Field } from './settings-controls';
-import { SettingsDrawer } from './settings-drawer';
 import type { SettingsEditor } from './use-settings-form';
 import { AppUpdateSettings } from './app-update-settings';
 
@@ -97,36 +96,29 @@ export function AppModeSettings({ live, editor }: { live: boolean; editor: Setti
   );
   return (
     <>
-      <AppUpdateSettings live={live} editor={editor} modeEditing={busy || edited} />
       <Card id="settings-app-mode" data-settings-navigation>
         <h2>{tr('运行模式')}</h2>
-        <div className="settings-control-group">
-          <Field id="app-mode" label={tr('启动时使用')}>
-            <NativeSelect
-              id="app-mode"
-              controlWidth="short"
-              value={mode}
-              disabled={!live || !ready || busy}
-              onChange={(event) => {
-                // 模式独立提交，不能触发外层模型表单的自动保存。
-                event.stopPropagation();
-                setMode(event.target.value as Mode);
-              }}
-            >
-              <option value="release">{tr('正式模式')}</option>
-              <option value="development">{tr('开发模式')}</option>
-            </NativeSelect>
-          </Field>
-        </div>
-        <SettingsDrawer
-          id="settings-app-development"
-          title={tr('开发设置')}
-          hidden={mode !== 'development'}
-          footer={actions}
-        >
+        <Field id="app-mode" label={tr('启动时使用')}>
+          <NativeSelect
+            id="app-mode"
+            controlWidth="medium"
+            value={mode}
+            disabled={!live || !ready || busy}
+            onChange={(event) => {
+              // 模式独立提交，不能触发外层模型表单的自动保存。
+              event.stopPropagation();
+              setMode(event.target.value as Mode);
+            }}
+          >
+            <option value="release">{tr('正式模式')}</option>
+            <option value="development">{tr('开发模式')}</option>
+          </NativeSelect>
+        </Field>
+        <div id="settings-app-development" hidden={mode !== 'development'}>
           <Field id="app-mode-source" label={tr('源码目录')}>
             <Input
               id="app-mode-source"
+              className="settings-general-value"
               value={source}
               disabled={!live || !ready || busy}
               spellCheck={false}
@@ -137,6 +129,7 @@ export function AppModeSettings({ live, editor }: { live: boolean; editor: Setti
           <Field id="app-mode-node" label="Node.js">
             <Input
               id="app-mode-node"
+              className="settings-general-value"
               value={node}
               disabled={!live || !ready || busy}
               spellCheck={false}
@@ -144,9 +137,10 @@ export function AppModeSettings({ live, editor }: { live: boolean; editor: Setti
               onChange={(event) => setNode(event.target.value)}
             />
           </Field>
-        </SettingsDrawer>
+        </div>
         {actions}
       </Card>
+      <AppUpdateSettings live={live} editor={editor} modeEditing={busy || edited} />
     </>
   );
 }

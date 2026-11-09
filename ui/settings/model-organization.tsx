@@ -5,7 +5,7 @@ import { tr } from '../shared/i18n.js';
  * [OUTPUT]: 可搜索/分类的模型分组、固定搜索、按选择出现的底部批量操作与拖动排序；删除和恢复分类统一确认并校验修订。
  * [POS]: 只管理模型展示偏好，不切换模型或修改预设。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
-import { SettingsDrawer } from './settings-drawer';
+import { SettingsDetail } from './settings-detail';
 import { useSettingsListMotion } from './settings-list-motion';
 import { useState } from 'react';
 import { SettingsSortableList, replaceVisibleOrder } from './settings-sortable-list';
@@ -118,7 +118,7 @@ export function ModelOrganization({
     return ok;
   }
   return (
-    <SettingsDrawer
+    <SettingsDetail
       id="model-organization"
       title={tr('模型分组')}
       toolbar={
@@ -502,6 +502,6 @@ export function ModelOrganization({
           }
         </SettingsSortableList>
       </div>
-    </SettingsDrawer>
+    </SettingsDetail>
   );
 }

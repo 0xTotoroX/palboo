@@ -20,7 +20,7 @@ import React,{useState}from'react';import{createRoot}from'react-dom/client';
 import{SettingsTheme}from'./ui/settings/settings-theme';
 import{SuggestionInput}from'./ui/settings/components/ui/suggestion-input';
 import{NativeSelect}from'./ui/settings/components/ui/native-select';
-import{SettingsDrawer}from'./ui/settings/settings-drawer';
+import{SettingsDetail}from'./ui/settings/settings-detail';
 import{SettingsSearch}from'./ui/settings/settings-search';
 import{ConfirmationButton}from'./ui/settings/settings-confirmation';
 import{SegmentedGroup}from'./ui/settings/components/ui/segmented-group';
@@ -33,7 +33,7 @@ return <div className="settings-app" ref={ref}>
 <SegmentedGroup value={segment} className="preview-selector" role="group" aria-label="示例分段">{['短','很长的第二项','第三项'].map(v=><button key={v} type="button" aria-pressed={segment===v} onClick={()=>setSegment(v)}>{v}</button>)}</SegmentedGroup>
 <main className="settings-content" data-settings-page="model" style={{maxWidth:500}}>
 <label htmlFor="selection">生成方式</label><NativeSelect id="selection" defaultValue="manual" onChange={()=>window.changes++}><option value="manual">手动</option><option value="auto">自动</option><option disabled>不可用</option></NativeSelect>
-<SettingsDrawer title="高级设置"><label htmlFor="draft">草稿</label><input id="draft" defaultValue="保留内容"/></SettingsDrawer>
+<SettingsDetail title="高级设置"><label htmlFor="draft">草稿</label><input id="draft" defaultValue="保留内容"/></SettingsDetail>
 <ConfirmationButton title="确认删除？" description="保留退出时的内容" confirmLabel="确认删除" onConfirm={()=>Promise.reject(new Error('合成失败：保留原内容，请稍后重新操作。'.repeat(5)))}>删除示例</ConfirmationButton>
 </main><div style={{position:'fixed',bottom:24,right:24,width:300}}><label htmlFor="candidate">候选名称</label><SuggestionInput id="candidate" value={value} options={['Alpha','Beta']} dropdown={{label:'选择候选',onOpen:()=>{}}} onValueChange={v=>{window.changes++;setValue(v)}}/></div>
 </div>};createRoot(document.getElementById('root')).render(<App/>);`,
@@ -177,47 +177,17 @@ return <div className="settings-app" ref={ref}>
       'opening/cancelling a native picker does not select',
     );
 
-    const drawer = page.locator('.settings-drawer');
+    const detail = page.getByRole('region', { name: '高级设置', exact: true });
     await page.getByRole('button', { name: '高级设置', exact: true }).click();
-    assert.equal(
-      await drawer.evaluate((n) => getComputedStyle(n, '::backdrop').transitionDuration),
-      '0s',
-    );
-    const panelSpring = await drawer.evaluate((node) => ({
-      duration: getComputedStyle(node).transitionDuration,
-      curve: getComputedStyle(node).transitionTimingFunction,
-      frames: node
-        .getAnimations()
-        .filter((a) => a.transitionProperty === 'transform')
-        .flatMap((a) => a.effect.getKeyframes().map((f) => f.transform)),
-    }));
-    assert.ok(panelSpring.duration.includes('0.6s'));
-    assert.ok(panelSpring.curve.startsWith('linear('));
-    assert.ok(
-      panelSpring.frames.some((f) => f.includes('100%')),
-      'full-width side-panel entry',
-    );
+    await detail.waitFor();
+    assert.equal(await detail.evaluate((n) => n.getAnimations().length), 0);
     await page.locator('#draft').fill('未保存输入');
-    await finishAnimations(drawer);
-    await page.getByRole('button', { name: '关闭高级设置', exact: true }).click();
-    assert.equal(await drawer.evaluate((n) => n.inert), true);
-    await drawer.waitFor({ state: 'hidden' });
+    await page.getByRole('button', { name: '返回设置', exact: true }).click();
+    await detail.waitFor({ state: 'hidden' });
     await page.getByRole('button', { name: '高级设置', exact: true }).click();
-    assert.equal(await page.locator('#draft').inputValue(), '未保存输入');
-    await drawer.evaluate(async (node) => {
-      window.retainedDrawer = node;
-      node.querySelector('[data-drawer-close]').click();
-      await new Promise(requestAnimationFrame);
-      document.querySelector('.settings-drawer-trigger').click();
-    });
-    await finishAnimations(drawer);
-    assert.equal(
-      await drawer.evaluate((node) => node === window.retainedDrawer && node.open && !node.inert),
-      true,
-    );
     assert.equal(await page.locator('#draft').inputValue(), '未保存输入');
     await page.keyboard.press('Escape');
-    assert.equal(await drawer.isVisible(), false);
+    await detail.waitFor({ state: 'hidden' });
 
     const confirmation = page.locator('.settings-key-dialog');
     await page.getByRole('button', { name: '删除示例', exact: true }).click();
@@ -322,9 +292,9 @@ return <div className="settings-app" ref={ref}>
       'keyboard selection is immediate',
     );
     assert.equal(
-      transitions.some((t) => t.className.includes('settings-drawer')),
+      transitions.some((t) => t.className.includes('settings-detail')),
       false,
-      'side panel slides without a competing opacity animation',
+      'detail navigation has no opacity animation',
     );
 
     await themeTrigger.click();
@@ -334,7 +304,7 @@ return <div className="settings-app" ref={ref}>
     assert.equal(await theme.isVisible(), false);
     for (const [surface, trigger] of [
       [candidates, candidateTrigger],
-      [drawer, page.getByRole('button', { name: '高级设置', exact: true })],
+      [detail, page.getByRole('button', { name: '高级设置', exact: true })],
       [search, page.getByRole('button', { name: '搜索设置', exact: true })],
       [confirmation, page.getByRole('button', { name: '删除示例', exact: true })],
     ]) {

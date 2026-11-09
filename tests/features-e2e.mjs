@@ -994,7 +994,7 @@ try {
       .querySelector('.bot-settings-heading button[aria-label="刷新 Bot 资料"]')
       .getBoundingClientRect();
     const entries = [
-      ...document.querySelectorAll('.bot-settings-profiles .settings-drawer-trigger'),
+      ...document.querySelectorAll('.bot-settings-profiles .settings-detail-trigger'),
     ].map((el) => el.getBoundingClientRect());
     return {
       aligned: entries.every((rect) => Math.abs(rect.left - heading.left) < 1 && rect.height >= 48),

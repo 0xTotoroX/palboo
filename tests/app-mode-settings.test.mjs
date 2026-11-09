@@ -1,5 +1,5 @@
 /* [INPUT]: Actual mode settings component and a synthetic authenticated API.
- * [OUTPUT]: Drawer draft/focus retention, offline protection, source selection, failure feedback and progress handoff.
+ * [OUTPUT]: Conditional field and draft retention, offline protection, source selection, failure feedback and progress handoff.
  * [POS]: Browser regression without starting any Palboo or Codex process.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import test from 'node:test';
@@ -77,23 +77,22 @@ test('release settings can select development, retain edits on failure and hand 
     await page.goto(`http://127.0.0.1:${server.address().port}/#token=synthetic`);
     await page.locator('#app-mode').waitFor();
     assert.equal(await page.locator('#app-mode').isVisible(), true);
-    await page.getByLabel('启动时使用', { exact: true }).selectOption('development');
-    await page.getByRole('button', { name: '开发设置', exact: true }).click();
-    const drawer = page.getByRole('dialog', { name: '开发设置', exact: true });
-    await page.getByLabel('源码目录', { exact: true }).fill('/tmp/fixture source');
+    const select = page.getByLabel('启动时使用', { exact: true });
+    const mode = page.locator('#settings-app-mode');
+    const source = page.getByLabel('源码目录', { exact: true });
+    await source.waitFor({ state: 'hidden' });
+    await select.selectOption('development');
+    await source.fill('/tmp/fixture source');
     await page.getByLabel('Node.js', { exact: true }).fill('/tmp/fixture node');
     assert.equal(
-      await drawer.getByRole('button', { name: '切换模式', exact: true }).isDisabled(),
+      await mode.getByRole('button', { name: '切换模式', exact: true }).isDisabled(),
       true,
     );
+    await select.selectOption('release');
+    await source.waitFor({ state: 'hidden' });
+    await select.selectOption('development');
+    assert.equal(await source.inputValue(), '/tmp/fixture source');
     assert.equal(writes.length, 0);
-    await page.keyboard.press('Escape');
-    assert.equal(
-      await page
-        .getByRole('button', { name: '开发设置', exact: true })
-        .evaluate((button) => button === document.activeElement),
-      true,
-    );
     await page.getByText('Save fixture').click();
     let finishRead;
     modeRead = new Promise((resolve) => {
@@ -116,7 +115,7 @@ test('release settings can select development, retain edits on failure and hand 
       'reconnection waits for a fresh mode read',
     );
     finishRead();
-    await page.getByRole('button', { name: '开发设置', exact: true }).click();
+    await page.locator('#app-mode:enabled').waitFor();
     assert.equal(
       await page.getByLabel('源码目录', { exact: true }).inputValue(),
       '/tmp/fixture source',
@@ -125,8 +124,8 @@ test('release settings can select development, retain edits on failure and hand 
       await page.getByLabel('Node.js', { exact: true }).inputValue(),
       '/tmp/fixture node',
     );
-    await drawer.getByRole('button', { name: '切换模式', exact: true }).click();
-    await drawer.getByRole('alert').filter({ hasText: 'fixture unavailable' }).waitFor();
+    await mode.getByRole('button', { name: '切换模式', exact: true }).click();
+    await page.getByRole('alert').filter({ hasText: 'fixture unavailable' }).waitFor();
     assert.equal(
       await page.getByLabel('源码目录', { exact: true }).inputValue(),
       '/tmp/fixture source',
@@ -135,7 +134,7 @@ test('release settings can select development, retain edits on failure and hand 
     assert.equal(writes[0].mode, 'development');
     assert.equal(writes[0].node, '/tmp/fixture node');
     fail = false;
-    await drawer.getByRole('button', { name: '切换模式', exact: true }).click();
+    await mode.getByRole('button', { name: '切换模式', exact: true }).click();
     await page.waitForURL('**/progress');
     assert.equal(writes.length, 2);
     preferredMode = 'development';

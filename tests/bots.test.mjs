@@ -457,7 +457,7 @@ test('saved sidebar groups reorder without losing calls, hide stale actions and 
         border: style.borderTopWidth,
         padding: style.paddingLeft,
         separator: next.borderTopWidth,
-        rowBorders: [...node.querySelectorAll('.settings-drawer-trigger')].map(
+        rowBorders: [...node.querySelectorAll('.settings-detail-trigger')].map(
           (row) => getComputedStyle(row).borderBottomWidth,
         ),
       };
@@ -468,7 +468,7 @@ test('saved sidebar groups reorder without losing calls, hide stale actions and 
     assert.equal(pinnedStyle.separator, '1px');
     assert.deepEqual(pinnedStyle.rowBorders, ['0px']);
     assert.deepEqual(
-      (await page.locator('#settings .settings-drawer-trigger').allTextContents()).map((text) =>
+      (await page.locator('#settings .settings-detail-trigger').allTextContents()).map((text) =>
         text.trim(),
       ),
       ['通用', '随口一问', 'X 资讯'],
@@ -490,7 +490,7 @@ test('saved sidebar groups reorder without losing calls, hide stale actions and 
     assert.equal(await botSearch.evaluate((node) => node === document.activeElement), true);
     await botSearch.fill('资讯');
     assert.deepEqual(
-      (await page.locator('#settings .settings-drawer-trigger').allTextContents()).map((text) =>
+      (await page.locator('#settings .settings-detail-trigger').allTextContents()).map((text) =>
         text.trim(),
       ),
       ['X 资讯'],
@@ -505,7 +505,7 @@ test('saved sidebar groups reorder without losing calls, hide stale actions and 
         .evaluate((node) => node === document.activeElement),
       true,
     );
-    assert.equal(await page.locator('#settings .settings-drawer-trigger').count(), 3);
+    assert.equal(await page.locator('#settings .settings-detail-trigger').count(), 3);
     mkdirSync('target/reports/bot-sidebar', { recursive: true });
     await page.screenshot({ path: 'target/reports/bot-sidebar/narrow.png', fullPage: true });
     assert.equal(

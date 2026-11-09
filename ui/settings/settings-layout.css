@@ -307,6 +307,43 @@ html:root .settings-nav {
   min-width: 0;
 }
 
+.settings-general {
+  display: grid;
+  gap: calc(var(--settings-space, 4px) * 7);
+}
+.settings-app .settings-general > .settings-section {
+  margin: 0;
+  padding: 0;
+}
+.settings-app .settings-general h2 {
+  margin-block: 0 calc(var(--settings-space, 4px) * 2);
+}
+.settings-app .settings-general .settings-field {
+  align-items: center;
+  margin: 0;
+  padding-block: calc(var(--settings-space, 4px) * 1.25);
+}
+.settings-general .settings-field > label {
+  font-weight: 400;
+}
+.settings-app .settings-general-value {
+  width: min(100%, var(--settings-control-width));
+  margin-inline-start: auto;
+}
+.settings-app input.settings-general-value {
+  display: block;
+}
+.settings-version-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(var(--settings-space, 4px) * 2);
+  flex-wrap: wrap;
+}
+.settings-version-line output {
+  font-variant-numeric: tabular-nums;
+}
+
 .settings-section {
   min-width: 0;
   margin-bottom: 24px;
@@ -799,7 +836,7 @@ html:root .settings-nav {
 }
 
 /* 正文标题不添加装饰；目录分类保留小强调色点。 */
-.settings-app :is(.settings-section h2, .settings-section h3, .settings-drawer-header h2)::after,
+.settings-app :is(.settings-section h2, .settings-section h3)::after,
 .settings-nav .settings-nav-children a[aria-current='page']::before {
   content: none;
 }
@@ -910,20 +947,20 @@ html:root .settings-nav {
 .bot-settings-search input {
   width: min(200px, 28vw);
 }
-.bot-settings-profiles .settings-drawer-entry {
+.bot-settings-profiles .settings-detail-entry {
   margin: 0;
 }
 .bot-settings-profiles {
   margin-top: 12px;
 }
-.settings-app .bot-settings-profiles .settings-drawer-trigger {
+.settings-app .bot-settings-profiles .settings-detail-trigger {
   min-height: 52px;
   padding: 12px 0;
   background: transparent;
   border-radius: 0;
   border-bottom: 0;
 }
-.settings-app .bot-settings-profiles .settings-drawer-trigger:hover {
+.settings-app .bot-settings-profiles .settings-detail-trigger:hover {
   background: var(--buddy-subtle);
 }
 .bot-settings-description {
@@ -946,10 +983,10 @@ html:root .settings-nav {
   overflow-wrap: anywhere;
 }
 
-.bot-settings-setup .settings-drawer-entry {
+.bot-settings-setup .settings-detail-entry {
   margin: 0;
 }
-.settings-app .bot-settings-setup .settings-drawer-trigger {
+.settings-app .bot-settings-setup .settings-detail-trigger {
   min-height: 28px;
   width: auto;
   padding: 2px 0;
@@ -958,7 +995,7 @@ html:root .settings-nav {
   color: var(--buddy-muted);
   font-size: 0.875em;
 }
-.settings-app .bot-settings-setup .settings-drawer-trigger:hover {
+.settings-app .bot-settings-setup .settings-detail-trigger:hover {
   color: var(--buddy-text);
 }
 

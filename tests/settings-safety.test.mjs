@@ -228,7 +228,7 @@ createRoot(document.getElementById('root')).render(<App/>);`,
           (r) => r.url().endsWith('/api/settings') && r.request().method() === 'POST',
         ),
         page
-          .getByRole('dialog', { name: '方向库', exact: true })
+          .locator('#settings-feedback-center')
           .getByRole('button', { name: '保存设置', exact: true })
           .click(),
       ]);
@@ -264,7 +264,7 @@ createRoot(document.getElementById('root')).render(<App/>);`,
       });
       assert.equal(settings.directionLibrary.length, beforeDirections.length - 1);
       assert.equal(settings.selectedDirections.includes(beforeDirections[0].id), false);
-      await page.getByRole('button', { name: '关闭方向库', exact: true }).click();
+      await page.getByRole('button', { name: '返回设置', exact: true }).click();
       const prompts = structuredClone(settings.quickPrompts);
       await page.getByRole('button', { name: '删除常用提示词 1', exact: true }).click();
       await cancel();
@@ -333,7 +333,7 @@ createRoot(document.getElementById('root')).render(<App/>);`,
       await page.getByRole('button', { name: '新增词条', exact: true }).click();
       await page.getByRole('textbox', { name: '术语名称', exact: true }).fill('待补全名称');
       await page
-        .getByRole('dialog', { name: '词库管理', exact: true })
+        .getByRole('region', { name: '词库管理', exact: true })
         .getByRole('button', { name: '添加', exact: true })
         .click();
       await page
@@ -383,7 +383,7 @@ createRoot(document.getElementById('root')).render(<App/>);`,
       );
       assert.equal(settings.baseUrl, fixtureSettings.baseUrl);
 
-      await page.getByRole('button', { name: '关闭词库管理', exact: true }).click();
+      await page.getByRole('button', { name: '返回设置', exact: true }).click();
 
       // The display switch saves only its preference, even with an unfinished phrase.
       await page.evaluate((value) => window.loadSettings(value), settings);

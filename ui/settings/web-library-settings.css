@@ -1,5 +1,5 @@
 /* [INPUT]: Existing settings semantic tokens and site management controls.
- * [OUTPUT]: Folder controls, retained detail drawers and compact website rows on one aligned column.
+ * [OUTPUT]: Folder controls, retained detail pages and compact website rows on one aligned column.
  * [POS]: Settings-only layout; no new theme or workspace shell.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 .web-library-settings {
@@ -129,10 +129,10 @@
 .web-library-settings .preview-frame {
   margin-inline: auto;
 }
-.reader-configuration .settings-drawer-content > .reader-folder-label {
+.reader-configuration .settings-detail-content > .reader-folder-label {
   margin-bottom: 8px;
 }
-.reader-configuration .settings-drawer-content > .reader-folder-choice,
-.reader-configuration .settings-drawer-content > #reader-vault {
+.reader-configuration .settings-detail-content > .reader-folder-choice,
+.reader-configuration .settings-detail-content > #reader-vault {
   margin-top: 0;
 }

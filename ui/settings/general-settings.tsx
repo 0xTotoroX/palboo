@@ -1,5 +1,5 @@
 /* [INPUT]: Appearance and startup preferences, app mode and update APIs.
- * [OUTPUT]: Language, startup and app updates in one place; development options are disclosed on demand.
+ * [OUTPUT]: Three aligned groups for language/startup, run mode and App updates.
  * [POS]: System settings presentation; reuses the existing independent save and update flows.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { tr } from '../shared/i18n.js';
@@ -22,7 +22,7 @@ export function GeneralSettings({
 }) {
   useLocale();
   return (
-    <>
+    <div className="settings-general">
       <Card id="settings-startup">
         <h2>{tr('语言与启动')}</h2>
         <LanguageSettings value={view?.panelPreferences} />
@@ -33,6 +33,6 @@ export function GeneralSettings({
         />
       </Card>
       <AppModeSettings live={live} editor={editor} />
-    </>
+    </div>
   );
 }

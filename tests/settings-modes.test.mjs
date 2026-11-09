@@ -14,7 +14,7 @@ import { fixtureSettings } from './fixtures.mjs';
 import { build } from 'esbuild';
 
 test(
-  'unified settings retain grouped pages, legacy links, drafts, drawers and reading without navigation writes',
+  'unified settings retain grouped pages, legacy links, drafts, detail pages and reading without navigation writes',
   { timeout: 300000 },
   async (testContext) => {
     let settings = structuredClone(fixtureSettings),
@@ -682,17 +682,14 @@ test(
       assert.equal(await page.getByText('已有草稿时只追加。', { exact: true }).count(), 0);
       const originalInstruction = fixtureSettings.directionLibrary[0].instruction;
       const firstId = fixtureSettings.directionLibrary[0].id;
-      const library = page.getByRole('dialog', { name: '方向库', exact: true });
+      const library = page.getByRole('region', { name: '方向库', exact: true });
       await page.getByRole('button', { name: '方向库', exact: true }).click();
       assert.equal(await library.locator('[data-direction-open]:visible').count(), 3);
       assert.equal(await library.locator('textarea:visible').count(), 0);
-      const lightDrawer = await library.evaluate((node) => getComputedStyle(node).backgroundColor);
+      const lightText = await library.evaluate((node) => getComputedStyle(node).color);
       publishTheme('dark');
       await expectTheme('dark');
-      assert.notEqual(
-        await library.evaluate((node) => getComputedStyle(node).backgroundColor),
-        lightDrawer,
-      );
+      assert.notEqual(await library.evaluate((node) => getComputedStyle(node).color), lightText);
       if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
         await library.screenshot({ path: 'target/reports/stepwise-library-dark.png' });
       publishTheme('light');
@@ -713,7 +710,7 @@ test(
       await library.getByRole('button', { name: '内置方向', exact: true }).click();
       await library.getByRole('button', { name: '整体推进', exact: true }).click();
       assert.equal(await instruction.inputValue(), '尚未完成的方向草稿');
-      await library.getByRole('button', { name: '关闭方向库', exact: true }).click();
+      await library.getByRole('button', { name: '返回设置', exact: true }).click();
       await page.getByRole('button', { name: '方向库', exact: true }).click();
       assert.equal(await instruction.evaluate((node) => node === window.directionInput), true);
       assert.equal(await instruction.inputValue(), '尚未完成的方向草稿');
@@ -725,7 +722,7 @@ test(
       // A hidden invalid detail must be revealed for native validation, not silently skipped.
       await instruction.fill('');
       await library.getByRole('button', { name: '返回内置方向', exact: true }).click();
-      await library.getByRole('button', { name: '关闭方向库', exact: true }).click();
+      await library.getByRole('button', { name: '返回设置', exact: true }).click();
       await page
         .locator('.settings-save')
         .getByRole('button', { name: '保存设置', exact: true })
@@ -737,11 +734,13 @@ test(
       await library.getByRole('button', { name: '返回内置方向', exact: true }).click();
       await page.setViewportSize({ width: 360, height: 600 });
       const libraryBox = await library.boundingBox();
-      assert.equal(Math.round(libraryBox.width), 360);
+      const mainBox = await page.getByRole('main').boundingBox();
+      assert.ok(Math.abs(libraryBox.width - mainBox.width) < 1);
+      assert.ok(Math.abs(libraryBox.x - mainBox.x) < 1);
       assert.equal(await library.evaluate((node) => node.scrollWidth <= node.clientWidth), true);
       if (process.env.PALBOO_TEST_SCREENSHOTS === '1')
         await page.screenshot({ path: 'target/reports/stepwise-library-mobile.png' });
-      await library.getByRole('button', { name: '关闭方向库', exact: true }).click();
+      await library.getByRole('button', { name: '返回设置', exact: true }).click();
       await page.goto(origin + '/#settings-next/suggestion-click');
       const display = page.getByRole('region', { name: '显示与操作', exact: true });
       await display.waitFor({ state: 'visible' });
@@ -768,7 +767,7 @@ test(
           .locator(`#direction-${firstId}-name`)
           .evaluate((node) => getComputedStyle(node).fontSize),
       );
-      await library.getByRole('button', { name: '关闭方向库', exact: true }).click();
+      await library.getByRole('button', { name: '返回设置', exact: true }).click();
       await page.setViewportSize({ width: 1360, height: 900 });
       const generation = page.getByLabel('生成方式', { exact: true });
       await generation.click();
@@ -1152,9 +1151,9 @@ test(
       await page.getByRole('button', { name: '搜索设置', exact: true }).click();
       await splitSearch.fill('词库管理');
       await splitSearch.press('Enter');
-      await page.getByRole('dialog', { name: '词库管理', exact: true }).waitFor();
+      await page.getByRole('region', { name: '词库管理', exact: true }).waitFor();
       assert.equal(new URL(page.url()).hash, '#settings-terminology/settings-library');
-      await page.getByRole('button', { name: '关闭词库管理', exact: true }).click();
+      await page.getByRole('button', { name: '返回设置', exact: true }).click();
       await page.getByLabel('搜索术语', { exact: true }).waitFor();
       assert.equal(
         await page.getByText('结合问答核对词义与识别概念', { exact: true }).isVisible(),
@@ -1291,12 +1290,12 @@ test(
       await page.getByLabel('只看收藏', { exact: true }).uncheck();
       await page.getByRole('button', { name: '词库管理', exact: true }).click();
       await page.getByLabel('术语名称', { exact: true }).fill('未保存的术语');
-      await page.getByRole('button', { name: '关闭词库管理', exact: true }).click();
+      await page.getByRole('button', { name: '返回设置', exact: true }).click();
       await category('next');
       await category('terminology');
       await page.getByRole('button', { name: '词库管理', exact: true }).click();
       assert.equal(await page.getByLabel('术语名称', { exact: true }).inputValue(), '未保存的术语');
-      await page.getByRole('button', { name: '关闭词库管理', exact: true }).click();
+      await page.getByRole('button', { name: '返回设置', exact: true }).click();
       assert.equal(
         await page.getByRole('searchbox', { name: '搜索术语', exact: true }).inputValue(),
         'Fixture',
@@ -1322,12 +1321,12 @@ test(
       const limits = page.locator('#settings-limits');
       await page.getByRole('button', { name: '高级设置', exact: true }).click();
       await page.getByLabel('输入字符上限', { exact: true }).fill('18000');
-      await page.getByRole('button', { name: '关闭高级设置', exact: true }).click();
+      await page.getByRole('button', { name: '返回设置', exact: true }).click();
       await roundTrip();
       await page.getByRole('button', { name: '高级设置', exact: true }).click();
-      assert.equal(await limits.locator('dialog').getAttribute('open'), '');
+      assert.equal(await limits.locator('.settings-detail').isVisible(), true);
       assert.equal(await page.getByLabel('输入字符上限', { exact: true }).inputValue(), '18000');
-      await page.getByRole('button', { name: '关闭高级设置', exact: true }).click();
+      await page.getByRole('button', { name: '返回设置', exact: true }).click();
       const before = writes.length;
       await roundTrip();
       assert.equal(
@@ -1346,7 +1345,11 @@ test(
       await page.evaluate(() => scrollTo({ top: 160, behavior: 'instant' }));
       const scroll = await page.evaluate(() => scrollY);
       assert.ok(scroll > 100);
-      await roundTrip();
+      // Do not let the automation scroll the sidebar into view before clicking.
+      await page.locator('.settings-nav a[href="#settings-features"]').evaluate((n) => n.click());
+      await page.getByRole('main', { name: '功能开关', exact: true }).waitFor();
+      await page.locator('.settings-nav a[href="#settings-model"]').evaluate((n) => n.click());
+      await page.getByRole('main', { name: '模型服务', exact: true }).waitFor();
       assert.ok(
         Math.abs((await page.evaluate(() => scrollY)) - scroll) < 3,
         `detail reading position restored: before=${scroll}, after=${await page.evaluate(() => scrollY)}`,
@@ -1540,12 +1543,12 @@ test(
       await page.goto(origin + '/#settings-limits/timeout');
       await page.getByRole('main', { name: '模型服务', exact: true }).waitFor();
       await page.getByLabel('请求超时（秒）', { exact: true }).waitFor();
-      assert.equal(await limits.locator('dialog').getAttribute('open'), '');
+      assert.equal(await limits.locator('.settings-detail').isVisible(), true);
       assert.equal(settings.directionSource, fixtureSettings.directionSource);
       assert.equal(appearance.ui.fontSizes.outline, 17);
       assert.equal(tasks.store.syncEnabled, false);
 
-      await page.getByRole('button', { name: '关闭高级设置', exact: true }).click();
+      await page.getByRole('button', { name: '返回设置', exact: true }).click();
       // Previews consume existing saved snapshots; rejected saves never look successful.
       await page.setViewportSize({ width: 1360, height: 900 });
       await page.getByRole('link', { name: '布局与位置', exact: true }).click();
@@ -1780,7 +1783,7 @@ test(
           ]) {
             await category(id);
             assert.equal(
-              await page.locator('main h1').count(),
+              await page.locator('main h1:visible').count(),
               1,
               `${id}: one host-style page heading`,
             );
@@ -2032,7 +2035,7 @@ test(
                   appearance: rect('[aria-labelledby="term-appearance-title"]').toJSON(),
                   library: rect('[aria-labelledby="term-library-title"]').toJSON(),
                   search: rect('[aria-label="搜索术语"]').toJSON(),
-                  manage: rect('.settings-drawer-trigger').toJSON(),
+                  manage: rect('.settings-detail-trigger').toJSON(),
                   filters: rect('.term-filters').toJSON(),
                   results: rect('.term-results').toJSON(),
                   switches: [...root.querySelectorAll('.term-behavior [role="switch"]')].map(
@@ -2212,27 +2215,18 @@ test(
       );
       const beforeMotion = writes.length;
       await page.getByRole('link', { name: '模型服务', exact: true }).click();
-      const drawer = limits.locator('dialog.settings-drawer');
-      const entryHeight = await limits.evaluate((n) => n.getBoundingClientRect().height);
+      const drawer = limits.getByRole('region', { name: '高级设置', exact: true });
       await page.getByRole('button', { name: '高级设置', exact: true }).click();
-      await drawer.evaluate(async (n) => {
-        await Promise.allSettled(n.getAnimations().map((a) => a.finished));
-      });
-      assert.ok(
-        Math.abs((await limits.evaluate((n) => n.getBoundingClientRect().height)) - entryHeight) <
-          0.1,
-        'drawer does not reflow the main page',
-      );
+      await drawer.waitFor();
+      assert.equal(await page.getByRole('heading', { level: 1, name: '模型服务' }).count(), 0);
+      assert.equal(await page.getByRole('navigation', { name: '设置分类' }).isVisible(), true);
       const bounds = await drawer.boundingBox();
-      assert.ok(Math.abs(bounds.x + bounds.width - page.viewportSize().width) < 2);
-      assert.ok(bounds.width <= 720);
+      const main = await page.getByRole('main').boundingBox();
+      assert.ok(Math.abs(bounds.x - main.x) < 2);
+      assert.ok(Math.abs(bounds.width - main.width) < 2);
+      assert.equal(await drawer.evaluate((n) => n.getAnimations().length), 0);
       await page.keyboard.press('Escape');
-      assert.equal(await drawer.evaluate((n) => n.open), false);
-      assert.equal(
-        await drawer.evaluate((n) => getComputedStyle(n).transitionDuration),
-        '0s',
-        'keyboard closing is immediate',
-      );
+      await drawer.waitFor({ state: 'hidden' });
       const nav = page.getByRole('link', { name: '布局与位置', exact: true });
       await nav.press('Enter');
       assert.equal(
@@ -2243,14 +2237,9 @@ test(
       await page.getByRole('link', { name: '模型服务', exact: true }).click();
       await page.getByRole('button', { name: '高级设置', exact: true }).click();
       await emulateMedia(page, { reducedMotion: 'reduce' });
-      assert.equal(await drawer.evaluate((n) => getComputedStyle(n).transitionDuration), '0s');
       assert.equal(await drawer.evaluate((n) => n.getAnimations().length), 0);
-      await page.getByRole('button', { name: '关闭高级设置', exact: true }).click();
-      assert.equal(
-        writes.length,
-        beforeMotion,
-        'drawer motion and navigation never save configuration',
-      );
+      await page.getByRole('button', { name: '返回设置', exact: true }).click();
+      assert.equal(writes.length, beforeMotion, 'detail navigation never saves configuration');
       await category('connection');
       const sourceBundle = await build({
         entryPoints: ['ui/settings/dev-sources.js'],

@@ -297,9 +297,9 @@ test(
       await settings.getByLabel('新模型分组名称').fill('编程');
       rejectNext = true;
       await settings.getByRole('button', { name: '新增分组' }).click();
-      await settings
-        .locator('.settings-drawer')
-        .getByText(/模拟保存失败/)
+      await page
+        .getByRole('alert')
+        .filter({ hasText: /模拟保存失败/ })
         .waitFor();
       assert.equal(await settings.getByLabel('新模型分组名称').inputValue(), '编程');
       await settings.getByRole('button', { name: '新增分组' }).click();
@@ -369,9 +369,9 @@ test(
       await settings.getByLabel('分组名称 编程', { exact: true }).fill('工作');
       conflictNext = true;
       await settings.getByRole('button', { name: /^保存分组名称 / }).click();
-      await settings
-        .locator('.settings-drawer')
-        .getByText(/已在其他窗口更新/)
+      await page
+        .getByRole('alert')
+        .filter({ hasText: /已在其他窗口更新/ })
         .waitFor();
       assert.equal(
         await settings.getByLabel('分组名称 编程', { exact: true }).inputValue(),
@@ -412,7 +412,7 @@ test(
         'route-b/claude-test',
         'custom',
       ]);
-      await settings.getByRole('button', { name: '关闭模型分组' }).click();
+      await settings.getByRole('button', { name: '返回设置' }).click();
       await page.evaluate((state) => window.render(state), state);
       await view.getByRole('button', { name: '所有模型', exact: true }).click();
       await view.locator('[data-model-group="vendor:Anthropic"]').waitFor();
@@ -462,7 +462,7 @@ test(
           path: 'target/reports/model-groups/settings-narrow.png',
           fullPage: true,
         });
-      await settings.getByRole('button', { name: '关闭模型分组' }).click();
+      await settings.getByRole('button', { name: '返回设置' }).click();
       // Render the real component with a representative dense catalog, not a hand-drawn mockup.
       const favoriteLabels = [
         'GPT-6-Astra',
@@ -1068,13 +1068,14 @@ test(
         viewport: { width: 360, height: 800 },
         reducedMotion: 'reduce',
       });
+      page.setDefaultTimeout(6000);
       await page.setContent('<div id="root"></div>');
       const html = readFileSync('target/web/index.html', 'utf8');
       for (const [, href] of html.matchAll(/<link rel="stylesheet"[^>]*href="([^"]+)"/g))
         await page.addStyleTag({ content: readFileSync(`target/web${href}`, 'utf8') });
       await page.addScriptTag({ content: bundle.outputFiles[0].text });
       await page.getByRole('button', { name: '模型分组', exact: true }).click();
-      const drawer = page.getByRole('dialog', { name: '模型分组', exact: true });
+      const drawer = page.getByRole('region', { name: '模型分组', exact: true });
       await drawer.getByRole('button', { name: '全选当前列表' }).click();
       for (const width of [360, 740, 1360])
         for (const base of [16, 32]) {
@@ -1084,7 +1085,7 @@ test(
             document.documentElement.style.setProperty('--buddy-type-size', base + 'px');
           }, base);
           await drawer
-            .locator('.settings-drawer-content')
+            .locator('.settings-detail-content')
             .evaluate((e) => (e.scrollTop = e.scrollHeight));
           const bounds = await drawer.evaluate((e) => {
             const rect = (s) => {
@@ -1098,9 +1099,9 @@ test(
               };
             };
             return {
-              search: rect('.settings-drawer-toolbar'),
-              list: rect('.settings-drawer-content'),
-              actions: rect('.settings-drawer-footer'),
+              search: rect('.settings-detail-toolbar'),
+              list: rect('.settings-detail-content'),
+              actions: rect('.settings-detail-footer'),
               overflow: document.documentElement.scrollWidth > innerWidth,
               height: innerHeight,
             };
@@ -1150,7 +1151,7 @@ test(
         '未保存厂家',
       );
       await drawer.getByRole('button', { name: '取消选择' }).click();
-      assert.equal(await drawer.locator('.settings-drawer-footer').isVisible(), false);
+      assert.equal(await drawer.locator('.settings-detail-footer').isVisible(), false);
       assert.equal(
         await page.evaluate(() => window.writes),
         0,

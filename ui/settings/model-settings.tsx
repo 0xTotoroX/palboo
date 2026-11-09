@@ -2,10 +2,10 @@ import { NearbyFeedback } from './settings-feedback';
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: Shared model editor, serialized save queue, saved-connection model API, credential controls and free-text dropdown.
- * [OUTPUT]: 已保存模型摘要与直接可见的连接表单；保留草稿、高级设置抽屉和显式连接测试。
+ * [OUTPUT]: 已保存模型摘要与直接可见的连接表单；保留草稿、高级设置二级页和显式连接测试。
  * [POS]: Settings presentation only; all enabled API-backed features share the configured model.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
-import { SettingsDrawer } from './settings-drawer';
+import { SettingsDetail } from './settings-detail';
 import { useProviderFieldsMotion } from './settings-motion';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from './components/ui/button';
@@ -293,7 +293,7 @@ export function ModelSettings({ editor, simple }: { editor: SettingsEditor; simp
               </Field>
             </div>
           </div>
-          <SettingsDrawer id="settings-limits" title={tr('高级设置')} hidden={simple}>
+          <SettingsDetail id="settings-limits" title={tr('高级设置')} hidden={simple}>
             <section hidden={form.provider !== 'api'}>
               <h3>{tr('连接与密钥')}</h3>
               <Field id="protocol" label={tr('API 协议')}>
@@ -376,7 +376,7 @@ export function ModelSettings({ editor, simple }: { editor: SettingsEditor; simp
                 />
               </Field>
             </div>
-          </SettingsDrawer>
+          </SettingsDetail>
         </div>
       </Card>
     </>

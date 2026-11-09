@@ -42,7 +42,7 @@ export function LanguageSettings({ value }: { value?: AppearanceSettings }) {
     }
   }
   return (
-    <div className="settings-section">
+    <div>
       <Field id="interface-language" label={tr('语言')}>
         <NativeSelect
           id="interface-language"

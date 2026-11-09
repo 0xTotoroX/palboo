@@ -68,10 +68,7 @@ function FeedbackRegion({
   useLayoutEffect(() => {
     const content = slot.querySelector<HTMLElement>('[data-feedback-content]');
     const text = content?.textContent?.trim() || '';
-    const hidden =
-      marker.current?.parentElement?.closest('[hidden]') ||
-      content?.firstElementChild?.hasAttribute('hidden');
-    if (hidden || !text || slot.dataset.dismissed === text) {
+    if (!text || slot.dataset.dismissed === text) {
       slot.remove();
       reconcileFeedback();
       return;
@@ -82,30 +79,16 @@ function FeedbackRegion({
       center.id = 'settings-feedback-center';
     }
     center.setAttribute('aria-label', tr('操作反馈'));
-    let observedFooter: Element | null = null;
     const place = () => {
-      // Confirmations retain their own error and may be children of the feedback action.
-      // Never append an ancestor into its own dialog or duplicate that dialog's errors.
-      const modals = [...document.querySelectorAll('dialog.settings-drawer[open]')].filter(
-        (dialog) => !center.contains(dialog),
-      );
-      const host =
-        modals[modals.length - 1] || document.querySelector('.settings-app') || document.body;
+      const host = document.querySelector('.settings-app') || document.body;
       if (center.parentElement !== host) host.append(center);
-      const footer = host.querySelector(':scope > .settings-drawer-footer');
-      if (footer !== observedFooter) {
-        resize.disconnect();
-        if (footer) resize.observe(footer);
-        observedFooter = footer;
-      }
-      // Keep a drawer's stationary Save/Cancel row reachable even for persistent errors.
-      center.style.bottom = footer ? `${footer.getBoundingClientRect().height + 16}px` : '';
       const scope = marker.current?.parentElement;
-      const hidden = !!scope?.closest('[hidden], dialog:not([open])');
+      const hidden =
+        !!scope?.closest('[hidden], dialog:not([open])') ||
+        !!content?.firstElementChild?.hasAttribute('hidden');
       if (slot.hidden !== hidden) slot.hidden = hidden;
       reconcileFeedback();
     };
-    const resize = new ResizeObserver(place);
     place();
     const observer = new MutationObserver(place);
     observer.observe(document.body, {
@@ -141,7 +124,6 @@ function FeedbackRegion({
     return () => {
       window.clearTimeout(timer);
       observer.disconnect();
-      resize.disconnect();
     };
   });
   useLayoutEffect(

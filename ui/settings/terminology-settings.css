@@ -50,10 +50,10 @@
   align-items: start;
   gap: 12px;
 }
-#settings-terminology .term-library-tools .settings-drawer-entry {
+#settings-terminology .term-library-tools .settings-detail-entry {
   margin: 0;
 }
-#settings-terminology .term-library-tools .settings-drawer-trigger {
+#settings-terminology .term-library-tools .settings-detail-trigger {
   min-height: var(--settings-control-height);
   height: var(--settings-control-height);
   padding: 0 12px;
@@ -160,7 +160,7 @@
   #settings-terminology .term-library-tools {
     grid-template-columns: minmax(0, 1fr);
   }
-  #settings-terminology .term-library-tools .settings-drawer-entry {
+  #settings-terminology .term-library-tools .settings-detail-entry {
     justify-self: end;
   }
 }

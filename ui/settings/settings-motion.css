@@ -7,8 +7,6 @@ html:root {
   --settings-menu-exit: 0ms;
   --settings-content-enter: 200ms;
   --settings-exit-ease: var(--settings-ease);
-  --settings-panel-duration: 600ms;
-  --settings-panel-spring: cubic-bezier(0.23, 1, 0.32, 1);
 }
 html:root,
 body,
@@ -186,106 +184,18 @@ body,
   transform: none;
   transition: none;
 }
-:is(.settings-drawer, .settings-search-dialog, .settings-key-dialog)::backdrop {
+:is(.settings-search-dialog, .settings-key-dialog)::backdrop {
   transition: none;
 }
-/* App ViewerSidepanel: x = 100% -> 0, stiffness 400, damping 40, mass 1.
-   Sample the critical spring at 10ms; 600ms settles below a visual pixel.
-   This maps the verified side-panel motion onto Palboo's existing drawers. */
-@supports (transition-timing-function: linear(0, 1)) {
-  html:root {
-    --settings-panel-spring: linear(
-      0,
-      0.01752,
-      0.06155,
-      0.1219,
-      0.19121,
-      0.26424,
-      0.33737,
-      0.40817,
-      0.47507,
-      0.53716,
-      0.59399,
-      0.64543,
-      0.69156,
-      0.73262,
-      0.76892,
-      0.80085,
-      0.8288,
-      0.85316,
-      0.87431,
-      0.89262,
-      0.90842,
-      0.92202,
-      0.9337,
-      0.94371,
-      0.95227,
-      0.95957,
-      0.9658,
-      0.97109,
-      0.97559,
-      0.97941,
-      0.98265,
-      0.98539,
-      0.9877,
-      0.98966,
-      0.99131,
-      0.9927,
-      0.99388,
-      0.99487,
-      0.9957,
-      0.99639,
-      0.99698,
-      0.99747,
-      0.99789,
-      0.99823,
-      0.99852,
-      0.99877,
-      0.99897,
-      0.99914,
-      0.99928,
-      0.9994,
-      0.9995,
-      0.99958,
-      0.99965,
-      0.99971,
-      0.99976,
-      0.9998,
-      0.99983,
-      0.99986,
-      0.99988,
-      0.9999,
-      1
-    );
-  }
-}
-.settings-drawer {
-  opacity: 1;
-  transform: translateX(100%);
-  pointer-events: none;
-  transition:
-    transform var(--settings-panel-duration) var(--settings-panel-spring),
-    display var(--settings-panel-duration) allow-discrete,
-    overlay var(--settings-panel-duration) allow-discrete;
-}
-.settings-drawer[open] {
-  transform: none;
-  pointer-events: auto;
-}
-:is(.settings-drawer, .settings-search-dialog, .settings-key-dialog):not([open]),
-:is(.settings-drawer, .settings-search-dialog, .settings-key-dialog):not([open])::backdrop {
+:is(.settings-search-dialog, .settings-key-dialog):not([open]),
+:is(.settings-search-dialog, .settings-key-dialog):not([open])::backdrop {
   pointer-events: none;
 }
-@starting-style {
-  .settings-drawer[open] {
-    transform: translateX(100%);
-  }
-}
-.settings-drawer-trigger > .buddy-icon {
+.settings-detail-trigger > .buddy-icon {
   transition: translate 160ms var(--settings-ease);
 }
 @media (hover: hover) and (pointer: fine) {
-  .settings-drawer-trigger:hover > .buddy-icon {
+  .settings-detail-trigger:hover > .buddy-icon {
     translate: 2px 0;
   }
 }
@@ -334,16 +244,14 @@ html[data-settings-input='keyboard'] :is(body, .settings-header, .preview-frame)
 html[data-settings-input='keyboard'] .settings-app :is(button, a, input, select, textarea),
 html[data-settings-input='keyboard'] .settings-menu-motion,
 html[data-settings-input='keyboard'] .settings-suggestion-list[data-model-picker],
-html[data-settings-input='keyboard']
-  :is(.settings-drawer, .settings-search-dialog, .settings-key-dialog),
-html[data-settings-input='keyboard']
-  :is(.settings-drawer, .settings-search-dialog, .settings-key-dialog)::backdrop,
+html[data-settings-input='keyboard'] :is(.settings-search-dialog, .settings-key-dialog),
+html[data-settings-input='keyboard'] :is(.settings-search-dialog, .settings-key-dialog)::backdrop,
 html[data-settings-input='keyboard'] .settings-native-select > .buddy-icon,
 html[data-settings-input='keyboard']
   .settings-suggestion-trigger
   .settings-action-layer:first-child
   > .buddy-icon,
-html[data-settings-input='keyboard'] .settings-drawer-trigger > .buddy-icon,
+html[data-settings-input='keyboard'] .settings-detail-trigger > .buddy-icon,
 html[data-settings-input='keyboard'] [data-slot='switch-thumb'],
 html[data-settings-input='keyboard'] .settings-category-links,
 html[data-settings-input='keyboard'] .settings-nav-trigger .buddy-icon,

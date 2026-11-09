@@ -581,8 +581,9 @@ createRoot(document.getElementById('root')).render(<App/>);
     );
     await page.goto('http://layout-presets.test/?open=layout-presets#token=synthetic');
     await page.addScriptTag({ content: script });
-    const drawer = page.getByRole('dialog', { name: '布局预设', exact: true });
+    const drawer = page.getByRole('region', { name: '布局预设', exact: true });
     await drawer.waitFor();
+    await drawer.getByRole('button', { name: '返回设置', exact: true }).click();
     for (const width of [901, 390]) {
       await page.setViewportSize({ width, height: 780 });
       const geometry = await page.evaluate(() => {
@@ -593,7 +594,7 @@ createRoot(document.getElementById('root')).render(<App/>);
         return {
           layout: rect('#main-layout'),
           preset: rect('#current-layout-preset'),
-          manager: rect('button[aria-controls="layout-presets-drawer"]'),
+          manager: rect('button[aria-controls="layout-presets-detail"]'),
         };
       });
       assert.ok(geometry.layout.width > 0);
@@ -605,7 +606,9 @@ createRoot(document.getElementById('root')).render(<App/>);
       assert.ok(geometry.manager.top < geometry.layout.top, 'management belongs above the fields');
       assert.ok(geometry.preset.top > geometry.layout.top, 'presets have their own row');
     }
-    assert.equal(await page.getByRole('button', { name: '管理布局预设', exact: true }).count(), 1);
+    const manage = page.getByRole('button', { name: '管理布局预设', exact: true });
+    assert.equal(await manage.count(), 1);
+    await manage.click();
     assert.equal(await drawer.getByRole('textbox').count(), 0);
     assert.equal(await drawer.getByRole('checkbox').count(), 0);
     await drawer.getByRole('button', { name: '保存新预设' }).click();
@@ -621,7 +624,7 @@ createRoot(document.getElementById('root')).render(<App/>);
     await name.fill('阅读对照');
     await page.evaluate(() => (failSave = true));
     await drawer.getByRole('button', { name: '保存当前布局', exact: true }).click();
-    await drawer.getByRole('alert').filter({ hasText: '保存失败' }).waitFor();
+    await page.getByRole('alert').filter({ hasText: '保存失败' }).waitFor();
     assert.equal(await name.inputValue(), '阅读对照');
     await page.evaluate(() => (failSave = false));
     await drawer.getByRole('button', { name: '保存当前布局', exact: true }).click();
@@ -639,7 +642,7 @@ createRoot(document.getElementById('root')).render(<App/>);
       server.layoutPresets[0].name = '另一窗口的名称';
     });
     await drawer.getByRole('button', { name: '保存更改', exact: true }).click();
-    await drawer.getByRole('alert').filter({ hasText: '其他窗口更新' }).waitFor();
+    await page.getByRole('alert').filter({ hasText: '其他窗口更新' }).waitFor();
     assert.equal(await rename.inputValue(), '我正在编辑');
     assert.equal(await page.evaluate(() => server.layoutPresets[0].name), '另一窗口的名称');
     await drawer.getByRole('button', { name: '取消', exact: true }).click();
@@ -649,7 +652,7 @@ createRoot(document.getElementById('root')).render(<App/>);
     await page.waitForFunction(() => server.layoutPresets[0].name === '我的布局');
     await rename.fill('语言切换保留草稿');
     await page.evaluate(() => changeLocale('en'));
-    const englishDrawer = page.getByRole('dialog', { name: 'Layout presets', exact: true });
+    const englishDrawer = page.getByRole('region', { name: 'Layout presets', exact: true });
     await englishDrawer.getByRole('button', { name: 'Save changes', exact: true }).waitFor();
     assert.equal(
       await englishDrawer.locator('#layout-preset-rename').inputValue(),
@@ -686,7 +689,10 @@ createRoot(document.getElementById('root')).render(<App/>);
       'outline',
       'next',
     ]);
-    await page.keyboard.press('Escape');
+    await page
+      .getByRole('dialog', { name: '删除布局预设', exact: true })
+      .waitFor({ state: 'hidden' });
+    await drawer.getByRole('button', { name: '返回设置', exact: true }).click();
     const preset = page.locator('#current-layout-preset');
     const waitForPreset = (value) =>
       page.waitForFunction(

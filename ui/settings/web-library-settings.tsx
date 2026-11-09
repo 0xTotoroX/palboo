@@ -10,7 +10,7 @@ import { Input } from './components/ui/input';
 import { ReaderFolderSettings } from './reader-folder-settings';
 import { SettingsSortableList } from './settings-sortable-list';
 import { useConfirmation } from './settings-confirmation';
-import { SettingsDrawer, closeSettingsDrawers, revealSettingsDrawer } from './settings-drawer';
+import { SettingsDetail, closeSettingsDetails, showSettingsDetail } from './settings-detail';
 import { FeaturePreviewContent } from './feature-preview';
 import { PreviewFrame } from './preview-frame';
 import { tr } from '../shared/i18n.js';
@@ -130,11 +130,11 @@ export function WebLibrarySettings({
   function startSite(value: Site) {
     const show = () => {
       loadSite(value);
-      if (siteName.current) revealSettingsDrawer(siteName.current);
+      if (siteName.current) showSettingsDetail(siteName.current);
     };
     if (siteDraft.current) {
       if (site.id === value.id) {
-        if (siteName.current) revealSettingsDrawer(siteName.current);
+        if (siteName.current) showSettingsDetail(siteName.current);
       } else {
         confirmation.confirm({
           title: tr('放弃未保存的修改？'),
@@ -237,7 +237,7 @@ export function WebLibrarySettings({
         <section className="settings-section" data-settings-search-ignore>
           <div className="web-library-heading">
             <h2>{tr('自定义网站')}</h2>
-            <SettingsDrawer
+            <SettingsDetail
               title={site.id ? tr('编辑网站') : tr('添加网站')}
               hidden={!active}
               compact
@@ -271,7 +271,7 @@ export function WebLibrarySettings({
                     siteDraft.current?.revision ?? state.revision,
                   ).then((ok) => {
                     if (ok) {
-                      closeSettingsDrawers();
+                      closeSettingsDetails();
                       loadSite();
                     }
                   });
@@ -315,7 +315,7 @@ export function WebLibrarySettings({
                     variant="ghost"
                     disabled={disabled}
                     onClick={() => {
-                      closeSettingsDrawers();
+                      closeSettingsDetails();
                       loadSite();
                     }}
                   >
@@ -330,7 +330,7 @@ export function WebLibrarySettings({
                 text={siteConflict ? tr('设置已在其他窗口更新，当前编辑已保留。') : error}
                 failed
               />
-            </SettingsDrawer>
+            </SettingsDetail>
           </div>
           {((state?.sites.length || 0) >= 7 || filter) && (
             <Input

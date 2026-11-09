@@ -414,7 +414,7 @@ try {
   record('folder picker draft and cancel preserve saved grants');
   assert.equal(await settings.locator('.settings-preview').count(), 0);
   await settings.locator('#reader-attachments').fill(join(vault, '项目/附件'));
-  await settings.getByRole('dialog', { name: '编辑文件夹', exact: true }).press('Escape');
+  await settings.getByRole('region', { name: '编辑文件夹', exact: true }).press('Escape');
   const saved = await api('web-library');
   await api('web-library', {
     expectedRevision: saved.revision,
@@ -429,11 +429,11 @@ try {
     join(vault, '项目/附件'),
   );
   await settings
-    .getByRole('dialog', { name: '编辑文件夹', exact: true })
+    .getByRole('region', { name: '编辑文件夹', exact: true })
     .getByRole('button', { name: '保存', exact: true })
     .click();
   await settings
-    .getByRole('dialog', { name: '编辑文件夹', exact: true })
+    .locator('#settings-feedback-center')
     .getByRole('alert')
     .filter({ hasText: '阅读与网页设置已在其他窗口更新，请刷新后重试' })
     .waitFor();
@@ -441,7 +441,7 @@ try {
   await settings.getByRole('button', { name: '重新读取已保存目录', exact: true }).click();
   assert.equal(await settings.locator('#reader-attachments').inputValue(), join(vault, '其他'));
   await settings
-    .getByRole('dialog', { name: '编辑文件夹', exact: true })
+    .getByRole('region', { name: '编辑文件夹', exact: true })
     .getByRole('button', { name: '取消', exact: true })
     .click();
   const current = await api('web-library');
@@ -454,14 +454,14 @@ try {
     'clean roots refresh',
   );
   await settings
-    .getByRole('dialog', { name: '编辑文件夹', exact: true })
+    .getByRole('region', { name: '编辑文件夹', exact: true })
     .getByRole('button', { name: '取消', exact: true })
     .click();
   record('root drafts survive external conflicts; saved grants refresh without silent overwrite');
   await settings.getByRole('button', { name: '添加网站', exact: true }).click();
   await settings.locator('#website-name').fill('合成网站');
   await settings.locator('#website-url').fill('https://example.invalid/path');
-  await settings.getByRole('dialog', { name: '添加网站', exact: true }).press('Escape');
+  await settings.getByRole('region', { name: '添加网站', exact: true }).press('Escape');
   await settings.getByRole('button', { name: '添加网站', exact: true }).click();
   assert.equal(
     await settings.locator('#website-name').inputValue(),
@@ -469,7 +469,7 @@ try {
     'closing retains website draft',
   );
   await settings
-    .getByRole('dialog', { name: '添加网站', exact: true })
+    .getByRole('region', { name: '添加网站', exact: true })
     .getByRole('button', { name: '添加网站', exact: true })
     .click();
   await settings.locator('.web-library-open').filter({ hasText: '合成网站' }).waitFor();

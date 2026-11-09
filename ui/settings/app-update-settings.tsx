@@ -1,7 +1,7 @@
 import { Notice } from './settings-controls';
 /* [INPUT]: 手动更新 API、现有设置草稿及共享控件。
  * [OUTPUT]: 本地安装版本、显式检查、版本说明和更新进度页交接；断线失效旧读数与更新候选。
- * [POS]: 启动与连接页面；不后台联网检查，不自动下载或切换开发模式。
+ * [POS]: 通用设置；不后台联网检查，不自动下载或切换开发模式。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { useEffect, useRef, useState } from 'react';
 import { useLocale } from '../shared/use-locale';
@@ -106,8 +106,10 @@ export function AppUpdateSettings({
     <Card tabIndex={-1} id="settings-app-update" aria-labelledby="app-update-title">
       <h2 id="app-update-title">{tr('应用更新')}</h2>
       <Field id="app-update-version" label={tr('当前版本')}>
-        <div className="settings-actions flex-wrap">
-          <span id="app-update-version">{state ? `v${state.currentVersion}` : '—'}</span>
+        <div className="settings-general-value settings-version-line">
+          <output id="app-update-version" aria-live="off">
+            {state ? `v${state.currentVersion}` : '—'}
+          </output>
           <Button
             type="button"
             variant="outline"

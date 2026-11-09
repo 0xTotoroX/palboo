@@ -77,7 +77,7 @@ async function checkSettingsNavigation(page, context, base, runtime) {
       await page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
       false,
     );
-    for (const id of ['features', 'model', 'surfaces', 'connection']) {
+    for (const id of ['features', 'model', 'surfaces', 'connection', 'general']) {
       await selectSettingsCategory(page, id);
       await page
         .getByRole('main', {
@@ -86,6 +86,7 @@ async function checkSettingsNavigation(page, context, base, runtime) {
             model: '模型服务',
             surfaces: '布局与位置',
             connection: 'Codex 连接',
+            general: '通用',
           }[id],
           exact: true,
         })
@@ -109,7 +110,7 @@ async function checkSettingsNavigation(page, context, base, runtime) {
   assert.equal(await group.inputValue(), '尚未保存的分组名称');
   await page.evaluate(() => (location.hash = 'settings-limits'));
   await page.getByLabel('输入上下文', { exact: true }).waitFor();
-  await page.getByRole('button', { name: '关闭高级设置', exact: true }).click();
+  await page.getByRole('button', { name: '返回设置', exact: true }).click();
   const gated = await context.newPage();
   await gated.route('**/api/settings', async (route) => {
     const response = await route.fetch();
@@ -457,7 +458,7 @@ try {
       await limit.waitFor();
     };
     const closeLimits = async () => {
-      await page.getByRole('button', { name: '关闭高级设置', exact: true }).click();
+      await page.getByRole('button', { name: '返回设置', exact: true }).click();
       await limit.waitFor({ state: 'hidden' });
     };
     await openLimit();

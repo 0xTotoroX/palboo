@@ -8,7 +8,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { request } from './api';
 import { Toggle, Feedback } from './settings-controls';
 import { Input } from './components/ui/input';
-import { SettingsDrawer } from './settings-drawer';
+import { SettingsDetail } from './settings-detail';
 import { Button, IconButton } from './components/ui/button';
 import type { SettingsEditor } from './use-settings-form';
 import { localizedBotSetupPrompt } from './bot-setup-prompt';
@@ -206,9 +206,14 @@ export function BotSettings({
             >
               {group.kind !== 'pinned' && group.name && <h3>{group.name}</h3>}
               {group.bots.map((bot) => (
-                <SettingsDrawer key={bot.id} title={bot.name} hidden={!active}>
+                <SettingsDetail
+                  key={bot.id}
+                  id={`settings-bot-${bot.id}`}
+                  title={bot.name}
+                  hidden={!active}
+                >
                   <p className="bot-settings-description">{bot.description || tr('暂无简介')}</p>
-                </SettingsDrawer>
+                </SettingsDetail>
               ))}
             </section>
           ))}
@@ -223,7 +228,7 @@ export function BotSetupInstructions({ hidden }: { hidden: boolean }) {
   const [copied, setCopied] = useState('');
   return (
     <div className="bot-settings-setup" hidden={hidden}>
-      <SettingsDrawer title={tr('接入 Grok Bot')} hidden={hidden}>
+      <SettingsDetail id="settings-bot-setup" title={tr('接入 Grok Bot')} hidden={hidden}>
         <p>{tr('把这段 Prompt 交给你的 Agent 或 Codex，按当前官方文档完成接入和后续更新。')}</p>
         <textarea
           aria-label={tr('Grok Bot 接入 Prompt')}
@@ -245,7 +250,7 @@ export function BotSetupInstructions({ hidden }: { hidden: boolean }) {
           </Button>
         </div>
         <Feedback text={copied} />
-      </SettingsDrawer>
+      </SettingsDetail>
     </div>
   );
 }

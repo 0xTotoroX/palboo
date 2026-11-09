@@ -122,7 +122,7 @@ test('backup requires a reviewed operation and keeps feedback outside the form f
   assert.equal(await restoreForm.getByRole('button', { name: '预览恢复' }).isDisabled(), true);
   await restoreForm.getByLabel('备份密码').fill('synthetic import password');
   await restoreForm.getByRole('button', { name: '预览恢复', exact: true }).click();
-  const drawer = page.getByRole('dialog', { name: '确认恢复范围', exact: true });
+  const drawer = page.getByRole('region', { name: '确认恢复范围', exact: true });
   await drawer.waitFor();
   assert.equal(writes.find((w) => w.op === 'preview').password, 'synthetic import password');
   assert.equal(writes.filter((w) => w.op === 'apply').length, 0);

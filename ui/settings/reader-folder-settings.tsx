@@ -8,7 +8,7 @@ import { Field, Feedback } from './settings-controls';
 import { Button, IconButton } from './components/ui/button';
 import { Input } from './components/ui/input';
 import { NativeSelect } from './components/ui/native-select';
-import { SettingsDrawer, closeSettingsDrawers, revealSettingsDrawer } from './settings-drawer';
+import { SettingsDetail, closeSettingsDetails, showSettingsDetail } from './settings-detail';
 import { useConfirmation } from './settings-confirmation';
 import { Icon } from '../shared/icons/react';
 import { tr } from '../shared/i18n.js';
@@ -68,12 +68,12 @@ export function ReaderFolderSettings({
   }
   function start(folder?: NoteFolder) {
     if (draft.current && folder?.id === form.id) {
-      if (pathField.current) revealSettingsDrawer(pathField.current);
+      if (pathField.current) showSettingsDetail(pathField.current);
       return;
     }
     const show = () => {
       load(folder);
-      if (pathField.current) revealSettingsDrawer(pathField.current);
+      if (pathField.current) showSettingsDetail(pathField.current);
     };
     if (draft.current && folder?.id !== form.id) {
       confirmation.confirm({
@@ -117,7 +117,7 @@ export function ReaderFolderSettings({
       ? (state.folders || []).map((item) => (item.id === form.id ? folder : item))
       : [...(state.folders || []), folder];
     if (await save({ folders }, draft.current?.revision ?? state.revision)) {
-      closeSettingsDrawers();
+      closeSettingsDetails();
       load();
     }
   }
@@ -125,7 +125,7 @@ export function ReaderFolderSettings({
     <section className="settings-section reader-configuration">
       <div className="web-library-heading">
         <h2>{tr('本地笔记')}</h2>
-        <SettingsDrawer
+        <SettingsDetail
           title={form.id ? tr('编辑文件夹') : tr('添加文件夹')}
           hidden={!active}
           compact
@@ -146,7 +146,7 @@ export function ReaderFolderSettings({
                   variant="ghost"
                   disabled={blocked}
                   onClick={() => {
-                    closeSettingsDrawers();
+                    closeSettingsDetails();
                     load();
                   }}
                 >
@@ -223,7 +223,7 @@ export function ReaderFolderSettings({
               onChange={(event) => edit({ attachments: event.target.value })}
             />
           </Field>
-        </SettingsDrawer>
+        </SettingsDetail>
       </div>
       <div className="web-library-list reader-folder-list">
         {state?.folders?.map((folder) => (

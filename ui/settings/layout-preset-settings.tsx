@@ -1,6 +1,6 @@
 /* [INPUT]: Current feature state, resolved layout and the settings write queue.
  * [OUTPUT]: Separate selection/management slots for the main layout group, with retained preset name/scope drafts.
- * [POS]: Main layout settings and its existing drawer; never changes business feature switches.
+ * [POS]: Main layout settings and its detail page; never changes business feature switches.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { tr } from '../shared/i18n.js';
@@ -17,7 +17,7 @@ import {
   builtinLayoutPresets,
   matchingBuiltinLayout,
 } from '../surfaces/workspace/layout-presets.js';
-import { SettingsDrawer } from './settings-drawer';
+import { SettingsDetail } from './settings-detail';
 import { Field } from './settings-controls';
 import { Button, IconButton } from './components/ui/button';
 import { Input } from './components/ui/input';
@@ -151,7 +151,7 @@ export function LayoutPresetSettings({
       </Field>
     ),
     manager: (
-      <SettingsDrawer
+      <SettingsDetail
         id="layout-presets"
         title={tr('布局预设')}
         triggerLabel={tr('管理布局预设')}
@@ -371,7 +371,7 @@ export function LayoutPresetSettings({
           </section>
         )}
         {confirmation.confirmation}
-      </SettingsDrawer>
+      </SettingsDetail>
     ),
   });
 }

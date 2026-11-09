@@ -895,6 +895,7 @@ export default {
   重新载入设置: 'Reload settings',
   已保存: 'Saved',
   保存设置: 'Save settings',
+  返回设置: 'Back to settings',
   '关闭{{title}}': 'Close {{title}}',
   '设置已在其他窗口更新，草稿已保留。关闭抽屉后可重新载入。':
     'Settings changed in another window. Your draft has been kept. Close the drawer to reload.',

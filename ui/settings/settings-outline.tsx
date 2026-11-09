@@ -8,10 +8,12 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { Icon } from '../shared/icons/react';
 import { titles } from '../shared/features';
 import {
-  closeSettingsDrawers,
-  revealSettingsDrawer,
+  closeSettingsDetails,
   revealSettingsDetail,
-} from './settings-drawer';
+  settingsDetailRouteEvent,
+  showSettingsDetail,
+  type SettingsDetailRoute,
+} from './settings-detail';
 export const pageTitles = {
   get backup() {
     return tr('备份与恢复');
@@ -213,13 +215,13 @@ export function revealSettingsField(target: HTMLElement) {
   revealSettingsDetail(target);
   if (!target.id) target.id = `buddy-settings-invalid-${++revealedField}`;
   const owner = target.closest<HTMLElement>('[data-settings-page]')?.dataset.settingsPage;
-  if (owner && owner in pageTitles && target.closest('[hidden]')) {
+  if (owner && owner in pageTitles && !target.getClientRects().length) {
     document.dispatchEvent(
       new CustomEvent('buddy-settings-reveal', { detail: { page: owner, id: target.id } }),
     );
   } else {
-    const concealed = !!target.closest('dialog:not([open])');
-    revealSettingsDrawer(target).focus({ preventScroll: true });
+    const concealed = !!target.closest('[data-settings-detail-panel][hidden]');
+    showSettingsDetail(target, false).focus({ preventScroll: true });
     if (concealed) requestAnimationFrame(() => reportInvalidField(target));
   }
 }
@@ -242,15 +244,21 @@ export function useSettingsPage(ready: boolean) {
   const positions = useRef(new Map<string, number>());
   const current = useRef(selection);
   function select(next: { page: SettingsPage }, hash: string) {
-    closeSettingsDrawers();
-    positions.current.set(current.current.page, window.scrollY);
-    setSelection({ page: next.page, hash });
+    const previous = current.current;
+    if (previous.page === next.page && previous.hash === hash) return;
+    if (!document.querySelector('[data-settings-detail-open]'))
+      positions.current.set(previous.page, window.scrollY);
+    closeSettingsDetails({ focus: next.page === previous.page, navigate: false });
+    current.current = { page: next.page, hash };
+    setSelection(current.current);
   }
   function navigate(next: SettingsPage, hash: string) {
     if (location.hash !== hash) history.pushState({ buddySettings: { page: next } }, '', hash);
     select({ page: next }, hash);
   }
   useEffect(() => {
+    const scrollRestoration = history.scrollRestoration;
+    history.scrollRestoration = 'manual';
     const change = () => {
       const next = fromHash() || history.state?.buddySettings;
       if (next) select(next, settingsHash());
@@ -259,11 +267,38 @@ export function useSettingsPage(ready: boolean) {
       const { page, id } = (event as CustomEvent<{ page: SettingsPage; id: string }>).detail;
       navigate(page, `#settings-${page}/${encodeURIComponent(id)}`);
     };
+    const detailRoute = (event: Event) => {
+      const { action, entry, target } = (event as CustomEvent<SettingsDetailRoute>).detail;
+      const owner = entry.closest<HTMLElement>('[data-settings-page]')?.dataset.settingsPage;
+      const page = owner && owner in pageTitles ? (owner as SettingsPage) : current.current.page;
+      if (!entry.closest('.settings-content') || !entry.id) return;
+      event.preventDefault();
+      if (action === 'back') {
+        if (history.state?.buddySettings?.detailEntry === entry.id) {
+          history.back();
+        } else {
+          const hash = `#settings-${page}`;
+          history.replaceState({ buddySettings: { page } }, '', hash);
+          select({ page }, hash);
+        }
+        return;
+      }
+      const hash = `#settings-${page}/${encodeURIComponent(target.id || entry.id)}`;
+      if (location.hash !== hash) {
+        history.pushState({ buddySettings: { page, detailEntry: entry.id } }, '', hash);
+        select({ page }, hash);
+      } else {
+        showSettingsDetail(target, false).focus({ preventScroll: true });
+      }
+    };
     document.addEventListener('buddy-settings-reveal', reveal);
+    document.addEventListener(settingsDetailRouteEvent, detailRoute);
     window.addEventListener('hashchange', change);
     window.addEventListener('popstate', change);
     return () => {
+      history.scrollRestoration = scrollRestoration;
       document.removeEventListener('buddy-settings-reveal', reveal);
+      document.removeEventListener(settingsDetailRouteEvent, detailRoute);
       window.removeEventListener('hashchange', change);
       window.removeEventListener('popstate', change);
     };
@@ -273,10 +308,8 @@ export function useSettingsPage(ready: boolean) {
     if (history.state?.buddySettings?.page !== page)
       history.replaceState({ ...history.state, buddySettings: { page } }, '', location.href);
     remember('sessionStorage', 'buddy-settings-page', page);
-    window.scrollTo({
-      top: positions.current.get(page) || 0,
-      behavior: 'instant',
-    });
+    if (!document.querySelector('[data-settings-detail-open]'))
+      window.scrollTo({ top: positions.current.get(page) || 0, behavior: 'instant' });
     if (!ready) return;
     const [section, encodedField] = hash.slice(1).split('/');
     let field = encodedField;
@@ -300,15 +333,16 @@ export function useSettingsPage(ready: boolean) {
         navigate(owner as SettingsPage, `#settings-${owner}/${encodeURIComponent(target)}`);
         return true;
       }
-      revealSettingsDetail(node);
+      const entry = node.closest<HTMLElement>('[data-settings-detail]');
+      const entryTarget = entry === node;
+      node = showSettingsDetail(node, false);
       if (node.closest('[hidden]')) return false;
       for (let parent: HTMLElement | null = node; parent; parent = parent.parentElement)
         if (parent instanceof HTMLDetailsElement) parent.open = true;
-      node = revealSettingsDrawer(node);
       if (!node.hasAttribute('tabindex') && !node.matches('input,select,button,a'))
         node.tabIndex = -1;
       node.focus({ preventScroll: true });
-      node.scrollIntoView({ behavior: 'instant', block: 'center' });
+      if (!entryTarget) node.scrollIntoView({ behavior: 'instant', block: 'center' });
       reportInvalidField(node);
       return true;
     };

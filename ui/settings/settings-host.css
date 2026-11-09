@@ -69,10 +69,6 @@ html[data-settings-style='chatgpt'] {
     font-weight: 600;
     letter-spacing: var(--settings-heading-tracking);
   }
-  .settings-app .settings-drawer-header h2 {
-    font-weight: var(--settings-heading-weight);
-    letter-spacing: var(--settings-heading-tracking);
-  }
   .settings-app .settings-section h2 {
     font-size: var(--settings-heading-size);
     line-height: var(--settings-heading-line-height);
@@ -461,10 +457,7 @@ html[data-settings-style='chatgpt'] {
     box-shadow: var(--settings-dialog-shadow);
     background: var(--buddy-surface);
   }
-  .settings-drawer {
-    box-shadow: var(--settings-dialog-shadow);
-  }
-  :is(.settings-key-dialog, .settings-search-dialog, .settings-drawer)::backdrop {
+  :is(.settings-key-dialog, .settings-search-dialog)::backdrop {
     background: var(--settings-backdrop);
   }
   @media (max-width: 640px) {

@@ -1,6 +1,6 @@
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
-/* [INPUT]: Mounted settings labels, explicit page catalog and lazy drawer entries.
+/* [INPUT]: Mounted settings labels, explicit page catalog and lazy detail entries.
  * [OUTPUT]: Click-open local label search and original-control navigation; no global shortcut, library editors opt out of indexing private names.
  * [POS]: Presentation only; never indexes input values, credentials or chat content.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
@@ -59,7 +59,7 @@ function indexSettings(): Entry[] {
     content.querySelectorAll('label,h2,summary,button[aria-label]'),
   ).flatMap((node, i) => {
     if (
-      node.matches('[data-drawer-heading], [data-drawer-close]') ||
+      node.matches('[data-settings-detail-back]') ||
       node.closest('[data-settings-search-ignore]')
     )
       return [];
@@ -73,8 +73,8 @@ function indexSettings(): Entry[] {
         ? (node.htmlFor && document.getElementById(node.htmlFor)) ||
           node.querySelector<HTMLElement>('input,button,select') ||
           node
-        : node.matches('button[aria-haspopup="dialog"]')
-          ? node.closest<HTMLElement>('[data-settings-drawer][id]') || node
+        : node.matches('.settings-detail-trigger')
+          ? node.closest<HTMLElement>('[data-settings-detail][id]') || node
           : node;
     if (!(target instanceof HTMLElement)) return [];
     if (!target.id) {
@@ -111,7 +111,7 @@ function indexSettings(): Entry[] {
       context: '',
       keywords: normalize(pageTitles[category]),
     }));
-  const drawers: Entry[] = [
+  const details: Entry[] = [
     {
       id: 'settings-library',
       label: tr('词库管理'),
@@ -127,7 +127,7 @@ function indexSettings(): Entry[] {
       keywords: tr('模型分组 厂家 分类'),
     },
   ];
-  return [...fields, ...pages, ...drawers].filter(
+  return [...fields, ...pages, ...details].filter(
     (entry, index, all) =>
       all.findIndex((other) => other.category === entry.category && other.label === entry.label) ===
       index,

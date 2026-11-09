@@ -276,39 +276,26 @@ test('startup updates fit a narrow layout in both languages with keyboard access
       geometry.labels.every((v) => v.left >= 0 && v.right <= geometry.viewport + 1),
       JSON.stringify(geometry),
     );
-    await f.page.locator('#app-mode').selectOption('development');
-    await f.page
-      .getByRole('button', {
-        name: language === 'en' ? 'Development settings' : '开发设置',
-        exact: true,
-      })
-      .press('Enter');
-    const drawer = f.page.getByRole('dialog');
-    await drawer.locator('#app-mode-source').fill('/tmp/a long development source folder/palboo');
-    const source = await drawer.locator('#app-mode-source').elementHandle();
-    assert.ok(await drawer.evaluate((node) => node.scrollWidth <= node.clientWidth + 1));
+    const mode = f.page.locator('#app-mode');
+    const source = f.page.locator('#app-mode-source');
+    await mode.selectOption('development');
+    await source.fill('/tmp/a long development source folder/palboo');
+    const original = await source.elementHandle();
+    assert.equal(
+      await f.page.evaluate(() => document.documentElement.scrollWidth > innerWidth),
+      false,
+    );
     await mkdir('target/reports/settings-connection', { recursive: true });
     await f.page.screenshot({
       path: `target/reports/settings-connection/development-${language}.png`,
     });
-    await f.page.keyboard.press('Escape');
-    await f.page
-      .getByRole('button', {
-        name: language === 'en' ? 'Development settings' : '开发设置',
-        exact: true,
-      })
-      .press('Enter');
-    assert.equal(
-      await drawer.locator('#app-mode-source').evaluate((node, old) => node === old, source),
-      true,
-    );
-    assert.equal(
-      await drawer.locator('#app-mode-source').inputValue(),
-      '/tmp/a long development source folder/palboo',
-    );
-    await drawer.locator('#app-mode-source').fill('');
-    await f.page.keyboard.press('Escape');
-    await f.page.locator('#app-mode').selectOption('release');
+    await mode.selectOption('release');
+    await source.waitFor({ state: 'hidden' });
+    await mode.selectOption('development');
+    assert.equal(await source.evaluate((node, old) => node === old, original), true);
+    assert.equal(await source.inputValue(), '/tmp/a long development source folder/palboo');
+    await source.fill('');
+    await mode.selectOption('release');
   }
 });
 

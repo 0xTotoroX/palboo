@@ -2,10 +2,10 @@ import { SegmentedGroup } from './components/ui/segmented-group';
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: 认证术语 API、可唤起状态、共用卡片/动作图标与用户导入/输入。
- * [OUTPUT]: 随主题原位更新的外观预览、词条原位展开与词库检索；管理抽屉按新增/导入导出分区，保留草稿与深链接，名称/文件排队交给下次主聊天，个人导出与确认重置。
+ * [OUTPUT]: 随主题原位更新的外观预览、词条原位展开与词库检索；管理二级页按新增/导入导出分区，保留草稿与深链接，名称/文件排队交给下次主聊天，个人导出与确认重置。
  * [POS]: 详细设置的功能区，不访问主聊天内容。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
-import { SettingsDrawer } from './settings-drawer';
+import { SettingsDetail } from './settings-detail';
 import { PreviewFrame } from './preview-frame';
 import { Field, Toggle, FeatureSwitch, Feedback } from './settings-controls';
 import { pageTitles } from './settings-outline';
@@ -366,7 +366,7 @@ export function TerminologySettings({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
-              <SettingsDrawer id="settings-library" title={tr('词库管理')}>
+              <SettingsDetail id="settings-library" title={tr('词库管理')}>
                 <div ref={managementRoot}>
                   <SegmentedGroup
                     value={management}
@@ -530,7 +530,7 @@ export function TerminologySettings({
                     </section>
                   )}
                 </div>
-              </SettingsDrawer>
+              </SettingsDetail>
             </div>
             <div className="term-filters" role="group" aria-label={tr('词库筛选')}>
               <label>

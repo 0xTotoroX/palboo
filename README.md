@@ -73,6 +73,8 @@ The published v1.2.0 and earlier do not contain this updater. Install the first 
 2. **Choose your tools:** turn features on or off in **Features → Feature switches**. Select a feature name for its preview and settings. Chat speed is under **Model switching**. Set placement in **Layout & position**, material in **Appearance & fonts**, and language in **System → General**.
 3. **Set up suggestions:** in **System → Model service**, use your Codex CLI login or a model API, then test the connection. Choose manual or automatic generation in **Features → Next steps**.
 
+Common settings appear directly on each page. Library, model group, and layout preset management open in the same settings area; **Back to settings** retains your draft.
+
 Suggestions fill the composer by default. If you already have a draft, Palboo appends to it without sending.
 
 Bot follow-up uses the previous call when it belongs to the current chat. If that record is unavailable after a reload, a recent reply can still enable a follow-up draft. Palboo appends the request to your existing draft and places the cursor at the end. You choose when to send.

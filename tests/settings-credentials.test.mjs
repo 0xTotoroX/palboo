@@ -134,7 +134,7 @@ createRoot(document.getElementById('root')).render(<App/>);`,
       assert.equal(writes.length, before);
 
       // Deleting a saved key must not save an unrelated unfinished form draft.
-      await page.getByRole('button', { name: '关闭高级设置', exact: true }).click();
+      await page.getByRole('button', { name: '返回设置', exact: true }).click();
       const model = page.getByRole('combobox', { name: '模型名称', exact: true });
       await model.fill('unsaved-model');
       await model.press('Escape');
@@ -150,7 +150,7 @@ createRoot(document.getElementById('root')).render(<App/>);`,
       });
       await dialog.getByRole('button', { name: '取消', exact: true }).click();
       fail = false;
-      await page.getByRole('button', { name: '关闭高级设置', exact: true }).click();
+      await page.getByRole('button', { name: '返回设置', exact: true }).click();
       await model.focus();
       const nextSave = page.waitForResponse((r) => r.url().endsWith('/api/settings'));
       await page.getByLabel('API 地址', { exact: true }).click();
@@ -181,7 +181,7 @@ createRoot(document.getElementById('root')).render(<App/>);`,
       const beforeDelete = settings.configurationRevision;
       await dialog.getByRole('button', { name: '确认删除', exact: true }).click();
       await dialog.waitFor({ state: 'hidden' });
-      await page.getByRole('button', { name: '关闭高级设置', exact: true }).click();
+      await page.getByRole('button', { name: '返回设置', exact: true }).click();
       await key.waitFor();
       assert.equal(storedKey, '');
       assert.deepEqual(writes.at(-1), { clearApiKey: true, expectedRevision: beforeDelete });

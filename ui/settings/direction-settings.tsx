@@ -5,7 +5,7 @@ import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /*
  * [INPUT]: 共用设置草稿、版本化保存队列和判断服务凭据状态。
- * [OUTPUT]: 生成时机、方向来源、可拖动排序的方向与条件显示的 Jev 配置；选择小面板和方向库抽屉分离。
+ * [OUTPUT]: 生成时机、方向来源、可拖动排序的方向与条件显示的 Jev 配置；选择小面板和方向库二级页分离。
  * [POS]: Web 设置中的 Stepwise 方向配置，不在日常面板增加控制项。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */

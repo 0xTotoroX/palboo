@@ -11,7 +11,7 @@ import { Card } from './components/ui/card';
 import { Input } from './components/ui/input';
 import { NativeSelect } from './components/ui/native-select';
 import { Field, Feedback, Toggle } from './settings-controls';
-import { SettingsDrawer, revealSettingsDrawer, closeSettingsDrawers } from './settings-drawer';
+import { SettingsDetail, showSettingsDetail, closeSettingsDetails } from './settings-detail';
 
 type Target = { id: string; label: string; path: string; version: string | null; current: boolean };
 type Status = {
@@ -112,7 +112,7 @@ export function BackupSettings({
       return;
     }
     const element = document.getElementById('backup-review');
-    if (preview && element) revealSettingsDrawer(element);
+    if (preview && element) showSettingsDetail(element);
   }, [active, preview]);
   const mounted = useRef(true);
   useEffect(() => {
@@ -214,7 +214,7 @@ export function BackupSettings({
       confirm: true,
     });
     setPreview(null);
-    closeSettingsDrawers();
+    closeSettingsDetails();
     if (result.restarting || result.remotePending) {
       setMessage(tr('正在重新载入 Palboo…'));
       const until = Date.now() + 30000;
@@ -468,7 +468,7 @@ export function BackupSettings({
           </Button>
         </div>
       )}
-      <SettingsDrawer
+      <SettingsDetail
         id="backup-review"
         title={tr('确认恢复范围')}
         hidden={!preview}
@@ -523,7 +523,7 @@ export function BackupSettings({
             </div>
           </>
         )}
-      </SettingsDrawer>
+      </SettingsDetail>
     </section>
   );
 }

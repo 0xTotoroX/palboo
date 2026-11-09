@@ -205,7 +205,6 @@ test(
       await until(() => settings.maxInputChars === 0);
       assert.equal(await page.getByLabel('输入字符上限', { exact: true }).count(), 0);
       await page.reload();
-      await page.getByRole('button', { name: '高级设置', exact: true }).click();
       await context.waitFor();
       assert.equal(await context.inputValue(), 'latest');
       await context.selectOption('limited');
@@ -224,7 +223,7 @@ test(
       await input.fill('9000');
       await page.locator('label[for="context-scope"]').click();
       await until(() => pending.length === 1);
-      await page.getByRole('button', { name: '关闭高级设置', exact: true }).click();
+      await page.getByRole('button', { name: '返回设置', exact: true }).click();
       await page
         .getByRole('navigation', { name: '设置分类' })
         .getByRole('link', { name: '功能开关', exact: true })
@@ -251,13 +250,13 @@ test(
       await input.fill('11000');
       await page.locator('label[for="context-scope"]').click();
       await page
-        .locator('.settings-drawer[open]')
+        .locator('#settings-feedback-center')
         .getByText('合成保存失败，请重试', { exact: true })
         .waitFor();
       assert.equal(await input.inputValue(), '11000');
       assert.equal(settings.maxInputChars, 10000);
       await page
-        .locator('.settings-drawer[open]')
+        .locator('#settings-feedback-center')
         .getByRole('button', { name: '保存设置', exact: true })
         .click();
       await until(() => settings.maxInputChars === 11000);
@@ -288,12 +287,12 @@ test(
       await input.fill('14000');
       await page.locator('label[for="context-scope"]').click();
       await page
-        .locator('.settings-drawer[open]')
+        .locator('#settings-feedback-center')
         .getByText('设置已在其他窗口更新，当前编辑已保留。', { exact: false })
         .waitFor();
       assert.equal(await input.inputValue(), '14000');
       assert.equal(settings.maxInputChars, 13000);
-      await page.getByRole('button', { name: '关闭高级设置', exact: true }).click();
+      await page.getByRole('button', { name: '返回设置', exact: true }).click();
       assert.equal(
         await page.getByRole('button', { name: '保存设置', exact: true }).isDisabled(),
         true,
@@ -310,7 +309,7 @@ test(
       await page.getByRole('button', { name: '高级设置', exact: true }).click();
       await input.waitFor();
       assert.equal(await input.inputValue(), '13000');
-      await page.getByRole('button', { name: '关闭高级设置', exact: true }).click();
+      await page.getByRole('button', { name: '返回设置', exact: true }).click();
       await openSettingsPage(page, 'prompts');
       const quick = page.getByLabel('常用提示词 1 内容', { exact: true });
       await quick.fill('请继续推进整体目标');
@@ -340,12 +339,12 @@ test(
       await page.locator('.direction-slot').nth(1).press('Alt+ArrowUp');
       await until(() => settings.selectedDirections[0] === 'advance');
 
-      const directionLibrary = page.getByRole('dialog', { name: '方向库', exact: true });
+      const directionLibrary = page.getByRole('region', { name: '方向库', exact: true });
       const closeLibrary = () =>
-        directionLibrary.getByRole('button', { name: '关闭方向库', exact: true }).click();
+        directionLibrary.getByRole('button', { name: '返回设置', exact: true }).click();
       const addCustomDirection = async () => {
         await page.getByRole('button', { name: '方向库', exact: true }).click();
-        const back = directionLibrary.getByRole('button', { name: /^返回/ });
+        const back = directionLibrary.getByRole('button', { name: /^返回(?:内置方向|我的方向)$/ });
         if (await back.isVisible()) await back.click();
         await directionLibrary.getByRole('button', { name: '我的方向', exact: true }).click();
         await directionLibrary.getByRole('button', { name: '添加方向', exact: true }).click();
@@ -353,7 +352,10 @@ test(
       await addCustomDirection();
       await page.getByLabel('方向名称 4', { exact: true }).fill('长期维护');
       await page.getByLabel('倾向说明 4', { exact: true }).fill('关注维护成本与依赖负担');
-      await directionLibrary.getByRole('button', { name: '保存设置', exact: true }).click();
+      await page
+        .locator('#settings-feedback-center')
+        .getByRole('button', { name: '保存设置', exact: true })
+        .click();
       await closeLibrary();
       await until(() => settings.directionLibrary.length === 4);
       await page.waitForFunction(

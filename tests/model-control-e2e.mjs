@@ -608,7 +608,7 @@ try {
       'model group persisted through settings',
     );
     await settingsPage.reload();
-    await modelSettings.getByRole('button', { name: '模型分组', exact: true }).click();
+    await modelSettings.getByRole('region', { name: '模型分组', exact: true }).waitFor();
     await modelSettings
       .getByRole('region', { name: '分组：合成分组' })
       .locator('[data-model-id="alpha"]')
@@ -637,7 +637,7 @@ try {
       async () => !(await api('state')).preferences.modelOverrides.alpha,
       'automatic classification restored',
     );
-    await modelSettings.getByRole('button', { name: '关闭模型分组' }).click();
+    await modelSettings.getByRole('button', { name: '返回设置' }).click();
     record(
       'real settings persist manufacturer and custom group across reload, delete safely and preserve favorites/order/presets',
     );

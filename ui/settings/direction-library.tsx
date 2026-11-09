@@ -3,7 +3,7 @@ import { directionCopy } from './direction-copy';
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: Shared direction drafts, built-in catalog and revision-aware save/delete queue.
- * [OUTPUT]: One drawer with categorized directory, single-item editing and retained navigation/drafts.
+ * [OUTPUT]: A detail page with categorized directory, single-item editing and retained navigation/drafts.
  * [POS]: Stepwise library presentation; never copies settings or creates a second save queue.
  * [PROTOCOL]: Keep settings/AGENTS.md and DESIGN_SYSTEM.md in sync. */
 import { useLayoutEffect, useRef, useState } from 'react';
@@ -13,7 +13,7 @@ import { Button } from './components/ui/button';
 import { Input } from './components/ui/input';
 import { Field } from './settings-controls';
 import { ConfirmationButton } from './settings-confirmation';
-import { SettingsDrawer } from './settings-drawer';
+import { SettingsDetail } from './settings-detail';
 import type { SettingsEditor } from './use-settings-form';
 
 export function DirectionLibrary({ editor }: { editor: SettingsEditor }) {
@@ -32,7 +32,7 @@ export function DirectionLibrary({ editor }: { editor: SettingsEditor }) {
   const items = library.filter((item) => originals.has(item.id) === (group === 'builtin'));
 
   function openItem(id: string) {
-    scroll.current[group] = root.current?.closest('.settings-drawer-content')?.scrollTop || 0;
+    scroll.current[group] = window.scrollY;
     focusPending.current = true;
     setSelected(id);
   }
@@ -65,18 +65,17 @@ export function DirectionLibrary({ editor }: { editor: SettingsEditor }) {
     if (!focusPending.current) return;
     focusPending.current = false;
     const node = root.current;
-    const content = node?.closest('.settings-drawer-content');
     const target = active
       ? node?.querySelector<HTMLElement>('[data-direction-detail]:not([hidden]) input')
       : Array.from(node?.querySelectorAll<HTMLButtonElement>('[data-direction-open]') || []).find(
           (button) => button.dataset.directionOpen === returning.current,
         ) || node?.querySelector<HTMLElement>('[aria-pressed="true"]');
     target?.focus({ preventScroll: true });
-    if (content) content.scrollTop = active ? 0 : scroll.current[group];
+    window.scrollTo({ top: active ? 0 : scroll.current[group], behavior: 'instant' });
   }, [selected, active?.id, group]);
 
   return (
-    <SettingsDrawer id="settings-direction-library" title={tr('方向库')}>
+    <SettingsDetail id="settings-direction-library" title={tr('方向库')}>
       <div ref={root} className="direction-library" data-settings-search-ignore>
         <div hidden={!!active}>
           <SegmentedGroup
@@ -93,8 +92,7 @@ export function DirectionLibrary({ editor }: { editor: SettingsEditor }) {
                 variant="ghost"
                 aria-pressed={group === key}
                 onClick={() => {
-                  scroll.current[group] =
-                    root.current?.closest('.settings-drawer-content')?.scrollTop || 0;
+                  scroll.current[group] = window.scrollY;
                   setGroup(key);
                   focusPending.current = true;
                   returning.current = null;
@@ -258,6 +256,6 @@ export function DirectionLibrary({ editor }: { editor: SettingsEditor }) {
           })}
         </div>
       </div>
-    </SettingsDrawer>
+    </SettingsDetail>
   );
 }

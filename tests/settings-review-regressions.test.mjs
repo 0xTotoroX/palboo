@@ -198,7 +198,7 @@ async function readAgain(page, revision) {
 test('website drafts keep their revision across navigation and can reload after a conflict', async (t) => {
   const { page, service } = await websites(t);
   await page.getByRole('button', { name: '编辑初始名称', exact: true }).click();
-  const editor = page.getByRole('dialog', { name: '编辑网站', exact: true });
+  const editor = page.getByRole('region', { name: '编辑网站', exact: true });
   await page.locator('#website-name').fill('本页改名草稿');
   await editor.press('Escape');
   service.state = {
@@ -211,7 +211,7 @@ test('website drafts keep their revision across navigation and can reload after 
   assert.equal(await page.locator('#website-name').inputValue(), '本页改名草稿');
   assert.equal(await page.locator('#website-url').inputValue(), 'https://old.example.invalid/');
   assert.equal(await editor.getByRole('button', { name: '保存', exact: true }).isDisabled(), true);
-  await editor.getByRole('alert').waitFor();
+  await page.locator('#settings-feedback-center').getByRole('alert').waitFor();
   assert.equal(service.state.sites[0].url, 'https://other-window.example.invalid/');
   assert.deepEqual(service.writes, [], 'a known stale draft cannot submit');
   assert.equal(await page.locator('#website-name').inputValue(), '本页改名草稿');
@@ -231,13 +231,13 @@ test('website drafts keep their revision across navigation and can reload after 
 test('unseen website conflict and save failure preserve drafts, retry and cancel remain usable', async (t) => {
   const { page, service } = await websites(t);
   await page.getByRole('button', { name: '编辑初始名称', exact: true }).click();
-  let editor = page.getByRole('dialog', { name: '编辑网站', exact: true });
+  let editor = page.getByRole('region', { name: '编辑网站', exact: true });
   service.fail = true;
   await editor.getByRole('button', { name: '保存', exact: true }).click();
-  await editor.getByRole('alert').waitFor();
+  await page.locator('#settings-feedback-center').getByRole('alert').waitFor();
   await page.locator('#website-name').fill('失败后保留');
   await editor.getByRole('button', { name: '保存', exact: true }).click();
-  await editor.getByRole('alert').waitFor();
+  await page.locator('#settings-feedback-center').getByRole('alert').waitFor();
   assert.equal(await page.locator('#website-name').inputValue(), '失败后保留');
   service.fail = false;
   await editor.getByRole('button', { name: '保存', exact: true }).click();
@@ -252,7 +252,7 @@ test('unseen website conflict and save failure preserve drafts, retry and cancel
   assert.equal(await page.locator('#website-name').inputValue(), '被删除网站的旧草稿');
   await editor.getByRole('button', { name: '取消', exact: true }).click();
   await page.getByRole('button', { name: '添加网站', exact: true }).click();
-  editor = page.getByRole('dialog', { name: '添加网站', exact: true });
+  editor = page.getByRole('region', { name: '添加网站', exact: true });
   assert.equal(await page.locator('#website-name').inputValue(), '');
   await page.locator('#website-name').fill('新的独立网站');
   await page.locator('#website-url').fill('https://new.example.invalid/');
@@ -265,7 +265,7 @@ test('unseen website conflict and save failure preserve drafts, retry and cancel
 test('website editors refresh clean fields and require confirmation before discarding another draft', async (t) => {
   const { page, service } = await websites(t);
   await page.getByRole('button', { name: '编辑初始名称', exact: true }).click();
-  await page.getByRole('dialog', { name: '编辑网站', exact: true }).press('Escape');
+  await page.getByRole('region', { name: '编辑网站', exact: true }).press('Escape');
   service.state = {
     ...service.state,
     revision: 2,
@@ -278,16 +278,16 @@ test('website editors refresh clean fields and require confirmation before disca
   await page.getByRole('button', { name: '编辑网站', exact: true }).click();
   assert.equal(await page.locator('#website-url').inputValue(), 'https://current.example.invalid/');
   await page.locator('#website-name').fill('切换前保留');
-  await page.getByRole('dialog', { name: '编辑网站', exact: true }).press('Escape');
+  await page.getByRole('region', { name: '编辑网站', exact: true }).press('Escape');
   await page.getByRole('button', { name: '编辑另一个网站', exact: true }).click();
   const confirmation = page.getByRole('dialog', { name: '放弃未保存的修改？', exact: true });
   await confirmation.getByRole('button', { name: '取消', exact: true }).click();
   await page.getByRole('button', { name: '编辑网站', exact: true }).click();
   assert.equal(await page.locator('#website-name').inputValue(), '切换前保留');
-  await page.getByRole('dialog', { name: '编辑网站', exact: true }).press('Escape');
+  await page.getByRole('region', { name: '编辑网站', exact: true }).press('Escape');
   await page.getByRole('button', { name: '编辑另一个网站', exact: true }).click();
   await confirmation.getByRole('button', { name: '确认', exact: true }).click();
-  await page.getByRole('dialog', { name: '编辑网站', exact: true }).waitFor();
+  await page.getByRole('region', { name: '编辑网站', exact: true }).waitFor();
   assert.equal(await page.locator('#website-name').inputValue(), '另一个网站');
   assert.equal(await page.locator('#website-url').inputValue(), 'https://second.example.invalid/');
   assert.deepEqual(service.writes, []);
@@ -297,13 +297,13 @@ test('unrelated library changes preserve a website draft and reopening the same 
   const { page, service } = await websites(t);
   await page.getByRole('button', { name: '编辑初始名称', exact: true }).click();
   await page.locator('#website-name').fill('保留的草稿');
-  await page.getByRole('dialog', { name: '编辑网站', exact: true }).press('Escape');
+  await page.getByRole('region', { name: '编辑网站', exact: true }).press('Escape');
   service.state = { ...service.state, revision: 2, enabled: false };
   await readAgain(page, 2);
   await page.getByRole('button', { name: '编辑初始名称', exact: true }).click();
   assert.equal(await page.locator('#website-name').inputValue(), '保留的草稿');
   await page
-    .getByRole('dialog', { name: '编辑网站', exact: true })
+    .getByRole('region', { name: '编辑网站', exact: true })
     .getByRole('button', { name: '保存', exact: true })
     .click();
   await page.waitForFunction(() => window.snapshot?.revision === 3);

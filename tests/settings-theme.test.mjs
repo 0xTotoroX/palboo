@@ -27,7 +27,7 @@ import {IconButton} from './ui/settings/components/ui/button';
 import {Icon} from './ui/shared/icons/react';
 import {readSettingsAppearance} from './ui/codex/appearance';
 import {SettingsSearch} from './ui/settings/settings-search';
-import {SettingsDrawer} from './ui/settings/settings-drawer';
+import {SettingsDetail} from './ui/settings/settings-detail';
 import {DirectionPicker} from './ui/settings/direction-picker';
 import {useSettingsMotion} from './ui/settings/settings-motion';
 function MotionProbe({identity}) { const ref = useSettingsMotion(identity); return <div ref={ref} id="motion-probe">动效</div>; }
@@ -52,7 +52,7 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
 <Input id="invalid" aria-label="无效输入" aria-invalid="true" defaultValue="example"/>
 <input id="slider" type="range" aria-label="位置" defaultValue="50"/>
 <Switch aria-label="功能开关" checked onCheckedChange={()=>{}}/>
-<SettingsDrawer id="sample" title="高级设置"><Input aria-label="抽屉草稿" defaultValue="保留抽屉草稿"/><button type="button" title="抽屉提示">提示测试</button></SettingsDrawer>
+<SettingsDetail id="sample" title="高级设置"><Input aria-label="抽屉草稿" defaultValue="保留抽屉草稿"/><button type="button" title="抽屉提示">提示测试</button></SettingsDetail>
 <DirectionPicker library={[{id:'demo',name:'示例方向',instruction:'说明',enabled:true}]} builtIns={[{id:'demo'}]} selected={[]} onSelect={()=>{}}/>
 <PanelSettings value={appearance} section="surfaces" page="appearance"/>
 </div></main></div>);`,
@@ -416,11 +416,12 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
     await page.keyboard.press('Escape');
     await page.getByRole('button', { name: '高级设置', exact: true }).click();
     await page.getByRole('textbox', { name: '抽屉草稿' }).fill('新抽屉草稿');
-    assert.equal(
-      await page
-        .locator('.settings-drawer')
-        .evaluate((n) => getComputedStyle(n, '::backdrop').backgroundColor),
-      'rgba(0, 0, 0, 0.3)',
+    assert.deepEqual(
+      await page.locator('.settings-detail').evaluate((n) => ({
+        inline: getComputedStyle(n).position !== 'fixed',
+        modal: n.matches(':modal'),
+      })),
+      { inline: true, modal: false },
     );
     await page.keyboard.press('Escape');
     assert.equal(writes.length, 0);
@@ -558,13 +559,13 @@ window.render=(host,appearance)=>window.mount.render(<div className="settings-ap
         Object.keys(w).every((k) => ['expectedRevision', 'settingsTheme'].includes(k)),
       ),
     );
-    // Existing native title content now follows host tooltip tokens, including in dialogs.
+    // Existing native title content follows host tooltip tokens on detail pages.
     await page.getByRole('button', { name: '高级设置', exact: true }).click();
     await page.getByRole('button', { name: '提示测试', exact: true }).focus();
     await page.getByRole('tooltip').waitFor({ state: 'visible' });
     assert.equal(
       await page.getByRole('tooltip').evaluate((n) => !!n.closest('dialog[open]')),
-      true,
+      false,
     );
     await page.keyboard.press('Escape');
     await page.getByRole('button', { name: '搜索设置', exact: true }).focus();

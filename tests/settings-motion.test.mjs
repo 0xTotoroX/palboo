@@ -297,7 +297,7 @@ return <div className="settings-app" ref={ref}><div style={{width:430}}><Setting
         await refresh.locator('[data-action-state]').getAttribute('data-action-state'),
         'idle',
       );
-      await page.getByRole('button', { name: '关闭模型分组', exact: true }).click();
+      await page.getByRole('button', { name: '返回设置', exact: true }).click();
       // Reduced motion cancels in-flight WAAPI and suppresses spinner/CSS transforms, but keeps state feedback.
       await tabs.getByRole('button', { name: '大纲', exact: true }).click();
       await emulateMedia(page, { reducedMotion: 'reduce' });

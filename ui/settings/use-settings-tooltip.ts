@@ -1,5 +1,5 @@
 /* [INPUT]: 跟随主题开关、设置页既有 title 与指针/键盘焦点。
- * [OUTPUT]: 消费宿主变量的悬停提示；键盘焦点即时显示，鼠标按下期间不抢占点击，支持 Esc、抽屉及原生 title 恢复。
+ * [OUTPUT]: 消费宿主变量的悬停提示；键盘焦点即时显示，鼠标按下期间不抢占点击，支持 Esc、确认弹窗及原生 title 恢复。
  * [POS]: 仅替换已有提示的呈现，不添加文案、不改变控件或保存行为。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { useEffect, useId } from 'react';
