@@ -1,5 +1,5 @@
-// [INPUT]: CLI 参数以及 config/lifecycle/server/panel_window/model_control/tasks 模块。
-// [OUTPUT]: palboo 命令分发与进程入口；模式交接/手动更新使用独立短期 worker；launch --host-only 供开发入口仅准备宿主。
+// [INPUT]: CLI 参数以及 config/lifecycle/server/panel_window/model_control/tasks/backup 模块。
+// [OUTPUT]: palboo 命令分发与进程入口，含本机备份预览与恢复；模式交接/手动更新使用独立短期 worker；launch --host-only 供开发入口仅准备宿主。
 // [POS]: 独立可执行文件入口，区分后台和窗口子进程。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
@@ -7,6 +7,7 @@ mod app_mode;
 mod app_transition;
 mod app_update;
 mod assets;
+mod backup;
 mod brand;
 mod cdp;
 mod chat_outline;
@@ -63,6 +64,11 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    #[command(about = "本地配置备份、恢复及开发／正式环境复制")]
+    Backup {
+        #[command(subcommand)]
+        command: backup::cli::Command,
+    },
     #[command(about = "统一 App 的运行模式与开发来源")]
     AppMode {
         #[command(subcommand)]
@@ -193,6 +199,7 @@ async fn main() -> Result<()> {
         Commands::AppMode { command } => app_mode::run(&paths, command).await,
         Commands::AppUpdateWorker { request } => app_update::worker(&request).await,
         Commands::Config { command } => config_cli::run(&paths, command).await,
+        Commands::Backup { command } => backup::cli::run(&paths, command).await,
         Commands::CodexHostRestart { lease } => codex_host::restart::run(&paths, &lease).await,
         Commands::RemindersWorker {
             lease,

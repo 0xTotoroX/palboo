@@ -223,9 +223,6 @@ export function ReaderFolderSettings({
               onChange={(event) => edit({ attachments: event.target.value })}
             />
           </Field>
-          <p className="settings-hint">
-            {tr('仅本机访问。编辑 Markdown 后自动保存到原文件，表格仅供预览。')}
-          </p>
         </SettingsDrawer>
       </div>
       <div className="web-library-list reader-folder-list">

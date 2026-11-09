@@ -31,6 +31,30 @@ use main_surface::{FeatureLayout, MainSurface, SavedFeatures};
 pub const IDS: [&str; 8] = [
     "outline", "board", "next", "prompts", "model", "terms", "bots", "sites",
 ];
+
+pub(crate) fn backup_preferences(value: &Value) -> Result<Value> {
+    let (main, features) = serde_json::from_value::<SavedFeatures>(value.clone())?.parts();
+    Ok(json!({"main":main,"features":features}))
+}
+
+pub(crate) fn validate_backup(value: &Value) -> Result<()> {
+    let (main, prefs) = serde_json::from_value::<SavedFeatures>(value.clone())?.parts();
+    ensure!(
+        ["sidebar", "overlay", "desktop"].contains(&main.placement.as_str()),
+        "主界面位置无效"
+    );
+    ensure!(
+        main.layouts.values().all(FeatureLayout::valid),
+        "布局格式无效"
+    );
+    for (id, pref) in prefs {
+        ensure!(
+            IDS.contains(&id.as_str()) && valid_placement(&id, &pref.placement),
+            "功能位置无效"
+        );
+    }
+    Ok(())
+}
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 pub struct Preference {

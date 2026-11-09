@@ -4,6 +4,7 @@ import { tr } from '../shared/i18n.js';
  * [OUTPUT]: 跟随宿主的设置页标题、分组表单与预览；页头集中搜索/主题/外部链接，页脚显示 v 版本号，保留保存与错误反馈。
  * [POS]: 设置展示层，不执行后台业务或读取聊天正文。
  * [PROTOCOL]: 变更时同步 settings/AGENTS.md。 */
+import { BackupSettings } from './backup-settings';
 import { LanguageSettings } from './language-settings';
 import { setLocale, getLocale } from '../shared/i18n.js';
 import { useLocale } from '../shared/use-locale';
@@ -218,7 +219,7 @@ function App() {
             failed={notice.failed}
           />
           <div className="settings-body">
-            {page !== 'features' && (
+            {page !== 'features' && page !== 'backup' && (
               <SettingsPreview
                 page={page}
                 form={editor.form}
@@ -243,16 +244,12 @@ function App() {
               </PreviewFrame>
             </section>
             <div className="settings-form-column">
-              {page === 'outline' && (
-                <p className="settings-page-intro">
-                  {tr('长回答也能轻松找重点。点击目录，直接回到对应段落。')}
-                </p>
-              )}
-              {page === 'prompt-enhancement' && (
-                <p className="settings-page-intro">
-                  {tr('把想法说清楚，让任务更容易执行。发送前优化提示词，也可以还原后继续修改。')}
-                </p>
-              )}
+              <BackupSettings
+                active={page === 'backup'}
+                live={live}
+                dirty={editor.dirty || editor.saving || editor.remoteChanged}
+              />
+
               <section
                 hidden={!common}
                 data-settings-page="features"

@@ -12,7 +12,7 @@ import { Button } from './components/ui/button';
 import { Input } from './components/ui/input';
 import { Card } from './components/ui/card';
 import { NativeSelect } from './components/ui/native-select';
-import { Field } from './settings-controls';
+import { Field, Feedback } from './settings-controls';
 import { request, type View } from './api';
 import type { SettingsEditor } from './use-settings-form';
 import { Icon } from '../shared/icons/react';
@@ -95,9 +95,7 @@ export function ConnectionSettings({
           </span>
         </div>
         {live && !connected && view?.connection.message && (
-          <p role="status" className="settings-hint">
-            {tr(view.connection.message)}
-          </p>
+          <Feedback text={view.connection.message} />
         )}
         <div className="settings-details">
           <Field id="cdp-endpoint" label={tr('本机调试端口')}>
@@ -200,15 +198,7 @@ export function ConnectionSettings({
               live={live}
               outsideAvailable={editor.saved?.popoutSupported === true}
             />
-            <Field
-              id="host-restart-policy"
-              label={tr('ChatGPT 已打开，但没有调试连接时')}
-              hint={
-                form.hostRestartPolicy === 'force'
-                  ? tr('强制重开可能中断任务或丢失未保存内容。')
-                  : undefined
-              }
-            >
+            <Field id="host-restart-policy" label={tr('ChatGPT 已打开，但没有调试连接时')}>
               <NativeSelect
                 id="host-restart-policy"
                 controlWidth="medium"

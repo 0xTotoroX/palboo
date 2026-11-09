@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { Notice } from './settings-controls';
 import { directionCopy } from './direction-copy';
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
@@ -23,6 +25,7 @@ import type { EditableSettings } from '../shared/contracts';
 
 export function DirectionSettings({ editor }: { editor: SettingsEditor }) {
   useLocale();
+  const [interacted, setInteracted] = useState(false);
   const { form: draft, saved: baseline, change, schedule } = editor;
   const form = draft!,
     saved = baseline!;
@@ -34,7 +37,13 @@ export function DirectionSettings({ editor }: { editor: SettingsEditor }) {
   }
   return (
     <>
-      <Card ref={listRef} tabIndex={-1} id="settings-directions" aria-labelledby="direction-title">
+      <Card
+        ref={listRef}
+        tabIndex={-1}
+        id="settings-directions"
+        aria-labelledby="direction-title"
+        onChangeCapture={() => setInteracted(true)}
+      >
         <div className="settings-section-heading direction-section-heading">
           <h2 id="direction-title">{tr('建议生成')}</h2>
           <DirectionLibrary editor={editor} />
@@ -128,10 +137,8 @@ export function DirectionSettings({ editor }: { editor: SettingsEditor }) {
                   onSelect={(id) => slots([...form.selectedDirections, id])}
                 />
               </div>
-              {!form.selectedDirections.length && (
-                <p className="text-[14px] text-muted-foreground">
-                  {tr('请选择至少一个方向后再生成。')}
-                </p>
+              {interacted && !form.selectedDirections.length && (
+                <Notice>{tr('请选择至少一个方向后再生成。')}</Notice>
               )}
             </div>
           </div>
@@ -178,11 +185,12 @@ export function DirectionSettings({ editor }: { editor: SettingsEditor }) {
             {saved.storedJevApiKey && (
               <DeleteModelApiKey editor={editor} busy={editor.saving} kind="jev" />
             )}
-            {saved.directionSource === 'smart' && saved.jev.consent && !saved.jevKeyConfigured && (
-              <p role="status" className="settings-hint">
-                {tr('尚未连接：可保存密钥，或在后台环境设置 TYPESAFE_API_KEY。')}
-              </p>
-            )}
+            {interacted &&
+              saved.directionSource === 'smart' &&
+              saved.jev.consent &&
+              !saved.jevKeyConfigured && (
+                <Notice>{tr('尚未连接：可保存密钥，或在后台环境设置 TYPESAFE_API_KEY。')}</Notice>
+              )}
           </div>
         </Card>
       )}

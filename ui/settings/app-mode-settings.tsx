@@ -1,3 +1,4 @@
+import { Notice } from './settings-controls';
 /* [INPUT]: Authenticated App mode API, shared settings controls and existing form save state.
  * [OUTPUT]: Manual App updates, Release/Dev selection and a shared development drawer; retains mode drafts across reconnects and guards progress handoff.
  * [POS]: Startup settings; saves no business data and does not duplicate Dev source management.
@@ -83,14 +84,8 @@ export function AppModeSettings({ live, editor }: { live: boolean; editor: Setti
   }
   const actions = (
     <>
-      {editor.dirty && changed && (
-        <p className="settings-hint">{tr('请先保存当前设置，再切换模式。')}</p>
-      )}
-      {error && (
-        <p role="alert" className="settings-error">
-          {tr(error)}
-        </p>
-      )}
+      {editor.dirty && changed && <Notice>{tr('请先保存当前设置，再切换模式。')}</Notice>}
+      {error && <Notice failed>{tr(error)}</Notice>}
       {(changed || busy) && (
         <div className="settings-actions">
           <Button type="button" variant="outline" onClick={() => void apply()} disabled={blocked}>

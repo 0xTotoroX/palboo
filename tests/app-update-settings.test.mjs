@@ -129,13 +129,20 @@ test('checks are explicit; stale initial reads and duplicate clicks cannot overw
   await f.card.getByRole('button', { name: '正在检查…', exact: true }).waitFor();
   assert.equal(f.writes.length, 1);
   check();
-  await f.card.getByRole('status').filter({ hasText: '发现新版本 v1.3.0' }).waitFor();
+  await f.page
+    .locator('#settings-feedback-center')
+    .getByRole('status')
+    .filter({ hasText: '发现新版本 v1.3.0' })
+    .waitFor();
   initial();
   await f.page.waitForResponse(
     (response) =>
       response.url().endsWith('/api/app-update') && response.request().method() === 'GET',
   );
-  assert.match(await f.card.getByRole('status').innerText(), /v1.3.0/);
+  assert.match(
+    await f.page.locator('#settings-feedback-center').getByRole('status').innerText(),
+    /v1.3.0/,
+  );
   assert.equal(f.writes.length, 1);
 });
 
@@ -149,7 +156,10 @@ test('drafts and edited modes block installation; failures keep the release and 
       (flag) => window.flags({ dirty: false, saving: false, remoteChanged: false, [flag]: true }),
       flag,
     );
-    await f.card.getByText('请先保存或还原当前设置，再更新。').waitFor();
+    await f.page
+      .locator('#settings-feedback-center')
+      .getByText('请先保存或还原当前设置，再更新。')
+      .waitFor();
     assert.equal(await install.isDisabled(), true);
   }
   await f.page.evaluate(() => window.flags({ dirty: false, saving: false, remoteChanged: false }));
@@ -157,7 +167,7 @@ test('drafts and edited modes block installation; failures keep the release and 
   assert.equal(await install.isDisabled(), true);
   await f.page.getByLabel('启动时使用', { exact: true }).selectOption('release');
   await install.click();
-  await f.card.getByRole('alert').waitFor();
+  await f.page.locator('#settings-feedback-center').getByRole('alert').waitFor();
   assert.deepEqual(f.writes.at(-1).body, {
     releaseId: 11,
     assetId: 12,
@@ -184,7 +194,7 @@ test('drafts and edited modes block installation; failures keep the release and 
 test('source-only, development and read-only installations show accurate actions and recover from network failure', async (t) => {
   const f = await fixture(t, { checkError: 'GitHub 更新检查失败' });
   await f.check();
-  await f.card.getByRole('alert').waitFor();
+  await f.page.locator('#settings-feedback-center').getByRole('alert').waitFor();
   assert.equal(await f.card.getByRole('button', { name: '检查更新' }).isEnabled(), true);
   f.behavior.checkError = null;
   f.behavior.check = {
@@ -194,7 +204,10 @@ test('source-only, development and read-only installations show accurate actions
     release: { ...release, asset: null },
   };
   await f.check();
-  await f.card.getByText(/此版本仅提供源码/).waitFor();
+  await f.page
+    .locator('#settings-feedback-center')
+    .getByText(/此版本仅提供源码/)
+    .waitFor();
   assert.equal(await f.card.getByRole('button', { name: '更新并重启' }).count(), 0);
   assert.equal(
     await f.card.getByRole('link', { name: '更新说明' }).getAttribute('href'),
@@ -213,12 +226,12 @@ test('source-only, development and read-only installations show accurate actions
       reason,
     };
     await f.check();
-    await f.card.getByText(reason, { exact: true }).waitFor();
+    await f.page.locator('#settings-feedback-center').getByText(reason, { exact: true }).waitFor();
     assert.equal(await f.card.getByRole('button', { name: '更新并重启' }).isDisabled(), true);
   }
   f.behavior.check = { ...base, checked: true, hasUpdate: false, release };
   await f.check();
-  await f.card.getByText('当前无需更新。').waitFor();
+  await f.page.locator('#settings-feedback-center').getByText('当前无需更新。').waitFor();
   assert.equal(await f.card.getByRole('link').count(), 0);
 });
 

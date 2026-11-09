@@ -1,3 +1,4 @@
+import { Notice } from './settings-controls';
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: 五种窗口的独立字体偏好、旧偏好及原外观修订保存回调。
@@ -198,11 +199,7 @@ export function TypographySettings({
           />
         </Field>
       </div>
-      {error && (
-        <p role="alert" className="settings-hint">
-          {error}
-        </p>
-      )}
+      {error && <Notice failed>{error}</Notice>}
     </>
   );
 }

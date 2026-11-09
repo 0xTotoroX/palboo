@@ -1,8 +1,9 @@
-/* [INPUT]: Local path segments, controlled sidebar width and optional browser persistence.
- * [OUTPUT]: Resizable sidebar handle and interactive folder/note breadcrumbs without transport.
+/* [INPUT]: Local paths, controlled sidebar width and authenticated reader preferences.
+ * [OUTPUT]: Resizable sidebar and breadcrumbs; persistence uses the shared reader preference hook.
  * [POS]: Shared reader navigation; website omits persistence and supplies its own state.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useReaderPreference } from './preferences';
 import { SearchText } from './search';
 import { tr } from '../shared/i18n.js';
 import { Icon } from '../shared/icons/react';
@@ -10,7 +11,7 @@ import { Icon } from '../shared/icons/react';
 export const READER_DEFAULT_SIDEBAR_WIDTH = 268;
 const clampWidth = (width: number) => Math.max(180, Math.min(520, width));
 export function useSidebarWidth(storageKey?: string, initialWidth = READER_DEFAULT_SIDEBAR_WIDTH) {
-  const [width, setWidth] = useState(() => {
+  const [width, setWidth] = useReaderPreference(storageKey ? 'sidebarWidth' : undefined, () => {
     try {
       const saved = storageKey && localStorage.getItem(storageKey);
       if (saved && Number.isFinite(Number(saved))) return clampWidth(Number(saved));

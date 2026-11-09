@@ -983,13 +983,13 @@ try {
   assert.equal(cachedCatalog.bots.length, goodCatalog.bots.length);
   assert.equal(cachedCatalog.error, undefined);
   await settingsPage
-    .locator('[data-settings-page="bots"]')
+    .locator('#settings-feedback-center')
     .getByText('请打开 Grok Bot 更新资料。', { exact: true })
     .waitFor();
   botCatalog = { version: 1, bots: [{ name: '无身份 Bot', available: true }] };
   await api('features', { op: 'bots-catalog', refresh: true });
   await settingsPage
-    .locator('[data-settings-page="bots"]')
+    .locator('#settings-feedback-center')
     .getByText('Grok Bot 同步失败，请重试。', { exact: true })
     .waitFor();
   assert.equal((await botRead()).snapshot.catalog.stale, true);

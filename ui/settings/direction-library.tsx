@@ -13,7 +13,7 @@ import { Button } from './components/ui/button';
 import { Input } from './components/ui/input';
 import { Field } from './settings-controls';
 import { ConfirmationButton } from './settings-confirmation';
-import { SettingsDrawer, DrawerSaveControls } from './settings-drawer';
+import { SettingsDrawer } from './settings-drawer';
 import type { SettingsEditor } from './use-settings-form';
 
 export function DirectionLibrary({ editor }: { editor: SettingsEditor }) {
@@ -76,11 +76,7 @@ export function DirectionLibrary({ editor }: { editor: SettingsEditor }) {
   }, [selected, active?.id, group]);
 
   return (
-    <SettingsDrawer
-      id="settings-direction-library"
-      title={tr('方向库')}
-      footer={<DrawerSaveControls editor={editor} />}
-    >
+    <SettingsDrawer id="settings-direction-library" title={tr('方向库')}>
       <div ref={root} className="direction-library" data-settings-search-ignore>
         <div hidden={!!active}>
           <SegmentedGroup

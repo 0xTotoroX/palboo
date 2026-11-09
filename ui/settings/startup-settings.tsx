@@ -23,6 +23,7 @@ export function StartupSettings({
   const [prefs, setPrefs] = useState(value);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [saved, setSaved] = useState(false);
   useEffect(() => {
     if (value)
       setPrefs((current) => (!current || value.revision >= current.revision ? value : current));
@@ -32,6 +33,7 @@ export function StartupSettings({
     if (!live || !prefs || busy) return;
     setBusy(true);
     setError('');
+    setSaved(false);
     try {
       const next = { ...startup, ...patch };
       if (patch.mode === 'open' && !outsideAvailable) next.location = 'inside';
@@ -40,6 +42,7 @@ export function StartupSettings({
         startup: next,
       });
       setPrefs((current) => (!current || saved.revision >= current.revision ? saved : current));
+      setSaved(true);
     } catch (e) {
       setError((e as Error).message);
       try {
@@ -52,7 +55,7 @@ export function StartupSettings({
   }
   return (
     <div data-settings-navigation onChange={(event) => event.stopPropagation()}>
-      <Field id="startup-mode" label={tr('Palboo 启动时')} hint={tr('下次启动 Palboo 时生效。')}>
+      <Field id="startup-mode" label={tr('Palboo 启动时')}>
         <NativeSelect
           id="startup-mode"
           controlWidth="medium"
@@ -84,6 +87,7 @@ export function StartupSettings({
         </Field>
       )}
       <Feedback text={error} failed />
+      <Feedback text={saved ? tr('已保存；下次启动 Palboo 时生效。') : ''} />
     </div>
   );
 }

@@ -89,7 +89,7 @@ Rust + Tokio/Axum + Tao/Wry + JavaScript 共享胶囊 + React/TypeScript/Vite + 
 
 前端基础组件继续使用本地 shadcn/ui 与 Radix，动作图标只从 shared/icons 获取。新增页面复用现有主题变量、设置控件与保存队列，不引入第二套同职责组件或图标库。普通布局和动效复用 CSS、现有浏览器动画及工作台控制器；Motion、Pragmatic drag and drop、react-resizable-panels、Zustand 仅在具体需求确认后按职责接入，不预装备用依赖，不替换后台修订校验或跨窗口同步。
 
-- [src/AGENTS.md](src/AGENTS.md)：命令、后台、CDP、模型和系统窗口；macOS 手势内联于 `src/panel_window.rs`。
+- [src/AGENTS.md](src/AGENTS.md)：命令、后台、本地备份恢复、CDP、模型和系统窗口；macOS 手势内联于 `src/panel_window.rs`。
 - [ui/codex/AGENTS.md](ui/codex/AGENTS.md)：聊天读取、定位、输入框与官方模型菜单适配，以及浏览器运行协调；不包含功能内容渲染。
 - [ui/shared/bridge/AGENTS.md](ui/shared/bridge/AGENTS.md)：受限 CDP binding 与请求生命周期。
 - [ui/features/AGENTS.md](ui/features/AGENTS.md)：看板、大纲、下一步、常用语与模型快切的内容界面及交互，各形式复用。

@@ -109,6 +109,7 @@ export function TerminologySettings({
   const [data, setData] = useState<Library | null>(null),
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
   const [query, setQuery] = useState(''),
     [masteredOnly, setMasteredOnly] = useState(false);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
@@ -157,13 +158,18 @@ export function TerminologySettings({
     }, 3000);
     return () => clearInterval(timer);
   }, [active, hasPending, busy]);
-  async function command(payload: object) {
+  async function command(payload: { action: string; [key: string]: unknown }) {
     feedback.capture();
     setBusy(true);
     setError('');
+    setMessage('');
     try {
       const state = await request<Library>('terminology', payload);
       setData(state);
+      if (payload.semantic === true)
+        setMessage(tr('语义识别使用已配置模型处理当前问答；联网仅查询术语名。'));
+      if (payload.action === 'add-names' || payload.action === 'retry-import')
+        setMessage(tr('已加入待处理；下次在主聊天发送消息时处理。'));
       return true;
     } catch (e) {
       setError((e as Error).message);
@@ -211,6 +217,7 @@ export function TerminologySettings({
       onPointerDownCapture={feedback.track}
     >
       {confirmation}
+      <Feedback text={message} />
       <style>{cardStyles}</style>
       <FeatureSwitch
         name={pageTitles.terminology}
@@ -267,9 +274,7 @@ export function TerminologySettings({
                 void command({ action: 'settings', revision: prefs.revision, autoExpand })
               }
             />
-            <p className="settings-hint">
-              {tr('语义识别使用已配置模型处理当前问答；联网仅查询术语名。')}
-            </p>
+
             <div className="settings-row">
               <label htmlFor="terms-jump-on-click">{tr('点击术语时跳转到上下文')}</label>
               <Switch
@@ -360,17 +365,7 @@ export function TerminologySettings({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
-              <SettingsDrawer
-                id="settings-library"
-                title={tr('词库管理')}
-                footer={
-                  error ? (
-                    <p role="alert" className="settings-error text-sm">
-                      {error}
-                    </p>
-                  ) : undefined
-                }
-              >
+              <SettingsDrawer id="settings-library" title={tr('词库管理')}>
                 <div ref={managementRoot}>
                   <SegmentedGroup
                     value={management}
@@ -431,9 +426,6 @@ export function TerminologySettings({
                         {tr('添加')}
                       </Button>
                     </div>
-                    <p className="settings-hint">
-                      {tr('名称立即加入；下次主聊天运行时，由当前 Agent 联网补全。')}
-                    </p>
                   </div>
 
                   <div
@@ -443,7 +435,7 @@ export function TerminologySettings({
                     hidden={management !== 'transfer'}
                   >
                     <label className="grid w-full gap-2 text-sm">
-                      {tr('导入文件')}
+                      {tr('导入文件（最多 8 MB）')}
                       <input
                         type="file"
                         aria-label={tr('导入术语文件')}
@@ -462,6 +454,7 @@ export function TerminologySettings({
                             if (!file.size || file.size > 8_000_000)
                               throw Error(tr('文件需为 1 字节至 8 MB'));
                             setData(await uploadTerminology<Library>(file));
+                            setMessage(tr('已加入待处理；下次在主聊天发送消息时处理。'));
                           } catch (e) {
                             setError((e as Error).message);
                           } finally {
@@ -470,11 +463,7 @@ export function TerminologySettings({
                         }}
                       />
                     </label>
-                    <p className="settings-hint">
-                      {tr(
-                        '不限格式，最多 8 MB；下次主聊天由当前 Agent 解析，支持范围取决于其文件能力。',
-                      )}
-                    </p>
+
                     <div className="settings-actions">
                       <Button
                         variant="outline"
@@ -628,7 +617,7 @@ export function TerminologySettings({
                 </div>
               ))}
               {!results.length && (favoritesOnly || masteredOnly || !pendingJobs.length) && (
-                <p className="settings-hint">{tr('没有匹配的术语')}</p>
+                <p className="settings-empty">{tr('没有匹配的术语')}</p>
               )}
             </div>
             {results.length > resultLimit && (

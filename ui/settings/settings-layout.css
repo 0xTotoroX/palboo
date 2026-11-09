@@ -408,8 +408,7 @@ html:root .settings-nav {
   font-size: inherit;
 }
 .settings-feedback-slot:empty,
-.settings-feedback-slot:has(> [hidden]),
-.settings-app:has(.settings-drawer[open]) [data-settings-form-feedback] {
+.settings-feedback-slot:has(> [hidden]) {
   display: none;
 }
 .settings-field:has(+ .settings-feedback-slot > :not([hidden])),

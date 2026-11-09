@@ -288,7 +288,7 @@ test(
       await page.locator('label[for="context-scope"]').click();
       await page
         .locator('.settings-drawer[open]')
-        .getByText('设置已在其他窗口更新，请重新载入后再保存', { exact: true })
+        .getByText('设置已在其他窗口更新，当前编辑已保留。', { exact: false })
         .waitFor();
       assert.equal(await input.inputValue(), '14000');
       assert.equal(settings.maxInputChars, 13000);

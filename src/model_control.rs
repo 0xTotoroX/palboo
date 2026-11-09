@@ -232,22 +232,35 @@ pub struct Control {
     snapshot: Value,
 }
 
+pub(crate) fn backup_preferences(value: &Value) -> Result<Value> {
+    let mut value = value.clone();
+    if let Some(object) = value.as_object_mut() {
+        for key in [
+            "edge",
+            "position",
+            "screen",
+            "keepOpen",
+            "theme",
+            "liquidVariant",
+        ] {
+            object.remove(key);
+        }
+    }
+    validate_backup(&value)?;
+    Ok(value)
+}
+
+pub(crate) fn validate_backup(value: &Value) -> Result<()> {
+    serde_json::from_value::<Preferences>(value.clone())?.validate()
+}
+
 impl Control {
     pub fn load(paths: &Paths) -> Self {
         let preferences = std::fs::read(paths.root.join("model-control.json"))
             .ok()
             .and_then(|bytes| {
-                let mut value: Value = serde_json::from_slice(&bytes).ok()?;
-                for key in [
-                    "edge",
-                    "position",
-                    "screen",
-                    "keepOpen",
-                    "theme",
-                    "liquidVariant",
-                ] {
-                    value.as_object_mut()?.remove(key);
-                }
+                let value: Value = serde_json::from_slice(&bytes).ok()?;
+                let value = backup_preferences(&value).ok()?;
                 serde_json::from_value::<Preferences>(value).ok()
             })
             .filter(|prefs| prefs.validate().is_ok())

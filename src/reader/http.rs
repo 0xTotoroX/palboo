@@ -86,6 +86,10 @@ pub async fn start(
 }
 pub(super) fn router(state: HttpState) -> Router {
     let api = Router::new()
+        .route(
+            "/preferences",
+            get(reader_preferences).post(save_reader_preferences),
+        )
         .route("/{operation}", get(read))
         .route("/save", post(save))
         .route("/settings-open", post(open_settings))
@@ -346,6 +350,39 @@ async fn open_settings(State(state): State<HttpState>) -> Response {
         return StatusCode::SERVICE_UNAVAILABLE.into_response();
     };
     match app.open_settings_in_host(Some("sites")).await {
+        Ok(value) => Json(value).into_response(),
+        Err(error) => (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"message":error.to_string()})),
+        )
+            .into_response(),
+    }
+}
+
+async fn reader_preferences(State(state): State<HttpState>) -> Response {
+    let Some(app) = state.app.and_then(|app| app.upgrade()) else {
+        return Json(json!({})).into_response();
+    };
+    match crate::backup::reader_preferences::read(&app.paths) {
+        Ok(value) => Json(value).into_response(),
+        Err(error) => (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"message":error.to_string()})),
+        )
+            .into_response(),
+    }
+}
+async fn save_reader_preferences(
+    State(state): State<HttpState>,
+    Json(value): Json<Value>,
+) -> Response {
+    let Some(app) = state.app.and_then(|app| app.upgrade()) else {
+        return StatusCode::SERVICE_UNAVAILABLE.into_response();
+    };
+    if *app.closing.borrow() {
+        return StatusCode::CONFLICT.into_response();
+    }
+    match crate::backup::reader_preferences::save(&app.paths, value) {
         Ok(value) => Json(value).into_response(),
         Err(error) => (
             StatusCode::BAD_REQUEST,

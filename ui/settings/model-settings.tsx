@@ -1,10 +1,11 @@
+import { NearbyFeedback } from './settings-feedback';
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: Shared model editor, serialized save queue, saved-connection model API, credential controls and free-text dropdown.
- * [OUTPUT]: One directly visible model form in both modes, retaining credentials/drafts across navigation; advanced controls use a retained right-side drawer; connection tests report progress and results beside the action.
+ * [OUTPUT]: One directly visible model form in both modes, retaining credentials/drafts across navigation; advanced controls use a retained right-side drawer; connection tests use the shared fixed feedback region.
  * [POS]: Settings presentation only; all enabled API-backed features share the configured model.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
-import { SettingsDrawer, DrawerSaveControls } from './settings-drawer';
+import { SettingsDrawer } from './settings-drawer';
 import { useProviderFieldsMotion } from './settings-motion';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from './components/ui/button';
@@ -278,38 +279,35 @@ export function ModelSettings({ editor, simple }: { editor: SettingsEditor; simp
               </Button>
             </div>
             {(busy || testFeedback) && (
-              <p
-                id="model-test-feedback"
-                className={
-                  testFeedback?.failed
-                    ? 'settings-feedback settings-error text-right'
-                    : 'settings-feedback text-right'
-                }
-                role={testFeedback?.failed ? 'alert' : 'status'}
-              >
-                {busy === 'saving'
-                  ? tr('正在保存配置，随后测试连接。')
-                  : busy
-                    ? tr('正在用固定示例请求模型…')
-                    : testFeedback?.text}
-                {busy && (
-                  <span aria-hidden="true">
-                    {tr(' 已等待 ')}
-                    {elapsed}
-                    {tr(' 秒')}
-                  </span>
-                )}
-              </p>
+              <NearbyFeedback>
+                <p
+                  id="model-test-feedback"
+                  className={
+                    testFeedback?.failed
+                      ? 'settings-feedback settings-error text-right'
+                      : 'settings-feedback text-right'
+                  }
+                  role={testFeedback?.failed ? 'alert' : 'status'}
+                >
+                  {busy === 'saving'
+                    ? tr('正在保存配置，随后测试连接。')
+                    : busy
+                      ? tr('正在用固定示例请求模型…')
+                      : testFeedback?.text}
+                  {busy && (
+                    <span aria-hidden="true">
+                      {tr(' 已等待 ')}
+                      {elapsed}
+                      {tr(' 秒')}
+                    </span>
+                  )}
+                </p>
+              </NearbyFeedback>
             )}
           </div>
         </div>
       </Card>
-      <SettingsDrawer
-        id="settings-limits"
-        title={tr('高级设置')}
-        hidden={simple}
-        footer={<DrawerSaveControls editor={editor} />}
-      >
+      <SettingsDrawer id="settings-limits" title={tr('高级设置')} hidden={simple}>
         <section hidden={form.provider !== 'api'}>
           <h3>{tr('连接与密钥')}</h3>
           <Field
@@ -328,11 +326,7 @@ export function ModelSettings({ editor, simple }: { editor: SettingsEditor; simp
           <DeleteModelApiKey editor={editor} busy={!!busy} />
         </section>
         <div className="space-y-5">
-          <Field
-            id="context-scope"
-            label={tr('输入上下文')}
-            hint={tr('最近一次提问与回答，不包含更早历史。')}
-          >
+          <Field id="context-scope" label={tr('输入上下文')}>
             <NativeSelect
               id="context-scope"
               controlWidth="medium"

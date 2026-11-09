@@ -1,6 +1,6 @@
 // [INPUT]: App、Runtime、app_mode/app_update、本机认证令牌、target/web 与 ui/panel/popout 资源。
 // [OUTPUT]: 独立 Chat 大纲监督随后台启动/退出； serve、认证任务/宿主字体 API、HTTP/SSE API、设置页、看板和弹出页资源及禁止缓存的阅读器资源；含原生呈现确认的窗口协议及受鉴权的无正文开发状态与仅开发模式开放的工作台唤起接口。
-// [POS]: 仅监听 loopback 的服务入口，公开状态剔除聊天正文并携带设置界面外观快照；认证状态携带 Dev 设置地址供旧入口跳转；更新读取/检查/安装和模型控制、窗口租约共用鉴权；操作锁由对应服务管理。
+// [POS]: 仅监听 loopback 的服务入口，认证备份协调器在停止活动后重载App并保留监听地址；公开状态剔除聊天正文并携带设置界面外观快照；认证状态携带 Dev 设置地址供旧入口跳转；更新读取/检查/安装和模型控制、窗口租约共用鉴权；操作锁由对应服务管理。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
 use crate::{
@@ -38,6 +38,7 @@ struct Service {
     app: Arc<App>,
     token: String,
     port: u16,
+    backup: Arc<crate::backup::Coordinator>,
 }
 
 struct ApiError(String);
@@ -70,7 +71,8 @@ pub async fn serve(
         .open(paths.root.join("service.lock"))?;
     lock.try_lock_exclusive()
         .context("Palboo 已在运行，请使用 start 打开已有面板")?;
-    let config = paths.load()?;
+    crate::backup::recover(&paths)?;
+    paths.load()?;
     paths.load_key()?;
     let listener = tokio::net::TcpListener::bind(("127.0.0.1", port))
         .await
@@ -84,62 +86,105 @@ pub async fn serve(
         executable: std::env::current_exe()?,
     };
     write_private(&paths.runtime(), &serde_json::to_vec_pretty(&runtime)?)?;
-    let app = App::new(paths.clone(), config, endpoint, allow_fixture);
-    let reader =
-        crate::reader::start(app.clone(), app.closing.subscribe(), app.views.subscribe()).await?;
-    let state = Service {
-        app: app.clone(),
-        token: runtime.token.clone(),
-        port,
-    };
-    let router = router(state);
-    if std::env::var_os("PALBOO_START_DISCONNECTED").is_some() {
-        app.disconnect().await;
-    }
-    let watcher = app.clone().supervise();
-    let chat_outline_watcher = tokio::spawn(crate::chat_outline::watch(app.clone()));
-    let task_watcher = app.tasks.start();
-    let term_watcher = tokio::spawn(crate::terminology_import::watch(app.clone()));
-    let host_update = (!allow_fixture).then(|| {
-        let app = app.clone();
-        tokio::spawn(async move {
-            let mut closing = app.closing.subscribe();
-            tokio::select! {
-                _ = closing.wait_for(|closed| *closed) => {}
-                result = app.check_codex_host_on_startup() => {
-                    if let Err(error) = result {
-                        tracing::warn!(%error, "CodexHost 启动更新失败");
+    let listener = listener.into_std()?;
+    let backup = Arc::new(crate::backup::Coordinator::default());
+    let mut disconnected = std::env::var_os("PALBOO_START_DISCONNECTED").is_some();
+    let mut restored = false;
+    let mut reload_revision = 0;
+    loop {
+        let listener = tokio::net::TcpListener::from_std(listener.try_clone()?)?;
+        let config = paths.load()?;
+        let app = App::new(paths.clone(), config, endpoint.clone(), allow_fixture);
+        if restored {
+            let revision = reload_revision;
+            app.settings_revision
+                .store(revision, std::sync::atomic::Ordering::SeqCst);
+            app.views
+                .send_modify(|view| view.configuration_revision = revision);
+            app.model_control.lock().await.revision = revision;
+            app.surfaces.lock().await.revision = revision;
+        }
+        let reader =
+            crate::reader::start(app.clone(), app.closing.subscribe(), app.views.subscribe())
+                .await?;
+        let state = Service {
+            app: app.clone(),
+            token: runtime.token.clone(),
+            port,
+            backup: backup.clone(),
+        };
+        let router = router(state);
+        if disconnected {
+            app.disconnect().await;
+        }
+        let watcher = app.clone().supervise();
+        let chat_outline_watcher = tokio::spawn(crate::chat_outline::watch(app.clone()));
+        let task_watcher = app.tasks.start();
+        let term_watcher = tokio::spawn(crate::terminology_import::watch(app.clone()));
+        let host_update = (!allow_fixture && !restored).then(|| {
+            let app = app.clone();
+            tokio::spawn(async move {
+                let mut closing = app.closing.subscribe();
+                tokio::select! {
+                    _ = closing.wait_for(|closed| *closed) => {}
+                    result = app.check_codex_host_on_startup() => {
+                        if let Err(error) = result {
+                            tracing::warn!(%error, "CodexHost 启动更新失败");
+                        }
                     }
                 }
-            }
-        })
-    });
-    tracing::info!(port, "Palboo 本地服务启动");
-    let shutdown_app = app.clone();
-    let result = axum::serve(listener, router)
+            })
+        });
+        tracing::info!(port, "Palboo 本地服务启动");
+        let shutdown_app = app.clone();
+        let reload = backup.clone();
+        let result = axum::serve(listener, router)
         .with_graceful_shutdown(async move {
-            tokio::select! { _ = shutdown_app.shutdown.notified() => {}, _ = termination() => {} }
+            tokio::select! { _ = shutdown_app.shutdown.notified() => {}, _ = termination() => {}, _ = reload.restart.notified() => {} }
             shutdown_app.closing.send_replace(true);
         })
         .await;
-    app.closing.send_replace(true);
-    watcher.abort();
-    task_watcher.abort();
-    term_watcher.abort();
-    if let Some(update) = host_update {
-        update.abort();
+        app.closing.send_replace(true);
+        watcher.abort();
+        task_watcher.abort();
+        term_watcher.abort();
+        if let Some(update) = host_update {
+            update.abort();
+            let _ = update.await;
+        }
+        reader.abort();
+        let _ = watcher.await;
+        let _ = task_watcher.await;
+        let _ = term_watcher.await;
+        let _ = reader.await;
+        disconnected = app.views.borrow().connection.status == "disconnected";
+        app.stop_features().await;
+        app.tasks.stop().await;
+        app.disconnect().await;
+        let _ = chat_outline_watcher.await;
+        if backup.pending.load(std::sync::atomic::Ordering::SeqCst) {
+            reload_revision = [
+                crate::backup::now().saturating_mul(1000),
+                app.settings_revision
+                    .load(std::sync::atomic::Ordering::SeqCst),
+                app.model_control.lock().await.revision,
+                app.surfaces.lock().await.revision,
+            ]
+            .into_iter()
+            .max()
+            .unwrap()
+            .saturating_add(1);
+            backup.finish().await;
+            restored = true;
+            continue;
+        }
+        if let Ok(current) = Runtime::read(&paths)
+            && current.token == runtime.token
+        {
+            let _ = std::fs::remove_file(paths.runtime());
+        }
+        return result.context("Palboo 服务异常退出");
     }
-    reader.abort();
-    app.stop_features().await;
-    app.tasks.stop().await;
-    app.disconnect().await;
-    let _ = chat_outline_watcher.await;
-    if let Ok(current) = Runtime::read(&paths)
-        && current.token == runtime.token
-    {
-        let _ = std::fs::remove_file(paths.runtime());
-    }
-    result.context("Palboo 服务异常退出")
 }
 
 async fn termination() {
@@ -150,6 +195,10 @@ async fn termination() {
 
 fn router(service: Service) -> Router {
     let api = Router::new()
+        .route(
+            "/backup",
+            post(backup_command).layer(DefaultBodyLimit::max(crate::backup::HTTP_LIMIT)),
+        )
         .route("/web-library", get(web_library).post(save_web_library))
         .route("/web-library/open", post(open_website))
         .route("/web-library/vaults", get(reader_vaults))
@@ -303,7 +352,31 @@ async fn authorize(State(service): State<Service>, request: Request, next: Next)
     if auth != Some(format!("Bearer {}", service.token).as_str()) {
         return (StatusCode::UNAUTHORIZED, Json(json!({"ok":false,"code":"unauthorized","message":"连接凭据已过期，请运行 palboo start 重新打开面板。"}))).into_response();
     }
+    if service
+        .backup
+        .pending
+        .load(std::sync::atomic::Ordering::SeqCst)
+        && request.method() != axum::http::Method::GET
+    {
+        return (
+            StatusCode::CONFLICT,
+            Json(json!({"ok":false,"message":"正在恢复配置，请等待本地服务重新就绪"})),
+        )
+            .into_response();
+    }
     next.run(request).await
+}
+
+async fn backup_command(
+    State(service): State<Service>,
+    Json(input): Json<Value>,
+) -> Result<Json<Value>, ApiError> {
+    Ok(Json(
+        service
+            .backup
+            .request(service.app.paths.clone(), input)
+            .await?,
+    ))
 }
 
 async fn app_mode_status() -> Result<Json<Value>, ApiError> {
@@ -817,6 +890,7 @@ mod tests {
             app,
             token: "test-token".into(),
             port: 47831,
+            backup: Arc::new(crate::backup::Coordinator::default()),
         });
         for (path, token, status) in [
             ("/api/host-fonts", "wrong", StatusCode::UNAUTHORIZED),
@@ -859,6 +933,7 @@ mod tests {
             app: app.clone(),
             token: "test-token".into(),
             port: 47831,
+            backup: Arc::new(crate::backup::Coordinator::default()),
         });
         for (token, size, status) in [
             ("wrong", 10, StatusCode::UNAUTHORIZED),
@@ -902,6 +977,7 @@ mod tests {
             app,
             token: "test-token".into(),
             port: 47831,
+            backup: Arc::new(crate::backup::Coordinator::default()),
         });
         for (token, expected) in [
             ("wrong-token", StatusCode::UNAUTHORIZED),
@@ -936,6 +1012,7 @@ mod tests {
             app,
             token: "test-token".into(),
             port: 47831,
+            backup: Arc::new(crate::backup::Coordinator::default()),
         });
         for route in [
             "state",
@@ -998,6 +1075,7 @@ mod tests {
             app,
             token: "test-token".into(),
             port: 47831,
+            backup: Arc::new(crate::backup::Coordinator::default()),
         });
         for path in [
             "select-message",
@@ -1038,6 +1116,7 @@ mod tests {
             app,
             token: "test-token".into(),
             port: 47831,
+            backup: Arc::new(crate::backup::Coordinator::default()),
         });
         for (host, origin, token, expected) in [
             ("127.0.0.1:47831", None, None, 401),

@@ -137,6 +137,8 @@ async function setup(t, id = notes[0].id, options = {}) {
   });
   await page.route('**/*', async (route) => {
     const url = new URL(route.request().url());
+    if (url.origin === base && url.pathname === '/api/preferences')
+      return route.fulfill({ json: {} });
     if (url.origin !== base) {
       outside.push(url.origin);
       return route.abort();

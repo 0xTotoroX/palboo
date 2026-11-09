@@ -624,7 +624,7 @@ test(
       assert.equal(writes.length, 0);
       await instruction.fill(originalInstruction);
       await library.getByRole('button', { name: '返回内置方向', exact: true }).click();
-      await page.setViewportSize({ width: 360, height: 760 });
+      await page.setViewportSize({ width: 360, height: 600 });
       const libraryBox = await library.boundingBox();
       assert.equal(Math.round(libraryBox.width), 360);
       assert.equal(await library.evaluate((node) => node.scrollWidth <= node.clientWidth), true);
@@ -1211,8 +1211,8 @@ test(
         ),
       );
       // Compact typography lets this page fit a tall window; constrain height to test restoration.
-      await page.setViewportSize({ width: 1360, height: 760 });
-      await page.evaluate(() => scrollTo({ top: 400, behavior: 'instant' }));
+      await page.setViewportSize({ width: 1360, height: 600 });
+      await page.evaluate(() => scrollTo({ top: 160, behavior: 'instant' }));
       const scroll = await page.evaluate(() => scrollY);
       assert.ok(scroll > 100);
       await roundTrip();
@@ -1438,10 +1438,11 @@ test(
       await category('surfaces');
       rejectFeature = true;
       await page.locator('#placement-outline').selectOption('edge');
-      const placementCell = page
-        .locator('.settings-feature-cell')
-        .filter({ has: page.locator('#placement-outline') });
-      await placementCell.getByRole('alert').waitFor();
+      await page
+        .locator('#settings-feedback-center')
+        .getByRole('alert')
+        .filter({ hasText: '合成功能位置保存失败' })
+        .waitFor();
       assert.equal(await page.locator('#placement-outline').inputValue(), 'sidebar');
       assert.equal(
         await page
@@ -1457,10 +1458,7 @@ test(
               document.getElementById('placement-outline').getBoundingClientRect().top,
           ),
         );
-      assert.ok(
-        neighborOffset < 1,
-        'save failure stays in its cell without displacing neighboring controls',
-      );
+      assert.ok(neighborOffset < 1, 'central feedback does not displace neighboring controls');
       await page.getByLabel('主界面布局', { exact: true }).selectOption('horizontal');
       await page.waitForFunction(
         () => document.querySelectorAll('.layout-demo .csw-workbench-pane').length === 3,

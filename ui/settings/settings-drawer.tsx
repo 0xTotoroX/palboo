@@ -6,7 +6,6 @@ import { tr } from '../shared/i18n.js';
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 import { useEffect, useLayoutEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Button, IconButton } from './components/ui/button';
-import type { SettingsEditor } from './use-settings-form';
 import { Icon } from '../shared/icons/react';
 
 const openEvent = 'buddy-settings-drawer-open';
@@ -168,33 +167,5 @@ export function SettingsDrawer({
         {footer && <div className="settings-drawer-footer">{footer}</div>}
       </dialog>
     </section>
-  );
-}
-
-export function DrawerSaveControls({ editor }: { editor: SettingsEditor }) {
-  useLocale();
-  if (!editor.dirty && !editor.saving && !editor.saveError && !editor.remoteChanged) return null;
-  return (
-    <>
-      {editor.saveError && (
-        <p role="alert" className="settings-error text-sm">
-          {editor.saveError}
-        </p>
-      )}
-      {editor.remoteChanged ? (
-        <p role="alert" className="settings-error text-sm">
-          {tr('设置已在其他窗口更新，草稿已保留。关闭抽屉后可重新载入。')}
-        </p>
-      ) : (
-        <div className="settings-actions">
-          <span role="status" className="text-muted-foreground">
-            {editor.saving ? tr('正在保存…') : ''}
-          </span>
-          <Button type="submit" variant="outline" disabled={editor.saving || !editor.dirty}>
-            {tr('保存设置')}
-          </Button>
-        </div>
-      )}
-    </>
   );
 }

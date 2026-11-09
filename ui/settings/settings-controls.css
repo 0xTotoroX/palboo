@@ -904,3 +904,97 @@ html:has(.settings-drawer[open]) {
   justify-content: flex-end;
   gap: 12px;
 }
+
+/* 所有操作反馈共用固定区域，不插入表单行，也不改变字段几何。 */
+#settings-feedback-center {
+  position: fixed;
+  z-index: 1000;
+  right: 24px;
+  bottom: 24px;
+  width: min(460px, calc(100vw - 32px));
+  max-height: min(40vh, 360px);
+  overflow: auto;
+  display: grid;
+  gap: 8px;
+  pointer-events: none;
+}
+.settings-feedback-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--buddy-border);
+  border-radius: var(--buddy-radius-small, 12px);
+  background: var(--buddy-surface);
+  color: var(--buddy-text);
+  pointer-events: auto;
+  overflow-wrap: anywhere;
+}
+.settings-feedback-item:not([data-failed='true']):not([data-actionable='true']):not(:last-child) {
+  display: none;
+}
+.settings-feedback-item [data-feedback-content] {
+  flex: 1;
+  min-width: 0;
+}
+.settings-feedback-item .settings-feedback,
+.settings-feedback-item .settings-save {
+  margin: 0;
+}
+.settings-feedback-dismiss {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  background: transparent;
+  color: inherit;
+  border: 0;
+  border-radius: 6px;
+}
+.settings-feedback-dismiss svg {
+  width: 18px;
+  height: 18px;
+}
+.settings-feedback-dismiss:hover {
+  background: var(--buddy-subtle);
+}
+.settings-feedback-dismiss:focus-visible {
+  outline: 2px solid var(--buddy-focus);
+}
+@media (max-width: 640px) {
+  #settings-feedback-center {
+    right: 16px;
+    bottom: 16px;
+  }
+}
+
+.settings-backup-sections {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px 24px;
+  margin-block: 24px;
+}
+.settings-backup-sections label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.settings-backup-changes {
+  list-style: none;
+  padding: 0;
+}
+.settings-backup-changes li {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding-block: 12px;
+  border-bottom: 1px solid var(--buddy-border);
+}
+
+.settings-feedback-item[hidden] {
+  display: none;
+}
+.settings-feedback-item:has([data-feedback-content] button) > .settings-feedback-dismiss {
+  display: none;
+}

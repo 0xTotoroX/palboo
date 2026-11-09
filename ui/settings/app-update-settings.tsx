@@ -1,3 +1,4 @@
+import { Notice } from './settings-controls';
 /* [INPUT]: 手动更新 API、现有设置草稿及共享控件。
  * [OUTPUT]: 本地安装版本、显式检查、版本说明和更新进度页交接；断线失效旧读数与更新候选。
  * [POS]: 启动与连接页面；不后台联网检查，不自动下载或切换开发模式。
@@ -118,22 +119,16 @@ export function AppUpdateSettings({
         </div>
       </Field>
       {state?.checked && (
-        <p role="status" className="settings-hint">
+        <Notice>
           {available
             ? tr('发现新版本 v{{version}}', { version: available.version })
             : tr('当前无需更新。')}
           {available && !available.asset && ` ${tr('此版本仅提供源码，没有安装包。')}`}
-        </p>
+        </Notice>
       )}
-      {available && state?.reason && <p className="settings-hint">{tr(state.reason)}</p>}
-      {available?.asset && dirty && (
-        <p className="settings-hint">{tr('请先保存或还原当前设置，再更新。')}</p>
-      )}
-      {error && (
-        <p role="alert" className="settings-error">
-          {tr(error)}
-        </p>
-      )}
+      {available && state?.reason && <Notice>{tr(state.reason)}</Notice>}
+      {available?.asset && dirty && <Notice>{tr('请先保存或还原当前设置，再更新。')}</Notice>}
+      {error && <Notice failed>{tr(error)}</Notice>}
       {available && (
         <div className="settings-actions flex-wrap">
           <a

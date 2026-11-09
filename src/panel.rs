@@ -319,11 +319,7 @@ impl Preferences {
             .ok()
             .and_then(|bytes| {
                 let mut value: Value = serde_json::from_slice(&bytes).ok()?;
-                if value["ui"]["material"] == "native-glass"
-                    && value["ui"]["glassStyle"] == "regular"
-                {
-                    value["ui"]["material"] = json!("frosted");
-                }
+                normalize_backup(&mut value);
                 serde_json::from_value::<Self>(value).ok()
             })
             .map(|mut prefs| {
@@ -332,9 +328,6 @@ impl Preferences {
                 }
                 if prefs.detached {
                     prefs.ui.open = true;
-                }
-                if ["clear", "liquid", "crystal", "liquid2"].contains(&prefs.ui.material.as_str()) {
-                    prefs.ui.material = "frosted".into();
                 }
                 prefs
             })
@@ -350,6 +343,27 @@ impl Preferences {
 }
 
 pub(crate) const POPOUT_REQUIREMENT: &str = "桌面浮窗仅支持 macOS 15 及以上的 Apple Silicon 设备";
+
+pub(crate) fn normalize_backup(value: &mut Value) {
+    if (value["ui"]["material"] == "native-glass" && value["ui"]["glassStyle"] == "regular")
+        || value["ui"]["material"]
+            .as_str()
+            .is_some_and(|v| ["clear", "liquid", "crystal", "liquid2"].contains(&v))
+    {
+        value["ui"]["material"] = json!("frosted");
+    }
+}
+
+pub(crate) fn validate_backup(value: &Value) -> Result<()> {
+    let prefs: Preferences = serde_json::from_value(value.clone())?;
+    prefs.ui.validate()?;
+    prefs.startup.validate()?;
+    prefs.typography.validate()?;
+    for typography in prefs.surface_typography.values() {
+        typography.validate()?;
+    }
+    Ok(())
+}
 
 fn platform_supports_popout(os: &str, arch: &str, major: isize) -> bool {
     os == "macos" && arch == "aarch64" && major >= 15

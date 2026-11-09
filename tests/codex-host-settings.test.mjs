@@ -56,15 +56,7 @@ test('CodexHost settings use their own authenticated endpoint and preserve expli
     await control.click();
     const alert = page.getByRole('alert');
     await alert.waitFor();
-    assert.equal(
-      await alert.evaluate(
-        (e) =>
-          !!e
-            .closest('.settings-feedback-slot')
-            ?.previousElementSibling?.querySelector('[aria-label="启用CodexHost"]'),
-      ),
-      true,
-    );
+    assert.equal(await alert.evaluate((e) => !!e.closest('#settings-feedback-center')), true);
     assert.equal(await control.getAttribute('aria-checked'), 'false');
     await page.evaluate(() => {
       window.fail = false;

@@ -1,5 +1,5 @@
 /* [INPUT]: Fragment reader credential on a separate loopback origin.
- * [OUTPUT]: Folder-scoped JSON/image reads and same-origin edits; each tab retains its own folder credential.
+ * [OUTPUT]: Folder-scoped JSON/image reads, layout preferences and same-origin edits; each tab retains its own folder credential.
  * [POS]: Reader transport; URL credentials are removed before rendering any note.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { tr } from '../shared/i18n.js';
@@ -90,3 +90,12 @@ export type LinkPreview = {
   anchor: string;
   excerpt: string | null;
 };
+
+export async function savePreferences(value: Record<string, number | boolean>) {
+  const response = await request('/api/preferences', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(value),
+  });
+  return response.json();
+}

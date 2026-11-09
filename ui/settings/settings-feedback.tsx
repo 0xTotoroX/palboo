@@ -1,9 +1,19 @@
-/* [INPUT]: The edited setting's DOM row and existing request state.
- * [OUTPUT]: Feedback beside its originating control without moving that control or its draft.
+/* [INPUT]: Existing request state, active settings page and modal scope.
+ * [OUTPUT]: One fixed feedback area; controls and drafts never move when feedback changes.
  * [POS]: Settings-only presentation; owns no request or saved configuration.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
-import { useLayoutEffect, useRef, useState, type ReactNode, type SyntheticEvent } from 'react';
+import {
+  createContext,
+  useContext,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+  type SyntheticEvent,
+} from 'react';
 import { createPortal } from 'react-dom';
+import { tr } from '../shared/i18n.js';
+import { Icon } from '../shared/icons/react';
 
 export function feedbackTarget(element: Element | null = document.activeElement) {
   if (element?.closest('[data-settings-navigation], .settings-feedback-slot')) return null;
@@ -29,32 +39,150 @@ export function useFeedbackTarget() {
   };
 }
 
-export function NearbyFeedback({
+const FeedbackScope = createContext(false);
+function reconcileFeedback() {
+  const center = document.getElementById('settings-feedback-center');
+  const seen = new Set<string>();
+  for (const item of [...(center?.children || [])].reverse()) {
+    if (!(item instanceof HTMLElement)) continue;
+    const text = item.querySelector('[data-feedback-content]')?.textContent?.trim() || '';
+    const duplicate = !item.hidden && seen.has(text);
+    item.style.display = duplicate ? 'none' : '';
+    if (!item.hidden) seen.add(text);
+  }
+}
+export function NearbyFeedback(props: { target?: HTMLElement | null; children: ReactNode }) {
+  return useContext(FeedbackScope) ? <>{props.children}</> : <FeedbackRegion {...props} />;
+}
+function FeedbackRegion({
   target,
   children,
 }: {
   target?: HTMLElement | null;
   children: ReactNode;
 }) {
-  const [slot, setSlot] = useState<HTMLElement | null>(null);
-  const mounted = useRef<HTMLElement | null>(null);
+  const [slot] = useState(() => document.createElement('div'));
+  const marker = useRef<HTMLSpanElement>(null);
+  const signature = useRef('');
+  const expires = useRef(0);
   useLayoutEffect(() => {
-    if (!target?.isConnected) {
-      if (mounted.current) {
-        mounted.current.remove();
-        mounted.current = null;
-        setSlot(null);
-      }
+    const content = slot.querySelector<HTMLElement>('[data-feedback-content]');
+    const text = content?.textContent?.trim() || '';
+    const hidden =
+      marker.current?.parentElement?.closest('[hidden]') ||
+      content?.firstElementChild?.hasAttribute('hidden');
+    if (hidden || !text || slot.dataset.dismissed === text) {
+      slot.remove();
+      reconcileFeedback();
       return;
     }
-    if (mounted.current?.isConnected && mounted.current.previousElementSibling === target) return;
-    mounted.current?.remove();
-    const node = document.createElement('div');
-    node.className = 'settings-feedback-slot';
-    target.after(node);
-    mounted.current = node;
-    setSlot(node);
+    let center = document.getElementById('settings-feedback-center');
+    if (!center) {
+      center = document.createElement('aside');
+      center.id = 'settings-feedback-center';
+    }
+    center.setAttribute('aria-label', tr('操作反馈'));
+    let observedFooter: Element | null = null;
+    const place = () => {
+      // Confirmations retain their own error and may be children of the feedback action.
+      // Never append an ancestor into its own dialog or duplicate that dialog's errors.
+      const modals = [...document.querySelectorAll('dialog.settings-drawer[open]')].filter(
+        (dialog) => !center.contains(dialog),
+      );
+      const host =
+        modals[modals.length - 1] || document.querySelector('.settings-app') || document.body;
+      if (center.parentElement !== host) host.append(center);
+      const footer = host.querySelector(':scope > .settings-drawer-footer');
+      if (footer !== observedFooter) {
+        resize.disconnect();
+        if (footer) resize.observe(footer);
+        observedFooter = footer;
+      }
+      // Keep a drawer's stationary Save/Cancel row reachable even for persistent errors.
+      center.style.bottom = footer ? `${footer.getBoundingClientRect().height + 16}px` : '';
+      const scope = marker.current?.parentElement;
+      const hidden = !!scope?.closest('[hidden], dialog:not([open])');
+      if (slot.hidden !== hidden) slot.hidden = hidden;
+      reconcileFeedback();
+    };
+    const resize = new ResizeObserver(place);
+    place();
+    const observer = new MutationObserver(place);
+    observer.observe(document.body, {
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['open', 'hidden'],
+    });
+    slot.className = 'settings-feedback-item';
+    // A persistent error must remain reachable when another operation succeeds.
+    slot.dataset.failed = String(!!content?.querySelector('[role="alert"]'));
+    const changed = signature.current !== text;
+    if (changed) {
+      signature.current = text;
+      expires.current = Date.now() + 6000;
+    }
+    if (changed || slot.parentElement !== center) {
+      center.append(slot);
+    }
+    reconcileFeedback();
+    const actionable = !!content?.querySelector('button');
+    slot.dataset.actionable = String(actionable);
+    const timer =
+      slot.dataset.failed === 'true' || actionable
+        ? undefined
+        : window.setTimeout(
+            () => {
+              slot.dataset.dismissed = text;
+              slot.remove();
+              reconcileFeedback();
+            },
+            Math.max(0, expires.current - Date.now()),
+          );
+    return () => {
+      window.clearTimeout(timer);
+      observer.disconnect();
+      resize.disconnect();
+    };
   });
-  useLayoutEffect(() => () => mounted.current?.remove(), []);
-  return slot ? createPortal(children, slot) : children;
+  useLayoutEffect(
+    () => () => {
+      slot.remove();
+      reconcileFeedback();
+    },
+    [slot],
+  );
+  return (
+    <>
+      <span hidden ref={marker} data-feedback-source />
+      {createPortal(
+        <>
+          <div data-feedback-content>
+            <FeedbackScope.Provider value={true}>{children}</FeedbackScope.Provider>
+          </div>
+          <button
+            type="button"
+            className="settings-feedback-dismiss"
+            aria-label={tr('关闭提示')}
+            onClick={() => {
+              for (const item of document.querySelectorAll<HTMLElement>(
+                '.settings-feedback-item',
+              )) {
+                if (
+                  item.querySelector('[data-feedback-content]')?.textContent?.trim() ===
+                  signature.current
+                ) {
+                  item.dataset.dismissed = signature.current;
+                  item.remove();
+                }
+              }
+              reconcileFeedback();
+            }}
+          >
+            <Icon name="close" />
+          </button>
+        </>,
+        slot,
+      )}
+    </>
+  );
 }

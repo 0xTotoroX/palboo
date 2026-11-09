@@ -1,3 +1,4 @@
+import { Feedback } from './settings-controls';
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: 模型状态、带修订校验的保存与刷新操作、共用候选与列表排序控件。
@@ -265,15 +266,9 @@ export function ModelOrganization({
               </div>
             </div>
           </fieldset>
-          {feedback && (
-            <p role="alert" className="settings-error text-sm">
-              {feedback}
-            </p>
-          )}
+          {feedback && <Feedback text={feedback} failed />}
           {!feedback && busy && (
-            <p role="status" className="settings-feedback">
-              {refreshState === 'pending' ? tr('正在刷新…') : tr('正在保存…')}
-            </p>
+            <Feedback text={refreshState === 'pending' ? tr('正在刷新…') : tr('正在保存…')} />
           )}
         </>
       }

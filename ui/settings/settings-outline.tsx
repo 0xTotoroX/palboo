@@ -13,6 +13,9 @@ import {
   revealSettingsDetail,
 } from './settings-drawer';
 export const pageTitles = {
+  get backup() {
+    return tr('备份与恢复');
+  },
   get performance() {
     return tr('性能与开关');
   },
@@ -93,12 +96,13 @@ export const pageGroups: { title: string; pages: SettingsPage[] }[] = [
     get title() {
       return tr('系统');
     },
-    pages: ['model', 'connection', 'performance', 'dev'],
+    pages: ['model', 'connection', 'backup', 'performance', 'dev'],
   },
 ];
 export const pageGroup = (page: SettingsPage) =>
   pageGroups.find((group) => group.pages.includes(page))!;
 const aliases: Record<string, SettingsPage> = {
+  'settings-backup': 'backup',
   'settings-simple': 'features',
   'settings-overview': 'features',
   'settings-outline': 'outline',

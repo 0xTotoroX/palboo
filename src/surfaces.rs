@@ -15,6 +15,10 @@ use std::{
 };
 
 pub const PLACEMENTS: [&str; 4] = ["sidebar", "overlay", "desktop", "edge"];
+
+pub(crate) fn validate_backup(value: &Value) -> Result<()> {
+    serde_json::from_value::<Preferences>(value.clone())?.validate()
+}
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 pub struct Theme {

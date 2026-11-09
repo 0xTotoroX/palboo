@@ -1,5 +1,5 @@
 /* [INPUT]: Real settings editor, compact rows, compiled CSS and controlled synthetic requests.
- * [OUTPUT]: Scaled typography, readable rows and nearby feedback across pending/error/retry states.
+ * [OUTPUT]: Scaled typography, readable rows and central feedback across pending/error/retry states.
  * [POS]: Isolated Chromium; never connects to the user's settings or model service.
  * [PROTOCOL]: Keep tests/AGENTS.md in sync. */
 import test from 'node:test';
@@ -10,7 +10,7 @@ import { chromium } from 'playwright';
 import { fixtureSettings } from './fixtures.mjs';
 
 test(
-  'settings feedback stays with the saved edit and compact rows scale with typography',
+  'settings feedback uses one fixed region and compact rows scale with typography',
   { timeout: 30000 },
   async () => {
     const initial = {
@@ -204,11 +204,7 @@ test(
       await prompt.fill('合成提示词草稿');
       const save = page.getByRole('button', { name: '保存设置', exact: true });
       assert.equal(
-        await save.evaluate((node) =>
-          node
-            .closest('.settings-feedback-slot')
-            .previousElementSibling.classList.contains('settings-prompt-entry'),
-        ),
+        await save.evaluate((node) => !!node.closest('#settings-feedback-center')),
         true,
       );
       let release = hold();
@@ -224,13 +220,9 @@ test(
       assert.equal(writes.length, 1, 'leaving Save does not resubmit an older snapshot');
       assert.equal(await error.count(), 1);
       assert.equal(
-        await error.evaluate((node) =>
-          node
-            .closest('.settings-feedback-slot')
-            .previousElementSibling.classList.contains('settings-prompt-entry'),
-        ),
+        await error.evaluate((node) => !!node.closest('#settings-feedback-center')),
         true,
-        'a late failure stays with the submitted edit',
+        'a late failure stays in the central region without discarding a newer draft',
       );
       assert.equal(await prompt.inputValue(), '合成提示词草稿');
       assert.equal(
@@ -252,13 +244,9 @@ test(
       const pending = page.getByRole('status').filter({ hasText: '正在保存' });
       await pending.waitFor();
       assert.equal(
-        await pending.evaluate((node) =>
-          node
-            .closest('.settings-feedback-slot')
-            .previousElementSibling.classList.contains('settings-feature-switch'),
-        ),
+        await pending.evaluate((node) => !!node.closest('#settings-feedback-center')),
         true,
-        'outside-form switch owns its feedback',
+        'outside-form switches use the central region',
       );
       release();
       await page.getByRole('status').filter({ hasText: '已保存' }).waitFor();
@@ -267,14 +255,9 @@ test(
       const appearanceError = page.getByRole('alert').filter({ hasText: '合成外观保存失败' });
       await appearanceError.waitFor();
       assert.equal(
-        await appearanceError.evaluate(
-          (node) =>
-            !!node
-              .closest('.settings-feedback-slot')
-              .previousElementSibling.querySelector('#suggestion-labels'),
-        ),
+        await appearanceError.evaluate((node) => !!node.closest('#settings-feedback-center')),
         true,
-        'independent appearance save reports at its select',
+        'independent appearance saves use the same region',
       );
       assert.deepEqual(errors, []);
     } finally {
@@ -283,7 +266,7 @@ test(
   },
 );
 
-test('board group save failures stay beside the submitted row and retain the draft for retry', async () => {
+test('board group save failures use the central region and retain the draft for retry', async () => {
   const bundle = await build({
     stdin: {
       loader: 'jsx',
@@ -306,15 +289,7 @@ test('board group save failures stay beside the submitted row and retain the dra
     await page.evaluate(() => window.release());
     const error = page.getByRole('alert');
     await error.waitFor();
-    assert.equal(
-      await error.evaluate(
-        (e) =>
-          !!e
-            .closest('.settings-feedback-slot')
-            ?.previousElementSibling?.querySelector('[aria-label="分组名称：待办"]'),
-      ),
-      true,
-    );
+    assert.equal(await error.evaluate((e) => !!e.closest('#settings-feedback-center')), true);
     assert.equal(await input.inputValue(), '测试草稿');
     await page.evaluate(() => (window.reject = false));
     await page.getByRole('button', { name: '保存分组：待办' }).click();

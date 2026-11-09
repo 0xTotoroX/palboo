@@ -224,7 +224,7 @@ export function LayoutPresetSettings({
                 })}
               </ul>
             ) : (
-              <p className="settings-hint">{tr('暂无布局预设')}</p>
+              <p className="settings-empty">{tr('暂无布局预设')}</p>
             )}
           </>
         )}

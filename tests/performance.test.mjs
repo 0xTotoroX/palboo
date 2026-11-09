@@ -341,16 +341,9 @@ function App(){const[active,setActive]=useState(true);window.setActive=setActive
     await integration.click();
     await page.getByRole('alert').waitFor();
     assert.equal(
-      await page
-        .getByRole('alert')
-        .evaluate(
-          (e) =>
-            !!e
-              .closest('.settings-feedback-slot')
-              ?.previousElementSibling?.querySelector('[aria-label="连接到 Codex"]'),
-        ),
+      await page.getByRole('alert').evaluate((e) => !!e.closest('#settings-feedback-center')),
       true,
-      'failed toggle reports next to the same control',
+      'failed toggle reports in the shared fixed region',
     );
     assert.equal(await integration.getAttribute('aria-checked'), 'true');
     reject = false;

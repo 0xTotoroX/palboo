@@ -1,12 +1,13 @@
-/* [INPUT]: Reader search input and the existing session sidebar preference.
+/* [INPUT]: Reader search input, durable sidebar preference and session-only temporary opening.
  * [OUTPUT]: Docked/sidebar drawer state, shortcuts, focus containment and restoration.
  * [POS]: Standalone reader navigation lifecycle; temporary opening never changes the saved layout.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
+import { useReaderPreference } from './preferences';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 
 export function useReaderSidebar(search: RefObject<HTMLInputElement | null>) {
   const [narrow, setNarrow] = useState(matchMedia('(max-width: 640px)').matches);
-  const [pinned, setPinned] = useState(() => {
+  const [pinned, setPinned] = useReaderPreference('sidebarPinned', () => {
     try {
       const saved = sessionStorage.getItem('palboo-reader-sidebar');
       if (saved !== null) return saved === 'true';

@@ -1,7 +1,7 @@
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: 现有基础控件、动作反馈和设置保存队列。
- * [OUTPUT]: 统一设置行、功能开关、就近保存反馈及跨页无效字段定位；仅输入控件失焦自动保存，原表单归属与队列不变。
+ * [OUTPUT]: 统一设置行、功能开关、集中操作反馈及跨页无效字段定位；说明在编辑时出现，保存队列不变。
  * [POS]: 设置页组合组件，不持有业务数据或新增保存服务。
  * [PROTOCOL]: 变更时同步 settings/AGENTS.md。 */
 import { useId, useRef, useState, useEffect, type ReactNode } from 'react';
@@ -26,12 +26,13 @@ export function Field({
   children: ReactNode;
 }) {
   useLocale();
+  const [edited, setEdited] = useState(0);
   return (
-    <div className="settings-field">
+    <div className="settings-field" onChangeCapture={() => setEdited((value) => value + 1)}>
       <label htmlFor={id}>{label}</label>
       <div className="min-w-0">
         {children}
-        {hint && <p className="settings-hint">{hint}</p>}
+        {hint && edited > 0 && <Feedback key={edited} text={hint} />}
       </div>
     </div>
   );
@@ -121,6 +122,18 @@ export function Feedback({
       </p>
     </NearbyFeedback>
   ) : null;
+}
+export function Notice({ children, failed = false }: { children: ReactNode; failed?: boolean }) {
+  return (
+    <NearbyFeedback>
+      <p
+        className={failed ? 'settings-feedback settings-error' : 'settings-feedback'}
+        role={failed ? 'alert' : 'status'}
+      >
+        {children}
+      </p>
+    </NearbyFeedback>
+  );
 }
 export function SettingsForm({
   editor,
