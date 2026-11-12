@@ -1225,46 +1225,72 @@ try {
       clicks,
     );
   });
-  await check(
-    'meter reads current model and Fast from visible official trigger without opening menus',
-    async (page) => {
-      const selection = () =>
-        page.evaluate(() => window.__palbooModelControl.inputTarget()?.selection);
-      await page.evaluate(() => {
-        const t = window.__palbooModelControl.inputTarget().trigger;
-        t.innerHTML =
-          '<span class="_ModelPickerTriggerModelGroup_test"><span class="_ModelPickerTriggerModelText_test">Alpha</span></span>';
-      });
-      assert.equal((await selection()).model, 'alpha');
-      assert.equal((await selection()).speed, 'standard');
-      assert.equal(
-        (await snapshot(page)).current,
-        null,
-        'telemetry does not manufacture a writable configuration',
-      );
-      await newChat(page);
-      assert.equal((await selection()).speed, 'standard');
-      await page.evaluate(() => {
-        const group = document.querySelector('[class*="_ModelPickerTriggerModelGroup_"]');
-        group.insertAdjacentHTML(
-          'afterbegin',
-          '<svg class="_ModelPickerTriggerInlineModeIcon_test"><path d="M11.9125 21.4125Z"/></svg>',
+  for (const naming of ['legacy', 'modern']) {
+    const part = (name) =>
+      naming === 'legacy' ? `_ModelPickerTrigger${name}_test` : `ModelPickerTrigger${name}-test`;
+    await check(
+      `meter reads ${naming} current model and Fast without opening menus`,
+      async (page) => {
+        const selection = () =>
+          page.evaluate(() => window.__palbooModelControl.inputTarget()?.selection);
+        await page.evaluate(
+          ({ group, label }) => {
+            const t = window.__palbooModelControl.inputTarget().trigger;
+            t.innerHTML = `<span class="${group}"><span class="${label}">Alpha</span></span>`;
+          },
+          { group: part('ModelGroup'), label: part('ModelText') },
         );
+        assert.equal((await selection()).model, 'alpha');
+        assert.equal((await selection()).speed, 'standard');
+        assert.equal(
+          (await snapshot(page)).current,
+          null,
+          'telemetry does not manufacture a writable configuration',
+        );
+        await newChat(page);
+        assert.equal((await selection()).speed, 'standard');
+        await page.evaluate(
+          ({ groupClass, iconClass }) => {
+            const group = document.getElementsByClassName(groupClass)[0];
+            group.insertAdjacentHTML(
+              'afterbegin',
+              `<svg class="${iconClass}"><path d="M11.9125 21.4125Z"/></svg>`,
+            );
+          },
+          { groupClass: part('ModelGroup'), iconClass: part('InlineModeIcon') },
+        );
+        assert.equal((await selection()).speed, 'fast');
+        await page.evaluate(
+          (iconClass) =>
+            document
+              .getElementsByClassName(iconClass)[0]
+              .querySelector('path')
+              .setAttribute('d', 'M0 0'),
+          part('InlineModeIcon'),
+        );
+        assert.equal(await selection(), null, 'unknown icon must not reuse ordinary speed');
+        await page.evaluate(
+          (labelClass) => (document.getElementsByClassName(labelClass)[0].style.display = 'none'),
+          part('ModelText'),
+        );
+        assert.equal(await selection(), null);
+        assert.equal(await page.evaluate(() => host.triggerEvents), 0);
+      },
+    );
+  }
+  await check(
+    'modern Fast icon changes invalidate the cached writable configuration',
+    async (page) => {
+      assert.equal((await snapshot(page, true)).current.speed, 'standard');
+      await page.evaluate(() => {
+        window.__palbooModelControl
+          .inputTarget()
+          .trigger.insertAdjacentHTML(
+            'afterbegin',
+            '<svg class="ModelPickerTriggerInlineModeIcon-test"><path d="M11.9125 21.4125Z"/></svg>',
+          );
       });
-      assert.equal((await selection()).speed, 'fast');
-      await page.evaluate(() =>
-        document
-          .querySelector('[class*="_ModelPickerTriggerInlineModeIcon_"] path')
-          .setAttribute('d', 'M0 0'),
-      );
-      assert.equal(await selection(), null, 'unknown icon must not reuse ordinary speed');
-      await page.evaluate(
-        () =>
-          (document.querySelector('[class*="_ModelPickerTriggerModelText_"]').style.display =
-            'none'),
-      );
-      assert.equal(await selection(), null);
-      assert.equal(await page.evaluate(() => host.triggerEvents), 0);
+      assert.equal((await snapshot(page)).current, null);
     },
   );
   console.log(`${count} synthetic host checks passed`);

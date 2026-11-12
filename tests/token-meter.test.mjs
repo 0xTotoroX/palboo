@@ -1,11 +1,13 @@
-/* [INPUT]: 测速状态机与隔离 Chromium 中的真实宿主适配器；仅使用合成事件。
- * [OUTPUT]: 身份/轮次隔离、官方用量、分块估算、有界缓存、渲染和回收验收。
+/* [INPUT]: 测速状态机、官方模型菜单夹具与隔离 Chromium 中的真实宿主适配器/读数组件；仅使用合成事件。
+ * [OUTPUT]: 身份/轮次隔离、官方用量、分块估算、有界缓存、新版模型识别到实时/保留读数的完整链路和回收验收。
  * [POS]: 不连接真实宿主、不发送消息或调用模型。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
+import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright';
+import { records, installModelControlFixture } from './model-control-fixture.mjs';
 import {
   createTokenMeter,
   MAX_TEXT,
@@ -149,6 +151,127 @@ window.setup();`,
     write: false,
   })
 ).outputFiles[0].text;
+
+test('modern official model flows through live and retained speed into the real readout', async () => {
+  const integrated = await build({
+    stdin: {
+      resolveDir: process.cwd(),
+      loader: 'tsx',
+      contents: `
+import React from 'react';
+import {createRoot} from 'react-dom/client';
+import {flushSync} from 'react-dom';
+import {installTokenMeter} from './ui/codex/token-meter.js';
+import {TokenMeterView} from './ui/features/token-meter/view';
+const root=createRoot(document.getElementById('meter-root'));
+installTokenMeter();
+window.renderMeter=()=>flushSync(()=>root.render(<TokenMeterView snapshot={window.__palbooTokenMeter.read(window.__palbooModelControl.inputTarget()?.id)}/>));
+window.notify=(method,params={})=>window.dispatchEvent(new MessageEvent('message',{source:window,data:{type:'mcp-notification',hostId:'local',method,params:{threadId:window.__palbooModelControl.inputTarget().id,turnId:'turn-1',...params}}}));`,
+    },
+    bundle: true,
+    write: false,
+    jsx: 'automatic',
+    loader: { '.css': 'text' },
+  });
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage();
+    await page.route('http://model-host.test/**', (route) =>
+      route.fulfill({ body: '<!doctype html><body></body>', contentType: 'text/html' }),
+    );
+    await page.goto('http://model-host.test/c/chat-a');
+    await page.clock.install();
+    await page.evaluate(installModelControlFixture, { records });
+    await page.addScriptTag({
+      content: readFileSync('ui/codex/model.js', 'utf8'),
+    });
+    await page.evaluate(() => {
+      window.capability();
+      window.modelMarkup = () => {
+        const trigger = window.__palbooModelControl.inputTarget().trigger;
+        trigger.innerHTML =
+          '<span class="ModelPickerTriggerContent-test"><span class="ModelPickerTriggerMeasurement-test" style="display:none">选择推理强度</span><span class="ModelPickerTriggerModelGroup-test"><span class="ModelPickerTriggerModelLabel-test"><span class="ModelPickerTriggerModelText-test">Alpha</span></span></span><span class="ModelPickerTriggerEffortLabel-test">Low</span></span>';
+      };
+      window.modelMarkup();
+      document.body.insertAdjacentHTML('beforeend', '<div id="meter-root"></div>');
+    });
+    await page.addScriptTag({ content: integrated.outputFiles[0].text });
+    const read = () =>
+      page.evaluate(() =>
+        window.__palbooTokenMeter.read(window.__palbooModelControl.inputTarget().id),
+      );
+    const render = async () => {
+      await page.clock.runFor(501);
+      await page.evaluate(() => window.renderMeter());
+      return page.locator('.token-meter-readout').textContent();
+    };
+    assert.equal((await read()).model, 'alpha');
+    assert.equal(await render(), '— tok/s');
+    await page.evaluate(() => {
+      window.notify('turn/started');
+      window.notify('item/agentMessage/delta', {
+        itemId: 'message-1',
+        delta: 'First streamed answer. ',
+      });
+    });
+    await page.clock.runFor(1000);
+    await page.evaluate(() =>
+      window.notify('item/agentMessage/delta', {
+        itemId: 'message-1',
+        delta: 'More visible output.',
+      }),
+    );
+    assert.match(await render(), /^≈ [\d.]+ tok\/s$/);
+    const rate = (await read()).speed;
+    assert.ok(rate > 0);
+    for (const [type, label] of [
+      ['reasoning', '思考中'],
+      ['commandExecution', '工具执行中'],
+    ]) {
+      await page.evaluate(
+        (type) => window.notify('item/started', { item: { id: type, type } }),
+        type,
+      );
+      assert.equal(await render(), `≈ ${rate.toFixed(1)} tok/s(上次测速 · ${label})`);
+      assert.equal((await read()).lastSpeed, rate);
+    }
+    await page.evaluate(() =>
+      window.notify('turn/completed', {
+        turn: { id: 'turn-1', status: 'completed', durationMs: 10000 },
+      }),
+    );
+    assert.equal(await render(), `≈ ${rate.toFixed(1)} tok/s(上次测速 · 已完成)`);
+    await page.clock.runFor(10000);
+    assert.equal((await read()).lastSpeed, rate);
+    await page.evaluate(() => window.notify('turn/started', { turnId: 'turn-2' }));
+    assert.match(await render(), /上次测速 · 等待输出/);
+    await page.evaluate(() =>
+      window.notify('item/agentMessage/delta', {
+        turnId: 'turn-2',
+        itemId: 'message-2',
+        delta: 'A new answer replaces the retained speed with its current measurement.',
+      }),
+    );
+    assert.match(await render(), /^≈ [\d.]+ tok\/s$/);
+    const updated = (await read()).lastSpeed;
+    assert.ok(updated > 0);
+    assert.notEqual(updated, rate, 'new output replaces the previous measurement');
+    await page.evaluate(() => {
+      document.querySelector('section').remove();
+      history.replaceState(null, '', '/c/chat-b');
+      window.addChat('chat-b');
+      window.modelMarkup();
+      document.dispatchEvent(new Event('pointerup'));
+    });
+    assert.equal(await render(), `≈ ${updated.toFixed(1)} tok/s(上次测速)`);
+    assert.equal((await read()).official, null);
+    assert.equal(await page.locator('.token-meter-readout').count(), 1);
+    assert.equal(await page.evaluate(() => host.triggerEvents), 0);
+    assert.equal(await page.locator('.ProseMirror').textContent(), 'Draft chat-b');
+  } finally {
+    await browser.close();
+  }
+});
 
 test('collector projects only matching chat, never mounts UI or polls, and releases on disable', async () => {
   const browser = await chromium.launch({ headless: true });

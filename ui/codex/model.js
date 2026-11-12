@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 官方 DOM 菜单、CodexHost 兼容适配、稳定聊天标记/新聊天输入区和关联的 model/list 消息；缺失目录时通过本机 electronBridge 只读补取，不依赖工作台锁定。
- * [OUTPUT]: window.__palbooModelControl 的异步 snapshot/apply/codexCatalog 和同步 presence/cancel/dispose/inputTarget/prepareHandoff，dispose同时回收独立额度读取；inputTarget只读当前唯一输入目标及已校验的模型选择，prepareHandoff只读提取跨CLI交接所需的当前会话上下文与草稿。
+ * [OUTPUT]: window.__palbooModelControl 的异步 snapshot/apply/codexCatalog 和同步 presence/cancel/dispose/inputTarget/prepareHandoff，dispose同时回收独立额度读取；inputTarget只读当前唯一输入目标及新旧宿主按钮的模型/Fast选择，prepareHandoff只读提取跨CLI交接所需的当前会话上下文与草稿。
  * [POS]: include_str / Page.addScriptToEvaluateOnNewDocument 可独立安装的宿主边界。
  * [PROTOCOL]: 父任务维护集成和地图；本文件不写 React、持久存储或发送模型生成请求。
  * snapshot(false) 不操作 DOM；目录缺失时合并、限频读取 model/list。refresh=true 显式重试目录并探测菜单、完整回读。target 无法确认时 id/title 为空。
@@ -46,6 +46,12 @@
   const EDITOR = '.ProseMirror,[contenteditable="true"],textarea';
   const MENU =
     '[role="menu"][data-state="open"],[role="listbox"],[data-radix-menu-content][data-state="open"]';
+  // 宿主 CSS 模块同时存在旧下划线和新连字符命名；测速与配置失效使用同一边界。
+  const PICKER_PART = {
+    group: '[class*="_ModelPickerTriggerModelGroup_"],[class*="ModelPickerTriggerModelGroup-"]',
+    model: '[class*="_ModelPickerTriggerModelText_"],[class*="ModelPickerTriggerModelText-"]',
+    mode: '[class*="_ModelPickerTriggerInlineModeIcon_"],[class*="ModelPickerTriggerInlineModeIcon-"]',
+  };
   const IDS = ['data-conversation-id', 'data-thread-id', 'data-session-id'];
   const MARKERS = ['data-above-composer-conversation-id', 'data-response-annotation-conversation'];
   const PREFIX = {
@@ -511,8 +517,7 @@
     target
       ? JSON.stringify([
           text(target.trigger),
-          target.trigger.querySelector('[class*="_ModelPickerTriggerInlineModeIcon_"]')
-            ?.outerHTML || '',
+          target.trigger.querySelector(PICKER_PART.mode)?.outerHTML || '',
           ...[...target.trigger.attributes]
             .map((a) => [a.name, a.value])
             .filter(([name]) => name.startsWith('data-selected-')),
@@ -889,12 +894,12 @@
     const cached = currentSelection(target);
     if (cached) return cached;
     const trigger = target?.trigger;
-    const group = trigger?.querySelector('[class*="_ModelPickerTriggerModelGroup_"]');
-    const label = group?.querySelector('[class*="_ModelPickerTriggerModelText_"]');
-    if (!group || !label || !visible(group) || !visible(label)) return null;
+    const group = trigger && one(all(trigger, PICKER_PART.group).filter(visible));
+    const label = group && one(all(group, PICKER_PART.model).filter(visible));
+    if (!label) return null;
     const model = matchModel(text(label));
     if (!model) return null;
-    const icons = all(group, '[class*="_ModelPickerTriggerInlineModeIcon_"]');
+    const icons = all(group, PICKER_PART.mode);
     let speed = 'standard';
     if (icons.length) {
       // 当前宿主的 Fast 闪电；其他模式图标不猜成 Fast 或普通。
