@@ -75,6 +75,42 @@ test('Agent preview reads the mounted menu and probe without opening, selecting 
     assert.ok(!JSON.stringify(result).includes('private draft'));
     assert.deepEqual(await page.evaluate(() => window.calls), []);
     assert.equal(await page.locator('#a-agent-menu').isVisible(), false);
+    await page.evaluate(() => window.fixture.selections.push({ ...window.fixture.selections[0] }));
+    assert.equal(
+      (await page.evaluate(source)).current,
+      'custom-agent',
+      'identical probe records do not create a second input target',
+    );
+    await page.evaluate(() => {
+      const control = document.querySelector('[data-codexhost-agent-control="a"]');
+      control.append(document.getElementById('a-agent-menu'));
+      const old = control.cloneNode(true);
+      old.id = 'old-control';
+      old.hidden = true;
+      old.querySelector('[data-agent="custom-agent"] span').textContent = 'Wrong old Agent';
+      document.body.prepend(old);
+    });
+    assert.equal(
+      (await page.evaluate(source)).agents[1].label,
+      '我的 Agent',
+      'a hidden duplicate menu cannot supply the current labels',
+    );
+    await page.evaluate(() => document.getElementById('old-control').remove());
+    await page.evaluate(() => (window.fixture.selections[2].agent = 'codex'));
+    assert.equal(
+      (await page.evaluate(source)).status,
+      'unavailable',
+      'conflicting Agent records remain rejected',
+    );
+    await page.evaluate(() =>
+      Object.assign(window.fixture.selections[2], { agent: 'custom-agent', phase: 'locked' }),
+    );
+    assert.equal(
+      (await page.evaluate(source)).status,
+      'unavailable',
+      'conflicting phases remain rejected',
+    );
+    await page.evaluate(() => window.fixture.selections.pop());
 
     await page.evaluate(() => {
       const root = document.createElement('form');

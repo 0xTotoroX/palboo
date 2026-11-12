@@ -272,6 +272,111 @@ test('CodexHost adapter keeps Agent capability scoped to each composer', async (
   }
 });
 
+test('identical duplicate bindings use the current composer menu and reject conflicting bindings', async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage();
+    await page.setContent(`
+      <form data-codex-composer-root hidden><textarea>old draft</textarea>
+        <div data-codexhost-agent-control="same"><div id="same-agent-menu" role="menu">
+          <button type="button" data-agent="codex" role="menuitemradio">Wrong Codex</button>
+          <button type="button" data-agent="grok" role="menuitemradio">Wrong Grok</button>
+        </div></div>
+      </form>
+      <form data-codex-composer-root><textarea id="current">keep draft</textarea>
+        <div data-codexhost-agent-control="same"><div id="same-agent-menu" role="menu">
+          <button type="button" data-agent="codex" role="menuitemradio">Current Codex</button>
+          <button type="button" data-agent="grok" role="menuitemradio">Current Grok</button>
+        </div></div>
+      </form>`);
+    await page.addScriptTag({ content: source });
+    await page.evaluate(() => {
+      window.bindings = [
+        { composerId: 'same', agent: 'codex', phase: 'draft' },
+        { composerId: 'other', agent: 'grok', phase: 'locked' },
+        { composerId: 'same', agent: 'codex', phase: 'draft' },
+      ];
+      window.clicks = [];
+      window.__codexhostRendererBindingProbeV1 = {
+        status: () => ({
+          version: 2,
+          selections: window.bindings,
+          enabledAgents: ['codex', 'grok'],
+          availability: { grok: 'ready' },
+        }),
+      };
+      document.querySelectorAll('button[data-agent]').forEach((button) => {
+        button.onclick = () => {
+          window.clicks.push(button.closest('[hidden]') ? 'old' : 'current');
+          window.bindings
+            .filter((item) => item.composerId === 'same')
+            .forEach((item) => (item.agent = button.dataset.agent));
+        };
+      });
+    });
+    const capability = () =>
+      page.evaluate(() =>
+        window.__palbooHostCompatibility.capability(document.getElementById('current')),
+      );
+    const initial = await capability();
+    assert.equal(initial.officialModel, true);
+    assert.equal(initial.agent.options[0].label, 'Current Codex');
+    for (const conflicting of [
+      { agent: 'grok', phase: 'draft' },
+      { agent: 'codex', phase: 'locked' },
+      { agent: '', phase: 'draft' },
+    ]) {
+      await page.evaluate((value) => Object.assign(window.bindings[2], value), conflicting);
+      assert.equal((await capability()).agent, null);
+      assert.match(
+        await page.evaluate(async () => {
+          try {
+            await window.__palbooHostCompatibility.selectAgent(
+              document.getElementById('current'),
+              'codex',
+            );
+            return '';
+          } catch (error) {
+            return error.message;
+          }
+        }),
+        /无法确认/,
+      );
+    }
+    await page.evaluate(() =>
+      window.bindings
+        .filter((item) => item.composerId === 'same')
+        .forEach((item) => Object.assign(item, { agent: 'grok', phase: 'draft' })),
+    );
+    assert.equal((await capability()).agent.current, 'grok');
+    assert.equal(
+      await page.evaluate(
+        async () =>
+          (
+            await window.__palbooHostCompatibility.selectAgent(
+              document.getElementById('current'),
+              'codex',
+            )
+          ).agent.current,
+      ),
+      'codex',
+    );
+    assert.deepEqual(await page.evaluate(() => window.clicks), ['current']);
+    assert.equal(await page.locator('#current').inputValue(), 'keep draft');
+    await page.evaluate(() => {
+      const form = document.getElementById('current').parentElement;
+      form.append(form.querySelector('[data-codexhost-agent-control]').cloneNode(true));
+    });
+    assert.equal(
+      (await capability()).agent,
+      null,
+      'duplicate controls in the current input remain ambiguous',
+    );
+  } finally {
+    await browser.close();
+  }
+});
+
 test('CLI quick switch lists ready Agents and the current selection without install candidates', async () => {
   const browser = await chromium.launch({
     executablePath: process.env.PALBOO_CHROME_BIN || undefined,

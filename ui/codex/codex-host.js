@@ -82,13 +82,21 @@
     const trigger = control?.querySelector(
       'button[aria-haspopup="menu"],[role="button"][aria-haspopup="menu"]',
     );
-    const menu = document.getElementById(`${composerId}-model-menu`);
-    const submenu = document.getElementById(`${composerId}-model-submenu`);
+    const menu = ownedMenu(control, `${composerId}-model-menu`);
+    const submenu = ownedMenu(control, `${composerId}-model-submenu`);
     return control && trigger && (menu || submenu) ? { control, trigger, menu, submenu } : null;
   }
 
+  // 旧输入区可能保留同名菜单；只认当前控件内的菜单，旧版外置菜单须全页唯一。
+  function ownedMenu(control, id) {
+    const selector = `[id="${esc(id)}"]`;
+    const local = control ? [...control.querySelectorAll(selector)] : [];
+    const matches = local.length ? local : [...document.querySelectorAll(selector)];
+    return matches.length === 1 ? matches[0] : null;
+  }
+
   function readAgentInfo(composerId, status, selection, control) {
-    const menu = document.getElementById(`${composerId}-agent-menu`);
+    const menu = ownedMenu(control, `${composerId}-agent-menu`);
     const buttons = menu
       ? [...menu.querySelectorAll('button[data-agent][role="menuitemradio"]')]
       : [];
@@ -182,11 +190,16 @@
         const selections = Array.isArray(status.selections)
           ? status.selections.filter((item) => item.composerId === id)
           : null;
+        // 重绑可能保留同 ID 的旧记录；只有 Agent 与锁定状态全部一致才视为同一选择。
         if (
           !id ||
-          selections?.length !== 1 ||
+          !selections?.length ||
+          typeof selections[0]?.agent !== 'string' ||
           !selections[0]?.agent ||
-          !['draft', 'locked'].includes(selections[0].phase)
+          !['draft', 'locked'].includes(selections[0].phase) ||
+          selections.some(
+            (item) => item.agent !== selections[0].agent || item.phase !== selections[0].phase,
+          )
         )
           return {
             officialModel: false,
@@ -792,7 +805,9 @@
       throw new Error(tr('目标 CLI 当前不可用'));
     }
     if (cap.agent.current === desired) return cap;
-    const menu = document.getElementById(`${cap.composerId}-agent-menu`);
+    const { controls } = findAgentScope(composer);
+    const control = controls.length === 1 ? controls[0] : null;
+    const menu = control && ownedMenu(control, `${cap.composerId}-agent-menu`);
     const btn = menu?.querySelector(`button[data-agent="${esc(desired)}"][role="menuitemradio"]`);
     if (!(btn instanceof HTMLButtonElement) || !isButtonEnabled(btn)) {
       throw new Error(tr('目标 CLI 切换入口不可用'));

@@ -53,9 +53,19 @@
     if (matches.length > 1) return unavailable('当前输入框对应多个 CodexHost 控件');
     const id = matches[0].getAttribute('data-codexhost-agent-control');
     const selections = status.selections.filter((selection) => selection.composerId === id);
-    if (selections.length !== 1 || typeof selections[0].agent !== 'string')
+    if (
+      !selections.length ||
+      typeof selections[0].agent !== 'string' ||
+      selections.some(
+        (selection) =>
+          selection.agent !== selections[0].agent || selection.phase !== selections[0].phase,
+      )
+    )
       return unavailable('无法确认当前 CodexHost Agent');
-    const menu = document.getElementById(`${id}-agent-menu`);
+    const selector = `[id="${CSS.escape(`${id}-agent-menu`)}"]`;
+    const localMenus = [...matches[0].querySelectorAll(selector)];
+    const menus = localMenus.length ? localMenus : [...document.querySelectorAll(selector)];
+    const menu = menus.length === 1 ? menus[0] : null;
     if (!menu || menu.getAttribute('role') !== 'menu')
       return unavailable('CodexHost Agent 菜单尚未就绪');
     const enabled = new Set(status.enabledAgents.filter((value) => typeof value === 'string'));
