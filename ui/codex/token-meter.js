@@ -1,5 +1,5 @@
 /* [INPUT]: 宿主流式通知、现有唯一输入目标及独立测速开关。
- * [OUTPUT]: 当前聊天状态与按模型/Fast 隔离的最近测速缓存；只存数值，不挂载界面或创建定时器。
+ * [OUTPUT]: 当前聊天状态、不可变轮次归属与按模型/Fast 隔离的最近测速；仅保留有界元数据和数值，无界面或独立计时器。
  * [POS]: 可独立启停的测速采集器；呈现由 features/token-meter 消费，模型切换不依赖它。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { createTokenMeter } from './token-meter-state.js';
@@ -24,7 +24,9 @@ export function installTokenMeter({
   window.__palbooTokenMeter?.destroy();
   const life = new AbortController(),
     meter = createTokenMeter();
-  const rates = new Map();
+  const rates = new Map(),
+    origins = new Map(),
+    latestOrigins = new Map();
   let selectionKey = '',
     sampleKey = '',
     sampleTurn = '',
@@ -41,6 +43,21 @@ export function installTokenMeter({
     rates.delete(sampleKey);
     rates.set(sampleKey, speed);
     if (rates.size > 32) rates.delete(rates.keys().next().value);
+  }
+  function rememberOrigin(id, threadKey, started) {
+    let origin = origins.get(id);
+    if (!origin) {
+      // 只在亲眼观察到开始时认领模型；中途接入或未知选择不补猜。
+      origin = { key: started ? selectionKey : '', closed: false };
+      origins.set(id, origin);
+      if (origins.size > 128) origins.delete(origins.keys().next().value);
+    }
+    const previous = origins.get(latestOrigins.get(threadKey));
+    if (previous && previous !== origin) previous.closed = true;
+    latestOrigins.delete(threadKey);
+    latestOrigins.set(threadKey, id);
+    if (latestOrigins.size > 32) latestOrigins.delete(latestOrigins.keys().next().value);
+    return origin;
   }
   let target = null,
     sourceHost = null,
@@ -129,6 +146,8 @@ export function installTokenMeter({
       if (sourceHost && data.hostId && data.hostId !== sourceHost) return;
       meter.follow('');
       rates.clear();
+      origins.clear();
+      latestOrigins.clear();
       selectionKey = sampleKey = sampleTurn = '';
       sourceHost = null;
       target = null;
@@ -139,12 +158,8 @@ export function installTokenMeter({
     if (data?.type !== 'mcp-notification') return;
     const n = data.method ? data : data.notification;
     if (!METHODS.has(n?.method) || typeof data.hostId !== 'string') return;
-    if (
-      n.method === 'turn/started' &&
-      !document.hidden &&
-      (!target || n.params?.threadId !== target.id)
-    )
-      lastTarget = -Infinity;
+    // 同聊天换模型/Fast 后也必须绕过500ms采样缓存，不能用上一轮选择认领新轮次。
+    if (n.method === 'turn/started' && !document.hidden) lastTarget = -Infinity;
     if (target && n.params?.threadId !== target.id && n.method !== 'turn/started') return;
     if (!document.hidden) refresh();
     if (
@@ -160,6 +175,14 @@ export function installTokenMeter({
       return;
     sourceHost = data.hostId;
     const turnId = n.params?.turnId || n.params?.turn?.id;
+    if (typeof turnId !== 'string' || !turnId) return;
+    const originId = JSON.stringify([sourceHost, target.id, turnId]);
+    const known = origins.get(originId);
+    if (
+      known?.closed &&
+      (turnId !== sampleTurn || !['thread/tokenUsage/updated', 'turn/completed'].includes(n.method))
+    )
+      return;
     if (turnId !== sampleTurn) retain();
     const accepted = measureWork('token-meter', () =>
       meter.receive(n.method, n.params, performance.now()),
@@ -168,12 +191,14 @@ export function installTokenMeter({
       // begin 已结算旧轮次未读取的片段，先归还给旧模型。
       retain();
       sampleTurn = turnId;
-      sampleKey = selectionKey;
-      sampleFloor = meter.measurement().revision;
-    } else if (accepted && !sampleKey && selectionKey) {
-      sampleKey = selectionKey;
+      sampleKey = rememberOrigin(
+        originId,
+        JSON.stringify([sourceHost, target.id]),
+        n.method === 'turn/started' && !document.hidden,
+      ).key;
       sampleFloor = meter.measurement().revision;
     }
+    if (accepted && n.method === 'turn/completed') origins.get(originId).closed = true;
     retain();
   }
   function retarget() {
@@ -196,6 +221,8 @@ export function installTokenMeter({
       life.abort();
       meter.follow('');
       rates.clear();
+      origins.clear();
+      latestOrigins.clear();
       target = projection = null;
       if (window.__palbooTokenMeter === api) delete window.__palbooTokenMeter;
     },

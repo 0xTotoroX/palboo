@@ -82,7 +82,15 @@ export function installModelControlFixture({ records, options = {} }) {
     };
   }
   window.clearMenus = () =>
-    document.querySelectorAll('[data-fixture-menu]').forEach((node) => node.remove());
+    document.querySelectorAll('[data-fixture-menu]').forEach((node) => {
+      if (!options.closingMenuMs) return node.remove();
+      if (node.dataset.state === 'closed') return;
+      node.dataset.state = 'closed';
+      if (options.invisibleClosingMenu) node.style.visibility = 'hidden';
+      node
+        .animate([{ opacity: 1 }, { opacity: 0 }], { duration: options.closingMenuMs })
+        .finished.then(() => node.remove());
+    });
   window.addChat = (id, dialog = false) => {
     const pane = document.createElement('section');
     pane.dataset.threadId = id;
@@ -101,6 +109,11 @@ export function installModelControlFixture({ records, options = {} }) {
     };
     const open = () => {
       state.clicks.push({ id, action: 'open' });
+      if (
+        options.closingMenuMs &&
+        document.querySelector('[data-fixture-menu][data-state="closed"]')
+      )
+        return;
       if (state.onOpen) state.onOpen(pane);
       if (state.block === 'open') return;
       if (document.getElementById(`main-${id}`)) {
@@ -124,6 +137,11 @@ export function installModelControlFixture({ records, options = {} }) {
       } else if (options.modern) {
         const draw = (view = options.advancedOnly ? 'advanced' : 'simple') => {
           if (options.advancedOnly) view = 'advanced';
+          const fastLabel =
+            config.speed === 'fast'
+              ? options.standardLabel ||
+                (options.fastLabel === '启用快速模式' ? '启用标准模式' : 'Enable standard mode')
+              : options.fastLabel || 'Enable fast mode';
           main.replaceChildren();
           const root = document.createElement('div');
           root.dataset.modelPickerView = view;
@@ -137,7 +155,10 @@ export function installModelControlFixture({ records, options = {} }) {
           main.append(inactive);
           if (options.sharedViewRoot !== false && view === 'advanced') {
             inactive.removeAttribute('data-model-picker-view');
-            inactive.innerHTML = `<div role="menuitemcheckbox" aria-checked="${config.speed === 'fast'}" data-fast-mode-enabled="${config.speed === 'fast'}"></div>`;
+            const marker = options.semanticFastCheckbox
+              ? `data-max-power-selection="false" aria-label="${fastLabel}"`
+              : `data-fast-mode-enabled="${config.speed === 'fast'}"`;
+            inactive.innerHTML = `<div role="menuitemcheckbox" aria-checked="${config.speed === 'fast'}" ${marker}></div>`;
             root.append(inactive);
           }
           if (options.openPlaceholder) trigger.textContent = 'Select model';
@@ -212,13 +233,19 @@ export function installModelControlFixture({ records, options = {} }) {
               const fast = document.createElement('div');
               fast.setAttribute('role', 'menuitemcheckbox');
               fast.setAttribute('aria-checked', String(config.speed === 'fast'));
-              fast.dataset.fastModeEnabled = String(config.speed === 'fast');
+              if (options.semanticFastCheckbox) {
+                fast.dataset.maxPowerSelection = 'false';
+                fast.setAttribute('aria-label', fastLabel);
+              } else fast.dataset.fastModeEnabled = String(config.speed === 'fast');
               fast.textContent = 'Fast';
+              if (options.remountFastOnPointerDown)
+                fast.addEventListener('pointerdown', () => draw());
               fast.addEventListener('click', () => {
                 config.speed = config.speed === 'fast' ? 'standard' : 'fast';
                 state.changes.push({ id, ...config });
                 render();
-                draw();
+                if (options.closeAfterFast) clearMenus();
+                else draw();
               });
               if (options.speedFlyout) {
                 fast.setAttribute('role', 'menuitem');
@@ -336,6 +363,15 @@ export function installModelControlFixture({ records, options = {} }) {
       main.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {
           state.clicks.push({ id, action: 'close' });
+          if (options.closeAcrossWaitDeadline) {
+            setTimeout(() => {
+              const until = performance.now() + 80;
+              while (performance.now() < until) {}
+              clearMenus();
+              render();
+            }, 480);
+            return;
+          }
           clearMenus();
           render();
         }
@@ -343,6 +379,18 @@ export function installModelControlFixture({ records, options = {} }) {
       document.body.append(main);
       trigger.setAttribute('aria-controls', options.labelledMenu ? `${main.id}-content` : main.id);
       main.focus();
+      if (options.remountMainAfterOpen)
+        queueMicrotask(() => {
+          const current = main.cloneNode(false);
+          while (main.firstChild) current.append(main.firstChild);
+          current.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+              clearMenus();
+              render();
+            }
+          });
+          main.replaceWith(current);
+        });
     };
     trigger.addEventListener('pointerdown', () => {
       state.triggerEvents++;

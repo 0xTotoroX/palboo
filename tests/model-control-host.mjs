@@ -266,6 +266,114 @@ try {
     },
     { modern: true, defaultRecommendation: true, openPlaceholder: true, speedFlyout: true },
   );
+  for (const fastLabel of ['启用快速模式', 'Enable fast mode']) {
+    await check(
+      `new semantic Fast checkbox reads and toggles safely (${fastLabel})`,
+      async (page) => {
+        assert.equal((await snapshot(page, true)).current.speed, 'standard');
+        for (const speed of ['fast', 'standard']) {
+          const desired = { model: 'alpha', reasoning: 'low', speed };
+          const result = await apply(page, desired);
+          assert.equal(result.status, 'success', result.message);
+          assert.deepEqual(result.snapshot.current, desired);
+        }
+        assert.equal(await page.locator('[role="menu"]').count(), 0);
+      },
+      { modern: true, semanticFastCheckbox: true, fastLabel },
+    );
+    await check(
+      `advanced picker reads hidden semantic Fast evidence (${fastLabel})`,
+      async (page) => {
+        await page.evaluate(() => (host.configs['chat-a'].speed = 'fast'));
+        assert.equal((await snapshot(page, true)).current.speed, 'fast');
+        const desired = { ...targetBeta, reasoning: 'medium' };
+        const result = await apply(page, desired);
+        assert.equal(result.status, 'success', result.message);
+        assert.deepEqual(result.snapshot.current, desired);
+      },
+      { modern: true, advancedOnly: true, semanticFastCheckbox: true, fastLabel },
+    );
+  }
+  await check(
+    'semantic Fast item may remount after pointerdown without losing ownership or toggling twice',
+    async (page) => {
+      for (const speed of ['fast', 'standard']) {
+        const desired = { model: 'alpha', reasoning: 'low', speed };
+        const result = await apply(page, desired);
+        assert.equal(result.status, 'success', result.message);
+        assert.deepEqual(result.snapshot.current, desired);
+      }
+      assert.equal(await page.evaluate(() => host.changes.length), 2);
+      assert.equal(await page.locator('[role="menu"]').count(), 0);
+    },
+    { modern: true, semanticFastCheckbox: true, remountFastOnPointerDown: true },
+  );
+  await check(
+    'Fast reopening waits for the owned menu exit animation before reading back',
+    async (page) => {
+      for (const speed of ['fast', 'standard']) {
+        const desired = { model: 'alpha', reasoning: 'low', speed };
+        const result = await apply(page, desired);
+        assert.equal(result.status, 'success', result.message);
+        assert.deepEqual(result.snapshot.current, desired);
+      }
+      assert.equal(await page.locator('[data-fixture-menu]').count(), 0);
+      assert.equal(await page.evaluate(() => host.changes.length), 2);
+    },
+    { modern: true, semanticFastCheckbox: true, closeAfterFast: true, closingMenuMs: 120 },
+  );
+  await check(
+    'completed menu closing is rechecked when a delayed wake crosses the local wait deadline',
+    async (page) => {
+      const state = await snapshot(page, true);
+      assert.equal(state.status, 'ready', state.message);
+      assert.deepEqual(state.current, { model: 'alpha', reasoning: 'low', speed: 'standard' });
+      assert.equal(await page.evaluate(() => host.changes.length), 0);
+      assert.equal(await page.locator('[data-fixture-menu]').count(), 0);
+    },
+    { modern: true, closeAcrossWaitDeadline: true },
+  );
+  await check(
+    'invisible closed menus do not delay confirmation for a lingering animation',
+    async (page) => {
+      const state = await snapshot(page, true);
+      assert.equal(state.status, 'ready', state.message);
+      assert.deepEqual(state.current, { model: 'alpha', reasoning: 'low', speed: 'standard' });
+      assert.equal(await page.evaluate(() => host.changes.length), 0);
+      assert.ok(
+        await page
+          .locator('[data-fixture-menu][data-state="closed"]')
+          .evaluateAll((menus) =>
+            menus.some((menu) =>
+              menu.getAnimations().some((animation) => animation.playState === 'running'),
+            ),
+          ),
+        'closed hidden menu still has an active animation',
+      );
+    },
+    { modern: true, closingMenuMs: 5000, invisibleClosingMenu: true },
+  );
+  await check(
+    'newly mounted native menu may be replaced before its first configuration read',
+    async (page) => {
+      const state = await snapshot(page, true);
+      assert.equal(state.status, 'ready', state.message);
+      assert.deepEqual(state.current, { model: 'alpha', reasoning: 'low', speed: 'standard' });
+      assert.equal(await page.evaluate(() => host.changes.length), 0);
+      assert.equal(await page.locator('[role="menu"]').count(), 0);
+    },
+    { modern: true, semanticFastCheckbox: true, remountMainAfterOpen: true },
+  );
+  await check(
+    'unknown maximum-power checkbox never substitutes for Fast state',
+    async (page) => {
+      const result = await snapshot(page, true);
+      assert.equal(result.current, null);
+      assert.equal(result.status, 'unavailable');
+      assert.equal(await page.evaluate(() => host.changes.length), 0);
+    },
+    { modern: true, semanticFastCheckbox: true, fastLabel: 'Enable maximum power' },
+  );
   await check(
     'first manual selection preserves actual speed inside one menu session',
     async (page) => {

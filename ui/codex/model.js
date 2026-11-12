@@ -1,5 +1,5 @@
 /*
- * [INPUT]: 官方 DOM 菜单、CodexHost 兼容适配、稳定聊天标记/新聊天输入区和关联的 model/list 消息；缺失目录时通过本机 electronBridge 只读补取，不依赖工作台锁定。
+ * [INPUT]: 官方 DOM 菜单/已提交模型控件状态、CodexHost 兼容适配、稳定聊天标记/新聊天输入区和关联的 model/list 消息；缺失目录时通过本机 electronBridge 只读补取，不依赖工作台锁定。
  * [OUTPUT]: window.__palbooModelControl 的异步 snapshot/apply/codexCatalog 和同步 presence/cancel/dispose/inputTarget/prepareHandoff，dispose同时回收独立额度读取；inputTarget只读当前唯一输入目标及新旧宿主按钮的模型/Fast选择，prepareHandoff只读提取跨CLI交接所需的当前会话上下文与草稿。
  * [POS]: include_str / Page.addScriptToEvaluateOnNewDocument 可独立安装的宿主边界。
  * [PROTOCOL]: 父任务维护集成和地图；本文件不写 React、持久存储或发送模型生成请求。
@@ -518,6 +518,7 @@
       ? JSON.stringify([
           text(target.trigger),
           target.trigger.querySelector(PICKER_PART.mode)?.outerHTML || '',
+          nativeMeterSelection(target.trigger) ?? null,
           ...[...target.trigger.attributes]
             .map((a) => [a.name, a.value])
             .filter(([name]) => name.startsWith('data-selected-')),
@@ -728,6 +729,9 @@
       message: cause.message,
       openMenus: menus().length,
       ownedMenus: [...op.menus].filter(menuOpen).length,
+      mainConnected: op.main?.isConnected === true,
+      mainVisible: visible(op.main),
+      mainDisabled: op.main ? disabled(op.main) : false,
       triggerExpanded: op.target.trigger.getAttribute('aria-expanded'),
       triggerControls: !!op.target.trigger.getAttribute('aria-controls'),
       pickerViews: op.main
@@ -758,9 +762,12 @@
       await pause(op, 25);
       guard(op);
     } while (performance.now() < deadline);
+    // 主线程繁忙时，唤醒可能跨过局部截止；先读取已完成的状态，总事务截止仍由guard约束。
+    const value = read();
+    if (value) return value;
     throw new Error(tr('模型配置未能确认，请刷新后重试'));
   }
-  function activate(op, node, mutation = false) {
+  function activate(op, node, mutation = false, readNode = null) {
     guard(op, node);
     if (mutation) {
       op.mutated = true;
@@ -782,6 +789,11 @@
         ['pointerup', PointerEvent, 0],
         ['click', MouseEvent, 0],
       ]) {
+        if (readNode) {
+          const current = readNode();
+          if (!current) break;
+          node = current;
+        }
         guard(op, node);
         node.dispatchEvent(new EventType(name, { ...options, buttons, detail: 1 }));
       }
@@ -885,12 +897,74 @@
     }
     return matches.size === 1 ? [...matches][0] : null;
   }
-  // 只为测速读取已呈现的选择；不探测菜单，也不把它当作可写配置。
+  // DOM 指针可能指向 alternate；沿已发布根逐条核对父子边，避免读取旧 render 的选择。
+  function committedPickerProps(trigger) {
+    let first;
+    for (let node = trigger, depth = 0; node && depth < 30; node = node.parentElement, depth++) {
+      const key = Object.getOwnPropertyNames(node).find((key) => key.startsWith('__reactFiber$'));
+      if (key) {
+        first = node[key];
+        break;
+      }
+    }
+    if (!first) return undefined;
+    const previous = [],
+      seen = new Set();
+    for (let node = first; node && previous.length < 512; node = node.return) {
+      if (seen.has(node)) return null;
+      seen.add(node);
+      previous.push(node);
+    }
+    let current = previous.at(-1)?.stateNode?.current;
+    if (!current) return null;
+    const path = [current];
+    for (const expected of previous.slice(0, -1).reverse()) {
+      let child = current.child,
+        count = 0;
+      while (child && child !== expected && child !== expected.alternate && count++ < 2000)
+        child = child.sibling;
+      if (!child || (child !== expected && child !== expected.alternate)) return null;
+      path.push(child);
+      current = child;
+    }
+    const candidates = path
+      .map((fiber) => fiber.memoizedProps)
+      .filter(
+        (props) =>
+          typeof props?.onSelectModel === 'function' &&
+          typeof props.onCommitPower === 'function' &&
+          Array.isArray(props.powerSelections),
+      );
+    return candidates.length ? one(candidates) : undefined;
+  }
+  function nativeMeterSelection(trigger) {
+    const props = committedPickerProps(trigger);
+    if (props == null) return props;
+    const model = one(models.filter((model) => model.id === props.model));
+    if (!model || !Object.hasOwn(props, 'selectedServiceTier')) return null;
+    const option = one(
+      (Array.isArray(props.serviceTierOptions) ? props.serviceTierOptions : []).filter(
+        (option) => option?.value === props.selectedServiceTier,
+      ),
+    );
+    if (!option) return null;
+    const speed =
+      props.selectedServiceTier === null && option.iconKind === null
+        ? 'standard'
+        : props.selectedServiceTier === 'priority' && option.iconKind === 'fast' && model.fast
+          ? 'fast'
+          : null;
+    return speed ? { model: model.id, reasoning: canonical(props.reasoningEffort), speed } : null;
+  }
+  // 只为测速读取已提交的选择；支持纯图标按钮，不探测菜单或升级为可写配置。
   function meterSelection(target) {
     const compatibility = window.__palbooHostCompatibility?.capability(target?.composer);
     if (compatibility?.externalModel) {
       return window.__palbooHostCompatibility?.readExternal?.(target?.composer)?.current || null;
     }
+    if (compatibility?.officialModel === false) return null;
+    const native = nativeMeterSelection(target?.trigger);
+    if (native !== undefined) return native;
     const cached = currentSelection(target);
     if (cached) return cached;
     const trigger = target?.trigger;
@@ -918,17 +992,34 @@
       reasoning: canonical(trigger.getAttribute('data-selected-reasoning-effort')),
     };
   }
+  const fastControls = (main) =>
+    all(
+      main,
+      '[data-fast-mode-enabled],[role="menuitemcheckbox"][data-max-power-selection]',
+    ).filter(
+      (node) =>
+        node.hasAttribute('data-fast-mode-enabled') ||
+        /^(?:启用(?:快速|标准)模式|Enable (?:fast|standard) mode)$/iu.test(
+          node.getAttribute('aria-label') || '',
+        ),
+    );
   const fastCheckbox = (main) =>
-    one(all(main, '[role="menuitemcheckbox"][data-fast-mode-enabled]').filter(visible));
+    one(
+      fastControls(main).filter(
+        (node) => node.matches('[role="menuitemcheckbox"]') && visible(node),
+      ),
+    );
   function readFastMode(main) {
     const checkbox = fastCheckbox(main);
     if (checkbox) return checkbox.getAttribute('aria-checked');
     // 当前宿主在同一组件内保留两套视图；高级目录的隐藏控制区仍携带实时 Fast 状态。
     // 只读该活动组件唯一的语义标记，不匹配另一隐藏视图或点击隐藏控件。
     const view = one(all(main, '[data-model-picker-view="advanced"]').filter(visible));
-    const state = view && one(all(view, '[data-fast-mode-enabled]'));
+    const state = view && one(fastControls(view));
     if (!state) return null;
-    const value = state.getAttribute('data-fast-mode-enabled');
+    const value = state.hasAttribute('data-fast-mode-enabled')
+      ? state.getAttribute('data-fast-mode-enabled')
+      : state.getAttribute('aria-checked');
     const checked = state.getAttribute('aria-checked');
     return ['true', 'false'].includes(value) && (!checked || checked === value) ? value : null;
   }
@@ -974,8 +1065,23 @@
     cache = { target: op.target, current, stamp: triggerStamp(op.target), capabilityVersion };
     return current;
   }
+  async function settleClosingMenus(op) {
+    const pending = () =>
+      [...op.menus].some(
+        (menu) =>
+          menu.isConnected &&
+          visible(menu) &&
+          Number(getComputedStyle(menu).opacity) > 0.01 &&
+          !menuOpen(menu) &&
+          (menu.getAnimations?.() || []).some(
+            (animation) => animation.pending || animation.playState === 'running',
+          ),
+      );
+    if (pending()) await waitFor(op, () => !pending(), 800);
+  }
   async function openMain(op) {
     guard(op);
+    await settleClosingMenus(op);
     phase(op, tr('打开主菜单'));
     const active = menus();
     const existing = one(active.filter((menu) => linkedMenu(op.target.trigger, menu)));
@@ -991,6 +1097,7 @@
     op.main = null;
     op.triggerModel = modelFromTrigger(op.target.trigger);
     activate(op, op.target.trigger);
+    let candidate = null;
     const main = await waitFor(op, () => {
       const id = op.target.trigger.getAttribute('aria-controls');
       const found = menus().filter((menu) => !id || linkedMenu(op.target.trigger, menu));
@@ -998,6 +1105,11 @@
       if (menu) {
         op.main = menu;
         op.menus.add(menu);
+      }
+      // 原生菜单首次挂载可被当前提交替换；连续两次确认同一关联菜单再读取。
+      if (candidate !== menu) {
+        candidate = menu;
+        return null;
       }
       return menu;
     });
@@ -1039,6 +1151,7 @@
         await waitFor(op, () => !menuOpen(menu), 500);
       }
     }
+    await settleClosingMenus(op);
     guard(op);
     op.menus.clear();
     op.main = null;
@@ -1205,7 +1318,19 @@
     } else if (checkbox) {
       const current = checkbox.getAttribute('aria-checked');
       if (!['true', 'false'].includes(current)) throw new Error(tr('官方速度状态未知'));
-      if ((current === 'true') !== (wanted === 'fast')) activate(op, checkbox, true);
+      if ((current === 'true') !== (wanted === 'fast')) {
+        const before = readMain(op, main);
+        activate(op, checkbox, true, () => {
+          // Fast 子项可在按下后重绘；只在同一自有菜单及完整配置不变时重取。
+          const actual = readMain(op, main);
+          if (actual.model !== before.model || actual.reasoning !== before.reasoning)
+            throw new Error(tr('目标或修订号已过期，请刷新后重试'));
+          if (actual.speed === wanted) return null;
+          const live = fastCheckbox(main);
+          if (!live) throw new Error(tr('官方控件已失效'));
+          return live;
+        });
+      }
     } else {
       const menu = await selectionMenu(op, main, section);
       guard(op, main);
