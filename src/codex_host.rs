@@ -1,9 +1,10 @@
-// [INPUT]: CodexHost 官方安装、runtime descriptor、Palboo 配置、控制器兼容缓存和宿主发现。
+// [INPUT]: CodexHost 官方安装、runtime descriptor、共享 Host 身份、Palboo 配置、控制器兼容缓存和宿主发现。
 // [OUTPUT]: 安装/运行身份、只读预览、启停及冷启动；只读核验进程与端口，不删除上游记录或终止活动/未知进程；更新/回退先验证控制器再选择版本。
 // [POS]: 独立后台功能适配；开关不退出当前会话，显式重启由独立协调进程接续；不复制上游业务或进入面板布局。
 // [PROTOCOL]: 变更时同步 codex_host/AGENTS.md。
 mod controller;
 pub(crate) mod restart;
+mod shared_host;
 mod update;
 use crate::{
     config::{Paths, write_private},
@@ -319,7 +320,11 @@ fn process_alive(pid: u32) -> Result<bool> {
     }
 }
 
-fn check_controller_records(descriptor_path: &Path, store_lock: &Path) -> Result<()> {
+fn check_controller_records(
+    descriptor_path: &Path,
+    store_lock: &Path,
+    installation: Option<&Path>,
+) -> Result<()> {
     let read = |path: &Path| -> Result<Option<Vec<u8>>> {
         match std::fs::read(path) {
             Ok(bytes) => Ok(Some(bytes)),
@@ -357,7 +362,11 @@ fn check_controller_records(descriptor_path: &Path, store_lock: &Path) -> Result
                 .and_then(|pid| u32::try_from(pid).ok())
                 .context("CodexHost 存储锁身份无法确认，未清理")?;
             ensure!(
-                !process_alive(pid)?,
+                !process_alive(pid)?
+                    || installation
+                        .map(|executable| shared_host::owns_store_lock(executable, store_lock, pid))
+                        .transpose()?
+                        .unwrap_or(false),
                 "CodexHost 存储锁仍由活动进程持有，请等待正常退出后重试"
             );
             Ok(pid)
@@ -377,14 +386,14 @@ fn check_controller_records(descriptor_path: &Path, store_lock: &Path) -> Result
     Ok(())
 }
 
-fn check_controller_state() -> Result<()> {
+fn check_controller_state(executable: &Path) -> Result<()> {
     let descriptor = dirs::data_local_dir()
         .context("无法找到应用数据目录")?
         .join("codexhost/desktop-runtime-v1.json");
     let store_lock = dirs::home_dir()
         .context("无法找到用户目录")?
         .join(".codexhost/mapping-store/store.lock");
-    check_controller_records(&descriptor, &store_lock)
+    check_controller_records(&descriptor, &store_lock, Some(executable))
 }
 
 pub async fn launch(paths: &Paths, options: &Options, app: Option<&Path>) -> Result<String> {
@@ -409,7 +418,7 @@ pub async fn launch(paths: &Paths, options: &Options, app: Option<&Path>) -> Res
         );
         return ready_endpoint(&desktop).await;
     }
-    check_controller_state()?;
+    check_controller_state(&executable)?;
     // Refuse to start a second controller if a previous one is still shutting down.
     ensure!(
         running().await?.is_none(),
@@ -683,7 +692,7 @@ mod tests {
         let assert_preserved = |runtime: &str, owner: &str| {
             std::fs::write(&descriptor, runtime).unwrap();
             std::fs::write(&lock, owner).unwrap();
-            assert!(check_controller_records(&descriptor, &lock).is_err());
+            assert!(check_controller_records(&descriptor, &lock, None).is_err());
             assert_eq!(std::fs::read_to_string(&descriptor).unwrap(), runtime);
             assert_eq!(std::fs::read_to_string(&lock).unwrap(), owner);
         };
@@ -699,21 +708,21 @@ mod tests {
         let listener = std::net::TcpListener::bind(("127.0.0.1", port)).unwrap();
         assert_preserved(&record(dead), &stale_lock);
         drop(listener);
-        check_controller_records(&descriptor, &lock).unwrap();
+        check_controller_records(&descriptor, &lock, None).unwrap();
         assert_eq!(std::fs::read_to_string(&descriptor).unwrap(), record(dead));
         assert_eq!(std::fs::read_to_string(&lock).unwrap(), stale_lock);
         std::fs::remove_file(&descriptor).unwrap();
         // A missing descriptor cannot make an active storage lock stale.
         std::fs::write(&lock, &active_lock).unwrap();
-        assert!(check_controller_records(&descriptor, &lock).is_err());
+        assert!(check_controller_records(&descriptor, &lock, None).is_err());
         assert_eq!(std::fs::read_to_string(&lock).unwrap(), active_lock);
         std::fs::write(&lock, &stale_lock).unwrap();
-        check_controller_records(&descriptor, &lock).unwrap();
+        check_controller_records(&descriptor, &lock, None).unwrap();
         assert_eq!(std::fs::read_to_string(&lock).unwrap(), stale_lock);
     }
     use std::os::unix::fs::PermissionsExt;
 
-    fn fixture_install(root: &Path, version: &str, desktop: &Path) -> PathBuf {
+    pub(super) fn fixture_install(root: &Path, version: &str, desktop: &Path) -> PathBuf {
         std::fs::create_dir_all(root.join("bin")).unwrap();
         std::fs::create_dir_all(root.join("app")).unwrap();
         let executable = root.join("bin/codexhost");
