@@ -62,7 +62,10 @@ async function fixture() {
   });
   await new Promise((r) => server.listen(socket, r));
   const data = process.env.PALBOO_FIXTURE_DATA,
-    context = path.join(root, 'context.json'),
+    context = path.join(
+      root,
+      'codex-host-native-cli/00000000-0000-4000-8000-000000000001/context.json',
+    ),
     shim = path.join(root, 'shim');
   const installation = process.env.PALBOO_TEST_CODEXHOST_PACKAGE;
   const runtime = path.join(installation, 'app/host-runtime.mjs'),
@@ -76,7 +79,10 @@ async function fixture() {
   fs.writeFileSync(
     context,
     JSON.stringify({
-      executable: path.join(root, 'palboo'),
+      executable: path.join(
+        root,
+        'codex-host-native-cli/00000000-0000-4000-8000-000000000001/palboo',
+      ),
       desktop: node,
       endpoint: 'http://127.0.0.1:54323',
       stock,
@@ -87,16 +93,23 @@ async function fixture() {
   );
   const children = [];
   const start = (label) => {
-    const p = spawn(path.join(root, 'palboo'), ['app-server', '--analytics-default-enabled'], {
-      env: {
-        ...process.env,
-        PALBOO_NATIVE_CLI_CONTEXT: context,
-        PALBOO_FIXTURE_SOCKET: socket,
-        PALBOO_FIXTURE_LABEL: label,
-        CODEX_CLI_PATH: path.join(root, 'palboo'),
+    const p = spawn(
+      path.join(root, 'codex-host-native-cli/00000000-0000-4000-8000-000000000001/palboo'),
+      ['app-server', '--analytics-default-enabled'],
+      {
+        env: {
+          ...process.env,
+          PALBOO_NATIVE_CLI_CONTEXT: context,
+          PALBOO_FIXTURE_SOCKET: socket,
+          PALBOO_FIXTURE_LABEL: label,
+          CODEX_CLI_PATH: path.join(
+            root,
+            'codex-host-native-cli/00000000-0000-4000-8000-000000000001/palboo',
+          ),
+        },
+        stdio: ['pipe', 'pipe', 'pipe'],
       },
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
+    );
     children.push(p);
     return p;
   };
@@ -148,7 +161,14 @@ async function fixture() {
     const nativeInitialized = await initialized;
     first.stdin.end();
     const code = await new Promise((r) => first.on('exit', r));
-    const failure = JSON.parse(fs.readFileSync(path.join(root, 'compatibility-error.json')));
+    const failure = JSON.parse(
+      fs.readFileSync(
+        path.join(
+          root,
+          'codex-host-native-cli/00000000-0000-4000-8000-000000000001/compatibility-error.json',
+        ),
+      ),
+    );
     console.log(JSON.stringify({ code, nativeInitialized, failure }));
     server.close();
     return;
@@ -208,8 +228,12 @@ test(
     const run = (name, reject = false) => {
       const root = join(temp, name);
       mkdirSync(root, { mode: 0o700 });
-      copyFileSync(realpathSync(process.env.PALBOO_TEST_CLI), join(root, 'palboo'));
-      chmodSync(join(root, 'palboo'), 0o700);
+      const cliRoot = join(root, 'codex-host-native-cli'),
+        cliDirectory = join(cliRoot, '00000000-0000-4000-8000-000000000001');
+      mkdirSync(cliRoot, { mode: 0o700 });
+      mkdirSync(cliDirectory, { mode: 0o700 });
+      copyFileSync(realpathSync(process.env.PALBOO_TEST_CLI), join(cliDirectory, 'palboo'));
+      chmodSync(join(cliDirectory, 'palboo'), 0o700);
       writeFileSync(join(root, 'fixture.mjs'), `await (${fixture.toString()})();\n`);
       const p = spawn(
         realpathSync(process.env.PALBOO_TEST_BUNDLED_NODE),

@@ -1,5 +1,5 @@
 /* [INPUT]: 显式指定的 Palboo、隔离原生 App 和可观察的 CLI 夹具。
- * [OUTPUT]: 主服务/原生工具分流、交接环境缺失时的原生调用、进程语义及官方初始化回归。
+ * [OUTPUT]: 主服务/原生工具分流、普通入口继承交接环境的隔离、进程语义及官方初始化回归。
  * [POS]: 启动边界集成验收；不读取聊天，不启动第二个真实 ChatGPT。
  * [PROTOCOL]: 变更时同步 tests/AGENTS.md。 */
 import test from 'node:test';
@@ -14,7 +14,7 @@ import {
   readFileSync,
   rmSync,
 } from 'node:fs';
-import { execFileSync, spawn } from 'node:child_process';
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -147,6 +147,44 @@ process.stderr.write('preserved stderr\\n'); process.exitCode=37;
       PALBOO_TEST_NESTED: nested,
       PALBOO_TEST_UNRELATED: 'preserved',
     };
+    // 普通 Palboo 从原生工具启动时会继承交接环境，但仍须执行自己的命令。
+    const ordinary = realpathSync(process.env.PALBOO_TEST_CLI);
+    const malformed = join(root, 'malformed.json');
+    writeFileSync(malformed, 'invalid json', { mode: 0o600 });
+    for (const inherited of [context, join(root, 'missing.json'), malformed]) {
+      for (const key of ['PALBOO_NATIVE_CLI_CONTEXT', 'CODEX_BUDDY_NATIVE_CLI_CONTEXT']) {
+        const ordinaryEnv = { ...env };
+        delete ordinaryEnv.PALBOO_NATIVE_CLI_CONTEXT;
+        delete ordinaryEnv.CODEX_BUDDY_NATIVE_CLI_CONTEXT;
+        ordinaryEnv[key] = inherited;
+        const result = spawnSync(ordinary, ['--version'], {
+          env: ordinaryEnv,
+          encoding: 'utf8',
+          timeout: 5000,
+        });
+        assert.equal(result.status, 0, result.stderr || String(result.error));
+        assert.match(result.stdout, /^palboo \d+\./);
+      }
+    }
+    const foreign = join(root, 'foreign.json');
+    writeFileSync(
+      foreign,
+      JSON.stringify({
+        executable: ordinary,
+        desktop,
+        endpoint: 'http://127.0.0.1:54321',
+        stock,
+        shim,
+      }),
+      { mode: 0o600 },
+    );
+    const rejected = spawnSync(proxy, ['--version'], {
+      env: { ...env, PALBOO_NATIVE_CLI_CONTEXT: foreign },
+      encoding: 'utf8',
+      timeout: 5000,
+    });
+    assert.notEqual(rejected.status, 0);
+    assert.match(rejected.stderr, /原生 CLI 入口身份不匹配/);
     // 启动的是唯一临时 App，真实 ChatGPT 与用户数据保持不动。
     const args = ['-n', '-W'];
     for (const [key, value] of Object.entries(env))

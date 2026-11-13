@@ -1,5 +1,5 @@
 // [INPUT]: Palboo 私有 CLI 交接记录、入口旁的会话记录、调用参数与原生父进程身份。
-// [OUTPUT]: 显式交接的桌面主服务进入官方 Shim；辅助调用即使缺失交接环境也转交官方 CLI。
+// [OUTPUT]: 私有入口分流主服务与辅助 CLI；普通 Palboo 清除继承的交接标记后正常启动。
 // [POS]: 0.18 直启的进程边界；不修改官方包、不转换协议、不伪造 launcher 身份。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 use super::direct::{self, Layout, Record};
@@ -17,6 +17,7 @@ use std::{
 };
 
 const CONTEXT: &str = "PALBOO_NATIVE_CLI_CONTEXT";
+const LEGACY_CONTEXT: &str = "CODEX_BUDDY_NATIVE_CLI_CONTEXT";
 
 #[derive(Serialize, Deserialize)]
 struct ContextRecord {
@@ -203,13 +204,23 @@ fn adjacent_context(executable: &Path) -> Result<Option<PathBuf>> {
 pub(crate) fn dispatch() -> Result<()> {
     let executable = std::env::current_exe()?.canonicalize()?;
     let explicit_context = std::env::var_os(CONTEXT);
-    let context = match &explicit_context {
-        Some(context) => Some(PathBuf::from(context)),
-        None => adjacent_context(&executable)?,
-    };
-    let Some(context) = context else {
+    let Some(adjacent) = adjacent_context(&executable)? else {
+        // Computer Use 等子进程可能将桌面的交接环境传给普通 Palboo。
+        // 交接只属于私有会话入口；不读取外来记录，也不修改 Tokio 的全局环境。
+        if explicit_context.is_some() || std::env::var_os(LEGACY_CONTEXT).is_some() {
+            let error = Command::new(&executable)
+                .args(std::env::args_os().skip(1))
+                .env_remove(CONTEXT)
+                .env_remove(LEGACY_CONTEXT)
+                .exec();
+            return Err(error).context("恢复 Palboo 普通入口失败");
+        }
         return Ok(());
     };
+    let context = explicit_context
+        .as_ref()
+        .map(PathBuf::from)
+        .unwrap_or(adjacent);
     let context = context.as_path();
     let record: ContextRecord = direct::read(context)?.context("原生 CLI 交接记录缺失")?;
     ensure!(

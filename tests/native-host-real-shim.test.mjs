@@ -28,8 +28,11 @@ async function fixture() {
     host = path.join(pkg, 'bin/codexhost'),
     runtime = path.join(pkg, 'app/host-runtime.mjs');
   const data = path.join(root, 'data'),
-    proxy = path.join(root, 'palboo'),
-    context = path.join(root, 'context.json');
+    proxy = path.join(root, 'codex-host-native-cli/00000000-0000-4000-8000-000000000001/palboo'),
+    context = path.join(
+      root,
+      'codex-host-native-cli/00000000-0000-4000-8000-000000000001/context.json',
+    );
   fs.mkdirSync(data, { mode: 0o700 });
   fs.mkdirSync(path.join(root, 'codex-home'), { mode: 0o700 });
   fs.writeFileSync(
@@ -166,7 +169,12 @@ async function fixture() {
         codexHome: initialized.result?.codexHome,
         descendant,
         executable,
-        fallback: fs.existsSync(path.join(root, 'compatibility-error.json')),
+        fallback: fs.existsSync(
+          path.join(
+            root,
+            'codex-host-native-cli/00000000-0000-4000-8000-000000000001/compatibility-error.json',
+          ),
+        ),
         hostRuntimeAlias: runtimeAlias(owner.pid),
         shimRuntimeAlias: runtimeAlias(child.pid),
       }),
@@ -196,8 +204,12 @@ test(
   (t) => {
     const root = realpathSync(mkdtempSync(join(tmpdir(), 'palboo-real-shim-')));
     t.after(() => rmSync(root, { recursive: true, force: true }));
-    copyFileSync(realpathSync(process.env.PALBOO_TEST_CLI), join(root, 'palboo'));
-    chmodSync(join(root, 'palboo'), 0o700);
+    const cliRoot = join(root, 'codex-host-native-cli'),
+      cliDirectory = join(cliRoot, '00000000-0000-4000-8000-000000000001');
+    mkdirSync(cliRoot, { mode: 0o700 });
+    mkdirSync(cliDirectory, { mode: 0o700 });
+    copyFileSync(realpathSync(process.env.PALBOO_TEST_CLI), join(cliDirectory, 'palboo'));
+    chmodSync(join(cliDirectory, 'palboo'), 0o700);
     const script = join(root, 'fixture.mjs');
     writeFileSync(script, `await (${fixture.toString()})();\n`);
     const run = spawnSync(
