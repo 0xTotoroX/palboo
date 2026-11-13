@@ -95,7 +95,7 @@ async function fixture() {
         PALBOO_FIXTURE_LABEL: label,
         CODEX_CLI_PATH: path.join(root, 'palboo'),
       },
-      stdio: ['ignore', 'ignore', 'pipe'],
+      stdio: ['pipe', 'pipe', 'pipe'],
     });
     children.push(p);
     return p;
@@ -112,8 +112,44 @@ async function fixture() {
   let errors = '';
   first.stderr.on('data', (b) => (errors += b));
   if (process.env.PALBOO_FIXTURE_REJECT === '1') {
+    const initialized = new Promise((resolve, reject) => {
+      let output = '';
+      const timer = setTimeout(
+        () => reject(Error('native fallback initialize timeout: ' + errors)),
+        15000,
+      );
+      first.stdout.on('data', (b) => {
+        output += b;
+        for (const line of output.split('\n')) {
+          try {
+            const message = JSON.parse(line);
+            if (message.id === 1) {
+              clearTimeout(timer);
+              resolve(message.result != null);
+            }
+          } catch {}
+        }
+      });
+      first.on('exit', (code) => {
+        clearTimeout(timer);
+        reject(Error('native fallback exited: ' + code + ' ' + errors));
+      });
+    });
+    first.stdin.write(
+      JSON.stringify({
+        id: 1,
+        method: 'initialize',
+        params: {
+          clientInfo: { name: 'palboo_native_fallback_test', version: '1' },
+          capabilities: { experimentalApi: true },
+        },
+      }) + '\n',
+    );
+    const nativeInitialized = await initialized;
+    first.stdin.end();
     const code = await new Promise((r) => first.on('exit', r));
-    console.log(JSON.stringify({ code, errors }));
+    const failure = JSON.parse(fs.readFileSync(path.join(root, 'compatibility-error.json')));
+    console.log(JSON.stringify({ code, nativeInitialized, failure }));
     server.close();
     return;
   }
@@ -224,8 +260,10 @@ test(
     const before = readFileSync(join(data, 'shared-host-ready.json'), 'utf8');
     const other = run('other', true),
       refused = await other.result;
-    assert.notEqual(refused.code, 0);
-    assert.match(refused.errors, /后台不属于本次桌面/);
+    assert.equal(refused.code, 0);
+    assert.equal(refused.nativeInitialized, true);
+    assert.match(refused.failure.message, /后台不属于本次桌面/);
+    assert.ok(refused.failure.host_ancestors.length > 0);
     assert.equal(readFileSync(join(data, 'shared-host-ready.json'), 'utf8'), before);
     process.kill(result.ownerPid, 0);
     first.p.stdin.end('stop\n');

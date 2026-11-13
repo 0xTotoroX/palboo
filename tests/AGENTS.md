@@ -2,9 +2,10 @@
 
 > L2 | 父级：[AGENTS.md](../AGENTS.md)
 
-- `direct-session-fixture.swift/mjs`：供 Rust `codex_host::direct_session` 显式原生验收使用的独立 App、CDP、Controller 和共享 Host 进程树。通过 `PALBOO_TEST_CLI` 指定当前已构建程序，验证生产协调及原生 CLI 入口恢复/退出清理，不读取用户数据、不关闭真实 ChatGPT、无截图；官方 Shim 分流另由 `direct-host-launch.test.mjs` 验证。
+- `direct-session-fixture.swift/mjs`：供 Rust `codex_host::direct_session` 显式原生验收使用的独立 App、CDP、Controller 和共享 Host 进程树。通过 `PALBOO_TEST_CLI` 指定当前已构建程序，验证生产协调、后台就绪前不启动 Controller、原生 CLI 入口恢复/退出清理及 Host 启动失败仍保持原生进程/释放官方锁/不改变开关；不读取用户数据、不关闭真实 ChatGPT、无截图。
 - `native-cli-routing.test.mjs`：显式 `PALBOO_TEST_CLI` 的隔离原生 App 分流验收，覆盖桌面主服务、直接/间接原生辅助 app-server、exec-server、版本命令、二进制 stdin、stdout/stderr、退出码、PID 和 SIGTERM；可通过 `PALBOO_TEST_STOCK_CLI` 验官方辅助 app-server 初始化。不启动第二个真实 ChatGPT，不替代真实 Computer Use/内置浏览器验收。
-- `native-host-ancestry.test.mjs`：显式指定 Palboo、官方 CodexHost/Node/管道校验模块及 stock CLI，在隔离 CODEX_HOME/Host 数据运行真实官方前台 Host。官方身份校验确认后代调用通过、脱离祖先的调用仍被拒绝；重复主入口复用同一 Host，其他桌面入口拒绝并保留原进程/记录。不连接用户管道、不修改安装包或校验策略；结束只正常关闭临时 Host。
+- `native-host-ancestry.test.mjs`：显式指定 Palboo、官方 CodexHost/Node/管道校验模块及 stock CLI，在隔离 CODEX_HOME/Host 数据运行真实官方前台 Host。官方身份校验确认后代调用通过、脱离祖先的调用仍被拒绝；重复主入口复用同一 Host，其他桌面入口保留原进程/记录并回退官方 CLI，真实 initialize 成功且错误留在0600私有记录。不连接用户管道、不修改安装包或校验策略；结束只正常关闭临时 Host。
+- `native-host-real-shim.test.mjs`：用真实官方 Shim/Host/stock CLI 验私有主入口完整 initialize/initialized 握手，核对隔离 Codex home、原生 Shim 程序身份及握手后 Host 仍属于调用桌面；同时断言没有走原生回退，避免把 stock 单独初始化当成兼容成功。不启动第二个真实 ChatGPT。
 
 - `settings-navigation.mjs`：浏览器回归共用实际设置导航；桌面走侧栏，窄屏走分类菜单；开关列表到详情另作回归。
 - `backup-e2e.mjs`：隔离双后台的导出/预览/确认、运行中正式/Dev复制、原进程/端口/断开状态保留、本机与远程撤销、并发修改拒绝；统一verify共用release程序。

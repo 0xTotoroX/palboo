@@ -1,5 +1,5 @@
 // [INPUT]: Palboo 配置、官方组件、私有启动请求及原生进程身份。
-// [OUTPUT]: 0.18 系列直接启动、运行身份、原生 CLI 入口记录和丢失协调进程后的原会话恢复。
+// [OUTPUT]: 0.18 系列直接启动、运行身份、原生 CLI/回退端点和丢失协调进程后的原会话恢复。
 // [POS]: 以 Palboo 自身的协调子进程替代上游 Desktop launcher；不新增 App、不伪造上游运行记录。
 // [PROTOCOL]: 变更时同步 codex_host/AGENTS.md。
 use super::{Options, Running};
@@ -255,6 +255,9 @@ pub async fn running() -> Result<Option<Running>> {
     let Some(record) = record(&Layout::current()?)? else {
         return Ok(None);
     };
+    if record.state == "native" {
+        return Ok(None);
+    }
     if !record.manager.alive()? {
         ensure!(
             !record
@@ -280,6 +283,35 @@ pub async fn running() -> Result<Option<Running>> {
         "Palboo 正在准备或关闭 Codex"
     );
     Ok(Some(record.running()))
+}
+
+pub(crate) fn native_fallback(paths: &Paths) -> Result<Option<(String, String)>> {
+    let Some(record) = record(&Layout::current()?)? else {
+        return Ok(None);
+    };
+    if record.state != "native" || !record.running().managed_by(paths) {
+        return Ok(None);
+    }
+    let Some(desktop) = &record.desktop else {
+        return Ok(None);
+    };
+    if !desktop.alive()?
+        || crate::host::process_debug_endpoint(desktop.pid as i32)?.as_deref()
+            != Some(&record.endpoint)
+    {
+        return Ok(None);
+    }
+    let Some(context) = &record.native_cli else {
+        return Ok(None);
+    };
+    let Some(failure) = super::native_cli::failure(context)? else {
+        return Ok(None);
+    };
+    ensure!(
+        failure.desktop.as_ref() == Some(desktop),
+        "原生回退记录身份不符"
+    );
+    Ok(Some((record.endpoint, failure.message)))
 }
 pub(crate) fn manager(running: &Running) -> Result<Option<ProcessIdentity>> {
     Layout::current()
@@ -412,7 +444,12 @@ async fn spawn(paths: &Paths, request: Request) -> Result<String> {
                 )?;
                 recorded = true;
             }
-            if record.state == "ready" {
+            if record.state == "ready"
+                || (record.state == "native"
+                    && super::ready_endpoint(&record.resources.desktop)
+                        .await
+                        .is_ok_and(|endpoint| endpoint == record.endpoint))
+            {
                 std::thread::spawn(move || {
                     let _ = child.wait();
                 });

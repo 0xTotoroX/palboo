@@ -7,6 +7,10 @@ import Darwin
 
 let env = ProcessInfo.processInfo.environment
 let name = URL(fileURLWithPath: CommandLine.arguments[0]).lastPathComponent
+if name == "stock" {
+    if env["CODEX_CLI_PATH"] != nil || env.keys.contains(where: { $0.hasPrefix("CODEXHOST_") }) { exit(77) }
+    while true { sleep(1) }
+}
 let node = env["CODEXHOST_HOST_NODE_PATH"]!
 let runtime = env["CODEXHOST_HOST_RUNTIME_PATH"]!
 var children: [Process] = []
@@ -21,6 +25,7 @@ func start(_ path: String, _ args: [String]) throws -> Process {
     return child
 }
 if name == "codexhost" {
+    if FileManager.default.fileExists(atPath: env["CODEXHOST_DATA_DIR"]! + "/fail-host") { exit(23) }
     let child = try start(node, [runtime, "service"])
     if let index = CommandLine.arguments.firstIndex(of: "--ready-file") {
         let ready = CommandLine.arguments[index + 1]

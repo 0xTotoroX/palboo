@@ -2,6 +2,8 @@
 
 > L2 | 父级：[AGENTS.md](../AGENTS.md)
 
+0.18 兼容接入准备失败时，`native_cli` 转交官方 CLI，协调会话保存真实 native 状态；`direct::native_fallback` 只向同一数据目录返回仍存活且身份/端点匹配的原生桌面。`lifecycle::launch` 复用该桌面，CodexHost 状态页显示原错误，不重复重启或伪报兼容运行；不改写启用意愿和官方配置。
+
 - [backup/AGENTS.md](backup/AGENTS.md)：本地配置归档、选择性恢复、本机来源复制与撤销；认证 `/api/backup` 和 `backup` CLI 共享预览/提交边界。server 保留监听地址与凭据，停止旧活动后执行恢复并重建 App；不重启宿主。
 
 main → lifecycle/server；server → App；App → CDP/模型；panel 管理窗口子进程。业务校验在后台和宿主完成。当前仅实现 macOS arm64 路径，由根 build.rs 拒绝其他目标；不保留未适配的 Windows/Linux 启动、升级和窗口分支。

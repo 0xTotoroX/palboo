@@ -1,5 +1,5 @@
 // [INPUT]: Palboo 私有 CLI 交接记录、调用参数与原生父进程身份。
-// [OUTPUT]: 仅桌面主 app-server 进入官方 Shim，辅助命令直接执行官方 CLI。
+// [OUTPUT]: 仅桌面主 app-server 进入官方 Shim，辅助命令及接入准备失败转交官方 CLI；私有失败关系供协调读取。
 // [POS]: 0.18 直启的进程边界；不修改官方包、不转换协议、不伪造 launcher 身份。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 use super::direct::{self, Layout, Record};
@@ -27,6 +27,22 @@ struct ContextRecord {
     shim: PathBuf,
     #[serde(default)]
     service: Option<super::native_host::Launch>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub(super) struct Failure {
+    pub message: String,
+    pub desktop: Option<ProcessIdentity>,
+    pub host_ancestors: Vec<ProcessIdentity>,
+}
+
+pub(super) fn failure(context: &Path) -> Result<Option<Failure>> {
+    direct::read(
+        &context
+            .parent()
+            .context("CLI 目录缺失")?
+            .join("compatibility-error.json"),
+    )
 }
 
 pub(super) fn prepare(layout: &Layout, record: &Record) -> Result<PathBuf> {
@@ -102,6 +118,7 @@ pub(super) fn remove(context: &Path, layout: &Layout) {
         return;
     }
     let _ = std::fs::remove_file(directory.join("palboo"));
+    let _ = std::fs::remove_file(directory.join("compatibility-error.json"));
     let _ = std::fs::remove_file(context);
     let _ = std::fs::remove_dir(directory);
 }
@@ -165,7 +182,7 @@ pub(crate) fn dispatch() -> Result<()> {
         .flatten()
         .and_then(|process| process.parent().ok().flatten());
     // 只有本次指定桌面直接启动的主服务才接入兼容层；未知或间接调用保留原生行为。
-    let main = app_server(&args)
+    let mut main = app_server(&args)
         && desktop_origin(std::env::var_os("CODEX_INTERNAL_ORIGINATOR_OVERRIDE").as_deref())
         && parent.as_ref().is_some_and(|p| {
             p.executable == record.desktop
@@ -175,12 +192,31 @@ pub(crate) fn dispatch() -> Result<()> {
                     .as_ref()
                     == Some(&record.endpoint)
         });
+    if main && failure(context)?.is_some() {
+        main = false;
+    }
     let service = if main && let Some(service) = &record.service {
-        super::native_host::ensure(
+        match super::native_host::ensure(
             service,
             context.parent().context("CLI 目录缺失")?,
             parent.as_ref().unwrap(),
-        )?
+        ) {
+            Ok(child) => child,
+            Err(error) => {
+                // 兼容层接入失败不能变成官方桌面的致命启动错误。
+                let failure = Failure {
+                    message: error.to_string(),
+                    desktop: parent.clone(),
+                    host_ancestors: super::native_host::owner_ancestry(service).unwrap_or_default(),
+                };
+                let _ = write_private(
+                    &context.parent().unwrap().join("compatibility-error.json"),
+                    &serde_json::to_vec(&failure)?,
+                );
+                main = false;
+                None
+            }
+        }
     } else {
         None
     };

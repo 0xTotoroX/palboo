@@ -46,6 +46,19 @@ fn ready(launch: &Launch, desktop: &ProcessIdentity) -> Result<bool> {
     Ok(true)
 }
 
+pub(super) fn owner_ancestry(launch: &Launch) -> Result<Vec<ProcessIdentity>> {
+    let mut chain = Vec::new();
+    let mut process = shared_host::ready_process(&launch.installation, &launch.data)?;
+    while let Some(current) = process {
+        process = current.parent()?;
+        chain.push(current);
+        if chain.len() >= 12 {
+            break;
+        }
+    }
+    Ok(chain)
+}
+
 pub(super) fn ensure(
     launch: &Launch,
     directory: &Path,

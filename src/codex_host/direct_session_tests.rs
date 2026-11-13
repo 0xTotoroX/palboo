@@ -60,7 +60,8 @@ impl Fixture {
         );
         let installation = root.join("package/bin/codexhost");
         let shim = root.join("package/libexec/codexhost-shim");
-        for path in [&installation, &shim] {
+        let stock = root.join("package/bin/stock");
+        for path in [&installation, &shim, &stock] {
             fs::copy(&desktop, path).unwrap();
             assert!(
                 Command::new("/usr/bin/codesign")
@@ -96,7 +97,7 @@ impl Fixture {
             installation,
             desktop,
             node: super::super::find_node().unwrap().canonicalize().unwrap(),
-            stock: shim.clone(),
+            stock,
             shim,
             runtime: runtime.clone(),
             controller: runtime.clone(),
@@ -192,6 +193,15 @@ async fn native_direct_session_survives_reconnect_recovers_and_cleans_owned_tree
     );
     assert!(!fixture.layout.record().exists());
     let worker = fixture.start(fixture.request(None));
+    until(|| fixture.layout.data.join("service-pid").exists()).await;
+    assert!(
+        direct::record(&fixture.layout)
+            .unwrap()
+            .unwrap()
+            .controller
+            .is_none(),
+        "后台尚未完成身份发布，不能提前注入 Controller"
+    );
     until(|| fixture.publish_service()).await;
     until(|| {
         direct::record(&fixture.layout)
@@ -355,4 +365,53 @@ fn private_records_reject_symlinks_and_public_permissions() {
     fs::set_permissions(&original, fs::Permissions::from_mode(0o644)).unwrap();
     assert!(direct::read::<u32>(&original).is_err());
     assert_eq!(fs::read(&original).unwrap(), b"42");
+}
+
+#[tokio::test]
+#[ignore = "requires a macOS GUI session; launches only an isolated synthetic App"]
+async fn native_direct_session_falls_back_without_controller_when_host_fails() {
+    let fixture = Fixture::new();
+    fs::write(fixture.layout.data.join("fail-host"), b"").unwrap();
+    let worker = fixture.start(fixture.request(None));
+    until(|| {
+        direct::record(&fixture.layout)
+            .unwrap()
+            .is_some_and(|r| r.state == "native")
+    })
+    .await;
+    let record = direct::record(&fixture.layout).unwrap().unwrap();
+    let desktop = record.desktop.as_ref().unwrap();
+    let context = record.native_cli.as_ref().unwrap();
+    assert!(desktop.alive().unwrap());
+    assert!(record.controller.is_none());
+    assert!(fixture.paths.load().unwrap().codex_host.enabled);
+    assert!(direct::lock(&fixture.layout.upstream.join("launcher-v1.lock")).is_ok());
+    let failure = super::super::native_cli::failure(context).unwrap().unwrap();
+    assert_eq!(failure.desktop.as_ref(), Some(desktop));
+    assert!(failure.message.contains("后台未能启动"));
+    let output = Command::new("/bin/ps")
+        .args(["-axo", "pid=,comm="])
+        .output()
+        .unwrap();
+    let stock = String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .find_map(|line| {
+            let (pid, executable) = line.trim().split_once(char::is_whitespace)?;
+            (Path::new(executable.trim()) == fixture.resources.stock).then(|| {
+                ProcessIdentity::read(pid.parse().unwrap())
+                    .unwrap()
+                    .unwrap()
+            })
+        })
+        .expect("官方模式进程应在移除兼容环境后正常运行");
+    assert!(super::super::native_host::descendant(&stock, desktop).unwrap());
+    stop_owned(desktop).await.unwrap();
+    tokio::time::timeout(Duration::from_secs(10), worker)
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
+    assert!(!stock.alive().unwrap());
+    assert!(!context.exists());
+    assert!(!fixture.layout.record().exists());
 }

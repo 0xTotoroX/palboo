@@ -1,5 +1,5 @@
 // [INPUT]: 私有直启请求、系统 LaunchServices、官方 Shim/Host/Controller 和原生身份。
-// [OUTPUT]: Palboo 打开并监督本次 Codex；控制器重连；宿主真正退出后正常回收归属明确的兼容后台。
+// [OUTPUT]: Palboo 打开并监督本次 Codex；后台就绪后接入 Controller，失败保持原生桌面；真正退出后回收归属明确的后台。
 // [POS]: 替代官方 Desktop launcher 的协调子进程，跨 Palboo Dev 热更存续；不接管普通外部 Codex。
 // [PROTOCOL]: 变更时同步 codex_host/AGENTS.md。
 use super::direct::{self, Layout, Record, Request, Resources};
@@ -203,7 +203,7 @@ async fn run_prepared(
     resources: Resources,
 ) -> Result<()> {
     let _own_guard = direct::lock(&layout.root.join("codex-host-session.lock"))?;
-    let upstream_guard = direct::lock(&layout.upstream.join("launcher-v1.lock"))?;
+    let mut upstream_guard = Some(direct::lock(&layout.upstream.join("launcher-v1.lock"))?);
     let config = paths.load()?;
     ensure!(
         config.codex_host.enabled && config.codex_host.revision == request.revision,
@@ -262,10 +262,6 @@ async fn run_prepared(
             &layout.data.join("mapping-store/store.lock"),
             Some(&resources.installation),
         )?;
-        ensure!(
-            super::shared_host::ready_process(&resources.installation, &layout.data)?.is_none(),
-            "现有 CodexHost 后台独立于本次桌面，已保留；请先正常退出原实例，再从 Palboo 打开"
-        );
         Record {
             schema: 1,
             lease: request.lease,
@@ -301,7 +297,7 @@ async fn run_prepared(
     let desktop = record.desktop.clone().context("缺少宿主身份")?;
     let mut term = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
     let mut interrupt = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())?;
-    let mut child = controller(paths, &layout, &mut record).await?;
+    let mut child: Option<tokio::process::Child> = None;
     let mut missing = 0;
     let mut lease = None;
     let mut chain = false;
@@ -320,14 +316,35 @@ async fn run_prepared(
             if missing >= 2 {
                 break;
             }
-            if child.try_wait()?.is_some() {
+            if child
+                .as_mut()
+                .map(|child| child.try_wait())
+                .transpose()?
+                .flatten()
+                .is_some()
+            {
+                child = None;
                 record.state = "connecting".into();
                 record.save(&layout)?;
-                if tokio::time::Instant::now() < retry_at {
-                    continue;
-                }
                 retry_at = tokio::time::Instant::now() + Duration::from_secs(5);
-                child = controller(paths, &layout, &mut record).await?;
+            }
+            if let Some(context) = &record.native_cli
+                && super::native_cli::failure(context)?
+                    .is_some_and(|failure| failure.desktop.as_ref() == Some(&desktop))
+            {
+                if record.state != "native" {
+                    if let Some(controller) = &record.controller {
+                        stop_owned(controller).await?;
+                    }
+                    if let Some(mut stopped) = child.take() {
+                        let _ = stopped.wait().await;
+                    }
+                    record.controller = None;
+                    record.state = "native".into();
+                    record.save(&layout)?;
+                    drop(upstream_guard.take());
+                }
+                continue;
             }
             if !chain {
                 chain = shim_belongs_to_desktop(&record.resources, &desktop)
@@ -344,6 +361,9 @@ async fn run_prepared(
             if !native_host && record.state == "ready" {
                 record.state = "connecting".into();
                 record.save(&layout)?;
+            }
+            if child.is_none() && chain && native_host && tokio::time::Instant::now() >= retry_at {
+                child = Some(controller(paths, &layout, &mut record).await?);
             }
             if chain && lease.is_none() {
                 lease = super::shared_host::Lease::capture_at(
@@ -378,7 +398,9 @@ async fn run_prepared(
     if let Some(controller) = &record.controller {
         stop_owned(controller).await?;
     }
-    let _ = child.wait().await;
+    if let Some(mut child) = child {
+        let _ = child.wait().await;
+    }
     // 先释放官方锁，由 Lease 在同一官方双锁内重验；并发重开时放弃退出共享服务。
     drop(upstream_guard);
     let exited =

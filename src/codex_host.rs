@@ -208,7 +208,12 @@ async fn status_with_running(
     running: Result<Option<Running>>,
 ) -> Result<Value> {
     let executable = executable(options);
-    let mut error = None;
+    let mut error = if options.enabled {
+        direct::native_fallback(paths)?
+            .map(|(_, reason)| format!("Codex 已以官方模式打开；CodexHost 未接入：{reason}"))
+    } else {
+        None
+    };
     let installed = if let Some(path) = &executable {
         match version(path).await {
             Ok(v) => Some(v),
