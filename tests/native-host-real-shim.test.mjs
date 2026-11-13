@@ -31,6 +31,7 @@ async function fixture() {
     proxy = path.join(root, 'palboo'),
     context = path.join(root, 'context.json');
   fs.mkdirSync(data, { mode: 0o700 });
+  fs.mkdirSync(path.join(root, 'codex-home'), { mode: 0o700 });
   fs.writeFileSync(
     context,
     JSON.stringify({
@@ -68,6 +69,34 @@ async function fixture() {
     CODEXHOST_WEB_SERVICE: '0',
     CODEXHOST_REMOTE_SSH_MANAGED: '0',
   });
+  // 真实桌面先读取启动配置，再启动常驻服务；前一步不能提前创建共享 Host。
+  const startup = spawnSync(
+    proxy,
+    [
+      '-c',
+      'features.code_mode_host=true',
+      'app-server',
+      '--analytics-default-enabled',
+      '--print-startup-config',
+      '--startup-client-info',
+      JSON.stringify({ name: 'codex_desktop', title: 'Codex Desktop', version: '1' }),
+    ],
+    { env, encoding: 'utf8', timeout: 15000 },
+  );
+  const startupCreatedHost = fs.existsSync(path.join(data, 'shared-host-ready.json'));
+  if (startupCreatedHost) {
+    spawnSync(host, ['host', 'stop', '--node', node, '--host-runtime', runtime, '--data', data], {
+      env,
+      stdio: 'ignore',
+      timeout: 15000,
+    });
+  }
+  if (startup.status !== 0 || startupCreatedHost) {
+    throw Error(
+      `startup probe: status=${startup.status}, createdHost=${startupCreatedHost}: ${startup.stderr}`,
+    );
+  }
+  JSON.parse(startup.stdout);
   const child = spawn(
     proxy,
     ['-c', 'features.code_mode_host=true', 'app-server', '--analytics-default-enabled'],

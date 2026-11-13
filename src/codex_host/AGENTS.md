@@ -11,6 +11,8 @@ src/codex_host.rs管理Options、安装/运行身份、启停选择、有界冷�
 - native_cli.rs：0.18 直启的私有 CLI 交接，使用与协调进程独立的固定二进制及0600记录；只有精确父进程路径/调试端点、桌面 originator 和主 app-server 参数同时匹配才 exec 官方 Shim，其余 exec 官方 CLI 并清除 CODEXHOST_*、CODEX_CLI_PATH 及私有入口标记，保留原生其他环境和进程语义。未知调用保留原生行为；恢复原会话沿用入口，桌面退出后才清理。不伪造官方 launcher 身份，不修改官方文件或协议。
 
 Desktop 派生的 `CODEX_APP_RUNTIME_CLI_PATH` 若仍指向本次 Palboo 私有入口，在主 Shim、辅助 stock 及提前启动的前台 Host 交接时均改为官方 stock CLI；否则移除私有上下文后会再次把辅助调用送入普通 Palboo。原本已指向其他原生运行时的合法别名保持不变。
+
+主服务识别须检查完整参数，只接受已核实的 app-server、analytics 和配置选项；启动配置读取/登出、帮助、版本及未知调用直接走官方 CLI。Desktop 的 `--print-startup-config` 短任务同样带有 app-server 与 analytics，不能据此前缀启动共享 Host，否则短任务退出会断开桌面祖先关系。
 - native_host.rs：主 CLI 在原 PID exec Shim 前，以官方 `host serve` 前台入口准备共享 Host，保留当前桌面的真实祖先关系；先取官方生命周期锁，只复用同安装且仍属于当前桌面的 Host。独立/外部实例不停止、不接管；准备失败由 native_cli 清除兼容环境后 exec 官方 CLI，写入0600 compatibility-error.json 的错误、桌面身份及最多12级 Host 祖先（无凭据/正文），同一会话保持原生回退。失败或 exec 失败只向本次精确身份的子进程发 SIGTERM，不升级强杀。官方管道的祖先和代码签名校验不变，不做管道转发。direct 的 installed 与协调就绪门控均复核 Host 的真实桌面祖先。
 - direct_session_tests.rs 与 tests/direct-session-fixture.swift/mjs：显式原生隔离验收，覆盖启动门控、修订/锁竞争、原宿主不接管、Controller 恢复、协调丢失恢复、无页面保留和正常退出。真实用户聊天冷启动另验，不启动第二个真实 ChatGPT。
 - readiness.rs：App 成功前检查 0.18+ Controller 的 installed 状态；直启还要求协调就绪。核对私有文件、原生 PID/启动时间/父进程和控制端口，拒绝旧记录及仅 compatible 的中间状态。有界等待失败保留当前会话，不重开宿主。

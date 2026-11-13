@@ -125,6 +125,8 @@ pub(super) fn remove(context: &Path, layout: &Layout) {
 
 fn app_server(args: &[OsString]) -> bool {
     let mut args = args.iter();
+    let mut server = false;
+    let mut analytics = false;
     while let Some(arg) = args.next() {
         match arg.to_str() {
             Some("-c" | "--config" | "--enable" | "--disable") => {
@@ -133,12 +135,14 @@ fn app_server(args: &[OsString]) -> bool {
                 }
             }
             Some(value) if value.starts_with("--config=") || value.starts_with("-c=") => {}
-            // 桌面主服务的已核实参数；单独的辅助 app-server 不能凭同名进入兼容层。
-            Some("app-server") => return args.any(|arg| arg == "--analytics-default-enabled"),
+            Some("app-server") if !server => server = true,
+            Some("--analytics-default-enabled") if server => analytics = true,
+            // 启动配置/登出等短任务也带 app-server 和 analytics；必须检查完整参数，
+            // 否则它退出后会留下失去桌面祖先的 Host。未知调用一律交还官方 CLI。
             _ => return false,
         }
     }
-    false
+    server && analytics
 }
 
 fn desktop_origin(origin: Option<&OsStr>) -> bool {
@@ -245,6 +249,14 @@ mod tests {
             "app-server",
             "--analytics-default-enabled"
         ])));
+        assert!(app_server(&args(&[
+            "app-server",
+            "-c",
+            "features.code_mode_host=true",
+            "--analytics-default-enabled",
+            "-c",
+            "plugins.codex-app-tools@openai-bundled.mcp_servers.codex_app.enabled=true"
+        ])));
         for values in [
             vec!["--version"],
             vec!["exec-server"],
@@ -252,6 +264,26 @@ mod tests {
             vec!["exec", "app-server"],
             vec!["app-server", "--listen", "stdio://"],
             vec!["--unknown", "app-server"],
+            vec![
+                "app-server",
+                "--analytics-default-enabled",
+                "--print-startup-config",
+            ],
+            vec![
+                "app-server",
+                "--analytics-default-enabled",
+                "--startup-sign-out",
+            ],
+            vec!["app-server", "--analytics-default-enabled", "--help"],
+            vec!["app-server", "--analytics-default-enabled", "--version"],
+            vec![
+                "app-server",
+                "--analytics-default-enabled",
+                "--listen",
+                "stdio://",
+            ],
+            vec!["app-server", "--analytics-default-enabled", "--unknown"],
+            vec!["app-server", "--analytics-default-enabled", "-c"],
         ] {
             assert!(!app_server(&args(&values)));
         }
