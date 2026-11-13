@@ -49,6 +49,7 @@ fn save(paths: &Paths, job: &Job) -> Result<()> {
     )
 }
 pub(crate) async fn wait_for_exit(host: &super::Running) -> Result<()> {
+    let direct_manager = super::direct::manager(host)?;
     let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
     loop {
         match super::running().await {
@@ -59,6 +60,17 @@ pub(crate) async fn wait_for_exit(host: &super::Running) -> Result<()> {
             ),
             // Controller closes before its launcher removes the descriptor.
             Err(error) => {
+                if let Some(manager) = &direct_manager {
+                    if !manager.alive()? {
+                        return Ok(());
+                    }
+                    tokio::time::sleep(Duration::from_millis(250)).await;
+                    ensure!(
+                        tokio::time::Instant::now() < deadline,
+                        "Palboo 正在关闭 CodexHost，请稍后重试"
+                    );
+                    continue;
+                }
                 if ps(host.pid, "comm=").ok().map(PathBuf::from) != Some(host.executable.clone()) {
                     return Err(error);
                 }

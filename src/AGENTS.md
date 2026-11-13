@@ -46,7 +46,7 @@ panel 的 settingsAccent 默认跟随宿主，独立保存来源及自定义 #RR
 - [cdp.rs](cdp.rs)：discover_all 只供独立 Chat 筛选复用，主连接发现仍排除 Chat webview；宿主连接基础层，被 state.rs 和 requests.rs 使用；目标发现与 Client 请求/事件/注入生命周期，内嵌共享胶囊，开发时以本进程随机标记核对实际注入对象，断线重连仅接续本进程残留，其他实例拒绝覆盖；正式模式保留旧接管语义，关闭/暂停只清理自有对象并取消等待 DOM 就绪的本实例注入；更新当前与导航后的脚本，将存活、显示同步和不含正文的状态摘要合并读取。
 - [config.rs](config.rs)：Rust 配置基础层，以 PALBOO_HOME 或 palboo 默认目录管理独立数据；Config、HostRestartPolicy（旧配置默认 ask）、Paths、默认参数及私有文件读写；Codex CLI 发现兼容新版包内 CodexCLI.app 与旧版资源路径，Finder 启动不依赖终端 PATH，显式配置仍优先。
 - [requests.rs](requests.rs)：renderer 与独立后台的受限操作边界，生成前后校验上下文；按 maxInputChars=0 传递完整最近一问一答，正数预算由 Exchange 优先保留用户问题并标记截断，生成请求豁免普通设置请求的字节上限；桌面请求分发、建议 items 转换及结果回送。
-- [host_lifetime.rs](host_lifetime.rs)：正式/开发后台以宿主原生 PID、微秒级启动时间和路径跟随退出；断连/暂停不等于退出，同端点新进程重新核验；跨配置恢复保留绑定，热更与来源交接不关闭兼容层。宿主真正退出且无替代时，在官方启动/共享后台互斥内重验并正常关闭已关联 CodexHost，等待原监督进程，不强杀或清理外部实例。
+- [host_lifetime.rs](host_lifetime.rs)：正式/开发后台以宿主原生 PID、微秒级启动时间和路径跟随退出；断连/暂停不等于退出，同端点新进程重新核验；跨配置恢复保留绑定，热更与来源交接不关闭兼容层。宿主真正退出且无替代时，直启会话等待原生身份匹配的 Palboo 协调子进程完成清理；旧链在官方启动/共享后台互斥内重验并正常关闭已关联 CodexHost，等待原监督进程，不强杀或清理外部实例。
 - [host_launch.rs](host_launch.rs)：完整宿主 App 的 LaunchServices 启动与包路径识别；退出后应用记录尚未清理的 -600 最多尝试3次，间隔750/1500ms，等待前后核对唯一主进程；出现新实例即交由 lifecycle 核验连接，其他错误、身份不明和独立 profile 不重试，不退出新实例或绕过 App 启动。
 - [lifecycle.rs](lifecycle.rs)：CLI 进程管理层，负责复用服务和本地更新回滚；start/stop/status/doctor/launch/update 与 Runtime；完整 App 启动只复用路径及版本匹配的后台，移动/升级时正常停止同数据目录的旧后台，拒绝单文件 update 破坏 App 签名；Dev 齿轮与启动入口优先使用监督进程的稳定设置地址；launch 优先复用现有进程的调试连接，--restart-running 按 ask/force 策略确认正常退出或强制退出指定原生应用；等待退出后委托 host_launch 经 macOS LaunchServices 打开完整宿主 App，普通启动不新建第二实例，系统启动失败不回退直接执行内部程序，显式独立可执行文件仍按原方式启动；取消/超时不升级或循环重启；--host-only 只输出就绪端点，不启动后台或改写配置，供 Dev 共享启动策略。权限归属测试需图形登录会话，单独运行忽略的原生 fixture 用例，不访问受保护目录。
 - [startup.rs](startup.rs)：固定阶段的私有短期事件追加，以及官方启动 trace 的白名单状态映射；删除文件后失效，不把日志正文转入界面。
@@ -92,7 +92,7 @@ panel_window 使用透明原生标题栏与标准红黄绿按钮，由统一 Pal
 
 - `prompt_enhancement.rs`：受限/prompt/enhance请求；验证当前CDP连接及前端请求身份、配置版本，以单次结构化模型调用改写草稿，轮询取消并在返回前再校验，不写宿主、不经Stepwise方向/Jev。模型调用共用model.complete_json及原CLI/三协议实现；完整输入超过200KB报错，不截断。
 
-- codex_host.rs / [codex_host/AGENTS.md](codex_host/AGENTS.md)：独立CodexHost管理、更新/回退及显式重启协调；启动前准备项目维护的内存兼容控制器副本，只读识别 0.18+ 同安装共享后台持锁，更新验证通过才选择版本，不写官方包，无MCP依赖。
+- codex_host.rs / [codex_host/AGENTS.md](codex_host/AGENTS.md)：独立CodexHost管理、更新/回退及显式重启协调；0.18 系列由 Palboo 直启及监督，其他版本和已运行旧链保留官方 launcher。启动前准备项目维护的内存兼容控制器副本，只读识别 0.18+ 同安装共享后台持锁，更新验证通过才选择版本，不写官方包，无MCP依赖。
 - host.rs：启动与重连共用只读宿主发现/动态端口，Dev及显式窗口保持绑定；lifecycle复用发现与现有退出策略。
 
 Config.codex_host 兼容旧 codexHost 键并保存启动更新策略，App.codex_host_operation 串行管理。server 提供认证 GET/POST /api/codex-host 并在后台启动时触发一次可取消的检查。cdp 先安装只读 Agent 兼容适配，再安装模型菜单适配。

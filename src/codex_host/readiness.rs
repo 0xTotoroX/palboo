@@ -44,6 +44,9 @@ fn read(path: &Path) -> Result<Status> {
 }
 
 async fn installed(expected: &Running) -> Result<bool> {
+    if let Some(installed) = super::direct::installed(expected).await? {
+        return Ok(installed);
+    }
     let root = dirs::data_local_dir()
         .context("应用数据目录不可用")?
         .join("codexhost");
@@ -55,7 +58,7 @@ async fn installed(expected: &Running) -> Result<bool> {
     installed_at(expected, &descriptor, &file).await
 }
 
-async fn installed_at(
+pub(super) async fn installed_at(
     expected: &Running,
     descriptor: &super::Descriptor,
     file: &Path,

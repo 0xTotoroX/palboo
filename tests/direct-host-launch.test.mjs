@@ -1,6 +1,6 @@
 /* [INPUT]: 显式指定的官方 CodexHost 0.18 安装、LaunchServices 和合成 App/运行时。
- * [OUTPUT]: Palboo 直接打开 App 时，官方 Shim 路由和辅助命令隔离的原型验收。
- * [POS]: 仅验证启动参数交接，不等于真实 Codex/Controller/关联退出验收；不启用生产直启路径。
+ * [OUTPUT]: Palboo 直接打开 App 时，官方 Shim 路由和辅助命令隔离的专项验收。
+ * [POS]: 仅验证启动参数交接，不替代生产协调及真实 Codex 冷启动验收。
  * [PROTOCOL]: 变更时同步 tests/AGENTS.md。 */
 import test from 'node:test';
 import assert from 'node:assert/strict';

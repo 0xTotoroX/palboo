@@ -289,6 +289,7 @@ pub async fn launch(
         anyhow::ensure!(!isolated, "CodexHost 不支持独立 profile 启动");
         let (selected, desktop, _, _) =
             crate::codex_host::prepare(&config.codex_host, executable.as_deref()).await?;
+        crate::codex_host::direct::recover(paths).await?;
         let running = crate::codex_host::running().await?;
         let update = restart_running
             && running.as_ref().is_some_and(|host| {

@@ -26,6 +26,15 @@ pub(crate) async fn launch_desktop(
     port: u16,
     profile: Option<&Path>,
 ) -> Result<()> {
+    launch_with_environment(executable, port, profile, &[]).await
+}
+
+pub(crate) async fn launch_with_environment(
+    executable: &Path,
+    port: u16,
+    profile: Option<&Path>,
+    environment: &[(String, String)],
+) -> Result<()> {
     let executable = executable.canonicalize().context("桌面程序路径无效")?;
     let application = bundled_application(&executable);
     let mut command = if let Some(app) = &application {
@@ -36,12 +45,33 @@ pub(crate) async fn launch_desktop(
         if profile.is_some() {
             command.arg("-n");
         }
+        for (key, value) in environment {
+            command.arg("--env").arg(format!("{key}={value}"));
+        }
         command.arg("--args");
         command
     } else {
         // 保留显式 --app 指定独立可执行文件的既有用法。
-        Command::new(&executable)
+        let mut command = Command::new(&executable);
+        command.envs(environment.iter().cloned());
+        command
     };
+    if !environment.is_empty() {
+        // 不把调用方旧的 CodexHost / Node 路由透传给下一次应用启动。
+        for (key, _) in std::env::vars_os() {
+            if key.to_string_lossy().starts_with("CODEXHOST_")
+                || matches!(
+                    key.to_str(),
+                    Some("CODEX_CLI_PATH" | "NODE_OPTIONS" | "NODE_PATH")
+                )
+            {
+                command.env_remove(key);
+            }
+        }
+        if application.is_none() {
+            command.envs(environment.iter().cloned());
+        }
+    }
     command.args([
         "--remote-debugging-address=127.0.0.1",
         &format!("--remote-debugging-port={port}"),

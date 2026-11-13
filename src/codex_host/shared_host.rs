@@ -83,6 +83,20 @@ fn channel(data: &Path, pid: u32) -> Result<Channel> {
 
 impl Lease {
     pub(crate) fn capture(installation: &Path, data: PathBuf) -> Result<Self> {
+        Self::capture_at(
+            installation,
+            data,
+            dirs::data_local_dir()
+                .context("无法找到启动互斥目录")?
+                .join("codexhost/launcher-v1.lock"),
+        )
+    }
+
+    pub(super) fn capture_at(
+        installation: &Path,
+        data: PathBuf,
+        launcher_guard: PathBuf,
+    ) -> Result<Self> {
         let owner: ReadyOwner =
             serde_json::from_slice(&std::fs::read(data.join("shared-host-ready.json"))?)?;
         let lock = data.join("mapping-store/store.lock");
@@ -109,9 +123,7 @@ impl Lease {
             owner,
             channel,
             supervisor,
-            launcher_guard: dirs::data_local_dir()
-                .context("无法找到启动互斥目录")?
-                .join("codexhost/launcher-v1.lock"),
+            launcher_guard,
         })
     }
 

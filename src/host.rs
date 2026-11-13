@@ -8,7 +8,7 @@ use std::{
     process::Command,
 };
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(crate) struct ProcessIdentity {
     pub pid: u32,
     pub started_at_micros: u64,

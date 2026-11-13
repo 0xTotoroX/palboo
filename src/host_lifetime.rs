@@ -1,5 +1,5 @@
 // [INPUT]: 已验证的本机 CDP 连接、宿主原生进程身份和 Palboo 管理的兼容层归属。
-// [OUTPUT]: 正式/开发后台跟随宿主真实退出，清理已捕获的自有共享 Host。
+// [OUTPUT]: 正式/开发后台跟随宿主真实退出；等待直启协调清理，或清理旧链已捕获的自有共享 Host。
 // [POS]: server 生命周期协调；断连、暂停、热更与来源切换不等于宿主退出。
 // [PROTOCOL]: 变更时同步 src/AGENTS.md。
 use crate::{host::ProcessIdentity, state::App};
@@ -12,6 +12,7 @@ struct Bound {
     endpoint: Option<String>,
     owner: Option<ProcessIdentity>,
     compatibility: Option<crate::codex_host::shared_host::Lease>,
+    coordinator: Option<ProcessIdentity>,
     missing: u8,
 }
 
@@ -53,6 +54,7 @@ impl Tracker {
                             state.owner = Some(owner);
                             state.endpoint = Some(endpoint);
                             state.compatibility = None;
+                            state.coordinator = None;
                             state.missing = 0;
                             attempts = 1;
                         }
@@ -62,13 +64,21 @@ impl Tracker {
                 if state.owner.is_some() && state.compatibility.is_none() && attempts % 5 == 1 {
                     if let Ok(Some(running)) = crate::codex_host::running().await
                         && running.managed_by(&app.paths)
-                        && let Some(home) = dirs::home_dir()
                     {
-                        state.compatibility = crate::codex_host::shared_host::Lease::capture(
-                            &running.executable,
-                            home.join(".codexhost"),
-                        )
-                        .ok();
+                        match crate::codex_host::direct::manager(&running) {
+                            Ok(Some(manager)) => state.coordinator = Some(manager),
+                            Ok(None) => {
+                                if let Some(home) = dirs::home_dir() {
+                                    state.compatibility =
+                                        crate::codex_host::shared_host::Lease::capture(
+                                            &running.executable,
+                                            home.join(".codexhost"),
+                                        )
+                                        .ok();
+                                }
+                            }
+                            Err(error) => tracing::warn!(%error, "无法核验启动归属，保留兼容后台"),
+                        }
                     }
                 }
                 if let Some(owner) = &state.owner {
@@ -96,6 +106,21 @@ impl Tracker {
         let replacement = crate::host::desktop_process(&owner.executable);
         if !exited || !matches!(replacement, Ok(None)) {
             return;
+        }
+        if let Some(manager) = state.coordinator.take() {
+            let deadline = tokio::time::Instant::now() + Duration::from_secs(22);
+            loop {
+                match manager.alive() {
+                    Ok(false) => break,
+                    Ok(true) if tokio::time::Instant::now() < deadline => {
+                        tokio::time::sleep(Duration::from_millis(100)).await
+                    }
+                    _ => {
+                        tracing::warn!("Palboo 启动协调尚未完成退出，未强制结束");
+                        break;
+                    }
+                }
+            }
         }
         if let Some(lease) = state.compatibility.take()
             && let Err(error) = lease

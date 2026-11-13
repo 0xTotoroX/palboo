@@ -3,6 +3,8 @@
 // [POS]: 独立后台功能适配；开关不退出当前会话，显式重启由独立协调进程接续；不复制上游业务或进入面板布局。
 // [PROTOCOL]: 变更时同步 codex_host/AGENTS.md。
 mod controller;
+pub(crate) mod direct;
+mod direct_session;
 pub(crate) mod readiness;
 pub(crate) mod restart;
 pub(crate) mod shared_host;
@@ -123,6 +125,13 @@ pub async fn version(path: &Path) -> Result<String> {
     Ok(version.into())
 }
 pub async fn running() -> Result<Option<Running>> {
+    if let Some(running) = direct::running().await? {
+        return Ok(Some(running));
+    }
+    upstream_running().await
+}
+
+async fn upstream_running() -> Result<Option<Running>> {
     let root = dirs::data_local_dir()
         .context("无法找到应用数据目录")?
         .join("codexhost");
@@ -431,6 +440,12 @@ pub async fn launch(paths: &Paths, options: &Options, app: Option<&Path>) -> Res
         running().await?.is_none(),
         "CodexHost 控制器仍在退出，请稍后重试"
     );
+    if matches!(
+        update::version_tuple(&version(&executable).await?)?,
+        (0, 18, _)
+    ) {
+        return direct::launch(paths, options, &desktop).await;
+    }
     let log_path = paths.root.join("codex-host.log");
     if !log_path.exists() {
         write_private(&log_path, b"")?;

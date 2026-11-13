@@ -2,6 +2,8 @@
 
 > L2 | 父级：[AGENTS.md](../AGENTS.md)
 
+- `direct-session-fixture.swift/mjs`：供 Rust `codex_host::direct_session` 显式原生验收使用的独立 App、CDP、Controller 和共享 Host 进程树。验证生产协调逻辑，不读取用户数据、不关闭真实 ChatGPT、无截图；官方 Shim 分流仍由 `direct-host-launch.test.mjs` 单独验证。
+
 - `settings-navigation.mjs`：浏览器回归共用实际设置导航；桌面走侧栏，窄屏走分类菜单；开关列表到详情另作回归。
 - `backup-e2e.mjs`：隔离双后台的导出/预览/确认、运行中正式/Dev复制、原进程/端口/断开状态保留、本机与远程撤销、并发修改拒绝；统一verify共用release程序。
 - `reader-preferences.test.mjs`：阅读器偏好晚到读取不覆盖编辑、串行保存及无键示例零请求。

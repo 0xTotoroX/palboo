@@ -92,6 +92,11 @@ enum Commands {
         lease: String,
     },
     #[command(hide = true)]
+    CodexHostSession {
+        #[arg(long)]
+        request: PathBuf,
+    },
+    #[command(hide = true)]
     FeatureWindow {
         #[arg(long)]
         feature: String,
@@ -203,6 +208,7 @@ async fn main() -> Result<()> {
         Commands::Config { command } => config_cli::run(&paths, command).await,
         Commands::Backup { command } => backup::cli::run(&paths, command).await,
         Commands::CodexHostRestart { lease } => codex_host::restart::run(&paths, &lease).await,
+        Commands::CodexHostSession { request } => codex_host::direct::run(&paths, &request).await,
         Commands::RemindersWorker {
             lease,
             runtime_token,
