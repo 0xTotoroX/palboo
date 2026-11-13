@@ -267,6 +267,16 @@ mod tests {
         let paths = Paths::new(Some(dir.path().into())).unwrap();
         let running = installation(&paths, "0.16.1");
         std::fs::copy("/bin/sleep", &running).unwrap();
+        // 系统程序离开只读系统卷后须重新签名，否则 macOS 会在 exec 后杀掉夹具。
+        assert!(
+            std::process::Command::new("/usr/bin/codesign")
+                .args(["--force", "--sign", "-"])
+                .arg(&running)
+                .output()
+                .unwrap()
+                .status
+                .success()
+        );
         let mut child = tokio::process::Command::new(&running)
             .arg("30")
             .kill_on_drop(true)

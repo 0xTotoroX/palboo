@@ -15,6 +15,7 @@ import {
 } from './dev-launcher.mjs';
 import { readJson, requestRuntime } from './dev-host.mjs';
 import { prepareWebAssets } from './dev-web.mjs';
+import { startupPhase } from './startup-progress.mjs';
 import { sourcePreference, selectSource } from './dev-sources.mjs';
 
 export function developmentEnvironment(inherited = process.env) {
@@ -50,6 +51,7 @@ export function developmentEnvironment(inherited = process.env) {
 }
 
 export function checkDevelopmentTools(env) {
+  startupPhase('tools');
   for (const [file, label] of [
     ['npm', 'npm'],
     ['cargo', 'Cargo（Rust）'],
@@ -117,7 +119,11 @@ export async function developmentAction(root, action, connection) {
           code === 0 ? done() : fail(new Error(`开发源码构建失败${suffix}`)),
         );
       });
-    await prepareWebAssets(source, () => runBuild('npm', ['run', 'build:web']));
+    await prepareWebAssets(source, () => {
+      startupPhase('web');
+      return runBuild('npm', ['run', 'build:web']);
+    });
+    startupPhase('build');
     await runBuild('cargo', ['build', '--locked']);
     if (action === 'prepare') return { ready: true };
   }
@@ -134,8 +140,15 @@ export async function developmentAction(root, action, connection) {
     return { ready: true };
   }
   if (action !== 'open') throw new Error('未知模式操作');
+  startupPhase('connecting');
   const revealed = await openDevelopment(root, { connection, cleanupOnFailure: true });
-  return { url: developmentSettingsUrl(root), pid: revealed.pid, paused: revealed.paused };
+  const session = readJson(join(root, 'target/dev/session.json'));
+  return {
+    url: developmentSettingsUrl(root),
+    pid: revealed.pid,
+    paused: revealed.paused,
+    dataDirectory: session.runtime,
+  };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {

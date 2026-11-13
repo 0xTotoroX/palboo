@@ -337,6 +337,7 @@ test('no-host startup reports one useful error and leaves the old restoration jo
     'dev-host.mjs',
     'dev-panel.mjs',
     'dev-web.mjs',
+    'startup-progress.mjs',
     'dev-runtime.mjs',
     'build-panel.mjs',
   ])
@@ -651,6 +652,7 @@ test('an orphan development backend blocks startup before touching installation 
     'dev-host.mjs',
     'dev-panel.mjs',
     'dev-web.mjs',
+    'startup-progress.mjs',
     'dev-runtime.mjs',
     'build-panel.mjs',
   ])

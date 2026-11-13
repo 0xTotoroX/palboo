@@ -6,6 +6,7 @@ src/codex_host.rs管理Options、安装/运行身份、启停选择、有界冷�
 
 认证GET /codex-host/agents按需在当前CDP连接执行ui/codex/codex-host-preview.js，3秒超时；只返回Agent名单、分组、可用性与当前选择，不打开菜单、不写配置、不安装或切换Agent，不依赖模型快切开关。无连接或探针不支持时明确失败，不提供合成状态。
 
+- readiness.rs：App 成功前检查 0.18+ Controller 的 installed 状态；核对私有文件、原生 PID/启动时间/父进程和控制端口，拒绝旧记录及仅 compatible 的中间状态。有界等待失败保留当前会话，不重开宿主。
 - restart.rs：显式重启的独立协调进程，按开关应用所选安装或停用。复核修订、宿主进程、窗口探针和 Dev 来源，重开后验证运行身份。取消不退出宿主。旧 Dev 记录可从 owner 读取监督 PID，兼容从设置切换模式时与 `launchConnection` 一致的 `--cdp / --target` 固定连接参数，仍核对准确命令、当前占用和 sourceEpoch。
 - shared_host.rs：冷启动只读核验 0.18+ 共享后台；映射锁 PID 必须与官方就绪记录一致，并核对 macOS 微秒级进程启动时间、原生程序路径及所选安装的 runtime 精确路径和版本（不接受 runtime 别名）。仅放行同安装正常持锁，旧版、缺失/损坏记录、PID 复用或其他安装继续拒绝；冷启动不停止后台或改写上游文件。关联退出时只捕获已由 Palboo 管理的实际运行安装，保存共享后台、监督进程和私有控制通道；在官方 launcher/shared-host 两把互斥内重验进程、通道、监听端口和宿主退出状态，经固定原通道的认证 `/v1/shutdown` 正常退出并等待监督进程；不选择最新通道、不全局 stop、不强杀。桌面 launch 显式设置官方 CODEXHOST_WEB_SERVICE=0，不顺带启动或替换 Web 后台。
 - controller.rs：项目内维护已验证的调试源码缓存/重复安装修复。对 0.17.1 起的官方控制器校验已知结构，仅在 Palboo 自有 `palboo/codex-host-controllers/` 缓存生成控制器及所需 Renderer 副本，经 Node 语法检查后通过上游 `--desktop-controller` 加载；控制器从经验证的缓存 Renderer 路径读取，不改官方文件；目录绑定官方文件规范路径和修复内容哈希。启动、安装更新与回退共用准备；新版本结构不兼容时不改变所选版本，已识别上游修复后不生成副本。运行识别支持同一官方安装的旧修复副本继续工作，不接管其他安装，不热换活动控制器。

@@ -321,6 +321,7 @@ async fn release(
     }
     let runtime = Runtime::read(paths)?;
     if paths.load()?.performance.integration_enabled {
+        crate::startup::phase("workspace");
         wait_for_release(&runtime, connection, Duration::from_secs(20)).await?;
     }
     Ok(
@@ -741,6 +742,7 @@ pub async fn run(data_paths: &Paths, command: Command) -> Result<()> {
             save(paths, &prefs)
         }
         Command::Launch => {
+            crate::startup::phase("preparing");
             let _guard = mode_lock(paths)?;
             let mut prefs = read(paths)?;
             let executable = release_executable(&prefs)?;
@@ -750,6 +752,15 @@ pub async fn run(data_paths: &Paths, command: Command) -> Result<()> {
             } else {
                 release(paths, &executable, None, true).await?
             };
+            if value["paused"] != true {
+                if prefs.mode == Mode::Release {
+                    crate::codex_host::readiness::wait(&release_paths(&prefs)?).await?;
+                } else if let Some(directory) = value["dataDirectory"].as_str() {
+                    let directory = PathBuf::from(directory);
+                    ensure!(directory.is_absolute(), "开发后台目录无效");
+                    crate::codex_host::readiness::wait(&Paths::new(Some(directory))?).await?;
+                }
+            }
             prefs.executable = Some(executable);
             save(paths, &prefs)?;
             value["mode"] = json!(prefs.mode);

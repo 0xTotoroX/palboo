@@ -3,6 +3,7 @@
 // [POS]: 独立后台功能适配；开关不退出当前会话，显式重启由独立协调进程接续；不复制上游业务或进入面板布局。
 // [PROTOCOL]: 变更时同步 codex_host/AGENTS.md。
 mod controller;
+pub(crate) mod readiness;
 pub(crate) mod restart;
 pub(crate) mod shared_host;
 mod update;
@@ -434,10 +435,14 @@ pub async fn launch(paths: &Paths, options: &Options, app: Option<&Path>) -> Res
     if !log_path.exists() {
         write_private(&log_path, b"")?;
     }
-    let log = std::fs::OpenOptions::new().append(true).open(log_path)?;
+    let log = std::fs::OpenOptions::new().append(true).open(&log_path)?;
+    let mut trace = crate::startup::Trace::new(&log_path);
     let mut command = std::process::Command::new(&executable);
     // 此入口只打开桌面，避免上游顺带启动或替换其他安装的活动 Web 服务。
     command.arg("launch").env("CODEXHOST_WEB_SERVICE", "0");
+    if std::env::var_os("PALBOO_STARTUP_PROGRESS").is_some() {
+        command.env("CODEXHOST_STARTUP_TRACE", "1");
+    }
     if let Some(controller) = controller {
         command.arg("--desktop-controller").arg(controller);
     }
@@ -450,9 +455,11 @@ pub async fn launch(paths: &Paths, options: &Options, app: Option<&Path>) -> Res
         .stderr(log);
     use std::os::unix::process::CommandExt;
     command.process_group(0);
+    crate::startup::phase("opening");
     let mut child = command.spawn().context("无法启动 CodexHost")?;
     for _ in 0..120 {
         tokio::time::sleep(Duration::from_millis(250)).await;
+        trace.poll(&log_path);
         if let Some(code) = child.try_wait()? {
             bail!("CodexHost 启动失败（{code}），请查看 codex-host.log");
         }

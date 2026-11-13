@@ -285,6 +285,7 @@ pub async fn launch(
         return Ok(());
     }
     if config.codex_host.enabled {
+        crate::startup::phase("compatibility");
         anyhow::ensure!(!isolated, "CodexHost 不支持独立 profile 启动");
         let (selected, desktop, _, _) =
             crate::codex_host::prepare(&config.codex_host, executable.as_deref()).await?;
@@ -384,7 +385,9 @@ pub async fn launch(
     } else {
         None
     };
+    crate::startup::phase("opening");
     launch_desktop(&executable, port, profile.as_deref()).await?;
+    crate::startup::phase("host");
     let endpoint = format!("http://127.0.0.1:{port}");
     for _ in 0..60 {
         tokio::time::sleep(Duration::from_millis(250)).await;
@@ -415,6 +418,7 @@ async fn finish_launch(
         config.target_id = None;
         paths.save(&config)?;
     }
+    crate::startup::phase("connecting");
     start(paths, config::DEFAULT_PORT, Some(endpoint), no_open, false).await?;
     println!("桌面 Codex 调试连接已就绪");
     Ok(())
@@ -469,6 +473,7 @@ fn confirm_codex_host_restart(enabled: bool) -> Result<bool> {
 }
 
 fn confirm_restart(message: &str) -> Result<bool> {
+    crate::startup::phase("confirmation");
     let cancel = crate::i18n::text("取消", "Cancel");
     let restart = crate::i18n::text("退出并重开", "Quit and reopen");
     let script = format!(
@@ -498,6 +503,7 @@ pub(crate) async fn quit_desktop(
     force: bool,
     timeout: Duration,
 ) -> Result<()> {
+    crate::startup::phase("closing");
     use objc2_app_kit::NSRunningApplication;
     // Recheck identity after the potentially long confirmation dialog.
     if desktop_process(executable)? != Some(pid) {

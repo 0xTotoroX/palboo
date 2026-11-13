@@ -102,6 +102,8 @@ model-control-host 覆盖能力延迟到达、空列表刷新超时及重试、�
 - [popout-checks.mjs](popout-checks.mjs)：端到端测试的弹出窗口子流程；检查快捷词只填入不发送及草稿保护、三材质单入口与双向保存、投影、宿主强调色动态同步及回退、收回、受限操作、隐藏像素、表面偏色、哑光/磨砂的单层圆角浅阴影，以及宿主 reset 有无变化时的公共几何、内边距和字体。失败时记录最近交接请求的状态、修订号及错误提示，不输出凭据或正文。
 - [native-popout-checks.mjs](native-popout-checks.mjs)：`node tests/e2e.mjs --native-popout` 显式启动真实 Wry 窗口；测试代理只给自有页面加入操作探针，认证和租约请求原样交给隔离 Rust 后台。验证两轮呈现隐藏宿主、原生大纲点击经 CDP 实际滚动并高亮正文、收回按钮可用、进程正常退出及宿主恢复；不截图、不读取真实聊天。
 - [lifecycle-test.mjs](lifecycle-test.mjs)：进程生命周期测试入口，不使用真实聊天数据；验证启动器在不支持浮窗时保留内嵌、其他错误仍提示，以及旧默认目录迁移、安装、服务复用、升级、回滚和模型请求取消；完整 App 路径验证外置 CLI 接续、App 移动及版本变化换后台、拒绝单文件升级并保留配置。报告写入 target/reports/lifecycle.json。正式程序冷启动覆盖旧胶囊配置、工作台开合意图与独立宽度/比例。
+- [startup-progress.test.mjs](startup-progress.test.mjs)：事件文件权限/大小/阶段限制和完成后失效；显式 PALBOO_NATIVE_LAUNCHER_TEST=1 编译原生反馈夹具，核对中英文几何、延时详情、失败重试和重复打开，无截图。
+- [direct-host-launch.test.mjs](direct-host-launch.test.mjs)：显式指定 0.18 官方安装，使用隔离 App 与运行时核对 LaunchServices 到官方 Shim 的路由；仅验证启动参数交接，不替代真实 Controller/退出链验收，不启用生产直启。
 - [distribution.test.mjs](distribution.test.mjs)：补丁/预发布 DMG 命名、成品隐私审计及 Swift 启动器移动、暂停、取消与失败回归。实际 DMG 读回和签名由 package 验收。
 - [release.test.mjs](release.test.mjs)：真实 HTTP 适配器与有状态 GitHub 替身，覆盖各阶段响应丢失/进程中断、草稿恢复、starter 清理、公开对象零修改、标签/Latest/摘要/说明校验、只读重试，以及官方 run/job/artifact 与候选祖先/变更范围；可在无 npm 依赖的 Linux 预检查中运行，不访问远端。
 - [verify-build.test.mjs](verify-build.test.mjs)：隔离构建命令验证网页跨 debug/release 复用、源码变化、产物缺失/损坏以及失败后恢复。

@@ -5,6 +5,7 @@
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
 import { compatibleEnvironment, sourceBinaryName } from './brand.mjs';
+import { startupPhase } from './startup-progress.mjs';
 import {
   readFileSync,
   writeFileSync,
@@ -181,6 +182,7 @@ function assertBackendStopped() {
 }
 async function startService() {
   if (closing) return;
+  startupPhase('connecting');
   assertBackendStopped();
   rmSync(join(data, 'runtime.json'), { force: true });
   rmSync(join(data, 'development.json'), { force: true });
@@ -242,6 +244,7 @@ async function startService() {
     45000,
   );
   if (paused) return;
+  startupPhase('workspace');
   await until(async () => {
     if (closing) throw new Error('开发模式退出中');
     const report = await api('development');
@@ -653,6 +656,7 @@ try {
       console.log('正在准备宿主启动器；将按「启动行为」设置处理没有调试连接的应用…');
       await prepareWebAssets(root, () => execute('npm', ['run', 'build:web']));
       const before = fingerprint(root, nativeInputs(root));
+      startupPhase('build');
       await execute('cargo', ['build', '--locked']);
       if (closing) throw new Error('开发模式退出中');
       if (before === fingerprint(root, nativeInputs(root))) preparedNative = before;
