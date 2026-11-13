@@ -430,7 +430,8 @@ pub async fn launch(paths: &Paths, options: &Options, app: Option<&Path>) -> Res
     }
     let log = std::fs::OpenOptions::new().append(true).open(log_path)?;
     let mut command = std::process::Command::new(&executable);
-    command.arg("launch");
+    // 此入口只打开桌面，避免上游顺带启动或替换其他安装的活动 Web 服务。
+    command.arg("launch").env("CODEXHOST_WEB_SERVICE", "0");
     if let Some(controller) = controller {
         command.arg("--desktop-controller").arg(controller);
     }

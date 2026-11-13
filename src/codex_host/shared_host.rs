@@ -70,7 +70,9 @@ pub(super) fn owns_store_lock(installation: &Path, lock: &Path, pid: u32) -> Res
         serde_json::from_slice(&bytes).context("CodexHost 共享后台记录损坏，未清理")?;
     if owner.pid != pid
         || owner.version != version
-        || owner.runtime.canonicalize()? != root.join("app/host-runtime.mjs").canonicalize()?
+        // 与上游安装比较使用相同的路径口径，别名也不能触发隐式服务替换。
+        || owner.runtime != root.join("app/host-runtime.mjs")
+        || !owner.runtime.is_file()
     {
         return Ok(false);
     }
@@ -96,6 +98,7 @@ mod tests {
         );
         let runtime = root.join("selected/app/host-runtime.mjs");
         std::fs::write(&runtime, "").unwrap();
+        let runtime = runtime.canonicalize().unwrap();
         let lock = root.join("mapping-store/store.lock");
         std::fs::create_dir_all(lock.parent().unwrap()).unwrap();
         let pid = std::process::id();
@@ -121,12 +124,15 @@ mod tests {
         );
         std::fs::remove_file(&descriptor).unwrap();
         let mut variants = Vec::new();
+        let alias = root.join("runtime-alias.mjs");
+        std::os::unix::fs::symlink(&runtime, &alias).unwrap();
         for (key, value) in [
             ("pid", json!(pid + 1)),
             ("started_at_micros", json!(started + 1)),
             ("executable", json!(installation)),
             ("version", json!("0.18.1")),
             ("runtime", json!(installation)),
+            ("runtime", json!(alias)),
         ] {
             let mut changed = record.clone();
             changed[key] = value;
