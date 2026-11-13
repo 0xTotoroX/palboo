@@ -294,6 +294,16 @@ pub async fn installed(running: &Running) -> Result<Option<bool>> {
     if !record.manager.alive()? || record.state != "ready" {
         return Ok(Some(false));
     }
+    let native_host =
+        super::shared_host::ready_process(&record.resources.installation, &layout.data)?;
+    if !native_host.as_ref().is_some_and(|owner| {
+        record
+            .desktop
+            .as_ref()
+            .is_some_and(|desktop| super::native_host::descendant(owner, desktop).unwrap_or(false))
+    }) {
+        return Ok(Some(false));
+    }
     Ok(Some(
         super::readiness::installed_at(running, &record.descriptor(), &layout.diagnostics())
             .await?,

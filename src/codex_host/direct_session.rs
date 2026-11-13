@@ -262,6 +262,10 @@ async fn run_prepared(
             &layout.data.join("mapping-store/store.lock"),
             Some(&resources.installation),
         )?;
+        ensure!(
+            super::shared_host::ready_process(&resources.installation, &layout.data)?.is_none(),
+            "现有 CodexHost 后台独立于本次桌面，已保留；请先正常退出原实例，再从 Palboo 打开"
+        );
         Record {
             schema: 1,
             lease: request.lease,
@@ -330,6 +334,17 @@ async fn run_prepared(
                     .await
                     .unwrap_or(false);
             }
+            let native_host =
+                super::shared_host::ready_process(&record.resources.installation, &layout.data)
+                    .ok()
+                    .flatten()
+                    .is_some_and(|owner| {
+                        super::native_host::descendant(&owner, &desktop).unwrap_or(false)
+                    });
+            if !native_host && record.state == "ready" {
+                record.state = "connecting".into();
+                record.save(&layout)?;
+            }
             if chain && lease.is_none() {
                 lease = super::shared_host::Lease::capture_at(
                     &record.resources.installation,
@@ -340,6 +355,7 @@ async fn run_prepared(
             }
             if record.state != "ready"
                 && chain
+                && native_host
                 && lease.is_some()
                 && super::readiness::installed_at(
                     &record.running(),

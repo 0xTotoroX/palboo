@@ -22,6 +22,10 @@ func start(_ path: String, _ args: [String]) throws -> Process {
 }
 if name == "codexhost" {
     let child = try start(node, [runtime, "service"])
+    if let index = CommandLine.arguments.firstIndex(of: "--ready-file") {
+        let ready = CommandLine.arguments[index + 1]
+        FileManager.default.createFile(atPath: ready, contents: Data("ready\n".utf8), attributes: [.posixPermissions: 0o600])
+    }
     child.waitUntilExit()
     exit(child.terminationStatus)
 }
@@ -29,8 +33,7 @@ if name == "Fixture" {
     let port = CommandLine.arguments.first { $0.hasPrefix("--remote-debugging-port=") }!.split(separator: "=").last!
     children.append(try start(node, [runtime, "cdp", String(port)]))
     children.append(try start(env["CODEX_CLI_PATH"]!, ["app-server", "--analytics-default-enabled"]))
-    // Shared service survives Desktop until the coordinator requests authenticated shutdown.
-    _ = try start(env["CODEXHOST_LAUNCHER_EXECUTABLE"]!, [])
+    // 私有 CLI 在 exec Shim 前启动前台 Host；后台保留真实桌面祖先。
 }
 signal(SIGTERM, SIG_IGN)
 let terminate = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)

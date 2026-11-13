@@ -25,6 +25,8 @@ struct ContextRecord {
     endpoint: String,
     stock: PathBuf,
     shim: PathBuf,
+    #[serde(default)]
+    service: Option<super::native_host::Launch>,
 }
 
 pub(super) fn prepare(layout: &Layout, record: &Record) -> Result<PathBuf> {
@@ -60,6 +62,13 @@ pub(super) fn prepare(layout: &Layout, record: &Record) -> Result<PathBuf> {
             endpoint: record.endpoint.clone(),
             stock: record.resources.stock.clone(),
             shim: record.resources.shim.clone(),
+            service: Some(super::native_host::Launch {
+                installation: record.resources.installation.clone(),
+                node: record.resources.node.clone(),
+                runtime: record.resources.runtime.clone(),
+                stock: record.resources.stock.clone(),
+                data: layout.data.clone(),
+            }),
         })?,
     )?;
     Ok(context)
@@ -158,7 +167,7 @@ pub(crate) fn dispatch() -> Result<()> {
     // 只有本次指定桌面直接启动的主服务才接入兼容层；未知或间接调用保留原生行为。
     let main = app_server(&args)
         && desktop_origin(std::env::var_os("CODEX_INTERNAL_ORIGINATOR_OVERRIDE").as_deref())
-        && parent.is_some_and(|p| {
+        && parent.as_ref().is_some_and(|p| {
             p.executable == record.desktop
                 && crate::host::process_debug_endpoint(p.pid as i32)
                     .ok()
@@ -166,7 +175,19 @@ pub(crate) fn dispatch() -> Result<()> {
                     .as_ref()
                     == Some(&record.endpoint)
         });
+    let service = if main && let Some(service) = &record.service {
+        super::native_host::ensure(
+            service,
+            context.parent().context("CLI 目录缺失")?,
+            parent.as_ref().unwrap(),
+        )?
+    } else {
+        None
+    };
     let error = command(&record, &args, main).exec();
+    if let Some(child) = service {
+        super::native_host::exec_failed(child);
+    }
     Err(error).context("无法执行官方 Codex CLI")
 }
 

@@ -39,6 +39,31 @@ struct Channel {
     token: String,
 }
 
+pub(super) fn ready_process(
+    installation: &Path,
+    data: &Path,
+) -> Result<Option<crate::host::ProcessIdentity>> {
+    let Some(owner) = super::direct::read::<ReadyOwner>(&data.join("shared-host-ready.json"))?
+    else {
+        return Ok(None);
+    };
+    let Some(process) = crate::host::ProcessIdentity::read(owner.pid)? else {
+        return Ok(None);
+    };
+    if process.started_at_micros != owner.started_at_micros {
+        return Ok(None);
+    }
+    ensure!(
+        owns_store_lock(
+            installation,
+            &data.join("mapping-store/store.lock"),
+            owner.pid
+        )?,
+        "现有 CodexHost 后台身份不符，已保留"
+    );
+    Ok(Some(process))
+}
+
 fn channel(data: &Path, pid: u32) -> Result<Channel> {
     use std::io::Read;
     use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
@@ -130,6 +155,21 @@ impl Lease {
     pub(crate) async fn stop(self, still_exited: impl Fn() -> Result<bool>) -> Result<()> {
         use fs2::FileExt;
         use std::time::{Duration, Instant};
+        let owner_identity = crate::host::ProcessIdentity {
+            pid: self.owner.pid,
+            started_at_micros: self.owner.started_at_micros,
+            executable: self.owner.executable.clone(),
+        };
+        // 前台后代可能已随桌面退出；不再依赖其已移除的官方记录，也不碰替代实例。
+        if !owner_identity.alive()?
+            && self
+                .supervisor
+                .as_ref()
+                .is_none_or(|p| !p.alive().unwrap_or(true))
+        {
+            ensure!(still_exited()?, "宿主已恢复或身份不明，退出检查已停止");
+            return Ok(());
+        }
         // 与上游 ensure/restart/stop 共用互斥，重验后不会误停并发替换的新实例。
         let deadline = Instant::now() + Duration::from_secs(5);
         let mut guards = Vec::new();
@@ -169,7 +209,12 @@ impl Lease {
             .supervisor
             .as_ref()
             .context("无法核验 CodexHost 监督进程，未发送退出")?;
-        ensure!(supervisor.alive()?, "CodexHost 监督进程已更换，未发送退出");
+        let supervisor_now = crate::host::ProcessIdentity::read(supervisor.pid)?;
+        ensure!(
+            supervisor_now.as_ref() == Some(supervisor)
+                || (supervisor_now.is_none() && owner_identity.parent()?.is_none()),
+            "CodexHost 监督进程已更换，未发送退出"
+        );
         let mut listeners = crate::host::listening_pids(self.channel.port).await?;
         listeners.sort_unstable();
         listeners.dedup();
@@ -372,6 +417,25 @@ server.listen(0,'127.0.0.1',()=>{
             std::fs::read(fixture.data.join("mapping-store/store.lock")).unwrap(),
             lock
         );
+    }
+
+    #[tokio::test]
+    async fn already_exited_foreground_tree_preserves_replacement_records() {
+        let mut fixture = Fixture::new();
+        let lease = fixture.lease();
+        unsafe {
+            libc::kill(fixture.child.id() as i32, libc::SIGTERM);
+        }
+        fixture.child.wait().unwrap();
+        let ready = fixture.data.join("shared-host-ready.json");
+        std::fs::write(&ready, b"replacement-owned-by-another-session").unwrap();
+        assert!(lease.clone().stop(|| Ok(false)).await.is_err());
+        lease.stop(|| Ok(true)).await.unwrap();
+        assert_eq!(
+            std::fs::read(&ready).unwrap(),
+            b"replacement-owned-by-another-session"
+        );
+        assert!(!fixture.data.join("stop-called").exists());
     }
 
     #[tokio::test]
