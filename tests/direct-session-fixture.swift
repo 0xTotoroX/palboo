@@ -28,7 +28,7 @@ if name == "codexhost" {
 if name == "Fixture" {
     let port = CommandLine.arguments.first { $0.hasPrefix("--remote-debugging-port=") }!.split(separator: "=").last!
     children.append(try start(node, [runtime, "cdp", String(port)]))
-    children.append(try start(env["CODEX_CLI_PATH"]!, []))
+    children.append(try start(env["CODEX_CLI_PATH"]!, ["app-server", "--analytics-default-enabled"]))
     // Shared service survives Desktop until the coordinator requests authenticated shutdown.
     _ = try start(env["CODEXHOST_LAUNCHER_EXECUTABLE"]!, [])
 }

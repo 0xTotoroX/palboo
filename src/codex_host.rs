@@ -5,6 +5,7 @@
 mod controller;
 pub(crate) mod direct;
 mod direct_session;
+pub(crate) mod native_cli;
 pub(crate) mod readiness;
 pub(crate) mod restart;
 pub(crate) mod shared_host;

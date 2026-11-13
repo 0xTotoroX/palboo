@@ -17,13 +17,13 @@ fn free_port() -> Result<u16> {
         .port())
 }
 
-fn environment(resources: &Resources, layout: &Layout, record: &Record) -> Vec<(String, String)> {
+fn environment(
+    resources: &Resources,
+    layout: &Layout,
+    record: &Record,
+) -> Result<Vec<(String, String)>> {
     // 官方独立 Host 继续使用自己的监督进程身份；不把 Palboo PID 填入官方 launcher 记录。
-    [
-        (
-            "CODEX_CLI_PATH",
-            resources.shim.to_string_lossy().into_owned(),
-        ),
+    let mut environment: Vec<(String, String)> = [
         (
             "CODEXHOST_STOCK_CODEX_PATH",
             resources.stock.to_string_lossy().into_owned(),
@@ -55,7 +55,11 @@ fn environment(resources: &Resources, layout: &Layout, record: &Record) -> Vec<(
     ]
     .into_iter()
     .map(|(key, value)| (key.into(), value))
-    .collect()
+    .collect();
+    environment.extend(super::native_cli::environment(
+        record.native_cli.as_deref().context("原生 CLI 入口缺失")?,
+    )?);
+    Ok(environment)
 }
 
 async fn controller(
@@ -269,10 +273,13 @@ async fn run_prepared(
             port: free_port()?,
             nonce: uuid::Uuid::new_v4().simple().to_string(),
             state: "opening".into(),
+            native_cli: None,
         }
     };
     record.save(&layout)?;
     if record.desktop.is_none() {
+        record.native_cli = Some(super::native_cli::prepare(&layout, &record)?);
+        record.save(&layout)?;
         crate::startup::phase("opening");
         crate::host_launch::launch_with_environment(
             &record.resources.desktop,
@@ -280,7 +287,7 @@ async fn run_prepared(
                 .port()
                 .context("缺少启动端口")?,
             None,
-            &environment(&record.resources, &layout, &record),
+            &environment(&record.resources, &layout, &record)?,
         )
         .await?;
         record.desktop = Some(launched_desktop(&record.resources, &record.endpoint).await?);
@@ -365,6 +372,9 @@ async fn run_prepared(
             lease.stop(exited).await?;
         }
         direct::remove_matching(&layout, &record.lease)?;
+        if let Some(context) = &record.native_cli {
+            super::native_cli::remove(context, &layout);
+        }
     } else {
         record.state = "detached".into();
         record.save(&layout)?;

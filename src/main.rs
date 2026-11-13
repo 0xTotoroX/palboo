@@ -1,5 +1,5 @@
 // [INPUT]: CLI 参数以及 config/lifecycle/server/panel_window/model_control/tasks/backup 模块。
-// [OUTPUT]: palboo 命令分发与进程入口，含本机备份预览与恢复；模式交接/手动更新使用独立短期 worker；launch --host-only 供开发入口仅准备宿主。
+// [OUTPUT]: palboo 命令分发与进程入口，含本机备份预览与恢复；私有原生 CLI 在参数解析前交接；模式交接/手动更新使用独立短期 worker；launch --host-only 供开发入口仅准备宿主。
 // [POS]: 独立可执行文件入口，区分后台和窗口子进程。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
@@ -194,6 +194,7 @@ enum Commands {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    codex_host::native_cli::dispatch()?;
     let cli = Cli::parse();
     let paths = config::Paths::new(cli.data_dir)?;
     i18n::set_language(&panel::Preferences::read(&paths).language);

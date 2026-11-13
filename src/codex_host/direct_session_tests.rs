@@ -207,6 +207,8 @@ async fn native_direct_session_survives_reconnect_recovers_and_cleans_owned_tree
             .exists()
     );
     let before = direct::record(&fixture.layout).unwrap().unwrap();
+    let native_cli = before.native_cli.clone().unwrap();
+    assert!(native_cli.exists());
     direct::remove_matching(&fixture.layout, "another-lease").unwrap();
     assert!(fixture.layout.record().exists());
     let desktop = before.desktop.clone().unwrap();
@@ -298,6 +300,15 @@ async fn native_direct_session_survives_reconnect_recovers_and_cleans_owned_tree
             .is_some_and(|r| r.state == "ready" && r.controller.as_ref() != Some(&old_controller))
     })
     .await;
+    assert_eq!(
+        direct::record(&fixture.layout)
+            .unwrap()
+            .unwrap()
+            .native_cli
+            .as_ref(),
+        Some(&native_cli)
+    );
+    assert!(native_cli.exists(), "恢复协调不能删除原生工具入口");
     assert!(
         fixture
             .layout
@@ -327,6 +338,7 @@ async fn native_direct_session_survives_reconnect_recovers_and_cleans_owned_tree
     assert!(!controller.alive().unwrap());
     assert!(fixture.layout.data.join("service-stopped").exists());
     assert!(!fixture.layout.record().exists());
+    assert!(!native_cli.exists());
     assert!(direct::lock(&fixture.layout.upstream.join("launcher-v1.lock")).is_ok());
 }
 

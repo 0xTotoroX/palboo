@@ -8,6 +8,7 @@ src/codex_host.rs管理Options、安装/运行身份、启停选择、有界冷�
 
 - direct.rs：0.18 直启资源与私有请求、运行记录及恢复入口；固定每次会话的 Palboo CLI 副本，避免 App 原子更新/Dev 二进制替换改变原生身份。协调子进程由当前调用方的原生父子身份授权，跨热更存续；进程身份保存在 palboo-launcher/codex-host-session.json，自有副本正常退出时移除。兼容既有 codex-host-owned.json，运行版本取实际安装。恢复只接受本 Palboo 原会话，不重开原 Codex、不假写官方 descriptor 或 launcher PID。
 - direct_session.rs：LaunchServices 进程级环境交接及官方 Controller 监督，持有自有及官方 launcher 互斥。真正就绪须同时有本宿主 Shim 链、同安装共享 Host、installed Controller 及 CDP 页面；Controller 退出后重连，宿主原生身份连续消失才清理。协调异常后停止自己创建的 Controller，保留 Codex 供重新打开 Palboo 恢复；宿主已退出时释放官方锁，再由 Lease 双锁重验并关闭共享 Host，不终止外部或并发替换实例。
+- native_cli.rs：0.18 直启的私有 CLI 交接，使用与协调进程独立的固定二进制及0600记录；只有精确父进程路径/调试端点、桌面 originator 和主 app-server 参数同时匹配才 exec 官方 Shim，其余 exec 官方 CLI 并清除 CODEXHOST_*、CODEX_CLI_PATH 及私有入口标记，保留原生其他环境和进程语义。未知调用保留原生行为；恢复原会话沿用入口，桌面退出后才清理。不伪造官方 launcher 身份，不修改官方文件或协议。
 - direct_session_tests.rs 与 tests/direct-session-fixture.swift/mjs：显式原生隔离验收，覆盖启动门控、修订/锁竞争、原宿主不接管、Controller 恢复、协调丢失恢复、无页面保留和正常退出。真实用户聊天冷启动另验，不启动第二个真实 ChatGPT。
 - readiness.rs：App 成功前检查 0.18+ Controller 的 installed 状态；直启还要求协调就绪。核对私有文件、原生 PID/启动时间/父进程和控制端口，拒绝旧记录及仅 compatible 的中间状态。有界等待失败保留当前会话，不重开宿主。
 - restart.rs：显式重启的独立协调进程，按开关应用所选安装或停用。复核修订、宿主进程、窗口探针和 Dev 来源，重开后验证运行身份。取消不退出宿主。旧 Dev 记录可从 owner 读取监督 PID，兼容从设置切换模式时与 `launchConnection` 一致的 `--cdp / --target` 固定连接参数，仍核对准确命令、当前占用和 sourceEpoch。
@@ -20,6 +21,6 @@ src/codex_host.rs管理Options、安装/运行身份、启停选择、有界冷�
 
 开关只保存意愿；启用/停用通过现有启动策略及显式操作，普通会话不能被上游launcher隐式接管。`managed_by` 的开发模式可从监督进程传入的原启动归属记录核验实际 PID/安装，跨来源交接不复制运行记录；正式构建忽略该开发路径。codexHost、revision、previousExecutable和运行记录名保持兼容。
 
-遵循根目录的外部环境约定：官方分发包保持原样，上述内存与界面兼容修复由 Palboo 自有缓存承担，不修改 Agent CLI、模型或登录配置，不安装模型别名、启动包装或协议转换。
+遵循根目录的外部环境约定：官方分发包保持原样，上述内存与界面兼容修复由 Palboo 自有缓存承担；直启私有入口仅区分桌面主服务与原生工具，不修改 Agent CLI、模型或登录配置，不安装供应商 CLI 包装、模型别名或协议转换。
 
 [PROTOCOL]: 成员或接口变化时同步本文及父级地图。

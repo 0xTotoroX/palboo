@@ -13,6 +13,7 @@ import {
   existsSync,
   realpathSync,
   copyFileSync,
+  chmodSync,
 } from 'node:fs';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
@@ -29,7 +30,7 @@ test(
       execFileSync(join(installation, 'bin/codexhost'), ['--version'], { encoding: 'utf8' }),
       /0\.18\.0/,
     );
-    const root = mkdtempSync(join(tmpdir(), 'palboo-direct-host-'));
+    const root = realpathSync(mkdtempSync(join(tmpdir(), 'palboo-direct-host-')));
     t.after(() => rmSync(root, { recursive: true, force: true }));
     // 合成 App 没有用户应用的文稿访问授权；只复制执行文件到隔离目录，不修改官方安装。
     const shim = join(root, 'codexhost-shim');
@@ -49,7 +50,7 @@ test(
 import Darwin
 let environment = ProcessInfo.processInfo.environment
 let executable = environment["CODEX_CLI_PATH"]!
-for arguments in [["app-server", "--stdio"], ["--version"]] {
+for arguments in [["app-server", "--stdio", "--analytics-default-enabled"], ["--version"]] {
     let input = Pipe()
     let child = Process()
     child.executableURL = URL(fileURLWithPath: executable)
@@ -100,11 +101,30 @@ printf 'stock' > "$PALBOO_TEST_STOCK"
       PALBOO_TEST_ERRORS: join(root, 'errors'),
       PALBOO_TEST_STATUS: join(root, 'status'),
     };
+    if (process.env.PALBOO_TEST_CLI) {
+      const proxy = join(root, 'palboo'),
+        context = join(root, 'context.json');
+      copyFileSync(realpathSync(process.env.PALBOO_TEST_CLI), proxy);
+      chmodSync(proxy, 0o700);
+      writeFileSync(
+        context,
+        JSON.stringify({
+          executable: proxy,
+          desktop: join(bin, 'Fixture'),
+          endpoint: 'http://127.0.0.1:54322',
+          stock,
+          shim,
+        }),
+        { mode: 0o600 },
+      );
+      injected.CODEX_CLI_PATH = proxy;
+      injected.PALBOO_NATIVE_CLI_CONTEXT = context;
+    }
     writeFileSync(injected.PALBOO_TEST_ERRORS, '');
     // 与产品的 LaunchServices 边界一致，环境只交给本次唯一测试 App；不写 launchctl 或 shell 配置。
     const args = ['-n', '-W'];
     for (const [key, value] of Object.entries(injected)) args.push('--env', `${key}=${value}`);
-    args.push('-a', app);
+    args.push('-a', app, '--args', '--remote-debugging-port=54322');
     const environment = Object.fromEntries(
       Object.entries(process.env).filter(
         ([key]) => !key.startsWith('CODEXHOST_') && key !== 'CODEX_CLI_PATH',
@@ -128,7 +148,7 @@ printf 'stock' > "$PALBOO_TEST_STOCK"
       }),
     );
     assert.deepEqual(JSON.parse(readFileSync(record)), {
-      args: ['app-server', '--stdio'],
+      args: ['app-server', '--stdio', '--analytics-default-enabled'],
       shimRemoved: true,
       stock: realpathSync(stock),
     });
