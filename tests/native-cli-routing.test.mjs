@@ -1,5 +1,5 @@
 /* [INPUT]: 显式指定的 Palboo、隔离原生 App 和可观察的 CLI 夹具。
- * [OUTPUT]: 主服务/原生工具分流、字节与进程语义及官方 app-server 初始化回归。
+ * [OUTPUT]: 主服务/原生工具分流、交接环境缺失时的原生调用、进程语义及官方初始化回归。
  * [POS]: 启动边界集成验收；不读取聊天，不启动第二个真实 ChatGPT。
  * [PROTOCOL]: 变更时同步 tests/AGENTS.md。 */
 import test from 'node:test';
@@ -17,6 +17,7 @@ import {
 import { execFileSync, spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
 
 const enabled = process.platform === 'darwin' && process.env.PALBOO_TEST_CLI;
 test(
@@ -32,9 +33,13 @@ test(
       join(app, 'Contents/Info.plist'),
       `<?xml version="1.0"?><plist version="1.0"><dict><key>CFBundleExecutable</key><string>Fixture</string><key>CFBundleIdentifier</key><string>local.palboo.native-cli.${Date.now()}</string><key>CFBundlePackageType</key><string>APPL</string><key>LSUIElement</key><true/></dict></plist>`,
     );
+    const cliRoot = join(root, 'codex-host-native-cli'),
+      cliDirectory = join(cliRoot, randomUUID());
+    mkdirSync(cliRoot, { mode: 0o700 });
+    mkdirSync(cliDirectory, { mode: 0o700 });
     const desktop = join(bin, 'Fixture'),
-      proxy = join(root, 'palboo'),
-      context = join(root, 'context.json');
+      proxy = join(cliDirectory, 'palboo'),
+      context = join(cliDirectory, 'context.json');
     const source = join(root, 'fixture.swift');
     writeFileSync(
       source,
@@ -51,6 +56,10 @@ func run(_ args: [String], _ origin: String? = nil) throws -> [String: Any] {
     environment.removeValue(forKey: "CODEX_INTERNAL_ORIGINATOR_OVERRIDE")
     if let origin { environment["CODEX_INTERNAL_ORIGINATOR_OVERRIDE"] = origin }
     if args.contains("preserve-alias") { environment["CODEX_APP_RUNTIME_CLI_PATH"] = env["PALBOO_TEST_FOREIGN_ALIAS"] }
+    if args.contains("--without-context") {
+        environment.removeValue(forKey: "PALBOO_NATIVE_CLI_CONTEXT")
+        p.arguments = args.filter { $0 != "--without-context" }
+    }
     p.environment = environment
     p.standardInput = input; p.standardOutput = output; p.standardError = errors
     try p.run()
@@ -71,7 +80,9 @@ var rows = [try run(["-c", "features.code_mode_host=true", "app-server", "--anal
             try run(["exec-server", "--concurrent-requests", "32"]),
             try run(["--version"]),
             try run(["app-server", "--listen", "stdio://"]),
-            try run(["--version", "preserve-alias"])]
+            try run(["--version", "preserve-alias"]),
+            try run(["app-server", "--listen", "stdio://", "--without-context"]),
+            try run(["app-server", "--analytics-default-enabled", "--without-context"])]
 let nested = Process()
 nested.executableURL = URL(fileURLWithPath: env["PALBOO_TEST_HELPER"]!)
 nested.arguments = ["helper"]
@@ -146,7 +157,7 @@ process.stderr.write('preserved stderr\\n'); process.exitCode=37;
     const observed = JSON.parse(readFileSync(result, 'utf8'));
     const rows = [...observed.rows, JSON.parse(readFileSync(nested, 'utf8'))];
     for (const [index, row] of rows.entries()) {
-      assert.equal(row.status, 37);
+      assert.equal(row.status, 37, `row ${index}: ${row.err}`);
       assert.equal(row.err, 'preserved stderr\n');
       const out = JSON.parse(row.out);
       assert.equal(out.route, index === 0 ? 'host' : 'native');
@@ -181,44 +192,58 @@ process.stderr.write('preserved stderr\\n'); process.exitCode=37;
         }),
         { mode: 0o600 },
       );
+      const nativeEnv = { ...env, CODEX_INTERNAL_ORIGINATOR_OVERRIDE: 'codex-computer-use' };
+      delete nativeEnv.PALBOO_NATIVE_CLI_CONTEXT;
+      nativeEnv.CODEX_HOME = join(root, 'codex-home');
+      mkdirSync(nativeEnv.CODEX_HOME, { mode: 0o700 });
       const child = spawn(proxy, ['app-server', '--listen', 'stdio://'], {
-        env: { ...env, CODEX_INTERNAL_ORIGINATOR_OVERRIDE: 'codex-computer-use' },
+        env: nativeEnv,
         stdio: ['pipe', 'pipe', 'pipe'],
       });
       t.after(() => child.kill('SIGTERM'));
       let output = '',
         errors = '';
       child.stderr.on('data', (b) => (errors += b));
-      const response = new Promise((resolve, reject) => {
-        const timer = setTimeout(() => reject(new Error(`initialize timeout: ${errors}`)), 10000);
-        child.stdout.on('data', (b) => {
-          output += b;
-          for (const line of output.split('\n')) {
-            try {
-              const msg = JSON.parse(line);
-              if (msg.id === 1) {
-                clearTimeout(timer);
-                resolve(msg);
-              }
-            } catch {}
-          }
+      const request = (id, method, params) =>
+        new Promise((resolve, reject) => {
+          const timer = setTimeout(() => reject(new Error(`initialize timeout: ${errors}`)), 10000);
+          const receive = (b) => {
+            output += b;
+            for (const line of output.split('\n')) {
+              try {
+                const msg = JSON.parse(line);
+                if (msg.id === id) {
+                  clearTimeout(timer);
+                  child.stdout.off('data', receive);
+                  resolve(msg);
+                }
+              } catch {}
+            }
+          };
+          child.stdout.on('data', receive);
+          child.once('exit', (code) => {
+            clearTimeout(timer);
+            reject(new Error(`stock exited ${code}: ${errors}`));
+          });
+          child.stdin.write(JSON.stringify({ id, method, params }) + '\n');
         });
-        child.on('exit', (code) => {
-          clearTimeout(timer);
-          reject(new Error(`stock exited ${code}: ${errors}`));
-        });
-      });
-      child.stdin.write(
-        JSON.stringify({
-          id: 1,
-          method: 'initialize',
-          params: {
+      assert.ok(
+        (
+          await request(1, 'initialize', {
             clientInfo: { name: 'palboo_native_acceptance', version: '1.0' },
             capabilities: { experimentalApi: true },
-          },
-        }) + '\n',
+          })
+        ).result,
+        'official native app-server initialized',
       );
-      assert.ok((await response).result, 'official native app-server initialized');
+      child.stdin.write(JSON.stringify({ method: 'initialized' }) + '\n');
+      for (const [id, method, params] of [
+        [2, 'config/read', { includeLayers: false }],
+        [3, 'configRequirements/read', {}],
+      ]) {
+        const reply = await request(id, method, params);
+        assert.ok(reply.result, `${method}: ${JSON.stringify(reply.error)}`);
+      }
       child.stdin.end();
     }
   },

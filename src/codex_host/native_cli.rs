@@ -1,5 +1,5 @@
-// [INPUT]: Palboo 私有 CLI 交接记录、调用参数与原生父进程身份。
-// [OUTPUT]: 仅桌面主 app-server 进入官方 Shim，辅助命令及接入准备失败转交官方 CLI；私有失败关系供协调读取。
+// [INPUT]: Palboo 私有 CLI 交接记录、入口旁的会话记录、调用参数与原生父进程身份。
+// [OUTPUT]: 显式交接的桌面主服务进入官方 Shim；辅助调用即使缺失交接环境也转交官方 CLI。
 // [POS]: 0.18 直启的进程边界；不修改官方包、不转换协议、不伪造 launcher 身份。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 use super::direct::{self, Layout, Record};
@@ -170,14 +170,50 @@ fn command(record: &ContextRecord, args: &[OsString], main: bool) -> Command {
     command
 }
 
+fn adjacent_context(executable: &Path) -> Result<Option<PathBuf>> {
+    let Some(directory) = executable.parent() else {
+        return Ok(None);
+    };
+    let Some(root) = directory.parent() else {
+        return Ok(None);
+    };
+    if executable.file_name() != Some(OsStr::new("palboo"))
+        || root.file_name() != Some(OsStr::new("codex-host-native-cli"))
+        || directory
+            .file_name()
+            .and_then(OsStr::to_str)
+            .is_none_or(|name| uuid::Uuid::parse_str(name).is_err())
+    {
+        return Ok(None);
+    }
+    // 原生工具只继承 Desktop 提供的 CLI 路径，不保证继承 Palboo 的交接变量。
+    // 仅在私有会话入口旁读取记录；普通 Palboo 不搜索配置或接管 CLI 调用。
+    for path in [root, directory] {
+        let metadata = std::fs::symlink_metadata(path)?;
+        ensure!(
+            metadata.is_dir()
+                && metadata.uid() == unsafe { libc::geteuid() }
+                && metadata.mode() & 0o077 == 0,
+            "原生 CLI 目录身份无效"
+        );
+    }
+    Ok(Some(directory.join("context.json")))
+}
+
 pub(crate) fn dispatch() -> Result<()> {
-    let Some(context) = std::env::var_os(CONTEXT) else {
+    let executable = std::env::current_exe()?.canonicalize()?;
+    let explicit_context = std::env::var_os(CONTEXT);
+    let context = match &explicit_context {
+        Some(context) => Some(PathBuf::from(context)),
+        None => adjacent_context(&executable)?,
+    };
+    let Some(context) = context else {
         return Ok(());
     };
-    let context = Path::new(&context);
+    let context = context.as_path();
     let record: ContextRecord = direct::read(context)?.context("原生 CLI 交接记录缺失")?;
     ensure!(
-        std::env::current_exe()?.canonicalize()? == record.executable.canonicalize()?
+        executable.canonicalize()? == record.executable.canonicalize()?
             && record.executable.parent() == context.parent(),
         "原生 CLI 入口身份不匹配"
     );
@@ -187,7 +223,8 @@ pub(crate) fn dispatch() -> Result<()> {
         .flatten()
         .and_then(|process| process.parent().ok().flatten());
     // 只有本次指定桌面直接启动的主服务才接入兼容层；未知或间接调用保留原生行为。
-    let mut main = app_server(&args)
+    let mut main = explicit_context.is_some()
+        && app_server(&args)
         && desktop_origin(std::env::var_os("CODEX_INTERNAL_ORIGINATOR_OVERRIDE").as_deref())
         && parent.as_ref().is_some_and(|p| {
             p.executable == record.desktop
@@ -235,6 +272,35 @@ pub(crate) fn dispatch() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn adjacent_record_is_only_discovered_for_a_private_session_entry() {
+        let temporary = tempfile::tempdir().unwrap();
+        let root = temporary.path().join("codex-host-native-cli");
+        let directory = root.join(uuid::Uuid::new_v4().to_string());
+        std::fs::DirBuilder::new()
+            .mode(0o700)
+            .create(&root)
+            .unwrap();
+        std::fs::DirBuilder::new()
+            .mode(0o700)
+            .create(&directory)
+            .unwrap();
+        let executable = directory.join("palboo");
+        assert_eq!(
+            adjacent_context(&executable).unwrap(),
+            Some(directory.join("context.json"))
+        );
+        for unrelated in [
+            temporary.path().join("palboo"),
+            root.join("not-a-session/palboo"),
+            directory.join("another-program"),
+        ] {
+            assert!(adjacent_context(&unrelated).unwrap().is_none());
+        }
+        std::fs::set_permissions(&directory, std::fs::Permissions::from_mode(0o755)).unwrap();
+        assert!(adjacent_context(&executable).is_err());
+    }
+
     #[test]
     fn only_recognized_desktop_app_server_uses_host() {
         let args = |values: &[&str]| values.iter().map(OsString::from).collect::<Vec<_>>();
