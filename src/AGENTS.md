@@ -154,7 +154,7 @@ settings 的 directionCatalogVersion 仅由后台维护并随常规保存持久�
 
 DesktopStatus.pageKind 接收共享宿主分类；host_page_allowed 读取旧 sidebarNewChat/sidebarDots 开关。features.scopeAllowed 与 surfaces/window 投影临时范围，桌面 scope-visible IPC 和贴边 scope_hidden 只控制可见性，不终止窗口或写回开合偏好。appearance 新增 launcherDoubleAction/launcherContextAction，默认 toggle/settings，沿原修订校验保存并与 launcherAction 一同投影宿主；config CLI 暴露同一白名单。
 
-- [app_mode.rs](app_mode.rs)：正式/开发模式私有记录、修订及跨安装/启动/切换互斥；临时 loopback 进度页在浏览器确认后交接，编译/启动失败回滚，保留两套业务数据；注册来源、完整 App 绑定与无活动 Dev 时的正式恢复；替换来源前核对旧监督进程、owner PID、控制器及当前/会话/关联 worktree 后台；活动或损坏记录拒绝覆盖及恢复正式模式。正式后台 HTTP 可用后仍等待 Codex connected（最多20秒），固定交接同时核对端点和窗口；成功才保存模式。实际模式和保存偏好不一致时允许按当前修订纠正，失败提示不预先声称已恢复。
+- [app_mode.rs](app_mode.rs)：正式/开发模式私有记录、修订及跨安装/启动/切换互斥；临时 loopback 进度页在浏览器确认后交接，编译/启动失败回滚，保留两套业务数据；注册来源、完整 App 绑定与无活动 Dev 时的正式恢复；替换来源前核对旧监督进程、owner PID、控制器及当前/会话/关联 worktree 后台；活动或损坏记录拒绝覆盖及恢复正式模式。正式后台 HTTP 可用后仍等待 Codex connected（最多20秒），固定交接同时核对端点和窗口；成功才保存模式；回传已恢复共享主界面的归属和窗口 PID，避免前台再调用旧胶囊弹出。实际模式和保存偏好不一致时允许按当前修订纠正，失败提示不预先声称已恢复。
 
 - [app_transition.rs](app_transition.rs)：模式切换与 App 更新共用的短期 loopback 进度页；浏览器 POST 接手后才执行动作，保留旧模式 worker 的请求格式，失败可返回已恢复后台的设置地址。
 - [app_update.rs](app_update.rs) 及 [app_update/](app_update/AGENTS.md)：认证 GET `/api/app-update` 只读本地状态，POST `/api/app-update/check` 显式检查，POST `/api/app-update` 按模式修订和安装/附件身份启动独立 worker。正式模式完整 App 同卷替换、就绪/原连接确认及失败回滚；自建后台子进程按真实 PID 回收，不停止其他实例或重开宿主。清单与摘要验证见子模块，源码 CLI/Dev/不可写安装只读。

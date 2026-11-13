@@ -1,5 +1,5 @@
 // [INPUT]: Private mode preferences, bundled release CLI, registered Dev supervisor and app_transition.
-// [OUTPUT]: Unified App launch, connection-confirmed mode handover, supervisor/orphan-backend registration protection and revision-checked preference recovery.
+// [OUTPUT]: Unified App launch with restored main-window ownership, connection-confirmed mode handover, supervisor/orphan-backend registration protection and revision-checked preference recovery.
 // [POS]: One-shot mode worker; shares launch/install lock and preference helpers with App updates; keeps release and per-source Dev data in place.
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 use crate::{
@@ -324,8 +324,16 @@ async fn release(
         crate::startup::phase("workspace");
         wait_for_release(&runtime, connection, Duration::from_secs(20)).await?;
     }
+    let presentation = if paths.load()?.performance.integration_enabled {
+        runtime
+            .request("features", Some(json!({"op":"state"})))
+            .await?
+    } else {
+        Value::Null
+    };
     Ok(
-        json!({"url":format!("http://127.0.0.1:{}/#token={}", runtime.port,runtime.token), "paused":!paths.load()?.performance.integration_enabled}),
+        json!({"url":format!("http://127.0.0.1:{}/#token={}", runtime.port,runtime.token), "paused":!paths.load()?.performance.integration_enabled,
+            "mainManaged":presentation["mainManaged"] == true,"pid":presentation["mainWindow"]["pid"]}),
     )
 }
 

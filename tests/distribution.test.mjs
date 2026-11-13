@@ -134,6 +134,7 @@ app-mode)
   pause) echo '{"mode":"release","paused":true}';;
   development-pause) echo '{"mode":"development","paused":true,"url":"http://127.0.0.1:9/#token=synthetic"}';;
   development) echo '{"mode":"development"}';;
+  managed-main) echo '{"mode":"release","mainManaged":true,"pid":55}';;
   cancel) echo '已取消重开' >&2; exit 1;;
   failure) echo 'synthetic launch failure' >&2; exit 2;;
   wrapped-failure) echo 'Error: Error: synthetic launch failure (-600)' >&2; exit 2;;
@@ -167,13 +168,13 @@ esac
       JSON.stringify({ checked, calls: existsSync(log) ? readFileSync(log, 'utf8') : 'missing' }),
     );
     assert.equal(readFileSync(log, 'utf8').trim(), '--version');
-    for (const scenario of ['', 'cancel', 'unsupported', 'development']) {
+    for (const scenario of ['', 'cancel', 'unsupported', 'development', 'managed-main']) {
       assert.equal(run(scenario).status, 0);
       const commands = readFileSync(log, 'utf8').trim().split('\n');
       assert.equal(commands[0], 'app-mode launch');
       assert.deepEqual(
         commands.slice(1),
-        ['cancel', 'development'].includes(scenario) ? [] : ['popout'],
+        ['cancel', 'development', 'managed-main'].includes(scenario) ? [] : ['popout'],
       );
     }
     for (const scenario of ['pause', 'development-pause']) {

@@ -1,5 +1,5 @@
 // [INPUT]: 包内 CLI、共享模式记录、各模式既有配置与 AppKit。
-// [OUTPUT]: 原生启动反馈、私有分段计时和失败重试；按模式启动工作台/设置；经本 App 登记窗口与回执 PID；--check 只检查包内程序。
+// [OUTPUT]: 原生启动反馈、私有分段计时和失败重试；沿用共享主窗口，旧胶囊才调用 popout；经本 App 登记窗口与回执 PID；--check 只检查包内程序。
 // [POS]: 统一的可移动 App 入口；正式模式独立运行，开发模式使用已登记的源码与 Node。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 import AppKit
@@ -185,7 +185,7 @@ func launch() throws {
             "连接已暂停。请返回 ChatGPT 内已打开的 Palboo 设置页恢复连接。",
             "The connection is paused. Resume it from the Palboo settings page already open inside ChatGPT."), allowsRecovery: false)
     }
-    if outcome?["mode"] as? String == "development" {
+    if outcome?["mode"] as? String == "development" || outcome?["mainManaged"] as? Bool == true {
         launchedDevelopment = true
         developmentTarget = (outcome?["pid"] as? NSNumber)?.int32Value
         return
