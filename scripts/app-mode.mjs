@@ -1,5 +1,5 @@
 /* [INPUT]: Unified App's private request file and the registered local development source.
- * [OUTPUT]: Resolve and check Finder/Homebrew development tools, prebuild web/Rust assets for cold-start or mode-switch preparation, then open/stop the Dev supervisor with a private JSON result.
+ * [OUTPUT]: Resolve and check Finder/Homebrew development tools, reuse verified web/native outputs or build changes for cold-start or mode-switch preparation, then open/stop the Dev supervisor with a private JSON result.
  * [POS]: One-shot adapter for app_mode.rs; no new persistent manager or copied user data.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
@@ -15,6 +15,7 @@ import {
 } from './dev-launcher.mjs';
 import { readJson, requestRuntime } from './dev-host.mjs';
 import { prepareWebAssets } from './dev-web.mjs';
+import { prepareNativeBinary } from './dev-native.mjs';
 import { startupPhase } from './startup-progress.mjs';
 import { sourcePreference, selectSource } from './dev-sources.mjs';
 
@@ -123,8 +124,7 @@ export async function developmentAction(root, action, connection) {
       startupPhase('web');
       return runBuild('npm', ['run', 'build:web']);
     });
-    startupPhase('build');
-    await runBuild('cargo', ['build', '--locked']);
+    await prepareNativeBinary(source, () => runBuild('cargo', ['build', '--locked']), buildEnv);
     if (action === 'prepare') return { ready: true };
   }
   if (action === 'stop') {

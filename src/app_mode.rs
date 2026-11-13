@@ -154,6 +154,7 @@ pub fn window_application() -> Result<Option<PathBuf>> {
 }
 
 fn validate_development(prefs: &mut Preferences) -> Result<()> {
+    crate::startup::phase("source");
     let source = prefs
         .source
         .as_ref()
@@ -231,6 +232,7 @@ async fn dev(
     let log = std::fs::OpenOptions::new().append(true).open(log_path)?;
     let source = prefs.source.as_ref().context("开发源码未配置")?;
     let mut command = tokio::process::Command::new(prefs.node.as_ref().context("Node.js 未配置")?);
+    crate::startup::phase("development");
     command
         .arg(source.join("scripts/app-mode.mjs"))
         .arg(&input)

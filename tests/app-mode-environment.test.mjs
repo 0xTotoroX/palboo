@@ -84,6 +84,8 @@ cat ui/reader/main.tsx > target/web/reader.html
       `#!/bin/sh
 if [ "$1" = "--version" ]; then echo "${tool}-fixture"; exit 0; fi
 echo "${tool} $*:\${CARGO_TARGET_DIR:-}" >> ${JSON.stringify(log)}
+mkdir -p target/debug
+printf 'fixture-program' > target/debug/palboo
 `,
       { mode: 0o700 },
     );
@@ -136,17 +138,13 @@ fs.writeFileSync('target/dev/session.json', JSON.stringify({ supervisorPid: proc
   assert.equal(opened.pid, process.pid);
   assert.deepEqual(
     readFileSync(log, 'utf8').trim().split('\n'),
-    [
-      `npm run build:web:${targetDir}`,
-      `cargo build --locked:${targetDir}`,
-      `cargo build --locked:${targetDir}`,
-    ],
-    'unchanged web assets are reused on cold open',
+    [`npm run build:web:${targetDir}`, `cargo build --locked:${targetDir}`],
+    'unchanged web assets and native program are reused on cold open',
   );
   await developmentAction(root, 'open');
   assert.equal(
     readFileSync(log, 'utf8').trim().split('\n').length,
-    3,
+    2,
     'live owner reuses running session without rebuilding',
   );
 });

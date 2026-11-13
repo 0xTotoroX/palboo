@@ -73,6 +73,8 @@ model-control-host 覆盖能力延迟到达、空列表刷新超时及重试、�
 - [dev-sources.test.mjs](dev-sources.test.mjs)：Git 清单/共享偏好、路径限制、跨目标互斥、异常退出恢复、并发抢占、孤儿后台保护、并发切换/失败回退与认证开发 API 回归。
 - [dev-sources-integration.test.mjs](dev-sources-integration.test.mjs)：完整监督脚本、真实 Vite/浏览器、临时双 worktree 的进程级交接/回退、热更新、稳定设置地址、旧标签页写保护与重开恢复及失效 controller/target 租约启动；全部使用合成宿主。覆盖完整 React 设置表单与常驻展开的来源选择器、切换加载动画/减少动态效果/失败重试/刷新及额外 Vite 重载后回读成功，以及缺失/过期凭据提示；主动在切换请求返回前重载文档，验证目标意图接续与失败清理，不剥离主页面模块。
 - [dev-web.test.mjs](dev-web.test.mjs)：隔离源码/产物的冷启动、无变化缓存、阅读器与共享资源变化、产物被覆盖/缺失、编译失败和构建中变化恢复。
+- [dev-native.test.mjs](dev-native.test.mjs)：持久复用原生程序，验证内容不变/仅时间与文档变化不编译，源码/资源/工具链/选项变化、程序覆盖或缺失必须重建，失败及编译中变化不登记成功。
+- [local-signing.test.mjs](local-signing.test.mjs)：合成证书清单验证唯一身份选择、保留旧签名者、缺失或歧义时拒绝静默更换；不读写真实钥匙串或系统权限。
 - [dev-source-fixture.mjs](dev-source-fixture.mjs)：上项测试的可控编译器和单实例后台夹具，不连接用户应用。
 
 - [model-control-host.mjs](model-control-host.mjs)：官方能力响应关联、唯一输入目标、新聊天临时目标及其替换/身份建立/双聊天隔离、引用身份隔离、新旧菜单/内联/隐藏视图、菜单打开占位文字/速度可访问标签/高级视图完整回读、推理滑块、锁定选项、重复失败清理与完整回读、单次菜单事务、生成期间调整与官方禁用、迟到/部分失败及清理的合成宿主回归；覆盖只能停留高级视图、已选项无动作或关闭菜单、共享根 Fast 语义状态及缺失/冲突/重复状态拒绝，不依赖返回简洁视图。

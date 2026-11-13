@@ -45,7 +45,10 @@ fn valid_phase(name: &str) -> bool {
     matches!(
         name,
         "preparing"
+            | "source"
+            | "development"
             | "tools"
+            | "checking"
             | "web"
             | "build"
             | "compatibility"

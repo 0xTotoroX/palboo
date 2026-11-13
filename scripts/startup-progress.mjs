@@ -7,7 +7,10 @@ import { isAbsolute } from 'node:path';
 
 const phases = new Set([
   'preparing',
+  'source',
+  'development',
   'tools',
+  'checking',
   'web',
   'build',
   'compatibility',

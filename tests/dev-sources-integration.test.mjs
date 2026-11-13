@@ -119,7 +119,7 @@ test(
       git('worktree', 'add', '-b', 'Stepwise', other);
       for (const root of [main, other])
         symlinkSync(join(project, 'node_modules'), join(root, 'node_modules'));
-      for (const command of ['cargo', 'npm']) {
+      for (const command of ['cargo', 'rustc', 'npm']) {
         copyFileSync(join(project, 'tests/dev-source-fixture.mjs'), join(bin, command));
         chmodSync(join(bin, command), 0o755);
       }
@@ -195,6 +195,26 @@ test(
         403,
       );
       assert.match(await (await fetch(session.url)).text(), /__buddy_dev.js/);
+      stage = 'source changes while compiling';
+      const beforeChangedBuild = JSON.parse(readFileSync(join(base, 'injection.json'))).pid;
+      writeFileSync(join(main, 'pause-build'), '');
+      appendFileSync(join(main, 'src/main.rs'), '\n// native change\n');
+      await until(() => existsSync(join(main, 'build-started')), 'compiler did not start', 15000);
+      writeFileSync(
+        join(main, 'ui/features/concurrent-fixture.js'),
+        'export const fixture = true;',
+      );
+      rmSync(join(main, 'pause-build'));
+      await until(
+        () => readRecord(join(base, 'injection.json'))?.pid !== beforeChangedBuild,
+        'input change must requeue native build, not only update the panel',
+        45000,
+      );
+      await until(
+        async () => (await (await send('dev/sources')).json()).loaded === true,
+        'retried native build did not connect',
+        15000,
+      );
       stage = 'source preparation and rollback';
       const originalPID = JSON.parse(readFileSync(join(base, 'injection.json'))).pid;
       writeFileSync(join(other, 'fail-build'), '');

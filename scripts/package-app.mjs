@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 当前 release CLI、Swift 启动器、版本、许可资源与系统打包工具。
- * [OUTPUT]: buildApplication、packageDmg；本地签名完整 App 与验证后的 DMG。
+ * [OUTPUT]: buildApplication、packageDmg；按调用方显式身份签名完整 App（默认临时签名）与验证后的 DMG。
  * [POS]: 纯本地分发构建，不安装、不启动宿主、不读用户配置。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -44,7 +44,14 @@ function verifyMetadata(app) {
   return { provenanceMarkers: lines.length };
 }
 
-export function buildApplication({ binary, version, resources, destination, sourceFingerprint }) {
+export function buildApplication({
+  binary,
+  version,
+  resources,
+  destination,
+  sourceFingerprint,
+  signingIdentity = '-',
+}) {
   const contents = join(destination, 'Contents');
   mkdirSync(join(contents, 'MacOS'), { recursive: true });
   mkdirSync(join(contents, 'Resources'), { recursive: true });
@@ -94,7 +101,13 @@ export function buildApplication({ binary, version, resources, destination, sour
   }
   // 清理仅作用于本次生成的目录，保留用户原始图标/安装版的元数据。
   run('/usr/bin/xattr', ['-cr', destination]);
-  run('/usr/bin/codesign', ['--force', '--sign', '-', cli]);
+  const signing = [
+    '--force',
+    '--sign',
+    signingIdentity,
+    ...(signingIdentity === '-' ? [] : ['--timestamp=none']),
+  ];
+  run('/usr/bin/codesign', [...signing, '--identifier', 'local.palboo.cli', cli]);
   const manifest = {
     name: 'palboo',
     version,
@@ -116,7 +129,7 @@ export function buildApplication({ binary, version, resources, destination, sour
       .map(([file, hash]) => `${hash}  ../${file}\n`)
       .join(''),
   );
-  run('/usr/bin/codesign', ['--force', '--sign', '-', destination]);
+  run('/usr/bin/codesign', [...signing, destination]);
   run('/usr/bin/codesign', ['--verify', '--deep', '--strict', destination]);
   verifyChecksums(destination);
   for (const program of [cli, launcher]) {

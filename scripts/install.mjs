@@ -1,6 +1,6 @@
 /*
  * [INPUT]: macOS arm64, release source and explicit App/CLI/data destinations.
- * [OUTPUT]: Complete signed Palboo.app, compatible CLI, atomic mode binding and recoverable upgrade.
+ * [OUTPUT]: Stable locally signed Palboo.app, compatible CLI, atomic mode binding and recoverable upgrade.
  * [POS]: Local installer; prepares first and holds the App mode lock through replacement/rollback.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -27,6 +27,7 @@ import { buildApplication } from './package-app.mjs';
 import { copyProjectLicenses } from './project-licenses.mjs';
 import { generateNotices } from './third-party-notices.mjs';
 import { prepareTestBinary } from './verify.mjs';
+import { localSigningPlan, verifyLocalSigner } from './local-signing.mjs';
 
 const root = resolve(import.meta.dirname, '..'),
   args = process.argv.slice(2);
@@ -156,6 +157,7 @@ function start(executable, dir, previous) {
   });
 }
 try {
+  const signing = localSigningPlan(launcher);
   copyProjectLicenses(root, resources);
   generateNotices(resources);
   const { version } = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
@@ -165,7 +167,9 @@ try {
     resources,
     destination: next,
     sourceFingerprint: 'local-install',
+    signingIdentity: signing.identity,
   });
+  verifyLocalSigner(next, signing);
   guard = spawn(
     source,
     [

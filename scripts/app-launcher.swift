@@ -30,7 +30,10 @@ struct LaunchFailure: LocalizedError {
 final class StartupProgress {
     static let labels: [String: (String, String)] = [
         "preparing": ("正在准备 Palboo…", "Preparing Palboo…"),
+        "source": ("正在访问开发源码…", "Accessing development sources…"),
+        "development": ("正在加载开发环境…", "Loading the development environment…"),
         "tools": ("正在检查开发环境…", "Checking development tools…"),
+        "checking": ("正在检查已有程序…", "Checking the existing app…"),
         "web": ("正在构建开发界面…", "Building the development interface…"),
         "build": ("正在构建开发版…", "Building the development app…"),
         "compatibility": ("正在准备 CodexHost…", "Preparing CodexHost…"),
@@ -375,6 +378,9 @@ final class Launcher: NSObject, NSApplicationDelegate, NSWindowDelegate {
         status.stringValue = progress.message
         let seconds = Int(now.timeIntervalSince(progress.started))
         elapsed.stringValue = localized("已等待 \(seconds) 秒", "Elapsed: \(seconds)s")
+        if progress.phase == "source" && seconds >= 10 {
+            elapsed.stringValue = localized("如有系统文件访问提示，请先处理。", "Check for a macOS file access prompt.")
+        }
         elapsed.isHidden = seconds < 10
         detailButton.isHidden = seconds < 10
         fitProgress()
@@ -466,6 +472,9 @@ final class Launcher: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private func checkStartingUI() {
         precondition(starting && progressWindow?.isVisible == true)
         let original = progressWindow
+        startupProgress?.mark("source")
+        refresh(now: Date().addingTimeInterval(11))
+        precondition(!elapsed.isHidden && elapsed.stringValue == localized("如有系统文件访问提示，请先处理。", "Check for a macOS file access prompt."))
         startupProgress?.mark("renderer")
         refresh(now: Date().addingTimeInterval(11))
         precondition(!elapsed.isHidden && !detailButton.isHidden && startupProgress?.phase == "renderer")

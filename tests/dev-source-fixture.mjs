@@ -17,9 +17,21 @@ import {
 } from 'node:fs';
 import { createServer } from 'node:http';
 const root = process.cwd();
+if (
+  ['cargo', 'rustc', 'npm'].includes(basename(process.argv[1])) &&
+  process.argv[2] === '--version'
+) {
+  console.log('fixture-1');
+  process.exit(0);
+}
 if (['cargo', 'npm'].includes(basename(process.argv[1]))) {
   if (existsSync(join(root, 'fail-build'))) process.exit(1);
   if (basename(process.argv[1]) === 'cargo') {
+    if (existsSync(join(root, 'pause-build'))) {
+      writeFileSync(join(root, 'build-started'), '');
+      while (existsSync(join(root, 'pause-build')))
+        await new Promise((resolve) => setTimeout(resolve, 20));
+    }
     mkdirSync(join(root, 'target/debug'), { recursive: true });
     copyFileSync(process.argv[1], join(root, 'target/debug/palboo'));
   } else {

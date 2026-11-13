@@ -14,6 +14,8 @@ npm 命令进入开发、构建、审计、安装和验证编排工具；具体�
 
 - [dev-launcher.mjs](dev-launcher.mjs)：install:dev 登记源码及 Node 到统一 App，入口能力不足时更新完整 App，迁移 Dock 后归档旧 Dev App；保留 open/stop/settings/run 兼容及真实宿主策略、进程身份/租约与焦点目标回读。固定连接不重开宿主，失败仅清理本次在 launcher 锁内创建的会话。
 - [dev-web.mjs](dev-web.mjs)：阅读器/共享依赖/构建配置的源码与产物指纹，启动/原生重建/来源切换前按需构建网页；失败或构建期间源码变化不登记成功，后台沿用上一版。
+- [dev-native.mjs](dev-native.mjs)：App 准备、Dev 冷启动、热更新和来源切换共用原生构建缓存；核对源码/内嵌资源内容、工具链/构建选项和现有程序摘要，无变化不调用 Cargo；失败、编译期间变化或输出被替换时不登记成功，各 worktree 独立保存。
+- [local-signing.mjs](local-signing.mjs)：仅本机安装选择可用开发签名身份，优先保留已安装签名者；首次无证书保留临时签名，多证书歧义或原证书缺失则停止。替换前校验新版仍满足原签名要求，不改系统授权数据库；公共打包不自动使用本机证书。
 - [dev.mjs](dev.mjs)：真实 Codex 开发入口，管理独立后台、源码监听和编译失败回退，独立模型控制资源变化随原生后台重建；持有宿主目标与所选 worktree 租约，先绑定统一设置服务地址再传给开发后台齿轮，每个来源独立 Vite 缓存并去重 React；先编译后交接来源、失败回退，切换 Vite/监听/后台而不重启宿主；启动前先发现可调试宿主；显式 --restart-running 时先按指纹构建网页与当前 CLI，再通过 host-only 模式准备宿主并在首次原生交接时复用同指纹编译结果；未固定目标的冷启动宿主页面替换时同步刷新目标租约与配置；仅在接管安装版后启用退出恢复，含占用获取和初始化在内的失败原因与进程 ID 写入私有 launcher-error.json，退出只清理本次会话记录；Ctrl+C 清理自身进程并恢复安装版连接。
 - [material-preview.mjs](material-preview.mjs)：`dev:materials` 入口，将 Swift 对照工具编译到 target/material-preview 后打开；`--check` 验证同步控制，`--package` 在 dist/material-preview 生成自带程序和 GPL-3.0-only 完整许可包的独立 App，并输出 ZIP；source/ 同时导出源码、独立构建入口和说明，可脱离主仓库二次开发；不修改安装版或产品偏好。
 - [material-preview.swift](material-preview.swift)：14 种 NSVisualEffectView 材质的原生并排对照；独立背景窗口提供重复图案，统一切换外观、焦点状态与背景，支持真实桌面采样；标题栏固定不透明底色并跟随预览明暗。
@@ -33,9 +35,9 @@ npm 命令进入开发、构建、审计、安装和验证编排工具；具体�
 - [release-api.mjs](release-api.mjs)：固定官方 GitHub REST 边界；GET 有界退避与分页，写请求只执行一次，由上层回读处理不确定响应。
 - [release-candidate.mjs](release-candidate.mjs)：校验官方 main 构建 run、完整门禁、不可变 artifact、Git 祖先与实际 DMG；仅发布工具/测试/文档变化允许复用，产品、构建、版本说明与 workflow 变化须完整重建。
 - [artifact-audit.mjs](artifact-audit.mjs)：release 编译路径映射及成品字节扫描，包含二进制、常见凭据/个人目录、UTF-16主目录与禁止文件；错误只输出文件和问题类型。它是有限检查，不证明不存在所有敏感内容或漏洞。
-- [package-app.mjs](package-app.mjs)：编译最低 macOS 14 arm64 Swift 入口、复制包内 CLI/资源、清理扩展属性与本地签名；校验系统动态库、最低版本和程序摘要，以普通用户权限创建 HFS+ DMG，避免 tar 的属主名称字段和设置 root 引发的授权；挂载读回并复制到新位置验证，成功后卸载镜像。
+- [package-app.mjs](package-app.mjs)：编译最低 macOS 14 arm64 Swift 入口、复制包内 CLI/资源、清理扩展属性与调用方显式签名（默认临时签名）；校验系统动态库、最低版本和程序摘要，以普通用户权限创建 HFS+ DMG，避免 tar 的属主名称字段和设置 root 引发的授权；挂载读回并复制到新位置验证，成功后卸载镜像。
 - [startup-progress.mjs](startup-progress.mjs)：Dev 链写入 App 创建的私有短期事件文件，只接受固定阶段与时间，已完成/重试后的旧路径不重建，不记录业务正文。
-- [app-launcher.swift](app-launcher.swift)：从 Bundle 定位 CLI，按用户模式记录启动正式或开发，读取正式数据目录关联；共享主界面已管理时保留其恢复位置，不再调用旧胶囊 popout；窗口 PID 或唯一 ChatGPT 由 AppKit 唤起。开发前台沿 AppKit 交接，开始即显示原生阶段窗口，超过10秒显示等待与详情；失败去除重复 Error 前缀、保留同窗重试与安全回正式入口，重复打开只唤起当前窗口；每次请求的临时文件独立，完成后删除，仅将阶段/时间写入私有 startup-last.json；只读镜像提示复制，--check 只检查包内版本；--open-window 经 LaunchServices 启动同一个 App，--palboo-window 用原 PID 进入当前模式窗口程序，以私有短期回执返回真实窗口 PID，保持原 Dock 身份。
+- [app-launcher.swift](app-launcher.swift)：从 Bundle 定位 CLI，按用户模式记录启动正式或开发，读取正式数据目录关联；共享主界面已管理时保留其恢复位置，不再调用旧胶囊 popout；窗口 PID 或唯一 ChatGPT 由 AppKit 唤起。开发前台沿 AppKit 交接，开始即显示原生阶段窗口，超过10秒显示等待与详情；失败去除重复 Error 前缀、保留同窗重试与安全回正式入口，重复打开只唤起当前窗口；每次请求的临时文件独立，完成后删除，仅将阶段/时间写入私有 startup-last.json；源码访问单独计时，久等时提示查看系统文件访问授权；只读镜像提示复制，--check 只检查包内版本；--open-window 经 LaunchServices 启动同一个 App，--palboo-window 用原 PID 进入当前模式窗口程序，以私有短期回执返回真实窗口 PID，保持原 Dock 身份。
 - [project-licenses.mjs](project-licenses.mjs)：验证完整 GPL 原文、历史 MIT 原文及授权范围，并为主程序与独立材质工具复制统一许可包。
 - [source-audit.mjs](source-audit.mjs)：Git 与无 Git 源码目录共用文件清单，供审计、打包和测试复用；无 Git 时排除构建目录，拒绝私有文件与符号链接。核对包名、固定 GPL-3.0-only 元数据、完整许可与历史原文，并拒绝历史排除的上游诊断标记、私有文档、运行配置、凭据和个人绝对路径。
 - [license-texts.json](license-texts.json)：依赖包未附带的公开许可、署名原文与固定来源 URL，供许可生成器离线使用。
@@ -83,7 +85,7 @@ verify 追加 config-cli.mjs，以隔离真实后台验证配置命令与数据�
 
 dev-host 暂停安装版前将原先打开的 edge 功能 ID 写入恢复记录，以 owner 校验关闭；停止 Dev 后仅在原连接 reveal 原功能，保留关闭/位置/业务偏好，不把已关闭功能一起打开。涉及 edge 的在途交接阻止接管；恢复须等功能 ready 后才删除记录，失败或异常中断保留恢复记录。
 
-- [app-mode.mjs](app-mode.mjs)：统一模式的一次性开发适配，切换准备与无活动监督进程的冷启动均先按保存 worktree 复用网页指纹并预编译 Rust（15 分钟构建预算），再进入 Dev 监督进程唤起；固定宿主目标、受限准备时间、私有请求/结果，不维护新常驻服务。Finder 启动补齐 Homebrew keg-only Rust 与 CARGO_HOME 工具路径，保留继承工具链优先级；准备或新建 Dev 前检查 npm/Cargo/rustc，不读取 shell 启动文件。
+- [app-mode.mjs](app-mode.mjs)：统一模式的一次性开发适配，切换准备与无活动监督进程的冷启动均按保存 worktree 复用网页及原生构建记录，有变化才编译 Rust（15 分钟构建预算），再进入 Dev 监督进程唤起；固定宿主目标、受限准备时间、私有请求/结果，不维护新常驻服务。Finder 启动补齐 Homebrew keg-only Rust 与 CARGO_HOME 工具路径，保留继承工具链优先级；准备或新建 Dev 前检查 npm/Cargo/rustc，不读取 shell 启动文件。
 
 开发设置入口保持宿主内：dev.mjs 初次打开和 dev-launcher --settings 都 POST 认证 `/api/settings/open`，等待宿主提交后返回，不调用系统 open；宿主不可用明确失败。命令入口从同一份开发会话记录读取地址、凭据和来源标识，代理继续拒绝已过期的来源。
 

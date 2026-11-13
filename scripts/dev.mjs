@@ -1,6 +1,6 @@
 /*
  * [INPUT]: Git worktrees、Rust/Node、来源选择器与独立开发数据目录。
- * [OUTPUT]: 设置页热更新、胶囊热加载及阅读器网页先构建后内嵌；宿主准备与内嵌资源共用单次预构建，冷启动目标替换时同步刷新租约与配置，Rust/内嵌资源编译成功后交接后台；显式 --restart-running 复用宿主准备，安全恢复失效租约，启动错误传回 App；App 会话按宿主身份冻结交接、等待后台关闭关联兼容层再退出；跨来源保留原启动归属。
+ * [OUTPUT]: 设置页热更新、胶囊热加载及阅读器网页先构建后内嵌；宿主准备与内嵌资源跨进程共用内容及工具链验证后的程序缓存，冷启动目标替换时同步刷新租约与配置，Rust/内嵌资源编译成功后交接后台；显式 --restart-running 复用宿主准备，安全恢复失效租约，启动错误传回 App；App 会话按宿主身份冻结交接、等待后台关闭关联兼容层再退出；跨来源保留原启动归属。
  * [POS]: 持久开发编排与统一设置入口；先绑定稳定地址供后台齿轮打开，各来源隔离 Vite 缓存；持有目标租约并串行交接 worktree，管理开发进程，显式启用时委托共享宿主启动策略，暂停并恢复安装版连接，不改写官方应用包。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -23,7 +23,8 @@ import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { createServer as createHttpServer } from 'node:http';
 import { createServer } from 'vite';
-import { buildDevPanel, filesUnder, fingerprint } from './dev-panel.mjs';
+import { buildDevPanel } from './dev-panel.mjs';
+import { nativeSourceFingerprint, prepareNativeBinary } from './dev-native.mjs';
 import { isWebInput, prepareWebAssets } from './dev-web.mjs';
 import { startGateway, command, stopChild, until } from './dev-runtime.mjs';
 import {
@@ -106,7 +107,6 @@ function context(path) {
 }
 function useContext(value) {
   ({ root, directory, data, binary, snapshot, options, env } = value);
-  preparedNative = undefined;
 }
 function syncHostTarget() {
   const nextTarget = claimTarget(host, controllerRoot);
@@ -133,30 +133,11 @@ const execute = (program, args) => {
   return command(program, args, options, children);
 };
 const token = randomUUID();
-let nativeFingerprint, preparedNative, switcher, settingsUrl, switchTask;
+let nativeFingerprint, switcher, settingsUrl, switchTask;
 let buildError = '';
 let sourceEpoch = randomUUID();
 let injectedSettings;
 let hostProcess, stopHostWatch, cleanupTask;
-const nativeInputs = (root) => [
-  ...filesUnder(root, 'src'),
-  ...filesUnder(root, 'ui').filter(isWebInput),
-  ...filesUnder(root, 'target/web'),
-  existsSync(join(root, 'ui/codex/model.js')) ? 'ui/codex/model.js' : 'ui/model-control/host.js',
-  ...(existsSync(join(root, 'ui/codex/model-usage.js')) ? ['ui/codex/model-usage.js'] : []),
-  ...(existsSync(join(root, 'ui/codex/codex-host.js')) ? ['ui/codex/codex-host.js'] : []),
-  ...(existsSync(join(root, 'ui/codex/codex-host-preview.js'))
-    ? ['ui/codex/codex-host-preview.js']
-    : []),
-  existsSync(join(root, 'ui/shared/tokens.css')) ? 'ui/shared/tokens.css' : 'ui/tokens.css',
-  existsSync(join(root, 'ui/shared/icons/index.js'))
-    ? 'ui/shared/icons/index.js'
-    : 'ui/panel/icons/index.js',
-  ...filesUnder(root, '.cargo'),
-  'build.rs',
-  'Cargo.toml',
-  'Cargo.lock',
-];
 
 async function api(path, body) {
   const response = await fetch(`http://127.0.0.1:${runtime.port}/api/${path}`, {
@@ -259,19 +240,25 @@ async function rebuildNative() {
   if (closing) return;
   await prepareWebAssets(root, () => execute('npm', ['run', 'build:web']));
   if (closing) return;
-  const before = fingerprint(root, nativeInputs(root));
+  const before = nativeSourceFingerprint(root);
   if (before === nativeFingerprint && existsSync(binary)) return;
-  const sourceBinary = join(root, 'target/debug', sourceBinaryName(root));
-  if (before !== preparedNative || !existsSync(sourceBinary)) {
-    console.log('正在编译 Rust；现有开发窗口保持运行…');
-    await execute('cargo', ['build', '--locked']);
-    if (closing) return;
-    if (before !== fingerprint(root, nativeInputs(root))) {
-      pendingNative = true;
-      return;
-    }
+  let prepared;
+  try {
+    prepared = await prepareNativeBinary(
+      root,
+      () => {
+        console.log('正在编译 Rust；现有开发窗口保持运行…');
+        return execute('cargo', ['build', '--locked']);
+      },
+      env,
+    );
+  } catch (error) {
+    if (error.code !== 'PALBOO_BUILD_INPUT_CHANGED') throw error;
+    pendingNative = true;
+    return;
   }
-  preparedNative = undefined;
+  if (closing) return;
+  const sourceBinary = prepared.binary;
   const previous = binary + '.previous';
   if (existsSync(binary)) copyFileSync(binary, previous);
   copyFileSync(sourceBinary, binary + '.next');
@@ -516,10 +503,14 @@ function createSourceSwitcher() {
         await prepareWebAssets(next.root, () =>
           command('npm', ['run', 'build:web'], next.options, children),
         );
-        const before = fingerprint(next.root, nativeInputs(next.root));
-        await command('cargo', ['build', '--locked'], next.options, children);
+        const prepared = await prepareNativeBinary(
+          next.root,
+          () => command('cargo', ['build', '--locked'], next.options, children),
+          next.env,
+        );
+        const before = prepared.source;
         if (closing) throw new Error('开发会话正在退出');
-        if (before !== fingerprint(next.root, nativeInputs(next.root)))
+        if (before !== nativeSourceFingerprint(next.root))
           throw new Error('编译期间目标源码已变化，请重新切换。');
         await buildDevPanel(next.root, next.snapshot);
         copyFileSync(join(next.root, 'target/debug', sourceBinaryName(next.root)), next.binary);
@@ -655,11 +646,8 @@ try {
       // Build before any host restart; use current source, not an older installed CLI.
       console.log('正在准备宿主启动器；将按「启动行为」设置处理没有调试连接的应用…');
       await prepareWebAssets(root, () => execute('npm', ['run', 'build:web']));
-      const before = fingerprint(root, nativeInputs(root));
-      startupPhase('build');
-      await execute('cargo', ['build', '--locked']);
+      await prepareNativeBinary(root, () => execute('cargo', ['build', '--locked']), env);
       if (closing) throw new Error('开发模式退出中');
-      if (before === fingerprint(root, nativeInputs(root))) preparedNative = before;
       return command(
         join(root, 'target/debug', sourceBinaryName(root)),
         [

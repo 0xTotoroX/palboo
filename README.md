@@ -193,6 +193,8 @@ npm run install:dev
 
 `npm run install:local` builds a complete App using the same structure as the DMG and retains the compatible CLI. Updates preserve data. Existing Dev Dock entries move to Palboo; the old Dev App is archived.
 
+Local installation preserves the installed signing identity, or uses the single available Apple development identity on first setup. Missing or ambiguous identities stop the update; without a certificate, first installation uses an ad hoc signature. Switching from ad hoc signing may require one new macOS file-access confirmation. Development startup reuses verified web assets and the existing program when sources, build tools and output are unchanged.
+
 After opening Codex through Palboo:
 
 | Command                                                         | Purpose                                                  |
