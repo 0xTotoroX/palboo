@@ -50,7 +50,7 @@ export function createNextView({
     }
     if (read().scanStatus === 'not-ready' && read().scanBusy) {
       return {
-        title: tr('等待回答完成'),
+        title: tr('回答完成后生成建议'),
       };
     }
     return null;
@@ -141,7 +141,7 @@ export function createNextView({
       };
     }
     return {
-      title: tr('等待回答完成'),
+      title: tr(read().scanBusy ? '等待回答完成' : '等待回答'),
       message: '',
     };
   }

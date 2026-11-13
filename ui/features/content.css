@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 大纲和建议 DOM、状态属性与共享变量。
- * [OUTPUT]: 无框建议列表、旧紧凑快捷标签与独立常用语、大纲和内容状态样式；共享工作台空态顶对齐，定位操作紧随短目录。
+ * [OUTPUT]: 无框建议列表、快捷词、大纲和居中内容状态；圆环跟随主题，定位操作紧随短目录。
  * [POS]: 功能内容样式，由 workspace/mount 与 shell/install-styles 共用。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -208,18 +208,11 @@
   text-align: center;
 }
 
-.feature-projection .csw-empty {
-  align-content: start;
-  justify-items: start;
-  padding: 4px 0;
-  text-align: start;
-}
-
 .csw-empty-title,
 .csw-progress-title {
   color: color-mix(in srgb, var(--csw-text) 62%, var(--csw-muted));
   font-size: max(14px, calc(var(--csw-item-font, 16px) * 0.875));
-  font-weight: 500;
+  font-weight: 400;
   line-height: 1.25;
   max-width: 100%;
   min-width: 0;
@@ -242,7 +235,7 @@
 .csw-progress-ring {
   border: 2px solid color-mix(in srgb, var(--csw-text) 11%, transparent);
   border-radius: var(--buddy-radius-pill);
-  border-top-color: var(--csw-accent);
+  border-top-color: var(--csw-accent, var(--csw-text));
   flex: 0 0 auto;
   height: 18px;
   width: 18px;
@@ -253,21 +246,7 @@
   gap: 2px;
   min-width: 0;
   max-width: 100%;
-}
-
-.csw-progress-title {
-  background-image: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--csw-text) 62%, var(--csw-muted)) 34%,
-    var(--csw-text) 50%,
-    color-mix(in srgb, var(--csw-text) 62%, var(--csw-muted)) 66%
-  );
-  background-position: 100% 50%;
-  background-size: 220% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  -webkit-text-fill-color: transparent;
+  text-align: center;
 }
 
 .csw-outline-list {
@@ -645,10 +624,6 @@
   animation: csw-progress-spin 0.82s linear infinite;
 }
 
-.csw-progress-title {
-  animation: csw-progress-text-shimmer 1.8s linear infinite;
-}
-
 .csw-outline-toolbar {
   transition:
     opacity 150ms ease-out,
@@ -686,13 +661,6 @@
   .csw-progress-ring {
     animation: none !important;
   }
-  .csw-progress-title {
-    animation: none !important;
-    background: none;
-    color: color-mix(in srgb, var(--csw-text) 62%, var(--csw-muted));
-    -webkit-text-fill-color: currentColor;
-  }
-
   .csw-outline-toolbar {
     transition: none !important;
   }
@@ -701,12 +669,6 @@
 @keyframes csw-progress-spin {
   to {
     transform: rotate(360deg);
-  }
-}
-
-@keyframes csw-progress-text-shimmer {
-  to {
-    background-position: -100% 50%;
   }
 }
 

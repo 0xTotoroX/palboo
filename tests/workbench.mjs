@@ -2415,7 +2415,9 @@ const cases = [
       });
       const body = page.locator('[data-view-body="outline"]');
       await page.waitForFunction(() =>
-        document.querySelector('[data-view-body="outline"]')?.textContent.includes('等待回答完成'),
+        document
+          .querySelector('[data-view-body="outline"]')
+          ?.textContent.includes('回答完成后显示大纲'),
       );
       assert.equal(await body.locator('.csw-progress-ring').count(), 1);
       assert.equal(
@@ -2427,7 +2429,7 @@ const cases = [
       try {
         assert.match(
           await popout.page.locator('[data-view-body="outline"]').innerText(),
-          /等待回答完成/,
+          /回答完成后显示大纲/,
         );
         assert.equal(
           await popout.page.locator('[data-view-body="outline"] .csw-progress-ring').count(),

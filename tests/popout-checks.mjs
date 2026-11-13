@@ -37,8 +37,8 @@ export async function checkPopout({
   const detachIcon = await desktop.locator('[data-action="detach"] svg').innerHTML();
   const originalAccent = await desktop.evaluate(() => {
     const style = document.documentElement.style;
-    const old = style.getPropertyValue('--color-token-charts-blue');
-    style.setProperty('--color-token-charts-blue', 'rgb(48, 164, 108)');
+    const old = style.getPropertyValue('--codex-theme-accent-color');
+    style.setProperty('--codex-theme-accent-color', 'rgb(48, 164, 108)');
     return old;
   });
   await desktop.getByRole('button', { name: 'Palboo', exact: true }).dblclick({ delay: 80 });
@@ -201,7 +201,7 @@ export async function checkPopout({
     );
     for (const color of ['rgb(172, 73, 201)', 'rgb(48, 164, 108)']) {
       await desktop.evaluate((color) => {
-        document.documentElement.style.setProperty('--color-token-charts-blue', color);
+        document.documentElement.style.setProperty('--codex-theme-accent-color', color);
       }, color);
       await waitFor(
         async () => (await accent(pop)) === color && (await accent(desktop)) === color,
@@ -210,8 +210,8 @@ export async function checkPopout({
     }
     await desktop.evaluate((old) => {
       const style = document.documentElement.style;
-      if (old) style.setProperty('--color-token-charts-blue', old);
-      else style.removeProperty('--color-token-charts-blue');
+      if (old) style.setProperty('--codex-theme-accent-color', old);
+      else style.removeProperty('--codex-theme-accent-color');
     }, originalAccent);
     await waitFor(
       async () => (await accent(pop)) === (await accent(desktop)),

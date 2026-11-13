@@ -596,7 +596,7 @@
   --csw-surface-opaque: #000;
   --csw-text: #eee;
   --csw-muted: #999;
-  --csw-accent: #75a7ff;
+  --csw-accent: #eee;
   color: #eee;
   color-scheme: dark;
 }

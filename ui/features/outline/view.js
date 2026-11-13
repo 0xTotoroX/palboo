@@ -39,9 +39,9 @@ export function outlineHtml(snapshot) {
     ? `<div class="csw-outline-source"><button type="button" data-outline-latest>${tr('跟随最新回答')}</button></div>`
     : '';
   if (snapshot.outlineStatus === 'pending' && !snapshot.outlineItems.length) {
-    return `${source}<div class="csw-progress" data-kind="outline" role="status" aria-label="${tr('等待回答完成')}">
+    return `${source}<div class="csw-progress" data-kind="outline" role="status" aria-label="${tr('回答完成后显示大纲')}">
         <span class="csw-progress-ring" aria-hidden="true"></span>
-        <span class="csw-progress-copy"><span class="csw-progress-title">${tr('等待回答完成')}</span></span>
+        <span class="csw-progress-copy"><span class="csw-progress-title">${tr('回答完成后显示大纲')}</span></span>
       </div>`;
   }
   if (snapshot.outlineStatus === 'error') {
@@ -51,7 +51,7 @@ export function outlineHtml(snapshot) {
   }
   if (!snapshot.outlineItems.length) {
     return `${source}<div class="csw-empty" data-kind="outline">
-        <div class="csw-empty-title">${tr(snapshot.outlineStatus === 'unavailable' ? '所选回复未显示，请滚动到原文。' : '暂无大纲')}</div>
+        <div class="csw-empty-title">${tr(snapshot.outlineStatus === 'unavailable' ? '所选回复未显示，请滚动到原文。' : snapshot.outlineStatus === 'idle' ? '等待回答' : '暂无可导航章节')}</div>
       </div>`;
   }
   return `<div class="csw-outline-view">${source}

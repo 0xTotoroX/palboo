@@ -192,11 +192,15 @@ try {
   assert.equal(await nextViewOnOpen.locator('.csw-quick-prompts').count(), 0);
   assert.ok((await nextTab.boundingBox()).x < (await outlineTab.boundingBox()).x);
   assert.ok(
-    (await empty.evaluate(
-      (el) =>
-        el.getBoundingClientRect().top - el.closest('.feature-body').getBoundingClientRect().top,
-    )) < 32,
-    'empty suggestions should sit directly below the pane header',
+    (await empty.evaluate((el) => {
+      const text = el.getBoundingClientRect();
+      const body = el.closest('.feature-body').getBoundingClientRect();
+      return Math.hypot(
+        text.x + text.width / 2 - body.x - body.width / 2,
+        text.y + text.height / 2 - body.y - body.height / 2,
+      );
+    })) < 2,
+    'empty suggestions should be centered in the content area',
   );
   await tabs.and(page.locator('[data-pane-tab="prompts"]')).click();
   await page

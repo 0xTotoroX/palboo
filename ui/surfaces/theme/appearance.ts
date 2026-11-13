@@ -61,7 +61,7 @@ export function surfaceStyle(appearance: Appearance, native = false): CSSPropert
     '--ink': ink,
     '--muted': black ? '#999' : colors.muted || (dark ? '#aaa' : '#6f6f6f'),
     '--danger': colors.danger || (dark ? '#f69a91' : '#ac3b38'),
-    '--accent': black ? '#75a7ff' : colors.accent || '#4d8dff',
+    '--accent': colors.accent || ink,
     '--hover': colors.hover || `color-mix(in srgb, ${ink} 6%, transparent)`,
     '--line': colors.divider || `color-mix(in srgb, ${ink} 9%, transparent)`,
     fontSize: appearance.fontSize ? `${appearance.fontSize}px` : undefined,
