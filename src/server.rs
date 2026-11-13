@@ -1,5 +1,5 @@
 // [INPUT]: App、Runtime、app_mode/app_update、本机认证令牌、target/web 与 ui/panel/popout 资源。
-// [OUTPUT]: 独立 Chat 大纲监督随后台启动/退出； serve、认证任务/宿主字体 API、HTTP/SSE API、设置页、看板和弹出页资源及禁止缓存的阅读器资源；含原生呈现确认的窗口协议及受鉴权的无正文开发状态与仅开发模式开放的工作台唤起接口。
+// [OUTPUT]: 正式/开发后台跟随已关联宿主真实退出并清理自有兼容层；独立 Chat 大纲监督随后台启动/退出； serve、认证任务/宿主字体 API、HTTP/SSE API、设置页、看板和弹出页资源及禁止缓存的阅读器资源；含原生呈现确认的窗口协议及受鉴权的无正文开发状态与仅开发模式开放的工作台唤起接口。
 // [POS]: 仅监听 loopback 的服务入口，认证备份协调器在停止活动后重载App并保留监听地址；公开状态剔除聊天正文并携带设置界面外观快照；认证状态携带 Dev 设置地址供旧入口跳转；更新读取/检查/安装和模型控制、窗口租约共用鉴权；操作锁由对应服务管理。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
@@ -91,6 +91,7 @@ pub async fn serve(
     let mut disconnected = std::env::var_os("PALBOO_START_DISCONNECTED").is_some();
     let mut restored = false;
     let mut reload_revision = 0;
+    let host_lifetime = Arc::new(crate::host_lifetime::Tracker::default());
     loop {
         let listener = tokio::net::TcpListener::from_std(listener.try_clone()?)?;
         let config = paths.load()?;
@@ -118,6 +119,7 @@ pub async fn serve(
             app.disconnect().await;
         }
         let watcher = app.clone().supervise();
+        let host_watcher = (!allow_fixture).then(|| host_lifetime.watch(app.clone()));
         let chat_outline_watcher = tokio::spawn(crate::chat_outline::watch(app.clone()));
         let task_watcher = app.tasks.start();
         let term_watcher = tokio::spawn(crate::terminology_import::watch(app.clone()));
@@ -146,6 +148,10 @@ pub async fn serve(
         .await;
         app.closing.send_replace(true);
         watcher.abort();
+        if let Some(watcher) = host_watcher {
+            watcher.abort();
+            let _ = watcher.await;
+        }
         task_watcher.abort();
         term_watcher.abort();
         if let Some(update) = host_update {
@@ -178,6 +184,7 @@ pub async fn serve(
             restored = true;
             continue;
         }
+        host_lifetime.finish().await;
         if let Ok(current) = Runtime::read(&paths)
             && current.token == runtime.token
         {

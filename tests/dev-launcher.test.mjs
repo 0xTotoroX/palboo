@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 临时源码路径、进程锁与启动器脚本生成函数。
- * [OUTPUT]: 开发入口唤起/重连/失效窗口回查、早期错误透传、前台目标注册等待与非阻塞失败通知、其他会话保护与 shell 转义回归；可选合成原生窗口焦点验收。
+ * [OUTPUT]: 开发入口唤起/重连/失效窗口回查、早期错误透传、前台目标注册等待与非阻塞失败通知、其他会话保护与 shell 转义回归、宿主退出冻结/等待/幂等及跨来源兼容层归属；可选合成原生窗口焦点验收。
  * [POS]: 独立 Node 验收，不连接宿主或启动实际开发后台。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -15,6 +15,7 @@ import { promisify } from 'node:util';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
+import { runInNewContext } from 'node:vm';
 import {
   hasDevelopmentOwner,
   startBackgroundDevelopment,
@@ -28,6 +29,89 @@ import {
 } from '../scripts/dev-launcher.mjs';
 import { readHostProcess, watchHostProcess } from '../scripts/dev-host.mjs';
 import { until, stopChild } from '../scripts/dev-runtime.mjs';
+
+test('host-exit cleanup freezes handoff, awaits the backend and leaves installation disconnected', async () => {
+  const source = readFileSync(new URL('../scripts/dev.mjs', import.meta.url), 'utf8');
+  const start = source.indexOf('function cleanup(');
+  const body = source.slice(start, source.indexOf('for (const signal of', start));
+  for (const hostExited of [true, false]) {
+    const events = [];
+    let finishSwitch;
+    const service = { pid: 2, exitCode: null, signalCode: null };
+    const context = {
+      closing: false,
+      cleanupTask: undefined,
+      timer: undefined,
+      children: new Set([{ pid: 1 }]),
+      watchers: [{ close: () => events.push('watchers') }],
+      stopHostWatch: () => events.push('monitor'),
+      clearTimeout: () => {},
+      switchTask: new Promise((resolve) => {
+        finishSwitch = resolve;
+      }),
+      service,
+      stopChild: async (child, options) => {
+        events.push(child === service ? `backend:${options.timeout}` : 'build');
+        child.exitCode = 0;
+      },
+      api: async () => events.push('shutdown'),
+      until: async (check) => {
+        events.push('await-backend');
+        service.exitCode = 0;
+        assert.equal(check(), true);
+      },
+      runtime: {},
+      vite: undefined,
+      httpServer: undefined,
+      gateway: undefined,
+      canRestore: true,
+      restoreInstallation: async () => events.push('restore'),
+      journal: '/synthetic/journal',
+      directory: '/synthetic/source',
+      controllerDirectory: '/synthetic/controller',
+      join,
+      readRecord: () => null,
+      rmSync: () => {},
+      token: 'synthetic',
+      releaseSource: () => events.push('source'),
+      releaseTarget: () => {},
+      releaseController: () => {},
+      console: { log: () => {}, error: () => {} },
+    };
+    const cleanup = runInNewContext(`${body}\ncleanup`, context);
+    const pending = cleanup({ hostExited });
+    assert.equal(context.closing, true);
+    assert.equal(cleanup({ hostExited }), pending);
+    await Promise.resolve();
+    assert.equal(events.includes('shutdown'), false);
+    finishSwitch();
+    await pending;
+    assert.equal(events.includes('restore'), !hostExited);
+    assert.equal(events.includes('await-backend'), hostExited);
+    if (hostExited) assert.ok(events.indexOf('shutdown') < events.indexOf('backend:25000'));
+    assert.equal(events.filter((event) => event === 'source').length, 1);
+  }
+});
+
+test('source handoff retains the original CodexHost ownership reference', () => {
+  const source = readFileSync(new URL('../scripts/dev.mjs', import.meta.url), 'utf8');
+  const start = source.indexOf('function context(path)');
+  const body = source.slice(start, source.indexOf('function useContext', start));
+  const context = runInNewContext(`${body}\ncontext`, {
+    join,
+    mkdirSync: () => {},
+    compatibleEnvironment: (value) => value,
+    process: { env: {} },
+    sourceBinaryName: () => 'palboo',
+    codexHostOwnerRecord: '/original/codex-host-owned.json',
+    settingsUrl: undefined,
+  });
+  for (const root of ['/worktree/first', '/worktree/second']) {
+    const result = context(root);
+    assert.equal(result.env.PALBOO_DEV_CODEX_HOST_OWNER, '/original/codex-host-owned.json');
+    assert.equal(result.env.PALBOO_HOME, join(root, 'target/dev/real'));
+  }
+});
 
 test('App sessions clean up after host exit and concurrent reopen starts one replacement', async (t) => {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'buddy-app-lifetime-')));

@@ -1,6 +1,6 @@
 /*
  * [INPUT]: Git worktrees、Rust/Node、来源选择器与独立开发数据目录。
- * [OUTPUT]: 设置页热更新、胶囊热加载及阅读器网页先构建后内嵌；宿主准备与内嵌资源共用单次预构建，冷启动目标替换时同步刷新租约与配置，Rust/内嵌资源编译成功后交接后台；显式 --restart-running 复用宿主准备，安全恢复失效租约，启动错误传回 App；App 会话按宿主身份退出清理。
+ * [OUTPUT]: 设置页热更新、胶囊热加载及阅读器网页先构建后内嵌；宿主准备与内嵌资源共用单次预构建，冷启动目标替换时同步刷新租约与配置，Rust/内嵌资源编译成功后交接后台；显式 --restart-running 复用宿主准备，安全恢复失效租约，启动错误传回 App；App 会话按宿主身份冻结交接、等待后台关闭关联兼容层再退出；跨来源保留原启动归属。
  * [POS]: 持久开发编排与统一设置入口；先绑定稳定地址供后台齿轮打开，各来源隔离 Vite 缓存；持有目标租约并串行交接 worktree，管理开发进程，显式启用时委托共享宿主启动策略，暂停并恢复安装版连接，不改写官方应用包。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -72,7 +72,7 @@ const source = resolve(
 const lock = join(controllerDirectory, 'owner.json');
 let releaseController;
 const journal = join(controllerDirectory, 'paused-installation.json');
-let directory, data, binary, snapshot, options, env;
+let directory, data, binary, snapshot, options, env, codexHostOwnerRecord;
 let releaseSource = () => {},
   releaseTarget = () => {};
 function context(path) {
@@ -86,6 +86,7 @@ function context(path) {
     CARGO_TARGET_DIR: join(path, 'target'),
     PALBOO_HOME: data,
     PALBOO_DEV_ASSETS: snapshot,
+    ...(codexHostOwnerRecord ? { PALBOO_DEV_CODEX_HOST_OWNER: codexHostOwnerRecord } : {}),
     ...(settingsUrl
       ? { PALBOO_DEV_SETTINGS: `${settingsUrl}/#token=${encodeURIComponent(token)}` }
       : {}),
@@ -277,7 +278,7 @@ async function rebuildNative() {
     await pauseInstallation(host, journal);
     if (host.target.id !== previousTarget) syncHostTarget();
   }
-  await stopChild(service);
+  await stopChild(service, { timeout: 25000 });
   runtime = undefined;
   renameSync(binary + '.next', binary);
   try {
@@ -285,7 +286,7 @@ async function rebuildNative() {
     nativeFingerprint = before;
     console.log('Rust 更新完成，开发胶囊已重新连接。');
   } catch (error) {
-    await stopChild(service);
+    await stopChild(service, { timeout: 25000 });
     if (!closing && existsSync(previous)) {
       copyFileSync(previous, binary);
       await startService();
@@ -536,7 +537,7 @@ function createSourceSwitcher() {
     },
     async activate({ next, fingerprint: compiled }) {
       stopWatchers();
-      await stopChild(service);
+      await stopChild(service, { timeout: 25000 });
       runtime = undefined;
       await vite?.close();
       vite = undefined;
@@ -547,7 +548,7 @@ function createSourceSwitcher() {
     },
     async rollback({ previous }) {
       stopWatchers();
-      await stopChild(service);
+      await stopChild(service, { timeout: 25000 });
       runtime = undefined;
       await vite?.close();
       vite = undefined;
@@ -577,17 +578,28 @@ function createSourceSwitcher() {
     },
   });
 }
-function cleanup() {
-  return (cleanupTask ??= cleanupDevelopment());
+function cleanup({ hostExited = false } = {}) {
+  closing = true;
+  return (cleanupTask ??= cleanupDevelopment(hostExited));
 }
-async function cleanupDevelopment() {
+async function cleanupDevelopment(hostExited) {
   closing = true;
   stopHostWatch?.();
   clearTimeout(timer);
   for (const watcher of watchers) watcher.close();
   await Promise.allSettled([...children].map(stopChild));
   await switchTask?.catch(() => {});
-  await stopChild(service);
+  // 宿主退出先冻结构建/来源交接，再让 Rust 正常退出关联兼容层。
+  const ending = service;
+  if (hostExited && ending && ending.exitCode === null && ending.signalCode === null) {
+    await api('shutdown', {}).catch(() => {});
+    await until(
+      () => ending.exitCode !== null || ending.signalCode !== null,
+      '关联后台仍在退出，将继续清理开发会话。',
+      25000,
+    ).catch((error) => console.error(error.message));
+  }
+  await stopChild(service, { timeout: 25000 });
   runtime = undefined;
   await vite?.close();
   if (httpServer) {
@@ -595,7 +607,7 @@ async function cleanupDevelopment() {
     await new Promise((resolve) => httpServer.close(resolve));
   }
   await gateway?.close();
-  if (canRestore) {
+  if (canRestore && !hostExited) {
     try {
       await restoreInstallation(journal);
     } catch (error) {
@@ -680,6 +692,9 @@ try {
     );
   }
   await restoreInstallation(journal, host);
+  // 来源交接继续引用原启动归属，不复制其他来源的运行记录或业务配置。
+  codexHostOwnerRecord = join(hostSettingsDirectory(source, data), 'codex-host-owned.json');
+  env.PALBOO_DEV_CODEX_HOST_OWNER = codexHostOwnerRecord;
   initializeData(source, data, host);
   switcher = createSourceSwitcher();
   gateway = await startGateway(token, () => runtime, {
@@ -734,7 +749,7 @@ try {
   if (hostProcess)
     stopHostWatch = watchHostProcess(hostProcess, async () => {
       console.log(`[${new Date().toISOString()}] Codex 主进程已退出，正在清理开发会话。`);
-      await cleanup();
+      await cleanup({ hostExited: true });
       process.exit(0);
     });
 } catch (error) {

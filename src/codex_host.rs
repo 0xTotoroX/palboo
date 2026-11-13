@@ -1,10 +1,10 @@
 // [INPUT]: CodexHost 官方安装、runtime descriptor、共享 Host 身份、Palboo 配置、控制器兼容缓存和宿主发现。
-// [OUTPUT]: 安装/运行身份、只读预览、启停及冷启动；只读核验进程与端口，不删除上游记录或终止活动/未知进程；更新/回退先验证控制器再选择版本。
+// [OUTPUT]: 安装/运行身份、只读预览、启停及冷启动；冷启动只读核验，宿主退出后按归属正常关闭共享后台，不删除上游记录或终止未知进程；更新/回退先验证控制器再选择版本。
 // [POS]: 独立后台功能适配；开关不退出当前会话，显式重启由独立协调进程接续；不复制上游业务或进入面板布局。
 // [PROTOCOL]: 变更时同步 codex_host/AGENTS.md。
 mod controller;
 pub(crate) mod restart;
-mod shared_host;
+pub(crate) mod shared_host;
 mod update;
 use crate::{
     config::{Paths, write_private},
@@ -62,11 +62,17 @@ impl Running {
     }
 
     pub(crate) fn managed_by(&self, paths: &Paths) -> bool {
-        std::fs::read(paths.root.join("codex-host-owned.json"))
-            .ok()
-            .and_then(|bytes| serde_json::from_slice::<Self>(&bytes).ok())
-            .as_ref()
-            == Some(self)
+        let mut records = vec![paths.root.join("codex-host-owned.json")];
+        if crate::assets::development().is_some() {
+            records.extend(std::env::var_os("PALBOO_DEV_CODEX_HOST_OWNER").map(PathBuf::from));
+        }
+        records.into_iter().any(|path| {
+            std::fs::read(path)
+                .ok()
+                .and_then(|bytes| serde_json::from_slice::<Self>(&bytes).ok())
+                .as_ref()
+                == Some(self)
+        })
     }
 }
 

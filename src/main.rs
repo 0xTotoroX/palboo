@@ -22,6 +22,7 @@ mod features;
 mod host;
 mod host_fonts;
 mod host_launch;
+mod host_lifetime;
 mod i18n;
 mod jev;
 mod lifecycle;

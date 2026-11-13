@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 本机后台 runtime 信息与开发会话令牌。
- * [OUTPUT]: 稳定设置页代理、认证开发来源路由及受控子进程工具，可捕获端点输出及失败原因。
+ * [OUTPUT]: 稳定设置页代理、认证开发来源路由及可选退出预算的受控子进程工具，可捕获端点输出及失败原因。
  * [POS]: 开发环境基础设施；不创建浏览器或模拟模型。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -17,7 +17,7 @@ export async function until(check, message, timeout = 15000) {
   }
   throw new Error(message);
 }
-export async function stopChild(child) {
+export async function stopChild(child, { timeout = 10000 } = {}) {
   if (!child?.pid || child.exitCode !== null || child.signalCode !== null) return;
   const kill = (signal) =>
     child.developmentGroup ? process.kill(-child.pid, signal) : child.kill(signal);
@@ -26,7 +26,7 @@ export async function stopChild(child) {
     await until(
       () => child.exitCode !== null || child.signalCode !== null,
       '子进程停止超时',
-      10000,
+      timeout,
     );
   } catch {
     kill('SIGKILL');
