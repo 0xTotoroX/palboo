@@ -50,6 +50,7 @@ func run(_ args: [String], _ origin: String? = nil) throws -> [String: Any] {
     var environment = env
     environment.removeValue(forKey: "CODEX_INTERNAL_ORIGINATOR_OVERRIDE")
     if let origin { environment["CODEX_INTERNAL_ORIGINATOR_OVERRIDE"] = origin }
+    if args.contains("preserve-alias") { environment["CODEX_APP_RUNTIME_CLI_PATH"] = env["PALBOO_TEST_FOREIGN_ALIAS"] }
     p.environment = environment
     p.standardInput = input; p.standardOutput = output; p.standardError = errors
     try p.run()
@@ -69,7 +70,8 @@ var rows = [try run(["-c", "features.code_mode_host=true", "app-server", "--anal
             try run(["app-server", "--listen", "stdio://"], "codex-computer-use"),
             try run(["exec-server", "--concurrent-requests", "32"]),
             try run(["--version"]),
-            try run(["app-server", "--listen", "stdio://"])]
+            try run(["app-server", "--listen", "stdio://"]),
+            try run(["--version", "preserve-alias"])]
 let nested = Process()
 nested.executableURL = URL(fileURLWithPath: env["PALBOO_TEST_HELPER"]!)
 nested.arguments = ["helper"]
@@ -102,7 +104,7 @@ try JSONSerialization.data(withJSONObject: ["rows": rows, "signal": signal.termi
         `#!${process.execPath}
 if (process.argv[2] === 'signal-test') { setInterval(()=>{}, 1000); } else {
 const chunks=[]; for await (const chunk of process.stdin) chunks.push(chunk);
-process.stdout.write(JSON.stringify({route:${JSON.stringify(route)},pid:process.pid,args:process.argv.slice(2),input:Buffer.concat(chunks).toString('hex'),compat:Object.keys(process.env).filter(k=>k.startsWith('CODEXHOST_')||k==='CODEX_CLI_PATH'||k==='PALBOO_NATIVE_CLI_CONTEXT'),origin:process.env.CODEX_INTERNAL_ORIGINATOR_OVERRIDE,unrelated:process.env.PALBOO_TEST_UNRELATED}));
+process.stdout.write(JSON.stringify({route:${JSON.stringify(route)},pid:process.pid,args:process.argv.slice(2),input:Buffer.concat(chunks).toString('hex'),compat:Object.keys(process.env).filter(k=>k.startsWith('CODEXHOST_')||k==='CODEX_CLI_PATH'||k==='PALBOO_NATIVE_CLI_CONTEXT'),origin:process.env.CODEX_INTERNAL_ORIGINATOR_OVERRIDE,unrelated:process.env.PALBOO_TEST_UNRELATED,runtimeCli:process.env.CODEX_APP_RUNTIME_CLI_PATH}));
 process.stderr.write('preserved stderr\\n'); process.exitCode=37;
 }
 `,
@@ -124,6 +126,8 @@ process.stderr.write('preserved stderr\\n'); process.exitCode=37;
     const env = {
       ...process.env,
       CODEX_CLI_PATH: proxy,
+      CODEX_APP_RUNTIME_CLI_PATH: proxy,
+      PALBOO_TEST_FOREIGN_ALIAS: process.execPath,
       PALBOO_NATIVE_CLI_CONTEXT: context,
       CODEXHOST_HOST_RUNTIME_PATH: 'owned-routing',
       CODEXHOST_LAUNCHER_PID: 'must-not-leak',
@@ -149,6 +153,7 @@ process.stderr.write('preserved stderr\\n'); process.exitCode=37;
       assert.equal(out.pid, row.pid, 'exec must preserve PID and signal delivery');
       assert.equal(out.input, '00ff0a41');
       assert.equal(out.unrelated, 'preserved');
+      assert.equal(out.runtimeCli, out.args.includes('preserve-alias') ? process.execPath : stock);
       if (index === 0) assert.ok(out.compat.includes('CODEXHOST_HOST_RUNTIME_PATH'));
       else assert.deepEqual(out.compat, []);
     }

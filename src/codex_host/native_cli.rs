@@ -152,6 +152,7 @@ fn desktop_origin(origin: Option<&OsStr>) -> bool {
 fn command(record: &ContextRecord, args: &[OsString], main: bool) -> Command {
     let mut command = Command::new(if main { &record.shim } else { &record.stock });
     command.args(args).env_remove(CONTEXT);
+    super::native_host::restore_runtime_alias(&mut command, &record.executable, &record.stock);
     if main {
         command.env("CODEX_CLI_PATH", &record.shim);
     } else {

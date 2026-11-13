@@ -1,5 +1,5 @@
 // [INPUT]: 本次桌面主 CLI 的真实父进程、官方 Host serve 与私有交接目录。
-// [OUTPUT]: 保留桌面祖先关系的官方共享 Host；已有外部后台保留并拒绝接管。
+// [OUTPUT]: 保留桌面祖先关系的官方共享 Host，交还官方 runtime CLI 别名；已有外部后台保留并拒绝接管。
 // [POS]: 原生浏览器/桌面工具身份边界，不代理原生管道、不更改官方校验或安装包。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 use super::{direct, shared_host};
@@ -19,6 +19,17 @@ pub(super) struct Launch {
     pub runtime: PathBuf,
     pub stock: PathBuf,
     pub data: PathBuf,
+}
+
+pub(super) fn restore_runtime_alias(command: &mut Command, private_cli: &Path, stock: &Path) {
+    // Desktop 另存的入口别名也须交还官方 CLI；前台 Host 早于最终 Shim 启动，
+    // 两条启动路径都必须处理，且不能覆盖其他已合法配置的原生运行时。
+    if let Some(alias) = std::env::var_os("CODEX_APP_RUNTIME_CLI_PATH")
+        .and_then(|path| PathBuf::from(path).canonicalize().ok())
+        && private_cli.canonicalize().is_ok_and(|path| path == alias)
+    {
+        command.env("CODEX_APP_RUNTIME_CLI_PATH", stock);
+    }
 }
 
 pub(super) fn descendant(process: &ProcessIdentity, desktop: &ProcessIdentity) -> Result<bool> {
@@ -70,7 +81,8 @@ pub(super) fn ensure(
         return Ok(None);
     }
     let ready_file = directory.join("host-ready");
-    let mut child = Command::new(&launch.installation)
+    let mut command = Command::new(&launch.installation);
+    command
         .args(["host", "serve", "--node"])
         .arg(&launch.node)
         .arg("--host-runtime")
@@ -87,8 +99,10 @@ pub(super) fn ensure(
         .env_remove("NODE_PATH")
         .stdin(Stdio::null())
         .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        // 不 detach；随后 exec Shim 保持本 PID，官方 Host 仍是当前桌面的真实后代。
+        .stderr(Stdio::null());
+    restore_runtime_alias(&mut command, &directory.join("palboo"), &launch.stock);
+    // 不 detach；随后 exec Shim 保持本 PID，官方 Host 仍是当前桌面的真实后代。
+    let mut child = command
         .spawn()
         .context("无法准备本次桌面的 CodexHost 后台")?;
     let identity = ProcessIdentity::read(child.id())?.context("CodexHost 后台已退出")?;

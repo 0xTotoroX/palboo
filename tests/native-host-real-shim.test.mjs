@@ -57,6 +57,7 @@ async function fixture() {
   Object.assign(env, {
     CODEX_HOME: path.join(root, 'codex-home'),
     CODEX_CLI_PATH: proxy,
+    CODEX_APP_RUNTIME_CLI_PATH: proxy,
     PALBOO_NATIVE_CLI_CONTEXT: context,
     CODEXHOST_HOST_NODE_PATH: node,
     CODEXHOST_HOST_RUNTIME_PATH: runtime,
@@ -124,6 +125,12 @@ async function fixture() {
     const executable = spawnSync('/bin/ps', ['-p', String(child.pid), '-o', 'comm='], {
       encoding: 'utf8',
     }).stdout.trim();
+    const runtimeAlias = (pid) => {
+      const text = spawnSync('/bin/ps', ['eww', '-p', String(pid), '-o', 'command='], {
+        encoding: 'utf8',
+      }).stdout;
+      return text.match(/(?:^| )CODEX_APP_RUNTIME_CLI_PATH=([^ ]*)/)?.[1];
+    };
     console.log(
       JSON.stringify({
         initialized: initialized.result != null,
@@ -131,6 +138,8 @@ async function fixture() {
         descendant,
         executable,
         fallback: fs.existsSync(path.join(root, 'compatibility-error.json')),
+        hostRuntimeAlias: runtimeAlias(owner.pid),
+        shimRuntimeAlias: runtimeAlias(child.pid),
       }),
     );
   } finally {
@@ -172,6 +181,8 @@ test(
     assert.equal(result.initialized, true);
     assert.equal(result.descendant, true);
     assert.equal(result.fallback, false);
+    assert.equal(result.hostRuntimeAlias, process.env.PALBOO_TEST_STOCK_CLI);
+    assert.equal(result.shimRuntimeAlias, process.env.PALBOO_TEST_STOCK_CLI);
     assert.equal(result.codexHome, join(root, 'codex-home'));
     assert.equal(
       result.executable,
