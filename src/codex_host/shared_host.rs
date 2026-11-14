@@ -107,6 +107,21 @@ fn channel(data: &Path, pid: u32) -> Result<Channel> {
 }
 
 impl Lease {
+    fn exited(&self) -> Result<bool> {
+        let owner = crate::host::ProcessIdentity {
+            pid: self.owner.pid,
+            started_at_micros: self.owner.started_at_micros,
+            executable: self.owner.executable.clone(),
+        };
+        Ok(!owner.alive()?
+            && self
+                .supervisor
+                .as_ref()
+                .map(|process| process.alive())
+                .transpose()?
+                .is_none_or(|alive| !alive))
+    }
+
     pub(crate) fn capture(installation: &Path, data: PathBuf) -> Result<Self> {
         Self::capture_at(
             installation,
@@ -161,12 +176,7 @@ impl Lease {
             executable: self.owner.executable.clone(),
         };
         // 前台后代可能已随桌面退出；不再依赖其已移除的官方记录，也不碰替代实例。
-        if !owner_identity.alive()?
-            && self
-                .supervisor
-                .as_ref()
-                .is_none_or(|p| !p.alive().unwrap_or(true))
-        {
+        if self.exited()? {
             ensure!(still_exited()?, "宿主已恢复或身份不明，退出检查已停止");
             return Ok(());
         }
@@ -196,7 +206,24 @@ impl Lease {
             }
             guards.push(guard);
         }
-        let current = Self::capture(&self.installation, self.data.clone())?;
+        let current = match Self::capture(&self.installation, self.data.clone()) {
+            Ok(current) => current,
+            Err(error) => {
+                // 上游正常退出会先撤销通道记录，再结束进程；此时只等待原身份消失。
+                // 记录缺失本身不算成功，也不改找其他通道或向未核验的进程发信号。
+                let deadline = Instant::now() + Duration::from_secs(8);
+                loop {
+                    ensure!(still_exited()?, "宿主已恢复或身份不明，退出检查已停止");
+                    if self.exited()? {
+                        return Ok(());
+                    }
+                    if Instant::now() >= deadline {
+                        return Err(error);
+                    }
+                    tokio::time::sleep(Duration::from_millis(50)).await;
+                }
+            }
+        };
         ensure!(
             current.owner == self.owner,
             "CodexHost 共享后台已更换，未停止新实例"
@@ -322,10 +349,14 @@ mod tests {
                 .join("app/host-runtime.mjs");
             std::fs::write(
                 &runtime,
-                r#"import {writeFileSync,mkdirSync} from 'node:fs';
+                r#"import {writeFileSync,mkdirSync,rmSync} from 'node:fs';
 import {join} from 'node:path';
 import {createServer} from 'node:http';
 const data=process.argv[2];
+process.on('SIGUSR2',()=>{
+ rmSync(join(data,'client-hosts',`host-${process.pid}-fixture.json`));
+ setTimeout(()=>process.exit(0),200);
+});
 const server=createServer((req,res)=>{
  writeFileSync(join(data,'stop-called'),JSON.stringify({method:req.method,path:req.url,authorized:req.headers.authorization==='Bearer '+'0'.repeat(64)}));
  res.writeHead(200,{'content-type':'application/json'});
@@ -417,6 +448,42 @@ server.listen(0,'127.0.0.1',()=>{
             std::fs::read(fixture.data.join("mapping-store/store.lock")).unwrap(),
             lock
         );
+    }
+
+    #[tokio::test]
+    async fn channel_removed_during_natural_exit_waits_without_sending_shutdown() {
+        let fixture = Fixture::new();
+        let lease = fixture.lease();
+        unsafe {
+            libc::kill(fixture.child.id() as i32, libc::SIGUSR2);
+        }
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        while std::fs::read_dir(fixture.data.join("client-hosts"))
+            .unwrap()
+            .count()
+            > 0
+        {
+            assert!(std::time::Instant::now() < deadline);
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+        assert!(!lease.exited().unwrap());
+        lease.clone().stop(|| Ok(true)).await.unwrap();
+        assert!(lease.exited().unwrap());
+        assert!(!fixture.data.join("stop-called").exists());
+    }
+
+    #[tokio::test]
+    async fn missing_channel_does_not_claim_a_live_service_exited() {
+        let fixture = Fixture::new();
+        let lease = fixture.lease();
+        for entry in std::fs::read_dir(fixture.data.join("client-hosts")).unwrap() {
+            std::fs::remove_file(entry.unwrap().path()).unwrap();
+        }
+        assert!(lease.clone().stop(|| Ok(false)).await.is_err());
+        let error = lease.clone().stop(|| Ok(true)).await.unwrap_err();
+        assert!(error.to_string().contains("唯一控制通道"));
+        assert!(!lease.exited().unwrap());
+        assert!(!fixture.data.join("stop-called").exists());
     }
 
     #[tokio::test]
