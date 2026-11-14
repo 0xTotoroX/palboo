@@ -1,5 +1,5 @@
 // [INPUT]: 官方 CodexHost 控制器/Renderer、版本与所选 Node；仅生成 Palboo 自有缓存。
-// [OUTPUT]: 经结构/语法校验的控制器及 Renderer 缓存、可选 --desktop-controller 路径与运行身份识别。
+// [OUTPUT]: 经校验的控制器/Renderer 缓存；保留退出信号的窗口发现、可选加载路径与运行身份识别。
 // [POS]: CodexHost 启动、更新和回退共用的内存兼容修复，不写官方安装。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md
 use anyhow::{Context, Result, ensure};
@@ -42,6 +42,20 @@ const INSTALL_END_FIXED: &str = r#"    return { state: 'ready', reason: 'owned-r
 const UNBOUNDED: &str = "await renderer.command(\"Debugger.enable\");";
 const BOUNDED: &str = "await renderer.command(\"Debugger.enable\", { maxScriptsCacheSize: 0 });";
 const STRUCTURE_ERROR: &str = "CodexHost 控制器结构已变化，内存兼容补丁需更新；原安装保持不变";
+const DISCOVERY_CANCELLATION: [(&str, &str); 3] = [
+    (
+        "async ensureInstalled() {",
+        "async ensureInstalled(signal) {",
+    ),
+    (
+        "      this.currentSnapshot.target.id\n    );",
+        "      this.currentSnapshot.target.id,\n      signal\n    );",
+    ),
+    (
+        "else await session.ensureInstalled();",
+        "else await session.ensureInstalled(signal);",
+    ),
+];
 
 fn replace_once(source: &mut String, old: &str, new: &str) -> Result<()> {
     ensure!(source.matches(old).count() == 1, STRUCTURE_ERROR);
@@ -56,6 +70,17 @@ fn patch(source: &str) -> Result<Option<String>> {
         .1;
     let catalog = catalog.split("\n// ").next().unwrap_or(catalog);
     let mut result = source.to_owned();
+    if source.contains("async function runDesktopController(") {
+        // 已安装会话的窗口发现原本丢失退出信号，桌面退出后仍可能等待90秒。
+        // 复用上游已有取消机制，只在 Palboo 缓存中补齐传递，不改变正常发现或超时。
+        for (old, new) in DISCOVERY_CANCELLATION {
+            match (result.matches(old).count(), result.matches(new).count()) {
+                (1, 0) => replace_once(&mut result, old, new)?,
+                (0, 1) => {}
+                _ => anyhow::bail!(STRUCTURE_ERROR),
+            }
+        }
+    }
     if catalog.contains(UNBOUNDED) {
         replace_once(&mut result, UNBOUNDED, BOUNDED)?;
     } else {

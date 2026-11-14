@@ -1,10 +1,25 @@
 // [INPUT]: 合成控制器、隔离缓存和本机 Node 的语法/VM 检查。
-// [OUTPUT]: 补丁升级、幂等、失败保留、安装隔离与 document 生命周期回归。
+// [OUTPUT]: 补丁幂等、失败保留、安装隔离、document 生命周期和官方发现退出取消回归。
 // [POS]: controller.rs 的单元与显式本机只读来源验收。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md
 use super::*;
 
 const FIXTURE: &str = include_str!("../../tests/codex-host-controller-fixture.mjs");
+
+#[test]
+fn installed_discovery_keeps_shutdown_signal_and_rejects_unknown_shapes() {
+    let production = format!(
+        "{FIXTURE}\nasync function runDesktopController() {{}}\n{}",
+        DISCOVERY_CANCELLATION.map(|(old, _)| old).join("\n")
+    );
+    let fixed = patch(&production).unwrap().unwrap();
+    assert!(patch(&fixed).unwrap().is_none());
+    for (old, new) in DISCOVERY_CANCELLATION {
+        assert!(!fixed.contains(old));
+        assert!(fixed.contains(new));
+        assert!(patch(&production.replacen(old, "unknown shape", 1)).is_err());
+    }
+}
 
 #[tokio::test]
 async fn renderer_override_is_validated_cached_and_keeps_official_files_unchanged() {
@@ -253,6 +268,24 @@ async fn installed_official_controllers_generate_valid_overrides() {
         let before = std::fs::read(&source).unwrap();
         let derived = prepare_in(&cache, &source, &node).await.unwrap().unwrap();
         assert_eq!(std::fs::read(&source).unwrap(), before);
+        if String::from_utf8_lossy(&before).contains("async ensureInstalled() {") {
+            let directory = tempfile::tempdir().unwrap();
+            let result = std::process::Command::new(&node)
+                .arg("tests/controller-exit-cancellation.mjs")
+                .arg(&source)
+                .arg(&derived)
+                .arg(directory.path())
+                .env("CODEX_HOME", directory.path().join("codex"))
+                .env("CODEXHOST_DATA_DIR", directory.path().join("host"))
+                .output()
+                .unwrap();
+            assert!(
+                result.status.success(),
+                "{}",
+                String::from_utf8_lossy(&result.stderr)
+            );
+            println!("{}", String::from_utf8_lossy(&result.stdout));
+        }
         println!(
             "source={} controller={}",
             source.display(),

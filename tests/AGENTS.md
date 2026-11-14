@@ -7,6 +7,7 @@
 
 私有入口分流还验证 Desktop 的 runtime CLI 别名：本次 Palboo 别名在主/辅助路径都交还官方 CLI，已有其他原生别名保留；真实 Shim 测试同时核对 Shim 和前台 Host 的实际别名。不能用只清除 CODEX_CLI_PATH 的夹具代替这个派生路径检查。
 - `native-host-ancestry.test.mjs`：显式指定 Palboo、官方 CodexHost/Node/管道校验模块及 stock CLI，在隔离 CODEX_HOME/Host 数据运行真实官方前台 Host。官方身份校验确认后代调用通过、脱离祖先的调用仍被拒绝；重复主入口复用同一 Host，其他桌面入口保留原进程/记录并回退官方 CLI，真实 initialize 成功且错误留在0600私有记录。不连接用户管道、不修改安装包或校验策略；结束只正常关闭临时 Host。
+- `controller-exit-cancellation.mjs`：由显式官方来源 Rust 验收调用，在临时目录加载原版与 Palboo 派生控制器，使用上游真实生产循环/Session/发现逻辑和隔离依赖复现窗口失联。验证旧版丢失退出信号、修复后立即取消且连接资源收尾；不启动真实桌面、不连接用户端口，不把隔离行为当真实退出链验收。
 - `native-host-real-shim.test.mjs`：先复现 Desktop 的启动配置读取短任务，确认正常返回且未创建共享 Host，再用真实官方 Shim/Host/stock CLI 验私有主入口完整 initialize/initialized 握手，核对隔离 Codex home、原生 Shim 程序身份及握手后 Host 仍属于调用桌面；同时断言没有走原生回退，避免把 stock 单独初始化当成兼容成功。不启动第二个真实 ChatGPT。
 
 - `settings-navigation.mjs`：浏览器回归共用实际设置导航；桌面走侧栏，窄屏走分类菜单；开关列表到详情另作回归。
