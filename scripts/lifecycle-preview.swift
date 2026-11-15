@@ -5,7 +5,7 @@ private let previewMessages: [String: String] = [
     "尚未完成": "Not finished",
     "已完成": "Completed",
     "进行中": "In progress",
-    "跟随系统": "System",
+    "跟随 ChatGPT": "ChatGPT",
     "浅色": "Light",
     "深色": "Dark",
     "减少动态效果": "Reduce motion",
@@ -70,7 +70,7 @@ private func L(_ text: String) -> String {
 }
 
 
-// [INPUT]: Synthetic phases, native AppKit, read-only ChatGPT window geometry and optional preview preferences.
+// [INPUT]: Synthetic phases, native AppKit, read-only ChatGPT geometry/colors and optional preview preferences.
 // [OUTPUT]: Standalone draggable menu-bar notification preview; no application lifecycle actions.
 // [POS]: npm run dev:status; only lifecyclePreview can be saved through the existing appearance API.
 // [PROTOCOL]: Keep scripts/AGENTS.md in sync.
@@ -94,10 +94,63 @@ final class DragHeader: NSView {
     override func resetCursorRects() { addCursorRect(bounds, cursor: .openHand) }
 }
 final class Canvas: NSView { override var isFlipped: Bool { true } }
+struct HostPalette: Equatable {
+    let theme: String
+    var colors: [String: String] = [:]
+    var dark: Bool { theme == "dark" }
+    var text: NSColor { color("text", fallback: dark ? .white : NSColor(white: 0.12, alpha: 1)) }
+    var muted: NSColor { color("muted", fallback: text.withAlphaComponent(0.65)) }
+    var background: NSColor { color("surface", fallback: color("page", fallback: dark ? NSColor(white: 0.094, alpha: 1) : .white)) }
+    var accent: NSColor { color("accent", fallback: text) }
+    var danger: NSColor { color("danger", fallback: dark ? NSColor(srgbRed: 1, green: 0.52, blue: 0.51, alpha: 1) : NSColor(srgbRed: 0.70, green: 0.14, blue: 0.09, alpha: 1)) }
+    func color(_ role: String, fallback: NSColor) -> NSColor { Self.parse(colors[role] ?? "", dark: dark) ?? fallback }
+    static func read(_ value: [String: Any], previous: HostPalette?) -> HostPalette? {
+        guard let mode = value["theme"] as? String, ["light", "dark"].contains(mode), let source = value["colors"] as? [String: String] else { return nil }
+        var result = previous?.theme == mode ? previous! : HostPalette(theme: mode)
+        var accepted = false
+        for role in ["page", "surface", "text", "muted", "accent", "danger"] {
+            if let value = source[role], parse(value, dark: mode == "dark") != nil { result.colors[role] = value; accepted = true }
+        }
+        return accepted ? result : nil
+    }
+    static func parse(_ raw: String, dark: Bool) -> NSColor? {
+        let value = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard value.count <= 256 else { return nil }
+        if value == "transparent" { return .clear }
+        if value == "white" { return .white }; if value == "black" { return .black }
+        if value.hasPrefix("light-dark("), value.hasSuffix(")") {
+            let body = String(value.dropFirst(11).dropLast())
+            var depth = 0
+            for i in body.indices {
+                if body[i] == "(" { depth += 1 }; if body[i] == ")" { depth -= 1 }
+                if body[i] == "," && depth == 0 { return parse(dark ? String(body[body.index(after: i)...]) : String(body[..<i]), dark: dark) }
+            }
+            return nil
+        }
+        if value.hasPrefix("#") {
+            var hex = String(value.dropFirst())
+            if hex.count == 3 || hex.count == 4 { hex = hex.map { "\($0)\($0)" }.joined() }
+            guard [6, 8].contains(hex.count), let number = UInt64(hex, radix: 16) else { return nil }
+            let rgba = hex.count == 6 ? (number << 8) | 255 : number
+            return NSColor(srgbRed: CGFloat((rgba >> 24) & 255) / 255, green: CGFloat((rgba >> 16) & 255) / 255, blue: CGFloat((rgba >> 8) & 255) / 255, alpha: CGFloat(rgba & 255) / 255)
+        }
+        guard (value.hasPrefix("rgb(") || value.hasPrefix("rgba(")), value.hasSuffix(")"), let start = value.firstIndex(of: "(") else { return nil }
+        let parts = value[value.index(after: start)..<value.index(before: value.endIndex)].split { $0 == "," || $0 == "/" || $0.isWhitespace }
+        guard [3, 4].contains(parts.count) else { return nil }
+        var components = [CGFloat]()
+        for (index, part) in parts.enumerated() {
+            let percent = part.hasSuffix("%")
+            guard let value = Double(percent ? part.dropLast() : part), value.isFinite else { return nil }
+            components.append(CGFloat(max(0, min(1, value / (percent ? 100 : index == 3 ? 1 : 255)))))
+        }
+        return NSColor(srgbRed: components[0], green: components[1], blue: components[2], alpha: components.count == 4 ? components[3] : 1)
+    }
+}
 final class BrandEyes: NSView {
+    var color = NSColor.labelColor
     override var isFlipped: Bool { true }
     override func draw(_ dirtyRect: NSRect) {
-        NSColor.labelColor.setFill()
+        color.setFill()
         for x: CGFloat in [7, 24] {
             NSBezierPath(roundedRect: NSRect(x: x, y: 5, width: 7, height: 21), xRadius: 3.5, yRadius: 3.5).fill()
         }
@@ -127,12 +180,12 @@ final class StepRow: NSView {
     }
     required init?(coder: NSCoder) { fatalError() }
     override var isFlipped: Bool { true }
-    func update(_ title: String, done: Bool, failed: Bool, reduce: Bool) {
+    func update(_ title: String, done: Bool, failed: Bool, reduce: Bool, palette: HostPalette) {
         text.stringValue = L(title); active = !done && !failed
-        text.textColor = done ? .secondaryLabelColor : .labelColor
+        text.textColor = done ? palette.muted : palette.text; duration.textColor = palette.muted
         let symbol = failed ? "exclamationmark.circle.fill" : done ? "checkmark" : "arrow.right"
         mark.image = NSImage(systemSymbolName: symbol, accessibilityDescription: failed ? "尚未完成" : done ? "已完成" : "进行中")
-        mark.contentTintColor = failed ? .systemOrange : done ? .secondaryLabelColor : .controlAccentColor
+        mark.contentTintColor = failed ? palette.danger : done ? palette.muted : palette.accent
         mark.wantsLayer = true; mark.layer?.removeAnimation(forKey: "working")
         if active && !reduce {
             let pulse = CABasicAnimation(keyPath: "opacity"); pulse.fromValue = 1; pulse.toValue = 0.35
@@ -142,6 +195,7 @@ final class StepRow: NSView {
     }
 }
 final class Progress: NSView {
+    var accent = NSColor.labelColor, danger = NSColor.systemRed
     var fraction: Double = 0, failed = false
     var shownCells = 0, cellGeneration = 0, cellHistory = [Int]()
     override var isFlipped: Bool { true }
@@ -162,7 +216,7 @@ final class Progress: NSView {
         }
     }
     override func draw(_ dirtyRect: NSRect) {
-        let color = failed ? NSColor.systemOrange : NSColor.controlAccentColor
+        let color = failed ? danger : accent
         let track = color.withAlphaComponent(0.13)
         let gap: CGFloat = 3
         let width = (bounds.width - gap * 19) / 20
@@ -180,18 +234,23 @@ final class Preview: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var pinnedTop: NSPoint?, syncing = false, revision: Int = -1, preferenceTimer: Timer?, saving = false, loading = false
     var savedScreen: Int?, lastHostScreen: Int?
     var loadedPreferences: NSDictionary?
+    var hostPalettes: [String: HostPalette] = [:], hostTheme: String?, hostReducedMotion = false
     var preferencePosition = NSPoint(x: 0.85, y: 0.12)
     var dataDirectory: URL? { guard let i = CommandLine.arguments.firstIndex(of: "--connection-dir"), i + 1 < CommandLine.arguments.count else { return nil }; return URL(fileURLWithPath: CommandLine.arguments[i+1]) }
     let shell = Canvas(), content = Canvas(), eyes = BrandEyes(), heading = NSTextField(labelWithString: "")
     let progress = Progress(frame: NSRect(x: 24, y: 120, width: 308, height: 4)), count = NSTextField(labelWithString: "")
-    let theme = NSSegmentedControl(labels: ["跟随系统", "浅色", "深色"], trackingMode: .selectOne, target: nil, action: nil)
+    let theme = NSSegmentedControl(labels: ["跟随 ChatGPT", "浅色", "深色"], trackingMode: .selectOne, target: nil, action: nil)
     let material = NSPopUpButton(), snapshot = NSPopUpButton(), motion = NSButton(checkboxWithTitle: "减少动态效果", target: nil, action: nil)
     var statusItem: NSStatusItem!, closeButton: NSButton!, retryButton: NSButton!, surface: NSView?
     var rows: [StepRow] = [], steps: [String] = [], timings: [Double] = [], completed = 0, exiting = false, failed = false, generation = 0
     var started = Date(), phaseStarted = Date(), ticker: Timer?, localMonitor: Any?
     var playbackActivity: NSObjectProtocol?
     var materialName = "", reportedSize = NSSize.zero
-    var reduce: Bool { motion.state == .on || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
+    var reduce: Bool { motion.state == .on || hostReducedMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
+    var palette: HostPalette {
+        let mode = theme.selectedSegment == 1 ? "light" : theme.selectedSegment == 2 ? "dark" : hostTheme ?? (NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? "dark" : "light")
+        return hostPalettes[mode] ?? HostPalette(theme: mode)
+    }
     let startSteps = ["准备 Palboo", "打开 Codex", "连接兼容服务", "恢复工作台", "确认界面可用"]
     let exitSteps = ["保存当前状态", "结束关联任务", "关闭兼容服务", "确认后台已退出"]
     func label(_ title: String, _ frame: NSRect, size: CGFloat = 13, weight: NSFont.Weight = .regular) -> NSTextField {
@@ -270,7 +329,7 @@ final class Preview: NSObject, NSApplicationDelegate, NSWindowDelegate {
         return 1
     }
     func makeSurface() {
-        let appearance = theme.selectedSegment == 0 ? nil : NSAppearance(named: theme.selectedSegment == 1 ? .aqua : .darkAqua)
+        let appearance = NSAppearance(named: palette.dark ? .darkAqua : .aqua)
         panel.appearance = appearance; controls.appearance = appearance
         let available: Bool
         if #available(macOS 26.0, *) { available = true } else { available = false }
@@ -279,18 +338,36 @@ final class Preview: NSObject, NSApplicationDelegate, NSWindowDelegate {
         content.removeFromSuperview(); surface?.removeFromSuperview()
         if kind == 1, #available(macOS 26.0, *) {
             let v = NSGlassEffectView(); v.cornerRadius = 18; v.style = .regular; v.contentView = content
+            v.tintColor = palette.background.withAlphaComponent(0.12)
             surface = v; materialName = "liquid-glass"
         } else if kind == 2 {
             let v = NSVisualEffectView(); v.material = .popover; v.blendingMode = .behindWindow; v.state = .active
+            v.wantsLayer = true; v.layer?.backgroundColor = palette.background.withAlphaComponent(0.12).cgColor
             v.addSubview(content); surface = v; materialName = "frosted"
         } else {
             let v = Canvas(); v.wantsLayer = true
-            panel.effectiveAppearance.performAsCurrentDrawingAppearance { v.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor }
+            v.layer?.backgroundColor = palette.background.cgColor
             v.addSubview(content); surface = v; materialName = "matte"
         }
         surface!.frame = shell.bounds; surface!.autoresizingMask = [.width, .height]
         shell.addSubview(surface!); content.frame = shell.bounds; content.autoresizingMask = [.width, .height]
-        eyes.needsDisplay = true
+        updateColors()
+    }
+    func updateColors() {
+        let colors = palette
+        eyes.color = colors.text; eyes.needsDisplay = true
+        heading.textColor = colors.text; count.textColor = colors.muted; closeButton?.contentTintColor = colors.muted; retryButton?.contentTintColor = colors.accent
+        progress.accent = colors.accent; progress.danger = colors.danger; progress.needsDisplay = true
+        for (i, row) in rows.enumerated() where i < steps.count { row.update(failed && i == completed ? "兼容服务仍在退出" : steps[i], done: i < completed, failed: failed && i == completed, reduce: reduce, palette: colors) }
+        if CommandLine.arguments.contains("--report-theme") {
+            func rgba(_ value: NSColor) -> [Double] {
+                guard let c = value.usingColorSpace(.sRGB) else { return [] }
+                return [c.redComponent, c.greenComponent, c.blueComponent, c.alphaComponent].map { (Double($0) * 1_000_000).rounded() / 1_000_000 }
+            }
+            let report: [String: Any] = ["pid": ProcessInfo.processInfo.processIdentifier, "hostTheme": hostTheme ?? "unknown", "previewTheme": colors.theme, "nativeAppearance": panel.appearance?.name.rawValue ?? "", "hostAccent": colors.colors["accent"] ?? "", "progressRGBA": rgba(progress.accent), "activeStepRGBA": rows.first(where: { $0.active }).flatMap { $0.mark.contentTintColor }.map(rgba) ?? [], "textRGBA": rgba(heading.textColor ?? colors.text), "backgroundRGBA": rgba(colors.background)]
+            let path = Bundle.main.bundleURL.deletingLastPathComponent().appendingPathComponent("theme.json")
+            if let data = try? JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys]) { try? data.write(to: path, options: .atomic) }
+        }
     }
     @objc func changeAppearance() { makeSurface(); render(animate: false, rebuild: false) }
     func reset(exiting value: Bool) {
@@ -346,7 +423,7 @@ final class Preview: NSObject, NSApplicationDelegate, NSWindowDelegate {
             }
         }
         panel.effectiveAppearance.performAsCurrentDrawingAppearance {
-            for (i, row) in rows.enumerated() { row.update(failed && i == completed ? "兼容服务仍在退出" : steps[i], done: i < completed, failed: failed && i == completed, reduce: reduce) }
+            updateColors()
             progress.frame = NSRect(x: 24, y: 78 + steps.count * 30, width: 308, height: 12)
             progress.update(Double(completed) / Double(steps.count), animate: animate && !reduce, failed: failed)
         }
@@ -437,28 +514,45 @@ final class Preview: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func loadPreferences() {
         guard !saving, !loading, !dragHeader.dragging, let dir = dataDirectory else { return }
         if revision == -1, let bytes = try? Data(contentsOf: dir.appendingPathComponent("panel.json")),
-           let root = (try? JSONSerialization.jsonObject(with: bytes)) as? [String: Any] { acceptPreferences(root) }
-        guard let request = appearanceRequest() else { return }
+           let root = (try? JSONSerialization.jsonObject(with: bytes)) as? [String: Any] { acceptHostAppearance(root["settingsAppearance"] as? [String: Any]); acceptPreferences(root) }
+        guard let request = appearanceRequest(path: "state") else { return }
         loading = true
         URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }; loading = false
                 if !saving, error == nil, (response as? HTTPURLResponse)?.statusCode == 200, let data,
-                   let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] { acceptPreferences(root) }
+                   let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] {
+                    acceptHostAppearance(root["settingsAppearance"] as? [String: Any])
+                    if let prefs = root["panelPreferences"] as? [String: Any] { acceptPreferences(prefs) }
+                }
             }
         }.resume()
     }
-    func appearanceRequest() -> URLRequest? {
+    func appearanceRequest(path: String = "appearance") -> URLRequest? {
         guard let dir = dataDirectory,
               let bytes = try? Data(contentsOf: dir.appendingPathComponent("runtime.json")),
               let runtime = (try? JSONSerialization.jsonObject(with: bytes)) as? [String: Any],
               let port = runtime["port"] as? Int, port > 0, port < 65536,
               let token = runtime["token"] as? String,
-              let url = URL(string: "http://127.0.0.1:\(port)/api/appearance") else { return nil }
+              let url = URL(string: "http://127.0.0.1:\(port)/api/\(path)") else { return nil }
         var request = URLRequest(url: url); request.timeoutInterval = 3
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         return request
+    }
+    func acceptHostAppearance(_ snapshot: [String: Any]?) {
+        guard let snapshot, let mode = snapshot["theme"] as? String,
+              let current = HostPalette.read(snapshot, previous: hostPalettes[mode]) else { return }
+        let before = palette, previousMotion = hostReducedMotion
+        if let cached = snapshot["palettes"] as? [String: [String: Any]] {
+            for (name, value) in cached where ["light", "dark"].contains(name) {
+                if let parsed = HostPalette.read(value, previous: hostPalettes[name]), parsed.theme == name { hostPalettes[name] = parsed }
+            }
+        }
+        hostPalettes[mode] = current; hostTheme = mode
+        hostReducedMotion = snapshot["reducedMotion"] as? Bool ?? hostReducedMotion
+        // Theme changes repaint existing progress; they never replay phases or change visibility.
+        if !steps.isEmpty && (before != palette || previousMotion != hostReducedMotion) { makeSurface() }
     }
     func acceptPreferences(_ root: [String: Any]) {
         guard !saving, !dragHeader.dragging, let rev = root["revision"] as? Int, rev > revision,
@@ -576,6 +670,24 @@ final class Preview: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
     func check() {
         var checks = 0
+        let purple: [String: Any] = ["theme": "dark", "colors": ["page": "#181818", "text": "#ffffff", "muted": "rgba(255, 255, 255, 0.71)", "accent": "#a67df2", "danger": "light-dark(#911e1b,#e02e2a)"]]
+        theme.selectedSegment = 0
+        let cellsBeforeTheme = progress.shownCells, phaseBeforeTheme = completed, visibleBeforeTheme = panel.isVisible
+        acceptHostAppearance(purple)
+        precondition(palette.theme == "dark" && palette.accent.isEqual(HostPalette.parse("#a67df2", dark: true)!))
+        precondition(progress.accent.isEqual(palette.accent) && heading.textColor!.isEqual(palette.text))
+        precondition(progress.shownCells == cellsBeforeTheme && completed == phaseBeforeTheme && panel.isVisible == visibleBeforeTheme)
+        precondition(palette.danger.isEqual(HostPalette.parse("#e02e2a", dark: true)!))
+        let retained = palette
+        acceptHostAppearance(nil); acceptHostAppearance(["theme": "dark", "colors": ["accent": "invalid"]])
+        precondition(palette == retained)
+        let light: [String: Any] = ["theme": "light", "colors": ["page": "#fff", "text": "rgb(31 35 40)", "accent": "rgb(50% 25% 75% / 100%)"]]
+        acceptHostAppearance(light); precondition(!palette.dark && panel.appearance?.name == .aqua)
+        precondition(progress.accent.isEqual(palette.accent))
+        acceptHostAppearance(purple); precondition(palette == retained && panel.appearance?.name == .darkAqua)
+        precondition(HostPalette.parse("rgba(1, 2, 3, nan)", dark: false) == nil)
+        precondition(HostPalette.parse("#00000000", dark: false)?.alphaComponent == 0)
+        checks += 12
         let screens = [CGRect(x: 0, y: 0, width: 1440, height: 900), CGRect(x: 1440, y: -200, width: 1920, height: 1080), CGRect(x: -1024, y: 0, width: 1024, height: 768)]
         for (bounds, expected) in [(CGRect(x: 50, y: 50, width: 800, height: 600), 0), (CGRect(x: 1500, y: 100, width: 900, height: 700), 1), (CGRect(x: -900, y: 180, width: 700, height: 500), 2), (CGRect(x: 1300, y: 100, width: 700, height: 500), 1)] {
             precondition(Self.screenIndex(window: bounds, screens: screens, primaryTop: 900) == expected); checks += 1
@@ -636,7 +748,7 @@ final class Preview: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 }
             }
         }
-        let report: [String: Any] = ["passed": true, "checks": checks, "borderless": true, "statusBar": true, "transparentBrand": true, "dragHitRegion": true, "dragPositionSurvivesPhases": true, "selectedEnergyStyle": true, "centeredOnHostScreen": true, "multiScreenGeometry": true, "noPopupModes": true, "perStepTimesOnly": true, "bilingualGeometry": true, "supportedDeployment": "macOS 14+", "fallbacksExercisedOnCurrentOS": ["frosted", "matte"], "olderOSRun": false, "screenshots": false, "applicationActions": false]
+        let report: [String: Any] = ["passed": true, "checks": checks, "hostThemeSync": true, "invalidThemeRetained": true, "themeChangeKeepsProgress": true, "borderless": true, "statusBar": true, "transparentBrand": true, "dragHitRegion": true, "dragPositionSurvivesPhases": true, "selectedEnergyStyle": true, "centeredOnHostScreen": true, "multiScreenGeometry": true, "noPopupModes": true, "perStepTimesOnly": true, "bilingualGeometry": true, "supportedDeployment": "macOS 14+", "fallbacksExercisedOnCurrentOS": ["frosted", "matte"], "olderOSRun": false, "screenshots": false, "applicationActions": false]
         let output = Bundle.main.bundleURL.deletingLastPathComponent().appendingPathComponent("check.json")
         try! JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys]).write(to: output)
         print("PASS \(checks) native states")

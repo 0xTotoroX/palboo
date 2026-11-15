@@ -1,4 +1,4 @@
-/* [INPUT]: Native preview source and an optional existing Palboo data directory.
+/* [INPUT]: Native preview source, optional Palboo data directory and authenticated host appearance.
  * [OUTPUT]: Standalone menu-bar notification rehearsal, built under target/.
  * [POS]: npm run dev:status; never launches, quits or restarts the host or product backend.
  * [PROTOCOL]: Keep scripts/AGENTS.md in sync. */
@@ -72,6 +72,19 @@ else {
   try {
     const runtime = JSON.parse(readFileSync(join(directory, 'runtime.json'), 'utf8'));
     const prefs = JSON.parse(readFileSync(join(directory, 'panel.json'), 'utf8'));
+    let settingsAppearance;
+    try {
+      const response = await fetch(`http://127.0.0.1:${runtime.port}/api/state`, {
+        headers: { Authorization: `Bearer ${runtime.token}` },
+        signal: AbortSignal.timeout(1500),
+      });
+      if (response.ok) {
+        const state = await response.json();
+        settingsAppearance = state.settingsAppearance;
+      }
+    } catch {
+      // The native preview retains its last valid palette when the host is unavailable.
+    }
     writeFileSync(
       join(connection, 'runtime.json'),
       JSON.stringify({ port: runtime.port, token: runtime.token }),
@@ -83,11 +96,18 @@ else {
         revision: prefs.revision,
         lifecyclePreview: prefs.lifecyclePreview,
         language: prefs.language,
+        settingsAppearance,
       }),
       { mode: 0o600 },
     );
   } catch {
     /* The standalone preview also works without a running product. */
   }
-  run('open', [app, '--args', '--connection-dir', connection]);
+  run('open', [
+    app,
+    '--args',
+    '--connection-dir',
+    connection,
+    ...(process.argv.includes('--report-theme') ? ['--report-theme'] : []),
+  ]);
 }
