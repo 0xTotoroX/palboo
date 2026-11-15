@@ -222,13 +222,14 @@ export function independentFeatureCases({ mode, syncSettings }) {
           fixture.populatedOutline = fixture.outlineProjection;
           fixture.outlineProjection = { outlineItems: [], outlineStatus: 'ok' };
         });
-        await outline.getByText('暂无大纲', { exact: true }).waitFor();
+        await outline.getByText('暂无可导航章节', { exact: true }).waitFor();
         async function checkEmptyOutlineAlignment(zoom) {
           const title = await outline.locator('.csw-empty-title').boundingBox();
           const area = await outline.locator('.feature-projection').boundingBox();
           assert.ok(
-            Math.abs(title.x - area.x) < 2 && title.y >= area.y && title.y - area.y < 12 * zoom,
-            `outline empty state starts at the top of the content at ${zoom * 100}% zoom`,
+            Math.abs(title.x + title.width / 2 - area.x - area.width / 2) < 2 * zoom &&
+              Math.abs(title.y + title.height / 2 - area.y - area.height / 2) < 2 * zoom,
+            `outline empty state is centered in the content at ${zoom * 100}% zoom`,
           );
         }
         await checkEmptyOutlineAlignment(1);

@@ -1,6 +1,7 @@
 # scripts/ — 开发与分发工具
 
-- `lifecycle-preview.mjs/swift`：`npm run dev:status` 在 target/lifecycle-preview 构建独立菜单栏预览，无产品启停操作；可读选定数据目录生成短期私有连接记录，通过认证 appearance API 仅保存 lifecyclePreview，认证 state 只消费预览偏好及无正文宿主外观。原生默认跟随 ChatGPT 明暗/语义颜色，断开保留有效主题，主题更新只重绘不重播；--report-theme 可输出自有窗口的颜色读数，不含聊天或凭据。默认只读 ChatGPT 可见窗口的进程身份与几何，按最大占用面积选屏并居中，无有效窗口保留最近屏幕；不读取标题或像素。标题区原生鼠标事件拖动、屏幕身份/相对位置、逐步耗时/能量槽逐格进度、无弹窗模式；--check/--motion-check 使用内存状态、不读真实配置或截图。预览退出清理短期连接记录。
+- `lifecycle-notice.swift`：App 启停与独立预览共用原生提示、语义色解析/末次配色缓存读取、原生材质、逐格能量槽、每步耗时、宿主选屏/拖动及无弹窗模式。真实流程由调用者推进，不执行模拟播放；认证 startup-progress 接续现有后台事件归属，appearance 只保存原提示偏好。
+- `lifecycle-preview.mjs/swift` 与 `lifecycle-preview-checks.swift`：独立驱动和隔离几何/主题/时序检查；不执行真实启停，--report-theme 输出自有绘制颜色，连接信息保存在短期私有目录并在退出清理。
 > L2 | 父级：[AGENTS.md](../AGENTS.md)
 
 dev.mjs的原生资源指纹与文件监听同时覆盖ui/codex/{codex-host.js,codex-host-preview.js,model.js,model-usage.js}，保证所有Rust编译期内嵌脚本修改后先编译再交接后台；不重启ChatGPT。
@@ -37,8 +38,8 @@ npm 命令进入开发、构建、审计、安装和验证编排工具；具体�
 - [release-candidate.mjs](release-candidate.mjs)：校验官方 main 构建 run、完整门禁、不可变 artifact、Git 祖先与实际 DMG；仅发布工具/测试/文档变化允许复用，产品、构建、版本说明与 workflow 变化须完整重建。
 - [artifact-audit.mjs](artifact-audit.mjs)：release 编译路径映射及成品字节扫描，包含二进制、常见凭据/个人目录、UTF-16主目录与禁止文件；错误只输出文件和问题类型。它是有限检查，不证明不存在所有敏感内容或漏洞。
 - [package-app.mjs](package-app.mjs)：编译最低 macOS 14 arm64 Swift 入口、复制包内 CLI/资源、清理扩展属性与调用方显式签名（默认临时签名）；校验系统动态库、最低版本和程序摘要，以普通用户权限创建 HFS+ DMG，避免 tar 的属主名称字段和设置 root 引发的授权；挂载读回并复制到新位置验证，成功后卸载镜像。
-- [startup-progress.mjs](startup-progress.mjs)：Dev 链写入 App 创建的私有短期事件文件，只接受固定阶段与时间，已完成/重试后的旧路径不重建，不记录业务正文。
-- [app-launcher.swift](app-launcher.swift)：从 Bundle 定位 CLI，按用户模式记录启动正式或开发，读取正式数据目录关联；共享主界面已管理时保留其恢复位置，不再调用旧胶囊 popout；窗口 PID 或唯一 ChatGPT 由 AppKit 唤起。开发前台沿 AppKit 交接，开始即显示原生阶段窗口，超过10秒显示等待与详情；失败去除重复 Error 前缀、保留同窗重试与安全回正式入口，重复打开只唤起当前窗口；每次请求的临时文件独立，完成后删除，仅将阶段/时间写入私有 startup-last.json；源码访问单独计时，久等时提示查看系统文件访问授权；只读镜像提示复制，--check 只检查包内版本；--open-window 经 LaunchServices 启动同一个 App，--palboo-window 用原 PID 进入当前模式窗口程序，以私有短期回执返回真实窗口 PID，保持原 Dock 身份。
+- [startup-progress.mjs](startup-progress.mjs)：向 App 的私有会话事件文件追加固定阶段、时间和自身 PID，Dev 登记监督进程供退出确认；不写正文或凭据，文件删除后不重建。
+- [app-launcher.swift](app-launcher.swift)：Bundle CLI 正式/开发启动及原 LaunchServices 窗口身份交接；使用共用提示显示真实阶段，成功后保留 accessory 菜单栏以观察关联退出，重试重置计时但保留会话事件通道。正常关联退出等待后台与已登记监督进程消失后完成，异常保留；后台热更通过认证 startup-progress 重新绑定，不重启宿主。每步报告写入 startup-last/exit-last.json，进程退出清理私有事件文件；--check 只检查包内版本，--open-window/--palboo-window 沿用原身份与回执。
 - [project-licenses.mjs](project-licenses.mjs)：验证完整 GPL 原文、历史 MIT 原文及授权范围，并为主程序与独立材质工具复制统一许可包。
 - [source-audit.mjs](source-audit.mjs)：Git 与无 Git 源码目录共用文件清单，供审计、打包和测试复用；无 Git 时排除构建目录，拒绝私有文件与符号链接。核对包名、固定 GPL-3.0-only 元数据、完整许可与历史原文，并拒绝历史排除的上游诊断标记、私有文档、运行配置、凭据和个人绝对路径。
 - [license-texts.json](license-texts.json)：依赖包未附带的公开许可、署名原文与固定来源 URL，供许可生成器离线使用。

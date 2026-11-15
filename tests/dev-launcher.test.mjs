@@ -606,6 +606,12 @@ test('background startup failures retain logs and become visible to the App', as
     'console.error("synthetic startup failure"); process.exit(1)',
   );
   await startBackgroundDevelopment(root);
+  // Wait for the child exit report before asserting it, and before deleting its directory.
+  await until(
+    () => existsSync(join(root, 'target/dev/launcher-error.json')),
+    'background error report was not written',
+    10000,
+  );
   await assert.rejects(
     revealDevelopment(root, { checkStartupError: true, interval: 10, timeout: 2000 }),
     /launcher.log/,

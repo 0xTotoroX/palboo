@@ -6,7 +6,7 @@ src/codex_host.rs管理Options、安装/运行身份、启停选择、有界冷�
 
 认证GET /codex-host/agents按需在当前CDP连接执行ui/codex/codex-host-preview.js，3秒超时；只返回Agent名单、分组、可用性与当前选择，不打开菜单、不写配置、不安装或切换Agent，不依赖模型快切开关。无连接或探针不支持时明确失败，不提供合成状态。
 
-- direct.rs：0.18 直启资源与私有请求、运行记录及恢复入口；固定每次会话的 Palboo CLI 副本，避免 App 原子更新/Dev 二进制替换改变原生身份。协调子进程由当前调用方的原生父子身份授权，跨热更存续；进程身份保存在 palboo-launcher/codex-host-session.json，自有副本正常退出时移除。兼容既有 codex-host-owned.json，运行版本取实际安装。恢复只接受本 Palboo 原会话，不重开原 Codex、不假写官方 descriptor 或 launcher PID。
+- direct.rs：0.18 直启资源与私有请求、运行记录及恢复入口；固定每次会话的 Palboo CLI 副本，避免 App 原子更新/Dev 二进制替换改变原生身份。协调子进程由当前调用方的原生父子身份授权，跨热更存续；进程身份保存在 palboo-launcher/codex-host-session.json，自有副本正常退出时移除。启停反馈须在已捕获协调进程确已退出后，再确认自有会话记录完成清理；协调消失但记录残留/不可读时不能显示退出成功。兼容既有 codex-host-owned.json，运行版本取实际安装。恢复只接受本 Palboo 原会话，不重开原 Codex、不假写官方 descriptor 或 launcher PID。
 - direct_session.rs：LaunchServices 进程级环境交接及官方 Controller 监督，持有自有及官方 launcher 互斥。Controller 只在本宿主 Shim 链和真实祖先内的共享 Host 就绪后启动，真正就绪还须 installed Controller 及 CDP 页面。准备失败转入 native 状态：不启动或停止原 Controller，释放官方锁并继续跟随原生桌面，不把回退当兼容成功；direct/lifecycle 可重连此原生端点，状态 API 使用原错误字段说明。Controller 退出后重连，宿主原生身份连续消失才清理。协调异常后停止自己创建的 Controller，保留 Codex 供重新打开 Palboo 恢复；宿主已退出时释放官方锁，再由 Lease 双锁重验并关闭共享 Host，不终止外部或并发替换实例。
 - native_cli.rs：0.18 直启的私有 CLI 交接，使用与协调进程独立的固定二进制及0600记录；只有显式交接、精确父进程路径/调试端点、桌面 originator 和主 app-server 参数同时匹配才 exec 官方 Shim。原生工具缺失交接环境时，仅从自身所属的私有 UUID 会话目录读取相邻记录并核验所有者、权限和入口身份，始终 exec 官方 CLI，不搜索其他配置。普通 Palboo 不接受继承来的交接标记，原 PID 清除新旧标记并重新进入正常命令；私有会话入口仍严格核验记录身份。辅助调用清除 CODEXHOST_*、CODEX_CLI_PATH 及私有入口标记，保留原生其他环境和进程语义。未知调用保留原生行为；恢复原会话沿用入口，桌面退出后才清理。不伪造官方 launcher 身份，不修改官方文件或协议。
 

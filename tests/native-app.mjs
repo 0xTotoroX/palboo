@@ -13,6 +13,7 @@ export function nativeApp(directory, binary) {
   mkdirSync(join(app, 'Contents/Resources'));
   execFileSync('xcrun', [
     'swiftc',
+    resolve(import.meta.dirname, '../scripts/lifecycle-notice.swift'),
     resolve(import.meta.dirname, '../scripts/app-launcher.swift'),
     '-o',
     join(app, 'Contents/MacOS/PalbooLauncher'),

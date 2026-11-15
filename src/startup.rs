@@ -6,13 +6,51 @@ use std::{
     fs::OpenOptions,
     io::{Read, Seek, SeekFrom, Write},
     os::unix::fs::{MetadataExt, OpenOptionsExt},
-    path::Path,
+    path::{Path, PathBuf},
+    sync::Mutex,
     time::{SystemTime, UNIX_EPOCH},
 };
+static ATTACHED: Mutex<Option<PathBuf>> = Mutex::new(None);
+
+pub(crate) fn attach(path: &Path) -> anyhow::Result<()> {
+    let parent = path
+        .parent()
+        .ok_or_else(|| anyhow::anyhow!("无效的反馈路径"))?;
+    anyhow::ensure!(
+        path.file_name().is_some_and(|v| v == "events.jsonl")
+            && parent
+                .file_name()
+                .is_some_and(|v| v.to_string_lossy().starts_with("palboo-startup-"))
+            && parent.parent().map(std::fs::canonicalize).transpose()?
+                == Some(std::fs::canonicalize(std::env::temp_dir())?),
+        "无效的反馈路径"
+    );
+    let directory = std::fs::symlink_metadata(parent)?;
+    anyhow::ensure!(
+        directory.is_dir()
+            && directory.uid() == unsafe { libc::geteuid() }
+            && directory.mode() & 0o077 == 0,
+        "反馈目录不可用"
+    );
+    let metadata = std::fs::symlink_metadata(path)?;
+    anyhow::ensure!(
+        metadata.is_file()
+            && metadata.uid() == unsafe { libc::geteuid() }
+            && metadata.mode() & 0o077 == 0
+            && metadata.len() < 262_144,
+        "反馈文件不可用"
+    );
+    *ATTACHED.lock().unwrap() = Some(path.to_owned());
+    phase("backend");
+    Ok(())
+}
 
 pub fn phase(name: &str) {
-    if let Some(file) = std::env::var_os("PALBOO_STARTUP_PROGRESS") {
-        let _ = append(Path::new(&file), name);
+    let attached = ATTACHED.lock().unwrap().clone();
+    if let Some(file) =
+        attached.or_else(|| std::env::var_os("PALBOO_STARTUP_PROGRESS").map(PathBuf::from))
+    {
+        let _ = append(&file, name);
     }
 }
 
@@ -36,7 +74,8 @@ fn append(path: &Path, name: &str) -> std::io::Result<()> {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_millis();
-    let event = format!("{{\"phase\":\"{name}\",\"atMs\":{at}}}\n");
+    let pid = std::process::id();
+    let event = format!("{{\"phase\":\"{name}\",\"atMs\":{at},\"pid\":{pid}}}\n");
     // 单次 O_APPEND 写入，允许 Rust 和 Dev 在同一启动链上依次报告。
     file.write_all(event.as_bytes())
 }
@@ -44,7 +83,15 @@ fn append(path: &Path, name: &str) -> std::io::Result<()> {
 fn valid_phase(name: &str) -> bool {
     matches!(
         name,
-        "preparing"
+        "backend"
+            | "supervisor"
+            | "exit-start"
+            | "exit-tasks"
+            | "exit-compatibility"
+            | "exit-backend"
+            | "exit-failed"
+            | "exit-cancelled"
+            | "preparing"
             | "source"
             | "development"
             | "tools"
@@ -119,6 +166,30 @@ mod tests {
         fs,
         os::unix::fs::{PermissionsExt, symlink},
     };
+
+    #[test]
+    fn attaching_a_live_launcher_rejects_other_files_and_symlinks() {
+        let root = tempfile::Builder::new()
+            .prefix("palboo-startup-")
+            .tempdir()
+            .unwrap();
+        fs::set_permissions(root.path(), fs::Permissions::from_mode(0o700)).unwrap();
+        let file = root.path().join("events.jsonl");
+        fs::write(&file, b"").unwrap();
+        fs::set_permissions(&file, fs::Permissions::from_mode(0o600)).unwrap();
+        attach(&file).unwrap();
+        let event: serde_json::Value =
+            serde_json::from_str(fs::read_to_string(&file).unwrap().trim()).unwrap();
+        assert_eq!(event["phase"], "backend");
+        assert_eq!(event["pid"], std::process::id());
+        assert!(attach(&root.path().join("other.json")).is_err());
+        fs::remove_file(&file).unwrap();
+        let target = root.path().join("target");
+        fs::write(&target, b"").unwrap();
+        symlink(&target, &file).unwrap();
+        assert!(attach(&file).is_err());
+        *ATTACHED.lock().unwrap() = None;
+    }
 
     #[test]
     fn progress_is_private_bounded_and_does_not_recreate_finished_requests() {

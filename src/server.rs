@@ -86,6 +86,7 @@ pub async fn serve(
         executable: std::env::current_exe()?,
     };
     write_private(&paths.runtime(), &serde_json::to_vec_pretty(&runtime)?)?;
+    crate::startup::phase("backend");
     let listener = listener.into_std()?;
     let backup = Arc::new(crate::backup::Coordinator::default());
     let mut disconnected = std::env::var_os("PALBOO_START_DISCONNECTED").is_some();
@@ -119,6 +120,7 @@ pub async fn serve(
             app.disconnect().await;
         }
         let watcher = app.clone().supervise();
+        let notice_cache = (!allow_fixture).then(|| crate::notice_cache::watch(app.clone()));
         let host_watcher = (!allow_fixture).then(|| host_lifetime.watch(app.clone()));
         let chat_outline_watcher = tokio::spawn(crate::chat_outline::watch(app.clone()));
         let task_watcher = app.tasks.start();
@@ -139,15 +141,21 @@ pub async fn serve(
         });
         tracing::info!(port, "Palboo 本地服务启动");
         let shutdown_app = app.clone();
+        let shutdown_lifetime = host_lifetime.clone();
         let reload = backup.clone();
         let result = axum::serve(listener, router)
         .with_graceful_shutdown(async move {
             tokio::select! { _ = shutdown_app.shutdown.notified() => {}, _ = termination() => {}, _ = reload.restart.notified() => {} }
+            shutdown_lifetime.begin_exit().await;
             shutdown_app.closing.send_replace(true);
         })
         .await;
         app.closing.send_replace(true);
         watcher.abort();
+        if let Some(watcher) = notice_cache {
+            watcher.abort();
+            let _ = watcher.await;
+        }
         if let Some(watcher) = host_watcher {
             watcher.abort();
             let _ = watcher.await;
@@ -164,7 +172,11 @@ pub async fn serve(
         let _ = term_watcher.await;
         let _ = reader.await;
         disconnected = app.views.borrow().connection.status == "disconnected";
+        let feedback = host_lifetime.begin_exit().await;
         app.stop_features().await;
+        if feedback {
+            crate::startup::phase("exit-tasks");
+        }
         app.tasks.stop().await;
         app.disconnect().await;
         let _ = chat_outline_watcher.await;
@@ -184,7 +196,17 @@ pub async fn serve(
             restored = true;
             continue;
         }
-        host_lifetime.finish().await;
+        if feedback {
+            crate::startup::phase("exit-compatibility");
+        }
+        let exited = host_lifetime.finish().await;
+        if feedback {
+            crate::startup::phase(match exited {
+                Some(true) => "exit-backend",
+                Some(false) => "exit-failed",
+                None => "exit-cancelled",
+            });
+        }
         if let Ok(current) = Runtime::read(&paths)
             && current.token == runtime.token
         {
@@ -258,6 +280,7 @@ fn router(service: Service) -> Router {
         .route("/panel/open", post(panel_open))
         .route("/panel/close", post(close_panel))
         .route("/appearance", get(appearance).post(save_appearance))
+        .route("/startup-progress", post(attach_startup_progress))
         .route("/panel/ready", post(panel_ready))
         .route("/panel/anchor", post(panel_anchor))
         .route("/panel/presented", post(panel_presented))
@@ -472,6 +495,32 @@ fn public_view(view: crate::state::View) -> Value {
     json!({"settingsUrl":crate::assets::settings_url(),"systemLanguage":crate::i18n::system_locale(),"version":view.version,"connection":view.connection,"model":view.model,"updatedAt":view.updated_at,
         "desktop":view.desktop,"configurationRevision":view.configuration_revision,
         "panelPreferences":view.panel_preferences,"panelTheme":view.panel_theme,"panelFontBase":view.panel_font_base,"panelTypography":view.panel_typography,"settingsAppearance":view.settings_appearance})
+}
+
+async fn attach_startup_progress(
+    State(service): State<Service>,
+    Json(value): Json<Value>,
+) -> Result<Json<Value>, ApiError> {
+    let file = value["file"]
+        .as_str()
+        .ok_or_else(|| anyhow::anyhow!("缺少反馈路径"))?;
+    crate::startup::attach(std::path::Path::new(file))?;
+    let session = service
+        .app
+        .paths
+        .root
+        .parent()
+        .map(|p| p.join("session.json"));
+    let record: Value = session
+        .and_then(|p| std::fs::read(p).ok())
+        .and_then(|b| serde_json::from_slice(&b).ok())
+        .unwrap_or(Value::Null);
+    let supervisor = (record["runtime"].as_str() == service.app.paths.root.to_str())
+        .then(|| record["supervisorPid"].as_u64())
+        .flatten();
+    Ok(Json(
+        json!({"pid":std::process::id(),"supervisorPid":supervisor}),
+    ))
 }
 
 async fn settings(State(service): State<Service>) -> Json<Value> {

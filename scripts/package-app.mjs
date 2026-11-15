@@ -68,6 +68,7 @@ export function buildApplication({
     `${homedir()}=/build/home`,
     '-file-prefix-map',
     `${root}=/build/palboo`,
+    join(root, 'scripts/lifecycle-notice.swift'),
     join(root, 'scripts/app-launcher.swift'),
     '-o',
     launcher,

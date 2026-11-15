@@ -114,6 +114,7 @@ test(
       'LAUNCHER_TEST',
       '-target',
       'arm64-apple-macosx14.0',
+      join(root, 'scripts/lifecycle-notice.swift'),
       join(root, 'scripts/app-launcher.swift'),
       '-o',
       join(app, 'Contents/MacOS/PalbooLauncher'),

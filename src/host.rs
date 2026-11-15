@@ -38,7 +38,7 @@ impl ProcessIdentity {
             return Ok(None);
         }
         ensure!(count == size, "无法核验进程启动身份");
-        if info.pbi_status == libc::SZOMB as u32 {
+        if info.pbi_status == libc::SZOMB {
             return Ok(None);
         }
         let mut buffer = [0u8; libc::PROC_PIDPATHINFO_MAXSIZE as usize];

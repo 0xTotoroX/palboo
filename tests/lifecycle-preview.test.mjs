@@ -251,7 +251,7 @@ test(
             await page.locator('.lifecycle-notification li').count(),
           );
         }
-    assert.equal(await page.locator('h2').textContent(), 'Startup and exit preview');
+    assert.equal(await page.locator('h2').textContent(), 'Startup and exit feedback');
     assert.equal(errors.length, 0, errors.join('\n'));
     assert(writes.length >= 8);
   },

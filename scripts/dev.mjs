@@ -47,6 +47,7 @@ import {
   watchHostProcess,
 } from './dev-host.mjs';
 
+startupPhase('supervisor');
 const controllerRoot = resolve(import.meta.dirname, '..');
 const controllerDirectory = join(controllerRoot, 'target/dev');
 const preference = sourcePreference(controllerRoot);

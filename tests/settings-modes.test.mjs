@@ -580,12 +580,17 @@ test(
       assert.equal(writes.length, 0, 'theme subscription never writes business preferences');
       await page.setViewportSize({ width: 620, height: 740 });
       await category('general');
+      // General now places the saved lifecycle preview before run mode and updates.
+      const noticeHeading = page.getByRole('heading', { name: '启停反馈', exact: true });
+      await noticeHeading.waitFor();
+      const noticeBox = await noticeHeading.boundingBox();
+      assert.ok(noticeBox.y >= 0 && noticeBox.y + noticeBox.height < 740);
       const updateButton = page.getByRole('button', { name: '检查更新', exact: true });
-      await updateButton.waitFor();
+      await updateButton.scrollIntoViewIfNeeded();
       const updateBox = await updateButton.boundingBox();
       assert.ok(
         updateBox.y >= 0 && updateBox.y + updateBox.height < 740,
-        'update is on the first screen',
+        'update remains reachable below the lifecycle preview',
       );
       assert.equal(await page.locator('#app-mode').isVisible(), true);
       await category('connection');

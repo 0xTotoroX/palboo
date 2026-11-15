@@ -1,6 +1,6 @@
 /* [INPUT]: Saved, revision-checked lifecycle preview choices and local playback actions.
  * [OUTPUT]: Isolated startup/shutdown rehearsal, draggable notification and the selected energy-meter animation.
- * [POS]: General settings preview only; never starts or stops an application.
+ * [POS]: General settings for real App notifications; rehearsal actions never start or stop applications.
  * [PROTOCOL]: Update ui/settings/AGENTS.md when responsibilities change. */
 import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react';
@@ -213,8 +213,8 @@ export function LifecyclePreviewSettings({
       data-settings-navigation
       onChange={(event) => event.stopPropagation()}
     >
-      <h2>{tr('启停反馈预览')}</h2>
-      <p className="lifecycle-notice">{tr('选择会保存；目前仅用于预览，不改变真实启动和退出。')}</p>
+      <h2>{tr('启停反馈')}</h2>
+      <p className="lifecycle-notice">{tr('下方为演示预览；保存的选择会用于实际启动和退出。')}</p>
       <div className="lifecycle-scene" ref={scene}>
         <div className="lifecycle-menubar">
           <span>Palboo</span>
@@ -401,7 +401,7 @@ export function LifecyclePreviewSettings({
         {tr('网页材质为近似预览。原生预览在旧系统使用磨砂；减少透明度时使用哑光。')}
       </p>
       <Feedback text={error} failed />
-      <Feedback text={saved ? tr('预览设置已保存') : ''} />
+      <Feedback text={saved ? tr('设置已保存') : ''} />
       {error && (
         <Button
           type="button"

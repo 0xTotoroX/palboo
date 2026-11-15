@@ -14,6 +14,7 @@ struct Bound {
     compatibility: Option<crate::codex_host::shared_host::Lease>,
     coordinator: Option<ProcessIdentity>,
     missing: u8,
+    exiting: bool,
 }
 
 #[derive(Default)]
@@ -61,24 +62,25 @@ impl Tracker {
                         Err(error) => tracing::debug!(%error, "宿主退出跟随等待有效进程身份"),
                     }
                 }
-                if state.owner.is_some() && state.compatibility.is_none() && attempts % 5 == 1 {
-                    if let Ok(Some(running)) = crate::codex_host::running().await
-                        && running.managed_by(&app.paths)
-                    {
-                        match crate::codex_host::direct::manager(&running) {
-                            Ok(Some(manager)) => state.coordinator = Some(manager),
-                            Ok(None) => {
-                                if let Some(home) = dirs::home_dir() {
-                                    state.compatibility =
-                                        crate::codex_host::shared_host::Lease::capture(
-                                            &running.executable,
-                                            home.join(".codexhost"),
-                                        )
-                                        .ok();
-                                }
+                if state.owner.is_some()
+                    && state.compatibility.is_none()
+                    && attempts % 5 == 1
+                    && let Ok(Some(running)) = crate::codex_host::running().await
+                    && running.managed_by(&app.paths)
+                {
+                    match crate::codex_host::direct::manager(&running) {
+                        Ok(Some(manager)) => state.coordinator = Some(manager),
+                        Ok(None) => {
+                            if let Some(home) = dirs::home_dir() {
+                                state.compatibility =
+                                    crate::codex_host::shared_host::Lease::capture(
+                                        &running.executable,
+                                        home.join(".codexhost"),
+                                    )
+                                    .ok();
                             }
-                            Err(error) => tracing::warn!(%error, "无法核验启动归属，保留兼容后台"),
                         }
+                        Err(error) => tracing::warn!(%error, "无法核验启动归属，保留兼容后台"),
                     }
                 }
                 if let Some(owner) = &state.owner {
@@ -88,6 +90,8 @@ impl Tracker {
                     }
                     if state.observe(live) {
                         tracing::info!("宿主进程已退出，正在清理 Palboo");
+                        state.exiting = true;
+                        crate::startup::phase("exit-start");
                         app.shutdown.notify_one();
                         break;
                     }
@@ -96,26 +100,47 @@ impl Tracker {
         })
     }
 
-    pub(crate) async fn finish(&self) {
+    pub(crate) async fn begin_exit(&self) -> bool {
         let mut state = self.0.lock().await;
-        let Some(owner) = state.owner.clone() else {
-            return;
-        };
+        if state.exiting {
+            return true;
+        }
+        if let Some(owner) = &state.owner
+            && owner.alive().is_ok_and(|alive| !alive)
+            && matches!(crate::host::desktop_process(&owner.executable), Ok(None))
+        {
+            state.exiting = true;
+            crate::startup::phase("exit-start");
+        }
+        state.exiting
+    }
+
+    pub(crate) async fn finish(&self) -> Option<bool> {
+        let mut state = self.0.lock().await;
+        let owner = state.owner.clone()?;
         // 热更/模式交接只重建 Palboo，宿主仍在时不退出兼容层。
         let exited = owner.alive().is_ok_and(|alive| !alive);
         let replacement = crate::host::desktop_process(&owner.executable);
         if !exited || !matches!(replacement, Ok(None)) {
-            return;
+            return None;
         }
+        let mut complete = true;
         if let Some(manager) = state.coordinator.take() {
             let deadline = tokio::time::Instant::now() + Duration::from_secs(22);
             loop {
                 match manager.alive() {
-                    Ok(false) => break,
+                    Ok(false) => {
+                        if !crate::codex_host::direct::cleanup_finished().is_ok_and(|done| done) {
+                            complete = false;
+                            tracing::warn!("启动协调已退出，但关联清理尚未确认完成");
+                        }
+                        break;
+                    }
                     Ok(true) if tokio::time::Instant::now() < deadline => {
                         tokio::time::sleep(Duration::from_millis(100)).await
                     }
                     _ => {
+                        complete = false;
                         tracing::warn!("Palboo 启动协调尚未完成退出，未强制结束");
                         break;
                     }
@@ -130,8 +155,15 @@ impl Tracker {
                 })
                 .await
         {
+            complete = false;
             tracing::warn!(%error, "关联 CodexHost 未完成退出；未停止其他实例");
         }
+        if !owner.alive().is_ok_and(|alive| !alive)
+            || !matches!(crate::host::desktop_process(&owner.executable), Ok(None))
+        {
+            return None;
+        }
+        Some(complete)
     }
 }
 

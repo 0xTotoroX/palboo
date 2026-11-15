@@ -33,7 +33,7 @@ test('progress accepts only private existing regular files and fixed phases', (t
   startupPhase('build', file);
   startupPhase('private text should never be recorded', file);
   const event = JSON.parse(readFileSync(file, 'utf8'));
-  assert.deepEqual(Object.keys(event), ['phase', 'atMs']);
+  assert.deepEqual(Object.keys(event), ['phase', 'atMs', 'pid']);
   assert.equal(event.phase, 'build');
   assert.ok(Math.abs(Date.now() - event.atMs) < 5000);
   const link = join(root, 'link');
@@ -71,6 +71,7 @@ test(
       'LAUNCHER_UI_TEST',
       '-target',
       'arm64-apple-macosx14.0',
+      resolve('scripts/lifecycle-notice.swift'),
       resolve('scripts/app-launcher.swift'),
       '-o',
       join(bin, 'Launcher'),
@@ -93,10 +94,31 @@ if [ "$1" = "app-mode" ]; then echo '{"mode":"release"}'; fi
       const data = join(root, language);
       mkdirSync(data);
       writeFileSync(join(data, 'app-mode.json'), '{"mode":"development"}');
+      writeFileSync(
+        join(data, 'appearance-cache.json'),
+        JSON.stringify({
+          schemaVersion: 1,
+          dataDirectory: data,
+          revision: 1,
+          language: language === 'zh' ? 'zh-CN' : 'en',
+          lifecyclePreview: {
+            display: 'popup',
+            material: 'matte',
+            placement: 'host-center',
+            progress: 'energy',
+            position: { x: 0.5, y: 0.5 },
+          },
+          settingsAppearance: {
+            theme: 'dark',
+            colors: { accent: '#23bc98', page: '#181818', text: '#ffffff' },
+          },
+        }),
+        { mode: 0o600 },
+      );
       const calls = join(data, 'calls');
       const result = spawnSync(join(bin, 'Launcher'), [], {
         encoding: 'utf8',
-        timeout: 15000,
+        timeout: 20000,
         env: {
           ...process.env,
           PALBOO_NATIVE_TEST_LANGUAGE: language,
@@ -108,6 +130,7 @@ if [ "$1" = "app-mode" ]; then echo '{"mode":"release"}'; fi
       assert.equal(result.status, 0, result.stderr + String(result.error || result.signal || ''));
       assert.match(result.stdout, /geometry and reopen verified/);
       assert.match(result.stdout, /request cleanup and retry verified/);
+      assert.match(result.stdout, /native exit waited for the owned process to stop/);
       assert.deepEqual(readFileSync(calls, 'utf8').trim().split('\n'), [
         'app-mode launch',
         'app-mode launch',

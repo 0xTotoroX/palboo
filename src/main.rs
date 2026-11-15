@@ -30,6 +30,7 @@ mod model;
 mod model_control;
 mod model_requests;
 mod native_backdrop;
+mod notice_cache;
 mod panel;
 mod panel_window;
 mod performance;

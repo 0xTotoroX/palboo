@@ -15,7 +15,8 @@ func localized(_ chinese: String, _ english: String) -> String {
     let root = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
     let file = root?.appendingPathComponent("palboo/panel.json")
     let prefs = file.flatMap { try? Data(contentsOf: $0) }.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
-    let preference = prefs?["language"] as? String ?? "system"
+    let cached = (try? Data(contentsOf: LifecycleNotice.cacheURL)).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+    let preference = cached?["language"] as? String ?? prefs?["language"] as? String ?? "system"
     let language = preference == "system" ? (Locale.preferredLanguages.first ?? "en") : preference
     return language.lowercased().hasPrefix("zh") ? chinese : english
 }
@@ -26,9 +27,15 @@ struct LaunchFailure: LocalizedError {
     var errorDescription: String? { message }
 }
 
-// 同一请求贯穿包内 CLI 和 Dev，旧进程无法写入下一次重试的事件文件。
+// 同一 App 会话贯穿包内 CLI、Dev 与关联退出；重试重置时间边界，热更接续同一私有事件文件。
 final class StartupProgress {
     static let labels: [String: (String, String)] = [
+        "exit-start": ("正在保存当前状态…", "Saving current state…"),
+        "exit-tasks": ("正在结束关联任务…", "Finishing linked tasks…"),
+        "exit-compatibility": ("正在关闭兼容服务…", "Closing the integration…"),
+        "exit-backend": ("正在确认后台退出…", "Confirming background exit…"),
+        "exit-failed": ("退出尚未完成", "Exit is still in progress"),
+        "exit-cancelled": ("已恢复运行", "Running again"),
         "preparing": ("正在准备 Palboo…", "Preparing Palboo…"),
         "source": ("正在访问开发源码…", "Accessing development sources…"),
         "development": ("正在加载开发环境…", "Loading the development environment…"),
@@ -48,7 +55,9 @@ final class StartupProgress {
     ]
     let directory: URL
     let file: URL
-    let started = Date()
+    private(set) var started = Date()
+    private(set) var backendPID: pid_t?, supervisorPID: pid_t?
+    private(set) var exiting = false
     private(set) var stages: [(phase: String, at: Date)] = []
     private var consumed = 0
     private(set) var outcome: String?
@@ -71,20 +80,28 @@ final class StartupProgress {
         return localized(value.0, value.1)
     }
     func poll() {
-        guard outcome == nil,
-              let attributes = try? FileManager.default.attributesOfItem(atPath: file.path),
+        guard let attributes = try? FileManager.default.attributesOfItem(atPath: file.path),
               ((attributes[.size] as? NSNumber)?.intValue ?? 262145) <= 262144,
               let text = try? String(contentsOf: file, encoding: .utf8) else { return }
         let lines = text.components(separatedBy: "\n").dropLast()
         guard lines.count >= consumed else { return }
         for line in lines.dropFirst(consumed) {
-            guard stages.count < 128, let data = line.data(using: .utf8),
+            guard let data = line.data(using: .utf8),
                   let event = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let phase = event["phase"] as? String, Self.labels[phase] != nil,
+                  let phase = event["phase"] as? String,
                   let milliseconds = event["atMs"] as? Double else { continue }
             let at = Date(timeIntervalSince1970: milliseconds / 1000)
-            guard at >= started.addingTimeInterval(-0.01), at <= Date().addingTimeInterval(2),
-                  at >= (stages.last?.at ?? started), phase != self.phase else { continue }
+            guard at >= started.addingTimeInterval(-0.01), at <= Date().addingTimeInterval(2) else { continue }
+            if let pid = event["pid"] as? Int32, pid > 0 {
+                if phase == "backend" || phase == "exit-backend" { backendPID = pid }
+                if phase == "supervisor" { supervisorPID = pid }
+            }
+            guard Self.labels[phase] != nil else { continue }
+            // A ready app may receive many hot-reload phases; only genuine exit starts a new flow.
+            if outcome != nil && !exiting && phase != "exit-start" { continue }
+            guard at >= (stages.last?.at ?? started), phase != self.phase else { continue }
+            if phase == "exit-start" && !exiting { exiting = true; outcome = nil; started = at; stages = [] }
+            guard stages.count < 128 else { continue }
             stages.append((phase, at))
         }
         consumed = lines.count
@@ -95,15 +112,20 @@ final class StartupProgress {
             return "\(Self.message(stage.phase))  \(String(format: "%.1f", max(0, end.timeIntervalSince(stage.at))))s"
         }.joined(separator: "\n")
     }
-    func mark(_ phase: String) {
-        guard Self.labels[phase] != nil,
-              let data = try? JSONSerialization.data(withJSONObject: ["phase": phase, "atMs": Date().timeIntervalSince1970 * 1000]) else { return }
+    func mark(_ phase: String, ownerPID: pid_t? = nil) {
+        guard Self.labels[phase] != nil || ["backend", "supervisor"].contains(phase),
+              let data = try? JSONSerialization.data(withJSONObject: ["phase": phase, "atMs": Date().timeIntervalSince1970 * 1000, "pid": ownerPID ?? ProcessInfo.processInfo.processIdentifier]) else { return }
         let descriptor = Darwin.open(file.path, O_WRONLY | O_APPEND | O_NOFOLLOW | O_NONBLOCK)
         guard descriptor >= 0 else { return }
         defer { Darwin.close(descriptor) }
         (data + Data([10])).withUnsafeBytes { bytes in
             _ = Darwin.write(descriptor, bytes.baseAddress, bytes.count)
         }
+    }
+    func cancelExit() { exiting = false; outcome = nil }
+    func observeOwners(backend: pid_t, supervisor: pid_t?) { backendPID = backend; supervisorPID = supervisor }
+    func restart() {
+        poll(); started = Date(); stages = [("preparing", started)]; outcome = nil; exiting = false
     }
     func finish(_ result: String) {
         poll()
@@ -120,11 +142,10 @@ final class StartupProgress {
             ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?.appendingPathComponent("palboo-launcher")
         if let root, let data = try? JSONSerialization.data(withJSONObject: report, options: [.sortedKeys]) {
             try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
-            let destination = root.appendingPathComponent("startup-last.json")
+            let destination = root.appendingPathComponent(exiting ? "exit-last.json" : "startup-last.json")
             try? data.write(to: destination, options: .atomic)
             try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: destination.path)
         }
-        try? FileManager.default.removeItem(at: directory)
     }
 }
 var startupProgress: StartupProgress?
@@ -202,6 +223,7 @@ func launch() throws {
     }
 }
 
+func launcherCommandModes() {
 // 后台没有 AppKit 主循环。由同一启动器完成系统启动并回传真实 PID，随后退出。
 if CommandLine.arguments.dropFirst().first == "--open-window" {
     let configuration = NSWorkspace.OpenConfiguration()
@@ -274,160 +296,88 @@ if CommandLine.arguments.dropFirst().elementsEqual(["--check"]) {
     }
 }
 
-#if LAUNCHER_TEST
-// 合成 CLI 的编译期测试入口，正式 App 不包含此分支。
-do {
-    startupProgress = try StartupProgress()
-    try launch()
-    startupProgress?.finish("ready")
-} catch {
-    startupProgress?.finish(error.localizedDescription.contains("已取消重开") ? "cancelled" : "failed")
-    if !error.localizedDescription.contains("已取消重开") {
-        fputs("\(error.localizedDescription)\n", stderr)
-        exit(1)
-    }
 }
-#else
-final class Launcher: NSObject, NSApplicationDelegate, NSWindowDelegate {
+
+#if !LAUNCHER_TEST
+final class Launcher: NSObject, NSApplicationDelegate {
+    let notice = LifecycleNotice()
+    private var timer: Timer?, starting = false, exitObserved = false, completionShown = false
+    private var finishedAt: Date?, failure = "", canRecover = false
     private weak var activeAlertWindow: NSWindow?
-    private var progressWindow: NSWindow?
-    private var contentStack: NSStackView?
-    private let status = NSTextField(wrappingLabelWithString: "")
-    private let elapsed = NSTextField(labelWithString: "")
-    private let failureLabel = NSTextField(wrappingLabelWithString: "")
-    private let spinner = NSProgressIndicator()
-    private var timer: Timer?
-    private var starting = false
-    private var finishedAt: Date?
-    private lazy var retryButton = NSButton(title: localized("重试", "Retry"), target: self, action: #selector(retry))
-    private lazy var detailButton = NSButton(title: localized("详情", "Details"), target: self, action: #selector(details))
-    private lazy var closeButton = NSButton(title: localized("关闭", "Close"), target: self, action: #selector(close))
-    private lazy var recoverButton = NSButton(title: localized("使用正式模式", "Use release mode"), target: self, action: #selector(recover))
-
-    private func showProgress() {
-        if progressWindow == nil {
-            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 170),
-                styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
-            window.title = "Palboo"
-            window.isReleasedWhenClosed = false
-            window.delegate = self
-            window.collectionBehavior.insert(.moveToActiveSpace)
-            let icon = NSImageView()
-            icon.image = NSImage(named: NSImage.applicationIconName)
-            icon.imageScaling = .scaleProportionallyDown
-            icon.setAccessibilityLabel("Palboo")
-            spinner.style = .spinning
-            spinner.controlSize = .small
-            status.font = .systemFont(ofSize: 16, weight: .medium)
-            elapsed.font = .monospacedDigitSystemFont(ofSize: 12, weight: .regular)
-            elapsed.textColor = .secondaryLabelColor
-            failureLabel.font = .systemFont(ofSize: 13)
-            failureLabel.maximumNumberOfLines = 5
-            failureLabel.lineBreakMode = .byTruncatingTail
-            let progressRow = NSStackView(views: [spinner, status])
-            progressRow.orientation = .horizontal
-            progressRow.alignment = .centerY
-            progressRow.spacing = 10
-            let text = NSStackView(views: [progressRow, elapsed, failureLabel])
-            text.orientation = .vertical
-            text.alignment = .leading
-            text.spacing = 10
-            let header = NSStackView(views: [icon, text])
-            header.spacing = 18
-            header.alignment = .top
-            let buttons = NSStackView(views: [recoverButton, detailButton, closeButton, retryButton])
-            buttons.spacing = 8
-            for button in [recoverButton, detailButton, closeButton, retryButton] { button.bezelStyle = .rounded }
-            let content = NSStackView(views: [header, buttons])
-            contentStack = content
-            content.orientation = .vertical
-            content.alignment = .trailing
-            content.spacing = 22
-            content.translatesAutoresizingMaskIntoConstraints = false
-            window.contentView!.addSubview(content)
-            NSLayoutConstraint.activate([
-                icon.widthAnchor.constraint(equalToConstant: 52), icon.heightAnchor.constraint(equalToConstant: 52),
-                content.leadingAnchor.constraint(equalTo: window.contentView!.leadingAnchor, constant: 24),
-                content.trailingAnchor.constraint(equalTo: window.contentView!.trailingAnchor, constant: -24),
-                content.topAnchor.constraint(equalTo: window.contentView!.topAnchor, constant: 24),
-                content.bottomAnchor.constraint(lessThanOrEqualTo: window.contentView!.bottomAnchor, constant: -20),
-                header.widthAnchor.constraint(equalTo: content.widthAnchor)
-            ])
-            window.center()
-            progressWindow = window
+    private func refresh() {
+        guard let progress = startupProgress else { return }
+        progress.poll(); notice.updateTimes()
+        if !starting && !progress.exiting { notice.attachProgress(progress.file) { progress.observeOwners(backend: $0, supervisor: $1) } }
+        if starting {
+            let index: Int
+            switch progress.phase {
+            case "confirmation", "closing", "opening", "host": index = 1
+            case "renderer", "connecting": index = 2
+            case "workspace": index = 3
+            case "presenting": index = 4
+            default: index = 0
+            }
+            if index >= notice.completed { notice.liveStage(index, text: progress.message, at: progress.stages.last?.at ?? Date()) }
+            return
         }
-        fitProgress()
-        progressWindow?.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
-    }
-
-    private func fitProgress() {
-        guard let window = progressWindow, let content = contentStack else { return }
-        window.contentView?.layoutSubtreeIfNeeded()
-        let height = max(170, min(520, content.fittingSize.height + 44))
-        if abs(window.contentLayoutRect.height - height) > 1 {
-            let top = window.frame.maxY
-            window.setContentSize(NSSize(width: 480, height: height))
-            window.setFrameOrigin(NSPoint(x: window.frame.minX, y: top - window.frame.height))
-            window.contentView?.layoutSubtreeIfNeeded()
+        guard progress.exiting && !completionShown else { return }
+        if !exitObserved {
+            exitObserved = true; notice.retryAction = nil; notice.beginLive(exiting: true, at: progress.started)
+            failure = localized("关联服务尚未完成退出，请稍后查看。", "Linked services have not finished exiting yet.")
         }
-    }
-    private func refresh(now: Date = Date()) {
-        guard starting, let progress = startupProgress else { return }
-        progress.poll()
-        status.stringValue = progress.message
-        let seconds = Int(now.timeIntervalSince(progress.started))
-        elapsed.stringValue = localized("已等待 \(seconds) 秒", "Elapsed: \(seconds)s")
-        if progress.phase == "source" && seconds >= 10 {
-            elapsed.stringValue = localized("如有系统文件访问提示，请先处理。", "Check for a macOS file access prompt.")
+        for stage in progress.stages {
+            if let index = ["exit-tasks": 1, "exit-compatibility": 2, "exit-backend": 3][stage.phase] {
+                notice.liveStage(index, at: stage.at)
+            }
         }
-        elapsed.isHidden = seconds < 10
-        detailButton.isHidden = seconds < 10
-        fitProgress()
+        switch progress.phase {
+        case "exit-start": break
+        case "exit-tasks": break
+        case "exit-compatibility": break
+        case "exit-backend":
+            if let backend = progress.backendPID {
+                let owners = [backend] + (progress.supervisorPID.map { [$0] } ?? [])
+                if owners.allSatisfy({ Darwin.kill($0, 0) != 0 && errno == ESRCH }) {
+                    completionShown = true; progress.finish("exited")
+                    #if LAUNCHER_UI_TEST
+                    print("native exit waited for the owned process to stop")
+                    #endif
+                    notice.liveSuccess(exiting: true) { NSApp.terminate(nil) }
+                } else if Date().timeIntervalSince(progress.stages.last!.at) > 30 {
+                    if progress.outcome == nil { progress.finish("failed") }
+                    notice.liveFailure(localized("退出尚未完成", "Exit is still in progress"))
+                }
+            }
+        case "exit-failed":
+            if progress.outcome == nil { progress.finish("failed") }
+            notice.liveFailure(localized("退出尚未完成", "Exit is still in progress"))
+        case "exit-cancelled": notice.hide(); exitObserved = false; progress.cancelExit()
+        default: break
+        }
     }
     @objc private func details() {
         let alert = NSAlert()
-        alert.messageText = localized("启动详情", "Startup details")
-        let timing = startupProgress?.details(now: finishedAt ?? Date()) ?? status.stringValue
-        alert.informativeText = failureLabel.isHidden ? timing : failureLabel.stringValue + "\n\n" + timing
-        _ = runAlert(alert)
+        alert.messageText = localized("Palboo 运行详情", "Palboo activity details")
+        alert.informativeText = failure + "\n\n" + (startupProgress?.details(now: finishedAt ?? Date()) ?? "")
+        alert.addButton(withTitle: localized("好", "OK"))
+        if canRecover { alert.addButton(withTitle: localized("使用正式模式", "Use release mode")) }
+        notice.hide(); activeAlertWindow = alert.window
+        let result = alert.runModal(); activeAlertWindow = nil
+        if result == .alertSecondButtonReturn { begin(recovering: true) }
+        else if notice.displayPicker.indexOfSelectedItem == 0 { notice.show() }
     }
-    @objc private func close() { NSApp.terminate(nil) }
-    @objc private func retry() { begin() }
-    @objc private func recover() { begin(recovering: true) }
-    func windowShouldClose(_ sender: NSWindow) -> Bool {
-        if starting { sender.orderOut(nil) } else { NSApp.terminate(nil) }
-        return false
-    }
-
-    private func runAlert(_ alert: NSAlert) -> NSApplication.ModalResponse {
-        let window = alert.window
-        window.level = .floating
-        window.collectionBehavior.insert(.moveToActiveSpace)
-        activeAlertWindow = window
-        defer { activeAlertWindow = nil }
-        NSApp.activate(ignoringOtherApps: true)
-        window.orderFrontRegardless()
-        return alert.runModal()
-    }
-
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        if let window = activeAlertWindow {
-            NSApp.activate(ignoringOtherApps: true)
-            window.makeKeyAndOrderFront(nil)
-            window.orderFrontRegardless()
-        } else {
-            showProgress()
-        }
+        if let window = activeAlertWindow { window.makeKeyAndOrderFront(nil) }
+        else if starting || !failure.isEmpty { if notice.displayPicker.indexOfSelectedItem != 2 { notice.show() } }
+        else { begin() }
         return false
     }
-
     private func finishDevelopment(attempt: Int = 0, requested: Bool = false) {
         let targets = NSRunningApplication.runningApplications(withBundleIdentifier: "com.openai.codex")
         let target = developmentTarget.flatMap { NSRunningApplication(processIdentifier: $0) }
             ?? (developmentTarget == nil && targets.count == 1 ? targets.first : nil)
         if let target, target.isActive {
-            NSApp.terminate(nil)
+            notice.hide()
             return
         }
         var didRequest = requested
@@ -448,135 +398,133 @@ final class Launcher: NSObject, NSApplicationDelegate, NSWindowDelegate {
             "display notification \"工作台已就绪，请手动切换到 Palboo 或 Codex。\" with title \"Palboo\"",
             "display notification \"The workspace is ready. Switch to Palboo or Codex to continue.\" with title \"Palboo\"")
         NSAppleScript(source: source)?.executeAndReturnError(nil)
-        NSApp.terminate(nil)
+        notice.hide()
     }
 
+
     func applicationDidFinishLaunching(_ notification: Notification) {
+        notice.setup(live: true)
+        notice.detailsAction = { [weak self] in self?.details() }
+        timer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in self?.refresh() }
         begin()
         #if LAUNCHER_UI_TEST
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { self.checkStartingUI() }
         #endif
     }
-
-    #if LAUNCHER_UI_TEST
-    // 编译期原生验收：仅合成 App 使用；读取本窗口几何，不截图或请求系统权限。
-    private var checkedFailure = false
-    private func checkGeometry() {
-        guard let window = progressWindow, let content = window.contentView else { fatalError("missing startup window") }
-        content.layoutSubtreeIfNeeded()
-        for view in [status, elapsed, failureLabel, retryButton, closeButton, detailButton, recoverButton] where !view.isHidden {
-            let rect = view.convert(view.bounds, to: content)
-            precondition(rect.width > 0 && rect.height > 0 && content.bounds.insetBy(dx: -1, dy: -1).contains(rect), "startup control outside window: \(rect)")
-        }
+    func applicationWillTerminate(_ notification: Notification) {
+        timer?.invalidate(); notice.applicationWillTerminate(notification)
+        if let progress = startupProgress { try? FileManager.default.removeItem(at: progress.directory) }
     }
-    private func checkStartingUI() {
-        precondition(starting && progressWindow?.isVisible == true)
-        let original = progressWindow
-        startupProgress?.mark("source")
-        refresh(now: Date().addingTimeInterval(11))
-        precondition(!elapsed.isHidden && elapsed.stringValue == localized("如有系统文件访问提示，请先处理。", "Check for a macOS file access prompt."))
-        startupProgress?.mark("renderer")
-        refresh(now: Date().addingTimeInterval(11))
-        precondition(!elapsed.isHidden && !detailButton.isHidden && startupProgress?.phase == "renderer")
-        checkGeometry()
-        _ = windowShouldClose(progressWindow!)
-        precondition(progressWindow?.isVisible == false && starting)
-        _ = applicationShouldHandleReopen(NSApp, hasVisibleWindows: false)
-        begin()
-        precondition(progressWindow === original && progressWindow?.isVisible == true)
-        print("native startup visible; progress, elapsed, geometry and reopen verified")
-    }
-    private func checkFailedUI() {
-        guard !checkedFailure else { fatalError("retry failed") }
-        checkedFailure = true
-        precondition(!starting && !retryButton.isHidden && !closeButton.isHidden && !recoverButton.isHidden)
-        checkGeometry()
-        let previousFile = startupProgress!.file
-        precondition(!FileManager.default.fileExists(atPath: previousFile.path))
-        retry()
-        precondition(starting && previousFile != startupProgress!.file)
-        print("native error controls, request cleanup and retry verified")
-    }
-    #endif
-
     private func begin(recovering: Bool = false) {
-        guard !starting else { showProgress(); return }
-        starting = true
-        finishedAt = nil
-        launchedDevelopment = false
-        developmentTarget = nil
-        startupProgress = try? StartupProgress()
-        status.stringValue = StartupProgress.message("preparing")
-        failureLabel.stringValue = ""
-        failureLabel.isHidden = true
-        elapsed.isHidden = true
-        for button in [retryButton, closeButton, recoverButton, detailButton] { button.isHidden = true }
-        spinner.isHidden = false
-        if !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion { spinner.startAnimation(nil) }
-        showProgress()
-        timer?.invalidate()
-        timer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in self?.refresh() }
+        guard !starting else { if notice.displayPicker.indexOfSelectedItem == 0 { notice.show() }; return }
+        starting = true; finishedAt = nil; failure = ""; exitObserved = false; completionShown = false
+        launchedDevelopment = false; developmentTarget = nil
+        if let progress = startupProgress { progress.restart() } else { startupProgress = try? StartupProgress() }
+        notice.retryAction = { [weak self] in self?.begin() }
+        notice.beginLive(exiting: false)
         DispatchQueue.global(qos: .userInitiated).async {
-            var failure: String?
-            var allowsRecovery = true
-            var cancelled = false
+            var errorText: String?, recovery = true, cancelled = false
             do {
                 if recovering { _ = try command(bundledCLI(), ["app-mode", "recover"]) }
                 try launch()
             } catch {
                 cancelled = error.localizedDescription.contains("已取消重开")
-                if !cancelled {
-                    failure = error.localizedDescription
-                    allowsRecovery = (error as? LaunchFailure)?.allowsRecovery ?? true
-                }
+                if !cancelled { errorText = error.localizedDescription; recovery = (error as? LaunchFailure)?.allowsRecovery ?? true }
             }
-            let message = failure
-            let canRecover = allowsRecovery
-            let wasCancelled = cancelled
+            let message = errorText, allowsRecovery = recovery, wasCancelled = cancelled
             DispatchQueue.main.async {
-                self.timer?.invalidate()
-                self.timer = nil
-                self.refresh()
-                self.starting = false
-                self.finishedAt = Date()
+                self.refresh(); self.starting = false; self.finishedAt = Date()
                 startupProgress?.finish(message != nil ? "failed" : wasCancelled ? "cancelled" : "ready")
-                self.spinner.stopAnimation(nil)
-                self.spinner.isHidden = true
                 if let message {
-                    self.status.stringValue = localized("启动未完成", "Startup did not complete")
-                    self.failureLabel.stringValue = message
-                    self.failureLabel.isHidden = false
-                    self.retryButton.isHidden = false
-                    self.closeButton.isHidden = false
-                    self.detailButton.isHidden = false
-                    self.recoverButton.isHidden = !canRecover || !self.savedDevelopmentMode()
-                    self.showProgress()
+                    self.failure = message; self.canRecover = allowsRecovery && self.savedDevelopmentMode()
+                    self.notice.liveFailure(localized("启动未完成", "Startup did not complete"))
                     #if LAUNCHER_UI_TEST
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { self.checkFailedUI() }
                     #endif
-                    return
-                }
-                self.status.stringValue = wasCancelled ? localized("已取消启动", "Startup cancelled") : localized("已就绪", "Ready")
-                DispatchQueue.main.asyncAfter(deadline: .now() + (wasCancelled ? 0 : 0.25)) {
-                    self.progressWindow?.orderOut(nil)
-                    if launchedDevelopment && !wasCancelled { self.finishDevelopment() }
-                    else { NSApp.terminate(nil) }
+                } else if wasCancelled { NSApp.terminate(nil) }
+                else {
+                    self.notice.liveSuccess(exiting: false) {
+                        #if LAUNCHER_UI_TEST
+                        self.checkExitUI()
+                        #else
+                        if launchedDevelopment { self.finishDevelopment() }
+                        #endif
+                    }
                 }
             }
         }
     }
-
     private func savedDevelopmentMode() -> Bool {
-        let root = ProcessInfo.processInfo.environment["PALBOO_LAUNCHER_HOME"].map { URL(fileURLWithPath: $0) }
-            ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?.appendingPathComponent("palboo-launcher")
-        guard let root, let data = try? Data(contentsOf: root.appendingPathComponent("app-mode.json")),
+        let root = LifecycleNotice.cacheURL.deletingLastPathComponent()
+        guard let data = try? Data(contentsOf: root.appendingPathComponent("app-mode.json")),
               let state = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return false }
         return state["mode"] as? String == "development"
     }
+    #if LAUNCHER_UI_TEST
+    private var checkedFailure = false
+    private var fixtureBackend: Process?
+    private func checkExitUI() {
+        for _ in 0..<140 { startupProgress?.mark("build") }
+        refresh()
+        precondition(startupProgress?.outcome == "ready" && startupProgress?.phase == "presenting" && !exitObserved, "hot reload changed the completed startup")
+        startupProgress?.mark("exit-start"); startupProgress?.mark("exit-failed"); refresh()
+        precondition(notice.failed && startupProgress?.outcome == "failed" && !completionShown)
+        startupProgress?.mark("exit-cancelled"); refresh()
+        precondition(!notice.panel.isVisible && startupProgress?.exiting == false)
+        let child = Process(); child.executableURL = URL(fileURLWithPath: "/bin/sleep"); child.arguments = ["1"]
+        try! child.run(); fixtureBackend = child
+        startupProgress?.mark("exit-start")
+        startupProgress?.mark("exit-tasks")
+        startupProgress?.mark("exit-compatibility")
+        startupProgress?.mark("exit-backend", ownerPID: child.processIdentifier)
+        refresh()
+        precondition(notice.exiting && notice.completed == 3 && !completionShown && notice.panel.isVisible)
+        precondition(notice.panel.standardWindowButton(.closeButton) == nil)
+    }
+    private func checkStartingUI() {
+        precondition(starting && notice.panel.isVisible && !notice.panel.styleMask.contains(.titled))
+        precondition(notice.palette.colors["accent"] == "#23bc98" && notice.palette.theme == "dark", "cold startup lost cached theme")
+        let original = notice.panel
+        startupProgress?.mark("source"); refresh()
+        startupProgress?.mark("renderer"); refresh()
+        precondition(notice.completed == 2 && notice.content.bounds.contains(notice.progress.frame))
+        notice.hide(); precondition(starting)
+        _ = applicationShouldHandleReopen(NSApp, hasVisibleWindows: false); begin()
+        precondition(notice.panel === original && notice.panel.isVisible)
+        print("native startup visible; progress, geometry and reopen verified")
+    }
+    private func checkFailedUI() {
+        precondition(!checkedFailure && !starting && notice.failed && !notice.retryButton.isHidden)
+        checkedFailure = true
+        let previous = startupProgress!.started
+        begin(); precondition(starting && startupProgress!.started > previous)
+        print("native error controls, request cleanup and retry verified")
+    }
+    #endif
 }
-let application = NSApplication.shared
-let delegate = Launcher()
-application.delegate = delegate
-application.setActivationPolicy(.accessory)
-application.run()
 #endif
+@main struct PalbooLauncher {
+    static func main() {
+        launcherCommandModes()
+        #if LAUNCHER_TEST
+// 合成 CLI 的编译期测试入口，正式 App 不包含此分支。
+do {
+    startupProgress = try StartupProgress()
+    try launch()
+    startupProgress?.finish("ready")
+} catch {
+    startupProgress?.finish(error.localizedDescription.contains("已取消重开") ? "cancelled" : "failed")
+    if !error.localizedDescription.contains("已取消重开") {
+        fputs("\(error.localizedDescription)\n", stderr)
+        exit(1)
+    }
+}
+
+        if let progress = startupProgress { try? FileManager.default.removeItem(at: progress.directory) }
+        #else
+        let application = NSApplication.shared
+        let delegate = Launcher(); application.delegate = delegate
+        application.setActivationPolicy(.accessory); application.run()
+        #endif
+    }
+}

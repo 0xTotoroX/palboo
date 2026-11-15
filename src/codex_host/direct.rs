@@ -318,6 +318,15 @@ pub(crate) fn manager(running: &Running) -> Result<Option<ProcessIdentity>> {
         .and_then(|layout| record(&layout))
         .map(|record| record.filter(|r| r.matches(running)).map(|r| r.manager))
 }
+// The owned session record is removed only after Controller and shared Host cleanup succeeds.
+// The caller must first observe the captured coordinator's native process identity exiting.
+pub(crate) fn cleanup_finished() -> Result<bool> {
+    cleanup_finished_at(&Layout::current()?)
+}
+fn cleanup_finished_at(layout: &Layout) -> Result<bool> {
+    Ok(record(layout)?.is_none())
+}
+
 pub async fn installed(running: &Running) -> Result<Option<bool>> {
     let layout = Layout::current()?;
     let Some(record) = record(&layout)?.filter(|r| r.matches(running)) else {
@@ -496,6 +505,21 @@ pub async fn run(paths: &Paths, file: &Path) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn leftover_or_unreadable_session_cannot_confirm_cleanup() {
+        let directory = tempfile::tempdir().unwrap();
+        let layout = Layout {
+            root: directory.path().canonicalize().unwrap(),
+            upstream: PathBuf::new(),
+            data: PathBuf::new(),
+        };
+        assert!(cleanup_finished_at(&layout).unwrap());
+        write_private(&layout.record(), b"{\"schema\":1}").unwrap();
+        assert!(!cleanup_finished_at(&layout).is_ok_and(|finished| finished));
+        std::fs::remove_file(layout.record()).unwrap();
+        assert!(cleanup_finished_at(&layout).unwrap());
+    }
+
     #[test]
     fn session_runner_is_private_executable_and_independent_of_installation() {
         let directory = tempfile::tempdir().unwrap();

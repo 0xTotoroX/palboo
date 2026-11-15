@@ -6,6 +6,7 @@ import { openSync, closeSync, fstatSync, writeSync, constants } from 'node:fs';
 import { isAbsolute } from 'node:path';
 
 const phases = new Set([
+  'supervisor',
   'preparing',
   'source',
   'development',
@@ -34,7 +35,7 @@ export function startupPhase(phase, file = process.env.PALBOO_STARTUP_PROGRESS) 
     const stat = fstatSync(fd);
     if (!stat.isFile() || stat.uid !== process.getuid() || stat.mode & 0o077 || stat.size >= 262144)
       return;
-    writeSync(fd, JSON.stringify({ phase, atMs: Date.now() }) + '\n');
+    writeSync(fd, JSON.stringify({ phase, atMs: Date.now(), pid: process.pid }) + '\n');
   } catch {
     // 反馈不可用时继续原启动流程，不创建或修复外部文件。
   } finally {

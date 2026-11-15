@@ -289,17 +289,31 @@ try {
   }
   for (const legacyName of ['codex-buddy', 'codex-companion']) {
     const migrationHome = join(scratch, `migration-home-${legacyName}`);
+    // A separate home has its own signing identities and installed application identity.
+    const migrationAppDir = join(migrationHome, 'Applications');
+    const migrationBinDir = join(migrationHome, 'bin');
     const legacyData = join(migrationHome, 'Library/Application Support', legacyName);
     const migratedData = join(migrationHome, 'Library/Application Support/palboo');
     mkdirSync(legacyData, { recursive: true });
     writeFileSync(join(legacyData, 'config.json'), JSON.stringify(config));
     writeFileSync(join(legacyData, 'secrets.json'), '{"apiKey":"fixture-only"}');
-    const migrationEnv = { ...lifecycleEnv, HOME: migrationHome };
+    const migrationEnv = {
+      ...lifecycleEnv,
+      HOME: migrationHome,
+      PALBOO_LAUNCHER_HOME: join(migrationHome, 'launcher'),
+    };
     delete migrationEnv.PALBOO_HOME;
     delete migrationEnv.CODEX_BUDDY_HOME;
     const migrated = spawnSync(
       process.execPath,
-      [join(root, 'scripts/install.mjs'), '--skip-build', '--bin-dir', binDir, '--app-dir', appDir],
+      [
+        join(root, 'scripts/install.mjs'),
+        '--skip-build',
+        '--bin-dir',
+        migrationBinDir,
+        '--app-dir',
+        migrationAppDir,
+      ],
       { cwd: root, env: migrationEnv, encoding: 'utf8', timeout: 90000 },
     );
     assert.equal(migrated.status, 0, migrated.stderr || migrated.stdout);
@@ -312,7 +326,14 @@ try {
     );
     const repeated = spawnSync(
       process.execPath,
-      [join(root, 'scripts/install.mjs'), '--skip-build', '--bin-dir', binDir, '--app-dir', appDir],
+      [
+        join(root, 'scripts/install.mjs'),
+        '--skip-build',
+        '--bin-dir',
+        migrationBinDir,
+        '--app-dir',
+        migrationAppDir,
+      ],
       { cwd: root, env: migrationEnv, encoding: 'utf8', timeout: 90000 },
     );
     assert.equal(repeated.status, 0, repeated.stderr || repeated.stdout);
@@ -331,7 +352,14 @@ try {
     writeFileSync(join(conflict, 'config.json'), '{"unrelated":"keep"}');
     const refused = spawnSync(
       process.execPath,
-      [join(root, 'scripts/install.mjs'), '--skip-build', '--bin-dir', binDir, '--app-dir', appDir],
+      [
+        join(root, 'scripts/install.mjs'),
+        '--skip-build',
+        '--bin-dir',
+        migrationBinDir,
+        '--app-dir',
+        migrationAppDir,
+      ],
       { cwd: root, env: migrationEnv, encoding: 'utf8', timeout: 90000 },
     );
     assert.notEqual(refused.status, 0);
