@@ -272,6 +272,7 @@ fn prepare(scope: Scope, mut patch: Value, before: &Value) -> Result<Value> {
             merge_object(&mut patch, "typography", &before["typography"])?;
             merge_object(&mut patch, "settingsAccent", &before["settingsAccent"])?;
             merge_object(&mut patch, "startup", &before["startup"])?;
+            merge_object(&mut patch, "lifecyclePreview", &before["lifecyclePreview"])?;
         }
         Scope::CodexHost | Scope::WebLibrary => {
             guard(&mut patch, "expectedRevision", before["revision"].clone())?

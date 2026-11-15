@@ -1,5 +1,6 @@
 # tests/ — 自动测试与验收
 
+- `lifecycle-preview.test.mjs`：实际设置组件/编译样式与隔离 API 的保存重载、拖动/键盘、流程取消、无弹窗、中英文/窄屏/减少动态效果验收；原生几何由独立工具 --check/--motion-check 负责，不重启真实宿主或截图。
 > L2 | 父级：[AGENTS.md](../AGENTS.md)
 
 - `direct-session-fixture.swift/mjs`：供 Rust `codex_host::direct_session` 显式原生验收使用的独立 App、CDP、Controller 和共享 Host 进程树。通过 `PALBOO_TEST_CLI` 指定当前已构建程序，验证生产协调、后台就绪前不启动 Controller、原生 CLI 入口恢复/退出清理及 Host 启动失败仍保持原生进程/释放官方锁/不改变开关；不读取用户数据、不关闭真实 ChatGPT、无截图。
@@ -19,7 +20,6 @@
 - `side-chat-fixture.mjs`：双侧输入框、可选回答行、原生 scope/路由/分页与分支的合成夹具；可选安全源/WebCrypto、本地 ComposerScope、代理更新器和内存托管文件。完整操作直接调用真实控制器命令，回答范围走真实按钮；仅供隔离 Chromium，不接触实际聊天。
 - `side-chat-attachments.test.mjs`：原生文本卡片、双语可读问答与历史截止回归；保留正文/富引用/已有附件、不发送、同快照去重、全宽侧栏，能力缺失及云端文字回退；文件与注册失败、回读冲突以及异步期间草稿/来源/目标/模式/代次/附件/IME/生成/销毁/重注入变化的回收与操作锁。
 - `side-chat-ranges.test.mjs`：双入口与历史截止回归；本地原 ID 转正/标题确认/关闭与缓存解除、云端新主草稿、本地指定轮次新分支及范围回读；保留目标草稿，不发送，排除后续消息及历史截取时的源草稿。覆盖屏外前缀、乱序 ID/相同回答、来源重生成/历史变化/边界缺失/重复、错误分支范围、云端普通 div/子单元重复 key、源富文本草稿保留、优化互斥、双语/键盘/窄栏几何与清理。
-
 
 - `codex-host-controller-fixture.mjs`：自有合成控制器，保留已验证上游的函数/安装器边界，供 Rust 控制器兼容测试验证缓存上限、延迟挂载、所有权重验与真正 document 重载；不含上游完整程序或用户数据。
 

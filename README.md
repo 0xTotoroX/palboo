@@ -202,6 +202,7 @@ After opening Codex through Palboo:
 | `npm run dev`                                                   | Develop against the real Codex connection.               |
 | `npm run install:dev`                                           | Register development in the unified Palboo.app.          |
 | `npm run dev:settings`                                          | Open development settings and choose a worktree.         |
+| `npm run dev:status` | Preview startup/exit notifications without restarting ChatGPT. |
 | `npm run dev:stop`                                              | Stop background development.                             |
 | `npm run verify`                                                | Verify the release binary and report each check’s duration. |
 | `npm run verify:web`                                            | Run frontend and synthetic-browser checks.               |

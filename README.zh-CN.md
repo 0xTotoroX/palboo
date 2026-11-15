@@ -202,6 +202,7 @@ npm run install:dev
 | `npm run dev`                                                   | 连接真实 Codex 开发。                     |
 | `npm run install:dev`                                           | 登记开发环境并准备统一 Palboo.app。       |
 | `npm run dev:settings`                                          | 打开开发设置并选择 worktree。             |
+| `npm run dev:status` | 独立预览启停提示，不重启 ChatGPT。 |
 | `npm run dev:stop`                                              | 停止后台开发会话。                        |
 | `npm run verify`                                                | 验证待打包程序，记录各项检查耗时。          |
 | `npm run verify:web`                                            | 前端与合成浏览器检查。                    |

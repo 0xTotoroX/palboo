@@ -1,4 +1,4 @@
-// [INPUT]: App、宿主投影、窗口租约与私有 panel 偏好（含下次启动的显示状态和内外位置）。
+// [INPUT]: App、宿主投影、窗口租约与私有 panel 偏好（含下次启动显示/内外位置及独立启停预览选择）。
 // [OUTPUT]: 设置页独立强调色、macOS 15+ arm64 弹出能力与入口校验、Panel、独立胶囊/工作台尺寸、分窗口字体族/跟随/字号偏好及旧统一偏好兼容、兼容分功能字号及分呈现方式的排列/比例偏好、带分栏阅读位置与新建任务草稿接续的弹出/收回/受限命令（含常用提示词填入），以及保留原实例的开发唤起目标。
 // [POS]: 后台系统浮窗管理层，从准备租约起保护窗口快照，原生呈现后隐藏内嵌胶囊；临时坐标不持久化，收回偏好按版本校验并保存。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
@@ -170,6 +170,7 @@ pub struct Position {
 #[serde(default, rename_all = "camelCase")]
 pub struct Preferences {
     pub startup: StartupPreferences,
+    pub lifecycle_preview: LifecyclePreviewPreferences,
     pub typography: TypographyPreferences,
     pub surface_typography: BTreeMap<String, TypographyPreferences>,
     pub revision: u64,
@@ -187,6 +188,44 @@ pub struct Preferences {
     pub launcher_context_action: String,
     pub position: Option<Position>,
     pub ui: Ui,
+}
+/// Saved design-preview choices only. The production launcher does not consume these.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase", deny_unknown_fields)]
+pub struct LifecyclePreviewPreferences {
+    pub display: String,
+    pub material: String,
+    pub progress: String,
+    pub placement: String,
+    pub position: Position,
+    pub screen: Option<u32>,
+}
+impl Default for LifecyclePreviewPreferences {
+    fn default() -> Self {
+        Self {
+            display: "popup".into(),
+            material: "auto".into(),
+            progress: "segments".into(),
+            placement: "menu".into(),
+            position: Position { x: 0.85, y: 0.12 },
+            screen: None,
+        }
+    }
+}
+impl LifecyclePreviewPreferences {
+    fn validate(&self) -> Result<()> {
+        ensure!(
+            ["popup", "menu", "hidden"].contains(&self.display.as_str())
+                && ["auto", "glass", "frosted", "matte"].contains(&self.material.as_str())
+                && ["line", "segments", "pixels", "energy"].contains(&self.progress.as_str())
+                && ["menu", "remember"].contains(&self.placement.as_str())
+                && [self.position.x, self.position.y]
+                    .iter()
+                    .all(|v| v.is_finite() && (0.0..=1.0).contains(v)),
+            "启停预览选项无效"
+        );
+        Ok(())
+    }
 }
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase", deny_unknown_fields)]
@@ -281,6 +320,7 @@ impl Default for Preferences {
     fn default() -> Self {
         Self {
             startup: StartupPreferences::default(),
+            lifecycle_preview: LifecyclePreviewPreferences::default(),
             revision: 0,
             web_revision: 0,
             typography: TypographyPreferences::default(),
@@ -326,6 +366,9 @@ impl Preferences {
                 if prefs.startup.validate().is_err() {
                     prefs.startup = StartupPreferences::default();
                 }
+                if prefs.lifecycle_preview.validate().is_err() {
+                    prefs.lifecycle_preview = LifecyclePreviewPreferences::default();
+                }
                 if prefs.detached {
                     prefs.ui.open = true;
                 }
@@ -358,6 +401,7 @@ pub(crate) fn validate_backup(value: &Value) -> Result<()> {
     let prefs: Preferences = serde_json::from_value(value.clone())?;
     prefs.ui.validate()?;
     prefs.startup.validate()?;
+    prefs.lifecycle_preview.validate()?;
     prefs.typography.validate()?;
     for typography in prefs.surface_typography.values() {
         typography.validate()?;
@@ -847,6 +891,10 @@ impl App {
             bail!("外观已在其他窗口更新，请重试");
         }
         let mut next = panel.prefs.clone();
+        if let Some(value) = input.get("lifecyclePreview") {
+            next.lifecycle_preview = serde_json::from_value(value.clone())?;
+            next.lifecycle_preview.validate()?;
+        }
         if let Some(value) = input.get("startup") {
             next.startup = serde_json::from_value(value.clone())?;
             next.startup.validate()?;
@@ -1851,6 +1899,56 @@ mod tests {
             desktop.typography_for("desktop")
         );
         assert_eq!(app.settings().await, settings);
+    }
+
+    #[tokio::test]
+    async fn lifecycle_preview_persists_without_changing_real_startup_or_workspace() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths::new(Some(dir.path().into())).unwrap();
+        let app = App::new(paths.clone(), crate::config::Config::default(), None, true);
+        let before = app.appearance().await;
+        let settings = app.settings().await;
+        let saved = app
+            .save_appearance(json!({"expectedRevision": before.revision,
+            "lifecyclePreview": {"display":"menu","material":"matte","progress":"energy",
+                "placement":"remember","position":{"x":0.3,"y":0.4},"screen":42}}))
+            .await
+            .unwrap();
+        assert_eq!(saved.startup, before.startup);
+        assert_eq!(saved.ui, before.ui);
+        assert_eq!(saved.detached, before.detached);
+        assert_eq!(app.settings().await, settings);
+        assert_eq!(
+            Preferences::read(&paths).lifecycle_preview,
+            saved.lifecycle_preview
+        );
+        assert!(
+            app.save_appearance(json!({"expectedRevision":before.revision,
+            "lifecyclePreview":{"display":"hidden"}}))
+                .await
+                .is_err()
+        );
+        for invalid in [
+            json!({"display":"silent"}),
+            json!({"material":"unknown"}),
+            json!({"position":{"x":-0.1,"y":0.0}}),
+            json!({"progress":"fake"}),
+            json!({"typo":true}),
+        ] {
+            assert!(
+                app.save_appearance(
+                    json!({"expectedRevision":saved.revision,"lifecyclePreview":invalid})
+                )
+                .await
+                .is_err()
+            );
+            assert_eq!(app.appearance().await, saved);
+        }
+        let reopened = App::new(paths, crate::config::Config::default(), None, true);
+        assert_eq!(
+            reopened.appearance().await.lifecycle_preview,
+            saved.lifecycle_preview
+        );
     }
 
     #[tokio::test]

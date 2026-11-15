@@ -1,5 +1,6 @@
 # config_cli/ — Agent 配置命令
 
+appearance.lifecyclePreview 支持预览偏好局部补丁，沿用 appearance 修订；不执行真实启停。
 > L2 | 父级：[src/AGENTS.md](../AGENTS.md)
 
 - `../config_cli.rs`：命令路由、局部补丁展开、并发保护、确认和脱敏输出；业务验证由原后台执行。

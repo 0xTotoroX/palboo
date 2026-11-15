@@ -1,5 +1,6 @@
 # src/ — Rust 应用源码
 
+- `panel::LifecyclePreviewPreferences`：仅供设置/独立原生工具的 display/material/progress/placement 与屏幕身份/0–1相对坐标；appearance 修订保护、文件往返和备份验证，不参与 App::new、生产启动器或宿主退出逻辑。
 > L2 | 父级：[AGENTS.md](../AGENTS.md)
 
 0.18 兼容接入准备失败时，`native_cli` 转交官方 CLI，协调会话保存真实 native 状态；`direct::native_fallback` 只向同一数据目录返回仍存活且身份/端点匹配的原生桌面。`lifecycle::launch` 复用该桌面，CodexHost 状态页显示原错误，不重复重启或伪报兼容运行；不改写启用意愿和官方配置。
@@ -32,7 +33,6 @@ panel 的 settingsAccent 默认跟随宿主，独立保存来源及自定义 #RR
 - [jev.rs](jev.rs)：可关闭的 TypeSafe System One 批量适用性判断；显式同意、独立密钥、严格结果校验，无静默降级。
 - [stepwise_tests.rs](stepwise_tests.rs)：合成 HTTP 的三路径、相同上下文、失败/取消、方向约束、密钥和迁移集成测试，以及显式选择的真实模型合成质量样例。
 
-
 - [native_backdrop.rs](native_backdrop.rs)：NSWindow/NSPanel 共用的原生磨砂、液态 Regular/Clear、圆角/可选贴边凹角及刘海两翼裁切与网页承载；控制条单独在根视图同步裁切背景与网页；根据宿主 theme 设置自有窗口 NSAppearance，不写系统偏好，不持有业务或窗口生命周期。
 
 自定义角落缩放通过 native_backdrop::LiveResize 为 WebKit 配对发送 viewWillStartLiveResize / viewDidEndLiveResize；由 panel_window::Gesture 持有，松手、cancel-gesture、关闭或新手势接管时释放，纯移动不进入连续缩放状态。接管时显式取出并释放旧手势，不能等新手势构造后再结束旧的 live-resize。系统拖边已有 live resize 时不重复通知。
@@ -40,7 +40,6 @@ panel 的 settingsAccent 默认跟随宿主，独立保存来源及自定义 #RR
 - [model_control.rs](model_control.rs)：模型能力、串行切换、实际回读、开关/常用/模型排序/预设及末次私有诊断；用户操作可短暂等待被动回读释放，不把正常轮询误报为重复操作；旧打开入口转到 features，不管理窗口。
 - [edge_window.rs](edge_window.rs)：非激活 NSPanel/WebView，显式键盘焦点、原生鼠标精确点击边界、稳定悬停区域及8pt退出容错与冻结区域、按活动内容调整宽高，保留收放期间稳定视口、整点承载包围盒与原生轮廓、scene-ready 首帧/键盘交接、边缘/刘海几何、屏幕恢复、线程安全显示器枚举、独立材质、统一原生开合进度（0.42s响应、掉帧按实际时间推进、减少动态效果时立即完成；16ms更新间隔与屏幕检查解耦）、快捷键和租约退出。
 - [edge_geometry.rs](edge_geometry.rs)：逻辑点布局、精确凹角点击与稳定悬停区域、安全区、固定屏幕选择与 CDP 顶部坐标转换后的宿主最大相交屏幕选择及可反向连续阻尼开合的纯计算及测试。
-
 
 - [assets.rs](assets.rs)：正式内嵌与开发快照的资源边界；额外提供独立 Chat 大纲脚本及修订；只有 debug 程序接受显式 PALBOO_DEV_ASSETS，release 始终使用内嵌资源；debug 通过 PALBOO_DEV_SETTINGS 接收经验证的本机统一设置地址。
 

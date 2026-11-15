@@ -44,6 +44,7 @@ impl Scope {
             Self::Appearance => &[
                 "expectedRevision",
                 "startup",
+                "lifecyclePreview",
                 "typography",
                 "settingsTheme",
                 "settingsStyle",
@@ -299,6 +300,7 @@ pub(super) fn schema(scope: Scope) -> Value {
         Scope::Appearance => json!({
             "nestedFields":{
                 "startup":keys(crate::panel::StartupPreferences::default()),
+                "lifecyclePreview":keys(crate::panel::LifecyclePreviewPreferences::default()),
                 "ui":keys(crate::panel::Ui::default()),
                 "typography":keys(crate::panel::TypographyPreferences::default()),
                 "settingsAccent":keys(crate::panel::SettingsAccent::default()),
@@ -306,6 +308,8 @@ pub(super) fn schema(scope: Scope) -> Value {
                 "ui.dockLayout / ui.popoutLayout":keys(crate::panel::WorkbenchLayout::default())
             },
             "choices":{
+                "lifecyclePreview.display":["popup","menu","hidden"],"lifecyclePreview.material":["auto","glass","frosted","matte"],
+                "lifecyclePreview.progress":["line","segments","pixels","energy"],"lifecyclePreview.placement":["menu","remember"],
                 "startup.mode":["restore","closed","open"],"startup.location":["inside","outside"],
                 "language":["system","en","zh-CN"],"settingsTheme":["codex","light","dark"],"settingsStyle":["chatgpt","palboo"],
                 "settingsAccent.source":["chatgpt","palboo","custom"],
@@ -314,6 +318,7 @@ pub(super) fn schema(scope: Scope) -> Value {
                 "settingsTarget":["plugin","web"]
             },
             "notes":{
+                "lifecyclePreview":"仅保存启停预览偏好；不接入真实启停，position 为0–1相对坐标",
                 "startup":"下次启动生效；mode 为 open 时使用 location，inside 沿用侧栏或浮层；只影响主界面，不改变贴边或业务开关",
                 "typography":"支持局部更新；scale 为 75–150%，customSize 为 10–32px",
                 "settingsAccent":"兼容旧配置；source/color不参与当前设置页样式，强调色只读跟随宿主并用于选中、开关与主要操作",

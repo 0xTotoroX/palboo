@@ -1,0 +1,268 @@
+/* [INPUT]: Host semantic theme, preview-only phase fraction and normalized placement.
+ * [OUTPUT]: Four loading treatments and a bounded draggable notification scene.
+ * [POS]: General settings only; no production notification styles. */
+.lifecycle-notice {
+  color: var(--buddy-muted);
+  font-size: 0.85rem;
+  margin: 8px 0 16px;
+}
+.lifecycle-scene {
+  position: relative;
+  height: 370px;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--buddy-page);
+  border: 1px solid var(--buddy-border);
+  container-type: inline-size;
+}
+.lifecycle-menubar {
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  font-size: 11px;
+  border-bottom: 1px solid var(--buddy-border);
+}
+.lifecycle-menubar button {
+  width: 32px;
+  height: 26px;
+  padding: 3px;
+}
+.lifecycle-menubar svg {
+  height: 100%;
+  width: 100%;
+}
+.lifecycle-notification {
+  position: absolute;
+  width: min(340px, calc(100% - 16px));
+  left: calc(8px + (100% - min(340px, 100% - 16px) - 16px) * var(--x));
+  top: calc(38px + (100% - 306px - 40px) * var(--y));
+  border-radius: 18px;
+  padding: 14px 18px 12px;
+  color: var(--buddy-text);
+  background: var(--buddy-surface);
+  box-shadow: 0 10px 24px #0002;
+  border: 1px solid var(--buddy-border);
+}
+.lifecycle-notification[data-material='auto'],
+.lifecycle-notification[data-material='glass'] {
+  background: color-mix(in srgb, var(--buddy-surface) 76%, transparent);
+  backdrop-filter: blur(22px);
+  box-shadow:
+    inset 0 1px 1px #ffffff35,
+    0 10px 24px #0002;
+}
+.lifecycle-notification[data-material='frosted'] {
+  background: color-mix(in srgb, var(--buddy-surface) 90%, transparent);
+  backdrop-filter: blur(16px);
+}
+.lifecycle-notification header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  min-height: 36px;
+}
+.lifecycle-notification header:active {
+  cursor: grabbing;
+}
+.lifecycle-notification header:focus-visible {
+  outline: 2px solid var(--buddy-accent);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+.lifecycle-notification header svg {
+  width: 30px;
+  height: 28px;
+  flex-shrink: 0;
+}
+.lifecycle-notification strong {
+  font-size: 13px;
+  font-weight: 600;
+  flex: 1;
+}
+.lifecycle-notification time {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--buddy-muted);
+}
+.lifecycle-notification header button {
+  width: 24px;
+  height: 28px;
+  color: var(--buddy-muted);
+  flex-shrink: 0;
+}
+.lifecycle-notification ol {
+  list-style: none;
+  margin: 12px 0;
+  padding: 0;
+  min-height: 150px;
+}
+.lifecycle-notification li {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  min-height: 30px;
+  align-items: center;
+  animation: lifecycle-arrive 0.2s ease-out both;
+}
+.lifecycle-notification li .lifecycle-mark {
+  width: 14px;
+  color: var(--buddy-accent);
+}
+.lifecycle-notification li[data-done='true'],
+.lifecycle-notification li[data-done='true'] .lifecycle-mark {
+  color: var(--buddy-muted);
+}
+.lifecycle-notification footer {
+  text-align: right;
+  font-size: 10px;
+  color: var(--buddy-muted);
+  margin-top: 6px;
+}
+.lifecycle-bar {
+  display: flex;
+  gap: 3px;
+  height: 12px;
+  color: var(--buddy-accent);
+}
+.lifecycle-bar[data-style='line'],
+.lifecycle-bar[data-style='energy'] {
+  background: color-mix(in srgb, currentColor 13%, transparent);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.lifecycle-bar[data-style='line'] {
+  height: 4px;
+  margin-block: 4px;
+}
+.lifecycle-bar[data-style='line'] i,
+.lifecycle-bar[data-style='energy'] i {
+  width: var(--progress);
+  background: currentColor;
+  transition: width 0.24s ease-out;
+}
+.lifecycle-bar[data-style='segments'] i,
+.lifecycle-bar[data-style='pixels'] i {
+  flex: 1;
+  background: color-mix(in srgb, currentColor 13%, transparent);
+  border-radius: 1px;
+}
+.lifecycle-bar i[data-filled='true'] {
+  background: currentColor;
+}
+.lifecycle-bar[data-style='pixels'] {
+  gap: 4px;
+  height: 10px;
+  margin-block: 1px;
+}
+.lifecycle-bar[data-style='pixels'] i {
+  border-radius: 0;
+  align-self: center;
+  aspect-ratio: 1;
+  max-height: 10px;
+}
+.lifecycle-bar[data-style='energy'] {
+  transform: skewX(-14deg);
+}
+.lifecycle-bar[data-style='energy'] i {
+  background: repeating-linear-gradient(90deg, currentColor 0 12px, transparent 12px 15px);
+}
+.lifecycle-notification[data-failed='true'] .lifecycle-bar {
+  color: var(--buddy-danger, #b86c16);
+}
+.lifecycle-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: 14px 0 20px;
+}
+.lifecycle-styles {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.lifecycle-styles button {
+  padding: 14px 10px 10px;
+  border: 1px solid var(--buddy-border);
+  border-radius: 8px;
+  min-width: 0;
+}
+.lifecycle-styles button[aria-pressed='true'] {
+  outline: 1px solid currentColor;
+}
+.lifecycle-styles span {
+  display: block;
+  font-size: 12px;
+  margin-top: 12px;
+}
+.lifecycle-quiet {
+  position: absolute;
+  inset: 120px 20px auto;
+  text-align: center;
+  color: var(--buddy-muted);
+  font-size: 13px;
+}
+@keyframes lifecycle-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (max-width: 600px) {
+  .lifecycle-styles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .lifecycle-notification {
+    padding-inline: 12px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lifecycle-notification li {
+    animation: none;
+  }
+  .lifecycle-bar i {
+    transition: none;
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .lifecycle-notification {
+    background: var(--buddy-surface) !important;
+    backdrop-filter: none !important;
+  }
+}
+
+.lifecycle-step-label {
+  flex: 1;
+  min-width: 0;
+}
+.lifecycle-notification li time {
+  margin-left: auto;
+  min-width: 42px;
+  text-align: right;
+  flex-shrink: 0;
+}
+.lifecycle-bar[data-style='energy'] {
+  background: transparent;
+  transform: none;
+  border-radius: 0;
+  gap: 2px;
+}
+.lifecycle-bar[data-style='energy'] i {
+  flex: 1;
+  width: auto;
+  clip-path: polygon(25% 0, 100% 0, 75% 100%, 0 100%);
+  background: color-mix(in srgb, currentColor 13%, transparent);
+}
+.lifecycle-bar[data-style='energy'] i[data-filled='true'] {
+  background: currentColor;
+}

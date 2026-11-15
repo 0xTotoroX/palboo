@@ -131,6 +131,7 @@ const aliases: Record<string, SettingsPage> = {
   'settings-fonts': 'appearance',
   'settings-launcher': 'surfaces',
   'settings-startup': 'general',
+  'settings-lifecycle-preview': 'general',
   'settings-app-mode': 'general',
   'settings-app-update': 'general',
   'settings-app-development': 'general',

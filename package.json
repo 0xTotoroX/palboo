@@ -33,7 +33,8 @@
     "test:glass": "node tests/embedded-glass.mjs",
     "test:site": "node --test tests/website.mjs",
     "test:workbench": "node tests/workbench.mjs",
-    "install:dev": "node scripts/dev-launcher.mjs"
+    "install:dev": "node scripts/dev-launcher.mjs",
+    "dev:status": "node scripts/lifecycle-preview.mjs"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.3.3",

@@ -1,5 +1,6 @@
 # ui/shared/ — 共用契约与资源
 
+`contracts.ts` 的 LifecyclePreviewPreferences 为独立预览契约；appearance.lifecyclePreview 保存通知方式、材质、进度和屏幕身份/相对位置，不改变生产启动行为。
 > L2 | 父级：[AGENTS.md](../../AGENTS.md)
 
 - `locales/en.js`：共享英文产品文案，包含侧聊卡片名称、快照轮次/角色与范围，以及本地备份、恢复和集中反馈；用户聊天和草稿原样保留。

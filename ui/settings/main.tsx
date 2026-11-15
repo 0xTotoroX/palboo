@@ -23,6 +23,7 @@ import './settings-host.css';
 import './settings-motion.css';
 import '../surfaces/workspace/styles.css';
 import './layout-preview.css';
+import './lifecycle-preview.css';
 import { PalbooWordmark } from '../shared/brand';
 import { useCompanion, type Settings, type EditableSettings } from './api';
 import { useSettingsForm } from './use-settings-form';
