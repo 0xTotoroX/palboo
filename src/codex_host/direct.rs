@@ -1,5 +1,5 @@
 // [INPUT]: Palboo 配置、官方组件、私有启动请求及原生进程身份。
-// [OUTPUT]: 0.18 系列直接启动、运行身份、原生 CLI/回退端点和丢失协调进程后的原会话恢复。
+// [OUTPUT]: 0.18/0.19 系列直接启动、运行身份、原生 CLI/回退端点和丢失协调进程后的原会话恢复。
 // [POS]: 以 Palboo 自身的协调子进程替代上游 Desktop launcher；不新增 App、不伪造上游运行记录。
 // [PROTOCOL]: 变更时同步 codex_host/AGENTS.md。
 use super::{Options, Running};
@@ -61,8 +61,8 @@ impl Resources {
             super::prepare(options, Some(desktop)).await?;
         let version = super::update::version_tuple(&super::version(&installation).await?)?;
         ensure!(
-            version.0 == 0 && version.1 == 18,
-            "当前 CodexHost 版本尚未验证直接启动，请使用 0.18 系列"
+            super::uses_direct_launch(version),
+            "当前 CodexHost 版本尚未验证直接启动，请使用 0.18 或 0.19 系列"
         );
         let root = super::resource_root(&installation)?;
         let inspected = super::output(&installation, &["inspect"], Duration::from_secs(10)).await?;

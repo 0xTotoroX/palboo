@@ -1,4 +1,4 @@
-/* [INPUT]: 显式指定的官方 CodexHost 0.18 安装、LaunchServices 和合成 App/运行时。
+/* [INPUT]: 显式指定的官方 CodexHost 0.18/0.19 安装、LaunchServices 和合成 App/运行时。
  * [OUTPUT]: Palboo 直接打开 App 时，官方 Shim 路由和辅助命令隔离的专项验收。
  * [POS]: 仅验证启动参数交接，不替代生产协调及真实 Codex 冷启动验收。
  * [PROTOCOL]: 变更时同步 tests/AGENTS.md。 */
@@ -28,7 +28,7 @@ test(
     const installation = realpathSync(process.env.PALBOO_TEST_CODEXHOST_PACKAGE);
     assert.match(
       execFileSync(join(installation, 'bin/codexhost'), ['--version'], { encoding: 'utf8' }),
-      /0\.18\.0/,
+      /0\.(18|19)\.\d+/,
     );
     const root = realpathSync(mkdtempSync(join(tmpdir(), 'palboo-direct-host-')));
     t.after(() => rmSync(root, { recursive: true, force: true }));
@@ -50,7 +50,7 @@ test(
 import Darwin
 let environment = ProcessInfo.processInfo.environment
 let executable = environment["CODEX_CLI_PATH"]!
-for arguments in [["app-server", "--stdio", "--analytics-default-enabled"], ["--version"]] {
+for arguments in [["app-server", "--analytics-default-enabled"], ["--version"]] {
     let input = Pipe()
     let child = Process()
     child.executableURL = URL(fileURLWithPath: executable)
@@ -102,8 +102,10 @@ printf 'stock' > "$PALBOO_TEST_STOCK"
       PALBOO_TEST_STATUS: join(root, 'status'),
     };
     if (process.env.PALBOO_TEST_CLI) {
-      const proxy = join(root, 'palboo'),
-        context = join(root, 'context.json');
+      const directory = join(root, 'codex-host-native-cli/00000000-0000-4000-8000-000000000001');
+      mkdirSync(directory, { recursive: true, mode: 0o700 });
+      const proxy = join(directory, 'palboo'),
+        context = join(directory, 'context.json');
       copyFileSync(realpathSync(process.env.PALBOO_TEST_CLI), proxy);
       chmodSync(proxy, 0o700);
       writeFileSync(
@@ -127,7 +129,10 @@ printf 'stock' > "$PALBOO_TEST_STOCK"
     args.push('-a', app, '--args', '--remote-debugging-port=54322');
     const environment = Object.fromEntries(
       Object.entries(process.env).filter(
-        ([key]) => !key.startsWith('CODEXHOST_') && key !== 'CODEX_CLI_PATH',
+        ([key]) =>
+          !key.startsWith('CODEXHOST_') &&
+          key !== 'CODEX_CLI_PATH' &&
+          key !== 'CODEX_INTERNAL_ORIGINATOR_OVERRIDE',
       ),
     );
     const opened = spawnSync('/usr/bin/open', args, {
@@ -148,7 +153,7 @@ printf 'stock' > "$PALBOO_TEST_STOCK"
       }),
     );
     assert.deepEqual(JSON.parse(readFileSync(record)), {
-      args: ['app-server', '--stdio', '--analytics-default-enabled'],
+      args: ['app-server', '--analytics-default-enabled'],
       shimRemoved: true,
       stock: realpathSync(stock),
     });

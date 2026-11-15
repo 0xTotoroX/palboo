@@ -179,6 +179,20 @@ async function fixture() {
         shimRuntimeAlias: runtimeAlias(child.pid),
       }),
     );
+  } catch (error) {
+    const files = fs
+      .readdirSync(data, { recursive: true })
+      .filter((file) => /\.log$|ready|diagnostic/.test(file));
+    const logs = files
+      .filter((file) => file.endsWith('.log'))
+      .map((file) => {
+        try {
+          return `${file}: ${fs.readFileSync(path.join(data, file), 'utf8').slice(-4000)}`;
+        } catch {
+          return `${file}: unreadable`;
+        }
+      });
+    throw new Error(`${error.message}\nHost files: ${JSON.stringify(files)}\n${logs.join('\n')}`);
   } finally {
     child.stdin.end();
     spawnSync(host, ['host', 'stop', '--node', node, '--host-runtime', runtime, '--data', data], {

@@ -419,6 +419,10 @@ fn check_controller_state(executable: &Path) -> Result<()> {
     check_controller_records(&descriptor, &store_lock, Some(executable))
 }
 
+fn uses_direct_launch(version: (u64, u64, u64)) -> bool {
+    matches!(version, (0, 18 | 19, _))
+}
+
 pub async fn launch(paths: &Paths, options: &Options, app: Option<&Path>) -> Result<String> {
     ensure!(options.enabled, "CodexHost 尚未启用");
     let (executable, desktop, node, controller) = prepare(options, app).await?;
@@ -447,10 +451,7 @@ pub async fn launch(paths: &Paths, options: &Options, app: Option<&Path>) -> Res
         running().await?.is_none(),
         "CodexHost 控制器仍在退出，请稍后重试"
     );
-    if matches!(
-        update::version_tuple(&version(&executable).await?)?,
-        (0, 18, _)
-    ) {
+    if uses_direct_launch(update::version_tuple(&version(&executable).await?)?) {
         return direct::launch(paths, options, &desktop).await;
     }
     let log_path = paths.root.join("codex-host.log");
@@ -707,6 +708,16 @@ impl App {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn direct_launch_covers_verified_host_series() {
+        for version in [(0, 18, 0), (0, 18, 3), (0, 19, 0), (0, 19, 1)] {
+            assert!(uses_direct_launch(version), "{version:?}");
+        }
+        for version in [(0, 17, 2), (0, 20, 0), (1, 18, 0)] {
+            assert!(!uses_direct_launch(version), "{version:?}");
+        }
+    }
 
     #[test]
     fn controller_preflight_preserves_all_external_records() {
