@@ -1,6 +1,6 @@
 # ui/settings/ — React 配置网页
 
-- `lifecycle-preview.tsx/css`：“系统 → 通用”的独立启停预览与保存项；只写 appearance.lifecyclePreview，串行修订保护、冲突保留草稿，四种进度、材质、相对拖动位置及无弹窗模式；本地计时播放，隐藏页面/卸载停止，不执行真实启停。
+- `lifecycle-preview.tsx/css`：“系统 → 通用”的独立启停预览与保存项；只写 appearance.lifecyclePreview，串行修订保护、冲突保留草稿，已选定的能量槽进度、材质、相对拖动位置及无弹窗模式；本地计时播放，隐藏页面/卸载停止，不执行真实启停。
 - `backup-settings.tsx`：备份与从文件恢复直接显示独立表单，多环境时另列复制表单；加密由导出选择或文件签名决定；恢复、复制各自保留范围和目标，统一预览确认并复用原保护与撤销。
 
 > L2 | 父级：[AGENTS.md](../../AGENTS.md)

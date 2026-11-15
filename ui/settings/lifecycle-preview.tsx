@@ -1,5 +1,5 @@
 /* [INPUT]: Saved, revision-checked lifecycle preview choices and local playback actions.
- * [OUTPUT]: Isolated startup/shutdown rehearsal, draggable notification and game-inspired bars.
+ * [OUTPUT]: Isolated startup/shutdown rehearsal, draggable notification and the selected energy-meter animation.
  * [POS]: General settings preview only; never starts or stops an application.
  * [PROTOCOL]: Update ui/settings/AGENTS.md when responsibilities change. */
 import { useEffect, useRef, useState } from 'react';
@@ -18,12 +18,10 @@ import { Card } from './components/ui/card';
 const defaults: LifecyclePreviewPreferences = {
   display: 'popup',
   material: 'auto',
-  progress: 'segments',
+  progress: 'energy',
   placement: 'menu',
   position: { x: 0.85, y: 0.12 },
 };
-const styles = ['line', 'segments', 'pixels', 'energy'] as const;
-const styleNames = ['细线', '复古格栅', '像素方块', '能量槽'];
 const startup = ['准备 Palboo', '打开 Codex', '连接兼容服务', '恢复工作台', '确认界面可用'];
 const shutdown = ['保存当前状态', '结束关联任务', '关闭兼容服务', '确认后台已退出'];
 const clamp = (n: number) => Math.min(1, Math.max(0, n));
@@ -41,15 +39,7 @@ function Eyes() {
     </svg>
   );
 }
-export function LifecycleBar({
-  style,
-  value,
-  animate = false,
-}: {
-  style: LifecyclePreviewPreferences['progress'];
-  value: number;
-  animate?: boolean;
-}) {
+export function LifecycleBar({ value, animate = false }: { value: number; animate?: boolean }) {
   const target = Math.floor(clamp(value) * 20);
   const [cells, setCells] = useState(target);
   const shown = useRef(target);
@@ -68,17 +58,10 @@ export function LifecycleBar({
     return () => clearInterval(timer);
   }, [target, animate]);
   return (
-    <div
-      className="lifecycle-bar"
-      data-style={style}
-      aria-hidden="true"
-      style={{ '--progress': `${clamp(value) * 100}%` } as CSSProperties}
-    >
-      {style === 'line' ? (
-        <i />
-      ) : (
-        Array.from({ length: 20 }, (_, i) => <i key={i} data-filled={i < cells} />)
-      )}
+    <div className="lifecycle-bar" data-style="energy" aria-hidden="true">
+      {Array.from({ length: 20 }, (_, i) => (
+        <i key={i} data-filled={i < cells} />
+      ))}
     </div>
   );
 }
@@ -122,6 +105,7 @@ export function LifecyclePreviewSettings({
   }, [value, prefs]);
   async function save(next: LifecyclePreviewPreferences) {
     if (!live || !prefs || saving.current) return;
+    next = { ...next, progress: 'energy' };
     saving.current = true;
     setBusy(true);
     setDraft(next);
@@ -337,11 +321,7 @@ export function LifecyclePreviewSettings({
               aria-valuemax={steps.length}
               aria-valuenow={step}
             >
-              <LifecycleBar
-                style={draft.progress}
-                value={step / steps.length}
-                animate={running && !failed}
-              />
+              <LifecycleBar value={step / steps.length} animate={running && !failed} />
             </div>
             <footer>
               {tr('{{completed}} / {{total}} 步', { completed: step, total: steps.length })}
@@ -364,20 +344,6 @@ export function LifecyclePreviewSettings({
         <Button type="button" variant="ghost" onClick={() => play('exit', true)}>
           {tr('模拟卡住')}
         </Button>
-      </div>
-      <div className="lifecycle-styles" role="group" aria-label={tr('进度条样式')}>
-        {styles.map((style, i) => (
-          <button
-            key={style}
-            type="button"
-            aria-pressed={draft.progress === style}
-            disabled={disabled}
-            onClick={() => void save({ ...draft, progress: style })}
-          >
-            <LifecycleBar style={style} value={0.6} />
-            <span>{tr(styleNames[i])}</span>
-          </button>
-        ))}
       </div>
       <Field id="lifecycle-display" label={tr('提示方式')}>
         <NativeSelect

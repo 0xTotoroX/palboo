@@ -142,7 +142,7 @@ final class StepRow: NSView {
     }
 }
 final class Progress: NSView {
-    var fraction: Double = 0, style = 1, failed = false
+    var fraction: Double = 0, failed = false
     var shownCells = 0, cellGeneration = 0, cellHistory = [Int]()
     override var isFlipped: Bool { true }
     override init(frame: NSRect) { super.init(frame: frame) }
@@ -164,30 +164,19 @@ final class Progress: NSView {
     override func draw(_ dirtyRect: NSRect) {
         let color = failed ? NSColor.systemOrange : NSColor.controlAccentColor
         let track = color.withAlphaComponent(0.13)
-        if style == 0 {
-            let r = NSRect(x: 0, y: 4, width: bounds.width, height: 4)
-            track.setFill(); NSBezierPath(roundedRect: r, xRadius: 2, yRadius: 2).fill()
-            color.setFill(); NSBezierPath(roundedRect: NSRect(x: 0, y: 4, width: bounds.width * Double(shownCells) / 20, height: 4), xRadius: 2, yRadius: 2).fill()
-        } else {
-            let gap: CGFloat = style == 2 ? 4 : 3
-            let width = (bounds.width - gap * 19) / 20
-            for i in 0..<20 {
-                (i < shownCells ? color : track).setFill()
-                let x = CGFloat(i) * (width + gap)
-                if style == 3 {
-                    let path = NSBezierPath(); path.move(to: NSPoint(x: x+3, y: 0)); path.line(to: NSPoint(x: x+width, y: 0)); path.line(to: NSPoint(x: x+width-3, y: 12)); path.line(to: NSPoint(x: x, y: 12)); path.close(); path.fill()
-                } else {
-                    let h: CGFloat = style == 2 ? min(width, 10) : 12
-                    NSBezierPath(roundedRect: NSRect(x: x, y: (12-h)/2, width: width, height: h), xRadius: style == 2 ? 0 : 1, yRadius: style == 2 ? 0 : 1).fill()
-                }
-            }
+        let gap: CGFloat = 3
+        let width = (bounds.width - gap * 19) / 20
+        for i in 0..<20 {
+            (i < shownCells ? color : track).setFill()
+            let x = CGFloat(i) * (width + gap)
+            let path = NSBezierPath(); path.move(to: NSPoint(x: x+3, y: 0)); path.line(to: NSPoint(x: x+width, y: 0)); path.line(to: NSPoint(x: x+width-3, y: 12)); path.line(to: NSPoint(x: x, y: 12)); path.close(); path.fill()
         }
     }
 }
 final class Preview: NSObject, NSApplicationDelegate, NSWindowDelegate {
     let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 356, height: 160), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-    let controls = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 610, height: 420), styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
-    let dragHeader = DragHeader(), saveStatus = NSTextField(labelWithString: ""), stylePicker = NSPopUpButton(), displayPicker = NSPopUpButton(), placementPicker = NSPopUpButton()
+    let controls = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 610, height: 326), styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
+    let dragHeader = DragHeader(), saveStatus = NSTextField(labelWithString: ""), displayPicker = NSPopUpButton(), placementPicker = NSPopUpButton()
     var pinnedTop: NSPoint?, syncing = false, revision: Int = -1, preferenceTimer: Timer?, saving = false, loading = false
     var savedScreen: Int?
     var loadedPreferences: NSDictionary?
@@ -249,19 +238,13 @@ final class Preview: NSObject, NSApplicationDelegate, NSWindowDelegate {
         material.frame = NSRect(x: 278, y: 128, width: 268, height: 28); material.target = self; material.action = #selector(changeSavedChoice); c.addSubview(material)
         theme.frame = NSRect(x: 24, y: 172, width: 283, height: 28); theme.selectedSegment = 0; theme.target = self; theme.action = #selector(changeAppearance); c.addSubview(theme)
         motion.frame = NSRect(x: 333, y: 174, width: 200, height: 24); motion.target = self; motion.action = #selector(changeAppearance); c.addSubview(motion)
-        stylePicker.addItems(withTitles: ["进度：细线", "进度：复古格栅", "进度：像素方块", "进度：能量槽"])
-        stylePicker.selectItem(at: 1); stylePicker.frame = NSRect(x: 24, y: 214, width: 254, height: 28); stylePicker.target = self; stylePicker.action = #selector(changeSavedChoice); c.addSubview(stylePicker)
         displayPicker.addItems(withTitles: ["提示：自动弹出", "提示：仅菜单栏，不弹窗", "提示：不显示"])
-        displayPicker.frame = NSRect(x: 294, y: 214, width: 292, height: 28); displayPicker.target = self; displayPicker.action = #selector(changeSavedChoice); c.addSubview(displayPicker)
+        displayPicker.frame = NSRect(x: 24, y: 214, width: 254, height: 28); displayPicker.target = self; displayPicker.action = #selector(changeSavedChoice); c.addSubview(displayPicker)
         placementPicker.addItems(withTitles: ["位置：跟随菜单栏", "位置：记住拖动位置"])
-        placementPicker.frame = NSRect(x: 24, y: 254, width: 254, height: 28); placementPicker.target = self; placementPicker.action = #selector(changeSavedChoice); c.addSubview(placementPicker)
-        c.addSubview(button("回到菜单栏", NSRect(x: 294, y: 254, width: 130, height: 28), #selector(resetPosition)))
-        for i in 0..<4 {
-            let sample = Progress(frame: NSRect(x: 24 + i*144, y: 306, width: 126, height: 12)); sample.style = i; sample.update(0.6, animate: false, failed: false); c.addSubview(sample)
-            c.addSubview(label(["细线", "复古格栅", "像素方块", "能量槽"][i], NSRect(x: 24 + i*144, y: 326, width: 126, height: 20), size: 12))
-        }
-        saveStatus.frame = NSRect(x: 24, y: 358, width: 562, height: 20); saveStatus.font = .systemFont(ofSize: 12); saveStatus.textColor = .secondaryLabelColor; c.addSubview(saveStatus)
-        let foot = label("拖动顶部调整位置；保留每步耗时，进度逐格点亮。", NSRect(x: 24, y: 389, width: 562, height: 20), size: 12)
+        placementPicker.frame = NSRect(x: 294, y: 214, width: 292, height: 28); placementPicker.target = self; placementPicker.action = #selector(changeSavedChoice); c.addSubview(placementPicker)
+        c.addSubview(button("回到菜单栏", NSRect(x: 24, y: 254, width: 130, height: 28), #selector(resetPosition)))
+        saveStatus.frame = NSRect(x: 170, y: 258, width: 416, height: 20); saveStatus.font = .systemFont(ofSize: 12); saveStatus.textColor = .secondaryLabelColor; c.addSubview(saveStatus)
+        let foot = label("拖动顶部调整位置；保留每步耗时，进度逐格点亮。", NSRect(x: 24, y: 296, width: 562, height: 20), size: 12)
         foot.textColor = .secondaryLabelColor; c.addSubview(foot)
         localize(controls.contentView!); controls.title = L(controls.title)
         controls.center(); controls.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
@@ -362,7 +345,6 @@ final class Preview: NSObject, NSApplicationDelegate, NSWindowDelegate {
         panel.effectiveAppearance.performAsCurrentDrawingAppearance {
             for (i, row) in rows.enumerated() { row.update(failed && i == completed ? "兼容服务仍在退出" : steps[i], done: i < completed, failed: failed && i == completed, reduce: reduce) }
             progress.frame = NSRect(x: 24, y: 78 + visible * 30, width: 308, height: 12)
-            progress.style = stylePicker.indexOfSelectedItem
             progress.update(Double(completed) / Double(steps.count), animate: animate && !reduce, failed: failed)
         }
         count.frame = NSRect(x: 244, y: progress.frame.maxY + 7, width: 88, height: 18); count.stringValue = "\(completed) / \(steps.count) " + (previewEnglish ? "steps" : "步")
@@ -462,7 +444,6 @@ final class Preview: NSObject, NSApplicationDelegate, NSWindowDelegate {
         loadedPreferences = prefs as NSDictionary
         localize(controls.contentView!); controls.title = L(controls.title)
         syncing = true
-        stylePicker.selectItem(at: ["line", "segments", "pixels", "energy"].firstIndex(of: prefs["progress"] as? String ?? "") ?? 1)
         material.selectItem(at: ["auto", "glass", "frosted", "matte"].firstIndex(of: prefs["material"] as? String ?? "") ?? 0)
         displayPicker.selectItem(at: ["popup", "menu", "hidden"].firstIndex(of: prefs["display"] as? String ?? "") ?? 0)
         placementPicker.selectItem(at: prefs["placement"] as? String == "remember" ? 1 : 0)
@@ -502,15 +483,15 @@ final class Preview: NSObject, NSApplicationDelegate, NSWindowDelegate {
         guard var request = appearanceRequest() else {
             saveStatus.stringValue = L("未连接 Palboo；当前选择仅用于临时预览"); return
         }
-        let prefs: [String: Any] = ["display": ["popup", "menu", "hidden"][displayPicker.indexOfSelectedItem], "material": ["auto", "glass", "frosted", "matte"][material.indexOfSelectedItem], "progress": ["line", "segments", "pixels", "energy"][stylePicker.indexOfSelectedItem], "placement": placementPicker.indexOfSelectedItem == 0 ? "menu" : "remember", "position": ["x": preferencePosition.x, "y": preferencePosition.y], "screen": savedScreen.map { $0 as Any } ?? NSNull()]
+        let prefs: [String: Any] = ["display": ["popup", "menu", "hidden"][displayPicker.indexOfSelectedItem], "material": ["auto", "glass", "frosted", "matte"][material.indexOfSelectedItem], "progress": "energy", "placement": placementPicker.indexOfSelectedItem == 0 ? "menu" : "remember", "position": ["x": preferencePosition.x, "y": preferencePosition.y], "screen": savedScreen.map { $0 as Any } ?? NSNull()]
         request.httpMethod = "POST"; request.timeoutInterval = 5
         request.httpBody = try? JSONSerialization.data(withJSONObject: ["expectedRevision": revision, "lifecyclePreview": prefs])
         saving = true; saveStatus.stringValue = L("正在保存预览设置…")
-        for control in [stylePicker, displayPicker, placementPicker, material] { control.isEnabled = false }
+        for control in [displayPicker, placementPicker, material] { control.isEnabled = false }
         URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }; saving = false
-                for control in [stylePicker, displayPicker, placementPicker, material] { control.isEnabled = true }
+                for control in [displayPicker, placementPicker, material] { control.isEnabled = true }
                 if error == nil, (response as? HTTPURLResponse)?.statusCode == 200, let data,
                    let value = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any], value["lifecyclePreview"] != nil {
                     revision = value["revision"] as? Int ?? revision; saveStatus.stringValue = L("预览设置已保存")
@@ -589,12 +570,10 @@ final class Preview: NSObject, NSApplicationDelegate, NSWindowDelegate {
         precondition(content.hitTest(NSPoint(x: 100, y: 30)) === dragHeader)
         let origin = panel.frame; panel.setFrameOrigin(NSPoint(x: origin.minX - 100, y: origin.minY - 80))
         rememberPosition(); let moved = panel.frame
-        for style in 0..<4 { stylePicker.selectItem(at: style)
-            for step in 0...steps.count { completed = step; render(animate: false)
-                precondition(abs(panel.frame.minX - moved.minX) < 1)
-                precondition(abs(panel.frame.maxY - moved.maxY) < 1)
-                precondition(progress.style == style); checks += 1
-            }
+        for step in 0...steps.count { completed = step; render(animate: false)
+            precondition(abs(panel.frame.minX - moved.minX) < 1)
+            precondition(abs(panel.frame.maxY - moved.maxY) < 1)
+            precondition(progress.fraction == Double(step) / Double(steps.count)); checks += 1
         }
         displayPicker.selectItem(at: 1); changeSavedChoice(); playStart(); precondition(!panel.isVisible)
         show(); precondition(panel.isVisible)
@@ -610,7 +589,7 @@ final class Preview: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 }
             }
         }
-        let report: [String: Any] = ["passed": true, "checks": checks, "borderless": true, "statusBar": true, "transparentBrand": true, "dragHitRegion": true, "dragPositionSurvivesPhases": true, "fourProgressStyles": true, "noPopupModes": true, "perStepTimesOnly": true, "bilingualGeometry": true, "supportedDeployment": "macOS 14+", "fallbacksExercisedOnCurrentOS": ["frosted", "matte"], "olderOSRun": false, "screenshots": false, "applicationActions": false]
+        let report: [String: Any] = ["passed": true, "checks": checks, "borderless": true, "statusBar": true, "transparentBrand": true, "dragHitRegion": true, "dragPositionSurvivesPhases": true, "selectedEnergyStyle": true, "noPopupModes": true, "perStepTimesOnly": true, "bilingualGeometry": true, "supportedDeployment": "macOS 14+", "fallbacksExercisedOnCurrentOS": ["frosted", "matte"], "olderOSRun": false, "screenshots": false, "applicationActions": false]
         let output = Bundle.main.bundleURL.deletingLastPathComponent().appendingPathComponent("check.json")
         try! JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys]).write(to: output)
         print("PASS \(checks) native states")

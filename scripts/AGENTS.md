@@ -1,6 +1,6 @@
 # scripts/ — 开发与分发工具
 
-- `lifecycle-preview.mjs/swift`：`npm run dev:status` 在 target/lifecycle-preview 构建独立菜单栏预览，无产品启停操作；可读选定数据目录生成短期私有连接记录，通过认证 appearance API 仅同步/保存 lifecyclePreview。标题区原生鼠标事件拖动、屏幕身份/相对位置、逐步耗时/四种逐格进度、无弹窗模式；--check/--motion-check 使用内存状态、不读真实配置或截图。预览退出清理短期连接记录。
+- `lifecycle-preview.mjs/swift`：`npm run dev:status` 在 target/lifecycle-preview 构建独立菜单栏预览，无产品启停操作；可读选定数据目录生成短期私有连接记录，通过认证 appearance API 仅同步/保存 lifecyclePreview。标题区原生鼠标事件拖动、屏幕身份/相对位置、逐步耗时/能量槽逐格进度、无弹窗模式；--check/--motion-check 使用内存状态、不读真实配置或截图。预览退出清理短期连接记录。
 > L2 | 父级：[AGENTS.md](../AGENTS.md)
 
 dev.mjs的原生资源指纹与文件监听同时覆盖ui/codex/{codex-host.js,codex-host-preview.js,model.js,model-usage.js}，保证所有Rust编译期内嵌脚本修改后先编译再交接后台；不重启ChatGPT。

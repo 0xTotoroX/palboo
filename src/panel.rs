@@ -205,7 +205,7 @@ impl Default for LifecyclePreviewPreferences {
         Self {
             display: "popup".into(),
             material: "auto".into(),
-            progress: "segments".into(),
+            progress: "energy".into(),
             placement: "menu".into(),
             position: Position { x: 0.85, y: 0.12 },
             screen: None,

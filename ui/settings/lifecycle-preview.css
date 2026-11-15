@@ -1,5 +1,5 @@
 /* [INPUT]: Host semantic theme, preview-only phase fraction and normalized placement.
- * [OUTPUT]: Four loading treatments and a bounded draggable notification scene.
+ * [OUTPUT]: Selected energy-meter progress and a bounded draggable notification scene.
  * [POS]: General settings only; no production notification styles. */
 .lifecycle-notice {
   color: var(--buddy-muted);
@@ -125,51 +125,17 @@
 }
 .lifecycle-bar {
   display: flex;
-  gap: 3px;
+  gap: 2px;
   height: 12px;
   color: var(--buddy-accent);
 }
-.lifecycle-bar[data-style='line'],
-.lifecycle-bar[data-style='energy'] {
-  background: color-mix(in srgb, currentColor 13%, transparent);
-  border-radius: 3px;
-  overflow: hidden;
-}
-.lifecycle-bar[data-style='line'] {
-  height: 4px;
-  margin-block: 4px;
-}
-.lifecycle-bar[data-style='line'] i,
-.lifecycle-bar[data-style='energy'] i {
-  width: var(--progress);
-  background: currentColor;
-  transition: width 0.24s ease-out;
-}
-.lifecycle-bar[data-style='segments'] i,
-.lifecycle-bar[data-style='pixels'] i {
+.lifecycle-bar i {
   flex: 1;
+  clip-path: polygon(25% 0, 100% 0, 75% 100%, 0 100%);
   background: color-mix(in srgb, currentColor 13%, transparent);
-  border-radius: 1px;
 }
 .lifecycle-bar i[data-filled='true'] {
   background: currentColor;
-}
-.lifecycle-bar[data-style='pixels'] {
-  gap: 4px;
-  height: 10px;
-  margin-block: 1px;
-}
-.lifecycle-bar[data-style='pixels'] i {
-  border-radius: 0;
-  align-self: center;
-  aspect-ratio: 1;
-  max-height: 10px;
-}
-.lifecycle-bar[data-style='energy'] {
-  transform: skewX(-14deg);
-}
-.lifecycle-bar[data-style='energy'] i {
-  background: repeating-linear-gradient(90deg, currentColor 0 12px, transparent 12px 15px);
 }
 .lifecycle-notification[data-failed='true'] .lifecycle-bar {
   color: var(--buddy-danger, #b86c16);
@@ -180,26 +146,6 @@
   justify-content: flex-end;
   gap: 8px;
   margin: 14px 0 20px;
-}
-.lifecycle-styles {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
-  margin-bottom: 20px;
-}
-.lifecycle-styles button {
-  padding: 14px 10px 10px;
-  border: 1px solid var(--buddy-border);
-  border-radius: 8px;
-  min-width: 0;
-}
-.lifecycle-styles button[aria-pressed='true'] {
-  outline: 1px solid currentColor;
-}
-.lifecycle-styles span {
-  display: block;
-  font-size: 12px;
-  margin-top: 12px;
 }
 .lifecycle-quiet {
   position: absolute;
@@ -219,9 +165,6 @@
   }
 }
 @media (max-width: 600px) {
-  .lifecycle-styles {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
   .lifecycle-notification {
     padding-inline: 12px;
   }
@@ -250,19 +193,4 @@
   min-width: 42px;
   text-align: right;
   flex-shrink: 0;
-}
-.lifecycle-bar[data-style='energy'] {
-  background: transparent;
-  transform: none;
-  border-radius: 0;
-  gap: 2px;
-}
-.lifecycle-bar[data-style='energy'] i {
-  flex: 1;
-  width: auto;
-  clip-path: polygon(25% 0, 100% 0, 75% 100%, 0 100%);
-  background: color-mix(in srgb, currentColor 13%, transparent);
-}
-.lifecycle-bar[data-style='energy'] i[data-filled='true'] {
-  background: currentColor;
 }

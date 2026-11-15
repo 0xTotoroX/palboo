@@ -107,7 +107,7 @@ test(
     page.on('pageerror', (e) => errors.push(e.message));
     const url = `http://127.0.0.1:${server.address().port}`;
     await page.goto(url);
-    await page.locator('.lifecycle-styles').waitFor();
+    await page.locator('#lifecycle-display').waitFor();
     const choose = async (id, value) => {
       await page.locator(id).selectOption(value);
       await page.waitForFunction(() => !document.querySelector('#lifecycle-display').disabled);
@@ -117,14 +117,15 @@ test(
       await page.locator('.lifecycle-notification li time').count(),
       await page.locator('.lifecycle-notification li').count(),
     );
-    for (const name of ['细线', '复古格栅', '像素方块', '能量槽']) {
-      await page.getByRole('button', { name, exact: true }).click();
-      await page.waitForFunction(() => !document.querySelector('#lifecycle-display').disabled);
-    }
-    assert.equal(prefs.lifecyclePreview.progress, 'energy');
+    assert.equal(await page.locator('.lifecycle-styles').count(), 0);
+    assert.equal(
+      await page.locator('.lifecycle-notification .lifecycle-bar').getAttribute('data-style'),
+      'energy',
+    );
     await choose('#lifecycle-material', 'matte');
+    assert.equal(prefs.lifecyclePreview.progress, 'energy');
     await page.reload();
-    await page.locator('.lifecycle-styles').waitFor();
+    await page.locator('#lifecycle-display').waitFor();
     assert.equal(await page.locator('#lifecycle-material').inputValue(), 'matte');
     const header = page.locator('.lifecycle-notification header');
     const before = await header.boundingBox();
@@ -237,6 +238,6 @@ test(
         }
     assert.equal(await page.locator('h2').textContent(), 'Startup and exit preview');
     assert.equal(errors.length, 0, errors.join('\n'));
-    assert(writes.length >= 10);
+    assert(writes.length >= 8);
   },
 );
