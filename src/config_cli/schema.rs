@@ -309,7 +309,7 @@ pub(super) fn schema(scope: Scope) -> Value {
             },
             "choices":{
                 "lifecyclePreview.display":["popup","menu","hidden"],"lifecyclePreview.material":["auto","glass","frosted","matte"],
-                "lifecyclePreview.progress":["line","segments","pixels","energy"],"lifecyclePreview.placement":["menu","remember"],
+                "lifecyclePreview.progress":["line","segments","pixels","energy"],"lifecyclePreview.placement":["host-center","remember"],
                 "startup.mode":["restore","closed","open"],"startup.location":["inside","outside"],
                 "language":["system","en","zh-CN"],"settingsTheme":["codex","light","dark"],"settingsStyle":["chatgpt","palboo"],
                 "settingsAccent.source":["chatgpt","palboo","custom"],

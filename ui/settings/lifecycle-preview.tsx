@@ -19,7 +19,7 @@ const defaults: LifecyclePreviewPreferences = {
   display: 'popup',
   material: 'auto',
   progress: 'energy',
-  placement: 'menu',
+  placement: 'host-center',
   position: { x: 0.85, y: 0.12 },
 };
 const startup = ['准备 Palboo', '打开 Codex', '连接兼容服务', '恢复工作台', '确认界面可用'];
@@ -105,7 +105,11 @@ export function LifecyclePreviewSettings({
   }, [value, prefs]);
   async function save(next: LifecyclePreviewPreferences) {
     if (!live || !prefs || saving.current) return;
-    next = { ...next, progress: 'energy' };
+    next = {
+      ...next,
+      progress: 'energy',
+      placement: next.placement === 'remember' ? 'remember' : 'host-center',
+    };
     saving.current = true;
     setBusy(true);
     setDraft(next);
@@ -197,7 +201,7 @@ export function LifecyclePreviewSettings({
       ),
       y: clamp(
         drag.current.position.y +
-          (event.clientY - drag.current.y) / Math.max(1, rect.height - box.height - 40),
+          (event.clientY - drag.current.y) / Math.max(1, rect.height - box.height - 46),
       ),
     };
     setDraft({ ...current.current, placement: 'remember', position });
@@ -229,12 +233,13 @@ export function LifecyclePreviewSettings({
           <div
             ref={panel}
             className="lifecycle-notification"
+            data-placement={draft.placement === 'remember' ? 'remember' : 'host-center'}
             data-material={draft.material}
             data-failed={failed}
             style={
               {
-                '--x': draft.placement === 'menu' ? 0.92 : draft.position.x,
-                '--y': draft.placement === 'menu' ? 0 : draft.position.y,
+                '--x': draft.placement !== 'remember' ? 0.5 : draft.position.x,
+                '--y': draft.placement !== 'remember' ? 0.5 : draft.position.y,
               } as CSSProperties
             }
           >
@@ -247,7 +252,7 @@ export function LifecyclePreviewSettings({
                 drag.current = {
                   x: e.clientX,
                   y: e.clientY,
-                  position: draft.placement === 'menu' ? { x: 0.92, y: 0 } : draft.position,
+                  position: draft.placement !== 'remember' ? { x: 0.5, y: 0.5 } : draft.position,
                   original: draft,
                 };
               }}
@@ -273,7 +278,7 @@ export function LifecyclePreviewSettings({
                   ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)
                 ) {
                   e.preventDefault();
-                  const p = draft.placement === 'menu' ? { x: 0.92, y: 0 } : draft.position;
+                  const p = draft.placement !== 'remember' ? { x: 0.5, y: 0.5 } : draft.position;
                   void save({
                     ...draft,
                     placement: 'remember',
@@ -383,12 +388,12 @@ export function LifecyclePreviewSettings({
           id="lifecycle-placement"
           controlWidth="medium"
           disabled={disabled}
-          value={draft.placement}
+          value={draft.placement === 'remember' ? 'remember' : 'host-center'}
           onChange={(e) =>
             void save({ ...draft, placement: e.target.value as typeof draft.placement })
           }
         >
-          <option value="menu">{tr('跟随菜单栏')}</option>
+          <option value="host-center">{tr('居中 · 跟随 ChatGPT 显示器')}</option>
           <option value="remember">{tr('记住拖动位置')}</option>
         </NativeSelect>
       </Field>

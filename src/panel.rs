@@ -206,7 +206,7 @@ impl Default for LifecyclePreviewPreferences {
             display: "popup".into(),
             material: "auto".into(),
             progress: "energy".into(),
-            placement: "menu".into(),
+            placement: "host-center".into(),
             position: Position { x: 0.85, y: 0.12 },
             screen: None,
         }
@@ -218,7 +218,7 @@ impl LifecyclePreviewPreferences {
             ["popup", "menu", "hidden"].contains(&self.display.as_str())
                 && ["auto", "glass", "frosted", "matte"].contains(&self.material.as_str())
                 && ["line", "segments", "pixels", "energy"].contains(&self.progress.as_str())
-                && ["menu", "remember"].contains(&self.placement.as_str())
+                && ["host-center", "menu", "remember"].contains(&self.placement.as_str())
                 && [self.position.x, self.position.y]
                     .iter()
                     .all(|v| v.is_finite() && (0.0..=1.0).contains(v)),
@@ -1907,6 +1907,7 @@ mod tests {
         let paths = Paths::new(Some(dir.path().into())).unwrap();
         let app = App::new(paths.clone(), crate::config::Config::default(), None, true);
         let before = app.appearance().await;
+        assert_eq!(before.lifecycle_preview.placement, "host-center");
         let settings = app.settings().await;
         let saved = app
             .save_appearance(json!({"expectedRevision": before.revision,

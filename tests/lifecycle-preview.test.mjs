@@ -118,14 +118,29 @@ test(
       await page.locator('.lifecycle-notification li').count(),
     );
     assert.equal(await page.locator('.lifecycle-styles').count(), 0);
+    assert.equal(await page.locator('#lifecycle-placement').inputValue(), 'host-center');
+    const centered = await page.evaluate(() => {
+      const n = document.querySelector('.lifecycle-notification').getBoundingClientRect();
+      const s = document.querySelector('.lifecycle-scene').getBoundingClientRect();
+      const menu = document.querySelector('.lifecycle-menubar').getBoundingClientRect();
+      return {
+        dx: (n.left + n.right - s.left - s.right) / 2,
+        dy: (n.top + n.bottom - menu.bottom - (s.bottom - 1)) / 2,
+      };
+    });
+    assert(Math.abs(centered.dx) <= 1 && Math.abs(centered.dy) <= 1, JSON.stringify(centered));
     assert.equal(
       await page.locator('.lifecycle-notification .lifecycle-bar').getAttribute('data-style'),
       'energy',
     );
     await choose('#lifecycle-material', 'matte');
     assert.equal(prefs.lifecyclePreview.progress, 'energy');
+    assert.equal(prefs.lifecyclePreview.placement, 'host-center');
+    // Older saved menu placement resolves to the new centered choice without a migration write.
+    prefs.lifecyclePreview.placement = 'menu';
     await page.reload();
     await page.locator('#lifecycle-display').waitFor();
+    assert.equal(await page.locator('#lifecycle-placement').inputValue(), 'host-center');
     assert.equal(await page.locator('#lifecycle-material').inputValue(), 'matte');
     const header = page.locator('.lifecycle-notification header');
     const before = await header.boundingBox();

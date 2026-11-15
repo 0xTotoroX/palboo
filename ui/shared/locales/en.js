@@ -3,6 +3,7 @@
  * [POS]: Shared interface dictionary consumed by shared/i18n.js.
  * [PROTOCOL]: Keep ui/shared/AGENTS.md in sync. */
 export default {
+  '居中 · 跟随 ChatGPT 显示器': "Centered on ChatGPT's display",
   '当前后台尚未支持启停预览，请等待开发更新完成。':
     'This backend does not support the preview yet. Wait for the development update to finish.',
   启停反馈预览: 'Startup and exit preview',

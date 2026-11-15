@@ -22,7 +22,7 @@ private let previewMessages: [String: String] = [
     "继续预览": "Continue preview",
     "Palboo · 启停预览": "Palboo · Startup and exit preview",
     "Palboo · 菜单栏提示预览": "Palboo · Menu bar preview",
-    "从菜单栏展开，逐行看见进展": "Follow each step from the menu bar",
+    "在 ChatGPT 所在屏幕看见进展": "Follow progress on ChatGPT’s display",
     "仅演示；不会启停 ChatGPT 或 Palboo。": "Preview only. ChatGPT and Palboo keep running.",
     "播放启动": "Play startup",
     "播放退出": "Play exit",
@@ -44,9 +44,9 @@ private let previewMessages: [String: String] = [
     "提示：自动弹出": "Show automatically",
     "提示：仅菜单栏，不弹窗": "Menu bar only, no popup",
     "提示：不显示": "Notifications hidden",
-    "位置：跟随菜单栏": "Position: below menu bar",
+    "位置：跟随 ChatGPT 居中": "Position: center on ChatGPT display",
     "位置：记住拖动位置": "Position: remember drag",
-    "回到菜单栏": "Return to menu bar",
+    "恢复居中": "Restore center",
     "细线": "Slim line",
     "复古格栅": "Retro segments",
     "像素方块": "Pixel blocks",
@@ -70,7 +70,7 @@ private func L(_ text: String) -> String {
 }
 
 
-// [INPUT]: Synthetic phases, native AppKit and optional local preview preferences.
+// [INPUT]: Synthetic phases, native AppKit, read-only ChatGPT window geometry and optional preview preferences.
 // [OUTPUT]: Standalone draggable menu-bar notification preview; no application lifecycle actions.
 // [POS]: npm run dev:status; only lifecyclePreview can be saved through the existing appearance API.
 // [PROTOCOL]: Keep scripts/AGENTS.md in sync.
@@ -178,7 +178,7 @@ final class Preview: NSObject, NSApplicationDelegate, NSWindowDelegate {
     let controls = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 610, height: 326), styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
     let dragHeader = DragHeader(), saveStatus = NSTextField(labelWithString: ""), displayPicker = NSPopUpButton(), placementPicker = NSPopUpButton()
     var pinnedTop: NSPoint?, syncing = false, revision: Int = -1, preferenceTimer: Timer?, saving = false, loading = false
-    var savedScreen: Int?
+    var savedScreen: Int?, lastHostScreen: Int?
     var loadedPreferences: NSDictionary?
     var preferencePosition = NSPoint(x: 0.85, y: 0.12)
     var dataDirectory: URL? { guard let i = CommandLine.arguments.firstIndex(of: "--connection-dir"), i + 1 < CommandLine.arguments.count else { return nil }; return URL(fileURLWithPath: CommandLine.arguments[i+1]) }
@@ -226,7 +226,7 @@ final class Preview: NSObject, NSApplicationDelegate, NSWindowDelegate {
         statusItem.button?.target = self; statusItem.button?.action = #selector(toggle)
         controls.title = "Palboo · 菜单栏提示预览"; controls.isReleasedWhenClosed = false; controls.delegate = self
         let c = Canvas(); controls.contentView = c
-        c.addSubview(label("从菜单栏展开，逐行看见进展", NSRect(x: 24, y: 18, width: 520, height: 28), size: 19, weight: .semibold))
+        c.addSubview(label("在 ChatGPT 所在屏幕看见进展", NSRect(x: 24, y: 18, width: 520, height: 28), size: 19, weight: .semibold))
         let hint = label("仅演示；不会启停 ChatGPT 或 Palboo。", NSRect(x: 24, y: 51, width: 520, height: 20)); hint.textColor = .secondaryLabelColor; c.addSubview(hint)
         c.addSubview(button("播放启动", NSRect(x: 24, y: 86, width: 112, height: 28), #selector(playStart)))
         c.addSubview(button("播放退出", NSRect(x: 145, y: 86, width: 112, height: 28), #selector(playExit)))
@@ -240,16 +240,19 @@ final class Preview: NSObject, NSApplicationDelegate, NSWindowDelegate {
         motion.frame = NSRect(x: 333, y: 174, width: 200, height: 24); motion.target = self; motion.action = #selector(changeAppearance); c.addSubview(motion)
         displayPicker.addItems(withTitles: ["提示：自动弹出", "提示：仅菜单栏，不弹窗", "提示：不显示"])
         displayPicker.frame = NSRect(x: 24, y: 214, width: 254, height: 28); displayPicker.target = self; displayPicker.action = #selector(changeSavedChoice); c.addSubview(displayPicker)
-        placementPicker.addItems(withTitles: ["位置：跟随菜单栏", "位置：记住拖动位置"])
+        placementPicker.addItems(withTitles: ["位置：跟随 ChatGPT 居中", "位置：记住拖动位置"])
         placementPicker.frame = NSRect(x: 294, y: 214, width: 292, height: 28); placementPicker.target = self; placementPicker.action = #selector(changeSavedChoice); c.addSubview(placementPicker)
-        c.addSubview(button("回到菜单栏", NSRect(x: 24, y: 254, width: 130, height: 28), #selector(resetPosition)))
+        c.addSubview(button("恢复居中", NSRect(x: 24, y: 254, width: 130, height: 28), #selector(resetPosition)))
         saveStatus.frame = NSRect(x: 170, y: 258, width: 416, height: 20); saveStatus.font = .systemFont(ofSize: 12); saveStatus.textColor = .secondaryLabelColor; c.addSubview(saveStatus)
         let foot = label("拖动顶部调整位置；保留每步耗时，进度逐格点亮。", NSRect(x: 24, y: 296, width: 562, height: 20), size: 12)
         foot.textColor = .secondaryLabelColor; c.addSubview(foot)
         localize(controls.contentView!); controls.title = L(controls.title)
         controls.center(); controls.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
         loadPreferences()
-        preferenceTimer = Timer.scheduledTimer(withTimeInterval: 0.75, repeats: true) { [weak self] _ in self?.loadPreferences() }
+        preferenceTimer = Timer.scheduledTimer(withTimeInterval: 0.75, repeats: true) { [weak self] _ in
+            guard let self else { return }; loadPreferences()
+            if panel.isVisible && placementPicker.indexOfSelectedItem == 0 && !dragHeader.dragging { position(size: reportedSize, animate: false) }
+        }
         reset(exiting: false); completed = 2; timings = [0.6, 0.8]; render(animate: false)
         localMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             if event.keyCode == 53 { self?.hide(); return nil }; return event
@@ -330,7 +333,7 @@ final class Preview: NSObject, NSApplicationDelegate, NSWindowDelegate {
         heading.stringValue = failed ? "退出尚未完成" : finished ? (exiting ? "Palboo 已完全退出" : "Palboo 已就绪") : (exiting ? "正在退出 Palboo" : "正在启动 Palboo")
         heading.stringValue = L(heading.stringValue)
         let visible = min(steps.count, completed + 1)
-        let height = CGFloat(70 + visible * 30 + (failed ? 96 : 62))
+        let height = CGFloat(70 + steps.count * 30 + (failed ? 96 : 62))
         reportedSize = NSSize(width: 356, height: height)
         position(size: reportedSize, animate: animate && !reduce)
         if rebuild || surface == nil { makeSurface() }
@@ -344,7 +347,7 @@ final class Preview: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         panel.effectiveAppearance.performAsCurrentDrawingAppearance {
             for (i, row) in rows.enumerated() { row.update(failed && i == completed ? "兼容服务仍在退出" : steps[i], done: i < completed, failed: failed && i == completed, reduce: reduce) }
-            progress.frame = NSRect(x: 24, y: 78 + visible * 30, width: 308, height: 12)
+            progress.frame = NSRect(x: 24, y: 78 + steps.count * 30, width: 308, height: 12)
             progress.update(Double(completed) / Double(steps.count), animate: animate && !reduce, failed: failed)
         }
         count.frame = NSRect(x: 244, y: progress.frame.maxY + 7, width: 88, height: 18); count.stringValue = "\(completed) / \(steps.count) " + (previewEnglish ? "steps" : "步")
@@ -364,21 +367,46 @@ final class Preview: NSObject, NSApplicationDelegate, NSWindowDelegate {
             panel.setFrame(NSRect(x: max(v.minX + 8, min(point.x, v.maxX - size.width - 8)), y: max(v.minY + 8, min(point.y, v.maxY - 8) - size.height), width: size.width, height: size.height), display: true)
             return
         }
-        var anchor: NSRect?
-        if let b = statusItem?.button, let w = b.window {
-            let candidate = w.frame
-            // 状态栏按钮首帧可能仍为原点占位，只有真实菜单栏区域才能作锚点。
-            if let screen = NSScreen.screens.first(where: { $0.frame.contains(NSPoint(x: candidate.midX, y: candidate.midY)) }),
-               candidate.width > 1, candidate.height > 1, candidate.minY > screen.frame.maxY - 80 {
-                anchor = candidate
-            }
-        }
-        let screen = anchor.flatMap { a in NSScreen.screens.first { $0.frame.contains(NSPoint(x: a.midX, y: a.midY)) } } ?? NSScreen.main!
-        let visible = screen.visibleFrame
-        let right = min(visible.maxX - 12, max(visible.minX + size.width + 12, (anchor?.midX ?? visible.maxX - 180) + size.width / 2))
-        let top = visible.maxY - 8
-        panel.setFrame(NSRect(x: right - size.width, y: top - size.height, width: size.width, height: size.height), display: true, animate: false)
+        guard let screen = hostScreen() else { return }
+        let v = screen.visibleFrame
+        let frame = NSRect(x: (v.midX - size.width / 2).rounded(), y: (v.midY - size.height / 2).rounded(), width: size.width, height: size.height)
+        if panel.frame != frame { panel.setFrame(frame, display: true, animate: false) }
     }
+    // Match the existing edge container's largest-overlap rule; WindowServer uses a top-left origin.
+    static func screenIndex(window: CGRect, screens: [CGRect], primaryTop: CGFloat) -> Int? {
+        guard window.width > 0, window.height > 0,
+              [window.minX, window.minY, window.width, window.height, primaryTop].allSatisfy({ $0.isFinite }) else { return nil }
+        let cocoa = CGRect(x: window.minX, y: primaryTop - window.maxY, width: window.width, height: window.height)
+        var best: Int?, area: CGFloat = 0
+        for (index, screen) in screens.enumerated() {
+            let overlap = cocoa.intersection(screen)
+            let candidate = overlap.isNull ? 0 : overlap.width * overlap.height
+            if candidate > area { best = index; area = candidate }
+        }
+        return best
+    }
+    func hostScreen() -> NSScreen? {
+        let screens = NSScreen.screens
+        guard let primary = screens.first else { return nil }
+        let candidates = NSWorkspace.shared.runningApplications.filter { ["com.openai.chat", "com.openai.codex"].contains($0.bundleIdentifier ?? "") }
+        // Current ChatGPT builds also use the Codex bundle identity; prefer the named ChatGPT app.
+        let chatGPT = candidates.filter { $0.bundleURL?.lastPathComponent.lowercased() == "chatgpt.app" }
+        let hostPIDs = Set((chatGPT.isEmpty ? candidates : chatGPT).map { Int($0.processIdentifier) })
+        // Only read owner, layer, alpha and numeric bounds. No titles, pixels or chat content.
+        let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []
+        for window in windows {
+            guard let pid = window[kCGWindowOwnerPID as String] as? Int, hostPIDs.contains(pid),
+                  window[kCGWindowLayer as String] as? Int == 0,
+                  (window[kCGWindowAlpha as String] as? Double ?? 1) > 0,
+                  let bounds = window[kCGWindowBounds as String] as? [String: Any],
+                  let rect = CGRect(dictionaryRepresentation: bounds as CFDictionary), rect.width >= 280, rect.height >= 180,
+                  let index = Self.screenIndex(window: rect, screens: screens.map { $0.frame }, primaryTop: primary.frame.maxY) else { continue }
+            lastHostScreen = (screens[index].deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.intValue
+            return screens[index]
+        }
+        return screens.first { ($0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.intValue == lastHostScreen } ?? panel.screen ?? NSScreen.main ?? primary
+    }
+
     @objc func toggle() { panel.isVisible ? hide() : show() }
     @objc func show() { guard displayPicker.indexOfSelectedItem != 2 else { return }; position(size: reportedSize, animate: false); panel.alphaValue = 1; panel.orderFrontRegardless() }
     @objc func hide() { panel.orderOut(nil) }
@@ -483,7 +511,7 @@ final class Preview: NSObject, NSApplicationDelegate, NSWindowDelegate {
         guard var request = appearanceRequest() else {
             saveStatus.stringValue = L("未连接 Palboo；当前选择仅用于临时预览"); return
         }
-        let prefs: [String: Any] = ["display": ["popup", "menu", "hidden"][displayPicker.indexOfSelectedItem], "material": ["auto", "glass", "frosted", "matte"][material.indexOfSelectedItem], "progress": "energy", "placement": placementPicker.indexOfSelectedItem == 0 ? "menu" : "remember", "position": ["x": preferencePosition.x, "y": preferencePosition.y], "screen": savedScreen.map { $0 as Any } ?? NSNull()]
+        let prefs: [String: Any] = ["display": ["popup", "menu", "hidden"][displayPicker.indexOfSelectedItem], "material": ["auto", "glass", "frosted", "matte"][material.indexOfSelectedItem], "progress": "energy", "placement": placementPicker.indexOfSelectedItem == 0 ? "host-center" : "remember", "position": ["x": preferencePosition.x, "y": preferencePosition.y], "screen": savedScreen.map { $0 as Any } ?? NSNull()]
         request.httpMethod = "POST"; request.timeoutInterval = 5
         request.httpBody = try? JSONSerialization.data(withJSONObject: ["expectedRevision": revision, "lifecyclePreview": prefs])
         saving = true; saveStatus.stringValue = L("正在保存预览设置…")
@@ -518,25 +546,43 @@ final class Preview: NSObject, NSApplicationDelegate, NSWindowDelegate {
             precondition(abs(panel.frame.maxY - top) < 1, "top before=\(top), after=\(panel.frame.maxY)")
             precondition(content.bounds.contains(progress.frame))
             playExit()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 4.25) { [self] in
-                precondition(exiting && completed == exitSteps.count && progress.fraction == 1)
-                precondition(panel.isVisible)
+            let finishDeadline = Date().addingTimeInterval(12)
+            func waitForCompletion() {
+                guard self.completed == self.exitSteps.count else {
+                    precondition(Date() < finishDeadline, "exit preview did not finish")
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { waitForCompletion() }; return
+                }
+                precondition(self.exiting && self.progress.fraction == 1 && self.panel.isVisible)
+                let finishedAt = Date(), dismissalDeadline = Date().addingTimeInterval(5)
+                func waitForDismissal() {
+                    if self.panel.isVisible {
+                        precondition(Date() < dismissalDeadline, "completed preview did not dismiss")
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { waitForDismissal() }; return
+                    }
+                    precondition(Date().timeIntervalSince(finishedAt) >= 1.8, "completion was not held")
+                    self.showFailure(); precondition(self.failed && self.panel.isVisible && self.progress.fraction == 0.5)
+                    self.toggle(); precondition(!self.panel.isVisible); self.toggle(); precondition(self.panel.isVisible)
+                    let output = Bundle.main.bundleURL.deletingLastPathComponent().appendingPathComponent("motion-check.json")
+                    let result: [String: Any] = ["passed": true, "cellsAdvanceIndividually": true, "rowsAppend": true, "topAnchorStable": true, "previousPlaybackCancelled": true, "completionHoldAndDismiss": true, "failureRetained": true, "menuToggle": true, "applicationActions": false]
+                    try! JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys]).write(to: output)
+                    NSApp.terminate(nil)
+                }
+                waitForDismissal()
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 6.4) { [self] in
-                precondition(!panel.isVisible)
-                showFailure(); precondition(failed && panel.isVisible && progress.fraction == 0.5)
-                toggle(); precondition(!panel.isVisible); toggle(); precondition(panel.isVisible)
-                let output = Bundle.main.bundleURL.deletingLastPathComponent().appendingPathComponent("motion-check.json")
-                let result: [String: Any] = ["passed": true, "cellsAdvanceIndividually": true, "rowsAppend": true, "topAnchorStable": true, "previousPlaybackCancelled": true, "completionHoldAndDismiss": true, "failureRetained": true, "menuToggle": true, "applicationActions": false]
-                try! JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys]).write(to: output)
-                NSApp.terminate(nil)
-            }
+            waitForCompletion()
             }; proceed()
         }
         checkFirstStep()
     }
     func check() {
         var checks = 0
+        let screens = [CGRect(x: 0, y: 0, width: 1440, height: 900), CGRect(x: 1440, y: -200, width: 1920, height: 1080), CGRect(x: -1024, y: 0, width: 1024, height: 768)]
+        for (bounds, expected) in [(CGRect(x: 50, y: 50, width: 800, height: 600), 0), (CGRect(x: 1500, y: 100, width: 900, height: 700), 1), (CGRect(x: -900, y: 180, width: 700, height: 500), 2), (CGRect(x: 1300, y: 100, width: 700, height: 500), 1)] {
+            precondition(Self.screenIndex(window: bounds, screens: screens, primaryTop: 900) == expected); checks += 1
+        }
+        precondition(Self.screenIndex(window: CGRect(x: 9999, y: 0, width: 400, height: 400), screens: screens, primaryTop: 900) == nil)
+        precondition(Self.screenIndex(window: .zero, screens: screens, primaryTop: 900) == nil)
+
         precondition(!panel.styleMask.contains(.titled)); precondition(panel.standardWindowButton(.closeButton) == nil)
         precondition(statusItem.button?.image?.isTemplate == true)
         precondition(Self.chooseMaterial(choice: 0, glassAvailable: false, reduceTransparency: false) == 2)
@@ -548,6 +594,7 @@ final class Preview: NSObject, NSApplicationDelegate, NSWindowDelegate {
                         for step in 0...steps.count {
                             completed = step; timings = Array(repeating: 0.8, count: step); render(animate: false)
                             precondition(rows.count == min(step + 1, steps.count))
+                            if let area = hostScreen()?.visibleFrame { precondition(abs(panel.frame.midX - area.midX) <= 0.5 && abs(panel.frame.midY - area.midY) <= 0.5) }
                             precondition(abs(progress.fraction - Double(step) / Double(steps.count)) < 0.001)
                             precondition(content.bounds.contains(progress.frame) && content.bounds.contains(count.frame), "material=\(materialName) step=\(step) shell=\(shell.bounds) surface=\(surface!.frame) content=\(content.bounds) progress=\(progress.frame) count=\(count.frame)")
                             for row in rows {
@@ -589,7 +636,7 @@ final class Preview: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 }
             }
         }
-        let report: [String: Any] = ["passed": true, "checks": checks, "borderless": true, "statusBar": true, "transparentBrand": true, "dragHitRegion": true, "dragPositionSurvivesPhases": true, "selectedEnergyStyle": true, "noPopupModes": true, "perStepTimesOnly": true, "bilingualGeometry": true, "supportedDeployment": "macOS 14+", "fallbacksExercisedOnCurrentOS": ["frosted", "matte"], "olderOSRun": false, "screenshots": false, "applicationActions": false]
+        let report: [String: Any] = ["passed": true, "checks": checks, "borderless": true, "statusBar": true, "transparentBrand": true, "dragHitRegion": true, "dragPositionSurvivesPhases": true, "selectedEnergyStyle": true, "centeredOnHostScreen": true, "multiScreenGeometry": true, "noPopupModes": true, "perStepTimesOnly": true, "bilingualGeometry": true, "supportedDeployment": "macOS 14+", "fallbacksExercisedOnCurrentOS": ["frosted", "matte"], "olderOSRun": false, "screenshots": false, "applicationActions": false]
         let output = Bundle.main.bundleURL.deletingLastPathComponent().appendingPathComponent("check.json")
         try! JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys]).write(to: output)
         print("PASS \(checks) native states")

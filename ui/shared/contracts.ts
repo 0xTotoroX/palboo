@@ -479,7 +479,7 @@ export interface LifecyclePreviewPreferences {
   display: 'popup' | 'menu' | 'hidden';
   material: 'auto' | 'glass' | 'frosted' | 'matte';
   progress: 'line' | 'segments' | 'pixels' | 'energy';
-  placement: 'menu' | 'remember';
+  placement: 'host-center' | 'menu' | 'remember';
   position: { x: number; y: number };
   screen?: number | null;
 }
