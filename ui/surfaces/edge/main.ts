@@ -102,14 +102,22 @@ export function startEdge(request: Request, fontSource?: HostFontSource) {
   const contentResize = new ResizeObserver(measure);
   contentResize.observe(panel.querySelector('header')!);
 
-  const held = () =>
-    [...mounts.values()].some(({ node }) => {
+  const held = () => {
+    const active = document.activeElement;
+    if (
+      active &&
+      panel.contains(active) &&
+      active.matches('input,textarea,select,[contenteditable="true"]')
+    )
+      return true;
+    return [...mounts.values()].some(({ node }) => {
       const shadow = node.shadowRoot;
       return (
         shadow?.querySelector('[data-busy="true"],dialog[open],[role="dialog"]') ||
         shadow?.activeElement?.matches('input,textarea,select,[contenteditable="true"]')
       );
     });
+  };
   function collapse() {
     clearTimeout(enter);
     clearTimeout(leave);
@@ -312,6 +320,7 @@ export function startEdge(request: Request, fontSource?: HostFontSource) {
     if (stopped) return;
     const detail = (event as CustomEvent).detail;
     inside = detail.inside;
+    panel.dataset.pointerInside = String(inside);
     buttons = detail.buttons;
     clearTimeout(enter);
     if (inside) {

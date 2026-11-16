@@ -174,6 +174,51 @@ test('other edge features retain their shorter leave delay', async (t) => {
   assert.equal(await collapsed(page), 1);
 });
 
+test('native hover reveals controls before focus even when WebKit hover is absent', async (t) => {
+  const page = await fixture(t, 'board');
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.evaluate(() => {
+    const actions = document.createElement('span');
+    actions.className = 'edge-feature-actions';
+    actions.innerHTML = '<button aria-label="合成操作">操作</button>';
+    document.querySelector('#edge-panel > header').append(actions);
+  });
+  await page.mouse.move(1000, 700);
+  await page.evaluate(() => pointer(true));
+  await page.clock.runFor(160);
+  assert.equal(await page.locator('#edge-panel').evaluate((n) => n.matches(':hover')), false);
+  assert.equal(
+    await page
+      .getByRole('button', { name: '合成操作' })
+      .evaluate((n) => getComputedStyle(n).opacity),
+    '1',
+  );
+  await page.evaluate(() => pointer(false));
+  await page.clock.runFor(160);
+  assert.equal(
+    await page
+      .getByRole('button', { name: '合成操作' })
+      .evaluate((n) => getComputedStyle(n).opacity),
+    '0',
+  );
+});
+
+test('an editor in the shared header holds the edge open until focus leaves', async (t) => {
+  const page = await fixture(t, 'board');
+  await page.evaluate(() => {
+    const input = document.createElement('input');
+    input.id = 'header-editor';
+    document.querySelector('#edge-panel > header').append(input);
+    input.focus();
+    pointer(false);
+  });
+  await page.clock.runFor(1000);
+  assert.equal(await collapsed(page), 0);
+  await page.evaluate(() => document.querySelector('#header-editor').blur());
+  await page.clock.runFor(1100);
+  assert.equal(await collapsed(page), 1);
+});
+
 test('switching to smaller content keeps the open footprint and releases it after collapse', async (t) => {
   const page = await fixture(t);
   await page.evaluate(() => {

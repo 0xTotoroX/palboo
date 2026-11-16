@@ -4,7 +4,7 @@ import { tr } from '../../shared/i18n.js';
  * [OUTPUT]: Shared board/list presentation with explicit search/add disclosure, retained drafts and existing task identities.
  * [POS]: Task-only application entry; no Codex/model dependencies.
  * [PROTOCOL]: Keep board/AGENTS.md in sync. */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Icon } from '../../shared/icons/react';
 import { createPortal } from 'react-dom';
 import {
@@ -19,6 +19,7 @@ import {
 import { TaskDetails, type TaskDraft } from './details';
 import { Column, TaskCard, taskDragOver, taskDrop } from './card';
 import { Checklist } from './checklist';
+import { TaskSearch } from './search';
 export type BoardView = {
   editor?: TaskDraft | null;
   search: string;
@@ -56,6 +57,7 @@ export function Board({
   const [settling, setSettling] = useState(false);
   const historyButton = useRef<HTMLButtonElement>(null);
   const searchButtonRef = useRef<HTMLButtonElement>(null);
+  const returnSearchFocus = useRef(false);
   const addButton = useRef<HTMLButtonElement>(null);
   const [stage, setStage] = useState(view?.tab === 'archive' ? 'done' : view?.stage || 'todo');
   useEffect(() => {
@@ -68,6 +70,12 @@ export function Board({
   const tab = 'board';
   const [search, setSearch] = useState(view?.search ?? '');
   const [searchOpen, setSearchOpen] = useState(view?.searchOpen === true);
+  useLayoutEffect(() => {
+    if (!searchOpen && returnSearchFocus.current) {
+      searchButtonRef.current?.focus({ preventScroll: true });
+      returnSearchFocus.current = false;
+    }
+  }, [searchOpen]);
   const [quickAdd, setQuickAdd] = useState(view?.quickAdd ?? null);
   const [listAdding, setListAdding] = useState(view?.listAdding ?? !!view?.quickAdd?.title);
   const [draft, setDraft] = useState<TaskDraft | null>(
@@ -170,15 +178,23 @@ export function Board({
       aria-label={tr('搜索任务')}
       title={tr('搜索任务')}
       aria-expanded={searchOpen}
-      onClick={() => {
-        setSearchOpen(!searchOpen);
-        if (searchOpen) setSearch('');
-      }}
+      onClick={() => setSearchOpen(true)}
     >
       <Icon name="search" />
     </button>
   );
-  const tools = (
+  const tools = searchOpen ? (
+    <TaskSearch
+      value={search}
+      change={setSearch}
+      slot={headerActions}
+      close={() => {
+        returnSearchFocus.current = true;
+        setSearch('');
+        setSearchOpen(false);
+      }}
+    />
+  ) : (
     <>
       {list && !history && (
         <button
@@ -342,26 +358,6 @@ export function Board({
                 </button>
               ))}
             </nav>
-          </div>
-        )}
-        {searchOpen && (
-          <div className="board-search-row">
-            <input
-              className="board-search"
-              autoFocus
-              type="search"
-              aria-label={tr('搜索任务')}
-              placeholder={tr('搜索任务…')}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key !== 'Escape' || e.nativeEvent.isComposing) return;
-                e.stopPropagation();
-                setSearch('');
-                setSearchOpen(false);
-                searchButtonRef.current?.focus({ preventScroll: true });
-              }}
-            />
           </div>
         )}
         {error && (

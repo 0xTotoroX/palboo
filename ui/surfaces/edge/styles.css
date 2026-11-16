@@ -118,6 +118,13 @@ body {
   #edge-panel:hover {
     --feature-refresh-opacity: 1;
   }
+  /* 非激活 WebView 的 :hover 可能停留旧值，以原生轮廓命中为准。 */
+  #edge-panel[data-pointer-inside='false'] {
+    --feature-refresh-opacity: 0;
+  }
+  #edge-panel[data-pointer-inside='true'] {
+    --feature-refresh-opacity: 1;
+  }
   .edge-feature-actions button {
     opacity: var(--feature-refresh-opacity, 0);
     transition: opacity 140ms ease-out;

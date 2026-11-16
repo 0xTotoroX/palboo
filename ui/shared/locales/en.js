@@ -1259,6 +1259,7 @@ export default {
   '任务看板已停用，请在设置页开启。': 'Task board is off. Turn it on in Settings.',
   '放弃之前未保存的任务修改？': 'Discard your unsaved task changes?',
   搜索任务: 'Search tasks',
+  搜索: 'Search',
   新任务标题: 'New task title',
   任务标题: 'Task title',
   新建任务: 'New task',

@@ -76,6 +76,32 @@ let valid = true,
   queue = [],
   sequence = 0;
 let extraFeature = false;
+const taskFixture = {
+  status: 'ready',
+  store: {
+    revision: 1,
+    displayMode: 'list',
+    viewMode: 'merged',
+    boardEnabled: true,
+    syncEnabled: false,
+    columns: [
+      { id: 'todo', title: '待办' },
+      { id: 'doing', title: '进行中' },
+      { id: 'done', title: '完成' },
+    ],
+    bindings: { calendarId: '' },
+    inflight: null,
+    tasks: ['核对原生悬停', '检查顶栏搜索', '确认移出后的延迟收起'].map((title, index) => ({
+      id: 'native-task-' + index,
+      fields: { title, notes: '', priority: 0, due: null, column: 'todo', completed: false },
+      archived: false,
+      remote: null,
+      remoteMissing: false,
+      deleteRequested: false,
+      conflict: null,
+    })),
+  },
+};
 let edgeTabs = { order: [], selected: '' },
   edgeTabsRevision = 0;
 let child,
@@ -258,6 +284,40 @@ function probePage() {
               presetCount: root?.querySelectorAll('.model-preset-tag').length,
             };
           })(),
+          taskView: (() => {
+            const panel = document.getElementById('edge-panel');
+            const host = [...document.querySelectorAll('.edge-view')].find((n) =>
+              n.shadowRoot?.querySelector('.board-app'),
+            );
+            const input = panel.querySelector('header .board-search');
+            const css = input && getComputedStyle(input),
+              rect = input?.getBoundingClientRect();
+            return {
+              pointerInside: panel.dataset.pointerInside,
+              cssHover: panel.matches(':hover'),
+              actions: [
+                ...panel.querySelectorAll('.edge-feature-actions:not([hidden]) button'),
+              ].map((n) => ({
+                label: n.getAttribute('aria-label'),
+                opacity: getComputedStyle(n).opacity,
+              })),
+              rows: host?.shadowRoot.querySelectorAll('[data-list-task]').length || 0,
+              headerSearch: !!input,
+              bodySearch: !!host?.shadowRoot.querySelector('.board-search'),
+              focused: document.activeElement === input,
+              input: input
+                ? {
+                    x: rect.x,
+                    y: rect.y,
+                    width: rect.width,
+                    height: rect.height,
+                    outline: css.outlineStyle,
+                    borderTop: css.borderTopWidth,
+                    borderRadius: css.borderRadius,
+                  }
+                : null,
+            };
+          })(),
           columnWidth: document
             .querySelector('.edge-view')
             ?.shadowRoot?.querySelector('.model-column-resize')
@@ -335,19 +395,21 @@ const server = createServer(async (request, response) => {
       };
       if (input.op === 'read')
         return json(
-          input.id === 'next'
-            ? {
-                appearance: visual,
-                snapshot: {
-                  settings: { enabled: true, generationMode: 'manual', quickPrompts: [] },
-                  prompts: [{ label: '检查合成功能切换', prompt: '仅用于本机测试' }],
-                  scanBusy: false,
-                  scanStatus: 'ready',
-                  bridgeStatus: 'ok',
-                  display: { labelOnly: true },
-                },
-              }
-            : { ...envelope(), appearance: visual },
+          input.id === 'board'
+            ? { ...taskFixture, appearance: visual }
+            : input.id === 'next'
+              ? {
+                  appearance: visual,
+                  snapshot: {
+                    settings: { enabled: true, generationMode: 'manual', quickPrompts: [] },
+                    prompts: [{ label: '检查合成功能切换', prompt: '仅用于本机测试' }],
+                    scanBusy: false,
+                    scanStatus: 'ready',
+                    bridgeStatus: 'ok',
+                    display: { labelOnly: true },
+                  },
+                }
+              : { ...envelope(), appearance: visual },
         );
       if (input.op === 'edge-tabs') {
         assert.deepEqual(input.expected, edgeTabs);
@@ -369,7 +431,9 @@ const server = createServer(async (request, response) => {
       return json({
         features: [
           feature,
-          ...(extraFeature ? [{ ...feature, id: 'next', owner: 'next-lease', reveal: 0 }] : []),
+          ...(extraFeature
+            ? ['next', 'board'].map((id) => ({ ...feature, id, owner: id + '-lease', reveal: 0 }))
+            : []),
         ],
         edgeTabs,
         edgeTabsRevision,
@@ -609,6 +673,121 @@ try {
     assert.equal(telemetry.native.screen, screen);
     assert.equal(telemetry.native.keyboard, false);
     assert.equal(telemetry.native.expanded, false);
+  }
+  if (pointerInputEnabled) {
+    extraFeature = true;
+    await until(
+      () => telemetry.availableFeatures.includes('board'),
+      'native checklist becomes available',
+    );
+    await command("document.querySelector('[data-edge-tab=board]').click()");
+    await until(
+      () => telemetry.selectedFeature === 'board' && telemetry.taskView.rows === 3,
+      'native checklist is ready',
+    );
+    await leaveEdge();
+    enterEdge();
+    await until(
+      () => telemetry.native.expanded && !telemetry.native.animating && telemetry.pointer?.inside,
+      'hover opens checklist without activation',
+    );
+    await until(
+      () =>
+        telemetry.taskView.actions.length === 3 &&
+        telemetry.taskView.actions.every((a) => Number(a.opacity) === 1),
+      'hover reveals task controls without a click',
+    );
+    assert.equal(telemetry.native.keyboard, false);
+    assert.notEqual(
+      JSON.parse(execFileSync(inputProbe, ['state'], { encoding: 'utf8' })).frontmost,
+      child.pid,
+    );
+    check('real unfocused hover reveals task controls before any button click', telemetry.taskView);
+    const beforeSearch = {
+      width: telemetry.native.layoutWidth,
+      height: telemetry.native.layoutHeight,
+    };
+    await clickNativeElement(
+      "document.querySelector('#edge-panel > header [aria-label=搜索任务]')",
+    );
+    await until(
+      () => telemetry.taskView.headerSearch && telemetry.taskView.focused,
+      'real search click focuses the inline header input',
+    );
+    assert.equal(telemetry.taskView.bodySearch, false);
+    assert.equal(telemetry.taskView.input.outline, 'none');
+    assert.equal(telemetry.taskView.input.borderTop, '0px');
+    assert.equal(telemetry.taskView.input.borderRadius, '0px');
+    assert.ok(telemetry.taskView.input.height <= 34);
+    assert.equal(telemetry.native.layoutWidth, beforeSearch.width);
+    assert.equal(telemetry.native.layoutHeight, beforeSearch.height);
+    await leaveEdge();
+    await delay(800);
+    assert.equal(
+      telemetry.native.expanded,
+      true,
+      'header search focus protects editing after pointer exit',
+    );
+    check(
+      'real header search replaces tools without a body row, frame growth or lost editing focus',
+      telemetry.taskView,
+    );
+    await clickNativeElement(
+      "document.querySelector('#edge-panel > header [aria-label=关闭搜索]')",
+    );
+    await until(() => !telemetry.taskView.headerSearch, 'real close click restores the task icons');
+    let footprint = { width: telemetry.native.layoutWidth, height: telemetry.native.layoutHeight };
+    for (const id of ['model', 'board', 'next', 'board']) {
+      await clickNativeElement(`document.querySelector('[data-edge-tab="${id}"]')`);
+      await until(
+        () =>
+          telemetry.selectedFeature === id &&
+          edgeTabs.selected === id &&
+          !telemetry.native.animating,
+        'real task/model/next tab selection',
+      );
+      await delay(650);
+      assert.equal(telemetry.native.expanded, true);
+      assert.equal(telemetry.pointer.inside, true);
+      assert.ok(telemetry.native.layoutWidth >= footprint.width);
+      assert.ok(telemetry.native.layoutHeight >= footprint.height);
+      footprint = { width: telemetry.native.layoutWidth, height: telemetry.native.layoutHeight };
+    }
+    check(
+      'real wide/narrow task tab switches retain the pointer area and expanded footprint',
+      footprint,
+    );
+    await leaveEdge();
+    await delay(180);
+    assert.equal(telemetry.native.expanded, true, 'task exit retains its normal delay');
+    await until(
+      () => !telemetry.native.expanded && !telemetry.native.animating,
+      'real task pointer exit collapses after the delay',
+    );
+    enterEdge();
+    await until(
+      () => telemetry.native.expanded && !telemetry.native.animating,
+      'real task pointer reentry reopens the panel',
+    );
+    assert.equal(telemetry.selectedFeature, 'board');
+    check('real task exit and reentry collapse and reopen the same checklist');
+    await clickNativeElement("document.querySelector('[data-edge-tab=model]')");
+    await until(
+      () => telemetry.selectedFeature === 'model' && edgeTabs.selected === 'model',
+      'restore the initial model tab',
+    );
+    await ipc({ action: 'collapse' });
+    extraFeature = false;
+    edgeTabs = { order: [], selected: '' };
+    edgeTabsRevision++;
+    await until(
+      () =>
+        !telemetry.native.expanded &&
+        !telemetry.native.animating &&
+        telemetry.availableFeatures.length === 1 &&
+        telemetry.native.layoutWidth === preparedWidth,
+      'restore the initial compact fixture',
+    );
   }
   const focusActivations = telemetry.keyboardActivations;
   await ipc({ action: 'focus' });
@@ -1283,6 +1462,22 @@ try {
   );
   report.errors = telemetry.errors;
   assert.deepEqual(telemetry.errors, []);
+  if (pointerInputEnabled) {
+    const errors = report.pointerInputs.map((input) =>
+      Math.hypot(input.actual[0] - input.requested[0], input.actual[1] - input.requested[1]),
+    );
+    report.pointerAccuracy = {
+      samples: errors.length,
+      maxError: Math.max(0, ...errors),
+      stableSamples: Math.min(...report.pointerInputs.map((input) => input.stableSamples || 0)),
+    };
+    assert.ok(report.pointerAccuracy.maxError <= 2);
+    assert.ok(report.pointerAccuracy.stableSamples >= 3);
+    check(
+      'all real pointer moves and clicks have stable bounded coordinate readback',
+      report.pointerAccuracy,
+    );
+  }
   valid = false;
   await exited('invalid lease exits');
 

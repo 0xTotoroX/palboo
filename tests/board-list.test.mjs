@@ -259,8 +259,14 @@ test('search and task entry open only after an explicit icon action and retain t
     3,
     'an old hidden query does not filter tasks',
   );
+  const firstRow = await page.locator('[data-list-task="a"]').boundingBox();
   await page.getByRole('button', { name: '搜索任务', exact: true }).click();
   const search = page.getByRole('searchbox', { name: '搜索任务', exact: true });
+  assert.equal(await page.locator('#actions .board-search-control').count(), 1);
+  assert.equal(await page.locator('.board-search-row').count(), 0);
+  assert.ok(
+    Math.abs((await page.locator('[data-list-task="a"]').boundingBox()).y - firstRow.y) < 1,
+  );
   await search.fill('Palboo');
   assert.equal(await page.locator('[data-list-task]').count(), 1);
   const rect = await search.boundingBox();
@@ -329,6 +335,37 @@ test('one checklist fills narrow and wide embedded, desktop and edge allocations
       assert.equal(layout.overflow, false, JSON.stringify({ placement, width, layout }));
       if (width === 760)
         assert.equal(layout.lines, 1, JSON.stringify({ placement, width, layout }));
+      const beforeSearchY = (await page.locator('[data-list-task="a"]').boundingBox()).y;
+      await page.getByRole('button', { name: '搜索任务', exact: true }).click();
+      const search = page.getByRole('searchbox', { name: '搜索任务', exact: true });
+      const searchLayout = await search.evaluate((input) => {
+        const root = document.querySelector('main.csw-workbench-pane').getBoundingClientRect();
+        const form = input.closest('form').getBoundingClientRect(),
+          css = getComputedStyle(input);
+        return {
+          right: form.right,
+          limit: root.right,
+          outline: css.outlineStyle,
+          topBorder: css.borderTopWidth,
+          height: input.getBoundingClientRect().height,
+        };
+      });
+      assert.ok(
+        searchLayout.right <= searchLayout.limit + 1,
+        JSON.stringify({ placement, width, searchLayout }),
+      );
+      assert.equal(searchLayout.outline, 'none');
+      assert.equal(searchLayout.topBorder, '0px');
+      assert.ok(
+        Math.abs((await page.locator('[data-list-task="a"]').boundingBox()).y - beforeSearchY) < 1,
+      );
+      if (placement === 'edge') {
+        mkdirSync('target/reports/edge-interaction', { recursive: true });
+        await page
+          .locator('main.csw-workbench-pane')
+          .screenshot({ path: `target/reports/edge-interaction/search-${width}.png` });
+      }
+      await page.getByRole('button', { name: '关闭搜索', exact: true }).click();
       results.push({ placement, allocationWidth: width, ...layout });
     }
   }

@@ -144,20 +144,6 @@ h1 {
   background: transparent;
   border-radius: 10px;
 }
-.board-app .board-search {
-  width: min(100%, 20rem);
-  flex: 0 1 20rem;
-  min-height: 28px;
-  padding: 3px 8px;
-  border-radius: 6px;
-  background: transparent;
-}
-.board-search-row {
-  display: flex;
-  justify-content: flex-end;
-  flex: none;
-  padding-bottom: 8px;
-}
 .board-intrinsic-size {
   min-width: 920px;
   min-height: 620px;
