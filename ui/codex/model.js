@@ -992,11 +992,9 @@
       reasoning: canonical(trigger.getAttribute('data-selected-reasoning-effort')),
     };
   }
+  // 新版把 max-power 标记移到外层；控件身份以同一菜单内的角色和可访问名称核验。
   const fastControls = (main) =>
-    all(
-      main,
-      '[data-fast-mode-enabled],[role="menuitemcheckbox"][data-max-power-selection]',
-    ).filter(
+    all(main, '[data-fast-mode-enabled],[role="menuitemcheckbox"]').filter(
       (node) =>
         node.hasAttribute('data-fast-mode-enabled') ||
         /^(?:启用(?:快速|标准)模式|Enable (?:fast|standard) mode)$/iu.test(

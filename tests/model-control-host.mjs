@@ -266,7 +266,67 @@ try {
     },
     { modern: true, defaultRecommendation: true, openPlaceholder: true, speedFlyout: true },
   );
+  for (const evidence of ['unrelated', 'duplicate', 'invalid']) {
+    await check(
+      `nested Fast control preserves semantic identity checks (${evidence})`,
+      async (page) => {
+        await page.locator('form button').click();
+        await page.locator('[aria-label="Enable fast mode"]').evaluate((control, evidence) => {
+          if (evidence === 'invalid') control.setAttribute('aria-checked', 'mixed');
+          else {
+            const other = control.cloneNode(true);
+            if (evidence === 'unrelated') other.setAttribute('aria-label', 'Enable notifications');
+            control.parentElement.append(other);
+          }
+        }, evidence);
+        const state = await snapshot(page, true);
+        assert.equal(state.status, evidence === 'unrelated' ? 'ready' : 'unavailable');
+        assert.equal(await page.evaluate(() => host.changes.length), 0);
+        assert.equal(await page.locator('[role="menu"]').count(), 0);
+      },
+      { modern: true, semanticFastCheckbox: true, semanticFastWrapper: true },
+    );
+  }
   for (const fastLabel of ['启用快速模式', 'Enable fast mode']) {
+    await check(
+      `Fast state remains readable when max-power metadata moves to its parent (${fastLabel})`,
+      async (page) => {
+        const state = await snapshot(page, true);
+        assert.equal(state.status, 'ready', state.message);
+        assert.deepEqual(state.current, { model: 'alpha', reasoning: 'low', speed: 'standard' });
+        assert.equal(await page.evaluate(() => host.changes.length), 0);
+        for (const speed of ['fast', 'standard']) {
+          const desired = { model: 'alpha', reasoning: 'low', speed };
+          const result = await apply(page, desired);
+          assert.equal(result.status, 'success', result.message);
+          assert.deepEqual(result.snapshot.current, desired);
+        }
+        assert.equal(await page.locator('[role="menu"]').count(), 0);
+      },
+      { modern: true, semanticFastCheckbox: true, semanticFastWrapper: true, fastLabel },
+    );
+    await check(
+      `advanced view reads the nested semantic Fast state (${fastLabel})`,
+      async (page) => {
+        await page.evaluate(() => (host.configs['chat-a'].speed = 'fast'));
+        const state = await snapshot(page, true);
+        assert.equal(state.status, 'ready', state.message);
+        assert.equal(state.current.speed, 'fast');
+        assert.equal(await page.evaluate(() => host.changes.length), 0);
+        // 高级模式夹具不提供推理滑块，沿用该模型被选中后的首个有效档位。
+        const desired = { ...targetBeta, reasoning: 'medium' };
+        const result = await apply(page, desired);
+        assert.equal(result.status, 'success', result.message);
+        assert.deepEqual(result.snapshot.current, desired);
+      },
+      {
+        modern: true,
+        advancedOnly: true,
+        semanticFastCheckbox: true,
+        semanticFastWrapper: true,
+        fastLabel,
+      },
+    );
     await check(
       `new semantic Fast checkbox reads and toggles safely (${fastLabel})`,
       async (page) => {

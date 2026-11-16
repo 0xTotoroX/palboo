@@ -158,7 +158,9 @@ export function installModelControlFixture({ records, options = {} }) {
             const marker = options.semanticFastCheckbox
               ? `data-max-power-selection="false" aria-label="${fastLabel}"`
               : `data-fast-mode-enabled="${config.speed === 'fast'}"`;
-            inactive.innerHTML = `<div role="menuitemcheckbox" aria-checked="${config.speed === 'fast'}" ${marker}></div>`;
+            inactive.innerHTML = options.semanticFastWrapper
+              ? `<div data-max-power-selection="false"><div role="menuitemcheckbox" aria-checked="${config.speed === 'fast'}" aria-label="${fastLabel}"></div></div>`
+              : `<div role="menuitemcheckbox" aria-checked="${config.speed === 'fast'}" ${marker}></div>`;
             root.append(inactive);
           }
           if (options.openPlaceholder) trigger.textContent = 'Select model';
@@ -234,7 +236,7 @@ export function installModelControlFixture({ records, options = {} }) {
               fast.setAttribute('role', 'menuitemcheckbox');
               fast.setAttribute('aria-checked', String(config.speed === 'fast'));
               if (options.semanticFastCheckbox) {
-                fast.dataset.maxPowerSelection = 'false';
+                if (!options.semanticFastWrapper) fast.dataset.maxPowerSelection = 'false';
                 fast.setAttribute('aria-label', fastLabel);
               } else fast.dataset.fastModeEnabled = String(config.speed === 'fast');
               fast.textContent = 'Fast';
@@ -282,6 +284,11 @@ export function installModelControlFixture({ records, options = {} }) {
                   document.body.append(sub);
                 });
                 root.append(flyout);
+              } else if (options.semanticFastWrapper) {
+                const wrapper = document.createElement('div');
+                wrapper.dataset.maxPowerSelection = 'false';
+                wrapper.append(fast);
+                root.append(wrapper);
               } else root.append(fast);
             }
           }
