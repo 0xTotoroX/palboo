@@ -1,7 +1,7 @@
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 /* [INPUT]: Independent task API, shared settings controls and action icons.
- * [OUTPUT]: Direct group personalization with accessible save/add actions; retained sync authorization and single-list binding UI.
+ * [OUTPUT]: Saved board/list choice and retained board layout/groups with accessible actions; sync authorization and single-list binding UI.
  * [POS]: Task settings do not modify model-control or workbench preferences.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 import { useSettingsListMotion } from './settings-list-motion';
@@ -50,97 +50,114 @@ export function TaskSettings({ tasks }: { tasks: ReturnType<typeof useTasks> }) 
     (!!hasLinks && !!currentId && !needsRepair);
   return (
     <section id="settings-tasks" className="settings-section space-y-5">
-      <Field label={tr('看板视图')} id="board-view-mode">
+      <Field label={tr('显示方式')} id="task-display-mode">
         <NativeSelect
-          id="board-view-mode"
-          aria-label={tr('看板视图')}
-          value={state?.store.viewMode ?? 'merged'}
+          id="task-display-mode"
+          aria-label={tr('显示方式')}
+          value={state?.store.displayMode ?? 'board'}
           disabled={busy || !state}
           onChange={(event) => {
             feedback.capture();
-            void command({ op: 'view', viewMode: event.target.value });
+            void command({ op: 'view', displayMode: event.target.value });
           }}
         >
-          <option value="merged">{tr('合并视图')}</option>
-          <option value="expanded">{tr('完全展开视图')}</option>
+          <option value="board">{tr('看板')}</option>
+          <option value="list">{tr('清单')}</option>
         </NativeSelect>
       </Field>
-      <section id="board-groups">
-        <h2>{tr('看板分组')}</h2>
-        <div ref={listRef} data-settings-list="board-groups" className="space-y-3">
-          {(state?.store.columns ?? defaultColumns).map((column) => (
+      <div hidden={state?.store.displayMode === 'list'} className="space-y-5">
+        <Field label={tr('看板视图')} id="board-view-mode">
+          <NativeSelect
+            id="board-view-mode"
+            aria-label={tr('看板视图')}
+            value={state?.store.viewMode ?? 'merged'}
+            disabled={busy || !state}
+            onChange={(event) => {
+              feedback.capture();
+              void command({ op: 'view', viewMode: event.target.value });
+            }}
+          >
+            <option value="merged">{tr('合并视图')}</option>
+            <option value="expanded">{tr('完全展开视图')}</option>
+          </NativeSelect>
+        </Field>
+        <section id="board-groups">
+          <h2>{tr('看板分组')}</h2>
+          <div ref={listRef} data-settings-list="board-groups" className="space-y-3">
+            {(state?.store.columns ?? defaultColumns).map((column) => (
+              <form
+                key={column.id}
+                data-settings-list-item={column.id}
+                className="flex items-center gap-3"
+                data-settings-feedback-anchor
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  feedback.capture();
+                  void command({
+                    op: 'renameColumn',
+                    id: column.id,
+                    title: groupNames[column.id],
+                  }).then((result) => {
+                    if (result)
+                      setGroupNames((names) => {
+                        const next = { ...names };
+                        delete next[column.id];
+                        return next;
+                      });
+                  });
+                }}
+              >
+                <Input
+                  aria-label={tr('分组名称：{{value1}}', { value1: columnTitle(column) })}
+                  maxLength={40}
+                  disabled={busy || !state}
+                  value={groupNames[column.id] ?? columnTitle(column)}
+                  onChange={(event) =>
+                    setGroupNames({ ...groupNames, [column.id]: event.target.value })
+                  }
+                />
+                <IconButton
+                  type="submit"
+                  aria-label={tr('保存分组：{{value1}}', { value1: columnTitle(column) })}
+                  disabled={
+                    busy || !groupNames[column.id]?.trim() || groupNames[column.id] === column.title
+                  }
+                >
+                  <Icon name="check" />
+                </IconButton>
+              </form>
+            ))}
             <form
-              key={column.id}
-              data-settings-list-item={column.id}
+              data-settings-list-item="add"
               className="flex items-center gap-3"
               data-settings-feedback-anchor
               onSubmit={(event) => {
                 event.preventDefault();
                 feedback.capture();
-                void command({
-                  op: 'renameColumn',
-                  id: column.id,
-                  title: groupNames[column.id],
-                }).then((result) => {
-                  if (result)
-                    setGroupNames((names) => {
-                      const next = { ...names };
-                      delete next[column.id];
-                      return next;
-                    });
+                void command({ op: 'createColumn', title: newGroup }).then((result) => {
+                  if (result) setNewGroup('');
                 });
               }}
             >
               <Input
-                aria-label={tr('分组名称：{{value1}}', { value1: columnTitle(column) })}
+                aria-label={tr('新分组名称')}
+                placeholder={tr('新分组名称')}
                 maxLength={40}
                 disabled={busy || !state}
-                value={groupNames[column.id] ?? columnTitle(column)}
-                onChange={(event) =>
-                  setGroupNames({ ...groupNames, [column.id]: event.target.value })
-                }
+                value={newGroup}
+                onChange={(event) => setNewGroup(event.target.value)}
               />
               <IconButton
                 type="submit"
-                aria-label={tr('保存分组：{{value1}}', { value1: columnTitle(column) })}
-                disabled={
-                  busy || !groupNames[column.id]?.trim() || groupNames[column.id] === column.title
-                }
+                aria-label={tr('新增分组')}
+                disabled={busy || !state || !newGroup.trim()}
               >
-                <Icon name="check" />
+                <Icon name="plus" />
               </IconButton>
             </form>
-          ))}
-          <form
-            data-settings-list-item="add"
-            className="flex items-center gap-3"
-            data-settings-feedback-anchor
-            onSubmit={(event) => {
-              event.preventDefault();
-              feedback.capture();
-              void command({ op: 'createColumn', title: newGroup }).then((result) => {
-                if (result) setNewGroup('');
-              });
-            }}
-          >
-            <Input
-              aria-label={tr('新分组名称')}
-              placeholder={tr('新分组名称')}
-              maxLength={40}
-              disabled={busy || !state}
-              value={newGroup}
-              onChange={(event) => setNewGroup(event.target.value)}
-            />
-            <IconButton
-              type="submit"
-              aria-label={tr('新增分组')}
-              disabled={busy || !state || !newGroup.trim()}
-            >
-              <Icon name="plus" />
-            </IconButton>
-          </form>
-        </div>
-      </section>
+          </div>
+        </section>
+      </div>
       {remindersSettingsVisible && (
         <>
           <div className="flex items-center justify-between gap-4">

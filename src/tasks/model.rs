@@ -266,6 +266,14 @@ pub enum BoardViewMode {
     Expanded,
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum TaskDisplayMode {
+    #[default]
+    Board,
+    List,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Store {
@@ -274,6 +282,8 @@ pub struct Store {
     pub board_enabled: bool,
     #[serde(default)]
     pub view_mode: BoardViewMode,
+    #[serde(default)]
+    pub display_mode: TaskDisplayMode,
     pub sync_enabled: bool,
     pub bindings: Bindings,
     #[serde(default)]
@@ -293,6 +303,7 @@ impl Default for Store {
             revision: 1,
             board_enabled: false,
             view_mode: BoardViewMode::default(),
+            display_mode: TaskDisplayMode::default(),
             sync_enabled: false,
             bindings: Bindings::default(),
             binding_source: None,

@@ -68,7 +68,7 @@ initialBots.bots[0].preview='本机已有的合成回复';
 const initialFeatures={mainPlacement:'sidebar',features:['board','model','bots','terms','next','prompts'].map(id=>({id,open:true,placement:'sidebar'})),layouts:{sidebar:{axis:'auto',groups:[{ids:['board','model','bots','terms','next','prompts'],active:'board',weight:1}]}}};
 window.network=[];window.commands=[];window.fetch=(...args)=>{window.network.push(args);throw Error('No real transport')};
 function App(){const[page,setPage]=useState('board');const[state,setTasks]=useState(tasks);const[model,setModel]=useState(initialModel);const[bots,setBots]=useState(initialBots);const[features,setFeatures]=useState(initialFeatures);const[dark,setDark]=useState(false);
-const command=async data=>{window.commands.push(data);setTasks(s=>({...s,store:{...s.store,revision:s.store.revision+1,viewMode:data.viewMode}}));return {}};
+const command=async data=>{window.commands.push(data);setTasks(s=>({...s,store:{...s.store,revision:s.store.revision+1,...(data.viewMode?{viewMode:data.viewMode}:{}),...(data.displayMode?{displayMode:data.displayMode}:{})}}));return {}};
 return <div className={'settings-app '+(dark?'dark':'')} style={{maxWidth:900,margin:'auto',padding:24}}>
 <nav>{['board','model-control','bots','surfaces','appearance'].map(id=><button key={id} onClick={()=>setPage(id)}>{id}</button>)}<button onClick={()=>setDark(!dark)}>主题</button><button onClick={()=>setLocale('en')}>English</button></nav>
 <SettingsPreview page={page} tasks={state} model={model} bots={bots} form={{maxItems:2,quickPrompts:[{label:'已保存',prompt:'已保存的指令'}],grokbotEnabled:true}} features={features} surfaces={{preferences:{themes:{},edge:{}}}} view={null} dirty={false} live/>
@@ -220,6 +220,17 @@ return <div className={'settings-app '+(dark?'dark':'')} style={{maxWidth:900,ma
           false,
         );
       }
+      await page.getByLabel('显示方式', { exact: true }).selectOption('list');
+      await board.locator('[data-view-mode=list]').waitFor();
+      const complete = board.getByRole('checkbox', { name: '完成任务：已同步任务', exact: true });
+      await complete.click();
+      await complete.waitFor({ state: 'detached' });
+      assert.equal(await page.locator('[data-task-count]').textContent(), '6');
+      await board.getByRole('button', { name: '查看已完成', exact: true }).click();
+      await board.getByRole('button', { name: '恢复任务：已同步任务', exact: true }).click();
+      assert.equal(await page.locator('[data-task-count]').textContent(), '6');
+      await page.getByLabel('显示方式', { exact: true }).selectOption('board');
+      await board.locator('[data-view-mode=expanded]').waitFor();
       await page.setViewportSize({ width: 1080, height: 1000 });
       await mkdir('target/reports/settings-live-previews', { recursive: true });
       await preview.screenshot({

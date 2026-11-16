@@ -500,3 +500,5 @@ dev-launcher 以认证合成服务覆盖 --settings 成功/失败及零启动副
 - `desktop-size.test.mjs`：真实桌面尺寸回调验证原生344×364对应内容320×340、最小/大尺寸及临时几何保护；Rust main_surface 单测核对保存、磁盘回读与租约，panel_window 覆盖旧窄锚点回退。
 
 - `cdp-ownership.test.mjs` / `cdp-ownership-peer.mjs`：隔离 Chromium 执行 Rust 的真实归属包装与注入脚本，覆盖开发同进程恢复、foreign 拒绝、导航前保护、DOM 就绪前暂停取消延迟注入、正式模式旧接管兼容；真实开发构建脚本覆盖异步草稿保存后重建的归属保留与等待期间实例替换的取消。Rust CDP 单测在面板执行后主动断开应答，再建立第二连接验证完整恢复，关闭不销毁已被其他实例替换的对象。
+
+- `board-list.test.mjs`：实际mountFeature完整承载及TaskSettings验证看板/清单保存、原分组和任务身份保留、交接输入草稿、保存成功才收走、失败不丢任务、完成及历史归档恢复、中英文/减少动态效果/键盘焦点与240px窄栏对齐、无底板/阴影，以及贴边清单自然尺寸而看板保留920×620预算；settings-live-previews同时验证清单操作仅在内存副本执行。Rust tasks回归验证旧文件默认看板、显示方式持久化和非法/旧修订零写入。

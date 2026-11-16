@@ -1,4 +1,4 @@
-/* [INPUT]: Shared semantic tokens. [OUTPUT]: Responsive board, hover removal and inline recovery presentation.
+/* [INPUT]: Shared semantic tokens. [OUTPUT]: Responsive board and flat checklist, completion motion, hover removal and inline recovery.
  * [POS]: Standalone scoped page styling. [PROTOCOL]: Keep board/AGENTS.md in sync. */
 :root {
   font:
@@ -354,6 +354,151 @@ h1 {
 }
 .board-grid.narrow .column-heading {
   display: none;
+}
+.task-list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 0 4px;
+}
+.task-list-rows {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+.task-list-row,
+.task-list-add {
+  display: flex;
+  align-items: start;
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 0;
+}
+.board-app .task-list :is(button, input) {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  filter: none;
+  transform: none;
+}
+.board-app .task-list :is(.task-list-toggle, .task-list-action) {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  padding: 4px;
+  color: var(--muted);
+}
+.task-list-circle {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  transition:
+    background-color 120ms,
+    border-color 120ms;
+}
+.task-list-circle svg {
+  width: 16px;
+  height: 16px;
+}
+[data-completed] .task-list-circle {
+  color: var(--paper, var(--surface));
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.board-app .task-list-title {
+  display: block;
+  flex: 1;
+  min-width: 0;
+  padding: 2px 0;
+  line-height: 1.6;
+  text-align: left;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+.task-list-title span {
+  position: relative;
+  transition: color 220ms;
+  box-decoration-break: clone;
+}
+[data-completed] .task-list-title span {
+  color: var(--muted);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+[data-completing] .task-list-title span {
+  text-decoration: none;
+  background: linear-gradient(var(--accent), var(--accent)) left 55% / 0 1.5px no-repeat;
+  animation: task-strike 260ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.task-list [data-completing] button:disabled {
+  opacity: 1;
+}
+.task-list-delete {
+  opacity: 0;
+}
+.task-list-row:hover .task-list-delete,
+.task-list-row:focus-within .task-list-delete {
+  opacity: 1;
+}
+.task-list-action:hover,
+.task-list-toggle:hover {
+  color: var(--ink);
+}
+.task-list-add {
+  margin-top: 8px;
+  color: var(--muted);
+}
+.task-list-add-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+}
+.board-app .task-list-add input {
+  width: 100%;
+  min-width: 0;
+  padding: 2px 0;
+  line-height: 1.6;
+  border-radius: 0;
+  outline-offset: 2px;
+}
+.task-list-add input::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+.task-list-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+.board-app[data-view-mode='list'] .board-main {
+  overflow: hidden;
+}
+@keyframes task-strike {
+  to {
+    background-size: 100% 1.5px;
+  }
+}
+@media (pointer: coarse) {
+  .task-list-delete {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .task-list-title span,
+  .task-list-circle {
+    transition: none;
+  }
+  [data-completing] .task-list-title span {
+    animation: none;
+    background-size: 100% 1.5px;
+  }
 }
 .embedded .board-main {
   padding: 12px;

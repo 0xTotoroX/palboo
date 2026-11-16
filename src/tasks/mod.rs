@@ -220,8 +220,18 @@ impl Service {
         let mut next = inner.store.clone();
         match op {
             "view" => {
-                next.view_mode =
-                    serde_json::from_value(command["viewMode"].clone()).context("看板视图无效")?;
+                ensure!(
+                    command.get("viewMode").is_some() || command.get("displayMode").is_some(),
+                    "缺少任务显示方式"
+                );
+                if let Some(mode) = command.get("viewMode") {
+                    next.view_mode =
+                        serde_json::from_value(mode.clone()).context("看板视图无效")?;
+                }
+                if let Some(mode) = command.get("displayMode") {
+                    next.display_mode =
+                        serde_json::from_value(mode.clone()).context("任务显示方式无效")?;
+                }
             }
             "createColumn" | "renameColumn" => {
                 ensure!(next.board_enabled, "看板已停用");

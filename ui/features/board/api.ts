@@ -1,5 +1,5 @@
 import { tr } from '../../shared/i18n.js';
-/* [INPUT]: Authenticated local task API. [OUTPUT]: Task/group DTOs and a refreshable state hook.
+/* [INPUT]: Authenticated local task API. [OUTPUT]: Task/group/display DTOs and a refreshable state hook.
  * [POS]: Shared board/settings task client. [PROTOCOL]: Keep board/AGENTS.md in sync. */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { errorMessage } from '../../shared/text.js';
@@ -44,11 +44,13 @@ export type Calendar = {
 };
 export type BoardColumn = { id: string; title: string };
 export type BoardViewMode = 'merged' | 'expanded';
+export type TaskDisplayMode = 'board' | 'list';
 export type TaskState = {
   store: {
     revision: number;
     boardEnabled: boolean;
     viewMode?: BoardViewMode;
+    displayMode?: TaskDisplayMode;
     syncEnabled: boolean;
     bindings: Bindings;
     columns?: BoardColumn[];

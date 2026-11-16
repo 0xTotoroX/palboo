@@ -692,3 +692,66 @@ async fn board_view_modes_persist_without_changing_tasks_or_modules() {
         assert_eq!(std::fs::read(paths.root.join("tasks.json")).unwrap(), saved);
     }
 }
+
+#[tokio::test]
+async fn list_display_preserves_every_task_group_sync_identity_and_board_layout() {
+    let dir = tempfile::tempdir().unwrap();
+    let paths = Paths::new(Some(dir.path().into())).unwrap();
+    let mut store = Store {
+        board_enabled: true,
+        view_mode: BoardViewMode::Expanded,
+        ..Default::default()
+    };
+    reconcile(
+        &mut store,
+        &Snapshot {
+            reminders: vec![remote("remote-one", "same"), remote("remote-two", "same")],
+            ..Default::default()
+        },
+    );
+    store.tasks[0].fields.column = "doing".into();
+    store.tasks[0].fields.notes = "keep notes".into();
+    store.tasks[0].fields.priority = 3;
+    store.tasks[1].fields.completed = true;
+    store.tasks[1].archived = true;
+    let mut old = serde_json::to_value(&store).unwrap();
+    old.as_object_mut().unwrap().remove("displayMode");
+    std::fs::write(
+        paths.root.join("tasks.json"),
+        serde_json::to_vec(&old).unwrap(),
+    )
+    .unwrap();
+    let service = Service::load(&paths);
+    assert_eq!(service.state().await["store"]["displayMode"], "board");
+    for (revision, mode) in [(1, "list"), (2, "board"), (3, "list")] {
+        service
+            .command(json!({"op":"view","displayMode":mode,"revision":revision}))
+            .await
+            .unwrap();
+        let state = Service::load(&paths).state().await;
+        assert_eq!(state["store"]["displayMode"], mode);
+        for key in [
+            "tasks",
+            "columns",
+            "bindings",
+            "inflight",
+            "viewMode",
+            "boardEnabled",
+            "syncEnabled",
+            "deletedReminders",
+        ] {
+            assert_eq!(state["store"][key], old[key], "view must preserve {key}");
+        }
+    }
+    let before = std::fs::read(paths.root.join("tasks.json")).unwrap();
+    for command in [
+        json!({"op":"view","displayMode":"unknown","revision":4}),
+        json!({"op":"view","displayMode":"board","revision":1}),
+    ] {
+        assert!(service.command(command).await.is_err());
+        assert_eq!(
+            std::fs::read(paths.root.join("tasks.json")).unwrap(),
+            before
+        );
+    }
+}

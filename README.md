@@ -21,7 +21,7 @@ Desktop windows use native macOS traffic-light controls and reuse the existing P
 | **Quick phrases**         | Manage reusable prompts independently; choose fill, send, or click-to-fill/double-click-to-send.                                        |
 | **Outline**               | Follow original headings, or use a few paragraph links when headings are absent. Local parsing, with no model calls.                    |
 | **Terminology**           | Explain terms in context; collect favorites and mark terms as mastered.                                                                 |
-| **Task board**            | Organize tasks with merged or fully expanded views, custom groups and drag-and-drop.                                                        |
+| **Task board**            | Choose a board or simple checklist. Check off tasks to hide them with a strike-through animation, and restore them from completed history; board groups and drag-and-drop remain available.                                                        |
 | **Model switching**       | Switch Codex models, reasoning levels, and Fast mode; save presets and see available usage limits.                                      |
 | **Prompt enhancement**    | Refine a draft before sending, with the option to restore the original.                                                                 |
 | **Chat speed**            | Keep each model’s latest estimated speed across chats, labeled until a new reading arrives; inspect token usage when Codex provides it. |

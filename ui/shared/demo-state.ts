@@ -222,6 +222,7 @@ export function createDemoTasks(seed?: TaskState, exampleViewMode: BoardViewMode
       id?: string;
       fields?: Fields;
       before?: string;
+      archived?: boolean;
     };
     if (data.revision !== state.store.revision) throw Error(tr('内容已更新，请重试'));
     if (data.op === 'create' && data.fields?.title.trim())
@@ -230,6 +231,7 @@ export function createDemoTasks(seed?: TaskState, exampleViewMode: BoardViewMode
       const item = state.store.tasks.find((item) => item.id === data.id);
       if (!item) throw Error('Unknown demo task');
       item.fields = structuredClone(data.fields);
+      if (typeof data.archived === 'boolean') item.archived = data.archived;
       if (data.before) {
         state.store.tasks = state.store.tasks.filter((t) => t !== item);
         const index = state.store.tasks.findIndex((t) => t.id === data.before);

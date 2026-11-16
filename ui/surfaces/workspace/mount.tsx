@@ -132,7 +132,10 @@ export function mountFeature(
       const intrinsic = body.querySelector<HTMLElement>('[data-intrinsic-width]');
       const bodyStyle = getComputedStyle(body);
       const padding = parseFloat(bodyStyle.paddingLeft) + parseFloat(bodyStyle.paddingRight);
-      const edgeBoard = initial.id === 'board' && placement === 'edge';
+      const edgeBoard =
+        initial.id === 'board' &&
+        placement === 'edge' &&
+        !body.querySelector('[data-view-mode="list"]');
       // Features may expose their minimum readable width; text/list views keep the existing width.
       const width = Math.ceil(
         Math.min(

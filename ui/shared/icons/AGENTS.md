@@ -46,3 +46,5 @@ website 为 Palboo 自绘地球；github 复用官网已引入的 Octicons mark-
 - `reader.js`：Palboo 自绘的轻量文件夹、打开文件夹、文档、表格、侧栏、定位、折叠及代码复制图标，GPL-3.0-only；统一24px画布/18px显示，不复制 Notebook Navigator 素材。
 
 顶部标签、左侧标签和双栏的布局图标由 Palboo 自绘，遵循项目 GPL-3.0-only 许可，统一为24px画布、18px显示。
+
+清单的task-completed（勾选纸张与托盘）和task-restore（回转箭头）为Palboo自绘，GPL-3.0-only；共用24px画布与1.8px描边，显示18px、命中至少28px，历史入口、返回和恢复只用共享图标。

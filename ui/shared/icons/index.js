@@ -76,6 +76,11 @@ for (const [name, divider] of Object.entries({
 }
 
 export function iconSvg(name) {
+  // Palboo 自绘（GPL-3.0-only）：完成记录与恢复，清单各承载共用。
+  if (name === 'task-completed')
+    return '<svg aria-hidden="true" data-icon="task-completed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 14V4h14v10M3 14h5l2 3h4l2-3h5v7H3ZM8.5 8.5l2.5 2.5 4.5-4.5"/></svg>';
+  if (name === 'task-restore')
+    return '<svg aria-hidden="true" data-icon="task-restore" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m8 5-5 5 5 5M3 10h11a6 6 0 0 1 0 12h-3" transform="translate(0 -2)"/></svg>';
   // Palboo 自绘（GPL-3.0-only）：向左进入／向外打开，区别于大纲及提示词优化／还原。
   if (name === 'side-chat-handoff')
     return '<svg aria-hidden="true" data-icon="side-chat-handoff" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5v14M20 12H9m5-5-5 5 5 5"/></svg>';

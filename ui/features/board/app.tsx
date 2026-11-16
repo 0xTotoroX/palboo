@@ -1,7 +1,7 @@
 import { useLocale } from '../../shared/use-locale';
 import { tr } from '../../shared/i18n.js';
 /* [INPUT]: Task API, native window events, drag/drop components, optional surface header slot and polling policy.
- * [OUTPUT]: Saved merged tabs or fully expanded groups, with inline creation/removal.
+ * [OUTPUT]: Saved board/list presentation; existing groups and task identities shared across both, with inline creation/removal.
  * [POS]: Task-only application entry; no Codex/model dependencies.
  * [PROTOCOL]: Keep board/AGENTS.md in sync. */
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -18,6 +18,7 @@ import {
 } from './api';
 import { TaskDetails, type TaskDraft } from './details';
 import { Column, TaskCard, taskDragOver, taskDrop } from './card';
+import { Checklist } from './checklist';
 export type BoardView = {
   editor?: TaskDraft | null;
   search: string;
@@ -25,6 +26,7 @@ export type BoardView = {
   tab: string;
   gridLeft?: number;
   quickAdd?: { column: string; title: string } | null;
+  completed?: boolean;
 };
 export function Board({
   request,
@@ -47,6 +49,10 @@ export function Board({
   const element = useRef<HTMLDivElement>(null);
   const [narrow, setNarrow] = useState(false);
   const merged = state?.store.viewMode !== 'expanded';
+  const list = state?.store.displayMode === 'list';
+  const [history, setHistory] = useState(view?.completed ?? false);
+  const [settling, setSettling] = useState(false);
+  const historyButton = useRef<HTMLButtonElement>(null);
   const [stage, setStage] = useState(view?.tab === 'archive' ? 'done' : view?.stage || 'todo');
   useEffect(() => {
     const node = element.current;
@@ -75,8 +81,9 @@ export function Board({
     if (!columns.some((c) => c.id === stage)) setStage(columns[0]?.id || 'todo');
   }, [columns, stage]);
   useEffect(() => {
-    if (view) Object.assign(view, { search, stage, tab, quickAdd, editor: draft });
-  }, [view, search, stage, tab, quickAdd, draft]);
+    if (view)
+      Object.assign(view, { search, stage, tab, quickAdd, editor: draft, completed: history });
+  }, [view, search, stage, tab, quickAdd, draft, history]);
   useEffect(() => {
     const resize = (e: Event) => {
       void request('tasks/command', { op: 'windowSize', size: (e as CustomEvent).detail }).catch(
@@ -116,24 +123,25 @@ export function Board({
   const visible = tasks.filter((t) =>
     `${t.fields.title}\n${t.fields.notes}`.toLowerCase().includes(search.toLowerCase()),
   );
+  const editTask = (task: Task) => {
+    if (draft?.task.id === task.id) return updateDraft({ ...draft, open: true });
+    if (
+      draft &&
+      JSON.stringify(draft.fields) !== JSON.stringify(draft.task.fields) &&
+      !confirm(tr('放弃之前未保存的任务修改？'))
+    )
+      return;
+    updateDraft({
+      task: structuredClone(task),
+      fields: structuredClone(task.fields),
+      open: true,
+    });
+  };
   const card = (task: Task) => (
     <TaskCard
       key={task.id}
       task={task}
-      edit={() => {
-        if (draft?.task.id === task.id) return updateDraft({ ...draft, open: true });
-        if (
-          draft &&
-          JSON.stringify(draft.fields) !== JSON.stringify(draft.task.fields) &&
-          !confirm(tr('放弃之前未保存的任务修改？'))
-        )
-          return;
-        updateDraft({
-          task: structuredClone(task),
-          fields: structuredClone(task.fields),
-          open: true,
-        });
-      }}
+      edit={() => editTask(task)}
       disabled={busy || !state.store.boardEnabled || state.store.inflight?.taskId === task.id}
       command={command}
       before={(id) => move(id, taskGroup(task), task.id)}
@@ -150,6 +158,23 @@ export function Board({
     >
       <Icon name="search" />
     </button>
+  );
+  const tools = (
+    <>
+      {searchButton}
+      {list && (
+        <button
+          ref={historyButton}
+          type="button"
+          aria-label={tr(history ? '返回待办' : '查看已完成')}
+          title={tr(history ? '返回待办' : '查看已完成')}
+          disabled={busy || settling}
+          onClick={() => setHistory(!history)}
+        >
+          <Icon name={history ? 'back' : 'task-completed'} />
+        </button>
+      )}
+    </>
   );
   const addTask = (column: string) =>
     quickAdd?.column === column ? (
@@ -210,11 +235,12 @@ export function Board({
           view.gridLeft = node.scrollLeft;
       }}
       className={`board-app ${embedded ? 'embedded' : ''}`}
-      data-view-mode={merged ? 'merged' : 'expanded'}
+      data-view-mode={list ? 'list' : merged ? 'merged' : 'expanded'}
+      data-completed-view={(list && history) || undefined}
     >
       {!embedded && (
         <header className="board-header">
-          <h1>{tr('我的任务看板')}</h1>
+          <h1>{tr(list ? (history ? '已完成' : '待办事项') : '我的任务看板')}</h1>
         </header>
       )}
       {draft && (
@@ -248,7 +274,12 @@ export function Board({
         />
       )}
       <main className="board-main">
-        {merged && (
+        {list && !headerActions && (
+          <div className="task-list-toolbar">
+            <div className="board-tools">{tools}</div>
+          </div>
+        )}
+        {!list && merged && (
           <div className="board-toolbar">
             <nav className="stage-tabs" aria-label={tr('任务阶段')}>
               {columns.map((column) => (
@@ -298,37 +329,52 @@ export function Board({
             </button>
           </div>
         )}
-        <div
-          className={`board-grid ${merged ? 'narrow' : narrow ? 'stacked' : ''}`}
-          style={
-            narrow || merged
-              ? undefined
-              : { gridTemplateColumns: `repeat(${columns.length}, minmax(210px, 1fr))` }
-          }
-        >
-          {(merged ? columns.filter((column) => column.id === stage) : columns).map((column) => {
-            const group = visible.filter((t) => taskGroup(t) === column.id);
-            return (
-              <Column
-                key={column.id}
-                {...column}
-                disabled={busy}
-                move={move}
-                heading={
-                  <>
-                    <span className="group-title">{column.title}</span>
-                    <small>{group.length}</small>
-                  </>
-                }
-              >
-                {group.map(card)}
-                {addTask(column.id)}
-              </Column>
-            );
-          })}
-        </div>
-        {headerActions && createPortal(searchButton, headerActions)}
-        {(searchOpen || !headerActions) && (
+        {list ? (
+          <Checklist
+            tasks={visible}
+            history={history}
+            busy={busy}
+            inflight={state.store.inflight?.taskId}
+            command={command}
+            edit={editTask}
+            title={quickAdd?.title ?? ''}
+            setTitle={(title) => setQuickAdd({ column: 'todo', title })}
+            focusFallback={() => historyButton.current?.focus({ preventScroll: true })}
+            setSettling={setSettling}
+          />
+        ) : (
+          <div
+            className={`board-grid ${merged ? 'narrow' : narrow ? 'stacked' : ''}`}
+            style={
+              narrow || merged
+                ? undefined
+                : { gridTemplateColumns: `repeat(${columns.length}, minmax(210px, 1fr))` }
+            }
+          >
+            {(merged ? columns.filter((column) => column.id === stage) : columns).map((column) => {
+              const group = visible.filter((t) => taskGroup(t) === column.id);
+              return (
+                <Column
+                  key={column.id}
+                  {...column}
+                  disabled={busy}
+                  move={move}
+                  heading={
+                    <>
+                      <span className="group-title">{column.title}</span>
+                      <small>{group.length}</small>
+                    </>
+                  }
+                >
+                  {group.map(card)}
+                  {addTask(column.id)}
+                </Column>
+              );
+            })}
+          </div>
+        )}
+        {headerActions && createPortal(tools, headerActions)}
+        {(searchOpen || (!headerActions && !list)) && (
           <footer className="board-footer">
             {searchOpen && (
               <input
@@ -341,7 +387,7 @@ export function Board({
                 onChange={(e) => setSearch(e.target.value)}
               />
             )}
-            {!headerActions && <div className="board-tools">{searchButton}</div>}
+            {!headerActions && !list && <div className="board-tools">{tools}</div>}
           </footer>
         )}
       </main>
