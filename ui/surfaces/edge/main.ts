@@ -1,6 +1,6 @@
 import { tr } from '../../shared/i18n.js';
 import { setLocale, getLocale } from '../../shared/i18n.js';
-/* [INPUT]: Native edge geometry/events, effective fonts and feature owners. [OUTPUT]: Persisted reorderable icon tabs with stable measured wrapping, bounded dialogs and per-view header slots.
+/* [INPUT]: Native edge geometry/events, effective fonts and feature owners. [OUTPUT]: Reorderable tabs, a stable expanded footprint, bounded dialogs and per-view header slots.
  * [POS]: Keeps mounted views alive while collapsed or in another tab; model leave waits 1500ms, other views 450ms; retries held collapse on the existing state poll; no business state.
  * [PROTOCOL]: Keep AGENTS.md in this module in sync. */
 import { createEdgeTabs } from './tabs';
@@ -46,10 +46,16 @@ export function startEdge(request: Request, fontSource?: HostFontSource) {
     measured = '',
     pointerInteraction = false,
     collapsePending = false;
+  let expandedSize: { width: number; height: number } | null = null;
   const navigation = createEdgeTabs(
     tabs,
     request,
     () => {
+      const retryCollapse = collapsePending && !inside;
+      clearTimeout(leave);
+      leave = 0;
+      collapsePending = false;
+      if (expanded && retryCollapse) scheduleCollapse();
       visibility();
       measure();
     },
@@ -83,8 +89,9 @@ export function startEdge(request: Request, fontSource?: HostFontSource) {
         const rounded = Math.ceil(size);
         return rounded === previous - 1 ? previous : rounded;
       };
-      const nextWidth = stable(width, previousWidth);
-      const nextHeight = stable(height, previousHeight);
+      const nextWidth = Math.max(stable(width, previousWidth), expandedSize?.width || 0);
+      const nextHeight = Math.max(stable(height, previousHeight), expandedSize?.height || 0);
+      if (expanded) expandedSize = { width: nextWidth, height: nextHeight };
       const key = `${nextWidth}:${nextHeight}`;
       if (key === measured) return;
       measured = key;
@@ -249,8 +256,15 @@ export function startEdge(request: Request, fontSource?: HostFontSource) {
   }
   window.addEventListener('edge-native', (event) => {
     if (stopped) return;
+    const wasExpanded = expanded;
     native = (event as CustomEvent).detail;
     expanded = !!native.expanded;
+    if (expanded && !wasExpanded)
+      expandedSize = { width: native.layoutWidth || 0, height: native.layoutHeight || 0 };
+    if (!expanded && wasExpanded) {
+      expandedSize = null;
+      measured = '';
+    }
     if (!expanded) {
       pointerInteraction = false;
       collapsePending = false;

@@ -1,7 +1,7 @@
 import { useLocale } from '../../shared/use-locale';
 import { tr } from '../../shared/i18n.js';
 /* [INPUT]: Task API, native window events, drag/drop components, optional surface header slot and polling policy.
- * [OUTPUT]: Saved board/list presentation; existing groups and task identities shared across both, with inline creation/removal.
+ * [OUTPUT]: Shared board/list presentation with explicit search/add disclosure, retained drafts and existing task identities.
  * [POS]: Task-only application entry; no Codex/model dependencies.
  * [PROTOCOL]: Keep board/AGENTS.md in sync. */
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -22,6 +22,8 @@ import { Checklist } from './checklist';
 export type BoardView = {
   editor?: TaskDraft | null;
   search: string;
+  searchOpen?: boolean;
+  listAdding?: boolean;
   stage: string;
   tab: string;
   gridLeft?: number;
@@ -53,6 +55,8 @@ export function Board({
   const [history, setHistory] = useState(view?.completed ?? false);
   const [settling, setSettling] = useState(false);
   const historyButton = useRef<HTMLButtonElement>(null);
+  const searchButtonRef = useRef<HTMLButtonElement>(null);
+  const addButton = useRef<HTMLButtonElement>(null);
   const [stage, setStage] = useState(view?.tab === 'archive' ? 'done' : view?.stage || 'todo');
   useEffect(() => {
     const node = element.current;
@@ -63,8 +67,9 @@ export function Board({
   }, [!!state, state?.store.boardEnabled]);
   const tab = 'board';
   const [search, setSearch] = useState(view?.search ?? '');
-  const [searchOpen, setSearchOpen] = useState(!!view?.search);
+  const [searchOpen, setSearchOpen] = useState(view?.searchOpen === true);
   const [quickAdd, setQuickAdd] = useState(view?.quickAdd ?? null);
+  const [listAdding, setListAdding] = useState(view?.listAdding ?? !!view?.quickAdd?.title);
   const [draft, setDraft] = useState<TaskDraft | null>(
     view?.editor?.task?.id && view.editor.fields ? view.editor : null,
   );
@@ -82,8 +87,17 @@ export function Board({
   }, [columns, stage]);
   useEffect(() => {
     if (view)
-      Object.assign(view, { search, stage, tab, quickAdd, editor: draft, completed: history });
-  }, [view, search, stage, tab, quickAdd, draft, history]);
+      Object.assign(view, {
+        search,
+        searchOpen,
+        listAdding,
+        stage,
+        tab,
+        quickAdd,
+        editor: draft,
+        completed: history,
+      });
+  }, [view, search, searchOpen, listAdding, stage, tab, quickAdd, draft, history]);
   useEffect(() => {
     const resize = (e: Event) => {
       void request('tasks/command', { op: 'windowSize', size: (e as CustomEvent).detail }).catch(
@@ -120,8 +134,10 @@ export function Board({
   if (!state.store.boardEnabled)
     return <div className="loading">{tr('任务看板已停用，请在设置页开启。')}</div>;
   const tasks = state.store.tasks;
-  const visible = tasks.filter((t) =>
-    `${t.fields.title}\n${t.fields.notes}`.toLowerCase().includes(search.toLowerCase()),
+  const visible = tasks.filter(
+    (t) =>
+      !searchOpen ||
+      `${t.fields.title}\n${t.fields.notes}`.toLowerCase().includes(search.toLowerCase()),
   );
   const editTask = (task: Task) => {
     if (draft?.task.id === task.id) return updateDraft({ ...draft, open: true });
@@ -149,7 +165,10 @@ export function Board({
   );
   const searchButton = (
     <button
+      ref={searchButtonRef}
+      type="button"
       aria-label={tr('搜索任务')}
+      title={tr('搜索任务')}
       aria-expanded={searchOpen}
       onClick={() => {
         setSearchOpen(!searchOpen);
@@ -161,6 +180,22 @@ export function Board({
   );
   const tools = (
     <>
+      {list && !history && (
+        <button
+          ref={addButton}
+          type="button"
+          aria-label={tr('添加待办')}
+          title={tr('添加待办')}
+          disabled={busy || settling}
+          onClick={() => {
+            setListAdding(true);
+            setQuickAdd((current) => current ?? { column: 'todo', title: '' });
+            element.current?.querySelector<HTMLInputElement>('.task-list-add input')?.focus();
+          }}
+        >
+          <Icon name="plus" />
+        </button>
+      )}
       {searchButton}
       {list && (
         <button
@@ -237,7 +272,9 @@ export function Board({
       className={`board-app ${embedded ? 'embedded' : ''}`}
       data-view-mode={list ? 'list' : merged ? 'merged' : 'expanded'}
       data-completed-view={(list && history) || undefined}
+      data-intrinsic-width={list ? 'content' : undefined}
     >
+      {!list && <span className="board-intrinsic-size" data-intrinsic-width hidden />}
       {!embedded && (
         <header className="board-header">
           <h1>{tr(list ? (history ? '已完成' : '待办事项') : '我的任务看板')}</h1>
@@ -307,6 +344,26 @@ export function Board({
             </nav>
           </div>
         )}
+        {searchOpen && (
+          <div className="board-search-row">
+            <input
+              className="board-search"
+              autoFocus
+              type="search"
+              aria-label={tr('搜索任务')}
+              placeholder={tr('搜索任务…')}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key !== 'Escape' || e.nativeEvent.isComposing) return;
+                e.stopPropagation();
+                setSearch('');
+                setSearchOpen(false);
+                searchButtonRef.current?.focus({ preventScroll: true });
+              }}
+            />
+          </div>
+        )}
         {error && (
           <p role="alert" className="error">
             {error}
@@ -338,8 +395,16 @@ export function Board({
             command={command}
             edit={editTask}
             title={quickAdd?.title ?? ''}
+            adding={listAdding}
             setTitle={(title) => setQuickAdd({ column: 'todo', title })}
-            focusFallback={() => historyButton.current?.focus({ preventScroll: true })}
+            finishAdding={() => {
+              setListAdding(false);
+              setQuickAdd(null);
+              addButton.current?.focus({ preventScroll: true });
+            }}
+            focusFallback={() =>
+              (addButton.current ?? historyButton.current)?.focus({ preventScroll: true })
+            }
             setSettling={setSettling}
           />
         ) : (
@@ -374,20 +439,9 @@ export function Board({
           </div>
         )}
         {headerActions && createPortal(tools, headerActions)}
-        {(searchOpen || (!headerActions && !list)) && (
+        {!headerActions && !list && (
           <footer className="board-footer">
-            {searchOpen && (
-              <input
-                className="board-search"
-                autoFocus
-                type="search"
-                aria-label={tr('搜索任务')}
-                placeholder={tr('搜索任务…')}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            )}
-            {!headerActions && !list && <div className="board-tools">{tools}</div>}
+            <div className="board-tools">{tools}</div>
           </footer>
         )}
       </main>

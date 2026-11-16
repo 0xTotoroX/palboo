@@ -55,10 +55,14 @@ window.language=language=>{state.appearance.language=language;setLocale(language
     ],
   })
 ).outputFiles[0].text;
-async function fixture(t, reducedMotion = 'reduce') {
+async function fixture(t, reducedMotion = 'reduce', options = {}) {
   const browser = await chromium.launch();
   t.after(() => browser.close());
-  const page = await browser.newPage({ viewport: { width: 1100, height: 760 }, reducedMotion });
+  const page = await browser.newPage({
+    viewport: { width: 1100, height: 760 },
+    reducedMotion,
+    ...options,
+  });
   page.setDefaultTimeout(7000);
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
@@ -66,7 +70,7 @@ async function fixture(t, reducedMotion = 'reduce') {
   await page.route('http://board-list.test/', (r) =>
     r.fulfill({
       contentType: 'text/html',
-      body: '<meta charset="utf-8"><main class="csw-workbench-pane" style="display:flex;flex-direction:column;width:380px;height:460px;background:#000;color:#eee;--csw-text:#eee;--csw-muted:#aaa;--csw-accent:#a67df2;--feature-refresh-opacity:1"><header class="csw-feature-pane-head"><nav class="csw-workbench-tabs" data-icon-tabs><button aria-label="任务看板">任务</button></nav><div class="csw-feature-header-actions" id="actions"></div></header><div class="csw-feature-content"><div id="mount" style="height:100%"></div></div></main><aside id="settings" style="margin-top:40px"></aside>',
+      body: '<meta charset="utf-8"><main class="csw-workbench csw-workbench-pane" style="display:flex;flex-direction:column;width:380px;height:460px;background:#000;color:#eee;--csw-text:#eee;--csw-muted:#aaa;--csw-accent:#a67df2"><header class="csw-feature-pane-head"><nav class="csw-workbench-tabs" data-icon-tabs><button aria-label="任务看板">任务</button></nav><div class="csw-feature-header-actions" id="actions"></div></header><div class="csw-feature-content"><div id="mount" style="height:100%"></div></div></main><aside id="settings" style="margin-top:40px"></aside>',
     }),
   );
   await page.goto('http://board-list.test/');
@@ -92,6 +96,7 @@ test('board and list share task identity and saved layout through settings and r
   assert.equal(await page.locator('#board-view-mode').isVisible(), false);
   assert.deepEqual(await page.evaluate(() => state.store.tasks), before);
   assert.equal(await page.evaluate(() => state.store.viewMode), 'expanded');
+  await page.getByRole('button', { name: '添加待办', exact: true }).click();
   await page.getByRole('textbox', { name: '添加待办', exact: true }).fill('交接前未提交草稿');
   await page.waitForTimeout(600);
   await page.evaluate(() => window.remount());
@@ -149,6 +154,7 @@ test('completion waits for saving, hides with motion, and icon recovery preserve
 test('list stays flat, aligned and keyboard accessible in narrow and short actual shells', async (t) => {
   const page = await fixture(t);
   const measurements = [];
+  await page.getByRole('button', { name: '添加待办', exact: true }).click();
   for (const language of ['zh-CN', 'en']) {
     await page.evaluate((language) => window.language(language), language);
     for (const width of [240, 380]) {
@@ -196,7 +202,7 @@ test('list stays flat, aligned and keyboard accessible in narrow and short actua
   await input.fill('Keyboard task');
   await input.press('Enter');
   await page.getByRole('button', { name: 'Task details: Keyboard task', exact: true }).waitFor();
-  assert.equal(await input.inputValue(), '');
+  assert.equal(await input.count(), 0);
   mkdirSync('target/reports/board-list', { recursive: true });
   await page
     .locator('main.csw-workbench-pane')
@@ -217,4 +223,131 @@ test('edge list uses natural content size while retaining the original board siz
   const board = await page.evaluate(() => window.measure());
   assert.equal(board.width, 920);
   assert.ok(board.height >= 620);
+});
+
+test('search and task entry open only after an explicit icon action and retain their own handoff state', async (t) => {
+  const page = await fixture(t);
+  const addIcon = page.getByRole('button', { name: '添加待办', exact: true });
+  await page.mouse.move(1000, 700);
+  assert.equal(await addIcon.evaluate((n) => getComputedStyle(n).opacity), '0');
+  await page.mouse.move(150, 120);
+  assert.equal(await addIcon.evaluate((n) => getComputedStyle(n).opacity), '1');
+  await page.mouse.move(1000, 700);
+  await addIcon.focus();
+  assert.equal(await addIcon.evaluate((n) => getComputedStyle(n).opacity), '1');
+  assert.equal(await page.locator('.board-search,.task-list-add').count(), 0);
+  await page.evaluate(() => {
+    entry.view = {
+      board: {
+        search: 'obsolete query',
+        quickAdd: { column: 'todo', title: '' },
+        stage: 'todo',
+        tab: 'board',
+      },
+    };
+    window.remount();
+  });
+  await page.locator('[data-list-task="a"]').waitFor();
+  assert.equal(await page.locator('.board-search').count(), 0);
+  assert.equal(
+    await page.locator('.task-list-add').count(),
+    0,
+    'an old empty draft is not an explicit add action',
+  );
+  assert.equal(
+    await page.locator('[data-list-task]').count(),
+    3,
+    'an old hidden query does not filter tasks',
+  );
+  await page.getByRole('button', { name: '搜索任务', exact: true }).click();
+  const search = page.getByRole('searchbox', { name: '搜索任务', exact: true });
+  await search.fill('Palboo');
+  assert.equal(await page.locator('[data-list-task]').count(), 1);
+  const rect = await search.boundingBox();
+  assert.ok(rect.height <= 34 && rect.width <= 320, JSON.stringify(rect));
+  await page.evaluate(() => window.remount());
+  await search.waitFor();
+  assert.equal(await search.inputValue(), 'Palboo');
+  await search.press('Escape');
+  assert.equal(await search.count(), 0);
+  assert.equal(await page.locator('[data-list-task]').count(), 3);
+  assert.equal(
+    await page
+      .getByRole('button', { name: '搜索任务', exact: true })
+      .evaluate((n) => document.activeElement === n),
+    true,
+  );
+  await page.getByRole('button', { name: '添加待办', exact: true }).click();
+  const add = page.getByRole('textbox', { name: '添加待办', exact: true });
+  await add.fill('仅是待办草稿');
+  await page.evaluate(() => window.remount());
+  await add.waitFor();
+  assert.equal(await add.inputValue(), '仅是待办草稿');
+  await add.press('Escape');
+  assert.equal(await add.count(), 0);
+  assert.equal(await page.evaluate(() => writes.length), 0);
+});
+
+test('touch keeps the icon entry reachable without exposing an idle task input', async (t) => {
+  const page = await fixture(t, 'reduce', { hasTouch: true });
+  const add = page.getByRole('button', { name: '添加待办', exact: true });
+  assert.equal(await add.evaluate((n) => getComputedStyle(n).opacity), '1');
+  assert.equal(await page.locator('.task-list-add').count(), 0);
+  await add.tap();
+  await page.getByRole('textbox', { name: '添加待办', exact: true }).waitFor();
+  assert.equal(await page.evaluate(() => writes.length), 0);
+});
+
+test('one checklist fills narrow and wide embedded, desktop and edge allocations without forcing overflow', async (t) => {
+  const page = await fixture(t);
+  const results = [];
+  await page.evaluate(() => {
+    state.store.tasks[0].fields.title =
+      '核对跨项目的清单与浮窗布局适配，以及较长的 MyOncode 项目名称';
+    entry.view = {};
+  });
+  for (const placement of ['sidebar', 'desktop', 'edge']) {
+    await page.evaluate((placement) => {
+      window.placement = placement;
+      window.remount();
+    }, placement);
+    await page.locator('[data-view-mode="list"]').waitFor();
+    for (const width of [240, 760]) {
+      await page
+        .locator('main.csw-workbench-pane')
+        .evaluate((node, width) => (node.style.width = width + 'px'), width);
+      const layout = await page.locator('[data-list-task="a"]').evaluate((node) => {
+        const app = node.closest('.board-app'),
+          title = node.querySelector('.task-list-title'),
+          span = title.querySelector('span');
+        return {
+          overflow: app.scrollWidth > app.clientWidth,
+          lines: span.getClientRects().length,
+          titleWidth: title.getBoundingClientRect().width,
+        };
+      });
+      assert.equal(layout.overflow, false, JSON.stringify({ placement, width, layout }));
+      if (width === 760)
+        assert.equal(layout.lines, 1, JSON.stringify({ placement, width, layout }));
+      results.push({ placement, allocationWidth: width, ...layout });
+    }
+  }
+  const natural = await page.evaluate(() => window.measure());
+  assert.ok(natural.width > 456 && natural.width <= 976, JSON.stringify(natural));
+  mkdirSync('target/reports/board-list', { recursive: true });
+  await page
+    .locator('main.csw-workbench-pane')
+    .screenshot({ path: 'target/reports/board-list/wide.png' });
+  await page.evaluate(() => {
+    state.store.tasks[0].fields.title = '极长标题'.repeat(100);
+    window.remount();
+  });
+  await page.locator('[data-list-task="a"]').waitFor();
+  assert.equal((await page.evaluate(() => window.measure())).width, 976);
+  mkdirSync('target/reports/board-list', { recursive: true });
+  const { writeFileSync } = await import('node:fs');
+  writeFileSync(
+    'target/reports/board-list/surface-layout.json',
+    JSON.stringify({ results, natural }, null, 2),
+  );
 });

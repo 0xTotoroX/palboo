@@ -1,4 +1,4 @@
-/* [INPUT]: Surface element, owner, transport and optional header slot. [OUTPUT]: Isolated views, shared Bot header actions, stable edge board size and bounded detail measurement.
+/* [INPUT]: Surface element, owner, transport, optional header slot and feature intrinsic-size declarations. [OUTPUT]: Shared isolated views, content-based preferred width and bounded detail measurement.
  * [POS]: React adapter shared by host and native pages. [PROTOCOL]: Keep AGENTS.md in this module in sync. */
 import { createRoot } from 'react-dom/client';
 import { FeatureView } from './feature-session';
@@ -11,7 +11,6 @@ import modelStyles from '../../features/model/styles.css?inline';
 import { Board, type BoardView } from '../../features/board/app';
 import type { TaskRequest } from '../../features/board/api';
 import boardStyles from '../../features/board/styles.css?inline';
-const EDGE_BOARD_SIZE = { width: 920, height: 620 };
 const reloaders = new Map<HTMLElement, () => Promise<boolean>>();
 Object.assign(window, {
   __buddyFeatureFlush: async () => {
@@ -132,31 +131,24 @@ export function mountFeature(
       const intrinsic = body.querySelector<HTMLElement>('[data-intrinsic-width]');
       const bodyStyle = getComputedStyle(body);
       const padding = parseFloat(bodyStyle.paddingLeft) + parseFloat(bodyStyle.paddingRight);
-      const edgeBoard =
-        initial.id === 'board' &&
-        placement === 'edge' &&
-        !body.querySelector('[data-view-mode="list"]');
-      // Features may expose their minimum readable width; text/list views keep the existing width.
-      const width = Math.ceil(
-        Math.min(
-          edgeBoard || intrinsic ? 976 : 696,
-          Math.max(
-            296,
-            edgeBoard
-              ? EDGE_BOARD_SIZE.width
-              : intrinsic
-                ? parseFloat(getComputedStyle(intrinsic).minWidth) + padding
-                : 456,
-          ),
-        ),
-      );
-      element.style.setProperty('--feature-measure-width', `${width}px`);
       const reading = [...body.querySelectorAll<HTMLElement>('*'), body]
         .filter((node) => node.scrollTop || node.scrollLeft)
         .map((node) => ({ node, top: node.scrollTop, left: node.scrollLeft }));
       element.dataset.measuring = 'true';
       try {
         const view = body.closest('.feature-view')!;
+        const intrinsicStyle = intrinsic && getComputedStyle(intrinsic);
+        let preferredWidth = intrinsicStyle ? parseFloat(intrinsicStyle.minWidth) + padding : 456;
+        if (intrinsic?.dataset.intrinsicWidth === 'content') {
+          // 临时按不折行宽度测量，同一次调用内恢复到边界内的阅读宽度。
+          element.style.setProperty('--feature-measure-width', 'max-content');
+          preferredWidth = Math.max(456, view.getBoundingClientRect().width);
+        }
+        const width = Math.ceil(Math.min(intrinsic ? 976 : 696, Math.max(296, preferredWidth)));
+        element.style.setProperty('--feature-measure-width', `${width}px`);
+        const preferredHeight =
+          (intrinsicStyle && parseFloat(intrinsicStyle.minHeight)) ||
+          view.getBoundingClientRect().height;
         const dialog =
           placement === 'edge' ? body.querySelector<HTMLElement>('.task-details[open]') : null;
         const dialogStyle = dialog && getComputedStyle(dialog);
@@ -167,12 +159,7 @@ export function mountFeature(
           : 0;
         return {
           width,
-          height: Math.ceil(
-            Math.max(
-              edgeBoard ? EDGE_BOARD_SIZE.height : view.getBoundingClientRect().height,
-              editorHeight,
-            ),
-          ),
+          height: Math.ceil(Math.max(preferredHeight, editorHeight)),
         };
       } finally {
         delete element.dataset.measuring;

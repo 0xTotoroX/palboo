@@ -26,6 +26,7 @@ const inputProbe = join(dir, 'input-probe');
 execFileSync('swiftc', [join(root, 'tests/native-probe.swift'), '-o', geometryProbe]);
 execFileSync('swiftc', [join(root, 'tests/model-control-probe.swift'), '-o', inputProbe]);
 const environment = JSON.parse(execFileSync(inputProbe, ['state'], { encoding: 'utf8' }));
+const pointerInputEnabled = environment.canPostEvents && !process.argv.includes('--no-input');
 const delay = (ms) => new Promise((done) => setTimeout(done, ms));
 const prefs = {
   enabled: true,
@@ -82,6 +83,7 @@ let child,
   commandResult = new Map();
 const report = {
   environment,
+  inputMode: pointerInputEnabled ? 'native-pointer' : 'synthetic-pointer',
   pointerInputs: [],
   checks: [],
   skipped: [
@@ -98,12 +100,13 @@ const report = {
       reason:
         'Native all-Spaces/full-screen flags and host-independent visibility are checked; actual Mission Control and full-screen transitions require manual acceptance',
     },
-    ...(!environment.canPostEvents
+    ...(!pointerInputEnabled
       ? [
           {
             name: 'real mouse hover',
-            reason:
-              'CGPreflightPostEventAccess=false; native pointer messages are tested synthetically',
+            reason: process.argv.includes('--no-input')
+              ? 'Explicit --no-input; native pointer messages are tested synthetically'
+              : 'CGPreflightPostEventAccess=false; native pointer messages are tested synthetically',
           },
         ]
       : []),
@@ -111,11 +114,13 @@ const report = {
       name: 'global shortcut dispatch and toggle',
       reason: 'Carbon registration is observed; real keyboard dispatch is not exercised',
     },
-    ...(!environment.canPostEvents
+    ...(!pointerInputEnabled
       ? [
           {
             name: 'real mouse first click',
-            reason: 'CGPreflightPostEventAccess=false; no permission is requested',
+            reason: process.argv.includes('--no-input')
+              ? 'Explicit --no-input; no real pointer events are posted'
+              : 'CGPreflightPostEventAccess=false; no permission is requested',
           },
         ]
       : []),
@@ -429,6 +434,15 @@ function windowInfo() {
         a.kCGWindowBounds.Width * a.kCGWindowBounds.Height,
     )[0];
 }
+async function shownWindowBounds() {
+  let bounds;
+  // 页面已回报布局时，WindowServer可能还未呈现新的场景，保留事件循环等待原生确认。
+  await until(() => {
+    bounds = windowInfo()?.kCGWindowBounds;
+    return !!bounds;
+  }, 'WindowServer presents the fixture window');
+  return bounds;
+}
 function pointerInput(action, point) {
   const evidence = JSON.parse(
     execFileSync(inputProbe, [action, ...point.map(String)], { encoding: 'utf8' }),
@@ -606,14 +620,14 @@ try {
   await ipc({ action: 'collapse' });
   await until(() => !telemetry.native.expanded && !telemetry.native.animating, 'restore compact');
   // Real input must leave the native hover region; a DOM event cannot clear native suppression.
-  if (environment.canPostEvents) await leaveEdge();
+  if (pointerInputEnabled) await leaveEdge();
   else
     await command(
       'window.ignoreNativePointer = true; window.fixturePointer({inside:false,buttons:0,hoverSuppressed:false})',
     );
   hostPresence = { visible: true, focused: true };
 
-  if (environment.canPostEvents) {
+  if (pointerInputEnabled) {
     enterEdge();
   } else {
     await command('window.fixturePointer({inside:true,buttons:0,hoverSuppressed:false})');
@@ -639,7 +653,7 @@ try {
     'hover must not activate the edge process; the user may switch other apps',
   );
   check(
-    environment.canPostEvents
+    pointerInputEnabled
       ? 'real native hover expands without stealing focus'
       : 'synthetic native pointer message expands without stealing focus',
   );
@@ -648,7 +662,7 @@ try {
   assert.equal(telemetry.modelView.groups, 0);
   assert.equal(telemetry.modelView.divider, null);
   check('native model view defaults to favorites with a borderless collapsed picker');
-  if (environment.canPostEvents) {
+  if (pointerInputEnabled) {
     extraFeature = true;
     await command(
       "window.keptModel = document.querySelector('.edge-view').shadowRoot.querySelector('.model-row'); true",
@@ -658,6 +672,10 @@ try {
       'second feature becomes available',
     );
     assert.equal(telemetry.selectedFeature, 'model');
+    const footprint = {
+      width: telemetry.native.layoutWidth,
+      height: telemetry.native.layoutHeight,
+    };
     for (const id of ['next', 'model', 'next', 'model']) {
       await clickNativeElement(`document.querySelector('[data-edge-tab="${id}"]')`);
       await until(
@@ -672,9 +690,18 @@ try {
         'switching preserves mounted model content',
       );
       assert.equal(telemetry.pointerDown?.trusted, true);
+      await delay(600);
+      assert.equal(
+        telemetry.native.expanded,
+        true,
+        'switching must not strand the pointer outside',
+      );
+      assert.ok(telemetry.native.layoutWidth >= footprint.width);
+      assert.ok(telemetry.native.layoutHeight >= footprint.height);
     }
-    check('real clicks switch next/model repeatedly and preserve the mounted content', {
+    check('real tab clicks preserve the expanded footprint, pointer area and mounted content', {
       selected: edgeTabs.selected,
+      footprint,
     });
     for (let cycle = 0; cycle < 3; cycle++) {
       await leaveEdge();
@@ -692,7 +719,12 @@ try {
     check('three real hover leave/reenter cycles preserve the selected feature');
     const modelRoot = "document.querySelector('.edge-view').shadowRoot";
     prefs.presets = [
-      { id: 'editor-fixture', name: '编辑保护测试', selection: { ...snapshot.current } },
+      {
+        id: 'editor-fixture',
+        name: '编辑保护测试',
+        agent: 'codex',
+        selection: { ...snapshot.current },
+      },
     ];
     revision++;
     await until(() => telemetry.modelView.presetCount === 1, 'editor fixture is visible');
@@ -759,10 +791,9 @@ try {
     () => telemetry.modelView.picker === 'true' && telemetry.modelView.groups === 1,
     'native chooser opens',
   );
-  assert.equal(
-    telemetry.native.layoutHeight,
-    favoriteHeight,
-    'opening all models does not resize the native frame',
+  assert.ok(
+    telemetry.native.layoutHeight >= favoriteHeight,
+    'the catalog may grow to its reading minimum but must not shrink the open footprint',
   );
   await command(
     "document.querySelector('.edge-view').shadowRoot.querySelector('[data-model-tile=fixture-b]').click()",
@@ -781,10 +812,24 @@ try {
     () =>
       telemetry.modelView.picker === 'false' &&
       telemetry.modelView.rows === 1 &&
-      telemetry.native.layoutHeight === favoriteHeight,
+      telemetry.native.layoutHeight >= favoriteHeight,
     'restore native favorite fixture',
   );
   check('native all-model tiles preserve the catalog and close explicitly');
+  // 目录保留300px阅读下限；收起后释放本轮扩展，恢复单行常用模型的自然尺寸。
+  await ipc({ action: 'collapse' });
+  await until(
+    () =>
+      !telemetry.native.expanded &&
+      !telemetry.native.animating &&
+      telemetry.native.layoutHeight === favoriteHeight,
+    'release the catalog reading footprint',
+  );
+  await ipc({ action: 'expand', keyboard: false });
+  await until(
+    () => telemetry.native.expanded && !telemetry.native.animating,
+    'restore the favorite reading size',
+  );
 
   await capture('expanded');
   const shortHeight = telemetry.native.layoutHeight;
@@ -800,13 +845,31 @@ try {
     () => telemetry.native.layoutHeight > shortHeight,
     'content grows for more model rows',
   );
+  const grownHeight = telemetry.native.layoutHeight;
   prefs.pinned.splice(1);
   snapshot.models.pop();
   revision++;
-  await until(
-    () => telemetry.native.layoutHeight === shortHeight,
-    'content shrinks when models are hidden',
+  await until(() => telemetry.modelView.rows === 1, 'content updates when models are hidden');
+  await delay(700);
+  assert.equal(
+    telemetry.native.layoutHeight,
+    grownHeight,
+    'open content does not shrink under the pointer',
   );
+  await ipc({ action: 'collapse' });
+  await until(
+    () =>
+      !telemetry.native.expanded &&
+      !telemetry.native.animating &&
+      telemetry.native.layoutHeight === shortHeight,
+    'collapsed content releases the expanded footprint',
+  );
+  await ipc({ action: 'expand', keyboard: false });
+  await until(
+    () => telemetry.native.expanded && !telemetry.native.animating,
+    'reopen at the current natural size',
+  );
+  check('content grows while open and shrinks only after collapse', { shortHeight, grownHeight });
   // 此阶段只验列宽，避免测试期间鼠标离开触发独立的自动收起逻辑。
   prefs.keepOpen = true;
   revision++;
@@ -832,7 +895,7 @@ try {
     assert.equal(
       await command(`(() => {
       const root = document.querySelector('.edge-view').shadowRoot;
-      const fast = document.querySelector('#edge-panel > header .model-fast').getBoundingClientRect();
+      const fast = (document.querySelector('#edge-panel > header .model-fast') || root.querySelector('.model-fast')).getBoundingClientRect();
       const line = root.querySelector('.model-column-resize').getBoundingClientRect();
       return Math.abs(fast.x + fast.width / 2 - line.x - line.width / 2) < 1 && fast.bottom <= line.y;
     })()`),
@@ -849,7 +912,7 @@ try {
     'model columns stay inside a fixed native frame and preserve the screen-edge anchor',
     columnBounds,
   );
-  if (environment.canPostEvents) {
+  if (pointerInputEnabled) {
     const handle = await command(`(() => {
       const node = document.querySelector('.edge-view').shadowRoot.querySelector('.model-column-resize');
       const rect = node.getBoundingClientRect();
@@ -917,7 +980,9 @@ try {
   } else {
     report.skipped.push({
       name: 'native column pointer drag',
-      reason: 'Event posting unavailable; geometry and bounds verified through preference updates',
+      reason: process.argv.includes('--no-input')
+        ? 'Explicit --no-input; geometry and bounds verified through preference updates'
+        : 'Event posting unavailable; geometry and bounds verified through preference updates',
     });
   }
 
@@ -937,7 +1002,7 @@ try {
     () => Number(telemetry.columnWidth) === 245 && telemetry.native.layoutHeight > shortHeight,
     'native long favorites fixture',
   );
-  const longBounds = windowInfo().kCGWindowBounds;
+  const longBounds = await shownWindowBounds();
   const wideColumnHeight = telemetry.native.layoutHeight;
   prefs.modelColumnWidth = 100;
   revision++;
@@ -953,7 +1018,7 @@ try {
     return {scrollable: list.scrollHeight > list.clientHeight + 1,
       lastVisible: last.top >= viewport.top && last.bottom <= viewport.bottom};
   })()`);
-  const narrowBounds = windowInfo().kCGWindowBounds;
+  const narrowBounds = await shownWindowBounds();
   assert.equal(narrowBounds.Width, longBounds.Width);
   assert.equal(narrowBounds.X, longBounds.X);
   assert.ok(
@@ -967,7 +1032,8 @@ try {
   revision++;
   await until(
     () =>
-      telemetry.native.layoutHeight === shortHeight &&
+      telemetry.modelView.rows === 1 &&
+      telemetry.native.layoutHeight >= shortHeight &&
       Number(telemetry.columnWidth) === originalColumn,
     'restore native long-name fixture',
   );
@@ -1014,7 +1080,7 @@ try {
   check('native unfold reverses before collapse completes');
 
   assert.equal(telemetry.native.keyboard, false);
-  if (environment.canPostEvents) {
+  if (pointerInputEnabled) {
     const bounds = windowInfo().kCGWindowBounds,
       search = telemetry.searchRect;
     pointerInput('click', [
@@ -1031,7 +1097,7 @@ try {
     'explicit first-click keyboard focus',
   );
   check(
-    environment.canPostEvents
+    pointerInputEnabled
       ? 'real first menu click acquires key focus'
       : 'synthetic menu click acquires key focus (real first click not verified)',
     { native: telemetry.native, pointerDown: telemetry.pointerDown, hasFocus: telemetry.hasFocus },
@@ -1246,7 +1312,7 @@ try {
   throw error;
 } finally {
   try {
-    if (environment.canPostEvents && report.pointerInputs.length) {
+    if (pointerInputEnabled && report.pointerInputs.length) {
       const current = JSON.parse(execFileSync(inputProbe, ['state'], { encoding: 'utf8' }));
       const last = report.pointerInputs.at(-1).actual;
       // 用户已接管鼠标时不抢回；仅恢复仍停留在本次测试落点的指针。

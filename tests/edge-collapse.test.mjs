@@ -19,10 +19,10 @@ window.messages=[];window.reads=0;window.disposals=0;window.mounts=0;
 window.geometry={expanded:true,keyboard:false,keepOpen:false,sceneRevision:1,unfold:1,layoutWidth:480,layoutHeight:480,theme:'matte'};
 window.sync=()=>window.dispatchEvent(new CustomEvent('edge-native',{detail:{...geometry}}));
 window.pointer=(inside,buttons=0)=>window.dispatchEvent(new CustomEvent('edge-pointer',{detail:{inside,buttons}}));
-window.ipc={postMessage:raw=>{const m=JSON.parse(raw);messages.push(m);if(m.action==='collapse'){geometry.expanded=false;geometry.unfold=0;sync();}}};
-startEdge(async()=>{reads++;return {
-  edgeTabs:{order:[window.featureId],selected:window.featureId},edgeTabsRevision:1,appearance:{language:'zh-CN'},
-  features:[{id:window.featureId,owner:'fixture',placement:'edge',open:true,pending:null,reveal:0,view:{},size:[400,300]}]
+window.ipc={postMessage:raw=>{const m=JSON.parse(raw);messages.push(m);if(m.action==='collapse'){geometry.expanded=false;geometry.unfold=0;sync();}if(m.action==='content-size'&&window.applySize){geometry.layoutWidth=m.width;geometry.layoutHeight=m.height;sync();}}};
+startEdge(async data=>{reads++;if(data.op==='edge-tabs')window.savedTabs=data.tabs;return {
+  edgeTabs:window.savedTabs||{order:window.featureIds||[window.featureId],selected:window.featureId},edgeTabsRevision:1,appearance:{language:'zh-CN'},
+  features:(window.featureIds||[window.featureId]).map(id=>({id,owner:'fixture',placement:'edge',open:true,pending:null,reveal:0,view:{},size:[400,300]}))
 }});
 sync();pointer(true);
 `,
@@ -39,11 +39,11 @@ sync();pointer(true);
             namespace: 'fixture',
           }));
           b.onLoad({ filter: /.*/, namespace: 'fixture' }, () => ({
-            contents: `export function mountFeature(node){
+            contents: `export function mountFeature(node,entry){
               window.mounts++;
-              window.feature=node.attachShadow({mode:'open'});
-              feature.innerHTML='<button>操作</button><textarea>保留草稿</textarea><span data-busy="false"></span><dialog>对话框</dialog>';
-              return {update(){},measure:()=>({width:400,height:300}),dispose(){window.disposals++;}};
+              const shadow=node.attachShadow({mode:'open'});window.feature??=shadow;
+              shadow.innerHTML='<button>操作</button><textarea>保留草稿</textarea><span data-busy="false"></span><dialog>对话框</dialog>';
+              return {update(){},measure:()=>window.sizes?.[entry.id]||({width:400,height:300}),dispose(){window.disposals++;}};
             }`,
           }));
           b.onResolve({ filter: /\.css\?inline$/ }, (a) => ({
@@ -172,6 +172,51 @@ test('other edge features retain their shorter leave delay', async (t) => {
   assert.equal(await collapsed(page), 0);
   await page.clock.runFor(1);
   assert.equal(await collapsed(page), 1);
+});
+
+test('switching to smaller content keeps the open footprint and releases it after collapse', async (t) => {
+  const page = await fixture(t);
+  await page.evaluate(() => {
+    window.applySize = true;
+    window.featureIds = ['model', 'board'];
+    window.sizes = { model: { width: 820, height: 500 }, board: { width: 456, height: 300 } };
+    sync();
+  });
+  await page.clock.runFor(650);
+  const large = await page.evaluate(() => ({
+    width: geometry.layoutWidth,
+    height: geometry.layoutHeight,
+  }));
+  assert.equal(large.width, 844);
+  await page.locator('[data-edge-tab="board"]').click();
+  await page.clock.runFor(100);
+  assert.deepEqual(
+    await page.evaluate(() => ({ width: geometry.layoutWidth, height: geometry.layoutHeight })),
+    large,
+  );
+  await page.evaluate(() => pointer(geometry.layoutWidth >= 800));
+  await page.clock.runFor(1000);
+  assert.equal(await collapsed(page), 0, 'the former panel area remains inside after switching');
+  await page.evaluate(() => pointer(false));
+  await page.clock.runFor(449);
+  assert.equal(await collapsed(page), 0);
+  await page.clock.runFor(101);
+  assert.equal(await collapsed(page), 1);
+  const small = await page.evaluate(() => ({
+    width: geometry.layoutWidth,
+    height: geometry.layoutHeight,
+  }));
+  assert.equal(small.width, 480);
+  assert.ok(small.height < large.height);
+  await page.evaluate(() => {
+    geometry.expanded = true;
+    geometry.unfold = 1;
+    sync();
+    pointer(true);
+  });
+  await page.clock.runFor(100);
+  assert.equal(await page.evaluate(() => geometry.layoutWidth), small.width);
+  assert.deepEqual(await page.evaluate(() => ({ mounts, disposals })), { mounts: 2, disposals: 0 });
 });
 
 test('page exit clears the deferred retry, pending timeout and state poll', async (t) => {

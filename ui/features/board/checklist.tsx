@@ -1,5 +1,5 @@
 /* [INPUT]: 同一任务存储的有序投影、保存命令、详情入口与新建草稿。
- * [OUTPUT]: 扁平清单、完成划线/收走、图标恢复及无底板快速添加；失败保留原任务。
+ * [OUTPUT]: 扁平清单、完成划线/收走、图标恢复及主动展开的无底板添加行；失败保留原任务。
  * [POS]: 看板的另一种呈现，不迁移任务、分组或同步身份。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -18,7 +18,9 @@ export function Checklist({
   command,
   edit,
   title,
+  adding,
   setTitle,
+  finishAdding,
   focusFallback,
   setSettling,
 }: {
@@ -29,7 +31,9 @@ export function Checklist({
   command: Command;
   edit: (task: Task) => void;
   title: string;
+  adding: boolean;
   setTitle: (title: string) => void;
+  finishAdding: () => void;
   focusFallback: () => void;
   setSettling: (busy: boolean) => void;
 }) {
@@ -215,7 +219,7 @@ export function Checklist({
           );
         })}
       </ul>
-      {!history && (
+      {!history && adding && (
         <form
           className="task-list-add"
           onSubmit={(event) => {
@@ -223,7 +227,7 @@ export function Checklist({
             if (busy || !title.trim()) return;
             void command({ op: 'create', fields: { ...emptyFields(), title: title.trim() } }).then(
               (result) => {
-                if (result) setTitle('');
+                if (result) finishAdding();
               },
             );
           }}
@@ -232,6 +236,7 @@ export function Checklist({
             <Icon name="plus" />
           </span>
           <input
+            autoFocus
             aria-label={tr('添加待办')}
             placeholder={tr('添加待办')}
             maxLength={1000}
@@ -239,9 +244,9 @@ export function Checklist({
             disabled={busy || !!finishing}
             onChange={(event) => setTitle(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === 'Escape') {
+              if (event.key === 'Escape' && !event.nativeEvent.isComposing) {
                 event.stopPropagation();
-                setTitle('');
+                finishAdding();
               }
               if (event.key === 'Enter' && event.nativeEvent.isComposing) event.preventDefault();
             }}
