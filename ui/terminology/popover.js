@@ -1,5 +1,5 @@
 /* [INPUT]: 共用卡片、文字/积木锚点、主题选项与可选滚动跟随。
- * [OUTPUT]: 可中断开合、视口定位、键盘关闭及资源回收；侧栏释义不因独立正文滚动关闭。
+ * [OUTPUT]: 可中断开合、视口定位、指针/焦点交互保持及边缘缓冲命中；键盘关闭与资源回收。
  * [POS]: 正文与侧栏共用浮层；不拥有词库业务状态。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { layoutZoom } from '../codex/typography.js';
@@ -19,7 +19,8 @@ export function createTermPopover({
     resize = null,
     returnFocus = null,
     scrollRoot = null,
-    settle = null;
+    settle = null,
+    pointerInside = false;
   const layer = document.createElement('div');
   layer.dataset.buddyTerms = 'true';
   layer.style.cssText = 'position:fixed;inset:0;z-index:2147483645;pointer-events:none';
@@ -34,6 +35,8 @@ export function createTermPopover({
   box.inert = true;
   shadow.append(style, box);
   document.documentElement.append(layer);
+  const interacting = () =>
+    box.dataset.open === 'true' && (pointerInside || !!shadow.activeElement);
   function place() {
     if (!card || !anchor) return;
     const r = anchor();
@@ -48,8 +51,15 @@ export function createTermPopover({
     const c = { width: box.offsetWidth * parentZoom, height: box.offsetHeight * parentZoom },
       m = 10;
     const above = r.bottom + c.height + 8 > innerHeight - m && r.top > c.height + 8;
-    box.style.left = `${Math.max(m, Math.min(r.left, innerWidth - c.width - m)) / parentZoom}px`;
-    box.style.top = `${Math.max(m, Math.min(above ? r.top - c.height - 8 : r.bottom + 8, innerHeight - c.height - m)) / parentZoom}px`;
+    // 正在阅读或操作时不挪走卡片，仍按新视口限制边界。
+    const left = interacting() ? parseFloat(box.style.left) * parentZoom : r.left;
+    const top = interacting()
+      ? parseFloat(box.style.top) * parentZoom
+      : above
+        ? r.top - c.height - 8
+        : r.bottom + 8;
+    box.style.left = `${Math.max(m, Math.min(left, innerWidth - c.width - m)) / parentZoom}px`;
+    box.style.top = `${Math.max(m, Math.min(top, innerHeight - c.height - m)) / parentZoom}px`;
     box.style.transformOrigin = above ? 'left bottom' : 'left top';
   }
   function release() {
@@ -69,6 +79,7 @@ export function createTermPopover({
     settle = null;
     cancelAnimationFrame(frame);
     box.dataset.open = 'false';
+    pointerInside = false;
     box.inert = true;
     box.setAttribute('aria-hidden', 'true');
     onClose();
@@ -89,11 +100,21 @@ export function createTermPopover({
     });
   }
   const enter = () => {
+      pointerInside = true;
       onEnter();
     },
-    leave = () => onLeave();
+    leave = () => {
+      pointerInside = false;
+      onLeave();
+    };
   box.addEventListener('pointerenter', enter);
   box.addEventListener('pointerleave', leave);
+  box.addEventListener('focusin', onEnter);
+  box.addEventListener('focusout', () => {
+    queueMicrotask(() => {
+      if (!disposed && box.dataset.open === 'true' && !interacting()) onLeave();
+    });
+  });
   function key(e) {
     if (e.key === 'Escape' && box.dataset.open === 'true') {
       e.stopPropagation();
@@ -136,6 +157,14 @@ export function createTermPopover({
     },
     get termId() {
       return term?.id;
+    },
+    get interacting() {
+      return interacting();
+    },
+    near(x, y) {
+      if (box.dataset.open !== 'true') return false;
+      const r = box.getBoundingClientRect();
+      return x >= r.left - 8 && x <= r.right + 8 && y >= r.top - 8 && y <= r.bottom + 8;
     },
     contains(e) {
       return e.composedPath().includes(layer);

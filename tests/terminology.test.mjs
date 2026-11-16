@@ -364,7 +364,7 @@ test('semantic response paints a multi-paragraph phrase without a literal term a
   }
 });
 
-test('long phrase popover follows hover point, clamps to viewport and stays still for actions', async () => {
+test('long phrase popover anchors at entry, clamps to viewport and stays still for reading', async () => {
   const browser = await chromium.launch({ headless: true });
   try {
     const page = await browser.newPage({ viewport: { width: 1400, height: 700 } });
@@ -409,7 +409,7 @@ test('long phrase popover follows hover point, clamps to viewport and stays stil
     const next = x - 130;
     await page.mouse.move(next, line.y);
     await page.waitForTimeout(50);
-    assert.ok(Math.abs((await card.boundingBox()).x - next) < 2);
+    assert.ok(Math.abs((await card.boundingBox()).x - x) < 2);
     const before = await card.boundingBox();
     await page.getByRole('button', { name: '收藏术语', exact: true }).hover();
     await page.waitForTimeout(220);
@@ -464,6 +464,157 @@ test('long phrase popover follows hover point, clamps to viewport and stays stil
     }
 
     await page.evaluate(() => window.__palbooTerminology.destroy());
+  } finally {
+    await browser.close();
+  }
+});
+
+test('hover card survives slow pointer transit, pending frames and unrelated chat updates', async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage({ reducedMotion: 'reduce' });
+    const errors = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+    await page.setContent(
+      '<main style="margin:100px;font:20px/1.8 system-ui"><p>这里出现竞态<strong>条件</strong>。</p><p id="stream">新的回答</p><textarea>保留草稿</textarea></main><button id="outside">其他操作</button>',
+    );
+    await page.addScriptTag({ content: bundle });
+    await page.waitForFunction(() => CSS.highlights.get('palboo-terms')?.size === 1);
+    const point = await page.evaluate(() => {
+      const r = [...CSS.highlights.get('palboo-terms')][0].getBoundingClientRect();
+      return { x: r.left + 8, y: r.top + r.height / 2, bottom: r.bottom };
+    });
+    await page.mouse.move(point.x, point.y);
+    const card = page.getByRole('dialog');
+    await card.waitFor();
+    const original = await card.boundingBox();
+    // 横跨文字到卡片的8px空隙，停留时间超过旧170ms关闭计时。
+    await page.mouse.move(point.x, point.bottom + 6);
+    await page.waitForTimeout(600);
+    assert.equal(await card.isVisible(), true);
+    await page.mouse.move(original.x + 20, original.y + 35);
+    await card.evaluate((c) => {
+      window.retainedCard = c;
+      // 重现同一帧先收到正文 move，再进入浮卡的事件顺序。
+      document.dispatchEvent(new PointerEvent('pointermove', { clientX: 1, clientY: 1 }));
+      c.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, composed: true }));
+      document.getElementById('stream').append('继续输出');
+    });
+    await page.waitForTimeout(750);
+    assert.equal(await card.evaluate((c) => c === window.retainedCard), true);
+    const stable = await card.boundingBox();
+    assert.ok(Math.abs(stable.x - original.x) < 1 && Math.abs(stable.y - original.y) < 1);
+    await card.locator('p').evaluate((p) => {
+      const range = document.createRange();
+      range.selectNodeContents(p);
+      const selection = p.getRootNode().getSelection?.() || getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      document.getElementById('stream').append('，再次更新');
+    });
+    await page.waitForTimeout(750);
+    assert.equal(await card.evaluate((c) => c === window.retainedCard), true);
+    assert.ok(
+      await card.evaluate(
+        (c) => (c.getRootNode().getSelection?.() || getSelection()).toString().length > 0,
+      ),
+    );
+    const favorite = page.getByRole('button', { name: '收藏术语', exact: true });
+    await favorite.focus();
+    await page.mouse.move(4, 4);
+    await page.waitForTimeout(650);
+    assert.equal(await card.isVisible(), true, 'keyboard focus protects an open card');
+    await page.locator('#outside').focus();
+    await card.waitFor({ state: 'hidden' });
+    await page.mouse.move(point.x, point.y);
+    await card.waitFor();
+    await page.mouse.move(4, 4);
+    await page.waitForTimeout(200);
+    assert.equal(await card.isVisible(), true, 'brief excursions receive a grace period');
+    await page.mouse.move(point.x, point.y);
+    await page.waitForTimeout(500);
+    assert.equal(await card.isVisible(), true, 'returning cancels dismissal');
+    await page.mouse.move(4, 4);
+    await card.waitFor({ state: 'hidden' });
+    await page.keyboard.press('Alt+Shift+T');
+    await card.waitFor();
+    await page.keyboard.press('Escape');
+    await card.waitFor({ state: 'hidden' });
+    assert.equal(await page.locator('textarea').inputValue(), '保留草稿');
+    await page.evaluate(() => window.__palbooTerminology.destroy());
+    assert.equal(await page.locator('[data-buddy-terms]').count(), 0);
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+  }
+});
+
+test('hover card follows small scrolls but closes for lost anchors, changed chats and disabling', async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage({ reducedMotion: 'reduce' });
+    await page.setContent(
+      '<main style="margin:100px;font:20px/1.8 system-ui;height:280px;overflow:auto"><p id="term">这里出现竞态条件。</p><div style="height:1800px"></div></main>',
+    );
+    await page.addScriptTag({ content: bundle });
+    await page.waitForFunction(() => CSS.highlights.get('palboo-terms')?.size === 1);
+    const card = page.getByRole('dialog');
+    const open = async () => {
+      const p = await page.evaluate(() => {
+        const r = [...CSS.highlights.get('palboo-terms')][0].getBoundingClientRect();
+        return { x: r.left + 6, y: r.top + r.height / 2 };
+      });
+      await page.mouse.move(4, 4);
+      await page.mouse.move(p.x, p.y);
+      await card.waitFor();
+    };
+    await open();
+    const before = await card.boundingBox();
+    await page.locator('main').evaluate((m) => {
+      m.scrollTop = 5;
+    });
+    await page.waitForTimeout(80);
+    assert.equal(await card.isVisible(), true);
+    assert.ok(Math.abs((await card.boundingBox()).y - (before.y - 5)) < 1);
+    await card.hover();
+    const reading = await card.boundingBox();
+    await page.locator('main').evaluate((m) => {
+      m.scrollTop = 10;
+      m.style.marginTop = '104px';
+      m.append(document.createElement('span'));
+    });
+    await page.waitForTimeout(750);
+    const stable = await card.boundingBox();
+    assert.ok(
+      Math.abs(stable.x - reading.x) < 1 && Math.abs(stable.y - reading.y) < 1,
+      'layout shifts do not move the card under the pointer',
+    );
+    await page.locator('main').evaluate((m) => {
+      m.scrollTop = 900;
+    });
+    await card.waitFor({ state: 'hidden' });
+    await page.locator('main').evaluate((m) => {
+      m.scrollTop = 0;
+    });
+    await open();
+    await page.locator('#term').evaluate((p) => p.replaceWith(p.cloneNode(true)));
+    await card.waitFor({ state: 'hidden' });
+    await page.waitForFunction(
+      () => [...CSS.highlights.get('palboo-terms')][0].startContainer.isConnected,
+    );
+    await open();
+    await page.evaluate(() => {
+      window.session = 'another-chat';
+    });
+    await card.waitFor({ state: 'hidden' });
+    await open();
+    await page.evaluate(async () => {
+      window.state.preferences.enabled = false;
+      await window.__palbooTerminology.refresh();
+    });
+    await card.waitFor({ state: 'hidden' });
+    await page.evaluate(() => window.__palbooTerminology.destroy());
+    assert.equal(await page.locator('[data-buddy-terms]').count(), 0);
   } finally {
     await browser.close();
   }

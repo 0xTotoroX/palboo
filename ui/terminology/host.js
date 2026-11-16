@@ -1,6 +1,6 @@
 import { measureWork } from '../shared/performance.js';
 /* [INPUT]: Palboo 已识别的聊天根节点、一问一答与受限后台请求。
- * [OUTPUT]: 术语标注与悬停释义；部分失败保留已确认范围并有限重试，销毁恢复自有高亮，不改变宿主正文。
+ * [OUTPUT]: 术语标注与稳定悬停释义；重扫保留当前有效范围，离开缓冲与卡片交互共享生命周期，不改变宿主正文。
  * [POS]: 术语显示旁路；单次检查复用当前语境，异步结果重新核验，不读取草稿或写主聊天。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { readTypography } from '../codex/typography.js';
@@ -50,14 +50,30 @@ export function installTerminology({ request, getRoot, getExchange, isBusy, isol
   const ACTIVE = HIGHLIGHT + '-active';
   const LOCATED = HIGHLIGHT + '-located';
   let point = { x: 0, y: 0 },
-    appearanceKey = '';
+    appearanceKey = '',
+    activeContext = '';
+  const LEAVE_DELAY = 450;
+  function keepOpen() {
+    cancelAnimationFrame(frame);
+    clearTimeout(hoverTimer);
+    clearTimeout(closeTimer);
+    closeTimer = 0;
+  }
+  function deferClose() {
+    if (closeTimer || popup.interacting) return;
+    closeTimer = window.setTimeout(() => {
+      closeTimer = 0;
+      if (!popup.interacting) void hide();
+    }, LEAVE_DELAY);
+  }
   const popup = createTermPopover({
-    onEnter: () => clearTimeout(closeTimer),
-    onLeave: () => {
-      closeTimer = window.setTimeout(() => hide(), 170);
-    },
+    followScroll: true,
+    onEnter: keepOpen,
+    onLeave: deferClose,
     onClose: () => {
+      keepOpen();
       active = null;
+      activeContext = '';
       CSS.highlights?.delete(ACTIVE);
     },
   });
@@ -93,8 +109,7 @@ export function installTerminology({ request, getRoot, getExchange, isBusy, isol
     return value;
   };
   function hide(immediate = false) {
-    clearTimeout(hoverTimer);
-    clearTimeout(closeTimer);
+    keepOpen();
     return popup.hide(immediate);
   }
   function clear() {
@@ -148,27 +163,33 @@ export function installTerminology({ request, getRoot, getExchange, isBusy, isol
   }
   function show(a, keyboard = false) {
     if (!valid(a)) return void hide(true);
-    clearTimeout(closeTimer);
+    keepOpen();
     active = a;
+    activeContext = contextKey();
     updateTheme();
     if (CSS.highlights && typeof Highlight !== 'undefined') {
       const highlight = new Highlight(a.range);
       highlight.priority = 1;
       CSS.highlights.set(ACTIVE, highlight);
     }
+    // 打开时选定当前行和横向落点，随后只跟随文字布局，不追逐鼠标。
+    const rects = [...a.range.getClientRects()].filter((r) => r.width && r.height);
+    const lineIndex = Math.max(
+      0,
+      rects.findIndex(
+        (r) => point.y >= r.top && point.y <= r.bottom && point.x >= r.left && point.x <= r.right,
+      ),
+    );
+    const offset = rects[lineIndex] ? point.x - rects[lineIndex].left : 0;
     popup.show(
       a.term,
       () => {
-        if (!valid(a)) return null;
+        if (!valid(a) || activeContext !== contextKey()) return null;
         const rects = [...a.range.getClientRects()].filter((r) => r.width && r.height);
-        const line =
-          rects.find(
-            (r) =>
-              point.y >= r.top && point.y <= r.bottom && point.x >= r.left && point.x <= r.right,
-          ) || rects[0];
+        const line = rects[lineIndex] || rects[0];
         if (!line || keyboard) return line;
         return new DOMRect(
-          Math.max(line.left, Math.min(point.x, line.right)),
+          line.left + Math.max(0, Math.min(offset, line.width)),
           line.top,
           1,
           line.height,
@@ -207,12 +228,18 @@ export function installTerminology({ request, getRoot, getExchange, isBusy, isol
   }
   function scanContent() {
     clearTimeout(scanTimer);
+    clearTimeout(hoverTimer);
+    cancelAnimationFrame(frame);
     if (!alive) return;
-    clear();
     if (!root || root !== getRoot() || !state.preferences.enabled) {
+      clear();
       report();
       return;
     }
+    annotations = [];
+    locations = [];
+    clearTimeout(locateTimer);
+    CSS.highlights?.delete(LOCATED);
     const index = textIndex(root),
       terms = new Map(state.entries.map((t) => [t.id, t]));
     // 语义模式下字面命中只作候选，绝不盖过已核对的词义。
@@ -242,6 +269,25 @@ export function installTerminology({ request, getRoot, getExchange, isBusy, isol
       .slice(0, 400);
     if (CSS.highlights && typeof Highlight !== 'undefined')
       CSS.highlights.set(HIGHLIGHT, new Highlight(...annotations.map((a) => a.range)));
+    if (active) {
+      const retained =
+        activeContext === contextKey() &&
+        valid(active) &&
+        annotations.find(
+          (a) =>
+            a.term.id === active.term.id &&
+            a.range.startContainer === active.range.startContainer &&
+            a.range.endContainer === active.range.endContainer &&
+            a.range.startOffset === active.range.startOffset &&
+            a.range.endOffset === active.range.endOffset,
+        );
+      if (retained) {
+        // 保留对象及浮卡节点，待执行的指针动作、焦点和选择范围仍指向同一词语。
+        Object.assign(active, retained);
+        annotations[annotations.indexOf(retained)] = active;
+        popup.update(active.term, cardOptions(active));
+      } else void hide(true);
+    }
     report(involved);
   }
   function schedule() {
@@ -355,6 +401,7 @@ export function installTerminology({ request, getRoot, getExchange, isBusy, isol
     if (!alive || !state.preferences.enabled || document.hidden) return;
     updateTheme();
     const next = getRoot();
+    if (active && (!valid(active) || activeContext !== contextKey())) void hide(true);
     if (next !== root) {
       observer?.disconnect();
       root = next;
@@ -400,9 +447,13 @@ export function installTerminology({ request, getRoot, getExchange, isBusy, isol
   }
   function move(e) {
     if (!annotations.length || document.hidden) return;
-    if (popup.contains(e)) return;
     cancelAnimationFrame(frame);
+    if (popup.contains(e) || popup.interacting || popup.near(e.clientX, e.clientY)) {
+      keepOpen();
+      return;
+    }
     frame = requestAnimationFrame(() => {
+      if (active && activeContext !== contextKey()) return void hide(true);
       const hit = annotations.find(
         (a) =>
           valid(a) &&
@@ -410,23 +461,21 @@ export function installTerminology({ request, getRoot, getExchange, isBusy, isol
             (r) =>
               e.clientX >= r.left - 3 &&
               e.clientX <= r.right + 3 &&
-              e.clientY >= r.top &&
-              e.clientY <= r.bottom,
+              e.clientY >= r.top - 4 &&
+              e.clientY <= r.bottom + 4,
           ),
       );
       if (hit) point = { x: e.clientX, y: e.clientY };
       if (hit === active) {
-        if (hit) popup.reposition();
-        clearTimeout(closeTimer);
+        keepOpen();
         return;
       }
       clearTimeout(hoverTimer);
       if (hit) {
-        clearTimeout(closeTimer);
+        keepOpen();
         hoverTimer = window.setTimeout(() => show(hit), 60);
       } else if (active) {
-        clearTimeout(closeTimer);
-        closeTimer = window.setTimeout(() => hide(), 170);
+        deferClose();
       }
     });
   }

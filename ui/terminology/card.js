@@ -1,6 +1,6 @@
 import { tr, subscribeLocale, getLocale } from '../shared/i18n.js';
 /* [INPUT]: 术语、主题/材质偏好、收藏与掌握动作。
- * [OUTPUT]: 已定稿贴字浮层的唯一卡片，两个入口和设置预览共用。
+ * [OUTPUT]: 已定稿贴字浮层的唯一卡片；无变化的文字更新保留选择范围，两个入口和设置预览共用。
  * [POS]: 呈现名称、释义与分类路径；静态共享图标，不插入不受信任 HTML。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { iconSvg } from '../shared/icons/index.js';
@@ -96,17 +96,20 @@ export function createCard(term, options = {}) {
   }
   card.append(header, definition, footer, error);
   const appearance = attachCardAppearance(card);
+  function text(node, value) {
+    if (node.textContent !== value) node.textContent = value;
+  }
   function render() {
     card.lang = getLocale();
     category.setAttribute('aria-label', tr('分类路径'));
     card.setAttribute('aria-label', tr('{{value1}}释义', { value1: term.name }));
-    name.textContent = term.name;
-    english.textContent = term.english === term.name ? '' : term.english || '';
-    definition.textContent = term.definition;
+    text(name, term.name);
+    text(english, term.english === term.name ? '' : term.english || '');
+    text(definition, term.definition);
     const path = Array.isArray(term.category)
       ? term.category.filter((part) => typeof part === 'string' && part.trim())
       : [];
-    category.textContent = path.join(' › ');
+    text(category, path.join(' › '));
     category.hidden = !path.length;
     for (const action of ['favorite', 'mastered']) {
       const { button, tip } = controls[action];
@@ -121,7 +124,7 @@ export function createCard(term, options = {}) {
               : tr('已掌握，不再提示');
       button.setAttribute('aria-label', label);
       button.setAttribute('aria-pressed', String(chosen));
-      tip.textContent = label;
+      text(tip, label);
       button.disabled = busy || opts.locked;
       const icon = action === 'favorite' ? (chosen ? 'bookmark-filled' : 'bookmark') : 'check';
       if (button.dataset.icon !== icon) {
