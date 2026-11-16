@@ -152,8 +152,10 @@ export function mountFeature(
         const dialog =
           placement === 'edge' ? body.querySelector<HTMLElement>('.task-details[open]') : null;
         const dialogStyle = dialog && getComputedStyle(dialog);
+        const fields = dialog?.querySelector<HTMLElement>('.task-details-fields');
         const editorHeight = dialog
           ? dialog.querySelector('form')!.scrollHeight +
+            Math.max(0, (fields?.scrollHeight || 0) - (fields?.clientHeight || 0)) +
             parseFloat(dialogStyle!.paddingTop) +
             parseFloat(dialogStyle!.paddingBottom)
           : 0;

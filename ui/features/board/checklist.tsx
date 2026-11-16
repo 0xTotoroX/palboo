@@ -19,6 +19,7 @@ export function Checklist({
   edit,
   title,
   adding,
+  searching,
   setTitle,
   dismissEmpty,
   finishAdding,
@@ -33,6 +34,7 @@ export function Checklist({
   edit: (task: Task) => void;
   title: string;
   adding: boolean;
+  searching: boolean;
   setTitle: (title: string) => void;
   dismissEmpty: () => void;
   finishAdding: () => void;
@@ -46,7 +48,7 @@ export function Checklist({
     locked = useRef(false),
     animations = useRef(new Set<Animation>());
   const positions = useRef<Map<string, number> | null>(null);
-  const focusNext = useRef<number | null>(null);
+  const focusNext = useRef<{ index: number; origin: Element | null } | null>(null);
   useEffect(() => {
     alive.current = true;
     return () => {
@@ -93,13 +95,20 @@ export function Checklist({
           void animate(node, [{ transform: `translateY(${delta}px)` }, { transform: 'none' }], 220);
       });
     if (focusNext.current !== null) {
+      const { index, origin } = focusNext.current;
+      focusNext.current = null;
+      const document = root.current?.ownerDocument;
+      let active = document?.activeElement;
+      while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
+      const host = (root.current?.getRootNode() as ShadowRoot)?.host;
+      // A delayed save must not pull focus back after the user starts another action.
+      if (active && active !== origin && active !== document?.body && active !== host) return;
       const buttons = root.current?.querySelectorAll<HTMLButtonElement>('.task-list-toggle');
       const target =
-        buttons?.[Math.min(focusNext.current, buttons.length - 1)] ||
+        buttons?.[Math.min(index, buttons.length - 1)] ||
         root.current?.querySelector<HTMLInputElement>('.task-list-add input');
       if (target) target.focus({ preventScroll: true });
       else focusFallback();
-      focusNext.current = null;
     }
   });
   async function toggle(task: Task, node: HTMLElement) {
@@ -137,14 +146,32 @@ export function Checklist({
     if (!alive.current) return;
     if (result) {
       capture();
-      if (moveFocus) focusNext.current = index;
+      if (moveFocus) focusNext.current = { index, origin: active };
     }
     locked.current = false;
     setFinishing(null);
     setSettling(false);
   }
+  async function remove(task: Task, node: HTMLElement) {
+    if (busy || locked.current) return;
+    locked.current = true;
+    setSettling(true);
+    const active = (node.getRootNode() as Document | ShadowRoot).activeElement;
+    const moveFocus = !!active && node.contains(active);
+    const index = rows.findIndex((row) => row.id === task.id);
+    const result = await command({ op: 'remove', id: task.id, expectedTask: task });
+    if (!alive.current) return;
+    locked.current = false;
+    if (result && moveFocus) focusNext.current = { index, origin: active };
+    setSettling(false);
+  }
   return (
     <div className="task-list" ref={root} data-busy={busy || !!finishing || undefined}>
+      {!rows.length && (history || !adding) && (
+        <div className="task-list-empty" role="status">
+          {tr(searching ? '没有匹配的任务' : history ? '暂无已完成任务' : '暂无待办')}
+        </div>
+      )}
       <ul className="task-list-rows" aria-label={tr(history ? '已完成' : '待办事项')}>
         {rows.map((task) => {
           const completing = !history && finishing?.id === task.id;
@@ -175,7 +202,9 @@ export function Checklist({
                   title={
                     task.remote?.recurring
                       ? tr('重复提醒请在 Apple 提醒事项中编辑，本地只读')
-                      : undefined
+                      : history
+                        ? tr('恢复任务')
+                        : undefined
                   }
                   disabled={readonly}
                   onClick={(event) => void toggle(task, event.currentTarget.closest('li')!)}
@@ -191,25 +220,14 @@ export function Checklist({
                 >
                   <span>{task.fields.title}</span>
                 </button>
-                {history ? (
-                  <button
-                    type="button"
-                    className="task-list-action"
-                    aria-label={tr('恢复任务：{{value1}}', { value1: task.fields.title })}
-                    title={tr('恢复任务')}
-                    disabled={readonly}
-                    onClick={(event) => void toggle(task, event.currentTarget.closest('li')!)}
-                  >
-                    <Icon name="task-restore" />
-                  </button>
-                ) : (
+                {!history && (
                   <button
                     type="button"
                     className="task-list-action task-list-delete"
                     aria-label={tr('删除任务：{{value1}}', { value1: task.fields.title })}
                     title={tr('删除任务')}
                     disabled={busy || !!finishing || inflight === task.id}
-                    onClick={() => void command({ op: 'remove', id: task.id, expectedTask: task })}
+                    onClick={(event) => void remove(task, event.currentTarget.closest('li')!)}
                   >
                     <Icon name="trash" />
                   </button>
@@ -235,9 +253,15 @@ export function Checklist({
             );
           }}
         >
-          <span className="task-list-add-icon">
-            <Icon name="plus" />
-          </span>
+          <button
+            type="submit"
+            className="task-list-add-icon"
+            aria-label={tr('保存待办')}
+            title={tr('保存待办')}
+            disabled={busy || !!finishing || !title.trim() || composing}
+          >
+            <Icon name={title.trim() ? 'check' : 'plus'} />
+          </button>
           <input
             autoFocus
             aria-label={tr('添加待办')}

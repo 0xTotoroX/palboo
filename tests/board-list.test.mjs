@@ -116,6 +116,25 @@ test('completion waits for saving, hides with motion, and icon recovery preserve
   await page.getByRole('checkbox', { name: '完成任务：确认 Palboo 更新', exact: true }).click();
   await page.waitForFunction(() => typeof window.releaseSave === 'function');
   await page.waitForTimeout(300);
+  const steadyRows = await page.locator('.task-list-row').evaluateAll((rows) =>
+    rows.map((row) => ({
+      id: row.closest('[data-list-task]').dataset.listTask,
+      titleOpacity: getComputedStyle(row.querySelector('.task-list-title')).opacity,
+      deleteOpacity: getComputedStyle(row.querySelector('.task-list-delete')).opacity,
+    })),
+  );
+  assert.ok(steadyRows.every((row) => row.titleOpacity === '1'));
+  assert.ok(
+    steadyRows.filter((row) => row.id !== 'b').every((row) => row.deleteOpacity === '0'),
+    JSON.stringify(steadyRows),
+  );
+  await page.mouse.move(600, 300);
+  await page.waitForFunction(() => {
+    const root = document.querySelector('.csw-feature-content > div').shadowRoot;
+    return [...root.querySelectorAll('.task-list-delete')].every(
+      (button) => getComputedStyle(button).opacity === '0',
+    );
+  });
   assert.equal(await page.locator('[data-list-task="b"][data-completing]').isVisible(), true);
   assert.equal(
     await page.getByRole('button', { name: '查看已完成', exact: true }).isDisabled(),
@@ -127,11 +146,11 @@ test('completion waits for saving, hides with motion, and icon recovery preserve
   });
   await page.locator('[data-list-task="b"]').waitFor({ state: 'detached' });
   await page.getByRole('button', { name: '查看已完成', exact: true }).click();
-  await page.getByRole('button', { name: '恢复任务：确认 Palboo 更新', exact: true }).waitFor();
-  await page.getByRole('button', { name: '恢复任务：确认 Palboo 更新', exact: true }).click();
+  await page.getByRole('checkbox', { name: '恢复任务：确认 Palboo 更新', exact: true }).waitFor();
+  await page.getByRole('checkbox', { name: '恢复任务：确认 Palboo 更新', exact: true }).click();
   await page.locator('[data-list-task="b"]').waitFor({ state: 'detached' });
   assert.deepEqual(await page.evaluate(() => state.store.tasks.find((t) => t.id === 'b')), before);
-  await page.getByRole('button', { name: '恢复任务：历史归档记录', exact: true }).click();
+  await page.getByRole('checkbox', { name: '恢复任务：历史归档记录', exact: true }).click();
   await page.locator('[data-list-task="e"]').waitFor({ state: 'detached' });
   assert.equal(
     await page.evaluate(() => state.store.tasks.find((t) => t.id === 'e').archived),
@@ -141,6 +160,7 @@ test('completion waits for saving, hides with motion, and icon recovery preserve
   await page.evaluate(() => (window.failSave = true));
   await page.getByRole('checkbox', { name: '完成任务：回复设计反馈', exact: true }).click();
   await page.getByRole('alert').filter({ hasText: '合成保存失败' }).first().waitFor();
+  assert.equal(await page.getByRole('alert').filter({ hasText: '合成保存失败' }).count(), 1);
   await page.locator('[data-list-task="c"]:not([data-completing])').waitFor();
   assert.equal(
     await page
@@ -378,10 +398,75 @@ test('empty transient fields mark active IME composition as editing', async (t) 
   assert.equal(await page.evaluate(() => writes.length), 0);
 });
 
+test('empty results are distinct and task creation has a reachable icon submit action', async (t) => {
+  const page = await fixture(t);
+  await page.getByRole('button', { name: '搜索任务', exact: true }).click();
+  await page.getByRole('searchbox').fill('不存在的结果');
+  await page.getByRole('status').filter({ hasText: '没有匹配的任务' }).waitFor();
+  await page.getByRole('button', { name: '关闭搜索', exact: true }).click();
+  await page.getByRole('button', { name: '添加待办', exact: true }).click();
+  const save = page.getByRole('button', { name: '保存待办', exact: true });
+  assert.equal(await save.isDisabled(), true);
+  await page.getByRole('textbox', { name: '添加待办', exact: true }).fill('点击图标保存');
+  await save.click();
+  await page.getByRole('button', { name: '任务详情：点击图标保存', exact: true }).waitFor();
+  assert.equal(await page.locator('.task-list-add').count(), 0);
+  await page.evaluate(() => {
+    state.store.tasks = [];
+    window.remount({});
+  });
+  await page.getByRole('status').filter({ hasText: '暂无待办' }).waitFor();
+  await page.getByRole('button', { name: '查看已完成', exact: true }).click();
+  await page.getByRole('status').filter({ hasText: '暂无已完成任务' }).waitFor();
+  await page.evaluate(() => window.language('en'));
+  await page.getByRole('status').filter({ hasText: 'No completed tasks' }).waitFor();
+});
+
+test('keyboard deletion continues at the next task or toolbar and failures retain focus', async (t) => {
+  const page = await fixture(t);
+  const deletion = page.getByRole('button', { name: '删除任务：整理本周笔记', exact: true });
+  await deletion.focus();
+  await deletion.press('Enter');
+  await page.locator('[data-list-task="a"]').waitFor({ state: 'detached' });
+  assert.equal(
+    await page
+      .getByRole('checkbox')
+      .first()
+      .evaluate((n) => n.getRootNode().activeElement === n),
+    true,
+  );
+  await page.evaluate(() => (window.failSave = true));
+  const fail = page.getByRole('button', { name: '删除任务：确认 Palboo 更新', exact: true });
+  await fail.focus();
+  await fail.press('Enter');
+  await page.getByRole('alert').filter({ hasText: '合成保存失败' }).first().waitFor();
+  assert.equal(await fail.evaluate((n) => n.getRootNode().activeElement === n), true);
+  await page.evaluate(() => (window.failSave = false));
+  await fail.press('Enter');
+  await page.locator('[data-list-task="b"]').waitFor({ state: 'detached' });
+  const last = page.getByRole('button', { name: '删除任务：回复设计反馈', exact: true });
+  await last.focus();
+  await last.press('Enter');
+  await page.getByRole('status').filter({ hasText: '暂无待办' }).waitFor();
+  assert.equal(
+    await page
+      .getByRole('button', { name: '添加待办', exact: true })
+      .evaluate((n) => document.activeElement === n),
+    true,
+  );
+});
+
 test('touch keeps the icon entry reachable without exposing an idle task input', async (t) => {
   const page = await fixture(t, 'reduce', { hasTouch: true });
   const add = page.getByRole('button', { name: '添加待办', exact: true });
   assert.equal(await add.evaluate((n) => getComputedStyle(n).opacity), '1');
+  assert.equal(
+    await page
+      .locator('.task-list-delete')
+      .first()
+      .evaluate((n) => getComputedStyle(n).opacity),
+    '1',
+  );
   assert.equal(await page.locator('.task-list-add').count(), 0);
   await add.tap();
   await page.getByRole('textbox', { name: '添加待办', exact: true }).waitFor();
@@ -473,4 +558,63 @@ test('one checklist fills narrow and wide embedded, desktop and edge allocations
     'target/reports/board-list/surface-layout.json',
     JSON.stringify({ results, natural }, null, 2),
   );
+});
+
+test('search focus survives last-result removal and user movement during a delayed save', async (t) => {
+  const page = await fixture(t);
+  await page.getByRole('button', { name: '搜索任务', exact: true }).click();
+  const search = page.getByRole('searchbox');
+  await search.fill('Palboo');
+  const toggle = page.getByRole('checkbox').first();
+  await toggle.focus();
+  await toggle.press('Space');
+  await page.locator('[data-list-task="b"]').waitFor({ state: 'detached' });
+  assert.equal(await search.evaluate((n) => document.activeElement === n), true);
+  await search.press('Escape');
+  await page.evaluate(() => (window.waitSave = true));
+  await page.getByRole('checkbox').first().focus();
+  await page.keyboard.press('Space');
+  await page.waitForFunction(() => typeof window.releaseSave === 'function');
+  await page.getByRole('button', { name: '搜索任务', exact: true }).click();
+  await search.fill('回复');
+  await page.evaluate(() => {
+    window.waitSave = false;
+    window.releaseSave();
+  });
+  await page.locator('[data-list-task="a"]').waitFor({ state: 'detached' });
+  assert.equal(await search.evaluate((n) => document.activeElement === n), true);
+  assert.equal(await search.inputValue(), '回复');
+});
+
+test('history empty state remains visible while an add draft is retained', async (t) => {
+  const page = await fixture(t);
+  await page.evaluate(() => {
+    state.store.tasks = state.store.tasks.filter((t) => !t.fields.completed && !t.archived);
+    window.remount({});
+  });
+  await page.getByRole('button', { name: '添加待办', exact: true }).click();
+  await page.getByRole('textbox', { name: '添加待办', exact: true }).fill('保留草稿');
+  await page.getByRole('button', { name: '查看已完成', exact: true }).click();
+  await page.getByRole('status').filter({ hasText: '暂无已完成任务' }).waitFor();
+  await page.getByRole('button', { name: '返回待办', exact: true }).click();
+  assert.equal(
+    await page.getByRole('textbox', { name: '添加待办', exact: true }).inputValue(),
+    '保留草稿',
+  );
+});
+
+test('task detail actions stay visible while the short drawer body scrolls', async (t) => {
+  const page = await fixture(t);
+  await page.setViewportSize({ width: 380, height: 350 });
+  await page.getByRole('button', { name: '任务详情：整理本周笔记', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  const save = dialog.getByRole('button', { name: '保存', exact: true });
+  for (const bottom of [false, true]) {
+    await page
+      .locator('.task-details-fields')
+      .evaluate((n, bottom) => (n.scrollTop = bottom ? n.scrollHeight : 0), bottom);
+    const rect = await save.boundingBox();
+    assert.ok(rect.y >= 0 && rect.y + rect.height <= 350, JSON.stringify(rect));
+    assert.equal(await save.isVisible(), true);
+  }
 });

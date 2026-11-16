@@ -717,6 +717,7 @@ try {
       child.pid,
     );
     check('real unfocused hover reveals task controls before any button click', telemetry.taskView);
+    await capture('task-hover');
     const beforeSearch = {
       width: telemetry.native.layoutWidth,
       height: telemetry.native.layoutHeight,
@@ -735,6 +736,7 @@ try {
     assert.ok(telemetry.taskView.input.height <= 34);
     assert.equal(telemetry.native.layoutWidth, beforeSearch.width);
     assert.equal(telemetry.native.layoutHeight, beforeSearch.height);
+    await capture('task-search');
     await setTaskInput('.board-search', '核对');
     await until(() => telemetry.taskView.rows === 1, 'nonempty query is applied');
     await leaveEdge();
@@ -786,6 +788,7 @@ try {
       "document.querySelector('#edge-panel > header [aria-label=添加待办]')",
     );
     await until(() => telemetry.taskView.addFocused, 'real add click focuses the editor');
+    await capture('task-add');
     await clickNativeElement(
       "document.querySelector('#edge-panel > header [aria-label=添加待办]')",
     );
@@ -816,6 +819,7 @@ try {
       'the same draft is restored',
     );
     check('real search/add switches are exclusive and preserve the unsaved fixture draft');
+    await capture('task-draft-restored');
     await setTaskInput('.task-list-add input', '');
     await until(() => telemetry.taskView.addValue === '', 'clear the owned synthetic draft');
     await leaveEdge();

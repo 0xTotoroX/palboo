@@ -261,7 +261,8 @@ export function FeatureView({
       return await fn();
     } catch (e) {
       if (entry.id === 'model') modelErrorTarget.current = modelNoticeTarget(latestValue.current);
-      setError(errorMessage(e));
+      // Board handles propagated task errors next to its form; surface/handoff errors stay here.
+      if (entry.id !== 'board' || !propagate) setError(errorMessage(e));
       if (propagate) throw e;
       return null;
     } finally {

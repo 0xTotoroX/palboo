@@ -227,7 +227,7 @@ return <div className={'settings-app '+(dark?'dark':'')} style={{maxWidth:900,ma
       await complete.waitFor({ state: 'detached' });
       assert.equal(await page.locator('[data-task-count]').textContent(), '6');
       await board.getByRole('button', { name: '查看已完成', exact: true }).click();
-      await board.getByRole('button', { name: '恢复任务：已同步任务', exact: true }).click();
+      await board.getByRole('checkbox', { name: '恢复任务：已同步任务', exact: true }).click();
       assert.equal(await page.locator('[data-task-count]').textContent(), '6');
       await page.getByLabel('显示方式', { exact: true }).selectOption('board');
       await board.locator('[data-view-mode=expanded]').waitFor();

@@ -360,6 +360,15 @@ h1 {
   overflow: auto;
   padding: 0 0 4px;
 }
+.task-list-empty {
+  display: grid;
+  place-items: center;
+  min-height: 96px;
+  height: 100%;
+  padding: 12px;
+  color: var(--muted);
+  text-align: center;
+}
 .task-list-rows {
   padding: 0;
   margin: 0;
@@ -381,6 +390,11 @@ h1 {
   color: inherit;
   filter: none;
   transform: none;
+}
+.board-app .task-list button:focus-visible {
+  outline: 1.5px solid var(--accent);
+  outline-offset: -2px;
+  border-radius: 4px;
 }
 .board-app .task-list :is(.task-list-toggle, .task-list-action) {
   flex: none;
@@ -434,10 +448,11 @@ h1 {
   background: linear-gradient(var(--accent), var(--accent)) left 55% / 0 1.5px no-repeat;
   animation: task-strike 260ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
-.task-list [data-completing] button:disabled {
+.board-app .task-list-title:disabled,
+.task-list [data-completing] .task-list-toggle:disabled {
   opacity: 1;
 }
-.task-list-delete {
+.board-app .task-list-delete {
   opacity: 0;
 }
 .task-list-row:hover .task-list-delete,
@@ -458,6 +473,10 @@ h1 {
   flex: none;
   width: 28px;
   height: 28px;
+  padding: 4px;
+}
+.board-app .task-list-add-icon:not(:disabled) {
+  color: var(--accent);
 }
 .board-app .task-list-add input {
   width: 100%;
@@ -466,6 +485,7 @@ h1 {
   line-height: 1.6;
   border-radius: 0;
   outline: none;
+  color: var(--ink);
 }
 .task-list-add input::placeholder {
   color: var(--muted);
@@ -495,7 +515,7 @@ h1 {
   }
 }
 @media (pointer: coarse) {
-  .task-list-delete {
+  .board-app .task-list-delete {
     opacity: 1;
   }
 }
@@ -622,7 +642,7 @@ h1 {
   padding: 24px;
   background: var(--surface);
   color: var(--ink);
-  overflow: auto;
+  overflow: hidden;
 }
 .task-details::backdrop {
   background: #0003;
@@ -631,9 +651,25 @@ h1 {
   display: flex;
   flex-direction: column;
   gap: 18px;
+  height: 100%;
+  min-height: 0;
+}
+.task-details-fields {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 4px;
+  margin: -4px;
+}
+.task-details-fields > * {
+  flex-shrink: 0;
 }
 .task-details header,
 .task-details footer {
+  flex: none;
   display: flex;
   align-items: center;
   justify-content: space-between;

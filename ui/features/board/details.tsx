@@ -84,88 +84,90 @@ export function TaskDetails({
             <Icon name="close" />
           </button>
         </header>
-        {!current && <p role="alert">{tr('任务已被移除，未保存内容仍保留。')}</p>}
-        {readonly && current && <p role="status">{tr('此任务暂时只读，请先处理同步状态。')}</p>}
-        {changed && (
-          <p role="alert">
-            {tr('任务已在其他位置更新，草稿已保留。')}
-            <button type="button" disabled={busy} onClick={reload}>
-              {tr('重新载入')}
-            </button>
-          </p>
-        )}
-        {error && (
-          <p role="alert" className="error">
-            {error}
-          </p>
-        )}
-        <label htmlFor={`${fieldId}-title`}>
-          <span>{tr('标题')}</span>
-          <input
-            id={`${fieldId}-title`}
-            aria-label={tr('标题')}
-            autoFocus
-            required
-            maxLength={1000}
-            value={fields.title}
-            disabled={busy || readonly}
-            onChange={(e) => change({ ...fields, title: e.target.value })}
-          />
-        </label>
-        <label htmlFor={`${fieldId}-notes`}>
-          <span>{tr('备注')}</span>
-          <textarea
-            id={`${fieldId}-notes`}
-            aria-label={tr('备注')}
-            rows={5}
-            maxLength={8000}
-            value={fields.notes}
-            disabled={busy || readonly}
-            onChange={(e) => change({ ...fields, notes: e.target.value })}
-          />
-        </label>
-        <label htmlFor={`${fieldId}-priority`}>
-          <span>{tr('优先级')}</span>
-          <select
-            id={`${fieldId}-priority`}
-            aria-label={tr('优先级')}
-            value={fields.priority}
-            disabled={busy || readonly}
-            onChange={(e) => change({ ...fields, priority: Number(e.target.value) })}
-          >
-            <option value={0}>{tr('无')}</option>
-            <option value={fields.priority > 0 && fields.priority < 5 ? fields.priority : 1}>
-              {tr('高')}
-            </option>
-            <option value={5}>{tr('中')}</option>
-            <option value={fields.priority > 5 ? fields.priority : 9}>{tr('低')}</option>
-          </select>
-        </label>
-        <div className="task-details-date">
-          <label htmlFor={`${fieldId}-date`}>
-            <span>{tr('截止日期')}</span>
+        <div className="task-details-fields">
+          {!current && <p role="alert">{tr('任务已被移除，未保存内容仍保留。')}</p>}
+          {readonly && current && <p role="status">{tr('此任务暂时只读，请先处理同步状态。')}</p>}
+          {changed && (
+            <p role="alert">
+              {tr('任务已在其他位置更新，草稿已保留。')}
+              <button type="button" disabled={busy} onClick={reload}>
+                {tr('重新载入')}
+              </button>
+            </p>
+          )}
+          {error && (
+            <p role="alert" className="error">
+              {error}
+            </p>
+          )}
+          <label htmlFor={`${fieldId}-title`}>
+            <span>{tr('标题')}</span>
             <input
-              id={`${fieldId}-date`}
-              type="date"
-              value={date}
+              id={`${fieldId}-title`}
+              aria-label={tr('标题')}
+              autoFocus
+              required
+              maxLength={1000}
+              value={fields.title}
               disabled={busy || readonly}
-              onChange={(e) => updateDue(e.target.value, time)}
+              onChange={(e) => change({ ...fields, title: e.target.value })}
             />
           </label>
-          <label htmlFor={`${fieldId}-time`}>
-            <span>{tr('时间（可选）')}</span>
-            <input
-              id={`${fieldId}-time`}
-              type="time"
-              value={time}
-              disabled={busy || readonly || !date}
-              onChange={(e) => updateDue(date, e.target.value)}
+          <label htmlFor={`${fieldId}-notes`}>
+            <span>{tr('备注')}</span>
+            <textarea
+              id={`${fieldId}-notes`}
+              aria-label={tr('备注')}
+              rows={5}
+              maxLength={8000}
+              value={fields.notes}
+              disabled={busy || readonly}
+              onChange={(e) => change({ ...fields, notes: e.target.value })}
             />
           </label>
+          <label htmlFor={`${fieldId}-priority`}>
+            <span>{tr('优先级')}</span>
+            <select
+              id={`${fieldId}-priority`}
+              aria-label={tr('优先级')}
+              value={fields.priority}
+              disabled={busy || readonly}
+              onChange={(e) => change({ ...fields, priority: Number(e.target.value) })}
+            >
+              <option value={0}>{tr('无')}</option>
+              <option value={fields.priority > 0 && fields.priority < 5 ? fields.priority : 1}>
+                {tr('高')}
+              </option>
+              <option value={5}>{tr('中')}</option>
+              <option value={fields.priority > 5 ? fields.priority : 9}>{tr('低')}</option>
+            </select>
+          </label>
+          <div className="task-details-date">
+            <label htmlFor={`${fieldId}-date`}>
+              <span>{tr('截止日期')}</span>
+              <input
+                id={`${fieldId}-date`}
+                type="date"
+                value={date}
+                disabled={busy || readonly}
+                onChange={(e) => updateDue(e.target.value, time)}
+              />
+            </label>
+            <label htmlFor={`${fieldId}-time`}>
+              <span>{tr('时间（可选）')}</span>
+              <input
+                id={`${fieldId}-time`}
+                type="time"
+                value={time}
+                disabled={busy || readonly || !date}
+                onChange={(e) => updateDue(date, e.target.value)}
+              />
+            </label>
+          </div>
+          {syncEnabled && (
+            <p className="task-details-hint">{tr('优先级和截止日期仅保存在 Palboo。')}</p>
+          )}
         </div>
-        {syncEnabled && (
-          <p className="task-details-hint">{tr('优先级和截止日期仅保存在 Palboo。')}</p>
-        )}
         <footer>
           <button type="button" disabled={busy} onClick={close}>
             {tr('返回')}

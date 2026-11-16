@@ -403,6 +403,7 @@ export function Board({
             edit={editTask}
             title={quickAdd?.title ?? ''}
             adding={listAdding}
+            searching={searchOpen && !!search.trim()}
             setTitle={(title) => setQuickAdd({ column: 'todo', title })}
             dismissEmpty={() => setListAdding(false)}
             finishAdding={() => {
@@ -410,9 +411,14 @@ export function Board({
               setQuickAdd(null);
               addButton.current?.focus({ preventScroll: true });
             }}
-            focusFallback={() =>
-              (addButton.current ?? historyButton.current)?.focus({ preventScroll: true })
-            }
+            focusFallback={() => {
+              const search = (headerActions ?? element.current)?.querySelector<HTMLInputElement>(
+                '.board-search',
+              );
+              (search ?? addButton.current ?? historyButton.current)?.focus({
+                preventScroll: true,
+              });
+            }}
             setSettling={setSettling}
           />
         ) : (
