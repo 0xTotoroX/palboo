@@ -77,7 +77,9 @@ export function Board({
     }
   }, [searchOpen]);
   const [quickAdd, setQuickAdd] = useState(view?.quickAdd ?? null);
-  const [listAdding, setListAdding] = useState(view?.listAdding ?? !!view?.quickAdd?.title);
+  const [listAdding, setListAdding] = useState(
+    !view?.searchOpen && (view?.listAdding ?? !!view?.quickAdd?.title),
+  );
   const [draft, setDraft] = useState<TaskDraft | null>(
     view?.editor?.task?.id && view.editor.fields ? view.editor : null,
   );
@@ -178,7 +180,10 @@ export function Board({
       aria-label={tr('搜索任务')}
       title={tr('搜索任务')}
       aria-expanded={searchOpen}
-      onClick={() => setSearchOpen(true)}
+      onClick={() => {
+        setListAdding(false);
+        setSearchOpen(true);
+      }}
     >
       <Icon name="search" />
     </button>
@@ -188,6 +193,7 @@ export function Board({
       value={search}
       change={setSearch}
       slot={headerActions}
+      dismissEmpty={() => setSearchOpen(false)}
       close={() => {
         returnSearchFocus.current = true;
         setSearch('');
@@ -202,11 +208,16 @@ export function Board({
           type="button"
           aria-label={tr('添加待办')}
           title={tr('添加待办')}
+          aria-expanded={listAdding}
           disabled={busy || settling}
+          onMouseDown={(event) => {
+            // Keep an empty input's blur dismissal from reopening it on this same click.
+            if (listAdding) event.preventDefault();
+          }}
           onClick={() => {
-            setListAdding(true);
-            setQuickAdd((current) => current ?? { column: 'todo', title: '' });
-            element.current?.querySelector<HTMLInputElement>('.task-list-add input')?.focus();
+            setListAdding(!listAdding);
+            if (listAdding) addButton.current?.focus({ preventScroll: true });
+            else setQuickAdd((current) => current ?? { column: 'todo', title: '' });
           }}
         >
           <Icon name="plus" />
@@ -393,6 +404,7 @@ export function Board({
             title={quickAdd?.title ?? ''}
             adding={listAdding}
             setTitle={(title) => setQuickAdd({ column: 'todo', title })}
+            dismissEmpty={() => setListAdding(false)}
             finishAdding={() => {
               setListAdding(false);
               setQuickAdd(null);

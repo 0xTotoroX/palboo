@@ -290,6 +290,7 @@ function probePage() {
               n.shadowRoot?.querySelector('.board-app'),
             );
             const input = panel.querySelector('header .board-search');
+            const add = host?.shadowRoot.querySelector('.task-list-add input');
             const css = input && getComputedStyle(input),
               rect = input?.getBoundingClientRect();
             return {
@@ -303,6 +304,10 @@ function probePage() {
               })),
               rows: host?.shadowRoot.querySelectorAll('[data-list-task]').length || 0,
               headerSearch: !!input,
+              searchValue: input?.value ?? null,
+              adding: !!add,
+              addFocused: !!add && host.shadowRoot.activeElement === add,
+              addValue: add?.value ?? null,
               bodySearch: !!host?.shadowRoot.querySelector('.board-search'),
               focused: document.activeElement === input,
               input: input
@@ -486,6 +491,15 @@ async function command(code) {
   return result.value;
 }
 const ipc = (value) => command(`window.ipc.postMessage(${JSON.stringify(JSON.stringify(value))})`);
+// Task text uses isolated React input events; task icon clicks and pointer exits use native input.
+const setTaskInput = (selector, value) =>
+  command(`(() => {
+  const input = document.querySelector(${JSON.stringify(selector)}) ||
+    [...document.querySelectorAll('.edge-view')].map(n => n.shadowRoot?.querySelector(${JSON.stringify(selector)})).find(Boolean);
+  if (!input) throw Error('task editor is not mounted');
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, ${JSON.stringify(value)});
+  input.dispatchEvent(new Event('input', {bubbles:true, composed:true}));
+})()`);
 function windowInfo() {
   const rows = JSON.parse(
     execFileSync(geometryProbe, ['windows', String(child.pid)], { encoding: 'utf8' }),
@@ -721,6 +735,8 @@ try {
     assert.ok(telemetry.taskView.input.height <= 34);
     assert.equal(telemetry.native.layoutWidth, beforeSearch.width);
     assert.equal(telemetry.native.layoutHeight, beforeSearch.height);
+    await setTaskInput('.board-search', '核对');
+    await until(() => telemetry.taskView.rows === 1, 'nonempty query is applied');
     await leaveEdge();
     await delay(800);
     assert.equal(
@@ -736,6 +752,85 @@ try {
       "document.querySelector('#edge-panel > header [aria-label=关闭搜索]')",
     );
     await until(() => !telemetry.taskView.headerSearch, 'real close click restores the task icons');
+    await clickNativeElement(
+      "document.querySelector('#edge-panel > header [aria-label=搜索任务]')",
+    );
+    await until(() => telemetry.taskView.headerSearch, 'reopen header search');
+    await clickNativeElement(
+      "document.querySelector('#edge-panel > header [aria-label=搜索任务]')",
+    );
+    await until(() => !telemetry.taskView.headerSearch, 'the same search icon closes search');
+    check('real repeated search-icon click restores the original toolbar');
+    await clickNativeElement(
+      "document.querySelector('#edge-panel > header [aria-label=搜索任务]')",
+    );
+    await until(() => telemetry.taskView.focused, 'empty search is focused');
+    await command(
+      "document.querySelector('.board-search').dispatchEvent(new KeyboardEvent('keydown',{key:'Backspace',bubbles:true,composed:true}))",
+    );
+    await leaveEdge();
+    await until(
+      () =>
+        !telemetry.native.expanded &&
+        !telemetry.native.animating &&
+        !telemetry.taskView.headerSearch,
+      'empty search releases keyboard focus and retracts after pointer exit',
+    );
+    check('real pointer exit retracts empty search and collapses the edge');
+    enterEdge();
+    await until(
+      () => telemetry.native.expanded && !telemetry.native.animating,
+      'reopen clean task toolbar',
+    );
+    await clickNativeElement(
+      "document.querySelector('#edge-panel > header [aria-label=添加待办]')",
+    );
+    await until(() => telemetry.taskView.addFocused, 'real add click focuses the editor');
+    await clickNativeElement(
+      "document.querySelector('#edge-panel > header [aria-label=添加待办]')",
+    );
+    await until(() => !telemetry.taskView.adding, 'the same add icon closes the empty editor');
+    check('real repeated add-icon click does not reopen the empty editor on blur');
+    await clickNativeElement(
+      "document.querySelector('#edge-panel > header [aria-label=添加待办]')",
+    );
+    await until(() => telemetry.taskView.addFocused, 'reopen draft input');
+    await setTaskInput('.task-list-add input', '未提交的合成草稿');
+    await until(() => telemetry.taskView.addValue === '未提交的合成草稿', 'draft text is retained');
+    await clickNativeElement(
+      "document.querySelector('#edge-panel > header [aria-label=搜索任务]')",
+    );
+    await until(
+      () => telemetry.taskView.headerSearch && !telemetry.taskView.adding,
+      'search excludes add without deleting the draft',
+    );
+    await clickNativeElement(
+      "document.querySelector('#edge-panel > header [aria-label=搜索任务]')",
+    );
+    await until(() => !telemetry.taskView.headerSearch, 'close search before restoring the draft');
+    await clickNativeElement(
+      "document.querySelector('#edge-panel > header [aria-label=添加待办]')",
+    );
+    await until(
+      () => telemetry.taskView.addValue === '未提交的合成草稿',
+      'the same draft is restored',
+    );
+    check('real search/add switches are exclusive and preserve the unsaved fixture draft');
+    await setTaskInput('.task-list-add input', '');
+    await until(() => telemetry.taskView.addValue === '', 'clear the owned synthetic draft');
+    await leaveEdge();
+    await until(
+      () => !telemetry.native.expanded && !telemetry.native.animating && !telemetry.taskView.adding,
+      'empty add retracts and the edge collapses after pointer exit',
+    );
+    check('real pointer exit retracts empty add and collapses the edge');
+    enterEdge();
+    await until(
+      () => telemetry.native.expanded && !telemetry.native.animating,
+      'reopen checklist after empty add',
+    );
+    assert.equal(telemetry.taskView.headerSearch, false);
+    assert.equal(telemetry.taskView.adding, false);
     let footprint = { width: telemetry.native.layoutWidth, height: telemetry.native.layoutHeight };
     for (const id of ['model', 'board', 'next', 'board']) {
       await clickNativeElement(`document.querySelector('[data-edge-tab="${id}"]')`);
@@ -1500,6 +1595,8 @@ try {
   report.failure = String(error);
   report.stderr = stderr;
   report.lastTelemetry = telemetry;
+  if (pointerInputEnabled)
+    report.failureInput = JSON.parse(execFileSync(inputProbe, ['state'], { encoding: 'utf8' }));
   if (child?.exitCode === null)
     report.failureWindows = JSON.parse(
       execFileSync(geometryProbe, ['windows', String(child.pid)], { encoding: 'utf8' }),

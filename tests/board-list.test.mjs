@@ -31,7 +31,7 @@ async function command(data){window.writes.push(structuredClone(data));if(window
 const taskRequest=async(path,data)=>data?command(data):snapshot();
 function Settings(){const tasks=useTasks(true,taskRequest);return <TaskSettings tasks={tasks}/>;}createRoot(document.getElementById('settings')).render(<Settings/>);
 const request=async data=>{if(data.op==='read')return snapshot();if(data.op==='action')return command(data.data);if(data.op==='save')entry.view=structuredClone(data.view);return {};};
-document.querySelector('nav button').innerHTML=iconSvg('feature-board');let mounted;window.measure=()=>mounted.measure();window.remount=()=>{mounted?.dispose();document.querySelector('.csw-feature-content').innerHTML='<div id="mount" style="height:100%"></div>';mounted=mountFeature(document.getElementById('mount'),entry,'fixture',window.placement||'sidebar',request,()=>{});document.getElementById('actions').replaceChildren(mounted.headerActions);};
+document.querySelector('nav button').innerHTML=iconSvg('feature-board');let mounted;window.measure=()=>mounted.measure();window.remount=nextView=>{mounted?.dispose();if(nextView)entry.view=structuredClone(nextView);document.querySelector('.csw-feature-content').innerHTML='<div id="mount" style="height:100%"></div>';mounted=mountFeature(document.getElementById('mount'),entry,'fixture',window.placement||'sidebar',request,()=>{});document.getElementById('actions').replaceChildren(mounted.headerActions);};
 window.language=language=>{state.appearance.language=language;setLocale(language);window.dispatchEvent(new Event('focus'));};window.remount();
 `,
     },
@@ -199,6 +199,7 @@ test('list stays flat, aligned and keyboard accessible in narrow and short actua
     true,
   );
   const input = page.getByRole('textbox', { name: 'Add a task', exact: true });
+  await page.getByRole('button', { name: 'Add a task', exact: true }).click();
   await input.fill('Keyboard task');
   await input.press('Enter');
   await page.getByRole('button', { name: 'Task details: Keyboard task', exact: true }).waitFor();
@@ -237,15 +238,14 @@ test('search and task entry open only after an explicit icon action and retain t
   assert.equal(await addIcon.evaluate((n) => getComputedStyle(n).opacity), '1');
   assert.equal(await page.locator('.board-search,.task-list-add').count(), 0);
   await page.evaluate(() => {
-    entry.view = {
+    window.remount({
       board: {
         search: 'obsolete query',
         quickAdd: { column: 'todo', title: '' },
         stage: 'todo',
         tab: 'board',
       },
-    };
-    window.remount();
+    });
   });
   await page.locator('[data-list-task="a"]').waitFor();
   assert.equal(await page.locator('.board-search').count(), 0);
@@ -262,6 +262,7 @@ test('search and task entry open only after an explicit icon action and retain t
   const firstRow = await page.locator('[data-list-task="a"]').boundingBox();
   await page.getByRole('button', { name: '搜索任务', exact: true }).click();
   const search = page.getByRole('searchbox', { name: '搜索任务', exact: true });
+  await search.fill('');
   assert.equal(await page.locator('#actions .board-search-control').count(), 1);
   assert.equal(await page.locator('.board-search-row').count(), 0);
   assert.ok(
@@ -294,6 +295,89 @@ test('search and task entry open only after an explicit icon action and retain t
   assert.equal(await page.evaluate(() => writes.length), 0);
 });
 
+test('task icons toggle, exclude each other and preserve hidden drafts on every surface', async (t) => {
+  const page = await fixture(t);
+  const addButton = page.getByRole('button', { name: '添加待办', exact: true });
+  const add = page.getByRole('textbox', { name: '添加待办', exact: true });
+  const searchButton = page.getByRole('button', { name: '搜索任务', exact: true });
+  const search = page.getByRole('searchbox', { name: '搜索任务', exact: true });
+  for (const placement of ['sidebar', 'desktop', 'edge']) {
+    await page.evaluate((placement) => {
+      window.placement = placement;
+      window.remount({});
+    }, placement);
+    await addButton.click();
+    assert.equal(await addButton.getAttribute('aria-expanded'), 'true');
+    await addButton.click();
+    assert.equal(await add.count(), 0, 'the same mouse click must not reopen an empty add input');
+    assert.equal(await addButton.getAttribute('aria-expanded'), 'false');
+    await addButton.click();
+    await add.fill('保留未提交的待办');
+    await searchButton.click();
+    assert.equal(await add.count(), 0);
+    assert.equal(await search.count(), 1);
+    await searchButton.click();
+    assert.equal(await search.count(), 0, 'the leading search icon is a working toggle');
+    await addButton.click();
+    assert.equal(await add.inputValue(), '保留未提交的待办');
+    await addButton.click();
+    assert.equal(await add.count(), 0);
+    await page.evaluate(() => window.remount());
+    await addButton.click();
+    assert.equal(await add.inputValue(), '保留未提交的待办');
+    await add.press('Escape');
+    await searchButton.click();
+    await page.locator('nav button').focus();
+    assert.equal(await search.count(), 0, 'an empty search retracts on external blur');
+    assert.equal(
+      await page.locator('nav button').evaluate((n) => document.activeElement === n),
+      true,
+    );
+    await addButton.click();
+    await page.locator('nav button').focus();
+    assert.equal(await add.count(), 0, 'an empty add input retracts without stealing focus');
+  }
+  await page.evaluate(() => {
+    window.remount({
+      board: {
+        searchOpen: true,
+        listAdding: true,
+        search: '',
+        quickAdd: { column: 'todo', title: '旧交接草稿' },
+      },
+    });
+  });
+  await search.waitFor();
+  assert.equal(
+    await add.count(),
+    0,
+    'old simultaneous disclosure is normalized without discarding the draft',
+  );
+  await searchButton.click();
+  await addButton.click();
+  assert.equal(await add.inputValue(), '旧交接草稿');
+  assert.equal(await page.evaluate(() => writes.length), 0);
+});
+
+test('empty transient fields mark active IME composition as editing', async (t) => {
+  const page = await fixture(t);
+  for (const [role, label] of [
+    ['searchbox', '搜索任务'],
+    ['textbox', '添加待办'],
+  ]) {
+    await page.getByRole('button', { name: label, exact: true }).click();
+    const input = page.getByRole(role, { name: label, exact: true });
+    assert.equal(await input.getAttribute('data-editing'), 'false');
+    await input.dispatchEvent('compositionstart', { data: '' });
+    assert.equal(await input.getAttribute('data-editing'), 'true');
+    await input.dispatchEvent('compositionend', { data: '' });
+    assert.equal(await input.getAttribute('data-editing'), 'false');
+    await page.locator('nav button').focus();
+    assert.equal(await input.count(), 0);
+  }
+  assert.equal(await page.evaluate(() => writes.length), 0);
+});
+
 test('touch keeps the icon entry reachable without exposing an idle task input', async (t) => {
   const page = await fixture(t, 'reduce', { hasTouch: true });
   const add = page.getByRole('button', { name: '添加待办', exact: true });
@@ -301,6 +385,8 @@ test('touch keeps the icon entry reachable without exposing an idle task input',
   assert.equal(await page.locator('.task-list-add').count(), 0);
   await add.tap();
   await page.getByRole('textbox', { name: '添加待办', exact: true }).waitFor();
+  await add.tap();
+  assert.equal(await page.locator('.task-list-add').count(), 0);
   assert.equal(await page.evaluate(() => writes.length), 0);
 });
 

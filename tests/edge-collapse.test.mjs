@@ -219,6 +219,60 @@ test('an editor in the shared header holds the edge open until focus leaves', as
   assert.equal(await collapsed(page), 1);
 });
 
+for (const scope of ['header', 'shadow']) {
+  test(`an explicitly idle ${scope} editor blurs and releases mouse departure after keyboard input`, async (t) => {
+    const page = await fixture(t, 'board');
+    await page.evaluate((scope) => {
+      const input = document.createElement('input');
+      input.id = 'idle-editor';
+      input.dataset.editing = 'false';
+      input.addEventListener('blur', () => (window.idleBlurred = true));
+      (scope === 'header' ? document.querySelector('#edge-panel > header') : feature).append(input);
+      geometry.keyboard = true;
+      sync();
+      input.focus();
+      input.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Backspace', bubbles: true, composed: true }),
+      );
+      pointer(false);
+    }, scope);
+    await page.clock.runFor(449);
+    assert.equal(await collapsed(page), 0);
+    await page.clock.runFor(1);
+    assert.equal(await collapsed(page), 1);
+    assert.equal(await page.evaluate(() => window.idleBlurred), true);
+  });
+}
+
+test('nonempty or composing transient editors retain the hold until they become idle', async (t) => {
+  const page = await fixture(t, 'board');
+  await page.evaluate(() => {
+    const input = feature.querySelector('textarea');
+    input.dataset.editing = 'true';
+    input.focus();
+    pointer(false);
+  });
+  await page.clock.runFor(1800);
+  assert.equal(await collapsed(page), 0);
+  await page.evaluate(() => (feature.querySelector('textarea').dataset.editing = 'false'));
+  await page.clock.runFor(1100);
+  assert.equal(await collapsed(page), 1);
+});
+
+test('an idle field does not cancel keyboard opening when the pointer never entered', async (t) => {
+  const page = await fixture(t, 'board');
+  await page.evaluate(() => {
+    geometry.keyboard = true;
+    sync();
+    pointer(false);
+    const input = feature.querySelector('textarea');
+    input.dataset.editing = 'false';
+    input.focus();
+  });
+  await page.clock.runFor(1800);
+  assert.equal(await collapsed(page), 0);
+});
+
 test('switching to smaller content keeps the open footprint and releases it after collapse', async (t) => {
   const page = await fixture(t);
   await page.evaluate(() => {

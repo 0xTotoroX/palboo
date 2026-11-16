@@ -102,28 +102,32 @@ export function startEdge(request: Request, fontSource?: HostFontSource) {
   const contentResize = new ResizeObserver(measure);
   contentResize.observe(panel.querySelector('header')!);
 
-  const held = () => {
+  const focusedEditors = () => {
     const active = document.activeElement;
-    if (
-      active &&
-      panel.contains(active) &&
-      active.matches('input,textarea,select,[contenteditable="true"]')
-    )
-      return true;
-    return [...mounts.values()].some(({ node }) => {
-      const shadow = node.shadowRoot;
-      return (
-        shadow?.querySelector('[data-busy="true"],dialog[open],[role="dialog"]') ||
-        shadow?.activeElement?.matches('input,textarea,select,[contenteditable="true"]')
-      );
-    });
+    return [
+      active && panel.contains(active) ? active : null,
+      ...[...mounts.values()].map(({ node }) => node.shadowRoot?.activeElement),
+    ].filter(
+      (candidate): candidate is HTMLElement =>
+        candidate instanceof HTMLElement &&
+        candidate.matches('input,textarea,select,[contenteditable="true"]'),
+    );
   };
+  const held = () =>
+    focusedEditors().some((active) => active.dataset.editing !== 'false') ||
+    [...mounts.values()].some(({ node }) =>
+      node.shadowRoot?.querySelector('[data-busy="true"],dialog[open],[role="dialog"]'),
+    );
   function collapse() {
     clearTimeout(enter);
     clearTimeout(leave);
     leave = 0;
     collapsePending = false;
     if (stopped) return;
+    // Empty transient editors opt out of the editing hold; blur lets their own UI retract.
+    focusedEditors().forEach((active) => {
+      if (active.dataset.editing === 'false') active.blur();
+    });
     ipc({ action: 'collapse' });
   }
   const canCollapse = () =>
@@ -319,6 +323,7 @@ export function startEdge(request: Request, fontSource?: HostFontSource) {
   window.addEventListener('edge-pointer', (event) => {
     if (stopped) return;
     const detail = (event as CustomEvent).detail;
+    const wasInside = inside;
     inside = detail.inside;
     panel.dataset.pointerInside = String(inside);
     buttons = detail.buttons;
@@ -329,7 +334,11 @@ export function startEdge(request: Request, fontSource?: HostFontSource) {
       collapsePending = false;
       if (!expanded && !detail.hoverSuppressed && !buttons)
         enter = window.setTimeout(() => ipc({ action: 'expand', keyboard: false }), 100);
-    } else scheduleCollapse();
+    } else {
+      if (wasInside && focusedEditors().some((active) => active.dataset.editing === 'false'))
+        pointerInteraction = true;
+      scheduleCollapse();
+    }
   });
   handle.onclick = (event) => {
     pointerInteraction = event.detail > 0;
