@@ -809,6 +809,46 @@ test('model motion acknowledges confirmed pointer actions and cancels for keyboa
   }
 });
 
+test('removing Agent choices hides the switcher and handoff notice without losing models or presets', async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await fixture(browser);
+    await page.evaluate(() => {
+      window.model.snapshot.agent = {
+        current: 'codex',
+        label: 'Codex',
+        locked: true,
+        options: [
+          { id: 'codex', label: 'Codex', available: true },
+          { id: 'antigravity', label: 'Antigravity CLI', available: true },
+        ],
+      };
+    });
+    await page.getByRole('button', { name: '所有模型', exact: true }).click();
+    await page.locator('.model-agents').waitFor();
+    await page.getByText('切换 Agent 会新建聊天', { exact: true }).waitFor();
+    const before = await page.evaluate(() => structuredClone(window.model.preferences));
+    await page.evaluate(() => {
+      window.savedAgentOptions = window.model.snapshot.agent.options;
+      window.model.snapshot.agent.options = [];
+    });
+    await page.locator('.model-agents').waitFor({ state: 'detached' });
+    assert.equal(await page.getByText('切换 Agent 会新建聊天', { exact: true }).count(), 0);
+    assert.ok(await page.locator('[data-model-tile="alpha"]').isVisible());
+    assert.deepEqual(await page.evaluate(() => window.model.preferences), before);
+    assert.equal(
+      await page.evaluate(() => window.calls.filter((c) => c.action === 'apply').length),
+      0,
+    );
+    await page.evaluate(() => (window.model.snapshot.agent.options = window.savedAgentOptions));
+    await page.locator('.model-agents').waitFor();
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: '原名称 · High · Fast', exact: true }).waitFor();
+  } finally {
+    await browser.close();
+  }
+});
+
 test('switching CLI returns to the target matrix and isolates presets, pins and manufacturers', async () => {
   const browser = await chromium.launch({ headless: true });
   try {

@@ -1,7 +1,7 @@
 import { tr } from '../../shared/i18n.js';
 import { setLocale, getLocale } from '../../shared/i18n.js';
 /* [INPUT]: Native edge geometry/events, effective fonts and feature owners. [OUTPUT]: Persisted reorderable icon tabs with stable measured wrapping, bounded dialogs and per-view header slots.
- * [POS]: Keeps mounted views alive while collapsed or in another tab; retries held collapse on the existing state poll; no business state.
+ * [POS]: Keeps mounted views alive while collapsed or in another tab; model leave waits 1500ms, other views 450ms; retries held collapse on the existing state poll; no business state.
  * [PROTOCOL]: Keep AGENTS.md in this module in sync. */
 import { createEdgeTabs } from './tabs';
 import { mountFeature } from '../workspace/mount';
@@ -124,10 +124,13 @@ export function startEdge(request: Request, fontSource?: HostFontSource) {
     if (stopped) return;
     clearTimeout(leave);
     collapsePending = true;
-    leave = window.setTimeout(() => {
-      leave = 0;
-      if (canCollapse()) collapse();
-    }, 450);
+    leave = window.setTimeout(
+      () => {
+        leave = 0;
+        if (canCollapse()) collapse();
+      },
+      navigation.selected() === 'model' ? 1500 : 450,
+    );
   }
   function visibility() {
     for (const item of mounts.values()) {

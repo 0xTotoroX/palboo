@@ -1,4 +1,4 @@
-// [INPUT]: 已连接的 CDP Client、宿主模型适配器（含 CodexHost 外部 CLI 模型与新会话/跨会话 CLI 切换）及独立业务偏好。
+// [INPUT]: 已连接的 CDP Client、宿主模型适配器（含 CodexHost 外部 CLI 模型与新会话/跨会话 CLI 切换）、兼容层开关及独立业务偏好。
 // [OUTPUT]: 设置页共用的宿主可选模型目录、模型状态、可关闭的账号额度投影、串行模型/CLI切换（已锁定会话自动导出本地 Markdown 快照并新建聊天交接）、常用、顺序、分类与预设保存与私有末次操作诊断；关闭功能回收目录/额度读取，呈现交给 features。
 // [POS]: 宿主模型控制服务；不读写建议生成配置或工作台的来源/布局。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
@@ -280,7 +280,13 @@ impl Control {
         )
     }
 
-    fn envelope(&self, snapshot: Value) -> Value {
+    fn envelope(&self, mut snapshot: Value, agent_switching: bool) -> Value {
+        // 关闭兼容层后，旧会话仍可能有 Agent 控件；只隐藏切换入口，保留当前归属。
+        if !agent_switching {
+            if let Some(agent) = snapshot.get_mut("agent").and_then(Value::as_object_mut) {
+                agent.insert("options".into(), json!([]));
+            }
+        }
         json!({"snapshot":snapshot,"preferences":self.preferences,"revision":self.revision})
     }
 }
@@ -326,10 +332,11 @@ impl App {
     }
 
     pub async fn model_control_state(&self, refresh: bool) -> Result<Value> {
+        let agent_switching = self.config.lock().await.codex_host.enabled;
         {
             let control = self.model_control.lock().await;
             if !control.preferences.enabled {
-                return Ok(control.envelope(unavailable("模型快切已停用")));
+                return Ok(control.envelope(unavailable("模型快切已停用"), agent_switching));
             }
         }
         let operation = self.model_control.lock().await.operation.clone();
@@ -339,7 +346,7 @@ impl App {
             snapshot["status"] = json!("busy");
             snapshot["tokenMeter"] = Value::Null;
             snapshot["message"] = json!("");
-            return Ok(control.envelope(snapshot));
+            return Ok(control.envelope(snapshot, agent_switching));
         };
         let show_usage = self.model_control.lock().await.preferences.show_usage;
         let snapshot = match self.desktop_client().await {
@@ -368,9 +375,10 @@ impl App {
         if refresh {
             self.record_model_control_diagnostic("refresh", &snapshot);
         }
+        let agent_switching = self.config.lock().await.codex_host.enabled;
         let mut control = self.model_control.lock().await;
         control.snapshot = snapshot.clone();
-        Ok(control.envelope(snapshot))
+        Ok(control.envelope(snapshot, agent_switching))
     }
 
     pub async fn validate_model_edge(&self, _lease: &str) -> Result<()> {
@@ -391,6 +399,10 @@ impl App {
             .map(str::trim)
             .filter(|id| !id.is_empty());
         if let Some(id) = agent {
+            anyhow::ensure!(
+                self.config.lock().await.codex_host.enabled,
+                "CodexHost 已关闭，请刷新后重试"
+            );
             anyhow::ensure!(id.len() <= 64, "CLI 标识无效");
         }
         let selection = if agent.is_none() || !command["selection"].is_null() {
@@ -472,9 +484,10 @@ impl App {
         } else {
             unavailable("连接已变化，旧操作结果不再适用于当前聊天")
         };
+        let agent_switching = self.config.lock().await.codex_host.enabled;
         let mut control = self.model_control.lock().await;
         control.snapshot = snapshot.clone();
-        let mut envelope = control.envelope(snapshot);
+        let mut envelope = control.envelope(snapshot, agent_switching);
         envelope["result"] = if same {
             result
         } else {
@@ -486,6 +499,7 @@ impl App {
     pub async fn model_control_preferences(&self, request: Value) -> Result<Value> {
         let operation = self.model_control.lock().await.operation.clone();
         let _guard = operation.lock().await;
+        let agent_switching = self.config.lock().await.codex_host.enabled;
         let mut control = self.model_control.lock().await;
         if let Some(revision) = request.get("revision") {
             if revision.as_u64() != Some(control.revision) {
@@ -504,7 +518,7 @@ impl App {
         )?;
         control.preferences = next;
         control.revision += 1;
-        let mut result = control.envelope(control.snapshot.clone());
+        let mut result = control.envelope(control.snapshot.clone(), agent_switching);
         drop(control);
         if stop_usage {
             self.stop_model_reads(!enabled).await;
@@ -790,6 +804,53 @@ mod tests {
             assert!(prefs.patched(&patch).is_err());
         }
     }
+    #[tokio::test]
+    async fn disabled_codex_host_hides_cached_agent_choices_and_rejects_stale_switches() {
+        let temp = tempfile::tempdir().unwrap();
+        let paths = Paths::new(Some(temp.path().into())).unwrap();
+        let app = App::new(paths, Default::default(), None, false);
+        let snapshot = json!({
+            "status":"ready", "current":{"model":"external","reasoning":"high","speed":"standard"},
+            "models":[{"id":"external"}],
+            "agent":{"current":"antigravity","locked":true,"options":[
+                {"id":"codex","available":true},{"id":"antigravity","available":true}
+            ]}
+        });
+        let operation = {
+            let mut control = app.model_control.lock().await;
+            control.preferences.enabled = true;
+            control.snapshot = snapshot.clone();
+            control.operation.clone()
+        };
+        app.config.lock().await.codex_host.enabled = false;
+        let busy = operation.lock().await;
+        let hidden = app.model_control_state(false).await.unwrap();
+        assert_eq!(hidden["snapshot"]["status"], "busy");
+        assert_eq!(hidden["snapshot"]["agent"]["options"], json!([]));
+        assert_eq!(hidden["snapshot"]["agent"]["current"], "antigravity");
+        assert_eq!(hidden["snapshot"]["current"], snapshot["current"]);
+        assert_eq!(hidden["snapshot"]["models"], snapshot["models"]);
+        app.config.lock().await.codex_host.enabled = true;
+        let restored = app.model_control_state(false).await.unwrap();
+        assert_eq!(restored["snapshot"]["agent"], snapshot["agent"]);
+        drop(busy);
+        app.config.lock().await.codex_host.enabled = false;
+        let saved = app
+            .model_control_preferences(json!({"revision":1,"patch":{"pinned":["external"]}}))
+            .await
+            .unwrap();
+        assert_eq!(saved["snapshot"]["agent"]["options"], json!([]));
+        assert_eq!(saved["preferences"]["pinned"], json!(["external"]));
+        assert_eq!(app.model_control.lock().await.snapshot, snapshot);
+        let error = app
+            .model_control_apply(json!({
+                "agent":"codex", "target":{"id":"chat"}, "expectedRevision":"old"
+            }))
+            .await
+            .unwrap_err();
+        assert!(error.to_string().contains("CodexHost 已关闭"));
+    }
+
     #[tokio::test]
     async fn apply_waits_for_a_short_state_read_before_validating_the_command() {
         let temp = tempfile::tempdir().unwrap();

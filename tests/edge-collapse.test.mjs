@@ -21,8 +21,8 @@ window.sync=()=>window.dispatchEvent(new CustomEvent('edge-native',{detail:{...g
 window.pointer=(inside,buttons=0)=>window.dispatchEvent(new CustomEvent('edge-pointer',{detail:{inside,buttons}}));
 window.ipc={postMessage:raw=>{const m=JSON.parse(raw);messages.push(m);if(m.action==='collapse'){geometry.expanded=false;geometry.unfold=0;sync();}}};
 startEdge(async()=>{reads++;return {
-  edgeTabs:{order:['model'],selected:'model'},edgeTabsRevision:1,appearance:{language:'zh-CN'},
-  features:[{id:'model',owner:'fixture',placement:'edge',open:true,pending:null,reveal:0,view:{},size:[400,300]}]
+  edgeTabs:{order:[window.featureId],selected:window.featureId},edgeTabsRevision:1,appearance:{language:'zh-CN'},
+  features:[{id:window.featureId,owner:'fixture',placement:'edge',open:true,pending:null,reveal:0,view:{},size:[400,300]}]
 }});
 sync();pointer(true);
 `,
@@ -60,7 +60,7 @@ sync();pointer(true);
   })
 ).outputFiles[0].text;
 
-async function fixture(t) {
+async function fixture(t, id = 'model') {
   const browser = await chromium.launch();
   t.after(() => browser.close());
   const page = await browser.newPage();
@@ -68,11 +68,13 @@ async function fixture(t) {
   page.on('pageerror', (error) => errors.push(error.message));
   t.after(() => assert.deepEqual(errors, []));
   await page.clock.install({ time: 0 });
-  await page.clock.pauseAt(1);
+  // 尚未挂载计时器，先冻结到未来时刻，避免繁忙机器上CDP传输超过1ms。
+  await page.clock.pauseAt(60_000);
   await page.route('http://edge-collapse.test/**', (route) =>
     route.fulfill({ contentType: 'text/html', body: '<div id="root"></div>' }),
   );
   await page.goto('http://edge-collapse.test');
+  await page.evaluate((id) => (window.featureId = id), id);
   await page.addScriptTag({ content: script });
   await page.evaluate(() => {
     if (!window.feature) throw Error('synthetic feature was not mounted');
@@ -96,8 +98,8 @@ test('edge retries a busy operation after it finishes without another pointer ev
   await page.clock.runFor(1800);
   assert.equal(await collapsed(page), 0);
   await page.evaluate(() => (feature.querySelector('[data-busy]').dataset.busy = 'false'));
-  await page.clock.runFor(1049);
-  assert.equal(await collapsed(page), 0, 'the retry still waits 450ms after the next state poll');
+  await page.clock.runFor(2099);
+  assert.equal(await collapsed(page), 0, 'the model retry waits 1500ms after the next state poll');
   await page.clock.runFor(1);
   assert.equal(await collapsed(page), 1);
   await page.clock.runFor(1800);
@@ -138,7 +140,7 @@ for (const hold of ['dialog', 'editing', 'dragging', 'buttons', 'keepOpen', 'key
       if (hold === 'keyboard')
         document.querySelector('#edge-panel').dispatchEvent(new PointerEvent('pointerdown'));
     }, hold);
-    await page.clock.runFor(1050);
+    await page.clock.runFor(2100);
     assert.equal(await collapsed(page), 1);
   });
 }
@@ -156,6 +158,15 @@ test('pointer reentry cancels a deferred collapse and a new leave keeps the norm
   });
   await page.clock.runFor(1800);
   assert.equal(await collapsed(page), 0);
+  await page.evaluate(() => pointer(false));
+  await page.clock.runFor(1499);
+  assert.equal(await collapsed(page), 0);
+  await page.clock.runFor(1);
+  assert.equal(await collapsed(page), 1);
+});
+
+test('other edge features retain their shorter leave delay', async (t) => {
+  const page = await fixture(t, 'board');
   await page.evaluate(() => pointer(false));
   await page.clock.runFor(449);
   assert.equal(await collapsed(page), 0);
