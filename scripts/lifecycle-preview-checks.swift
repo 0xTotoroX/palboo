@@ -40,10 +40,12 @@ extension LifecycleNotice {
                     precondition(Date().timeIntervalSince(finishedAt) >= 1.8, "completion was not held")
                     self.showFailure(); precondition(self.failed && self.panel.isVisible && self.progress.fraction == 0.5)
                     self.toggle(); precondition(!self.panel.isVisible); self.toggle(); precondition(self.panel.isVisible)
-                    let output = Bundle.main.bundleURL.deletingLastPathComponent().appendingPathComponent("motion-check.json")
-                    let result: [String: Any] = ["passed": true, "cellsAdvanceIndividually": true, "rowsAppend": true, "topAnchorStable": true, "previousPlaybackCancelled": true, "completionHoldAndDismiss": true, "failureRetained": true, "menuToggle": true, "applicationActions": false]
-                    try! JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys]).write(to: output)
-                    NSApp.terminate(nil)
+                    self.checkLiveDismissal {
+                        let output = Bundle.main.bundleURL.deletingLastPathComponent().appendingPathComponent("motion-check.json")
+                        let result: [String: Any] = ["passed": true, "cellsAdvanceIndividually": true, "rowsAppend": true, "topAnchorStable": true, "previousPlaybackCancelled": true, "completionHoldAndDismiss": true, "failureRetained": true, "menuToggle": true, "liveCallbackAfterDismissal": true, "lateFailureCancelsDismissal": true, "reducedMotionDismissal": true, "applicationActions": false]
+                        try! JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys]).write(to: output)
+                        NSApp.terminate(nil)
+                    }
                 }
                 waitForDismissal()
             }
@@ -51,6 +53,26 @@ extension LifecycleNotice {
             }; proceed()
         }
         checkFirstStep()
+    }
+    func checkLiveDismissal(_ finish: @escaping () -> Void) {
+        // 只驱动真实提示逻辑，不连接后台或读取用户缓存。
+        DispatchQueue.main.asyncAfter(deadline: .now() + 15) { preconditionFailure("live dismissal checks timed out") }
+        preferenceTimer?.invalidate(); live = true; beginLive(exiting: false)
+        liveSuccess(exiting: false) { [self] in
+            precondition(!panel.isVisible && completed == steps.count)
+            beginLive(exiting: true)
+            var staleCallback = false
+            liveSuccess(exiting: true) { staleCallback = true }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { self.liveFailure("Synthetic failure") }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { [self] in
+                precondition(failed && panel.isVisible && !staleCallback, "late failure was dismissed by stale success")
+                motion.state = .on; beginLive(exiting: false)
+                liveSuccess(exiting: false) { [self] in
+                    precondition(!panel.isVisible && completed == steps.count)
+                    finish()
+                }
+            }
+        }
     }
     func check() {
         var checks = 0

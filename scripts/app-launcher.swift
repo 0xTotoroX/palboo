@@ -464,6 +464,9 @@ final class Launcher: NSObject, NSApplicationDelegate {
     private var checkedFailure = false
     private var fixtureBackend: Process?
     private func checkExitUI() {
+        precondition(!notice.panel.isVisible, "startup completion callback ran before the notice closed")
+        precondition(Date().timeIntervalSince(finishedAt!) >= 1.9, "startup completion was not held")
+        print("native startup completion held and dismissed before handoff")
         for _ in 0..<140 { startupProgress?.mark("build") }
         refresh()
         precondition(startupProgress?.outcome == "ready" && startupProgress?.phase == "presenting" && !exitObserved, "hot reload changed the completed startup")

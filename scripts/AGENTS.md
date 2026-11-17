@@ -1,6 +1,6 @@
 # scripts/ — 开发与分发工具
 
-- `lifecycle-notice.swift`：App 启停与独立预览共用原生提示、语义色解析/末次配色缓存读取、原生材质、逐格能量槽、每步耗时、宿主选屏/拖动及无弹窗模式。真实流程由调用者推进，不执行模拟播放；认证 startup-progress 接续现有后台事件归属，appearance 只保存原提示偏好。
+- `lifecycle-notice.swift`：App 启停与独立预览共用原生提示、语义色解析/末次配色缓存读取、原生材质、逐格能量槽、每步耗时、宿主选屏/拖动及无弹窗模式。完成停留两秒后以独立期限收起，窗口移出后才调用交接/退出回调；新流程或异常取消旧关闭任务。真实流程由调用者推进，不执行模拟播放；认证 startup-progress 接续现有后台事件归属，appearance 只保存原提示偏好。
 - `lifecycle-preview.mjs/swift` 与 `lifecycle-preview-checks.swift`：独立驱动和隔离几何/主题/时序检查；不执行真实启停，--report-theme 输出自有绘制颜色，连接信息保存在短期私有目录并在退出清理。
 > L2 | 父级：[AGENTS.md](../AGENTS.md)
 

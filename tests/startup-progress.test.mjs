@@ -130,6 +130,7 @@ if [ "$1" = "app-mode" ]; then echo '{"mode":"release"}'; fi
       assert.equal(result.status, 0, result.stderr + String(result.error || result.signal || ''));
       assert.match(result.stdout, /geometry and reopen verified/);
       assert.match(result.stdout, /request cleanup and retry verified/);
+      assert.match(result.stdout, /native startup completion held and dismissed before handoff/);
       assert.match(result.stdout, /native exit waited for the owned process to stop/);
       assert.deepEqual(readFileSync(calls, 'utf8').trim().split('\n'), [
         'app-mode launch',

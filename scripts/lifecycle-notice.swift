@@ -251,7 +251,7 @@ final class LifecycleNotice: NSObject, NSApplicationDelegate, NSWindowDelegate {
     let material = NSPopUpButton(), snapshot = NSPopUpButton(), motion = NSButton(checkboxWithTitle: "减少动态效果", target: nil, action: nil)
     var statusItem: NSStatusItem!, closeButton: NSButton!, retryButton: NSButton!, surface: NSView?
     var rows: [StepRow] = [], steps: [String] = [], timings: [Double] = [], completed = 0, exiting = false, failed = false, generation = 0
-    var started = Date(), phaseStarted = Date(), ticker: Timer?, localMonitor: Any?
+    var started = Date(), phaseStarted = Date(), ticker: Timer?, dismissalTimer: Timer?, localMonitor: Any?
     var playbackActivity: NSObjectProtocol?
     var materialName = "", reportedSize = NSSize.zero
     var reduce: Bool { motion.state == .on || hostReducedMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
@@ -388,6 +388,7 @@ final class LifecycleNotice: NSObject, NSApplicationDelegate, NSWindowDelegate {
     @objc func changeAppearance() { makeSurface(); render(animate: false, rebuild: false) }
     func reset(exiting value: Bool) {
         generation += 1; ticker?.invalidate(); ticker = nil
+        dismissalTimer?.invalidate(); dismissalTimer = nil
         if let activity = playbackActivity { ProcessInfo.processInfo.endActivity(activity); playbackActivity = nil }
         exiting = value; steps = value ? exitSteps : startSteps; completed = 0; failed = false; timings = []
         started = Date(); phaseStarted = Date()
@@ -503,16 +504,24 @@ final class LifecycleNotice: NSObject, NSApplicationDelegate, NSWindowDelegate {
     @objc func toggle() { panel.isVisible ? hide() : show() }
     @objc func show() { guard displayPicker.indexOfSelectedItem != 2 else { return }; position(size: reportedSize, animate: false); panel.alphaValue = 1; panel.orderFrontRegardless() }
     @objc func hide() { panel.orderOut(nil) }
-    func dismiss(_ stamp: Int) {
-        if let activity = playbackActivity { ProcessInfo.processInfo.endActivity(activity); playbackActivity = nil }
-        if reduce { hide(); return }
-        NSAnimationContext.runAnimationGroup({ c in c.duration = 0.2; panel.animator().alphaValue = 0 }, completionHandler: { [weak self] in
-            guard let self, generation == stamp else { return }; hide(); panel.alphaValue = 1
-        })
+    func dismiss(_ stamp: Int, after: @escaping () -> Void = {}) {
+        guard generation == stamp else { return }
+        dismissalTimer?.invalidate(); dismissalTimer = nil
+        let finish = { [weak self] in
+            guard let self, generation == stamp else { return }
+            dismissalTimer = nil; hide(); panel.alphaValue = 1
+            if let activity = playbackActivity { ProcessInfo.processInfo.endActivity(activity); playbackActivity = nil }
+            after()
+        }
+        if reduce || !panel.isVisible { finish(); return }
+        NSAnimationContext.runAnimationGroup { c in c.duration = 0.2; panel.animator().alphaValue = 0 }
+        // 收起由独立的期限保证，不依赖淡出回调；交还焦点或退出必须在窗口移出之后。
+        let timer = Timer(timeInterval: 0.2, repeats: false) { _ in finish() }
+        dismissalTimer = timer; RunLoop.main.add(timer, forMode: .common)
     }
     func windowShouldClose(_ sender: NSWindow) -> Bool { NSApp.terminate(nil); return false }
     func applicationWillTerminate(_ notification: Notification) {
-        ticker?.invalidate(); preferenceTimer?.invalidate(); if let item = statusItem { NSStatusBar.system.removeStatusItem(item) }
+        ticker?.invalidate(); dismissalTimer?.invalidate(); preferenceTimer?.invalidate(); if let item = statusItem { NSStatusBar.system.removeStatusItem(item) }
         if let monitor = localMonitor { NSEvent.removeMonitor(monitor) }
         if !live, let dir = dataDirectory, dir.lastPathComponent.hasPrefix("palboo-notice-") {
             try? FileManager.default.removeItem(at: dir.appendingPathComponent("runtime.json"))
@@ -559,6 +568,7 @@ final class LifecycleNotice: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
     func liveFailure(_ title: String) {
         guard !failed || liveTitle != title else { return }
+        generation += 1; dismissalTimer?.invalidate(); dismissalTimer = nil
         failed = true; liveTitle = title; liveStepText = title; render()
         retryButton.isHidden = retryAction == nil
         retryButton.title = L("重试")
@@ -574,7 +584,7 @@ final class LifecycleNotice: NSObject, NSApplicationDelegate, NSWindowDelegate {
         liveTitle = exiting ? L("Palboo 已完全退出") : L("Palboo 已就绪")
         liveStage(steps.count); let stamp = generation
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
-            guard let self, generation == stamp else { return }; dismiss(stamp); after()
+            guard let self, generation == stamp else { return }; dismiss(stamp, after: after)
         }
     }
     func loadPreferences() {
