@@ -1,4 +1,4 @@
-/* [INPUT]: 显式指定的官方 CodexHost 0.18/0.19 安装、LaunchServices 和合成 App/运行时。
+/* [INPUT]: 显式指定的官方 CodexHost 0.18/0.19/0.20 安装、LaunchServices 和合成 App/运行时。
  * [OUTPUT]: Palboo 直接打开 App 时，官方 Shim 路由和辅助命令隔离的专项验收。
  * [POS]: 仅验证启动参数交接，不替代生产协调及真实 Codex 冷启动验收。
  * [PROTOCOL]: 变更时同步 tests/AGENTS.md。 */
@@ -28,7 +28,7 @@ test(
     const installation = realpathSync(process.env.PALBOO_TEST_CODEXHOST_PACKAGE);
     assert.match(
       execFileSync(join(installation, 'bin/codexhost'), ['--version'], { encoding: 'utf8' }),
-      /0\.(18|19)\.\d+/,
+      /0\.(18|19|20)\.\d+/,
     );
     const root = realpathSync(mkdtempSync(join(tmpdir(), 'palboo-direct-host-')));
     t.after(() => rmSync(root, { recursive: true, force: true }));

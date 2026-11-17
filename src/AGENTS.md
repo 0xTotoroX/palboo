@@ -3,7 +3,7 @@
 - `panel::LifecyclePreviewPreferences`：仅供设置/独立原生工具的 display/material/progress/placement 与屏幕身份/0–1相对坐标；appearance 修订保护、文件往返和备份验证，不参与 App::new、生产启动器或宿主退出逻辑。
 > L2 | 父级：[AGENTS.md](../AGENTS.md)
 
-0.18/0.19 兼容接入准备失败时，`native_cli` 转交官方 CLI，协调会话保存真实 native 状态；`direct::native_fallback` 只向同一数据目录返回仍存活且身份/端点匹配的原生桌面。`lifecycle::launch` 复用该桌面，CodexHost 状态页显示原错误，不重复重启或伪报兼容运行；不改写启用意愿和官方配置。
+0.18/0.19/0.20 兼容接入准备失败时，`native_cli` 转交官方 CLI，协调会话保存真实 native 状态；`direct::native_fallback` 只向同一数据目录返回仍存活且身份/端点匹配的原生桌面。`lifecycle::launch` 复用该桌面，CodexHost 状态页显示原错误，不重复重启或伪报兼容运行；不改写启用意愿和官方配置。
 
 - [backup/AGENTS.md](backup/AGENTS.md)：本地配置归档、选择性恢复、本机来源复制与撤销；认证 `/api/backup` 和 `backup` CLI 共享预览/提交边界。server 保留监听地址与凭据，停止旧活动后执行恢复并重建 App；不重启宿主。
 
@@ -94,7 +94,7 @@ panel_window 使用透明原生标题栏与标准红黄绿按钮，由统一 Pal
 
 - `prompt_enhancement.rs`：受限/prompt/enhance请求；验证当前CDP连接及前端请求身份、配置版本，以单次结构化模型调用改写草稿，轮询取消并在返回前再校验，不写宿主、不经Stepwise方向/Jev。模型调用共用model.complete_json及原CLI/三协议实现；完整输入超过200KB报错，不截断。
 
-- codex_host.rs / [codex_host/AGENTS.md](codex_host/AGENTS.md)：独立CodexHost管理、更新/回退及显式重启协调；0.18/0.19 系列由 Palboo 直启及监督，以私有 CLI 区分主服务和原生辅助工具，并经官方前台 Host 入口保留桌面真实祖先，其他版本和已运行旧链保留官方 launcher。启动前准备项目维护的内存兼容控制器副本，只读识别共享后台，独立外部实例不接管；更新验证通过才选择版本，不写官方包，无MCP依赖。
+- codex_host.rs / [codex_host/AGENTS.md](codex_host/AGENTS.md)：独立CodexHost管理、更新/回退及显式重启协调；0.18/0.19/0.20 系列由 Palboo 直启及监督，以私有 CLI 区分主服务和原生辅助工具，并经官方前台 Host 入口保留桌面真实祖先，其他版本和已运行旧链保留官方 launcher。启动前准备项目维护的内存兼容控制器副本，只读识别共享后台，独立外部实例不接管；更新验证通过才选择版本，不写官方包，无MCP依赖。
 - host.rs：启动与重连共用只读宿主发现/动态端口，Dev及显式窗口保持绑定；lifecycle复用发现与现有退出策略。
 
 Config.codex_host 兼容旧 codexHost 键并保存启动更新策略，App.codex_host_operation 串行管理。server 提供认证 GET/POST /api/codex-host 并在后台启动时触发一次可取消的检查。cdp 先安装只读 Agent 兼容适配，再安装模型菜单适配。

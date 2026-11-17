@@ -420,7 +420,7 @@ fn check_controller_state(executable: &Path) -> Result<()> {
 }
 
 fn uses_direct_launch(version: (u64, u64, u64)) -> bool {
-    matches!(version, (0, 18 | 19, _))
+    matches!(version, (0, 18 | 19 | 20, _))
 }
 
 pub async fn launch(paths: &Paths, options: &Options, app: Option<&Path>) -> Result<String> {
@@ -561,7 +561,14 @@ impl App {
         match options.startup_update {
             StartupUpdate::Off => Ok(()),
             StartupUpdate::Notify => update::notify(latest).await,
-            StartupUpdate::Automatic => self.install_codex_host(options.revision, latest).await,
+            StartupUpdate::Automatic => {
+                let candidate = update::version_tuple(latest)?;
+                ensure!(
+                    candidate < (0, 18, 0) || uses_direct_launch(candidate),
+                    "CodexHost {latest} 尚未验证原生工具兼容，已保留当前版本"
+                );
+                self.install_codex_host(options.revision, latest).await
+            }
         }
     }
 
@@ -711,10 +718,17 @@ mod tests {
 
     #[test]
     fn direct_launch_covers_verified_host_series() {
-        for version in [(0, 18, 0), (0, 18, 3), (0, 19, 0), (0, 19, 1)] {
+        for version in [
+            (0, 18, 0),
+            (0, 18, 3),
+            (0, 19, 0),
+            (0, 19, 1),
+            (0, 20, 0),
+            (0, 20, 1),
+        ] {
             assert!(uses_direct_launch(version), "{version:?}");
         }
-        for version in [(0, 17, 2), (0, 20, 0), (1, 18, 0)] {
+        for version in [(0, 17, 2), (0, 21, 0), (1, 18, 0)] {
             assert!(!uses_direct_launch(version), "{version:?}");
         }
     }
@@ -850,6 +864,43 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(paths.load().unwrap().codex_host.revision, 2);
+    }
+
+    #[tokio::test]
+    async fn automatic_update_does_not_select_an_unverified_native_launch_series() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = Paths::new(Some(dir.path().into())).unwrap();
+        let config = crate::config::Config {
+            codex_host: Options {
+                enabled: true,
+                executable: Some(paths.root.join("selected/codexhost")),
+                previous_executable: Some(paths.root.join("rollback/codexhost")),
+                startup_update: StartupUpdate::Automatic,
+                revision: 7,
+                ..Options::default()
+            },
+            ..Default::default()
+        };
+        paths.save(&config).unwrap();
+        let before = serde_json::to_value(&config.codex_host).unwrap();
+        let options = config.codex_host.clone();
+        let app = App::new(paths.clone(), config, None, true);
+        for candidate in ["0.21.0", "1.0.0"] {
+            let error = app
+                .apply_startup_update(&options, "0.20.0", candidate)
+                .await
+                .unwrap_err();
+            assert!(error.to_string().contains("尚未验证原生工具兼容"));
+            assert_eq!(
+                serde_json::to_value(&app.config.lock().await.codex_host).unwrap(),
+                before
+            );
+            assert_eq!(
+                serde_json::to_value(paths.load().unwrap().codex_host).unwrap(),
+                before
+            );
+            assert!(!paths.root.join("codex-host-versions").exists());
+        }
     }
 
     #[tokio::test]

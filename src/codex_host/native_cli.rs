@@ -1,6 +1,6 @@
 // [INPUT]: Palboo 私有 CLI 交接记录、入口旁的会话记录、调用参数与原生父进程身份。
 // [OUTPUT]: 私有入口分流主服务与辅助 CLI；普通 Palboo 清除继承的交接标记后正常启动。
-// [POS]: 0.18/0.19 直启的进程边界；不修改官方包、不转换协议、不伪造 launcher 身份。
+// [POS]: 0.18/0.19/0.20 直启的进程边界；不修改官方包、不转换协议、不伪造 launcher 身份。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 use super::direct::{self, Layout, Record};
 use crate::{config::write_private, host::ProcessIdentity};
