@@ -84,4 +84,4 @@ page-context 共用 contentKind/hostPageKind/hostPageAllowed，区分官方单�
 
 字体 tracker 的 snapshot 按 body/session/composer 分别防抖缓存并只读投影 sources；resolved 按目标窗口偏好只采对应来源，复用既有生命周期、不新增轮询。字体自定义仅作用于自有节点。
 
-plugin-tab 的 openWebsiteBrowser 与 openSettingsBrowser 共用可见宿主地址栏流程；前者允许无内嵌凭据的 HTTP(S)，设置包装器仍只接受本机 HTTP。只提交刚创建并唯一识别的标签，不覆盖已有页面；返回 submitted 不代表网页加载完成。
+plugin-tab 的 openWebsiteBrowser 与 openSettingsBrowser 共用可见宿主地址栏流程；前者允许无内嵌凭据的 HTTP(S)，设置包装器仍只接受本机 HTTP。优先创建并唯一识别新标签；没有创建按钮时，仅复用已选中的空白“新标签页”，同时核对 aria-controls、面板身份、唯一可见地址栏及空输入，不覆盖已有页面或输入草稿；返回 submitted 不代表网页加载完成。

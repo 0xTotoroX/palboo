@@ -64,7 +64,7 @@ test('web settings use native browser address controls and return to split view'
   }
 });
 
-async function syntheticBrowser(t, setup) {
+async function syntheticBrowser(t, setup, argument) {
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
   t.after(() => browser.close());
@@ -95,7 +95,7 @@ async function syntheticBrowser(t, setup) {
       window.createAddress();
     };
   });
-  if (setup) await page.evaluate(setup);
+  if (setup) await page.evaluate(setup, argument);
   await page.addScriptTag({ content: compiled.outputFiles[0].text });
   return page;
 }
@@ -130,6 +130,62 @@ test('a browser tab named New tab is not the create-tab button', async (t) => {
   assert.equal(await page.evaluate(() => window.clicks), 1);
   assert.equal(await page.evaluate(() => window.submits), 1);
 });
+async function blankBrowser(t, mode = 'empty') {
+  return syntheticBrowser(
+    t,
+    (mode) => {
+      document.querySelector('#new').remove();
+      const input = window.createAddress('blank-panel');
+      const panel = input.parentElement;
+      panel.id = 'blank-content';
+      panel.setAttribute('role', 'tabpanel');
+      panel.setAttribute('aria-label', '新标签页');
+      const tab = document.createElement('div');
+      tab.setAttribute('data-tab-id', mode === 'mismatch' ? 'another-panel' : 'blank-panel');
+      tab.innerHTML =
+        '<button role="tab" aria-selected="true" aria-controls="blank-content" aria-label="新标签页">New tab</button>';
+      document.querySelector('#panels').before(tab);
+      if (mode === 'draft') input.value = 'unfinished search';
+      if (mode === 'unselected') tab.querySelector('button').setAttribute('aria-selected', 'false');
+      input.setAttribute('aria-label', 'Search files or enter a URL');
+      const submit = input.onkeydown;
+      input.onkeydown = (event) => {
+        submit(event);
+        if (event.key === 'Enter') input.replaceWith(input.cloneNode());
+      };
+    },
+    mode,
+  );
+}
+test('a selected empty new tab without a create button opens settings and keeps its owner', async (t) => {
+  const page = await blankBrowser(t);
+  assert.deepEqual(
+    await page.evaluate(() => window.openSettingsBrowser('http://127.0.0.1:12345/')),
+    { status: 'submitted' },
+  );
+  assert.equal(await page.evaluate(() => window.clicks), 0);
+  assert.equal(await page.evaluate(() => window.submits), 1);
+  assert.equal(
+    await page.locator('[data-tab-id="blank-panel"] input').inputValue(),
+    'http://127.0.0.1:12345/',
+  );
+});
+for (const mode of ['draft', 'unselected', 'mismatch']) {
+  test(`an existing new tab with ${mode} is not reused`, async (t) => {
+    const page = await blankBrowser(t, mode);
+    const before = await page.locator('input').inputValue();
+    await page.clock.install();
+    await page.evaluate(() => {
+      window.pending = window
+        .openSettingsBrowser('http://127.0.0.1:12345/')
+        .catch((e) => ({ error: e.message }));
+    });
+    await page.clock.runFor(10001);
+    assert.match((await page.evaluate(() => window.pending)).error, /未找到宿主的新标签页入口/);
+    assert.equal(await page.evaluate(() => window.submits), 0);
+    assert.equal(await page.locator('input').inputValue(), before);
+  });
+}
 test('delayed new tab ignores the old address including replacement nodes', async (t) => {
   const page = await syntheticBrowser(t, () => {
     window.old = window.createAddress('old-panel');

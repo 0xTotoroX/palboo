@@ -355,38 +355,56 @@ async function openBrowser(
   const selector =
     'input[data-browser-sidebar-address-input],input[aria-label="搜索或输入网址"],input[aria-label="Search or enter a URL"],input[placeholder="搜索或输入网址"],input[placeholder="Search or enter a URL"]';
   const panelId = (input) => input.closest('[data-tab-id]')?.getAttribute('data-tab-id') || '';
-  const next = await wait(
-    () => unique('button:not([role="tab"])', ['新标签页', 'New tab', '新建标签页']),
-    tr('未找到宿主的新标签页入口，请展开标签栏后重试。'),
-  );
+  const newTabNames = ['新标签页', 'New tab', '新建标签页'];
+  const blankAddress = () => {
+    const selected = unique('[role="tab"][aria-selected="true"]', newTabNames);
+    const panel = document.getElementById(selected?.getAttribute('aria-controls') || '');
+    if (
+      !panel?.matches('[role="tabpanel"][data-tab-id]') ||
+      panelId(selected) !== panel.getAttribute('data-tab-id') ||
+      !newTabNames.includes(label(panel))
+    )
+      return null;
+    const inputs = [...panel.querySelectorAll(selector)].filter(visible);
+    return inputs.length === 1 && inputs[0].value === '' ? inputs[0] : null;
+  };
+  const entry = await wait(() => {
+    const next = unique('button:not([role="tab"])', newTabNames);
+    if (next) return { next };
+    // 新宿主的空白页可能没有创建按钮；仅复用已选中、身份对应且没有草稿的地址栏。
+    const blank = blankAddress();
+    return blank ? { blank } : null;
+  }, tr('未找到宿主的新标签页入口，请展开标签栏后重试。'));
   // 记录已有地址栏和标签，防止创建尚未完成时覆盖旧网页。
   const oldInputs = new Set(document.querySelectorAll(selector));
   const oldPanels = new Set(
     [...document.querySelectorAll('[data-tab-id]')].map((node) => node.getAttribute('data-tab-id')),
   );
-  activate(next);
+  if (entry.next) activate(entry.next);
   let browserRequested = false;
-  const input = await wait(() => {
-    const inputs = [...document.querySelectorAll(selector)].filter(
-      (node) =>
-        visible(node) &&
-        !oldInputs.has(node) &&
-        (panelId(node)
-          ? !oldPanels.has(panelId(node))
-          : oldInputs.size === 0 && oldPanels.size === 0),
-    );
-    if (inputs.length > 1) throw Error(tr('无法唯一识别新标签页的地址栏。'));
-    if (inputs[0]) return inputs[0];
-    // 只接受明确的浏览器菜单项，不把重建的 New tab 按钮当成第二步。
-    if (!browserRequested) {
-      const browser = unique('[role="menuitem"]', ['浏览器', 'Browser']);
-      if (browser) {
-        browserRequested = true;
-        activate(browser);
+  const input =
+    entry.blank ||
+    (await wait(() => {
+      const inputs = [...document.querySelectorAll(selector)].filter(
+        (node) =>
+          visible(node) &&
+          !oldInputs.has(node) &&
+          (panelId(node)
+            ? !oldPanels.has(panelId(node))
+            : oldInputs.size === 0 && oldPanels.size === 0),
+      );
+      if (inputs.length > 1) throw Error(tr('无法唯一识别新标签页的地址栏。'));
+      if (inputs[0]) return inputs[0];
+      // 只接受明确的浏览器菜单项，不把重建的 New tab 按钮当成第二步。
+      if (!browserRequested) {
+        const browser = unique('[role="menuitem"]', ['浏览器', 'Browser']);
+        if (browser) {
+          browserRequested = true;
+          activate(browser);
+        }
       }
-    }
-    return null;
-  }, tr('未确认新浏览器标签的地址栏，请重试。'));
+      return null;
+    }, tr('未确认新浏览器标签的地址栏，请重试。')));
   const owner = panelId(input);
   const address = () => {
     const inputs = [...document.querySelectorAll(selector)].filter(
@@ -396,7 +414,13 @@ async function openBrowser(
     return /** @type {HTMLInputElement|null} */ (inputs[0] || null);
   };
   check();
-  if (!sessionKey() || address() !== input) throw Error(tr('浏览器地址栏已变化，请重试。'));
+  if (
+    !sessionKey() ||
+    address() !== input ||
+    input.value !== '' ||
+    (entry.blank && blankAddress() !== input)
+  )
+    throw Error(tr('浏览器地址栏已变化，请重试。'));
   input.focus();
   Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, url);
   input.dispatchEvent(new Event('input', { bubbles: true }));
