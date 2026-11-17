@@ -6,7 +6,15 @@
  */
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { mkdtempSync, cpSync, readFileSync, appendFileSync, rmSync } from 'node:fs';
+import {
+  mkdtempSync,
+  cpSync,
+  readFileSync,
+  appendFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { buildDevPanel } from '../scripts/dev-panel.mjs';
@@ -17,6 +25,19 @@ test('dev snapshots publish CSS independently and preserve the last successful b
   try {
     cpSync(resolve(import.meta.dirname, '../ui'), join(root, 'ui'), { recursive: true });
     const initial = await buildDevPanel(root, output);
+    const initialInode = statSync(output).ino;
+    assert.deepEqual(await buildDevPanel(root, output), initial);
+    assert.equal(
+      statSync(output).ino,
+      initialInode,
+      'unchanged input reused the published snapshot',
+    );
+    const damaged = { ...initial, script: 'damaged' };
+    writeFileSync(output, JSON.stringify(damaged));
+    assert.deepEqual(await buildDevPanel(root, output), initial, 'damaged output rebuilds');
+    writeFileSync(join(root, 'package-lock.json'), '{"lockfileVersion":3}');
+    const dependency = await buildDevPanel(root, output);
+    assert.notEqual(dependency.buildCache.input, initial.buildCache.input);
     appendFileSync(join(root, 'ui/shared/tokens.css'), '\n:root { --buddy-development-check: 1; }');
     const css = await buildDevPanel(root, output);
     assert.notEqual(css.revision, initial.revision);

@@ -241,7 +241,14 @@ impl App {
                     if attempts % 4 == 1 && self.desired.read().await.enabled {
                         let _guard = self.transition.lock().await;
                         let desired = self.desired.read().await.clone();
-                        if !desired.enabled {
+                        if !desired.enabled
+                            || self
+                                .session
+                                .read()
+                                .await
+                                .as_ref()
+                                .is_some_and(|s| !s.client.is_closed())
+                        {
                             continue;
                         }
                         if let Err(error) = self.establish(&desired).await {
@@ -311,16 +318,8 @@ impl App {
             &targets[0]
         };
         let client = Client::connect(&target.web_socket_debugger_url).await?;
-        {
-            let mut config = self.config.lock().await;
-            if config.cdp_endpoint.as_deref() != Some(endpoint.as_str())
-                || config.target_id != desired.target_id
-            {
-                config.cdp_endpoint = Some(endpoint.clone());
-                config.target_id = desired.target_id.clone();
-                self.paths.save(&config)?;
-            }
-        }
+        self.save_connection_target(&endpoint, &desired.target_id)
+            .await?;
         let session = Session {
             client: client.clone(),
         };
@@ -344,6 +343,22 @@ impl App {
         Ok(())
     }
 
+    async fn save_connection_target(
+        &self,
+        endpoint: &str,
+        target_id: &Option<String>,
+    ) -> Result<()> {
+        let mut config = self.config.lock().await;
+        if config.cdp_endpoint.as_deref() != Some(endpoint) || &config.target_id != target_id {
+            let mut next = config.clone();
+            next.cdp_endpoint = Some(endpoint.into());
+            next.target_id = target_id.clone();
+            self.paths.save(&next)?;
+            *config = next;
+        }
+        Ok(())
+    }
+
     pub async fn connect(
         self: &Arc<Self>,
         endpoint: Option<String>,
@@ -360,6 +375,48 @@ impl App {
             }
         }
         let _guard = self.transition.lock().await;
+        // Automatic startup may have connected while this request waited for the lock.
+        // Reuse only a live session for the same requested target; never tear it down twice.
+        let desired = self.desired.read().await;
+        let connection = self.view().connection;
+        let desired_endpoint = desired
+            .endpoint
+            .as_deref()
+            .and_then(|value| crate::config::local_endpoint(value).ok());
+        let connected_endpoint = connection
+            .endpoint
+            .as_deref()
+            .and_then(|value| crate::config::local_endpoint(value).ok());
+        let same_target = ((desired.endpoint.is_none() || desired_endpoint.is_some())
+            && desired_endpoint == endpoint
+            && desired.target_id == target_id)
+            || (endpoint.is_some()
+                && target_id.is_some()
+                && connected_endpoint == endpoint
+                && connection.target_id == target_id);
+        if desired.enabled
+            && same_target
+            && connection.status == "connected"
+            && self
+                .session
+                .read()
+                .await
+                .as_ref()
+                .is_some_and(|s| !s.client.is_closed())
+        {
+            drop(desired);
+            if let Some(connected_endpoint) = connected_endpoint {
+                self.save_connection_target(&connected_endpoint, &target_id)
+                    .await?;
+            }
+            *self.desired.write().await = Desired {
+                endpoint,
+                target_id,
+                enabled: true,
+            };
+            return Ok(());
+        }
+        drop(desired);
         {
             let mut config = self.config.lock().await;
             if !config.performance.integration_enabled {
@@ -604,6 +661,77 @@ mod connection_tests {
     use futures_util::{SinkExt, StreamExt};
     use tokio::net::TcpListener;
     use tokio_tungstenite::{accept_async, tungstenite::Message};
+
+    #[tokio::test]
+    async fn waiting_connect_reuses_the_session_established_while_it_was_queued() {
+        let temp = tempfile::tempdir().unwrap();
+        let app = App::new(
+            Paths::new(Some(temp.path().into())).unwrap(),
+            Config::default(),
+            None,
+            true,
+        );
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let (finish, finished) = tokio::sync::oneshot::channel();
+        let peer = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            let mut socket = accept_async(stream).await.unwrap();
+            tokio::select! {
+                _ = finished => {},
+                message = socket.next() => panic!("live session was touched by a duplicate connect: {message:?}"),
+            }
+        });
+        let client = Client::connect(&format!("ws://{address}")).await.unwrap();
+        let guard = app.transition.lock().await;
+        let endpoint = format!("http://{address}");
+        let pending = tokio::spawn({
+            let app = app.clone();
+            let endpoint = endpoint.clone();
+            async move {
+                app.connect(Some(endpoint), Some("synthetic-target".into()))
+                    .await
+            }
+        });
+        tokio::task::yield_now().await;
+        *app.desired.write().await = Desired {
+            endpoint: Some("obsolete invalid saved endpoint".into()),
+            target_id: None,
+            enabled: true,
+        };
+        *app.session.write().await = Some(Session {
+            client: client.clone(),
+        });
+        app.views.send_modify(|v| {
+            v.connection.status = "connected".into();
+            v.connection.endpoint = Some(address.port().to_string());
+            v.connection.target_id = Some("synthetic-target".into());
+        });
+        drop(guard);
+        tokio::time::timeout(Duration::from_secs(2), pending)
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert!(Arc::ptr_eq(&app.desktop_client().await.unwrap(), &client));
+        assert!(!client.is_closed());
+        assert!(
+            app.connect(Some("https://example.invalid:9999".into()), None)
+                .await
+                .is_err()
+        );
+        assert!(Arc::ptr_eq(&app.desktop_client().await.unwrap(), &client));
+        assert_eq!(
+            app.desired.read().await.target_id.as_deref(),
+            Some("synthetic-target")
+        );
+        assert_eq!(
+            app.paths.load().unwrap().target_id.as_deref(),
+            Some("synthetic-target")
+        );
+        finish.send(()).unwrap();
+        peer.await.unwrap();
+    }
 
     #[tokio::test]
     async fn failed_pause_restores_all_scripts_or_releases_the_session() {

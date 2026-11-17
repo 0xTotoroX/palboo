@@ -519,7 +519,8 @@ async fn attach_startup_progress(
         .then(|| record["supervisorPid"].as_u64())
         .flatten();
     Ok(Json(
-        json!({"pid":std::process::id(),"supervisorPid":supervisor}),
+        json!({"pid":std::process::id(),"supervisorPid":supervisor,
+            "mode":if crate::assets::development().is_some() { "development" } else { "release" }}),
     ))
 }
 

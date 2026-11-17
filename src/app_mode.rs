@@ -755,6 +755,7 @@ pub async fn run(data_paths: &Paths, command: Command) -> Result<()> {
             crate::startup::phase("preparing");
             let _guard = mode_lock(paths)?;
             let mut prefs = read(paths)?;
+            crate::startup::mode(prefs.mode == Mode::Development);
             let executable = release_executable(&prefs)?;
             let mut value = if prefs.mode == Mode::Development {
                 validate_development(&mut prefs)?;

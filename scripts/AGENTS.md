@@ -1,6 +1,6 @@
 # scripts/ — 开发与分发工具
 
-- `lifecycle-notice.swift`：App 启停与独立预览共用原生提示、语义色解析/末次配色缓存读取、原生材质、逐格能量槽、每步耗时、宿主选屏/拖动及无弹窗模式。完成停留两秒后以独立期限收起，窗口移出后才调用交接/退出回调；新流程或异常取消旧关闭任务。真实流程由调用者推进，不执行模拟播放；认证 startup-progress 接续现有后台事件归属，appearance 只保存原提示偏好。
+- `lifecycle-notice.swift`：App 启停与独立预览共用原生提示、语义色解析/末次配色缓存读取、原生材质、逐格能量槽、每步耗时、宿主选屏/拖动及无弹窗模式。可见完成停留两秒后以独立期限收起，隐藏状态立即交接；按实际模式仅显示开发版标记；失败保留未完成步骤。窗口移出后才调用交接/退出回调；新流程或异常取消旧关闭任务。真实流程由调用者推进，不执行模拟播放；认证 startup-progress 接续现有后台事件归属，appearance 只保存原提示偏好。
 - `lifecycle-preview.mjs/swift` 与 `lifecycle-preview-checks.swift`：独立驱动和隔离几何/主题/时序检查；不执行真实启停，--report-theme 输出自有绘制颜色，连接信息保存在短期私有目录并在退出清理。
 > L2 | 父级：[AGENTS.md](../AGENTS.md)
 
@@ -18,18 +18,19 @@ npm 命令进入开发、构建、审计、安装和验证编排工具；具体�
 - [dev-web.mjs](dev-web.mjs)：阅读器/共享依赖/构建配置的源码与产物指纹，启动/原生重建/来源切换前按需构建网页；失败或构建期间源码变化不登记成功，后台沿用上一版。
 - [dev-native.mjs](dev-native.mjs)：App 准备、Dev 冷启动、热更新和来源切换共用原生构建缓存；核对源码/内嵌资源内容、工具链/构建选项和现有程序摘要，无变化不调用 Cargo；失败、编译期间变化或输出被替换时不登记成功，各 worktree 独立保存。
 - [local-signing.mjs](local-signing.mjs)：仅本机安装选择可用开发签名身份，优先保留已安装签名者；首次无证书保留临时签名，多证书歧义或原证书缺失则停止。替换前校验新版仍满足原签名要求，不改系统授权数据库；公共打包不自动使用本机证书。
-- [dev.mjs](dev.mjs)：真实 Codex 开发入口，管理独立后台、源码监听和编译失败回退，独立模型控制资源变化随原生后台重建；持有宿主目标与所选 worktree 租约，先绑定统一设置服务地址再传给开发后台齿轮，每个来源独立 Vite 缓存并去重 React；先编译后交接来源、失败回退，切换 Vite/监听/后台而不重启宿主；启动前先发现可调试宿主；显式 --restart-running 时先按指纹构建网页与当前 CLI，再通过 host-only 模式准备宿主并在首次原生交接时复用同指纹编译结果；未固定目标的冷启动宿主页面替换时同步刷新目标租约与配置；仅在接管安装版后启用退出恢复，含占用获取和初始化在内的失败原因与进程 ID 写入私有 launcher-error.json，退出只清理本次会话记录；Ctrl+C 清理自身进程并恢复安装版连接。
+- [dev.mjs](dev.mjs)：真实 Codex 开发入口，管理独立后台、源码监听和编译失败回退，独立模型控制资源变化随原生后台重建；持有宿主目标与所选 worktree 租约，先绑定统一设置服务地址再传给开发后台齿轮，每个来源独立 Vite 缓存并去重 React；先编译后交接来源、失败回退，切换 Vite/监听/后台而不重启宿主；启动前先发现可调试宿主；显式 --restart-running 时先按指纹构建网页与当前 CLI，再通过 host-only 模式准备宿主并在首次原生交接时复用同指纹编译结果；未固定目标的冷启动宿主页面替换时同步刷新目标租约与配置；仅在接管安装版后启用退出恢复，含占用获取和初始化在内的失败原因与进程 ID 写入私有 launcher-error.json，退出只清理本次会话记录，某个记录不可访问仍释放其他自有租约；初次连接中的后台不再重复 connect；Ctrl+C 清理自身进程并恢复安装版连接。
 - [material-preview.mjs](material-preview.mjs)：`dev:materials` 入口，将 Swift 对照工具编译到 target/material-preview 后打开；`--check` 验证同步控制，`--package` 在 dist/material-preview 生成自带程序和 GPL-3.0-only 完整许可包的独立 App，并输出 ZIP；source/ 同时导出源码、独立构建入口和说明，可脱离主仓库二次开发；不修改安装版或产品偏好。
 - [material-preview.swift](material-preview.swift)：14 种 NSVisualEffectView 材质的原生并排对照；独立背景窗口提供重复图案，统一切换外观、焦点状态与背景，支持真实桌面采样；标题栏固定不透明底色并跟随预览明暗。
 - [dev-host.mjs](dev-host.mjs)：选择真实窗口与宿主启动配置（开发优先、首次继承日常），开发保存的窗口身份绑定其端点，显式端点/目标优先且可绕过无关坏保存地址，安装版恢复记录保持独立；仅无宿主且显式授权自动准备时调用共享启动器，指定目标或歧义不触发重开；首次复制独立开发配置，未固定 `--target` 时在冷启动初始页面替换后重查同一端点的实时主窗口，暂停并恢复安装版连接；新目标已发现且旧目标不可用，或安装版 API 不可达且其原 PID 明确退出时，将旧恢复记录原样保留为带唯一后缀的归档，不启动安装版或将它改连新聊天；API 失败但进程存活、身份缺失或无法确认退出时仍保留并停止，不将断连当成退出；退出清理没有新宿主时不归档；API 错误保留后端原因；不创建浏览器或修改官方应用。
-- [dev-panel.mjs](dev-panel.mjs)：原子发布开发资源快照（含术语目录指纹与监听、独立 chatOutlineScript/chatOutlineRevision），CSS 更新保留实例，逻辑更新等待草稿保存后重建胶囊并保留连接归属；等待期间实例被替换或关闭则取消，不能接管新实例。页面引导变化重载窗口页面；共享 measurePanel 仅采集两端几何、材质能力和实例计数。
+- [dev-panel.mjs](dev-panel.mjs)：按源码、构建器、工具/依赖与产物摘要复用或原子发布开发资源快照（含术语目录指纹与监听、独立 chatOutlineScript/chatOutlineRevision），CSS 更新保留实例，逻辑更新等待草稿保存后重建胶囊并保留连接归属；等待期间实例被替换或关闭则取消，不能接管新实例。页面引导变化重载窗口页面；共享 measurePanel 仅采集两端几何、材质能力和实例计数。
 - [dev-sources.mjs](dev-sources.mjs)：Git worktree 清单及启动来源记忆、独占进程/目标租约、串行切换和失败回退状态；通过独占恢复记录串行回收已退出监督进程的租约，检查关联 worktree 与上次会话的后台，损坏记录或状态不明时保留并报错；不自行操作宿主或结束其他进程。
 - [dev-runtime.mjs](dev-runtime.mjs)：受控子进程与稳定鉴权代理，开发来源 API 在后台切换时仍可用，切换中请求暂停、旧设置页写入按来源标识拒绝；可捕获宿主准备命令的端点及具体失败原因；后台重启后设置页会话保持有效；模型超时由后台控制，客户端断开时取消上游代理请求。
 - [verify.mjs](verify.mjs)：统一检查、浏览器行为、Rust、端到端与生命周期验收（含 backup-e2e 的本地恢复与在线跨环境复制）；常规端到端、生命周期与打包共用 release 程序；features-e2e 的隔离 Bot 夹具明确使用 debug（复用 Rust 单元测试编译结果），不放开正式程序的模拟接口。按源码/工具链及产物摘要复用网页和程序，类型检查随网页构建执行一次；release 加入路径映射；源码审计前置；每项检查有15分钟上限，逐阶段写 verify-progress.json 与 GitHub 摘要，最终写 verify.json，原生检查显式选择。
 - [verify-web.mjs](verify-web.mjs)：`npm run verify:web` 执行前端构建、格式/源码检查、Node 测试和合成工作台/液态/模型宿主测试，复用已构建网页及共享 Node 测试入口，逐项记录失败并返回非零；官网另由 test:site 验证；支持两种现有浏览器路径变量，Linux 优先复用系统 Chromium。结果位于 `target/reports/web-pilot/`，明确排除原生与完整发布验收；Node 许可集成测试仍需 Cargo，不因缺失而跳过。
 
 - [build-panel.mjs](build-panel.mjs)：从 ui/codex/runtime/lifecycle.js 入口解析 ES modules，输出可重复注入的脚本，供 Cargo 内嵌；buildChatOutline 单独构建普通 Chat 的只读大纲脚本，不包含 Work 入口或请求桥。
-- [install.mjs](install.mjs)：先构建/签名/验收完整 App，再取得统一模式锁、重新核验后台、迁移独立旧数据及替换 App/兼容 CLI；保留配置与旧程序，启动失败回滚并读回身份。不覆盖未知后台，不更新被活动 Dev 接管的安装版；归档失败保留恢复路径。
+- [install.mjs](install.mjs)：先构建/签名/验收完整 App，再取得统一模式锁、重新核验后台、迁移独立旧数据及替换 App/兼容 CLI；保留配置与旧程序，启动失败回滚并读回身份。不覆盖未知后台，不更新被活动 Dev 接管的安装版；旧 App 只通过同卷改名归档，保留活动程序 inode 与系统权限身份；跨卷等归档失败保留原恢复路径。
+- [install-archive.mjs](install-archive.mjs)：仅改名保留安装前 App 原件，失败不复制后删除，不清理仍在运行的旧程序。
 - [launcher.mjs](launcher.mjs)：为安装器生成带本地签名的 Palboo.app；从 ui/icon.png 生成多尺寸 ICNS 并绑定应用图标；双击调用 launch --restart-running 按设置处理缺少连接的宿主，取消不再弹错误；连接后在受支持系统弹出，以后台应用方式运行、不显示运行中的 Dock 图标；macOS 14 遇到浮窗门槛时保留内嵌，其他错误用系统对话框显示。
 - [package.mjs](package.mjs)：每个版本打包完整 App DMG，复用已验证 release 程序，收集许可和安装帮助，检查签名、包身份与可运行性后写入 dist；target/reports/package.json 记录提交、版本和摘要。只打包，不安装、不发布、不清理历史发行包。
 - [release-plan.mjs](release-plan.mjs)：严格解析 SemVer，统一 DMG 名称及预发布状态，核对 Cargo/npm 及锁文件版本、发行说明，不接触远端。
@@ -39,7 +40,7 @@ npm 命令进入开发、构建、审计、安装和验证编排工具；具体�
 - [artifact-audit.mjs](artifact-audit.mjs)：release 编译路径映射及成品字节扫描，包含二进制、常见凭据/个人目录、UTF-16主目录与禁止文件；错误只输出文件和问题类型。它是有限检查，不证明不存在所有敏感内容或漏洞。
 - [package-app.mjs](package-app.mjs)：编译最低 macOS 14 arm64 Swift 入口、复制包内 CLI/资源、清理扩展属性与调用方显式签名（默认临时签名）；校验系统动态库、最低版本和程序摘要，以普通用户权限创建 HFS+ DMG，避免 tar 的属主名称字段和设置 root 引发的授权；挂载读回并复制到新位置验证，成功后卸载镜像。
 - [startup-progress.mjs](startup-progress.mjs)：向 App 的私有会话事件文件追加固定阶段、时间和自身 PID，Dev 登记监督进程供退出确认；不写正文或凭据，文件删除后不重建。
-- [app-launcher.swift](app-launcher.swift)：Bundle CLI 正式/开发启动及原 LaunchServices 窗口身份交接；使用共用提示显示真实阶段，成功后保留 accessory 菜单栏以观察关联退出，重试重置计时但保留会话事件通道。正常关联退出等待后台与已登记监督进程消失后完成，异常保留；后台热更通过认证 startup-progress 重新绑定，不重启宿主。每步报告写入 startup-last/exit-last.json，进程退出清理私有事件文件；--check 只检查包内版本，--open-window/--palboo-window 沿用原身份与回执。
+- [app-launcher.swift](app-launcher.swift)：Bundle CLI 正式/开发启动及原 LaunchServices 窗口身份交接；使用共用提示显示真实阶段，成功后保留 accessory 菜单栏以观察关联退出，重试重置计时但保留会话事件通道。正常关联退出等待后台与已登记监督进程消失后完成，异常保留；后台热更通过认证 startup-progress 重新绑定，不重启宿主。逐条消费阶段、记录实际模式；失败后重开重新启动校验。每步报告写入 startup-last/exit-last.json，进程退出清理私有事件文件；--check 只检查包内版本，--open-window/--palboo-window 沿用原身份与回执。
 - [project-licenses.mjs](project-licenses.mjs)：验证完整 GPL 原文、历史 MIT 原文及授权范围，并为主程序与独立材质工具复制统一许可包。
 - [source-audit.mjs](source-audit.mjs)：Git 与无 Git 源码目录共用文件清单，供审计、打包和测试复用；无 Git 时排除构建目录，拒绝私有文件与符号链接。核对包名、固定 GPL-3.0-only 元数据、完整许可与历史原文，并拒绝历史排除的上游诊断标记、私有文档、运行配置、凭据和个人绝对路径。
 - [license-texts.json](license-texts.json)：依赖包未附带的公开许可、署名原文与固定来源 URL，供许可生成器离线使用。

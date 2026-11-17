@@ -57,6 +57,7 @@ final class StartupProgress {
     let file: URL
     private(set) var started = Date()
     private(set) var backendPID: pid_t?, supervisorPID: pid_t?
+    private(set) var mode: String?
     private(set) var exiting = false
     private(set) var stages: [(phase: String, at: Date)] = []
     private var consumed = 0
@@ -79,12 +80,13 @@ final class StartupProgress {
         let value = labels[phase] ?? labels["preparing"]!
         return localized(value.0, value.1)
     }
-    func poll() {
+    @discardableResult func poll() -> [(phase: String, at: Date)] {
         guard let attributes = try? FileManager.default.attributesOfItem(atPath: file.path),
               ((attributes[.size] as? NSNumber)?.intValue ?? 262145) <= 262144,
-              let text = try? String(contentsOf: file, encoding: .utf8) else { return }
+              let text = try? String(contentsOf: file, encoding: .utf8) else { return [] }
         let lines = text.components(separatedBy: "\n").dropLast()
-        guard lines.count >= consumed else { return }
+        guard lines.count >= consumed else { return [] }
+        var received: [(phase: String, at: Date)] = []
         for line in lines.dropFirst(consumed) {
             guard let data = line.data(using: .utf8),
                   let event = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -92,6 +94,7 @@ final class StartupProgress {
                   let milliseconds = event["atMs"] as? Double else { continue }
             let at = Date(timeIntervalSince1970: milliseconds / 1000)
             guard at >= started.addingTimeInterval(-0.01), at <= Date().addingTimeInterval(2) else { continue }
+            observeMode(event["mode"] as? String)
             if let pid = event["pid"] as? Int32, pid > 0 {
                 if phase == "backend" || phase == "exit-backend" { backendPID = pid }
                 if phase == "supervisor" { supervisorPID = pid }
@@ -103,8 +106,10 @@ final class StartupProgress {
             if phase == "exit-start" && !exiting { exiting = true; outcome = nil; started = at; stages = [] }
             guard stages.count < 128 else { continue }
             stages.append((phase, at))
+            received.append((phase, at))
         }
         consumed = lines.count
+        return received
     }
     func details(now: Date = Date()) -> String {
         stages.enumerated().map { index, stage in
@@ -112,9 +117,11 @@ final class StartupProgress {
             return "\(Self.message(stage.phase))  \(String(format: "%.1f", max(0, end.timeIntervalSince(stage.at))))s"
         }.joined(separator: "\n")
     }
-    func mark(_ phase: String, ownerPID: pid_t? = nil) {
-        guard Self.labels[phase] != nil || ["backend", "supervisor"].contains(phase),
-              let data = try? JSONSerialization.data(withJSONObject: ["phase": phase, "atMs": Date().timeIntervalSince1970 * 1000, "pid": ownerPID ?? ProcessInfo.processInfo.processIdentifier]) else { return }
+    func mark(_ phase: String, ownerPID: pid_t? = nil, mode: String? = nil) {
+        guard Self.labels[phase] != nil || ["mode", "backend", "supervisor"].contains(phase) else { return }
+        var event: [String: Any] = ["phase": phase, "atMs": Date().timeIntervalSince1970 * 1000, "pid": ownerPID ?? ProcessInfo.processInfo.processIdentifier]
+        if let mode, ["development", "release"].contains(mode) { event["mode"] = mode }
+        guard let data = try? JSONSerialization.data(withJSONObject: event) else { return }
         let descriptor = Darwin.open(file.path, O_WRONLY | O_APPEND | O_NOFOLLOW | O_NONBLOCK)
         guard descriptor >= 0 else { return }
         defer { Darwin.close(descriptor) }
@@ -123,9 +130,11 @@ final class StartupProgress {
         }
     }
     func cancelExit() { exiting = false; outcome = nil }
-    func observeOwners(backend: pid_t, supervisor: pid_t?) { backendPID = backend; supervisorPID = supervisor }
+    func observeMode(_ value: String?) { if let value, ["development", "release"].contains(value) { mode = value } }
+    func observeOwners(backend: pid_t, supervisor: pid_t?, mode: String?) { backendPID = backend; supervisorPID = supervisor; observeMode(mode) }
     func restart() {
         poll(); started = Date(); stages = [("preparing", started)]; outcome = nil; exiting = false
+        backendPID = nil; supervisorPID = nil; mode = nil
     }
     func finish(_ result: String) {
         poll()
@@ -135,9 +144,10 @@ final class StartupProgress {
             let end = index + 1 < stages.count ? stages[index + 1].at : finished
             return ["phase": stage.phase, "durationMs": Int(max(0, end.timeIntervalSince(stage.at)) * 1000)]
         }
-        let report: [String: Any] = ["schemaVersion": 1, "outcome": result,
+        var report: [String: Any] = ["schemaVersion": 1, "outcome": result,
             "startedAtMs": Int(started.timeIntervalSince1970 * 1000),
             "durationMs": Int(finished.timeIntervalSince(started) * 1000), "stages": records]
+        if let mode { report["mode"] = mode }
         let root = ProcessInfo.processInfo.environment["PALBOO_LAUNCHER_HOME"].map { URL(fileURLWithPath: $0) }
             ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?.appendingPathComponent("palboo-launcher")
         if let root, let data = try? JSONSerialization.data(withJSONObject: report, options: [.sortedKeys]) {
@@ -195,6 +205,7 @@ func command(_ cli: URL, _ arguments: [String]) throws -> String {
 
 var developmentTarget: pid_t?
 var launchedDevelopment = false
+var launchedMode: String?
 
 func launch() throws {
     let cli = try bundledCLI()
@@ -204,6 +215,7 @@ func launch() throws {
     }
     let result = try command(cli, ["app-mode", "launch"])
     let outcome = result.data(using: .utf8).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+    launchedMode = outcome?["mode"] as? String
     if outcome?["paused"] as? Bool == true {
         throw LaunchFailure(message: localized(
             "连接已暂停。请返回 ChatGPT 内已打开的 Palboo 设置页恢复连接。",
@@ -306,18 +318,21 @@ final class Launcher: NSObject, NSApplicationDelegate {
     private weak var activeAlertWindow: NSWindow?
     private func refresh() {
         guard let progress = startupProgress else { return }
-        progress.poll(); notice.updateTimes()
-        if !starting && !progress.exiting { notice.attachProgress(progress.file) { progress.observeOwners(backend: $0, supervisor: $1) } }
+        let received = progress.poll(); notice.updateTimes()
+        if notice.runtimeMode != progress.mode { notice.runtimeMode = progress.mode; notice.render(animate: false) }
+        if !starting && !progress.exiting { notice.attachProgress(progress.file) { progress.observeOwners(backend: $0, supervisor: $1, mode: $2) } }
         if starting {
+            for stage in received {
             let index: Int
-            switch progress.phase {
+            switch stage.phase {
             case "confirmation", "closing", "opening", "host": index = 1
             case "renderer", "connecting": index = 2
             case "workspace": index = 3
             case "presenting": index = 4
             default: index = 0
             }
-            if index >= notice.completed { notice.liveStage(index, text: progress.message, at: progress.stages.last?.at ?? Date()) }
+            if index >= notice.completed { notice.liveStage(index, text: StartupProgress.message(stage.phase), at: stage.at) }
+            }
             return
         }
         guard progress.exiting && !completionShown else { return }
@@ -368,7 +383,7 @@ final class Launcher: NSObject, NSApplicationDelegate {
     }
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         if let window = activeAlertWindow { window.makeKeyAndOrderFront(nil) }
-        else if starting || !failure.isEmpty { if notice.displayPicker.indexOfSelectedItem != 2 { notice.show() } }
+        else if starting || (startupProgress?.exiting == true && startupProgress?.outcome == nil) { if notice.displayPicker.indexOfSelectedItem != 2 { notice.show() } }
         else { begin() }
         return false
     }
@@ -418,9 +433,10 @@ final class Launcher: NSObject, NSApplicationDelegate {
     private func begin(recovering: Bool = false) {
         guard !starting else { if notice.displayPicker.indexOfSelectedItem == 0 { notice.show() }; return }
         starting = true; finishedAt = nil; failure = ""; exitObserved = false; completionShown = false
-        launchedDevelopment = false; developmentTarget = nil
+        launchedDevelopment = false; developmentTarget = nil; launchedMode = nil
         if let progress = startupProgress { progress.restart() } else { startupProgress = try? StartupProgress() }
         notice.retryAction = { [weak self] in self?.begin() }
+        notice.runtimeMode = nil
         notice.beginLive(exiting: false)
         DispatchQueue.global(qos: .userInitiated).async {
             var errorText: String?, recovery = true, cancelled = false
@@ -433,6 +449,7 @@ final class Launcher: NSObject, NSApplicationDelegate {
             }
             let message = errorText, allowsRecovery = recovery, wasCancelled = cancelled
             DispatchQueue.main.async {
+                startupProgress?.observeMode(launchedMode)
                 self.refresh(); self.starting = false; self.finishedAt = Date()
                 startupProgress?.finish(message != nil ? "failed" : wasCancelled ? "cancelled" : "ready")
                 if let message {
@@ -465,6 +482,7 @@ final class Launcher: NSObject, NSApplicationDelegate {
     private var fixtureBackend: Process?
     private func checkExitUI() {
         precondition(!notice.panel.isVisible, "startup completion callback ran before the notice closed")
+        precondition(notice.modeLabel.isHidden && startupProgress?.mode == "release", "saved Dev preference overrode the actual release session")
         precondition(Date().timeIntervalSince(finishedAt!) >= 1.9, "startup completion was not held")
         print("native startup completion held and dismissed before handoff")
         for _ in 0..<140 { startupProgress?.mark("build") }
@@ -488,8 +506,13 @@ final class Launcher: NSObject, NSApplicationDelegate {
         precondition(starting && notice.panel.isVisible && !notice.panel.styleMask.contains(.titled))
         precondition(notice.palette.colors["accent"] == "#23bc98" && notice.palette.theme == "dark", "cold startup lost cached theme")
         let original = notice.panel
-        startupProgress?.mark("source"); refresh()
+        startupProgress?.mark("mode", mode: "development")
+        startupProgress?.mark("source"); startupProgress?.mark("build"); refresh()
+        precondition(!notice.modeLabel.isHidden && notice.completed == 0)
+        precondition(notice.content.bounds.contains(notice.modeLabel.frame))
+        startupProgress?.mark("confirmation"); startupProgress?.mark("opening")
         startupProgress?.mark("renderer"); refresh()
+        precondition(notice.timings.count == 2 && startupProgress?.stages.suffix(3).map(\.phase) == ["confirmation", "opening", "renderer"])
         precondition(notice.completed == 2 && notice.content.bounds.contains(notice.progress.frame))
         notice.hide(); precondition(starting)
         _ = applicationShouldHandleReopen(NSApp, hasVisibleWindows: false); begin()
@@ -498,9 +521,11 @@ final class Launcher: NSObject, NSApplicationDelegate {
     }
     private func checkFailedUI() {
         precondition(!checkedFailure && !starting && notice.failed && !notice.retryButton.isHidden)
+        precondition(notice.rows[notice.completed].text.stringValue != notice.heading.stringValue, "failure hid the actual unfinished step")
         checkedFailure = true
         let previous = startupProgress!.started
-        begin(); precondition(starting && startupProgress!.started > previous)
+        _ = applicationShouldHandleReopen(NSApp, hasVisibleWindows: false)
+        precondition(starting && startupProgress!.started > previous)
         print("native error controls, request cleanup and retry verified")
     }
     #endif

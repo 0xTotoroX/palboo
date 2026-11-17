@@ -241,7 +241,8 @@ final class LifecycleNotice: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var retryAction: (() -> Void)?, detailsAction: (() -> Void)?
     var cacheBytes: Data?
     var attachedRuntime: Data?, attaching = false, lastAttach = Date.distantPast
-    let liveDetails = NSButton()
+    let liveDetails = NSButton(), modeLabel = NSTextField(labelWithString: "")
+    var runtimeMode: String?
     var hostPalettes: [String: HostPalette] = [:], hostTheme: String?, hostReducedMotion = false
     var preferencePosition = NSPoint(x: 0.85, y: 0.12)
     var dataDirectory: URL? { if live { return liveDataDirectory }; guard let i = CommandLine.arguments.firstIndex(of: "--connection-dir"), i + 1 < CommandLine.arguments.count else { return nil }; return URL(fileURLWithPath: CommandLine.arguments[i+1]) }
@@ -251,7 +252,7 @@ final class LifecycleNotice: NSObject, NSApplicationDelegate, NSWindowDelegate {
     let material = NSPopUpButton(), snapshot = NSPopUpButton(), motion = NSButton(checkboxWithTitle: "减少动态效果", target: nil, action: nil)
     var statusItem: NSStatusItem!, closeButton: NSButton!, retryButton: NSButton!, surface: NSView?
     var rows: [StepRow] = [], steps: [String] = [], timings: [Double] = [], completed = 0, exiting = false, failed = false, generation = 0
-    var started = Date(), phaseStarted = Date(), ticker: Timer?, dismissalTimer: Timer?, localMonitor: Any?
+    var started = Date(), phaseStarted = Date(), failedAt: Date?, ticker: Timer?, dismissalTimer: Timer?, localMonitor: Any?
     var playbackActivity: NSObjectProtocol?
     var materialName = "", reportedSize = NSSize.zero
     var reduce: Bool { motion.state == .on || hostReducedMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
@@ -284,10 +285,12 @@ final class LifecycleNotice: NSObject, NSApplicationDelegate, NSWindowDelegate {
         content.addSubview(dragHeader)
         eyes.frame = NSRect(x: 22, y: 16, width: 40, height: 34); content.addSubview(eyes)
         heading.frame = NSRect(x: 76, y: 21, width: 236, height: 23); heading.font = .systemFont(ofSize: 15, weight: .semibold)
+        modeLabel.frame = NSRect(x: 76, y: 45, width: 236, height: 14)
+        modeLabel.font = .systemFont(ofSize: 10, weight: .medium); modeLabel.isHidden = true
         closeButton = NSButton(image: NSImage(systemSymbolName: "xmark", accessibilityDescription: "收起提示")!, target: self, action: #selector(hide))
         closeButton.frame = NSRect(x: 318, y: 21, width: 20, height: 22); closeButton.isBordered = false; closeButton.contentTintColor = .secondaryLabelColor
         count.font = .monospacedDigitSystemFont(ofSize: 11, weight: .regular); count.textColor = .secondaryLabelColor; count.alignment = .right
-        for v: NSView in [heading, closeButton!, progress, count] { content.addSubview(v) }
+        for v: NSView in [heading, modeLabel, closeButton!, progress, count] { content.addSubview(v) }
         content.addSubview(dragHeader, positioned: .above, relativeTo: nil)
         retryButton = button("继续预览", .zero, #selector(retryRequested)); content.addSubview(retryButton)
         statusItem = NSStatusBar.system.statusItem(withLength: 28)
@@ -373,6 +376,7 @@ final class LifecycleNotice: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let colors = palette
         eyes.color = colors.text; eyes.needsDisplay = true
         heading.textColor = colors.text; count.textColor = colors.muted; closeButton?.contentTintColor = colors.muted; retryButton?.contentTintColor = colors.accent
+        modeLabel.textColor = colors.muted
         progress.accent = colors.accent; progress.danger = colors.danger; progress.needsDisplay = true
         for (i, row) in rows.enumerated() where i < steps.count { row.update(live && i == completed ? (liveStepText ?? steps[i]) : failed && i == completed ? "兼容服务仍在退出" : steps[i], done: i < completed, failed: failed && i == completed, reduce: reduce, palette: colors) }
         if CommandLine.arguments.contains("--report-theme") {
@@ -391,7 +395,7 @@ final class LifecycleNotice: NSObject, NSApplicationDelegate, NSWindowDelegate {
         dismissalTimer?.invalidate(); dismissalTimer = nil
         if let activity = playbackActivity { ProcessInfo.processInfo.endActivity(activity); playbackActivity = nil }
         exiting = value; steps = value ? exitSteps : startSteps; completed = 0; failed = false; timings = []
-        started = Date(); phaseStarted = Date()
+        started = Date(); phaseStarted = Date(); failedAt = nil
     }
     @objc func playStart() { play(exiting: false) }
     @objc func playExit() { play(exiting: true) }
@@ -426,6 +430,8 @@ final class LifecycleNotice: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let finished = completed == steps.count
         heading.stringValue = failed ? "退出尚未完成" : finished ? (exiting ? "Palboo 已完全退出" : "Palboo 已就绪") : (exiting ? "正在退出 Palboo" : "正在启动 Palboo")
         heading.stringValue = liveTitle ?? L(heading.stringValue)
+        modeLabel.stringValue = previewEnglish ? "Development" : "开发版"
+        modeLabel.isHidden = runtimeMode != "development"
         let visible = min(steps.count, completed + 1)
         let height = CGFloat(70 + steps.count * 30 + (failed ? 96 : 62))
         reportedSize = NSSize(width: 356, height: height)
@@ -450,8 +456,9 @@ final class LifecycleNotice: NSObject, NSApplicationDelegate, NSWindowDelegate {
         updateTimes()
     }
     func updateTimes() {
+        if failed && failedAt == nil { failedAt = Date() }
         for (i, row) in rows.enumerated() {
-            row.duration.stringValue = i < completed ? String(format: "%.1fs", i < timings.count ? timings[i] : 0.8) : failed ? (previewEnglish ? "Waiting" : "等待中") : String(format: "%.1fs", Date().timeIntervalSince(phaseStarted))
+            row.duration.stringValue = i < completed ? String(format: "%.1fs", i < timings.count ? timings[i] : 0.8) : String(format: "%.1fs", max(0, (failedAt ?? Date()).timeIntervalSince(phaseStarted)))
         }
     }
     func position(size: NSSize, animate: Bool) {
@@ -569,7 +576,7 @@ final class LifecycleNotice: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func liveFailure(_ title: String) {
         guard !failed || liveTitle != title else { return }
         generation += 1; dismissalTimer?.invalidate(); dismissalTimer = nil
-        failed = true; liveTitle = title; liveStepText = title; render()
+        failed = true; liveTitle = title; liveStepText = nil; render()
         retryButton.isHidden = retryAction == nil
         retryButton.title = L("重试")
         if detailsAction != nil {
@@ -583,6 +590,7 @@ final class LifecycleNotice: NSObject, NSApplicationDelegate, NSWindowDelegate {
         failed = false; liveDetails.isHidden = true
         liveTitle = exiting ? L("Palboo 已完全退出") : L("Palboo 已就绪")
         liveStage(steps.count); let stamp = generation
+        if !panel.isVisible { dismiss(stamp, after: after); return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
             guard let self, generation == stamp else { return }; dismiss(stamp, after: after)
         }
@@ -616,18 +624,19 @@ final class LifecycleNotice: NSObject, NSApplicationDelegate, NSWindowDelegate {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         return request
     }
-    func attachProgress(_ file: URL, completion: @escaping (pid_t, pid_t?) -> Void) {
+    func attachProgress(_ file: URL, completion: @escaping (pid_t, pid_t?, String?) -> Void) {
         guard live, !attaching, Date().timeIntervalSince(lastAttach) > 2,
               let directory = dataDirectory, let bytes = try? Data(contentsOf: directory.appendingPathComponent("runtime.json")), bytes != attachedRuntime,
               var request = appearanceRequest(path: "startup-progress") else { return }
         request.httpMethod = "POST"; request.httpBody = try? JSONSerialization.data(withJSONObject: ["file": file.path])
-        attaching = true; lastAttach = Date()
+        attaching = true; lastAttach = Date(); let stamp = generation
         URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 guard let self else { return }; self.attaching = false
-                guard error == nil, (response as? HTTPURLResponse)?.statusCode == 200, let data,
+                guard self.generation == stamp, self.dataDirectory == directory,
+                      error == nil, (response as? HTTPURLResponse)?.statusCode == 200, let data,
                       let value = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any], let pid = value["pid"] as? Int32, pid > 0 else { return }
-                self.attachedRuntime = bytes; completion(pid, value["supervisorPid"] as? Int32)
+                self.attachedRuntime = bytes; completion(pid, value["supervisorPid"] as? Int32, value["mode"] as? String)
             }
         }.resume()
     }

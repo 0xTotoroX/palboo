@@ -1,6 +1,6 @@
 /*
  * [INPUT]: macOS arm64, release source and explicit App/CLI/data destinations.
- * [OUTPUT]: Stable locally signed Palboo.app, compatible CLI, atomic mode binding and recoverable upgrade.
+ * [OUTPUT]: Locally signed Palboo.app, atomic mode binding and rename-only backup preserving the live App identity.
  * [POS]: Local installer; prepares first and holds the App mode lock through replacement/rollback.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -18,7 +18,6 @@ import {
   symlinkSync,
   rmSync,
   mkdtempSync,
-  cpSync,
 } from 'node:fs';
 import { homedir } from 'node:os';
 import { resolve, join, delimiter } from 'node:path';
@@ -28,6 +27,7 @@ import { copyProjectLicenses } from './project-licenses.mjs';
 import { generateNotices } from './third-party-notices.mjs';
 import { prepareTestBinary } from './verify.mjs';
 import { localSigningPlan, verifyLocalSigner } from './local-signing.mjs';
+import { archiveApplication } from './install-archive.mjs';
 
 const root = resolve(import.meta.dirname, '..'),
   args = process.argv.slice(2);
@@ -310,10 +310,10 @@ try {
   if (existsSync(old)) {
     try {
       const archive = join(dataDir, 'installation-backups', `Palboo-${Date.now()}.app`);
-      mkdirSync(join(dataDir, 'installation-backups'), { recursive: true, mode: 0o700 });
-      cpSync(old, archive, { recursive: true, preserveTimestamps: true });
-      run('/usr/bin/codesign', ['--verify', '--strict', archive]);
-      rmSync(old, { recursive: true });
+      // Preserve the running image's inode. Copy + delete invalidates proc_pidpath
+      // and the responsible App's TCC identity while its Dev children still run.
+      run('/usr/bin/codesign', ['--verify', '--strict', old]);
+      archiveApplication(old, archive);
     } catch {
       keepStaging = true;
       console.warn(`旧 App 保留于 ${old}`);

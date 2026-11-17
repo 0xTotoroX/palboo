@@ -1,5 +1,5 @@
 // [INPUT]: App 启动器创建的私有事件文件和本次启动阶段。
-// [OUTPUT]: best-effort phase；只追加固定阶段及时间，不记录日志正文、配置或凭据。
+// [OUTPUT]: best-effort phase；只追加固定阶段、时间及受限实际模式，不记录日志正文、配置或凭据。
 // [POS]: Swift / Rust / Dev 共用的短期启动反馈；文件移除后不再写入，不影响启动结果。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 use std::{
@@ -46,15 +46,44 @@ pub(crate) fn attach(path: &Path) -> anyhow::Result<()> {
 }
 
 pub fn phase(name: &str) {
+    report(
+        name,
+        (name == "backend").then(|| {
+            if crate::assets::development().is_some() {
+                "development"
+            } else {
+                "release"
+            }
+        }),
+    );
+}
+
+pub(crate) fn mode(development: bool) {
+    report(
+        "mode",
+        Some(if development {
+            "development"
+        } else {
+            "release"
+        }),
+    );
+}
+
+fn report(name: &str, mode: Option<&str>) {
     let attached = ATTACHED.lock().unwrap().clone();
     if let Some(file) =
         attached.or_else(|| std::env::var_os("PALBOO_STARTUP_PROGRESS").map(PathBuf::from))
     {
-        let _ = append(&file, name);
+        let _ = append_event(&file, name, mode);
     }
 }
 
+#[cfg(test)]
 fn append(path: &Path, name: &str) -> std::io::Result<()> {
+    append_event(path, name, None)
+}
+
+fn append_event(path: &Path, name: &str, mode: Option<&str>) -> std::io::Result<()> {
     if !path.is_absolute() || !valid_phase(name) {
         return Ok(());
     }
@@ -75,7 +104,12 @@ fn append(path: &Path, name: &str) -> std::io::Result<()> {
         .unwrap_or_default()
         .as_millis();
     let pid = std::process::id();
-    let event = format!("{{\"phase\":\"{name}\",\"atMs\":{at},\"pid\":{pid}}}\n");
+    let mode = match mode {
+        Some("development") => ",\"mode\":\"development\"",
+        Some("release") => ",\"mode\":\"release\"",
+        _ => "",
+    };
+    let event = format!("{{\"phase\":\"{name}\",\"atMs\":{at},\"pid\":{pid}{mode}}}\n");
     // 单次 O_APPEND 写入，允许 Rust 和 Dev 在同一启动链上依次报告。
     file.write_all(event.as_bytes())
 }
@@ -83,7 +117,8 @@ fn append(path: &Path, name: &str) -> std::io::Result<()> {
 fn valid_phase(name: &str) -> bool {
     matches!(
         name,
-        "backend"
+        "mode"
+            | "backend"
             | "supervisor"
             | "exit-start"
             | "exit-tasks"
@@ -182,6 +217,7 @@ mod tests {
             serde_json::from_str(fs::read_to_string(&file).unwrap().trim()).unwrap();
         assert_eq!(event["phase"], "backend");
         assert_eq!(event["pid"], std::process::id());
+        assert_eq!(event["mode"], "release");
         assert!(attach(&root.path().join("other.json")).is_err());
         fs::remove_file(&file).unwrap();
         let target = root.path().join("target");

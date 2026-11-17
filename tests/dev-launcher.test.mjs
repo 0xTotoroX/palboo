@@ -34,7 +34,7 @@ test('host-exit cleanup freezes handoff, awaits the backend and leaves installat
   const source = readFileSync(new URL('../scripts/dev.mjs', import.meta.url), 'utf8');
   const start = source.indexOf('function cleanup(');
   const body = source.slice(start, source.indexOf('for (const signal of', start));
-  for (const hostExited of [true, false]) {
+  for (const hostExited of [true, false, 'inaccessible-source']) {
     const events = [];
     let finishSwitch;
     const service = { pid: 2, exitCode: null, signalCode: null };
@@ -73,9 +73,12 @@ test('host-exit cleanup freezes handoff, awaits the backend and leaves installat
       readRecord: () => null,
       rmSync: () => {},
       token: 'synthetic',
-      releaseSource: () => events.push('source'),
-      releaseTarget: () => {},
-      releaseController: () => {},
+      releaseSource: () => {
+        events.push('source');
+        if (hostExited === 'inaccessible-source') throw new Error('EPERM');
+      },
+      releaseTarget: () => events.push('target'),
+      releaseController: () => events.push('controller'),
       console: { log: () => {}, error: () => {} },
     };
     const cleanup = runInNewContext(`${body}\ncleanup`, context);
@@ -87,9 +90,10 @@ test('host-exit cleanup freezes handoff, awaits the backend and leaves installat
     finishSwitch();
     await pending;
     assert.equal(events.includes('restore'), !hostExited);
-    assert.equal(events.includes('await-backend'), hostExited);
+    assert.equal(events.includes('await-backend'), Boolean(hostExited));
     if (hostExited) assert.ok(events.indexOf('shutdown') < events.indexOf('backend:25000'));
     assert.equal(events.filter((event) => event === 'source').length, 1);
+    assert.ok(events.includes('target') && events.includes('controller'));
   }
 });
 

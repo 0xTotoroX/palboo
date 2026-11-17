@@ -11,7 +11,7 @@ main → lifecycle/server；server → App；App → CDP/模型；panel 管理�
 
 panel::StartupPreferences 保存 restore/closed/open 与 inside/outside，旧配置默认 restore；save_appearance 仅保存下次启动意愿，不搬动现有窗口或影响生成修订。App::new 统一读取 panel/features/业务开关后应用一次启动状态，初始 View 使用同一有效偏好；重连和页面重载不重复应用。
 
-`performance.rs` 管理 config.performance 的独立偏好修订号与按需采样：默认集成开启、监测关闭；本机进程 CPU/物理内存使用 proc_pid_rusage，CPU 按缓存的系统 Mach 时间基准先换算纳秒，宿主指标通过短期计时租约读取；服务端至少4秒合并一次采样。`lifecycle.rs` 的普通 launch 在暂停时仅复用设置服务，不准备或重开宿主；`state.rs` 串行处理集成启停，关闭前保存内嵌草稿并确认脚本/导航注入清理，持久化暂停自动重连；清理或配置保存失败时由 `cdp::restore_desktop` 在原连接恢复模型/额度、binding 与工作台及其后续文档注入，不重复创建请求监听器，恢复失败则释放残缺连接并沿原意愿重连；后台设置、本地任务与独立提醒事项同步保留。`server.rs` 的认证 GET/POST /api/performance 提供读取/保存，GET ?sample=1 仅在监测开启时采样。`assets.rs` 按文件身份与修改时间复用 Arc 开发快照，文件替换后重新解析；release 不读取开发资源。
+`performance.rs` 管理 config.performance 的独立偏好修订号与按需采样：默认集成开启、监测关闭；本机进程 CPU/物理内存使用 proc_pid_rusage，CPU 按缓存的系统 Mach 时间基准先换算纳秒，宿主指标通过短期计时租约读取；服务端至少4秒合并一次采样。`lifecycle.rs` 的普通 launch 在暂停时仅复用设置服务，不准备或重开宿主；`state.rs` 串行处理集成启停，连接锁内复核实际目标与活动连接，自动/显式并发连接复用已就绪会话，关闭前保存内嵌草稿并确认脚本/导航注入清理，持久化暂停自动重连；清理或配置保存失败时由 `cdp::restore_desktop` 在原连接恢复模型/额度、binding 与工作台及其后续文档注入，不重复创建请求监听器，恢复失败则释放残缺连接并沿原意愿重连；后台设置、本地任务与独立提醒事项同步保留。`server.rs` 的认证 GET/POST /api/performance 提供读取/保存，GET ?sample=1 仅在监测开启时采样。`assets.rs` 按文件身份与修改时间复用 Arc 开发快照，文件替换后重新解析；release 不读取开发资源。
 
 ui/codex 是宿主识别和写入的唯一实现，经受限请求桥请求模型；后台仅保留连接与胶囊状态摘要。HTTP 不再提供独立的建议、导航或草稿写入链。
 
@@ -50,7 +50,7 @@ panel 的 settingsAccent 默认跟随宿主，独立保存来源及自定义 #RR
 - [host_lifetime.rs](host_lifetime.rs)：正式/开发后台以宿主原生 PID、微秒级启动时间和路径跟随退出；断连/暂停不等于退出，同端点新进程重新核验；跨配置恢复保留绑定，热更与来源交接不关闭兼容层。宿主真正退出且无替代时，直启会话等待原生身份匹配的 Palboo 协调子进程完成清理；旧链在官方启动/共享后台互斥内重验并正常关闭已关联 CodexHost，等待原监督进程，不强杀或清理外部实例。反馈只在原生宿主确已退出且无替代时开启，清理结果明确返回完成/失败/取消，供原生提示核对后台退出。
 - [host_launch.rs](host_launch.rs)：完整宿主 App 的 LaunchServices 启动与包路径识别；退出后应用记录尚未清理的 -600 最多尝试3次，间隔750/1500ms，等待前后核对唯一主进程；出现新实例即交由 lifecycle 核验连接，其他错误、身份不明和独立 profile 不重试，不退出新实例或绕过 App 启动。
 - [lifecycle.rs](lifecycle.rs)：CLI 进程管理层，负责复用服务和本地更新回滚；start/stop/status/doctor/launch/update 与 Runtime；完整 App 启动只复用路径及版本匹配的后台，移动/升级时正常停止同数据目录的旧后台，拒绝单文件 update 破坏 App 签名；Dev 齿轮与启动入口优先使用监督进程的稳定设置地址；launch 优先复用现有进程的调试连接，--restart-running 按 ask/force 策略确认正常退出或强制退出指定原生应用；等待退出后委托 host_launch 经 macOS LaunchServices 打开完整宿主 App，普通启动不新建第二实例，系统启动失败不回退直接执行内部程序，显式独立可执行文件仍按原方式启动；取消/超时不升级或循环重启；--host-only 只输出就绪端点，不启动后台或改写配置，供 Dev 共享启动策略。权限归属测试需图形登录会话，单独运行忽略的原生 fixture 用例，不访问受保护目录。
-- [startup.rs](startup.rs)：启动/关联退出固定阶段、时间和本进程 PID 的私有追加；认证启动器可绑定临时私有事件文件以跨后台复用/热更接续，校验目录归属、权限及符号链接；删除后失效，不把日志正文转入界面。
+- [startup.rs](startup.rs)：启动/关联退出固定阶段、时间和本进程 PID 的私有追加；认证启动器可绑定临时私有事件文件以跨后台复用/热更接续，校验目录归属、权限及符号链接；删除后失效，不把日志正文转入界面。 启动选择及后台绑定追加可选 release/development 模式，供原生提示和报告区分实际环境。
 - [notice_cache.rs](notice_cache.rs)：监听实际宿主外观与提示偏好，仅有变化时原子写入共享启动器的0600配色缓存；断开保留最后颜色，其他未连接环境不接管，不含聊天/令牌/业务配置。
 - [main.rs](main.rs)：独立可执行文件入口，区分后台和窗口子进程；palboo 命令分发与进程入口。
 - [model.rs](model.rs)：模型适配层，统一 CLI 与 API 请求和结构化结果、三种方向来源的共享生成、总超时及有序方向 ID 校验；隔离无关 Agent 配置时保留 Codex 的 openai_base_url 和已选供应商路由，仅在本次 CLI 参数中关闭主机 Skill 发现、终端快照、Hook、插件及 App 初始化，不修改外部配置或 CODEX_HOME；智谱官方端点按文本/视觉模型适配 JSON 模式、输出上限与思考参数，只解析完整的最终回答包装，其他服务商保留严格 schema；Model、ModelInfo、Suggestion 与生成/测试/模型查询。

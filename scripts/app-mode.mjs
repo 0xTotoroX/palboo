@@ -140,7 +140,6 @@ export async function developmentAction(root, action, connection) {
     return { ready: true };
   }
   if (action !== 'open') throw new Error('未知模式操作');
-  startupPhase('connecting');
   const revealed = await openDevelopment(root, { connection, cleanupOnFailure: true });
   const session = readJson(join(root, 'target/dev/session.json'));
   return {

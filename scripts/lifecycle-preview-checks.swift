@@ -69,6 +69,12 @@ extension LifecycleNotice {
                 motion.state = .on; beginLive(exiting: false)
                 liveSuccess(exiting: false) { [self] in
                     precondition(!panel.isVisible && completed == steps.count)
+                    for display in [1, 2] {
+                        displayPicker.selectItem(at: display); hide(); beginLive(exiting: false)
+                        var completedImmediately = false
+                        liveSuccess(exiting: false) { completedImmediately = true }
+                        precondition(completedImmediately && !panel.isVisible, "hidden notice delayed handoff")
+                    }
                     finish()
                 }
             }
@@ -146,12 +152,21 @@ extension LifecycleNotice {
         resetPosition(); precondition(pinnedTop == nil)
         for english in [false, true] {
             previewEnglish = english
+            for mode in [nil, "development", "release"] as [String?] {
+                runtimeMode = mode; render(animate: false)
+                precondition(modeLabel.isHidden == (mode != "development"))
+                precondition(modeLabel.attributedStringValue.size().width <= modeLabel.frame.width)
+                precondition(modeLabel.frame.maxY < rows[0].frame.minY && modeLabel.frame.minY >= heading.frame.maxY)
+                checks += 1
+            }
             for flow in [false, true] { reset(exiting: flow)
                 for step in 0...steps.count { completed = step; render(animate: false)
                     precondition(heading.attributedStringValue.size().width <= heading.frame.width, "heading overflow: \(heading.stringValue)")
                     for row in rows { precondition(row.text.attributedStringValue.size().width <= row.text.frame.width) }
                     checks += 1
                 }
+                completed = 2; failed = true; render(animate: false)
+                precondition(rows[2].duration.attributedStringValue.size().width <= rows[2].duration.frame.width)
             }
         }
         let report: [String: Any] = ["passed": true, "checks": checks, "hostThemeSync": true, "invalidThemeRetained": true, "themeChangeKeepsProgress": true, "borderless": true, "statusBar": true, "transparentBrand": true, "dragHitRegion": true, "dragPositionSurvivesPhases": true, "selectedEnergyStyle": true, "centeredOnHostScreen": true, "multiScreenGeometry": true, "noPopupModes": true, "perStepTimesOnly": true, "bilingualGeometry": true, "supportedDeployment": "macOS 14+", "fallbacksExercisedOnCurrentOS": ["frosted", "matte"], "olderOSRun": false, "screenshots": false, "applicationActions": false]

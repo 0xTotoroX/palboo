@@ -201,7 +201,7 @@ async function startService() {
         } catch {
           /* Older sources still use the connected-state handshake. */
         }
-        if (!paused) {
+        if (!paused && state.connection.status === 'disconnected') {
           if (!host.pinnedTarget) {
             const previousTarget = host.target.id;
             try {
@@ -617,10 +617,15 @@ async function cleanupDevelopment(hostExited) {
       console.error(`无法清理开发会话记录：${error.message}`);
     }
   }
-  releaseSource();
-  releaseTarget();
-  releaseController?.();
-  console.log(`[${new Date().toISOString()}] 开发会话已清理并退出。`);
+  // A source folder becoming inaccessible must not strand other owned leases.
+  for (const release of [releaseSource, releaseTarget, releaseController]) {
+    try {
+      release?.();
+    } catch (error) {
+      console.error(`无法清理开发归属记录，已保留供下次核验：${error.message}`);
+    }
+  }
+  console.log(`[${new Date().toISOString()}] 开发会话已退出。`);
 }
 for (const signal of ['SIGINT', 'SIGTERM'])
   process.once(signal, () => cleanup().then(() => process.exit(0)));

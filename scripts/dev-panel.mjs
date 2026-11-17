@@ -1,10 +1,10 @@
 /*
  * [INPUT]: 共享胶囊源码、esbuild 与现有 buildPanel。
- * [OUTPUT]: 原子发布开发资源快照，异步换装保留真实连接归属并拒绝迟到接管；区分 CSS、逻辑与页面引导版本、独立 Chat 大纲脚本修订；测量几何与实验后端耗时。
+ * [OUTPUT]: 按输入及产物摘要复用或原子发布开发资源快照，异步换装保留连接归属并拒绝迟到接管；区分 CSS、逻辑、页面及 Chat 大纲修订；测量几何与实验后端耗时。
  * [POS]: dev.mjs 的界面构建层；正式产物不加载开发快照。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
-import { build } from 'esbuild';
+import { build, version as esbuildVersion } from 'esbuild';
 import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync, writeFileSync, renameSync, existsSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
@@ -93,6 +93,31 @@ export async function buildDevPanel(root, output) {
   if (resolve(root) !== resolve(import.meta.dirname, '..') && existsSync(builder)) {
     const source = await import(pathToFileURL(builder).href);
     return source.buildDevPanel(root, output);
+  }
+  const cacheFingerprint = () =>
+    hash(
+      resolve(root) +
+        process.version +
+        esbuildVersion +
+        fingerprint(root, [
+          ...filesUnder(root, 'ui'),
+          ...['package.json', 'package-lock.json', 'tsconfig.json'].filter((file) =>
+            existsSync(join(root, file)),
+          ),
+        ]) +
+        readFileSync(new URL('./dev-panel.mjs', import.meta.url)) +
+        readFileSync(new URL('./build-panel.mjs', import.meta.url)),
+    );
+  const inputFingerprint = cacheFingerprint();
+  try {
+    const { buildCache, ...cached } = JSON.parse(readFileSync(output, 'utf8'));
+    if (
+      buildCache?.input === inputFingerprint &&
+      buildCache.output === hash(JSON.stringify(cached))
+    )
+      return { ...cached, buildCache };
+  } catch {
+    /* Missing or damaged snapshots rebuild without losing the last good output. */
   }
   const probe = `(${measurePanel.toString()})()`;
   const inputs = [
@@ -285,6 +310,8 @@ export async function buildDevPanel(root, output) {
       ),
   };
   const temporary = output + '.next';
+  if (cacheFingerprint() !== inputFingerprint) throw new Error('开发界面在构建时已变化，请重试。');
+  snapshot.buildCache = { input: inputFingerprint, output: hash(JSON.stringify(snapshot)) };
   writeFileSync(temporary, JSON.stringify(snapshot), { mode: 0o600 });
   renameSync(temporary, output);
   return snapshot;

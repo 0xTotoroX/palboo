@@ -599,6 +599,20 @@ try {
     );
     const publicState = (await api('state')).body;
     assert.equal(publicState.connection.status, 'connected');
+    const panelIdentity = await desktop.evaluate(() => window.__companionFloatingPanel.instanceId);
+    await Promise.all(
+      [1, 2].map(() =>
+        api('connect', {
+          endpoint: publicState.connection.endpoint,
+          targetId: publicState.connection.targetId,
+        }),
+      ),
+    );
+    assert.equal(
+      await desktop.evaluate(() => window.__companionFloatingPanel.instanceId),
+      panelIdentity,
+      'concurrent connects to the live target must reuse its existing panel',
+    );
     assert.equal(publicState.snapshot, undefined);
     assert.equal(publicState.desktop.hasAnswer, true);
     assert.equal(publicState.desktop.headings, (await panelState()).outline.length);

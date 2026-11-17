@@ -272,6 +272,14 @@ impl Prepared {
     }
 }
 pub fn clean_previous(record: &Value, app: &Path, kept: &Path) {
+    clean_previous_when(record, app, kept, running_from);
+}
+fn clean_previous_when(
+    record: &Value,
+    app: &Path,
+    kept: &Path,
+    in_use: impl Fn(&Path) -> Result<bool>,
+) {
     let clean = || -> Result<()> {
         ensure!(
             record["phase"] == "done" && record["app"].as_str() == app.to_str(),
@@ -307,11 +315,28 @@ pub fn clean_previous(record: &Value, app: &Path, kept: &Path) {
                 "备份目录包含其他内容"
             );
         }
+        ensure!(!in_use(previous)?, "旧 App 仍被进程使用，保留其系统身份");
         std::fs::remove_dir_all(parent)?;
         Ok(())
     };
     // 只清理被新备份替代且归属明确的上一轮副本；无法确认时保留。
     let _ = clean();
+}
+
+fn running_from(bundle: &Path) -> Result<bool> {
+    let bundle = bundle.canonicalize()?;
+    let processes = std::process::Command::new("/bin/ps")
+        .args(["-U", &unsafe { libc::getuid() }.to_string(), "-o", "pid="])
+        .output()?;
+    ensure!(processes.status.success(), "无法确认旧 App 的活动进程");
+    for pid in String::from_utf8(processes.stdout)?.split_whitespace() {
+        if let Some(process) = crate::host::ProcessIdentity::read(pid.parse()?)?
+            && process.executable.starts_with(&bundle)
+        {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 impl Drop for Prepared {
     fn drop(&mut self) {
@@ -379,10 +404,19 @@ mod tests {
         clean_previous(&record, &app, &backup);
         assert!(backup.exists(), "the current recovery copy must remain");
         std::fs::write(backup.parent().unwrap().join("keep"), "user file").unwrap();
-        clean_previous(&record, &app, &root.path().join("next"));
+        clean_previous_when(&record, &app, &root.path().join("next"), |_| Ok(false));
         assert!(backup.exists(), "unexpected sibling files block cleanup");
         std::fs::remove_file(backup.parent().unwrap().join("keep")).unwrap();
-        clean_previous(&record, &app, &root.path().join("next"));
+        clean_previous_when(&record, &app, &root.path().join("next"), |_| Ok(true));
+        assert!(backup.exists(), "a running launcher retains its image");
+        clean_previous_when(&record, &app, &root.path().join("next"), |_| {
+            anyhow::bail!("identity unavailable")
+        });
+        assert!(
+            backup.exists(),
+            "unknown process identity retains the previous App"
+        );
+        clean_previous_when(&record, &app, &root.path().join("next"), |_| Ok(false));
         assert!(!backup.exists());
         assert_eq!(std::fs::read_to_string(app.join("version")).unwrap(), "new");
     }
