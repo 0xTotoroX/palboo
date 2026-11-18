@@ -13,6 +13,24 @@ use std::{
     time::SystemTime,
 };
 
+// Lowercasing can expand one source character (e.g. İ). Map the matched byte
+// back to the original text, and only copy the excerpt for the requested page.
+fn search_snippet(source: &str, folded_offset: usize) -> String {
+    let mut folded_bytes = 0;
+    let position = source
+        .chars()
+        .take_while(|ch| {
+            folded_bytes += ch.to_lowercase().map(char::len_utf8).sum::<usize>();
+            folded_bytes <= folded_offset
+        })
+        .count();
+    source
+        .chars()
+        .skip(position.saturating_sub(35))
+        .take(150)
+        .collect()
+}
+
 #[derive(Clone)]
 struct Note {
     title: String,
@@ -284,36 +302,34 @@ impl Index {
                 } else {
                     2
                 };
-                // Snippet offsets use characters, not the lowercased UTF-8 byte offsets.
-                let chars: Vec<_> = note.text.chars().collect();
-                let position = words
-                    .first()
-                    .and_then(|w| text.find(w))
-                    .map(|p| text[..p].chars().count())
-                    .unwrap_or(0);
-                let snippet: String = chars
-                    .iter()
-                    .skip(position.saturating_sub(35))
-                    .take(150)
-                    .collect();
-                matches.push((rank, 0, id, snippet));
+                let hit = words.iter().find_map(|word| text.find(word)).unwrap_or(0);
+                matches.push((rank, 0, id, hit));
             }
         }
         for (id, document) in &self.documents {
             let title = document.title.to_lowercase();
             let name = format!("{title} {}", id.to_lowercase());
             if words.iter().all(|word| name.contains(word)) {
-                matches.push((
-                    usize::from(!title.starts_with(&query)),
-                    1,
-                    id,
-                    String::new(),
-                ));
+                matches.push((usize::from(!title.starts_with(&query)), 1, id, 0));
             }
         }
         // Match the catalog's stable title-first ordering used by instant search.
         matches.sort_by(|a, b| (a.0, a.1, a.2).cmp(&(b.0, b.1, b.2)));
-        json!({"total":matches.len(),"offset":offset,"results":matches.iter().skip(offset).take(50).map(|(_,_,id,snippet)|{let mut value=self.summary(id);value["snippet"]=json!(snippet);value}).collect::<Vec<_>>()})
+        let results: Vec<_> = matches
+            .iter()
+            .skip(offset)
+            .take(50)
+            .map(|(_, _, id, hit)| {
+                let mut result = self.summary(id);
+                result["snippet"] = json!(
+                    self.notes
+                        .get(*id)
+                        .map_or_else(String::new, |note| { search_snippet(&note.text, *hit) })
+                );
+                result
+            })
+            .collect();
+        json!({ "total": matches.len(), "offset": offset, "results": results })
     }
     pub fn resolve(&self, from: &str, raw: &str) -> Result<(Vec<String>, String)> {
         ensure!(self.notes.contains_key(from), "来源笔记已不存在，请刷新");

@@ -13,6 +13,7 @@ type Session = {
   composing: boolean;
   failure: string;
   conflict: boolean;
+  reloading: boolean;
 };
 const normalized = (text: string) => text.replace(/\r\n/g, '\n');
 export function useNoteEditor(onSave: (note: Note) => void) {
@@ -54,8 +55,10 @@ export function useNoteEditor(onSave: (note: Note) => void) {
       return session.current?.failure ? false : flush();
     }
     const edit = session.current;
-    if (!edit || edit.text === edit.saved) return true;
-    if (edit.composing || edit.conflict) return false;
+    if (!edit) return true;
+    if (edit.composing || edit.reloading) return false;
+    if (edit.text === edit.saved) return true;
+    if (edit.conflict) return false;
     const save = async () => {
       edit.failure = '';
       update();
@@ -107,6 +110,7 @@ export function useNoteEditor(onSave: (note: Note) => void) {
     text: session.current?.text || '',
     failure: session.current?.failure || '',
     conflict: session.current?.conflict || false,
+    reloading: session.current?.reloading || false,
     status: flight.current
       ? tr('正在保存…')
       : session.current?.failure
@@ -123,6 +127,7 @@ export function useNoteEditor(onSave: (note: Note) => void) {
         composing: false,
         failure: '',
         conflict: false,
+        reloading: false,
       };
       update();
     },
@@ -142,18 +147,23 @@ export function useNoteEditor(onSave: (note: Note) => void) {
     finish,
     async reload() {
       const edit = session.current;
-      if (!edit || !window.confirm(tr('重新读取会替换当前草稿。请先复制需要保留的内容。'))) return;
+      if (!edit || !edit.conflict || edit.reloading) return;
+      if (!window.confirm(tr('重新读取会替换当前草稿。请先复制需要保留的内容。'))) return;
+      const confirmed = edit.text;
+      edit.reloading = true;
+      update();
       try {
         const note = await read<Note>('note', { id: edit.id });
-        if (session.current !== edit) return;
+        if (session.current !== edit || edit.text !== confirmed || edit.composing) return;
         edit.text = edit.saved = normalized(note.markdown);
         edit.version = note.version;
         edit.failure = '';
         edit.conflict = false;
         savedCallback.current(note);
-        update();
       } catch (error) {
         edit.failure = (error as Error).message;
+      } finally {
+        edit.reloading = false;
         update();
       }
     },

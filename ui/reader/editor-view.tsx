@@ -9,6 +9,7 @@ export type NoteEditorState = {
   status: string;
   failure: string;
   conflict: boolean;
+  reloading?: boolean;
   change: (text: string) => void;
   compose: (composing: boolean) => void;
   finish: () => Promise<boolean>;
@@ -24,7 +25,9 @@ export function NoteEditor({ editor }: { editor: NoteEditorState }) {
         <span role="status" aria-live="polite">
           {editor.status}
         </span>
-        <button onClick={() => void editor.finish()}>{tr('完成编辑')}</button>
+        <button disabled={editor.reloading} onClick={() => void editor.finish()}>
+          {tr('完成编辑')}
+        </button>
       </div>
       {editor.failure && (
         <div className="reader-save-error" role="alert">
@@ -34,18 +37,27 @@ export function NoteEditor({ editor }: { editor: NoteEditorState }) {
               <button onClick={() => void editor.flush()}>{tr('重试保存')}</button>
             )}
             <button
-              onClick={() =>
-                void navigator.clipboard.writeText(editor.text).catch(() => {
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(editor.text);
+                  setCopyError('');
+                } catch {
                   input.current?.focus();
                   input.current?.select();
                   setCopyError(tr('请复制已选中的草稿'));
-                })
-              }
+                }
+              }}
             >
               {tr('复制草稿')}
             </button>
             {editor.conflict && (
-              <button onClick={() => void editor.reload()}>{tr('重新读取')}</button>
+              <button
+                disabled={editor.reloading}
+                aria-busy={editor.reloading}
+                onClick={() => void editor.reload()}
+              >
+                {tr(editor.reloading ? '正在读取…' : '重新读取')}
+              </button>
             )}
           </div>
           {copyError && <p role="status">{copyError}</p>}

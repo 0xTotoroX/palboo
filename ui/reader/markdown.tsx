@@ -10,7 +10,7 @@ import {
   type ComponentType,
   type ReactNode,
 } from 'react';
-import { SearchText } from './search';
+import { SearchText, searchPattern } from './search';
 import { NoteProperties } from './properties';
 import Markdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -165,35 +165,34 @@ export function obsidianMarkdown({
       }
     }
     walk(root);
-    const term = highlight.trim().toLocaleLowerCase();
-    if (!term) return;
-    function mark(node: Node) {
+    const pattern = searchPattern(highlight);
+    if (!pattern) return;
+    function mark(node: Node, pattern: RegExp) {
       if (['code', 'inlineCode', 'html'].includes(node.type) || !node.children) return;
       node.children = node.children.flatMap((child): Node[] => {
         if (child.type !== 'text' || !child.value) {
-          mark(child);
+          mark(child, pattern);
           return [child];
         }
         const parts: Node[] = [];
-        let start = 0,
-          index = child.value.toLocaleLowerCase().indexOf(term);
-        while (index >= 0) {
+        let start = 0;
+        for (const { 0: hit, index } of child.value.matchAll(pattern)) {
           parts.push(
             { type: 'text', value: child.value.slice(start, index) },
             {
               type: 'emphasis',
               data: { hName: 'mark', hProperties: { 'data-search-hit': true } },
-              children: [{ type: 'text', value: child.value.slice(index, index + term.length) }],
+              children: [{ type: 'text', value: hit }],
             },
           );
-          start = index + term.length;
-          index = child.value.toLocaleLowerCase().indexOf(term, start);
+          start = index + hit.length;
         }
+        if (!start) return [child];
         parts.push({ type: 'text', value: child.value.slice(start) });
         return parts;
       });
     }
-    mark(root);
+    mark(root, pattern);
   };
 }
 export function webUrl(value: string) {

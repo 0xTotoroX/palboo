@@ -401,19 +401,22 @@ test('unified search keyboard, search reveal, backlink destinations and active i
     () =>
       document.querySelector('.reader-toc a[aria-current="location"]')?.textContent === '最后一节',
   );
-  await page.getByRole('searchbox').fill('hiddenneedle');
+  await page.getByRole('searchbox').fill('项目 hiddenneedle');
   await page.locator('.reader-results button').click();
-  await page.locator('mark[data-search-hit]').waitFor();
+  await page.locator('mark[data-search-hit]').filter({ hasText: 'hiddenneedle' }).waitFor();
   assert.equal(await page.locator('.reader-pagination').count(), 0);
   assert.equal(
     await page.locator('details[data-callout="tip"]').evaluate((node) => node.open),
     true,
   );
   assert.equal(
-    await page.locator('[data-search-hit]').evaluate((node) => {
-      const box = node.getBoundingClientRect();
-      return box.top > 0 && box.bottom < innerHeight;
-    }),
+    await page
+      .locator('mark[data-search-hit]')
+      .filter({ hasText: 'hiddenneedle' })
+      .evaluate((node) => {
+        const box = node.getBoundingClientRect();
+        return box.top > 0 && box.bottom < innerHeight;
+      }),
     true,
   );
   await page.locator('.reader-main').evaluate((node) => {
@@ -431,7 +434,10 @@ test('unified search keyboard, search reveal, backlink destinations and active i
   await page.waitForFunction(() => document.querySelector('.reader-main').scrollTop === 1200);
   await page.getByRole('searchbox').fill('const value');
   await page.locator('.reader-results button').click();
-  await page.locator('code [data-search-hit]').waitFor();
+  assert.deepEqual(await page.locator('code [data-search-hit]').allTextContents(), [
+    'const',
+    'value',
+  ]);
   await page.getByRole('tab', { name: '反向链接' }).click();
   await page.locator('.reader-backlinks button').click();
   await page.locator('[data-backlink-hit]').waitFor();
@@ -623,6 +629,22 @@ test('back/forward restores scroll, survives reload, truncates branches and reta
   await page.route('**/api/save', (route) =>
     route.fulfill({ json: { ...notes[1], markdown: '# 保留的草稿', version: 'v3' } }),
   );
+  let releaseRead;
+  const held = new Promise((resolve) => {
+    releaseRead = resolve;
+  });
+  await page.route('**/api/note?*', async (route) => {
+    await held;
+    await route.fulfill({ json: notes[1] });
+  });
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: '重新读取', exact: true }).click();
+  assert.equal(await page.getByRole('button', { name: '正在读取…' }).isDisabled(), true);
+  await editor.fill('# 等待读取时继续输入');
+  releaseRead();
+  await page.getByRole('button', { name: '重新读取', exact: true }).waitFor();
+  assert.equal(await editor.inputValue(), '# 等待读取时继续输入');
+  await page.unroute('**/api/note?*');
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: '重新读取', exact: true }).click();
   await page.waitForFunction(() => !document.querySelector('.reader-save-error'));

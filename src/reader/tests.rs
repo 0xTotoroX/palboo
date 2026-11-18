@@ -57,6 +57,17 @@ impl Fixture {
     }
 }
 #[test]
+fn multiword_snippet_uses_the_body_hit_at_its_original_position() {
+    let f = Fixture::new();
+    let content = format!("{}needle{}", "İ".repeat(180), "尾".repeat(180));
+    std::fs::write(f.vault.join("project.md"), content).unwrap();
+    let page = f.index().search("project NEEDLE", 0);
+    let snippet = page["results"][0]["snippet"].as_str().unwrap();
+    assert!(snippet.starts_with(&format!("{}needle", "İ".repeat(35))));
+    assert_eq!(snippet.chars().count(), 150);
+}
+
+#[test]
 fn search_pages_match_instant_title_order_before_body_matches() {
     let f = Fixture::new();
     for n in 0..60 {
