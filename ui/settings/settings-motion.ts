@@ -26,6 +26,7 @@ export function useSettingsMotion(identity: string) {
   useLayoutEffect(() => {
     const root = document.documentElement;
     const header = document.querySelector<HTMLElement>('.settings-header');
+    const picker = document.querySelector<HTMLElement>('.settings-nav-trigger');
     const pointer = () => (root.dataset.settingsInput = 'pointer');
     const keyboard = () => {
       root.dataset.settingsInput = 'keyboard';
@@ -34,9 +35,11 @@ export function useSettingsMotion(identity: string) {
     const measure = () => {
       if (header)
         root.style.setProperty('--settings-sticky-offset', `${header.offsetHeight + 18}px`);
+      if (picker) root.style.setProperty('--settings-picker-height', `${picker.offsetHeight}px`);
     };
     const observer = new ResizeObserver(measure);
     if (header) observer.observe(header);
+    if (picker) observer.observe(picker);
     measure();
     window.addEventListener('pointerdown', pointer, true);
     window.addEventListener('keydown', keyboard, true);
@@ -46,6 +49,7 @@ export function useSettingsMotion(identity: string) {
       window.removeEventListener('keydown', keyboard, true);
       delete root.dataset.settingsInput;
       root.style.removeProperty('--settings-sticky-offset');
+      root.style.removeProperty('--settings-picker-height');
     };
   }, []);
   useLayoutEffect(() => {

@@ -224,6 +224,23 @@ return <div className="settings-app" ref={ref}>
 
     const search = page.locator('.settings-search-dialog');
     await page.getByRole('button', { name: '搜索设置', exact: true }).click();
+    const initialViewport = page.viewportSize();
+    await page.setViewportSize({ width: 360, height: 320 });
+    const field = search.getByRole('searchbox');
+    const fieldTop = (await field.boundingBox()).y;
+    await field.press('ArrowDown');
+    await page.keyboard.press('End');
+    assert.ok(await search.locator('ul').evaluate((list) => list.scrollTop > 0));
+    assert.equal(
+      (await field.boundingBox()).y,
+      fieldTop,
+      'the query stays visible at the end of a long list',
+    );
+    await field.focus();
+    await field.dispatchEvent('keydown', { key: 'Escape', isComposing: true });
+    await field.dispatchEvent('keydown', { key: 'ArrowDown', keyCode: 229 });
+    assert.ok(await field.evaluate((node) => node === document.activeElement));
+    await page.setViewportSize(initialViewport);
     await page.getByRole('searchbox', { name: '搜索设置' }).fill('草稿');
     await finishAnimations(search);
     await page.getByRole('button', { name: '关闭搜索', exact: true }).click();

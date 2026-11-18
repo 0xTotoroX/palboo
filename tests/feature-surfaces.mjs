@@ -88,11 +88,12 @@ export function featureSurfaceCases({ mode, createPopout, settle, output, bundle
           .click();
         await board.getByText('试点任务', { exact: true }).waitFor();
         await board.getByRole('button', { name: '搜索任务', exact: true }).click();
-        await board.getByPlaceholder('搜索任务…').fill('试点');
+        const taskSearch = (view) => view.getByRole('searchbox', { name: '搜索任务', exact: true });
+        await taskSearch(board).fill('试点');
         await page.getByLabel('功能显示位置', { exact: true }).selectOption('overlay');
         await page.waitForFunction(() => !document.querySelector('[data-palboo-dock]'));
         await board.getByText('试点任务', { exact: true }).waitFor();
-        assert.equal(await board.getByPlaceholder('搜索任务…').inputValue(), '试点');
+        assert.equal(await taskSearch(board).inputValue(), '试点');
         await board.getByRole('button', { name: '新建任务', exact: true }).first().click();
         await board.getByLabel('新任务标题', { exact: true }).fill('');
         await board.getByLabel('新任务标题', { exact: true }).press('Shift+O');
@@ -108,7 +109,7 @@ export function featureSurfaceCases({ mode, createPopout, settle, output, bundle
         }
         await page.getByLabel('显示功能', { exact: true }).selectOption('outline');
         await page.getByLabel('显示功能', { exact: true }).selectOption('board');
-        assert.equal(await board.getByPlaceholder('搜索任务…').inputValue(), '试点');
+        assert.equal(await taskSearch(board).inputValue(), '试点');
         await page.evaluate(async () => {
           Object.assign(window.workbenchFixture.settings, {
             enabled: false,
@@ -139,7 +140,7 @@ export function featureSurfaceCases({ mode, createPopout, settle, output, bundle
         const { page: desktop, projection } = await createPopout(page, true);
         const desktopBoard = desktop.locator('.csw-board-mount');
         await desktopBoard.getByText('试点任务', { exact: true }).waitFor();
-        assert.equal(await desktopBoard.getByPlaceholder('搜索任务…').inputValue(), '试点');
+        assert.equal(await taskSearch(desktopBoard).inputValue(), '试点');
         await desktop.evaluate(() =>
           window.__companionFloatingPanel.panelDisconnected('测试宿主断开'),
         );
@@ -157,7 +158,7 @@ export function featureSurfaceCases({ mode, createPopout, settle, output, bundle
         await desktop.waitForFunction(
           () => window.__companionFloatingPanel.state.taskView.stage === 'done',
         );
-        await desktopBoard.getByPlaceholder('搜索任务…').fill('任务');
+        await taskSearch(desktopBoard).fill('任务');
         const presentation = await desktop.evaluate(() =>
           window.__companionFloatingPanel.panelReadingState(),
         );
@@ -169,7 +170,7 @@ export function featureSurfaceCases({ mode, createPopout, settle, output, bundle
         assert.equal(presentation.taskView.search, '任务');
         await page.getByLabel('功能显示位置', { exact: true }).selectOption('sidebar');
         await board.getByText('试点任务', { exact: true }).waitFor();
-        assert.equal(await board.getByPlaceholder('搜索任务…').inputValue(), '任务');
+        assert.equal(await taskSearch(board).inputValue(), '任务');
         await settle(page);
         const state = await page.evaluate(() => window.workbenchFixture.taskState);
         assert.equal(state.store.tasks.length, 1);

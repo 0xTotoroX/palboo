@@ -151,9 +151,9 @@ function App() {
   const [hostEnablement, setHostEnablement] = useState<HTMLDivElement | null>(null);
   const [siteEnablement, setSiteEnablement] = useState<HTMLDivElement | null>(null);
   const contentRef = useSettingsMotion(page);
-  const tasks = useTasks(live);
   const common = page === 'features';
   const surfacesVisible = page === 'surfaces' || page === 'appearance';
+  const tasks = useTasks(live && (common || surfacesVisible || page === 'board'));
   useEffect(() => {
     setNotice((current) => (current.failed ? current : { text: '', failed: false }));
   }, [page]);

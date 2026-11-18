@@ -15,45 +15,64 @@ export function elementScale(element) {
  */
 export function bindSeparator(handle, axis, read, change, save, cancel) {
   handle.addEventListener('pointerdown', (event) => {
-    if (event.button !== 0) return;
+    if (event.button !== 0 || handle.dataset.resizing) return;
     event.preventDefault();
     handle.dataset.resizing = 'true';
     handle.setPointerCapture(event.pointerId);
     const direction = typeof axis === 'function' ? axis() : axis;
     const origin = direction === 'x' ? event.clientX : event.clientY;
     const value = read();
-    const move = (event) =>
-      change(
-        value,
-        ((direction === 'x' ? event.clientX : event.clientY) - origin) / (value.scale || 1),
-        true,
-      );
-    const finish = (event) => {
-      delete handle.dataset.resizing;
-      handle.removeEventListener('pointermove', move);
-      handle.removeEventListener('pointerup', finish);
-      handle.removeEventListener('lostpointercapture', finish);
-      window.removeEventListener('keydown', escape, true);
-      if (event.type === 'keydown') {
-        if (handle.hasPointerCapture(pointerId)) handle.releasePointerCapture(pointerId);
-        cancel(value);
-        return;
-      }
-      save?.(value, event.type === 'pointerup');
-    };
     const pointerId = event.pointerId;
-    const escape = (event) => {
-      if (event.key !== 'Escape') return;
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      finish(event);
+    const listeners = new AbortController();
+    const options = { signal: listeners.signal };
+    const finish = (dropped) => {
+      listeners.abort();
+      delete handle.dataset.resizing;
+      if (handle.hasPointerCapture(pointerId)) handle.releasePointerCapture(pointerId);
+      if (!dropped && cancel) cancel(value);
+      else save?.(value, dropped);
     };
-    handle.addEventListener('pointermove', move);
-    handle.addEventListener('pointerup', finish);
-    handle.addEventListener('lostpointercapture', finish);
-    if (cancel) window.addEventListener('keydown', escape, true);
+    handle.addEventListener(
+      'pointermove',
+      (move) => {
+        if (move.pointerId !== pointerId) return;
+        const position = direction === 'x' ? move.clientX : move.clientY;
+        change(value, (position - origin) / (value.scale || 1), true);
+      },
+      options,
+    );
+    const endPointer = (end) => {
+      if (end.pointerId !== pointerId) return;
+      if (
+        end.type === 'lostpointercapture' &&
+        handle.isConnected &&
+        !end.composedPath().includes(handle)
+      )
+        return;
+      finish(end.type === 'pointerup');
+    };
+    handle.addEventListener('pointerup', endPointer, options);
+    handle.addEventListener('pointercancel', endPointer, options);
+    // A disconnected capture target receives lostpointercapture on its document.
+    handle.ownerDocument.addEventListener('lostpointercapture', endPointer, {
+      ...options,
+      capture: true,
+    });
+    window.addEventListener('blur', () => finish(false), options);
+    if (cancel)
+      window.addEventListener(
+        'keydown',
+        (key) => {
+          if (key.key !== 'Escape') return;
+          key.preventDefault();
+          key.stopImmediatePropagation();
+          finish(false);
+        },
+        { ...options, capture: true },
+      );
   });
   handle.addEventListener('keydown', (event) => {
+    if (handle.dataset.resizing) return;
     const direction = typeof axis === 'function' ? axis() : axis;
     const delta = { ArrowLeft: -16, ArrowRight: 16, ArrowUp: -16, ArrowDown: 16 }[event.key];
     if (

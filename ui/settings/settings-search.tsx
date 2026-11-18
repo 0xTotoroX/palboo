@@ -51,6 +51,18 @@ const aliases: Record<string, string> = {
     return tr('连接到 Codex 暂停 恢复连接');
   },
 };
+function pageEntries(): Entry[] {
+  return pageGroups
+    .flatMap((group) => group.pages)
+    .filter((category) => category !== 'dev' || document.getElementById('buddy-dev-sources'))
+    .map((category) => ({
+      id: '',
+      label: pageTitles[category],
+      category,
+      context: '',
+      keywords: normalize(pageTitles[category]),
+    }));
+}
 function indexSettings(): Entry[] {
   const content = document.querySelector('.settings-content');
   if (!content) return [];
@@ -101,16 +113,6 @@ function indexSettings(): Entry[] {
       },
     ];
   });
-  const pages = pageGroups
-    .flatMap((group) => group.pages)
-    .filter((category) => category !== 'dev' || document.getElementById('buddy-dev-sources'))
-    .map((category) => ({
-      id: '',
-      label: pageTitles[category],
-      category,
-      context: '',
-      keywords: normalize(pageTitles[category]),
-    }));
   const details: Entry[] = [
     {
       id: 'settings-library',
@@ -127,11 +129,13 @@ function indexSettings(): Entry[] {
       keywords: tr('模型分组 厂家 分类'),
     },
   ];
-  return [...fields, ...pages, ...details].filter(
-    (entry, index, all) =>
-      all.findIndex((other) => other.category === entry.category && other.label === entry.label) ===
-      index,
-  );
+  const labels = new Set<string>();
+  return [...fields, ...pageEntries(), ...details].filter((entry) => {
+    const key = `${entry.category}:${entry.label}`;
+    if (labels.has(key)) return false;
+    labels.add(key);
+    return true;
+  });
 }
 function searchEntries(entries: Entry[], query: string) {
   const normalized = normalize(query);
@@ -151,7 +155,7 @@ export function SettingsSearch({
 }: {
   navigate: (page: SettingsPage, hash: string) => void;
 }) {
-  useLocale();
+  const locale = useLocale();
   const [query, setQuery] = useState('');
   const [entries, setEntries] = useState<Entry[]>([]);
   const [open, setOpen] = useState(false);
@@ -182,29 +186,15 @@ export function SettingsSearch({
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLUListElement>(null);
   useEffect(() => {
-    if (!query.trim()) {
-      setEntries([]);
-      return;
-    }
+    if (!open) return;
     const refresh = () => setEntries(indexSettings());
     refresh();
     const content = document.querySelector('.settings-content');
     const observer = new MutationObserver(refresh);
-    if (content) observer.observe(content, { childList: true, subtree: true });
+    if (content) observer.observe(content, { childList: true, characterData: true, subtree: true });
     return () => observer.disconnect();
-  }, [query]);
-  const results = query.trim()
-    ? searchEntries(entries, query)
-    : pageGroups
-        .flatMap((group) => group.pages)
-        .filter((category) => category !== 'dev' || document.getElementById('buddy-dev-sources'))
-        .map((category) => ({
-          id: '',
-          label: pageTitles[category],
-          category,
-          context: '',
-          keywords: '',
-        }));
+  }, [open, locale]);
+  const results = query.trim() ? searchEntries(entries, query) : pageEntries();
   function select(entry: Entry) {
     close();
     navigate(
@@ -262,13 +252,13 @@ export function SettingsSearch({
           <input
             ref={inputRef}
             type="search"
-            aria-keyshortcuts="Meta+K Control+K"
             aria-label={tr('搜索设置')}
             placeholder={tr('搜索设置')}
             value={query}
             aria-controls="settings-search-results"
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={(event) => {
+              if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
               if (event.key === 'Escape') {
                 close();
                 event.preventDefault();
@@ -277,15 +267,9 @@ export function SettingsSearch({
                 resultsRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
                 event.preventDefault();
               }
-              if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
-                // 快速输入后回车可能早于 effect 建立索引，按当前输入和已挂载控件重新匹配。
-                const first = event.currentTarget.value.trim()
-                  ? searchEntries(indexSettings(), event.currentTarget.value)[0]
-                  : results[0];
-                if (first) {
-                  select(first);
-                  event.preventDefault();
-                }
+              if (event.key === 'Enter' && results[0]) {
+                event.preventDefault();
+                select(results[0]);
               }
             }}
           />
@@ -293,49 +277,47 @@ export function SettingsSearch({
             <Icon name="close" />
           </button>
         </div>
-        {
-          <ul
-            id="settings-search-results"
-            aria-label={tr('设置搜索结果')}
-            ref={resultsRef}
-            onKeyDown={(event) => {
-              if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
-              const buttons = Array.from(event.currentTarget.querySelectorAll('button'));
-              const i = buttons.indexOf(document.activeElement as HTMLButtonElement);
-              const next =
-                event.key === 'Home'
-                  ? 0
-                  : event.key === 'End'
-                    ? buttons.length - 1
-                    : event.key === 'ArrowDown'
-                      ? (i + 1) % buttons.length
-                      : i - 1;
-              if (next < 0) inputRef.current?.focus();
-              else buttons[next]?.focus();
-              event.preventDefault();
-            }}
-          >
-            {results.map((entry) => (
-              <li key={`${entry.category}:${entry.id}`}>
-                <button type="button" onClick={() => select(entry)}>
-                  <span>{entry.label}</span>
-                  <small>
-                    {entry.label === pageTitles[entry.category]
-                      ? pageGroup(entry.category).title
-                      : [...new Set([pageTitles[entry.category], entry.context])]
-                          .filter((text) => text && text !== entry.label)
-                          .join(' · ')}
-                  </small>
-                </button>
-              </li>
-            ))}
-            {!results.length && (
-              <li className="settings-search-empty" role="status">
-                {tr('没有找到设置')}
-              </li>
-            )}
-          </ul>
-        }
+        <ul
+          id="settings-search-results"
+          aria-label={tr('设置搜索结果')}
+          ref={resultsRef}
+          onKeyDown={(event) => {
+            if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+            const buttons = Array.from(event.currentTarget.querySelectorAll('button'));
+            const i = buttons.indexOf(document.activeElement as HTMLButtonElement);
+            const next =
+              event.key === 'Home'
+                ? 0
+                : event.key === 'End'
+                  ? buttons.length - 1
+                  : event.key === 'ArrowDown'
+                    ? (i + 1) % buttons.length
+                    : i - 1;
+            if (next < 0) inputRef.current?.focus();
+            else buttons[next]?.focus();
+            event.preventDefault();
+          }}
+        >
+          {results.map((entry) => (
+            <li key={`${entry.category}:${entry.id}`}>
+              <button type="button" onClick={() => select(entry)}>
+                <span>{entry.label}</span>
+                <small>
+                  {entry.label === pageTitles[entry.category]
+                    ? pageGroup(entry.category).title
+                    : [...new Set([pageTitles[entry.category], entry.context])]
+                        .filter((text) => text && text !== entry.label)
+                        .join(' · ')}
+                </small>
+              </button>
+            </li>
+          ))}
+          {!results.length && (
+            <li className="settings-search-empty" role="status">
+              {tr('没有找到设置')}
+            </li>
+          )}
+        </ul>
       </dialog>
     </div>
   );

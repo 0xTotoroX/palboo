@@ -245,7 +245,7 @@ export function Checklist({
           className="task-list-add"
           onSubmit={(event) => {
             event.preventDefault();
-            if (busy || !title.trim()) return;
+            if (busy || finishing || composing || !title.trim()) return;
             void command({ op: 'create', fields: { ...emptyFields(), title: title.trim() } }).then(
               (result) => {
                 if (result) finishAdding();
@@ -278,11 +278,14 @@ export function Checklist({
               if (!title.trim() && !composing) dismissEmpty();
             }}
             onKeyDown={(event) => {
-              if (event.key === 'Escape' && !event.nativeEvent.isComposing) {
+              if (composing || event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) {
+                if (event.key === 'Enter') event.preventDefault();
+                return;
+              }
+              if (event.key === 'Escape') {
                 event.stopPropagation();
                 finishAdding();
               }
-              if (event.key === 'Enter' && event.nativeEvent.isComposing) event.preventDefault();
             }}
           />
         </form>

@@ -121,6 +121,11 @@ return <div className={'settings-app '+(dark?'dark':'')} style={{maxWidth:900,ma
       const preview = page.locator('.settings-preview');
       const board = preview.locator('[data-settings-feature=board]');
       await board.getByRole('button', { name: '准备发布', exact: true }).waitFor();
+      assert.equal(
+        await preview.locator('[data-preview-scene]').count(),
+        1,
+        'a dedicated page mounts only its first visible preview',
+      );
       assert.equal(await board.locator('.board-column').count(), 1);
       await page.getByLabel('看板视图', { exact: true }).selectOption('expanded');
       await board.locator('[data-view-mode=expanded]').waitFor();

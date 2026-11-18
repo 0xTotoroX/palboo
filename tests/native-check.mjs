@@ -150,6 +150,7 @@ const taskState = {
   store: {
     revision: 1,
     boardEnabled: true,
+    viewMode: 'expanded',
     syncEnabled: false,
     bindings: { todo: '', doing: '', waiting: '' },
     inflight: null,
@@ -255,8 +256,13 @@ function probePage() {
             const board = workbench?.querySelector('.csw-board-mount')?.shadowRoot;
             return board
               ? {
-                  text: board.textContent,
-                  narrow: !!board.querySelector('[aria-label="任务阶段"]'),
+                  titles: [...board.querySelectorAll('.card-title')].map(
+                    (node) => node.textContent,
+                  ),
+                  columns: [...board.querySelectorAll('.board-column')].map((node) => {
+                    const { x, y, width, height } = node.getBoundingClientRect();
+                    return { x, y, width, height };
+                  }),
                   search: board.querySelector('input[type="search"]')?.value,
                 }
               : null;
@@ -642,7 +648,7 @@ try {
     );
     const outline = telemetry.workbench.panes.outline;
     await command({ kind: 'feature', value: 'board' });
-    await waitFor(() => telemetry.board?.text.includes('原生试点任务'), 'native board missing');
+    await waitFor(() => telemetry.board?.titles.includes('原生试点任务'), 'native board missing');
     await command({ kind: 'board-stage' });
     await waitFor(
       () => taskState.store.tasks[0].fields.column === 'doing',
@@ -651,16 +657,24 @@ try {
     const sizes = [];
     for (const width of [940, 424]) {
       await command({ kind: 'viewport', width, height: 624 });
-      await waitFor(
-        () => telemetry.viewport[0] === width && telemetry.board?.narrow === width < 680,
-        'native board responsive layout',
-      );
+      await waitFor(() => {
+        const columns = telemetry.board?.columns || [];
+        if (telemetry.viewport[0] !== width || columns.length !== 3) return false;
+        return columns.every((column, i) => {
+          if (column.width <= 0 || column.height <= 0) return false;
+          if (i === 0) return true;
+          const previous = columns[i - 1];
+          return width < 680
+            ? column.x === previous.x && column.y >= previous.y + previous.height - 1
+            : column.y === previous.y && column.x >= previous.x + previous.width - 1;
+        });
+      }, 'native board responsive layout');
       const native = windows().find((w) => Math.abs(w.kCGWindowBounds.Width - width) <= 1);
       if (!native) throw Error('Native window and board viewport differ');
       sizes.push({
         viewport: telemetry.viewport,
         native: native.kCGWindowBounds,
-        narrow: telemetry.board.narrow,
+        columns: telemetry.board.columns,
       });
     }
     await command({ kind: 'feature', value: 'outline' });

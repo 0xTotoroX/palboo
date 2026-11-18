@@ -102,8 +102,7 @@ export function useTasks(poll = false, request: TaskRequest = localRequest) {
   const [busy, setBusy] = useState(false);
   const writing = useRef(false);
   const generation = useRef(0);
-  const reload = useCallback(async () => {
-    if (writing.current) return;
+  const readState = useCallback(async () => {
     const epoch = ++generation.current;
     try {
       const next = await request<TaskState>('tasks/state');
@@ -115,6 +114,9 @@ export function useTasks(poll = false, request: TaskRequest = localRequest) {
       if (epoch === generation.current) setReadError(errorMessage(e));
     }
   }, [request]);
+  const reload = useCallback(async () => {
+    if (!writing.current) await readState();
+  }, [readState]);
   useEffect(() => {
     void reload();
     window.addEventListener('focus', reload);
@@ -146,9 +148,10 @@ export function useTasks(poll = false, request: TaskRequest = localRequest) {
       setError(errorMessage(e));
       return null;
     } finally {
+      // The next edit needs the revision produced by this one.
+      await readState();
       writing.current = false;
       setBusy(false);
-      await reload();
     }
   }
   return { state, error: error || readError, busy, command, reload, setError };

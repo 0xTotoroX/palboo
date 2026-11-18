@@ -96,6 +96,16 @@ try {
     .getByRole('button', { name: '新建任务', exact: true })
     .click();
   await page.getByLabel('新任务标题', { exact: true }).fill('整理下一次发布');
+  const titleField = page.getByLabel('新任务标题', { exact: true });
+  await titleField.dispatchEvent('keydown', { key: 'Escape', isComposing: true });
+  assert.equal(await titleField.inputValue(), '整理下一次发布');
+  await titleField.press('Escape');
+  const addTask = page
+    .getByRole('region', { name: '待办', exact: true })
+    .getByRole('button', { name: '新建任务', exact: true });
+  assert.ok(await addTask.evaluate((button) => button === document.activeElement));
+  await addTask.press('Enter');
+  await titleField.fill('整理下一次发布');
   await command({ op: 'windowSize', size: [980, 680] });
   await page.getByRole('button', { name: '添加', exact: true }).click();
   await page.getByText('整理下一次发布', { exact: true }).waitFor();

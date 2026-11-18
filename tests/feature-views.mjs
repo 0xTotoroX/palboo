@@ -447,9 +447,12 @@ try {
   await closeOthers();
   assert.equal(await page.locator('#edge-panel > header [data-refresh="model"]').count(), 0);
   assert.equal(await view.getByRole('button', { name: '添加预设', exact: true }).innerText(), '');
+  // The open panel holds its footprint until collapse, even after closing the picker.
+  await page.keyboard.press('Escape');
   await page.waitForFunction(
     () => document.getElementById('edge-panel').getBoundingClientRect().height < 350,
   );
+  await page.getByLabel('展开功能面板').click();
   const compactModelHeight = await page
     .locator('#edge-panel')
     .evaluate((n) => n.getBoundingClientRect().height);
@@ -848,14 +851,16 @@ try {
     'search shares the feature tab row',
   );
   assert.equal(await board.locator('.board-footer').count(), 0, 'closed search reserves no footer');
-  await page.getByRole('button', { name: '搜索任务', exact: true }).click();
-  const searchBox = await board.getByRole('searchbox', { name: '搜索任务' }).boundingBox();
   const area = await board.locator('.board-app').boundingBox();
+  await page.getByRole('button', { name: '搜索任务', exact: true }).click();
+  const searchField = page.getByRole('searchbox', { name: '搜索任务', exact: true });
+  const searchBox = await searchField.boundingBox();
   assert.ok(
-    area.y + area.height - searchBox.y - searchBox.height <= 16,
-    'search field stays at the bottom',
+    Math.abs(searchBox.y + searchBox.height / 2 - tools.y - tools.height / 2) < 2,
+    'open search stays in the tab header',
   );
-  await board.getByRole('searchbox', { name: '搜索任务' }).fill('没有匹配任务');
+  assert.equal((await board.locator('.board-app').boundingBox()).y, area.y);
+  await searchField.fill('没有匹配任务');
   assert.equal(await board.getByText('隔离任务', { exact: true }).count(), 0);
   await page.getByRole('button', { name: '搜索任务', exact: true }).click();
   await board.getByText('隔离任务', { exact: true }).waitFor();

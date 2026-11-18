@@ -994,6 +994,24 @@ const cases = [
         near((grown.height - first.height) / zoom, 16, 'keyboard resize uses CSS pixels');
         await divider.press('ArrowUp');
         const handle = await divider.boundingBox();
+        await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+        await page.mouse.down();
+        await divider.dispatchEvent('pointermove', { pointerId: 97, clientY: handle.y + 80 });
+        await divider.dispatchEvent('pointerup', { pointerId: 97 });
+        assert.equal(await divider.getAttribute('data-resizing'), 'true');
+        near(
+          (await scope.locator('[data-pane="board"]').boundingBox()).height,
+          first.height,
+          'a second pointer does not resize the divider',
+        );
+        await page.mouse.move(handle.x + handle.width / 2, handle.y + 32);
+        await page.evaluate(() => window.dispatchEvent(new Event('blur')));
+        await page.mouse.up();
+        near(
+          (await scope.locator('[data-pane="board"]').boundingBox()).height,
+          first.height,
+          'interrupted drag restores the original split',
+        );
         const donor = await scope.locator('[data-pane="next"]').boundingBox();
         // Cross the reading minimum while leaving room above the merge gesture.
         const foldDistance = donor.height - 76 * zoom;

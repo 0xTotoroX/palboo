@@ -871,10 +871,16 @@ html:root .settings-nav {
   border-radius: 9px;
   box-shadow: var(--settings-menu-shadow);
 }
+.settings-search-dialog[open] {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
 .settings-search-dialog::backdrop {
   background: #0003;
 }
 .settings-search-dialog .settings-search-input {
+  flex: none;
   width: 100%;
 }
 .settings-search-dialog .settings-search-input > button {
@@ -889,6 +895,9 @@ html:root .settings-nav {
 }
 .settings-search-dialog ul {
   position: static;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   max-height: none;
   margin: 8px 0 0;
   padding: 0;
@@ -903,8 +912,9 @@ html:root .settings-nav {
   gap: 16px;
   padding: 10px;
 }
-.settings-search-dialog li button > span {
+.settings-search-dialog li :is(span, small) {
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 .settings-search-dialog li small {
   text-align: right;

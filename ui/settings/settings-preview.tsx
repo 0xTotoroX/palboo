@@ -37,25 +37,26 @@ type PreviewProps = {
   onAppearancePlacement?: (placement: string) => void;
 };
 
+const scenes = ['outline', 'next', 'prompts', 'board', 'model', 'bots'] as const;
+type Scene = (typeof scenes)[number];
+const pageScene: Partial<Record<SettingsPage, Scene>> = {
+  outline: 'outline',
+  next: 'next',
+  prompts: 'prompts',
+  board: 'board',
+  'model-control': 'model',
+  bots: 'bots',
+};
+
 function FeaturePreview({ form, tasks, model, bots, view, dirty, page }: PreviewProps) {
   useLocale();
-  const [tab, setTab] = useState<'outline' | 'next' | 'prompts' | 'board' | 'model' | 'bots'>(
-    'next',
-  );
-  const activeScene =
-    page === 'outline'
-      ? 'outline'
-      : page === 'prompts'
-        ? 'prompts'
-        : page === 'bots'
-          ? 'bots'
-          : page === 'board'
-            ? 'board'
-            : page === 'model-control'
-              ? 'model'
-              : page === 'next'
-                ? 'next'
-                : tab;
+  const [tab, setTab] = useState<Scene>('next');
+  const activeScene = pageScene[page] ?? tab;
+  // A dedicated page pays only for previews the user has opened. Keep visited
+  // scenes mounted so returning to one preserves its draft and reading position.
+  const [visited, setVisited] = useState<Scene[]>([activeScene]);
+  if (!visited.includes(activeScene)) setVisited([...visited, activeScene]);
+  const mountedScenes = page === 'features' ? scenes : visited;
   const transition = usePreviewTransition(activeScene);
   const enabled = {
     outline: form?.answerOutlineEnabled,
@@ -79,7 +80,7 @@ function FeaturePreview({ form, tasks, model, bots, view, dirty, page }: Preview
         hidden={page !== 'features'}
         data-settings-navigation
       >
-        {(['outline', 'next', 'prompts', 'board', 'model', 'bots'] as const).map((id) => (
+        {scenes.map((id) => (
           <button
             key={id}
             type="button"
@@ -91,7 +92,7 @@ function FeaturePreview({ form, tasks, model, bots, view, dirty, page }: Preview
         ))}
       </SegmentedGroup>
       <div className="preview-scenes" data-single-scene={page !== 'features'} ref={transition}>
-        {(['outline', 'next', 'prompts', 'board', 'model', 'bots'] as const).map((scene) => {
+        {mountedScenes.map((scene) => {
           const active = enabled[scene];
           return (
             <div
@@ -189,9 +190,7 @@ export function SettingsPreview(props: PreviewProps) {
           surfaceTypography={props.view?.panelPreferences.surfaceTypography}
           renderFeature={renderFeature}
         />
-      ) : ['features', 'outline', 'next', 'prompts', 'board', 'model-control', 'bots'].includes(
-          props.page,
-        ) ? (
+      ) : props.page === 'features' || pageScene[props.page] ? (
         <FeaturePreview {...props} />
       ) : null}
     </aside>

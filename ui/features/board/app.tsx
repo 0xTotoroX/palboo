@@ -77,6 +77,21 @@ export function Board({
     }
   }, [searchOpen]);
   const [quickAdd, setQuickAdd] = useState(view?.quickAdd ?? null);
+  const returnToColumn = useRef('');
+  useLayoutEffect(() => {
+    if (quickAdd || !returnToColumn.current) return;
+    const buttons = element.current?.querySelectorAll<HTMLButtonElement>('[data-add-column]');
+    Array.from(buttons || [])
+      .find((button) => button.dataset.addColumn === returnToColumn.current)
+      ?.focus({ preventScroll: true });
+    returnToColumn.current = '';
+  }, [quickAdd]);
+  function closeQuickAdd(column: string, form: HTMLFormElement) {
+    const active = (form.getRootNode() as Document | ShadowRoot).activeElement;
+    if (form.isConnected && (!active || active === document.body || form.contains(active)))
+      returnToColumn.current = column;
+    setQuickAdd(null);
+  }
   const [listAdding, setListAdding] = useState(
     !view?.searchOpen && (view?.listAdding ?? !!view?.quickAdd?.title),
   );
@@ -244,6 +259,8 @@ export function Board({
         className="quick-add"
         onSubmit={(event) => {
           event.preventDefault();
+          if (busy || !quickAdd.title.trim()) return;
+          const form = event.currentTarget;
           void command({
             op: 'create',
             fields: {
@@ -253,7 +270,7 @@ export function Board({
               completed: column === 'done',
             },
           }).then((ok) => {
-            if (ok) setQuickAdd(null);
+            if (ok) closeQuickAdd(column, form);
           });
         }}
       >
@@ -266,20 +283,34 @@ export function Board({
           disabled={busy}
           onChange={(e) => setQuickAdd({ column, title: e.target.value })}
           onKeyDown={(e) => {
-            if (e.key === 'Escape') setQuickAdd(null);
+            if (e.nativeEvent.isComposing || e.nativeEvent.keyCode === 229) {
+              if (e.key === 'Enter') e.preventDefault();
+              return;
+            }
+            if (e.key === 'Escape') {
+              e.preventDefault();
+              e.stopPropagation();
+              closeQuickAdd(column, e.currentTarget.form!);
+            }
           }}
         />
         <div>
           <button disabled={busy || !quickAdd.title.trim()} type="submit">
             {tr('添加')}
           </button>
-          <button disabled={busy} type="button" onClick={() => setQuickAdd(null)}>
+          <button
+            disabled={busy}
+            type="button"
+            onClick={(event) => closeQuickAdd(column, event.currentTarget.form!)}
+          >
             {tr('取消')}
           </button>
         </div>
       </form>
     ) : (
       <button
+        type="button"
+        data-add-column={column}
         className="add-task"
         disabled={busy}
         onClick={() => setQuickAdd({ column, title: '' })}

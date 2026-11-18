@@ -36,7 +36,9 @@
 @layer base {
   html {
     scroll-behavior: smooth;
-    scroll-padding-top: 0;
+    scroll-padding-top: calc(
+      var(--settings-sticky-offset, 0px) + var(--settings-picker-height, 0px)
+    );
   }
   :root {
     font-family:

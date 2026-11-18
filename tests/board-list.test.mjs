@@ -30,7 +30,7 @@ async function command(data){window.writes.push(structuredClone(data));if(window
  else throw Error('Unexpected task command');state.store.revision++;return snapshot();}
 const taskRequest=async(path,data)=>data?command(data):snapshot();
 function Settings(){const tasks=useTasks(true,taskRequest);return <TaskSettings tasks={tasks}/>;}createRoot(document.getElementById('settings')).render(<Settings/>);
-const request=async data=>{if(data.op==='read')return snapshot();if(data.op==='action')return command(data.data);if(data.op==='save')entry.view=structuredClone(data.view);return {};};
+const request=async data=>{if(data.op==='read'){if(window.holdBoardRead)await new Promise(r=>window.releaseBoardRead=r);return snapshot();}if(data.op==='action')return command(data.data);if(data.op==='save')entry.view=structuredClone(data.view);return {};};
 document.querySelector('nav button').innerHTML=iconSvg('feature-board');let mounted;window.measure=()=>mounted.measure();window.remount=nextView=>{mounted?.dispose();if(nextView)entry.view=structuredClone(nextView);document.querySelector('.csw-feature-content').innerHTML='<div id="mount" style="height:100%"></div>';mounted=mountFeature(document.getElementById('mount'),entry,'fixture',window.placement||'sidebar',request,()=>{});document.getElementById('actions').replaceChildren(mounted.headerActions);};
 window.language=language=>{state.appearance.language=language;setLocale(language);window.dispatchEvent(new Event('focus'));};window.remount();
 `,
@@ -107,6 +107,25 @@ test('board and list share task identity and saved layout through settings and r
   );
   assert.deepEqual(await page.evaluate(() => writes.map((w) => w.op)), ['view', 'view']);
 });
+test('task creation stays locked until the saved revision has returned', async (t) => {
+  const page = await fixture(t);
+  await page.getByRole('button', { name: '添加待办', exact: true }).click();
+  const input = page.getByRole('textbox', { name: '添加待办', exact: true });
+  await input.fill('等待最新版本');
+  await page.evaluate(() => {
+    window.holdBoardRead = true;
+  });
+  await input.press('Enter');
+  await page.waitForFunction(() => typeof window.releaseBoardRead === 'function');
+  assert.ok(await input.isDisabled(), 'a second creation cannot reuse the old revision');
+  await page.evaluate(() => {
+    window.holdBoardRead = false;
+    window.releaseBoardRead();
+  });
+  await page.getByRole('button', { name: '任务详情：等待最新版本' }).waitFor();
+  assert.equal(await page.evaluate(() => writes.filter((w) => w.op === 'create').length), 1);
+});
+
 test('completion waits for saving, hides with motion, and icon recovery preserves the original task', async (t) => {
   const page = await fixture(t, 'no-preference');
   const before = await page.evaluate(() =>

@@ -1553,7 +1553,16 @@ test(
       assert.equal(appearance.ui.fontSizes.outline, 17);
       assert.equal(tasks.store.syncEnabled, false);
 
-      await page.getByRole('button', { name: '返回设置', exact: true }).click();
+      const backFromLimits = page.getByRole('button', { name: '返回设置', exact: true });
+      assert.ok(
+        await backFromLimits.evaluate((button) => {
+          button.scrollIntoView({ block: 'start', behavior: 'instant' });
+          const { x, y, width, height } = button.getBoundingClientRect();
+          return button.contains(document.elementFromPoint(x + width / 2, y + height / 2));
+        }),
+        'compact sticky navigation leaves the scrolled detail control clickable',
+      );
+      await backFromLimits.click();
       // Previews consume existing saved snapshots; rejected saves never look successful.
       await page.setViewportSize({ width: 1360, height: 900 });
       await page.getByRole('link', { name: '布局与位置', exact: true }).click();
