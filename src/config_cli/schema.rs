@@ -319,7 +319,7 @@ pub(super) fn schema(scope: Scope) -> Value {
                 "settingsTarget":["plugin","web"]
             },
             "notes":{
-                "lifecyclePreview":"仅保存启停预览偏好；不接入真实启停，position 为0–1相对坐标",
+                "lifecyclePreview":"设置预览与原生启停提示共用显示偏好，position 为可移动范围内的 0–1 相对坐标",
                 "startup":"下次启动生效；mode 为 open 时使用 location，inside 沿用侧栏或浮层；只影响主界面，不改变贴边或业务开关",
                 "typography":"支持局部更新；scale 为 75–150%，customSize 为 10–32px",
                 "settingsAccent":"兼容旧配置；source/color不参与当前设置页样式，强调色只读跟随宿主并用于选中、开关与主要操作",

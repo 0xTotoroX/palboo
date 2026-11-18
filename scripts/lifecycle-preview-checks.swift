@@ -69,8 +69,16 @@ extension LifecycleNotice {
                 motion.state = .on; beginLive(exiting: false)
                 liveSuccess(exiting: false) { [self] in
                     precondition(!panel.isVisible && completed == steps.count)
+                    beginLive(exiting: true)
+                    var callbacks = 0
+                    liveSuccess(exiting: true) { callbacks += 1 }
+                    precondition(panel.isVisible && callbacks == 0)
+                    hide(); hide()
+                    precondition(!panel.isVisible && callbacks == 1, "manual dismissal must hand off exactly once")
                     for display in [1, 2] {
                         displayPicker.selectItem(at: display); hide(); beginLive(exiting: false)
+                        precondition(!panel.isVisible, "non-popup mode opened automatically")
+                        if display == 1 { show(); precondition(panel.isVisible) }
                         var completedImmediately = false
                         liveSuccess(exiting: false) { completedImmediately = true }
                         precondition(completedImmediately && !panel.isVisible, "hidden notice delayed handoff")
@@ -139,8 +147,12 @@ extension LifecycleNotice {
         displayPicker.selectItem(at: 0); placementPicker.selectItem(at: 0)
         reset(exiting: false); render(animate: false)
         precondition(content.hitTest(NSPoint(x: 100, y: 30)) === dragHeader)
-        let origin = panel.frame; panel.setFrameOrigin(NSPoint(x: origin.minX - 100, y: origin.minY - 80))
+        let origin = panel.frame
+        guard let screen = hostScreen() else { preconditionFailure("geometry checks require a visible screen") }
+        let bottom = screen.visibleFrame.minY + 8
+        panel.setFrameOrigin(NSPoint(x: origin.minX, y: bottom))
         rememberPosition(); let moved = panel.frame
+        restorePosition()
         for step in 0...steps.count { completed = step; render(animate: false)
             precondition(abs(panel.frame.minX - moved.minX) < 1)
             precondition(abs(panel.frame.maxY - moved.maxY) < 1)

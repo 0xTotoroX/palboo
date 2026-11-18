@@ -433,7 +433,7 @@ async function chooseLayout(page, action) {
 
 const cases = [
   [
-    'embedded presets use the shared menu and host settings through the full shell',
+    'embedded presets use the shared menu and host settings through the full shell; only overlay headers move the panel',
     async (page) => {
       await mode(page, true);
       await page.evaluate(() => {
@@ -561,6 +561,27 @@ const cases = [
           () =>
             document.querySelector('[data-window-menu]')?.getAttribute('aria-expanded') === 'false',
         );
+        const tabs = page.locator('.csw-feature-pane-head[data-menu-anchor] .csw-workbench-tabs');
+        const panel = page.locator('.csw-popover:visible');
+        const origin = await panel.boundingBox();
+        const strip = await tabs.boundingBox();
+        const x = strip.x + strip.width - 4;
+        const y = strip.y + strip.height / 2;
+        await page.mouse.move(x, y);
+        await page.mouse.down();
+        await page.mouse.move(x - 64, y, { steps: 4 });
+        const moved = await panel.boundingBox();
+        near(moved.x, origin.x - (placement === 'overlay' ? 64 : 0), 'dragging header space');
+        if (placement === 'overlay') {
+          await page.keyboard.press('Escape');
+          near((await panel.boundingBox()).x, origin.x, 'cancel restores the overlay');
+          await page.mouse.up();
+          await page.mouse.move(x, y);
+          await page.mouse.down();
+          await page.mouse.move(x - 64, y, { steps: 4 });
+        }
+        await page.mouse.up();
+        near((await panel.boundingBox()).x, moved.x, 'release preserves the panel position');
       }
       await trigger.click();
       await page.getByRole('menuitem', { name: '管理预设…', exact: true }).click();

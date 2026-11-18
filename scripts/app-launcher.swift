@@ -387,14 +387,12 @@ final class Launcher: NSObject, NSApplicationDelegate {
         else { begin() }
         return false
     }
-    private func finishDevelopment(attempt: Int = 0, requested: Bool = false) {
+    private func finishDevelopment(generation: Int, attempt: Int = 0, requested: Bool = false) {
+        guard notice.generation == generation, startupProgress?.exiting != true else { return }
         let targets = NSRunningApplication.runningApplications(withBundleIdentifier: "com.openai.codex")
         let target = developmentTarget.flatMap { NSRunningApplication(processIdentifier: $0) }
             ?? (developmentTarget == nil && targets.count == 1 ? targets.first : nil)
-        if let target, target.isActive {
-            notice.hide()
-            return
-        }
+        if target?.isActive == true { return }
         var didRequest = requested
         if let target, !requested {
             target.unhide()
@@ -404,7 +402,7 @@ final class Launcher: NSObject, NSApplicationDelegate {
         }
         if attempt < 40 {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                self.finishDevelopment(attempt: attempt + 1, requested: didRequest)
+                self.finishDevelopment(generation: generation, attempt: attempt + 1, requested: didRequest)
             }
             return
         }
@@ -413,7 +411,6 @@ final class Launcher: NSObject, NSApplicationDelegate {
             "display notification \"工作台已就绪，请手动切换到 Palboo 或 Codex。\" with title \"Palboo\"",
             "display notification \"The workspace is ready. Switch to Palboo or Codex to continue.\" with title \"Palboo\"")
         NSAppleScript(source: source)?.executeAndReturnError(nil)
-        notice.hide()
     }
 
 
@@ -464,7 +461,7 @@ final class Launcher: NSObject, NSApplicationDelegate {
                         #if LAUNCHER_UI_TEST
                         self.checkExitUI()
                         #else
-                        if launchedDevelopment { self.finishDevelopment() }
+                        if launchedDevelopment { self.finishDevelopment(generation: self.notice.generation) }
                         #endif
                     }
                 }

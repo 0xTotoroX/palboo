@@ -61,7 +61,7 @@ private let previewMessages: [String: String] = [
     "正在退出 Palboo": "Exiting Palboo",
     "正在启动 Palboo": "Starting Palboo",
     "兼容服务仍在退出": "Integration is still exiting",
-    "已同步 Palboo 设置 · 仅影响预览": "Synced with Palboo settings · preview only",
+    "已同步启停提示设置": "Lifecycle notice settings synced",
     "未连接 Palboo；当前选择仅用于临时预览": "Palboo is offline. Choices are temporary.",
     "正在保存预览设置…": "Saving preview settings…",
     "预览设置已保存": "Preview settings saved",
@@ -236,9 +236,11 @@ final class LifecycleNotice: NSObject, NSApplicationDelegate, NSWindowDelegate {
     let dragHeader = DragHeader(), saveStatus = NSTextField(labelWithString: ""), displayPicker = NSPopUpButton(), placementPicker = NSPopUpButton()
     var pinnedTop: NSPoint?, syncing = false, revision: Int = -1, preferenceTimer: Timer?, saving = false, loading = false
     var savedScreen: Int?, lastHostScreen: Int?
+    private var nextScreenSample: TimeInterval = 0
     var loadedPreferences: NSDictionary?
     var live = false, liveDataDirectory: URL?, liveTitle: String?, liveStepText: String?
     var retryAction: (() -> Void)?, detailsAction: (() -> Void)?
+    private var afterLiveDismissal: (() -> Void)?
     var cacheBytes: Data?
     var attachedRuntime: Data?, attaching = false, lastAttach = Date.distantPast
     let liveDetails = NSButton(), modeLabel = NSTextField(labelWithString: "")
@@ -324,7 +326,17 @@ final class LifecycleNotice: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if !live { loadPreferences() }
         preferenceTimer = Timer.scheduledTimer(withTimeInterval: 0.75, repeats: true) { [weak self] _ in
             guard let self else { return }; if live { loadCache() } else { loadPreferences() }
-            if panel.isVisible && placementPicker.indexOfSelectedItem == 0 && !dragHeader.dragging { position(size: reportedSize, animate: false) }
+            if placementPicker.indexOfSelectedItem == 0 && !dragHeader.dragging {
+                if panel.isVisible { position(size: reportedSize, animate: false) }
+                else if live && displayPicker.indexOfSelectedItem == 0 {
+                    // The host's windows are already gone when linked shutdown is reported.
+                    let now = ProcessInfo.processInfo.systemUptime
+                    if now >= nextScreenSample {
+                        nextScreenSample = now + 3
+                        if NSScreen.screens.count > 1 && Self.isHost(NSWorkspace.shared.frontmostApplication) { _ = hostScreen() }
+                    }
+                }
+            }
         }
         reset(exiting: false)
         if !live { completed = 2; timings = [0.6, 0.8] }
@@ -392,6 +404,7 @@ final class LifecycleNotice: NSObject, NSApplicationDelegate, NSWindowDelegate {
     @objc func changeAppearance() { makeSurface(); render(animate: false, rebuild: false) }
     func reset(exiting value: Bool) {
         generation += 1; ticker?.invalidate(); ticker = nil
+        afterLiveDismissal = nil
         dismissalTimer?.invalidate(); dismissalTimer = nil
         if let activity = playbackActivity { ProcessInfo.processInfo.endActivity(activity); playbackActivity = nil }
         exiting = value; steps = value ? exitSteps : startSteps; completed = 0; failed = false; timings = []
@@ -462,13 +475,14 @@ final class LifecycleNotice: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
     }
     func position(size: NSSize, animate: Bool) {
+        if placementPicker.indexOfSelectedItem == 1 && pinnedTop == nil { restorePosition() }
         if placementPicker.indexOfSelectedItem == 1, let point = pinnedTop {
-            let screen = NSScreen.screens.first { $0.frame.contains(point) } ?? NSScreen.main!
+            guard let screen = NSScreen.screens.first(where: { $0.frame.contains(point) }) ?? NSScreen.main else { return }
             let v = screen.visibleFrame
             panel.setFrame(NSRect(x: max(v.minX + 8, min(point.x, v.maxX - size.width - 8)), y: max(v.minY + 8, min(point.y, v.maxY - 8) - size.height), width: size.width, height: size.height), display: true)
             return
         }
-        guard let screen = hostScreen() else { return }
+        guard let screen = hostScreen(preferLast: live && exiting) else { return }
         let v = screen.visibleFrame
         let frame = NSRect(x: (v.midX - size.width / 2).rounded(), y: (v.midY - size.height / 2).rounded(), width: size.width, height: size.height)
         if panel.frame != frame { panel.setFrame(frame, display: true, animate: false) }
@@ -486,10 +500,16 @@ final class LifecycleNotice: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         return best
     }
-    func hostScreen() -> NSScreen? {
+    private static func isHost(_ app: NSRunningApplication?) -> Bool {
+        guard let bundle = app?.bundleIdentifier else { return false }
+        return bundle == "com.openai.chat" || bundle == "com.openai.codex"
+    }
+    func hostScreen(preferLast: Bool = false) -> NSScreen? {
         let screens = NSScreen.screens
         guard let primary = screens.first else { return nil }
-        let candidates = NSWorkspace.shared.runningApplications.filter { ["com.openai.chat", "com.openai.codex"].contains($0.bundleIdentifier ?? "") }
+        let lastScreen = screens.first { ($0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.intValue == lastHostScreen }
+        if preferLast, let lastScreen { return lastScreen }
+        let candidates = NSWorkspace.shared.runningApplications.filter { Self.isHost($0) }
         // Current ChatGPT builds also use the Codex bundle identity; prefer the named ChatGPT app.
         let chatGPT = candidates.filter { $0.bundleURL?.lastPathComponent.lowercased() == "chatgpt.app" }
         let hostPIDs = Set((chatGPT.isEmpty ? candidates : chatGPT).map { Int($0.processIdentifier) })
@@ -505,20 +525,26 @@ final class LifecycleNotice: NSObject, NSApplicationDelegate, NSWindowDelegate {
             lastHostScreen = (screens[index].deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.intValue
             return screens[index]
         }
-        return screens.first { ($0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.intValue == lastHostScreen } ?? panel.screen ?? NSScreen.main ?? primary
+        return lastScreen ?? NSScreen.main ?? primary
     }
 
     @objc func toggle() { panel.isVisible ? hide() : show() }
     @objc func show() { guard displayPicker.indexOfSelectedItem != 2 else { return }; position(size: reportedSize, animate: false); panel.alphaValue = 1; panel.orderFrontRegardless() }
-    @objc func hide() { panel.orderOut(nil) }
-    func dismiss(_ stamp: Int, after: @escaping () -> Void = {}) {
+    @objc func hide() {
+        dismissalTimer?.invalidate(); dismissalTimer = nil
+        if completed == steps.count, let activity = playbackActivity {
+            ProcessInfo.processInfo.endActivity(activity); playbackActivity = nil
+        }
+        panel.orderOut(nil); panel.alphaValue = 1
+        let after = afterLiveDismissal; afterLiveDismissal = nil
+        after?()
+    }
+    func dismiss(_ stamp: Int) {
         guard generation == stamp else { return }
         dismissalTimer?.invalidate(); dismissalTimer = nil
         let finish = { [weak self] in
             guard let self, generation == stamp else { return }
-            dismissalTimer = nil; hide(); panel.alphaValue = 1
-            if let activity = playbackActivity { ProcessInfo.processInfo.endActivity(activity); playbackActivity = nil }
-            after()
+            hide()
         }
         if reduce || !panel.isVisible { finish(); return }
         NSAnimationContext.runAnimationGroup { c in c.duration = 0.2; panel.animator().alphaValue = 0 }
@@ -576,6 +602,7 @@ final class LifecycleNotice: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func liveFailure(_ title: String) {
         guard !failed || liveTitle != title else { return }
         generation += 1; dismissalTimer?.invalidate(); dismissalTimer = nil
+        afterLiveDismissal = nil
         failed = true; liveTitle = title; liveStepText = nil; render()
         retryButton.isHidden = retryAction == nil
         retryButton.title = L("重试")
@@ -590,9 +617,10 @@ final class LifecycleNotice: NSObject, NSApplicationDelegate, NSWindowDelegate {
         failed = false; liveDetails.isHidden = true
         liveTitle = exiting ? L("Palboo 已完全退出") : L("Palboo 已就绪")
         liveStage(steps.count); let stamp = generation
-        if !panel.isVisible { dismiss(stamp, after: after); return }
+        afterLiveDismissal = after
+        if displayPicker.indexOfSelectedItem != 0 || !panel.isVisible { hide(); return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
-            guard let self, generation == stamp else { return }; dismiss(stamp, after: after)
+            guard let self, generation == stamp, afterLiveDismissal != nil else { return }; dismiss(stamp)
         }
     }
     func loadPreferences() {
@@ -674,14 +702,18 @@ final class LifecycleNotice: NSObject, NSApplicationDelegate, NSWindowDelegate {
         restorePosition(); statusItem.isVisible = displayPicker.indexOfSelectedItem != 2
         if displayPicker.indexOfSelectedItem != 0 { hide() }
         if !steps.isEmpty { changeAppearance() }
-        saveStatus.stringValue = L("已同步 Palboo 设置 · 仅影响预览")
+        saveStatus.stringValue = L("已同步启停提示设置")
         syncing = false
     }
     func restorePosition() {
-        guard placementPicker.indexOfSelectedItem == 1 else { pinnedTop = nil; return }
+        guard placementPicker.indexOfSelectedItem == 1, reportedSize != .zero else { pinnedTop = nil; return }
         let remembered = NSScreen.screens.first { ($0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.intValue == savedScreen }
         guard let v = (remembered ?? panel.screen ?? NSScreen.main)?.visibleFrame else { return }
-        pinnedTop = NSPoint(x: v.minX + 8 + max(0, v.width - 372) * preferencePosition.x, y: v.maxY - 8 - max(0, v.height - 340) * preferencePosition.y)
+        let travel = positionTravel(in: v, size: reportedSize)
+        pinnedTop = NSPoint(x: v.minX + 8 + travel.width * preferencePosition.x, y: v.maxY - 8 - travel.height * preferencePosition.y)
+    }
+    private func positionTravel(in area: NSRect, size: NSSize) -> NSSize {
+        NSSize(width: max(0, area.width - size.width - 16), height: max(0, area.height - size.height - 16))
     }
     func rememberPosition() {
         placementPicker.selectItem(at: 1)
@@ -689,7 +721,8 @@ final class LifecycleNotice: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if let screen = panel.screen {
             savedScreen = (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.intValue
             let v = screen.visibleFrame
-            preferencePosition = NSPoint(x: min(1, max(0, (panel.frame.minX - v.minX - 8) / max(1, v.width - 372))), y: min(1, max(0, (v.maxY - 8 - panel.frame.maxY) / max(1, v.height - 340))))
+            let travel = positionTravel(in: v, size: panel.frame.size)
+            preferencePosition = NSPoint(x: min(1, max(0, (panel.frame.minX - v.minX - 8) / max(1, travel.width))), y: min(1, max(0, (v.maxY - 8 - panel.frame.maxY) / max(1, travel.height))))
         }
         savePreferences()
     }

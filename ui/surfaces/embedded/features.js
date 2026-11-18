@@ -334,6 +334,7 @@ function renderState(next) {
   }
   const nextPrimary =
     next.mainPlacement || next.features.find((e) => e.placement !== 'edge')?.placement || 'sidebar';
+  if (nextPrimary !== primary) shellState.dragCleanup?.();
   if (nextPrimary !== primary && shellState.morphAnimation) {
     cancelMorphAnimations();
     shellState.popover.dataset.morphing = 'false';

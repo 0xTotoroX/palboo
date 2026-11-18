@@ -189,7 +189,7 @@ pub struct Preferences {
     pub position: Option<Position>,
     pub ui: Ui,
 }
-/// Saved design-preview choices only. The production launcher does not consume these.
+/// Shared display preferences for the native lifecycle notice and the settings preview.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase", deny_unknown_fields)]
 pub struct LifecyclePreviewPreferences {

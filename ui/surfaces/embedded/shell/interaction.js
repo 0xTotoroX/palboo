@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 胶囊 DOM、几何、外观与指针/键盘事件。
- * [OUTPUT]: 内嵌表情单击收放、双击切换窗口，左栏只为可执行的双击动作延迟单击；拖动、缩放与键盘操作。
+ * [OUTPUT]: 内嵌表情单击收放、双击切换窗口，左栏只为可执行的双击动作延迟单击；浮层标题空白处拖动与取消、缩放和键盘操作。
  * [POS]: 外壳交互层；效果在 effects，原生手势经 desktop/legacy/transport 转发。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -102,8 +102,9 @@ function dragTargetBlocked(target) {
   return Boolean(target.closest("button,a,input,textarea,select,[role='button']"));
 }
 
-function beginDrag(event, source) {
+function beginDrag(event, source, handle = event.currentTarget) {
   if (event.button !== 0 || shellState.morphAnimation || !shellState.position) return;
+  if (!IS_POPOUT && (shellState.layoutMode === 'workbench' || shellState.drag)) return;
   if (source === 'fab' && shellState.open) return;
   if (source === 'panel' && (!shellState.open || dragTargetBlocked(event.target))) return;
 
@@ -118,8 +119,6 @@ function beginDrag(event, source) {
     nativePanelDrag(event, source);
     return;
   }
-  shellState.dragCleanup?.();
-  const handle = event.currentTarget;
   const originLayout = shellState.layout || shellLayout();
   const drag = {
     pointerId: event.pointerId,
@@ -170,24 +169,45 @@ function beginDrag(event, source) {
     window.removeEventListener('pointermove', onPointerMove, true);
     window.removeEventListener('pointerup', onPointerEnd, true);
     window.removeEventListener('pointercancel', onPointerEnd, true);
+    window.removeEventListener('blur', cancel);
+    handle.removeEventListener('lostpointercapture', onPointerEnd);
     handle?.removeAttribute?.('data-dragging');
     try {
       handle?.releasePointerCapture?.(drag.pointerId);
     } catch {}
-    if (shellState.dragCleanup === cleanup) shellState.dragCleanup = null;
+    if (shellState.dragCleanup === cancel) shellState.dragCleanup = null;
+  };
+
+  const cancel = () => {
+    if (shellState.drag !== drag) return;
+    cleanup();
+    shellState.drag = null;
+    cancelFaceClick();
+    if (drag.moved) setPosition({ x: drag.originX, y: drag.originY });
+    syncEyeTracking();
   };
 
   const onPointerEnd = (endEvent) => {
     if (shellState.drag !== drag || endEvent.pointerId !== drag.pointerId) return;
+    if (endEvent.type === 'lostpointercapture' && endEvent.target !== handle) return;
+    if (endEvent.type !== 'pointerup') return cancel();
     cleanup();
-    if (endEvent.type === 'pointercancel') cancelFaceClick();
     if (!drag.moved) {
       shellState.drag = null;
       return;
     }
-    const snapped = snapRightIfNear(true, true);
+    snapRightIfNear(false, true);
+    const dropped = source === 'panel' ? shellLayout() : null;
     shellState.drag = null;
-    if (!snapped) persistPosition();
+    if (dropped && shellLayout().opensDown !== dropped.opensDown) {
+      // The anchor switches ends when an upward-opening panel is moved higher.
+      // Rebase it to the released rectangle before saving the new position.
+      setPosition({
+        x: shellState.position.x,
+        y: dropped.opensDown ? dropped.top + dropped.height - dropped.chip.height : dropped.top,
+      });
+    }
+    persistPosition();
     if (source === 'fab') {
       shellState.suppressFabClick = true;
       window.setTimeout(() => {
@@ -205,10 +225,12 @@ function beginDrag(event, source) {
     syncEyeTracking();
   };
 
-  shellState.dragCleanup = cleanup;
+  shellState.dragCleanup = cancel;
   window.addEventListener('pointermove', onPointerMove, { capture: true, passive: false });
   window.addEventListener('pointerup', onPointerEnd, true);
   window.addEventListener('pointercancel', onPointerEnd, true);
+  window.addEventListener('blur', cancel);
+  handle.addEventListener('lostpointercapture', onPointerEnd);
   if (source === 'panel' && !drag.startedOnHeadFace) event.preventDefault();
 }
 
@@ -217,6 +239,23 @@ function installPanelDrag() {
   if (head && head.dataset.dragBound !== '1') {
     head.dataset.dragBound = '1';
     head.addEventListener('pointerdown', (event) => beginDrag(event, 'panel'));
+  }
+  // The inline menu removes the legacy header box. Use the visible feature
+  // headers' empty space without taking over tabs, actions or editable content.
+  const panes = !IS_POPOUT && shellState.panel?.querySelector('.csw-feature-panes');
+  if (panes && panes.dataset.dragBound !== '1') {
+    panes.dataset.dragBound = '1';
+    panes.addEventListener('pointerdown', (event) => {
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        target.matches(
+          '.csw-feature-pane-head, .csw-workbench-tabs, .csw-feature-header-actions',
+        ) &&
+        target.closest('.csw-feature-pane-head')
+      )
+        beginDrag(event, 'panel', target);
+    });
   }
 }
 
@@ -625,6 +664,12 @@ function onGlassClick(event) {
 }
 
 function onKeyDown(event) {
+  if (event.key === 'Escape' && shellState.drag?.moved) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    shellState.dragCleanup?.();
+    return;
+  }
   // Shadow DOM retargets inputs to the mount; let the board own its keyboard.
   if (
     event
