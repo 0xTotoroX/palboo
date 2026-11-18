@@ -26,6 +26,7 @@ import { copyFileSync, symlinkSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import { build } from 'esbuild';
 import {
+  connectedHostReplacement,
   endpointUrl,
   hostSettingsDirectory,
   realTarget,
@@ -828,4 +829,21 @@ test('cold-started host replacing its initial page target updates the unpinned D
   };
   await assert.rejects(pauseInstallation(pinned, journal), /无法连接宿主调试窗口/);
   assert.equal(pinned.target.id, 'initial-window');
+});
+
+test('only adopts a backend-connected replacement after the previous Dev target disappears', async (t) => {
+  const replacement = { id: 'current', type: 'page', url: 'app://-/index.html' };
+  const previous = { ...replacement, id: 'previous' };
+  let targets = [previous, replacement];
+  const cdp = await server(t, (_, res) => res.end(JSON.stringify(targets)));
+  const host = { endpoint: cdp.origin, target: previous };
+  const connection = { status: 'connected', endpoint: cdp.origin, targetId: replacement.id };
+
+  assert.equal(await connectedHostReplacement(host, connection), null);
+  targets = [replacement];
+  assert.deepEqual(await connectedHostReplacement(host, connection), replacement);
+  assert.equal(await connectedHostReplacement({ ...host, pinnedTarget: true }, connection), null);
+  assert.equal(await connectedHostReplacement(host, { ...connection, endpoint: 'other' }), null);
+  targets = [{ ...replacement, url: 'app://-/index.html?initialRoute=settings' }];
+  assert.equal(await connectedHostReplacement(host, connection), null);
 });

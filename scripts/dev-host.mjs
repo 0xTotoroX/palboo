@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 独立开发配置、已安装配置与恢复记录、真实 Codex CDP 元数据与本机 API；显式端点不受无关保存地址的格式错误影响。
- * [OUTPUT]: 开发窗口身份绑定其保存端点，显式端点/目标优先；暂停时禁止准备或重开宿主；窗口选择、显式启用时使用开发配置（首次回退日常配置）委托共享宿主准备、开发配置初始化、未固定目标冷启动页面替换时重查实时宿主、安装版连接与贴边窗口暂停、按原位置恢复；新宿主已确认时归档失效旧目标或确认退出的安装版后台恢复记录，保留 API 错误原因；按调试端口定位宿主主进程，以 PID/启动时间/路径观察退出，不以断连代替进程退出。
+ * [OUTPUT]: 开发窗口身份绑定其保存端点，显式端点/目标优先；暂停时禁止准备或重开宿主；窗口选择、显式启用时使用开发配置（首次回退日常配置）委托共享宿主准备、开发配置初始化、未固定目标的页面替换核验、安装版连接与贴边窗口暂停、按原位置恢复；新宿主已确认时归档失效旧目标或确认退出的安装版后台恢复记录，保留 API 错误原因；按调试端口定位宿主主进程，以 PID/启动时间/路径观察退出，不以断连代替进程退出。
  * [POS]: 真实宿主开发边界；不启动浏览器、不记录聊天、不修改官方应用。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -425,6 +425,27 @@ export async function restoreInstallation(journal, replacement) {
     await requestRuntime(saved.runtime, 'panel/open', {});
   rmSync(journal, { force: true });
 }
+async function liveTargets(endpoint) {
+  const response = await fetch(endpoint + '/json/list', {
+    signal: AbortSignal.timeout(1500),
+  });
+  if (!response.ok) throw new Error('无法读取宿主窗口列表');
+  return response.json();
+}
+
+export async function connectedHostReplacement(host, connection) {
+  if (
+    host.pinnedTarget ||
+    connection.status !== 'connected' ||
+    connection.endpoint !== host.endpoint ||
+    connection.targetId === host.target.id
+  )
+    return null;
+  const targets = await liveTargets(endpointUrl(host.endpoint));
+  if (targets.some((target) => target.id === host.target.id)) return null;
+  return targets.find((target) => target.id === connection.targetId && realTarget(target)) ?? null;
+}
+
 export async function inspectLiveHost(host) {
   try {
     return await inspectHost(host.target);
@@ -438,11 +459,7 @@ export async function inspectLiveHost(host) {
     for (let i = 0; i < attempts; i++) {
       let targets;
       try {
-        const response = await fetch(endpoint + '/json/list', {
-          signal: AbortSignal.timeout(1500),
-        });
-        if (!response.ok) break;
-        targets = (await response.json()).filter(realTarget);
+        targets = (await liveTargets(endpoint)).filter(realTarget);
       } catch {
         break;
       }

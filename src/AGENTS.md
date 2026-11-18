@@ -44,7 +44,7 @@ panel 的 settingsAccent 默认跟随宿主，独立保存来源及自定义 #RR
 - [assets.rs](assets.rs)：正式内嵌与开发快照的资源边界；额外提供独立 Chat 大纲脚本及修订；只有 debug 程序接受显式 PALBOO_DEV_ASSETS，release 始终使用内嵌资源；debug 通过 PALBOO_DEV_SETTINGS 接收经验证的本机统一设置地址。
 
 - [chat_outline.rs](chat_outline.rs)：在已连接宿主端点独立监督官方 ChatGPT webview 的只读大纲；限定 HTTPS 官方来源，维护导航脚本和租约、开发资源修订及语言，暂停/失联/退出清理，不替换 Work 连接或安装请求绑定。
-- [cdp.rs](cdp.rs)：discover_all 只供独立 Chat 筛选复用，主连接发现仍排除 Chat webview；宿主连接基础层，被 state.rs 和 requests.rs 使用；目标发现与 Client 请求/事件/注入生命周期，内嵌共享胶囊，开发时以本进程随机标记核对实际注入对象，断线重连仅接续本进程残留，其他实例拒绝覆盖；正式模式保留旧接管语义，关闭/暂停只清理自有对象并取消等待 DOM 就绪的本实例注入；更新当前与导航后的脚本，将存活、显示同步和不含正文的状态摘要合并读取。
+- [cdp.rs](cdp.rs)：discover_all 供独立 Chat 筛选和超时后核验页面是否仍在，主连接发现仍排除 Chat webview；宿主连接基础层，被 state.rs 和 requests.rs 使用；目标发现与 Client 请求/事件/注入生命周期，内嵌共享胶囊，开发时以本进程随机标记核对实际注入对象，断线重连仅接续本进程残留，其他实例拒绝覆盖；正式模式保留旧接管语义，关闭/暂停只清理自有对象并取消等待 DOM 就绪的本实例注入；确认页面消失时只关闭传输；更新当前与导航后的脚本，将存活、显示同步和不含正文的状态摘要合并读取。
 - [config.rs](config.rs)：Rust 配置基础层，以 PALBOO_HOME 或 palboo 默认目录管理独立数据；Config、HostRestartPolicy（旧配置默认 ask）、Paths、默认参数及私有文件读写；Codex CLI 发现兼容新版包内 CodexCLI.app 与旧版资源路径，Finder 启动不依赖终端 PATH，显式配置仍优先。
 - [requests.rs](requests.rs)：renderer 与独立后台的受限操作边界，生成前后校验上下文；按 maxInputChars=0 传递完整最近一问一答，正数预算由 Exchange 优先保留用户问题并标记截断，生成请求豁免普通设置请求的字节上限；桌面请求分发、建议 items 转换及结果回送。
 - [host_lifetime.rs](host_lifetime.rs)：正式/开发后台以宿主原生 PID、微秒级启动时间和路径跟随退出；断连/暂停不等于退出，同端点新进程重新核验；跨配置恢复保留绑定，热更与来源交接不关闭兼容层。宿主真正退出且无替代时，直启会话等待原生身份匹配的 Palboo 协调子进程完成清理；旧链在官方启动/共享后台互斥内重验并正常关闭已关联 CodexHost，等待原监督进程，不强杀或清理外部实例。反馈只在原生宿主确已退出且无替代时开启，清理结果明确返回完成/失败/取消，供原生提示核对后台退出。
@@ -101,7 +101,7 @@ Config.codex_host 兼容旧 codexHost 键并保存启动更新策略，App.codex
 
 GET /api/codex-host/agents是独立按需只读投影，供兼容集成预览；不进入持久配置、模型选择命令或外部安装通道，不暴露聊天正文和输入内容。
 
-features.task_command承接原server看板命令协调：主界面已接管时，未登记看板的打开/启用进入共享容器；旧窗口草稿仍按原规则保护。restore_unregistered_main_features在feature_operation内只补缺失条目。模型preferences白名单加入modelOrder，继续校验owner、唯一ID及revision。state.handle_refresh_failure保留仍存活客户端上的Elapsed；Connection.status新增unresponsive，下一次正常refresh即恢复connected。
+features.task_command承接原server看板命令协调：主界面已接管时，未登记看板的打开/启用进入共享容器；旧窗口草稿仍按原规则保护。restore_unregistered_main_features在feature_operation内只补缺失条目。模型preferences白名单加入modelOrder，继续校验owner、唯一ID及revision。state.handle_refresh_failure遇到刷新超时会核验当前调试端点的页面列表；页面仍在或列表读取失败时保留会话并标记unresponsive，正常刷新后恢复connected；确认旧页面消失时释放旧连接，沿原目标选择策略重连。
 
 - `terminology.rs`：本机私有基础/个人词库、背景材质/液态变体/自定义色/宽度、默认关闭的 jumpOnClick 偏好及已掌握状态（兼容旧样式字段），认证命令、中文文档与个人范围导出；通过独立操作锁串行保存，损坏文件拒绝覆盖。
 - `terminology_lookup.rs`：验证宿主检索身份，独立模型识别原句、含义与领域，并批量核对同名词条的定义；术语请求独立保留至少8192 token输出预算，字段约束同时写入提示词及标准schema，缺失结果列表报错而非当作无术语；未命中时仅向固定公共百科发送带领域消歧的短检索词，摘录遵守1200字符限制、HTTP 200内的API错误不当作空结果；先核对原文证据，再生成释义与分类，异义词独立编号保存；已确认词条先通过受身份校验的 progress 送达，联网补充完成后继续追加，不等待整批结束；检索/词义核对/释义生成失败分阶段回传安全提示，单条非法释义不丢弃已确认结果；切换上下文或关闭功能拒绝迟到结果。

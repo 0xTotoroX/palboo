@@ -1,5 +1,5 @@
 // [INPUT]: CDP Client、Config、Model、主界面启动偏好与胶囊状态摘要。
-// [OUTPUT]: 独立 Chat 大纲连接/清理及只读来源偏好；App、View、连接与无正文胶囊状态、共享字体与设置界面外观快照；临时响应超时保留会话并恢复连接状态；退出信号取消模型请求，开发模式锁定启动窗口；暂停清理或配置保存失败时恢复完整注入，恢复失败则重建连接。
+// [OUTPUT]: 独立 Chat 大纲连接/清理及只读来源偏好；App、View、连接与无正文胶囊状态、共享字体与设置界面外观快照；临时响应超时保留会话，确认页面消失后按原选择策略重连；退出信号取消模型请求，开发模式锁定启动窗口；暂停清理或配置保存失败时恢复完整注入，恢复失败则重建连接。
 // [POS]: 持有独立 tasks 服务； 后台业务状态层，为 server、requests 与 panel 提供一致状态；独立维护模型控制条服务及窗口监督。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 
@@ -279,16 +279,30 @@ impl App {
     async fn handle_refresh_failure(&self, error: &anyhow::Error) {
         tracing::debug!(%error, "宿主状态刷新失败");
         if error.is::<tokio::time::error::Elapsed>()
-            && self
-                .desktop_client()
-                .await
-                .is_some_and(|client| !client.is_closed())
+            && let Some(client) = self.desktop_client().await
+            && !client.is_closed()
         {
-            self.update_connection(
-                "unresponsive",
-                "Codex 页面暂未响应，保留当前界面并等待恢复…",
-            );
-            return;
+            let connection = self.view().connection;
+            // The old WebSocket can remain open after the renderer replaces its page.
+            let target_gone = if let (Some(endpoint), Some(id)) = (
+                connection.endpoint.as_deref(),
+                connection.target_id.as_deref(),
+            ) {
+                crate::cdp::discover_all(endpoint)
+                    .await
+                    .is_ok_and(|targets| targets.iter().all(|target| target.id != id))
+            } else {
+                false
+            };
+            if target_gone {
+                client.mark_target_gone();
+            } else if !client.is_closed() {
+                self.update_connection(
+                    "unresponsive",
+                    "Codex 页面暂未响应，保留当前界面并等待恢复…",
+                );
+                return;
+            }
         }
         self.clear_connection("disconnected", "Codex 连接中断，正在重连…")
             .await;
@@ -1006,6 +1020,107 @@ mod connection_tests {
         assert!(app.desktop_client().await.is_none());
         assert_eq!(app.view().connection.status, "disconnected");
         assert!(app.view().connection.target_id.is_none());
+    }
+
+    #[tokio::test]
+    async fn response_timeout_releases_a_missing_target_without_waiting_for_cleanup() {
+        use std::sync::atomic::{AtomicU8, Ordering};
+
+        let discovery = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let endpoint = format!("http://{}", discovery.local_addr().unwrap());
+        let old_page = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let old_socket = format!("ws://{}", old_page.local_addr().unwrap());
+        let listing = Arc::new(AtomicU8::new(0));
+        let list = listing.clone();
+        let targets = axum::Router::new().route(
+            "/json/list",
+            axum::routing::get(move || async move {
+                let id = match list.load(Ordering::SeqCst) {
+                    0 => "old-page",
+                    1 => return Err(axum::http::StatusCode::SERVICE_UNAVAILABLE),
+                    _ => "replacement-page",
+                };
+                Ok(axum::Json(json!([{
+                    "id":id,"title":"Fixture","type":"page","url":"http://127.0.0.1/fixture",
+                    "webSocketDebuggerUrl":old_socket,
+                }])))
+            }),
+        );
+        let server = tokio::spawn(async move { axum::serve(discovery, targets).await.unwrap() });
+        let peer = tokio::spawn(async move {
+            let (stream, _) = old_page.accept().await.unwrap();
+            let mut socket = accept_async(stream).await.unwrap();
+            loop {
+                match socket.next().await.unwrap().unwrap() {
+                    Message::Text(text) => {
+                        let request: Value = serde_json::from_str(&text).unwrap();
+                        if request["params"]["expression"] == "unanswered status read" {
+                            continue;
+                        }
+                        let result = match request["method"].as_str().unwrap() {
+                            "Page.addScriptToEvaluateOnNewDocument" => json!({"identifier":"1"}),
+                            "Runtime.evaluate" => {
+                                assert!(
+                                    !request["params"]["expression"]
+                                        .as_str()
+                                        .unwrap()
+                                        .contains("pending?.delete(owner)")
+                                );
+                                json!({"result":{"value":true}})
+                            }
+                            "Page.removeScriptToEvaluateOnNewDocument" => {
+                                panic!("cleanup on vanished page")
+                            }
+                            _ => json!({}),
+                        };
+                        socket
+                            .send(Message::Text(
+                                json!({"id":request["id"],"result":result})
+                                    .to_string()
+                                    .into(),
+                            ))
+                            .await
+                            .unwrap();
+                    }
+                    Message::Close(_) => break,
+                    message => panic!("unexpected message: {message:?}"),
+                }
+            }
+        });
+        let temp = tempfile::tempdir().unwrap();
+        let app = App::new(
+            Paths::new(Some(temp.path().into())).unwrap(),
+            Config::default(),
+            None,
+            true,
+        );
+        app.connect(Some(endpoint), None).await.unwrap();
+        let old = app.desktop_client().await.unwrap();
+        let error = old
+            .evaluate_with_timeout("unanswered status read".into(), Duration::from_millis(30))
+            .await
+            .unwrap_err();
+        for state in [0, 1] {
+            listing.store(state, Ordering::SeqCst);
+            app.handle_refresh_failure(&error).await;
+            assert_eq!(app.view().connection.status, "unresponsive");
+            assert!(!old.is_closed());
+        }
+        listing.store(2, Ordering::SeqCst);
+        tokio::time::timeout(Duration::from_secs(1), app.handle_refresh_failure(&error))
+            .await
+            .unwrap();
+        assert!(old.is_closed());
+        assert!(app.desktop_client().await.is_none());
+        assert_eq!(app.view().connection.status, "disconnected");
+        assert!(app.view().connection.target_id.is_none());
+        assert!(app.desired.read().await.enabled);
+        assert!(app.desired.read().await.target_id.is_none());
+        tokio::time::timeout(Duration::from_secs(1), peer)
+            .await
+            .unwrap()
+            .unwrap();
+        server.abort();
     }
 
     #[tokio::test]

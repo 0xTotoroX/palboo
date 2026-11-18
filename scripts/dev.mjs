@@ -1,6 +1,6 @@
 /*
  * [INPUT]: Git worktrees、Rust/Node、来源选择器与独立开发数据目录。
- * [OUTPUT]: 设置页热更新、胶囊热加载及阅读器网页先构建后内嵌；宿主准备与内嵌资源跨进程共用内容及工具链验证后的程序缓存，冷启动目标替换时同步刷新租约与配置，Rust/内嵌资源编译成功后交接后台；显式 --restart-running 复用宿主准备，安全恢复失效租约，启动错误传回 App；App 会话按宿主身份冻结交接、等待后台关闭关联兼容层再退出；跨来源保留原启动归属。
+ * [OUTPUT]: 设置页热更新、胶囊热加载及阅读器网页先构建后内嵌；宿主准备与内嵌资源跨进程共用内容及工具链验证后的程序缓存，后台启动或交接时确认目标替换后同步刷新租约与配置；显式 --target 通过配置绑定后台；Rust/内嵌资源编译成功后交接后台；显式 --restart-running 复用宿主准备，安全恢复失效租约，启动错误传回 App；App 会话按宿主身份冻结交接、等待后台关闭关联兼容层再退出；跨来源保留原启动归属。
  * [POS]: 持久开发编排与统一设置入口；先绑定稳定地址供后台齿轮打开，各来源隔离 Vite 缓存；持有目标租约并串行交接 worktree，管理开发进程，显式启用时委托共享宿主启动策略，暂停并恢复安装版连接，不改写官方应用包。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -37,6 +37,7 @@ import {
   sourceSwitcher,
 } from './dev-sources.mjs';
 import {
+  connectedHostReplacement,
   findDevelopmentHost,
   hostSettingsDirectory,
   initializeData,
@@ -109,10 +110,11 @@ function context(path) {
 function useContext(value) {
   ({ root, directory, data, binary, snapshot, options, env } = value);
 }
-function syncHostTarget() {
-  const nextTarget = claimTarget(host, controllerRoot);
+function syncHostTarget(target = host.target) {
+  const nextTarget = claimTarget({ ...host, target }, controllerRoot);
   releaseTarget();
   releaseTarget = nextTarget;
+  host.target = target;
   initializeData(source, data, host);
 }
 const children = new Set();
@@ -172,7 +174,8 @@ async function startService() {
   const { openSync, closeSync } = await import('node:fs');
   const fd = openSync(log, 'a', 0o600);
   const args = ['--data-dir', data, 'serve', '--port', '0'];
-  if (host?.endpoint) args.push('--cdp', host.endpoint);
+  // --cdp overrides the configured target. An explicit --target is already saved by initializeData.
+  if (host?.endpoint && !host.pinnedTarget) args.push('--cdp', host.endpoint);
   service = spawn(binary, args, {
     ...options,
     stdio: ['ignore', fd, fd],
@@ -218,8 +221,12 @@ async function startService() {
       if (
         state.connection.endpoint !== host.endpoint ||
         state.connection.targetId !== host.target.id
-      )
-        throw new Error('开发后台连接了不同的宿主目标，停止此次交接。');
+      ) {
+        const replacement = await connectedHostReplacement(host, state.connection);
+        if (closing) throw new Error('开发模式退出中');
+        if (!replacement) throw new Error('开发后台连接了不同的宿主目标，停止此次交接。');
+        syncHostTarget(replacement);
+      }
       return true;
     },
     `真实 Codex 连接超时，请查看 ${log}`,
