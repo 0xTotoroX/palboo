@@ -376,7 +376,7 @@ test('collector projects only matching chat, never mounts UI or polls, and relea
   }
 });
 
-test('model speed follows chats, separates Fast and never attributes an old turn to a newly selected model', async () => {
+test('model speed follows chats, separates speed tiers and never attributes an old turn to a newly selected model', async () => {
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
   try {
@@ -446,6 +446,15 @@ test('model speed follows chats, separates Fast and never attributes an old turn
     );
     await choose('c', 'alpha', 'fast');
     assert.equal(await page.evaluate(() => window.__palbooTokenMeter.read('c').lastSpeed), fast);
+    await choose('c', 'alpha', 'ultrafast');
+    const beforeUltra = await page.evaluate(() => window.__palbooTokenMeter.read('c'));
+    assert.equal(beforeUltra.ultrafast, true);
+    assert.equal(beforeUltra.lastSpeed, null);
+    await reply('ultra', 'ultra fast reply in three chunks');
+    const ultra = await page.evaluate(() => window.__palbooTokenMeter.read('c').lastSpeed);
+    assert.ok(ultra > 0);
+    await choose('d', 'alpha', 'ultrafast');
+    assert.equal(await page.evaluate(() => window.__palbooTokenMeter.read('d').lastSpeed), ultra);
     await choose('d', 'beta');
     await page.evaluate(() => {
       window.notify('turn/started', { turnId: 'unread' });

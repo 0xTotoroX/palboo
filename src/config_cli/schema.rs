@@ -343,7 +343,7 @@ pub(super) fn schema(scope: Scope) -> Value {
         }),
         Scope::ModelControl => json!({
             "nestedFields":{"patch":keys(crate::model_control::Preferences::default()),"patch.presets[]":["id","name","selection","agent","catalogPin"],"patch.agentOrganizations.<agent>":["modelColumnWidth","pinned","modelOrder","groups","modelOverrides","groupOrder","expandedGroups"],"patch.presets[].selection":["model","reasoning","speed"],"patch.groups[]":["id","name"],"patch.modelOverrides.<model-id>":["manufacturer","groupId"]},
-            "choices":{"patch.presets[].selection.speed":["standard","fast"]},
+            "choices":{"patch.presets[].selection.speed":crate::model_control::Selection::SPEEDS},
             "notes":{"models":"实际模型/推理档来自 config get model-control 的 snapshot；未连接时可能为空，不使用示例名称代替真实模型 id","showUsage":"账号额度显示开关","collections":"pinned/pinnedAgents/modelOrder/groups/groupOrder/presets/expandedGroups 为完整列表；modelOverrides 与 agentOrganizations 为完整字典，非 Codex 的分组按 CLI 标识独立保存；删除常用、分组、预设需 --confirm"},
             "examples":[{"patch":{"showUsage":false,"modelColumnWidth":240}}],
         }),

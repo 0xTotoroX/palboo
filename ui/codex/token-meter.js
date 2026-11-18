@@ -34,7 +34,7 @@ export function installTokenMeter({
   const keyFor = (selection) =>
     typeof selection?.model === 'string' &&
     selection.model &&
-    ['standard', 'fast'].includes(selection.speed)
+    ['standard', 'fast', 'ultrafast'].includes(selection.speed)
       ? JSON.stringify([selection.model, selection.speed])
       : '';
   function retain() {
@@ -131,6 +131,7 @@ export function installTokenMeter({
         lastSpeed: rates.get(selectionKey) ?? null,
         model: target.selection?.model,
         fast: target.selection?.speed === 'fast',
+        ...(target.selection?.speed === 'ultrafast' ? { ultrafast: true } : {}),
         official: view.official,
         scope: view.scope,
         average: view.average,

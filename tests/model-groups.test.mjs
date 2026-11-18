@@ -713,19 +713,22 @@ test('preset names stay unique without merging repeated model selections', () =>
   assert.ok(suffixed.endsWith(' 2'));
 });
 
-test('Fast and standard names are numbered independently without rewriting saved suffixes', () => {
-  const presets = ['standard', 'fast', 'standard', 'fast'].map((speed, i) => ({
-    id: String(i),
-    name: 'GPT',
-    selection: { model: 'gpt', reasoning: 'high', speed },
-  }));
+test('speed tiers are numbered independently without rewriting saved preset suffixes', () => {
+  const presets = ['standard', 'fast', 'ultrafast', 'standard', 'fast', 'ultrafast'].map(
+    (speed, i) => ({
+      id: String(i),
+      name: 'GPT',
+      selection: { model: 'gpt', reasoning: 'high', speed },
+    }),
+  );
   const normalized = uniquePresetNames(presets);
   assert.deepEqual(
     normalized.map((p) => p.name),
-    ['GPT', 'GPT', 'GPT 2', 'GPT 2'],
+    ['GPT', 'GPT', 'GPT', 'GPT 2', 'GPT 2', 'GPT 2'],
   );
   assert.deepEqual(uniquePresetNames(normalized), normalized);
   assert.equal(uniquePresetName('GPT', normalized, 'fast'), 'GPT 3');
+  assert.equal(uniquePresetName('GPT', normalized, 'ultrafast'), 'GPT 3');
   assert.equal(uniquePresetName('GPT', presets.slice(0, 1), 'fast'), 'GPT');
   assert.deepEqual(
     normalized.map((p) => p.selection),
@@ -733,6 +736,109 @@ test('Fast and standard names are numbered independently without rewriting saved
   );
   assert.equal(uniquePresetNames([{ ...presets[1], name: 'GPT 2' }])[0].name, 'GPT 2');
 });
+
+test(
+  'Ultra Fast double-click issues one request and the original icon opens a keyboard-accessible menu',
+  { timeout: 15000 },
+  async () => {
+    const bundle = await build({
+      stdin: {
+        contents: `import React from 'react'; import {createRoot} from 'react-dom/client'; import {ModelView} from './ui/features/model/view';
+      const root = createRoot(document.getElementById('view')); const reading = {};
+      const state = {revision: 1, preferences: {enabled: true, pinned: ['sol'], presets: []}, snapshot: {target:{id:'chat'},revision:'v1',status:'ready',models:[{id:'sol',label:'Sol',reasoning:['low','high'],fast:true,ultrafast:true}],current:{model:'sol',reasoning:'high',speed:'standard'}}};
+      window.changeTarget = () => { state.snapshot.target = {id:'next'}; state.snapshot.revision = 'v2'; render(); };
+      window.calls = [];
+      function render() { root.render(<ModelView state={state} reading={reading} busy={false} action={async(data,kind)=>{
+        window.calls.push({data,kind}); if (kind === 'apply') state.snapshot.current={...data.selection}; else Object.assign(state.preferences,data.patch);
+        render(); return state;
+      }}/>); } render();`,
+        resolveDir: process.cwd(),
+        loader: 'tsx',
+      },
+      bundle: true,
+      write: false,
+    });
+    const browser = await chromium.launch({ headless: true });
+    try {
+      const page = await browser.newPage({
+        viewport: { width: 320, height: 235 },
+        reducedMotion: 'reduce',
+        locale: 'zh-CN',
+      });
+      page.setDefaultTimeout(3500);
+      const errors = [];
+      page.on('pageerror', (error) => errors.push(error.message));
+      const fixtureUrl = 'http://127.0.0.1:8421/';
+      await page.route(fixtureUrl, (route) =>
+        route.fulfill({
+          contentType: 'text/html',
+          body: '<div id="view" style="--paper:#191919;--ink:#eee;--muted:#aaa;--hover:#303030;--line:#444"></div>',
+        }),
+      );
+      await page.goto(fixtureUrl);
+      await page.addStyleTag({ content: readFileSync('ui/features/model/styles.css', 'utf8') });
+      await page.addScriptTag({ content: bundle.outputFiles[0].text });
+      const trigger = page.locator('.model-fast');
+      const speeds = () =>
+        page.evaluate(() =>
+          window.calls
+            .filter((call) => call.kind === 'apply')
+            .map((call) => call.data.selection.speed),
+        );
+      await trigger.dblclick();
+      await page.waitForFunction(
+        () => document.querySelector('.model-fast').dataset.tier === 'ultrafast',
+      );
+      assert.deepEqual(await speeds(), ['ultrafast']);
+      assert.equal(await trigger.locator('[data-icon="bolt-ultrafast"]').count(), 1);
+
+      const rowBefore = await page.locator('.model-row').boundingBox();
+      await trigger.click({ button: 'right' });
+      const menu = page.getByRole('menu');
+      assert.deepEqual(errors, []);
+      const { x, y, width, height } = await menu.boundingBox();
+      assert.ok(x >= 0 && y >= 0 && x + width <= 320 && y + height <= 235);
+      assert.deepEqual(await page.locator('.model-row').boundingBox(), rowBefore);
+      assert.equal(
+        await menu
+          .getByRole('menuitemradio', { checked: true })
+          .locator('[data-icon="check"]')
+          .count(),
+        1,
+      );
+      await page.keyboard.press('Escape');
+      await menu.waitFor({ state: 'hidden' });
+      assert.deepEqual(await speeds(), ['ultrafast']);
+
+      await trigger.click();
+      await page.waitForFunction(
+        () => document.querySelector('.model-fast').dataset.tier === 'standard',
+      );
+      await trigger.press('ArrowDown');
+      await menu.waitFor();
+      await page.keyboard.press('ArrowDown');
+      await page.keyboard.press('Enter');
+      await menu.waitFor({ state: 'hidden' });
+      assert.deepEqual(await speeds(), ['ultrafast', 'standard', 'fast']);
+      assert.equal(await trigger.getAttribute('data-tier'), 'fast');
+      await trigger.click();
+      await page.evaluate(() => window.changeTarget());
+      await page.waitForTimeout(360);
+      assert.deepEqual(await speeds(), ['ultrafast', 'standard', 'fast']);
+      await trigger.click({ button: 'right' });
+      await menu.getByRole('menuitemradio').last().click();
+      assert.deepEqual(await speeds(), ['ultrafast', 'standard', 'fast', 'ultrafast']);
+      await page.locator('.model-preset-add').click();
+      assert.equal(
+        await page.locator('.model-preset-choice [data-icon="bolt-ultrafast"]').count(),
+        1,
+      );
+      assert.deepEqual(errors, []);
+    } finally {
+      await browser.close();
+    }
+  },
+);
 
 test(
   'Fast click animates independently of divider drag and preserves model preferences',

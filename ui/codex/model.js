@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 官方 DOM 菜单/已提交模型控件状态、CodexHost 兼容适配、稳定聊天标记/新聊天输入区和关联的 model/list 消息；缺失目录时通过本机 electronBridge 只读补取，不依赖工作台锁定。
- * [OUTPUT]: window.__palbooModelControl 的异步 snapshot/apply/codexCatalog 和同步 presence/cancel/dispose/inputTarget/prepareHandoff，dispose同时回收独立额度读取；inputTarget只读当前唯一输入目标及新旧宿主按钮的模型/Fast选择，prepareHandoff只读提取跨CLI交接所需的当前会话上下文与草稿。
+ * [OUTPUT]: window.__palbooModelControl 的异步 snapshot/apply/codexCatalog 和同步 presence/cancel/dispose/inputTarget/prepareHandoff，dispose同时回收独立额度读取；inputTarget只读当前唯一输入目标及新旧宿主按钮的模型、推理与速度选择，prepareHandoff只读提取跨CLI交接所需的当前会话上下文与草稿。
  * [POS]: include_str / Page.addScriptToEvaluateOnNewDocument 可独立安装的宿主边界。
  * [PROTOCOL]: 父任务维护集成和地图；本文件不写 React、持久存储或发送模型生成请求。
  * snapshot(false) 不操作 DOM；目录缺失时合并、限频读取 model/list。refresh=true 显式重试目录并探测菜单、完整回读。target 无法确认时 id/title 为空。
@@ -39,7 +39,7 @@
     source.replace(/\{\{(\w+)\}\}/g, (match, key) => String(values[key] ?? match));
 
   const KEY = '__palbooModelControl';
-  const CAPABILITIES = Symbol.for('palboo.modelCapabilities');
+  const CAPABILITIES = Symbol.for('palboo.modelCapabilities.v2');
   window[KEY]?.dispose?.();
   const OWN =
     '[data-companion-stepwise-root],[data-palboo-dock],[data-codexpp-qmp-root],[data-palboo-prompt]';
@@ -130,6 +130,10 @@
     node.disabled ||
     node.getAttribute('aria-disabled') === 'true' ||
     node.hasAttribute('data-disabled');
+  const supportsSpeed = (model, speed) =>
+    speed === 'standard' ||
+    (speed === 'fast' && model.fast) ||
+    (speed === 'ultrafast' && model.ultrafast === true);
   function nodeKey(node) {
     if (!node) return 0;
     if (!nodeIds.has(node)) nodeIds.set(node, ++nodeSequence);
@@ -151,15 +155,18 @@
       ];
       if (!id || !label || !reasoning.length || seen.has(id)) continue;
       seen.add(id);
-      const fast = (Array.isArray(item.serviceTiers) ? item.serviceTiers : []).some((tier) => {
-        if (typeof tier === 'string') return /^(priority|fast)$/i.test(tier);
-        return (
-          String(tier?.id ?? tier?.key ?? tier?.value ?? tier?.tier ?? '').toLowerCase() ===
-            'priority' ||
-          String(tier?.name ?? tier?.displayName ?? tier?.label ?? '').toLowerCase() === 'fast'
-        );
-      });
-      result.push({ id, label, reasoning, fast });
+      const tiers = Array.isArray(item.serviceTiers) ? item.serviceTiers : [];
+      const key = (tier) =>
+        typeof tier === 'string'
+          ? tier
+          : (tier?.id ?? tier?.key ?? tier?.value ?? tier?.tier ?? '');
+      const fast = tiers.some(
+        (tier) =>
+          /^(priority|fast)$/i.test(key(tier)) ||
+          /^fast$/i.test(tier?.name ?? tier?.displayName ?? tier?.label ?? ''),
+      );
+      const ultrafast = tiers.some((tier) => /^ultrafast$/i.test(key(tier)));
+      result.push({ id, label, reasoning, fast, ...(ultrafast ? { ultrafast } : {}) });
     }
     return result;
   }
@@ -167,11 +174,11 @@
     const next = projectModels(records);
     // Keep only validated capabilities across adapter reloads in this document.
     // Current selection, request correlation and revisions belong to each instance.
-    document[CAPABILITIES] = next.map(({ id, label, reasoning, fast }) => ({
+    document[CAPABILITIES] = next.map(({ id, label, reasoning, fast, ultrafast }) => ({
       model: id,
       displayName: label,
       supportedReasoningEfforts: [...reasoning],
-      serviceTiers: fast ? ['priority'] : [],
+      serviceTiers: [...(fast ? ['priority'] : []), ...(ultrafast ? ['ultrafast'] : [])],
     }));
     if (JSON.stringify(next) !== JSON.stringify(models)) {
       models = next;
@@ -518,7 +525,7 @@
       ? JSON.stringify([
           text(target.trigger),
           target.trigger.querySelector(PICKER_PART.mode)?.outerHTML || '',
-          nativeMeterSelection(target.trigger) ?? null,
+          nativePickerSelection(target.trigger) ?? null,
           ...[...target.trigger.attributes]
             .map((a) => [a.name, a.value])
             .filter(([name]) => name.startsWith('data-selected-')),
@@ -599,6 +606,8 @@
     });
   }
   function currentSelection(target) {
+    const native = target?.trigger && nativePickerSelection(target.trigger);
+    if (native) return native;
     return cache &&
       sameTarget(cache.target, target) &&
       cache.stamp === triggerStamp(target) &&
@@ -865,12 +874,12 @@
         [model.id, model.label].some((name) => normalized(name) === normalized(value)),
       ),
     );
-  const speedValue = (value) =>
-    /^(?:fast|快速)(?:\s|$)/i.test(value)
-      ? 'fast'
-      : /^(?:standard|标准)(?:\s|$)/i.test(value)
-        ? 'standard'
-        : null;
+  const speedValue = (value) => {
+    if (/^(?:ultra[ -]?fast(?:\s|$)|超快)/i.test(value)) return 'ultrafast';
+    if (/^(?:fast(?:\s|$)|快速)/i.test(value)) return 'fast';
+    if (/^(?:standard(?:\s|$)|标准)/i.test(value)) return 'standard';
+    return null;
+  };
   function modelFromTrigger(trigger) {
     if (!trigger) return null;
     const candidates = [trigger, ...all(trigger, 'span')].filter(visible);
@@ -937,11 +946,13 @@
       );
     return candidates.length ? one(candidates) : undefined;
   }
-  function nativeMeterSelection(trigger) {
+  function nativePickerSelection(trigger) {
     const props = committedPickerProps(trigger);
     if (props == null) return props;
     const model = one(models.filter((model) => model.id === props.model));
-    if (!model || !Object.hasOwn(props, 'selectedServiceTier')) return null;
+    const reasoning = canonical(props.reasoningEffort);
+    if (!model?.reasoning.includes(reasoning) || !Object.hasOwn(props, 'selectedServiceTier'))
+      return null;
     const option = one(
       (Array.isArray(props.serviceTierOptions) ? props.serviceTierOptions : []).filter(
         (option) => option?.value === props.selectedServiceTier,
@@ -951,19 +962,21 @@
     const speed =
       props.selectedServiceTier === null && option.iconKind === null
         ? 'standard'
-        : props.selectedServiceTier === 'priority' && option.iconKind === 'fast' && model.fast
+        : props.selectedServiceTier === 'priority' && option.iconKind === 'fast'
           ? 'fast'
-          : null;
-    return speed ? { model: model.id, reasoning: canonical(props.reasoningEffort), speed } : null;
+          : props.selectedServiceTier === 'ultrafast' && option.iconKind === 'ultrafast'
+            ? 'ultrafast'
+            : null;
+    return speed && supportsSpeed(model, speed) ? { model: model.id, reasoning, speed } : null;
   }
-  // 只为测速读取已提交的选择；支持纯图标按钮，不探测菜单或升级为可写配置。
+  // 测速兼容纯图标按钮与旧 DOM。写入仍由官方菜单确认。
   function meterSelection(target) {
     const compatibility = window.__palbooHostCompatibility?.capability(target?.composer);
     if (compatibility?.externalModel) {
       return window.__palbooHostCompatibility?.readExternal?.(target?.composer)?.current || null;
     }
     if (compatibility?.officialModel === false) return null;
-    const native = nativeMeterSelection(target?.trigger);
+    const native = nativePickerSelection(target?.trigger);
     if (native !== undefined) return native;
     const cached = currentSelection(target);
     if (cached) return cached;
@@ -1040,21 +1053,19 @@
       throw new Error(tr('官方模型显示与选中状态不一致'));
     const speedRow = sectionRow(main, 'speed');
     const checked = readFastMode(main);
+    const native = nativePickerSelection(op.target.trigger);
     const speed = speedRow
       ? speedValue(rowValue(speedRow, 'speed'))
       : checked === 'true'
         ? 'fast'
         : checked === 'false'
           ? 'standard'
-          : model && !model.fast
-            ? 'standard'
-            : null;
-    if (
-      !model ||
-      !model.reasoning.includes(reasoning) ||
-      !speed ||
-      (speed === 'fast' && !model.fast)
-    )
+          : native?.model === model?.id && native?.reasoning === reasoning
+            ? native.speed
+            : model && !model.fast && !model.ultrafast
+              ? 'standard'
+              : null;
+    if (!model || !model.reasoning.includes(reasoning) || !speed || !supportsSpeed(model, speed))
       throw new Error(tr('官方完整配置无法精确回读'));
     return { model: model.id, reasoning, speed };
   }
@@ -1161,7 +1172,7 @@
     const before = new Set(menus());
     const previousItems = new Set(items(main));
     activate(op, row);
-    const menu = await waitFor(op, () => {
+    const read = () => {
       const id = row.getAttribute('aria-controls');
       const popup = one(
         menus().filter(
@@ -1182,7 +1193,11 @@
       )
         ? main
         : null;
-    });
+    };
+    // Native Radix submenu triggers accept the open key even when a synthetic click does not.
+    if (section === 'speed' && !read() && row.hasAttribute('data-radix-collection-item'))
+      pressKey(op, row, getComputedStyle(row).direction === 'rtl' ? 'ArrowLeft' : 'ArrowRight');
+    const menu = await waitFor(op, read);
     op.menus.add(menu);
     guard(op, main);
     guard(op, row);
@@ -1303,7 +1318,7 @@
   async function choose(op, section, wanted) {
     let main = section === 'model' ? await openMain(op) : await simpleMain(op);
     guard(op, main);
-    const checkbox = section === 'speed' && fastCheckbox(main);
+    const checkbox = section === 'speed' && !sectionRow(main, 'speed') && fastCheckbox(main);
     if (section === 'reasoning' && one(all(main, '[data-reasoning-slider]').filter(visible))) {
       // Default recommendation mode can couple slider steps to model changes.
       // Explicitly select this same model first, then use its supported effort range.
@@ -1314,6 +1329,7 @@
       }
       await chooseReasoningSlider(op, main, wanted);
     } else if (checkbox) {
+      if (wanted === 'ultrafast') throw new Error(tr('官方超快选项不可用'));
       const current = checkbox.getAttribute('aria-checked');
       if (!['true', 'false'].includes(current)) throw new Error(tr('官方速度状态未知'));
       if ((current === 'true') !== (wanted === 'fast')) {
@@ -1655,8 +1671,7 @@
     if (
       !model ||
       !model.reasoning.includes(selection?.reasoning) ||
-      !['standard', 'fast'].includes(selection?.speed) ||
-      (selection.speed === 'fast' && !model.fast)
+      !supportsSpeed(model, selection?.speed)
     )
       return result('invalid', tr('完整配置不受官方能力支持，未做任何修改'));
     op = begin();
@@ -1668,7 +1683,7 @@
       if (before.current && JSON.stringify(previous) !== JSON.stringify(before.current))
         throw new Error(tr('官方配置已变化，请刷新后重试'));
       if (request.preserveSpeed === true)
-        selection.speed = previous.speed === 'fast' && model.fast ? 'fast' : 'standard';
+        selection.speed = supportsSpeed(model, previous.speed) ? previous.speed : 'standard';
       let actual = previous;
       for (const section of ['model', 'reasoning', 'speed']) {
         guard(op);

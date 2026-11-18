@@ -15,6 +15,7 @@ import {
 import { createPortal } from 'react-dom';
 import { ModelHeading } from './heading';
 import { useFastMotion } from './fast-motion';
+import { ModelSpeedControl, ModelSpeedIcon } from './speed-control';
 import { useModelMotion } from './interaction-motion';
 import { iconSvg } from '../../shared/icons/index.js';
 import type { ModelPresetDraft, Reading } from '../../shared/features';
@@ -24,7 +25,10 @@ import {
   organizationPatch,
   orderedModelIds,
   uniquePresetName,
+  modelSpeedLabel,
+  supportsModelSpeed,
   type ModelState,
+  type ModelSpeed,
   type Selection,
 } from './catalog';
 export type { ModelState } from './catalog';
@@ -38,7 +42,15 @@ function estimateTextWidth(text: string) {
   return Math.ceil(width);
 }
 const presetLabel = (name: string, selection: Selection) =>
-  [name, label(selection.reasoning), selection.speed === 'fast' ? 'Fast' : '']
+  [
+    name,
+    label(selection.reasoning),
+    selection.speed === 'ultrafast'
+      ? modelSpeedLabel('ultrafast')
+      : selection.speed === 'fast'
+        ? 'Fast'
+        : '',
+  ]
     .filter(Boolean)
     .join(' · ');
 const icon = (name: string) => <span dangerouslySetInnerHTML={{ __html: iconSvg(name) }} />;
@@ -99,8 +111,7 @@ export function ModelView({
   }, [others]);
   const headings = useRef<HTMLDivElement>(null);
   const motion = useFastMotion();
-  const fastButton = motion.button,
-    discharge = motion.beam,
+  const discharge = motion.beam,
     dischargePath = motion.path;
   const stopDischarge = motion.stop;
   useEffect(() => {
@@ -162,10 +173,29 @@ export function ModelView({
     (preset) => preset.agent === currentAgent && !preset.catalogPin,
   );
   const currentModel = s.models.find((model) => model.id === s.current?.model);
-  const fastActive = !!currentModel?.fast && s.current?.speed === 'fast';
   const allowed = !!s.target && ['ready', 'waiting'].includes(s.status) && prefs.enabled;
   const apply = (selection: Selection, preserveSpeed = false) =>
     action({ target: s.target, expectedRevision: s.revision, selection, preserveSpeed }, 'apply');
+  const selectSpeed = async (speed: ModelSpeed) => {
+    if (
+      !allowed ||
+      busy ||
+      !s.current ||
+      speed === s.current.speed ||
+      !supportsModelSpeed(currentModel, speed)
+    )
+      return;
+    const charge = speed === 'fast' && s.current.speed === 'standard';
+    if (!charge) stopDischarge();
+    const request = apply({ ...s.current, speed });
+    if (charge)
+      await motion.start(
+        request.then(
+          (result) => (result as ModelState | null)?.snapshot?.current?.speed === 'fast',
+        ),
+      );
+    else await request;
+  };
   const applyAgent = async (agent: string) => {
     const result = await action({ target: s.target, expectedRevision: s.revision, agent }, 'apply');
     if ((result as ModelState | null)?.snapshot?.agent?.current === agent) {
@@ -232,7 +262,7 @@ export function ModelView({
         m.id === selection.model &&
         (m.reasoning.includes(selection.reasoning) ||
           (!m.reasoning.length && !selection.reasoning)) &&
-        (selection.speed !== 'fast' || m.fast),
+        supportsModelSpeed(m, selection.speed),
     );
   const modelOrder = orderedModelIds(s.models, prefs);
   const models = modelOrder.flatMap((id) => {
@@ -420,6 +450,7 @@ export function ModelView({
               m.reasoning.includes(reasoning) || (!m.reasoning.length && !reasoning);
             const selected =
               supported && s.current?.model === m.id && s.current.reasoning === reasoning;
+            const resetsSpeed = supported && s.current && !supportsModelSpeed(m, s.current.speed);
             return (
               <button
                 key={reasoning}
@@ -432,6 +463,8 @@ export function ModelView({
                 data-reasoning={reasoning}
                 data-choice-label={label(reasoning) || tr('选择')}
                 aria-pressed={selected}
+                aria-description={resetsSpeed ? tr('切换后使用标准速度') : undefined}
+                title={resetsSpeed ? tr('切换后使用标准速度') : undefined}
                 onClick={async (event) => {
                   const button = event.currentTarget;
                   const pointer = event.detail > 0;
@@ -483,7 +516,9 @@ export function ModelView({
         }
       }}
     >
-      {presetDraft.selection.speed === 'fast' && icon('bolt-filled')}
+      {['fast', 'ultrafast'].includes(presetDraft.selection.speed) && (
+        <ModelSpeedIcon speed={presetDraft.selection.speed} />
+      )}
       <input
         aria-label={tr('预设名称')}
         placeholder={tr('预设名称')}
@@ -609,46 +644,17 @@ export function ModelView({
                 widths={widths}
                 hidden={others}
               >
-                <button
-                  type="button"
-                  ref={fastButton}
-                  className="model-icon-button model-fast"
-                  aria-label="Fast"
-                  aria-pressed={fastActive}
-                  data-phase={motion.phase}
-                  data-filled={fastActive}
-                  style={{ left: nameWidth - 6 }}
+                <ModelSpeedControl
+                  model={currentModel}
+                  active={s.current?.speed}
+                  revision={s.revision}
+                  nameWidth={nameWidth}
                   disabled={
-                    busy || motion.phase !== 'idle' || !allowed || !s.current || !currentModel?.fast
+                    busy || motion.phase !== 'idle' || !allowed || !s.current || others || dragging
                   }
-                  onClick={async () => {
-                    if (!s.current) return;
-                    const enabling = s.current.speed !== 'fast';
-                    if (!enabling) stopDischarge();
-                    const request = apply({
-                      ...s.current,
-                      speed: enabling ? 'fast' : 'standard',
-                    });
-                    if (enabling) {
-                      await motion.start(
-                        request.then(
-                          (result) =>
-                            result !== null &&
-                            (result as ModelState | undefined)?.snapshot?.current?.speed !==
-                              'standard',
-                        ),
-                      );
-                    } else await request;
-                  }}
-                >
-                  {icon('bolt')}
-                  <span
-                    ref={motion.fill}
-                    className="model-fast-fill"
-                    aria-hidden="true"
-                    dangerouslySetInnerHTML={{ __html: iconSvg('bolt-filled') }}
-                  />
-                </button>
+                  motion={motion}
+                  select={selectSpeed}
+                />
                 <div
                   className="model-choices"
                   style={{
@@ -808,7 +814,9 @@ export function ModelView({
                         }
                       }}
                     >
-                      {p.selection.speed === 'fast' && icon('bolt-filled')}
+                      {['fast', 'ultrafast'].includes(p.selection.speed) && (
+                        <ModelSpeedIcon speed={p.selection.speed} />
+                      )}
                       <span>
                         {p.name}
                         {p.selection.reasoning && (

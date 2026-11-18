@@ -45,7 +45,10 @@ export function TokenMeterView({ snapshot }: { snapshot?: TokenMeterSnapshot | n
   const lines = [tr('速度为最近3秒可见回复的文本估算，不含隐藏思考和工具输出。')];
   if (retained)
     lines.push(tr('保留当前模型最近一次有效测速，可能来自其他聊天；新测速到达后更新。'));
-  if (snapshot.model) lines.push(`${snapshot.model}${snapshot.fast ? ' · Fast' : ''}`);
+  if (snapshot.model)
+    lines.push(
+      `${snapshot.model}${snapshot.ultrafast ? ` · ${tr('超快')}` : snapshot.fast ? ' · Fast' : ''}`,
+    );
   if (u) {
     lines.push(
       tr(

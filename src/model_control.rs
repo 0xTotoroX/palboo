@@ -112,11 +112,13 @@ impl Default for Preferences {
 }
 
 impl Selection {
+    pub(crate) const SPEEDS: [&'static str; 3] = ["standard", "fast", "ultrafast"];
+
     fn validate(&self) -> Result<()> {
         if self.model.is_empty()
             || self.model.len() > 256
             || self.reasoning.len() > 64
-            || !["standard", "fast"].contains(&self.speed.as_str())
+            || !Self::SPEEDS.contains(&self.speed.as_str())
         {
             bail!("模型配置无效");
         }

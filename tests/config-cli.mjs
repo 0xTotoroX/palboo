@@ -59,6 +59,11 @@ try {
   assert.ok(schemaFor('model-control').nestedFields.patch.includes('agentOrganizations'));
   assert.ok(schemaFor('model-control').nestedFields['patch.presets[]'].includes('agent'));
   assert.ok(schemaFor('model-control').nestedFields['patch.presets[]'].includes('catalogPin'));
+  assert.deepEqual(schemaFor('model-control').choices['patch.presets[].selection.speed'], [
+    'standard',
+    'fast',
+    'ultrafast',
+  ]);
   assert.ok(schemaFor('layout').operations.includes('edge-tabs'));
   assert.ok(schemaFor('terminology').operations.includes('reset-library'));
   const help = (await exec(binary, ['config', '--help'])).stdout;
@@ -291,6 +296,12 @@ try {
         id: 'fixture-preset',
         name: 'Fixture',
         selection: { model: 'fixture-model', reasoning: 'low', speed: 'standard' },
+      },
+      {
+        id: 'ultrafast-preset',
+        agent: 'codex',
+        name: 'Fixture',
+        selection: { model: 'fixture-model', reasoning: 'low', speed: 'ultrafast' },
       },
     ],
   };

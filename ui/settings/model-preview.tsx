@@ -7,7 +7,12 @@ import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 import { ModelView } from '../features/model/view';
 import { TokenMeterView } from '../features/token-meter/view';
-import type { Model, ModelState, Selection } from '../features/model/catalog';
+import {
+  supportsModelSpeed,
+  type Model,
+  type ModelState,
+  type Selection,
+} from '../features/model/catalog';
 import type { Reading } from '../shared/features';
 
 const fallback = (): Model[] =>
@@ -16,6 +21,7 @@ const fallback = (): Model[] =>
     label: tr('模型 {{id}}', { id }),
     reasoning: ['low', 'medium', 'high'],
     fast: true,
+    ultrafast: id === 'A',
   }));
 
 function Sample({
@@ -110,6 +116,7 @@ function Sample({
           const payload = data as {
             selection?: Selection;
             agent?: string;
+            preserveSpeed?: boolean;
             patch?: Partial<ModelState['preferences']>;
           };
           const next = structuredClone(current.current);
@@ -127,9 +134,16 @@ function Sample({
               locked: false,
             };
             next.snapshot.current = payload.selection ?? null;
-          } else if (action === 'apply' && payload.selection)
-            next.snapshot.current = payload.selection;
-          else if (action === 'preferences' && payload.patch)
+          } else if (action === 'apply' && payload.selection) {
+            const { current, models } = next.snapshot;
+            const model = models.find((entry) => entry.id === payload.selection?.model);
+            const preserve =
+              payload.preserveSpeed && current && supportsModelSpeed(model, current.speed);
+            next.snapshot.current = {
+              ...payload.selection,
+              speed: preserve ? current.speed : payload.selection.speed,
+            };
+          } else if (action === 'preferences' && payload.patch)
             Object.assign(next.preferences, payload.patch);
           else if (action !== 'refresh') return null;
           next.revision++;
@@ -179,7 +193,13 @@ export function ModelPreview({
       status: mode === 'current' ? (model?.snapshot?.status ?? 'waiting') : 'ready',
       message: mode === 'current' ? (model?.snapshot?.message ?? '') : '',
       ...(mode === 'current' && model?.snapshot.agent ? { agent: model.snapshot.agent } : {}),
-      models: models.map(({ id, label, reasoning, fast }) => ({ id, label, reasoning, fast })),
+      models: models.map(({ id, label, reasoning, fast, ultrafast }) => ({
+        id,
+        label,
+        reasoning,
+        fast,
+        ultrafast,
+      })),
       current:
         mode === 'current'
           ? (model?.snapshot?.current ?? null)

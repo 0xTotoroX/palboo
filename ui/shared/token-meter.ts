@@ -6,10 +6,11 @@ export interface TokenMeterSnapshot {
   threadId: string;
   phase: string;
   speed: number | null;
-  /** 当前模型及 Fast 模式最近一次有效测速，可来自其他聊天。 */
+  /** 当前模型及速度档位最近一次有效测速，可来自其他聊天。 */
   lastSpeed?: number | null;
   model?: string;
   fast?: boolean;
+  ultrafast?: boolean;
   official: {
     inputTokens: number;
     cachedInputTokens: number;

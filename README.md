@@ -22,7 +22,7 @@ Desktop windows use native macOS traffic-light controls and reuse the existing P
 | **Outline**               | Follow original headings, or use a few paragraph links when headings are absent. Local parsing, with no model calls.                    |
 | **Terminology**           | Explain terms in context; collect favorites and mark terms as mastered.                                                                 |
 | **Task board**            | Choose a board or simple checklist. Check off tasks to hide them with a strike-through animation, and restore them from completed history; board groups and drag-and-drop remain available.                                                        |
-| **Model switching**       | Switch Codex models, reasoning levels, and Fast mode; save presets and see available usage limits.                                      |
+| **Model switching**       | Switch Codex models, reasoning levels, and supported speeds, including Ultra Fast. Save presets and see available usage limits.         |
 | **Prompt enhancement**    | Refine a draft before sending, with the option to restore the original.                                                                 |
 | **Chat speed**            | Keep each model’s latest estimated speed across chats, labeled until a new reading arrives; inspect token usage when Codex provides it. |
 | **Grok Bot**              | Find your Bots and start a consultation in the current chat.                                                                            |
@@ -136,6 +136,7 @@ Export includes personal additions, favorites, and mastered terms. Reset deletes
 <summary>Models, Bots, and connections</summary>
 
 - **Model switching** controls the current Codex input target, independently of Stepwise's model. Models, reasoning levels, and usage limits come from Codex; only available capabilities are shown.
+- Click the lightning bolt to toggle Standard and Fast. On models that support Ultra Fast, double-click to enter it and click once to return to Standard. Right-click or press Down on the button to choose a speed.
 - With compatible CodexHost controls, Model switching can also select an external CLI and change its model and reasoning level. Choose reasoning levels on the first page. Open the four-dot catalog to switch CLIs and pin models in the matrix. Use the bookmark button to save the current configuration as a preset. After switching, the panel returns to the target CLI’s first page. Each CLI has its own matrix, presets, pins, and manufacturer groups. Switching CLIs from a locked chat saves the visible conversation to a private local Markdown file and prepares a draft in a new chat. Review and send it yourself.
 - With the existing Codex login selected, **System → Model service** uses the same available model catalog as quick switching. Reading the catalog leaves the chat’s model unchanged and works with quick switching disabled. Connection or catalog failures are shown and can be retried.
 - **Grok Bot** is optional and off by default. Copy the setup prompt from **Features → Grok Bot → Connect Grok Bot** to your Agent. BDK, MCP, and the Skill remain separately installed. The panel shortcut opens the Grok Bot app, including when profiles are stale. Consultations append to the composer without sending; closing the panel does not stop remote Bot work.

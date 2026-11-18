@@ -21,7 +21,17 @@ async function fixture(page, options = {}) {
   );
   if (options.early) await page.addInitScript({ content: source });
   await page.goto('http://model-host.test/c/chat-a');
-  await page.evaluate(installModelControlFixture, { records, options });
+  const catalog = options.ultraSpeed
+    ? records.map((record) =>
+        record.model === 'alpha'
+          ? {
+              ...record,
+              serviceTiers: [...record.serviceTiers, { id: 'ultrafast', name: 'Ultrafast' }],
+            }
+          : record,
+      )
+    : records;
+  await page.evaluate(installModelControlFixture, { records: catalog, options });
   if (!options.early) await page.addScriptTag({ content: source });
   if (!options.noCapabilities && !options.inherited) await page.evaluate(() => capability());
 }
@@ -61,6 +71,42 @@ async function check(name, test, options) {
   }
 }
 try {
+  for (const speedLabels of [undefined, { standard: '标准', fast: '快速', ultrafast: '超快' }]) {
+    await check(
+      `Ultra Fast uses the official ${speedLabels ? 'Chinese' : 'English'} speed flyout`,
+      async (page) => {
+        assert.equal((await snapshot(page, true)).current.speed, 'standard');
+        const before = await snapshot(page);
+        assert.equal(before.models.find((model) => model.id === 'alpha').ultrafast, true);
+        assert.equal(before.models.find((model) => model.id === 'beta').ultrafast, undefined);
+        const ultra = { ...before.current, speed: 'ultrafast' };
+        const unsupported = await apply(page, { ...targetBeta, speed: 'ultrafast' });
+        assert.equal(unsupported.status, 'failed');
+        assert.equal(await page.evaluate(() => host.changes.length), 0);
+        const selected = await apply(page, ultra);
+        assert.equal(selected.status, 'success', selected.message);
+        assert.deepEqual(selected.snapshot.current, ultra);
+        assert.deepEqual(await page.evaluate(() => host.changes.map((change) => change.speed)), [
+          'ultrafast',
+        ]);
+        const standard = await apply(page, { ...ultra, speed: 'standard' });
+        assert.equal(standard.status, 'success', standard.message);
+        assert.equal(standard.snapshot.current.speed, 'standard');
+        assert.equal((await apply(page, ultra)).status, 'success');
+        const kept = await apply(
+          page,
+          { ...ultra, reasoning: 'high', speed: 'standard' },
+          { preserveSpeed: true },
+        );
+        assert.equal(kept.status, 'success', kept.message);
+        assert.equal(kept.snapshot.current.speed, 'ultrafast');
+        const fallback = await apply(page, targetBeta, { preserveSpeed: true });
+        assert.equal(fallback.status, 'success', fallback.message);
+        assert.deepEqual(fallback.snapshot.current, targetBeta);
+      },
+      { modern: true, speedFlyout: true, ultraSpeed: true, speedLabels },
+    );
+  }
   await check(
     'unsent new chat supports full model switching without a persisted chat ID',
     async (page) => {
@@ -873,7 +919,7 @@ try {
       const draft = await page.locator('.ProseMirror').textContent();
       await snapshot(page);
       await page.waitForFunction(
-        () => document[Symbol.for('palboo.modelCapabilities')]?.length === 2,
+        () => document[Symbol.for('palboo.modelCapabilities.v2')]?.length === 2,
       );
       const recovered = await snapshot(page);
       assert.equal(recovered.models.length, 2);
@@ -991,7 +1037,7 @@ try {
       );
       assert.equal((await snapshot(page)).models.length, 0);
       assert.equal(
-        await page.evaluate(() => document[Symbol.for('palboo.modelCapabilities')].length),
+        await page.evaluate(() => document[Symbol.for('palboo.modelCapabilities.v2')].length),
         0,
       );
     },
@@ -1026,7 +1072,7 @@ try {
         catalogResponse(host.catalogRequests.at(-1).id, { data: host.records });
       });
       assert.equal(
-        await page.evaluate(() => document[Symbol.for('palboo.modelCapabilities')].length),
+        await page.evaluate(() => document[Symbol.for('palboo.modelCapabilities.v2')].length),
         0,
       );
       assert.deepEqual(

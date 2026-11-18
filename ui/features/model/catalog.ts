@@ -5,7 +5,26 @@ import { tr } from '../../shared/i18n.js';
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import type { TokenMeterSnapshot } from '../../shared/token-meter';
 export type Selection = { model: string; reasoning: string; speed: string };
-export type Model = { id: string; label: string; reasoning: string[]; fast: boolean };
+export type Model = {
+  id: string;
+  label: string;
+  reasoning: string[];
+  fast: boolean;
+  ultrafast?: boolean;
+};
+export const modelSpeeds = ['standard', 'fast', 'ultrafast'] as const;
+export type ModelSpeed = (typeof modelSpeeds)[number];
+export function modelSpeedLabel(speed: ModelSpeed) {
+  return speed === 'ultrafast' ? tr('超快') : speed === 'fast' ? tr('快速') : tr('标准');
+}
+export function supportsModelSpeed(model: Model | undefined, speed: string) {
+  return (
+    !!model &&
+    (speed === 'standard' ||
+      (speed === 'fast' && model.fast) ||
+      (speed === 'ultrafast' && model.ultrafast === true))
+  );
+}
 export type AgentOption = { id: string; label: string; available: boolean };
 export type AgentInfo = {
   current: string;
@@ -85,7 +104,8 @@ export type ModelState = {
 };
 // 闪电已区分 Fast 与普通预设；只在相同标记内对名称消歧，不合并收藏。
 const presetNameKey = (name: string) => name.trim().normalize('NFC').toLowerCase();
-const presetSpeedKey = (speed?: string) => speed === 'fast';
+const presetSpeedKey = (speed?: string) =>
+  speed === 'fast' || speed === 'ultrafast' ? speed : 'standard';
 const presetNameLimit = (name: string, suffix = '') => {
   const chars = [...name.trim()];
   const encoder = new TextEncoder();

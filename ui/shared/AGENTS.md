@@ -58,7 +58,7 @@ FeatureState.edgeTabs/edgeTabsRevision 提供贴边标签顺序和选择的确�
 
 EditableSettings.tokenMeterEnabled 声明聊天测速独立开关；__palbooTokenMeter 提供 refresh/read(expectedThreadId)/snapshot/destroy，快照不含正文；inputTarget.selection 可选提供当前模型、推理与速度模式，仅作为只读归属依据。
 
-- `token-meter.ts`：当前聊天状态与当前模型测速的只读投影，lastSpeed 可跨聊天保留，model/fast 标明归属，独立于承载方式，不含正文或持久化配置。
+- `token-meter.ts`：当前聊天状态与当前模型测速的只读投影，lastSpeed 可按模型及速度档位跨聊天保留，独立于承载方式，不含正文或持久化配置。
 
 EditableSettings.grokbotEnabled 默认关闭，沿现有配置修订保存。features 增加 bots/Grok Bot 与默认字号；__palbooBots 仅提供 read/fill/destroy，fill 接收当前输入目标 token 和聊天身份，不暴露发送能力。
 

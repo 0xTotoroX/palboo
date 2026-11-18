@@ -250,25 +250,34 @@ export function installModelControlFixture({ records, options = {} }) {
                 else draw();
               });
               if (options.speedFlyout) {
+                const names = options.speedLabels || {
+                  standard: 'Standard',
+                  fast: 'Fast',
+                  ultrafast: 'Ultra Fast',
+                };
                 fast.setAttribute('role', 'menuitem');
                 fast.setAttribute('aria-haspopup', 'menu');
                 fast.setAttribute(
                   'aria-label',
-                  `Speed ${config.speed === 'fast' ? 'Fast' : 'Standard'}`,
+                  `${options.speedLabels ? '速度' : 'Speed'} ${names[config.speed]}`,
                 );
                 const flyout = fast.cloneNode(false);
                 flyout.textContent = '⚡';
-                flyout.addEventListener('click', () => {
+                const openSpeed = () => {
                   const sub = document.createElement('div');
                   sub.id = 'speed-menu';
                   sub.setAttribute('role', 'menu');
                   sub.dataset.fixtureMenu = '';
                   sub.dataset.state = 'open';
                   flyout.setAttribute('aria-controls', sub.id);
-                  for (const speed of ['standard', 'fast']) {
+                  for (const speed of [
+                    'standard',
+                    'fast',
+                    ...(options.ultraSpeed ? ['ultrafast'] : []),
+                  ]) {
                     const item = document.createElement('div');
                     item.setAttribute('role', 'menuitem');
-                    item.textContent = speed === 'fast' ? 'Fast' : 'Standard';
+                    item.innerHTML = `<span>${names[speed]}</span><span>Speed option description</span>`;
                     item.addEventListener('click', () => {
                       config.speed = speed;
                       state.changes.push({ id, ...config });
@@ -282,7 +291,13 @@ export function installModelControlFixture({ records, options = {} }) {
                     if (e.key === 'Escape') sub.remove();
                   });
                   document.body.append(sub);
-                });
+                };
+                if (options.ultraSpeed) {
+                  flyout.dataset.radixCollectionItem = '';
+                  flyout.addEventListener('keydown', (event) => {
+                    if (event.key === 'ArrowRight') openSpeed();
+                  });
+                } else flyout.addEventListener('click', openSpeed);
                 root.append(flyout);
               } else if (options.semanticFastWrapper) {
                 const wrapper = document.createElement('div');
