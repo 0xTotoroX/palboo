@@ -1,6 +1,6 @@
 # tests/ — 自动测试与验收
 
-- `lifecycle-preview.test.mjs`：实际设置组件/编译样式与隔离 API 的保存重载、拖动/键盘、流程取消、无弹窗、中英文/窄屏/减少动态效果验收；原生几何由独立工具 --check/--motion-check 负责，核对完成停留后实际隐藏、真实模式回调晚于关闭、晚到异常保留及减少动态效果收起；startup-progress 的原生用例同时检查逐条阶段、实际开发/正式模式、失败重开与启动完成后交接顺序；隐藏提示立即交接，异步旧绑定不能覆盖新流程。不重启真实宿主或截图。
+- `lifecycle-preview.test.mjs`：实际设置组件/编译样式与隔离 API 的保存重载、旧位置读取后仍居中、流程取消、无弹窗、中英文/窄屏/减少动态效果验收；原生几何由独立工具 --check/--motion-check 负责，核对完成停留后实际隐藏、真实模式回调晚于关闭、晚到异常保留及减少动态效果收起；startup-progress 的原生用例同时检查逐条阶段、实际开发/正式模式、失败重开与启动完成后交接顺序；隐藏提示立即交接，异步旧绑定不能覆盖新流程。不重启真实宿主或截图。
 > L2 | 父级：[AGENTS.md](../AGENTS.md)
 
 - `direct-session-fixture.swift/mjs`：供 Rust `codex_host::direct_session` 显式原生验收使用的独立 App、CDP、Controller 和共享 Host 进程树。通过 `PALBOO_TEST_CLI` 指定当前已构建程序，验证生产协调、后台就绪前不启动 Controller、原生 CLI 入口恢复/退出清理及 Host 启动失败仍保持原生进程/释放官方锁/不改变开关；不读取用户数据、不关闭真实 ChatGPT、无截图。

@@ -1,5 +1,5 @@
-/* [INPUT]: Host semantic theme, preview-only phase fraction and normalized placement.
- * [OUTPUT]: Selected energy-meter progress and a bounded draggable notification scene.
+/* [INPUT]: Host semantic theme, preview-only phase fraction.
+ * [OUTPUT]: Selected energy-meter progress and a centered notification below the preview menu bar.
  * [POS]: General settings only; no production notification styles. */
 .lifecycle-notice {
   color: var(--buddy-muted);
@@ -8,6 +8,8 @@
 }
 .lifecycle-scene {
   position: relative;
+  display: grid;
+  grid-template-rows: 30px minmax(0, 1fr);
   height: 370px;
   overflow: hidden;
   border-radius: 12px;
@@ -34,11 +36,9 @@
   width: 100%;
 }
 .lifecycle-notification {
-  position: absolute;
+  grid-row: 2;
+  place-self: center;
   width: min(340px, calc(100% - 16px));
-  left: calc(8px + (100% - 16px) * var(--x));
-  top: calc(38px + (100% - 46px) * var(--y));
-  transform: translate(calc(-100% * var(--x)), calc(-100% * var(--y)));
   border-radius: 18px;
   padding: 14px 18px 12px;
   color: var(--buddy-text);
@@ -62,18 +62,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  cursor: grab;
-  touch-action: none;
-  user-select: none;
   min-height: 36px;
-}
-.lifecycle-notification header:active {
-  cursor: grabbing;
-}
-.lifecycle-notification header:focus-visible {
-  outline: 2px solid var(--buddy-accent);
-  outline-offset: 3px;
-  border-radius: 6px;
 }
 .lifecycle-notification header svg {
   width: 30px;

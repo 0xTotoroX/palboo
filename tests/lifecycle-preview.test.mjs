@@ -1,5 +1,5 @@
 /* [INPUT]: Real settings preview, host styles, isolated revisioned API and Chromium.
- * [OUTPUT]: Persistence, no-popup modes, drag/keyboard, language, geometry and playback acceptance.
+ * [OUTPUT]: Persistence, no-popup modes, centered placement, language, geometry and playback acceptance.
  * [POS]: Synthetic preview only; never connects to the user's apps or takes screenshots. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -11,7 +11,7 @@ import { readFile } from 'node:fs/promises';
 
 // This component is mounted inside the same General settings card/hidden page boundary.
 test(
-  'lifecycle preview saves choices, keeps dragged placement, and never runs real lifecycle actions',
+  'lifecycle preview saves choices, centers legacy placements, and never runs real lifecycle actions',
   { timeout: 90000 },
   async (t) => {
     const bundle = await build({
@@ -118,40 +118,47 @@ test(
       await page.locator('.lifecycle-notification li').count(),
     );
     assert.equal(await page.locator('.lifecycle-styles').count(), 0);
-    assert.equal(await page.locator('#lifecycle-placement').inputValue(), 'host-center');
-    const centered = await page.evaluate(() => {
-      const n = document.querySelector('.lifecycle-notification').getBoundingClientRect();
-      const s = document.querySelector('.lifecycle-scene').getBoundingClientRect();
-      const menu = document.querySelector('.lifecycle-menubar').getBoundingClientRect();
-      return {
-        dx: (n.left + n.right - s.left - s.right) / 2,
-        dy: (n.top + n.bottom - menu.bottom - (s.bottom - 1)) / 2,
-      };
-    });
-    assert(Math.abs(centered.dx) <= 1 && Math.abs(centered.dy) <= 1, JSON.stringify(centered));
+    assert.equal(await page.locator('#lifecycle-placement').count(), 0);
+    const assertCentered = async () => {
+      const { dx, dy } = await page.evaluate(() => {
+        const n = document.querySelector('.lifecycle-notification').getBoundingClientRect();
+        const s = document.querySelector('.lifecycle-scene').getBoundingClientRect();
+        const menu = document.querySelector('.lifecycle-menubar').getBoundingClientRect();
+        return {
+          dx: (n.left + n.right - s.left - s.right) / 2,
+          dy: (n.top + n.bottom - menu.bottom - (s.bottom - 1)) / 2,
+        };
+      });
+      assert(Math.abs(dx) <= 1 && Math.abs(dy) <= 1, `center offset: ${dx}, ${dy}`);
+    };
+    await assertCentered();
     assert.equal(
       await page.locator('.lifecycle-notification .lifecycle-bar').getAttribute('data-style'),
       'energy',
     );
     await choose('#lifecycle-material', 'matte');
     assert.equal(prefs.lifecyclePreview.progress, 'energy');
-    assert.equal(prefs.lifecyclePreview.placement, 'host-center');
-    // Older saved menu placement resolves to the new centered choice without a migration write.
-    prefs.lifecyclePreview.placement = 'menu';
-    await page.reload();
-    await page.locator('#lifecycle-display').waitFor();
-    assert.equal(await page.locator('#lifecycle-placement').inputValue(), 'host-center');
-    assert.equal(await page.locator('#lifecycle-material').inputValue(), 'matte');
     const header = page.locator('.lifecycle-notification header');
+    const savedWrites = writes.length;
+    for (const placement of ['menu', 'remember']) {
+      prefs.lifecyclePreview = {
+        ...prefs.lifecyclePreview,
+        placement,
+        position: { x: 0, y: 1 },
+        screen: 42,
+      };
+      await page.reload();
+      await header.waitFor();
+      assert.equal(await page.locator('#lifecycle-material').inputValue(), 'matte');
+      await assertCentered();
+    }
     const before = await header.boundingBox();
     await page.mouse.move(before.x + 100, before.y + 18);
     await page.mouse.down();
-    await page.mouse.move(before.x + 30, before.y + 55, { steps: 6 });
+    await page.mouse.move(before.x + 30, before.y + 55);
     await page.mouse.up();
-    await page.waitForFunction(() => !document.querySelector('#lifecycle-display').disabled);
-    assert.equal(prefs.lifecyclePreview.placement, 'remember');
-    const moved = await header.boundingBox();
-    assert(moved.x < before.x - 20);
+    await assertCentered();
+    assert.equal(writes.length, savedWrites);
     await page.evaluate(() => {
       window.cellSamples = [];
       window.cellObserver = new MutationObserver(() =>
@@ -184,8 +191,7 @@ test(
       cells.every((n, i) => i === 0 || n - cells[i - 1] <= 1),
       `Progress jumped: ${cells}`,
     );
-    const during = await header.boundingBox();
-    assert(Math.abs(during.x - moved.x) < 1 && Math.abs(during.y - moved.y) < 1);
+    await assertCentered();
     await page.getByRole('button', { name: '播放退出', exact: true }).click();
     await page.waitForFunction(
       () =>
@@ -206,10 +212,9 @@ test(
     await choose('#lifecycle-display', 'popup');
     await page.getByRole('button', { name: '模拟卡住', exact: true }).click();
     assert.equal(await page.getByRole('progressbar').getAttribute('aria-valuenow'), '2');
-    await header.focus();
-    await header.press('ArrowLeft');
-    await page.waitForFunction(() => !document.querySelector('#lifecycle-display').disabled);
-    assert(prefs.lifecyclePreview.position.x < 0.8);
+    await assertCentered();
+    await page.getByRole('button', { name: '收起提示', exact: true }).press('Escape');
+    assert.equal(await page.locator('.lifecycle-notification').count(), 0);
     reject = true;
     await choose('#lifecycle-material', 'frosted');
     await page.getByRole('button', { name: '重试保存', exact: true }).waitFor();
@@ -253,6 +258,7 @@ test(
         }
     assert.equal(await page.locator('h2').textContent(), 'Startup and exit feedback');
     assert.equal(errors.length, 0, errors.join('\n'));
-    assert(writes.length >= 8);
+    for (const { lifecyclePreview } of writes)
+      assert.deepEqual(Object.keys(lifecyclePreview).sort(), ['display', 'material', 'progress']);
   },
 );

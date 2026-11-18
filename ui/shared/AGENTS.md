@@ -1,6 +1,6 @@
 # ui/shared/ — 共用契约与资源
 
-`contracts.ts` 的 LifecyclePreviewPreferences 为启停提示及独立演示共用契约（保留旧键）；appearance.lifecyclePreview 保存通知方式、材质、进度和屏幕身份/相对位置，placement 的 host-center 为默认跟随宿主屏幕居中，保留旧 menu 读取兼容，保存本身不执行应用启停。
+`contracts.ts` 的 LifecyclePreviewPreferences 为启停提示及独立演示共用契约（保留旧键）；appearance.lifecyclePreview 保存通知方式、材质和进度。启停提示始终在宿主显示器居中，旧位置字段仅用于向后兼容，保存本身不执行应用启停。
 > L2 | 父级：[AGENTS.md](../../AGENTS.md)
 
 - `locales/en.js`：共享英文产品文案，包含侧聊卡片名称、快照轮次/角色与范围，以及本地备份、恢复和集中反馈；用户聊天和草稿原样保留。

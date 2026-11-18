@@ -6,7 +6,7 @@ import AppKit
 
 extension LifecycleNotice {
     func checkMotion() {
-        displayPicker.selectItem(at: 0); placementPicker.selectItem(at: 0); theme.selectedSegment = 2; changeAppearance(); playStart()
+        displayPicker.selectItem(at: 0); theme.selectedSegment = 2; changeAppearance(); playStart()
         let top = panel.frame.maxY
         let deadline = Date().addingTimeInterval(5)
         func checkFirstStep() {
@@ -144,24 +144,14 @@ extension LifecycleNotice {
                 }
             }
         }
-        displayPicker.selectItem(at: 0); placementPicker.selectItem(at: 0)
-        reset(exiting: false); render(animate: false)
-        precondition(content.hitTest(NSPoint(x: 100, y: 30)) === dragHeader)
-        let origin = panel.frame
-        guard let screen = hostScreen() else { preconditionFailure("geometry checks require a visible screen") }
-        let bottom = screen.visibleFrame.minY + 8
-        panel.setFrameOrigin(NSPoint(x: origin.minX, y: bottom))
-        rememberPosition(); let moved = panel.frame
-        restorePosition()
-        for step in 0...steps.count { completed = step; render(animate: false)
-            precondition(abs(panel.frame.minX - moved.minX) < 1)
-            precondition(abs(panel.frame.maxY - moved.maxY) < 1)
-            precondition(progress.fraction == Double(step) / Double(steps.count)); checks += 1
-        }
+        acceptPreferences(["revision": revision + 1, "lifecyclePreview": [
+            "display": "popup", "placement": "remember", "screen": -1, "position": ["x": 0.0, "y": 1.0]
+        ]])
+        guard let area = hostScreen()?.visibleFrame else { preconditionFailure("geometry checks require a visible screen") }
+        precondition(!panel.isMovable && abs(panel.frame.midX - area.midX) <= 0.5 && abs(panel.frame.midY - area.midY) <= 0.5)
         displayPicker.selectItem(at: 1); changeSavedChoice(); playStart(); precondition(!panel.isVisible)
         show(); precondition(panel.isVisible)
         displayPicker.selectItem(at: 2); changeSavedChoice(); show(); precondition(!panel.isVisible && !statusItem.isVisible)
-        resetPosition(); precondition(pinnedTop == nil)
         for english in [false, true] {
             previewEnglish = english
             for mode in [nil, "development", "release"] as [String?] {
@@ -181,7 +171,7 @@ extension LifecycleNotice {
                 precondition(rows[2].duration.attributedStringValue.size().width <= rows[2].duration.frame.width)
             }
         }
-        let report: [String: Any] = ["passed": true, "checks": checks, "hostThemeSync": true, "invalidThemeRetained": true, "themeChangeKeepsProgress": true, "borderless": true, "statusBar": true, "transparentBrand": true, "dragHitRegion": true, "dragPositionSurvivesPhases": true, "selectedEnergyStyle": true, "centeredOnHostScreen": true, "multiScreenGeometry": true, "noPopupModes": true, "perStepTimesOnly": true, "bilingualGeometry": true, "supportedDeployment": "macOS 14+", "fallbacksExercisedOnCurrentOS": ["frosted", "matte"], "olderOSRun": false, "screenshots": false, "applicationActions": false]
+        let report: [String: Any] = ["passed": true, "checks": checks, "hostThemeSync": true, "invalidThemeRetained": true, "themeChangeKeepsProgress": true, "borderless": true, "statusBar": true, "transparentBrand": true, "legacyPositionIgnored": true, "selectedEnergyStyle": true, "centeredOnHostScreen": true, "multiScreenGeometry": true, "noPopupModes": true, "perStepTimesOnly": true, "bilingualGeometry": true, "supportedDeployment": "macOS 14+", "fallbacksExercisedOnCurrentOS": ["frosted", "matte"], "olderOSRun": false, "screenshots": false, "applicationActions": false]
         let output = Bundle.main.bundleURL.deletingLastPathComponent().appendingPathComponent("check.json")
         try! JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys]).write(to: output)
         print("PASS \(checks) native states")

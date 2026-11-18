@@ -6,7 +6,6 @@ export default {
   启停反馈: 'Startup and exit feedback',
   '下方为演示预览；保存的选择会用于实际启动和退出。':
     'The preview below uses sample steps. Saved choices apply to actual startup and exit.',
-  '居中 · 跟随 ChatGPT 显示器': "Centered on ChatGPT's display",
   '当前后台尚未支持启停预览，请等待开发更新完成。':
     'This backend does not support the preview yet. Wait for the development update to finish.',
   启停反馈预览: 'Startup and exit preview',
@@ -27,7 +26,6 @@ export default {
   '正在启动 Palboo': 'Starting Palboo',
   '正在退出 Palboo': 'Exiting Palboo',
   展开或收起提示: 'Show or hide notification',
-  '拖动提示；方向键调整位置': 'Drag notification; use arrow keys to reposition',
   收起提示: 'Hide notification',
   兼容服务仍在退出: 'Integration is still exiting',
   已完成步骤: 'Completed steps',
@@ -46,9 +44,7 @@ export default {
   '仅菜单栏，不弹窗': 'Menu bar only, no popup',
   不显示: 'Hidden',
   提示材质: 'Notification material',
-  提示位置: 'Notification position',
   跟随菜单栏: 'Below menu bar',
-  记住拖动位置: 'Remember dragged position',
   '网页材质为近似预览。原生预览在旧系统使用磨砂；减少透明度时使用哑光。':
     'Web materials are approximations. The native preview uses frosted glass on older systems, or matte with Reduce Transparency.',
   预览设置已保存: 'Preview settings saved',

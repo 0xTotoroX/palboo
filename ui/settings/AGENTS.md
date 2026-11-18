@@ -1,6 +1,6 @@
 # ui/settings/ — React 配置网页
 
-- `lifecycle-preview.tsx/css`：“系统 → 通用”的启停反馈设置与演示预览；只写 appearance.lifecyclePreview，串行修订保护、冲突保留草稿，已选定的能量槽进度、材质、默认居中与相对拖动位置及无弹窗模式；host-center 由原生工具跟随 ChatGPT 显示器，网页在示意区域居中，旧 menu 位置兼容读取为居中；本地计时播放，隐藏页面/卸载停止，预览按钮不执行真实启停；保存项由原生 App 启停共用。
+- `lifecycle-preview.tsx/css`：“系统 → 通用”的启停反馈设置与演示预览；只写 appearance.lifecyclePreview，串行修订保护、冲突保留草稿，已选定的能量槽进度、材质及无弹窗模式；网页提示固定在示意菜单栏下方的可用区域中央；本地计时播放，隐藏页面/卸载停止，预览按钮不执行真实启停；保存项由原生 App 启停共用。
 - `backup-settings.tsx`：备份与从文件恢复直接显示独立表单，多环境时另列复制表单；加密由导出选择或文件签名决定；恢复、复制各自保留范围和目标，统一预览确认并复用原保护与撤销。
 
 > L2 | 父级：[AGENTS.md](../../AGENTS.md)

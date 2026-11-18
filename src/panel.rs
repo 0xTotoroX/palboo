@@ -196,6 +196,7 @@ pub struct LifecyclePreviewPreferences {
     pub display: String,
     pub material: String,
     pub progress: String,
+    // Older settings pages expect these fields in responses. Always return the center.
     pub placement: String,
     pub position: Position,
     pub screen: Option<u32>,
@@ -207,7 +208,7 @@ impl Default for LifecyclePreviewPreferences {
             material: "auto".into(),
             progress: "energy".into(),
             placement: "host-center".into(),
-            position: Position { x: 0.85, y: 0.12 },
+            position: Position { x: 0.5, y: 0.5 },
             screen: None,
         }
     }
@@ -217,11 +218,7 @@ impl LifecyclePreviewPreferences {
         ensure!(
             ["popup", "menu", "hidden"].contains(&self.display.as_str())
                 && ["auto", "glass", "frosted", "matte"].contains(&self.material.as_str())
-                && ["line", "segments", "pixels", "energy"].contains(&self.progress.as_str())
-                && ["host-center", "menu", "remember"].contains(&self.placement.as_str())
-                && [self.position.x, self.position.y]
-                    .iter()
-                    .all(|v| v.is_finite() && (0.0..=1.0).contains(v)),
+                && ["line", "segments", "pixels", "energy"].contains(&self.progress.as_str()),
             "启停预览选项无效"
         );
         Ok(())
@@ -387,7 +384,18 @@ impl Preferences {
 
 pub(crate) const POPOUT_REQUIREMENT: &str = "桌面浮窗仅支持 macOS 15 及以上的 Apple Silicon 设备";
 
+fn discard_legacy_notice_position(value: &mut Value) {
+    if let Some(notice) = value.as_object_mut() {
+        for key in ["placement", "position", "screen"] {
+            notice.remove(key);
+        }
+    }
+}
+
 pub(crate) fn normalize_backup(value: &mut Value) {
+    if let Some(notice) = value.get_mut("lifecyclePreview") {
+        discard_legacy_notice_position(notice);
+    }
     if (value["ui"]["material"] == "native-glass" && value["ui"]["glassStyle"] == "regular")
         || value["ui"]["material"]
             .as_str()
@@ -891,8 +899,9 @@ impl App {
             bail!("外观已在其他窗口更新，请重试");
         }
         let mut next = panel.prefs.clone();
-        if let Some(value) = input.get("lifecyclePreview") {
-            next.lifecycle_preview = serde_json::from_value(value.clone())?;
+        if let Some(mut value) = input.get("lifecyclePreview").cloned() {
+            discard_legacy_notice_position(&mut value);
+            next.lifecycle_preview = serde_json::from_value(value)?;
             next.lifecycle_preview.validate()?;
         }
         if let Some(value) = input.get("startup") {
@@ -1918,6 +1927,14 @@ mod tests {
         assert_eq!(saved.startup, before.startup);
         assert_eq!(saved.ui, before.ui);
         assert_eq!(saved.detached, before.detached);
+        assert_eq!(saved.lifecycle_preview.placement, "host-center");
+        assert_eq!(
+            saved.lifecycle_preview.position,
+            Position { x: 0.5, y: 0.5 }
+        );
+        assert_eq!(saved.lifecycle_preview.screen, None);
+        assert_eq!(saved.lifecycle_preview.display, "menu");
+        assert_eq!(saved.lifecycle_preview.material, "matte");
         assert_eq!(app.settings().await, settings);
         assert_eq!(
             Preferences::read(&paths).lifecycle_preview,
@@ -1932,7 +1949,6 @@ mod tests {
         for invalid in [
             json!({"display":"silent"}),
             json!({"material":"unknown"}),
-            json!({"position":{"x":-0.1,"y":0.0}}),
             json!({"progress":"fake"}),
             json!({"typo":true}),
         ] {

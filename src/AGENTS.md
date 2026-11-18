@@ -1,6 +1,6 @@
 # src/ — Rust 应用源码
 
-- `panel::LifecyclePreviewPreferences`：设置预览和原生启停提示共用的 display/material/progress/placement 与屏幕身份、0–1 相对坐标；appearance 修订保护、文件往返和备份验证，启动器通过 notice_cache 读取。
+- `panel::LifecyclePreviewPreferences`：设置预览和原生启停提示共用的 display/material/progress；旧位置输入丢弃，兼容字段返回固定中心；appearance 修订保护、文件往返和备份验证，启动器通过 notice_cache 读取。
 > L2 | 父级：[AGENTS.md](../AGENTS.md)
 
 0.18/0.19/0.20 兼容接入准备失败时，`native_cli` 转交官方 CLI，协调会话保存真实 native 状态；`direct::native_fallback` 只向同一数据目录返回仍存活且身份/端点匹配的原生桌面。`lifecycle::launch` 复用该桌面，CodexHost 状态页显示原错误，不重复重启或伪报兼容运行；不改写启用意愿和官方配置。

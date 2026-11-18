@@ -1,9 +1,8 @@
 /* [INPUT]: Saved, revision-checked lifecycle preview choices and local playback actions.
- * [OUTPUT]: Isolated startup/shutdown rehearsal, draggable notification and the selected energy-meter animation.
+ * [OUTPUT]: Isolated startup/shutdown rehearsal, centered notification and the selected energy-meter animation.
  * [POS]: General settings for real App notifications; rehearsal actions never start or stop applications.
  * [PROTOCOL]: Update ui/settings/AGENTS.md when responsibilities change. */
 import { useEffect, useRef, useState } from 'react';
-import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react';
 import { Icon } from '../shared/icons/react';
 import { tr } from '../shared/i18n.js';
 import { useLocale } from '../shared/use-locale';
@@ -19,8 +18,6 @@ const defaults: LifecyclePreviewPreferences = {
   display: 'popup',
   material: 'auto',
   progress: 'energy',
-  placement: 'host-center',
-  position: { x: 0.85, y: 0.12 },
 };
 const startup = ['准备 Palboo', '打开 Codex', '连接兼容服务', '恢复工作台', '确认界面可用'];
 const shutdown = ['保存当前状态', '结束关联任务', '关闭兼容服务', '确认后台已退出'];
@@ -87,29 +84,16 @@ export function LifecyclePreviewSettings({
   const timings = useRef<number[]>([0.6, 0.8]);
   const [run, setRun] = useState(0);
   const scene = useRef<HTMLDivElement>(null);
-  const panel = useRef<HTMLDivElement>(null);
-  const drag = useRef<{
-    x: number;
-    y: number;
-    position: { x: number; y: number };
-    original: LifecyclePreviewPreferences;
-  } | null>(null);
   const saving = useRef(false);
-  const current = useRef(draft);
-  current.current = draft;
   useEffect(() => {
-    if (!saving.current && !drag.current && value && (!prefs || value.revision > prefs.revision)) {
+    if (!saving.current && value && (!prefs || value.revision > prefs.revision)) {
       setPrefs(value);
       setDraft(value.lifecyclePreview || defaults);
     }
   }, [value, prefs]);
-  async function save(next: LifecyclePreviewPreferences) {
+  async function save({ display, material }: LifecyclePreviewPreferences) {
     if (!live || !prefs || saving.current) return;
-    next = {
-      ...next,
-      progress: 'energy',
-      placement: next.placement === 'remember' ? 'remember' : 'host-center',
-    };
+    const next: LifecyclePreviewPreferences = { display, material, progress: 'energy' };
     saving.current = true;
     setBusy(true);
     setDraft(next);
@@ -148,7 +132,7 @@ export function LifecyclePreviewSettings({
     setFailed(stuck);
     setStep(stuck ? 2 : 0);
     setElapsed(0);
-    setShown(current.current.display === 'popup');
+    setShown(draft.display === 'popup');
     setRun((n) => n + 1);
     setRunning(!stuck);
   }
@@ -190,22 +174,6 @@ export function LifecyclePreviewSettings({
     observer.observe(node, { attributes: true, attributeFilter: ['hidden'] });
     return () => observer.disconnect();
   }, []);
-  function move(event: ReactPointerEvent<HTMLElement>) {
-    if (!drag.current || !scene.current || !panel.current) return;
-    const rect = scene.current.getBoundingClientRect(),
-      box = panel.current.getBoundingClientRect();
-    const position = {
-      x: clamp(
-        drag.current.position.x +
-          (event.clientX - drag.current.x) / Math.max(1, rect.width - box.width - 16),
-      ),
-      y: clamp(
-        drag.current.position.y +
-          (event.clientY - drag.current.y) / Math.max(1, rect.height - box.height - 46),
-      ),
-    };
-    setDraft({ ...current.current, placement: 'remember', position });
-  }
   const disabled = !live || !prefs || busy;
   return (
     <Card
@@ -231,72 +199,21 @@ export function LifecyclePreviewSettings({
         </div>
         {shown && draft.display !== 'hidden' && (
           <div
-            ref={panel}
             className="lifecycle-notification"
-            data-placement={draft.placement === 'remember' ? 'remember' : 'host-center'}
             data-material={draft.material}
             data-failed={failed}
-            style={
-              {
-                '--x': draft.placement !== 'remember' ? 0.5 : draft.position.x,
-                '--y': draft.placement !== 'remember' ? 0.5 : draft.position.y,
-              } as CSSProperties
-            }
           >
-            <header
-              tabIndex={0}
-              aria-label={tr('拖动提示；方向键调整位置')}
-              onPointerDown={(e) => {
-                if (disabled || (e.target as HTMLElement).closest('button')) return;
-                e.currentTarget.setPointerCapture(e.pointerId);
-                drag.current = {
-                  x: e.clientX,
-                  y: e.clientY,
-                  position: draft.placement !== 'remember' ? { x: 0.5, y: 0.5 } : draft.position,
-                  original: draft,
-                };
-              }}
-              onPointerMove={move}
-              onPointerUp={(e) => {
-                if (drag.current) {
-                  drag.current = null;
-                  e.currentTarget.releasePointerCapture(e.pointerId);
-                  void save(current.current);
-                }
-              }}
-              onPointerCancel={() => {
-                if (drag.current) setDraft(drag.current.original);
-                drag.current = null;
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Escape') {
-                  setShown(false);
-                  return;
-                }
-                if (
-                  !disabled &&
-                  ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)
-                ) {
-                  e.preventDefault();
-                  const p = draft.placement !== 'remember' ? { x: 0.5, y: 0.5 } : draft.position;
-                  void save({
-                    ...draft,
-                    placement: 'remember',
-                    position: {
-                      x: clamp(
-                        p.x + (e.key === 'ArrowLeft' ? -0.05 : e.key === 'ArrowRight' ? 0.05 : 0),
-                      ),
-                      y: clamp(
-                        p.y + (e.key === 'ArrowUp' ? -0.05 : e.key === 'ArrowDown' ? 0.05 : 0),
-                      ),
-                    },
-                  });
-                }
-              }}
-            >
+            <header>
               <Eyes />
               <strong>{title}</strong>
-              <button type="button" aria-label={tr('收起提示')} onClick={() => setShown(false)}>
+              <button
+                type="button"
+                aria-label={tr('收起提示')}
+                onClick={() => setShown(false)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape') setShown(false);
+                }}
+              >
                 <Icon name="close" />
               </button>
             </header>
@@ -381,20 +298,6 @@ export function LifecyclePreviewSettings({
           <option value="glass">{tr('液态')}</option>
           <option value="frosted">{tr('磨砂')}</option>
           <option value="matte">{tr('哑光')}</option>
-        </NativeSelect>
-      </Field>
-      <Field id="lifecycle-placement" label={tr('提示位置')}>
-        <NativeSelect
-          id="lifecycle-placement"
-          controlWidth="medium"
-          disabled={disabled}
-          value={draft.placement === 'remember' ? 'remember' : 'host-center'}
-          onChange={(e) =>
-            void save({ ...draft, placement: e.target.value as typeof draft.placement })
-          }
-        >
-          <option value="host-center">{tr('居中 · 跟随 ChatGPT 显示器')}</option>
-          <option value="remember">{tr('记住拖动位置')}</option>
         </NativeSelect>
       </Field>
       <p className="lifecycle-notice">

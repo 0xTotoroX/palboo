@@ -47,14 +47,10 @@ private let previewMessages: [String: String] = [
     "提示：自动弹出": "Show automatically",
     "提示：仅菜单栏，不弹窗": "Menu bar only, no popup",
     "提示：不显示": "Notifications hidden",
-    "位置：跟随 ChatGPT 居中": "Position: center on ChatGPT display",
-    "位置：记住拖动位置": "Position: remember drag",
-    "恢复居中": "Restore center",
     "细线": "Slim line",
     "复古格栅": "Retro segments",
     "像素方块": "Pixel blocks",
     "能量槽": "Energy meter",
-    "拖动顶部调整位置；保留每步耗时，进度逐格点亮。": "Drag the header. Each step keeps its time; progress lights cell by cell.",
     "退出尚未完成": "Exit is still in progress",
     "Palboo 已完全退出": "Palboo has fully exited",
     "Palboo 已就绪": "Palboo is ready",
@@ -77,25 +73,6 @@ private func L(_ text: String) -> String {
 // [OUTPUT]: Shared borderless notification and menu feedback; rendering never starts or stops applications.
 // [POS]: Palboo App launcher and standalone preview; private cache reads and authenticated appearance/event attachment.
 // [PROTOCOL]: Keep scripts/AGENTS.md in sync.
-final class DragHeader: NSView {
-    var moved: (() -> Void)?, changing: (() -> Void)?, enabled: (() -> Bool)?
-    private var startPointer: NSPoint?, startOrigin = NSPoint.zero
-    var dragging: Bool { startPointer != nil }
-    override func mouseDown(with event: NSEvent) {
-        guard enabled?() != false, let window else { return }
-        startPointer = NSEvent.mouseLocation; startOrigin = window.frame.origin
-    }
-    override func mouseDragged(with event: NSEvent) {
-        guard let start = startPointer, let window else { return }
-        let point = NSEvent.mouseLocation
-        window.setFrameOrigin(NSPoint(x: startOrigin.x + point.x - start.x, y: startOrigin.y + point.y - start.y))
-        changing?()
-    }
-    override func mouseUp(with event: NSEvent) {
-        guard startPointer != nil else { return }; startPointer = nil; moved?()
-    }
-    override func resetCursorRects() { addCursorRect(bounds, cursor: .openHand) }
-}
 final class Canvas: NSView { override var isFlipped: Bool { true } }
 struct HostPalette: Equatable {
     let theme: String
@@ -232,10 +209,10 @@ final class Progress: NSView {
 }
 final class LifecycleNotice: NSObject, NSApplicationDelegate, NSWindowDelegate {
     let panel = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 356, height: 160), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-    let controls = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 610, height: 326), styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
-    let dragHeader = DragHeader(), saveStatus = NSTextField(labelWithString: ""), displayPicker = NSPopUpButton(), placementPicker = NSPopUpButton()
-    var pinnedTop: NSPoint?, syncing = false, revision: Int = -1, preferenceTimer: Timer?, saving = false, loading = false
-    var savedScreen: Int?, lastHostScreen: Int?
+    let controls = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 610, height: 266), styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
+    let saveStatus = NSTextField(labelWithString: ""), displayPicker = NSPopUpButton()
+    var syncing = false, revision: Int = -1, preferenceTimer: Timer?, saving = false, loading = false
+    var lastHostScreen: Int?
     private var nextScreenSample: TimeInterval = 0
     var loadedPreferences: NSDictionary?
     var live = false, liveDataDirectory: URL?, liveTitle: String?, liveStepText: String?
@@ -246,7 +223,6 @@ final class LifecycleNotice: NSObject, NSApplicationDelegate, NSWindowDelegate {
     let liveDetails = NSButton(), modeLabel = NSTextField(labelWithString: "")
     var runtimeMode: String?
     var hostPalettes: [String: HostPalette] = [:], hostTheme: String?, hostReducedMotion = false
-    var preferencePosition = NSPoint(x: 0.85, y: 0.12)
     var dataDirectory: URL? { if live { return liveDataDirectory }; guard let i = CommandLine.arguments.firstIndex(of: "--connection-dir"), i + 1 < CommandLine.arguments.count else { return nil }; return URL(fileURLWithPath: CommandLine.arguments[i+1]) }
     let shell = Canvas(), content = Canvas(), eyes = BrandEyes(), heading = NSTextField(labelWithString: "")
     let progress = Progress(frame: NSRect(x: 24, y: 120, width: 308, height: 4)), count = NSTextField(labelWithString: "")
@@ -274,17 +250,9 @@ final class LifecycleNotice: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func setup(live value: Bool) {
         live = value
         panel.isReleasedWhenClosed = false; panel.isOpaque = false; panel.backgroundColor = .clear
-        panel.isMovableByWindowBackground = false; panel.hasShadow = true; panel.hidesOnDeactivate = false; panel.level = .popUpMenu
+        panel.isMovable = false; panel.isMovableByWindowBackground = false; panel.hasShadow = true; panel.hidesOnDeactivate = false; panel.level = .popUpMenu
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]; panel.contentView = shell
         shell.wantsLayer = true; shell.layer?.cornerRadius = 18; shell.layer?.masksToBounds = true
-        dragHeader.frame = NSRect(x: 0, y: 0, width: 314, height: 65)
-        dragHeader.enabled = { [weak self] in self?.saving == false }
-        dragHeader.changing = { [weak self] in
-            guard let self else { return }; placementPicker.selectItem(at: 1)
-            pinnedTop = NSPoint(x: panel.frame.minX, y: panel.frame.maxY)
-        }
-        dragHeader.moved = { [weak self] in self?.rememberPosition() }
-        content.addSubview(dragHeader)
         eyes.frame = NSRect(x: 22, y: 16, width: 40, height: 34); content.addSubview(eyes)
         heading.frame = NSRect(x: 76, y: 21, width: 236, height: 23); heading.font = .systemFont(ofSize: 15, weight: .semibold)
         modeLabel.frame = NSRect(x: 76, y: 45, width: 236, height: 14)
@@ -293,7 +261,6 @@ final class LifecycleNotice: NSObject, NSApplicationDelegate, NSWindowDelegate {
         closeButton.frame = NSRect(x: 318, y: 21, width: 20, height: 22); closeButton.isBordered = false; closeButton.contentTintColor = .secondaryLabelColor
         count.font = .monospacedDigitSystemFont(ofSize: 11, weight: .regular); count.textColor = .secondaryLabelColor; count.alignment = .right
         for v: NSView in [heading, modeLabel, closeButton!, progress, count] { content.addSubview(v) }
-        content.addSubview(dragHeader, positioned: .above, relativeTo: nil)
         retryButton = button("继续预览", .zero, #selector(retryRequested)); content.addSubview(retryButton)
         statusItem = NSStatusBar.system.statusItem(withLength: 28)
         statusItem.button?.image = BrandEyes.menuImage(); statusItem.button?.toolTip = "Palboo · 启停预览"
@@ -314,27 +281,20 @@ final class LifecycleNotice: NSObject, NSApplicationDelegate, NSWindowDelegate {
         motion.frame = NSRect(x: 333, y: 174, width: 200, height: 24); motion.target = self; motion.action = #selector(changeAppearance); c.addSubview(motion)
         displayPicker.addItems(withTitles: ["提示：自动弹出", "提示：仅菜单栏，不弹窗", "提示：不显示"])
         displayPicker.frame = NSRect(x: 24, y: 214, width: 254, height: 28); displayPicker.target = self; displayPicker.action = #selector(changeSavedChoice); c.addSubview(displayPicker)
-        placementPicker.addItems(withTitles: ["位置：跟随 ChatGPT 居中", "位置：记住拖动位置"])
-        placementPicker.frame = NSRect(x: 294, y: 214, width: 292, height: 28); placementPicker.target = self; placementPicker.action = #selector(changeSavedChoice); c.addSubview(placementPicker)
-        c.addSubview(button("恢复居中", NSRect(x: 24, y: 254, width: 130, height: 28), #selector(resetPosition)))
-        saveStatus.frame = NSRect(x: 170, y: 258, width: 416, height: 20); saveStatus.font = .systemFont(ofSize: 12); saveStatus.textColor = .secondaryLabelColor; c.addSubview(saveStatus)
-        let foot = label("拖动顶部调整位置；保留每步耗时，进度逐格点亮。", NSRect(x: 24, y: 296, width: 562, height: 20), size: 12)
-        foot.textColor = .secondaryLabelColor; c.addSubview(foot)
+        saveStatus.frame = NSRect(x: 294, y: 218, width: 292, height: 20); saveStatus.font = .systemFont(ofSize: 12); saveStatus.textColor = .secondaryLabelColor; c.addSubview(saveStatus)
         localize(controls.contentView!); controls.title = L(controls.title)
         if !live { controls.center(); controls.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true) }
         if !CommandLine.arguments.contains("--check") && !CommandLine.arguments.contains("--motion-check") { loadCache() }
         if !live { loadPreferences() }
         preferenceTimer = Timer.scheduledTimer(withTimeInterval: 0.75, repeats: true) { [weak self] _ in
             guard let self else { return }; if live { loadCache() } else { loadPreferences() }
-            if placementPicker.indexOfSelectedItem == 0 && !dragHeader.dragging {
-                if panel.isVisible { position(size: reportedSize, animate: false) }
-                else if live && displayPicker.indexOfSelectedItem == 0 {
-                    // The host's windows are already gone when linked shutdown is reported.
-                    let now = ProcessInfo.processInfo.systemUptime
-                    if now >= nextScreenSample {
-                        nextScreenSample = now + 3
-                        if NSScreen.screens.count > 1 && Self.isHost(NSWorkspace.shared.frontmostApplication) { _ = hostScreen() }
-                    }
+            if panel.isVisible { centerNotice() }
+            else if live && displayPicker.indexOfSelectedItem == 0 {
+                // The host's windows are already gone when linked shutdown is reported.
+                let now = ProcessInfo.processInfo.systemUptime
+                if now >= nextScreenSample {
+                    nextScreenSample = now + 3
+                    if NSScreen.screens.count > 1 && Self.isHost(NSWorkspace.shared.frontmostApplication) { _ = hostScreen() }
                 }
             }
         }
@@ -448,7 +408,7 @@ final class LifecycleNotice: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let visible = min(steps.count, completed + 1)
         let height = CGFloat(70 + steps.count * 30 + (failed ? 96 : 62))
         reportedSize = NSSize(width: 356, height: height)
-        position(size: reportedSize, animate: animate && !reduce)
+        centerNotice()
         if rebuild || surface == nil { makeSurface() }
         surface?.frame = shell.bounds; content.frame = shell.bounds
         while rows.count > visible { rows.removeLast().removeFromSuperview() }
@@ -474,17 +434,10 @@ final class LifecycleNotice: NSObject, NSApplicationDelegate, NSWindowDelegate {
             row.duration.stringValue = i < completed ? String(format: "%.1fs", i < timings.count ? timings[i] : 0.8) : String(format: "%.1fs", max(0, (failedAt ?? Date()).timeIntervalSince(phaseStarted)))
         }
     }
-    func position(size: NSSize, animate: Bool) {
-        if placementPicker.indexOfSelectedItem == 1 && pinnedTop == nil { restorePosition() }
-        if placementPicker.indexOfSelectedItem == 1, let point = pinnedTop {
-            guard let screen = NSScreen.screens.first(where: { $0.frame.contains(point) }) ?? NSScreen.main else { return }
-            let v = screen.visibleFrame
-            panel.setFrame(NSRect(x: max(v.minX + 8, min(point.x, v.maxX - size.width - 8)), y: max(v.minY + 8, min(point.y, v.maxY - 8) - size.height), width: size.width, height: size.height), display: true)
-            return
-        }
+    func centerNotice() {
         guard let screen = hostScreen(preferLast: live && exiting) else { return }
         let v = screen.visibleFrame
-        let frame = NSRect(x: (v.midX - size.width / 2).rounded(), y: (v.midY - size.height / 2).rounded(), width: size.width, height: size.height)
+        let frame = NSRect(x: (v.midX - reportedSize.width / 2).rounded(), y: (v.midY - reportedSize.height / 2).rounded(), width: reportedSize.width, height: reportedSize.height)
         if panel.frame != frame { panel.setFrame(frame, display: true, animate: false) }
     }
     // Match the existing edge container's largest-overlap rule; WindowServer uses a top-left origin.
@@ -529,7 +482,7 @@ final class LifecycleNotice: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     @objc func toggle() { panel.isVisible ? hide() : show() }
-    @objc func show() { guard displayPicker.indexOfSelectedItem != 2 else { return }; position(size: reportedSize, animate: false); panel.alphaValue = 1; panel.orderFrontRegardless() }
+    @objc func show() { guard displayPicker.indexOfSelectedItem != 2 else { return }; centerNotice(); panel.alphaValue = 1; panel.orderFrontRegardless() }
     @objc func hide() {
         dismissalTimer?.invalidate(); dismissalTimer = nil
         if completed == steps.count, let activity = playbackActivity {
@@ -624,7 +577,7 @@ final class LifecycleNotice: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
     }
     func loadPreferences() {
-        guard !saving, !loading, !dragHeader.dragging, let dir = dataDirectory else { return }
+        guard !saving, !loading, let dir = dataDirectory else { return }
         if revision == -1, let bytes = try? Data(contentsOf: dir.appendingPathComponent("panel.json")),
            let root = (try? JSONSerialization.jsonObject(with: bytes)) as? [String: Any] { acceptHostAppearance(root["settingsAppearance"] as? [String: Any]); acceptPreferences(root) }
         guard let request = appearanceRequest(path: "state") else { return }
@@ -683,7 +636,7 @@ final class LifecycleNotice: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if !steps.isEmpty && (before != palette || previousMotion != hostReducedMotion) { makeSurface() }
     }
     func acceptPreferences(_ root: [String: Any]) {
-        guard !saving, !dragHeader.dragging, let rev = root["revision"] as? Int, rev > revision,
+        guard !saving, let rev = root["revision"] as? Int, rev > revision,
               let prefs = root["lifecyclePreview"] as? [String: Any] else { return }
         revision = rev
         let language = root["language"] as? String ?? "system"
@@ -696,39 +649,14 @@ final class LifecycleNotice: NSObject, NSApplicationDelegate, NSWindowDelegate {
         syncing = true
         material.selectItem(at: ["auto", "glass", "frosted", "matte"].firstIndex(of: prefs["material"] as? String ?? "") ?? 0)
         displayPicker.selectItem(at: ["popup", "menu", "hidden"].firstIndex(of: prefs["display"] as? String ?? "") ?? 0)
-        placementPicker.selectItem(at: prefs["placement"] as? String == "remember" ? 1 : 0)
-        if let p = prefs["position"] as? [String: Double] { preferencePosition = NSPoint(x: p["x"] ?? 0.85, y: p["y"] ?? 0.12) }
-        savedScreen = prefs["screen"] as? Int
-        restorePosition(); statusItem.isVisible = displayPicker.indexOfSelectedItem != 2
+        statusItem.isVisible = displayPicker.indexOfSelectedItem != 2
         if displayPicker.indexOfSelectedItem != 0 { hide() }
         if !steps.isEmpty { changeAppearance() }
         saveStatus.stringValue = L("已同步启停提示设置")
         syncing = false
     }
-    func restorePosition() {
-        guard placementPicker.indexOfSelectedItem == 1, reportedSize != .zero else { pinnedTop = nil; return }
-        let remembered = NSScreen.screens.first { ($0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.intValue == savedScreen }
-        guard let v = (remembered ?? panel.screen ?? NSScreen.main)?.visibleFrame else { return }
-        let travel = positionTravel(in: v, size: reportedSize)
-        pinnedTop = NSPoint(x: v.minX + 8 + travel.width * preferencePosition.x, y: v.maxY - 8 - travel.height * preferencePosition.y)
-    }
-    private func positionTravel(in area: NSRect, size: NSSize) -> NSSize {
-        NSSize(width: max(0, area.width - size.width - 16), height: max(0, area.height - size.height - 16))
-    }
-    func rememberPosition() {
-        placementPicker.selectItem(at: 1)
-        pinnedTop = NSPoint(x: panel.frame.minX, y: panel.frame.maxY)
-        if let screen = panel.screen {
-            savedScreen = (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.intValue
-            let v = screen.visibleFrame
-            let travel = positionTravel(in: v, size: panel.frame.size)
-            preferencePosition = NSPoint(x: min(1, max(0, (panel.frame.minX - v.minX - 8) / max(1, travel.width))), y: min(1, max(0, (v.maxY - 8 - panel.frame.maxY) / max(1, travel.height))))
-        }
-        savePreferences()
-    }
-    @objc func resetPosition() { placementPicker.selectItem(at: 0); changeSavedChoice() }
     @objc func changeSavedChoice() {
-        restorePosition(); statusItem.isVisible = displayPicker.indexOfSelectedItem != 2
+        statusItem.isVisible = displayPicker.indexOfSelectedItem != 2
         if displayPicker.indexOfSelectedItem != 0 { hide() }
         changeAppearance(); savePreferences()
     }
@@ -738,15 +666,15 @@ final class LifecycleNotice: NSObject, NSApplicationDelegate, NSWindowDelegate {
         guard var request = appearanceRequest() else {
             saveStatus.stringValue = L("未连接 Palboo；当前选择仅用于临时预览"); return
         }
-        let prefs: [String: Any] = ["display": ["popup", "menu", "hidden"][displayPicker.indexOfSelectedItem], "material": ["auto", "glass", "frosted", "matte"][material.indexOfSelectedItem], "progress": "energy", "placement": placementPicker.indexOfSelectedItem == 0 ? "host-center" : "remember", "position": ["x": preferencePosition.x, "y": preferencePosition.y], "screen": savedScreen.map { $0 as Any } ?? NSNull()]
+        let prefs = ["display": ["popup", "menu", "hidden"][displayPicker.indexOfSelectedItem], "material": ["auto", "glass", "frosted", "matte"][material.indexOfSelectedItem], "progress": "energy"]
         request.httpMethod = "POST"; request.timeoutInterval = 5
         request.httpBody = try? JSONSerialization.data(withJSONObject: ["expectedRevision": revision, "lifecyclePreview": prefs])
         saving = true; saveStatus.stringValue = L("正在保存预览设置…")
-        for control in [displayPicker, placementPicker, material] { control.isEnabled = false }
+        for control in [displayPicker, material] { control.isEnabled = false }
         URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }; saving = false
-                for control in [displayPicker, placementPicker, material] { control.isEnabled = true }
+                for control in [displayPicker, material] { control.isEnabled = true }
                 if error == nil, (response as? HTTPURLResponse)?.statusCode == 200, let data,
                    let value = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any], value["lifecyclePreview"] != nil {
                     revision = value["revision"] as? Int ?? revision; saveStatus.stringValue = L("预览设置已保存")

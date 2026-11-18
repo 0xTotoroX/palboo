@@ -301,7 +301,7 @@ pub(super) fn schema(scope: Scope) -> Value {
         Scope::Appearance => json!({
             "nestedFields":{
                 "startup":keys(crate::panel::StartupPreferences::default()),
-                "lifecyclePreview":keys(crate::panel::LifecyclePreviewPreferences::default()),
+                "lifecyclePreview":["display","material","progress"],
                 "ui":keys(crate::panel::Ui::default()),
                 "typography":keys(crate::panel::TypographyPreferences::default()),
                 "settingsAccent":keys(crate::panel::SettingsAccent::default()),
@@ -310,7 +310,7 @@ pub(super) fn schema(scope: Scope) -> Value {
             },
             "choices":{
                 "lifecyclePreview.display":["popup","menu","hidden"],"lifecyclePreview.material":["auto","glass","frosted","matte"],
-                "lifecyclePreview.progress":["line","segments","pixels","energy"],"lifecyclePreview.placement":["host-center","remember"],
+                "lifecyclePreview.progress":["line","segments","pixels","energy"],
                 "startup.mode":["restore","closed","open"],"startup.location":["inside","outside"],
                 "language":["system","en","zh-CN"],"settingsTheme":["codex","light","dark"],"settingsStyle":["chatgpt","palboo"],
                 "settingsAccent.source":["chatgpt","palboo","custom"],
@@ -319,7 +319,7 @@ pub(super) fn schema(scope: Scope) -> Value {
                 "settingsTarget":["plugin","web"]
             },
             "notes":{
-                "lifecyclePreview":"设置预览与原生启停提示共用显示偏好，position 为可移动范围内的 0–1 相对坐标",
+                "lifecyclePreview":"原生启停提示在宿主显示器的可用区域居中，设置预览共用提示方式和材质",
                 "startup":"下次启动生效；mode 为 open 时使用 location，inside 沿用侧栏或浮层；只影响主界面，不改变贴边或业务开关",
                 "typography":"支持局部更新；scale 为 75–150%，customSize 为 10–32px",
                 "settingsAccent":"兼容旧配置；source/color不参与当前设置页样式，强调色只读跟随宿主并用于选中、开关与主要操作",
