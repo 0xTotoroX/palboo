@@ -143,8 +143,11 @@ impl Coordinator {
         }
         if op == "apply" {
             ensure!(input["confirm"] == true, "请先确认预览中的覆盖范围");
-            let preview = inner.preview.take().context("请先预览备份差异")?;
-            ensure!(input["previewId"] == preview.id, "预览已失效，请重新预览");
+            ensure!(inner.preview.is_some(), "请先预览备份差异");
+            let preview = inner
+                .preview
+                .take_if(|preview| input["previewId"] == preview.id)
+                .context("预览已失效，请重新预览")?;
             ensure!(preview.expires >= now(), "预览已过期，请重新预览");
             inner.last = None;
             if let Some((runtime, remote_id)) = &preview.remote {

@@ -11,6 +11,14 @@ use std::{
     path::Path,
 };
 
+const TASK_SETTINGS: &[&str] = &[
+    "boardEnabled",
+    "viewMode",
+    "displayMode",
+    "columns",
+    "windowSize",
+];
+
 pub const FILES: &[&str] = &[
     "config.json",
     "panel.json",
@@ -194,10 +202,7 @@ pub fn capture(paths: &Paths, data: bool, secrets: bool) -> Result<Archive> {
         &mut out,
         "tasks",
         "tasks.json",
-        take(
-            &mut tasks,
-            &["boardEnabled", "viewMode", "columns", "windowSize"],
-        ),
+        take(&mut tasks, TASK_SETTINGS),
     );
     take(&mut tasks, &["revision", "inflight"]);
     // Bindings are retained for recovery, but imports always pause remote synchronization.
@@ -366,10 +371,7 @@ fn check_fields(id: &str, file: &str, value: &Value) -> Result<()> {
         }
         ("surfaces", _) => value.get("edge").is_none_or(|v| without(v, &["screen"])),
         ("reading", "web-library.json") => without(value, &["vault", "attachments", "folders"]),
-        ("tasks", _) => only(
-            value,
-            &["boardEnabled", "viewMode", "columns", "windowSize"],
-        ),
+        ("tasks", _) => only(value, TASK_SETTINGS),
         ("terminology", _) => without(value, &["favorites", "mastered"]),
         ("data", "tasks.json") => only(value, &["schema", "tasks", "deletedReminders"]),
         ("data", "terminology-settings.json") => only(value, &["favorites", "mastered"]),

@@ -127,7 +127,8 @@ try {
     'preview cannot write',
   );
   await a.api({ op: 'apply', previewId: preview.previewId }, 400);
-  // An unconfirmed request must leave the preview available.
+  await a.api({ op: 'apply', previewId: 'previous-preview', confirm: true }, 400);
+  // Neither missing confirmation nor a stale tab consumes the current preview.
   await applied(a, preview);
   assert.equal((await json(join(release, 'config.json'))).model, 'synthetic-dev');
   assert.deepEqual(await json(join(release, 'runtime.json')), b.runtime);

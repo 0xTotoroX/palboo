@@ -68,6 +68,28 @@ fn all_sections_restore_and_pause_external_work() {
     assert!(crate::terminology_import::Store::load(&b.root).is_ok());
 }
 #[test]
+fn checklist_mode_transfers_with_preferences_and_keeps_target_tasks() {
+    let (_source_dir, source) = profile();
+    let (_target_dir, target) = profile();
+    let mut store = serde_json::to_value(crate::tasks::model::Store::default()).unwrap();
+    store["displayMode"] = "list".into();
+    std::fs::write(source.root.join("tasks.json"), store.to_string()).unwrap();
+    store["displayMode"] = "board".into();
+    store["tasks"] = json!([{"id":"existing", "fields":{"title":"保留","column":"todo","notes":"","completed":false,"priority":0},"archived":false,"remoteMissing":false,"deleteRequested":false}]);
+    std::fs::write(target.root.join("tasks.json"), store.to_string()).unwrap();
+    let archive = snapshot::capture(&source, true, false).unwrap();
+    assert!(
+        archive.sections["data"].files["tasks.json"]
+            .get("displayMode")
+            .is_none()
+    );
+    let files = snapshot::build(&target, &archive, &["tasks".into()]).unwrap();
+    let restored: Value = serde_json::from_slice(&files["tasks.json"]).unwrap();
+    assert_eq!(restored["displayMode"], "list");
+    assert_eq!(restored["tasks"], store["tasks"]);
+}
+
+#[test]
 fn encryption_rejects_wrong_password_and_tampering() {
     let (_a, a) = profile();
     a.save_keys(Some("synthetic-transfer-secret"), None)
