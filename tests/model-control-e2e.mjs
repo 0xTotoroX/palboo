@@ -389,7 +389,7 @@ try {
     host.pendingCommit = null;
   });
   const delayed = await pending;
-  assert.equal(delayed.result.status, 'success');
+  assert.equal(delayed.result.status, 'success', delayed.result.message);
   assert.deepEqual(delayed.snapshot.current, beta);
   assert.deepEqual(await page.evaluate(() => host.configs['chat-a']), beta);
   record(
@@ -746,7 +746,9 @@ try {
       ['overlay', 'edge'],
     );
   }
-  await section.screenshot({ path: join(output, 'settings-placement-themes.png') });
+  await settingsPage
+    .getByRole('main', { name: '布局与位置', exact: true })
+    .screenshot({ path: join(output, 'settings-placement-themes.png') });
   await settingsPage.close();
   record(
     'four surface themes persist independently without changing model or legacy workbench preferences',

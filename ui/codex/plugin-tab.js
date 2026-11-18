@@ -366,7 +366,10 @@ async function openBrowser(
     )
       return null;
     const inputs = [...panel.querySelectorAll(selector)].filter(visible);
-    return inputs.length === 1 && inputs[0].value === '' ? inputs[0] : null;
+    const [input] = inputs;
+    return inputs.length === 1 && input instanceof HTMLInputElement && input.value === ''
+      ? input
+      : null;
   };
   const entry = await wait(() => {
     const next = unique('button:not([role="tab"])', newTabNames);

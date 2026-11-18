@@ -196,6 +196,10 @@ test(
       );
       assert.match(await (await fetch(session.url)).text(), /__buddy_dev.js/);
       stage = 'source changes while compiling';
+      const replacementPid = (root, previous) => {
+        const record = readRecord(join(base, 'injection.json'));
+        return record?.root === root && record.pid !== previous && record.pid;
+      };
       const beforeChangedBuild = JSON.parse(readFileSync(join(base, 'injection.json'))).pid;
       writeFileSync(join(main, 'pause-build'), '');
       appendFileSync(join(main, 'src/main.rs'), '\n// native change\n');
@@ -206,7 +210,7 @@ test(
       );
       rmSync(join(main, 'pause-build'));
       await until(
-        () => readRecord(join(base, 'injection.json'))?.pid !== beforeChangedBuild,
+        () => replacementPid(main, beforeChangedBuild),
         'input change must requeue native build, not only update the panel',
         45000,
       );
@@ -259,25 +263,33 @@ test(
       // Token CSS also queues a native rebuild. Allow that serialized pipeline
       // under the four-worker check run, while still requiring a new revision and readback.
       const revision = readRecord(join(other, 'target/dev/panel.json')).revision;
+      const beforeTokenEdit = readRecord(join(base, 'injection.json')).pid;
       appendFileSync(join(other, 'ui/shared/tokens.css'), '\n:root { --fixture-change: 1; }');
       await until(
         () => readRecord(join(other, 'target/dev/panel.json')).revision !== revision,
         'selected worktree hot update',
         45000,
       );
-      // Snapshot publication precedes backend application; wait for the same real readback gate.
+      // The old backend can still report loaded before the replacement starts.
+      const readerPid = await until(
+        () => replacementPid(other, beforeTokenEdit),
+        'shared CSS edit reconnects the backend',
+        45000,
+      );
       await until(
         async () => (await (await send('dev/sources')).json()).loaded === true,
         'selected worktree hot update applied',
         45000,
       );
-      const readerPid = readRecord(join(base, 'injection.json')).pid;
-      const readerBuild = readRecord(join(other, 'target/dev/web-build.json')).source;
+      const webBuild = () => readRecord(join(other, 'target/dev/web-build.json'))?.source;
+      const readerBuild = webBuild();
+      assert.ok(readerBuild);
       appendFileSync(join(other, 'ui/reader/style.css'), '\n:root { --reader-fixture-change: 1; }');
       await until(
-        () =>
-          readRecord(join(base, 'injection.json'))?.pid !== readerPid &&
-          readRecord(join(other, 'target/dev/web-build.json'))?.source !== readerBuild,
+        () => {
+          const build = webBuild();
+          return build && build !== readerBuild && replacementPid(other, readerPid);
+        },
         'reader-only edit builds web assets and reconnects the backend',
         45000,
       );

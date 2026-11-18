@@ -420,7 +420,7 @@ fn check_controller_state(executable: &Path) -> Result<()> {
 }
 
 fn uses_direct_launch(version: (u64, u64, u64)) -> bool {
-    matches!(version, (0, 18 | 19 | 20, _))
+    matches!(version, (0, 18..=20, _))
 }
 
 pub async fn launch(paths: &Paths, options: &Options, app: Option<&Path>) -> Result<String> {

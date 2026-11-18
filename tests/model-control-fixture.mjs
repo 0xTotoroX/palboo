@@ -89,7 +89,10 @@ export function installModelControlFixture({ records, options = {} }) {
       if (options.invisibleClosingMenu) node.style.visibility = 'hidden';
       node
         .animate([{ opacity: 1 }, { opacity: 0 }], { duration: options.closingMenuMs })
-        .finished.then(() => node.remove());
+        .finished.then(() => {
+          if (options.removeMenuOnFrame) requestAnimationFrame(() => node.remove());
+          else node.remove();
+        });
     });
   window.addChat = (id, dialog = false) => {
     const pane = document.createElement('section');

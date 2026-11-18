@@ -284,10 +284,10 @@ impl Control {
 
     fn envelope(&self, mut snapshot: Value, agent_switching: bool) -> Value {
         // 关闭兼容层后，旧会话仍可能有 Agent 控件；只隐藏切换入口，保留当前归属。
-        if !agent_switching {
-            if let Some(agent) = snapshot.get_mut("agent").and_then(Value::as_object_mut) {
-                agent.insert("options".into(), json!([]));
-            }
+        if !agent_switching
+            && let Some(agent) = snapshot.get_mut("agent").and_then(Value::as_object_mut)
+        {
+            agent.insert("options".into(), json!([]));
         }
         json!({"snapshot":snapshot,"preferences":self.preferences,"revision":self.revision})
     }

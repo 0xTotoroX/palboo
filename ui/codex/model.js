@@ -1075,18 +1075,31 @@
     return current;
   }
   async function settleClosingMenus(op) {
+    const closing = [...op.menus].filter(
+      (menu) => visible(menu) && !menuOpen(menu) && Number(getComputedStyle(menu).opacity) > 0,
+    );
+    // Once a visible exit starts, a nearly transparent frame still belongs to the old menu.
     const pending = () =>
-      [...op.menus].some(
+      closing.some(
         (menu) =>
-          menu.isConnected &&
           visible(menu) &&
-          Number(getComputedStyle(menu).opacity) > 0.01 &&
           !menuOpen(menu) &&
           (menu.getAnimations?.() || []).some(
             (animation) => animation.pending || animation.playState === 'running',
           ),
       );
     if (pending()) await waitFor(op, () => !pending(), 800);
+    // A finished animation can disappear from getAnimations() one render step
+    // before the host's finish callback removes the menu that blocks reopening.
+    if (closing.some(visible) && !document.hidden) {
+      let rendered = false;
+      const frame = requestAnimationFrame(() => (rendered = true));
+      try {
+        await waitFor(op, () => rendered || document.hidden || !closing.some(visible), 800);
+      } finally {
+        cancelAnimationFrame(frame);
+      }
+    }
   }
   async function openMain(op) {
     guard(op);

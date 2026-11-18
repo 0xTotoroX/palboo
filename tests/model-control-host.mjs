@@ -426,7 +426,13 @@ try {
       assert.equal(await page.locator('[data-fixture-menu]').count(), 0);
       assert.equal(await page.evaluate(() => host.changes.length), 2);
     },
-    { modern: true, semanticFastCheckbox: true, closeAfterFast: true, closingMenuMs: 120 },
+    {
+      modern: true,
+      semanticFastCheckbox: true,
+      closeAfterFast: true,
+      closingMenuMs: 120,
+      removeMenuOnFrame: true,
+    },
   );
   await check(
     'completed menu closing is rechecked when a delayed wake crosses the local wait deadline',

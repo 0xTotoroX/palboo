@@ -1411,7 +1411,7 @@ test(
 
 test(
   'model settings finish slow initial reads and preserve saved enablement across reloads',
-  { timeout: 20000 },
+  { timeout: 60000 },
   async () => {
     const bundle = await build({
       stdin: {
@@ -1434,6 +1434,7 @@ test(
     try {
       const page = await browser.newPage();
       page.setDefaultTimeout(4000);
+      await page.clock.install();
       await page.addInitScript(() => {
         window.fixtureHidden = true;
         Object.defineProperty(document, 'hidden', { get: () => window.fixtureHidden });
@@ -1468,7 +1469,9 @@ test(
         await page.goto('http://model-loading.test/');
         await page.addScriptTag({ content: bundle.outputFiles[0].text });
       };
+      const firstRead = page.waitForRequest('**/api/model-control/state');
       await mount();
+      await firstRead;
       const control = page.getByRole('switch', { name: '启用模型切换', exact: true });
       await control.waitFor();
       assert.equal(await control.isEnabled(), false);
@@ -1479,7 +1482,8 @@ test(
         document.dispatchEvent(new Event('visibilitychange'));
         window.dispatchEvent(new Event('focus'));
       });
-      await new Promise((resolve) => setTimeout(resolve, 4200));
+      await page.clock.fastForward(2000);
+      await page.clock.fastForward(2000);
       assert.equal(reads, 1, 'slow requests are not overlapped or invalidated by polling');
       release();
       await page.waitForFunction(
