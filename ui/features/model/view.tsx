@@ -1,7 +1,7 @@
 import { useLocale } from '../../shared/use-locale';
 import { tr } from '../../shared/i18n.js';
 /* [INPUT]: Existing model control envelope and serialized actions.
- * [OUTPUT]: Title-aligned reasoning headings, content-sized favorites matrix (auto-displaying active external CLI models when none are pinned), independent Fast charge/strike and divider controls, CodexHost CLI switcher bar (direct switch in draft chats, new-chat context handoff in locked chats), explicitly bookmarked presets separated from catalog pins, with saved reasoning and speed, a shared bottom row with lower-edge-aligned account usage, icons and an independent footer slot, in-panel catalog and wrapping presets with synchronous draft handoff, measured horizontal reading restoration and capability-driven selection.
+ * [OUTPUT]: Title-aligned reasoning headings, content-sized favorites matrix (auto-displaying active external CLI models when none are pinned), speed feedback and divider controls, CodexHost CLI switcher bar (direct switch in draft chats, new-chat context handoff in locked chats), explicitly bookmarked presets separated from catalog pins, with saved reasoning and speed, a shared bottom row with lower-edge-aligned account usage, icons and an independent footer slot, in-panel catalog and wrapping presets with synchronous draft handoff, measured horizontal reading restoration and capability-driven selection.
  * [POS]: Reusable business view; surfaces own placement and theme; saved column widths override estimated defaults.
  * [PROTOCOL]: Keep AGENTS.md in this module in sync. */
 import {
@@ -14,7 +14,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { ModelHeading } from './heading';
-import { useFastMotion } from './fast-motion';
+import { SpeedDischarge, useSpeedMotion } from './speed-motion';
 import { ModelSpeedControl, ModelSpeedIcon } from './speed-control';
 import { useModelMotion } from './interaction-motion';
 import { iconSvg } from '../../shared/icons/index.js';
@@ -32,8 +32,6 @@ import {
   type Selection,
 } from './catalog';
 export type { ModelState } from './catalog';
-const dischargeShape =
-  'M24 0 L23 43 L27 86 L20 122 L26 166 L23 209 L28 256 L21 295 L25 328 L24 360';
 const label = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
 // 只估算自然宽度预算；实际名称仍由网格宽度和换行布局决定。
 function estimateTextWidth(text: string) {
@@ -110,13 +108,22 @@ export function ModelView({
     }
   }, [others]);
   const headings = useRef<HTMLDivElement>(null);
-  const motion = useFastMotion();
-  const discharge = motion.beam,
-    dischargePath = motion.path;
+  const s = state.snapshot;
+  const currentAgent = s.agent?.current || 'codex';
+  const targetId =
+    s.target && typeof s.target === 'object' && 'id' in s.target ? s.target.id : null;
+  const motion = useSpeedMotion(
+    JSON.stringify([
+      targetId,
+      !!s.target,
+      currentAgent,
+      s.current?.model,
+      s.current?.reasoning,
+      state.preferences.enabled,
+      others,
+    ]),
+  );
   const stopDischarge = motion.stop;
-  useEffect(() => {
-    if (others) stopDischarge();
-  }, [others]);
   useEffect(() => {
     if (!others) return;
     const document = root.current!.ownerDocument;
@@ -155,8 +162,6 @@ export function ModelView({
     scale: number;
   } | null>(null);
   const restoredReading = useRef(false);
-  const s = state.snapshot;
-  const currentAgent = s.agent?.current || 'codex';
   const prefs = scopedModelPreferences(state.preferences, currentAgent);
   const statusMessage = hasNotice
     ? ''
@@ -176,7 +181,7 @@ export function ModelView({
   const allowed = !!s.target && ['ready', 'waiting'].includes(s.status) && prefs.enabled;
   const apply = (selection: Selection, preserveSpeed = false) =>
     action({ target: s.target, expectedRevision: s.revision, selection, preserveSpeed }, 'apply');
-  const selectSpeed = async (speed: ModelSpeed) => {
+  const selectSpeed = async (speed: ModelSpeed, doubleClick = false) => {
     if (
       !allowed ||
       busy ||
@@ -185,14 +190,24 @@ export function ModelView({
       !supportsModelSpeed(currentModel, speed)
     )
       return;
-    const charge = speed === 'fast' && s.current.speed === 'standard';
-    if (!charge) stopDischarge();
-    const request = apply({ ...s.current, speed });
-    if (charge)
+    const discharge =
+      (speed === 'fast' && s.current.speed === 'standard') || (speed === 'ultrafast' && doubleClick)
+        ? speed
+        : null;
+    if (!discharge) stopDischarge();
+    const selection = { ...s.current, speed };
+    const request = apply(selection);
+    if (discharge)
       await motion.start(
-        request.then(
-          (result) => (result as ModelState | null)?.snapshot?.current?.speed === 'fast',
-        ),
+        discharge,
+        request.then((result) => {
+          const actual = (result as ModelState | null)?.snapshot?.current;
+          return (
+            actual?.speed === speed &&
+            actual.model === selection.model &&
+            actual.reasoning === selection.reasoning
+          );
+        }),
       );
     else await request;
   };
@@ -751,27 +766,7 @@ export function ModelView({
                 >
                   <span className="model-divider-line" />
                 </button>
-                <div className="model-discharge" ref={discharge} aria-hidden="true">
-                  <svg viewBox="0 0 48 360" preserveAspectRatio="none">
-                    <g ref={dischargePath}>
-                      <path
-                        className="model-discharge-glow"
-                        d={dischargeShape}
-                        vectorEffect="non-scaling-stroke"
-                      />
-                      <path
-                        className="model-discharge-core"
-                        d={dischargeShape}
-                        vectorEffect="non-scaling-stroke"
-                      />
-                      <path
-                        className="model-discharge-branches"
-                        d="M20 122 L12 144 L15 158 M28 256 L35 270 L32 284"
-                        vectorEffect="non-scaling-stroke"
-                      />
-                    </g>
-                  </svg>
-                </div>
+                <SpeedDischarge motion={motion} />
 
                 {rows(visible)}
                 {!hasNotice && !statusMessage && !!models.length && !visible.length && (

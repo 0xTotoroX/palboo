@@ -147,6 +147,20 @@
   stroke-width: 0.8;
   opacity: 0.48;
 }
+.model-discharge[data-discharge='ultrafast'] .model-discharge-single {
+  visibility: hidden;
+}
+.model-discharge-pulse,
+.model-discharge-burst {
+  opacity: 0;
+}
+.model-discharge-pulse[data-pulse='chase'] .model-discharge-core {
+  stroke-width: 1.9;
+}
+.model-discharge-burst path[pathLength] {
+  stroke-width: 1;
+  stroke-dasharray: 1 1;
+}
 @media (prefers-reduced-motion: reduce) {
   .model-discharge {
     display: none;

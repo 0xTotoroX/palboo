@@ -2,7 +2,15 @@
  * [OUTPUT]: Single/double-click arbitration, speed menu and compact speed icons shared by presets.
  * [POS]: Model matrix header; delegates the only write to ModelView's serialized action.
  * [PROTOCOL]: Keep model/AGENTS.md in sync. */
-import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type Ref,
+} from 'react';
 import { tr } from '../../shared/i18n.js';
 import { iconSvg } from '../../shared/icons/index.js';
 import {
@@ -12,20 +20,27 @@ import {
   type Model,
   type ModelSpeed,
 } from './catalog';
-import type { useFastMotion } from './fast-motion';
+import type { useSpeedMotion } from './speed-motion';
 
 const doubleClickMs = 320;
 
-export function ModelSpeedIcon({ speed }: { speed: string }) {
+export function ModelSpeedIcon({
+  speed,
+  glyphRef,
+}: {
+  speed: string;
+  glyphRef?: Ref<HTMLSpanElement>;
+}) {
   if (speed !== 'ultrafast') {
     return (
       <span
+        ref={glyphRef}
         dangerouslySetInnerHTML={{ __html: iconSvg(speed === 'fast' ? 'bolt-filled' : 'bolt') }}
       />
     );
   }
   return (
-    <span>
+    <span ref={glyphRef}>
       <svg aria-hidden="true" data-icon="bolt-ultrafast" viewBox="0 0 24 24" fill="currentColor">
         <path d="M10.5 3.1 2.2 12a.8.8 0 0 0 .6 1.3h4.5l-1.4 5.6a.6.6 0 0 0 1 .6l8.3-8.9a.8.8 0 0 0-.6-1.3h-4.4l1.3-5.6a.6.6 0 0 0-1-.6ZM17.9 6.2a.6.6 0 0 1 1 .6l-1.3 5.6h3.6a.8.8 0 0 1 .6 1.3l-7.7 8.2a.6.6 0 0 1-1-.6l1.3-5.6h-2.1l4.7-5a2.3 2.3 0 0 0 .3-2.9l.6-1.6Z" />
       </svg>
@@ -47,8 +62,8 @@ export function ModelSpeedControl({
   revision: string;
   nameWidth: number;
   disabled: boolean;
-  motion: ReturnType<typeof useFastMotion>;
-  select: (speed: ModelSpeed) => void;
+  motion: ReturnType<typeof useSpeedMotion>;
+  select: (speed: ModelSpeed, doubleClick?: boolean) => void;
 }) {
   const menu = useRef<HTMLDivElement>(null);
   const pendingClick = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -164,7 +179,7 @@ export function ModelSpeedControl({
             single();
           } else if (pendingClick.current !== undefined) {
             cancelClick();
-            select('ultrafast');
+            select('ultrafast', true);
           } else {
             pendingClick.current = setTimeout(() => {
               pendingClick.current = undefined;
@@ -189,7 +204,10 @@ export function ModelSpeedControl({
           showMenu();
         }}
       >
-        <ModelSpeedIcon speed={speed === 'ultrafast' ? speed : 'standard'} />
+        <ModelSpeedIcon
+          speed={speed === 'ultrafast' ? speed : 'standard'}
+          glyphRef={motion.glyph}
+        />
         <span
           ref={fill}
           className="model-fast-fill"

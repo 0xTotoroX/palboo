@@ -738,7 +738,7 @@ test('speed tiers are numbered independently without rewriting saved preset suff
 });
 
 test(
-  'Ultra Fast double-click issues one request and the original icon opens a keyboard-accessible menu',
+  'Ultra Fast double-click confirms one discharge and preserves keyboard and preset behavior',
   { timeout: 15000 },
   async () => {
     const bundle = await build({
@@ -746,10 +746,17 @@ test(
         contents: `import React from 'react'; import {createRoot} from 'react-dom/client'; import {ModelView} from './ui/features/model/view';
       const root = createRoot(document.getElementById('view')); const reading = {};
       const state = {revision: 1, preferences: {enabled: true, pinned: ['sol'], presets: []}, snapshot: {target:{id:'chat'},revision:'v1',status:'ready',models:[{id:'sol',label:'Sol',reasoning:['low','high'],fast:true,ultrafast:true}],current:{model:'sol',reasoning:'high',speed:'standard'}}};
-      window.changeTarget = () => { state.snapshot.target = {id:'next'}; state.snapshot.revision = 'v2'; render(); };
+      window.changeTarget = () => { const id = String(++state.revision); state.snapshot.target = {id}; state.snapshot.revision = id; render(); };
       window.calls = [];
       function render() { root.render(<ModelView state={state} reading={reading} busy={false} action={async(data,kind)=>{
-        window.calls.push({data,kind}); if (kind === 'apply') state.snapshot.current={...data.selection}; else Object.assign(state.preferences,data.patch);
+        window.calls.push({data,kind});
+        if (kind === 'apply') {
+          if (window.deferApply) {
+            const accepted = await new Promise((resolve) => { window.finishApply = (value) => { delete window.finishApply; resolve(value); }; });
+            if (!accepted || data.target.id !== state.snapshot.target.id) return null;
+          }
+          state.snapshot.current={...data.selection};
+        } else Object.assign(state.preferences,data.patch);
         render(); return state;
       }}/>); } render();`,
         resolveDir: process.cwd(),
@@ -791,6 +798,12 @@ test(
       );
       assert.deepEqual(await speeds(), ['ultrafast']);
       assert.equal(await trigger.locator('[data-icon="bolt-ultrafast"]').count(), 1);
+      const discharge = page.locator('.model-discharge');
+      assert.equal(await trigger.getAttribute('data-phase'), 'idle');
+      assert.equal(
+        await discharge.evaluate((node) => node.getAnimations({ subtree: true }).length),
+        0,
+      );
 
       const rowBefore = await page.locator('.model-row').boundingBox();
       await trigger.click({ button: 'right' });
@@ -832,6 +845,122 @@ test(
       assert.equal(
         await page.locator('.model-preset-choice [data-icon="bolt-ultrafast"]').count(),
         1,
+      );
+
+      await page.emulateMedia({ reducedMotion: 'no-preference' });
+      await trigger.press('Enter');
+      await page.waitForFunction(
+        () => document.querySelector('.model-fast').dataset.tier === 'standard',
+      );
+      await page.evaluate(() => {
+        window.deferApply = true;
+      });
+      const matrixRow = page.locator('.model-row');
+      const rowBeforeMotion = await matrixRow.boundingBox();
+      const firstClick = await trigger.evaluate((node) => {
+        const count = window.calls.length;
+        node.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
+        const first = { phase: node.dataset.phase, requests: window.calls.length - count };
+        node.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 2 }));
+        return first;
+      });
+      assert.deepEqual(firstClick, { phase: 'idle', requests: 0 });
+      await page.waitForFunction(
+        () => document.querySelector('.model-fast').dataset.phase === 'charged',
+      );
+      assert.equal(await trigger.getAttribute('data-tier'), 'standard');
+      assert.equal(
+        await discharge.evaluate((node) => node.getAnimations({ subtree: true }).length),
+        0,
+      );
+      assert.equal(await discharge.evaluate((node) => getComputedStyle(node).opacity), '0');
+      assert.deepEqual((await speeds()).slice(-2), ['standard', 'ultrafast']);
+
+      await page.evaluate(() => window.finishApply(true));
+      await page.waitForFunction(
+        () => document.querySelector('.model-discharge').dataset.discharge === 'ultrafast',
+      );
+      const playback = await discharge.evaluate((node) => {
+        const lead = node.querySelector('[data-pulse="lead"]');
+        const chase = node.querySelector('[data-pulse="chase"]');
+        const burst = node.querySelector('.model-discharge-burst');
+        const animations = [lead, chase, burst].map((part) => part.getAnimations()[0]);
+        animations.forEach((animation) => animation.pause());
+        const tip = (part) => {
+          const insets = getComputedStyle(part).clipPath.slice(6, -1).split(' ');
+          return 100 - parseFloat(insets[2] ?? insets[0]);
+        };
+        const samples = [59, 85, 165, 177, 265, 299].map((ms) => {
+          animations.forEach((animation) => {
+            animation.currentTime = ms;
+          });
+          return {
+            lead: tip(lead),
+            chase: tip(chase),
+            burst: +getComputedStyle(burst).opacity,
+            secondOpacity: +getComputedStyle(chase).opacity,
+          };
+        });
+        const duration = animations.map((animation) => animation.effect.getTiming().duration);
+        animations.forEach((animation) => animation.finish());
+        return { duration, samples, branches: burst.querySelectorAll('path[pathLength]').length };
+      });
+      assert.deepEqual(playback.duration, [300, 300, 300]);
+      const [beforeSecond, chasing, collision, flare, merged, end] = playback.samples;
+      assert.ok(
+        beforeSecond.lead > 15 && beforeSecond.chase === 0 && beforeSecond.secondOpacity === 0,
+      );
+      assert.ok(chasing.lead > chasing.chase && chasing.chase > 0 && chasing.burst === 0);
+      assert.ok(
+        Math.abs(collision.lead - 200 / 3) < 0.1 &&
+          Math.abs(collision.lead - collision.chase) < 0.1,
+      );
+      assert.ok(flare.burst > 0.9 && playback.branches === 2);
+      assert.ok(
+        merged.lead > 90 && merged.secondOpacity === 0 && merged.burst === 0 && end.lead === 100,
+      );
+      await page.waitForFunction(
+        () => document.querySelector('.model-fast').dataset.phase === 'idle',
+      );
+      assert.equal(await trigger.getAttribute('data-tier'), 'ultrafast');
+      assert.equal(await discharge.evaluate((node) => getComputedStyle(node).opacity), '0');
+      assert.deepEqual(await matrixRow.boundingBox(), rowBeforeMotion);
+
+      await page.evaluate(() => {
+        window.deferApply = false;
+      });
+      await trigger.press('Enter');
+      await page.waitForFunction(
+        () => document.querySelector('.model-fast').dataset.tier === 'standard',
+      );
+      await page.evaluate(() => {
+        window.deferApply = true;
+      });
+      await trigger.dblclick();
+      await page.waitForFunction(() => !!window.finishApply);
+      await page.evaluate(() => window.finishApply(false));
+      await page.waitForFunction(
+        () => document.querySelector('.model-fast').dataset.phase === 'idle',
+      );
+      assert.equal(await trigger.getAttribute('data-tier'), 'standard');
+      assert.equal(
+        await discharge.evaluate((node) => node.getAnimations({ subtree: true }).length),
+        0,
+      );
+
+      await trigger.dblclick();
+      await page.waitForFunction(
+        () => document.querySelector('.model-fast').dataset.phase === 'charged',
+      );
+      await page.evaluate(() => window.changeTarget());
+      await page.waitForFunction(
+        () => document.querySelector('.model-fast').dataset.phase === 'idle',
+      );
+      await page.evaluate(() => window.finishApply(true));
+      assert.equal(await trigger.getAttribute('data-tier'), 'standard');
+      assert.equal(
+        await discharge.evaluate((node) => node.getAnimations({ subtree: true }).length),
+        0,
       );
       assert.deepEqual(errors, []);
     } finally {
