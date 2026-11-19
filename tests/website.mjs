@@ -1594,12 +1594,19 @@ test('narrow model previews label each reasoning choice beside its model', async
       /速度|Speed/,
     );
     const presetVisible = await panel.evaluate((root) => {
+      const section = root.closest('#features').getBoundingClientRect();
       const preview = root.querySelector('.feature-preview').getBoundingClientRect();
       const preset = root.querySelector('.model-preset-choice').getBoundingClientRect();
-      return { previewBottom: preview.bottom, presetBottom: preset.bottom };
+      return {
+        previewBottom: preview.bottom,
+        viewportHeight: window.innerHeight,
+        presetBottom: preset.bottom,
+        presetOffsetFromSectionTop: preset.bottom - section.top,
+      };
     });
     assert.ok(
-      presetVisible.presetBottom <= presetVisible.previewBottom + 1,
+      presetVisible.presetBottom <= presetVisible.previewBottom + 1 &&
+        presetVisible.presetOffsetFromSectionTop <= presetVisible.viewportHeight + 1,
       `narrow model preview shows presets on entry: ${JSON.stringify(presetVisible)}`,
     );
     await bolt.focus();

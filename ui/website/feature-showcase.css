@@ -375,6 +375,9 @@
     content: attr(data-choice-label);
     margin-left: 6px;
   }
+  .feature-preview .model-row .model-choices button:disabled {
+    display: none;
+  }
   .feature-preview .model-inline-heading {
     width: 100% !important;
     display: flex;
