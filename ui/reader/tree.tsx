@@ -136,6 +136,7 @@ function Contents({
         .map((note) => (
           <li key={note.id}>
             <button
+              data-note-id={note.id}
               aria-current={note.id === selected ? 'page' : undefined}
               title={note.id.includes('/') ? `${note.title}\n${note.id}` : note.title}
               onClick={() => open(note.id)}

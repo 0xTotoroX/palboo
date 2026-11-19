@@ -33,6 +33,7 @@ function Sample({
   showUsage,
   showTokenMeter,
   preserveEdits,
+  active,
 }: {
   source: ModelState;
   telemetry?: ModelState['snapshot'];
@@ -42,6 +43,7 @@ function Sample({
   showUsage: boolean;
   showTokenMeter: boolean;
   preserveEdits: boolean;
+  active: boolean;
 }) {
   useLocale();
   const reading = useRef<Reading>({});
@@ -102,9 +104,23 @@ function Sample({
         headerActions={headerActions}
         reading={reading.current}
         busy={false}
+        active={active}
         footer={
           showTokenMeter && telemetry?.tokenMeter ? (
-            <TokenMeterView snapshot={telemetry.tokenMeter} />
+            <TokenMeterView
+              snapshot={
+                preserveEdits && state.snapshot.current
+                  ? {
+                      ...telemetry.tokenMeter,
+                      model:
+                        state.snapshot.models.find((m) => m.id === state.snapshot.current?.model)
+                          ?.label ?? state.snapshot.current.model,
+                      fast: state.snapshot.current.speed === 'fast',
+                      ultrafast: state.snapshot.current.speed === 'ultrafast',
+                    }
+                  : telemetry.tokenMeter
+              }
+            />
           ) : mode === 'example' && showUsage && !telemetry?.usage?.length ? (
             <span className="model-usage" aria-label={tr('额度暂无数据')}>
               <span>{tr('周 —')}</span>
@@ -163,6 +179,7 @@ export function ModelPreview({
   headerActions,
   showTokenMeter = true,
   preserveEdits = false,
+  active = true,
 }: {
   model: ModelState | null;
   demoSelection?: Selection;
@@ -170,6 +187,7 @@ export function ModelPreview({
   headerActions?: HTMLElement;
   showTokenMeter?: boolean;
   preserveEdits?: boolean;
+  active?: boolean;
 }) {
   useLocale();
   // Only presentation data crosses this boundary. Never retain the host target or revision.
@@ -234,6 +252,7 @@ export function ModelPreview({
       showUsage={model?.preferences.showUsage !== false}
       showTokenMeter={showTokenMeter}
       preserveEdits={preserveEdits}
+      active={active}
     />
   );
 }

@@ -60,8 +60,10 @@ export function ModelView({
   headerActions,
   footer,
   hasNotice = false,
+  active = true,
 }: {
   hasNotice?: boolean;
+  active?: boolean;
   footer?: ReactNode;
   headerActions?: HTMLElement;
   reading: Reading;
@@ -667,6 +669,7 @@ export function ModelView({
                   disabled={
                     busy || motion.phase !== 'idle' || !allowed || !s.current || others || dragging
                   }
+                  surfaceActive={active && !others}
                   motion={motion}
                   select={selectSpeed}
                 />

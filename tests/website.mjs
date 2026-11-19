@@ -1047,6 +1047,19 @@ test('the real task board can edit and create tasks without leaving the shared f
     await select(page, 'model');
     await select(page, 'board');
     await board.getByRole('button', { name: '任务详情：给作品配上介绍', exact: true }).waitFor();
+    // Switch between board and checklist while sharing the same in-memory tasks and state.
+    await board.getByRole('button', { name: '清单', exact: true }).click();
+    await board.locator('[data-view-mode="list"]').waitFor();
+    await board.getByRole('button', { name: '任务详情：给作品配上介绍', exact: true }).waitFor();
+    await board.getByRole('checkbox', { name: '完成任务：给作品配上介绍', exact: true }).click();
+    await board
+      .getByRole('button', { name: '任务详情：给作品配上介绍', exact: true })
+      .waitFor({ state: 'detached' });
+    await board.getByRole('button', { name: '查看已完成', exact: true }).click();
+    await board.getByRole('checkbox', { name: '恢复任务：给作品配上介绍', exact: true }).waitFor();
+    await board.getByRole('button', { name: '看板', exact: true }).click();
+    await board.locator('[data-view-mode="expanded"]').waitFor();
+    await board.getByRole('button', { name: '任务详情：给作品配上介绍', exact: true }).waitFor();
     await page.screenshot({ path: resolve(reports, 'desktop-board.png') });
   } finally {
     await page.close();
@@ -1060,13 +1073,63 @@ test('shared model choices, Bot messages and the isolated Agent menu remain inte
     const model = panel(page, 'model');
     await model.locator('.token-meter-readout').waitFor();
     assert.match(await model.locator('.token-meter-readout').innerText(), /38.4/);
-    assert.equal(await model.locator('.model-row').count(), 12);
+    assert.equal(await model.locator('.model-row').count(), 4);
     for (const level of ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'])
       assert.ok(await model.locator(`[data-reasoning="${level}"]`).count(), level);
     assert.doesNotMatch(await model.innerText(), /示例模型|均为示例|上次测速/);
+    // Presets (including Ultra Fast) are visible on initial load without scrolling the matrix.
+    const modelLayout = await model.evaluate((root) => {
+      const fav = root.querySelector('.model-favorites').getBoundingClientRect();
+      const presets = [...root.querySelectorAll('.model-preset-choice')].map((el) => ({
+        text: el.textContent.trim(),
+        rect: el.getBoundingClientRect().toJSON(),
+        hasUltraIcon: !!el.querySelector('[data-icon="bolt-ultrafast"]'),
+      }));
+      return { fav: fav.toJSON(), presets };
+    });
+    assert.equal(modelLayout.presets.length, 4);
+    assert.ok(
+      modelLayout.presets.every((p) => p.rect.bottom <= modelLayout.fav.bottom + 1),
+      `presets stay visible on initial load: ${JSON.stringify(modelLayout)}`,
+    );
+    assert.ok(
+      modelLayout.presets.some((p) => p.hasUltraIcon),
+      'Ultra Fast preset renders its double-lightning icon',
+    );
+    // All 12 models remain available inside the catalog picker.
+    await model.getByRole('button', { name: '所有模型', exact: true }).click();
+    assert.equal(await model.locator('.model-tile').count(), 12);
+    await model.getByRole('button', { name: '关闭所有模型', exact: true }).click();
+    // Model A supports Ultra Fast via double-click and speed menu; single click returns to Standard.
+    const speedBtn = model.locator('.model-fast');
+    await speedBtn.dblclick();
+    await model.locator('.model-fast[data-tier="ultrafast"]').waitFor();
+    await speedBtn.click();
+    await model.locator('.model-fast[data-tier="standard"]').waitFor();
     const choice = model.locator('[data-model="example-c"][data-reasoning="high"]');
     await choice.click();
     assert.equal(await choice.getAttribute('aria-pressed'), 'true');
+    // Fast-only Model C disables Ultra Fast with distinct muted appearance and cursor; switching tab closes menu.
+    await speedBtn.click({ button: 'right' });
+    const speedMenu = model.locator('.model-speed-menu');
+    assert.equal(await speedMenu.evaluate((el) => el.matches(':popover-open')), true);
+    const disabledUltra = await speedMenu
+      .getByRole('menuitemradio', { name: '超快' })
+      .evaluate((el) => ({
+        disabled: el.disabled,
+        opacity: Number(getComputedStyle(el).opacity),
+        cursor: getComputedStyle(el).cursor,
+      }));
+    assert.equal(disabledUltra.disabled, true);
+    assert.ok(disabledUltra.opacity < 0.6);
+    assert.equal(disabledUltra.cursor, 'not-allowed');
+    await select(page, 'bots');
+    assert.equal(
+      await speedMenu.evaluate((el) => el.matches(':popover-open')),
+      false,
+      'leaving the model tab closes the speed menu',
+    );
+    await select(page, 'model');
     await model.getByRole('button', { name: 'Fast', exact: true }).click();
     assert.equal(
       await model.getByRole('button', { name: 'Fast', exact: true }).getAttribute('aria-pressed'),
@@ -1124,6 +1187,11 @@ test('the reader preview opens linked notes, edits a draft and switches sheets w
     await page.keyboard.press('ArrowRight');
     assert.equal(await resize.getAttribute('aria-valuenow'), '244');
     const search = library.getByRole('searchbox', { name: '搜索笔记' });
+    await search.fill('阅读 检索');
+    await library
+      .getByRole('navigation', { name: '搜索结果' })
+      .getByRole('button', { name: '阅读工具', exact: true })
+      .waitFor();
     await search.fill('不存在的笔记');
     await library.getByRole('status').filter({ hasText: '没有匹配的笔记' }).waitFor();
     await search.fill('');
@@ -1406,6 +1474,10 @@ test('entry demonstration only runs in view and manual interaction cancels it', 
     await select(page, 'prompts');
     await page.clock.runFor(2200);
     assert.equal(await phrases.getByLabel('快捷指令内容').inputValue(), '手动接管');
+    // Notes & Web entry demo switches to reading-tool.md via language-independent ID.
+    await select(page, 'sites');
+    await page.clock.runFor(1700);
+    await panel(page, 'sites').getByRole('heading', { name: '阅读工具', exact: true }).waitFor();
   } finally {
     await page.close();
   }
@@ -1511,6 +1583,36 @@ test('narrow model previews label each reasoning choice beside its model', async
     );
     await high.press('Enter');
     assert.equal(await high.getAttribute('aria-pressed'), 'true');
+    const bolt = panel.locator('.model-fast');
+    const boltBox = await bolt.boundingBox();
+    assert.ok(
+      Math.abs(boltBox.x - name.x) <= 4,
+      `narrow speed control aligns with the model list: ${JSON.stringify({ boltBox, name })}`,
+    );
+    assert.match(
+      await bolt.evaluate((el) => getComputedStyle(el, '::after').content),
+      /速度|Speed/,
+    );
+    const presetVisible = await panel.evaluate((root) => {
+      const preview = root.querySelector('.feature-preview').getBoundingClientRect();
+      const preset = root.querySelector('.model-preset-choice').getBoundingClientRect();
+      return { previewBottom: preview.bottom, presetBottom: preset.bottom };
+    });
+    assert.ok(
+      presetVisible.presetBottom <= presetVisible.previewBottom + 1,
+      `narrow model preview shows presets on entry: ${JSON.stringify(presetVisible)}`,
+    );
+    await bolt.focus();
+    await page.keyboard.press('ArrowDown');
+    assert.equal(
+      await panel.locator('.model-speed-menu').evaluate((el) => el.matches(':popover-open')),
+      true,
+    );
+    await page.evaluate(() => window.scrollBy(0, 240));
+    await page.waitForFunction(
+      () =>
+        !document.querySelector('#feature-panel-model .model-speed-menu')?.matches(':popover-open'),
+    );
     await page.screenshot({ path: resolve(reports, 'review-model-mobile.png') });
   } finally {
     await page.close();

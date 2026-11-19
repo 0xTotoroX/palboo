@@ -359,8 +359,8 @@
   }
   .feature-preview .model-row {
     grid-template-columns: minmax(0, 1fr);
-    gap: 8px;
-    padding-block: 12px;
+    gap: 6px;
+    padding-block: 8px;
   }
   .feature-preview .model-row .model-choices {
     display: flex;
@@ -368,8 +368,8 @@
     gap: 4px;
   }
   .feature-preview .model-row .model-choices button {
-    min-height: 36px;
-    padding: 6px 8px;
+    min-height: 32px;
+    padding: 4px 8px;
   }
   .feature-preview .model-row .model-choices button::after {
     content: attr(data-choice-label);
@@ -377,7 +377,35 @@
   }
   .feature-preview .model-inline-heading {
     width: 100% !important;
-    grid-template-columns: minmax(0, 1fr) !important;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    min-height: 32px;
+    margin-bottom: 4px;
+  }
+  .feature-preview .model-inline-heading .model-fast {
+    position: static;
+    left: auto !important;
+    top: auto;
+    transform: none;
+    display: inline-grid;
+    grid-auto-flow: column;
+    align-items: center;
+    gap: 6px;
+    width: auto;
+    padding: 4px 10px 4px 8px;
+    border-radius: 6px;
+    background: var(--site-input);
+    color: var(--ink);
+    font-size: 13px;
+  }
+  .feature-preview .model-inline-heading .model-fast:disabled {
+    color: var(--muted);
+  }
+  .feature-preview .model-inline-heading .model-fast::after {
+    content: attr(aria-label);
+    grid-column: 2;
+    white-space: nowrap;
   }
   .feature-preview .model-inline-heading > .model-choices,
   .feature-preview .model-column-resize,

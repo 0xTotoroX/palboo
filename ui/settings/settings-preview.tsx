@@ -108,6 +108,7 @@ function FeaturePreview({ form, tasks, model, bots, view, dirty, page }: Preview
                   <ModelPreview
                     model={model}
                     mode="current"
+                    active={activeScene === scene}
                     showTokenMeter={form?.tokenMeterEnabled !== false}
                   />
                 ) : (

@@ -53,6 +53,7 @@ export default {
     'Short names are optional. Switch to names only when you prefer, and choose whether to insert or send. Quick phrases work independently of Next steps.',
   常用语示例草稿: 'Quick phrases demo draft',
   常用语显示方式: 'Quick phrase display',
+  任务显示方式: 'Task display',
   完整内容: 'Full text',
   '帮我把作品集第一版整理成一份方案。': 'Turn the first version of my portfolio into a plan.',
   '方案整理好了：三个代表作品、首页结构，以及手机上的阅读顺序。':
@@ -65,6 +66,7 @@ export default {
   编码: 'Coding',
   深入分析: 'Deep analysis',
   写作: 'Writing',
+  极速: 'Rapid',
   '常用模型放在手边，模型与推理档位一键切换。把写作、编码和深入分析存成预设，也能展开目录按厂家挑选。':
     'Keep favorite models close. Switch models and reasoning levels, save writing, coding and analysis presets, or browse the catalog by provider.',
   '底部保留最近测速，思考或调用工具时也能看到。':

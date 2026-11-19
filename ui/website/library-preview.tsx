@@ -77,11 +77,14 @@ export function LocalLibraryPreview() {
     if (content.current && !editing) content.current.scrollTop = positions.current[selected] || 0;
   }, [selected, editing, edits, locale]);
   const workbook = libraryWorkbook(sheet);
-  const filtered = catalog.filter((item) =>
-    `${item.title} ${'markdown' in item ? item.markdown : ''}`
-      .toLocaleLowerCase()
-      .includes(query.trim().toLocaleLowerCase()),
-  );
+  const terms = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+  const filtered = terms.length
+    ? catalog.filter((item) => {
+        const haystack =
+          `${item.id} ${item.title} ${'markdown' in item ? item.markdown : ''}`.toLocaleLowerCase();
+        return terms.every((term) => haystack.includes(term));
+      })
+    : catalog;
   useLayoutEffect(() => {
     if (menu && focusSearch.current) {
       focusSearch.current = false;

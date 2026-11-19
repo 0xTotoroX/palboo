@@ -96,6 +96,7 @@ export function modelExample(): ModelState {
                 ? ['low', 'medium', 'high', 'xhigh']
                 : ['none', 'low', 'medium', 'high', 'max'],
         fast: index === 0 || index === 2,
+        ultrafast: index === 0,
       })),
       usage: [
         { minutes: 10080, remainingPercent: 72, resetsAt: null },
@@ -116,7 +117,7 @@ export function modelExample(): ModelState {
     preferences: {
       enabled: true,
       showUsage: true,
-      pinned: 'abcdefghijkl'.split('').map((id) => `example-${id}`),
+      pinned: ['example-a', 'example-b', 'example-c', 'example-k'],
       presets: [
         {
           id: 'example-writing',
@@ -135,6 +136,12 @@ export function modelExample(): ModelState {
           agent: 'codex',
           name: tr('编码'),
           selection: { model: 'example-c', reasoning: 'high', speed: 'fast' },
+        },
+        {
+          id: 'example-rapid',
+          agent: 'codex',
+          name: tr('极速'),
+          selection: { model: 'example-a', reasoning: 'low', speed: 'ultrafast' },
         },
       ],
     },

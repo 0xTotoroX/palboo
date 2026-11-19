@@ -2,7 +2,8 @@
  * [OUTPUT]: Real chat features with synthetic context and persistent in-memory state.
  * [POS]: Website-only adaptation. No host, model or settings writes; drafts and task edits stay mounted.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import type { TaskDisplayMode, TaskRequest, TaskState } from '../features/board/api';
 import type { FeaturePreviewExample } from '../settings/feature-preview';
 import { FeatureChatPreview } from '../settings/feature-chat-preview';
 import type { EditableSettings } from '../settings/api';
@@ -22,13 +23,22 @@ export function FeatureContentExample({
   id,
   form,
   active,
+  taskDisplayMode = 'board',
 }: {
   id: 'outline' | 'next' | 'prompts' | 'terms' | 'board' | 'bots';
   form: EditableSettings;
   active: boolean;
+  taskDisplayMode?: TaskDisplayMode;
 }) {
   useLocale();
-  const [taskRequest] = useState(() => (id === 'board' ? createPortfolioTasks() : undefined));
+  const [baseTaskRequest] = useState(() => (id === 'board' ? createPortfolioTasks() : undefined));
+  const taskRequest = useMemo<TaskRequest | undefined>(() => {
+    if (!baseTaskRequest) return undefined;
+    return async <T,>(path: string, body?: unknown) => {
+      const state = await baseTaskRequest<TaskState>(path, body);
+      return { ...state, store: { ...state.store, displayMode: taskDisplayMode } } as T;
+    };
+  }, [baseTaskRequest, taskDisplayMode]);
   const example: FeaturePreviewExample = {
     projection: portfolioProjection,
     taskRequest,

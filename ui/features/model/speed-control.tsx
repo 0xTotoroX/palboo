@@ -24,6 +24,60 @@ import type { useSpeedMotion } from './speed-motion';
 
 const doubleClickMs = 320;
 
+function collectAncestors(node: Node): HTMLElement[] {
+  const ancestors: HTMLElement[] = [];
+  let current: Node | null = node;
+  while (current) {
+    if (current instanceof HTMLElement) ancestors.push(current);
+    current = current instanceof ShadowRoot ? current.host : current.parentNode;
+  }
+  return ancestors;
+}
+
+function collectScrollRoots(node: Node): EventTarget[] {
+  const roots = new Set<EventTarget>();
+  if (node.ownerDocument) {
+    roots.add(node.ownerDocument);
+    if (node.ownerDocument.defaultView) roots.add(node.ownerDocument.defaultView);
+  }
+  let current: Node | null = node;
+  while (current) {
+    const root = current.getRootNode();
+    if (root instanceof ShadowRoot) {
+      roots.add(root);
+      current = root.host;
+    } else {
+      break;
+    }
+  }
+  return [...roots];
+}
+
+function isAnchorInactive(anchor: HTMLElement): boolean {
+  if (!anchor.isConnected) return true;
+  const view = anchor.ownerDocument.defaultView;
+  for (const el of collectAncestors(anchor)) {
+    if (el.inert || el.hidden || el.getAttribute('aria-hidden') === 'true') return true;
+    const style = view?.getComputedStyle(el);
+    if (style && (style.display === 'none' || style.visibility !== 'visible')) return true;
+  }
+  const rect = anchor.getBoundingClientRect();
+  return rect.width === 0 && rect.height === 0;
+}
+
+function containsAnchor(target: EventTarget | null, anchor: HTMLElement): boolean {
+  if (!target) return false;
+  const doc = anchor.ownerDocument;
+  if (target === doc || target === doc.defaultView) return true;
+  if (!(target instanceof Node)) return false;
+  let current: Node | null = anchor;
+  while (current) {
+    if (current === target) return true;
+    current = current instanceof ShadowRoot ? current.host : current.parentNode;
+  }
+  return false;
+}
+
 export function ModelSpeedIcon({
   speed,
   glyphRef,
@@ -54,6 +108,7 @@ export function ModelSpeedControl({
   revision,
   nameWidth,
   disabled,
+  surfaceActive = true,
   motion,
   select,
 }: {
@@ -62,11 +117,13 @@ export function ModelSpeedControl({
   revision: string;
   nameWidth: number;
   disabled: boolean;
+  surfaceActive?: boolean;
   motion: ReturnType<typeof useSpeedMotion>;
   select: (speed: ModelSpeed, doubleClick?: boolean) => void;
 }) {
   const menu = useRef<HTMLDivElement>(null);
   const pendingClick = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const openedOrigin = useRef<{ left: number; top: number } | null>(null);
   const menuId = useId();
   const [expanded, setExpanded] = useState(false);
   const { button, fill, phase } = motion;
@@ -80,13 +137,38 @@ export function ModelSpeedControl({
     pendingClick.current = undefined;
   }
 
+  function hideMenu(restoreFocus = false) {
+    const popover = menu.current;
+    const anchor = button.current;
+    const doc = anchor?.ownerDocument;
+    if (popover?.matches(':popover-open')) {
+      let activeNode: Element | null = doc?.activeElement ?? null;
+      while (activeNode?.shadowRoot?.activeElement)
+        activeNode = activeNode.shadowRoot.activeElement;
+      if (!restoreFocus && activeNode instanceof HTMLElement && popover.contains(activeNode)) {
+        activeNode.blur();
+      }
+      popover.hidePopover();
+    }
+    openedOrigin.current = null;
+    setExpanded(false);
+    if (restoreFocus && anchor && !isAnchorInactive(anchor)) {
+      anchor.focus({ preventScroll: true });
+    }
+  }
+
   useLayoutEffect(() => {
     const popover = menu.current;
+    if (disabled || !surfaceActive) {
+      cancelClick();
+      if (popover?.matches(':popover-open')) popover.hidePopover();
+      setExpanded(false);
+    }
     return () => {
       cancelClick();
       if (popover?.matches(':popover-open')) popover.hidePopover();
     };
-  }, [revision, speed, disabled, canUltra, canFast]);
+  }, [revision, speed, disabled, surfaceActive, canUltra, canFast]);
 
   useEffect(() => {
     const anchor = button.current;
@@ -97,24 +179,131 @@ export function ModelSpeedControl({
       if (path.includes(anchor)) return;
       cancelClick();
       const popover = menu.current;
-      if (popover?.matches(':popover-open') && !path.includes(popover)) popover.hidePopover();
+      if (popover?.matches(':popover-open') && !path.includes(popover)) hideMenu(false);
+    };
+    const onVisibility = () => {
+      cancelClick();
+      if (document.hidden) hideMenu(false);
     };
     document.addEventListener('pointerdown', cancelOutside, true);
-    document.addEventListener('visibilitychange', cancelClick);
+    document.addEventListener('visibilitychange', onVisibility);
     return () => {
       document.removeEventListener('pointerdown', cancelOutside, true);
-      document.removeEventListener('visibilitychange', cancelClick);
+      document.removeEventListener('visibilitychange', onVisibility);
     };
   }, [button]);
+
+  useLayoutEffect(() => {
+    if (!expanded) return;
+    const anchor = button.current;
+    const popover = menu.current;
+    if (!anchor || !popover) return;
+    const doc = anchor.ownerDocument;
+    const view = doc.defaultView;
+    const closeIfInactive = () => {
+      if (isAnchorInactive(anchor)) hideMenu(false);
+    };
+    if (isAnchorInactive(anchor)) {
+      hideMenu(false);
+      return;
+    }
+    const onScroll = (event: Event) => {
+      if (!popover.matches(':popover-open')) return;
+      const target = event.target;
+      if (target instanceof Node && (target === popover || popover.contains(target))) return;
+      if (!containsAnchor(target, anchor)) return;
+      const origin = openedOrigin.current;
+      if (origin) {
+        const next = anchor.getBoundingClientRect();
+        if (Math.abs(next.left - origin.left) < 0.5 && Math.abs(next.top - origin.top) < 0.5) {
+          return;
+        }
+      }
+      hideMenu(false);
+    };
+    const onResize = () => {
+      if (popover.matches(':popover-open')) hideMenu(false);
+    };
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.isComposing || !popover.matches(':popover-open')) return;
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        hideMenu(true);
+        return;
+      }
+      if (!['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
+      const options = [...popover.querySelectorAll<HTMLButtonElement>('button:enabled')];
+      if (!options.length) return;
+      let activeNode: Element | null = doc.activeElement;
+      while (activeNode?.shadowRoot?.activeElement)
+        activeNode = activeNode.shadowRoot.activeElement;
+      if (activeNode && activeNode !== doc.body && !popover.contains(activeNode)) return;
+      let index = options.indexOf(activeNode as HTMLButtonElement);
+      if (index < 0) {
+        index = options.findIndex((item) => item.getAttribute('aria-checked') === 'true');
+      }
+      const next =
+        event.key === 'Home'
+          ? 0
+          : event.key === 'End'
+            ? options.length - 1
+            : (index + options.length + (event.key === 'ArrowUp' ? -1 : 1)) % options.length;
+      event.preventDefault();
+      event.stopPropagation();
+      options[next]?.focus({ preventScroll: true });
+    };
+    const scrollRoots = collectScrollRoots(anchor);
+    for (const root of scrollRoots) root.addEventListener('scroll', onScroll, true);
+    view?.addEventListener('resize', onResize);
+    doc.addEventListener('keydown', onKeyDown, true);
+
+    const mutation = new MutationObserver(closeIfInactive);
+    for (const ancestor of collectAncestors(anchor)) {
+      mutation.observe(ancestor, {
+        attributes: true,
+        attributeFilter: ['inert', 'hidden', 'aria-hidden', 'data-active', 'style', 'class'],
+      });
+    }
+    const resizeObserver = new ResizeObserver(closeIfInactive);
+    resizeObserver.observe(anchor);
+    const intersection = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => !entry.isIntersecting)) hideMenu(false);
+      },
+      { threshold: 0 },
+    );
+    intersection.observe(anchor);
+
+    return () => {
+      for (const root of scrollRoots) root.removeEventListener('scroll', onScroll, true);
+      view?.removeEventListener('resize', onResize);
+      doc.removeEventListener('keydown', onKeyDown, true);
+      mutation.disconnect();
+      resizeObserver.disconnect();
+      intersection.disconnect();
+    };
+  }, [expanded, button]);
 
   function showMenu() {
     cancelClick();
     const popover = menu.current;
     const anchor = button.current;
     const window = anchor?.ownerDocument.defaultView;
-    if (disabled || !popover || !anchor || !window || popover.matches(':popover-open')) return;
+    if (
+      disabled ||
+      !surfaceActive ||
+      !popover ||
+      !anchor ||
+      !window ||
+      isAnchorInactive(anchor) ||
+      popover.matches(':popover-open')
+    )
+      return;
     popover.showPopover();
+    setExpanded(true);
     const rect = anchor.getBoundingClientRect();
+    openedOrigin.current = { left: rect.left, top: rect.top };
     const { offsetWidth: width, offsetHeight: height } = popover;
     const margin = 6;
     const left = Math.max(margin, Math.min(rect.right - width, window.innerWidth - width - margin));
@@ -122,15 +311,15 @@ export function ModelSpeedControl({
     const top = below + height <= window.innerHeight - margin ? below : rect.top - height - 4;
     popover.style.left = `${left}px`;
     popover.style.top = `${Math.max(margin, top)}px`;
-    popover
-      .querySelector<HTMLButtonElement>('[aria-checked="true"]:enabled')
-      ?.focus({ preventScroll: true });
+    (
+      popover.querySelector<HTMLButtonElement>('[aria-checked="true"]:enabled') ??
+      popover.querySelector<HTMLButtonElement>('button:enabled')
+    )?.focus({ preventScroll: true });
   }
 
   function moveMenuFocus(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key === 'Escape' || event.key === 'Tab') {
-      menu.current?.hidePopover();
-      button.current?.focus({ preventScroll: true });
+      hideMenu(true);
       if (event.key === 'Escape') {
         event.preventDefault();
         event.stopPropagation();
@@ -223,6 +412,11 @@ export function ModelSpeedControl({
         aria-label={tr('速度')}
         popover="manual"
         onToggle={(event) => setExpanded(event.currentTarget.matches(':popover-open'))}
+        onMouseDown={(event) => {
+          if (!(event.target instanceof Element && event.target.closest('button:enabled'))) {
+            event.preventDefault();
+          }
+        }}
         onKeyDown={moveMenuFocus}
       >
         {modelSpeeds.map((option) => (
@@ -234,8 +428,7 @@ export function ModelSpeedControl({
             aria-checked={speed === option}
             disabled={disabled || !supportsModelSpeed(model, option)}
             onClick={() => {
-              menu.current?.hidePopover();
-              button.current?.focus({ preventScroll: true });
+              hideMenu(true);
               select(option);
             }}
           >

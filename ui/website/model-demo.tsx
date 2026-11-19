@@ -8,7 +8,7 @@ import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
 import { ModelView } from '../features/model/view';
 import { TokenMeterView } from '../features/token-meter/view';
-import type { ModelState, Selection } from '../features/model/catalog';
+import { supportsModelSpeed, type ModelState, type Selection } from '../features/model/catalog';
 import type { Reading } from '../shared/features';
 
 // Names checked against provider documentation; capabilities below are conservative examples.
@@ -22,6 +22,7 @@ const models = [
     label: 'GPT-6.1-Sol',
     reasoning: ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'],
     fast: true,
+    ultrafast: true,
   },
   {
     id: 'gpt-6-astra',
@@ -199,6 +200,7 @@ export function ModelDemo({
                 lastSpeed: 38.4,
                 model: active?.label,
                 fast: state.snapshot.current?.speed === 'fast',
+                ultrafast: state.snapshot.current?.speed === 'ultrafast',
                 scope: 'turn',
                 average: null,
                 official: null,
@@ -214,7 +216,11 @@ export function ModelDemo({
             const next = structuredClone(current.current);
             if (kind === 'apply' && data.selection) {
               const keepSpeed =
-                data.preserveSpeed && models.find((m) => m.id === data.selection!.model)?.fast;
+                data.preserveSpeed &&
+                supportsModelSpeed(
+                  models.find((m) => m.id === data.selection!.model),
+                  next.snapshot.current?.speed || 'standard',
+                );
               next.snapshot.current = {
                 ...data.selection,
                 speed: keepSpeed

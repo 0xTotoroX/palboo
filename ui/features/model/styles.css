@@ -220,6 +220,11 @@
   font: inherit;
   padding: 3px 8px;
 }
+.model-speed-menu button:disabled {
+  color: var(--muted);
+  opacity: 0.45;
+  cursor: not-allowed;
+}
 .model-speed-menu button:focus-visible {
   outline: 1px solid currentColor;
   outline-offset: -1px;

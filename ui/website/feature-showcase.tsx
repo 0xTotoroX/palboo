@@ -59,6 +59,7 @@ function FeaturePage({
   const played = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [namesOnly, setNamesOnly] = useState(false);
+  const [taskDisplayMode, setTaskDisplayMode] = useState<'board' | 'list'>('board');
   const [modelSelection, setModelSelection] =
     useState<ReturnType<typeof modelExample>['snapshot']['current']>();
   const [promptStep, setPromptStep] = useState<number>();
@@ -95,7 +96,7 @@ function FeaturePage({
           terms: '.term-brick',
           board: '',
           bots: '.palboo-bot-history',
-          sites: '.reader-sidebar button[title="reading-tool.md"]',
+          sites: '.reader-sidebar button[data-note-id="reading-tool.md"]',
         }[page.id];
         if (selector) sampleButton(root.current, selector)?.click();
       }
@@ -154,12 +155,27 @@ function FeaturePage({
             ))}
           </div>
         )}
+        {page.id === 'board' && (
+          <div className="feature-preview-options" role="group" aria-label={tr('任务显示方式')}>
+            {(['board', 'list'] as const).map((value) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={taskDisplayMode === value}
+                onClick={() => setTaskDisplayMode(value)}
+              >
+                {tr(value === 'list' ? '清单' : '看板')}
+              </button>
+            ))}
+          </div>
+        )}
         {page.id === 'model' ? (
           <>
             <ModelPreview
               model={modelExample()}
               demoSelection={modelSelection ?? undefined}
               mode="current"
+              active={active}
               preserveEdits
             />
           </>
@@ -189,7 +205,12 @@ function FeaturePage({
         ) : page.id === 'sites' ? (
           <LocalLibraryPreview />
         ) : (
-          <FeatureContentExample id={page.id} form={form} active={active && inView} />
+          <FeatureContentExample
+            id={page.id}
+            form={form}
+            active={active && inView}
+            taskDisplayMode={taskDisplayMode}
+          />
         )}
       </div>
     </div>
