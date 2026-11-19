@@ -2,9 +2,10 @@
  * [OUTPUT]: Same-process reconnect, foreign rejection, deferred installation and real async hot-reload ownership.
  * [POS]: Isolated Chromium/CDP regression; no compilation or real host connection. */
 import assert from 'node:assert/strict';
+import { EventEmitter } from 'node:events';
 import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
-import { ownershipPeer } from './cdp-ownership-peer.mjs';
+import { closeOwnedBrowser, ownershipPeer } from './cdp-ownership-peer.mjs';
 
 const rust = readFileSync(new URL('../src/cdp.rs', import.meta.url), 'utf8');
 const template = (name) => {
@@ -248,4 +249,53 @@ test('real development reload retains ownership after async flush and rejects a 
     await peer.close();
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('ownershipPeer teardown reclaims stalled fixture browsers and surfaces unexited processes', async () => {
+  const peer = await ownershipPeer();
+  assert.ok(Number.isInteger(peer.pid) && peer.pid > 0);
+  await peer.close();
+  assert.throws(() => process.kill(peer.pid, 0), { code: 'ESRCH' });
+
+  const stalledChild = Object.assign(new EventEmitter(), {
+    exitCode: null,
+    signalCode: null,
+    kill() {
+      this.signalCode = 'SIGKILL';
+      this.emit('exit', null, 'SIGKILL');
+    },
+  });
+  let serverKills = 0;
+  await closeOwnedBrowser(
+    { close: () => new Promise(() => {}) },
+    {
+      process: () => stalledChild,
+      close: () => new Promise(() => {}),
+      kill: async () => {
+        serverKills++;
+        stalledChild.exitCode = 0;
+        stalledChild.emit('exit', 0, null);
+      },
+    },
+    { gracefulMs: 25, killMs: 100 },
+  );
+  assert.equal(serverKills, 1);
+
+  const stuckChild = Object.assign(new EventEmitter(), {
+    exitCode: null,
+    signalCode: null,
+    kill() {},
+  });
+  await assert.rejects(
+    closeOwnedBrowser(
+      { close: () => new Promise(() => {}) },
+      {
+        process: () => stuckChild,
+        close: () => new Promise(() => {}),
+        kill: async () => {},
+      },
+      { gracefulMs: 25, killMs: 25 },
+    ),
+    /did not exit/,
+  );
 });
