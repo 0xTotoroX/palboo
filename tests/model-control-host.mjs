@@ -71,6 +71,59 @@ async function check(name, test, options) {
   }
 }
 try {
+  for (const interruption of ['closed', 'already applied', 'changed reasoning', 'closed again']) {
+    await check(
+      `a preset rechecks its speed menu after host redraw: ${interruption}`,
+      async (page) => {
+        assert.equal((await apply(page, targetBeta)).status, 'success');
+        await page.evaluate((interruption) => {
+          host.changes.length = 0;
+          host.speedOpens = 0;
+          document.addEventListener(
+            'keydown',
+            (event) => {
+              if (event.key !== 'ArrowRight' || !event.target.matches('[aria-label^="Speed "]'))
+                return;
+              host.speedOpens++;
+              if (host.speedOpens > 1 && interruption !== 'closed again') return;
+              event.stopImmediatePropagation();
+              queueMicrotask(() => {
+                clearMenus();
+                const config = host.configs['chat-a'];
+                if (interruption === 'already applied') config.speed = 'ultrafast';
+                if (interruption === 'changed reasoning') {
+                  config.reasoning = 'high';
+                  const trigger = document.querySelector('form button');
+                  trigger.dataset.selectedReasoningEffort = 'high';
+                  trigger.textContent = 'Alpha high';
+                }
+              });
+            },
+            true,
+          );
+        }, interruption);
+        const desired = { model: 'alpha', reasoning: 'low', speed: 'ultrafast' };
+        const result = await apply(page, desired);
+        const conflict = interruption === 'changed reasoning' || interruption === 'closed again';
+        assert.equal(
+          result.status,
+          conflict ? 'partial' : 'success',
+          JSON.stringify(result.diagnostic),
+        );
+        if (!conflict) assert.deepEqual(result.snapshot.current, desired);
+        if (interruption === 'changed reasoning') assert.match(result.message, /官方配置已变化/);
+        const changes = [{ id: 'chat-a', ...desired, speed: 'standard' }];
+        if (interruption === 'closed') changes.push({ id: 'chat-a', ...desired });
+        assert.deepEqual(await page.evaluate(() => host.changes), changes);
+        assert.equal(
+          await page.evaluate(() => host.speedOpens),
+          interruption === 'closed' || interruption === 'closed again' ? 2 : 1,
+        );
+        assert.equal(await page.locator('[data-fixture-menu]').count(), 0);
+      },
+      { modern: true, speedFlyout: true, ultraSpeed: true },
+    );
+  }
   for (const speedLabels of [undefined, { standard: '标准', fast: '快速', ultrafast: '超快' }]) {
     await check(
       `Ultra Fast uses the official ${speedLabels ? 'Chinese' : 'English'} speed flyout`,
