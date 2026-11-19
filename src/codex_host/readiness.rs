@@ -94,11 +94,33 @@ pub(super) async fn installed_at(
 }
 
 pub async fn wait(paths: &crate::config::Paths) -> Result<()> {
+    wait_with(
+        paths,
+        || super::direct::native_fallback(paths),
+        || async { super::running().await },
+    )
+    .await
+}
+
+async fn wait_with<R, RFut>(
+    paths: &crate::config::Paths,
+    native_fallback: impl FnOnce() -> Result<Option<(String, String)>>,
+    running: R,
+) -> Result<()>
+where
+    R: Fn() -> RFut,
+    RFut: std::future::Future<Output = Result<Option<Running>>>,
+{
     let options = paths.load()?;
     if !options.performance.integration_enabled || !options.codex_host.enabled {
         return Ok(());
     }
-    let Some(expected) = super::running().await? else {
+    // 已核验本次会话安全回退至官方原生桌面时，短路放行启动完成，不等待兼容控制器，
+    // 也不穿透检查任何无关上游 launcher；真实回退原因仍保留在私有记录并由设置状态页展示。
+    if native_fallback()?.is_some() {
+        return Ok(());
+    }
+    let Some(expected) = running().await? else {
         anyhow::bail!("Codex 已打开，但 CodexHost 尚未连接");
     };
     // 旧版本保持原启动契约；该状态格式由当前已支持的 0.18 起明确校验。
@@ -116,7 +138,7 @@ pub async fn wait(paths: &crate::config::Paths) -> Result<()> {
             "Codex 已打开，但 CodexHost 界面尚未连接。当前会话已保留，可以稍后重试。"
         );
         ensure!(
-            super::running().await?.as_ref() == Some(&expected),
+            running().await?.as_ref() == Some(&expected),
             "CodexHost 实例已变化，请重新打开 Palboo"
         );
         tokio::time::sleep(Duration::from_millis(500)).await;
@@ -203,5 +225,63 @@ mod tests {
         assert!(read(&link).is_err());
         fs::set_permissions(&file, fs::Permissions::from_mode(0o644)).unwrap();
         assert!(read(&file).is_err());
+    }
+
+    #[tokio::test]
+    async fn verified_native_fallback_short_circuits_without_consulting_unrelated_launchers() {
+        let dir = tempfile::tempdir().unwrap();
+        let paths = crate::config::Paths::new(Some(dir.path().to_path_buf())).unwrap();
+        let mut config = paths.load().unwrap();
+        config.codex_host.enabled = true;
+        paths.save(&config).unwrap();
+
+        let running_called = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let flag = running_called.clone();
+        wait_with(
+            &paths,
+            || {
+                Ok(Some((
+                    "http://127.0.0.1:9229".into(),
+                    "现有 CodexHost 后台不属于本次桌面，已保留".into(),
+                )))
+            },
+            move || {
+                flag.store(true, std::sync::atomic::Ordering::SeqCst);
+                async { Ok(None) }
+            },
+        )
+        .await
+        .unwrap();
+        assert!(!running_called.load(std::sync::atomic::Ordering::SeqCst));
+
+        // 损坏或身份不符的回退记录仍应报错，不能静默放行或穿透到其他实例。
+        let flag = running_called.clone();
+        let error = wait_with(
+            &paths,
+            || anyhow::bail!("原生回退记录身份不符"),
+            move || {
+                flag.store(true, std::sync::atomic::Ordering::SeqCst);
+                async { Ok(None) }
+            },
+        )
+        .await
+        .unwrap_err();
+        assert!(error.to_string().contains("原生回退记录身份不符"));
+        assert!(!running_called.load(std::sync::atomic::Ordering::SeqCst));
+
+        // 无原生回退且无运行中 CodexHost 时，保持原启动阻断错误。
+        let flag = running_called.clone();
+        let error = wait_with(
+            &paths,
+            || Ok(None),
+            move || {
+                flag.store(true, std::sync::atomic::Ordering::SeqCst);
+                async { Ok(None) }
+            },
+        )
+        .await
+        .unwrap_err();
+        assert!(error.to_string().contains("CodexHost 尚未连接"));
+        assert!(running_called.load(std::sync::atomic::Ordering::SeqCst));
     }
 }
