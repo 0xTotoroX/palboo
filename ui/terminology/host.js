@@ -1,6 +1,6 @@
 import { measureWork } from '../shared/performance.js';
 /* [INPUT]: Palboo 已识别的聊天根节点、一问一答与受限后台请求。
- * [OUTPUT]: 术语标注与稳定悬停释义；重扫保留当前有效范围，离开缓冲与卡片交互共享生命周期，不改变宿主正文。
+ * [OUTPUT]: 术语标注与稳定悬停释义；重扫保留当前有效范围与同语境待展开悬停，离开缓冲与卡片交互共享生命周期，不改变宿主正文。
  * [POS]: 术语显示旁路；单次检查复用当前语境，异步结果重新核验，不读取草稿或写主聊天。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { readTypography } from '../codex/typography.js';
@@ -52,12 +52,37 @@ export function installTerminology({ request, getRoot, getExchange, isBusy, isol
   let point = { x: 0, y: 0 },
     appearanceKey = '',
     activeContext = '';
+  /** @type {{ x: number, y: number, context: string, due: number } | null} */
+  let pendingHover = null;
   const LEAVE_DELAY = 450;
   function keepOpen() {
     cancelAnimationFrame(frame);
+    frame = 0;
     clearTimeout(hoverTimer);
+    hoverTimer = 0;
+    pendingHover = null;
     clearTimeout(closeTimer);
     closeTimer = 0;
+  }
+  function hitAt(x, y) {
+    return annotations.find(
+      (a) =>
+        valid(a) &&
+        [...a.range.getClientRects()].some(
+          (r) => x >= r.left - 3 && x <= r.right + 3 && y >= r.top - 4 && y <= r.bottom + 4,
+        ),
+    );
+  }
+  function armHover(hit, x, y, context, delay = 60) {
+    point = { x, y };
+    keepOpen();
+    pendingHover = { x, y, context, due: Date.now() + delay };
+    hoverTimer = window.setTimeout(() => {
+      hoverTimer = 0;
+      pendingHover = null;
+      if (!alive || context !== contextKey()) return;
+      show(hit);
+    }, delay);
   }
   function deferClose() {
     if (closeTimer || popup.interacting) return;
@@ -227,9 +252,13 @@ export function installTerminology({ request, getRoot, getExchange, isBusy, isol
     return measureWork('terms-scan', scanContent);
   }
   function scanContent() {
+    const resumeHover = pendingHover;
     clearTimeout(scanTimer);
     clearTimeout(hoverTimer);
+    hoverTimer = 0;
     cancelAnimationFrame(frame);
+    frame = 0;
+    pendingHover = null;
     if (!alive) return;
     if (!root || root !== getRoot() || !state.preferences.enabled) {
       clear();
@@ -287,6 +316,20 @@ export function installTerminology({ request, getRoot, getExchange, isBusy, isol
         annotations[annotations.indexOf(retained)] = active;
         popup.update(active.term, cardOptions(active));
       } else void hide(true);
+    }
+    if (
+      resumeHover &&
+      !document.hidden &&
+      !popup.interacting &&
+      resumeHover.context === contextKey()
+    ) {
+      const hit = hitAt(resumeHover.x, resumeHover.y);
+      if (hit && hit !== active) {
+        const delay = resumeHover.due ? Math.max(0, resumeHover.due - Date.now()) : 60;
+        armHover(hit, resumeHover.x, resumeHover.y, resumeHover.context, delay);
+      } else if (!hit && active && !popup.near(resumeHover.x, resumeHover.y)) {
+        deferClose();
+      }
     }
     report(involved);
   }
@@ -448,34 +491,30 @@ export function installTerminology({ request, getRoot, getExchange, isBusy, isol
   function move(e) {
     if (!annotations.length || document.hidden) return;
     cancelAnimationFrame(frame);
+    frame = 0;
     if (popup.contains(e) || popup.interacting || popup.near(e.clientX, e.clientY)) {
       keepOpen();
       return;
     }
+    const x = e.clientX,
+      y = e.clientY;
+    pendingHover = { x, y, context: contextKey(), due: 0 };
     frame = requestAnimationFrame(() => {
+      frame = 0;
       if (active && activeContext !== contextKey()) return void hide(true);
-      const hit = annotations.find(
-        (a) =>
-          valid(a) &&
-          [...a.range.getClientRects()].some(
-            (r) =>
-              e.clientX >= r.left - 3 &&
-              e.clientX <= r.right + 3 &&
-              e.clientY >= r.top - 4 &&
-              e.clientY <= r.bottom + 4,
-          ),
-      );
-      if (hit) point = { x: e.clientX, y: e.clientY };
+      const hit = hitAt(x, y);
+      if (hit) point = { x, y };
       if (hit === active) {
         keepOpen();
         return;
       }
       clearTimeout(hoverTimer);
+      hoverTimer = 0;
       if (hit) {
-        keepOpen();
-        hoverTimer = window.setTimeout(() => show(hit), 60);
-      } else if (active) {
-        deferClose();
+        armHover(hit, x, y, contextKey());
+      } else {
+        pendingHover = null;
+        if (active) deferClose();
       }
     });
   }
@@ -524,7 +563,9 @@ export function installTerminology({ request, getRoot, getExchange, isBusy, isol
     }
   }
   function visible() {
-    if (!document.hidden) {
+    if (document.hidden) {
+      keepOpen();
+    } else {
       tick();
       schedule();
     }

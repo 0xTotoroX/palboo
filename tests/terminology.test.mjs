@@ -839,3 +839,94 @@ test('partial expansion failure preserves confirmed marks, retries and stops aft
     await browser.close();
   }
 });
+
+test('scheduled rescan preserves pending hover in the same chat and rejects stale chats or disabling', async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage({ reducedMotion: 'reduce' });
+    await page.clock.install();
+    await page.setContent(
+      '<main style="margin:100px;font:20px/1.8 system-ui"><p id="term">这里出现竞态条件。</p></main>',
+    );
+    await page.addScriptTag({ content: bundle });
+    await page.clock.runFor(1000);
+    await page.waitForFunction(() => CSS.highlights.get('palboo-terms')?.size === 1);
+    const card = page.getByRole('dialog');
+    const termPoint = () =>
+      page.evaluate(() => {
+        const r = [...CSS.highlights.get('palboo-terms')][0].getBoundingClientRect();
+        return { x: r.left + 6, y: r.top + r.height / 2 };
+      });
+
+    // 1) Session switches and schedules a 500ms rescan; pointer lands on the term so the rescan fires during the 60ms hoverTimer.
+    await page.evaluate(() => {
+      window.session = 'another-chat';
+    });
+    await page.clock.runFor(1000);
+    await page.clock.runFor(470);
+    const point = await termPoint();
+    await page.mouse.move(4, 4);
+    await page.mouse.move(point.x, point.y);
+    await page.clock.runFor(20);
+    await page.clock.runFor(120);
+    assert.equal(
+      await card.isVisible(),
+      true,
+      'scheduled rescan during pending hoverTimer must still open the hover card',
+    );
+
+    // Close card before next scenario.
+    await page.mouse.move(4, 4);
+    await page.clock.runFor(600);
+    assert.equal(await card.isVisible(), false);
+
+    // 2) DOM mutation schedules a 500ms rescan that fires while pointermove rAF is still pending.
+    await page.locator('main').evaluate((m) => m.append(document.createElement('span')));
+    await page.clock.runFor(495);
+    await page.mouse.move(point.x, point.y);
+    await page.clock.runFor(120);
+    assert.equal(
+      await card.isVisible(),
+      true,
+      'scheduled rescan during pending hover animation frame must still open the hover card',
+    );
+
+    // Close card before stale-context check.
+    await page.mouse.move(4, 4);
+    await page.clock.runFor(600);
+    assert.equal(await card.isVisible(), false);
+
+    // 3) Switching chats while hoverTimer is pending must not open a card for the previous context.
+    await page.mouse.move(point.x, point.y);
+    await page.clock.runFor(20);
+    await page.evaluate(() => {
+      window.session = 'third-chat';
+    });
+    await page.clock.runFor(120);
+    assert.equal(
+      await card.isVisible(),
+      false,
+      'chat switch during pending hover must not open a stale hover card',
+    );
+
+    // Wait for third-chat tick/rescan to settle, then verify disabling cancels pending hover.
+    await page.clock.runFor(1600);
+    await page.mouse.move(4, 4);
+    await page.mouse.move(point.x, point.y);
+    await page.clock.runFor(20);
+    await page.evaluate(async () => {
+      window.state.preferences.enabled = false;
+      await window.__palbooTerminology.refresh();
+    });
+    await page.clock.runFor(120);
+    assert.equal(
+      await card.isVisible(),
+      false,
+      'disabling terminology during pending hover must not open the hover card',
+    );
+
+    await page.evaluate(() => window.__palbooTerminology.destroy());
+  } finally {
+    await browser.close();
+  }
+});
