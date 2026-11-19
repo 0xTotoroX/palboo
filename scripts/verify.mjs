@@ -24,7 +24,27 @@ const root = resolve(import.meta.dirname, '..');
 const hash = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const steps = [];
 let progressFile;
-function run(command, args, env = process.env) {
+// 隔离活动 Dev/运行期会话注入的环境，避免测试误认开发态或写入真实启动进度文件。
+export function isolatedEnvironment(base = process.env) {
+  const env = { ...base };
+  for (const key of [
+    'PALBOO_DEV_ASSETS',
+    'CODEX_BUDDY_DEV_ASSETS',
+    'PALBOO_DEV_SETTINGS',
+    'CODEX_BUDDY_DEV_SETTINGS',
+    'PALBOO_DEV_CODEX_HOST_OWNER',
+    'PALBOO_HOME',
+    'CODEX_BUDDY_HOME',
+    'PALBOO_LAUNCHER_HOME',
+    'CODEX_BUDDY_LAUNCHER_HOME',
+    'PALBOO_STARTUP_PROGRESS',
+    'CODEX_BUDDY_STARTUP_PROGRESS',
+    'PALBOO_START_DISCONNECTED',
+  ])
+    delete env[key];
+  return env;
+}
+function run(command, args, env = isolatedEnvironment()) {
   const started = Date.now();
   const name = `${command === process.execPath ? 'node' : command} ${args.join(' ')}`;
   if (process.env.GITHUB_ACTIONS) console.log(`::group::${command} ${args.join(' ')}`);
@@ -126,7 +146,10 @@ export function prepareTestBinary(profile) {
   profile ||= 'debug';
   const binary = join(root, 'target', profile, 'palboo');
   const manifestPath = join(root, 'target', `verified-${profile}.json`);
-  const env = profile === 'release' ? distributionEnvironment(root) : process.env;
+  const env =
+    profile === 'release'
+      ? distributionEnvironment(root, isolatedEnvironment())
+      : isolatedEnvironment();
   const source = sourceFingerprint(env);
   prepareWebBuild();
   let previous;
@@ -174,14 +197,15 @@ async function verify() {
     run('cargo', ['test', '--locked']);
     // build:web already checks TypeScript. Test the same release binary that will be packaged.
     artifact = prepareTestBinary('release');
+    const baseEnv = isolatedEnvironment();
     run('npm', ['run', 'test:node'], {
-      ...process.env,
+      ...baseEnv,
       PALBOO_TEST_WEB_DIR: join(root, 'target/web'),
     });
-    run(process.execPath, ['tests/workbench.mjs']);
-    run(process.execPath, ['tests/model-control-host.mjs']);
-    run(process.execPath, ['tests/feature-views.mjs']);
-    const env = { ...process.env, PALBOO_TEST_BINARY: artifact.binary };
+    run(process.execPath, ['tests/workbench.mjs'], baseEnv);
+    run(process.execPath, ['tests/model-control-host.mjs'], baseEnv);
+    run(process.execPath, ['tests/feature-views.mjs'], baseEnv);
+    const env = { ...baseEnv, PALBOO_TEST_BINARY: artifact.binary };
     run(process.execPath, ['tests/model-control-e2e.mjs'], env);
     run(process.execPath, ['tests/board.mjs'], env);
     run(process.execPath, ['tests/config-cli.mjs'], env);

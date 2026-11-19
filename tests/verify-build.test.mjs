@@ -95,3 +95,40 @@ if (name === 'npm') {
   assert.equal(readFileSync(join(dir, 'target/web/reader.html'), 'utf8'), 'new source');
   assert.equal(builds().filter((line) => line.startsWith('cargo')).length, 5);
 });
+
+test('verification strips inherited runtime and Dev session env vars while keeping test flags', async () => {
+  const { isolatedEnvironment } = await import('../scripts/verify.mjs');
+  const cleaned = isolatedEnvironment({
+    PATH: '/usr/bin',
+    PALBOO_DEV_ASSETS: '/tmp/panel.json',
+    CODEX_BUDDY_DEV_ASSETS: '/tmp/panel.json',
+    PALBOO_HOME: '/tmp/real',
+    CODEX_BUDDY_HOME: '/tmp/real',
+    PALBOO_STARTUP_PROGRESS: '/tmp/events.jsonl',
+    CODEX_BUDDY_STARTUP_PROGRESS: '/tmp/events.jsonl',
+    PALBOO_LAUNCHER_HOME: '/tmp/launcher',
+    PALBOO_DEV_SETTINGS: 'http://127.0.0.1:1234',
+    PALBOO_DEV_CODEX_HOST_OWNER: '/tmp/owner.json',
+    PALBOO_START_DISCONNECTED: '1',
+    PALBOO_NATIVE_LAUNCHER_TEST: '0',
+    PALBOO_TEST_BINARY: '/tmp/target/release/palboo',
+    PALBOO_TEST_WEB_DIR: '/tmp/target/web',
+  });
+  for (const key of [
+    'PALBOO_DEV_ASSETS',
+    'CODEX_BUDDY_DEV_ASSETS',
+    'PALBOO_HOME',
+    'CODEX_BUDDY_HOME',
+    'PALBOO_STARTUP_PROGRESS',
+    'CODEX_BUDDY_STARTUP_PROGRESS',
+    'PALBOO_LAUNCHER_HOME',
+    'PALBOO_DEV_SETTINGS',
+    'PALBOO_DEV_CODEX_HOST_OWNER',
+    'PALBOO_START_DISCONNECTED',
+  ])
+    assert.equal(cleaned[key], undefined, `${key} should be stripped`);
+  assert.equal(cleaned.PALBOO_NATIVE_LAUNCHER_TEST, '0');
+  assert.equal(cleaned.PALBOO_TEST_BINARY, '/tmp/target/release/palboo');
+  assert.equal(cleaned.PALBOO_TEST_WEB_DIR, '/tmp/target/web');
+  assert.equal(cleaned.PATH, '/usr/bin');
+});
