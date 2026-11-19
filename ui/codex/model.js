@@ -5,7 +5,8 @@
  * [PROTOCOL]: 父任务维护集成和地图；本文件不写 React、持久存储或发送模型生成请求。
  * snapshot(false) 不操作 DOM；目录缺失时合并、限频读取 model/list。refresh=true 显式重试目录并探测菜单、完整回读。target 无法确认时 id/title 为空。
  * apply 返回 {status,message,snapshot,previous,diagnostic}；status 为 success/partial/failed。
- * 显式 snapshot/apply 附有界阶段诊断，不含目标、聊天正文或 DOM；速度菜单在写入前消失时，复核同一配置后最多重开一次。
+ * 显式 snapshot/apply 附有界阶段诊断，不含目标、聊天正文或 DOM；被动读取不产生诊断。
+ * 速度菜单在写入前消失时，复核同一配置后最多重开一次。
  * restore 是调用方恢复意图标记；selection 仍须完整且通过全部校验，无隐式回滚。
  * revision 是实例内不透明的乐观并发令牌，包含目标/DOM/能力/可观察配置变化。
  * 未发送的新聊天以当前官方输入区的实例身份作为临时 target；不保存、不继承旧聊天身份。
@@ -1228,8 +1229,8 @@
     guard(op, menu);
     return menu;
   }
-  async function simpleMain(op) {
-    const main = await openMain(op);
+  async function showSimpleView(op, main) {
+    guard(op, main);
     if (one(all(main, '[data-model-picker-view="advanced"]').filter(visible))) {
       const selected = one(
         all(main, '[role="menuitemradio"][aria-checked="true"]').filter(visible),
@@ -1340,7 +1341,8 @@
     return current;
   }
   async function choose(op, section, wanted, previous) {
-    let main = section === 'model' ? await openMain(op) : await simpleMain(op);
+    let main = await openMain(op);
+    if (section !== 'model') main = await showSimpleView(op, main);
     guard(op, main);
     const speedRow = section === 'speed' && sectionRow(main, 'speed');
     const checkbox = section === 'speed' && !speedRow && fastCheckbox(main);
@@ -1350,7 +1352,7 @@
       if (!op.explicitModel && one(all(main, '[data-model-picker-view-toggle]').filter(visible))) {
         const current = readMain(op, main);
         await choose(op, 'model', current.model, current);
-        main = await simpleMain(op);
+        main = await showSimpleView(op, await openMain(op));
       }
       await chooseReasoningSlider(op, main, wanted);
     } else if (checkbox) {
@@ -1389,7 +1391,7 @@
         )
           throw new Error(tr('官方配置已变化，请刷新后重试'));
         if (live.speed === wanted) return live;
-        main = await simpleMain(op);
+        main = await showSimpleView(op, main);
         menu = await submenu(op, main, 'speed');
       }
       guard(op, main);
