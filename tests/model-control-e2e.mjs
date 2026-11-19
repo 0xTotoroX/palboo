@@ -384,16 +384,37 @@ try {
     400,
   );
   await page.evaluate(() => {
-    host.holdCommit = false;
-    host.pendingCommit();
-    host.pendingCommit = null;
+    host.forcedOverlap = false;
+    host.onOpen = () => {
+      if (!host.pendingCommit) return;
+      const commit = host.pendingCommit;
+      host.pendingCommit = null;
+      host.holdCommit = false;
+      host.onOpen = null;
+      queueMicrotask(() => {
+        const menu = document.getElementById('main-chat-a');
+        commit();
+        host.forcedOverlap = Boolean(
+          menu &&
+          menu.textContent.includes('Alpha') &&
+          document.querySelector('form button')?.dataset.selectedReasoningEffort === 'medium',
+        );
+      });
+    };
   });
   const delayed = await pending;
+  assert.equal(await page.evaluate(() => host.forcedOverlap), true);
   assert.equal(delayed.result.status, 'success', delayed.result.message);
   assert.deepEqual(delayed.snapshot.current, beta);
   assert.deepEqual(await page.evaluate(() => host.configs['chat-a']), beta);
+  assert.equal(
+    await page.evaluate(
+      () => host.clicks.filter((entry) => entry.action === 'select:model:beta').length,
+    ),
+    1,
+  );
   record(
-    'backend serializes operations and awaits delayed model default reset plus reasoning readback',
+    'backend serializes operations and recovers stale legacy readback during delayed model commit',
   );
 
   await page.evaluate(() => {

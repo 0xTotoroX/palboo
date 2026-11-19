@@ -1040,23 +1040,34 @@
     const checked = state.getAttribute('aria-checked');
     return ['true', 'false'].includes(value) && (!checked || checked === value) ? value : null;
   }
-  function readMain(op, main) {
+  function inspectMain(op, main) {
     guard(op, main);
     phase(op, tr('读取当前配置'));
     const modelRow = sectionRow(main, 'model');
-    const selected = one(all(main, '[data-model-selected="true"]').filter(visible));
-    const model = modelRow
-      ? matchModel(rowValue(modelRow, 'model'))
-      : modelFromTrigger(op.target.trigger) ||
-        modelFromTrigger(one(all(main, '[data-model-picker-view-toggle]').filter(visible))) ||
-        (selected && matchModel(label(selected))) ||
-        op.triggerModel;
-    const reasoning = canonical(
-      op.target.trigger.getAttribute('data-selected-reasoning-effort') ??
-        rowValue(sectionRow(main, 'reasoning'), 'reasoning'),
+    const rowModel = modelRow ? matchModel(rowValue(modelRow, 'model')) : null;
+    const toggleModel = modelFromTrigger(
+      one(all(main, '[data-model-picker-view-toggle]').filter(visible)),
     );
-    if (selected && model && matchModel(label(selected))?.id !== model.id)
-      throw new Error(tr('官方模型显示与选中状态不一致'));
+    const selected = one(all(main, '[data-model-selected="true"]').filter(visible));
+    const selectedModel = selected ? matchModel(label(selected)) : null;
+    const triggerModel = modelFromTrigger(op.target.trigger);
+    const menuModel = rowModel || toggleModel || selectedModel;
+    const model = modelRow
+      ? rowModel
+      : triggerModel || toggleModel || selectedModel || op.triggerModel;
+    const rowReasoning = canonical(rowValue(sectionRow(main, 'reasoning'), 'reasoning'));
+    const triggerEffort = op.target.trigger.getAttribute('data-selected-reasoning-effort');
+    const reasoning = canonical(triggerEffort ?? rowReasoning);
+    if (
+      (selected && model && selectedModel?.id !== model.id) ||
+      (menuModel && triggerModel && menuModel.id !== triggerModel.id)
+    ) {
+      return {
+        ok: false,
+        stale: Boolean(menuModel && triggerModel && menuModel.id !== triggerModel.id),
+        error: tr('官方模型显示与选中状态不一致'),
+      };
+    }
     const speedRow = sectionRow(main, 'speed');
     const checked = readFastMode(main);
     const native = nativePickerSelection(op.target.trigger);
@@ -1071,9 +1082,52 @@
             : model && !model.fast && !model.ultrafast
               ? 'standard'
               : null;
-    if (!model || !model.reasoning.includes(reasoning) || !speed || !supportsSpeed(model, speed))
-      throw new Error(tr('官方完整配置无法精确回读'));
-    return { model: model.id, reasoning, speed };
+    if (!model || !model.reasoning.includes(reasoning) || !speed || !supportsSpeed(model, speed)) {
+      // 同目标菜单与触发器出现明确的模型/档位/速度错配时属于混合态，未知菜单或缺失标记仍直接拒绝。
+      const stale = Boolean(
+        model &&
+        menuModel &&
+        ((!model.reasoning.includes(reasoning) &&
+          triggerEffort != null &&
+          (rowReasoning
+            ? model.reasoning.includes(rowReasoning)
+            : models.some((entry) => entry.reasoning.includes(reasoning)))) ||
+          (speed && !supportsSpeed(model, speed) && Boolean(speedRow || checked))),
+      );
+      return { ok: false, stale, error: tr('官方完整配置无法精确回读') };
+    }
+    return { ok: true, current: { model: model.id, reasoning, speed } };
+  }
+  function readMain(op, main) {
+    const check = inspectMain(op, main);
+    if (!check.ok) throw new Error(check.error);
+    return check.current;
+  }
+  async function readConsistentMain(op, main) {
+    let currentMain = main;
+    const deadline = Math.min(op.deadline, performance.now() + 1200);
+    for (let reopens = 0; ;) {
+      let check = inspectMain(op, currentMain);
+      if (check.ok) return check.current;
+      if (!check.stale || performance.now() >= deadline) throw new Error(check.error);
+      if (all(currentMain, '[data-model-picker-view]').length) {
+        const settleUntil = Math.min(deadline, performance.now() + 150);
+        while (menuOpen(currentMain) && performance.now() < settleUntil) {
+          await pause(op, 25);
+          guard(op);
+          if (!menuOpen(currentMain)) break;
+          check = inspectMain(op, currentMain);
+          if (check.ok) return check.current;
+          if (!check.stale) throw new Error(check.error);
+        }
+      }
+      if (reopens >= 2 || performance.now() >= deadline) throw new Error(check.error);
+      reopens++;
+      await closeMenu(op);
+      guard(op);
+      currentMain = await openMain(op);
+      guard(op, currentMain);
+    }
   }
   function remember(op, current) {
     guard(op);
@@ -1332,7 +1386,7 @@
   async function readOfficial(op, close = false) {
     const main = await openMain(op);
     guard(op, main);
-    const current = readMain(op, main);
+    const current = await readConsistentMain(op, main);
     if (close) {
       await closeMenu(op);
       guard(op);
@@ -1382,8 +1436,8 @@
         guard(op);
         if (!speedRow || liveMenuRow(main, speedRow)) throw cause;
         // 切模型后的提交可能收走刚打开的速度菜单。只重开导航，不重放配置写入。
-        main = await openMain(op);
-        const live = readMain(op, main);
+        const live = await readOfficial(op);
+        main = op.main;
         if (
           live.model !== previous.model ||
           live.reasoning !== previous.reasoning ||
@@ -1555,7 +1609,7 @@
         }
       }
       guard(op, main);
-      const current = readMain(op, main);
+      const current = await readConsistentMain(op, main);
       await closeMenu(op);
       if (current) remember(op, current);
     } catch (cause) {

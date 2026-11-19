@@ -972,6 +972,107 @@ try {
     },
   );
   await check(
+    'stale legacy menu after delayed commit reopens and confirms without replaying writes',
+    async (page) => {
+      const fast = { model: 'alpha', reasoning: 'high', speed: 'fast' };
+      assert.equal((await apply(page, fast)).status, 'success');
+      await page.evaluate(() => {
+        host.changes.length = 0;
+        host.clicks.length = 0;
+        host.forcedOverlap = false;
+        host.holdCommit = true;
+        host.onOpen = () => {
+          if (!host.pendingCommit) return;
+          const commit = host.pendingCommit;
+          host.pendingCommit = null;
+          host.holdCommit = false;
+          host.onOpen = null;
+          queueMicrotask(() => {
+            const menu = document.getElementById('main-chat-a');
+            commit();
+            host.forcedOverlap = Boolean(
+              menu &&
+              menu.textContent.includes('Alpha') &&
+              document.querySelector('form button')?.dataset.selectedReasoningEffort === 'medium',
+            );
+          });
+        };
+      });
+      const result = await apply(page, targetBeta);
+      assert.equal(await page.evaluate(() => host.forcedOverlap), true);
+      assert.equal(result.status, 'success', result.message);
+      assert.deepEqual(result.snapshot.current, targetBeta);
+      assert.deepEqual(await page.evaluate(() => host.configs['chat-a']), targetBeta);
+      assert.deepEqual(await page.evaluate(() => host.changes), [
+        { id: 'chat-a', model: 'beta', reasoning: 'medium', speed: 'standard' },
+        { id: 'chat-a', ...targetBeta },
+      ]);
+      assert.equal(
+        await page.evaluate(
+          () => host.clicks.filter((entry) => entry.action === 'select:model:beta').length,
+        ),
+        1,
+      );
+      assert.equal(await page.locator('[data-fixture-menu]').count(), 0);
+    },
+    { openPlaceholder: true },
+  );
+  await check(
+    'transient modern menu lag behind trigger settles in place without reopening or writes',
+    async (page) => {
+      const fast = { model: 'alpha', reasoning: 'high', speed: 'fast' };
+      assert.equal((await apply(page, fast)).status, 'success');
+      const opensBefore = await page.evaluate(() => host.triggerEvents);
+      await page.evaluate(() => {
+        host.changes.length = 0;
+        host.onOpen = () => {
+          host.onOpen = null;
+          queueMicrotask(() => {
+            const trigger = document.querySelector('form button');
+            host.configs['chat-a'] = { model: 'beta', reasoning: 'medium', speed: 'standard' };
+            trigger.textContent = 'Beta medium';
+            trigger.dataset.selectedReasoningEffort = 'medium';
+            setTimeout(() => {
+              const toggle = document.querySelector('[data-model-picker-view-toggle]');
+              if (toggle) toggle.innerHTML = '<span>Beta</span><span>medium</span>';
+              document.querySelector('[role="menuitemcheckbox"]')?.remove();
+            }, 40);
+          });
+        };
+      });
+      const state = await snapshot(page, true);
+      assert.equal(state.status, 'ready', state.message);
+      assert.deepEqual(state.current, { model: 'beta', reasoning: 'medium', speed: 'standard' });
+      assert.equal(await page.evaluate(() => host.triggerEvents), opensBefore + 1);
+      assert.equal(await page.evaluate(() => host.changes.length), 0);
+      assert.equal(await page.locator('[data-fixture-menu]').count(), 0);
+    },
+    { modern: true, semanticFastCheckbox: true },
+  );
+  await check(
+    'persistent trigger/menu mismatch stops after bounded reopens and cleans owned menus',
+    async (page) => {
+      await page.evaluate(() => {
+        host.configs['chat-a'] = { model: 'alpha', reasoning: 'high', speed: 'fast' };
+        const mismatch = () => {
+          const trigger = document.querySelector('form button');
+          trigger.textContent = 'Beta medium';
+          trigger.dataset.selectedReasoningEffort = 'medium';
+        };
+        mismatch();
+        host.onOpen = () => queueMicrotask(mismatch);
+        host.triggerEvents = 0;
+        host.changes.length = 0;
+      });
+      const state = await snapshot(page, true);
+      assert.equal(state.status, 'unavailable');
+      assert.match(state.message, /不一致|完整配置/);
+      assert.equal(await page.evaluate(() => host.triggerEvents), 3);
+      assert.equal(await page.evaluate(() => host.changes.length), 0);
+      assert.equal(await page.locator('[data-fixture-menu]').count(), 0);
+    },
+  );
+  await check(
     'hot attachment reads the modern bridge without opening menus, then applies a saved preset',
     async (page) => {
       await page.locator('.ProseMirror').focus();
