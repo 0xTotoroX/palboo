@@ -30,10 +30,9 @@ const base = {
   checked: false,
 };
 const release = {
-  id: 11,
   version: '1.3.0',
   url: 'https://github.com/0xTotoroX/palboo/releases/tag/v1.3.0',
-  asset: { id: 12 },
+  asset: { sha256: 'a'.repeat(64) },
 };
 async function fixture(t, options = {}) {
   const browser = await chromium.launch({
@@ -180,9 +179,8 @@ test('drafts and edited modes block installation; failures keep the release and 
   await install.click();
   await f.page.locator('#settings-feedback-center').getByRole('alert').waitFor();
   assert.deepEqual(f.writes.at(-1).body, {
-    releaseId: 11,
-    assetId: 12,
     version: '1.3.0',
+    sha256: release.asset.sha256,
     currentVersion: '1.2.0',
     expectedRevision: 4,
   });
@@ -202,10 +200,15 @@ test('drafts and edited modes block installation; failures keep the release and 
   await f.page.waitForURL('**/progress');
 });
 
-test('source-only, development and read-only installations show accurate actions and recover from network failure', async (t) => {
-  const f = await fixture(t, { checkError: 'GitHub 更新检查失败' });
-  await f.check();
-  await f.page.locator('#settings-feedback-center').getByRole('alert').waitFor();
+test('missing manifests, source-only releases, development and read-only installs show accurate actions', async (t) => {
+  const f = await fixture(t, { checkError: '当前发布版没有更新清单，请到 GitHub 发布页查看。' });
+  await f.page.evaluate(() => window.locale('en'));
+  await f.card.getByRole('button', { name: 'Check for updates', exact: true }).click();
+  await f.page
+    .getByRole('alert')
+    .getByText(/The current release has no update manifest/)
+    .waitFor();
+  await f.page.evaluate(() => window.locale('zh-CN'));
   assert.equal(await f.card.getByRole('button', { name: '检查更新' }).isEnabled(), true);
   f.behavior.checkError = null;
   f.behavior.check = {

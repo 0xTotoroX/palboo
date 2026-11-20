@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 发布状态机、真实 HTTP 适配器、有状态的隔离 GitHub 替身及临时 Git 仓库。
- * [OUTPUT]: 中断续接、公开不可修改、只读重试、候选来源和产物完整性回归。
+ * [OUTPUT]: DMG 与清单配对发布、中断续接、公开不可修改、只读重试及候选完整性回归。
  * [POS]: Linux 预检查与完整 Node 验收共用；无真实网络、凭据或远端写入。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -41,6 +41,7 @@ function service(options = {}) {
   const state = {
     release: null,
     assets: [],
+    nextAssetId: 8,
     tag: null,
     main: sha,
     requests: [],
@@ -134,33 +135,35 @@ function service(options = {}) {
     }
     if (method === 'POST' && path === 'releases/7/assets') {
       assert.equal(state.release.draft, true);
-      assert.equal(state.assets.length, 0, 'never overwrite an asset');
-      state.assets = [
-        {
-          id: 8,
-          name: parsed.searchParams.get('name'),
-          state: 'uploaded',
-          size: body.length,
-          digest: `sha256:${digest(body)}`,
-        },
-      ];
-      if (state.starter) {
+      const name = parsed.searchParams.get('name');
+      assert.ok(!state.assets.some((asset) => asset.name === name), 'never overwrite an asset');
+      const asset = {
+        id: state.nextAssetId++,
+        name,
+        state: 'uploaded',
+        size: body.length,
+        digest: `sha256:${digest(body)}`,
+      };
+      state.assets.push(asset);
+      if (state.starter === name) {
         state.starter = false;
-        state.assets[0].state = 'starter';
-        state.assets[0].size = 0;
+        asset.state = 'starter';
+        asset.size = 0;
         return response({}, 502);
       }
+      if (name === 'update.json') state.manifest = JSON.parse(body);
       if (state.advanceMain) state.main = newer;
-      if (state.loseUpload) {
+      if (state.loseUpload === name) {
         state.loseUpload = false;
         throw new Error('lost upload response');
       }
-      return response(state.assets[0], 201);
+      return response(asset, 201);
     }
-    if (method === 'DELETE' && path === 'releases/assets/8') {
+    if (method === 'DELETE' && path.startsWith('releases/assets/')) {
       assert.equal(state.release.draft, true, 'never mutate published assets');
-      assert.equal(state.assets[0].state, 'starter');
-      state.assets = [];
+      const id = Number(path.split('/').at(-1));
+      assert.equal(state.assets.find((asset) => asset.id === id)?.state, 'starter');
+      state.assets = state.assets.filter((asset) => asset.id !== id);
       return response(null, 204);
     }
     if (method === 'PATCH' && path === 'releases/7') {
@@ -192,8 +195,21 @@ test('publication uploads a checked draft, publishes exact reviewed notes, and r
   assert.equal(state.release.make_latest, 'true');
   assert.equal(state.tag, candidate.commit);
   assert.deepEqual(
+    state.assets.map(({ name }) => name),
+    [candidate.name, 'update.json'],
+  );
+  assert.deepEqual(state.manifest, {
+    schema: 1,
+    version: plan.version,
+    asset: {
+      url: `https://github.com/${repository}/releases/download/${plan.tag}/${candidate.name}`,
+      size: candidate.bytes.length,
+      sha256: candidate.sha256,
+    },
+  });
+  assert.deepEqual(
     writes(state).map(({ method, path }) => `${method} ${path}`),
-    ['POST releases', 'POST releases/7/assets', 'PATCH releases/7'],
+    ['POST releases', 'POST releases/7/assets', 'POST releases/7/assets', 'PATCH releases/7'],
   );
   const before = snapshot();
   state.requests = [];
@@ -209,15 +225,24 @@ test('prereleases retain their identity and do not become the latest stable rele
   assert.equal(state.release.prerelease, true);
   assert.equal(state.release.tag_name, preview.tag);
   assert.equal(state.release.make_latest, 'false');
+  assert.deepEqual(
+    state.assets.map(({ name }) => name),
+    [preview.assets[0].slice(5)],
+  );
   assert.ok(!state.requests.some(({ path }) => path === 'releases/latest'));
 });
 
 test('lost responses after creation, upload and publication reconcile without duplicate writes or Release deletion', async () => {
-  for (const failure of ['loseCreate', 'loseUpload', 'losePublish']) {
-    const { api, state } = service({ [failure]: true });
+  for (const failure of [
+    { loseCreate: true },
+    { loseUpload: candidate.name },
+    { loseUpload: 'update.json' },
+    { losePublish: true },
+  ]) {
+    const { api, state } = service(failure);
     await publishCandidate(api, candidate, plan, notes);
     assert.equal(state.release.draft, false);
-    assert.equal(writes(state).length, 3, failure);
+    assert.equal(writes(state).length, 4, JSON.stringify(failure));
     assert.ok(!writes(state).some(({ method }) => method === 'DELETE'));
   }
 });
@@ -235,7 +260,7 @@ test('process interruptions after draft or upload resume the same Release and ne
     await publishCandidate(api, candidate, plan, notes);
     assert.equal(state.release.draft, false);
     assert.equal(writes(state).filter(({ path }) => path === 'releases').length, 1);
-    assert.equal(writes(state).filter(({ path }) => path === 'releases/7/assets').length, 1);
+    assert.equal(writes(state).filter(({ path }) => path === 'releases/7/assets').length, 2);
   }
 });
 
@@ -243,7 +268,7 @@ test('failed publication preserves its uploaded draft and retries only the unfin
   const { api, state } = service({ rejectPublish: true });
   await assert.rejects(publishCandidate(api, candidate, plan, notes), /HTTP 503/);
   assert.equal(state.release.draft, true);
-  assert.equal(state.assets.length, 1);
+  assert.equal(state.assets.length, 2);
   state.rejectPublish = false;
   state.requests = [];
   await publishCandidate(api, candidate, plan, notes);
@@ -251,16 +276,24 @@ test('failed publication preserves its uploaded draft and retries only the unfin
 });
 
 test('failed upload can recover its owned empty starter without deleting a Release', async () => {
-  const { api, state } = service({ starter: true });
-  await assert.rejects(publishCandidate(api, candidate, plan, notes), /HTTP 502/);
-  assert.equal(state.assets[0].state, 'starter');
-  state.requests = [];
-  await publishCandidate(api, candidate, plan, notes);
-  assert.equal(state.release.draft, false);
-  assert.deepEqual(
-    writes(state).filter(({ method }) => method === 'DELETE'),
-    [{ method: 'DELETE', path: 'releases/assets/8' }],
-  );
+  for (const starter of [candidate.name, 'update.json']) {
+    const { api, state } = service({ starter });
+    await assert.rejects(publishCandidate(api, candidate, plan, notes), /HTTP 502/);
+    const failed = state.assets.find((asset) => asset.name === starter);
+    assert.equal(failed.state, 'starter');
+    assert.equal(state.release.draft, true);
+    state.requests = [];
+    await publishCandidate(api, candidate, plan, notes);
+    assert.equal(state.release.draft, false);
+    assert.deepEqual(
+      writes(state).filter(({ method }) => method === 'DELETE'),
+      [{ method: 'DELETE', path: `releases/assets/${failed.id}` }],
+    );
+    if (starter === 'update.json') {
+      assert.equal(state.assets[0].id, 8, 'keep the verified DMG');
+      assert.equal(writes(state).filter(({ method }) => method === 'POST').length, 1);
+    }
+  }
 });
 
 test('foreign drafts, altered assets and published mismatches are preserved with no mutation', async () => {
@@ -276,6 +309,12 @@ test('foreign drafts, altered assets and published mismatches are preserved with
     },
     (state) => {
       state.assets[0].name = 'unexpected.dmg';
+    },
+    (state) => {
+      state.assets.find((asset) => asset.name === 'update.json').digest = 'wrong';
+    },
+    (state) => {
+      state.assets.push({ ...state.assets[0], id: 99 });
     },
     (state) => {
       state.release.draft = false;

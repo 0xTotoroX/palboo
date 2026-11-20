@@ -34,7 +34,7 @@ npm 命令进入开发、构建、审计、安装和验证编排工具；具体�
 - [launcher.mjs](launcher.mjs)：为安装器生成带本地签名的 Palboo.app；从 ui/icon.png 生成多尺寸 ICNS 并绑定应用图标；双击调用 launch --restart-running 按设置处理缺少连接的宿主，取消不再弹错误；连接后在受支持系统弹出，以后台应用方式运行、不显示运行中的 Dock 图标；macOS 14 遇到浮窗门槛时保留内嵌，其他错误用系统对话框显示。
 - [package.mjs](package.mjs)：每个版本打包完整 App DMG，复用已验证 release 程序，收集许可和安装帮助，检查签名、包身份与可运行性后写入 dist；target/reports/package.json 记录提交、版本和摘要。只打包，不安装、不发布、不清理历史发行包。
 - [release-plan.mjs](release-plan.mjs)：严格解析 SemVer，统一 DMG 名称及预发布状态，核对 Cargo/npm 及锁文件版本、发行说明，不接触远端。
-- [release.mjs](release.mjs)：官方 main 的只读预检查与发布入口；内部草稿保存候选归属，恢复已完成上传并回读公开状态，不删除 Release；仅清理自身草稿的空 starter 附件。发布前后核对标签、说明、DMG 摘要及 Latest，逐阶段保存 publication.json。
+- [release.mjs](release.mjs)：官方 main 的只读预检查与发布入口；从已验证 DMG 生成稳定版 `update.json`，与 DMG 一起上传草稿，复用已校验附件并回读公开状态，不删除 Release；仅清理自身草稿的空 starter 附件。发布前后核对标签、说明、附件摘要及 Latest，逐阶段保存 publication.json。
 - [release-api.mjs](release-api.mjs)：固定官方 GitHub REST 边界；GET 有界退避与分页，写请求只执行一次，由上层回读处理不确定响应。
 - [release-candidate.mjs](release-candidate.mjs)：校验官方 main 构建 run、完整门禁、不可变 artifact、Git 祖先与实际 DMG；仅发布工具/测试/文档变化允许复用，产品、构建、版本说明与 workflow 变化须完整重建。
 - [artifact-audit.mjs](artifact-audit.mjs)：release 编译路径映射及成品字节扫描，包含二进制、常见凭据/个人目录、UTF-16主目录与禁止文件；错误只输出文件和问题类型。它是有限检查，不证明不存在所有敏感内容或漏洞。

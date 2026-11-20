@@ -1,5 +1,5 @@
 import { Notice } from './settings-controls';
-/* [INPUT]: 手动更新 API、现有设置草稿及共享控件。
+/* [INPUT]: 手动更新 API 返回的版本与摘要、现有设置草稿及共享控件。
  * [OUTPUT]: 本地安装版本、显式检查、版本说明和更新进度页交接；断线失效旧读数与更新候选。
  * [POS]: 通用设置；不后台联网检查，不自动下载或切换开发模式。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
@@ -19,7 +19,7 @@ type UpdateState = {
   reason: string | null;
   checked: boolean;
   hasUpdate?: boolean;
-  release?: { id: number; version: string; url: string; asset: { id: number } | null };
+  release?: { version: string; url: string; asset: { sha256: string } | null };
 };
 export function AppUpdateSettings({
   live,
@@ -88,9 +88,8 @@ export function AppUpdateSettings({
     setError('');
     try {
       const value = await request<{ url: string }>('app-update', {
-        releaseId: state.release.id,
-        assetId: state.release.asset.id,
         version: state.release.version,
+        sha256: state.release.asset.sha256,
         currentVersion: state.currentVersion,
         expectedRevision: state.revision,
       });

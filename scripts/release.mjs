@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 官方 main、已验证候选 DMG/来源记录、已审核说明与 GitHub token。
- * [OUTPUT]: 可恢复的内部草稿、核验后的公开 Release 与逐阶段发布回执。
+ * [OUTPUT]: 可恢复的内部草稿、核验后的公开 DMG 与稳定版更新清单、逐阶段发布回执。
  * [POS]: CI 的只读预检查和发布入口；永不删除 Release，写响应不确定时先回读。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -8,7 +8,7 @@ import { appendFileSync, readFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import { resolve, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { validateRelease } from './release-plan.mjs';
-import { githubClient } from './release-api.mjs';
+import { githubClient, repository } from './release-api.mjs';
 import {
   releaseContext,
   checkCandidateHistory,
@@ -78,21 +78,53 @@ function checkDraft(release, candidate, plan, notes) {
   )
     throw new Error('草稿不属于本次已验证候选，保留原对象并停止');
 }
-function checkAsset(asset, candidate) {
+function releaseFiles(candidate, plan) {
+  if (plan.prerelease) return [candidate];
+  if (!candidate.bytes.length || candidate.bytes.length > 256 * 1024 * 1024)
+    throw new Error('安装包超出更新器支持的大小');
+  const manifest = {
+    schema: 1,
+    version: plan.version,
+    asset: {
+      url: `https://github.com/${repository}/releases/download/${plan.tag}/${candidate.name}`,
+      size: candidate.bytes.length,
+      sha256: candidate.sha256,
+    },
+  };
+  const bytes = Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`);
+  return [candidate, { name: 'update.json', bytes, sha256: digest(bytes) }];
+}
+function checkAsset(asset, file) {
   if (
     !Number.isSafeInteger(asset?.id) ||
-    asset.name !== candidate.name ||
+    asset.name !== file.name ||
     asset.state !== 'uploaded' ||
-    asset.size !== candidate.bytes.length ||
-    asset.digest !== `sha256:${candidate.sha256}`
+    asset.size !== file.bytes.length ||
+    asset.digest !== `sha256:${file.sha256}`
   )
-    throw new Error('远端 DMG 的名称、大小、状态或 SHA-256 不一致');
+    throw new Error(`远端附件 ${file.name} 的名称、大小、状态或 SHA-256 不一致`);
   return asset;
+}
+function emptyStarter(asset) {
+  return asset.state === 'starter' && asset.size === 0 && Number.isSafeInteger(asset.id);
+}
+function checkAssets(assets, files, complete = false) {
+  const byName = new Map(assets.map((asset) => [asset.name, asset]));
+  if (
+    byName.size !== assets.length ||
+    assets.some((asset) => !files.some((file) => file.name === asset.name))
+  )
+    throw new Error('Release 含未知或重复附件，保留原对象并停止');
+  for (const file of files) {
+    const asset = byName.get(file.name);
+    if (complete || (asset && !emptyStarter(asset))) checkAsset(asset, file);
+  }
+  return byName;
 }
 async function releaseAssets(api, id) {
   return api.list(`releases/${id}/assets`);
 }
-async function checkedPublished(api, release, candidate, plan, notes) {
+async function checkedPublished(api, release, candidate, plan, notes, files) {
   if (
     release.draft ||
     !release.published_at ||
@@ -103,20 +135,64 @@ async function checkedPublished(api, release, candidate, plan, notes) {
   )
     throw new Error('公开 Release 与已审核说明或版本不一致，保留原对象');
   await checkTag(api, plan.tag, candidate.commit, true);
-  const assets = await releaseAssets(api, release.id);
-  if (assets.length !== 1) throw new Error('公开 Release 附件数量不一致，保留原对象');
-  checkAsset(assets[0], candidate);
+  const assets = checkAssets(await releaseAssets(api, release.id), files, true);
   if (!plan.prerelease && (await api.request('GET', 'releases/latest')).id !== release.id)
     throw new Error('新稳定版未成为 Latest，保留远端状态供检查');
-  return assets[0];
+  return assets;
+}
+
+async function uploadFiles(api, release, candidate, plan, notes, files) {
+  const requireDraft = async () =>
+    checkDraft(await api.request('GET', `releases/${release.id}`), candidate, plan, notes);
+  for (const file of files) {
+    const assets = checkAssets(await releaseAssets(api, release.id), files);
+    const existing = assets.get(file.name);
+    if (existing && !emptyStarter(existing)) continue;
+    // GitHub 502 可能留下空 starter，仅清理仍属于本候选草稿的该空附件。
+    if (existing) {
+      await requireDraft();
+      try {
+        await api.request('DELETE', `releases/assets/${existing.id}`);
+      } catch (error) {
+        if ((await releaseAssets(api, release.id)).some((asset) => asset.id === existing.id))
+          throw error;
+      }
+    }
+    await requireDraft();
+    try {
+      await api.request(
+        'POST',
+        `releases/${release.id}/assets?name=${encodeURIComponent(file.name)}`,
+        file.bytes,
+        { upload: true },
+      );
+    } catch (error) {
+      const found = (await releaseAssets(api, release.id)).find(
+        (asset) => asset.name === file.name,
+      );
+      try {
+        checkAsset(found, file);
+      } catch {
+        throw error;
+      }
+    }
+  }
+  return checkAssets(await releaseAssets(api, release.id), files, true);
 }
 
 export async function publishCandidate(api, candidate, plan, notes, record = () => {}) {
+  const files = releaseFiles(candidate, plan);
   await checkTag(api, plan.tag, candidate.commit);
   let release = await findRelease(api, plan.tag);
+  const recordFiles = (status, assets) =>
+    record({
+      status,
+      releaseId: release.id,
+      assetId: assets.get(candidate.name).id,
+      manifestAssetId: assets.get('update.json')?.id,
+    });
   if (release && !release.draft) {
-    const asset = await checkedPublished(api, release, candidate, plan, notes);
-    record({ status: 'published', releaseId: release.id, assetId: asset.id });
+    recordFiles('published', await checkedPublished(api, release, candidate, plan, notes, files));
     return release;
   }
   const currentMain = async () => {
@@ -141,44 +217,7 @@ export async function publishCandidate(api, candidate, plan, notes, record = () 
   }
   checkDraft(release, candidate, plan, notes);
   record({ status: 'draft', releaseId: release.id });
-  let assets = await releaseAssets(api, release.id);
-  if (assets.length > 1 || assets.some((asset) => asset.name !== candidate.name))
-    throw new Error('草稿含未知附件，保留原对象并停止');
-  // GitHub 502 可能留下空 starter，仅清理仍属于本候选草稿的该空附件。
-  if (assets[0]?.state === 'starter' && assets[0].size === 0) {
-    checkDraft(await api.request('GET', `releases/${release.id}`), candidate, plan, notes);
-    const starter = assets[0];
-    try {
-      await api.request('DELETE', `releases/assets/${starter.id}`);
-    } catch (error) {
-      if ((await releaseAssets(api, release.id)).some((asset) => asset.id === starter.id))
-        throw error;
-    }
-    assets = await releaseAssets(api, release.id);
-  }
-  if (!assets.length) {
-    checkDraft(await api.request('GET', `releases/${release.id}`), candidate, plan, notes);
-    try {
-      await api.request(
-        'POST',
-        `releases/${release.id}/assets?name=${encodeURIComponent(candidate.name)}`,
-        candidate.bytes,
-        { upload: true },
-      );
-    } catch (error) {
-      assets = await releaseAssets(api, release.id);
-      if (assets.length !== 1) throw error;
-      try {
-        checkAsset(assets[0], candidate);
-      } catch {
-        throw error;
-      }
-    }
-  }
-  assets = await releaseAssets(api, release.id);
-  if (assets.length !== 1) throw new Error('草稿附件数量不一致');
-  const asset = checkAsset(assets[0], candidate);
-  record({ status: 'uploaded', assetId: asset.id });
+  recordFiles('uploaded', await uploadFiles(api, release, candidate, plan, notes, files));
   await currentMain();
   await checkTag(api, plan.tag, candidate.commit);
   release = await api.request('GET', `releases/${release.id}`);
@@ -198,8 +237,7 @@ export async function publishCandidate(api, candidate, plan, notes, record = () 
     }
   }
   release = await api.request('GET', `releases/${release.id}`);
-  await checkedPublished(api, release, candidate, plan, notes);
-  record({ status: 'published', releaseId: release.id, assetId: asset.id });
+  recordFiles('published', await checkedPublished(api, release, candidate, plan, notes, files));
   return release;
 }
 

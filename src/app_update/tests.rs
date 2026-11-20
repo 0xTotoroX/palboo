@@ -1,5 +1,5 @@
 // [INPUT]: 临时完整 App、合成后台协议、真实同卷目录交换。
-// [OUTPUT]: 更新成功、启动/重连失败回滚、配置与原连接保留的隔离验证。
+// [OUTPUT]: 安装候选复核、更新成功、启动/重连失败回滚、配置与原连接保留的隔离验证。
 // [POS]: 不访问 GitHub、真实 App、用户数据或 Codex。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 use super::*;
@@ -10,6 +10,32 @@ use axum::{
 };
 use std::{os::unix::fs::PermissionsExt, sync::Arc};
 use tokio::sync::RwLock;
+
+#[test]
+fn only_the_confirmed_version_and_digest_can_be_installed() {
+    let sha256 = "a".repeat(64);
+    let update = Update {
+        version: "1.3.0".into(),
+        sha256: sha256.clone(),
+        current_version: "1.2.0".into(),
+        expected_revision: 4,
+    };
+    let mut release = release::Release {
+        version: "1.3.0".into(),
+        url: String::new(),
+        asset: Some(release::Asset {
+            url: String::new(),
+            size: 100,
+            sha256,
+        }),
+    };
+    assert!(update.selected_asset(&release).is_ok());
+    release.asset.as_mut().unwrap().sha256 = "b".repeat(64);
+    assert!(update.selected_asset(&release).is_err());
+    release.asset.as_mut().unwrap().sha256 = update.sha256.clone();
+    release.version = "1.4.0".into();
+    assert!(update.selected_asset(&release).is_err());
+}
 
 #[test]
 fn parent_directory_aliases_match_without_accepting_an_executable_outside_the_app() {
@@ -159,9 +185,8 @@ async fn scenario(fail_start: bool, fail_connection: bool, connected: bool, enab
     app_mode::save(&control, &prefs).unwrap();
     let request = Request {
         update: Update {
-            release_id: 1,
-            asset_id: 2,
             version: "1.3.0".into(),
+            sha256: "a".repeat(64),
             current_version: "1.2.0".into(),
             expected_revision: 4,
         },

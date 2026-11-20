@@ -1,4 +1,4 @@
-// [INPUT]: 固定公开仓库的稳定 Release 与 GitHub 提供的附件摘要。
+// [INPUT]: 固定公开仓库的稳定 Release 清单与对应 DMG。
 // [OUTPUT]: Release/Asset、fetch、download；有界下载及 SHA-256 校验。
 // [POS]: 手动更新的唯一外网入口，不读令牌、不接受用户提供的下载地址。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
@@ -7,28 +7,47 @@ use anyhow::{Context, Result, ensure};
 use futures_util::StreamExt;
 use semver::Version;
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::json;
 use sha2::{Digest, Sha256};
 use std::{path::Path, time::Duration};
 use tokio::io::AsyncWriteExt;
 
 const REPOSITORY: &str = "https://github.com/0xTotoroX/palboo";
+const MANIFEST_URL: &str =
+    "https://github.com/0xTotoroX/palboo/releases/latest/download/update.json";
+const MAX_MANIFEST: usize = 16 * 1024;
 const MAX_ASSET: u64 = 256 * 1024 * 1024;
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Serialize)]
 pub struct Release {
-    pub id: u64,
     pub version: String,
     pub url: String,
     pub asset: Option<Asset>,
 }
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Serialize, Deserialize)]
 pub struct Asset {
-    pub id: u64,
     pub url: String,
     pub size: u64,
     pub sha256: String,
+}
+#[derive(Deserialize)]
+struct Manifest {
+    schema: u32,
+    version: String,
+    asset: Option<Asset>,
+}
+
+fn trusted_redirect(url: &reqwest::Url) -> bool {
+    url.scheme() == "https"
+        && url.port_or_known_default() == Some(443)
+        && url.username().is_empty()
+        && url.password().is_none()
+        && match url.host_str() {
+            Some("github.com") => url
+                .path()
+                .starts_with("/0xTotoroX/palboo/releases/download/"),
+            Some("release-assets.githubusercontent.com" | "objects.githubusercontent.com") => true,
+            _ => false,
+        }
 }
 fn client(timeout: u64) -> Result<reqwest::Client> {
     Ok(reqwest::Client::builder()
@@ -36,22 +55,7 @@ fn client(timeout: u64) -> Result<reqwest::Client> {
         .https_only(true)
         .timeout(Duration::from_secs(timeout))
         .redirect(reqwest::redirect::Policy::custom(|attempt| {
-            let url = attempt.url();
-            if attempt.previous().len() < 5
-                && url.scheme() == "https"
-                && url.port_or_known_default() == Some(443)
-                && url.username().is_empty()
-                && url.password().is_none()
-                && matches!(
-                    url.host_str(),
-                    Some(
-                        "api.github.com"
-                            | "github.com"
-                            | "release-assets.githubusercontent.com"
-                            | "objects.githubusercontent.com"
-                    )
-                )
-            {
+            if attempt.previous().len() < 5 && trusted_redirect(attempt.url()) {
                 attempt.follow()
             } else {
                 attempt.error("更新地址不受信任")
@@ -59,71 +63,56 @@ fn client(timeout: u64) -> Result<reqwest::Client> {
         }))
         .build()?)
 }
-pub fn parse(value: &Value) -> Result<Release> {
+fn parse(bytes: &[u8]) -> Result<Release> {
+    let Manifest {
+        schema,
+        version,
+        mut asset,
+    } = serde_json::from_slice(bytes).context("更新清单无效")?;
+    ensure!(schema == 1, "更新清单版本不受支持");
+    let parsed = Version::parse(&version).context("更新版本无效")?;
     ensure!(
-        value["draft"] == false && value["prerelease"] == false,
-        "更新不是已公开的正式版本"
+        parsed.pre.is_empty() && parsed.to_string() == version,
+        "更新版本无效"
     );
-    let tag = value["tag_name"].as_str().context("更新版本无效")?;
-    let version = Version::parse(tag.strip_prefix('v').context("更新标签无效")?)?;
-    ensure!(
-        version.pre.is_empty() && version.build.is_empty() && tag == format!("v{version}"),
-        "更新标签无效"
-    );
-    let version = version.to_string();
-    let expected_name = format!("palboo-{version}-darwin-arm64.dmg");
-    let assets = value["assets"].as_array().context("更新附件信息无效")?;
-    let found: Vec<_> = assets
-        .iter()
-        .filter(|asset| asset["name"] == expected_name)
-        .collect();
-    ensure!(found.len() <= 1, "更新附件重复，未选择安装包");
-    let asset = found
-        .first()
-        .map(|asset| -> Result<Asset> {
-            let url = format!("{REPOSITORY}/releases/download/{tag}/{expected_name}");
-            ensure!(
-                asset["browser_download_url"] == url && asset["state"] == "uploaded",
-                "更新附件来源或状态无效"
-            );
-            let size = asset["size"].as_u64().context("更新附件大小无效")?;
-            ensure!(size > 0 && size <= MAX_ASSET, "更新附件大小超出限制");
-            let sha256 = asset["digest"]
-                .as_str()
-                .and_then(|v| v.strip_prefix("sha256:"))
-                .context("更新缺少 SHA-256 校验值")?;
-            ensure!(
-                sha256.len() == 64 && sha256.bytes().all(|b| b.is_ascii_hexdigit()),
-                "更新校验值无效"
-            );
-            Ok(Asset {
-                id: asset["id"]
-                    .as_u64()
-                    .filter(|id| *id > 0)
-                    .context("更新附件身份无效")?,
-                url,
-                size,
-                sha256: sha256.to_ascii_lowercase(),
-            })
-        })
-        .transpose()?;
+    if let Some(asset) = &mut asset {
+        ensure!(
+            asset.url
+                == format!(
+                    "{REPOSITORY}/releases/download/v{version}/palboo-{version}-darwin-arm64.dmg"
+                ),
+            "更新附件来源无效"
+        );
+        ensure!(
+            asset.size > 0 && asset.size <= MAX_ASSET,
+            "更新附件大小超出限制"
+        );
+        ensure!(
+            asset.sha256.len() == 64 && asset.sha256.bytes().all(|b| b.is_ascii_hexdigit()),
+            "更新校验值无效"
+        );
+        asset.sha256.make_ascii_lowercase();
+    }
     Ok(Release {
-        id: value["id"]
-            .as_u64()
-            .filter(|id| *id > 0)
-            .context("更新身份无效")?,
-        url: format!("{REPOSITORY}/releases/tag/{tag}"),
+        url: format!("{REPOSITORY}/releases/tag/v{version}"),
         version,
         asset,
     })
 }
 pub async fn fetch() -> Result<Release> {
-    let response = client(20)?
-        .get("https://api.github.com/repos/0xTotoroX/palboo/releases/latest")
-        .header("Accept", "application/vnd.github+json")
+    fetch_manifest(client(20)?.get(MANIFEST_URL)).await
+}
+
+async fn fetch_manifest(request: reqwest::RequestBuilder) -> Result<Release> {
+    let response = request
+        .header(reqwest::header::CACHE_CONTROL, "no-cache")
         .send()
         .await
         .context("无法连接 GitHub，请稍后重试")?;
+    ensure!(
+        response.status() != reqwest::StatusCode::NOT_FOUND,
+        "当前发布版没有更新清单，请到 GitHub 发布页查看。"
+    );
     ensure!(
         response.status().is_success(),
         "GitHub 更新检查失败（{}），请稍后重试",
@@ -133,10 +122,10 @@ pub async fn fetch() -> Result<Release> {
     let mut bytes = Vec::new();
     while let Some(chunk) = stream.next().await {
         let chunk = chunk?;
-        ensure!(bytes.len() + chunk.len() <= 2 * 1024 * 1024, "更新信息过大");
+        ensure!(bytes.len() + chunk.len() <= MAX_MANIFEST, "更新信息过大");
         bytes.extend_from_slice(&chunk);
     }
-    parse(&serde_json::from_slice(&bytes)?)
+    parse(&bytes)
 }
 pub async fn download(asset: &Asset, destination: &Path, progress: &Progress) -> Result<()> {
     let response = client(300)?
@@ -191,50 +180,141 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    fn release() -> Value {
-        json!({"id":7,"tag_name":"v1.3.0","draft":false,"prerelease":false,"assets":[{"id":8,"name":"palboo-1.3.0-darwin-arm64.dmg","size":100,"state":"uploaded","digest":format!("sha256:{}", "a".repeat(64)),"browser_download_url":"https://github.com/0xTotoroX/palboo/releases/download/v1.3.0/palboo-1.3.0-darwin-arm64.dmg"}]})
+    use serde_json::Value;
+
+    fn manifest() -> Value {
+        json!({"schema":1,"version":"1.3.0","asset":{"size":100,"sha256":"a".repeat(64),"url":"https://github.com/0xTotoroX/palboo/releases/download/v1.3.0/palboo-1.3.0-darwin-arm64.dmg"}})
+    }
+    fn parse_json(value: &Value) -> Result<Release> {
+        parse(&serde_json::to_vec(value).unwrap())
     }
     #[test]
-    fn accepts_exact_published_asset_and_distinguishes_source_only_releases() {
-        assert_eq!(parse(&release()).unwrap().asset.unwrap().size, 100);
-        let mut source_only = release();
-        source_only["assets"] = json!([]);
-        assert!(parse(&source_only).unwrap().asset.is_none());
+    fn accepts_exact_published_asset_and_distinguishes_source_only_manifests() {
+        let mut item = manifest();
+        item["asset"]["sha256"] = json!("A".repeat(64));
+        let release = parse_json(&item).unwrap();
+        assert_eq!(release.url, format!("{REPOSITORY}/releases/tag/v1.3.0"));
+        let asset = release.asset.unwrap();
+        assert_eq!(asset.size, 100);
+        assert_eq!(asset.sha256, "a".repeat(64));
+        item["asset"] = Value::Null;
+        assert!(parse_json(&item).unwrap().asset.is_none());
     }
     #[test]
-    fn rejects_untrusted_incomplete_and_ambiguous_updates() {
+    fn rejects_untrusted_or_invalid_manifests() {
         for (field, value) in [
-            ("draft", json!(true)),
-            ("prerelease", json!(true)),
-            ("tag_name", json!("v1.3.0-beta.1")),
-            ("tag_name", json!("v01.3.0")),
+            ("schema", json!(2)),
+            ("version", json!("1.3.0-beta.1")),
+            ("version", json!("01.3.0")),
+            ("version", json!("1.4.0")),
         ] {
-            let mut item = release();
+            let mut item = manifest();
             item[field] = value;
-            assert!(parse(&item).is_err());
+            assert!(parse_json(&item).is_err());
         }
         for (field, value) in [
-            (
-                "browser_download_url",
-                json!("https://example.com/palboo.dmg"),
-            ),
-            ("state", json!("new")),
+            ("url", json!("https://example.com/palboo.dmg")),
+            ("size", json!(0)),
             ("size", json!(MAX_ASSET + 1)),
-            ("digest", json!(null)),
+            ("sha256", json!(null)),
+            ("sha256", json!("g".repeat(64))),
         ] {
-            let mut item = release();
-            item["assets"][0][field] = value;
-            assert!(parse(&item).is_err());
+            let mut item = manifest();
+            item["asset"][field] = value;
+            assert!(parse_json(&item).is_err());
         }
-        let mut item = release();
-        item["assets"] = json!([item["assets"][0], item["assets"][0]]);
-        assert!(parse(&item).is_err());
+        assert!(parse(b"<html>Gateway</html>").is_err());
+    }
+
+    #[test]
+    fn only_official_download_routes_can_be_followed() {
+        for (url, trusted) in [
+            (
+                "https://github.com/0xTotoroX/palboo/releases/download/v1.3.0/update.json",
+                true,
+            ),
+            ("https://release-assets.githubusercontent.com/file", true),
+            (
+                "https://github.com/other/palboo/releases/download/v1.3.0/update.json",
+                false,
+            ),
+            (
+                "https://api.github.com/repos/0xTotoroX/palboo/releases/latest",
+                false,
+            ),
+            (
+                "https://user@release-assets.githubusercontent.com/file",
+                false,
+            ),
+            ("http://release-assets.githubusercontent.com/file", false),
+            (
+                "https://release-assets.githubusercontent.com:8080/file",
+                false,
+            ),
+        ] {
+            assert_eq!(
+                trusted_redirect(&reqwest::Url::parse(url).unwrap()),
+                trusted,
+                "{url}"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn checks_static_manifest_when_api_returns_403() {
+        use axum::{Router, http::StatusCode, routing::get};
+        let url = reqwest::Url::parse(MANIFEST_URL).unwrap();
+        assert_eq!(url.host_str(), Some("github.com"));
+        let app = Router::new()
+            .route(
+                url.path(),
+                get(|headers: axum::http::HeaderMap| async move {
+                    assert_eq!(headers["cache-control"], "no-cache");
+                    axum::Json(manifest())
+                }),
+            )
+            .route(
+                "/repos/0xTotoroX/palboo/releases/latest",
+                get(|| async { StatusCode::FORBIDDEN }),
+            )
+            .route("/too-large", get(|| async { " ".repeat(MAX_MANIFEST + 1) }));
+        let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0))
+            .await
+            .unwrap();
+        let origin = format!("http://{}", listener.local_addr().unwrap());
+        let server = tokio::spawn(axum::serve(listener, app).into_future());
+        let client = reqwest::Client::builder().no_proxy().build().unwrap();
+        assert_eq!(
+            client
+                .get(format!("{origin}/repos/0xTotoroX/palboo/releases/latest"))
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            StatusCode::FORBIDDEN
+        );
+        let release = fetch_manifest(client.get(format!("{origin}{}", url.path())))
+            .await
+            .unwrap();
+        assert_eq!(release.version, "1.3.0");
+        assert_eq!(release.asset.unwrap().sha256, "a".repeat(64));
+        let error = fetch_manifest(client.get(format!("{origin}/missing")))
+            .await
+            .err()
+            .unwrap();
+        assert!(error.to_string().contains("没有更新清单"));
+        let error = fetch_manifest(client.get(format!("{origin}/too-large")))
+            .await
+            .err()
+            .unwrap();
+        assert!(error.to_string().contains("更新信息过大"));
+        server.abort();
     }
     #[tokio::test]
     async fn downloads_require_exact_length_and_digest_and_never_overwrite_files() {
         let root = tempfile::tempdir().unwrap();
         let bytes = b"synthetic signed distribution";
-        let mut asset = parse(&release()).unwrap().asset.unwrap();
+        let mut asset = parse_json(&manifest()).unwrap().asset.unwrap();
         asset.size = bytes.len() as u64;
         asset.sha256 = format!("{:x}", Sha256::digest(bytes));
         let progress = std::sync::Arc::new(tokio::sync::RwLock::new(Value::Null));
@@ -283,8 +363,8 @@ mod tests {
                 .await
                 .unwrap();
             println!(
-                "Verified public release v{}; asset {} ({} bytes)",
-                release.version, asset.id, asset.size
+                "Verified public release v{} ({} bytes)",
+                release.version, asset.size
             );
         } else {
             println!(

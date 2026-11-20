@@ -1,4 +1,4 @@
-// [INPUT]: 固定 GitHub Release、完整安装 App、现有后台身份与共享模式锁。
+// [INPUT]: 固定 GitHub Release 清单、完整安装 App、现有后台身份与共享模式锁。
 // [OUTPUT]: status/check/begin/worker；手动检查、下载、完整 App 原子替换与启动失败恢复。
 // [POS]: 设置页的显式 App 更新，不更新源码、不重启 Codex、不替换单个 CLI。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
@@ -27,11 +27,23 @@ use std::{
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Update {
-    release_id: u64,
-    asset_id: u64,
     version: String,
+    sha256: String,
     current_version: String,
     expected_revision: u64,
+}
+impl Update {
+    fn selected_asset<'a>(&self, release: &'a release::Release) -> Result<&'a release::Asset> {
+        let asset = release
+            .asset
+            .as_ref()
+            .context("此版本仅提供源码，没有可安装的 DMG")?;
+        ensure!(
+            release.version == self.version && asset.sha256 == self.sha256,
+            "更新信息已改变，请重新检查更新"
+        );
+        Ok(asset)
+    }
 }
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -346,16 +358,7 @@ async fn apply(control: &Paths, request: &Request, progress: &Progress) -> Resul
         "开发进程仍在运行，请先切回正式模式再更新"
     );
     let latest = release::fetch().await?;
-    let asset = latest
-        .asset
-        .as_ref()
-        .context("此版本仅提供源码，没有可安装的 DMG")?;
-    ensure!(
-        latest.id == request.update.release_id
-            && latest.version == request.update.version
-            && asset.id == request.update.asset_id,
-        "更新信息已改变，请重新检查更新"
-    );
+    let asset = request.update.selected_asset(&latest)?;
     ensure!(
         Version::parse(&latest.version)?
             .cmp_precedence(&Version::parse(&request.installed.version)?)

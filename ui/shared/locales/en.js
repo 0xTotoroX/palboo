@@ -423,6 +423,8 @@ export default {
   '正在检查…': 'Checking…',
   '发现新版本 v{{version}}': 'Version {{version}} is available',
   '当前无需更新。': 'No update is needed.',
+  '当前发布版没有更新清单，请到 GitHub 发布页查看。':
+    'The current release has no update manifest. Check the GitHub releases page.',
   '此版本仅提供源码，没有安装包。':
     'This release provides source code only. No installer is available.',
   '请先保存或还原当前设置，再更新。': 'Save or revert your settings before updating.',
