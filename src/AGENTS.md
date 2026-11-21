@@ -39,7 +39,7 @@ panel 的 settingsAccent 默认跟随宿主，独立保存来源及自定义 #RR
 
 - [model_control.rs](model_control.rs)：模型能力、串行切换、实际回读、开关/常用/模型排序/预设及末次私有诊断；用户操作可短暂等待被动回读释放，不把正常轮询误报为重复操作；旧打开入口转到 features，不管理窗口。
 - [edge_window.rs](edge_window.rs)：非激活 NSPanel/WebView，显式键盘焦点、原生鼠标精确点击边界、稳定悬停区域及8pt退出容错与冻结区域、按活动内容调整宽高，保留收放期间稳定视口、整点承载包围盒与原生轮廓、scene-ready 首帧/键盘交接、边缘/刘海几何、屏幕恢复、线程安全显示器枚举、独立材质、统一原生开合进度（0.42s响应、掉帧按实际时间推进、减少动态效果时立即完成；16ms更新间隔与屏幕检查解耦）、快捷键和租约退出。
-- [edge_geometry.rs](edge_geometry.rs)：逻辑点布局、精确凹角点击与稳定悬停区域、安全区、固定屏幕选择与 CDP 顶部坐标转换后的宿主最大相交屏幕选择及可反向连续阻尼开合的纯计算及测试。
+- [edge_geometry.rs](edge_geometry.rs)：当前显示器的展开尺寸上限、逻辑点布局、精确凹角点击与稳定悬停区域、安全区、固定屏幕选择与 CDP 顶部坐标转换后的宿主最大相交屏幕选择及可反向连续阻尼开合的纯计算及测试。edge_window 将展开宽度上限随几何事件发给网页，用于测量折行高度。
 
 - [assets.rs](assets.rs)：正式内嵌与开发快照的资源边界；额外提供独立 Chat 大纲脚本及修订；只有 debug 程序接受显式 PALBOO_DEV_ASSETS，release 始终使用内嵌资源；debug 通过 PALBOO_DEV_SETTINGS 接收经验证的本机统一设置地址。
 

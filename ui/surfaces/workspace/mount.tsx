@@ -123,7 +123,7 @@ export function mountFeature(
   return {
     update: render,
     headerActions,
-    measure() {
+    measure({ minWidth = 0, maxWidth = Infinity } = {}) {
       const body = element.shadowRoot?.querySelector<HTMLElement>('.feature-body');
       if (!body?.firstElementChild) return null;
       // 列宽拖动期间保持原生外框，松手后再按实际换行适配高度。
@@ -145,7 +145,9 @@ export function mountFeature(
           preferredWidth = Math.max(456, view.getBoundingClientRect().width);
         }
         const width = Math.ceil(Math.min(intrinsic ? 976 : 696, Math.max(296, preferredWidth)));
-        element.style.setProperty('--feature-measure-width', `${width}px`);
+        // Keep the preferred width for the native layout request, but measure wrapping at the assigned width.
+        const layoutWidth = Math.min(maxWidth, Math.max(minWidth, width));
+        element.style.setProperty('--feature-measure-width', `${layoutWidth}px`);
         const preferredHeight =
           (intrinsicStyle && parseFloat(intrinsicStyle.minHeight)) ||
           view.getBoundingClientRect().height;

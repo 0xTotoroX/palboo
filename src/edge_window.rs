@@ -363,6 +363,7 @@ impl Surface {
             })
             .unwrap_or_default();
         let offset = screen.map_or(0., |s| geometry::content_offset(s, self.prefs.edge, true));
+        let layout_width_limit = screen.map_or(1000., |s| geometry::expanded_limits(s).0);
         let scene = json!([
             self.valid,
             self.expanded,
@@ -395,6 +396,7 @@ impl Surface {
         let mut detail = json!({
             "expanded": self.expanded, "unfold": self.unfold.value.clamp(0.,1.), "animating": self.unfold.active(self.expanded),
             "layoutWidth": target.width,
+            "layoutWidthLimit": layout_width_limit,
             "keyboard": self.keyboard, "edge": self.prefs.edge.as_str(),
             "position": self.prefs.position, "screen": screen.map(|s| &s.id),
             "allSpaces": self.panel.collectionBehavior().contains(NSWindowCollectionBehavior::CanJoinAllSpaces),

@@ -665,8 +665,7 @@ try {
   const initial = windowInfo();
   const preparedWidth = initial.kCGWindowBounds.Width;
   assert.equal(preparedWidth, telemetry.native.layoutWidth);
-  // Intrinsic model content can use 976px, plus the edge shell's 12px padding per side.
-  assert.ok(preparedWidth >= 320 && preparedWidth <= 1000);
+  assert.ok(preparedWidth >= 320 && preparedWidth <= telemetry.native.layoutWidthLimit);
   assert.deepEqual(telemetry.viewport, [preparedWidth, initial.kCGWindowBounds.Height]);
   check('initial painted compact shell has a prepared stable viewport', initial.kCGWindowBounds);
   check('initial presentation waits for current scene and rejects stale paint acknowledgements');
@@ -1266,7 +1265,7 @@ try {
 
   const savedModels = structuredClone(snapshot.models),
     savedPinned = [...prefs.pinned];
-  const longFavorites = Array.from({ length: 5 }, (_, index) => ({
+  const longFavorites = Array.from({ length: 3 }, (_, index) => ({
     id: `long-${index}`,
     label: `Claude-long-model-name-${index} · WorkBuddy`,
     reasoning: ['low', 'high'],
@@ -1291,7 +1290,7 @@ try {
   const overflow = await command(`(() => {
     const root = document.querySelector('.edge-view').shadowRoot;
     const list = root.querySelector('.model-favorites');
-    const last = root.querySelector('[data-model-row="long-4"] .model-choices').getBoundingClientRect();
+    const last = root.querySelector('[data-model-row="long-2"] .model-choices').getBoundingClientRect();
     const viewport = list.getBoundingClientRect();
     return {scrollable: list.scrollHeight > list.clientHeight + 1,
       lastVisible: last.top >= viewport.top && last.bottom <= viewport.bottom};
@@ -1539,6 +1538,45 @@ try {
       'restore expanded material',
     );
   }
+  const denseModels = Array.from({ length: 24 }, (_, index) => ({
+    id: `dense-${index}`,
+    label: `Fixture long model name ${index}`,
+    reasoning: ['none', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'],
+    fast: false,
+  }));
+  snapshot.models.push(...denseModels);
+  prefs.pinned = denseModels.map((model) => model.id);
+  revision++;
+  const usableHeight = telemetry.native.availableHeight - telemetry.native.contentOffsetY;
+  const heightLimit = Math.floor(Math.min(usableHeight, Math.max(280, usableHeight * 0.42)));
+  await until(
+    () =>
+      telemetry.modelView.rows === denseModels.length &&
+      telemetry.native.layoutHeight === heightLimit &&
+      !telemetry.native.animating,
+    'dense model list reaches the display height budget',
+  );
+  const denseLayout = await command(`(() => {
+    const panel = document.querySelector('#edge-panel');
+    const root = panel.querySelector('.edge-view:not([hidden])').shadowRoot;
+    const list = root.querySelector('.model-favorites');
+    const actions = root.querySelector('.model-preset-actions').getBoundingClientRect();
+    list.scrollTop = list.scrollHeight;
+    const last = root.querySelector('[data-model-row="dense-23"]').getBoundingClientRect();
+    const viewport = list.getBoundingClientRect();
+    return { scrollable: list.scrollTop > 0, lastVisible: last.top >= viewport.top - 1 && last.bottom <= viewport.bottom + 1,
+      actionsVisible: actions.height > 0 && actions.bottom <= panel.getBoundingClientRect().bottom };
+  })()`);
+  assert.deepEqual(denseLayout, { scrollable: true, lastVisible: true, actionsVisible: true });
+  assert.ok(telemetry.native.layoutWidth <= telemetry.native.layoutWidthLimit);
+  check(
+    'dense model list scrolls inside the display budget and keeps controls visible',
+    denseLayout,
+  );
+  snapshot.models = savedModels;
+  prefs.pinned = savedPinned;
+  revision++;
+
   await command("location.href='https://example.invalid/blocked-navigation'");
   await delay(500);
   assert.equal(telemetry.path, '/feature.html');

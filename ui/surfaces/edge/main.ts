@@ -73,10 +73,14 @@ export function startEdge(request: Request, fontSource?: HostFontSource) {
       const item = [...mounts.values()].find(
         ({ id, node }) => id === navigation.selected() && node.dataset.active === 'true',
       );
-      const size = item?.mount.measure();
-      if (!size) return;
       const style = getComputedStyle(panel);
-      const width = size.width + parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+      const padding = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+      const size = item?.mount.measure({
+        minWidth: (expandedSize?.width || 0) - padding,
+        maxWidth: Math.max(1, (native.layoutWidthLimit ?? Infinity) - padding),
+      });
+      if (!size) return;
+      const width = size.width + padding;
       const height =
         size.height +
         panel.querySelector('header')!.getBoundingClientRect().height +

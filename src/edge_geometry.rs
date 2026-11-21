@@ -242,6 +242,16 @@ pub fn layout_height(
     layout_size(screen, edge, position, expanded, 480., content_height)
 }
 
+pub fn expanded_limits(screen: &Screen) -> (f64, f64) {
+    let area = screen.usable;
+    // On small displays, leave enough room for controls and a readable scroll area.
+    let width = (area.width * 0.4)
+        .clamp(400., 1000.)
+        .min(area.width.max(1.));
+    let height = (area.height * 0.42).max(280.).min(area.height.max(1.));
+    (width.floor(), height.floor())
+}
+
 pub fn layout_size(
     screen: &Screen,
     edge: Edge,
@@ -250,10 +260,11 @@ pub fn layout_size(
     content_width: f64,
     content_height: f64,
 ) -> Rect {
-    let expanded_width = content_width.clamp(280., 1000.);
     let area = screen.usable;
+    let (max_width, max_height) = expanded_limits(screen);
+    let expanded_width = content_width.max(280.).min(max_width);
     let expanded_height =
-        content_height.clamp(144., 2000.) + content_offset(screen, edge, expanded);
+        content_height.clamp(144., 2000.).min(max_height) + content_offset(screen, edge, expanded);
     if edge == Edge::Top && screen.notch_width > 0. && screen.notch_height > 0. {
         let bounds = if expanded {
             Rect {
@@ -745,21 +756,31 @@ mod tests {
     }
     #[test]
     fn content_size_controls_layout_and_hover_within_screen_bounds() {
-        let mut display = screen("main", 0., 0., 1440., 900.);
-        for notched in [false, true] {
-            display.notch_width = if notched { 200. } else { 0. };
-            display.notch_height = if notched { 32. } else { 0. };
-            display.notch_x = 620.;
+        let mut laptop = screen("laptop", -1360., 0., 1360., 1000.);
+        laptop.usable.y = 68.;
+        laptop.usable.height = 900.;
+        laptop.notch_width = 200.;
+        laptop.notch_height = 32.;
+        laptop.notch_x = -780.;
+        let mut desktop = screen("desktop", 0., 0., 2560., 1440.);
+        desktop.usable.width -= 80.; // Dock on the side
+        for (display, (max_width, max_height)) in [
+            (laptop, (544., 378.)),
+            (desktop, (992., 604.)),
+            (screen("small", 0., 0., 800., 600.), (400., 280.)),
+            (screen("wide", 0., 0., 3440., 1200.), (1000., 504.)),
+        ] {
             for edge in [Edge::Left, Edge::Right, Edge::Top] {
-                for (width, height) in [(320., 180.), (680., 520.), (1800., 2500.)] {
-                    let rect = layout_size(&display, edge, 0.5, true, width, height);
-                    assert_eq!(rect.width, width.clamp(280., 1000.));
-                    assert!(rect.height <= display.frame.height);
-                    assert!(
-                        rect.x >= display.frame.x && rect.x + rect.width <= display.frame.width
+                let offset = content_offset(&display, edge, true);
+                for (width, height) in [(320., 180.), (1800., 2500.)] {
+                    let shown = layout_size(&display, edge, 0.5, true, width, height);
+                    assert_eq!(shown.width, width.min(max_width));
+                    assert_eq!(shown.height - offset, height.min(max_height));
+                    assert!(shown.y >= display.usable.y);
+                    assert_eq!(
+                        hover_area(&display, edge, 0.5, true, width, height).hold,
+                        shown
                     );
-                    let hover = hover_area(&display, edge, 0.5, true, width, height);
-                    assert_eq!(hover.hold, rect);
                 }
             }
         }
