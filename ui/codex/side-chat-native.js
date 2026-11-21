@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 已加载 Rspack 模块、已提交 React 树、标签控制器和 side-chat-attachment 适配。
- * [OUTPUT]: 可按谓词寻找的 nativeScope；父聊天卡片/文字、原位转正、历史分支与云端接力接口。
+ * [OUTPUT]: 可按谓词寻找的 nativeScope；父聊天卡片/文字及独立主聊天接力接口。
  * [POS]: ChatGPT 私有接口兼容边界；未知结构拒绝，不修改 App 包或 CodexHost 文件。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -225,7 +225,6 @@ export function sideChatAdapter(target, runtime) {
               id: conversation.id,
               title: conversation.title ?? null,
               ephemeral: conversation.ephemeral,
-              side: conversation.sideConversation,
               requests: conversation.requests?.length || 0,
             }
           : null;
@@ -277,7 +276,7 @@ export function sideChatAdapter(target, runtime) {
         cutoff,
       );
     },
-    prepareIndependent(cutoff) {
+    prepareIndependent() {
       if (
         !current() ||
         typeof bus?.dispatchHostMessage !== 'function' ||
@@ -300,22 +299,55 @@ export function sideChatAdapter(target, runtime) {
       } else if (
         typeof route !== 'function' ||
         route('palboo-probe') !== '/local/palboo-probe' ||
-        ['setThreadTitle', 'discardConversationFromCache'].some(
-          (key) => typeof rpc[key] !== 'function',
-        ) ||
-        (cutoff && typeof runtime.c.IhcX?.exports?.y !== 'function')
+        typeof rpc.sendRequest !== 'function'
       )
         throw unsupported();
     },
-    async rename(title, previousTitle) {
+    async createIndependent(title, check) {
       if (!current()) throw unsupported();
+      const options = { timeoutMs: 15000 };
+      const { thread: source } = await rpc.sendRequest(
+        'thread/read',
+        { threadId: id, includeTurns: false },
+        options,
+      );
+      check();
       if (
-        !(await rpc.setThreadTitle(id, title, {
-          expectedTitle: previousTitle,
-          requireAcknowledgement: true,
-        }))
+        source?.id !== id ||
+        source.ephemeral !== false ||
+        typeof source.cwd !== 'string' ||
+        !source.cwd.startsWith('/')
       )
-        throw Error(tr('聊天标题已变化，请重试。'));
+        throw unsupported();
+
+      // 普通主聊天使用宿主的默认权限和工具。只从侧聊继承项目位置，不继承模型历史。
+      const { thread } = await rpc.sendRequest(
+        'thread/start',
+        {
+          cwd: source.cwd,
+          ...(source.projectId ? { projectId: source.projectId } : {}),
+          ephemeral: false,
+          historyMode: 'paginated',
+          threadSource: 'user',
+        },
+        options,
+      );
+      check();
+      if (
+        typeof thread?.id !== 'string' ||
+        !thread.id ||
+        thread.id === id ||
+        thread.id === parentId ||
+        thread.ephemeral !== false ||
+        thread.canAcceptDirectInput === false ||
+        thread.forkedFromId != null ||
+        thread.attachedToThreadId != null ||
+        thread.turns?.length !== 0
+      )
+        throw Error(tr('独立聊天未完整准备，原侧聊已保留。'));
+      await rpc.sendRequest('thread/name/set', { threadId: thread.id, name: title }, options);
+      check();
+      independentId = thread.id;
     },
     close() {
       if (!current()) throw unsupported();
@@ -327,54 +359,8 @@ export function sideChatAdapter(target, runtime) {
       panels.W3(scope, 'right');
       if (!mainUnchanged()) throw Error(tr('草稿或聊天已变化，未继续带回。'));
     },
-    reload: () => rpc.discardConversationFromCache(id),
-    async fork(cutoff, title, expectedHistory, check) {
-      if (!current()) throw unsupported();
-      const result = await runtime.c.IhcX.exports.y(scope, content.hostId, {
-        sourceConversationId: id,
-        sourceTitle: title,
-        targetTurnId: cutoff.turnKey,
-        beforeTargetTurn: false,
-        threadSource: 'user',
-      });
-      // 不回滚源会话；旧服务端的截取也由原生 helper 仅对新分支执行。
-      if (
-        !result?.conversationId ||
-        result.conversationId === id ||
-        result.synchronization?.status !== 'complete'
-      )
-        throw Error(tr('独立聊天未完整准备，原侧聊已保留。'));
-      independentId = result.conversationId;
-      check();
-      const copied = await localSideHistory(rpc, independentId, check);
-      if (JSON.stringify(copied) !== JSON.stringify(expectedHistory))
-        throw Error(tr('独立聊天的截取范围不一致，未切换，原侧聊已保留。'));
-      const conversation = await rpc.getConversation(independentId);
-      let previousTitle;
-      try {
-        if (
-          conversation?.id !== independentId ||
-          conversation.ephemeral !== false ||
-          conversation.sideConversation === true
-        )
-          throw unsupported();
-        previousTitle = conversation.title ?? null;
-      } finally {
-        conversation?.[Symbol.dispose]?.();
-      }
-      check();
-      if (
-        previousTitle !== title &&
-        !(await rpc.setThreadTitle(independentId, title, {
-          expectedTitle: previousTitle,
-          requireAcknowledgement: true,
-        }))
-      )
-        throw Error(tr('聊天标题已变化，请重试。'));
-      check();
-    },
     navigateIndependent() {
-      if (!currentAccount()) throw unsupported();
+      if (!currentAccount() || (!cloud && !independentId)) throw unsupported();
       panels.W3(scope, 'right');
       if (!mainUnchanged()) throw Error(tr('草稿或聊天已变化，未继续带回。'));
       if (cloud) {
@@ -383,7 +369,7 @@ export function sideChatAdapter(target, runtime) {
           hideFromHistory: false,
           isDoNotRemember: scope.get(cloudState.Ik, id),
         });
-      } else independentId ||= id;
+      }
       navigated = true;
       bus.dispatchHostMessage({
         type: 'navigate-to-route',

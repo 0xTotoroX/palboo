@@ -1,5 +1,5 @@
 /* [INPUT]: Native local turn pages or cloud rendered turns and an optional stable cutoff key.
- * [OUTPUT]: Complete text messages through the selected answer; rejects missing or ambiguous boundaries.
+ * [OUTPUT]: Visible question and answer text through the selected reply; excludes raw model history.
  * [POS]: Read-only history normalization, independent of virtualized DOM and chat navigation.
  * [PROTOCOL]: Keep ui/codex/AGENTS.md in sync. */
 import { tr } from '../shared/i18n.js';
@@ -50,6 +50,7 @@ export async function localSideHistory(rpc, id, check, cutoff = null) {
       // Continue validating page identities after the boundary, without copying later content.
       if (found) continue;
       let answered = false;
+      // 只接力界面可见的问答。宿主注入的侧聊边界属于原始模型历史。
       for (const item of turn.items) {
         if (item.type === 'userMessage') {
           if (!Array.isArray(item.content)) throw invalid();

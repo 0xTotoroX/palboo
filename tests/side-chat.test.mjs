@@ -267,7 +267,7 @@ const mainText = (page) =>
 const noMigration = async (page) => {
   assert.equal(
     (await actions(page)).some(([kind]) =>
-      ['rename', 'close', 'reload', 'navigate', 'new-cloud', 'send'].includes(kind),
+      ['thread/start', 'thread/name/set', 'close', 'navigate', 'new-cloud', 'send'].includes(kind),
     ),
     false,
   );

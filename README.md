@@ -33,9 +33,9 @@ In ordinary Chat mode, use the outline icon beside **Copy / Read aloud** under a
 A right-side Side Chat has two actions beside Outline under completed replies. Hover each icon for its name:
 
 - **Bring to original chat through this reply** (left arrow entering a vertical line): bring the selected history to the original chat, preserving its draft. Local chats use a native text card when supported; cloud chats use a readable text handoff. The side panel collapses after success and the side chat is retained.
-- **Create independent chat through this reply** (arrow opening out of a square): create a local branch or prefill a new cloud chat with the selected history.
+- **Create independent chat through this reply** (arrow opening out of a square): open an ordinary local chat in the source project and attach the selected questions and answers as a text card when supported. Cloud chats receive a draft with the selected history. Side Chat instructions stay with the original session.
 
-Both actions include **the conversation from its beginning through that reply**, excluding later messages and the current draft. The original side chat and later content remain intact. The composer has no duplicate side-chat buttons. **Nothing is sent automatically**, and these actions cannot overlap with prompt optimization/restore. Text handoffs do not include images, attachments or tool state. Uncertain identities, incomplete history, changed ranges or unsupported Agent fork capabilities stop the operation and preserve the source.
+Both actions include **the conversation from its beginning through that reply**, excluding later messages and the current draft. The original side chat and later content remain intact. The composer has no duplicate side-chat buttons. **Nothing is sent automatically**, and these actions cannot overlap with prompt optimization/restore. Text handoffs carry the visible questions and answers. Uncertain identities, incomplete history or changed ranges stop the operation and preserve the source.
 
 ## Installation
 

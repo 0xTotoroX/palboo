@@ -7,7 +7,7 @@
 import { tr } from '../shared/i18n.js';
 
 export async function attachLocalSideChatText(runtime, scope, text, preview, guard) {
-  const state = runtime.c.TSib?.exports;
+  const state = runtime.c.CiLO?.exports ?? runtime.c.TSib?.exports;
   if (
     scope?.value.kind !== 'local' ||
     scope.value.placement !== 'main' ||

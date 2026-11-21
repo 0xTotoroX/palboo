@@ -26,6 +26,8 @@ const result = (page) =>
     side: window.meta.sideConversation,
     title: window.meta.title,
     fork: window.forkSource,
+    independent: window.newMeta,
+    cards: window.cards.map((card) => window.cardFiles[card.file.path]),
   }));
 const noSend = (r) =>
   assert.equal(
@@ -78,8 +80,10 @@ async function replies(page, keys = ['b-selected']) {
 const clickReply = (page, mode) =>
   page.locator(`[data-palboo-side-chat=reply][data-side-action=${mode}]`).first().click();
 
-test('whole local side chat keeps its ID, acknowledges title, closes tab, reloads side state and restores exact draft without sending', async () => {
+test('whole local promotion opens an ordinary chat in the same project with a transcript card and exact draft', async () => {
   const page = await fixture({
+    pastedCards: true,
+    currentAttachment: true,
     staleSource: true,
     draft: '  local draft\n\n',
     destinationDraft: 'target saved draft',
@@ -89,14 +93,23 @@ test('whole local side chat keeps its ID, acknowledges title, closes tab, reload
     await settle(page);
     const r = await result(page);
     assert.equal(r.text, 'target saved draft\n\n  local draft\n\n');
-    assert.equal(r.side, false);
-    assert.equal(r.title, 'first local question');
+    assert.equal(r.side, true);
+    assert.equal(r.title, null);
     assert.deepEqual(r.fork, { parentId: 'parent', turnId: 'turn-1' });
-    assert.deepEqual(
-      r.log.filter(([k]) => ['rename', 'close', 'reload', 'navigate'].includes(k)).map(([k]) => k),
-      ['rename', 'close', 'reload', 'navigate'],
-    );
-    assert.equal(r.log.find(([k]) => k === 'navigate')[1], '/local/side-a');
+    assert.equal(r.independent.title, 'first local question');
+    assert.equal(r.independent.sideConversation, false);
+    assert.deepEqual(r.log.find(([k]) => k === 'thread/start')[1], {
+      cwd: '/fixture/project',
+      projectId: 'project-a',
+      ephemeral: false,
+      historyMode: 'paginated',
+      threadSource: 'user',
+    });
+    assert.equal(r.log.find(([k]) => k === 'navigate')[1], '/local/independent-a');
+    assert.equal(r.cards.length, 1);
+    assert.ok(r.cards[0].includes('first local answer'));
+    assert.ok(!r.cards[0].includes('local draft'));
+    assert.equal(r.source, '  local draft\n\n');
     assert.equal(r.recovery, false);
     noSend(r);
   } finally {
@@ -137,7 +150,7 @@ test('an ambiguous parent editor stops independent promotion before renaming or 
     assert.equal(r.text, 'parent draft');
     assert.equal(r.side, true);
     assert.equal(
-      r.log.some(([kind]) => ['rename', 'close', 'navigate'].includes(kind)),
+      r.log.some(([kind]) => ['thread/start', 'close', 'navigate'].includes(kind)),
       false,
     );
     assert.ok(r.status.includes('无法确认原主聊天输入框'));
@@ -175,11 +188,27 @@ for (const cloud of [false, true])
     test(`${cloud ? 'cloud' : 'local'} ${mode} cutoff includes offscreen prefix, excludes later turns and current draft`, async () => {
       const page = await fixture({
         cloud,
+        pastedCards: !cloud && mode === 'independent',
+        currentAttachment: true,
         draft: 'EXCLUDED SIDE DRAFT',
         destinationDraft: cloud ? 'new saved draft' : '',
       });
       try {
         await replies(page);
+        // The host's internal boundary is a raw model item, outside the rendered question/answer API.
+        if (mode === 'independent' && !cloud)
+          await page.evaluate(() =>
+            window.pages[0].data[0].items.unshift({
+              type: 'message',
+              role: 'user',
+              content: [
+                {
+                  type: 'input_text',
+                  text: 'Side conversation boundary. Sub-agents are off-limits.',
+                },
+              ],
+            }),
+          );
         await clickReply(page, mode);
         await settle(page);
         const r = await result(page);
@@ -190,18 +219,18 @@ for (const cloud of [false, true])
         );
         assert.equal(r.recovery, false);
         if (mode === 'independent' && !cloud) {
-          const fork = r.log.find(([k]) => k === 'fork');
-          assert.equal(fork[2].sourceConversationId, 'side-a');
-          assert.equal(fork[2].targetTurnId, 'b-selected');
-          assert.equal(fork[2].beforeTargetTurn, false);
-          assert.equal(r.log.find(([k]) => k === 'navigate')[1], '/local/fork-a');
+          assert.equal(r.log.find(([k]) => k === 'navigate')[1], '/local/independent-a');
           assert.equal(r.text, '');
           assert.equal(r.side, true);
           assert.equal(r.title, null);
-          assert.deepEqual(await page.evaluate(() => window.forkPages[0].data.map((t) => t.id)), [
-            'z-first',
-            'b-selected',
-          ]);
+          assert.equal(r.cards.length, 1);
+          assert.ok(r.cards[0].includes('opening question'));
+          assert.ok(r.cards[0].includes('selected question'));
+          assert.equal((r.cards[0].match(/Repeated answer/g) || []).length, 1);
+          assert.ok(!r.cards[0].includes('excluded question'));
+          assert.ok(!r.cards[0].includes('EXCLUDED SIDE DRAFT'));
+          assert.ok(!r.cards[0].includes('Side conversation boundary.'));
+          assert.deepEqual(r.independent.turns, []);
         } else {
           assert.ok(
             r.text.startsWith(mode === 'parent' ? 'parent draft\n\n' : 'new saved draft\n\n'),
@@ -306,7 +335,7 @@ test('changed answer identity, changed prefix, missing or duplicate cutoff canno
       const r = await result(page);
       assert.equal(r.text, 'parent draft', variant);
       assert.equal(
-        r.log.some(([k]) => ['fork', 'navigate', 'close'].includes(k)),
+        r.log.some(([k]) => ['thread/start', 'navigate', 'close'].includes(k)),
         false,
         variant,
       );
@@ -318,12 +347,12 @@ test('changed answer identity, changed prefix, missing or duplicate cutoff canno
   }
 });
 
-test('a fork returning later turns is rejected before navigation and preserves source and recovery', async () => {
+test('an inherited thread is rejected before navigation and preserves source and recovery', async () => {
   const page = await fixture();
   try {
     await replies(page);
     await page.evaluate(() => {
-      window.forkPages = window.pages;
+      window.startOverrides = { forkedFromId: 'side-a' };
     });
     await clickReply(page, 'independent');
     await settle(page);
@@ -331,7 +360,7 @@ test('a fork returning later turns is rejected before navigation and preserves s
     assert.equal(r.text, 'parent draft');
     assert.equal(r.side, true);
     assert.equal(r.recovery, true);
-    assert.ok(r.status.includes('截取范围不一致'));
+    assert.ok(r.status.includes('独立聊天未完整准备'));
     assert.equal(
       r.log.some(([k]) => ['navigate', 'close'].includes(k)),
       false,
@@ -368,7 +397,7 @@ test('cloud plain-div turns and repeated markdown sub-keys resolve one answer; h
   }
 });
 
-test('promotion stops on title conflict or source change; all side actions share the optimizer lock', async () => {
+test('promotion stops on failed naming or source change; all side actions share the optimizer lock', async () => {
   for (const variant of ['title', 'source', 'optimizer']) {
     const page = await fixture();
     try {
@@ -376,7 +405,7 @@ test('promotion stops on title conflict or source change; all side actions share
       await page.evaluate((variant) => {
         if (variant === 'title')
           window.hooks.rename = () => {
-            window.meta.title = 'another edit';
+            throw Error('Naming failed');
           };
         if (variant === 'source')
           window.hooks.rename = () => {
@@ -395,7 +424,7 @@ test('promotion stops on title conflict or source change; all side actions share
       await settle(page);
       const r = await result(page);
       assert.equal(
-        r.log.some(([k]) => ['close', 'navigate', 'fork'].includes(k)),
+        r.log.some(([k]) => ['close', 'navigate'].includes(k)),
         false,
       );
       assert.equal(r.text, 'parent draft');

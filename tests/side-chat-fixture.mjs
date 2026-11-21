@@ -62,7 +62,7 @@ button{width:32px;height:32px}button[data-codexhost-agent-control]{width:80px}
       requests: [],
       ...options.meta,
     };
-    window.forkMeta = null;
+    window.newMeta = null;
     window.account = 'account';
     window.execution = { inProgress: !!options.busy };
     window.forkSource = { parentId: 'parent', turnId: 'turn-1' };
@@ -210,7 +210,7 @@ button{width:32px;height:32px}button[data-codexhost-agent-control]{width:80px}
       },
       async getConversation(id) {
         return {
-          ...(id === 'fork-a' ? window.forkMeta : window.meta),
+          ...(id === 'independent-a' ? window.newMeta : window.meta),
           [Symbol.dispose]: () => window.log.push(['dispose', id]),
         };
       },
@@ -221,9 +221,7 @@ button{width:32px;height:32px}button[data-codexhost-agent-control]{width:80px}
         window.log.push(['turns', opts]);
         await window.hooks.history?.();
         return {
-          response: (id === 'fork-a' ? window.forkPages : window.pages)[
-            opts.cursor ? Number(opts.cursor) : 0
-          ],
+          response: window.pages[opts.cursor ? Number(opts.cursor) : 0],
         };
       },
       async getConversationTitleInput() {
@@ -233,18 +231,29 @@ button{width:32px;height:32px}button[data-codexhost-agent-control]{width:80px}
           ],
         };
       },
-      async setThreadTitle(id, title, opts) {
-        window.log.push(['rename', id, title, opts]);
-        await window.hooks.rename?.();
-        const meta = id === 'fork-a' ? window.forkMeta : window.meta;
-        if (opts.expectedTitle !== meta.title) return false;
-        meta.title = title;
-        return true;
-      },
-      async discardConversationFromCache(id) {
-        window.log.push(['reload', id]);
-        await window.hooks.reload?.();
-        window.meta.sideConversation = false;
+      async sendRequest(method, params) {
+        window.log.push([method, params]);
+        if (method === 'thread/read' && params.threadId === 'side-a')
+          return { thread: { ...window.meta, cwd: '/fixture/project', projectId: 'project-a' } };
+        if (method === 'thread/start') {
+          await window.hooks.start?.();
+          window.newMeta = {
+            id: 'independent-a',
+            title: null,
+            ephemeral: false,
+            sideConversation: false,
+            canAcceptDirectInput: true,
+            turns: [],
+            ...window.startOverrides,
+          };
+          return { thread: window.newMeta };
+        }
+        if (method === 'thread/name/set' && params.threadId === window.newMeta?.id) {
+          await window.hooks.rename?.();
+          window.newMeta.title = params.name;
+          return {};
+        }
+        throw Error(`Unexpected request: ${method}`);
       },
     };
     window.runtime = {
@@ -252,7 +261,7 @@ button{width:32px;height:32px}button[data-codexhost-agent-control]{width:80px}
         Object.entries({
           ...(options.pastedCards
             ? {
-                TSib: {
+                [options.currentAttachment ? 'CiLO' : 'TSib']: {
                   VH: 'pasted-cards',
                   kV: 'card-generation',
                   YH: 'card-mode',
@@ -324,22 +333,6 @@ button{width:32px;height:32px}button[data-codexhost-agent-control]{width:80px}
           },
           ISgP: { O: 'cloud-turns' },
           kkdx: { o: ({ message }) => message },
-          IhcX: {
-            y: async (_scope, host, params) => {
-              window.log.push(['fork', host, params]);
-              await window.hooks.fork?.();
-              const turns = window.pages.flatMap((page) => page.data);
-              const boundary = turns.findIndex((turn) => turn.id === params.targetTurnId);
-              window.forkPages ||= [{ data: turns.slice(0, boundary + 1), nextCursor: null }];
-              window.forkMeta = {
-                ...window.meta,
-                id: 'fork-a',
-                title: null,
-                sideConversation: false,
-              };
-              return { conversationId: 'fork-a', synchronization: { status: 'complete' } };
-            },
-          },
         }).map(([id, exports]) => [id, { exports }]),
       ),
     };

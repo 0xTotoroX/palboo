@@ -1,7 +1,7 @@
 /*
  * [INPUT]: 右侧官方侧边输入区、受限宿主适配、共用草稿操作与 CLI 接力采集器。
  * [OUTPUT]: 回答行双操作与完整/历史范围命令；原生文本卡片、文字回退和草稿保护，无输入框入口。
- * [POS]: 不发送或调用模型；协调原生转正/分支、保留目标草稿的接力及失败内存恢复。
+ * [POS]: 不发送或调用模型；协调独立主聊天、保留草稿的接力及失败内存恢复。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
 import { tr } from '../shared/i18n.js';
@@ -337,7 +337,7 @@ export function installSideChatSwitcher({
       operation.native = await step(operation, adapter(target));
       checkSource(operation);
       const native = operation.native;
-      if (mode === 'independent') native.prepareIndependent(cutoff);
+      if (mode === 'independent') native.prepareIndependent();
       const ready = async () => {
         if (native.kind !== 'local') return;
         const state = await step(operation, native.localState());
@@ -369,7 +369,7 @@ export function installSideChatSwitcher({
         throw Error(tr('侧边聊天还没有可带回的文字。'));
       const text = handoffText(snapshot, !!cutoff);
       if (text.length > 2_000_000) throw Error(tr('侧边聊天内容过长，未截断或关闭原聊天。'));
-      let latest = await ready();
+      await ready();
       checkSource(operation);
       if (cutoff) {
         const currentHistory = await step(
@@ -382,46 +382,36 @@ export function installSideChatSwitcher({
         checkSource(operation);
       }
       recovery = { text };
+      const preview = `${tr('侧聊记录')} · ${snapshot.title}${cutoff ? ` · ${tr('截至所选回答')}` : ''}`;
       if (mode === 'parent') {
-        const preview = `${tr('侧聊记录')} · ${snapshot.title}${cutoff ? ` · ${tr('截至所选回答')}` : ''}`;
         const editor = await fill(operation, text, false, preview);
         active(operation);
         native.finish(editor);
+      } else if (native.kind === 'local') {
+        await step(
+          operation,
+          native.createIndependent(snapshot.title, () => checkSource(operation)),
+        );
+        checkSource(operation);
+        native.navigateIndependent();
+        await waitFor(operation, () => {
+          const editor = destination(native);
+          return editor && native.promoted(editor);
+        });
+        if (snapshot.turns.length) {
+          const transcript = handoffText({ ...snapshot, draft: '' }, !!cutoff);
+          await fill(operation, transcript, true, preview);
+        }
+        if (operation.draft) await fill(operation, operation.draft, true);
       } else {
-        if (native.kind === 'local' && cutoff) {
-          await step(
-            operation,
-            native.fork(cutoff, snapshot.title, history, () => checkSource(operation)),
-          );
-          checkSource(operation);
-        } else {
-          if (native.kind === 'local') {
-            if (latest.title !== snapshot.title) {
-              await step(operation, native.rename(snapshot.title, latest.title));
-              latest = await ready();
-            }
-          }
-          checkSource(operation);
-          // 完整会话转正先释放侧栏的 sideConversation 持有者；截取始终保留源标签。
-          if (!cutoff) {
-            native.close();
-            await waitFor(operation, () => native.isClosed());
-            native.closedParent();
-            if (native.kind === 'local') {
-              const state = await step(operation, native.localState());
-              if (!state || state.id !== native.id || state.ephemeral !== false || state.busy)
-                throw Error(tr('此侧边聊天尚未就绪或仍在处理，请稍后重试。'));
-              if (state.side === true) await step(operation, native.reload());
-            }
-          }
+        if (!cutoff) {
+          native.close();
+          await waitFor(operation, () => native.isClosed());
+          native.closedParent();
         }
         active(operation);
         native.navigateIndependent();
-        const editor = await fill(
-          operation,
-          native.kind === 'cloud' ? text : operation.draft,
-          true,
-        );
+        const editor = await fill(operation, text, true);
         await waitFor(operation, () => native.promoted(editor));
       }
       recovery = null;
