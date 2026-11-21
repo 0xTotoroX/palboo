@@ -88,6 +88,13 @@ fn patches_known_shapes_once_and_accepts_upstream_fix() {
     let fixed = patch(&finite).unwrap().unwrap();
     assert!(fixed.contains("maxScriptsCacheSize: 1048576"));
     assert!(!fixed.contains("maxScriptsCacheSize: 0"));
+    let with_desktop_context = FIXTURE.replace(
+        "installRendererLoadedModules(renderer)",
+        "installRendererLoadedModules(renderer, onDesktopContext)",
+    );
+    let fixed = patch(&with_desktop_context).unwrap().unwrap();
+    assert!(fixed.contains(BOUNDED));
+    assert!(patch(&fixed).unwrap().is_none());
 }
 
 #[test]
@@ -106,6 +113,10 @@ fn rejects_changed_or_ambiguous_shapes_instead_of_guessing() {
         FIXTURE.replace(
             "installRendererLoadedModules(renderer)",
             "installChangedCatalog(renderer)",
+        ),
+        FIXTURE.replace(
+            "installRendererLoadedModules(renderer)",
+            "installRendererLoadedModules(renderer, unknownContext)",
         ),
     ] {
         assert!(patch(&changed).is_err());

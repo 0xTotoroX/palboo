@@ -65,9 +65,13 @@ fn replace_once(source: &mut String, old: &str, new: &str) -> Result<()> {
 
 fn patch(source: &str) -> Result<Option<String>> {
     let catalog = source
-        .split_once("async function installRendererLoadedModules(renderer) {")
+        .split_once("async function installRendererLoadedModules(renderer")
         .context(STRUCTURE_ERROR)?
         .1;
+    let catalog = catalog
+        .strip_prefix(") {")
+        .or_else(|| catalog.strip_prefix(", onDesktopContext) {"))
+        .context(STRUCTURE_ERROR)?;
     let catalog = catalog.split("\n// ").next().unwrap_or(catalog);
     let mut result = source.to_owned();
     if source.contains("async function runDesktopController(") {
