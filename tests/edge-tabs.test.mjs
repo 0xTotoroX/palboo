@@ -229,8 +229,17 @@ test('board keeps its reading size as tasks grow and uses tabs on a constrained 
   // recording the baseline. The native fixture initially opens at 500px.
   await page.waitForFunction(() => {
     const measured = messages.filter((message) => message.action === 'content-size').at(-1);
+    const board = document
+      .querySelector('.edge-view')
+      .shadowRoot.querySelector('.board-intrinsic-size');
+    if (!board) return false;
+    const readingHeight = parseFloat(getComputedStyle(board).minHeight);
     const height = document.querySelector('#edge-panel').offsetHeight;
-    return measured && height === Math.min(innerHeight - 80, measured.height) && height >= 480;
+    return (
+      measured &&
+      measured.height >= readingHeight &&
+      height === Math.min(innerHeight - 80, measured.height)
+    );
   });
   const initial = await panel.boundingBox();
   await page.evaluate(() => {

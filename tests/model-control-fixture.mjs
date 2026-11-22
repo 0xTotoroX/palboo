@@ -389,12 +389,13 @@ export function installModelControlFixture({ records, options = {} }) {
         if (event.key === 'Escape') {
           state.clicks.push({ id, action: 'close' });
           if (options.closeAcrossWaitDeadline) {
-            setTimeout(() => {
-              const until = performance.now() + 80;
-              while (performance.now() < until) {}
+            // The caller observes the open menu synchronously, then wakes after its local deadline.
+            const now = performance.now.bind(performance);
+            queueMicrotask(() => {
               clearMenus();
               render();
-            }, 480);
+              performance.now = () => now() + 550;
+            });
             return;
           }
           clearMenus();

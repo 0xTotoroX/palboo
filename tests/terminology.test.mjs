@@ -599,8 +599,11 @@ test('hover card follows small scrolls but closes for lost anchors, changed chat
     await open();
     await page.locator('#term').evaluate((p) => p.replaceWith(p.cloneNode(true)));
     await card.waitFor({ state: 'hidden' });
-    await page.waitForFunction(
-      () => [...CSS.highlights.get('palboo-terms')][0].startContainer.isConnected,
+    await page.waitForFunction(() =>
+      [...(CSS.highlights.get('palboo-terms') || [])].some(
+        (range) =>
+          !range.collapsed && document.querySelector('#term').contains(range.startContainer),
+      ),
     );
     await open();
     await page.evaluate(() => {
