@@ -145,7 +145,7 @@ Palboo 跟随 Codex 的外观。设置页统一使用「**跟随 ChatGPT**」，
 - 已关联的 ChatGPT 应用真正退出后，Palboo 后台和窗口一起退出，由 Palboo 管理的 CodexHost 0.18+ 也会正常退出，其中运行的任务随之结束。仅关闭窗口、短暂断连或开发热更新不会触发这项清理；不影响无关应用及其他 CodexHost 安装。
 - 使用 CodexHost 0.18/0.19/0.20 系列时，由 Palboo 直接通过系统打开 Codex，并连接官方兼容组件。控制器重连和 Palboo 热更新会保留当前 Codex；意外中断后重新打开 Palboo 可恢复原会话。已经运行的旧启动链继续使用，新方式在下一次冷启动或明确重启时生效。其他 CodexHost 版本保留原启动方式。自动更新不会选择尚未验证原生工具兼容的新系列，会保留当前版本；仍可在设置中显式安装。
 - 「**系统 → Codex 连接**」可以持续暂停或恢复集成，保留设置、任务和草稿。性能监测仅在「连接诊断」展开且可见时采样。
-- 在「**功能 → 本地聊天归档 → 查看可归档聊天**」查看当前电脑各 CLI 的未归档聊天数量。确认前可以查看每条命中会话的标题、聊天 ID、CLI、项目和日期，以及进行中与关联计划任务标记。在「**ChatGPT → 设置 → 已归档的聊天**」筛选「本地」可恢复聊天。命令行可用 `palboo config archive-local-chats --list` 查看 CLI 标识，用 `--cli antigravity` 预览指定 CLI，加 `--sessions` 查看明细，再用 `--confirm <预览标识>` 执行。
+- 打开「**功能 → 本地聊天归档**」会自动读取当前电脑各 CLI 的未归档聊天数量并展开筛选。确认前可以查看每条命中会话的标题、聊天 ID、CLI、项目和日期，以及进行中与关联计划任务标记。在「**ChatGPT → 设置 → 已归档的聊天**」筛选「本地」可恢复聊天。命令行可用 `palboo config archive-local-chats --list` 查看 CLI 标识，用 `--cli antigravity` 预览指定 CLI，加 `--sessions` 查看明细，再用 `--confirm <预览标识>` 执行。
 - 归档可组合 CLI、项目、未活动天数或日期区间，以及每项目保留最近数量。日期按连接电脑的本地日历，包含起止当天。定时清理可用 `palboo config archive-local-chats --cli codex --inactive-days 7 --keep-recent 3 --protect` 预览，再确认该批次。保护模式保留置顶、运行中及关联计划任务的聊天。
 
 </details>

@@ -1,10 +1,10 @@
 /*
  * [INPUT]: 当前连接状态、认证归档接口与共享确认及反馈组件。
- * [OUTPUT]: 本地聊天的 CLI 分组计数、会话预览、显式确认与结果反馈。
+ * [OUTPUT]: 进入时自动读取的聊天分组、会话预览、显式确认与结果反馈。
  * [POS]: 功能 → 本地聊天归档，不保存配置。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { tr } from '../shared/i18n.js';
 import { Icon } from '../shared/icons/react';
 import { request } from './api';
@@ -52,38 +52,65 @@ export function ChatArchiveSettings({
   targetId: string | null;
   notify: (text: string, failed?: boolean) => void;
 }) {
-  const [loading, setLoading] = useState(false);
+  const [listing, setListing] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
+  const [refresh, setRefresh] = useState(0);
   const [loaded, setLoaded] = useState<{ targetId: string | null; inventory: ArchiveInventory }>();
   const [cli, setCli] = useState<string>();
   const [rule, setRule] = useState(initialRule);
-  const reading = useRef(false);
-  const { confirm, confirmation } = useConfirmation(targetId ?? undefined, disabled);
+  const reading = useRef<Promise<void> | null>(null);
+  const current = useRef({ disabled, targetId, notify });
+  current.current = { disabled, targetId, notify };
+  const loading = listing || previewing;
+  const { confirm, confirmation } = useConfirmation(targetId ?? undefined, disabled || listing);
   const inventory = loaded?.targetId === targetId ? loaded.inventory : undefined;
   const project = inventory?.projects?.find(({ id }) => id === rule.project);
   const projectMissing = Boolean(rule.project && !project);
   const changeRule = (patch: Partial<RuleDraft>) =>
     setRule((current) => ({ ...current, ...patch }));
 
-  async function read(action: () => Promise<void>) {
-    if (disabled || reading.current) return;
-    reading.current = true;
-    setLoading(true);
-    try {
-      await action();
-    } catch (error) {
-      notify((error as Error).message, true);
-    } finally {
-      reading.current = false;
-      setLoading(false);
-    }
-  }
-
-  function load() {
-    return read(async () => {
-      const inventory = await request<ArchiveInventory>('chat-archive', { op: 'list' });
-      setLoaded({ targetId, inventory });
-      if (cli && !inventory.groups.some((group) => group.cli === cli)) setCli(undefined);
+  useEffect(() => {
+    if (disabled) return;
+    let active = true;
+    setListing(true);
+    // Let an earlier request settle so a quick return does not hit the host's busy lock.
+    const task = Promise.resolve(reading.current).then(async () => {
+      if (!active) return;
+      try {
+        const inventory = await request<ArchiveInventory>('chat-archive', { op: 'list' });
+        if (!active) return;
+        setLoaded({ targetId, inventory });
+        setCli((value) =>
+          value && !inventory.groups.some((group) => group.cli === value) ? undefined : value,
+        );
+      } catch (error) {
+        if (active) current.current.notify((error as Error).message, true);
+      }
     });
+    reading.current = task;
+    void task.finally(() => {
+      if (reading.current === task) reading.current = null;
+      if (active) setListing(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, [disabled, targetId, refresh]);
+
+  function read(action: () => Promise<void>) {
+    if (disabled || reading.current) return;
+    setPreviewing(true);
+    const task = action()
+      .catch((error: Error) => {
+        if (!current.current.disabled && current.current.targetId === targetId)
+          current.current.notify(error.message, true);
+      })
+      .finally(() => {
+        if (reading.current === task) reading.current = null;
+        setPreviewing(false);
+      });
+    reading.current = task;
+    return task;
   }
 
   function preview() {
@@ -109,6 +136,7 @@ export function ChatArchiveSettings({
         includeSessions: true,
         ...(appliedRules.length ? { filters } : {}),
       });
+      if (current.current.disabled || current.current.targetId !== targetId) return;
       if (
         plan.cli !== (cli || null) ||
         appliedRules.some(([key, value]) => plan.filters?.[key] !== value)
@@ -200,6 +228,7 @@ export function ChatArchiveSettings({
         action: async () => {
           const result = await request<ArchiveResult>('chat-archive', { op: 'apply', id: plan.id });
           setLoaded(undefined);
+          setRefresh((value) => value + 1);
           const incomplete = result.failed > 0 || result.skipped > 0;
           notify(
             tr(
@@ -360,34 +389,42 @@ export function ChatArchiveSettings({
           )}
         </div>
       )}
+      {!disabled && !inventory && listing && (
+        <p className="settings-help" role="status">
+          {tr('正在读取本地聊天…')}
+        </p>
+      )}
+      {!disabled && inventory?.total === 0 && (
+        <p className="settings-help" role="status">
+          {tr('没有可归档的本地聊天。')}
+        </p>
+      )}
       <div className="settings-actions" data-settings-navigation>
-        {inventory && (
-          <Button
-            type="button"
-            variant="ghost"
-            disabled={disabled || loading}
-            onClick={() => void load()}
-          >
-            {tr('刷新')}
-          </Button>
-        )}
+        <Button
+          type="button"
+          variant="ghost"
+          disabled={disabled || loading}
+          aria-busy={listing}
+          onClick={() => setRefresh((value) => value + 1)}
+        >
+          {tr('刷新')}
+        </Button>
         <Button
           type="button"
           variant="outline"
           disabled={
             disabled ||
             loading ||
-            (!!inventory &&
-              (inventory.total === 0 ||
-                cli === undefined ||
-                projectMissing ||
-                (rule.time === 'inactive' && Number(rule.inactiveDays) < 1) ||
-                (rule.time === 'range' && !rule.from && !rule.through)))
+            !inventory?.total ||
+            cli === undefined ||
+            projectMissing ||
+            (rule.time === 'inactive' && Number(rule.inactiveDays) < 1) ||
+            (rule.time === 'range' && !rule.from && !rule.through)
           }
-          aria-busy={loading}
-          onClick={() => void (inventory ? preview() : load())}
+          aria-busy={previewing}
+          onClick={() => void preview()}
         >
-          {tr(loading ? '正在读取本地聊天…' : inventory ? '预览归档' : '查看可归档聊天')}
+          {tr(previewing ? '正在读取本地聊天…' : '预览归档')}
         </Button>
       </div>
       {confirmation}

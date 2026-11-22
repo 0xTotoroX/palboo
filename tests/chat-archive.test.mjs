@@ -300,9 +300,9 @@ import React from 'react'; import {createRoot} from 'react-dom/client';
 import {ChatArchiveSettings} from './ui/settings/chat-archive-settings';
 import {setLocale} from './ui/shared/i18n.js';
 setLocale('en');
-createRoot(document.querySelector('main')).render(<ChatArchiveSettings disabled={false}
+createRoot(document.querySelector('main')).render(<React.StrictMode><ChatArchiveSettings disabled={false}
   targetId="fixture" notify={(text, failed) => { document.getElementById('result').textContent = text;
-  document.getElementById('result').dataset.failed = String(failed); }} />);`,
+  document.getElementById('result').dataset.failed = String(failed); }} /></React.StrictMode>);`,
     },
     bundle: true,
     write: false,
@@ -331,6 +331,13 @@ createRoot(document.querySelector('main')).render(<ChatArchiveSettings disabled=
       assert.equal(route.request().headers().authorization, 'Bearer fixture');
       const body = route.request().postDataJSON();
       requests.push(body);
+      if (body.op === 'apply') {
+        inventory = {
+          total: 6,
+          groups: [{ cli: 'codex', count: 6 }],
+          projects: [{ id: 'palboo', label: 'Palboo', count: 5 }],
+        };
+      }
       return route.fulfill({
         json:
           body.op === 'list'
@@ -368,9 +375,9 @@ createRoot(document.querySelector('main')).render(<ChatArchiveSettings disabled=
   });
   await page.goto('https://archive.test/#token=fixture');
   await page.addScriptTag({ content: script.text });
-  await page.getByRole('button', { name: 'Find chats to archive' }).click();
   const scope = page.getByRole('combobox', { name: 'Archive scope' });
   assert.equal(await scope.locator('option[value="all"]').innerText(), 'All local chats (10)');
+  assert.deepEqual(requests, [{ op: 'list' }]);
   const archive = page.getByRole('button', { name: 'Preview archive' });
   assert.equal(await archive.isEnabled(), false);
   await scope.selectOption({ value: 'cli:antigravity' });
@@ -407,20 +414,15 @@ createRoot(document.querySelector('main')).render(<ChatArchiveSettings disabled=
   await archive.click();
   await dialog.getByRole('button', { name: 'Confirm archive', exact: true }).click();
   await page.getByText('Archived 3 chats. 1 failed and 0 were skipped.').waitFor();
+  await scope.getByText('All local chats (6)', { exact: true }).waitFor({ state: 'attached' });
   assert.equal(await page.locator('#result').getAttribute('data-failed'), 'true');
   assert.deepEqual(requests, [
     { op: 'list' },
     previewRequest,
     previewRequest,
     { op: 'apply', id: 'fixture-plan' },
+    { op: 'list' },
   ]);
-  inventory = {
-    total: 6,
-    groups: [{ cli: 'codex', count: 6 }],
-    projects: [{ id: 'palboo', label: 'Palboo', count: 5 }],
-  };
-  await page.getByRole('button', { name: 'Find chats to archive' }).click();
-  await scope.waitFor();
   assert.equal(await scope.inputValue(), '');
   assert.equal(await archive.isEnabled(), false);
   await scope.selectOption('all');
@@ -551,7 +553,6 @@ createRoot(document.querySelector('main')).render(
   await page.goto('https://archive.test/#token=fixture');
   await page.addStyleTag({ content: styles });
   await page.addScriptTag({ content: script.text });
-  await page.getByRole('button', { name: '查看可归档聊天' }).click();
   await page.getByRole('combobox', { name: '归档范围' }).selectOption('cli:antigravity');
   await page.getByRole('button', { name: '预览归档' }).click();
   const dialog = page.getByRole('dialog');

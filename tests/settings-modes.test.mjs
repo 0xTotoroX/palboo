@@ -22,6 +22,7 @@ test(
       rejectFeature = false,
       rejectSurface = false;
     const writes = [];
+    const archiveReads = [];
     const previewGeometry = [];
     let panelTheme = null;
     let connectionStatus = 'connected';
@@ -221,6 +222,7 @@ test(
         if (
           body &&
           !['state', 'status'].includes(body.op) &&
+          !(path === '/api/chat-archive' && body.op === 'list') &&
           !(body.op === 'bots-catalog' && !body.refresh)
         )
           writes.push({ path, body });
@@ -244,6 +246,9 @@ test(
             sections: [],
             canUndo: false,
           };
+        } else if (path === '/api/chat-archive') {
+          archiveReads.push(body.op);
+          value = { total: 1, groups: [{ cli: 'codex', count: 1 }], projects: [] };
         } else if (path === '/api/codex-host/agents') {
           assert.equal(req.method, 'GET');
           if (agentReadError) {
@@ -597,13 +602,16 @@ test(
       await category('connection');
       await page.getByRole('button', { name: '持续暂停', exact: true }).waitFor();
       assert.equal(await page.locator('#cdp-endpoint').isVisible(), true);
+      assert.deepEqual(archiveReads, [], 'the archive page is not read in the background');
       await page
         .locator('#settings-connection')
         .getByRole('link', { name: '本地聊天归档' })
         .click();
+      await page.getByRole('combobox', { name: '归档范围', exact: true }).waitFor();
+      assert.deepEqual(archiveReads, ['list']);
       assert.equal(
-        await page.getByRole('button', { name: '查看可归档聊天', exact: true }).isEnabled(),
-        true,
+        await page.getByRole('button', { name: '预览归档', exact: true }).isEnabled(),
+        false,
       );
       await page.evaluate(() => {
         location.hash = 'settings-performance';
@@ -844,9 +852,14 @@ test(
       await page.getByRole('heading', { level: 1, name: '大纲', exact: true }).waitFor();
       assert.equal(writes.length, 0, 'feature list links open details without toggling features');
       await category('features');
+      const archiveReloaded = page.waitForResponse(
+        (response) => response.url().endsWith('/api/chat-archive') && response.ok(),
+      );
       await featureLinks.getByText('本地聊天归档', { exact: true }).click();
       await page.getByRole('heading', { level: 1, name: '本地聊天归档', exact: true }).waitFor();
-      await page.getByRole('button', { name: '查看可归档聊天' }).waitFor();
+      await page.getByRole('combobox', { name: '归档范围', exact: true }).waitFor();
+      await archiveReloaded;
+      assert.deepEqual(archiveReads, ['list', 'list']);
       assert.equal(writes.length, 0, 'archive navigation does not change settings');
       await category('features');
       assert.equal(

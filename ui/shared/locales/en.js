@@ -572,7 +572,6 @@ export default {
   '保护置顶、进行中与计划任务': 'Protect pinned, active, and scheduled',
   '当前 Palboo 连接未返回完整的归档会话列表，请重新预览。':
     'The current Palboo connection did not return the complete session list. Preview again.',
-  查看可归档聊天: 'Find chats to archive',
   归档范围: 'Archive scope',
   选择归档范围: 'Choose what to archive',
   全部项目: 'All projects',
