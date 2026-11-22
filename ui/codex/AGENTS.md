@@ -8,7 +8,7 @@
 - `side-chat-replies.js`：侧聊操作唯一 UI 入口，与大纲复用原生回答操作行，挂载带回/独立两个“截至此处”图标；复用 context.conversationTurnElements 识别本地 contents 与云端普通 div，排除重复 Markdown 子单元。点击捕获回答节点及完整内容签名，回答替换或身份歧义拒绝，不改大纲的选择与跟随状态。
 - `side-chat-history.js`：本地分页从完整的可见轮次提取 userMessage/agentMessage，云端读取当前 rendered turns。侧聊边界等内部模型记录留在源会话。按稳定轮次身份截取，未知、重复、未完成边界、重复 cursor、不完整页与超过2M文字均停止。
 - `side-chat-native.js`：已加载宿主模块和当前提交 React 树的兼容边界；nativeScope 区分 ThreadScope 与 ComposerScope，验证聊天、tab、host 与账号归属并委托附件适配。本地独立操作按源 cwd/项目调用 thread/start，确认普通持久新聊天并保存标题，导航后复核目标 scope 才交接可见问答；源会话及其分支关系保留。云端新建 hideFromHistory:false 的主聊天并保留源记忆偏好。
-- `chat-archive.js`：从已加载的宿主能力分页读取当前账号可见的本机主聊天。预览保存一次性短时快照，确认时重新核验账号、聊天集合及运行和计划状态；同一连接逐批调用原生归档，保留工作区目录，只回传实际数量。
+- `chat-archive.js`：分别分页读取当前账号的原生 Codex 和当前连接内的本地 CodexHost 主聊天，兼容不识别 `currentAccountOnly` 的 CodexHost 分页；外部 CLI 以 Host 的持久归属为准。计数不替换预览；确认重新核验账号、所选范围的聊天集合、CLI 归属、运行和计划状态。逐批原生归档保留工作区目录，只回传实际数量及 CLI 标识。
 
 - `codex-host-preview.js`：认证设置请求按需执行的只读表达式，复用v2探针与当前唯一输入目标，读取已挂载Agent菜单的名称、顺序/主组/更多组、可用与可添加状态、当前选择；同输入区重复探针记录仅在Agent/phase完全一致时合并，菜单优先当前控件内部、旧版外置菜单须全页唯一；未知协议、歧义目标和菜单/探针不同步时拒绝展示。会话锁定不影响Agent就绪状态。无菜单点击、安装、写入、独立定时器或聊天正文采集。
 

@@ -57,8 +57,12 @@ pub enum Command {
     Get { scope: Option<Scope> },
     /// 在 ChatGPT 内打开已保存的网站；obsidian 表示本地阅读器
     OpenWebsite { id: String },
-    /// 预览全部本地聊天的归档；用预览标识明确确认后执行
+    /// 查看各 CLI 的本地聊天数量，预览或确认归档
     ArchiveLocalChats {
+        #[arg(long, conflicts_with_all = ["cli", "confirm"])]
+        list: bool,
+        #[arg(long, value_name = "CLI_ID", conflicts_with = "confirm")]
+        cli: Option<String>,
         #[arg(long, value_name = "PREVIEW_ID")]
         confirm: Option<uuid::Uuid>,
     },
@@ -510,10 +514,11 @@ pub async fn run(paths: &Paths, command: Command) -> Result<()> {
                         .request("web-library/open", Some(json!({"id":id})))
                         .await?
                 }
-                Command::ArchiveLocalChats { confirm } => {
-                    let request = match confirm {
-                        Some(id) => json!({"op":"apply","id":id.to_string()}),
-                        None => json!({"op":"preview"}),
+                Command::ArchiveLocalChats { list, cli, confirm } => {
+                    let request = match (list, confirm) {
+                        (_, Some(id)) => json!({"op":"apply","id":id.to_string()}),
+                        (true, None) => json!({"op":"list"}),
+                        (false, None) => json!({"op":"preview","cli":cli}),
                     };
                     runtime
                         .request_with_timeout(

@@ -93,6 +93,12 @@ try {
   await start();
   assert.ok(schemaFor('performance').commands.includes('config archive-local-chats'));
   await assert.rejects(() => cli('archive-local-chats'), /尚未连接 Codex/);
+  await assert.rejects(() => cli('archive-local-chats', '--list'), /尚未连接 Codex/);
+  await assert.rejects(() => cli('archive-local-chats', '--cli', 'antigravity'), /尚未连接 Codex/);
+  await assert.rejects(
+    () => cli('archive-local-chats', '--list', '--cli', 'antigravity'),
+    /cannot be used/,
+  );
   await assert.rejects(() => cli('archive-local-chats', '--confirm', 'invalid'), /invalid value/);
   await assert.rejects(
     () => cli('archive-local-chats', '--confirm', 'fedcba98-7654-4321-8123-0123456789ab'),

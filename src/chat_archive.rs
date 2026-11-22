@@ -1,5 +1,5 @@
-// [INPUT]: 本机认证设置或 CLI 的预览、确认请求，以及当前桌面连接。
-// [OUTPUT]: 当前宿主负责的短时预览和实际批量归档结果。
+// [INPUT]: 本机认证设置或 CLI 的计数、范围预览、确认请求及当前桌面连接。
+// [OUTPUT]: 当前宿主负责的 CLI 分组数量、短时预览和实际批量归档结果。
 // [POS]: 仅允许固定归档操作，不接收脚本、聊天 ID 列表或宿主路径。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 use crate::state::App;
@@ -11,12 +11,22 @@ pub(crate) const PATH: &str = "chat-archive";
 pub(crate) const TIMEOUT: Duration = Duration::from_secs(180);
 
 pub(crate) async fn command(app: &App, input: Value) -> Result<Value> {
-    let (operation, id) = match input["op"].as_str() {
-        Some("preview") => ("preview", None),
+    let (operation, id, cli) = match input["op"].as_str() {
+        Some("list") => ("list", None, None),
+        Some("preview") => {
+            let cli = match &input["cli"] {
+                Value::Null => None,
+                Value::String(cli) if !cli.trim().is_empty() && cli.chars().count() <= 256 => {
+                    Some(cli.as_str())
+                }
+                _ => bail!("无效的 CLI 归档范围"),
+            };
+            ("preview", None, cli)
+        }
         Some("apply") => {
             let id = input["id"].as_str().context("缺少有效的归档预览标识")?;
             ensure!(uuid::Uuid::parse_str(id).is_ok(), "缺少有效的归档预览标识");
-            ("apply", Some(id))
+            ("apply", Some(id), None)
         }
         _ => bail!("未知的本地聊天归档操作"),
     };
@@ -25,11 +35,12 @@ pub(crate) async fn command(app: &App, input: Value) -> Result<Value> {
         r#"(async () => {{
           const run = window.__companionFloatingPanel?.archiveLocalChats;
           if (!run) return {{ error: '当前 ChatGPT 桌面版无法批量归档本地聊天。' }};
-          try {{ return await run({}, {}); }}
+          try {{ return await run({}, {}, {}); }}
           catch (error) {{ return {{ error: String(error?.message || error) }}; }}
         }})()"#,
         json!(operation),
         json!(id),
+        json!(cli),
     );
     let result = client.evaluate_with_timeout(expression, TIMEOUT).await?;
     if let Some(error) = result["error"].as_str() {
@@ -37,7 +48,7 @@ pub(crate) async fn command(app: &App, input: Value) -> Result<Value> {
     }
     // Once writes begin, retain the observed partial result even if a different
     // window has since connected. A preview from a former window is unusable.
-    if operation == "preview" {
+    if operation != "apply" {
         ensure!(
             app.desktop_client()
                 .await

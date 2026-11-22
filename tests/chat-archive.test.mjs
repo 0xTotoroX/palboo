@@ -20,7 +20,8 @@ test('archives only the confirmed local snapshot and reports partial failures', 
   const host = {
     identity: ['account', 'user'],
     sameAccount: () => true,
-    async list(cursor) {
+    async list(cursor, externalOnly) {
+      if (externalOnly) return { data: [] };
       requests.push(cursor);
       return cursor ? { data: nextPage } : { data: firstPage, nextCursor: 'next' };
     },
@@ -34,7 +35,14 @@ test('archives only the confirmed local snapshot and reports partial failures', 
   const run = createLocalChatArchive({ isCurrent: () => true, resolve: async () => host });
   await assert.rejects(() => run('apply', 'unknown'), /预览已失效/);
   const { id, ...preview } = await run('preview');
-  assert.deepEqual(preview, { count: 2, running: 1, scheduled: 1 });
+  assert.deepEqual(preview, {
+    cli: null,
+    total: 2,
+    groups: [{ cli: 'codex', count: 2 }],
+    count: 2,
+    running: 1,
+    scheduled: 1,
+  });
   assert.deepEqual(requests, [null, 'next']);
   assert.deepEqual(archived, []);
   await assert.rejects(() => run('apply', 'wrong'), /预览已失效/);
@@ -50,13 +58,88 @@ test('archives only the confirmed local snapshot and reports partial failures', 
   await assert.rejects(() => run('preview'), /无法完整读取/);
 });
 
+test('includes CodexHost chats and verifies the selected CLI again before archiving', async () => {
+  const external = (id, extra) => ({
+    id,
+    modelProvider: 'codexhost',
+    cliVersion: 'codexhost',
+    ...extra,
+  });
+  const agents = new Map([
+    ['agy-1', 'antigravity'],
+    ['agy-2', 'antigravity'],
+    ['grok-1', 'grok'],
+  ]);
+  const archived = [];
+  const native = [{ id: 'codex-1' }, external('agy-1')];
+  const host = {
+    identity: ['account', 'user'],
+    sameAccount: () => true,
+    async list(cursor, externalOnly) {
+      if (!externalOnly) return { data: native };
+      return cursor
+        ? { data: [external('agy-2'), external('child', { parentThreadId: 'agy-1' })] }
+        : {
+            data: [
+              external('agy-1'),
+              external('grok-1'),
+              { id: 'other-account', modelProvider: 'codexhost' },
+            ],
+            nextCursor: 'next',
+          };
+    },
+    async ownership(ids) {
+      return {
+        threads: ids.map((threadId) => ({
+          threadId,
+          owner: 'external',
+          harnessId: agents.get(threadId),
+        })),
+      };
+    },
+    scheduled: async () => new Set(['grok-1']),
+    active: ({ id }) => id === 'grok-1',
+    async archive(id) {
+      archived.push(id);
+    },
+  };
+  const run = createLocalChatArchive({ isCurrent: () => true, resolve: async () => host });
+  assert.deepEqual(await run('list'), {
+    total: 4,
+    groups: [
+      { cli: 'codex', count: 1 },
+      { cli: 'antigravity', count: 2 },
+      { cli: 'grok', count: 1 },
+    ],
+  });
+  const stale = await run('preview', null, 'antigravity');
+  assert.equal(stale.count, 2);
+  assert.equal(stale.running, 0);
+  assert.equal(stale.scheduled, 0);
+  agents.set('agy-2', 'grok');
+  await assert.rejects(() => run('apply', stale.id), /聊天或连接已变化/);
+  assert.deepEqual(archived, []);
+  agents.set('agy-2', 'antigravity');
+  const fresh = await run('preview', null, 'antigravity');
+  native.push({ id: 'codex-2' });
+  assert.equal((await run('list')).total, 5);
+  const result = await run('apply', fresh.id, 'grok');
+  assert.deepEqual(result, { archived: 2, failed: 0, skipped: 0 });
+  assert.deepEqual(archived, ['agy-1', 'agy-2']);
+
+  agents.delete('grok-1');
+  await assert.rejects(() => run('list'), /无法确认 CodexHost 聊天的 CLI 归属/);
+});
+
 test('a disconnected host only archives its in-flight batch', async () => {
   let connected = true;
   const archived = [];
   const host = {
     identity: [],
     sameAccount: () => true,
-    list: async () => ({ data: Array.from({ length: 9 }, (_, n) => ({ id: String(n) })) }),
+    list: async (_cursor, externalOnly) => ({
+      data: externalOnly ? [] : Array.from({ length: 9 }, (_, n) => ({ id: String(n) })),
+    }),
     scheduled: async () => new Set(),
     active: () => false,
     async archive(id) {
@@ -90,6 +173,7 @@ createRoot(document.querySelector('main')).render(<ChatArchiveSettings disabled=
     write: false,
     format: 'iife',
     jsx: 'automatic',
+    define: { 'import.meta.url': '"https://archive.test/settings.js"' },
   });
   const browser = await chromium.launch();
   t.after(() => browser.close());
@@ -98,6 +182,13 @@ createRoot(document.querySelector('main')).render(<ChatArchiveSettings disabled=
     reducedMotion: 'reduce',
   });
   const requests = [];
+  let inventory = {
+    total: 10,
+    groups: [
+      { cli: 'codex', count: 6 },
+      { cli: 'antigravity', count: 4 },
+    ],
+  };
   await page.route('https://archive.test/**', async (route) => {
     if (new URL(route.request().url()).pathname === '/api/chat-archive') {
       assert.equal(route.request().headers().authorization, 'Bearer fixture');
@@ -105,9 +196,18 @@ createRoot(document.querySelector('main')).render(<ChatArchiveSettings disabled=
       requests.push(body);
       return route.fulfill({
         json:
-          body.op === 'preview'
-            ? { id: 'fixture-plan', count: 4, running: 1, scheduled: 2 }
-            : { archived: 3, failed: 1, skipped: 0 },
+          body.op === 'list'
+            ? inventory
+            : body.op === 'preview'
+              ? {
+                  ...inventory,
+                  id: 'fixture-plan',
+                  cli: body.cli,
+                  count: 4,
+                  running: 1,
+                  scheduled: 2,
+                }
+              : { archived: 3, failed: 1, skipped: 0 },
       });
     }
     await route.fulfill({
@@ -117,22 +217,35 @@ createRoot(document.querySelector('main')).render(<ChatArchiveSettings disabled=
   });
   await page.goto('https://archive.test/#token=fixture');
   await page.addScriptTag({ content: script.text });
-  const archive = page.getByRole('button', { name: 'Archive all local chats' });
+  await page.getByRole('button', { name: 'Find chats to archive' }).click();
+  const scope = page.getByRole('combobox', { name: 'Archive scope' });
+  assert.equal(await scope.locator('option[value="all"]').innerText(), 'All local chats (10)');
+  const archive = page.getByRole('button', { name: 'Preview archive' });
+  assert.equal(await archive.isEnabled(), false);
+  await scope.selectOption({ value: 'cli:antigravity' });
   await archive.click();
   const dialog = page.getByRole('dialog');
-  await dialog.getByRole('heading', { name: 'Archive 4 local chats?' }).waitFor();
+  await dialog
+    .getByRole('heading', { name: 'Archive 4 local chats from Antigravity CLI?' })
+    .waitFor();
   assert.match(await dialog.innerText(), /scheduled tasks linked to 2 chats/);
   assert.match(await dialog.innerText(), /Settings → Archived chats/);
   await page.keyboard.press('Escape');
   await dialog.waitFor({ state: 'hidden' });
-  assert.deepEqual(requests, [{ op: 'preview' }]);
+  assert.deepEqual(requests, [{ op: 'list' }, { op: 'preview', cli: 'antigravity' }]);
   await archive.click();
-  await dialog.getByRole('button', { name: 'Archive all', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Confirm archive', exact: true }).click();
   await page.getByText('Archived 3 chats. 1 failed and 0 were skipped.').waitFor();
   assert.equal(await page.locator('#result').getAttribute('data-failed'), 'true');
   assert.deepEqual(requests, [
-    { op: 'preview' },
-    { op: 'preview' },
+    { op: 'list' },
+    { op: 'preview', cli: 'antigravity' },
+    { op: 'preview', cli: 'antigravity' },
     { op: 'apply', id: 'fixture-plan' },
   ]);
+  inventory = { total: 6, groups: [{ cli: 'codex', count: 6 }] };
+  await page.getByRole('button', { name: 'Find chats to archive' }).click();
+  await scope.waitFor();
+  assert.equal(await scope.inputValue(), '');
+  assert.equal(await archive.isEnabled(), false);
 });

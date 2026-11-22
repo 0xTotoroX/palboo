@@ -387,11 +387,11 @@ pub(super) fn schema(scope: Scope) -> Value {
         }
         Scope::Performance => {
             json!({
-                "commands":["config archive-local-chats", "config archive-local-chats --confirm <preview-id>"],
+                "commands":["config archive-local-chats", "config archive-local-chats --list", "config archive-local-chats --cli antigravity", "config archive-local-chats --confirm <preview-id>"],
                 "notes":{
                     "integrationEnabled":"暂停/恢复连接，保留配置与本地任务，不重启 Codex",
                     "monitoringEnabled":"启用可见性能页的低频采样",
-                    "archiveLocalChats":"先预览本机聊天数量、进行中和关联计划任务。确认后沿用宿主归档，可能停止进行中的聊天及移除关联计划任务。聊天可从宿主归档页恢复。"
+                    "archiveLocalChats":"--list 查看未归档的本地聊天及各 CLI ID；--cli 预览指定 CLI，省略则预览全部。确认绑定预览范围，可能停止进行中的聊天及移除关联计划任务。聊天可从宿主归档页恢复。"
                 }
             })
         }
