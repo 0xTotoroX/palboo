@@ -40,7 +40,7 @@ npm 命令进入开发、构建、审计、安装和验证编排工具；具体�
 - [artifact-audit.mjs](artifact-audit.mjs)：release 编译路径映射及成品字节扫描，包含二进制、常见凭据/个人目录、UTF-16主目录与禁止文件；错误只输出文件和问题类型。它是有限检查，不证明不存在所有敏感内容或漏洞。
 - [package-app.mjs](package-app.mjs)：编译最低 macOS 14 arm64 Swift 入口、复制包内 CLI/资源、清理扩展属性与调用方显式签名（默认临时签名）；校验系统动态库、最低版本和程序摘要，以普通用户权限创建 HFS+ DMG，避免 tar 的属主名称字段和设置 root 引发的授权；挂载读回并复制到新位置验证，成功后卸载镜像。
 - [startup-progress.mjs](startup-progress.mjs)：向 App 的私有会话事件文件追加固定阶段、时间和自身 PID，Dev 登记监督进程供退出确认；不写正文或凭据，文件删除后不重建。
-- [app-launcher.swift](app-launcher.swift)：Bundle CLI 正式/开发启动及原 LaunchServices 窗口身份交接；使用共用提示显示真实阶段，成功后保留 accessory 菜单栏以观察关联退出，重试重置计时但保留会话事件通道。正常关联退出等待后台与已登记监督进程消失后完成，异常保留；后台热更通过认证 startup-progress 重新绑定，不重启宿主。逐条消费阶段、记录实际模式；失败后重开重新启动校验。每步报告写入 startup-last/exit-last.json，进程退出清理私有事件文件；--check 只检查包内版本，--open-window/--palboo-window 沿用原身份与回执。
+- [app-launcher.swift](app-launcher.swift)：Bundle CLI 正式/开发启动及原 LaunchServices 窗口身份交接；使用共用提示显示真实阶段，成功后保留 accessory 菜单栏以观察关联退出；已就绪时重新唤起先静默，按构建、宿主重开阶段或失败恢复反馈，重试重置计时但保留会话事件通道。正常关联退出等待后台与已登记监督进程消失后完成，异常保留；后台热更通过认证 startup-progress 重新绑定，不重启宿主。逐条消费阶段、记录实际模式；失败后重开重新启动校验。每步报告写入 startup-last/exit-last.json，进程退出清理私有事件文件；--check 只检查包内版本，--open-window/--palboo-window 沿用原身份与回执。
 - [project-licenses.mjs](project-licenses.mjs)：验证完整 GPL 原文、历史 MIT 原文及授权范围，并为主程序与独立材质工具复制统一许可包。
 - [source-audit.mjs](source-audit.mjs)：Git 与无 Git 源码目录共用文件清单，供审计、打包和测试复用；无 Git 时排除构建目录，拒绝私有文件与符号链接。核对包名、固定 GPL-3.0-only 元数据、完整许可与历史原文，并拒绝历史排除的上游诊断标记、私有文档、运行配置、凭据和个人绝对路径。
 - [license-texts.json](license-texts.json)：依赖包未附带的公开许可、署名原文与固定来源 URL，供许可生成器离线使用。

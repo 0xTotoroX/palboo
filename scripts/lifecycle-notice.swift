@@ -540,12 +540,13 @@ final class LifecycleNotice: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
     @objc func retryRequested() { if live { retryAction?() } else { playExit() } }
     @objc func showLiveDetails() { detailsAction?() }
-    func beginLive(exiting: Bool, at: Date = Date()) {
+    func beginLive(exiting: Bool, at: Date = Date(), showAutomatically: Bool = true) {
         reset(exiting: exiting); phaseStarted = at; liveTitle = exiting ? L("正在退出 Palboo") : L("正在启动 Palboo"); liveStepText = nil
         steps = exiting ? exitSteps : ["准备 Palboo", "打开 Codex", "建立连接", "恢复工作台", "确认界面可用"]
         liveDetails.isHidden = true
         render(animate: false)
-        if displayPicker.indexOfSelectedItem == 0 { show() }
+        if !showAutomatically { hide() }
+        else if displayPicker.indexOfSelectedItem == 0 { show() }
     }
     func liveStage(_ index: Int, text: String? = nil, at: Date = Date()) {
         guard live, !failed, index >= completed, index <= steps.count, index != completed || text != liveStepText else { return }

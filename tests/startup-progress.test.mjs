@@ -52,7 +52,7 @@ test('progress accepts only private existing regular files and fixed phases', (t
 });
 
 test(
-  'native startup shows both languages, preserves one window and retries with a fresh request',
+  'native startup shows both languages, retries and stays silent when revealing a ready workspace',
   {
     skip: process.platform !== 'darwin' || process.env.PALBOO_NATIVE_LAUNCHER_TEST !== '1',
   },
@@ -131,9 +131,15 @@ if [ "$1" = "app-mode" ]; then echo '{"mode":"release"}'; fi
       assert.match(result.stdout, /geometry and reopen verified/);
       assert.match(result.stdout, /request cleanup and retry verified/);
       assert.match(result.stdout, /native startup completion held and dismissed before handoff/);
+      assert.match(result.stdout, /native ready reopen and duplicate clicks remained silent/);
+      assert.match(result.stdout, /native reopen needing restart showed progress/);
       assert.match(result.stdout, /native exit waited for the owned process to stop/);
       assert.deepEqual(readFileSync(calls, 'utf8').trim().split('\n'), [
         'app-mode launch',
+        'app-mode launch',
+        'popout',
+        'app-mode launch',
+        'popout',
         'app-mode launch',
         'popout',
       ]);

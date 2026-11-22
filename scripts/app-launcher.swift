@@ -1,5 +1,5 @@
 // [INPUT]: 包内 CLI、共享模式记录、各模式既有配置与 AppKit。
-// [OUTPUT]: 原生启动反馈、私有分段计时和失败重试；沿用共享主窗口，旧胶囊才调用 popout；经本 App 登记窗口与回执 PID；--check 只检查包内程序。
+// [OUTPUT]: 原生启停反馈、静默唤起已有会话、私有分段计时和失败重试；沿用共享主窗口，旧胶囊才调用 popout；经本 App 登记窗口与回执 PID；--check 只检查包内程序。
 // [POS]: 统一的可移动 App 入口；正式模式独立运行，开发模式使用已登记的源码与 Node。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 import AppKit
@@ -313,7 +313,11 @@ if CommandLine.arguments.dropFirst().elementsEqual(["--check"]) {
 #if !LAUNCHER_TEST
 final class Launcher: NSObject, NSApplicationDelegate {
     let notice = LifecycleNotice()
+    private static let restartPhases: Set<String> = [
+        "tools", "web", "build", "confirmation", "closing", "opening", "host"
+    ]
     private var timer: Timer?, starting = false, exitObserved = false, completionShown = false
+    private var silentReopen = false
     private var finishedAt: Date?, failure = "", canRecover = false
     private weak var activeAlertWindow: NSWindow?
     private func refresh() {
@@ -323,15 +327,20 @@ final class Launcher: NSObject, NSApplicationDelegate {
         if !starting && !progress.exiting { notice.attachProgress(progress.file) { progress.observeOwners(backend: $0, supervisor: $1, mode: $2) } }
         if starting {
             for stage in received {
-            let index: Int
-            switch stage.phase {
-            case "confirmation", "closing", "opening", "host": index = 1
-            case "renderer", "connecting": index = 2
-            case "workspace": index = 3
-            case "presenting": index = 4
-            default: index = 0
+                let index: Int
+                switch stage.phase {
+                case "confirmation", "closing", "opening", "host": index = 1
+                case "renderer", "connecting": index = 2
+                case "workspace": index = 3
+                case "presenting": index = 4
+                default: index = 0
+                }
+                if index >= notice.completed { notice.liveStage(index, text: StartupProgress.message(stage.phase), at: stage.at) }
             }
-            if index >= notice.completed { notice.liveStage(index, text: StartupProgress.message(stage.phase), at: stage.at) }
+            // 常规唤起也会读取源码和等待工作台，只有实际进入启动准备时才恢复自动弹出。
+            if silentReopen && received.contains(where: { Self.restartPhases.contains($0.phase) }) {
+                silentReopen = false
+                if notice.displayPicker.indexOfSelectedItem == 0 { notice.show() }
             }
             return
         }
@@ -382,9 +391,13 @@ final class Launcher: NSObject, NSApplicationDelegate {
         else if notice.displayPicker.indexOfSelectedItem == 0 { notice.show() }
     }
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        refresh()
         if let window = activeAlertWindow { window.makeKeyAndOrderFront(nil) }
-        else if starting || (startupProgress?.exiting == true && startupProgress?.outcome == nil) { if notice.displayPicker.indexOfSelectedItem != 2 { notice.show() } }
-        else { begin() }
+        else if starting || (startupProgress?.exiting == true && startupProgress?.outcome == nil) {
+            if (!starting || !silentReopen) && notice.displayPicker.indexOfSelectedItem != 2 { notice.show() }
+        } else {
+            begin(reopening: startupProgress?.outcome == "ready" && startupProgress?.exiting == false)
+        }
         return false
     }
     private func finishDevelopment(generation: Int, attempt: Int = 0, requested: Bool = false) {
@@ -427,14 +440,15 @@ final class Launcher: NSObject, NSApplicationDelegate {
         timer?.invalidate(); notice.applicationWillTerminate(notification)
         if let progress = startupProgress { try? FileManager.default.removeItem(at: progress.directory) }
     }
-    private func begin(recovering: Bool = false) {
-        guard !starting else { if notice.displayPicker.indexOfSelectedItem == 0 { notice.show() }; return }
+    private func begin(recovering: Bool = false, reopening: Bool = false) {
+        guard !starting else { if !silentReopen && notice.displayPicker.indexOfSelectedItem == 0 { notice.show() }; return }
         starting = true; finishedAt = nil; failure = ""; exitObserved = false; completionShown = false
+        silentReopen = reopening
         launchedDevelopment = false; developmentTarget = nil; launchedMode = nil
         if let progress = startupProgress { progress.restart() } else { startupProgress = try? StartupProgress() }
         notice.retryAction = { [weak self] in self?.begin() }
         notice.runtimeMode = nil
-        notice.beginLive(exiting: false)
+        notice.beginLive(exiting: false, showAutomatically: !reopening)
         DispatchQueue.global(qos: .userInitiated).async {
             var errorText: String?, recovery = true, cancelled = false
             do {
@@ -459,7 +473,7 @@ final class Launcher: NSObject, NSApplicationDelegate {
                 else {
                     self.notice.liveSuccess(exiting: false) {
                         #if LAUNCHER_UI_TEST
-                        self.checkExitUI()
+                        self.checkStartupCompletion()
                         #else
                         if launchedDevelopment { self.finishDevelopment(generation: self.notice.generation) }
                         #endif
@@ -476,12 +490,37 @@ final class Launcher: NSObject, NSApplicationDelegate {
     }
     #if LAUNCHER_UI_TEST
     private var checkedFailure = false
+    private var completedStartups = 0
     private var fixtureBackend: Process?
-    private func checkExitUI() {
+    private func checkStartupCompletion() {
         precondition(!notice.panel.isVisible, "startup completion callback ran before the notice closed")
         precondition(notice.modeLabel.isHidden && startupProgress?.mode == "release", "saved Dev preference overrode the actual release session")
-        precondition(Date().timeIntervalSince(finishedAt!) >= 1.9, "startup completion was not held")
-        print("native startup completion held and dismissed before handoff")
+        completedStartups += 1
+        switch completedStartups {
+        case 1:
+            precondition(Date().timeIntervalSince(finishedAt!) >= 1.9, "startup completion was not held")
+            print("native startup completion held and dismissed before handoff")
+            _ = applicationShouldHandleReopen(NSApp, hasVisibleWindows: false)
+            startupProgress?.mark("compatibility")
+            startupProgress?.mark("connecting")
+            startupProgress?.mark("workspace")
+            _ = applicationShouldHandleReopen(NSApp, hasVisibleWindows: false)
+            precondition(starting && !notice.panel.isVisible, "revealing the existing workspace showed startup")
+        case 2:
+            precondition(silentReopen, "normal reveal took the startup path")
+            print("native ready reopen and duplicate clicks remained silent")
+            _ = applicationShouldHandleReopen(NSApp, hasVisibleWindows: false)
+            precondition(starting && !notice.panel.isVisible)
+            startupProgress?.mark("opening")
+            refresh()
+            precondition(notice.panel.isVisible, "a real restart during reopen did not show progress")
+        default:
+            precondition(!silentReopen && Date().timeIntervalSince(finishedAt!) >= 1.9)
+            print("native reopen needing restart showed progress")
+            checkExitUI()
+        }
+    }
+    private func checkExitUI() {
         for _ in 0..<140 { startupProgress?.mark("build") }
         refresh()
         precondition(startupProgress?.outcome == "ready" && startupProgress?.phase == "presenting" && !exitObserved, "hot reload changed the completed startup")
