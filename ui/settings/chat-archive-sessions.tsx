@@ -7,6 +7,7 @@ import { tr } from '../shared/i18n.js';
 import { Icon } from '../shared/icons/react';
 import { useLocale } from '../shared/use-locale';
 import { codexHostAgents } from './codex-host-agents';
+import { SettingsCollapse } from './settings-collapse';
 
 export type ArchiveSession = {
   id: string;
@@ -133,7 +134,7 @@ export function ArchiveSessions({
                 )}
                 <Icon name="chevron-down" className="archive-session-chevron" />
               </button>
-              {isOpen && (
+              <SettingsCollapse open={isOpen} unmountOnExit lift={3}>
                 <dl id={panelId} className="archive-session-details">
                   <div>
                     <dt>{tr('来源')}</dt>
@@ -173,7 +174,7 @@ export function ArchiveSessions({
                     </dd>
                   </div>
                 </dl>
-              )}
+              </SettingsCollapse>
             </li>
           );
         })}

@@ -44,7 +44,7 @@ import { SettingsSearch } from './settings-search';
 import { SettingsPreview } from './settings-preview';
 import { PreviewFrame } from './preview-frame';
 import { PromptPreview } from './prompt-preview';
-import { useSettingsMotion } from './settings-motion';
+import { useBrandEyeBlink, useSettingsMotion } from './settings-motion';
 import { SettingsTheme } from './settings-theme';
 import type { FeatureState } from '../shared/features';
 import type { SurfaceState } from './surface-settings';
@@ -156,6 +156,7 @@ function App() {
   const [hostEnablement, setHostEnablement] = useState<HTMLDivElement | null>(null);
   const [siteEnablement, setSiteEnablement] = useState<HTMLDivElement | null>(null);
   const contentRef = useSettingsMotion(page);
+  const { brandRef, blink: blinkBrandEyes } = useBrandEyeBlink();
   const common = page === 'features';
   const surfacesVisible = page === 'surfaces' || page === 'appearance';
   const tasks = useTasks(live && (common || surfacesVisible || page === 'board'));
@@ -168,6 +169,7 @@ function App() {
       <header className="settings-header">
         <div className="settings-topline">
           <a
+            ref={brandRef}
             href="#settings-features"
             className="settings-brand"
             aria-label={tr('Palboo {{value1}}', {
@@ -230,7 +232,7 @@ function App() {
         </div>
       </header>
       <div className="settings-layout">
-        <SettingsOutline page={page} dev={dev} navigate={navigate} />
+        <SettingsOutline page={page} dev={dev} navigate={navigate} onMenuSelect={blinkBrandEyes} />
         <main
           id={surfacesVisible ? 'settings-surfaces' : undefined}
           className="settings-content min-w-0"

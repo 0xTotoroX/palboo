@@ -12,6 +12,7 @@ import { Button } from './components/ui/button';
 import { Input } from './components/ui/input';
 import { NativeSelect } from './components/ui/native-select';
 import { Field } from './settings-controls';
+import { SettingsCollapse } from './settings-collapse';
 import type { SettingsEditor } from './use-settings-form';
 import { AppUpdateSettings } from './app-update-settings';
 
@@ -85,13 +86,13 @@ export function AppModeSettings({ live, editor }: { live: boolean; editor: Setti
     <>
       {editor.dirty && changed && <Notice>{tr('请先保存当前设置，再切换模式。')}</Notice>}
       {error && <Notice failed>{tr(error)}</Notice>}
-      {(changed || busy) && (
+      <SettingsCollapse open={changed || busy} ready={ready} unmountOnExit>
         <div className="settings-actions">
           <Button type="button" variant="outline" onClick={() => void apply()} disabled={blocked}>
             {tr(busy ? '正在准备…' : '切换模式')}
           </Button>
         </div>
-      )}
+      </SettingsCollapse>
     </>
   );
   return (
@@ -114,7 +115,7 @@ export function AppModeSettings({ live, editor }: { live: boolean; editor: Setti
             <option value="development">{tr('开发模式')}</option>
           </NativeSelect>
         </Field>
-        <div id="settings-app-development" hidden={mode !== 'development'}>
+        <SettingsCollapse id="settings-app-development" open={mode === 'development'} ready={ready}>
           <Field id="app-mode-source" label={tr('源码目录')}>
             <Input
               id="app-mode-source"
@@ -137,7 +138,7 @@ export function AppModeSettings({ live, editor }: { live: boolean; editor: Setti
               onChange={(event) => setNode(event.target.value)}
             />
           </Field>
-        </div>
+        </SettingsCollapse>
         {actions}
       </Card>
       <AppUpdateSettings live={live} editor={editor} modeEditing={busy || edited} />

@@ -6,6 +6,7 @@ import { tr } from '../shared/i18n.js';
  * [POS]: 详细设置的功能区，不访问主聊天内容。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { SettingsDetail } from './settings-detail';
+import { SettingsCollapse, useRevealTransition } from './settings-collapse';
 import { PreviewFrame } from './preview-frame';
 import { Field, Toggle, FeatureSwitch, Feedback } from './settings-controls';
 import { pageTitles } from './settings-outline';
@@ -116,6 +117,7 @@ export function TerminologySettings({
   const [name, setName] = useState('');
   const [management, setManagement] = useState('add');
   const managementRoot = useRef<HTMLDivElement>(null);
+  const managementPanelsRef = useRevealTransition(management);
   const [resultLimit, setResultLimit] = useState(80);
   useEffect(() => setResultLimit(80), [query, masteredOnly, favoritesOnly]);
   useLayoutEffect(() => {
@@ -138,7 +140,10 @@ export function TerminologySettings({
     // 只调整词库自身的阅读位置，让展开的开头可见，不把整页拉回顶部。
     const bounds = list.getBoundingClientRect();
     const rect = row.getBoundingClientRect();
-    const visibleHeight = Math.min(rect.height, list.clientHeight);
+    const headerHeight = row.querySelector<HTMLElement>('.term-row')?.offsetHeight ?? rect.height;
+    const detailHeight = row.querySelector<HTMLElement>('.term-result-detail')?.scrollHeight ?? 0;
+    const expandedHeight = Math.max(rect.height, headerHeight + detailHeight);
+    const visibleHeight = Math.min(expandedHeight, list.clientHeight);
     if (rect.top < bounds.top) list.scrollTop += rect.top - bounds.top;
     else if (rect.top + visibleHeight > bounds.bottom)
       list.scrollTop += rect.top + visibleHeight - bounds.bottom;
@@ -329,7 +334,7 @@ export function TerminologySettings({
                 <option value="custom">{tr('自定义')}</option>
               </NativeSelect>
             </Field>
-            {prefs.cardMaterial === 'custom' && (
+            <SettingsCollapse open={prefs.cardMaterial === 'custom'} unmountOnExit>
               <Field id="term-custom-color" label={tr('背景颜色')}>
                 <Input
                   id="term-custom-color"
@@ -346,7 +351,7 @@ export function TerminologySettings({
                   }
                 />
               </Field>
-            )}
+            </SettingsCollapse>
           </section>
           <section className="term-section" aria-labelledby="term-library-title">
             <div className="term-library-heading">
@@ -392,109 +397,111 @@ export function TerminologySettings({
                       {tr('导入与导出')}
                     </Button>
                   </SegmentedGroup>
-                  <div
-                    className="term-entry"
-                    data-term-management="add"
-                    hidden={management !== 'add'}
-                  >
-                    <Field id="term-name" label={tr('术语名称')}>
-                      <textarea
-                        id="term-name"
-                        aria-label={tr('术语名称')}
-                        className={inputStyles + ' min-h-24 resize-y py-2'}
-                        placeholder={tr('每行一个名称')}
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                      />
-                    </Field>
-                    <div className="settings-actions">
-                      <Button
-                        type="button"
-                        disabled={busy || !name.trim()}
-                        onClick={async () => {
-                          if (
-                            await command({
-                              action: 'add-names',
-                              names: name
-                                .split(/\r?\n/)
-                                .map((v) => v.trim())
-                                .filter(Boolean),
-                            })
-                          )
-                            setName('');
-                        }}
-                      >
-                        {tr('添加')}
-                      </Button>
+                  <div ref={managementPanelsRef}>
+                    <div
+                      className="term-entry"
+                      data-term-management="add"
+                      hidden={management !== 'add'}
+                    >
+                      <Field id="term-name" label={tr('术语名称')}>
+                        <textarea
+                          id="term-name"
+                          aria-label={tr('术语名称')}
+                          className={inputStyles + ' min-h-24 resize-y py-2'}
+                          placeholder={tr('每行一个名称')}
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                        />
+                      </Field>
+                      <div className="settings-actions">
+                        <Button
+                          type="button"
+                          disabled={busy || !name.trim()}
+                          onClick={async () => {
+                            if (
+                              await command({
+                                action: 'add-names',
+                                names: name
+                                  .split(/\r?\n/)
+                                  .map((v) => v.trim())
+                                  .filter(Boolean),
+                              })
+                            )
+                              setName('');
+                          }}
+                        >
+                          {tr('添加')}
+                        </Button>
+                      </div>
                     </div>
-                  </div>
 
-                  <div
-                    className="term-actions"
-                    data-settings-feedback-anchor
-                    data-term-management="transfer"
-                    hidden={management !== 'transfer'}
-                  >
-                    <label className="grid w-full gap-2 text-sm">
-                      {tr('导入文件（最多 8 MB）')}
-                      <input
-                        type="file"
-                        aria-label={tr('导入术语文件')}
-                        className={
-                          inputStyles +
-                          ' h-auto py-2 file:mr-3 file:border-0 file:bg-transparent file:text-foreground'
-                        }
-                        disabled={busy}
-                        onChange={async (e) => {
-                          const file = e.target.files?.[0];
-                          e.target.value = '';
-                          if (!file) return;
-                          setError('');
-                          setBusy(true);
-                          try {
-                            if (!file.size || file.size > 8_000_000)
-                              throw Error(tr('文件需为 1 字节至 8 MB'));
-                            setData(await uploadTerminology<Library>(file));
-                            setMessage(tr('已加入待处理；下次在主聊天发送消息时处理。'));
-                          } catch (e) {
-                            setError((e as Error).message);
-                          } finally {
-                            setBusy(false);
+                    <div
+                      className="term-actions"
+                      data-settings-feedback-anchor
+                      data-term-management="transfer"
+                      hidden={management !== 'transfer'}
+                    >
+                      <label className="grid w-full gap-2 text-sm">
+                        {tr('导入文件（最多 8 MB）')}
+                        <input
+                          type="file"
+                          aria-label={tr('导入术语文件')}
+                          className={
+                            inputStyles +
+                            ' h-auto py-2 file:mr-3 file:border-0 file:bg-transparent file:text-foreground'
                           }
-                        }}
-                      />
-                    </label>
+                          disabled={busy}
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            e.target.value = '';
+                            if (!file) return;
+                            setError('');
+                            setBusy(true);
+                            try {
+                              if (!file.size || file.size > 8_000_000)
+                                throw Error(tr('文件需为 1 字节至 8 MB'));
+                              setData(await uploadTerminology<Library>(file));
+                              setMessage(tr('已加入待处理；下次在主聊天发送消息时处理。'));
+                            } catch (e) {
+                              setError((e as Error).message);
+                            } finally {
+                              setBusy(false);
+                            }
+                          }}
+                        />
+                      </label>
 
-                    <div className="settings-actions">
-                      <Button
-                        variant="outline"
-                        type="button"
-                        disabled={busy}
-                        onClick={() => void exportFile()}
-                      >
-                        {tr('导出我的术语')}
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        type="button"
-                        disabled={busy}
-                        onClick={() =>
-                          confirm({
-                            title: tr('重置词库？'),
-                            description: tr(
-                              '删除个人添加、导入内容、导入文件及待处理任务，保留基础词库和其中的收藏、掌握记录。',
-                            ),
-                            confirmLabel: tr('重置词库'),
-                            action: () =>
-                              command({
-                                action: 'reset-library',
-                                revision: data.imports?.revision ?? 0,
-                              }),
-                          })
-                        }
-                      >
-                        {tr('重置词库')}
-                      </Button>
+                      <div className="settings-actions">
+                        <Button
+                          variant="outline"
+                          type="button"
+                          disabled={busy}
+                          onClick={() => void exportFile()}
+                        >
+                          {tr('导出我的术语')}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          type="button"
+                          disabled={busy}
+                          onClick={() =>
+                            confirm({
+                              title: tr('重置词库？'),
+                              description: tr(
+                                '删除个人添加、导入内容、导入文件及待处理任务，保留基础词库和其中的收藏、掌握记录。',
+                              ),
+                              confirmLabel: tr('重置词库'),
+                              action: () =>
+                                command({
+                                  action: 'reset-library',
+                                  revision: data.imports?.revision ?? 0,
+                                }),
+                            })
+                          }
+                        >
+                          {tr('重置词库')}
+                        </Button>
+                      </div>
                     </div>
                   </div>
                   {!!data.imports?.jobs.length && (
@@ -603,18 +610,18 @@ export function TerminologySettings({
                       <Icon name={prefs.mastered.includes(t.id) ? 'return' : 'check'} />
                     </IconButton>
                   </div>
-                  <div
+                  <SettingsCollapse
+                    open={expandedTerm === t.id}
                     id={`${detailId}-${t.id}`}
                     className="term-result-detail"
                     role="region"
                     aria-label={tr('{{value1}}释义', { value1: t.name })}
-                    hidden={expandedTerm !== t.id}
                   >
                     <p>{t.definition}</p>
                     {t.category.length > 0 && (
                       <p className="term-result-category">{t.category.join(' › ')}</p>
                     )}
-                  </div>
+                  </SettingsCollapse>
                 </div>
               ))}
               {!results.length && (favoritesOnly || masteredOnly || !pendingJobs.length) && (

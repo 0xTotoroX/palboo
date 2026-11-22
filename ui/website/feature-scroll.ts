@@ -13,6 +13,7 @@ export function useFeatureScroll(count: number) {
   const [compact, setCompact] = useState(() => matchMedia(compactQuery).matches);
   const [inView, setInView] = useState(false);
   const current = useRef(0);
+  const clearInteraction = useRef(() => {});
   const change = useCallback(
     (index: number) => {
       const next = Math.max(0, Math.min(count - 1, index));
@@ -25,6 +26,7 @@ export function useFeatureScroll(count: number) {
   );
   const select = useCallback(
     (index: number) => {
+      clearInteraction.current();
       change(index);
       const root = ref.current;
       if (!root) return;
@@ -53,15 +55,10 @@ export function useFeatureScroll(count: number) {
       if (distance <= 0) return;
       if (Math.abs(scrollY - previousY) < 1) return;
       previousY = scrollY;
-      // Focus and scroll-into-view inside a preview must not navigate to another feature.
+      // Focus, disclosure expansion and scroll-into-view inside a preview must not navigate away.
       const panel = root.querySelector<HTMLElement>('.feature-panel[data-active="true"]');
       const shadow = panel?.querySelector('[data-settings-feature]')?.shadowRoot;
-      if (
-        interacting &&
-        (demoFocus(panel)?.matches('input, textarea, select, [contenteditable="true"]') ||
-          shadow?.querySelector('form'))
-      )
-        return;
+      if (interacting && (panel || demoFocus(panel) || shadow?.querySelector('form'))) return;
       const progress = Math.max(0, Math.min(1, -box.top / distance));
       change(Math.round(progress * (count - 1)));
     };
@@ -89,12 +86,15 @@ export function useFeatureScroll(count: number) {
           .some((node) => node instanceof Element && node.matches('.feature-panel'))
       )
         interacting = true;
+      else if (event.type === 'pointerdown') interacting = false;
     };
     const intent = () => {
       resizing = false;
       interacting = false;
     };
+    clearInteraction.current = intent;
     const keyboardIntent = (event: globalThis.KeyboardEvent) => {
+      if (event.defaultPrevented) return;
       if (
         event
           .composedPath()
@@ -108,7 +108,7 @@ export function useFeatureScroll(count: number) {
       if (['PageDown', 'PageUp', 'ArrowDown', 'ArrowUp', 'Home', 'End', ' '].includes(event.key))
         intent();
     };
-    root.addEventListener('pointerdown', interact, true);
+    addEventListener('pointerdown', interact, true);
     root.addEventListener('focusin', interact, true);
     addEventListener('scroll', schedule, { passive: true });
     addEventListener('resize', resize);
@@ -120,9 +120,10 @@ export function useFeatureScroll(count: number) {
     if (location.hash === '#features') root.scrollIntoView({ block: 'start', behavior: 'instant' });
     update();
     return () => {
+      clearInteraction.current = () => {};
       cancelAnimationFrame(frame);
       cancelAnimationFrame(resizeFrame);
-      root.removeEventListener('pointerdown', interact, true);
+      removeEventListener('pointerdown', interact, true);
       root.removeEventListener('focusin', interact, true);
       removeEventListener('scroll', schedule);
       removeEventListener('resize', resize);

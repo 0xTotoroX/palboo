@@ -15,6 +15,7 @@ import { NativeSelect } from './components/ui/native-select';
 import { useConfirmation } from './settings-confirmation';
 import { ArchiveSessions, archiveCliLabel, type ArchiveSession } from './chat-archive-sessions';
 import { Field, Toggle } from './settings-controls';
+import { SettingsCollapse } from './settings-collapse';
 
 type ArchiveInventory = {
   total: number;
@@ -317,7 +318,7 @@ export function ChatArchiveSettings({
               <option value="range">{tr('按日期区间')}</option>
             </NativeSelect>
           </Field>
-          {rule.time === 'inactive' && (
+          <SettingsCollapse open={rule.time === 'inactive'} unmountOnExit>
             <Field id="chat-archive-days" label={tr('未活动超过（天）')}>
               <Input
                 id="chat-archive-days"
@@ -329,42 +330,40 @@ export function ChatArchiveSettings({
                 onChange={(event) => changeRule({ inactiveDays: event.target.value })}
               />
             </Field>
-          )}
-          {rule.time === 'range' && (
-            <>
-              <Field id="chat-archive-date-field" label={tr('日期依据')}>
-                <NativeSelect
-                  id="chat-archive-date-field"
-                  value={rule.dateField}
-                  disabled={disabled || loading}
-                  onChange={(event) => changeRule({ dateField: event.target.value })}
-                >
-                  <option value="updated">{tr('最近活动日期')}</option>
-                  <option value="created">{tr('创建日期')}</option>
-                </NativeSelect>
-              </Field>
-              <Field id="chat-archive-from" label={tr('起始日期')}>
-                <Input
-                  id="chat-archive-from"
-                  type="date"
-                  value={rule.from}
-                  max={rule.through || undefined}
-                  disabled={disabled || loading}
-                  onChange={(event) => changeRule({ from: event.target.value })}
-                />
-              </Field>
-              <Field id="chat-archive-through" label={tr('结束日期')}>
-                <Input
-                  id="chat-archive-through"
-                  type="date"
-                  value={rule.through}
-                  min={rule.from || undefined}
-                  disabled={disabled || loading}
-                  onChange={(event) => changeRule({ through: event.target.value })}
-                />
-              </Field>
-            </>
-          )}
+          </SettingsCollapse>
+          <SettingsCollapse open={rule.time === 'range'} unmountOnExit>
+            <Field id="chat-archive-date-field" label={tr('日期依据')}>
+              <NativeSelect
+                id="chat-archive-date-field"
+                value={rule.dateField}
+                disabled={disabled || loading}
+                onChange={(event) => changeRule({ dateField: event.target.value })}
+              >
+                <option value="updated">{tr('最近活动日期')}</option>
+                <option value="created">{tr('创建日期')}</option>
+              </NativeSelect>
+            </Field>
+            <Field id="chat-archive-from" label={tr('起始日期')}>
+              <Input
+                id="chat-archive-from"
+                type="date"
+                value={rule.from}
+                max={rule.through || undefined}
+                disabled={disabled || loading}
+                onChange={(event) => changeRule({ from: event.target.value })}
+              />
+            </Field>
+            <Field id="chat-archive-through" label={tr('结束日期')}>
+              <Input
+                id="chat-archive-through"
+                type="date"
+                value={rule.through}
+                min={rule.from || undefined}
+                disabled={disabled || loading}
+                onChange={(event) => changeRule({ through: event.target.value })}
+              />
+            </Field>
+          </SettingsCollapse>
           {inventory.projects && (
             <>
               <Field id="chat-archive-keep" label={tr('每个项目保留最近（条）')}>

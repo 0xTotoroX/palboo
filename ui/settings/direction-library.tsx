@@ -14,6 +14,7 @@ import { Input } from './components/ui/input';
 import { Field } from './settings-controls';
 import { ConfirmationButton } from './settings-confirmation';
 import { SettingsDetail } from './settings-detail';
+import { useRevealTransition } from './settings-collapse';
 import type { SettingsEditor } from './use-settings-form';
 
 export function DirectionLibrary({ editor }: { editor: SettingsEditor }) {
@@ -22,6 +23,7 @@ export function DirectionLibrary({ editor }: { editor: SettingsEditor }) {
   const root = useRef<HTMLDivElement>(null);
   const [group, setGroup] = useState<'builtin' | 'custom'>('builtin');
   const [selected, setSelected] = useState<string | null>(null);
+  const viewTransition = useRevealTransition(`${group}:${selected ?? 'list'}`);
   const scroll = useRef({ builtin: 0, custom: 0 });
   const returning = useRef<string | null>(null);
   const focusPending = useRef(false);
@@ -76,7 +78,14 @@ export function DirectionLibrary({ editor }: { editor: SettingsEditor }) {
 
   return (
     <SettingsDetail id="settings-direction-library" title={tr('方向库')}>
-      <div ref={root} className="direction-library" data-settings-search-ignore>
+      <div
+        ref={(node) => {
+          root.current = node;
+          viewTransition.current = node;
+        }}
+        className="direction-library"
+        data-settings-search-ignore
+      >
         <div hidden={!!active}>
           <SegmentedGroup
             value={group}

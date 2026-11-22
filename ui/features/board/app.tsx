@@ -20,6 +20,9 @@ import { TaskDetails, type TaskDraft } from './details';
 import { Column, TaskCard, taskDragOver, taskDrop } from './card';
 import { Checklist } from './checklist';
 import { TaskSearch } from './search';
+
+import { useInputModality } from '../../shared/use-input-modality';
+
 export type BoardView = {
   editor?: TaskDraft | null;
   search: string;
@@ -60,6 +63,41 @@ export function Board({
   const returnSearchFocus = useRef(false);
   const addButton = useRef<HTMLButtonElement>(null);
   const [stage, setStage] = useState(view?.tab === 'archive' ? 'done' : view?.stage || 'todo');
+  useInputModality();
+  const stageBody = useRef<HTMLDivElement>(null);
+  const viewKey = `${list ? 'list' : merged ? 'merged' : 'expanded'}:${history ? 'history' : 'active'}:${merged && !list ? stage : ''}`;
+  const previousViewKey = useRef(viewKey);
+  useLayoutEffect(() => {
+    const node = stageBody.current;
+    const before = previousViewKey.current;
+    previousViewKey.current = viewKey;
+    if (!node || before === viewKey) return;
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+    if (
+      reduce.matches ||
+      document.documentElement.dataset.settingsReducedMotion === 'true' ||
+      document.documentElement.dataset.settingsInput === 'keyboard'
+    )
+      return;
+    node.getAnimations().forEach((animation) => animation.cancel());
+    const animation = node.animate(
+      [
+        { opacity: 0.45, transform: 'translateY(3px)' },
+        { opacity: 1, transform: 'none' },
+      ],
+      { duration: 190, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
+    );
+    const cancel = () => animation.cancel();
+    reduce.addEventListener('change', cancel);
+    window.addEventListener('settings-motion-change', cancel);
+    window.addEventListener('keydown', cancel, true);
+    return () => {
+      cancel();
+      reduce.removeEventListener('change', cancel);
+      window.removeEventListener('settings-motion-change', cancel);
+      window.removeEventListener('keydown', cancel, true);
+    };
+  }, [viewKey]);
   useEffect(() => {
     const node = element.current;
     if (!node) return;
@@ -424,65 +462,69 @@ export function Board({
             </button>
           </div>
         )}
-        {list ? (
-          <Checklist
-            tasks={visible}
-            history={history}
-            busy={busy}
-            inflight={state.store.inflight?.taskId}
-            command={command}
-            edit={editTask}
-            title={quickAdd?.title ?? ''}
-            adding={listAdding}
-            searching={searchOpen && !!search.trim()}
-            setTitle={(title) => setQuickAdd({ column: 'todo', title })}
-            dismissEmpty={() => setListAdding(false)}
-            finishAdding={() => {
-              setListAdding(false);
-              setQuickAdd(null);
-              addButton.current?.focus({ preventScroll: true });
-            }}
-            focusFallback={() => {
-              const search = (headerActions ?? element.current)?.querySelector<HTMLInputElement>(
-                '.board-search',
-              );
-              (search ?? addButton.current ?? historyButton.current)?.focus({
-                preventScroll: true,
-              });
-            }}
-            setSettling={setSettling}
-          />
-        ) : (
-          <div
-            className={`board-grid ${merged ? 'narrow' : narrow ? 'stacked' : ''}`}
-            style={
-              narrow || merged
-                ? undefined
-                : { gridTemplateColumns: `repeat(${columns.length}, minmax(210px, 1fr))` }
-            }
-          >
-            {(merged ? columns.filter((column) => column.id === stage) : columns).map((column) => {
-              const group = visible.filter((t) => taskGroup(t) === column.id);
-              return (
-                <Column
-                  key={column.id}
-                  {...column}
-                  disabled={busy}
-                  move={move}
-                  heading={
-                    <>
-                      <span className="group-title">{column.title}</span>
-                      <small>{group.length}</small>
-                    </>
-                  }
-                >
-                  {group.map(card)}
-                  {addTask(column.id)}
-                </Column>
-              );
-            })}
-          </div>
-        )}
+        <div ref={stageBody} className="board-stage-body">
+          {list ? (
+            <Checklist
+              tasks={visible}
+              history={history}
+              busy={busy}
+              inflight={state.store.inflight?.taskId}
+              command={command}
+              edit={editTask}
+              title={quickAdd?.title ?? ''}
+              adding={listAdding}
+              searching={searchOpen && !!search.trim()}
+              setTitle={(title) => setQuickAdd({ column: 'todo', title })}
+              dismissEmpty={() => setListAdding(false)}
+              finishAdding={() => {
+                setListAdding(false);
+                setQuickAdd(null);
+                addButton.current?.focus({ preventScroll: true });
+              }}
+              focusFallback={() => {
+                const search = (headerActions ?? element.current)?.querySelector<HTMLInputElement>(
+                  '.board-search',
+                );
+                (search ?? addButton.current ?? historyButton.current)?.focus({
+                  preventScroll: true,
+                });
+              }}
+              setSettling={setSettling}
+            />
+          ) : (
+            <div
+              className={`board-grid ${merged ? 'narrow' : narrow ? 'stacked' : ''}`}
+              style={
+                narrow || merged
+                  ? undefined
+                  : { gridTemplateColumns: `repeat(${columns.length}, minmax(210px, 1fr))` }
+              }
+            >
+              {(merged ? columns.filter((column) => column.id === stage) : columns).map(
+                (column) => {
+                  const group = visible.filter((t) => taskGroup(t) === column.id);
+                  return (
+                    <Column
+                      key={column.id}
+                      {...column}
+                      disabled={busy}
+                      move={move}
+                      heading={
+                        <>
+                          <span className="group-title">{column.title}</span>
+                          <small>{group.length}</small>
+                        </>
+                      }
+                    >
+                      {group.map(card)}
+                      {addTask(column.id)}
+                    </Column>
+                  );
+                },
+              )}
+            </div>
+          )}
+        </div>
         {headerActions && createPortal(tools, headerActions)}
         {!headerActions && !list && (
           <footer className="board-footer">

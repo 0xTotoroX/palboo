@@ -11,6 +11,7 @@ import { codexHostAgents } from './codex-host-agents';
 import type { CodexHostAgentSnapshot } from '../shared/codex-host';
 import { request } from './api';
 import { Button } from './components/ui/button';
+import { SettingsCollapse } from './settings-collapse';
 
 type Agent = CodexHostAgentSnapshot['agents'][number];
 const availabilityLabels: Record<string, string> = {
@@ -200,12 +201,12 @@ export function CodexHostPreview({
                   aria-controls={moreId}
                   onClick={() => setExpanded((value) => !value)}
                 >
-                  <Icon name={expanded ? 'chevron-down' : 'chevron-right'} />
+                  <Icon name="chevron-down" />
                   <span>{tr('更多 Agent ({{count}})', { count: more.length })}</span>
                 </button>
-                <div id={moreId} hidden={!expanded} role="group">
+                <SettingsCollapse id={moreId} open={expanded} role="group">
                   {more.map(row)}
-                </div>
+                </SettingsCollapse>
               </>
             )}
           </div>

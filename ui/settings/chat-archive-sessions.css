@@ -160,7 +160,7 @@ html[data-settings-style='chatgpt'] .settings-app .archive-session-row:focus-vis
   color: var(--buddy-muted);
   opacity: 0.6;
   transition:
-    rotate 150ms var(--settings-ease, ease),
+    rotate 200ms var(--settings-disclosure-ease, cubic-bezier(0.22, 1, 0.36, 1)),
     opacity 150ms ease;
 }
 .archive-session-list > li[data-expanded='true'] .archive-session-chevron {
@@ -170,6 +170,11 @@ html[data-settings-style='chatgpt'] .settings-app .archive-session-row:focus-vis
 }
 html[data-settings-input='keyboard'] .archive-session-chevron {
   transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .archive-session-chevron {
+    transition: none;
+  }
 }
 .archive-session-details {
   display: grid;

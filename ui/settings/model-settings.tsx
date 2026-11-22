@@ -7,6 +7,7 @@ import { tr } from '../shared/i18n.js';
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { SettingsDetail } from './settings-detail';
 import { useProviderFieldsMotion } from './settings-motion';
+import { SettingsCollapse } from './settings-collapse';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from './components/ui/button';
 import { Input } from './components/ui/input';
@@ -257,21 +258,19 @@ export function ModelSettings({ editor, simple }: { editor: SettingsEditor; simp
                   <option value="api">{tr('指定 API')}</option>
                 </NativeSelect>
               </Field>
-              {form.provider === 'api' && (
-                <>
-                  <Field id="base-url" label={tr('API 地址')}>
-                    <Input
-                      id="base-url"
-                      type="url"
-                      value={form.baseUrl}
-                      onChange={(e) => change('baseUrl', e.target.value)}
-                      placeholder="https://api.openai.com/v1"
-                      spellCheck={false}
-                    />
-                  </Field>
-                  <ModelApiKey editor={editor} busy={!!busy} />
-                </>
-              )}
+              <SettingsCollapse open={form.provider === 'api'} unmountOnExit lift={0}>
+                <Field id="base-url" label={tr('API 地址')}>
+                  <Input
+                    id="base-url"
+                    type="url"
+                    value={form.baseUrl}
+                    onChange={(e) => change('baseUrl', e.target.value)}
+                    placeholder="https://api.openai.com/v1"
+                    spellCheck={false}
+                  />
+                </Field>
+                <ModelApiKey editor={editor} busy={!!busy} />
+              </SettingsCollapse>
               <Field id="model" label={tr('模型名称')}>
                 <SuggestionInput
                   id="model"
@@ -338,7 +337,7 @@ export function ModelSettings({ editor, simple }: { editor: SettingsEditor; simp
                   <option value="limited">{tr('自定义字符上限')}</option>
                 </NativeSelect>
               </Field>
-              {form.maxInputChars !== 0 && (
+              <SettingsCollapse open={form.maxInputChars !== 0} unmountOnExit>
                 <Field id="max-input" label={tr('输入字符上限')}>
                   <Input
                     id="max-input"
@@ -350,8 +349,8 @@ export function ModelSettings({ editor, simple }: { editor: SettingsEditor; simp
                     onChange={(e) => change('maxInputChars', Number(e.target.value))}
                   />
                 </Field>
-              )}
-              {form.provider === 'api' && (
+              </SettingsCollapse>
+              <SettingsCollapse open={form.provider === 'api'} unmountOnExit>
                 <Field id="max-output" label={tr('输出 token 上限')}>
                   <Input
                     id="max-output"
@@ -359,12 +358,11 @@ export function ModelSettings({ editor, simple }: { editor: SettingsEditor; simp
                     min="128"
                     max="16000"
                     step="1"
-
                     value={form.maxOutputTokens}
                     onChange={(e) => change('maxOutputTokens', Number(e.target.value))}
                   />
                 </Field>
-              )}
+              </SettingsCollapse>
               <Field id="timeout" label={tr('请求超时（秒）')}>
                 <Input
                   id="timeout"

@@ -42,6 +42,8 @@ export function Checklist({
   setSettling: (busy: boolean) => void;
 }) {
   const root = useRef<HTMLDivElement>(null);
+  const addForm = useRef<HTMLFormElement>(null);
+  const wasAdding = useRef(adding);
   const [finishing, setFinishing] = useState<Task | null>(null);
   const [composing, setComposing] = useState(false);
   const alive = useRef(true),
@@ -58,6 +60,44 @@ export function Checklist({
       animations.current.clear();
     };
   }, []);
+  useLayoutEffect(() => {
+    const form = addForm.current;
+    const opened = !wasAdding.current && adding;
+    wasAdding.current = adding;
+    if (
+      !opened ||
+      !form ||
+      reducedMotion() ||
+      document.documentElement.dataset.settingsReducedMotion === 'true' ||
+      document.documentElement.dataset.settingsInput === 'keyboard'
+    )
+      return;
+    const animation = form.animate(
+      [
+        { opacity: 0, transform: 'translateY(-3px)' },
+        { opacity: 1, transform: 'none' },
+      ],
+      { duration: 170, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
+    );
+    animations.current.add(animation);
+    const cleanup = () => {
+      animation.cancel();
+      animations.current.delete(animation);
+    };
+    const media = matchMedia('(prefers-reduced-motion: reduce)');
+    media.addEventListener('change', cleanup);
+    window.addEventListener('settings-motion-change', cleanup);
+    window.addEventListener('keydown', cleanup, true);
+    animation.addEventListener('finish', () => animations.current.delete(animation), {
+      once: true,
+    });
+    return () => {
+      cleanup();
+      media.removeEventListener('change', cleanup);
+      window.removeEventListener('settings-motion-change', cleanup);
+      window.removeEventListener('keydown', cleanup, true);
+    };
+  }, [adding]);
   const rows = tasks.filter(
     (task) => task.id === finishing?.id || (taskGroup(task) === 'done') === history,
   );
@@ -242,6 +282,7 @@ export function Checklist({
       </ul>
       {!history && adding && (
         <form
+          ref={addForm}
           className="task-list-add"
           onSubmit={(event) => {
             event.preventDefault();

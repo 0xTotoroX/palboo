@@ -1,5 +1,6 @@
 # tests/ — 自动测试与验收
 
+- `settings-disclosure-motion.test.mjs`：隔离验证 `SettingsCollapse` 展开/收起、快速反向接续、`keepMounted` 收起期间持续接收新数据与草稿保留、`unmountOnExit` 卸载清理、`ready` 异步初载零动效、`useHeightTransition` 同模式撑高（80→160→60）无回跳、看板/清单与顶部预览同步高度、归档详情鼠标/Enter 分流。`settings-modes.test.mjs` 用真实设置壳层验证点击左侧菜单（含重复点击与窄屏目录）单次轻眨 PALBOO 字标双眼（不排队、不闪字母、Enter/减少动效/初载/历史/分类标题零触发）。官网专项位于 `website.mjs`，覆盖窄屏键盘收起和桌面归档展开后的滚动导航。
 - `model-speed-menu.test.mjs`：共享模型速度菜单在 Light DOM / Shadow DOM 与浅深主题下的禁用态外观与光标、键盘导航与焦点恢复、页面/祖先滚动自动收起且菜单内滚动与无关容器滚动不误关，以及 inert/hidden/失活/目录切换/卸载后的顶层清理与 Escape 放行回归。
 - `lifecycle-preview.test.mjs`：实际设置组件/编译样式与隔离 API 的保存重载、旧位置读取后仍居中、流程取消、无弹窗、中英文/窄屏/减少动态效果验收；原生几何由独立工具 --check/--motion-check 负责，核对完成停留后实际隐藏、真实模式回调晚于关闭、晚到异常保留及减少动态效果收起；startup-progress 的原生用例同时检查逐条阶段、实际开发/正式模式、失败重开与启动完成后交接顺序；隐藏提示立即交接，异步旧绑定不能覆盖新流程。不重启真实宿主或截图。
 > L2 | 父级：[AGENTS.md](../AGENTS.md)

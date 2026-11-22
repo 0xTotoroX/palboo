@@ -15,6 +15,7 @@ import {
   type TypographyPreferences,
 } from '../shared/typography';
 import { Field } from './settings-controls';
+import { SettingsCollapse, useRevealTransition } from './settings-collapse';
 import { NativeSelect } from './components/ui/native-select';
 import { Input } from './components/ui/input';
 export function TypographySettings({
@@ -97,7 +98,7 @@ export function TypographySettings({
           <option value="custom">{tr('自定义字体')}</option>
         </NativeSelect>
       </Field>
-      <div hidden={!customFont} data-settings-search-ignore={!customFont || undefined}>
+      <SettingsCollapse open={customFont} searchIgnoreWhenClosed>
         <Field id={id('family-name')} label={tr('本机字体名称')}>
           <Input
             id={id('family-name')}
@@ -116,7 +117,7 @@ export function TypographySettings({
             }}
           />
         </Field>
-      </div>
+      </SettingsCollapse>
       <Field id={id('mode')} label={tr('字体大小')}>
         <NativeSelect
           id={id('mode')}
@@ -130,10 +131,7 @@ export function TypographySettings({
           <option value="custom">{tr('自定义字号')}</option>
         </NativeSelect>
       </Field>
-      <div
-        hidden={p.mode !== 'follow'}
-        data-settings-search-ignore={p.mode !== 'follow' || undefined}
-      >
+      <SettingsCollapse open={p.mode === 'follow'} searchIgnoreWhenClosed>
         <div
           hidden={surface === 'settings'}
           data-settings-search-ignore={surface === 'settings' || undefined}
@@ -173,11 +171,8 @@ export function TypographySettings({
             }}
           />
         </Field>
-      </div>
-      <div
-        hidden={p.mode !== 'custom'}
-        data-settings-search-ignore={p.mode !== 'custom' || undefined}
-      >
+      </SettingsCollapse>
+      <SettingsCollapse open={p.mode === 'custom'} searchIgnoreWhenClosed>
         <Field id={id('size')} label={tr('自定义字号（px）')}>
           <Input
             id={id('size')}
@@ -198,7 +193,7 @@ export function TypographySettings({
             }}
           />
         </Field>
-      </div>
+      </SettingsCollapse>
       {error && <Notice failed>{error}</Notice>}
     </>
   );
@@ -215,6 +210,7 @@ export function SurfaceTypographySettings({
 }) {
   useLocale();
   const [selected, setSelected] = useState<TypographySurface>('settings');
+  const surfacePanelRef = useRevealTransition(selected);
   const labels = {
     settings: '设置页',
     sidebar: '聊天侧栏',
@@ -240,19 +236,21 @@ export function SurfaceTypographySettings({
           </NativeSelect>
         </div>
       </Field>
-      {typographySurfaces.map((surface) => (
-        <div
-          key={surface}
-          hidden={surface !== selected}
-          data-settings-search-ignore={surface !== selected || undefined}
-        >
-          <TypographySettings
-            surface={surface}
-            value={surfaceTypography(surface, value, legacy)}
-            save={(preferences) => save(surface, preferences)}
-          />
-        </div>
-      ))}
+      <div ref={surfacePanelRef}>
+        {typographySurfaces.map((surface) => (
+          <div
+            key={surface}
+            hidden={surface !== selected}
+            data-settings-search-ignore={surface !== selected || undefined}
+          >
+            <TypographySettings
+              surface={surface}
+              value={surfaceTypography(surface, value, legacy)}
+              save={(preferences) => save(surface, preferences)}
+            />
+          </div>
+        ))}
+      </div>
     </>
   );
 }

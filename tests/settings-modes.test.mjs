@@ -9,7 +9,7 @@ import { createServer } from 'node:http';
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { chromium } from 'playwright';
-import { emulateMedia } from './browser-motion.mjs';
+import { emulateMedia, finishAnimations } from './browser-motion.mjs';
 import { fixtureSettings } from './fixtures.mjs';
 import { build } from 'esbuild';
 
@@ -2641,6 +2641,7 @@ test(
       await page.locator('#interface-language').selectOption('zh-CN');
       await page.waitForFunction(() => document.documentElement.lang === 'zh-CN');
       await page.getByRole('link', { name: /^Palboo (设置|开发版)$/ }).waitFor();
+      await verifyMenuEyeBlink(browser, origin);
       assert.deepEqual(errors, []);
     } catch (error) {
       await page
@@ -2650,9 +2651,136 @@ test(
         .content()
         .then((html) => writeFile('target/reports/settings-modes-failure.html', html))
         .catch(() => {});
+      if (errors.length) throw new AggregateError([error], errors.join('\n'));
       throw error;
     } finally {
       await cleanup();
     }
   },
 );
+
+async function verifyMenuEyeBlink(browser, origin) {
+  const page = await browser.newPage({ viewport: { width: 1200, height: 860 } });
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+
+  try {
+    await page.addInitScript(() => {
+      window.brandBlinks = [];
+      window.wordmarkOtherAnims = [];
+      const orig = Element.prototype.animate;
+      Element.prototype.animate = function (frames, options) {
+        if (this.hasAttribute?.('data-brand-eyes')) {
+          window.brandBlinks.push({
+            frames,
+            duration: typeof options === 'number' ? options : options?.duration,
+          });
+        } else if (this.closest?.('.settings-brand')) {
+          window.wordmarkOtherAnims.push(this.tagName);
+        }
+        return orig.call(this, frames, options);
+      };
+    });
+
+    await page.goto(`${origin}/#token=fixture`);
+    await page.locator('.settings-wordmark [data-brand-eyes]').waitFor();
+    await page.locator('.settings-nav-children a').first().waitFor();
+
+    // Initial load never blinks.
+    assert.equal(await page.evaluate(() => window.brandBlinks.length), 0, 'no initial load blink');
+
+    // Click category heading -> no blink.
+    await page.locator('.settings-nav-group h2').first().click();
+    assert.equal(
+      await page.evaluate(() => window.brandBlinks.length),
+      0,
+      'category title does not blink',
+    );
+
+    // URL hash navigation & history.back -> no blink.
+    await page.evaluate(() => {
+      location.hash = '#settings-appearance';
+    });
+    await page
+      .locator('.settings-nav a[href="#settings-appearance"][aria-current="page"]')
+      .waitFor();
+    await page.goBack();
+    assert.equal(
+      await page.evaluate(() => window.brandBlinks.length),
+      0,
+      'URL/history navigation does not blink',
+    );
+
+    // Clicking a menu item blinks once on [data-brand-eyes] only.
+    const appearanceLink = page.locator('.settings-nav a[href="#settings-appearance"]');
+    await appearanceLink.click();
+    assert.equal(await page.evaluate(() => window.brandBlinks.length), 1, 'menu click blinks once');
+    assert.equal(await page.evaluate(() => window.brandBlinks[0].duration), 220);
+    assert.deepEqual(
+      await page.evaluate(() => window.wordmarkOtherAnims),
+      [],
+      'PALB letters and brand container never animate',
+    );
+    await finishAnimations(page.locator('.settings-wordmark'));
+
+    // Repeat-clicking the currently active item blinks once again.
+    await appearanceLink.click();
+    assert.equal(
+      await page.evaluate(() => window.brandBlinks.length),
+      2,
+      'repeat click on active item blinks',
+    );
+
+    // Rapid consecutive clicks never queue multiple animations on the eyes.
+    await page.locator('.settings-nav a[href="#settings-surfaces"]').click();
+    await page.locator('.settings-nav a[href="#settings-features"]').click();
+    await page.locator('.settings-nav a[href="#settings-board"]').click();
+    const activeEyeAnims = await page
+      .locator('.settings-wordmark [data-brand-eyes]')
+      .evaluate((el) => el.getAnimations().length);
+    assert.ok(
+      activeEyeAnims <= 1,
+      `expected at most 1 active eye animation, got ${activeEyeAnims}`,
+    );
+    await finishAnimations(page.locator('.settings-wordmark'));
+
+    // Enter activation stays immediate (no decorative blink).
+    await page.evaluate(() => (window.brandBlinks = []));
+    await appearanceLink.focus();
+    await page.keyboard.press('Enter');
+    assert.equal(
+      await page.evaluate(() => window.brandBlinks.length),
+      0,
+      'Enter activation does not blink',
+    );
+
+    // Reduced motion prevents blinking and cancels in-flight blink.
+    await emulateMedia(page, { reducedMotion: 'reduce' });
+    await page.locator('.settings-nav a[href="#settings-features"]').click();
+    assert.equal(
+      await page.evaluate(() => window.brandBlinks.length),
+      0,
+      'reduced motion skips blink',
+    );
+    await emulateMedia(page, { reducedMotion: 'no-preference' });
+
+    // Mobile narrow dropdown directory (<= 640px): trigger does not blink, item click blinks once.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.evaluate(() => (window.brandBlinks = []));
+    await page.locator('.settings-nav-trigger').click();
+    assert.equal(
+      await page.evaluate(() => window.brandBlinks.length),
+      0,
+      'nav trigger does not blink',
+    );
+    await page.locator('.settings-nav a[href="#settings-board"]').click();
+    assert.equal(
+      await page.evaluate(() => window.brandBlinks.length),
+      1,
+      'mobile menu item click blinks once',
+    );
+    assert.deepEqual(errors, []);
+  } finally {
+    await page.close();
+  }
+}

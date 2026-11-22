@@ -223,7 +223,7 @@ App 启动及与 ChatGPT 关联的退出共用原生无标题栏提示，无红�
 
 ## 9. 动效与交互状态
 
-参数以 [settings-motion.css](ui/settings/settings-motion.css)、[settings-motion.ts](ui/settings/settings-motion.ts)、[segmented-group.tsx](ui/settings/components/ui/segmented-group.tsx) 和对应窗口实现为准。
+参数以 [settings-motion.css](ui/settings/settings-motion.css)、[settings-motion.ts](ui/settings/settings-motion.ts)、[settings-collapse.tsx](ui/settings/settings-collapse.tsx)、[segmented-group.tsx](ui/settings/components/ui/segmented-group.tsx) 和对应窗口实现为准。
 
 | 场景 | 当前实现与边界 |
 | --- | --- |
@@ -232,6 +232,8 @@ App 启动及与 ChatGPT 关联的退出共用原生无标题栏提示，无红�
 | 分段选中底块 | 280ms、bounce0；连续点击从当前几何接续 |
 | 搜索／确认弹窗 | 整窗即时开合，不加整体缩放／淡入淡出；内容高度变化保留300ms `cubic-bezier(.23,1,.32,1)` |
 | 设置二级页 | 在当前内容区直接替换视图，沿用父页的焦点和滚动规则 |
+| 条件展开、归档详情与同步高度 | 240ms展开／190ms收起、`cubic-bezier(0.22,1,0.36,1)` 高度＋淡入＋3px以内微位移；快速反向从实时高度接续，收起期 `inert`，初载与异步回填不播 |
+| 页面导航与品牌双眼 | 桌面侧栏指示器220ms平滑滑行，页面切换4px入场（跳过首屏）；左侧菜单项点击（含重复点当前项与窄屏目录）触发左上角 PALBOO 已有双眼单次220ms轻眨，不排队不闪字标，初载／历史／分类标题／Enter／减少动效不触发 |
 | 页面、预览、列表与服务字段 | 消费宿主公共进入时长和缓动，回退200ms；页面／预览入场最多4px，不因普通回读重播 |
 | 悬停提示 | 等待150ms；连续提示300ms窗口内免重复等待；支持键盘和Esc |
 | 正文术语释义 | 打开后固定鼠标落点，不追逐指针；离开缓冲450ms，卡片边缘8px过渡区与卡片内焦点保持阅读；普通重扫保留有效卡片及文字选择，轻微滚动跟随锚点，操作时保持位置；锚点失效、切换聊天、外点或Esc关闭 |

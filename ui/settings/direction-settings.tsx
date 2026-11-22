@@ -10,6 +10,7 @@ import { tr } from '../shared/i18n.js';
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
 import { useSettingsListMotion } from './settings-list-motion';
+import { SettingsCollapse } from './settings-collapse';
 import { SettingsSortableList } from './settings-sortable-list';
 import { Icon } from '../shared/icons/react';
 import { Card } from './components/ui/card';
@@ -73,7 +74,7 @@ export function DirectionSettings({ editor }: { editor: SettingsEditor }) {
             <option value="smart">{tr('智能挑选（实验）')}</option>
           </NativeSelect>
         </Field>
-        {form.directionSource !== 'manual' ? (
+        <SettingsCollapse open={form.directionSource !== 'manual'} unmountOnExit>
           <Field id="max-items" label={tr('最多建议数量')}>
             <Input
               id="max-items"
@@ -84,7 +85,8 @@ export function DirectionSettings({ editor }: { editor: SettingsEditor }) {
               onChange={(e) => change('maxItems', Number(e.target.value))}
             />
           </Field>
-        ) : (
+        </SettingsCollapse>
+        <SettingsCollapse open={form.directionSource === 'manual'} unmountOnExit>
           <div className="settings-field direction-selection">
             <span id="selected-directions-label" className="direction-selection-label">
               {tr('已选方向')}
@@ -142,9 +144,9 @@ export function DirectionSettings({ editor }: { editor: SettingsEditor }) {
               )}
             </div>
           </div>
-        )}
+        </SettingsCollapse>
       </Card>
-      {form.directionSource === 'smart' && (
+      <SettingsCollapse open={form.directionSource === 'smart'} unmountOnExit>
         <Card id="settings-jev-advanced" aria-labelledby="jev-service-title">
           <h2 id="jev-service-title">{tr('智能挑选服务')}</h2>
           <div className="space-y-5">
@@ -193,7 +195,7 @@ export function DirectionSettings({ editor }: { editor: SettingsEditor }) {
               )}
           </div>
         </Card>
-      )}
+      </SettingsCollapse>
     </>
   );
 }

@@ -619,7 +619,10 @@
   margin-top: calc(var(--settings-space, 4px) * 4);
 }
 .settings-detail-footer:empty,
-#model-organization .settings-detail-footer:not(:has(> fieldset:not([hidden]), > p)) {
+#model-organization
+  .settings-detail-footer:not(
+    :has(> .settings-collapse:not([hidden]), > fieldset:not([hidden]), > p)
+  ) {
   display: none;
 }
 #model-organization-detail:not([hidden]) {

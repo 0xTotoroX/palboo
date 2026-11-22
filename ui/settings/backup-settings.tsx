@@ -11,6 +11,7 @@ import { Card } from './components/ui/card';
 import { Input } from './components/ui/input';
 import { NativeSelect } from './components/ui/native-select';
 import { Field, Feedback, Toggle } from './settings-controls';
+import { SettingsCollapse } from './settings-collapse';
 import { SettingsDetail, showSettingsDetail, closeSettingsDetails } from './settings-detail';
 
 type Target = { id: string; label: string; path: string; version: string | null; current: boolean };
@@ -322,15 +323,15 @@ export function BackupSettings({
             disabled={blocked}
             onChange={setSecrets}
           />
-          {!secrets && (
+          <SettingsCollapse open={!secrets} unmountOnExit>
             <Toggle
               label={tr('加密备份')}
               checked={encrypt}
               disabled={blocked}
               onChange={setEncrypt}
             />
-          )}
-          <div hidden={!passwordVisible}>
+          </SettingsCollapse>
+          <SettingsCollapse open={passwordVisible}>
             <Field id="backup-password" label={tr('备份密码')}>
               <Input
                 id="backup-password"
@@ -342,7 +343,7 @@ export function BackupSettings({
                 onChange={(event) => setPassword(event.target.value)}
               />
             </Field>
-          </div>
+          </SettingsCollapse>
           <div className="settings-actions">
             <Button
               type="button"
@@ -374,41 +375,39 @@ export function BackupSettings({
               }}
             />
           </Field>
-          {file && (
-            <>
-              {targetField('backup-target', restoreTarget, setRestoreTarget)}
-              {encryptedFile && (
-                <Field id="backup-import-password" label={tr('备份密码')}>
-                  <Input
-                    id="backup-import-password"
-                    type="password"
-                    autoComplete="off"
-                    value={importPassword}
-                    disabled={blocked}
-                    onChange={(event) => {
-                      setImportPassword(event.target.value);
-                      invalidate();
-                    }}
-                  />
-                </Field>
-              )}
-              {scopeFields(restoreSections, setRestoreSelection)}
-              <div className="settings-actions">
-                <Button
-                  id="backup-preview-restore"
-                  disabled={
-                    blocked ||
-                    readingFile ||
-                    !restoreSections.length ||
-                    (encryptedFile && !importPassword)
-                  }
-                  onClick={() => void run('preview', () => inspect())}
-                >
-                  {tr('预览恢复')}
-                </Button>
-              </div>
-            </>
-          )}
+          <SettingsCollapse open={!!file} unmountOnExit>
+            {targetField('backup-target', restoreTarget, setRestoreTarget)}
+            <SettingsCollapse open={encryptedFile} unmountOnExit>
+              <Field id="backup-import-password" label={tr('备份密码')}>
+                <Input
+                  id="backup-import-password"
+                  type="password"
+                  autoComplete="off"
+                  value={importPassword}
+                  disabled={blocked}
+                  onChange={(event) => {
+                    setImportPassword(event.target.value);
+                    invalidate();
+                  }}
+                />
+              </Field>
+            </SettingsCollapse>
+            {scopeFields(restoreSections, setRestoreSelection)}
+            <div className="settings-actions">
+              <Button
+                id="backup-preview-restore"
+                disabled={
+                  blocked ||
+                  readingFile ||
+                  !restoreSections.length ||
+                  (encryptedFile && !importPassword)
+                }
+                onClick={() => void run('preview', () => inspect())}
+              >
+                {tr('预览恢复')}
+              </Button>
+            </div>
+          </SettingsCollapse>
         </div>
       </Card>
       {multipleTargets && (

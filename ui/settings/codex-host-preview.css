@@ -78,6 +78,16 @@
 .compatibility-agent-more > .buddy-icon {
   width: 22px;
   flex: none;
+  rotate: -90deg;
+  transition: rotate 200ms var(--settings-disclosure-ease, cubic-bezier(0.22, 1, 0.36, 1));
+}
+.compatibility-agent-more[aria-expanded='true'] > .buddy-icon {
+  rotate: 0deg;
+}
+@media (prefers-reduced-motion: reduce) {
+  .compatibility-agent-more > .buddy-icon {
+    transition: none;
+  }
 }
 .compatibility-preview .compatibility-agent-add {
   position: absolute;

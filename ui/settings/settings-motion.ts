@@ -1,11 +1,30 @@
 /* [INPUT]: Presentation identity, header geometry, input modality and host motion preferences.
- * [OUTPUT]: Shared timing/reduced-motion helpers, sticky offsets and interruptible navigation/scene and provider-field transitions; keyboard and reduced motion stay immediate.
+ * [OUTPUT]: Shared timing/reduced-motion helpers, unified motion interrupt binding, sticky offsets and interruptible navigation/scene and provider-field transitions; keyboard and reduced motion stay immediate.
  * [POS]: Settings-only motion, never remounts controls or changes configuration.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
-import { useLayoutEffect, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
+import { useInputModality } from '../shared/use-input-modality';
+
+export const DISCLOSURE_EXPAND_MS = 240;
+export const DISCLOSURE_COLLAPSE_MS = 190;
+export const CONTENT_SWITCH_MS = 220;
+const DISCLOSURE_EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
 
 export function reducedMotion(media: MediaQueryList) {
   return media.matches || document.documentElement.dataset.settingsReducedMotion === 'true';
+}
+
+export function prefersInstantMotion(media?: MediaQueryList) {
+  const query = media ?? matchMedia('(prefers-reduced-motion: reduce)');
+  return reducedMotion(query) || document.documentElement.dataset.settingsInput === 'keyboard';
+}
+
+export function disclosureEasing(element?: Element | null) {
+  if (!element) return DISCLOSURE_EASE;
+  return (
+    getComputedStyle(element).getPropertyValue('--settings-disclosure-ease').trim() ||
+    DISCLOSURE_EASE
+  );
 }
 
 export function motionTiming(element: Element, fallback: number) {
@@ -21,15 +40,68 @@ export function motionTiming(element: Element, fallback: number) {
   };
 }
 
+// Unified interrupt & cleanup helper shared by all WAAPI transitions in settings.
+export function bindMotionInterrupt({
+  animations,
+  onInterrupt,
+  onFinish,
+  keyboard = true,
+  resize = false,
+  media = matchMedia('(prefers-reduced-motion: reduce)'),
+  extraMedia,
+}: {
+  animations: Animation[];
+  onInterrupt?: () => void;
+  onFinish?: () => void;
+  keyboard?: boolean;
+  resize?: boolean;
+  media?: MediaQueryList;
+  extraMedia?: MediaQueryList;
+}) {
+  let disposed = false;
+  const primary = animations[0];
+  const unbind = () => {
+    if (disposed) return;
+    disposed = true;
+    media.removeEventListener('change', interrupt);
+    extraMedia?.removeEventListener('change', interrupt);
+    window.removeEventListener('settings-motion-change', interrupt);
+    if (keyboard) window.removeEventListener('keydown', interrupt, true);
+    if (resize) window.removeEventListener('resize', interrupt);
+  };
+  const cancel = () => {
+    unbind();
+    for (const animation of animations) animation.cancel();
+  };
+  const interrupt = () => {
+    if (disposed) return;
+    cancel();
+    onInterrupt?.();
+  };
+  const finish = () => {
+    if (disposed) return;
+    unbind();
+    onFinish?.();
+  };
+  media.addEventListener('change', interrupt);
+  extraMedia?.addEventListener('change', interrupt);
+  window.addEventListener('settings-motion-change', interrupt);
+  if (keyboard) window.addEventListener('keydown', interrupt, true);
+  if (resize) window.addEventListener('resize', interrupt);
+  primary?.addEventListener('finish', finish, { once: true });
+  primary?.addEventListener('cancel', unbind, { once: true });
+  return cancel;
+}
+
 export function useSettingsMotion(identity: string) {
   const ref = useRef<HTMLDivElement>(null);
+  const previous = useRef(identity);
+  useInputModality();
   useLayoutEffect(() => {
     const root = document.documentElement;
     const header = document.querySelector<HTMLElement>('.settings-header');
     const picker = document.querySelector<HTMLElement>('.settings-nav-trigger');
-    const pointer = () => (root.dataset.settingsInput = 'pointer');
     const keyboard = () => {
-      root.dataset.settingsInput = 'keyboard';
       ref.current?.getAnimations().forEach((animation) => animation.cancel());
     };
     const measure = () => {
@@ -41,38 +113,31 @@ export function useSettingsMotion(identity: string) {
     if (header) observer.observe(header);
     if (picker) observer.observe(picker);
     measure();
-    window.addEventListener('pointerdown', pointer, true);
     window.addEventListener('keydown', keyboard, true);
     return () => {
       observer.disconnect();
-      window.removeEventListener('pointerdown', pointer, true);
       window.removeEventListener('keydown', keyboard, true);
-      delete root.dataset.settingsInput;
       root.style.removeProperty('--settings-sticky-offset');
       root.style.removeProperty('--settings-picker-height');
     };
   }, []);
   useLayoutEffect(() => {
     const element = ref.current;
-    if (!element) return;
+    const before = previous.current;
+    previous.current = identity;
+    if (!element || before === identity) return;
     const reduce = matchMedia('(prefers-reduced-motion: reduce)');
-    if (reducedMotion(reduce) || document.documentElement.dataset.settingsInput === 'keyboard')
-      return;
+    if (prefersInstantMotion(reduce)) return;
+    element.getAnimations().forEach((active) => active.cancel());
+    const timing = motionTiming(element, CONTENT_SWITCH_MS);
     const animation = element.animate(
       [
-        { opacity: 0.65, transform: 'translateY(4px)' },
+        { opacity: 0.72, transform: 'translateY(4px)' },
         { opacity: 1, transform: 'none' },
       ],
-      motionTiming(element, 220),
+      { duration: timing.duration, easing: disclosureEasing(element) },
     );
-    const cancel = () => animation.cancel();
-    reduce.addEventListener('change', cancel);
-    window.addEventListener('settings-motion-change', cancel);
-    return () => {
-      cancel();
-      reduce.removeEventListener('change', cancel);
-      window.removeEventListener('settings-motion-change', cancel);
-    };
+    return bindMotionInterrupt({ animations: [animation], media: reduce, keyboard: false });
   }, [identity]);
   return ref;
 }
@@ -87,8 +152,7 @@ export function usePreviewTransition(identity: string) {
     previous.current = identity;
     if (!root || before === identity) return;
     const reduce = matchMedia('(prefers-reduced-motion: reduce)');
-    if (reducedMotion(reduce) || document.documentElement.dataset.settingsInput === 'keyboard')
-      return;
+    if (prefersInstantMotion(reduce)) return;
     const options = motionTiming(root, 200);
     const animations: Animation[] = [];
     const outgoing = root.querySelector<HTMLElement>(`[data-preview-scene="${before}"]`);
@@ -113,16 +177,7 @@ export function usePreviewTransition(identity: string) {
           options,
         ),
       );
-    const cancel = () => animations.forEach((animation) => animation.cancel());
-    reduce.addEventListener('change', cancel);
-    window.addEventListener('settings-motion-change', cancel);
-    window.addEventListener('keydown', cancel, true);
-    return () => {
-      cancel();
-      reduce.removeEventListener('change', cancel);
-      window.removeEventListener('settings-motion-change', cancel);
-      window.removeEventListener('keydown', cancel, true);
-    };
+    return bindMotionInterrupt({ animations, media: reduce });
   }, [identity]);
   return ref;
 }
@@ -136,14 +191,7 @@ export function useProviderFieldsMotion(provider: string | undefined) {
     previous.current = provider;
     const root = ref.current;
     const reduce = matchMedia('(prefers-reduced-motion: reduce)');
-    if (
-      !root ||
-      !before ||
-      before === provider ||
-      reducedMotion(reduce) ||
-      document.documentElement.dataset.settingsInput === 'keyboard'
-    )
-      return;
+    if (!root || !before || before === provider || prefersInstantMotion(reduce)) return;
     const fields = new Set<HTMLElement>();
     root
       .querySelectorAll(
@@ -162,16 +210,58 @@ export function useProviderFieldsMotion(provider: string | undefined) {
         motionTiming(root, 180),
       ),
     );
-    const cancel = () => animations.forEach((animation) => animation.cancel());
-    reduce.addEventListener('change', cancel);
-    window.addEventListener('settings-motion-change', cancel);
-    window.addEventListener('keydown', cancel, true);
-    return () => {
-      cancel();
-      reduce.removeEventListener('change', cancel);
-      window.removeEventListener('settings-motion-change', cancel);
-      window.removeEventListener('keydown', cancel, true);
-    };
+    return bindMotionInterrupt({ animations, media: reduce });
   }, [provider]);
   return ref;
+}
+
+// Gentle single blink on the existing PALBOO wordmark eyes; never queues or animates letters.
+export function useBrandEyeBlink() {
+  const brandRef = useRef<HTMLAnchorElement>(null);
+  const active = useRef<{ cancel: () => void; animation: Animation } | null>(null);
+  useInputModality();
+
+  const cancel = useCallback(() => {
+    active.current?.cancel();
+    active.current = null;
+  }, []);
+
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.hidden) cancel();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      cancel();
+    };
+  }, [cancel]);
+
+  const blink = useCallback(() => {
+    cancel();
+    const eyes = brandRef.current?.querySelector<SVGGElement>('[data-brand-eyes]');
+    const media = matchMedia('(prefers-reduced-motion: reduce)');
+    if (!eyes || document.hidden || prefersInstantMotion(media)) return;
+    const animation = eyes.animate(
+      [
+        { transform: 'scaleY(1)', offset: 0, easing: 'cubic-bezier(0.4, 0, 1, 1)' },
+        { transform: 'scaleY(0.1)', offset: 0.36, easing: DISCLOSURE_EASE },
+        { transform: 'scaleY(1)', offset: 1 },
+      ],
+      { duration: 220 },
+    );
+    const stop = bindMotionInterrupt({
+      animations: [animation],
+      media,
+      onInterrupt: () => {
+        if (active.current?.animation === animation) active.current = null;
+      },
+      onFinish: () => {
+        if (active.current?.animation === animation) active.current = null;
+      },
+    });
+    active.current = { cancel: stop, animation };
+  }, [cancel]);
+
+  return { brandRef, blink };
 }

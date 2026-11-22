@@ -6,6 +6,7 @@ import { tr } from '../shared/i18n.js';
  * [POS]: 只管理模型展示偏好，不切换模型或修改预设。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { SettingsDetail } from './settings-detail';
+import { SettingsCollapse } from './settings-collapse';
 import { useSettingsListMotion } from './settings-list-motion';
 import { useState } from 'react';
 import { SettingsSortableList, replaceVisibleOrder } from './settings-sortable-list';
@@ -176,96 +177,97 @@ export function ModelOrganization({
       }
       footer={
         <>
-          <fieldset
-            hidden={!selected.length}
-            disabled={busy}
-            className="settings-catalog-bulk"
-            aria-label={tr('批量调整')}
-            data-settings-feedback-anchor
-          >
-            <div className="settings-catalog-selection" data-settings-navigation>
-              <span role="status" className="mr-auto">
-                {tr('已选 {{count}} 项', { count: selected.length })}
-              </span>
-              <Button type="button" variant="ghost" onClick={() => setSelected([])}>
-                {tr('取消选择')}
-              </Button>
-            </div>
-            <div className="settings-catalog-bulk-controls">
-              <NativeSelect
-                aria-label={tr('批量操作')}
-                value={bulkMode}
-                onChange={(e) => setBulkMode(e.target.value)}
-              >
-                <option value="group">{tr('移动分组')}</option>
-                <option value="maker">{tr('指定厂家')}</option>
-                <option value="reset">{tr('恢复自动分类')}</option>
-              </NativeSelect>
-              <div hidden={bulkMode !== 'maker'} className="settings-catalog-bulk-value">
-                <SuggestionInput
-                  aria-label={tr('批量指定厂家')}
-                  options={manufacturerNames.map(manufacturerLabel)}
-                  placeholder={tr('选择或填写厂家')}
-                  maxLength={60}
-                  value={manufacturerLabel(maker)}
-                  onValueChange={(name) => setMaker(manufacturerValue(name))}
-                />
-                <IconButton
-                  variant="outline"
-                  aria-label={tr('指定厂家')}
-                  disabled={blocked || !maker.trim()}
-                  onClick={() =>
-                    void updateSelected((value) => ({ ...value, manufacturer: maker.trim() }))
-                  }
-                >
-                  <Icon name="check" />
-                </IconButton>
+          <SettingsCollapse open={selected.length > 0}>
+            <fieldset
+              disabled={busy || !selected.length}
+              className="settings-catalog-bulk"
+              aria-label={tr('批量调整')}
+              data-settings-feedback-anchor
+            >
+              <div className="settings-catalog-selection" data-settings-navigation>
+                <span role="status" className="mr-auto">
+                  {tr('已选 {{count}} 项', { count: selected.length })}
+                </span>
+                <Button type="button" variant="ghost" onClick={() => setSelected([])}>
+                  {tr('取消选择')}
+                </Button>
               </div>
-              <div hidden={bulkMode !== 'group'} className="settings-catalog-bulk-value">
+              <div className="settings-catalog-bulk-controls">
                 <NativeSelect
-                  aria-label={tr('批量移动分组')}
-                  value={destination}
-                  onChange={(e) => setDestination(e.target.value)}
+                  aria-label={tr('批量操作')}
+                  value={bulkMode}
+                  onChange={(e) => setBulkMode(e.target.value)}
                 >
-                  <option value="">{tr('按厂家归类')}</option>
-                  {(prefs.groups || []).map((group) => (
-                    <option key={group.id} value={group.id}>
-                      {group.name}
-                    </option>
-                  ))}
+                  <option value="group">{tr('移动分组')}</option>
+                  <option value="maker">{tr('指定厂家')}</option>
+                  <option value="reset">{tr('恢复自动分类')}</option>
                 </NativeSelect>
-                <IconButton
-                  variant="outline"
-                  aria-label={tr('移动模型')}
-                  disabled={
-                    blocked || (!!destination && !prefs.groups?.some((g) => g.id === destination))
-                  }
-                  onClick={() =>
-                    void updateSelected((value) => {
-                      delete value.groupId;
-                      return destination ? { ...value, groupId: destination } : value;
-                    })
-                  }
-                >
-                  <Icon name="check" />
-                </IconButton>
+                <div hidden={bulkMode !== 'maker'} className="settings-catalog-bulk-value">
+                  <SuggestionInput
+                    aria-label={tr('批量指定厂家')}
+                    options={manufacturerNames.map(manufacturerLabel)}
+                    placeholder={tr('选择或填写厂家')}
+                    maxLength={60}
+                    value={manufacturerLabel(maker)}
+                    onValueChange={(name) => setMaker(manufacturerValue(name))}
+                  />
+                  <IconButton
+                    variant="outline"
+                    aria-label={tr('指定厂家')}
+                    disabled={blocked || !maker.trim()}
+                    onClick={() =>
+                      void updateSelected((value) => ({ ...value, manufacturer: maker.trim() }))
+                    }
+                  >
+                    <Icon name="check" />
+                  </IconButton>
+                </div>
+                <div hidden={bulkMode !== 'group'} className="settings-catalog-bulk-value">
+                  <NativeSelect
+                    aria-label={tr('批量移动分组')}
+                    value={destination}
+                    onChange={(e) => setDestination(e.target.value)}
+                  >
+                    <option value="">{tr('按厂家归类')}</option>
+                    {(prefs.groups || []).map((group) => (
+                      <option key={group.id} value={group.id}>
+                        {group.name}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                  <IconButton
+                    variant="outline"
+                    aria-label={tr('移动模型')}
+                    disabled={
+                      blocked || (!!destination && !prefs.groups?.some((g) => g.id === destination))
+                    }
+                    onClick={() =>
+                      void updateSelected((value) => {
+                        delete value.groupId;
+                        return destination ? { ...value, groupId: destination } : value;
+                      })
+                    }
+                  >
+                    <Icon name="check" />
+                  </IconButton>
+                </div>
+                <div hidden={bulkMode !== 'reset'} className="settings-actions">
+                  <ConfirmationButton
+                    type="button"
+                    variant="outline"
+                    disabled={blocked}
+                    revision={state.revision}
+                    title={tr('恢复 {{value1}} 个模型的自动分类？', { value1: selected.length })}
+                    description={tr('会移除所选模型的手动厂家与分组归属，保留常用、预设和排序。')}
+                    confirmLabel={tr('确认恢复')}
+                    onConfirm={() => updateSelected(() => ({}))}
+                  >
+                    {tr('恢复自动分类')}
+                  </ConfirmationButton>
+                </div>
               </div>
-              <div hidden={bulkMode !== 'reset'} className="settings-actions">
-                <ConfirmationButton
-                  type="button"
-                  variant="outline"
-                  disabled={blocked}
-                  revision={state.revision}
-                  title={tr('恢复 {{value1}} 个模型的自动分类？', { value1: selected.length })}
-                  description={tr('会移除所选模型的手动厂家与分组归属，保留常用、预设和排序。')}
-                  confirmLabel={tr('确认恢复')}
-                  onConfirm={() => updateSelected(() => ({}))}
-                >
-                  {tr('恢复自动分类')}
-                </ConfirmationButton>
-              </div>
-            </div>
-          </fieldset>
+            </fieldset>
+          </SettingsCollapse>
           {feedback && <Feedback text={feedback} failed />}
           {!feedback && busy && (
             <Feedback text={refreshState === 'pending' ? tr('正在刷新…') : tr('正在保存…')} />
@@ -460,37 +462,40 @@ export function ModelOrganization({
                                 <Icon name="more" />
                               </IconButton>
                             </div>
-                            {detail === model.id && (
-                              <div className="basis-full space-y-2 break-all text-muted-foreground">
-                                <div>{model.id}</div>
-                                <div>
-                                  {tr('自动识别：')}
-                                  {automaticManufacturer(model) || tr('未分类')}
-                                </div>
-                                {(manual?.manufacturer || manual?.groupId) && (
-                                  <ConfirmationButton
-                                    type="button"
-                                    variant="ghost"
-                                    disabled={busy}
-                                    revision={state.revision}
-                                    title={tr('恢复“{{value1}}”的自动分类？', {
-                                      value1: model.label,
-                                    })}
-                                    description={tr(
-                                      '会移除这个模型的手动厂家与分组归属，保留常用和预设。',
-                                    )}
-                                    confirmLabel={tr('确认恢复')}
-                                    onConfirm={() => {
-                                      const overrides = { ...prefs.modelOverrides };
-                                      delete overrides[model.id];
-                                      return save({ modelOverrides: overrides });
-                                    }}
-                                  >
-                                    {tr('恢复自动')}
-                                  </ConfirmationButton>
-                                )}
+                            <SettingsCollapse
+                              open={detail === model.id}
+                              unmountOnExit
+                              outerClassName="basis-full"
+                              className="space-y-2 break-all text-muted-foreground"
+                            >
+                              <div>{model.id}</div>
+                              <div>
+                                {tr('自动识别：')}
+                                {automaticManufacturer(model) || tr('未分类')}
                               </div>
-                            )}
+                              {(manual?.manufacturer || manual?.groupId) && (
+                                <ConfirmationButton
+                                  type="button"
+                                  variant="ghost"
+                                  disabled={busy}
+                                  revision={state.revision}
+                                  title={tr('恢复“{{value1}}”的自动分类？', {
+                                    value1: model.label,
+                                  })}
+                                  description={tr(
+                                    '会移除这个模型的手动厂家与分组归属，保留常用和预设。',
+                                  )}
+                                  confirmLabel={tr('确认恢复')}
+                                  onConfirm={() => {
+                                    const overrides = { ...prefs.modelOverrides };
+                                    delete overrides[model.id];
+                                    return save({ modelOverrides: overrides });
+                                  }}
+                                >
+                                  {tr('恢复自动')}
+                                </ConfirmationButton>
+                              )}
+                            </SettingsCollapse>
                           </div>
                         );
                       })

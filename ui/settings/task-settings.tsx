@@ -5,6 +5,7 @@ import { tr } from '../shared/i18n.js';
  * [POS]: Task settings do not modify model-control or workbench preferences.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
 import { useSettingsListMotion } from './settings-list-motion';
+import { SettingsCollapse } from './settings-collapse';
 import { useState } from 'react';
 import { Button, IconButton } from './components/ui/button';
 import { Input } from './components/ui/input';
@@ -65,7 +66,11 @@ export function TaskSettings({ tasks }: { tasks: ReturnType<typeof useTasks> }) 
           <option value="list">{tr('清单')}</option>
         </NativeSelect>
       </Field>
-      <div hidden={state?.store.displayMode === 'list'} className="space-y-5">
+      <SettingsCollapse
+        open={state?.store.displayMode !== 'list'}
+        ready={!!state}
+        className="space-y-5"
+      >
         <Field label={tr('看板视图')} id="board-view-mode">
           <NativeSelect
             id="board-view-mode"
@@ -157,7 +162,7 @@ export function TaskSettings({ tasks }: { tasks: ReturnType<typeof useTasks> }) 
             </form>
           </div>
         </section>
-      </div>
+      </SettingsCollapse>
       {remindersSettingsVisible && (
         <>
           <div className="flex items-center justify-between gap-4">

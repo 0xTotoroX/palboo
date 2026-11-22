@@ -8,6 +8,12 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { Icon } from '../shared/icons/react';
 import { titles } from '../shared/features';
 import {
+  CONTENT_SWITCH_MS,
+  bindMotionInterrupt,
+  disclosureEasing,
+  prefersInstantMotion,
+} from './settings-motion';
+import {
   closeSettingsDetails,
   revealSettingsDetail,
   settingsDetailRouteEvent,
@@ -404,10 +410,12 @@ export function SettingsOutline({
   page,
   dev = false,
   navigate,
+  onMenuSelect,
 }: {
   page: SettingsPage;
   dev?: boolean;
   navigate: (page: SettingsPage, hash: string) => void;
+  onMenuSelect?: () => void;
 }) {
   useLocale();
   const group = pageGroup(page);
@@ -416,11 +424,119 @@ export function SettingsOutline({
   const root = useRef<HTMLElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const links = useRef<HTMLDivElement>(null);
+  const indicator = useRef<HTMLSpanElement>(null);
+  const indicatorBox = useRef<{
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+    parentWidth: number;
+  } | null>(null);
+  const indicatorActive = useRef<{ cancel: () => void; animation: Animation } | null>(null);
+  const previousPage = useRef(page);
   const focusedLink = useRef<HTMLElement | null>(null);
   const close = () => {
     setOpen(false);
     trigger.current?.focus({ preventScroll: true });
   };
+  useEffect(
+    () => () => {
+      indicatorActive.current?.cancel();
+      indicatorActive.current = null;
+    },
+    [],
+  );
+  useLayoutEffect(() => {
+    const container = links.current;
+    const pill = indicator.current;
+    const beforePage = previousPage.current;
+    previousPage.current = page;
+    if (!container || !pill) return;
+
+    const finishGlide = () => {
+      indicatorActive.current?.cancel();
+      indicatorActive.current = null;
+      pill.hidden = true;
+      delete container.dataset.navGliding;
+    };
+
+    const readLinkBox = (target: HTMLElement) => {
+      const box = target.getBoundingClientRect();
+      const parent = container.getBoundingClientRect();
+      return {
+        left: box.left - parent.left - container.clientLeft + container.scrollLeft,
+        top: box.top - parent.top - container.clientTop + container.scrollTop,
+        width: box.width,
+        height: box.height,
+        parentWidth: parent.width,
+      };
+    };
+
+    const narrow = matchMedia('(max-width: 640px)');
+    const current = container.querySelector<HTMLElement>('[aria-current="page"]');
+    if (!current || narrow.matches || !container.getClientRects().length) {
+      finishGlide();
+      indicatorBox.current = null;
+      return;
+    }
+
+    const from = indicatorActive.current ? readLinkBox(pill) : indicatorBox.current;
+    finishGlide();
+    const to = readLinkBox(current);
+    indicatorBox.current = to;
+
+    const media = matchMedia('(prefers-reduced-motion: reduce)');
+    if (
+      beforePage === page ||
+      !from ||
+      !from.width ||
+      !to.width ||
+      Math.abs(from.parentWidth - to.parentWidth) >= 1 ||
+      (Math.abs(from.top - to.top) < 1 && Math.abs(from.left - to.left) < 1) ||
+      prefersInstantMotion(media)
+    )
+      return;
+
+    Object.assign(pill.style, {
+      left: `${to.left}px`,
+      top: `${to.top}px`,
+      width: `${to.width}px`,
+      height: `${to.height}px`,
+      borderRadius: getComputedStyle(current).borderRadius,
+    });
+    container.dataset.navGliding = 'true';
+    pill.hidden = false;
+
+    const animation = pill.animate(
+      [
+        {
+          transform: `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(${from.width / to.width}, ${from.height / to.height})`,
+        },
+        { transform: 'none' },
+      ],
+      { duration: CONTENT_SWITCH_MS, easing: disclosureEasing(container) },
+    );
+    const hidePill = () => {
+      pill.hidden = true;
+      delete container.dataset.navGliding;
+    };
+    const cancel = bindMotionInterrupt({
+      animations: [animation],
+      media,
+      extraMedia: narrow,
+      resize: true,
+      onInterrupt: () => {
+        indicatorActive.current = null;
+        hidePill();
+      },
+      onFinish: () => {
+        if (indicatorActive.current?.animation !== animation) return;
+        indicatorActive.current = null;
+        hidePill();
+      },
+    });
+    indicatorActive.current = { cancel, animation };
+  }, [page]);
   useLayoutEffect(() => {
     // Closing links stay painted for the fade but stop accepting focus or input immediately.
     if (links.current) links.current.inert = !open && matchMedia('(max-width: 640px)').matches;
@@ -524,6 +640,7 @@ export function SettingsOutline({
           items[next]?.scrollIntoView({ block: 'nearest' });
         }}
       >
+        <span ref={indicator} className="settings-nav-indicator" aria-hidden="true" hidden />
         {pageGroups.map((item) => (
           <section
             key={item.title}
@@ -544,6 +661,7 @@ export function SettingsOutline({
                       if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
                       event.preventDefault();
                       if (open) close();
+                      onMenuSelect?.();
                       navigate(id, event.currentTarget.hash);
                     }}
                   >

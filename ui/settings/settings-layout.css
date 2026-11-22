@@ -719,10 +719,30 @@ html:root .settings-nav {
   border: 0;
 }
 .settings-category-links {
+  position: relative;
   display: flex;
   flex-direction: column;
   flex-wrap: nowrap;
   gap: 20px;
+}
+.settings-nav-indicator {
+  position: absolute;
+  pointer-events: none;
+  z-index: 0;
+  transform-origin: top left;
+  background: var(--settings-nav-selected, var(--buddy-subtle));
+}
+.settings-nav-group {
+  position: relative;
+  z-index: 1;
+}
+.settings-category-links[data-nav-gliding='true'] .settings-nav-children a[aria-current='page'],
+html[data-settings-style='chatgpt']
+  .settings-app
+  .settings-category-links[data-nav-gliding='true']
+  .settings-nav-children
+  a[aria-current='page'] {
+  background: transparent;
 }
 .settings-nav-group h2 {
   margin: 0 0 6px;

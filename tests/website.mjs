@@ -5,6 +5,7 @@
 // Run with test:site in the Website workflow; App verification covers shared components separately.
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { finishAnimations } from './browser-motion.mjs';
 import { build, preview } from 'vite';
 import { chromium } from 'playwright';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
@@ -1640,3 +1641,87 @@ test('narrow model previews label each reasoning choice beside its model', async
     await page.close();
   }
 });
+
+test(
+  'website archive rows stay immediate on Enter at 390x844 and stay pinned to chat-archive on desktop 1160x880',
+  { timeout: 45000 },
+  async (t) => {
+    // 1. Mobile 390x844: mouse expand animates, Enter collapse has 0 animations, mouse expand restores animation.
+    const mobile = await newPage({
+      viewport: { width: 390, height: 844 },
+      locale: 'zh-CN',
+      reducedMotion: 'no-preference',
+    });
+    t.after(() => mobile.close());
+    await mobile.addInitScript(() => {
+      window.siteAnims = [];
+      const orig = Element.prototype.animate;
+      Element.prototype.animate = function (frames, options) {
+        if (this.closest?.('.archive-sessions')) {
+          window.siteAnims.push({
+            cls: this.className,
+            frames,
+            duration: typeof options === 'number' ? options : options?.duration,
+          });
+        }
+        return orig.call(this, frames, options);
+      };
+    });
+    await mobile.goto(base);
+    await mobile.locator('#feature-tab-chat-archive').click();
+    const mobileRow = mobile.locator('#feature-panel-chat-archive .archive-session-row').first();
+    await mobileRow.waitFor();
+    await mobile.evaluate(() => (window.siteAnims = []));
+    await mobileRow.click();
+    await finishAnimations(mobile.locator('#feature-panel-chat-archive .archive-sessions'));
+    assert.equal(await mobileRow.getAttribute('aria-expanded'), 'true');
+    assert.ok(
+      (await mobile.evaluate(() => window.siteAnims)).length > 0,
+      'mouse expand animates on website',
+    );
+    await mobile.evaluate(() => (window.siteAnims = []));
+    await mobileRow.press('Enter');
+    assert.equal(await mobileRow.getAttribute('aria-expanded'), 'false');
+    assert.equal(
+      (await mobile.evaluate(() => window.siteAnims)).length,
+      0,
+      'Enter collapse records zero animations on website',
+    );
+    await mobileRow.click();
+    await finishAnimations(mobile.locator('#feature-panel-chat-archive .archive-sessions'));
+    assert.equal(await mobileRow.getAttribute('aria-expanded'), 'true');
+    assert.ok(
+      (await mobile.evaluate(() => window.siteAnims)).length > 0,
+      'mouse click restores expand animation after Enter',
+    );
+    await mobile.close();
+
+    // 2. Desktop 1160x880: clicking archive row does not switch features; wheel scrolling still switches features.
+    const desktop = await newPage({
+      viewport: { width: 1160, height: 880 },
+      locale: 'zh-CN',
+      reducedMotion: 'no-preference',
+    });
+    t.after(() => desktop.close());
+    await desktop.goto(base);
+    await desktop.locator('#feature-tab-chat-archive').click();
+    await desktop.locator('#feature-tab-chat-archive[aria-selected="true"]').waitFor();
+    const desktopRow = desktop.locator('#feature-panel-chat-archive .archive-session-row').first();
+    await desktopRow.click();
+    await finishAnimations(desktop.locator('#feature-panel-chat-archive .archive-sessions'));
+    assert.equal(await desktopRow.getAttribute('aria-expanded'), 'true');
+    assert.equal(
+      await desktop.locator('#feature-tab-chat-archive').getAttribute('aria-selected'),
+      'true',
+      'expanding an archive row never switches away from chat-archive',
+    );
+    // Deliberate wheel scrolling still navigates away to adjacent feature.
+    await desktop.mouse.move(140, 420);
+    await desktop.mouse.wheel(0, -420);
+    await desktop.waitForFunction(
+      () =>
+        document.querySelector('#feature-tab-chat-archive')?.getAttribute('aria-selected') ===
+        'false',
+    );
+  },
+);

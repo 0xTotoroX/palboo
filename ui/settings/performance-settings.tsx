@@ -9,6 +9,7 @@ import { request } from './api';
 import { Toggle } from './settings-controls';
 import { useFeedbackTarget } from './settings-feedback';
 import { PerformanceMonitor } from './performance-monitor';
+import { SettingsCollapse } from './settings-collapse';
 import type { PerformanceSample } from './performance-history';
 
 type Preferences = { integrationEnabled: boolean; monitoringEnabled: boolean; revision: number };
@@ -124,13 +125,15 @@ export function PerformanceSettings({
           onChange={(monitoringEnabled) => void save({ monitoringEnabled })}
         />
       </div>
-      <PerformanceMonitor
-        sample={active && monitoring && !message ? (state?.sample ?? null) : null}
-        enabled={monitoring}
-        active={active}
-        connected={state?.connectionStatus === 'connected'}
-        failed={!!message}
-      />
+      <SettingsCollapse open={monitoring} ready={!!state} unmountOnExit>
+        <PerformanceMonitor
+          sample={active && monitoring && !message ? (state?.sample ?? null) : null}
+          enabled
+          active={active}
+          connected={state?.connectionStatus === 'connected'}
+          failed={!!message}
+        />
+      </SettingsCollapse>
     </section>
   );
 }

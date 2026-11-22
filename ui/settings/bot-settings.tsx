@@ -7,6 +7,7 @@ import { tr } from '../shared/i18n.js';
 import { useEffect, useId, useRef, useState } from 'react';
 import { request } from './api';
 import { Toggle, Feedback } from './settings-controls';
+import { useRevealTransition } from './settings-collapse';
 import { Input } from './components/ui/input';
 import { SettingsDetail } from './settings-detail';
 import { Button, IconButton } from './components/ui/button';
@@ -49,6 +50,12 @@ export function BotSettings({
   const [searchOpen, setSearchOpen] = useState(false);
   const searchId = useId();
   const searchInput = useRef<HTMLInputElement>(null);
+  const searchReveal = useRevealTransition<HTMLInputElement>(searchOpen ? 'open' : 'closed', {
+    enabled: active && searchOpen,
+    duration: 180,
+    lift: 0,
+    fromOpacity: 0,
+  });
   const searchButton = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (searchOpen && active) searchInput.current?.focus();
@@ -145,7 +152,10 @@ export function BotSettings({
               <div className="bot-settings-search" data-open={searchOpen}>
                 {searchOpen && (
                   <Input
-                    ref={searchInput}
+                    ref={(node) => {
+                      searchInput.current = node;
+                      searchReveal.current = node;
+                    }}
                     id={searchId}
                     type="search"
                     aria-label={tr('搜索 Bot')}

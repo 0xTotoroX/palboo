@@ -6,7 +6,12 @@ html:root {
   --settings-menu-enter: 0ms;
   --settings-menu-exit: 0ms;
   --settings-content-enter: 200ms;
+  --settings-disclosure-ease: cubic-bezier(0.22, 1, 0.36, 1);
   --settings-exit-ease: var(--settings-ease);
+}
+.settings-wordmark [data-brand-eyes] {
+  transform-box: fill-box;
+  transform-origin: center;
 }
 html:root,
 body,
@@ -255,6 +260,9 @@ html[data-settings-input='keyboard'] .settings-detail-trigger > .buddy-icon,
 html[data-settings-input='keyboard'] [data-slot='switch-thumb'],
 html[data-settings-input='keyboard'] .settings-category-links,
 html[data-settings-input='keyboard'] .settings-nav-trigger .buddy-icon,
+html[data-settings-input='keyboard'] .settings-nav-indicator,
+html[data-settings-input='keyboard'] .compatibility-agent-more > .buddy-icon,
+html[data-settings-input='keyboard'] .term-result-name > .buddy-icon,
 html[data-settings-input='keyboard'] .settings-app details::details-content,
 html[data-settings-input='keyboard'] .settings-app select::picker(select) {
   transition: none;

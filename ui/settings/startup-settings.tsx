@@ -8,6 +8,7 @@ import { tr } from '../shared/i18n.js';
 import type { AppearanceSettings } from '../shared/contracts';
 import { request } from './api';
 import { Field, Feedback } from './settings-controls';
+import { SettingsCollapse } from './settings-collapse';
 import { NativeSelect } from './components/ui/native-select';
 
 export function StartupSettings({
@@ -68,7 +69,7 @@ export function StartupSettings({
           <option value="open">{tr('默认打开')}</option>
         </NativeSelect>
       </Field>
-      {startup.mode === 'open' && (
+      <SettingsCollapse open={startup.mode === 'open'} ready={!!prefs} unmountOnExit>
         <Field id="startup-location" label={tr('默认打开位置')}>
           <NativeSelect
             id="startup-location"
@@ -85,7 +86,7 @@ export function StartupSettings({
             </option>
           </NativeSelect>
         </Field>
-      )}
+      </SettingsCollapse>
       <Feedback text={error} failed />
       <Feedback text={saved ? tr('已保存；下次启动 Palboo 时生效。') : ''} />
     </div>

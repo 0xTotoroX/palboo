@@ -48,6 +48,22 @@
 .settings-app .preview-chat-frame {
   --preview-conversation-height: 356px;
 }
+.settings-app [data-preview-kind='board'] .preview-chat-frame[data-board-display='list'] {
+  --preview-conversation-height: 312px;
+}
+.settings-app
+  [data-preview-kind='board']
+  .preview-chat-frame[data-board-display='board'][data-board-view='expanded'] {
+  --preview-conversation-height: 396px;
+}
+@container (min-width: 621px) {
+  .settings-app [data-preview-kind='board'] .preview-chat-frame .preview-scenes {
+    height: var(--preview-conversation-height, 356px);
+  }
+  .settings-app [data-preview-kind='board'] .preview-chat-frame .preview-conversation {
+    height: 100%;
+  }
+}
 /* Compatibility management uses an isolated Agent picker before the integration details. */
 .compatibility-heading {
   display: flex;

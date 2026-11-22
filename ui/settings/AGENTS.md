@@ -17,7 +17,7 @@
 
 - [main.tsx](main.tsx)：跟随宿主的单个页面标题、共享功能开关及分组表单与预览；品牌和四个页头图标保持。切页保留单份节点、草稿与阅读位置，窄屏使用同一组导航，版本位于页面末尾。
 - [settings-overview.tsx](settings-overview.tsx)：按承载与功能组织只读总览；显示已保存的功能归属、承载主题与布局、生成配置、看板分组计数及当前/常用模型和预设，字号只显示一位小数，属性链接定位对应设置控件并展开折叠项；分类可见时读取现有 API，不直接修改配置或打开功能。
-- [settings-outline.tsx](settings-outline.tsx)：单份分组目录在侧栏/窄屏展开菜单间复用、焦点与键盘操作、浏览器历史、旧锚点按字段分流、阅读位置保存及 Dev 来源挂载；支持分类/属性锚点，等待异步表单就绪后展开并聚焦目标；重新挂载前保留外部注入的 Dev 节点，避免热更新丢失来源入口。
+- [settings-outline.tsx](settings-outline.tsx)：单份分组目录在侧栏/窄屏展开菜单间复用、桌面指针切页的瞬时滑块指示器（静止归还 `a[aria-current="page"]` 背景，键盘/窄屏/减少动效即时）、`onMenuSelect` 菜单项点击回调（含重复点击当前项与移动端目录，供字标双眼轻眨）、焦点与键盘操作、浏览器历史、旧锚点按字段分流、阅读位置保存及 Dev 来源挂载；支持分类/属性锚点，等待异步表单就绪后展开并聚焦目标；重新挂载前保留外部注入的 Dev 节点，避免热更新丢失来源入口。
 - [settings-disclosure.tsx](settings-disclosure.tsx)：保留的原生details展示兼容组件，当前常规配置已改为直接显示；支持强制展开与用户折叠状态接续；在布局阶段暂存/还原DOM开合，不用异步toggle事件覆盖用户状态，不卸载子内容。
 - [settings-controls.tsx](settings-controls.tsx)：共用设置行、功能开关、反馈及自动/手动保存表单；只有输入控件失焦触发自动保存，操作按钮与导航失焦不重交旧快照；保存反馈跟随触发编辑的设置项，自动保存成功短暂显示，失败/冲突就近保留并可重试；二级页继续使用已有底部操作区，手动保存沿用原表单及队列，在途新编辑不误报成功。
 - `settings-feedback.tsx`：同一个右下角固定反馈区，随打开的模态层移动并避开底部操作；隐藏来源页不显示，成功提示按首次出现计时、普通重绘不续期，错误与可操作状态持续可达；不移动字段、改变表单归属或持有保存服务。
@@ -62,8 +62,9 @@
 - `liquid-variant-toggle.tsx`：材质选择框内的共享Clear星星按钮，中性色空心/主题色实心对应Regular/Clear，保留键盘、禁用与按下状态，复用各调用方保存及修订流程。
 - [settings-preview.css](settings-preview.css)：聊天功能和模型使用页面可用宽度的单层内容框；聊天预览正文与右侧功能分别滚动，输入框固定在左侧底部，窄屏改为上下；其他摘要最大480px、高度自适应，长内容内部滚动。真实模型沿用组件样式与底栏，独立示例可使用名称下方强度选项。整体场景为16:9，材质效果为近似预览。
 - [settings-list-motion.ts](settings-list-motion.ts)：配置列表增删/排序补位和新项4px淡入，共用宿主公共进入时长（缺失时200ms）及减少动效判断；以稳定ID测量相对位置，提示词没有持久ID时使用仅在界面保留的身份，兼容重复内容、后台整表回读与删除确认；不改变布局、保存时机或数据结构。
-- [settings-motion.ts](settings-motion.ts)：分类入场、功能预览与服务字段的可中断动画，提供公共时长/缓动及减少动效判断；设置主题读取宿主公共进入时长，缺失时采用200ms回退。键盘即时响应，宿主/系统减少动态效果取消进行中的动画；ResizeObserver 按顶栏实高定位目录，页面滚动为顶栏及窄屏分类按钮预留实际高度，不重新挂载控件、不存储配置；页面入场保留4px位移。
-- [settings-motion.css](settings-motion.css)：普通设置菜单即时开合；模型候选入场按已确认300ms/bounce0.1的弹簧采样，scale .8、opacity0及blur8px恢复到正常状态；控件不添加无依据的按压缩放。保留可中断关闭、焦点恢复及减少动态效果；普通确认/搜索弹窗不附加整窗缩放或淡入淡出，仅内容高度过渡；设置二级页直接切换，保留原确认和搜索交互。
+- [settings-motion.ts](settings-motion.ts)：共享 240ms 展开／190ms 收起／220ms 切换节奏、减少动效与共享的键盘/指针输入方式（`../shared/use-input-modality.ts`）、统一 WAAPI 中断清理（`bindMotionInterrupt`）、顶栏 ResizeObserver、分类切换 4px 入场（跳过首屏）、功能预览、服务字段与左上角 PALBOO 字标双眼轻眨（`useBrandEyeBlink`，仅作用于已有 `[data-brand-eyes]`，单次可取消不排队，键盘／减少动效／初载／URL 历史与分类标题不触发）。
+- `settings-collapse.tsx`：共享可中断高度＋淡入＋3px 微位移展开组件（`SettingsCollapse`）、同步高度容器钩子（`useHeightTransition`，借由可见区 ResizeObserver 持续跟踪稳定高度，避免异步撑高或缩窗后跳帧）及同位切换微淡入（`useRevealTransition`）；支持 `keepMounted`（收起期间仍接收新 props 并保留表单草稿，落位后 `hidden`）与 `unmountOnExit`（退出期 `inert`/`aria-hidden`，结束卸载），`ready` 门控避免异步初载误播，卸载及键盘/减少动效即时清理。
+- [settings-motion.css](settings-motion.css)：普通设置菜单即时开合；模型候选入场按已确认300ms/bounce0.1的弹簧采样，scale .8、opacity0及blur8px恢复到正常状态；定义 `--settings-disclosure-ease` 与字标双眼 `transform-box: fill-box` 中心轴；控件不添加无依据的按压缩放。保留可中断关闭、焦点恢复及减少动态效果；普通确认/搜索弹窗不附加整窗缩放或淡入淡出，仅内容高度过渡；设置二级页直接切换，保留原确认和搜索交互。
 - [settings-theme.tsx](settings-theme.tsx)：页头仅提供自动／浅色／深色，统一跟随 ChatGPT.app；只保存 settingsTheme 及修订。忽略旧 settingsStyle/settingsAccent，保留错误反馈、草稿、键盘及关闭焦点；独立窗口字体偏好仍有效。
 - [use-host-appearance.ts](use-host-appearance.ts)：认证 SSE 外观快照映射宿主语义颜色、导航/页面/分组标题、控件、分组边框、字体与动效。浅深分别缓存，缺失模式回退中性黑白；宿主减少动态效果与系统共同生效，不新增轮询或写宿主偏好。
 - [use-host-fonts.ts](use-host-fonts.ts)：将宿主所选具体字形别名映射到 local() FontFace；使用 OpenAI Sans/Serif 时经认证 /host-fonts 按需读取本机 App 包内字节。异步加载失败保留回退链、晚到加载不注册，换字体/来源或销毁时中止请求并回收；不安装、不联网下载、不随包分发字体。

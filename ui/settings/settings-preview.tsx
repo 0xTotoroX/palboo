@@ -20,6 +20,7 @@ import type { TaskState } from '../features/board/api';
 import type { WebLibrary } from '../shared/web-library';
 import { PreviewFrame as Frame } from './preview-frame';
 import { usePreviewTransition } from './settings-motion';
+import { useHeightTransition } from './settings-collapse';
 
 type PreviewProps = {
   page: SettingsPage;
@@ -58,6 +59,19 @@ function FeaturePreview({ form, tasks, model, bots, view, dirty, page }: Preview
   if (!visited.includes(activeScene)) setVisited([...visited, activeScene]);
   const mountedScenes = page === 'features' ? scenes : visited;
   const transition = usePreviewTransition(activeScene);
+  const boardDisplay = tasks?.store.displayMode ?? 'board';
+  const boardView = tasks?.store.viewMode ?? 'merged';
+  const boardHeightRef = useHeightTransition<HTMLDivElement>(`${boardDisplay}:${boardView}`, {
+    enabled: page === 'board',
+    ready: !!tasks,
+  });
+  const bindScenes = useCallback(
+    (node: HTMLDivElement | null) => {
+      transition.current = node;
+      boardHeightRef.current = node;
+    },
+    [transition, boardHeightRef],
+  );
   const enabled = {
     outline: form?.answerOutlineEnabled,
     next: form?.enabled,
@@ -70,6 +84,8 @@ function FeaturePreview({ form, tasks, model, bots, view, dirty, page }: Preview
     <Frame
       title={tr('功能如何呈现')}
       className="preview-chat-frame"
+      data-board-display={page === 'board' ? boardDisplay : undefined}
+      data-board-view={page === 'board' ? boardView : undefined}
       status={dirty ? tr('包含未保存的编辑') : undefined}
     >
       <SegmentedGroup
@@ -91,7 +107,7 @@ function FeaturePreview({ form, tasks, model, bots, view, dirty, page }: Preview
           </button>
         ))}
       </SegmentedGroup>
-      <div className="preview-scenes" data-single-scene={page !== 'features'} ref={transition}>
+      <div className="preview-scenes" data-single-scene={page !== 'features'} ref={bindScenes}>
         {mountedScenes.map((scene) => {
           const active = enabled[scene];
           return (

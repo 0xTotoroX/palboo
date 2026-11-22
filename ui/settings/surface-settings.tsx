@@ -6,6 +6,7 @@ import { tr } from '../shared/i18n.js';
 import { useEffect, useRef, useState } from 'react';
 import { useFeedbackTarget } from './settings-feedback';
 import { Feedback, Toggle } from './settings-controls';
+import { useRevealTransition } from './settings-collapse';
 import { FeatureSettings } from './feature-settings';
 import { request } from './api';
 import { NativeSelect } from './components/ui/native-select';
@@ -128,6 +129,9 @@ export function SurfaceSettings({
   const disabled = !live || !state || busy || !!state.error,
     edge = state?.preferences.edge;
   const feedback = useFeedbackTarget();
+  const appearanceReveal = useRevealTransition(simple ? primary : appearancePlacement || 'all', {
+    enabled: page === 'appearance' || simple,
+  });
   return (
     <section
       tabIndex={-1}
@@ -153,7 +157,7 @@ export function SurfaceSettings({
         hidden={!simple && page === 'surfaces'}
       >
         <h2 hidden={simple}>{tr('各形式外观')}</h2>
-        <div className={simple ? 'space-y-3' : 'settings-control-group'}>
+        <div ref={appearanceReveal} className={simple ? 'space-y-3' : 'settings-control-group'}>
           {Object.entries(labels).map(([placement, label]) => {
             const theme = state?.preferences.themes[placement] || {
               theme: 'matte',
