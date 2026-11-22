@@ -27,4 +27,4 @@ layout.scope=all/sidebar/overlay/desktop 是共享预设的推荐标签；save �
 
 web-library 支持多个文件夹授权、网站增删/排序及开关，与设置共用 expectedRevision；folders 为完整列表，旧 vault/attachments 仍控制首个目录。catalog vaults 仅读 Obsidian 登记路径；open-website folder:<id> 独立打开文件夹，obsidian 保留首个目录别名。改变目录授权/文件夹列表及删除网站需 --confirm，schema 离线可查，移除入口不删除文件。
 
-`config archive-local-chats` 是当前 Codex 连接的管理命令，离线 `config schema performance` 可发现。`--list` 只列未归档数量和 CLI 标识，不替换既有预览。缺省预览全部，`--cli <id>` 预览指定 CLI，`--confirm <preview-id>` 只执行该预览。同设置共用短时快照和原生归档，部分成功返回实际计数，聊天从宿主归档页恢复。
+`config archive-local-chats` 通过 `--list` 发现本地 CLI 和项目 ID，不替换现有预览。可叠加 `--cli`、`--project`、`--from` / `--through` / `--date-field` 或 `--inactive-days`，以及 `--keep-recent` 与 `--protect`。`--confirm <preview-id>` 执行已绑定的范围。保护模式逐条复核、失败停止并报告实际归档和必留状态。

@@ -65,6 +65,8 @@ pub enum Command {
         cli: Option<String>,
         #[arg(long, value_name = "PREVIEW_ID")]
         confirm: Option<uuid::Uuid>,
+        #[command(flatten)]
+        filters: crate::chat_archive::Filters,
     },
     /// 查询可用模型、显示器、笔记库或 Bot 资料；不修改外部配置
     Catalog {
@@ -514,19 +516,28 @@ pub async fn run(paths: &Paths, command: Command) -> Result<()> {
                         .request("web-library/open", Some(json!({"id":id})))
                         .await?
                 }
-                Command::ArchiveLocalChats { list, cli, confirm } => {
+                Command::ArchiveLocalChats {
+                    list,
+                    cli,
+                    confirm,
+                    filters,
+                } => {
                     let request = match (list, confirm) {
                         (_, Some(id)) => json!({"op":"apply","id":id.to_string()}),
                         (true, None) => json!({"op":"list"}),
-                        (false, None) => json!({"op":"preview","cli":cli}),
+                        (false, None) => json!({"op":"preview","cli":cli,"filters":filters}),
                     };
-                    runtime
+                    let result = runtime
                         .request_with_timeout(
                             crate::chat_archive::PATH,
                             Some(request),
                             Some(crate::chat_archive::TIMEOUT + std::time::Duration::from_secs(5)),
                         )
-                        .await?
+                        .await?;
+                    if !list && confirm.is_none() {
+                        filters.verify_preview(&result)?;
+                    }
+                    result
                 }
                 Command::Catalog { catalog } => {
                     let (path, body) = catalog.read();

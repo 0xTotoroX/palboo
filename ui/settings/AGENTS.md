@@ -29,7 +29,7 @@
 - [direction-library.tsx](direction-library.tsx)：单个二级页中的“内置方向 / 我的方向”目录，选择条目后进入名称/说明编辑，返回恢复目录焦点与滚动；字段持续挂载，关闭与分级导航不触发保存。后台只读目录确定来源，修改过的内置文案可恢复默认并保留勾选及顺序。无效字段及深链接通过 detail-reveal 事件同步打开对应条目；私有条目名称不进入全局设置搜索。
 - `general-settings.tsx`：语言与启动、运行模式、应用更新共用平铺设置行。开发模式的源码和 Node 字段条件显示；保持原保存与更新接口。
 - [connection-settings.tsx](connection-settings.tsx)：统一 Codex 连接状态、临时断开和跨重启暂停；手动端口、窗口、宿主重开与性能监测直接显示，保留确认和 Dev 锁定边界。
-- [chat-archive-settings.tsx](chat-archive-settings.tsx)：连接页按需读取本地聊天的 CLI 分组数量，须显式选范围。使用共享确认框展示所选 CLI、数量、任务影响和恢复入口，固定反馈区显示成功、失败和未处理数量。
+- [chat-archive-settings.tsx](chat-archive-settings.tsx)：连接页按需读取本地聊天的 CLI 与项目分组，组合日期、未活动天数及保留条件。共享确认框绑定所选范围，固定反馈区显示部分失败和复核状态。
 - [use-settings-form.ts](use-settings-form.ts)：模型及两套独立密钥的草稿、修订校验、保存队列及在途编辑合并；记录编辑来源并在请求期间固定反馈位置；大纲、下一步与常用语开关单独提交，不携带其他字段或密钥草稿；删除 API 密钥复用串行队列，仅发送 clearApiKey 与修订号，不携带其他草稿或将删除意图留在自动保存中；导出 SettingsEditor 供展示模块组合。
 - [panel-settings.tsx](panel-settings.tsx)：有效旧字段的分区适配；下一步显示及推荐指令点击行为，常用语未独立选择模式时兼容继承、按窗口的字体族、跟随来源、比例及固定字号、侧栏宽度以整数显示和提交，仅读取/聚焦不改写已有小数几何；桌面置顶逐项保存；旧 fontOffset 作为大纲与下一步的兼容回退。不再编辑旧 dockLayout/popoutLayout、位置或主题。
 - [feature-settings.tsx](feature-settings.tsx)：唯一主界面形式、每个功能加入主界面或贴边、四功能布局；与工作台共用 resolveFeatureLayout 读取旧布局，嵌套布局显示为自定义分栏、预设重排保留全部叶子功能，通过 main-layout 校验原快照后保存，未读取配置前禁用操作。

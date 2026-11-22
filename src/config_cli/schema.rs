@@ -387,11 +387,11 @@ pub(super) fn schema(scope: Scope) -> Value {
         }
         Scope::Performance => {
             json!({
-                "commands":["config archive-local-chats", "config archive-local-chats --list", "config archive-local-chats --cli antigravity", "config archive-local-chats --confirm <preview-id>"],
+                "commands":["config archive-local-chats", "config archive-local-chats --list", "config archive-local-chats --cli antigravity", "config archive-local-chats --project <id> --date-field created --from 2026-01-01 --through 2026-03-31", "config archive-local-chats --cli codex --inactive-days 7 --keep-recent 3 --protect", "config archive-local-chats --confirm <preview-id>"],
                 "notes":{
                     "integrationEnabled":"暂停/恢复连接，保留配置与本地任务，不重启 Codex",
                     "monitoringEnabled":"启用可见性能页的低频采样",
-                    "archiveLocalChats":"--list 查看未归档的本地聊天及各 CLI ID；--cli 预览指定 CLI，省略则预览全部。确认绑定预览范围，可能停止进行中的聊天及移除关联计划任务。聊天可从宿主归档页恢复。"
+                    "archiveLocalChats":"--list 查看未归档数量、CLI 和项目 ID。可叠加 CLI、项目、日期区间或未活动天数。--keep-recent 在截止时间筛选前保留所选 CLI 内每个项目的最近聊天。--protect 保护置顶、运行中和关联任务，遇失败停止并复核。确认绑定预览范围，聊天从宿主归档页恢复。"
                 }
             })
         }

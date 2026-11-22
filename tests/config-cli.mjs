@@ -96,6 +96,24 @@ try {
   await assert.rejects(() => cli('archive-local-chats', '--list'), /尚未连接 Codex/);
   await assert.rejects(() => cli('archive-local-chats', '--cli', 'antigravity'), /尚未连接 Codex/);
   await assert.rejects(
+    () =>
+      cli(
+        'archive-local-chats',
+        '--cli',
+        'codex',
+        '--inactive-days',
+        '7',
+        '--keep-recent',
+        '3',
+        '--protect',
+      ),
+    /尚未连接 Codex/,
+  );
+  await assert.rejects(
+    () => cli('archive-local-chats', '--inactive-days', '7', '--from', '2026-11-01'),
+    /cannot be used/,
+  );
+  await assert.rejects(
     () => cli('archive-local-chats', '--list', '--cli', 'antigravity'),
     /cannot be used/,
   );
