@@ -439,14 +439,17 @@ createRoot(document.getElementById('root')!).render(<App />);
     // Archive time filter disclosure + archive session detail mouse vs Enter.
     await page.evaluate(() => (window.animLog = []));
     await page.getByLabel('时间条件', { exact: true }).selectOption('range');
-    await finishAnimations(page.locator('#chat-archive'));
+    const dateField = page.getByLabel('起始日期', { exact: true });
+    const datePanel = page.locator('#chat-archive .settings-collapse').filter({ has: dateField });
+    await finishAnimations(datePanel);
+    assert.equal(await dateField.isVisible(), true);
     assert.ok(
       (await page.evaluate(() => window.animLog)).some(
         (e) => String(e.cls).includes('settings-collapse') && e.duration === 240,
       ),
     );
     await page.getByLabel('时间条件', { exact: true }).selectOption('all');
-    await finishAnimations(page.locator('#chat-archive'));
+    await dateField.waitFor({ state: 'detached' });
     await page.getByLabel('归档范围', { exact: true }).selectOption('all');
     await page.getByRole('button', { name: '预览归档', exact: true }).click();
     const firstRow = page.locator('.archive-session-row').first();

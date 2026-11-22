@@ -165,7 +165,8 @@ test(
       await page
         .locator('.feature-view')
         .evaluate((node) => (node.dataset.fontIdentity = 'retained'));
-      const header = page.locator(placement === 'desktop' ? '#root' : '#edge-panel');
+      const headerSelector = placement === 'desktop' ? '#root' : '#edge-panel';
+      const header = page.locator(headerSelector);
       assert.equal(await header.evaluate((node) => getComputedStyle(node).fontSize), '18px');
       assert.equal(
         await page.locator('.feature-view').evaluate((node) => getComputedStyle(node).fontSize),
@@ -177,7 +178,7 @@ test(
           (call) => call.auth === 'Bearer native-font-fixture' && !call.url.includes('token'),
         ),
       );
-      windows[placement] = { page, preferences, calls, errors, writes, header };
+      windows[placement] = { page, preferences, calls, errors, writes, header, headerSelector };
     }
     const desktop = windows.desktop,
       edge = windows.edge;
@@ -192,19 +193,21 @@ test(
       [edge, '22px', 'OpenAI Serif'],
     ]) {
       await window.page.waitForFunction(
-        ({ size, family }) => {
+        ({ size, family, headerSelector }) => {
           const node = [...document.querySelectorAll('*')]
             .map((n) => n.shadowRoot?.querySelector('.feature-view'))
             .find(Boolean);
+          const header = document.querySelector(headerSelector);
           return (
             node &&
+            header &&
+            getComputedStyle(header).fontSize === size &&
             getComputedStyle(node).fontSize === size &&
             getComputedStyle(node).fontFamily.includes(family)
           );
         },
-        { size, family },
+        { size, family, headerSelector: window.headerSelector },
       );
-      assert.equal(await window.header.evaluate((node) => getComputedStyle(node).fontSize), size);
       assert.equal(
         await window.page.locator('.feature-view').getAttribute('data-font-identity'),
         'retained',

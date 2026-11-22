@@ -26,7 +26,12 @@ export async function finishAnimations(locator) {
     let timer;
     try {
       await Promise.race([
-        Promise.allSettled(node.getAnimations({ subtree: true }).map((a) => a.finished)),
+        Promise.allSettled(
+          node
+            .getAnimations({ subtree: true })
+            .filter((animation) => Number.isFinite(animation.effect?.getComputedTiming().endTime))
+            .map((animation) => animation.finished),
+        ),
         new Promise((_, reject) => {
           timer = setTimeout(() => reject(new Error('Animations did not finish')), 4000);
         }),
