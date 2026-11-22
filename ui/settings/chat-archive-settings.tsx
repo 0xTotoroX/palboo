@@ -6,6 +6,7 @@
  */
 import { useRef, useState } from 'react';
 import { tr } from '../shared/i18n.js';
+import { Icon } from '../shared/icons/react';
 import { request } from './api';
 import { Button } from './components/ui/button';
 import { Card } from './components/ui/card';
@@ -122,17 +123,53 @@ export function ChatArchiveSettings({
         notify(tr('没有符合条件的本地聊天。'));
         return;
       }
-      const description = [
-        project ? tr('项目为 {{project}}。', { project: project.label ?? tr('项目外') }) : '',
-        filters.inactiveDays ? tr('超过 {{days}} 天未活动。', { days: filters.inactiveDays }) : '',
-        filters.dateField === 'created' ? tr('按聊天创建日期筛选。') : '',
-        filters.from ? tr('起始日期 {{date}}。', { date: filters.from }) : '',
-        filters.through ? tr('结束日期 {{date}}。', { date: filters.through }) : '',
-        filters.keepRecent
-          ? tr('每个项目保留最近 {{count}} 条。', { count: filters.keepRecent })
-          : '',
-        filters.protect ? tr('保留置顶、进行中及有计划任务的聊天。') : '',
-        tr('可在 ChatGPT 的「设置 → 已归档的聊天」中恢复。'),
+      const cliCounts = new Map<string, number>();
+      for (const session of sessions)
+        cliCounts.set(session.cli, (cliCounts.get(session.cli) ?? 0) + 1);
+      const cliSummary =
+        !plan.cli && cliCounts.size
+          ? [...cliCounts.entries()].map(([id, count]) =>
+              cliCounts.size > 1 ? `${archiveCliLabel(id)} ${count}` : archiveCliLabel(id),
+            )
+          : [];
+      const uniqueProjects = new Set(sessions.map((session) => session.projectLabel ?? ''));
+      const singleProject =
+        !project && uniqueProjects.size === 1 ? sessions[0]?.projectLabel : null;
+      const dateSummary = filters.inactiveDays
+        ? tr('超过 {{days}} 天未活动', { days: filters.inactiveDays })
+        : filters.from && filters.through
+          ? tr(
+              filters.dateField === 'created'
+                ? '创建日期 {{from}} 至 {{through}}'
+                : '最近活动 {{from}} 至 {{through}}',
+              { from: filters.from, through: filters.through },
+            )
+          : filters.from
+            ? tr(filters.dateField === 'created' ? '创建日期自 {{date}}' : '最近活动自 {{date}}', {
+                date: filters.from,
+              })
+            : filters.through
+              ? tr(
+                  filters.dateField === 'created' ? '创建日期至 {{date}}' : '最近活动至 {{date}}',
+                  { date: filters.through },
+                )
+              : tr('不限时间');
+      const scopeSummary = [
+        ...cliSummary,
+        project
+          ? tr('项目：{{project}}', { project: project.label ?? tr('项目外') })
+          : singleProject
+            ? tr('项目：{{project}}', { project: singleProject })
+            : plan.projects
+              ? tr('全部项目')
+              : '',
+        dateSummary,
+        filters.keepRecent ? tr('每项目保留最近 {{count}} 条', { count: filters.keepRecent }) : '',
+        filters.protect ? tr('保护置顶、进行中与计划任务') : '',
+      ]
+        .filter(Boolean)
+        .join(' · ');
+      const impact = [
         plan.running ? tr('将停止 {{running}} 个进行中的聊天。', plan) : '',
         plan.scheduled ? tr('将移除 {{scheduled}} 个聊天关联的计划任务。', plan) : '',
       ]
@@ -145,13 +182,20 @@ export function ChatArchiveSettings({
               count: plan.count,
             })
           : tr('归档 {{count}} 个本地聊天？', plan),
-        description,
+        description: scopeSummary,
+        notice: impact ? (
+          <div className="archive-confirm-impact" role="note">
+            <Icon name="warning" className="archive-confirm-impact-icon" />
+            <span>{impact}</span>
+          </div>
+        ) : undefined,
         details: (
           <ArchiveSessions
             sessions={sessions}
             dateField={filters.dateField === 'created' ? 'created' : 'updated'}
           />
         ),
+        footerNote: tr('可在 ChatGPT 的「设置 → 已归档的聊天」中恢复。'),
         confirmLabel: tr(plan.cli || appliedRules.length ? '确认归档' : '全部归档'),
         action: async () => {
           const result = await request<ArchiveResult>('chat-archive', { op: 'apply', id: plan.id });

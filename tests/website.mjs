@@ -873,7 +873,13 @@ test('one settings-based preview and the settings-ordered tabs replace the combi
     assert.equal(await sessions.getByRole('listitem').count(), 3);
     await archive.getByRole('combobox', { name: '归档范围' }).selectOption('antigravity');
     assert.equal(await sessions.getByRole('listitem').count(), 2);
-    assert.match(await sessions.innerText(), /整理移动端交互细节.*example-session-1/s);
+    assert.match(await sessions.innerText(), /整理移动端交互细节/);
+    assert.doesNotMatch(await sessions.innerText(), /example-session-1/);
+    await sessions.getByRole('listitem').first().getByRole('button').click();
+    assert.match(
+      await sessions.getByRole('listitem').first().innerText(),
+      /整理移动端交互细节.*Antigravity CLI.*作品集.*example-session-1/s,
+    );
     assert.ok(
       await page.evaluate(() => document.documentElement.scrollHeight < 6000),
       'compact page budget',

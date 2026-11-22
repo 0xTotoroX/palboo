@@ -10,8 +10,10 @@ import { useDialogHeight } from './use-dialog-height';
 
 type Confirmation = {
   title: string;
-  description: string;
+  description?: string;
+  notice?: ReactNode;
   details?: ReactNode;
+  footerNote?: ReactNode;
   confirmLabel?: string;
   action: () => unknown | Promise<unknown>;
 };
@@ -27,13 +29,18 @@ export function useConfirmation(revision?: number | string, blocked = false) {
   );
   const dialog = useRef<HTMLDialogElement>(null);
   const content = useRef<HTMLDivElement>(null);
+  const cancel = useRef<HTMLButtonElement>(null);
   useDialogHeight(dialog, content);
   const id = useId();
   const latest = useRef({ revision, blocked });
   latest.current = { revision, blocked };
   useEffect(() => {
     const node = dialog.current;
-    if (pending && !node?.open) node?.showModal();
+    if (pending && !node?.open) {
+      node?.showModal();
+      node?.scrollTo(0, 0);
+      cancel.current?.focus({ preventScroll: true });
+    }
     if (!pending && node?.open) node.close();
   }, [pending]);
   function confirm(options: Confirmation) {
@@ -63,50 +70,62 @@ export function useConfirmation(revision?: number | string, blocked = false) {
       setBusy(false);
     }
   }
+  const hasDetails = Boolean(pending?.details);
+  const description = lastContent.current?.description;
   const confirmation = (
     <dialog
       ref={dialog}
       className="settings-key-dialog"
+      data-has-details={hasDetails ? 'true' : undefined}
       inert={!pending}
       data-settings-navigation
       aria-labelledby={`${id}-title`}
-      aria-describedby={`${id}-description`}
+      aria-describedby={description ? `${id}-description` : undefined}
       onCancel={(event) => {
         if (flight.current) event.preventDefault();
         else setPending(null);
       }}
     >
       <div ref={content} className="settings-dialog-content">
-        <h3 id={`${id}-title`}>{lastContent.current?.title}</h3>
-        <p id={`${id}-description`} className="mt-3 text-sm text-muted-foreground">
-          {lastContent.current?.description}
-        </p>
-        {pending?.details}
+        <div className="settings-confirm-header">
+          <h3 id={`${id}-title`}>{lastContent.current?.title}</h3>
+          {description && (
+            <p id={`${id}-description`} className="settings-confirm-description">
+              {description}
+            </p>
+          )}
+          {pending?.notice}
+        </div>
+        {pending?.details && <div className="settings-confirm-body">{pending.details}</div>}
         {error && (
-          <p role="alert" className="settings-error mt-3 text-sm">
+          <p role="alert" className="settings-error settings-confirm-error">
             {error}
           </p>
         )}
-        <div className="mt-5 flex justify-end gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            autoFocus
-            data-settings-navigation
-            disabled={busy}
-            onClick={() => setPending(null)}
-          >
-            {tr('取消')}
-          </Button>
-          <Button
-            type="button"
-            data-settings-navigation
-            disabled={busy || blocked}
-            aria-busy={busy}
-            onClick={() => void run()}
-          >
-            {busy ? tr('处理中…') : lastContent.current?.confirmLabel || tr('确认')}
-          </Button>
+        <div className="settings-confirm-footer">
+          {pending?.footerNote && <p className="settings-confirm-note">{pending.footerNote}</p>}
+          <div className="settings-confirm-actions">
+            <Button
+              ref={cancel}
+              type="button"
+              variant="outline"
+              autoFocus
+              data-settings-navigation
+              disabled={busy}
+              onClick={() => setPending(null)}
+            >
+              {tr('取消')}
+            </Button>
+            <Button
+              type="button"
+              data-settings-navigation
+              disabled={busy || blocked}
+              aria-busy={busy}
+              onClick={() => void run()}
+            >
+              {busy ? tr('处理中…') : lastContent.current?.confirmLabel || tr('确认')}
+            </Button>
+          </div>
         </div>
       </div>
     </dialog>

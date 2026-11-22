@@ -20,7 +20,7 @@ export function useDialogHeight(
       animation = undefined;
     };
     const measure = () => {
-      if (!node.open) {
+      if (!node.open || node.dataset.hasDetails === 'true') {
         cancel();
         height = 0;
         node.style.removeProperty('height');
@@ -52,7 +52,7 @@ export function useDialogHeight(
     const resize = new ResizeObserver(measure);
     resize.observe(body);
     const opening = new MutationObserver(measure);
-    opening.observe(node, { attributes: true, attributeFilter: ['open'] });
+    opening.observe(node, { attributes: true, attributeFilter: ['open', 'data-has-details'] });
     window.addEventListener('resize', measure);
     window.addEventListener('keydown', cancel, true);
     window.addEventListener('settings-motion-change', cancel);

@@ -3,6 +3,7 @@
  * [POS]: No connection to the user's local ChatGPT history.
  * [PROTOCOL]: Keep tests/AGENTS.md in sync. */
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { build } from 'esbuild';
 import { chromium } from 'playwright';
@@ -378,13 +379,26 @@ createRoot(document.querySelector('main')).render(<ChatArchiveSettings disabled=
   await dialog
     .getByRole('heading', { name: 'Archive 4 local chats from Antigravity CLI?' })
     .waitFor();
+  assert.match(await dialog.innerText(), /stop 1 running chats/);
   assert.match(await dialog.innerText(), /scheduled tasks linked to 2 chats/);
   assert.match(await dialog.innerText(), /Settings → Archived chats/);
+  assert.equal(
+    await dialog
+      .getByRole('button', { name: 'Cancel', exact: true })
+      .evaluate((n) => n === document.activeElement),
+    true,
+    'initial focus lands safely on Cancel',
+  );
   const sessions = dialog.getByRole('list', { name: 'Sessions to archive' });
   assert.equal(await sessions.getByRole('listitem').count(), 4);
+  const firstItem = sessions.getByRole('listitem').first();
+  const collapsedText = await firstItem.innerText();
+  assert.match(collapsedText, /Example chat 1.*In progress.*Scheduled/s);
+  assert.doesNotMatch(collapsedText, /fixture-session-1/);
+  await firstItem.getByRole('button').click();
   assert.match(
-    await sessions.getByRole('listitem').first().innerText(),
-    /Example chat 1.*Antigravity CLI.*Linked scheduled task.*fixture-session-1/s,
+    await firstItem.innerText(),
+    /Example chat 1.*Antigravity CLI.*Palboo.*Linked scheduled task.*fixture-session-1/s,
   );
   await page.keyboard.press('Escape');
   await dialog.waitFor({ state: 'hidden' });
@@ -433,12 +447,207 @@ createRoot(document.querySelector('main')).render(<ChatArchiveSettings disabled=
   includeSessions = true;
   await archive.click();
   await dialog.getByRole('button', { name: 'Confirm archive', exact: true }).waitFor();
-  assert.match(await dialog.innerText(), /Project Palboo.*Filtered by chat creation date/s);
-  assert.match(await sessions.getByRole('listitem').first().innerText(), /Created/);
+  assert.match(await dialog.innerText(), /Project: Palboo.*Created from 2026-11-01/s);
+  await sessions.getByRole('listitem').first().getByRole('button').click();
+  assert.match(await sessions.getByRole('listitem').first().innerText(), /Date created/);
   assert.deepEqual(requests.at(-1), {
     op: 'preview',
     cli: null,
     includeSessions: true,
     filters: { project: 'palboo', dateField: 'created', from: '2026-11-01' },
   });
+});
+
+test('38-candidate archive dialog keeps first row unclipped, safe focus and keyboard details', async (t) => {
+  const {
+    outputFiles: [script],
+  } = await build({
+    stdin: {
+      resolveDir: process.cwd(),
+      loader: 'tsx',
+      contents: `
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { ChatArchiveSettings } from './ui/settings/chat-archive-settings';
+import { setLocale } from './ui/shared/i18n.js';
+setLocale('zh-CN');
+createRoot(document.querySelector('main')).render(
+  <div className="settings-app">
+    <ChatArchiveSettings disabled={false} targetId="fixture" notify={() => {}} />
+  </div>
+);`,
+    },
+    bundle: true,
+    write: false,
+    format: 'iife',
+    jsx: 'automatic',
+    define: { 'import.meta.url': '"https://archive.test/settings.js"' },
+  });
+  const styles =
+    '*,*::before,*::after{box-sizing:border-box}body{margin:0}\n' +
+    (
+      await Promise.all([
+        readFile('ui/shared/tokens.css', 'utf8'),
+        readFile('ui/settings/settings-layout.css', 'utf8'),
+        readFile('ui/settings/settings-controls.css', 'utf8'),
+        readFile('ui/settings/chat-archive-sessions.css', 'utf8'),
+      ])
+    ).join('\n');
+  const sessions38 = Array.from({ length: 38 }, (_, i) => ({
+    id: `019a2f3c-8d1e-7b2a-9c4f-${String(100000000000 + i).slice(-12)}`,
+    cli: 'antigravity',
+    title:
+      i === 0
+        ? '这是一条非常长的会话标题用于验证折行与展开效果，确保长标题在窄窗口和桌面端都能清楚辨认'
+        : `归档候选会话 ${i + 1}`,
+    project: i % 2 === 0 ? 'palboo' : 'projectless',
+    projectLabel: i % 2 === 0 ? 'Palboo' : null,
+    created: Date.UTC(2026, 9, 1 + (i % 20)),
+    updated: Date.UTC(2026, 10, 22 - (i % 20)),
+    active: i === 0,
+    scheduled: i < 2,
+  }));
+  const browser = await chromium.launch();
+  t.after(() => browser.close());
+  const page = await browser.newPage({
+    viewport: { width: 960, height: 760 },
+    reducedMotion: 'reduce',
+  });
+  await page.route('https://archive.test/**', async (route) => {
+    if (new URL(route.request().url()).pathname === '/api/chat-archive') {
+      const body = route.request().postDataJSON();
+      return route.fulfill({
+        json:
+          body.op === 'list'
+            ? {
+                total: 38,
+                groups: [{ cli: 'antigravity', count: 38 }],
+                projects: [
+                  { id: 'palboo', label: 'Palboo', count: 19 },
+                  { id: 'projectless', label: null, count: 19 },
+                ],
+              }
+            : {
+                total: 38,
+                groups: [{ cli: 'antigravity', count: 38 }],
+                projects: [
+                  { id: 'palboo', label: 'Palboo', count: 19 },
+                  { id: 'projectless', label: null, count: 19 },
+                ],
+                id: 'plan-38',
+                cli: body.cli,
+                count: 38,
+                running: 1,
+                scheduled: 2,
+                sessions: sessions38,
+              },
+      });
+    }
+    await route.fulfill({
+      contentType: 'text/html',
+      body: '<meta name="viewport" content="width=device-width"><main></main>',
+    });
+  });
+  await page.goto('https://archive.test/#token=fixture');
+  await page.addStyleTag({ content: styles });
+  await page.addScriptTag({ content: script.text });
+  await page.getByRole('button', { name: '查看可归档聊天' }).click();
+  await page.getByRole('combobox', { name: '归档范围' }).selectOption('cli:antigravity');
+  await page.getByRole('button', { name: '预览归档' }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('heading', { name: '归档 Antigravity CLI 的 38 个本地聊天？' }).waitFor();
+
+  for (const theme of ['light', 'dark']) {
+    await page.evaluate((mode) => {
+      document.documentElement.dataset.settingsTheme = mode;
+    }, theme);
+    const geometry = await page.evaluate(() => {
+      const dlg = document.querySelector('dialog[open]');
+      const list = dlg.querySelector('.archive-session-list');
+      const first = list.querySelector('.archive-session-row');
+      const impact = dlg.querySelector('.archive-confirm-impact');
+      const footer = dlg.querySelector('.settings-confirm-footer');
+      const dlgRect = dlg.getBoundingClientRect();
+      const listRect = list.getBoundingClientRect();
+      const firstRect = first.getBoundingClientRect();
+      const impactRect = impact.getBoundingClientRect();
+      const footerRect = footer.getBoundingClientRect();
+      return {
+        dialogScrollTop: dlg.scrollTop,
+        listScrollTop: list.scrollTop,
+        firstClippedTop: firstRect.top < listRect.top - 0.5,
+        listScrolls: list.scrollHeight > list.clientHeight + 20,
+        visibleRows: listRect.height / firstRect.height,
+        impactVisible: impactRect.top >= dlgRect.top && impactRect.bottom <= listRect.top + 1,
+        footerVisible: footerRect.bottom <= window.innerHeight + 0.5,
+        overflowX: document.documentElement.scrollWidth > window.innerWidth,
+        cancelFocused: document.activeElement?.textContent?.trim() === '取消',
+        headerCountBadge: Boolean(dlg.querySelector('.archive-sessions-count')),
+      };
+    });
+    assert.equal(geometry.dialogScrollTop, 0);
+    assert.equal(geometry.listScrollTop, 0);
+    assert.equal(geometry.firstClippedTop, false);
+    assert.equal(geometry.listScrolls, true);
+    assert.ok(geometry.visibleRows >= 6, `expected >=6 rows visible, got ${geometry.visibleRows}`);
+    assert.equal(geometry.impactVisible, true);
+    assert.equal(geometry.footerVisible, true);
+    assert.equal(geometry.overflowX, false);
+    assert.equal(geometry.cancelFocused, true);
+    assert.equal(geometry.headerCountBadge, false);
+  }
+
+  // Keyboard navigation: Shift+Tab into list, roving arrows, Enter expands details, single Tab back to Cancel.
+  await page.keyboard.press('Shift+Tab');
+  assert.match(
+    await page.evaluate(() => document.activeElement?.textContent ?? ''),
+    /非常长的会话标题/,
+  );
+  await page.keyboard.press('Enter');
+  const firstItem = dialog.getByRole('list', { name: '待归档会话' }).getByRole('listitem').first();
+  assert.match(
+    await firstItem.innerText(),
+    /Antigravity CLI.*Palboo.*019a2f3c-8d1e-7b2a-9c4f-100000000000/s,
+  );
+  await page.keyboard.press('End');
+  assert.match(
+    await page.evaluate(() => document.activeElement?.textContent ?? ''),
+    /归档候选会话 38/,
+  );
+  await page.keyboard.press('Tab');
+  assert.equal(await page.evaluate(() => document.activeElement?.textContent?.trim()), '取消');
+
+  // Re-opening always resets to row 1 and safe initial focus on Cancel.
+  await page.keyboard.press('Escape');
+  await dialog.waitFor({ state: 'hidden' });
+  await page.getByRole('button', { name: '预览归档' }).click();
+  await dialog.waitFor({ state: 'visible' });
+  const reopened = await page.evaluate(() => {
+    const dlg = document.querySelector('dialog[open]');
+    const list = dlg.querySelector('.archive-session-list');
+    return {
+      dialogScrollTop: dlg.scrollTop,
+      listScrollTop: list.scrollTop,
+      cancelFocused: document.activeElement?.textContent?.trim() === '取消',
+      expandedCount: dlg.querySelectorAll('[aria-expanded="true"]').length,
+    };
+  });
+  assert.deepEqual(reopened, {
+    dialogScrollTop: 0,
+    listScrollTop: 0,
+    cancelFocused: true,
+    expandedCount: 0,
+  });
+
+  // Narrow viewport keeps no horizontal overflow and pinned footer.
+  await page.setViewportSize({ width: 320, height: 640 });
+  const narrow = await page.evaluate(() => {
+    const dlg = document.querySelector('dialog[open]');
+    const footer = dlg.querySelector('.settings-confirm-footer');
+    return {
+      overflowX: document.documentElement.scrollWidth > window.innerWidth,
+      footerVisible: footer.getBoundingClientRect().bottom <= window.innerHeight + 0.5,
+    };
+  });
+  assert.deepEqual(narrow, { overflowX: false, footerVisible: true });
 });

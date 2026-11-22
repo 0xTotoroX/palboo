@@ -320,6 +320,96 @@
 .settings-dialog-content {
   display: flow-root;
 }
+.settings-key-dialog h3 {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+.settings-confirm-description {
+  margin: 10px 0 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--buddy-muted);
+  overflow-wrap: anywhere;
+}
+.settings-confirm-error {
+  margin: 12px 0 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.settings-confirm-footer {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.settings-confirm-note {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--buddy-muted);
+  overflow-wrap: anywhere;
+}
+.settings-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.settings-key-dialog[data-has-details='true'] {
+  width: min(540px, calc(100vw - 32px));
+  max-height: min(680px, calc(100dvh - 32px));
+  padding: 20px 24px;
+}
+.settings-key-dialog[open][data-has-details='true'] {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.settings-key-dialog[data-has-details='true'] .settings-dialog-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.settings-key-dialog[data-has-details='true'] .settings-confirm-header,
+.settings-key-dialog[data-has-details='true'] .settings-confirm-error,
+.settings-key-dialog[data-has-details='true'] .settings-confirm-footer {
+  flex: none;
+}
+.settings-key-dialog[data-has-details='true'] .settings-confirm-description {
+  margin-top: 6px;
+  font-size: 0.8125rem;
+}
+.settings-confirm-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-top: 14px;
+}
+.settings-key-dialog[data-has-details='true'] .settings-confirm-footer {
+  margin-top: 14px;
+}
+@media (max-width: 460px) {
+  .settings-key-dialog[data-has-details='true'] {
+    width: calc(100vw - 24px);
+    max-height: calc(100dvh - 24px);
+    padding: 16px;
+  }
+}
+@media (max-height: 360px) {
+  .settings-key-dialog[open][data-has-details='true'] {
+    overflow: auto;
+  }
+  .settings-key-dialog[data-has-details='true'] .settings-dialog-content {
+    flex: none;
+  }
+}
 /* Entries and detail pages use the same settings surface and control geometry. */
 .settings-detail-entry {
   margin-block: 24px;
