@@ -169,6 +169,20 @@ createRoot(document.getElementById('root')!).render(<Harness />);
       'inline height/overflow cleaned on settle',
     );
 
+    // A completed exit must release its filled height/opacity before a later reopen.
+    await page.locator('#toggle-keep').click();
+    await page.locator('#keep-collapse').waitFor({ state: 'hidden' });
+    await page.locator('#toggle-keep').click();
+    await finishAnimations(page.locator('#keep-collapse'));
+    const reopened = await page.locator('#keep-collapse').evaluate((box) => ({
+      outer: box.offsetHeight,
+      content: box.firstElementChild.offsetHeight,
+      opacity: getComputedStyle(box.firstElementChild).opacity,
+    }));
+    assert.ok(reopened.content > 0);
+    assert.equal(reopened.outer, reopened.content);
+    assert.equal(reopened.opacity, '1');
+
     // 4. Keyboard collapse is immediate and cancels in-flight; mouse restores motion.
     await page.evaluate(() => (window.animLog = []));
     await page.locator('#toggle-keep').focus();

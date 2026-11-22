@@ -64,11 +64,12 @@ export function Board({
   const addButton = useRef<HTMLButtonElement>(null);
   const [stage, setStage] = useState(view?.tab === 'archive' ? 'done' : view?.stage || 'todo');
   useInputModality();
-  const stageBody = useRef<HTMLDivElement>(null);
   const viewKey = `${list ? 'list' : merged ? 'merged' : 'expanded'}:${history ? 'history' : 'active'}:${merged && !list ? stage : ''}`;
   const previousViewKey = useRef(viewKey);
   useLayoutEffect(() => {
-    const node = stageBody.current;
+    const node = element.current?.querySelector<HTMLElement>(
+      '.board-main > .board-grid, .board-main > .task-list',
+    );
     const before = previousViewKey.current;
     previousViewKey.current = viewKey;
     if (!node || before === viewKey) return;
@@ -462,69 +463,65 @@ export function Board({
             </button>
           </div>
         )}
-        <div ref={stageBody} className="board-stage-body">
-          {list ? (
-            <Checklist
-              tasks={visible}
-              history={history}
-              busy={busy}
-              inflight={state.store.inflight?.taskId}
-              command={command}
-              edit={editTask}
-              title={quickAdd?.title ?? ''}
-              adding={listAdding}
-              searching={searchOpen && !!search.trim()}
-              setTitle={(title) => setQuickAdd({ column: 'todo', title })}
-              dismissEmpty={() => setListAdding(false)}
-              finishAdding={() => {
-                setListAdding(false);
-                setQuickAdd(null);
-                addButton.current?.focus({ preventScroll: true });
-              }}
-              focusFallback={() => {
-                const search = (headerActions ?? element.current)?.querySelector<HTMLInputElement>(
-                  '.board-search',
-                );
-                (search ?? addButton.current ?? historyButton.current)?.focus({
-                  preventScroll: true,
-                });
-              }}
-              setSettling={setSettling}
-            />
-          ) : (
-            <div
-              className={`board-grid ${merged ? 'narrow' : narrow ? 'stacked' : ''}`}
-              style={
-                narrow || merged
-                  ? undefined
-                  : { gridTemplateColumns: `repeat(${columns.length}, minmax(210px, 1fr))` }
-              }
-            >
-              {(merged ? columns.filter((column) => column.id === stage) : columns).map(
-                (column) => {
-                  const group = visible.filter((t) => taskGroup(t) === column.id);
-                  return (
-                    <Column
-                      key={column.id}
-                      {...column}
-                      disabled={busy}
-                      move={move}
-                      heading={
-                        <>
-                          <span className="group-title">{column.title}</span>
-                          <small>{group.length}</small>
-                        </>
-                      }
-                    >
-                      {group.map(card)}
-                      {addTask(column.id)}
-                    </Column>
-                  );
-                },
-              )}
-            </div>
-          )}
-        </div>
+        {list ? (
+          <Checklist
+            tasks={visible}
+            history={history}
+            busy={busy}
+            inflight={state.store.inflight?.taskId}
+            command={command}
+            edit={editTask}
+            title={quickAdd?.title ?? ''}
+            adding={listAdding}
+            searching={searchOpen && !!search.trim()}
+            setTitle={(title) => setQuickAdd({ column: 'todo', title })}
+            dismissEmpty={() => setListAdding(false)}
+            finishAdding={() => {
+              setListAdding(false);
+              setQuickAdd(null);
+              addButton.current?.focus({ preventScroll: true });
+            }}
+            focusFallback={() => {
+              const search = (headerActions ?? element.current)?.querySelector<HTMLInputElement>(
+                '.board-search',
+              );
+              (search ?? addButton.current ?? historyButton.current)?.focus({
+                preventScroll: true,
+              });
+            }}
+            setSettling={setSettling}
+          />
+        ) : (
+          <div
+            className={`board-grid ${merged ? 'narrow' : narrow ? 'stacked' : ''}`}
+            style={
+              narrow || merged
+                ? undefined
+                : { gridTemplateColumns: `repeat(${columns.length}, minmax(210px, 1fr))` }
+            }
+          >
+            {(merged ? columns.filter((column) => column.id === stage) : columns).map((column) => {
+              const group = visible.filter((t) => taskGroup(t) === column.id);
+              return (
+                <Column
+                  key={column.id}
+                  {...column}
+                  disabled={busy}
+                  move={move}
+                  heading={
+                    <>
+                      <span className="group-title">{column.title}</span>
+                      <small>{group.length}</small>
+                    </>
+                  }
+                >
+                  {group.map(card)}
+                  {addTask(column.id)}
+                </Column>
+              );
+            })}
+          </div>
+        )}
         {headerActions && createPortal(tools, headerActions)}
         {!headerActions && !list && (
           <footer className="board-footer">

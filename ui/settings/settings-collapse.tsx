@@ -218,7 +218,7 @@ export function SettingsCollapse({
         onInterrupt: () => settle(openRef.current),
         onFinish: () => {
           if (active.current?.primary !== heightAnim) return;
-          active.current = null;
+          // Remove the filled zero-height and opacity effects before this retained node reopens.
           settle(false);
         },
       });

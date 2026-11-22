@@ -20,6 +20,11 @@ function dateBoundary(value, end) {
   return date.getTime();
 }
 
+/**
+ * @param {{project?: string | null, dateField?: string, from?: string | null,
+ *   through?: string | null, inactiveDays?: number | null, keepRecent?: number,
+ *   protect?: boolean}} input
+ */
 export function normalizeArchiveFilters(input = {}, now = Date.now()) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw invalid();
   const {
