@@ -5,6 +5,7 @@ import { bridgeCall } from './state.js';
 import { installNextDrop } from '../next-drop.js';
 import { installPromptEnhancer } from '../prompt-enhancement.js';
 import { installSideChatSwitcher } from '../side-chat.js';
+import { createLocalChatArchive } from '../chat-archive.js';
 import { installTokenMeter } from '../token-meter.js';
 import { installBots } from '../bots.js';
 import { installTerminologyImports } from '../terminology-import.js';
@@ -838,6 +839,9 @@ function install() {
     loadSettings,
     openSettings,
     openWebsite,
+    archiveLocalChats: IS_POPOUT
+      ? undefined
+      : createLocalChatArchive({ isCurrent: isCurrentInstance }),
     syncSettings,
     setOpen,
     setWorkbench,

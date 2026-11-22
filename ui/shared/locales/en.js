@@ -547,6 +547,30 @@ export default {
   '没有匹配的模型，可直接输入模型 ID。': 'No matching models. You can enter a model ID directly.',
   '已连接 Codex': 'Connected to Codex',
   桌面连接: 'Desktop connection',
+  本地聊天: 'Local chats',
+  归档所有本地聊天: 'Archive all local chats',
+  全部归档: 'Archive all',
+  '正在读取本地聊天…': 'Loading local chats…',
+  '没有可归档的本地聊天。': 'There are no local chats to archive.',
+  '归档 {{count}} 个本地聊天？': 'Archive {{count}} local chats?',
+  '可在 ChatGPT 的「设置 → 已归档的聊天」中恢复。':
+    'You can restore chats in ChatGPT under Settings → Archived chats.',
+  '将停止 {{running}} 个进行中的聊天。': 'This will stop {{running}} running chats.',
+  '将移除 {{scheduled}} 个聊天关联的计划任务。':
+    'This will remove the scheduled tasks linked to {{scheduled}} chats.',
+  '已归档 {{archived}} 个聊天，失败 {{failed}} 个，未处理 {{skipped}} 个。':
+    'Archived {{archived}} chats. {{failed}} failed and {{skipped}} were skipped.',
+  '已归档 {{archived}} 个本地聊天。': 'Archived {{archived}} local chats.',
+  '当前 ChatGPT 桌面版无法批量归档本地聊天。':
+    'This version of the ChatGPT desktop app does not support bulk archiving local chats.',
+  '本地聊天或连接已变化，请重新预览。':
+    'Your local chats or connection changed. Preview the archive again.',
+  '读取本地聊天超时，请重试。': 'Loading local chats timed out. Try again.',
+  '无法完整读取本地聊天，请重试。': 'Could not read the full list of local chats. Try again.',
+  '正在处理本地聊天归档，请稍候。': 'A local chat archive operation is already in progress.',
+  '归档预览已失效，请重新预览。': 'The archive preview expired. Preview the archive again.',
+  '未能取得本地聊天归档结果，请在已归档的聊天中核查。':
+    'Could not get the archive result. Check Archived chats.',
   本机调试端口: 'Local debugging port',
   '9229 或 http://127.0.0.1:9229': '9229 or http://127.0.0.1:9229',
   'Codex 窗口': 'Codex window',

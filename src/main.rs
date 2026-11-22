@@ -10,6 +10,7 @@ mod assets;
 mod backup;
 mod brand;
 mod cdp;
+mod chat_archive;
 mod chat_outline;
 mod codex_host;
 mod config;

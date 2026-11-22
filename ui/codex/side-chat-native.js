@@ -1,6 +1,6 @@
 /*
  * [INPUT]: 已加载 Rspack 模块、已提交 React 树、标签控制器和 side-chat-attachment 适配。
- * [OUTPUT]: 可按谓词寻找的 nativeScope；父聊天卡片/文字及独立主聊天接力接口。
+ * [OUTPUT]: 已加载的宿主运行时、可按谓词寻找的 nativeScope 及独立主聊天接力接口。
  * [POS]: ChatGPT 私有接口兼容边界；未知结构拒绝，不修改 App 包或 CodexHost 文件。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
@@ -10,7 +10,7 @@ import { attachLocalSideChatText } from './side-chat-attachment.js';
 
 const unsupported = () => Error(tr('当前宿主不支持此侧聊操作。'));
 let loader;
-async function loadedRuntime() {
+export async function loadedRuntime() {
   if (!loader)
     loader = (async () => {
       // 只导入本页已执行的入口，ESM 返回同一个实例；不加载猜测的懒加载块。

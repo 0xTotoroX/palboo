@@ -91,6 +91,13 @@ try {
     }),
   );
   await start();
+  assert.ok(schemaFor('performance').commands.includes('config archive-local-chats'));
+  await assert.rejects(() => cli('archive-local-chats'), /尚未连接 Codex/);
+  await assert.rejects(() => cli('archive-local-chats', '--confirm', 'invalid'), /invalid value/);
+  await assert.rejects(
+    () => cli('archive-local-chats', '--confirm', 'fedcba98-7654-4321-8123-0123456789ab'),
+    /尚未连接 Codex/,
+  );
   const libraryBefore = await cli('get', 'web-library');
   assert.equal(libraryBefore.vault, null);
   assert.ok(Array.isArray((await cli('catalog', 'vaults')).vaults));

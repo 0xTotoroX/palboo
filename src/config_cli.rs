@@ -57,6 +57,11 @@ pub enum Command {
     Get { scope: Option<Scope> },
     /// 在 ChatGPT 内打开已保存的网站；obsidian 表示本地阅读器
     OpenWebsite { id: String },
+    /// 预览全部本地聊天的归档；用预览标识明确确认后执行
+    ArchiveLocalChats {
+        #[arg(long, value_name = "PREVIEW_ID")]
+        confirm: Option<uuid::Uuid>,
+    },
     /// 查询可用模型、显示器、笔记库或 Bot 资料；不修改外部配置
     Catalog {
         #[command(subcommand)]
@@ -503,6 +508,19 @@ pub async fn run(paths: &Paths, command: Command) -> Result<()> {
                 Command::OpenWebsite { id } => {
                     runtime
                         .request("web-library/open", Some(json!({"id":id})))
+                        .await?
+                }
+                Command::ArchiveLocalChats { confirm } => {
+                    let request = match confirm {
+                        Some(id) => json!({"op":"apply","id":id.to_string()}),
+                        None => json!({"op":"preview"}),
+                    };
+                    runtime
+                        .request_with_timeout(
+                            crate::chat_archive::PATH,
+                            Some(request),
+                            Some(crate::chat_archive::TIMEOUT + std::time::Duration::from_secs(5)),
+                        )
                         .await?
                 }
                 Command::Catalog { catalog } => {

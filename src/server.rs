@@ -248,6 +248,7 @@ fn router(service: Service) -> Router {
             get(codex_host_status).post(codex_host_command),
         )
         .route("/codex-host/agents", get(codex_host_agents))
+        .route("/chat-archive", post(chat_archive))
         .route("/surfaces", post(surfaces))
         .route("/tasks/state", get(tasks_state))
         .route("/tasks/command", post(tasks_command))
@@ -1249,6 +1250,14 @@ async fn codex_host_status(State(service): State<Service>) -> Result<Json<Value>
 }
 async fn codex_host_agents(State(service): State<Service>) -> Result<Json<Value>, ApiError> {
     Ok(Json(service.app.codex_host_agents().await?))
+}
+async fn chat_archive(
+    State(service): State<Service>,
+    Json(input): Json<Value>,
+) -> Result<Json<Value>, ApiError> {
+    Ok(Json(
+        crate::chat_archive::command(&service.app, input).await?,
+    ))
 }
 async fn codex_host_command(
     State(service): State<Service>,

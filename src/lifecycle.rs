@@ -34,12 +34,24 @@ impl Runtime {
             .unwrap_or_else(|| format!("http://127.0.0.1:{}/#token={}", self.port, self.token))
     }
     pub async fn request(&self, path: &str, body: Option<Value>) -> Result<Value> {
+        self.request_with_timeout(path, body, None).await
+    }
+    pub(crate) async fn request_with_timeout(
+        &self,
+        path: &str,
+        body: Option<Value>,
+        timeout: Option<Duration>,
+    ) -> Result<Value> {
         let client = config::local_client();
         let url = format!("http://127.0.0.1:{}/api/{path}", self.port);
         let request = if let Some(body) = body {
             client.post(url).json(&body)
         } else {
             client.get(url)
+        };
+        let request = match timeout {
+            Some(timeout) => request.timeout(timeout),
+            None => request,
         };
         let response = request.bearer_auth(&self.token).send().await?;
         Self::response(response).await

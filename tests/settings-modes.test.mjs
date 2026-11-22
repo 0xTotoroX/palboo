@@ -595,6 +595,10 @@ test(
       assert.equal(await page.locator('#app-mode').isVisible(), true);
       await category('connection');
       await page.getByRole('button', { name: '持续暂停', exact: true }).waitFor();
+      assert.equal(
+        await page.getByRole('button', { name: '归档所有本地聊天', exact: true }).isEnabled(),
+        true,
+      );
       assert.equal(await page.locator('#cdp-endpoint').isVisible(), true);
       await page.evaluate(() => {
         location.hash = 'settings-performance';

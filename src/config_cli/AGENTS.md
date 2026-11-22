@@ -26,3 +26,5 @@ layout.scope=all/sidebar/overlay/desktop 是共享预设的推荐标签；save �
 任务配置同步支持`{"op":"view","viewMode":"merged|expanded"}`，复用任务修订；只保存布局，任务与同步开关保留。
 
 web-library 支持多个文件夹授权、网站增删/排序及开关，与设置共用 expectedRevision；folders 为完整列表，旧 vault/attachments 仍控制首个目录。catalog vaults 仅读 Obsidian 登记路径；open-website folder:<id> 独立打开文件夹，obsidian 保留首个目录别名。改变目录授权/文件夹列表及删除网站需 --confirm，schema 离线可查，移除入口不删除文件。
+
+`config archive-local-chats` 是当前 Codex 连接的管理命令，离线 `config schema performance` 可发现。缺省只预览数量及任务影响，`--confirm <preview-id>` 才执行，同设置共用短时快照和原生归档。部分成功返回实际计数，聊天从宿主归档页恢复。
