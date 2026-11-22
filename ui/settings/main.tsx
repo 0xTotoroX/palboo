@@ -37,6 +37,7 @@ import { QuickPromptSettings } from './quick-prompt-settings';
 import { ModelSettings } from './model-settings';
 import { useTasks } from '../features/board/api';
 import { ConnectionSettings } from './connection-settings';
+import { ChatArchiveSettings } from './chat-archive-settings';
 import { GeneralSettings } from './general-settings';
 import { CodexHostSettings } from './codex-host-settings';
 import { SettingsSearch } from './settings-search';
@@ -123,6 +124,10 @@ function App() {
   const { page, dev, navigate } = useSettingsPage(!!editor.form);
   const pageHeading = useRef<HTMLHeadingElement>(null);
   const requestedFeature = useRef<typeof page | null>(null);
+  const openFeature = (feature: typeof page) => {
+    requestedFeature.current = feature;
+    navigate(feature, `#settings-${feature}`);
+  };
   useLayoutEffect(() => {
     if (requestedFeature.current !== page) return;
     requestedFeature.current = null;
@@ -338,8 +343,30 @@ function App() {
                     onChange={(value) => editor.change('promptEnhancementEnabled', value)}
                   />
                 </div>
+                <div className="settings-row settings-feature-switch">
+                  <a
+                    className="settings-feature-link"
+                    href="#settings-chat-archive"
+                    data-settings-navigation
+                    onClick={(event) => {
+                      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                      event.preventDefault();
+                      openFeature('chat-archive');
+                    }}
+                  >
+                    {pageTitles['chat-archive']}
+                    <Icon name="chevron-right" />
+                  </a>
+                </div>
                 <div ref={setHostEnablement} />
               </section>
+              <div data-settings-page="chat-archive" hidden={page !== 'chat-archive'}>
+                <ChatArchiveSettings
+                  disabled={!connected || page !== 'chat-archive'}
+                  targetId={view?.connection.targetId ?? null}
+                  notify={notify}
+                />
+              </div>
               <div data-settings-page="model-control" hidden={page !== 'model-control'}>
                 <ModelControlSettings
                   live={live}
@@ -457,14 +484,7 @@ function App() {
     </div>
   );
   return (
-    <FeatureDetailsContext.Provider
-      value={(feature) => {
-        requestedFeature.current = feature;
-        navigate(feature, `#settings-${feature}`);
-      }}
-    >
-      {content}
-    </FeatureDetailsContext.Provider>
+    <FeatureDetailsContext.Provider value={openFeature}>{content}</FeatureDetailsContext.Provider>
   );
 }
 // A Vite dependency update can re-evaluate this entry without replacing its container.

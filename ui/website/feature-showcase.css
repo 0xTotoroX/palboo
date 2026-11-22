@@ -208,6 +208,25 @@
   max-height: 320px;
   font-size: 14px;
 }
+.feature-archive-example {
+  width: min(100%, 480px);
+  margin-inline: auto;
+}
+.feature-archive-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+.feature-archive-controls h3 {
+  margin: 0;
+  font-size: 1em;
+  font-weight: 600;
+}
+.feature-archive-controls .settings-native-select {
+  width: min(100%, 220px);
+}
 .feature-context {
   flex: none;
   min-width: 0;

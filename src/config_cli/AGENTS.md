@@ -27,4 +27,4 @@ layout.scope=all/sidebar/overlay/desktop 是共享预设的推荐标签；save �
 
 web-library 支持多个文件夹授权、网站增删/排序及开关，与设置共用 expectedRevision；folders 为完整列表，旧 vault/attachments 仍控制首个目录。catalog vaults 仅读 Obsidian 登记路径；open-website folder:<id> 独立打开文件夹，obsidian 保留首个目录别名。改变目录授权/文件夹列表及删除网站需 --confirm，schema 离线可查，移除入口不删除文件。
 
-`config archive-local-chats` 通过 `--list` 发现本地 CLI 和项目 ID，不替换现有预览。可叠加 `--cli`、`--project`、`--from` / `--through` / `--date-field` 或 `--inactive-days`，以及 `--keep-recent` 与 `--protect`。`--confirm <preview-id>` 执行已绑定的范围。保护模式逐条复核、失败停止并报告实际归档和必留状态。
+`config archive-local-chats` 通过 `--list` 发现本地 CLI 和项目 ID，不替换现有预览。可叠加 `--cli`、`--project`、`--from` / `--through` / `--date-field` 或 `--inactive-days`，以及 `--keep-recent` 与 `--protect`。`--sessions` 为只读预览附上候选会话资料。`--confirm <preview-id>` 执行已绑定的范围。保护模式逐条复核、失败停止并报告实际归档和必留状态。

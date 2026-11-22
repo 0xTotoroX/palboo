@@ -11,6 +11,7 @@ import { createDemoTasks, sampleProjection, sampleTerms } from '../shared/demo-s
 import { emptyFields, type TaskRequest, type TaskState } from '../features/board/api';
 import type { BotState } from '../features/bots/view';
 import type { ReplyLoader } from '../features/bots/messages';
+import type { ArchiveSession } from '../settings/chat-archive-sessions';
 
 export const featurePages = [
   {
@@ -68,12 +69,37 @@ export const featurePages = [
     description: '发送之前，把想法表达得更清楚。',
   },
   {
+    id: 'chat-archive',
+    title: '本地聊天归档',
+    icon: 'folder',
+    description: '按 CLI、项目和时间筛选本地聊天，确认前查看每条会话。',
+  },
+  {
     id: 'compatibility',
     title: '兼容集成',
     icon: 'connection',
     description: '在当前聊天里，选择你要协作的 Agent。',
   },
 ] as const;
+
+export function archiveExample(): ArchiveSession[] {
+  const rows = [
+    ['antigravity', '整理移动端交互细节', 18],
+    ['codex', '核对作品集导航', 14],
+    ['antigravity', '比较项目卡片的布局', 9],
+  ] as const;
+  return rows.map(([cli, title, day], index) => ({
+    id: `example-session-${index + 1}`,
+    cli,
+    title: tr(title),
+    project: 'portfolio',
+    projectLabel: tr('作品集'),
+    created: Date.UTC(2026, 5, day, 12),
+    updated: Date.UTC(2026, 5, day, 12),
+    active: false,
+    scheduled: false,
+  }));
+}
 
 export function modelExample(): ModelState {
   return {

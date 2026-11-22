@@ -158,6 +158,7 @@ const ids = [
   'bots',
   'sites',
   'prompt',
+  'chat-archive',
   'compatibility',
 ];
 const lastFeatureIndex = ids.length - 1;
@@ -669,6 +670,7 @@ const names = [
   'Grok Bot',
   '阅读与网页',
   '提示词优化',
+  '本地聊天归档',
   '兼容集成',
 ];
 test('shared menu controls preserve the tour and the tablet clips the same live workspace', async () => {
@@ -865,6 +867,13 @@ test('one settings-based preview and the settings-ordered tabs replace the combi
       assert.equal(await page.locator('.feature-panel:not([aria-hidden="true"])').count(), 1);
       assert.equal(await panel(page, id).getAttribute('inert'), null);
     }
+    await select(page, 'chat-archive');
+    const archive = panel(page, 'chat-archive');
+    const sessions = archive.getByRole('list', { name: '待归档会话' });
+    assert.equal(await sessions.getByRole('listitem').count(), 3);
+    await archive.getByRole('combobox', { name: '归档范围' }).selectOption('antigravity');
+    assert.equal(await sessions.getByRole('listitem').count(), 2);
+    assert.match(await sessions.innerText(), /整理移动端交互细节.*example-session-1/s);
     assert.ok(
       await page.evaluate(() => document.documentElement.scrollHeight < 6000),
       'compact page budget',

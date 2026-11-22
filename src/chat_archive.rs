@@ -1,5 +1,5 @@
 // [INPUT]: 本机认证设置或 CLI 的计数、范围预览、确认请求及当前桌面连接。
-// [OUTPUT]: 当前宿主负责的 CLI 分组数量、短时预览和实际批量归档结果。
+// [OUTPUT]: 当前宿主负责的 CLI 分组数量、短时预览、可选会话资料和批量结果。
 // [POS]: 仅允许固定归档操作，不接收脚本、聊天 ID 列表或宿主路径。
 // [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
 use crate::state::App;
@@ -61,6 +61,16 @@ impl Filters {
     }
 }
 
+pub(crate) fn verify_sessions(result: &Value) -> Result<()> {
+    ensure!(
+        result["sessions"]
+            .as_array()
+            .is_some_and(|sessions| Some(sessions.len() as u64) == result["count"].as_u64()),
+        "当前 Palboo 连接未返回完整的归档会话列表，请重新预览。"
+    );
+    Ok(())
+}
+
 pub(crate) async fn command(app: &App, input: Value) -> Result<Value> {
     let (operation, id, cli) = match input["op"].as_str() {
         Some("list") => ("list", None, None),
@@ -89,18 +99,24 @@ pub(crate) async fn command(app: &App, input: Value) -> Result<Value> {
         None => Filters::default(),
         _ => bail!("归档规则只能随预览提供"),
     };
+    let include_sessions = match input.get("includeSessions") {
+        None => false,
+        Some(Value::Bool(value)) if operation == "preview" => *value,
+        _ => bail!("会话列表只能随归档预览读取"),
+    };
     let client = app.desktop_client().await.context("尚未连接 Codex")?;
     let expression = format!(
         r#"(async () => {{
           const run = window.__companionFloatingPanel?.archiveLocalChats;
           if (!run) return {{ error: '当前 ChatGPT 桌面版无法批量归档本地聊天。' }};
-          try {{ return await run({}, {}, {}, {}); }}
+          try {{ return await run({}, {}, {}, {}, {}); }}
           catch (error) {{ return {{ error: String(error?.message || error) }}; }}
         }})()"#,
         json!(operation),
         json!(id),
         json!(cli),
         json!(filters),
+        include_sessions,
     );
     let result = client.evaluate_with_timeout(expression, TIMEOUT).await?;
     if let Some(error) = result["error"].as_str() {
@@ -108,6 +124,9 @@ pub(crate) async fn command(app: &App, input: Value) -> Result<Value> {
     }
     if operation == "preview" {
         filters.verify_preview(&result)?;
+        if include_sessions {
+            verify_sessions(&result)?;
+        }
     }
     // Once writes begin, retain the observed partial result even if a different
     // window has since connected. A preview from a former window is unusable.

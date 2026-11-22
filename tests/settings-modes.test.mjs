@@ -513,6 +513,7 @@ test(
         'Grok Bot',
         '阅读与网页',
         '提示词优化',
+        '本地聊天归档',
         '兼容集成',
       ]);
       assert.deepEqual(groups.find((group) => group.title === '系统').pages, [
@@ -595,11 +596,15 @@ test(
       assert.equal(await page.locator('#app-mode').isVisible(), true);
       await category('connection');
       await page.getByRole('button', { name: '持续暂停', exact: true }).waitFor();
+      assert.equal(await page.locator('#cdp-endpoint').isVisible(), true);
+      await page
+        .locator('#settings-connection')
+        .getByRole('link', { name: '本地聊天归档' })
+        .click();
       assert.equal(
         await page.getByRole('button', { name: '查看可归档聊天', exact: true }).isEnabled(),
         true,
       );
-      assert.equal(await page.locator('#cdp-endpoint').isVisible(), true);
       await page.evaluate(() => {
         location.hash = 'settings-performance';
       });
@@ -825,6 +830,7 @@ test(
           'Grok Bot',
           '阅读与网页',
           '提示词优化',
+          '本地聊天归档',
           'CodexHost',
         ],
       );
@@ -837,6 +843,11 @@ test(
       await featureLinks.getByText('大纲', { exact: true }).click();
       await page.getByRole('heading', { level: 1, name: '大纲', exact: true }).waitFor();
       assert.equal(writes.length, 0, 'feature list links open details without toggling features');
+      await category('features');
+      await featureLinks.getByText('本地聊天归档', { exact: true }).click();
+      await page.getByRole('heading', { level: 1, name: '本地聊天归档', exact: true }).waitFor();
+      await page.getByRole('button', { name: '查看可归档聊天' }).waitFor();
+      assert.equal(writes.length, 0, 'archive navigation does not change settings');
       await category('features');
       assert.equal(
         await page.getByRole('switch', { name: '启用聊天测速', exact: true }).count(),
@@ -2366,7 +2377,7 @@ test(
               visible: !!n.getBoundingClientRect().height,
             })),
           );
-          assert.equal(links.length, 18, 'sidebar keeps all feature and System destinations');
+          assert.equal(links.length, 19, 'sidebar keeps all feature and System destinations');
           assert.ok(links.filter((n) => n.visible).every((n) => n.width >= n.content));
           assert.equal(links.filter((n) => n.visible).length, width <= 640 ? 0 : links.length);
           assert.equal(await page.locator('.settings-nav summary').count(), 0);

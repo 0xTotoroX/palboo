@@ -14,9 +14,12 @@ import {
 } from '../ui/codex/chat-archive-filters.js';
 
 test('archives only the confirmed local snapshot and reports partial failures', async () => {
-  const firstPage = [{ id: 'one' }, { id: 'side', attachedToThreadId: 'one' }];
+  const firstPage = [
+    { id: 'one', name: 'A title' },
+    { id: 'side', attachedToThreadId: 'one' },
+  ];
   const nextPage = [
-    { id: 'two', status: { type: 'active' } },
+    { id: 'two', status: { type: 'active' }, preview: 'A message snippet' },
     { id: 'temporary', ephemeral: true },
   ];
   const requests = [];
@@ -54,7 +57,19 @@ test('archives only the confirmed local snapshot and reports partial failures', 
   scheduled.add('two');
   await assert.rejects(() => run('apply', id), /聊天或连接已变化/);
   assert.deepEqual(archived, []);
-  const confirmed = await run('preview');
+  const confirmed = await run('preview', null, null, {}, true);
+  assert.deepEqual(
+    confirmed.sessions.map(({ id, title, active, scheduled }) => ({
+      id,
+      title,
+      active,
+      scheduled,
+    })),
+    [
+      { id: 'one', title: 'A title', active: false, scheduled: true },
+      { id: 'two', title: null, active: true, scheduled: true },
+    ],
+  );
   assert.deepEqual(await run('apply', confirmed.id), { archived: 1, failed: 1, skipped: 0 });
   assert.deepEqual(archived, ['one', 'two']);
   await assert.rejects(() => run('apply', confirmed.id), /预览已失效/);
@@ -302,6 +317,7 @@ createRoot(document.querySelector('main')).render(<ChatArchiveSettings disabled=
   });
   const requests = [];
   let echoRules = true;
+  let includeSessions = true;
   let inventory = {
     total: 10,
     groups: [
@@ -327,6 +343,19 @@ createRoot(document.querySelector('main')).render(<ChatArchiveSettings disabled=
                   count: 4,
                   running: 1,
                   scheduled: 2,
+                  sessions: includeSessions
+                    ? Array.from({ length: 4 }, (_, index) => ({
+                        id: `fixture-session-${index + 1}`,
+                        cli: body.cli ?? 'codex',
+                        title: `Example chat ${index + 1}`,
+                        project: 'palboo',
+                        projectLabel: 'Palboo',
+                        created: Date.UTC(2026, 10, 8),
+                        updated: Date.UTC(2026, 10, 12),
+                        active: index === 0,
+                        scheduled: index < 2,
+                      }))
+                    : [],
                 }
               : { archived: 3, failed: 1, skipped: 0 },
       });
@@ -351,17 +380,24 @@ createRoot(document.querySelector('main')).render(<ChatArchiveSettings disabled=
     .waitFor();
   assert.match(await dialog.innerText(), /scheduled tasks linked to 2 chats/);
   assert.match(await dialog.innerText(), /Settings → Archived chats/);
+  const sessions = dialog.getByRole('list', { name: 'Sessions to archive' });
+  assert.equal(await sessions.getByRole('listitem').count(), 4);
+  assert.match(
+    await sessions.getByRole('listitem').first().innerText(),
+    /Example chat 1.*Antigravity CLI.*Linked scheduled task.*fixture-session-1/s,
+  );
   await page.keyboard.press('Escape');
   await dialog.waitFor({ state: 'hidden' });
-  assert.deepEqual(requests, [{ op: 'list' }, { op: 'preview', cli: 'antigravity' }]);
+  const previewRequest = { op: 'preview', cli: 'antigravity', includeSessions: true };
+  assert.deepEqual(requests, [{ op: 'list' }, previewRequest]);
   await archive.click();
   await dialog.getByRole('button', { name: 'Confirm archive', exact: true }).click();
   await page.getByText('Archived 3 chats. 1 failed and 0 were skipped.').waitFor();
   assert.equal(await page.locator('#result').getAttribute('data-failed'), 'true');
   assert.deepEqual(requests, [
     { op: 'list' },
-    { op: 'preview', cli: 'antigravity' },
-    { op: 'preview', cli: 'antigravity' },
+    previewRequest,
+    previewRequest,
     { op: 'apply', id: 'fixture-plan' },
   ]);
   inventory = {
@@ -386,12 +422,23 @@ createRoot(document.querySelector('main')).render(<ChatArchiveSettings disabled=
     .waitFor();
   assert.equal(await dialog.isVisible(), false);
   echoRules = true;
+  includeSessions = false;
+  await archive.click();
+  await page
+    .getByText(
+      'The current Palboo connection did not return the complete session list. Preview again.',
+    )
+    .waitFor();
+  assert.equal(await dialog.isVisible(), false);
+  includeSessions = true;
   await archive.click();
   await dialog.getByRole('button', { name: 'Confirm archive', exact: true }).waitFor();
   assert.match(await dialog.innerText(), /Project Palboo.*Filtered by chat creation date/s);
+  assert.match(await sessions.getByRole('listitem').first().innerText(), /Created/);
   assert.deepEqual(requests.at(-1), {
     op: 'preview',
     cli: null,
+    includeSessions: true,
     filters: { project: 'palboo', dateField: 'created', from: '2026-11-01' },
   });
 });

@@ -1,11 +1,12 @@
 /*
  * [INPUT]: 本机宿主的聊天分页、CodexHost 持久 CLI 归属、运行状态与原生归档接口。
- * [OUTPUT]: 各 CLI 数量、指定范围的短时归档预览及实际结果统计。
+ * [OUTPUT]: 各 CLI 数量、短时归档预览、按需返回的会话资料及实际结果统计。
  * [POS]: 当前桌面连接内的批量归档，不读聊天正文或直接操作宿主存储。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
 import { loadedRuntime, nativeScope } from './side-chat-native.js';
 import {
+  archiveTimestamp,
   normalizeArchiveFilters,
   resolveArchiveProject,
   selectArchiveChats,
@@ -323,6 +324,29 @@ async function snapshot(host, current, chats, cli, filters) {
   return { threads, retained };
 }
 
+function previewSessions(threads, chats, metadata) {
+  const byId = new Map(chats.map(({ thread }) => [thread.id, thread]));
+  return threads
+    .map(({ id, cli, project, updated, active, scheduled }) => {
+      const thread = byId.get(id);
+      const title = [thread.name, thread.title].find(
+        (value) => typeof value === 'string' && value.trim(),
+      );
+      return {
+        id,
+        cli,
+        title: title?.trim().slice(0, 500) ?? null,
+        project,
+        projectLabel: metadata?.projects.get(project)?.label ?? null,
+        created: archiveTimestamp(thread.createdAt),
+        updated,
+        active,
+        scheduled,
+      };
+    })
+    .sort((left, right) => (right.updated ?? 0) - (left.updated ?? 0));
+}
+
 async function verifyProtectedArchive(host, current, successful, retained, cli) {
   const [active, archivedNative, archivedExternal, metadata] = await Promise.all([
     catalog(host, current),
@@ -394,7 +418,7 @@ async function stillEligible(host, current, candidate, filters) {
 export function createLocalChatArchive({ isCurrent, resolve = connect }) {
   let pending = null;
   let busy = false;
-  return async (operation, id, cli = null, input) => {
+  return async (operation, id, cli = null, input, includeSessions = false) => {
     if (!['list', 'preview', 'apply'].includes(operation)) throw unsupported();
     if (busy) throw Error('正在处理本地聊天归档，请稍候。');
     busy = true;
@@ -452,6 +476,7 @@ export function createLocalChatArchive({ isCurrent, resolve = connect }) {
           count: threads.length,
           running: threads.filter((thread) => thread.active).length,
           scheduled: threads.filter((thread) => thread.scheduled).length,
+          ...(includeSessions && { sessions: previewSessions(threads, chats, metadata) }),
         };
       }
       if (

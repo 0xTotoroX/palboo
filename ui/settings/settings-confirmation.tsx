@@ -1,16 +1,17 @@
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
-/* [INPUT]: Explicit action, consequence text and optional configuration revision.
+/* [INPUT]: Explicit action, consequence text, optional details and configuration revision.
  * [OUTPUT]: Shared confirmation dialog with measured height motion, safe initial focus, retained inert exit content, cancellation and failure feedback.
  * [POS]: Settings-only presentation; opening/cancelling never executes the supplied action.
  * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
-import { useEffect, useId, useRef, useState, type ComponentProps } from 'react';
+import { useEffect, useId, useRef, useState, type ComponentProps, type ReactNode } from 'react';
 import { Button } from './components/ui/button';
 import { useDialogHeight } from './use-dialog-height';
 
 type Confirmation = {
   title: string;
   description: string;
+  details?: ReactNode;
   confirmLabel?: string;
   action: () => unknown | Promise<unknown>;
 };
@@ -21,7 +22,9 @@ export function useConfirmation(revision?: number | string, blocked = false) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const flight = useRef(false);
-  const lastContent = useRef<Omit<Confirmation, 'action'> | null>(null);
+  const lastContent = useRef<Pick<Confirmation, 'title' | 'description' | 'confirmLabel'> | null>(
+    null,
+  );
   const dialog = useRef<HTMLDialogElement>(null);
   const content = useRef<HTMLDivElement>(null);
   useDialogHeight(dialog, content);
@@ -35,8 +38,8 @@ export function useConfirmation(revision?: number | string, blocked = false) {
   }, [pending]);
   function confirm(options: Confirmation) {
     if (flight.current) return;
-    const { action, ...content } = options;
-    lastContent.current = content;
+    const { title, description, confirmLabel } = options;
+    lastContent.current = { title, description, confirmLabel };
     setError('');
     setPending({ ...options, revision });
   }
@@ -78,6 +81,7 @@ export function useConfirmation(revision?: number | string, blocked = false) {
         <p id={`${id}-description`} className="mt-3 text-sm text-muted-foreground">
           {lastContent.current?.description}
         </p>
+        {pending?.details}
         {error && (
           <p role="alert" className="settings-error mt-3 text-sm">
             {error}

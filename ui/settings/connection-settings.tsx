@@ -1,5 +1,5 @@
 /* [INPUT]: Existing connection, restart and performance preferences with authenticated APIs.
- * [OUTPUT]: 连接状态、暂停、本地聊天归档及连接诊断与性能监测；采样限于当前可见页。
+ * [OUTPUT]: 连接状态、暂停、聊天归档导航、连接诊断与性能监测；采样限于当前可见页。
  * [POS]: Keeps temporary disconnect separate from persisted integration pause; no configuration or API changes.
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。 */
 import { useState, useEffect } from 'react';
@@ -12,7 +12,6 @@ import { Card } from './components/ui/card';
 import { NativeSelect } from './components/ui/native-select';
 import { Field, Feedback } from './settings-controls';
 import { PerformanceSettings, usePerformanceSettings } from './performance-settings';
-import { ChatArchiveSettings } from './chat-archive-settings';
 import { request, type View } from './api';
 import type { SettingsEditor } from './use-settings-form';
 
@@ -169,6 +168,9 @@ export function ConnectionSettings({
               {tr('断开本次')}
             </ConfirmationButton>
           )}
+          <Button asChild variant="outline" data-settings-navigation>
+            <a href="#settings-chat-archive">{tr('本地聊天归档')}</a>
+          </Button>
         </div>
         {live && !paused && !connected && !connecting && !needsLaunch && connection?.message && (
           <Feedback text={connection.message} />
@@ -179,11 +181,6 @@ export function ConnectionSettings({
           target={performance.target}
         />
       </Card>
-      <ChatArchiveSettings
-        disabled={!active || blocked || !connected || paused}
-        targetId={connection?.targetId ?? null}
-        notify={notify}
-      />
       <Card id="connection-diagnostics">
         <h2>{tr('连接诊断')}</h2>
         <div className="settings-control-group">

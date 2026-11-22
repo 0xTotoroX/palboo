@@ -6,6 +6,7 @@
  */
 @import './components/ui/native-select.css';
 @import './components/ui/segmented-group.css';
+@import './chat-archive-sessions.css';
 @import 'tailwindcss' source(none);
 @source './';
 @theme inline {

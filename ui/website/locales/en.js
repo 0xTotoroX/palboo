@@ -1,5 +1,10 @@
 // English interface copy. User-authored content is not translated.
 export default {
+  '按 CLI、项目和时间筛选本地聊天，确认前查看每条会话。':
+    'Filter local chats by CLI, project, and date, then review every session before archiving.',
+  整理移动端交互细节: 'Refine mobile interactions',
+  核对作品集导航: 'Review portfolio navigation',
+  比较项目卡片的布局: 'Compare project card layouts',
   '长回答里的重点，一眼找到。': 'Find your way through long answers.',
   '从当前对话出发，找到接下来可以做的事。': 'Find a useful next step from your conversation.',
   '常用的指令，点一下就能填入。': 'Your everyday instructions, ready in one click.',

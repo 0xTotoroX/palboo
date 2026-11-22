@@ -13,6 +13,8 @@ import {
 import { ModelPreview } from '../settings/model-preview';
 import { PromptPreview } from '../settings/prompt-preview';
 import { CodexHostPreview } from '../settings/codex-host-preview';
+import { ArchiveSessions, archiveCliLabel } from '../settings/chat-archive-sessions';
+import { NativeSelect } from '../settings/components/ui/native-select';
 import { Icon } from '../shared/icons/react';
 import { useLocale } from '../shared/use-locale';
 import { tr } from '../shared/i18n.js';
@@ -22,6 +24,7 @@ import {
   featurePages,
   modelExample,
   agentExample,
+  archiveExample,
   portfolioPhrases,
   portfolioPrompt,
 } from './feature-examples';
@@ -30,6 +33,28 @@ import { LocalLibraryPreview } from './library-preview';
 import { useFeatureScroll } from './feature-scroll';
 
 type Page = (typeof featurePages)[number];
+
+function ArchiveExample() {
+  const [cli, setCli] = useState('');
+  const sessions = archiveExample().filter((session) => !cli || session.cli === cli);
+  return (
+    <div className="feature-archive-example">
+      <div className="feature-archive-controls">
+        <h3>{tr('预览归档')}</h3>
+        <NativeSelect
+          aria-label={tr('归档范围')}
+          value={cli}
+          onChange={(e) => setCli(e.target.value)}
+        >
+          <option value="">{tr('全部本地聊天（{{count}}）', { count: 3 })}</option>
+          <option value="codex">{archiveCliLabel('codex')}</option>
+          <option value="antigravity">{archiveCliLabel('antigravity')}</option>
+        </NativeSelect>
+      </div>
+      <ArchiveSessions sessions={sessions} />
+    </div>
+  );
+}
 
 function sampleButton(root: HTMLElement, selector: string) {
   return (
@@ -73,17 +98,26 @@ function FeaturePage({
   }, [stop]);
   useEffect(() => {
     const media = matchMedia('(prefers-reduced-motion: reduce)');
-    if (!active || !inView || played.current || touched.current || media.matches || document.hidden)
+    const { id } = page;
+    if (
+      id === 'chat-archive' ||
+      !active ||
+      !inView ||
+      played.current ||
+      touched.current ||
+      media.matches ||
+      document.hidden
+    )
       return;
     // 示范只通过现有预览的操作入口；切走、开始编辑或进入后台立即取消。
     timer.current = setTimeout(() => {
       if (!root.current || touched.current) return;
       played.current = true;
-      if (page.id === 'model') {
+      if (id === 'model') {
         setModelSelection({ model: 'example-b', reasoning: 'high', speed: 'standard' });
-      } else if (page.id === 'prompt') {
+      } else if (id === 'prompt') {
         setPromptStep(1);
-      } else if (page.id === 'compatibility') {
+      } else if (id === 'compatibility') {
         sampleButton(
           root.current,
           '.compatibility-agent-row:nth-child(2) .compatibility-agent-choice',
@@ -97,7 +131,7 @@ function FeaturePage({
           board: '',
           bots: '.palboo-bot-history',
           sites: '.reader-sidebar button[data-note-id="reading-tool.md"]',
-        }[page.id];
+        }[id];
         if (selector) sampleButton(root.current, selector)?.click();
       }
     }, 1300);
@@ -202,6 +236,8 @@ function FeaturePage({
           </div>
         ) : page.id === 'compatibility' ? (
           <CodexHostPreview live={false} example={agentExample} />
+        ) : page.id === 'chat-archive' ? (
+          <ArchiveExample />
         ) : page.id === 'sites' ? (
           <LocalLibraryPreview />
         ) : (

@@ -92,9 +92,16 @@ try {
   );
   await start();
   assert.ok(schemaFor('performance').commands.includes('config archive-local-chats'));
+  assert.ok(
+    schemaFor('performance').commands.includes(
+      'config archive-local-chats --cli antigravity --sessions',
+    ),
+  );
   await assert.rejects(() => cli('archive-local-chats'), /尚未连接 Codex/);
   await assert.rejects(() => cli('archive-local-chats', '--list'), /尚未连接 Codex/);
   await assert.rejects(() => cli('archive-local-chats', '--cli', 'antigravity'), /尚未连接 Codex/);
+  await assert.rejects(() => cli('archive-local-chats', '--sessions'), /尚未连接 Codex/);
+  await assert.rejects(() => cli('archive-local-chats', '--list', '--sessions'), /cannot be used/);
   await assert.rejects(
     () =>
       cli(

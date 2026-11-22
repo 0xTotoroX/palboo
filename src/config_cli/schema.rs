@@ -387,7 +387,7 @@ pub(super) fn schema(scope: Scope) -> Value {
         }
         Scope::Performance => {
             json!({
-                "commands":["config archive-local-chats", "config archive-local-chats --list", "config archive-local-chats --cli antigravity", "config archive-local-chats --project <id> --date-field created --from 2026-01-01 --through 2026-03-31", "config archive-local-chats --cli codex --inactive-days 7 --keep-recent 3 --protect", "config archive-local-chats --confirm <preview-id>"],
+                "commands":["config archive-local-chats", "config archive-local-chats --list", "config archive-local-chats --cli antigravity", "config archive-local-chats --cli antigravity --sessions", "config archive-local-chats --project <id> --date-field created --from 2026-01-01 --through 2026-03-31", "config archive-local-chats --cli codex --inactive-days 7 --keep-recent 3 --protect", "config archive-local-chats --confirm <preview-id>"],
                 "notes":{
                     "integrationEnabled":"暂停/恢复连接，保留配置与本地任务，不重启 Codex",
                     "monitoringEnabled":"启用可见性能页的低频采样",

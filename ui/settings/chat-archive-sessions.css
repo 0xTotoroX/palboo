@@ -1,0 +1,44 @@
+/* [INPUT]: Shared settings/website semantic theme and archive preview rows.
+ * [OUTPUT]: A capped, keyboard-scrollable list with readable full session IDs.
+ * [POS]: Shared archive list; leaves confirmation and website framing to their owners.
+ * [PROTOCOL]: Keep settings/AGENTS.md in sync. */
+.archive-sessions {
+  margin-block-start: 16px;
+}
+.archive-sessions h4 {
+  margin: 0 0 6px;
+  font-size: 0.875em;
+  font-weight: 600;
+}
+.archive-session-list {
+  list-style: none;
+  max-block-size: min(260px, 34vh);
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-block: 1px solid var(--buddy-border);
+}
+.archive-session-list:focus-visible {
+  outline: 1px solid var(--buddy-focus);
+  outline-offset: 2px;
+}
+.archive-session-list > li {
+  display: grid;
+  gap: 2px;
+  padding-block: 9px;
+  padding-inline-end: 8px;
+  overflow-wrap: anywhere;
+}
+.archive-session-list > li + li {
+  border-top: 1px solid var(--buddy-border);
+}
+.archive-session-list strong {
+  font-size: 0.9em;
+  font-weight: 600;
+}
+.archive-session-meta,
+.archive-session-list code {
+  color: var(--buddy-muted);
+  font-size: 0.8em;
+}

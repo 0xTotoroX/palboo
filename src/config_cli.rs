@@ -65,6 +65,9 @@ pub enum Command {
         cli: Option<String>,
         #[arg(long, value_name = "PREVIEW_ID")]
         confirm: Option<uuid::Uuid>,
+        /// 在预览中显示匹配的本机会话及其资料
+        #[arg(long, conflicts_with_all = ["list", "confirm"])]
+        sessions: bool,
         #[command(flatten)]
         filters: crate::chat_archive::Filters,
     },
@@ -520,12 +523,15 @@ pub async fn run(paths: &Paths, command: Command) -> Result<()> {
                     list,
                     cli,
                     confirm,
+                    sessions,
                     filters,
                 } => {
                     let request = match (list, confirm) {
                         (_, Some(id)) => json!({"op":"apply","id":id.to_string()}),
                         (true, None) => json!({"op":"list"}),
-                        (false, None) => json!({"op":"preview","cli":cli,"filters":filters}),
+                        (false, None) => {
+                            json!({"op":"preview","cli":cli,"filters":filters,"includeSessions":sessions})
+                        }
                     };
                     let result = runtime
                         .request_with_timeout(
@@ -536,6 +542,9 @@ pub async fn run(paths: &Paths, command: Command) -> Result<()> {
                         .await?;
                     if !list && confirm.is_none() {
                         filters.verify_preview(&result)?;
+                        if sessions {
+                            crate::chat_archive::verify_sessions(&result)?;
+                        }
                     }
                     result
                 }

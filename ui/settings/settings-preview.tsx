@@ -161,6 +161,7 @@ export function SettingsPreview(props: PreviewProps) {
     [
       'general',
       'connection',
+      'chat-archive',
       'backup',
       'model',
       'codex-host',

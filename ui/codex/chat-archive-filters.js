@@ -66,7 +66,7 @@ export function normalizeArchiveFilters(input = {}, now = Date.now()) {
   };
 }
 
-function timestamp(value) {
+export function archiveTimestamp(value) {
   if (!Number.isSafeInteger(value) || value <= 0) return null;
   return value < 100_000_000_000 ? value * 1000 : value;
 }
@@ -108,7 +108,7 @@ export function selectArchiveChats(chats, cli, filters) {
   for (const chat of chats) {
     if (cli !== null && cli !== chat.cli) continue;
     if (filters.project !== null && filters.project !== chat.project) continue;
-    const updated = timestamp(chat.thread.updatedAt);
+    const updated = archiveTimestamp(chat.thread.updatedAt);
     const record = { ...chat, updated };
     if (chat.project && chat.project !== NO_PROJECT) {
       const group = groups.get(chat.project) ?? [];
@@ -137,7 +137,7 @@ export function selectArchiveChats(chats, cli, filters) {
     if (filters.protect && updated === null) return false;
     if (filters.cutoff !== null) return updated !== null && updated < filters.cutoff;
     if (filters.start === null && filters.end === null) return true;
-    const date = filters.dateField === 'created' ? timestamp(thread.createdAt) : updated;
+    const date = filters.dateField === 'created' ? archiveTimestamp(thread.createdAt) : updated;
     return (
       date !== null &&
       (filters.start === null || date >= filters.start) &&

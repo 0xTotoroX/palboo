@@ -4,6 +4,7 @@
  * [PROTOCOL]: Keep website/AGENTS.md and DESIGN_SYSTEM.md in sync. */
 @import '../settings/components/ui/native-select.css';
 @import '../settings/components/ui/segmented-group.css';
+@import '../settings/chat-archive-sessions.css';
 @import '../shared/tokens.css';
 @import '../shared/preview-frame.css';
 @import '../settings/codex-host-preview.css';

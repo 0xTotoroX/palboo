@@ -30,6 +30,9 @@ export const pageTitles = {
   get 'prompt-enhancement'() {
     return tr('提示词优化');
   },
+  get 'chat-archive'() {
+    return tr('本地聊天归档');
+  },
   get prompts() {
     return tr('常用语');
   },
@@ -91,6 +94,7 @@ export const pageGroups: { title: string; pages: SettingsPage[] }[] = [
       'bots',
       'sites',
       'prompt-enhancement',
+      'chat-archive',
       'codex-host',
     ],
   },
@@ -136,6 +140,7 @@ const aliases: Record<string, SettingsPage> = {
   'settings-app-update': 'general',
   'settings-app-development': 'general',
   'settings-performance': 'connection',
+  'chat-archive': 'chat-archive',
   'settings-codex-host': 'codex-host',
   'settings-dev': 'dev',
 };

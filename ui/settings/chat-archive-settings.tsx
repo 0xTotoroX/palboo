@@ -1,7 +1,7 @@
 /*
  * [INPUT]: 当前连接状态、认证归档接口与共享确认及反馈组件。
- * [OUTPUT]: 本地聊天的 CLI 分组计数、指定范围预览、显式确认与结果反馈。
- * [POS]: Codex 连接页中的聊天管理，不保存配置。
+ * [OUTPUT]: 本地聊天的 CLI 分组计数、会话预览、显式确认与结果反馈。
+ * [POS]: 功能 → 本地聊天归档，不保存配置。
  * [PROTOCOL]: 变更时更新此头部，然后检查 AGENTS.md。
  */
 import { useRef, useState } from 'react';
@@ -11,8 +11,8 @@ import { Button } from './components/ui/button';
 import { Card } from './components/ui/card';
 import { Input } from './components/ui/input';
 import { NativeSelect } from './components/ui/native-select';
-import { codexHostAgents } from './codex-host-agents';
 import { useConfirmation } from './settings-confirmation';
+import { ArchiveSessions, archiveCliLabel, type ArchiveSession } from './chat-archive-sessions';
 import { Field, Toggle } from './settings-controls';
 
 type ArchiveInventory = {
@@ -27,9 +27,9 @@ type ArchivePreview = ArchiveInventory & {
   count: number;
   running: number;
   scheduled: number;
+  sessions?: ArchiveSession[];
 };
 type ArchiveResult = { archived: number; failed: number; skipped: number; verified?: boolean };
-const cliLabel = (cli: string) => codexHostAgents.find((agent) => agent.id === cli)?.label ?? cli;
 const initialRule = {
   project: '',
   time: 'all',
@@ -102,9 +102,10 @@ export function ChatArchiveSettings({
     };
     const appliedRules = Object.entries(filters);
     return read(async () => {
-      const plan = await request<ArchivePreview>('chat-archive', {
+      const { sessions, ...plan } = await request<ArchivePreview>('chat-archive', {
         op: 'preview',
         cli: cli || null,
+        includeSessions: true,
         ...(appliedRules.length ? { filters } : {}),
       });
       if (
@@ -112,6 +113,9 @@ export function ChatArchiveSettings({
         appliedRules.some(([key, value]) => plan.filters?.[key] !== value)
       ) {
         throw Error(tr('当前 Palboo 连接未确认所选归档规则，请重新预览。'));
+      }
+      if (!Array.isArray(sessions) || sessions.length !== plan.count) {
+        throw Error(tr('当前 Palboo 连接未返回完整的归档会话列表，请重新预览。'));
       }
       setLoaded({ targetId, inventory: plan });
       if (!plan.count) {
@@ -137,11 +141,17 @@ export function ChatArchiveSettings({
       confirm({
         title: plan.cli
           ? tr('归档 {{label}} 的 {{count}} 个本地聊天？', {
-              label: cliLabel(plan.cli),
+              label: archiveCliLabel(plan.cli),
               count: plan.count,
             })
           : tr('归档 {{count}} 个本地聊天？', plan),
         description,
+        details: (
+          <ArchiveSessions
+            sessions={sessions}
+            dateField={filters.dateField === 'created' ? 'created' : 'updated'}
+          />
+        ),
         confirmLabel: tr(plan.cli || appliedRules.length ? '确认归档' : '全部归档'),
         action: async () => {
           const result = await request<ArchiveResult>('chat-archive', { op: 'apply', id: plan.id });
@@ -195,7 +205,7 @@ export function ChatArchiveSettings({
               </option>
               {inventory.groups.map(({ cli, count }) => (
                 <option key={cli} value={`cli:${cli}`}>
-                  {tr('{{label}}（{{count}}）', { label: cliLabel(cli), count })}
+                  {tr('{{label}}（{{count}}）', { label: archiveCliLabel(cli), count })}
                 </option>
               ))}
             </NativeSelect>
